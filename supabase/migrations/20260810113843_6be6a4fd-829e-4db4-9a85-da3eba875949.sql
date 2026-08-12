@@ -1,0 +1,21 @@
+
+REVOKE EXECUTE ON FUNCTION public.get_level(uuid) FROM PUBLIC, anon;
+REVOKE EXECUTE ON FUNCTION public.is_admin(uuid) FROM PUBLIC, anon;
+REVOKE EXECUTE ON FUNCTION public.is_manager(uuid) FROM PUBLIC, anon;
+REVOKE EXECUTE ON FUNCTION public.can_operate(uuid) FROM PUBLIC, anon;
+REVOKE EXECUTE ON FUNCTION public.ensure_membership(text, text) FROM PUBLIC, anon;
+REVOKE EXECUTE ON FUNCTION public.set_member_level(uuid, public.app_level) FROM PUBLIC, anon;
+REVOKE EXECUTE ON FUNCTION public.register_movement(uuid, public.movement_type, numeric, text, uuid, uuid) FROM PUBLIC, anon;
+REVOKE EXECUTE ON FUNCTION public.reverse_movement(uuid, text) FROM PUBLIC, anon;
+REVOKE EXECUTE ON FUNCTION public.create_sale(uuid, numeric, numeric, text, text, text) FROM PUBLIC, anon;
+REVOKE EXECUTE ON FUNCTION public.reverse_sale(uuid, text) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.get_level(uuid) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.is_admin(uuid) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.is_manager(uuid) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.can_operate(uuid) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.ensure_membership(text, text) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.set_member_level(uuid, public.app_level) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.register_movement(uuid, public.movement_type, numeric, text, uuid, uuid) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.reverse_movement(uuid, text) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.create_sale(uuid, numeric, numeric, text, text, text) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.reverse_sale(uuid, text) TO authenticated;
