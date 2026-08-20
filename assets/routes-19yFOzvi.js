@@ -1,0 +1,1 @@
+import{a as e,n as t,t as n}from"./jsx-runtime-B-hcVAMW.js";import{n as r}from"./useAuth-5GnRacoz.js";import{S as i}from"./index-DPHOs7ib.js";var a=e(t()),o=n();function s(){let{approvedAccess:e,loading:t}=r(),n=i();return(0,a.useEffect)(()=>{t||n({to:e?`/dashboard`:`/auth`,replace:!0})},[e,t,n]),(0,o.jsx)(`div`,{className:`min-h-screen bg-background`})}export{s as component};
