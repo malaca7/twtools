@@ -1,1 +1,0 @@
-import{t as e}from"./jsx-runtime-B-hcVAMW.js";import{i as t,t as n}from"./ui-kit-UuvooJtI.js";var r=e();function i(){return(0,r.jsxs)(`div`,{className:`mx-auto max-w-6xl`,children:[(0,r.jsx)(t,{title:`Produtos`,description:`Módulo em construção.`}),(0,r.jsx)(n,{title:`Em breve`,description:`Este módulo será liberado na próxima etapa.`})]})}export{i as component};
