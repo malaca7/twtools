@@ -74,7 +74,7 @@ function AuthPage() {
   }, [authLoading, approvedAccess, navigate]);
 
   useEffect(() => {
-    if (!selectedPlayerId && players.length > 0) {
+    if (!selectedPlayerId && players.length > 0 && players[0]) {
       setSelectedPlayerId(players[0].user_id);
     }
   }, [players, selectedPlayerId]);

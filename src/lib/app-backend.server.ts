@@ -200,11 +200,16 @@ async function requireApprovedAuth(sql: postgres.Sql) {
 
   const auth = await loadMembership(sql, userId);
 
-  if (!auth.user || !auth.approvedAccess || !auth.level) {
+  if (!auth.user || !auth.approvedAccess || !auth.level || !auth.profile) {
     throw new Error("Acesso não autorizado.");
   }
 
-  return auth;
+  return {
+    ...auth,
+    user: auth.user,
+    profile: auth.profile,
+    level: auth.level,
+  };
 }
 
 export async function getCurrentAuthState() {
@@ -270,7 +275,7 @@ export async function loginPlayer(playerId: string, password: string): Promise<L
   if (!auth.approvedAccess) {
     await clearSession({ name: APP_SESSION_NAME });
     return {
-      status: auth.signupRequestStatus ?? "pendente",
+      status: auth.signupRequestStatus === "rejeitado" ? "rejeitado" : "pendente",
       auth,
     };
   }
@@ -872,6 +877,10 @@ export async function createMovement(payload: MovementPayload) {
       returning id::text
     `;
 
+    if (!inserted[0]) {
+      throw new Error("Falha ao registrar movimentação.");
+    }
+
     await tx`
       insert into public.audit_logs (user_id, action, entity, entity_id, new_data)
       values (
@@ -954,6 +963,10 @@ export async function createSale(payload: SalePayload) {
       )
       returning id::text
     `;
+
+    if (!sales[0]) {
+      throw new Error("Falha ao registrar venda.");
+    }
 
     await tx`
       update public.products

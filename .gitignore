@@ -1,6 +1,9 @@
 # Logs
 logs
 *.log
+ssr-error.log
+.continue
+*.cjs
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*

@@ -82,11 +82,12 @@ function Page() {
   };
 
   const handleReject = (requestId: string) => {
+    const reason = reasons[requestId];
     reviewMutation.mutate({
       requestId,
       approve: false,
       nivel: "novato",
-      reason: reasons[requestId],
+      ...(reason ? { reason } : {}),
     });
   };
 

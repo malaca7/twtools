@@ -73,7 +73,7 @@ export const Select: React.FC<SelectProps> = ({
       onValueChange?.(nextValue);
       setOpen(false);
     },
-    [isControlled, onOpenChange],
+    [isControlled, onValueChange],
   );
 
   return (

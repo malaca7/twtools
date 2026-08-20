@@ -1,29 +1,39 @@
-# Welcome to your Lovable project
+# Twin Wheels — Gestão de Facção GTA RP
 
-This project was built with [Lovable](https://lovable.dev).
+Plataforma interna Twin Wheels para controle de estoque, movimentações, vendas, metas e acompanhamento de desempenho dos membros no GTA RP.
 
-## Build with Lovable
+## Recursos
 
-Open your project in the [Lovable editor](https://lovable.dev) and keep building.
+- **Estoque & Movimentações**: Controle completo de suprimentos, depósitos e transferências.
+- **Vendas & Finanças**: Registro de vendas, cálculo de comissões e histórico de transações.
+- **Membros & Níveis**: Gestão de hierarquia, permissões e aprovação de cadastros.
+- **Rankings & Metas**: Ranking de produtividade e acompanhamento de metas individuais e da facção.
 
-- **Ship faster**: describe what you want to build and Lovable handles the code.
-- **Stay in sync**: connect the project to GitHub and every change made in Lovable is committed straight to your repository.
-- **Full ownership**: this code is yours. Push to your repository and your changes sync back into Lovable, ready for your next prompt.
+## Tecnologias
 
-## Development
+- **Frontend / Meta-framework**: React, TanStack Start, TypeScript, Tailwind CSS
+- **Backend / Database**: Supabase (Auth, Postgres, Realtime, RLS)
+- **UI Components**: Radix UI / Shadcn UI, Lucide Icons
 
-Prefer working locally? You need Node.js and npm — [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating).
+## Desenvolvimento Local
 
+1. Instale as dependências:
 ```sh
-git clone <this-repository-url>
-cd <repository-name>
-npm i
-npm run dev
+npm install
+# ou
+bun install
 ```
 
-## Built with
+2. Configure as variáveis de ambiente no arquivo `.env`:
+```env
+VITE_SUPABASE_URL=https://seu-projeto.supabase.co
+VITE_SUPABASE_PUBLISHABLE_KEY=sua-chave-publica
+SUPABASE_SERVICE_ROLE_KEY=sua-chave-servico
+```
 
-- TanStack Start
-- TypeScript
-- React
-- Tailwind CSS
+3. Inicie o servidor em modo de desenvolvimento:
+```sh
+npm run dev
+# ou
+bun dev
+```

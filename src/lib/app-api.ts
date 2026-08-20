@@ -57,7 +57,12 @@ export const registerPlayerRequest = createServerFn({ method: "POST" })
   .validator((data: unknown) => registerSchema.parse(data))
   .handler(async ({ data }) => {
     const mod = await import("@/lib/app-backend.server");
-    return mod.registerPlayer(data);
+    return mod.registerPlayer({
+      nome: data.nome,
+      telefone: data.telefone,
+      password: data.password,
+      ...(data.nickname ? { nickname: data.nickname } : {}),
+    });
   });
 
 export const getLoginPlayers = createServerFn({ method: "GET" }).handler(async () => {
@@ -109,19 +114,36 @@ export const submitSignupReview = createServerFn({ method: "POST" })
   .validator((data: unknown) => reviewSchema.parse(data))
   .handler(async ({ data }) => {
     const mod = await import("@/lib/app-backend.server");
-    return mod.reviewSignupRequest(data);
+    return mod.reviewSignupRequest({
+      requestId: data.requestId,
+      approve: data.approve,
+      nivel: data.nivel,
+      ...(data.reason ? { reason: data.reason } : {}),
+    });
   });
 
 export const submitMovement = createServerFn({ method: "POST" })
   .validator((data: unknown) => movementSchema.parse(data))
   .handler(async ({ data }) => {
     const mod = await import("@/lib/app-backend.server");
-    return mod.createMovement(data);
+    return mod.createMovement({
+      productId: data.productId,
+      type: data.type,
+      quantity: data.quantity,
+      ...(data.reason ? { reason: data.reason } : {}),
+    });
   });
 
 export const submitSale = createServerFn({ method: "POST" })
   .validator((data: unknown) => saleSchema.parse(data))
   .handler(async ({ data }) => {
     const mod = await import("@/lib/app-backend.server");
-    return mod.createSale(data);
+    return mod.createSale({
+      productId: data.productId,
+      quantity: data.quantity,
+      unitPrice: data.unitPrice,
+      buyerName: data.buyerName,
+      paymentMethod: data.paymentMethod,
+      ...(data.notes ? { notes: data.notes } : {}),
+    });
   });

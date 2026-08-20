@@ -1,4 +1,4 @@
-import type { Member, Movement, Product, Sale, Goal } from "@/hooks/useData";
+import type { Member, Movement, Product, Sale, Goal } from "@/lib/app-types";
 import { dayKey, inRange, previousWindow, type RangeKey } from "@/lib/format";
 
 export const activeSales = (sales: Sale[]) => sales.filter((s) => s.status === "concluida");

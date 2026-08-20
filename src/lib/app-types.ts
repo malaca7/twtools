@@ -102,8 +102,8 @@ export type AuditLog = {
   action: string;
   entity: string;
   entity_id: string | null;
-  old_data: unknown;
-  new_data: unknown;
+  old_data: any;
+  new_data: any;
   created_at: string;
 };
 
