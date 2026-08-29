@@ -464,7 +464,7 @@ function MovimentacoesPage() {
 
   // Paginação do Histórico de Lançamentos
   const [logPage, setLogPage] = useState(1);
-  const [logsPerPage, setLogsPerPage] = useState<number>(20);
+  const [logsPerPage, setLogsPerPage] = useState<number>(10);
 
   useEffect(() => {
     setLogPage(1);
@@ -1315,11 +1315,11 @@ function MovimentacoesPage() {
                         onValueChange={(val) => setLogsPerPage(Number(val))}
                       >
                         <SelectTrigger className="h-8 w-28 text-xs rounded-lg bg-secondary/30">
-                          <SelectValue placeholder="20" />
+                          <SelectValue placeholder="10" />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="10">10 por pág.</SelectItem>
-                          <SelectItem value="20">20 (padrão)</SelectItem>
+                          <SelectItem value="10">10 (padrão)</SelectItem>
+                          <SelectItem value="20">20 por pág.</SelectItem>
                           <SelectItem value="50">50 por pág.</SelectItem>
                           <SelectItem value="100">100 por pág.</SelectItem>
                         </SelectContent>
