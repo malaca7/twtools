@@ -72,10 +72,10 @@ export function MessageInput({
 
   const isBlockedByAdminOnly = onlyAdminsCanPost && userRole !== "admin";
 
-  // Auto-focus input on mount or reply change
+  // Auto-focus input on mount or reply change without scrolling the page viewport
   useEffect(() => {
     if (!isBlockedByAdminOnly) {
-      textareaRef.current?.focus();
+      textareaRef.current?.focus({ preventScroll: true });
     }
   }, [replyingTo, isBlockedByAdminOnly]);
 

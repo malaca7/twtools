@@ -81,9 +81,18 @@ export function ChatWindow({
   const prevScrollHeightRef = useRef<number | null>(null);
   const isInitialLoadRef = useRef(true);
 
-  // Auto-scroll to bottom on initial load
+  // Auto-scroll to bottom inside the messages container (without scrolling the outer window)
   const scrollToBottom = (behavior: ScrollBehavior = "smooth") => {
-    messagesEndRef.current?.scrollIntoView({ behavior });
+    if (scrollContainerRef.current) {
+      if (behavior === "auto") {
+        scrollContainerRef.current.scrollTop = scrollContainerRef.current.scrollHeight;
+      } else {
+        scrollContainerRef.current.scrollTo({
+          top: scrollContainerRef.current.scrollHeight,
+          behavior: "smooth",
+        });
+      }
+    }
   };
 
   useEffect(() => {

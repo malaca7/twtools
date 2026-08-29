@@ -66,7 +66,10 @@ function ChatPage() {
         setActiveConversation(updated);
       }
     }
-  }, [conversations]);
+  // Ensure window stays at the top of the page when opening a conversation
+  useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: "instant" });
+  }, [activeConversation?.id]);
 
   if (!canViewChat) {
     return (
