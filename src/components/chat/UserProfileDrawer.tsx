@@ -11,7 +11,8 @@ import { Button } from "@/components/ui/button";
 import { MessageSquare, Phone, Clock, ShieldCheck, User } from "lucide-react";
 import { useMembers } from "@/hooks/useData";
 import { LEVEL_LABEL, levelBadgeClass, type AppLevel } from "@/lib/permissions";
-import { formatSecondsToHoursAndMinutes } from "@/lib/format";
+import { formatSecondsToHoursAndMinutes, formatUserPresenceText } from "@/lib/format";
+import { cn } from "@/lib/utils";
 
 interface UserProfileDrawerProps {
   userId: string | null;
@@ -73,6 +74,20 @@ export function UserProfileDrawer({
 
           {/* METADATA GRID */}
           <div className="w-full grid grid-cols-2 gap-2 pt-3 border-t border-border/60 text-xs text-left">
+            <div className="p-2 rounded-xl bg-secondary/30 border border-border/50 col-span-2 flex items-center justify-between">
+              <div>
+                <span className="text-[10px] text-muted-foreground block">Status de Atividade</span>
+                <span className={cn("font-bold text-xs flex items-center gap-1.5", isOnline ? "text-emerald-400" : isAusente ? "text-amber-400" : "text-zinc-400")}>
+                  <span className={cn("h-2 w-2 rounded-full inline-block", isOnline ? "bg-emerald-400" : isAusente ? "bg-amber-400 animate-pulse" : "bg-zinc-400")} />
+                  {formatUserPresenceText(
+                    member.presence_status,
+                    member.last_seen,
+                    member.presence_updated_at || member.updated_at
+                  )}
+                </span>
+              </div>
+            </div>
+
             <div className="p-2 rounded-xl bg-secondary/30 border border-border/50">
               <span className="text-[10px] text-muted-foreground block">ID no Jogo</span>
               <span className="font-mono font-bold text-foreground">#{member.game_id || "N/A"}</span>

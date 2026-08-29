@@ -79,6 +79,64 @@ export const isYesterdayDate = (value: string | Date | null | undefined) => {
   return new Date(value).toDateString() === yesterday.toDateString();
 };
 
+/**
+ * Formata o tempo decorrido desde que o usuário ficou ausente (ex: "Ausente há 15m", "Ausente há 2h", "Ausente há 1d")
+ */
+export function formatAusenteDuration(updatedAtOrLastSeen?: string | Date | null): string {
+  if (!updatedAtOrLastSeen) return "Ausente";
+  const start = new Date(updatedAtOrLastSeen).getTime();
+  if (isNaN(start)) return "Ausente";
+  const diffMinutes = Math.max(0, Math.floor((Date.now() - start) / 60000));
+
+  if (diffMinutes < 1) return "Ausente agora";
+  if (diffMinutes < 60) return `Ausente há ${diffMinutes}m`;
+  const diffHours = Math.floor(diffMinutes / 60);
+  const remMinutes = diffMinutes % 60;
+  if (diffHours < 24) {
+    return remMinutes > 0 ? `Ausente há ${diffHours}h ${remMinutes}m` : `Ausente há ${diffHours}h`;
+  }
+  const diffDays = Math.floor(diffHours / 24);
+  return `Ausente há ${diffDays}d`;
+}
+
+/**
+ * Formata a data/hora do último acesso do usuário quando ele está offline (ex: "Visto por último hoje às 15:30", "Visto por último ontem às 22:10", etc.)
+ */
+export function formatLastSeen(lastSeenOrUpdatedAt?: string | Date | null): string {
+  if (!lastSeenOrUpdatedAt) return "Offline";
+  const d = new Date(lastSeenOrUpdatedAt);
+  if (isNaN(d.getTime())) return "Offline";
+
+  const now = new Date();
+  const isToday = d.toDateString() === now.toDateString();
+  const yesterday = new Date(now.getTime() - 86400000);
+  const isYesterday = d.toDateString() === yesterday.toDateString();
+  const timeStr = d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+
+  if (isToday) {
+    return `Visto por último hoje às ${timeStr}`;
+  }
+  if (isYesterday) {
+    return `Visto por último ontem às ${timeStr}`;
+  }
+  const dateStr = d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
+  return `Visto por último em ${dateStr} às ${timeStr}`;
+}
+
+/**
+ * Retorna o texto formatado completo do status de presença do usuário
+ */
+export function formatUserPresenceText(
+  status?: string | null,
+  lastSeen?: string | Date | null,
+  updatedAt?: string | Date | null
+): string {
+  if (status === "online") return "Online";
+  if (status === "ausente") return formatAusenteDuration(updatedAt || lastSeen);
+  if (status === "ocupado") return "Ocupado";
+  return formatLastSeen(lastSeen || updatedAt);
+}
+
 export const dayKey = (value: string | Date) => {
   const d = new Date(value);
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(

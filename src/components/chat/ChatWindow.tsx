@@ -28,7 +28,7 @@ import { TypingIndicator } from "./TypingIndicator";
 import { GroupSettingsDrawer } from "./GroupSettingsDrawer";
 import { ChatSearchDialog } from "./ChatSearchDialog";
 import { UserProfileDrawer } from "./UserProfileDrawer";
-import { formatTimeOnly, isTodayDate, isYesterdayDate } from "@/lib/format";
+import { formatTimeOnly, isTodayDate, isYesterdayDate, formatUserPresenceText } from "@/lib/format";
 import { LEVEL_LABEL } from "@/lib/permissions";
 import { cn } from "@/lib/utils";
 import type { ChatConversation, ChatMessage } from "@/types/chat";
@@ -250,8 +250,17 @@ export function ChatWindow({
                   <span>{conversation.participants.length} participantes</span>
                 ) : (
                   <>
-                    <span className={cn("font-bold flex items-center gap-1", isOnline ? "text-emerald-400" : isAusente ? "text-amber-400" : "text-zinc-400")}>
-                      ● {isOnline ? "Online" : isAusente ? "Ausente" : "Offline"}
+                    <span
+                      className={cn(
+                        "font-bold flex items-center gap-1",
+                        isOnline ? "text-emerald-400" : isAusente ? "text-amber-400" : "text-zinc-400"
+                      )}
+                    >
+                      ● {formatUserPresenceText(
+                        otherMember?.presence_status,
+                        otherMember?.last_seen,
+                        otherMember?.presence_updated_at || otherMember?.updated_at
+                      )}
                     </span>
                     {otherMember?.game_id && (
                       <span className="text-foreground/80 font-bold">

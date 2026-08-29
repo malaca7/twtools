@@ -18,7 +18,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { chatSound } from "@/lib/chatSound";
-import { formatTimeOnly, isTodayDate } from "@/lib/format";
+import { formatTimeOnly, isTodayDate, formatUserPresenceText } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import type { ChatConversation } from "@/types/chat";
 
@@ -248,9 +248,13 @@ export function ConversationList({
                     <span
                       className={cn(
                         "absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full ring-2 ring-card",
-                        isOnline ? "bg-emerald-500" : isAusente ? "bg-amber-500" : "bg-zinc-500"
+                        isOnline ? "bg-emerald-500" : isAusente ? "bg-amber-500 animate-pulse" : "bg-zinc-500"
                       )}
-                      title={isOnline ? "Online" : isAusente ? "Ausente" : "Offline"}
+                      title={formatUserPresenceText(
+                        other.presence_status,
+                        other.last_seen,
+                        other.presence_updated_at || other.updated_at
+                      )}
                     />
                   )}
                 </div>

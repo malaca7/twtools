@@ -163,6 +163,9 @@ export type Member = {
   data_entrada: string;
   nivel: AppLevel | null;
   presence_status?: UserPresenceStatus;
+  last_seen?: string | null;
+  presence_updated_at?: string | null;
+  updated_at?: string | null;
   online_since?: string | null;
   total_seconds_online?: number;
   total_hours_online?: number;

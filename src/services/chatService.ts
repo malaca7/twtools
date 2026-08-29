@@ -29,7 +29,7 @@ export async function fetchChatMembersMap(force = false): Promise<Map<string, Me
     const [profilesRes, rolesRes, presencesRes] = await Promise.all([
       supabase.from("profiles" as any).select("*"),
       supabase.from("user_roles" as any).select("user_id, nivel"),
-      supabase.from("user_presence" as any).select("user_id, status, online_since, total_seconds_online"),
+      supabase.from("user_presence" as any).select("user_id, status, last_seen, online_since, total_seconds_online, updated_at"),
     ]);
 
     const rolesMap = new Map<string, string>();
@@ -52,6 +52,9 @@ export async function fetchChatMembersMap(force = false): Promise<Map<string, Me
         created_at: String(d.created_at || ""),
         nivel: roleNivel,
         presence_status: pres?.status || "offline",
+        last_seen: pres?.last_seen || null,
+        presence_updated_at: pres?.updated_at || null,
+        updated_at: pres?.updated_at || null,
         online_since: pres?.online_since || null,
         total_seconds_online: pres?.total_seconds_online || 0,
         discord_id: d.discord_id || null,
