@@ -39,6 +39,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/ui-kit";
 import { useAuth } from "@/hooks/useAuth";
+import { useCustomRoles } from "@/hooks/useData";
 import { DeveloperGuard } from "@/dev/guards/DeveloperGuard";
 import { LEVEL_LABEL, type AppLevel } from "@/lib/permissions";
 import { cn } from "@/lib/utils";
@@ -103,12 +104,28 @@ const ALL_SYSTEM_MODULES = [
 
 function DevHubContent() {
   const { user, profile, level, refresh } = useAuth();
-  const [isRefreshing, setIsRefreshing] = useState(false);
-  const [simulatedRole, setSimulatedRole] = useState<AppLevel | "real">("real");
+  const { data: customRoles = [] } = useCustomRoles();
+  const [simulatedRole, setSimulatedRole] = useState<string>("real");
 
-  const handleSimulateRole = (targetLevel: AppLevel | "real") => {
-    setSimulatedRole(targetLevel);
-    if (targetLevel === "real") {
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const devRaw = sessionStorage.getItem("tw_dev_impersonate");
+      if (devRaw) {
+        try {
+          const parsed = JSON.parse(devRaw);
+          setSimulatedRole(parsed.nivel || "real");
+        } catch {
+          setSimulatedRole("real");
+        }
+      } else {
+        setSimulatedRole("real");
+      }
+    }
+  }, []);
+
+  const handleSimulateRole = (targetRole: string, isDevTag: boolean = false) => {
+    setSimulatedRole(targetRole);
+    if (targetRole === "real") {
       sessionStorage.removeItem("tw_dev_impersonate");
       toast.success("Visualização restaurada para sua conta de Desenvolvedor real.");
     } else {
@@ -116,13 +133,20 @@ function DevHubContent() {
         user_id: user?.id || "dev-sim",
         nome: profile?.nome || "Dev",
         nickname: profile?.nickname || "Dev Simulator",
-        nivel: targetLevel,
+        nivel: targetRole,
         status: "ativo",
         discord_avatar_url: profile?.avatar_url || null,
-        is_developer: true,
+        is_developer: isDevTag,
       };
       sessionStorage.setItem("tw_dev_impersonate", JSON.stringify(mockState));
-      toast.info(`Simulando permissões e visão do cargo: ${LEVEL_LABEL[targetLevel] || targetLevel}`);
+      const roleObj = customRoles.find((r) => r.id === targetRole);
+      const roleName = roleObj?.nome || LEVEL_LABEL[targetRole as AppLevel] || targetRole;
+      
+      if (isDevTag) {
+        toast.info(`Simulando visão com Tag Dev (Acesso Total)`);
+      } else {
+        toast.info(`Simulando visão e permissões reais do cargo: ${roleName} (Modo Membro)`);
+      }
     }
     void refresh();
   };
@@ -134,6 +158,24 @@ function DevHubContent() {
     toast.success("Caches locais limpos com sucesso!");
     void refresh();
   };
+
+  // Build sorted list of real roles from custom_roles table (excluding desenvolvedor which has dedicated button)
+  const availableMemberRoles = customRoles.length > 0
+    ? customRoles.filter((r) => r.id !== "desenvolvedor")
+    : [
+        { id: "01", nome: "01" },
+        { id: "02", nome: "02" },
+        { id: "gerente", nome: "Gerente" },
+        { id: "motoqueiro", nome: "Motoqueiro" },
+        { id: "membro", nome: "Membro" },
+        { id: "novato", nome: "Novato" },
+      ];
+
+  const currentActiveRoleName = simulatedRole === "real"
+    ? "Desenvolvedor Real"
+    : simulatedRole === "desenvolvedor"
+    ? "Tag Dev (Desenvolvedor)"
+    : customRoles.find((r) => r.id === simulatedRole)?.nome || LEVEL_LABEL[simulatedRole as AppLevel] || simulatedRole;
 
   return (
     <div className="space-y-6 pb-12">
@@ -168,22 +210,27 @@ function DevHubContent() {
           <CardHeader className="pb-2">
             <CardTitle className="text-xs uppercase tracking-wider font-bold text-rose-400 flex items-center gap-2">
               <Code2 className="h-4 w-4 text-rose-400" />
-              Sessão de Desenvolvedor
+              Sessão do Desenvolvedor
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-1 text-xs">
+          <CardContent className="space-y-1.5 text-xs">
             <div className="flex justify-between items-center">
               <span className="text-muted-foreground">Usuário:</span>
               <span className="font-bold text-foreground">{profile?.nickname || profile?.nome || "Dev"}</span>
             </div>
             <div className="flex justify-between items-center">
-              <span className="text-muted-foreground">Cargo Base:</span>
-              <span className="font-mono font-bold text-primary">{LEVEL_LABEL[level || "membro"] || level}</span>
+              <span className="text-muted-foreground">Visão Ativa:</span>
+              <span className="font-mono font-bold text-primary">{currentActiveRoleName}</span>
             </div>
             <div className="flex justify-between items-center">
-              <span className="text-muted-foreground">Status Tag Dev:</span>
-              <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/40 text-[10px] font-bold">
-                ✓ Ativa & Autorizada
+              <span className="text-muted-foreground">Tag Dev:</span>
+              <Badge className={cn(
+                "text-[10px] font-bold",
+                simulatedRole === "real" || simulatedRole === "desenvolvedor"
+                  ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/40"
+                  : "bg-amber-500/20 text-amber-400 border-amber-500/40"
+              )}>
+                {simulatedRole === "real" || simulatedRole === "desenvolvedor" ? "✓ Tag Dev Ativa" : "Desativada (Modo Membro)"}
               </Badge>
             </div>
           </CardContent>
@@ -191,38 +238,85 @@ function DevHubContent() {
 
         <Card className="border-border/80 bg-card shadow-sm md:col-span-2">
           <CardHeader className="pb-2">
-            <CardTitle className="text-xs uppercase tracking-wider font-bold text-muted-foreground flex items-center gap-2">
-              <Eye className="h-4 w-4 text-primary" />
-              Simulador de Visão de Cargos (Para Testes)
-            </CardTitle>
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-xs uppercase tracking-wider font-bold text-muted-foreground flex items-center gap-2">
+                <Eye className="h-4 w-4 text-primary" />
+                Simulador de Visão de Cargos (Para Testes)
+              </CardTitle>
+              {simulatedRole !== "real" && (
+                <Badge variant="outline" className="border-amber-500/40 bg-amber-500/10 text-amber-400 text-[10px] font-mono">
+                  Modo Simulação Ativo
+                </Badge>
+              )}
+            </div>
             <CardDescription className="text-xs">
-              Alterne a visualização para testar como membros de diferentes cargos enxergam a plataforma:
+              Alterne a visualização para testar as permissões e telas exatamente como cada cargo real ou tag da plataforma enxerga:
             </CardDescription>
           </CardHeader>
-          <CardContent>
-            <div className="flex flex-wrap gap-1.5 pt-1">
-              <Button
-                variant={simulatedRole === "real" ? "default" : "outline"}
-                size="sm"
-                className={cn(
-                  "h-7 text-xs font-bold rounded-lg",
-                  simulatedRole === "real" ? "bg-rose-500 text-white" : ""
-                )}
-                onClick={() => handleSimulateRole("real")}
-              >
-                Dev Real
-              </Button>
-              {(["lider", "sub_lider", "gerente", "vapor", "membro"] as AppLevel[]).map((r) => (
+          <CardContent className="space-y-3">
+            {/* LINHA 1: DEV REAL & TAG DEV */}
+            <div className="space-y-1">
+              <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+                Ferramentas de Desenvolvimento:
+              </p>
+              <div className="flex flex-wrap gap-1.5">
                 <Button
-                  key={r}
-                  variant={simulatedRole === r ? "default" : "outline"}
+                  type="button"
+                  variant={simulatedRole === "real" ? "default" : "outline"}
                   size="sm"
-                  className={cn("h-7 text-xs font-bold rounded-lg capitalize")}
-                  onClick={() => handleSimulateRole(r)}
+                  className={cn(
+                    "h-7 text-xs font-bold rounded-lg cursor-pointer",
+                    simulatedRole === "real" ? "bg-rose-600 text-white shadow-xs" : "border-border/80"
+                  )}
+                  onClick={() => handleSimulateRole("real")}
                 >
-                  {LEVEL_LABEL[r] || r}
+                  <Code2 className="h-3 w-3 mr-1" /> Dev Real (Original)
                 </Button>
-              ))}
+
+                <Button
+                  type="button"
+                  variant={simulatedRole === "desenvolvedor" ? "default" : "outline"}
+                  size="sm"
+                  className={cn(
+                    "h-7 text-xs font-bold rounded-lg cursor-pointer",
+                    simulatedRole === "desenvolvedor"
+                      ? "bg-rose-500 text-white shadow-rose-950/20 shadow-xs"
+                      : "border-rose-500/30 text-rose-400 hover:bg-rose-500/10"
+                  )}
+                  onClick={() => handleSimulateRole("desenvolvedor", true)}
+                >
+                  <Terminal className="h-3 w-3 mr-1" /> Tag Dev (Acesso Total)
+                </Button>
+              </div>
+            </div>
+
+            {/* LINHA 2: CARGOS REAIS DA PLATAFORMA */}
+            <div className="space-y-1 pt-1 border-t border-border/40">
+              <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+                Cargos Reais da Plataforma (Simulação Sem Tag Dev):
+              </p>
+              <div className="flex flex-wrap gap-1.5">
+                {availableMemberRoles.map((r) => {
+                  const isSelected = simulatedRole === r.id;
+                  return (
+                    <Button
+                      key={r.id}
+                      type="button"
+                      variant={isSelected ? "default" : "outline"}
+                      size="sm"
+                      className={cn(
+                        "h-7 text-xs font-bold rounded-lg cursor-pointer transition-all",
+                        isSelected
+                          ? "bg-primary text-primary-foreground shadow-xs ring-1 ring-primary/40"
+                          : "border-border/70 hover:bg-secondary"
+                      )}
+                      onClick={() => handleSimulateRole(r.id, false)}
+                    >
+                      {r.nome || LEVEL_LABEL[r.id as AppLevel] || r.id}
+                    </Button>
+                  );
+                })}
+              </div>
             </div>
           </CardContent>
         </Card>
