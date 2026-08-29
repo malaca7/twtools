@@ -244,89 +244,174 @@ function VendasPage() {
               description="Não foram encontradas vendas com os filtros selecionados."
             />
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Data / Hora</TableHead>
-                  <TableHead>Produto</TableHead>
-                  <TableHead className="text-right">Qtd.</TableHead>
-                  <TableHead className="text-right">Unitário</TableHead>
-                  <TableHead className="text-right">Total</TableHead>
-                  <TableHead>Vendedor</TableHead>
-                  <TableHead>Comprador</TableHead>
-                  <TableHead>Pagamento</TableHead>
-                  <TableHead>Status</TableHead>
-                  {canReverse ? <TableHead className="text-right">Ação</TableHead> : null}
-                </TableRow>
-              </TableHeader>
-              <TableBody>
+            <>
+              {/* MOBILE CARD VIEW */}
+              <div className="space-y-3 p-3 md:hidden">
                 {filteredSales.map((sale) => {
                   const p = products.find((x) => x.id === sale.product_id);
                   const isReversed = sale.status === "estornada";
 
                   return (
-                    <TableRow key={sale.id} className={isReversed ? "opacity-60 bg-muted/20" : ""}>
-                      <TableCell className="whitespace-nowrap text-xs text-muted-foreground">
-                        {dateTime(sale.created_at)}
-                      </TableCell>
-                      <TableCell className="font-medium">
-                        <div className="flex items-center gap-2">
+                    <div
+                      key={sale.id}
+                      className={cn(
+                        "p-3.5 rounded-xl border bg-card shadow-sm space-y-2.5",
+                        isReversed ? "border-rose-500/40 bg-rose-500/5 opacity-75" : "border-border/80"
+                      )}
+                    >
+                      <div className="flex items-center justify-between gap-2 border-b border-border/50 pb-2">
+                        <div className="flex items-center gap-2 min-w-0">
                           <ProductThumbnail src={p?.imagem_url} name={p?.nome || productName(products, sale.product_id)} size="xs" />
-                          <span className="truncate">{productName(products, sale.product_id)}</span>
+                          <span className="font-bold text-xs text-foreground truncate">{productName(products, sale.product_id)}</span>
                         </div>
-                      </TableCell>
-                      <TableCell className="text-right font-semibold">
-                        {num(sale.quantity)} {p?.unidade || "un"}
-                      </TableCell>
-                      <TableCell className="text-right text-xs text-muted-foreground">
-                        {currency(sale.unit_price)}
-                      </TableCell>
-                      <TableCell className="text-right font-semibold text-accent">
-                        {currency(sale.total_price)}
-                      </TableCell>
-                      <TableCell className="text-xs">
-                        {nameOf(members, sale.seller_id)}
-                      </TableCell>
-                      <TableCell className="text-xs font-medium">
-                        {sale.buyer_name || "—"}
-                      </TableCell>
-                      <TableCell className="text-xs">
-                        <Badge variant="outline" className="capitalize">
-                          {PAYMENT_LABEL[sale.payment_method] || sale.payment_method}
+
+                        <Badge
+                          className={
+                            isReversed
+                              ? "bg-rose-500/20 text-rose-400 border-rose-500/40 text-[0.65rem] font-bold shrink-0"
+                              : "bg-emerald-500/10 text-emerald-400 border-emerald-500/30 text-[0.65rem] font-bold shrink-0"
+                          }
+                        >
+                          {isReversed ? "Estornada" : "Concluída"}
                         </Badge>
-                      </TableCell>
-                      <TableCell>
-                        {isReversed ? (
-                          <Badge variant="destructive" className="text-[0.65rem]">
-                            Estornada
-                          </Badge>
-                        ) : (
-                          <Badge className="bg-emerald-500/10 text-emerald-500 border-emerald-500/30 text-[0.65rem]">
-                            Concluída
-                          </Badge>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2 text-xs">
+                        <div>
+                          <span className="text-[10px] text-muted-foreground block">Quantidade / Total</span>
+                          <span className="font-bold text-foreground">
+                            {num(sale.quantity)} {p?.unidade || "un"} · <strong className="text-primary">{currency(sale.total_price)}</strong>
+                          </span>
+                        </div>
+
+                        <div>
+                          <span className="text-[10px] text-muted-foreground block">Pagamento</span>
+                          <span className="font-medium text-foreground capitalize">
+                            {PAYMENT_LABEL[sale.payment_method] || sale.payment_method}
+                          </span>
+                        </div>
+
+                        <div>
+                          <span className="text-[10px] text-muted-foreground block">Vendedor</span>
+                          <span className="font-medium text-foreground truncate block">
+                            {nameOf(members, sale.seller_id)}
+                          </span>
+                        </div>
+
+                        <div>
+                          <span className="text-[10px] text-muted-foreground block">Comprador</span>
+                          <span className="font-medium text-foreground truncate block">
+                            {sale.buyer_name || "—"}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center justify-between pt-2 border-t border-border/50 text-[10px] text-muted-foreground">
+                        <span>{dateTime(sale.created_at)}</span>
+
+                        {canReverse && !isReversed && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-7 text-[11px] text-amber-400 border-amber-500/40 hover:bg-amber-500/10"
+                            onClick={() => setSaleToReverse(sale.id)}
+                          >
+                            <RotateCcw className="mr-1 h-3 w-3" /> Estornar
+                          </Button>
                         )}
-                      </TableCell>
-                      {canReverse ? (
-                        <TableCell className="text-right">
-                          {!isReversed ? (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-8 text-xs text-amber-500 hover:bg-amber-500/10 hover:text-amber-400"
-                              onClick={() => setSaleToReverse(sale.id)}
-                            >
-                              <RotateCcw className="mr-1 h-3.5 w-3.5" /> Estornar
-                            </Button>
-                          ) : (
-                            <span className="text-xs text-muted-foreground">—</span>
-                          )}
-                        </TableCell>
-                      ) : null}
-                    </TableRow>
+                      </div>
+                    </div>
                   );
                 })}
-              </TableBody>
-            </Table>
+              </div>
+
+              {/* DESKTOP TABLE VIEW */}
+              <div className="hidden md:block overflow-x-auto w-full">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Data / Hora</TableHead>
+                      <TableHead>Produto</TableHead>
+                      <TableHead className="text-right">Qtd.</TableHead>
+                      <TableHead className="text-right">Unitário</TableHead>
+                      <TableHead className="text-right">Total</TableHead>
+                      <TableHead>Vendedor</TableHead>
+                      <TableHead>Comprador</TableHead>
+                      <TableHead>Pagamento</TableHead>
+                      <TableHead>Status</TableHead>
+                      {canReverse ? <TableHead className="text-right">Ação</TableHead> : null}
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredSales.map((sale) => {
+                      const p = products.find((x) => x.id === sale.product_id);
+                      const isReversed = sale.status === "estornada";
+
+                      return (
+                        <TableRow key={sale.id} className={isReversed ? "opacity-60 bg-muted/20" : ""}>
+                          <TableCell className="whitespace-nowrap text-xs text-muted-foreground">
+                            {dateTime(sale.created_at)}
+                          </TableCell>
+                          <TableCell className="font-medium">
+                            <div className="flex items-center gap-2">
+                              <ProductThumbnail src={p?.imagem_url} name={p?.nome || productName(products, sale.product_id)} size="xs" />
+                              <span className="truncate">{productName(products, sale.product_id)}</span>
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-right font-semibold">
+                            {num(sale.quantity)} {p?.unidade || "un"}
+                          </TableCell>
+                          <TableCell className="text-right text-xs text-muted-foreground">
+                            {currency(sale.unit_price)}
+                          </TableCell>
+                          <TableCell className="text-right font-semibold text-accent">
+                            {currency(sale.total_price)}
+                          </TableCell>
+                          <TableCell className="text-xs">
+                            {nameOf(members, sale.seller_id)}
+                          </TableCell>
+                          <TableCell className="text-xs font-medium">
+                            {sale.buyer_name || "—"}
+                          </TableCell>
+                          <TableCell className="text-xs">
+                            <Badge variant="outline" className="capitalize">
+                              {PAYMENT_LABEL[sale.payment_method] || sale.payment_method}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            {isReversed ? (
+                              <Badge variant="destructive" className="text-[0.65rem]">
+                                Estornada
+                              </Badge>
+                            ) : (
+                              <Badge className="bg-emerald-500/10 text-emerald-500 border-emerald-500/30 text-[0.65rem]">
+                                Concluída
+                              </Badge>
+                            )}
+                          </TableCell>
+                          {canReverse ? (
+                            <TableCell className="text-right">
+                              {!isReversed ? (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-8 text-xs text-amber-500 hover:bg-amber-500/10 hover:text-amber-400"
+                                  onClick={() => setSaleToReverse(sale.id)}
+                                >
+                                  <RotateCcw className="mr-1 h-3.5 w-3.5" /> Estornar
+                                </Button>
+                              ) : (
+                                <span className="text-xs text-muted-foreground">—</span>
+                              )}
+                            </TableCell>
+                          ) : null}
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </div>
+            </>
           )}
         </CardContent>
       </Card>

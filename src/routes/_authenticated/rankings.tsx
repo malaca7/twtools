@@ -266,58 +266,106 @@ function RankingsPage() {
                   description="Ainda não há registros no período selecionado."
                 />
               ) : (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="w-16 text-center">Posição</TableHead>
-                      <TableHead>Membro</TableHead>
-                      <TableHead>Cargo / Nível</TableHead>
-                      <TableHead className="text-right">Faturamento</TableHead>
-                      <TableHead className="text-right">Vendas</TableHead>
-                      <TableHead className="text-right">Movimentações</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
+                <>
+                  {/* MOBILE LIST VIEW */}
+                  <div className="space-y-2.5 p-3 md:hidden">
                     {rankedList.map((m, idx) => {
                       const pos = idx + 1;
                       return (
-                        <TableRow key={m.user_id} className={pos <= 3 ? "bg-secondary/30" : ""}>
-                          <TableCell className="text-center font-bold text-muted-foreground">
-                            {pos === 1 ? "🥇 1º" : pos === 2 ? "🥈 2º" : pos === 3 ? "🥉 3º" : `${pos}º`}
-                          </TableCell>
-                          <TableCell>
-                            <div>
-                              <p className="font-medium text-foreground">
-                                {m.nickname ? `${m.nickname} (${m.nome})` : m.nome}
+                        <div
+                          key={m.user_id}
+                          className={cn(
+                            "p-3 rounded-xl border bg-card shadow-xs flex items-center justify-between gap-2.5",
+                            pos <= 3 ? "border-primary/40 bg-primary/5" : "border-border/70"
+                          )}
+                        >
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            <span className="font-mono font-black text-xs text-muted-foreground w-6 text-center shrink-0">
+                              {pos === 1 ? "🥇" : pos === 2 ? "🥈" : pos === 3 ? "🥉" : `${pos}º`}
+                            </span>
+                            <div className="min-w-0">
+                              <p className="font-bold text-xs text-foreground truncate">
+                                {m.nickname || m.nome}
                               </p>
+                              <div className="flex items-center gap-1.5 pt-0.5">
+                                {m.nivel && (
+                                  <Badge variant="outline" className={cn("text-[9px] px-1 py-0", levelBadgeClass(m.nivel as any))}>
+                                    {getLevelLabel(m.nivel)}
+                                  </Badge>
+                                )}
+                              </div>
                             </div>
-                          </TableCell>
-                          <TableCell>
-                            {m.nivel ? (
-                              <Badge
-                                variant="outline"
-                                className={levelBadgeClass(m.nivel as any)}
-                              >
-                                {getLevelLabel(m.nivel)}
-                              </Badge>
-                            ) : (
-                              <span className="text-muted-foreground text-xs">—</span>
-                            )}
-                          </TableCell>
-                          <TableCell className="text-right font-semibold text-accent">
-                            {currency(m.totalRevenue)}
-                          </TableCell>
-                          <TableCell className="text-right font-semibold text-foreground">
-                            {m.salesCount}
-                          </TableCell>
-                          <TableCell className="text-right text-xs text-muted-foreground">
-                            {m.movementsCount}
-                          </TableCell>
-                        </TableRow>
+                          </div>
+
+                          <div className="text-right shrink-0">
+                            <span className="font-black text-xs text-primary font-mono block">
+                              {currency(m.totalRevenue)}
+                            </span>
+                            <span className="text-[10px] text-muted-foreground">
+                              {m.salesCount} vendas · {m.movementsCount} mov.
+                            </span>
+                          </div>
+                        </div>
                       );
                     })}
-                  </TableBody>
-                </Table>
+                  </div>
+
+                  {/* DESKTOP TABLE VIEW */}
+                  <div className="hidden md:block overflow-x-auto w-full">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead className="w-16 text-center">Posição</TableHead>
+                          <TableHead>Membro</TableHead>
+                          <TableHead>Cargo / Nível</TableHead>
+                          <TableHead className="text-right">Faturamento</TableHead>
+                          <TableHead className="text-right">Vendas</TableHead>
+                          <TableHead className="text-right">Movimentações</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {rankedList.map((m, idx) => {
+                          const pos = idx + 1;
+                          return (
+                            <TableRow key={m.user_id} className={pos <= 3 ? "bg-secondary/30" : ""}>
+                              <TableCell className="text-center font-bold text-muted-foreground">
+                                {pos === 1 ? "🥇 1º" : pos === 2 ? "🥈 2º" : pos === 3 ? "🥉 3º" : `${pos}º`}
+                              </TableCell>
+                              <TableCell>
+                                <div>
+                                  <p className="font-medium text-foreground">
+                                    {m.nickname ? `${m.nickname} (${m.nome})` : m.nome}
+                                  </p>
+                                </div>
+                              </TableCell>
+                              <TableCell>
+                                {m.nivel ? (
+                                  <Badge
+                                    variant="outline"
+                                    className={levelBadgeClass(m.nivel as any)}
+                                  >
+                                    {getLevelLabel(m.nivel)}
+                                  </Badge>
+                                ) : (
+                                  <span className="text-muted-foreground text-xs">—</span>
+                                )}
+                              </TableCell>
+                              <TableCell className="text-right font-semibold text-accent">
+                                {currency(m.totalRevenue)}
+                              </TableCell>
+                              <TableCell className="text-right font-semibold text-foreground">
+                                {m.salesCount}
+                              </TableCell>
+                              <TableCell className="text-right text-xs text-muted-foreground">
+                                {m.movementsCount}
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </>
               )}
             </CardContent>
           </Card>

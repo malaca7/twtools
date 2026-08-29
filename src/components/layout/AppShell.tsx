@@ -392,24 +392,27 @@ export function AppShell({ children }: { children: ReactNode }) {
         </Sidebar>
 
         <div className="flex min-w-0 flex-1 flex-col min-h-screen">
-          <header className="sticky top-0 z-40 flex h-16 shrink-0 items-center justify-between gap-3 border-b border-border/70 bg-background/95 backdrop-blur-xl px-3 sm:px-6 shadow-sm">
-            <div className="flex items-center gap-3">
+          <header className="sticky top-0 z-40 flex h-16 shrink-0 items-center justify-between gap-2 sm:gap-3 border-b border-border/70 bg-background/95 backdrop-blur-xl px-3 sm:px-6 shadow-sm">
+            <div className="flex items-center gap-2 sm:gap-3 min-w-0">
               <SidebarTrigger />
+              <span className="font-extrabold text-xs sm:text-sm text-foreground/90 truncate hidden md:inline-block">
+                {settings.factionName || "Twin Wheels"}
+              </span>
             </div>
 
             {/* TOP HEADER: LIVE REALTIME ONLINE TIMER BADGE + USER AVATAR */}
-            <div className="flex items-center gap-2 sm:gap-3">
+            <div className="flex items-center gap-2 sm:gap-3 shrink-0">
               {/* LIVE ONLINE TIMER BADGE */}
               <div
-                className="flex items-center gap-1.5 px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-full border border-emerald-500/40 bg-emerald-500/10 text-emerald-400 font-mono text-[11px] sm:text-xs font-bold shadow-sm"
+                className="flex items-center gap-1.5 px-2 py-1 sm:px-3 sm:py-1.5 rounded-full border border-emerald-500/40 bg-emerald-500/10 text-emerald-400 font-mono text-[10.5px] sm:text-xs font-bold shadow-sm"
                 title="Sua sessão online ativa em tempo real nesta plataforma"
               >
                 <span className="relative flex h-2 w-2">
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
                   <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
                 </span>
-                <Clock className="h-3.5 w-3.5 text-emerald-400 shrink-0" />
-                <span>{formattedHuman}</span>
+                <Clock className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-emerald-400 shrink-0" />
+                <span className="truncate">{formattedHuman}</span>
               </div>
 
               <DropdownMenu modal={false}>
@@ -417,17 +420,17 @@ export function AppShell({ children }: { children: ReactNode }) {
                   <Button
                     type="button"
                     variant="ghost"
-                    className="flex items-center gap-2 h-11 px-2 hover:bg-secondary/50 rounded-xl outline-none"
+                    className="flex items-center gap-2 h-10 sm:h-11 px-1.5 sm:px-2 hover:bg-secondary/50 rounded-xl outline-none"
                   >
-                    <Avatar className="h-9 w-9 border border-primary/40 shadow-sm pointer-events-none">
+                    <Avatar className="h-8 w-8 sm:h-9 sm:w-9 border border-primary/40 shadow-sm pointer-events-none shrink-0">
                       {avatarUrl && <AvatarImage src={avatarUrl} alt={mainName} />}
                       <AvatarFallback className="bg-primary/20 text-primary font-bold text-xs">
                         {initials}
                       </AvatarFallback>
                     </Avatar>
 
-                    <div className="text-left min-w-0 hidden sm:block pointer-events-none">
-                      <p className="truncate text-sm font-bold text-foreground leading-tight">
+                    <div className="text-left min-w-0 hidden md:block pointer-events-none max-w-[130px]">
+                      <p className="truncate text-xs sm:text-sm font-bold text-foreground leading-tight">
                         {mainName}
                       </p>
                       {subName ? (
@@ -466,11 +469,11 @@ export function AppShell({ children }: { children: ReactNode }) {
             </div>
           </header>
 
-          <main className="flex-1 px-3 py-4 sm:px-6 lg:px-8 pb-8 flex flex-col justify-between">
-            <div>{children}</div>
+          <main className="flex-1 px-2.5 py-4 sm:px-6 lg:px-8 pb-8 flex flex-col justify-between">
+            <div className="w-full max-w-7xl mx-auto">{children}</div>
 
             {/* RODAPÉ DISCRETO COM CRÉDITOS DO DESENVOLVEDOR (BY MALACA - DISCORD: MALACA7) */}
-            <footer className="py-6 mt-12 border-t border-border/40 text-center text-xs text-muted-foreground/80 space-y-1">
+            <footer className="py-6 mt-12 border-t border-border/40 text-center text-xs text-muted-foreground/80 space-y-1 w-full max-w-7xl mx-auto">
               <div className="flex items-center justify-center gap-1.5 flex-wrap font-medium">
                 <span>{settings.factionName || "Twin Wheels"} &copy; {new Date().getFullYear()}</span>
                 <span className="opacity-40">•</span>
