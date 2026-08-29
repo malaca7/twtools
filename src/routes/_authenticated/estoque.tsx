@@ -804,36 +804,36 @@ function EstoquePage() {
 
       {/* MODAL DE CRIAR / EDITAR PRODUTO */}
       <Dialog open={productModalOpen} onOpenChange={setProductModalOpen}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-lg bg-card text-card-foreground border border-border/80 shadow-2xl p-5 sm:p-6">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
+            <DialogTitle className="flex items-center gap-2 text-base font-bold">
               <Package className="h-5 w-5 text-primary" />
               {editingProduct ? "Editar Cadastro de Produto" : "Novo Produto no Catálogo"}
             </DialogTitle>
-            <DialogDescription className="text-xs">
+            <DialogDescription className="text-xs text-muted-foreground">
               Preencha os dados cadastrais e o preço sugerido do produto.
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4 py-2">
             <div className="space-y-1.5">
-              <Label className="text-xs font-bold">Nome do Produto</Label>
+              <Label className="text-xs font-bold text-foreground">Nome do Produto</Label>
               <Input
                 placeholder="Ex: AK-47, Lockpick, Algema..."
                 value={prodName}
                 onChange={(e) => setProdName(e.target.value)}
-                className="h-9 text-xs rounded-xl"
+                className="h-9 text-xs rounded-xl bg-background border-border/80 text-foreground"
               />
             </div>
 
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <Label className="text-xs font-bold">Categoria</Label>
+                <Label className="text-xs font-bold text-foreground">Categoria</Label>
                 <Select value={prodCategory} onValueChange={setProdCategory}>
-                  <SelectTrigger className="h-9 text-xs rounded-xl">
+                  <SelectTrigger className="h-9 text-xs rounded-xl bg-background border-border/80 text-foreground">
                     <SelectValue placeholder="Selecione..." />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="bg-popover border-border z-[10000]">
                     {categories.map((c) => (
                       <SelectItem key={c.id} value={c.id}>
                         {c.nome}
@@ -844,46 +844,46 @@ function EstoquePage() {
               </div>
 
               <div className="space-y-1.5">
-                <Label className="text-xs font-bold">Unidade de Medida</Label>
+                <Label className="text-xs font-bold text-foreground">Unidade de Medida</Label>
                 <Input
                   placeholder="Ex: un, cx, kg..."
                   value={prodUnidade}
                   onChange={(e) => setProdUnidade(e.target.value)}
-                  className="h-9 text-xs rounded-xl"
+                  className="h-9 text-xs rounded-xl bg-background border-border/80 text-foreground"
                 />
               </div>
             </div>
 
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <Label className="text-xs font-bold">Estoque Mínimo (Alerta)</Label>
+                <Label className="text-xs font-bold text-foreground">Estoque Mínimo (Alerta)</Label>
                 <Input
                   type="number"
                   placeholder="0"
                   value={prodEstoqueMin}
                   onChange={(e) => setProdEstoqueMin(e.target.value)}
-                  className="h-9 text-xs rounded-xl"
+                  className="h-9 text-xs rounded-xl bg-background border-border/80 text-foreground"
                 />
               </div>
 
               <div className="space-y-1.5">
-                <Label className="text-xs font-bold">Preço Sugerido (R$)</Label>
+                <Label className="text-xs font-bold text-foreground">Preço Sugerido (R$)</Label>
                 <Input
                   placeholder="R$ 0,00"
                   value={prodPreco}
                   onChange={(e) => setProdPreco(formatCurrencyInput(parseCurrencyInput(e.target.value)))}
-                  className="h-9 text-xs rounded-xl font-mono"
+                  className="h-9 text-xs rounded-xl font-mono bg-background border-border/80 text-foreground"
                 />
               </div>
             </div>
 
             <div className="space-y-1.5">
-              <Label className="text-xs font-bold">Descrição (Opcional)</Label>
+              <Label className="text-xs font-bold text-foreground">Descrição (Opcional)</Label>
               <Textarea
                 placeholder="Detalhes ou observações do produto..."
                 value={prodDesc}
                 onChange={(e) => setProdDesc(e.target.value)}
-                className="text-xs rounded-xl resize-none h-16"
+                className="text-xs rounded-xl resize-none h-16 bg-background border-border/80 text-foreground"
               />
             </div>
 
@@ -897,7 +897,7 @@ function EstoquePage() {
                     type="button"
                     onClick={() => setImageMode("upload")}
                     className={cn(
-                      "text-[10px] font-bold px-2 py-1 rounded transition-all flex items-center gap-1",
+                      "text-[10px] font-bold px-2 py-1 rounded transition-all flex items-center gap-1 cursor-pointer",
                       imageMode === "upload"
                         ? "bg-primary text-primary-foreground shadow-sm"
                         : "text-muted-foreground hover:text-foreground"
@@ -909,7 +909,7 @@ function EstoquePage() {
                     type="button"
                     onClick={() => setImageMode("url")}
                     className={cn(
-                      "text-[10px] font-bold px-2 py-1 rounded transition-all flex items-center gap-1",
+                      "text-[10px] font-bold px-2 py-1 rounded transition-all flex items-center gap-1 cursor-pointer",
                       imageMode === "url"
                         ? "bg-primary text-primary-foreground shadow-sm"
                         : "text-muted-foreground hover:text-foreground"
@@ -937,7 +937,7 @@ function EstoquePage() {
                       "flex flex-col items-center justify-center p-4 border-2 border-dashed rounded-xl cursor-pointer transition-all duration-200 text-center gap-1.5",
                       uploadingImage
                         ? "border-primary/50 bg-primary/5 cursor-wait"
-                        : "border-border/80 bg-secondary/20 hover:bg-secondary/40 hover:border-primary/50"
+                        : "border-border/80 bg-secondary/30 hover:bg-secondary/50 hover:border-primary/50"
                     )}
                   >
                     {uploadingImage ? (
@@ -965,7 +965,7 @@ function EstoquePage() {
                     placeholder="https://exemplo.com/imagem.png (Discord, Imgur, etc.)"
                     value={prodImagemUrl}
                     onChange={(e) => setProdImagemUrl(e.target.value)}
-                    className="h-9 text-xs rounded-xl font-mono"
+                    className="h-9 text-xs rounded-xl font-mono bg-background border-border/80 text-foreground"
                   />
                   <p className="text-[10px] text-muted-foreground">
                     Insira o link direto de uma imagem para exibir o ícone em todo o sistema.
@@ -975,9 +975,9 @@ function EstoquePage() {
 
               {/* LIVE PREVIEW BADGE */}
               {prodImagemUrl && (
-                <div className="flex items-center justify-between p-2.5 rounded-xl border border-primary/30 bg-primary/5">
+                <div className="flex items-center justify-between p-2.5 rounded-xl border border-primary/30 bg-primary/10">
                   <div className="flex items-center gap-2.5 min-w-0">
-                    <ProductThumbnail src={prodImagemUrl} name={prodName} size="md" className="rounded-xl border shadow-sm" />
+                    <ProductThumbnail src={prodImagemUrl} name={prodName} size="md" className="rounded-xl border shadow-sm shrink-0" />
                     <div className="min-w-0">
                       <p className="text-xs font-bold text-foreground truncate">Miniatura vinculada</p>
                       <p className="text-[10px] text-muted-foreground truncate max-w-xs font-mono">{prodImagemUrl}</p>
@@ -988,7 +988,7 @@ function EstoquePage() {
                     variant="ghost"
                     size="sm"
                     onClick={() => setProdImagemUrl("")}
-                    className="h-7 text-xs text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 px-2 rounded-lg shrink-0"
+                    className="h-7 text-xs text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 px-2 rounded-lg shrink-0 cursor-pointer"
                     title="Remover miniatura"
                   >
                     <X className="h-3.5 w-3.5 mr-1" /> Remover
@@ -998,27 +998,37 @@ function EstoquePage() {
             </div>
 
             <div className="flex items-center justify-between pt-2 border-t border-border/50">
-              <Label className="text-xs font-bold">Produto Ativo no Catálogo</Label>
+              <Label className="text-xs font-bold text-foreground">Produto Ativo no Catálogo</Label>
               <Switch checked={prodAtivo} onCheckedChange={setProdAtivo} />
             </div>
           </div>
 
-          <DialogFooter>
+          <DialogFooter className="pt-3 border-t border-border/50 flex flex-row items-center justify-end gap-2">
             <Button
+              type="button"
               variant="outline"
               size="sm"
               onClick={() => setProductModalOpen(false)}
-              className="h-9 text-xs rounded-xl"
+              className="h-9 text-xs rounded-xl px-4 cursor-pointer"
             >
               Cancelar
             </Button>
             <Button
+              type="button"
               size="sm"
               onClick={() => productMutation.mutate()}
               disabled={productMutation.isPending}
-              className="h-9 text-xs bg-gradient-brand text-primary-foreground font-bold rounded-xl"
+              className="h-9 text-xs bg-primary text-primary-foreground hover:bg-primary/90 font-bold rounded-xl px-5 shadow-md shrink-0 cursor-pointer"
             >
-              {productMutation.isPending ? "Salvando..." : editingProduct ? "Salvar Alterações" : "Cadastrar Produto"}
+              {productMutation.isPending ? (
+                <>
+                  <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> Salvando...
+                </>
+              ) : editingProduct ? (
+                "Salvar Alterações"
+              ) : (
+                "Cadastrar Produto"
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -123,7 +123,7 @@ const DialogOverlay = React.forwardRef<
         }
       }}
       className={cn(
-        "fixed inset-0 z-[9998] bg-black/60 transition-opacity duration-150 cursor-pointer pointer-events-auto",
+        "fixed inset-0 z-[9998] bg-black/80 backdrop-blur-md transition-opacity duration-150 cursor-pointer pointer-events-auto",
         className,
       )}
       {...props}
@@ -157,7 +157,7 @@ const DialogContentInner = React.forwardRef<
         aria-modal="true"
         onClick={(e) => e.stopPropagation()}
         className={cn(
-          "fixed left-[50%] top-[50%] z-[9999] grid w-[calc(100%-2rem)] max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 border border-border bg-card p-6 shadow-2xl rounded-2xl text-card-foreground opacity-100 scale-100 pointer-events-auto transition-all duration-150 max-h-[90vh] overflow-y-auto overflow-x-hidden scrollbar-none [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden",
+          "fixed left-[50%] top-[50%] z-[9999] grid w-[calc(100%-2rem)] max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 border border-border/80 bg-card text-card-foreground shadow-2xl rounded-2xl p-5 sm:p-6 opacity-100 scale-100 pointer-events-auto transition-all duration-150 max-h-[90vh] overflow-y-auto overflow-x-hidden ring-1 ring-border/50",
           className,
         )}
         {...props}
@@ -169,7 +169,7 @@ const DialogContentInner = React.forwardRef<
             e.stopPropagation();
             setOpen(false);
           }}
-          className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background cursor-pointer transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none text-muted-foreground hover:text-foreground z-10"
+          className="absolute right-4 top-4 rounded-lg p-1.5 opacity-70 hover:opacity-100 hover:bg-secondary transition-all cursor-pointer text-muted-foreground hover:text-foreground z-10"
         >
           <X className="h-4 w-4" />
           <span className="sr-only">Close</span>
