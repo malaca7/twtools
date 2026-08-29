@@ -32,6 +32,7 @@ import {
   Shield,
   Info,
   Check,
+  MessageSquare,
 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -191,6 +192,35 @@ const PAGE_CARDS: PageCardConfig[] = [
         label: "Excluir Registro de Venda",
         description: "Permite deletar permanentemente o lançamento de uma venda no sistema.",
         badge: "Ação Crítica",
+      },
+    ],
+  },
+  {
+    id: "chat",
+    title: "Chat & Mensagens",
+    route: "/chat",
+    icon: MessageSquare,
+    description: "Comunicação em tempo real, canais privados, criação e administração de grupos de conversa.",
+    color: "border-primary/40 bg-primary/5 text-primary",
+    defaultCat: "Operação",
+    defaultOrder: 3,
+    permissions: [
+      {
+        key: "view_chat",
+        label: "Acessar e Visualizar o Chat",
+        description: "Permite acessar a página de chat e interagir nas mensagens privadas e grupos.",
+        badge: "Acesso à Rota",
+      },
+      {
+        key: "create_chat_group",
+        label: "Criar Novos Grupos de Chat",
+        description: "Permite criar novos grupos de conversa com os membros.",
+      },
+      {
+        key: "manage_chat_groups",
+        label: "Gerenciar Configurações de Grupos",
+        description: "Permite moderar participantes, alterar fotos/descrições e definir permissões de envio em grupos.",
+        badge: "Administração",
       },
     ],
   },

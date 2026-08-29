@@ -87,7 +87,7 @@ const MASTER_NAV_ITEMS: MasterNavItem[] = [
   { id: "dashboard", title: "Dashboard", url: "/dashboard", icon: LayoutDashboard, perm: "view_dashboard", defaultCat: "Operação", defaultOrder: 0 },
   { id: "movimentacoes", title: "Movimentações", url: "/movimentacoes", icon: ArrowLeftRight, perm: "view_movements", defaultCat: "Operação", defaultOrder: 1 },
   { id: "vendas", title: "Vendas", url: "/vendas", icon: ShoppingCart, perm: "view_sales", defaultCat: "Operação", defaultOrder: 2 },
-  { id: "chat", title: "Chat do Grupo", url: "/chat", icon: MessageSquare, defaultCat: "Operação", defaultOrder: 3 },
+  { id: "chat", title: "Chat", url: "/chat", icon: MessageSquare, perm: "view_chat", defaultCat: "Operação", defaultOrder: 3 },
   { id: "estoque", title: "Controle de Estoque", url: "/estoque", icon: Boxes, perm: "view_stock", defaultCat: "Gestão", defaultOrder: 4 },
   { id: "membros", title: "Membros", url: "/membros", icon: Users, perm: "view_members", defaultCat: "Gestão", defaultOrder: 5 },
   { id: "hierarquia", title: "Hierarquia", url: "/hierarquia", icon: Workflow, perm: "view_hierarchy", defaultCat: "Gestão", defaultOrder: 6 },

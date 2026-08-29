@@ -82,6 +82,9 @@ export type Permission =
   | "manage_platform_settings"
   | "manage_menu_settings"
   | "view_profile"
+  | "view_chat"
+  | "create_chat_group"
+  | "manage_chat_groups"
   // Legacy aliases for backward compatibility
   | "view_financials"
   | "manage_members"
@@ -92,6 +95,9 @@ export type Permission =
 export const ALL_PERMISSIONS: Permission[] = [
   "manage_permissions",
   "view_dashboard",
+  "view_chat",
+  "create_chat_group",
+  "manage_chat_groups",
   "view_cash_fund",
   "manage_cash_fund",
   "reverse_cash_fund",
@@ -145,6 +151,9 @@ const ADMIN: Permission[] = ALL_PERMISSIONS;
 
 const OFFICER: Permission[] = [
   "view_dashboard",
+  "view_chat",
+  "create_chat_group",
+  "manage_chat_groups",
   "view_cash_fund",
   "manage_cash_fund",
   "view_stock",
@@ -182,6 +191,9 @@ const OFFICER: Permission[] = [
 
 const MANAGER: Permission[] = [
   "view_dashboard",
+  "view_chat",
+  "create_chat_group",
+  "manage_chat_groups",
   "view_cash_fund",
   "manage_cash_fund",
   "view_stock",
@@ -219,6 +231,8 @@ const MANAGER: Permission[] = [
 
 const MEMBER: Permission[] = [
   "view_dashboard",
+  "view_chat",
+  "create_chat_group",
   "view_stock",
   "create_movement",
   "view_baus",
@@ -236,6 +250,7 @@ const MEMBER: Permission[] = [
 
 const NOVATO: Permission[] = [
   "view_dashboard",
+  "view_chat",
   "view_stock",
   "view_baus",
   "view_sales",
