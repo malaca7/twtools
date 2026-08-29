@@ -15,6 +15,7 @@ import { Route as AuthenticatedAvisosRouteImport } from './routes/_authenticated
 import { Route as AuthenticatedBausRouteImport } from './routes/_authenticated/baus'
 import { Route as AuthenticatedCargosRouteImport } from './routes/_authenticated/cargos'
 import { Route as AuthenticatedCategoriasRouteImport } from './routes/_authenticated/categorias'
+import { Route as AuthenticatedChatRouteImport } from './routes/_authenticated/chat'
 import { Route as AuthenticatedConfiguracoesRouteImport } from './routes/_authenticated/configuracoes'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedDesempenhoRouteImport } from './routes/_authenticated/desempenho'
@@ -64,6 +65,11 @@ const AuthenticatedCargosRoute = AuthenticatedCargosRouteImport.update({
 const AuthenticatedCategoriasRoute = AuthenticatedCategoriasRouteImport.update({
   id: '/categorias',
   path: '/categorias',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedChatRoute = AuthenticatedChatRouteImport.update({
+  id: '/chat',
+  path: '/chat',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedConfiguracoesRoute =
@@ -183,6 +189,7 @@ export interface FileRoutesByFullPath {
   '/baus': typeof AuthenticatedBausRoute
   '/cargos': typeof AuthenticatedCargosRoute
   '/categorias': typeof AuthenticatedCategoriasRoute
+  '/chat': typeof AuthenticatedChatRoute
   '/configuracoes': typeof AuthenticatedConfiguracoesRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/desempenho': typeof AuthenticatedDesempenhoRoute
@@ -211,6 +218,7 @@ export interface FileRoutesByTo {
   '/baus': typeof AuthenticatedBausRoute
   '/cargos': typeof AuthenticatedCargosRoute
   '/categorias': typeof AuthenticatedCategoriasRoute
+  '/chat': typeof AuthenticatedChatRoute
   '/configuracoes': typeof AuthenticatedConfiguracoesRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/desempenho': typeof AuthenticatedDesempenhoRoute
@@ -241,6 +249,7 @@ export interface FileRoutesById {
   '/_authenticated/baus': typeof AuthenticatedBausRoute
   '/_authenticated/cargos': typeof AuthenticatedCargosRoute
   '/_authenticated/categorias': typeof AuthenticatedCategoriasRoute
+  '/_authenticated/chat': typeof AuthenticatedChatRoute
   '/_authenticated/configuracoes': typeof AuthenticatedConfiguracoesRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/_authenticated/desempenho': typeof AuthenticatedDesempenhoRoute
@@ -271,6 +280,7 @@ export interface FileRouteTypes {
     | '/baus'
     | '/cargos'
     | '/categorias'
+    | '/chat'
     | '/configuracoes'
     | '/dashboard'
     | '/desempenho'
@@ -299,6 +309,7 @@ export interface FileRouteTypes {
     | '/baus'
     | '/cargos'
     | '/categorias'
+    | '/chat'
     | '/configuracoes'
     | '/dashboard'
     | '/desempenho'
@@ -328,6 +339,7 @@ export interface FileRouteTypes {
     | '/_authenticated/baus'
     | '/_authenticated/cargos'
     | '/_authenticated/categorias'
+    | '/_authenticated/chat'
     | '/_authenticated/configuracoes'
     | '/_authenticated/dashboard'
     | '/_authenticated/desempenho'
@@ -400,6 +412,13 @@ declare module '@tanstack/react-router' {
       path: '/categorias'
       fullPath: '/categorias'
       preLoaderRoute: typeof AuthenticatedCategoriasRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/chat': {
+      id: '/_authenticated/chat'
+      path: '/chat'
+      fullPath: '/chat'
+      preLoaderRoute: typeof AuthenticatedChatRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/configuracoes': {
@@ -557,6 +576,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedBausRoute: typeof AuthenticatedBausRoute
   AuthenticatedCargosRoute: typeof AuthenticatedCargosRoute
   AuthenticatedCategoriasRoute: typeof AuthenticatedCategoriasRoute
+  AuthenticatedChatRoute: typeof AuthenticatedChatRoute
   AuthenticatedConfiguracoesRoute: typeof AuthenticatedConfiguracoesRoute
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
   AuthenticatedDesempenhoRoute: typeof AuthenticatedDesempenhoRoute
@@ -583,6 +603,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedBausRoute: AuthenticatedBausRoute,
   AuthenticatedCargosRoute: AuthenticatedCargosRoute,
   AuthenticatedCategoriasRoute: AuthenticatedCategoriasRoute,
+  AuthenticatedChatRoute: AuthenticatedChatRoute,
   AuthenticatedConfiguracoesRoute: AuthenticatedConfiguracoesRoute,
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
   AuthenticatedDesempenhoRoute: AuthenticatedDesempenhoRoute,

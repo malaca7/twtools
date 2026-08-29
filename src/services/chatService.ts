@@ -4,6 +4,9 @@ import type {
   ChatMessage,
   ChatParticipant,
   CreateGroupPayload,
+  UpdateGroupPayload,
+  MessageReaction,
+  UploadAttachmentResult,
 } from "@/types/chat";
 import type { Member, UserPresenceStatus } from "@/lib/app-types";
 
@@ -16,7 +19,8 @@ export async function fetchChatMembersMap(): Promise<Map<string, Member>> {
 
   try {
     const [profilesRes, rolesRes, presenceRes] = await Promise.all([
-      (supabase.from("profiles" as any))
+      supabase
+        .from("profiles" as any)
         .select("id, user_id, nome, nickname, avatar_url, discord_avatar_url, discord_username, discord_id, discord_email, game_id, telefone, status, data_entrada, created_at, is_developer"),
       supabase.from("user_roles").select("user_id, nivel"),
       supabase.from("user_presence").select("user_id, status, last_seen, online_since, total_seconds_online"),
@@ -82,8 +86,9 @@ export async function fetchUserConversations(currentUserId: string): Promise<Cha
   if (!currentUserId) return [];
 
   // 1. Busca os IDs das conversas onde o usuário é participante
-  const { data: myParticipations, error: partError } = await (supabase.from("chat_participants" as any))
-    .select("conversation_id, last_read_at, role, is_muted")
+  const { data: myParticipations, error: partError } = await supabase
+    .from("chat_participants" as any)
+    .select("conversation_id, last_read_at, role, is_muted, custom_nickname")
     .eq("user_id", currentUserId);
 
   if (partError || !myParticipations || myParticipations.length === 0) {
@@ -92,17 +97,21 @@ export async function fetchUserConversations(currentUserId: string): Promise<Cha
 
   const conversationIds = myParticipations.map((p: any) => p.conversation_id);
   const myReadMap = new Map<string, string>();
+  const myRoleMap = new Map<string, any>();
   myParticipations.forEach((p: any) => {
     myReadMap.set(p.conversation_id, p.last_read_at || new Date(0).toISOString());
+    myRoleMap.set(p.conversation_id, p.role || "member");
   });
 
   // 2. Busca os dados de todas as conversas e todos os seus participantes em paralelo
   const [convsRes, allPartsRes, membersMap] = await Promise.all([
-    (supabase.from("chat_conversations" as any))
+    supabase
+      .from("chat_conversations" as any)
       .select("*")
       .in("id", conversationIds)
       .order("last_message_at", { ascending: false }),
-    (supabase.from("chat_participants" as any))
+    supabase
+      .from("chat_participants" as any)
       .select("*")
       .in("conversation_id", conversationIds),
     fetchChatMembersMap(),
@@ -122,6 +131,7 @@ export async function fetchUserConversations(currentUserId: string): Promise<Cha
       joined_at: p.joined_at,
       last_read_at: p.last_read_at,
       is_muted: Boolean(p.is_muted),
+      custom_nickname: p.custom_nickname || null,
       profile: prof,
     });
     partsByConv.set(p.conversation_id, list);
@@ -137,7 +147,8 @@ export async function fetchUserConversations(currentUserId: string): Promise<Cha
     // Calcula mensagens não lidas
     let unreadCount = 0;
     if (c.last_message_at && new Date(c.last_message_at).getTime() > new Date(lastRead).getTime()) {
-      const { count } = await (supabase.from("chat_messages" as any))
+      const { count } = await supabase
+        .from("chat_messages" as any)
         .select("*", { count: "exact", head: true })
         .eq("conversation_id", c.id)
         .gt("created_at", lastRead)
@@ -155,8 +166,12 @@ export async function fetchUserConversations(currentUserId: string): Promise<Cha
       id: c.id,
       type: c.type,
       title: c.title,
+      description: c.description,
       avatar_url: c.avatar_url,
       created_by: c.created_by,
+      only_admins_can_post: Boolean(c.only_admins_can_post),
+      is_archived: Boolean(c.is_archived),
+      settings: c.settings || {},
       created_at: c.created_at,
       updated_at: c.updated_at,
       last_message: c.last_message,
@@ -165,6 +180,7 @@ export async function fetchUserConversations(currentUserId: string): Promise<Cha
       participants: parts,
       unread_count: unreadCount,
       other_participant: otherParticipant,
+      my_role: myRoleMap.get(c.id) || "member",
     });
   }
 
@@ -185,21 +201,23 @@ export async function getOrCreatePrivateConversation(
   }
 
   // 1. Procura se já existe uma conversa privada entre esses dois membros
-  const { data: myConvs } = await (supabase.from("chat_participants" as any))
+  const { data: myConvs } = await supabase
+    .from("chat_participants" as any)
     .select("conversation_id")
     .eq("user_id", currentUserId);
 
   if (myConvs && myConvs.length > 0) {
     const myConvIds = myConvs.map((p: any) => p.conversation_id);
-    const { data: targetConvs } = await (supabase.from("chat_participants" as any))
+    const { data: targetConvs } = await supabase
+      .from("chat_participants" as any)
       .select("conversation_id")
       .eq("user_id", targetUserId)
       .in("conversation_id", myConvIds);
 
     if (targetConvs && targetConvs.length > 0) {
-      // Verifica se alguma dessas é do tipo 'private'
       const commonConvIds = targetConvs.map((p: any) => p.conversation_id);
-      const { data: existingPrivate } = await (supabase.from("chat_conversations" as any))
+      const { data: existingPrivate } = await supabase
+        .from("chat_conversations" as any)
         .select("*")
         .in("id", commonConvIds)
         .eq("type", "private")
@@ -214,7 +232,8 @@ export async function getOrCreatePrivateConversation(
   }
 
   // 2. Se não encontrou, cria uma nova conversa privada
-  const { data: newConv, error: convError } = await (supabase.from("chat_conversations" as any))
+  const { data: newConv, error: convError } = await supabase
+    .from("chat_conversations" as any)
     .insert({
       type: "private",
       created_by: currentUserId,
@@ -225,7 +244,7 @@ export async function getOrCreatePrivateConversation(
   if (convError || !newConv) throw convError || new Error("Erro ao criar conversa privada.");
 
   // 3. Insere ambos os participantes
-  await (supabase.from("chat_participants" as any)).insert([
+  await supabase.from("chat_participants" as any).insert([
     { conversation_id: newConv.id, user_id: currentUserId, role: "admin" },
     { conversation_id: newConv.id, user_id: targetUserId, role: "member" },
   ]);
@@ -241,18 +260,21 @@ export async function createGroupConversation(
   creatorId: string,
   payload: CreateGroupPayload
 ): Promise<ChatConversation> {
-  const { title, avatar_url, participant_ids } = payload;
+  const { title, description, avatar_url, only_admins_can_post, participant_ids } = payload;
   if (!title.trim()) throw new Error("Informe o nome do grupo.");
 
   const uniqueParticipants = Array.from(new Set([creatorId, ...participant_ids]));
 
   // 1. Cria a conversa do grupo
-  const { data: newConv, error: convError } = await (supabase.from("chat_conversations" as any))
+  const { data: newConv, error: convError } = await supabase
+    .from("chat_conversations" as any)
     .insert({
       type: "group",
       title: title.trim(),
+      description: description?.trim() || null,
       avatar_url: avatar_url || null,
       created_by: creatorId,
+      only_admins_can_post: Boolean(only_admins_can_post),
       last_message: "Grupo criado",
       last_message_at: new Date().toISOString(),
       last_message_sender_id: creatorId,
@@ -262,21 +284,22 @@ export async function createGroupConversation(
 
   if (convError || !newConv) throw convError || new Error("Erro ao criar grupo.");
 
-  // 2. Insere todos os participantes
+  // 2. Insere todos os participantes (criador é 'admin')
   const participantsData = uniqueParticipants.map((uid) => ({
     conversation_id: newConv.id,
     user_id: uid,
     role: uid === creatorId ? "admin" : "member",
   }));
 
-  const { error: partError } = await (supabase.from("chat_participants" as any)).insert(participantsData);
+  const { error: partError } = await supabase.from("chat_participants" as any).insert(participantsData);
   if (partError) throw partError;
 
   // 3. Mensagem inicial do sistema informando criação do grupo
-  await (supabase.from("chat_messages" as any)).insert({
+  await supabase.from("chat_messages" as any).insert({
     conversation_id: newConv.id,
     sender_id: creatorId,
     content: `🎉 Grupo "${title.trim()}" criado.`,
+    message_type: "system",
     status: "delivered",
   });
 
@@ -285,14 +308,15 @@ export async function createGroupConversation(
 }
 
 /**
- * Busca o histórico de mensagens de uma conversa com paginação eficiente.
+ * Busca o histórico de mensagens de uma conversa com reações, respostas e paginação.
  */
 export async function fetchMessages(
   conversationId: string,
   limit = 50,
   beforeCreatedAt?: string
 ): Promise<ChatMessage[]> {
-  let query = (supabase.from("chat_messages" as any))
+  let query = supabase
+    .from("chat_messages" as any)
     .select("*")
     .eq("conversation_id", conversationId)
     .order("created_at", { ascending: true })
@@ -308,15 +332,77 @@ export async function fetchMessages(
   ]);
 
   if (messagesRes.error) throw messagesRes.error;
+  const rawMessages = messagesRes.data || [];
 
-  return (messagesRes.data || []).map((m: any) => {
+  if (rawMessages.length === 0) return [];
+
+  const messageIds = rawMessages.map((m: any) => m.id);
+
+  // Busca reações para todas as mensagens retornadas
+  const { data: reactionsData } = await supabase
+    .from("chat_message_reactions" as any)
+    .select("*")
+    .in("message_id", messageIds);
+
+  const reactionsByMsg = new Map<string, MessageReaction[]>();
+  (reactionsData || []).forEach((r: any) => {
+    const list = reactionsByMsg.get(r.message_id) || [];
+    const prof = membersMap.get(r.user_id);
+    list.push({
+      id: r.id,
+      message_id: r.message_id,
+      user_id: r.user_id,
+      emoji: r.emoji,
+      created_at: r.created_at,
+      user_name: prof?.nickname || prof?.nome || "Membro",
+    });
+    reactionsByMsg.set(r.message_id, list);
+  });
+
+  // Busca mensagens citadas em reply_to_id
+  const replyIds = rawMessages.map((m: any) => m.reply_to_id).filter(Boolean);
+  const repliesMap = new Map<string, any>();
+  if (replyIds.length > 0) {
+    const { data: repliesData } = await supabase
+      .from("chat_messages" as any)
+      .select("id, sender_id, content, message_type, attachment_name")
+      .in("id", replyIds);
+
+    (repliesData || []).forEach((rep: any) => {
+      const repProf = membersMap.get(rep.sender_id);
+      repliesMap.set(rep.id, {
+        id: rep.id,
+        sender_name: repProf?.nickname || repProf?.nome || "Membro",
+        content: rep.content,
+        message_type: rep.message_type || "text",
+        attachment_name: rep.attachment_name || null,
+      });
+    });
+  }
+
+  return rawMessages.map((m: any) => {
     const prof = membersMap.get(m.sender_id);
+    const replyMeta = m.reply_to_id ? repliesMap.get(m.reply_to_id) || null : null;
+
     return {
       id: m.id,
       conversation_id: m.conversation_id,
       sender_id: m.sender_id,
       content: m.content,
       status: m.status || "sent",
+      message_type: m.message_type || "text",
+      reply_to_id: m.reply_to_id || null,
+      reply_to_message: replyMeta,
+      attachment_url: m.attachment_url || null,
+      attachment_name: m.attachment_name || null,
+      attachment_type: m.attachment_type || null,
+      attachment_size: m.attachment_size ? Number(m.attachment_size) : null,
+      mentions: m.mentions || [],
+      is_edited: Boolean(m.is_edited),
+      edited_at: m.edited_at || null,
+      is_deleted_for_everyone: Boolean(m.is_deleted_for_everyone),
+      deleted_for_users: m.deleted_for_users || [],
+      reactions: reactionsByMsg.get(m.id) || [],
       created_at: m.created_at,
       updated_at: m.updated_at || m.created_at,
       sender_name: prof?.nickname || prof?.nome || prof?.discord_username || "Membro",
@@ -328,57 +414,157 @@ export async function fetchMessages(
 }
 
 /**
- * Envia uma mensagem para a conversa e atualiza metadata em tempo real.
+ * Envia uma mensagem via RPC segura no backend com validação de permissões e somente-administradores.
  */
 export async function sendChatMessage(
   conversationId: string,
-  senderId: string,
-  content: string
+  content: string,
+  options?: {
+    messageType?: "text" | "image" | "video" | "audio" | "document" | "system";
+    replyToId?: string | null;
+    attachmentUrl?: string | null;
+    attachmentName?: string | null;
+    attachmentType?: string | null;
+    attachmentSize?: number | null;
+    mentions?: string[];
+  }
 ): Promise<ChatMessage> {
-  const cleanContent = content.trim();
-  if (!cleanContent) throw new Error("A mensagem não pode estar vazia.");
+  const { data, error } = await supabase.rpc("rpc_send_chat_message", {
+    p_conversation_id: conversationId,
+    p_content: content.trim(),
+    p_message_type: options?.messageType || "text",
+    p_reply_to_id: options?.replyToId || null,
+    p_attachment_url: options?.attachmentUrl || null,
+    p_attachment_name: options?.attachmentName || null,
+    p_attachment_type: options?.attachmentType || null,
+    p_attachment_size: options?.attachmentSize || null,
+    p_mentions: options?.mentions || [],
+  });
 
-  const now = new Date().toISOString();
+  if (error) throw error;
+  return data as ChatMessage;
+}
 
-  // 1. Salva a mensagem no banco
-  const { data: msg, error: msgError } = await (supabase.from("chat_messages" as any))
-    .insert({
-      conversation_id: conversationId,
-      sender_id: senderId,
-      content: cleanContent,
-      status: "sent",
-      created_at: now,
-      updated_at: now,
-    })
-    .select()
-    .single();
+/**
+ * Edita uma mensagem enviada pelo usuário via RPC segura.
+ */
+export async function editChatMessage(messageId: string, newContent: string): Promise<void> {
+  const clean = newContent.trim();
+  if (!clean) throw new Error("A mensagem não pode estar vazia.");
 
-  if (msgError || !msg) throw msgError || new Error("Erro ao enviar mensagem.");
+  const { error } = await supabase.rpc("rpc_edit_chat_message", {
+    p_message_id: messageId,
+    p_new_content: clean,
+  });
 
-  // 2. Atualiza a conversa com a última mensagem
-  await (supabase.from("chat_conversations" as any))
-    .update({
-      last_message: cleanContent,
-      last_message_at: now,
-      last_message_sender_id: senderId,
-      updated_at: now,
-    })
-    .eq("id", conversationId);
+  if (error) throw error;
+}
 
-  // 3. Atualiza o last_read_at do remetente
-  await (supabase.from("chat_participants" as any))
-    .update({ last_read_at: now })
-    .eq("conversation_id", conversationId)
-    .eq("user_id", senderId);
+/**
+ * Exclui uma mensagem (para mim ou para todos).
+ */
+export async function deleteChatMessage(messageId: string, forEveryone = false): Promise<void> {
+  const { error } = await supabase.rpc("rpc_delete_chat_message", {
+    p_message_id: messageId,
+    p_for_everyone: forEveryone,
+  });
+
+  if (error) throw error;
+}
+
+/**
+ * Alterna reação de emoji em uma mensagem via RPC segura.
+ */
+export async function toggleMessageReaction(messageId: string, emoji: string): Promise<void> {
+  const { error } = await supabase.rpc("rpc_toggle_message_reaction", {
+    p_message_id: messageId,
+    p_emoji: emoji,
+  });
+
+  if (error) throw error;
+}
+
+/**
+ * Gerencia participante do grupo (adicionar, remover, promover ou rebaixar admin) via RPC segura.
+ */
+export async function manageGroupMember(
+  conversationId: string,
+  targetUserId: string,
+  action: "add" | "remove" | "make_admin" | "remove_admin",
+  newRole?: string
+): Promise<void> {
+  const { error } = await supabase.rpc("rpc_manage_group_member", {
+    p_conversation_id: conversationId,
+    p_target_user_id: targetUserId,
+    p_action: action,
+    p_new_role: newRole || null,
+  });
+
+  if (error) throw error;
+}
+
+/**
+ * Atualiza configurações do grupo (nome, descrição, foto, somente admins) via RPC segura.
+ */
+export async function updateGroupSettings(payload: UpdateGroupPayload): Promise<void> {
+  const { error } = await supabase.rpc("rpc_update_group_settings", {
+    p_conversation_id: payload.conversation_id,
+    p_title: payload.title.trim(),
+    p_description: payload.description !== undefined ? payload.description?.trim() || "" : null,
+    p_avatar_url: payload.avatar_url || null,
+    p_only_admins_can_post: payload.only_admins_can_post !== undefined ? payload.only_admins_can_post : null,
+  });
+
+  if (error) throw error;
+}
+
+/**
+ * Sai ou exclui um grupo via RPC segura.
+ */
+export async function leaveOrDeleteGroup(conversationId: string, action: "leave" | "delete"): Promise<void> {
+  const { error } = await supabase.rpc("rpc_leave_or_delete_group", {
+    p_conversation_id: conversationId,
+    p_action: action,
+  });
+
+  if (error) throw error;
+}
+
+/**
+ * Faz upload de anexo no bucket 'chat-attachments' do Supabase Storage.
+ */
+export async function uploadChatAttachment(
+  file: File,
+  onProgress?: (percent: number) => void
+): Promise<UploadAttachmentResult> {
+  const ext = file.name.split(".").pop() || "bin";
+  const uniqueName = `${Date.now()}_${Math.random().toString(36).substring(2, 9)}.${ext}`;
+  const filePath = `uploads/${uniqueName}`;
+
+  onProgress?.(10);
+
+  const { error: uploadError } = await supabase.storage
+    .from("chat-attachments")
+    .upload(filePath, file, {
+      cacheControl: "3600",
+      upsert: true,
+    });
+
+  if (uploadError) throw uploadError;
+
+  onProgress?.(80);
+
+  const { data: publicUrlData } = supabase.storage
+    .from("chat-attachments")
+    .getPublicUrl(filePath);
+
+  onProgress?.(100);
 
   return {
-    id: msg.id,
-    conversation_id: msg.conversation_id,
-    sender_id: msg.sender_id,
-    content: msg.content,
-    status: msg.status,
-    created_at: msg.created_at,
-    updated_at: msg.updated_at,
+    url: publicUrlData.publicUrl,
+    name: file.name,
+    type: file.type || "application/octet-stream",
+    size: file.size,
   };
 }
 
@@ -392,67 +578,15 @@ export async function markConversationAsRead(
   if (!conversationId || !userId) return;
   const now = new Date().toISOString();
 
-  await (supabase.from("chat_participants" as any))
+  await supabase
+    .from("chat_participants" as any)
     .update({ last_read_at: now })
     .eq("conversation_id", conversationId)
     .eq("user_id", userId);
 
-  // Atualiza status das mensagens enviadas por outros para 'read'
-  await (supabase.from("chat_messages" as any))
+  await supabase
+    .from("chat_messages" as any)
     .update({ status: "read" })
     .eq("conversation_id", conversationId)
     .neq("sender_id", userId);
-}
-
-/**
- * Adiciona novos participantes a um grupo existente.
- */
-export async function addGroupMembers(
-  conversationId: string,
-  userIds: string[]
-): Promise<void> {
-  const data = userIds.map((uid) => ({
-    conversation_id: conversationId,
-    user_id: uid,
-    role: "member",
-  }));
-
-  const { error } = await (supabase.from("chat_participants" as any))
-    .upsert(data, { onConflict: "conversation_id,user_id" });
-
-  if (error) throw error;
-}
-
-/**
- * Remove um participante de um grupo existente.
- */
-export async function removeGroupMember(
-  conversationId: string,
-  targetUserId: string
-): Promise<void> {
-  const { error } = await (supabase.from("chat_participants" as any))
-    .delete()
-    .eq("conversation_id", conversationId)
-    .eq("user_id", targetUserId);
-
-  if (error) throw error;
-}
-
-/**
- * Atualiza o nome ou foto do grupo.
- */
-export async function updateGroupInfo(
-  conversationId: string,
-  title: string,
-  avatarUrl?: string | null
-): Promise<void> {
-  const { error } = await (supabase.from("chat_conversations" as any))
-    .update({
-      title: title.trim(),
-      avatar_url: avatarUrl || null,
-      updated_at: new Date().toISOString(),
-    })
-    .eq("id", conversationId);
-
-  if (error) throw error;
 }

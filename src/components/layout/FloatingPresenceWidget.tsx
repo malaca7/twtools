@@ -255,6 +255,9 @@ export function FloatingPresenceWidget() {
               onConversationUpdated={() => {
                 void refetchConversations();
               }}
+              onStartPrivateChat={(uid) => {
+                void handleStartPrivateChat(uid);
+              }}
             />
           ) : (
             /* CASO CONTRÁRIO: EXIBE ABAS (MEMBROS / CONVERSAS) */
@@ -391,7 +394,7 @@ export function FloatingPresenceWidget() {
                   conversations={conversations}
                   isLoading={loadingConversations}
                   onSelectConversation={(conv) => setActiveConversation(conv)}
-                  onOpenCreateGroup={() => setCreateGroupOpen(true)}
+                  onCreateGroup={() => setCreateGroupOpen(true)}
                 />
               )}
             </div>
