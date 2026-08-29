@@ -150,8 +150,11 @@ function EstoquePage() {
     if (bauId === "all" || baus.length <= 1) return Math.max(0, globalStock);
     if (globalStock <= 0) return 0;
 
+    const defaultBauId = baus[0]?.id;
     const relevantMovements = movements.filter((m) => {
-      return m.product_id === productId && m.bau_id === bauId;
+      if (m.product_id !== productId) return false;
+      const mBauId = m.bau_id || defaultBauId;
+      return mBauId === bauId;
     });
 
     if (relevantMovements.length === 0) return 0;

@@ -133,9 +133,12 @@ function MovimentacoesPage() {
       return globalStock;
     }
 
-    const chestMovements = movements.filter(
-      (m) => m.product_id === productId && m.bau_id === bauId
-    );
+    const defaultBauId = baus[0]?.id;
+    const chestMovements = movements.filter((m) => {
+      if (m.product_id !== productId) return false;
+      const mBauId = m.bau_id || defaultBauId;
+      return mBauId === bauId;
+    });
 
     if (chestMovements.length === 0) {
       return 0;
@@ -667,6 +670,7 @@ function MovimentacoesPage() {
                   const isQueued = queue.some((i) => i.productId === p.id);
                   const queuedItem = queue.find((i) => i.productId === p.id);
                   const stockInChest = getProductStockInChest(p.id, activeBauId);
+                  const globalStock = Number(p.estoque_atual || 0);
 
                   return (
                     <button
@@ -722,16 +726,22 @@ function MovimentacoesPage() {
                               : "bg-background/90 text-rose-400 border-rose-500/40"
                           )}
                         >
-                          {num(isQueued ? (queuedItem?.quantity || 1) : stockInChest)}x
+                          {isQueued ? `${num(queuedItem?.quantity || 1)}x` : `${num(stockInChest)} un`}
                         </span>
                       </div>
 
-                      {/* DETALHE EXTRA NO CANTO INFERIOR ESQUERDO (DISPONÍVEL NO BAÚ QUANDO SELECIONADO) */}
-                      {canViewBalances && isQueued && (
+                      {/* DETALHE NO CANTO INFERIOR ESQUERDO */}
+                      {canViewBalances && (
                         <div className="absolute bottom-2 left-2 z-10 pointer-events-none">
-                          <span className="inline-block text-[9px] font-bold text-muted-foreground bg-background/85 backdrop-blur-md px-1.5 py-0.5 rounded-md border border-border/60">
-                            Disp: {num(stockInChest)}
-                          </span>
+                          {isQueued ? (
+                            <span className="inline-block text-[9px] font-bold text-muted-foreground bg-background/85 backdrop-blur-md px-1.5 py-0.5 rounded-md border border-border/60">
+                              Disp: {num(stockInChest)}
+                            </span>
+                          ) : stockInChest === 0 && globalStock > 0 ? (
+                            <span className="inline-block text-[8.5px] font-bold text-amber-400 bg-background/90 backdrop-blur-md px-1 py-0.5 rounded-md border border-amber-500/40">
+                              Tot: {num(globalStock)}
+                            </span>
+                          ) : null}
                         </div>
                       )}
                     </button>
