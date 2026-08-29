@@ -44,14 +44,14 @@ export function useConversations(activeConversationId?: string | null) {
     queryKey: ["chat_conversations", userId],
     queryFn: () => (userId ? fetchUserConversations(userId) : Promise.resolve([])),
     enabled: Boolean(userId),
-    refetchInterval: 20000,
+    staleTime: 10000,
+    refetchInterval: 15000,
   });
 
   // Supabase Realtime subscription for conversation updates and unread counts
   useEffect(() => {
     if (!userId) return;
 
-    // Use unique channel name per hook instance to prevent collision errors
     const channelName = `realtime-global-chat-${userId}-${Math.random().toString(36).substring(2, 9)}`;
     const channel = supabase
       .channel(channelName)
@@ -64,7 +64,6 @@ export function useConversations(activeConversationId?: string | null) {
         },
         (payload) => {
           const newMsg = payload.new as any;
-          void queryClient.invalidateQueries({ queryKey: ["chat_conversations", userId] });
 
           // Se a mensagem veio de outra pessoa e não é a conversa ativa no momento, toca som de notificação
           if (newMsg.sender_id !== userId) {
@@ -72,6 +71,32 @@ export function useConversations(activeConversationId?: string | null) {
               chatSound.playIncomingMessage();
             }
           }
+
+          // Atualização imediata no cache de conversas sem bloquear o render
+          queryClient.setQueryData<ChatConversation[]>(["chat_conversations", userId], (old) => {
+            if (!old) return old;
+            const preview = newMsg.content || newMsg.attachment_name || "Anexo";
+            return old
+              .map((c) => {
+                if (c.id === newMsg.conversation_id) {
+                  const isCurrentActive = activeConvRef.current === c.id;
+                  const newUnread =
+                    newMsg.sender_id !== userId && !isCurrentActive ? (c.unread_count || 0) + 1 : c.unread_count;
+                  return {
+                    ...c,
+                    last_message: preview,
+                    last_message_at: newMsg.created_at || new Date().toISOString(),
+                    last_message_sender_id: newMsg.sender_id,
+                    unread_count: newUnread,
+                  };
+                }
+                return c;
+              })
+              .sort((a, b) => new Date(b.last_message_at).getTime() - new Date(a.last_message_at).getTime());
+          });
+
+          // Background revalidation
+          void queryClient.invalidateQueries({ queryKey: ["chat_conversations", userId] });
         }
       )
       .on(
@@ -116,7 +141,7 @@ export function useConversations(activeConversationId?: string | null) {
 }
 
 /**
- * Hook para gerenciar uma sala de chat ativa (mensagens em tempo real, envio, reações, respostas, edição e anexos).
+ * Hook de Sala de Chat com OTIMIZAÇÃO INSTANTÂNEA (Optimistic UI 0ms delay).
  */
 export function useChatRoom(activeConversationId: string | null) {
   const { user, profile } = useAuth();
@@ -131,19 +156,24 @@ export function useChatRoom(activeConversationId: string | null) {
 
   const currentUserId = user?.id;
   const currentUserName = profile?.nickname || profile?.nome || "Membro";
+  const currentUserAvatar = profile?.discord_avatar_url || null;
 
   // Busca histórico de mensagens da conversa
   const messagesQuery = useQuery({
     queryKey: ["chat_messages", activeConversationId],
     queryFn: () => (activeConversationId ? fetchMessages(activeConversationId) : Promise.resolve([])),
     enabled: Boolean(activeConversationId),
+    staleTime: 5000,
   });
 
   // Marca conversa como lida ao abrir
   useEffect(() => {
     if (!activeConversationId || !currentUserId) return;
     void markConversationAsRead(activeConversationId, currentUserId).then(() => {
-      void queryClient.invalidateQueries({ queryKey: ["chat_conversations", currentUserId] });
+      queryClient.setQueryData<ChatConversation[]>(["chat_conversations", currentUserId], (old) => {
+        if (!old) return old;
+        return old.map((c) => (c.id === activeConversationId ? { ...c, unread_count: 0 } : c));
+      });
     });
   }, [activeConversationId, currentUserId, queryClient]);
 
@@ -170,18 +200,18 @@ export function useChatRoom(activeConversationId: string | null) {
         async (payload) => {
           const newRaw = payload.new as any;
 
-          // Se a mensagem veio de outra pessoa, toca som sutil de mensagem recebida
+          // Se a mensagem for de outro usuário, toca som sutil e marca lida imediatamente
           if (newRaw.sender_id !== currentUserId) {
             chatSound.playIncomingMessage();
             void markConversationAsRead(activeConversationId, currentUserId);
           }
 
-          // Invalida query para sincronização rica de participantes e replies
+          // Atualiza cache de mensagens sem piscar a tela
           void queryClient.invalidateQueries({ queryKey: ["chat_messages", activeConversationId] });
           void queryClient.invalidateQueries({ queryKey: ["chat_conversations", currentUserId] });
         }
       )
-      // 2. Atualizações de mensagens (edição, exclusão, status lido)
+      // 2. Atualizações de mensagens (edição, exclusão)
       .on(
         "postgres_changes",
         {
@@ -190,8 +220,23 @@ export function useChatRoom(activeConversationId: string | null) {
           table: "chat_messages",
           filter: `conversation_id=eq.${activeConversationId}`,
         },
-        () => {
-          void queryClient.invalidateQueries({ queryKey: ["chat_messages", activeConversationId] });
+        (payload) => {
+          const updated = payload.new as any;
+          queryClient.setQueryData<ChatMessage[]>(["chat_messages", activeConversationId], (old) => {
+            if (!old) return old;
+            return old.map((m) =>
+              m.id === updated.id
+                ? {
+                    ...m,
+                    content: updated.content,
+                    is_edited: Boolean(updated.is_edited),
+                    is_deleted: Boolean(updated.is_deleted),
+                    status: updated.status || m.status,
+                    deleted_for_users: updated.deleted_for_users || m.deleted_for_users,
+                  }
+                : m
+            );
+          });
         }
       )
       // 3. Reações em tempo real
@@ -236,7 +281,7 @@ export function useChatRoom(activeConversationId: string | null) {
         const newTimer = setTimeout(() => {
           setTypingUsers((prev) => prev.filter((u) => u.user_id !== user_id));
           typingCleanersRef.current.delete(user_id);
-        }, 3500);
+        }, 3000);
 
         typingCleanersRef.current.set(user_id, newTimer);
       })
@@ -258,7 +303,7 @@ export function useChatRoom(activeConversationId: string | null) {
 
     typingTimeoutRef.current = setTimeout(() => {
       typingTimeoutRef.current = null;
-    }, 2500);
+    }, 1500);
 
     if (channelRef.current) {
       void channelRef.current.send({
@@ -272,7 +317,7 @@ export function useChatRoom(activeConversationId: string | null) {
     }
   }, [activeConversationId, currentUserId, currentUserName]);
 
-  // Mutation de envio de mensagem
+  // Mutation de envio com ATUALIZAÇÃO OTIMISTA INSTANTÂNEA (0ms)
   const sendMutation = useMutation({
     mutationFn: async ({
       text,
@@ -299,13 +344,83 @@ export function useChatRoom(activeConversationId: string | null) {
         attachmentSize: attachment?.size || null,
       });
     },
-    onSuccess: () => {
+    onMutate: async ({ text, messageType = "text", attachment }) => {
+      if (!activeConversationId || !currentUserId) return;
+
+      // Cria mensagem otimista e insere imediatamente no cache do TanStack Query
+      const tempId = `optimistic-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
+      const nowIso = new Date().toISOString();
+
+      const optimisticMsg: ChatMessage = {
+        id: tempId,
+        conversation_id: activeConversationId,
+        sender_id: currentUserId,
+        sender_name: currentUserName,
+        sender_avatar: currentUserAvatar,
+        content: text.trim(),
+        status: "sent",
+        message_type: messageType,
+        reply_to_id: replyingTo?.id || null,
+        reply_to_message: replyingTo || null,
+        attachment_url: attachment?.url || null,
+        attachment_name: attachment?.name || null,
+        attachment_type: attachment?.type || null,
+        attachment_size: attachment?.size || null,
+        mentions: [],
+        reactions: [],
+        is_edited: false,
+        is_deleted: false,
+        deleted_for_users: [],
+        created_at: nowIso,
+        updated_at: nowIso,
+        is_self: true,
+      };
+
+      // Toca som de envio instantaneamente
       chatSound.playSentMessage();
+
+      // Limpa resposta ativa
       setReplyingTo(null);
-      void queryClient.invalidateQueries({ queryKey: ["chat_messages", activeConversationId] });
-      void queryClient.invalidateQueries({ queryKey: ["chat_conversations", currentUserId] });
+
+      // Insere na lista de mensagens da conversa
+      queryClient.setQueryData<ChatMessage[]>(["chat_messages", activeConversationId], (old = []) => [
+        ...old,
+        optimisticMsg,
+      ]);
+
+      // Atualiza lista lateral de conversas instantaneamente
+      queryClient.setQueryData<ChatConversation[]>(["chat_conversations", currentUserId], (old = []) =>
+        old
+          .map((c) =>
+            c.id === activeConversationId
+              ? {
+                  ...c,
+                  last_message: text.trim() || attachment?.name || "Anexo",
+                  last_message_at: nowIso,
+                  last_message_sender_id: currentUserId,
+                }
+              : c
+          )
+          .sort((a, b) => new Date(b.last_message_at).getTime() - new Date(a.last_message_at).getTime())
+      );
+
+      return { tempId };
     },
-    onError: (err: any) => {
+    onSuccess: (savedMsg, _, context) => {
+      // Substitui o tempId pelo ID real retornado pelo Supabase
+      if (context?.tempId && savedMsg) {
+        queryClient.setQueryData<ChatMessage[]>(["chat_messages", activeConversationId], (old = []) =>
+          old.map((m) => (m.id === context.tempId ? { ...m, ...savedMsg, id: savedMsg.id || m.id } : m))
+        );
+      }
+    },
+    onError: (err: any, _, context) => {
+      // Remove a mensagem otimista em caso de falha
+      if (context?.tempId) {
+        queryClient.setQueryData<ChatMessage[]>(["chat_messages", activeConversationId], (old = []) =>
+          old.filter((m) => m.id !== context.tempId)
+        );
+      }
       toast.error(err.message || "Erro ao enviar mensagem.");
     },
   });
@@ -313,7 +428,7 @@ export function useChatRoom(activeConversationId: string | null) {
   // Enviar anexo (arquivo / foto / vídeo / documento)
   const sendAttachment = async (file: File, caption = "") => {
     try {
-      setUploadProgress(10);
+      setUploadProgress(15);
       const res = await uploadChatAttachment(file, (pct) => setUploadProgress(pct));
 
       let mType: "image" | "video" | "audio" | "document" = "document";
@@ -333,43 +448,93 @@ export function useChatRoom(activeConversationId: string | null) {
     }
   };
 
-  // Reagir com emoji
+  // Reagir com emoji com OTIMIZAÇÃO INSTANTÂNEA
   const reactMutation = useMutation({
     mutationFn: async ({ messageId, emoji }: { messageId: string; emoji: string }) => {
       await toggleMessageReaction(messageId, emoji);
     },
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ["chat_messages", activeConversationId] });
+    onMutate: async ({ messageId, emoji }) => {
+      if (!currentUserId) return;
+      queryClient.setQueryData<ChatMessage[]>(["chat_messages", activeConversationId], (old = []) =>
+        old.map((m) => {
+          if (m.id !== messageId) return m;
+          const currentReactions = m.reactions || [];
+          const existing = currentReactions.find((r) => r.emoji === emoji);
+          let nextReactions;
+          if (existing) {
+            const hasReacted = existing.users.some((u) => u.user_id === currentUserId);
+            if (hasReacted) {
+              const updatedUsers = existing.users.filter((u) => u.user_id !== currentUserId);
+              nextReactions =
+                updatedUsers.length === 0
+                  ? currentReactions.filter((r) => r.emoji !== emoji)
+                  : currentReactions.map((r) =>
+                      r.emoji === emoji ? { ...r, count: updatedUsers.length, users: updatedUsers } : r
+                    );
+            } else {
+              nextReactions = currentReactions.map((r) =>
+                r.emoji === emoji
+                  ? {
+                      ...r,
+                      count: r.count + 1,
+                      users: [...r.users, { user_id: currentUserId, user_name: currentUserName }],
+                    }
+                  : r
+              );
+            }
+          } else {
+            nextReactions = [
+              ...currentReactions,
+              { emoji, count: 1, users: [{ user_id: currentUserId, user_name: currentUserName }] },
+            ];
+          }
+          return { ...m, reactions: nextReactions };
+        })
+      );
     },
     onError: (err: any) => {
+      void queryClient.invalidateQueries({ queryKey: ["chat_messages", activeConversationId] });
       toast.error(err.message || "Erro ao reagir.");
     },
   });
 
-  // Editar mensagem
+  // Editar mensagem com OTIMIZAÇÃO INSTANTÂNEA
   const editMutation = useMutation({
     mutationFn: async ({ messageId, newContent }: { messageId: string; newContent: string }) => {
       await editChatMessage(messageId, newContent);
     },
+    onMutate: async ({ messageId, newContent }) => {
+      queryClient.setQueryData<ChatMessage[]>(["chat_messages", activeConversationId], (old = []) =>
+        old.map((m) => (m.id === messageId ? { ...m, content: newContent, is_edited: true } : m))
+      );
+    },
     onSuccess: () => {
       toast.success("Mensagem editada!");
-      void queryClient.invalidateQueries({ queryKey: ["chat_messages", activeConversationId] });
     },
     onError: (err: any) => {
+      void queryClient.invalidateQueries({ queryKey: ["chat_messages", activeConversationId] });
       toast.error(err.message || "Erro ao editar mensagem.");
     },
   });
 
-  // Excluir mensagem
+  // Excluir mensagem com OTIMIZAÇÃO INSTANTÂNEA
   const deleteMutation = useMutation({
     mutationFn: async ({ messageId, forEveryone }: { messageId: string; forEveryone: boolean }) => {
       await deleteChatMessage(messageId, forEveryone);
     },
+    onMutate: async ({ messageId, forEveryone }) => {
+      queryClient.setQueryData<ChatMessage[]>(["chat_messages", activeConversationId], (old = []) => {
+        if (forEveryone) {
+          return old.map((m) => (m.id === messageId ? { ...m, is_deleted: true, content: "Mensagem apagada" } : m));
+        }
+        return old.filter((m) => m.id !== messageId);
+      });
+    },
     onSuccess: () => {
       toast.success("Mensagem apagada.");
-      void queryClient.invalidateQueries({ queryKey: ["chat_messages", activeConversationId] });
     },
     onError: (err: any) => {
+      void queryClient.invalidateQueries({ queryKey: ["chat_messages", activeConversationId] });
       toast.error(err.message || "Erro ao apagar mensagem.");
     },
   });
