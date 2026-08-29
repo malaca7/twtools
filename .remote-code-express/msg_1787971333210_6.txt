@@ -1,0 +1,13 @@
+O erro **"Can't find variable: useEffect"** foi corrigido imediatamente e a aplicação já foi recompilada e republicada:
+
+### O que ocorreu e como foi corrigido:
+- No componente [`AppShell.tsx`](file:///d:/dev/web/twtools/src/components/layout/AppShell.tsx), o hook `useEffect` havia sido adicionado para sincronizar automaticamente a barra lateral no modo Dev Tools, mas a importação `useEffect` estava ausente na linha de imports do React.
+- O import foi devidamente corrigido para `import { type ReactNode, useMemo, useState, useCallback, useEffect } from "react";`.
+- O build de produção foi gerado e o deploy foi concluído com sucesso.
+
+---
+
+### Deploy Realizado:
+- **Branch:** `gh-pages`
+- **Mensagem:** `"fix(layout): corrigir importacao de useEffect no AppShell"`
+- **Status:** **Publicado e Operacional** ✅

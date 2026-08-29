@@ -1,4 +1,40 @@
-import type { AppLevel } from "@/lib/permissions";
+export type UserThemeSettings = {
+  themeStyle: string;
+  cardStyle: string;
+  fontFamily: string;
+  customPrimaryColor?: string | null;
+  borderRadius?: string;
+  bgPattern?: string;
+  uiDensity?: string;
+  glowEffectsEnabled: boolean;
+  glowIntensity?: string;
+  statusPulseEnabled: boolean;
+  pageTransitionsEnabled: boolean;
+  hoverZoomEnabled: boolean;
+  borderGlowSpeed: string;
+  brightness: number;
+  contrast: number;
+  saturation?: number;
+};
+
+export const DEFAULT_USER_THEME: UserThemeSettings = {
+  themeStyle: "cyberpunk",
+  cardStyle: "glassmorphism",
+  fontFamily: "space_grotesk",
+  customPrimaryColor: null,
+  borderRadius: "smooth",
+  bgPattern: "cyber_grid",
+  uiDensity: "normal",
+  glowEffectsEnabled: true,
+  glowIntensity: "medium",
+  statusPulseEnabled: true,
+  pageTransitionsEnabled: true,
+  hoverZoomEnabled: true,
+  borderGlowSpeed: "normal",
+  brightness: 100,
+  contrast: 100,
+  saturation: 100,
+};
 
 export type AppUser = {
   id: string;
@@ -10,9 +46,17 @@ export type Profile = {
   user_id: string;
   nome: string;
   nickname: string | null;
+  telefone?: string | null;
+  game_id?: string | null;
   avatar_url: string | null;
   status: string;
   data_entrada: string;
+  discord_id?: string | null;
+  discord_username?: string | null;
+  discord_avatar_url?: string | null;
+  discord_email?: string | null;
+  is_developer?: boolean;
+  custom_theme?: UserThemeSettings | null;
 };
 
 export type SignupRequestStatus = "pendente" | "aprovado" | "rejeitado";
@@ -33,15 +77,26 @@ export type Category = {
   created_at: string;
 };
 
+export type Bau = {
+  id: string;
+  nome: string;
+  descricao: string | null;
+  icone: string | null;
+  ativo: boolean;
+  created_at: string;
+};
+
 export type Product = {
   id: string;
   nome: string;
   descricao: string | null;
   categoria_id: string | null;
+  bau_id: string | null;
   unidade: string;
   estoque_atual: number;
   estoque_minimo: number;
   preco_sugerido: number;
+  imagem_url?: string | null;
   ativo: boolean;
   created_at: string;
   updated_at: string;
@@ -51,6 +106,7 @@ export type Movement = {
   id: string;
   product_id: string;
   user_id: string;
+  bau_id?: string | null;
   type: "entrada" | "saida";
   quantity: number;
   previous_balance: number;
@@ -86,15 +142,56 @@ export type Goal = {
   created_at: string;
 };
 
+export type UserPresenceStatus = "online" | "ausente" | "ocupado" | "offline";
+
+export type UserPresence = {
+  user_id: string;
+  status: UserPresenceStatus;
+  last_seen: string;
+  online_since?: string | null;
+  total_seconds_online?: number | null;
+  updated_at: string;
+};
+
 export type Member = {
   user_id: string;
   nome: string;
   nickname: string | null;
+  telefone?: string | null;
+  game_id?: string | null;
   status: string;
   data_entrada: string;
   nivel: AppLevel | null;
+  presence_status?: UserPresenceStatus;
+  online_since?: string | null;
+  total_seconds_online?: number;
+  total_hours_online?: number;
   created_at: string;
+  discord_id?: string | null;
+  discord_username?: string | null;
+  discord_avatar_url?: string | null;
+  discord_email?: string | null;
+  is_developer?: boolean;
+  custom_theme?: UserThemeSettings | null;
 };
+
+export type Announcement = {
+  id: string;
+  author_id: string;
+  title: string;
+  content: string;
+  priority: "normal" | "importante" | "urgente";
+  created_at: string;
+  updated_at: string;
+};
+
+export type AnnouncementRead = {
+  announcement_id: string;
+  user_id: string;
+  read_at: string;
+};
+
+export type AuditLogSeverity = "info" | "warning" | "critical";
 
 export type AuditLog = {
   id: string;
@@ -105,6 +202,10 @@ export type AuditLog = {
   old_data: any;
   new_data: any;
   created_at: string;
+  /** Populated from new_data._meta at read time */
+  severity?: AuditLogSeverity;
+  user_agent?: string;
+  ip_address?: string;
 };
 
 export type PendingSignupRequest = {
@@ -113,9 +214,14 @@ export type PendingSignupRequest = {
   nome: string;
   nickname: string | null;
   telefone: string;
+  game_id?: string | null;
   email: string | null;
   requested_at: string;
   status: SignupRequestStatus;
+  discord_id?: string | null;
+  discord_username?: string | null;
+  discord_avatar_url?: string | null;
+  discord_email?: string | null;
 };
 
 export type LoginPlayer = {
@@ -123,4 +229,51 @@ export type LoginPlayer = {
   nome: string;
   nickname: string | null;
   login_email: string | null;
+};
+
+export type RolePermissionRecord = {
+  level: AppLevel;
+  permissions: Permission[];
+};
+
+export type CashMovement = {
+  id: string;
+  user_id: string | null;
+  type: "entrada" | "saida";
+  amount: number;
+  motive: string;
+  notes: string | null;
+  status?: string | null | undefined;
+  previous_balance: number;
+  resulting_balance: number;
+  reversal_of: string | null;
+  created_at: string;
+  user_name?: string | undefined;
+  user_avatar_url?: string | null | undefined;
+};
+
+export type ModuleAccessLevel = "none" | "view" | "manage";
+
+export type SystemModule =
+  | "dashboard"
+  | "fundo_caixa"
+  | "produtos"
+  | "categorias"
+  | "baus"
+  | "movimentacoes"
+  | "vendas"
+  | "membros"
+  | "desempenho"
+  | "auditoria"
+  | "gestao_cargos";
+
+export type CustomRole = {
+  id: string;
+  nome: string;
+  descricao: string | null;
+  rank: number;
+  is_system: boolean;
+  module_permissions: Partial<Record<SystemModule, ModuleAccessLevel>>;
+  created_at: string;
+  updated_at: string;
 };

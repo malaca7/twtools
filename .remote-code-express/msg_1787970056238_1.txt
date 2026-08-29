@@ -1,0 +1,11 @@
+A **Tag Dev** foi vinculada com sucesso ao membro com Discord ID **917826984778797087** (`Malaca`):
+
+1. **Banco de Dados (PostgreSQL):**
+   - A coluna `is_developer` foi ativada como `true` diretamente na tabela `profiles`.
+2. **Serviço de Desenvolvedor (`devService.ts`):**
+   - O Discord ID `917826984778797087` foi registrado na lista de autorização contínua (`DEV_DISCORD_IDS`).
+3. **Autenticação & Plataforma (`app-api.ts`):**
+   - O carregamento da sessão (`getCurrentAuth`) e a listagem de membros (`getMembers`) agora propagam `is_developer: true`.
+   - O membro passa a ter acesso imediato ao menu **Dev Tools** na barra lateral, com acesso a todos os menus, todas as funções e permissões da tag Dev.
+4. **Deploy para Produção:**
+   - Realizado com sucesso na branch `gh-pages`.

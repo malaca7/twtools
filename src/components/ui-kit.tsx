@@ -1,4 +1,4 @@
-import { type ReactNode } from "react";
+import { type ReactNode, useEffect, useRef } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
@@ -13,16 +13,16 @@ export function PageHeader({
   actions?: ReactNode;
 }) {
   return (
-    <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+    <div className="mb-4 sm:mb-6 flex flex-col gap-2.5 sm:flex-row sm:items-end sm:justify-between">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">
+        <h1 className="text-xl font-bold tracking-tight text-foreground sm:text-3xl">
           {title}
         </h1>
         {description ? (
-          <p className="mt-1 max-w-2xl text-sm text-muted-foreground">{description}</p>
+          <p className="mt-0.5 max-w-2xl text-xs sm:text-sm text-muted-foreground">{description}</p>
         ) : null}
       </div>
-      {actions ? <div className="flex flex-wrap gap-2">{actions}</div> : null}
+      {actions ? <div className="flex flex-wrap gap-2 pt-1 sm:pt-0">{actions}</div> : null}
     </div>
   );
 }
@@ -118,6 +118,19 @@ export function TableSkeleton({ rows = 5 }: { rows?: number }) {
 }
 
 export function NoAccess() {
+  const hasLoggedRef = useRef(false);
+
+  useEffect(() => {
+    if (hasLoggedRef.current) return;
+    hasLoggedRef.current = true;
+
+    // Log access denied event asynchronously
+    const page = typeof window !== "undefined" ? window.location.pathname : "unknown";
+    import("@/lib/app-api").then(({ logAccessDenied }) => {
+      void logAccessDenied(page);
+    }).catch(() => {});
+  }, []);
+
   return (
     <EmptyState
       title="Acesso restrito"
@@ -125,3 +138,7 @@ export function NoAccess() {
     />
   );
 }
+
+export { ProductThumbnail } from "@/components/ui/product-thumbnail";
+
+

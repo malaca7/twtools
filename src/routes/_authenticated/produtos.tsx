@@ -1,15 +1,5 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { PageHeader, EmptyState } from "@/components/ui-kit";
+import { createFileRoute, Navigate } from "@tanstack/react-router";
 
 export const Route = createFileRoute("/_authenticated/produtos")({
-  component: Page,
+  component: () => <Navigate to="/estoque" replace />,
 });
-
-function Page() {
-  return (
-    <div className="mx-auto max-w-6xl">
-      <PageHeader title="Produtos" description="Módulo em construção." />
-      <EmptyState title="Em breve" description="Este módulo será liberado na próxima etapa." />
-    </div>
-  );
-}

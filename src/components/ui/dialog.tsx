@@ -157,7 +157,7 @@ const DialogContentInner = React.forwardRef<
         aria-modal="true"
         onClick={(e) => e.stopPropagation()}
         className={cn(
-          "fixed left-[50%] top-[50%] z-[9999] grid w-[calc(100%-2rem)] max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 border border-border bg-card p-6 shadow-2xl rounded-xl text-card-foreground opacity-100 scale-100 pointer-events-auto transition-all duration-150 max-h-[90vh] overflow-y-auto",
+          "fixed left-[50%] top-[50%] z-[9999] grid w-[calc(100%-2rem)] max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 border border-border bg-card p-6 shadow-2xl rounded-2xl text-card-foreground opacity-100 scale-100 pointer-events-auto transition-all duration-150 max-h-[90vh] overflow-y-auto overflow-x-hidden scrollbar-none [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden",
           className,
         )}
         {...props}

@@ -1,0 +1,20 @@
+O isolamento entre o **Painel Membro** e o **Painel Dev Tools** foi ajustado e publicado com sucesso:
+
+### Como funciona agora:
+
+1. **No Painel Normal ("Painel Membro"):**
+   - **Menus:** A barra lateral exibe **apenas os menus e telas permitidos para o cargo do membro** (ex: se o cargo for Membro, Novato ou Motoqueiro, aparecem apenas as opções desse cargo).
+   - **Permissões:** As permissões são aplicadas **estritamente de acordo com o cargo**, sem nenhum bypass ou permissões de desenvolvedor ativas nessa visão.
+   - **Acesso ao Dev:** No final da barra lateral, para quem possui a Tag Dev, aparece apenas o botão de acesso **"Dev Tools"**.
+
+2. **No Painel Dev Tools (ao clicar em "Dev Tools" ou acessar `/dev`):**
+   - **Todos os Menus:** A barra lateral abre **todos os menus e módulos da plataforma** (Ferramentas Dev, Operação, Gestão e Administração).
+   - **Permissões Dev:** O usuário tem **acesso e controle total** de todas as funções e módulos da tag dev.
+   - **Botão "Painel Membro":** Fica no rodapé da barra lateral para você alternar de volta ao painel restrito do membro a qualquer momento.
+
+---
+
+### Deploy Realizado:
+- **Branch:** `gh-pages`
+- **Mensagem:** `"fix(permissions): restringir painel de membro estritamente aos menus e permissoes do cargo"`
+- **Status:** **Publicado e Operacional** ✅

@@ -23,8 +23,10 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useProducts } from "@/hooks/useData";
+import { useAuth } from "@/hooks/useAuth";
+import { ProductThumbnail } from "@/components/ui-kit";
 import { submitSale } from "@/lib/app-api";
-import { currency, errorMessage, num } from "@/lib/format";
+import { currency, formatCurrencyInput, parseCurrencyInput, errorMessage, num } from "@/lib/format";
 
 export const PAYMENT_METHODS = ["dinheiro", "pix", "transferencia", "fiado", "troca"] as const;
 
@@ -37,6 +39,7 @@ export const PAYMENT_LABEL: Record<string, string> = {
 };
 
 export function SaleDialog({ trigger }: { trigger: ReactNode }) {
+  const { hasPermission } = useAuth();
   const [open, setOpen] = useState(false);
   const [productId, setProductId] = useState("");
   const [quantity, setQuantity] = useState("");
@@ -49,13 +52,25 @@ export function SaleDialog({ trigger }: { trigger: ReactNode }) {
 
   const activeProducts = (products ?? []).filter((p) => p.ativo);
   const selected = activeProducts.find((p) => p.id === productId);
-  const total = Number(quantity || 0) * Number(unitPrice || 0);
+  const parsedUnitPrice = parseCurrencyInput(unitPrice);
+  const total = Number(quantity || 0) * parsedUnitPrice;
   const insufficient = !!selected && Number(quantity || 0) > Number(selected.estoque_atual);
+
+  const handleSelectProduct = (id: string) => {
+    setProductId(id);
+    const prod = activeProducts.find((p) => p.id === id);
+    if (prod && prod.preco_sugerido) {
+      setUnitPrice(formatCurrencyInput(prod.preco_sugerido));
+    }
+  };
 
   const mutation = useMutation({
     mutationFn: async () => {
+      if (!hasPermission("create_sale")) {
+        throw new Error("Você não possui permissão para lançar vendas.");
+      }
       const qty = Number(quantity);
-      const price = Number(unitPrice);
+      const price = parseCurrencyInput(unitPrice);
       if (!productId) throw new Error("Selecione um produto válido.");
       if (!Number.isFinite(qty) || qty <= 0)
         throw new Error("A quantidade deve ser um número maior que zero.");
@@ -105,11 +120,7 @@ export function SaleDialog({ trigger }: { trigger: ReactNode }) {
             <Label>Produto</Label>
             <Select
               value={productId}
-              onValueChange={(value) => {
-                setProductId(value);
-                const p = activeProducts.find((x) => x.id === value);
-                if (p && !unitPrice) setUnitPrice(String(p.preco_sugerido || ""));
-              }}
+              onValueChange={handleSelectProduct}
             >
               <SelectTrigger>
                 <SelectValue placeholder="Selecione o produto" />
@@ -117,11 +128,26 @@ export function SaleDialog({ trigger }: { trigger: ReactNode }) {
               <SelectContent>
                 {activeProducts.map((p) => (
                   <SelectItem key={p.id} value={p.id}>
-                    {p.nome} · {num(p.estoque_atual)} {p.unidade}
+                    <div className="flex items-center gap-2">
+                      <ProductThumbnail src={p.imagem_url} name={p.nome} size="xs" />
+                      <span>{p.nome} · {num(p.estoque_atual)} {p.unidade}</span>
+                    </div>
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
+
+            {selected && (
+              <div className="flex items-center gap-3 p-2.5 rounded-xl border border-primary/20 bg-primary/5 mt-1.5">
+                <ProductThumbnail src={selected.imagem_url} name={selected.nome} size="sm" className="rounded-lg border" />
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs font-bold text-foreground truncate">{selected.nome}</p>
+                  <p className="text-[10px] text-muted-foreground font-mono">
+                    Estoque disponível: {num(selected.estoque_atual)} {selected.unidade} · Sugerido: {currency(selected.preco_sugerido || 0)}
+                  </p>
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="grid grid-cols-2 gap-3">
@@ -130,21 +156,21 @@ export function SaleDialog({ trigger }: { trigger: ReactNode }) {
               <Input
                 id="sale-qtd"
                 type="number"
-                min="0.01"
-                step="0.01"
+                min="1"
+                placeholder="Qtd"
                 value={quantity}
                 onChange={(e) => setQuantity(e.target.value)}
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="sale-price">Valor unitário</Label>
+              <Label htmlFor="sale-price">Valor Unitário (R$)</Label>
               <Input
                 id="sale-price"
-                type="number"
-                min="0"
-                step="0.01"
+                type="text"
+                placeholder="R$ 0,00"
                 value={unitPrice}
-                onChange={(e) => setUnitPrice(e.target.value)}
+                onChange={(e) => setUnitPrice(formatCurrencyInput(e.target.value))}
+                className="font-mono text-sm font-bold text-emerald-400"
               />
             </div>
           </div>

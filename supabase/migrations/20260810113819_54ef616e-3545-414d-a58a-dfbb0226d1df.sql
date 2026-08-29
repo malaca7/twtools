@@ -219,7 +219,6 @@ RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE _uid uuid := auth.uid(); _old public.app_level;
 BEGIN
   IF NOT public.is_admin(_uid) THEN RAISE EXCEPTION 'Sem permissão para alterar níveis'; END IF;
-  IF _target_user = _uid THEN RAISE EXCEPTION 'Você não pode alterar seu próprio nível'; END IF;
   SELECT nivel INTO _old FROM public.user_roles WHERE user_id = _target_user;
   INSERT INTO public.user_roles (user_id, nivel) VALUES (_target_user, _nivel)
   ON CONFLICT (user_id) DO UPDATE SET nivel = EXCLUDED.nivel, updated_at = now();

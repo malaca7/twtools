@@ -1,0 +1,17 @@
+A barra de menu dinâmica em 2 modos foi implementada e publicada com sucesso:
+
+### Como funciona agora:
+
+1. **Quando você abre o painel "Dev Tools" (`/dev`):**
+   - **Todos os Menus da Plataforma:** A barra lateral passa a exibir **todos os menus e módulos do sistema** que o desenvolvedor tem acesso e permissões (Ferramentas Dev, Operação, Gestão e Administração).
+   - **Indicador de Modo:** Exibe o selo luminoso `MODO DEV TOOLS • TODOS MENUS` no topo da sidebar.
+   - **Opção "Painel Membro" em baixo:** No rodapé da barra lateral, surge um botão com ícone de retorno **"Painel Membro"** para voltar ao painel normal com um clique.
+
+2. **Quando você clica em "Painel Membro" (ou navega no modo normal):**
+   - A barra lateral retorna para a visão limpa do cargo, exibindo **apenas os menus e permissões atribuídos ao cargo**.
+   - No final da barra, reaparece o botão **"Dev Tools"** (exclusivo para quem tem a tag dev) para entrar novamente no modo completo quando desejar.
+
+### Deploy Realizado:
+- **Branch:** `gh-pages`
+- **Mensagem:** `"feat(dev): barra lateral dinamica com todos os menus no modo Dev Tools e opcao Painel Membro para retornar"`
+- **Status:** **Publicado e Operacional** ✅

@@ -1,0 +1,21 @@
+A alternância dinâmica de modo de painel foi implementada e publicada com sucesso:
+
+### Como funciona agora:
+
+1. **Quando você está no Painel Dev (ao clicar em "Dev Tools"):**
+   - A barra lateral mostra **todos os menus e módulos da plataforma**.
+   - **Todas as páginas que você abrir** (ex.: Controle de Estoque, Cargos, Permissões, Fundo de Caixa, etc.) serão abertas **com as permissões completas e bypass total da Tag Dev**, permitindo que você visualize, edite e gerencie tudo livremente sem nenhum bloqueio de cargo.
+   - O botão **"Painel Membro"** fica no rodapé da barra lateral.
+
+2. **Quando você clica em "Painel Membro":**
+   - O sistema altera o modo para a visão normal do membro.
+   - A barra lateral exibe **apenas os menus atribuídos ao seu cargo de facção**.
+   - As páginas abrem **estritamente com as permissões do seu cargo**.
+   - O botão **"Dev Tools"** fica no rodapé para você entrar de volta no modo desenvolvedor sempre que quiser.
+
+---
+
+### Deploy Realizado:
+- **Branch:** `gh-pages`
+- **Mensagem:** `"feat(auth): alternancia de modo com permissoes totais da tag dev no Painel Dev e permissoes do cargo no Painel Membro"`
+- **Status:** **Publicado e Operacional** ✅

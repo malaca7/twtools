@@ -1,0 +1,18 @@
+O comportamento de navegação entre os menus no **Painel Dev** foi corrigido e a aplicação já está atualizada e republicada:
+
+### O que foi corrigido:
+1. **Persistência do Painel Dev:**
+   - Agora, ao entrar no **Dev Tools**, o sistema mantém o modo desenvolvedor ativado de forma contínua em todo o navegador.
+   - Quando você clica em qualquer menu (ex.: *Controle de Estoque*, *Cargos*, *Fundo de Caixa*, *Movimentações*, *Logs*, etc.), **você permanece no Painel Dev com todos os menus visíveis na barra lateral**.
+   - Todas as telas acessadas abrem **com as permissões completas e bypass total da Tag Dev**, sem exibir avisos de restrição de cargo.
+
+2. **Retorno ao Painel Membro:**
+   - Para voltar à visualização de membro comum com as permissões restritas do seu cargo, basta clicar no botão **"Painel Membro"** no final da barra lateral.
+   - Ao clicar, o sistema volta ao painel normal e aplica estritamente as permissões do seu cargo da facção.
+
+---
+
+### Deploy Realizado:
+- **Branch:** `gh-pages`
+- **Mensagem:** `"fix(auth): manter modo Dev ativo e permissoes completas da tag dev ao navegar entre menus"`
+- **Status:** **Publicado e Operacional** ✅

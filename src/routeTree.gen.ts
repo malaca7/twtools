@@ -11,18 +11,31 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
-import { Route as AuthRouteImport } from './routes/auth'
-import { Route as AuthenticatedAuditoriaRouteImport } from './routes/_authenticated/auditoria'
+import { Route as AuthenticatedAvisosRouteImport } from './routes/_authenticated/avisos'
+import { Route as AuthenticatedBausRouteImport } from './routes/_authenticated/baus'
+import { Route as AuthenticatedCargosRouteImport } from './routes/_authenticated/cargos'
+import { Route as AuthenticatedCategoriasRouteImport } from './routes/_authenticated/categorias'
 import { Route as AuthenticatedConfiguracoesRouteImport } from './routes/_authenticated/configuracoes'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedDesempenhoRouteImport } from './routes/_authenticated/desempenho'
 import { Route as AuthenticatedEstoqueRouteImport } from './routes/_authenticated/estoque'
+import { Route as AuthenticatedFundoCaixaRouteImport } from './routes/_authenticated/fundo-caixa'
+import { Route as AuthenticatedHierarquiaRouteImport } from './routes/_authenticated/hierarquia'
+import { Route as AuthenticatedLogsRouteImport } from './routes/_authenticated/logs'
 import { Route as AuthenticatedMembrosRouteImport } from './routes/_authenticated/membros'
 import { Route as AuthenticatedMetasRouteImport } from './routes/_authenticated/metas'
 import { Route as AuthenticatedMovimentacoesRouteImport } from './routes/_authenticated/movimentacoes'
+import { Route as AuthenticatedPerfilRouteImport } from './routes/_authenticated/perfil'
+import { Route as AuthenticatedPermissoesRouteImport } from './routes/_authenticated/permissoes'
 import { Route as AuthenticatedProdutosRouteImport } from './routes/_authenticated/produtos'
 import { Route as AuthenticatedRankingsRouteImport } from './routes/_authenticated/rankings'
 import { Route as AuthenticatedVendasRouteImport } from './routes/_authenticated/vendas'
+import { Route as AuthCallbackRouteImport } from './routes/auth.callback'
+import { Route as DevDiscordIdRouteImport } from './routes/dev.$discordId'
+import { Route as AuthenticatedDevIndexRouteImport } from './routes/_authenticated/dev.index'
+import { Route as AuthenticatedDevConfiguracaoRouteImport } from './routes/_authenticated/dev.configuracao'
+import { Route as AuthenticatedDevDesempenhoRouteImport } from './routes/_authenticated/dev.desempenho'
+import { Route as AuthenticatedDevPermissoesRouteImport } from './routes/_authenticated/dev.permissoes'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -33,14 +46,24 @@ const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
   id: '/_authenticated',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AuthRoute = AuthRouteImport.update({
-  id: '/auth',
-  path: '/auth',
-  getParentRoute: () => rootRouteImport,
+const AuthenticatedAvisosRoute = AuthenticatedAvisosRouteImport.update({
+  id: '/avisos',
+  path: '/avisos',
+  getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
-const AuthenticatedAuditoriaRoute = AuthenticatedAuditoriaRouteImport.update({
-  id: '/auditoria',
-  path: '/auditoria',
+const AuthenticatedBausRoute = AuthenticatedBausRouteImport.update({
+  id: '/baus',
+  path: '/baus',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedCargosRoute = AuthenticatedCargosRouteImport.update({
+  id: '/cargos',
+  path: '/cargos',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedCategoriasRoute = AuthenticatedCategoriasRouteImport.update({
+  id: '/categorias',
+  path: '/categorias',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedConfiguracoesRoute =
@@ -64,6 +87,21 @@ const AuthenticatedEstoqueRoute = AuthenticatedEstoqueRouteImport.update({
   path: '/estoque',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedFundoCaixaRoute = AuthenticatedFundoCaixaRouteImport.update({
+  id: '/fundo-caixa',
+  path: '/fundo-caixa',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedHierarquiaRoute = AuthenticatedHierarquiaRouteImport.update({
+  id: '/hierarquia',
+  path: '/hierarquia',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedLogsRoute = AuthenticatedLogsRouteImport.update({
+  id: '/logs',
+  path: '/logs',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedMembrosRoute = AuthenticatedMembrosRouteImport.update({
   id: '/membros',
   path: '/membros',
@@ -80,6 +118,16 @@ const AuthenticatedMovimentacoesRoute =
     path: '/movimentacoes',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedPerfilRoute = AuthenticatedPerfilRouteImport.update({
+  id: '/perfil',
+  path: '/perfil',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedPermissoesRoute = AuthenticatedPermissoesRouteImport.update({
+  id: '/permissoes',
+  path: '/permissoes',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedProdutosRoute = AuthenticatedProdutosRouteImport.update({
   id: '/produtos',
   path: '/produtos',
@@ -95,107 +143,219 @@ const AuthenticatedVendasRoute = AuthenticatedVendasRouteImport.update({
   path: '/vendas',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthCallbackRoute = AuthCallbackRouteImport.update({
+  id: '/auth/callback',
+  path: '/auth/callback',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DevDiscordIdRoute = DevDiscordIdRouteImport.update({
+  id: '/dev/$discordId',
+  path: '/dev/$discordId',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthenticatedDevIndexRoute = AuthenticatedDevIndexRouteImport.update({
+  id: '/dev/',
+  path: '/dev/',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedDevConfiguracaoRoute =
+  AuthenticatedDevConfiguracaoRouteImport.update({
+    id: '/dev/configuracao',
+    path: '/dev/configuracao',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedDevDesempenhoRoute =
+  AuthenticatedDevDesempenhoRouteImport.update({
+    id: '/dev/desempenho',
+    path: '/dev/desempenho',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedDevPermissoesRoute =
+  AuthenticatedDevPermissoesRouteImport.update({
+    id: '/dev/permissoes',
+    path: '/dev/permissoes',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/auth': typeof AuthRoute
-  '/auditoria': typeof AuthenticatedAuditoriaRoute
+  '/avisos': typeof AuthenticatedAvisosRoute
+  '/baus': typeof AuthenticatedBausRoute
+  '/cargos': typeof AuthenticatedCargosRoute
+  '/categorias': typeof AuthenticatedCategoriasRoute
   '/configuracoes': typeof AuthenticatedConfiguracoesRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/desempenho': typeof AuthenticatedDesempenhoRoute
   '/estoque': typeof AuthenticatedEstoqueRoute
+  '/fundo-caixa': typeof AuthenticatedFundoCaixaRoute
+  '/hierarquia': typeof AuthenticatedHierarquiaRoute
+  '/logs': typeof AuthenticatedLogsRoute
   '/membros': typeof AuthenticatedMembrosRoute
   '/metas': typeof AuthenticatedMetasRoute
   '/movimentacoes': typeof AuthenticatedMovimentacoesRoute
+  '/perfil': typeof AuthenticatedPerfilRoute
+  '/permissoes': typeof AuthenticatedPermissoesRoute
   '/produtos': typeof AuthenticatedProdutosRoute
   '/rankings': typeof AuthenticatedRankingsRoute
   '/vendas': typeof AuthenticatedVendasRoute
+  '/auth/callback': typeof AuthCallbackRoute
+  '/dev/$discordId': typeof DevDiscordIdRoute
+  '/dev/configuracao': typeof AuthenticatedDevConfiguracaoRoute
+  '/dev/desempenho': typeof AuthenticatedDevDesempenhoRoute
+  '/dev/permissoes': typeof AuthenticatedDevPermissoesRoute
+  '/dev/': typeof AuthenticatedDevIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/auth': typeof AuthRoute
-  '/auditoria': typeof AuthenticatedAuditoriaRoute
+  '/avisos': typeof AuthenticatedAvisosRoute
+  '/baus': typeof AuthenticatedBausRoute
+  '/cargos': typeof AuthenticatedCargosRoute
+  '/categorias': typeof AuthenticatedCategoriasRoute
   '/configuracoes': typeof AuthenticatedConfiguracoesRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/desempenho': typeof AuthenticatedDesempenhoRoute
   '/estoque': typeof AuthenticatedEstoqueRoute
+  '/fundo-caixa': typeof AuthenticatedFundoCaixaRoute
+  '/hierarquia': typeof AuthenticatedHierarquiaRoute
+  '/logs': typeof AuthenticatedLogsRoute
   '/membros': typeof AuthenticatedMembrosRoute
   '/metas': typeof AuthenticatedMetasRoute
   '/movimentacoes': typeof AuthenticatedMovimentacoesRoute
+  '/perfil': typeof AuthenticatedPerfilRoute
+  '/permissoes': typeof AuthenticatedPermissoesRoute
   '/produtos': typeof AuthenticatedProdutosRoute
   '/rankings': typeof AuthenticatedRankingsRoute
   '/vendas': typeof AuthenticatedVendasRoute
+  '/auth/callback': typeof AuthCallbackRoute
+  '/dev/$discordId': typeof DevDiscordIdRoute
+  '/dev/configuracao': typeof AuthenticatedDevConfiguracaoRoute
+  '/dev/desempenho': typeof AuthenticatedDevDesempenhoRoute
+  '/dev/permissoes': typeof AuthenticatedDevPermissoesRoute
+  '/dev': typeof AuthenticatedDevIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
-  '/auth': typeof AuthRoute
-  '/_authenticated/auditoria': typeof AuthenticatedAuditoriaRoute
+  '/_authenticated/avisos': typeof AuthenticatedAvisosRoute
+  '/_authenticated/baus': typeof AuthenticatedBausRoute
+  '/_authenticated/cargos': typeof AuthenticatedCargosRoute
+  '/_authenticated/categorias': typeof AuthenticatedCategoriasRoute
   '/_authenticated/configuracoes': typeof AuthenticatedConfiguracoesRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/_authenticated/desempenho': typeof AuthenticatedDesempenhoRoute
   '/_authenticated/estoque': typeof AuthenticatedEstoqueRoute
+  '/_authenticated/fundo-caixa': typeof AuthenticatedFundoCaixaRoute
+  '/_authenticated/hierarquia': typeof AuthenticatedHierarquiaRoute
+  '/_authenticated/logs': typeof AuthenticatedLogsRoute
   '/_authenticated/membros': typeof AuthenticatedMembrosRoute
   '/_authenticated/metas': typeof AuthenticatedMetasRoute
   '/_authenticated/movimentacoes': typeof AuthenticatedMovimentacoesRoute
+  '/_authenticated/perfil': typeof AuthenticatedPerfilRoute
+  '/_authenticated/permissoes': typeof AuthenticatedPermissoesRoute
   '/_authenticated/produtos': typeof AuthenticatedProdutosRoute
   '/_authenticated/rankings': typeof AuthenticatedRankingsRoute
   '/_authenticated/vendas': typeof AuthenticatedVendasRoute
+  '/auth/callback': typeof AuthCallbackRoute
+  '/dev/$discordId': typeof DevDiscordIdRoute
+  '/_authenticated/dev/configuracao': typeof AuthenticatedDevConfiguracaoRoute
+  '/_authenticated/dev/desempenho': typeof AuthenticatedDevDesempenhoRoute
+  '/_authenticated/dev/permissoes': typeof AuthenticatedDevPermissoesRoute
+  '/_authenticated/dev/': typeof AuthenticatedDevIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
-    | '/auth'
-    | '/auditoria'
+    | '/avisos'
+    | '/baus'
+    | '/cargos'
+    | '/categorias'
     | '/configuracoes'
     | '/dashboard'
     | '/desempenho'
     | '/estoque'
+    | '/fundo-caixa'
+    | '/hierarquia'
+    | '/logs'
     | '/membros'
     | '/metas'
     | '/movimentacoes'
+    | '/perfil'
+    | '/permissoes'
     | '/produtos'
     | '/rankings'
     | '/vendas'
+    | '/auth/callback'
+    | '/dev/$discordId'
+    | '/dev/configuracao'
+    | '/dev/desempenho'
+    | '/dev/permissoes'
+    | '/dev/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
-    | '/auth'
-    | '/auditoria'
+    | '/avisos'
+    | '/baus'
+    | '/cargos'
+    | '/categorias'
     | '/configuracoes'
     | '/dashboard'
     | '/desempenho'
     | '/estoque'
+    | '/fundo-caixa'
+    | '/hierarquia'
+    | '/logs'
     | '/membros'
     | '/metas'
     | '/movimentacoes'
+    | '/perfil'
+    | '/permissoes'
     | '/produtos'
     | '/rankings'
     | '/vendas'
+    | '/auth/callback'
+    | '/dev/$discordId'
+    | '/dev/configuracao'
+    | '/dev/desempenho'
+    | '/dev/permissoes'
+    | '/dev'
   id:
     | '__root__'
     | '/'
     | '/_authenticated'
-    | '/auth'
-    | '/_authenticated/auditoria'
+    | '/_authenticated/avisos'
+    | '/_authenticated/baus'
+    | '/_authenticated/cargos'
+    | '/_authenticated/categorias'
     | '/_authenticated/configuracoes'
     | '/_authenticated/dashboard'
     | '/_authenticated/desempenho'
     | '/_authenticated/estoque'
+    | '/_authenticated/fundo-caixa'
+    | '/_authenticated/hierarquia'
+    | '/_authenticated/logs'
     | '/_authenticated/membros'
     | '/_authenticated/metas'
     | '/_authenticated/movimentacoes'
+    | '/_authenticated/perfil'
+    | '/_authenticated/permissoes'
     | '/_authenticated/produtos'
     | '/_authenticated/rankings'
     | '/_authenticated/vendas'
+    | '/auth/callback'
+    | '/dev/$discordId'
+    | '/_authenticated/dev/configuracao'
+    | '/_authenticated/dev/desempenho'
+    | '/_authenticated/dev/permissoes'
+    | '/_authenticated/dev/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
-  AuthRoute: typeof AuthRoute
+  AuthCallbackRoute: typeof AuthCallbackRoute
+  DevDiscordIdRoute: typeof DevDiscordIdRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -214,18 +374,32 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedRouteRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/auth': {
-      id: '/auth'
-      path: '/auth'
-      fullPath: '/auth'
-      preLoaderRoute: typeof AuthRouteImport
-      parentRoute: typeof rootRouteImport
+    '/_authenticated/avisos': {
+      id: '/_authenticated/avisos'
+      path: '/avisos'
+      fullPath: '/avisos'
+      preLoaderRoute: typeof AuthenticatedAvisosRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
     }
-    '/_authenticated/auditoria': {
-      id: '/_authenticated/auditoria'
-      path: '/auditoria'
-      fullPath: '/auditoria'
-      preLoaderRoute: typeof AuthenticatedAuditoriaRouteImport
+    '/_authenticated/baus': {
+      id: '/_authenticated/baus'
+      path: '/baus'
+      fullPath: '/baus'
+      preLoaderRoute: typeof AuthenticatedBausRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/cargos': {
+      id: '/_authenticated/cargos'
+      path: '/cargos'
+      fullPath: '/cargos'
+      preLoaderRoute: typeof AuthenticatedCargosRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/categorias': {
+      id: '/_authenticated/categorias'
+      path: '/categorias'
+      fullPath: '/categorias'
+      preLoaderRoute: typeof AuthenticatedCategoriasRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/configuracoes': {
@@ -256,6 +430,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedEstoqueRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/fundo-caixa': {
+      id: '/_authenticated/fundo-caixa'
+      path: '/fundo-caixa'
+      fullPath: '/fundo-caixa'
+      preLoaderRoute: typeof AuthenticatedFundoCaixaRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/hierarquia': {
+      id: '/_authenticated/hierarquia'
+      path: '/hierarquia'
+      fullPath: '/hierarquia'
+      preLoaderRoute: typeof AuthenticatedHierarquiaRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/logs': {
+      id: '/_authenticated/logs'
+      path: '/logs'
+      fullPath: '/logs'
+      preLoaderRoute: typeof AuthenticatedLogsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/membros': {
       id: '/_authenticated/membros'
       path: '/membros'
@@ -275,6 +470,20 @@ declare module '@tanstack/react-router' {
       path: '/movimentacoes'
       fullPath: '/movimentacoes'
       preLoaderRoute: typeof AuthenticatedMovimentacoesRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/perfil': {
+      id: '/_authenticated/perfil'
+      path: '/perfil'
+      fullPath: '/perfil'
+      preLoaderRoute: typeof AuthenticatedPerfilRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/permissoes': {
+      id: '/_authenticated/permissoes'
+      path: '/permissoes'
+      fullPath: '/permissoes'
+      preLoaderRoute: typeof AuthenticatedPermissoesRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/produtos': {
@@ -298,35 +507,101 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedVendasRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/auth/callback': {
+      id: '/auth/callback'
+      path: '/auth/callback'
+      fullPath: '/auth/callback'
+      preLoaderRoute: typeof AuthCallbackRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/dev/$discordId': {
+      id: '/dev/$discordId'
+      path: '/dev/$discordId'
+      fullPath: '/dev/$discordId'
+      preLoaderRoute: typeof DevDiscordIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_authenticated/dev/': {
+      id: '/_authenticated/dev/'
+      path: '/dev'
+      fullPath: '/dev/'
+      preLoaderRoute: typeof AuthenticatedDevIndexRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/dev/configuracao': {
+      id: '/_authenticated/dev/configuracao'
+      path: '/dev/configuracao'
+      fullPath: '/dev/configuracao'
+      preLoaderRoute: typeof AuthenticatedDevConfiguracaoRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/dev/desempenho': {
+      id: '/_authenticated/dev/desempenho'
+      path: '/dev/desempenho'
+      fullPath: '/dev/desempenho'
+      preLoaderRoute: typeof AuthenticatedDevDesempenhoRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/dev/permissoes': {
+      id: '/_authenticated/dev/permissoes'
+      path: '/dev/permissoes'
+      fullPath: '/dev/permissoes'
+      preLoaderRoute: typeof AuthenticatedDevPermissoesRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
   }
 }
 
 interface AuthenticatedRouteRouteChildren {
-  AuthenticatedAuditoriaRoute: typeof AuthenticatedAuditoriaRoute
+  AuthenticatedAvisosRoute: typeof AuthenticatedAvisosRoute
+  AuthenticatedBausRoute: typeof AuthenticatedBausRoute
+  AuthenticatedCargosRoute: typeof AuthenticatedCargosRoute
+  AuthenticatedCategoriasRoute: typeof AuthenticatedCategoriasRoute
   AuthenticatedConfiguracoesRoute: typeof AuthenticatedConfiguracoesRoute
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
   AuthenticatedDesempenhoRoute: typeof AuthenticatedDesempenhoRoute
   AuthenticatedEstoqueRoute: typeof AuthenticatedEstoqueRoute
+  AuthenticatedFundoCaixaRoute: typeof AuthenticatedFundoCaixaRoute
+  AuthenticatedHierarquiaRoute: typeof AuthenticatedHierarquiaRoute
+  AuthenticatedLogsRoute: typeof AuthenticatedLogsRoute
   AuthenticatedMembrosRoute: typeof AuthenticatedMembrosRoute
   AuthenticatedMetasRoute: typeof AuthenticatedMetasRoute
   AuthenticatedMovimentacoesRoute: typeof AuthenticatedMovimentacoesRoute
+  AuthenticatedPerfilRoute: typeof AuthenticatedPerfilRoute
+  AuthenticatedPermissoesRoute: typeof AuthenticatedPermissoesRoute
   AuthenticatedProdutosRoute: typeof AuthenticatedProdutosRoute
   AuthenticatedRankingsRoute: typeof AuthenticatedRankingsRoute
   AuthenticatedVendasRoute: typeof AuthenticatedVendasRoute
+  AuthenticatedDevConfiguracaoRoute: typeof AuthenticatedDevConfiguracaoRoute
+  AuthenticatedDevDesempenhoRoute: typeof AuthenticatedDevDesempenhoRoute
+  AuthenticatedDevPermissoesRoute: typeof AuthenticatedDevPermissoesRoute
+  AuthenticatedDevIndexRoute: typeof AuthenticatedDevIndexRoute
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
-  AuthenticatedAuditoriaRoute: AuthenticatedAuditoriaRoute,
+  AuthenticatedAvisosRoute: AuthenticatedAvisosRoute,
+  AuthenticatedBausRoute: AuthenticatedBausRoute,
+  AuthenticatedCargosRoute: AuthenticatedCargosRoute,
+  AuthenticatedCategoriasRoute: AuthenticatedCategoriasRoute,
   AuthenticatedConfiguracoesRoute: AuthenticatedConfiguracoesRoute,
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
   AuthenticatedDesempenhoRoute: AuthenticatedDesempenhoRoute,
   AuthenticatedEstoqueRoute: AuthenticatedEstoqueRoute,
+  AuthenticatedFundoCaixaRoute: AuthenticatedFundoCaixaRoute,
+  AuthenticatedHierarquiaRoute: AuthenticatedHierarquiaRoute,
+  AuthenticatedLogsRoute: AuthenticatedLogsRoute,
   AuthenticatedMembrosRoute: AuthenticatedMembrosRoute,
   AuthenticatedMetasRoute: AuthenticatedMetasRoute,
   AuthenticatedMovimentacoesRoute: AuthenticatedMovimentacoesRoute,
+  AuthenticatedPerfilRoute: AuthenticatedPerfilRoute,
+  AuthenticatedPermissoesRoute: AuthenticatedPermissoesRoute,
   AuthenticatedProdutosRoute: AuthenticatedProdutosRoute,
   AuthenticatedRankingsRoute: AuthenticatedRankingsRoute,
   AuthenticatedVendasRoute: AuthenticatedVendasRoute,
+  AuthenticatedDevConfiguracaoRoute: AuthenticatedDevConfiguracaoRoute,
+  AuthenticatedDevDesempenhoRoute: AuthenticatedDevDesempenhoRoute,
+  AuthenticatedDevPermissoesRoute: AuthenticatedDevPermissoesRoute,
+  AuthenticatedDevIndexRoute: AuthenticatedDevIndexRoute,
 }
 
 const AuthenticatedRouteRouteWithChildren =
@@ -335,7 +610,8 @@ const AuthenticatedRouteRouteWithChildren =
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
-  AuthRoute: AuthRoute,
+  AuthCallbackRoute: AuthCallbackRoute,
+  DevDiscordIdRoute: DevDiscordIdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

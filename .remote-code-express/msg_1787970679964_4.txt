@@ -1,0 +1,16 @@
+O aviso de **"Acesso restrito"** foi corrigido e a aplicação já está atualizada e republicada:
+
+### O que foi corrigido:
+1. **Bypass Completo de Permissões para Tag Dev (`useAuth.tsx`):**
+   - O validador de permissões (`hasPermission`) checava apenas se o nível base do usuário era o texto `"desenvolvedor"`.
+   - Se o seu cargo de facção estivesse selecionado como `Membro`, `Gerente` ou `Novato`, ele negava o acesso às telas administrativas mesmo com a Tag Dev ativa.
+   - Agora, qualquer membro com a **Tag Dev** (`is_developer === true` ou Discord ID autorizado) recebe **bypass total e autorização irrestrita** em todas as telas, funções e botões da plataforma.
+
+2. **Navegação Contínua no Modo Dev Tools (`AppShell.tsx`):**
+   - Ao entrar no **Dev Tools**, a barra lateral mantém o modo de desenvolvedor ativo com **todos os menus visíveis** enquanto você navega entre `/estoque`, `/cargos`, `/permissoes`, `/fundo-caixa`, etc.
+   - No rodapé da barra lateral, basta clicar em **"Painel Membro"** quando quiser retornar à visão normal restrita do seu cargo.
+
+### Deploy Realizado:
+- **Branch:** `gh-pages`
+- **Mensagem:** `"fix(permissions): conceder bypass total de permissoes para tag dev e persistir modo Dev Tools durante navegacao"`
+- **Status:** **Publicado e Operacional** ✅

@@ -47,6 +47,36 @@ export type Database = {
         }
         Relationships: []
       }
+      baus: {
+        Row: {
+          ativo: boolean
+          created_at: string
+          descricao: string | null
+          icone: string
+          id: string
+          nome: string
+          updated_at: string
+        }
+        Insert: {
+          ativo?: boolean
+          created_at?: string
+          descricao?: string | null
+          icone?: string
+          id?: string
+          nome: string
+          updated_at?: string
+        }
+        Update: {
+          ativo?: boolean
+          created_at?: string
+          descricao?: string | null
+          icone?: string
+          id?: string
+          nome?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       categories: {
         Row: {
           ativo: boolean
@@ -113,12 +143,14 @@ export type Database = {
       products: {
         Row: {
           ativo: boolean
+          bau_id: string | null
           categoria_id: string | null
           created_at: string
           descricao: string | null
           estoque_atual: number
           estoque_minimo: number
           id: string
+          imagem_url: string | null
           nome: string
           preco_sugerido: number
           unidade: string
@@ -126,12 +158,14 @@ export type Database = {
         }
         Insert: {
           ativo?: boolean
+          bau_id?: string | null
           categoria_id?: string | null
           created_at?: string
           descricao?: string | null
           estoque_atual?: number
           estoque_minimo?: number
           id?: string
+          imagem_url?: string | null
           nome: string
           preco_sugerido?: number
           unidade?: string
@@ -139,12 +173,14 @@ export type Database = {
         }
         Update: {
           ativo?: boolean
+          bau_id?: string | null
           categoria_id?: string | null
           created_at?: string
           descricao?: string | null
           estoque_atual?: number
           estoque_minimo?: number
           id?: string
+          imagem_url?: string | null
           nome?: string
           preco_sugerido?: number
           unidade?: string
@@ -165,6 +201,10 @@ export type Database = {
           avatar_url: string | null
           created_at: string
           data_entrada: string
+          discord_avatar_url: string | null
+          discord_email: string | null
+          discord_id: string | null
+          discord_username: string | null
           id: string
           nickname: string | null
           nome: string
@@ -176,6 +216,10 @@ export type Database = {
           avatar_url?: string | null
           created_at?: string
           data_entrada?: string
+          discord_avatar_url?: string | null
+          discord_email?: string | null
+          discord_id?: string | null
+          discord_username?: string | null
           id?: string
           nickname?: string | null
           nome: string
@@ -187,12 +231,37 @@ export type Database = {
           avatar_url?: string | null
           created_at?: string
           data_entrada?: string
+          discord_avatar_url?: string | null
+          discord_email?: string | null
+          discord_id?: string | null
+          discord_username?: string | null
           id?: string
           nickname?: string | null
           nome?: string
           status?: string
           updated_at?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      role_permissions: {
+        Row: {
+          level: string
+          nivel: string | null
+          permissions: Json
+          updated_at: string
+        }
+        Insert: {
+          level: string
+          nivel?: string | null
+          permissions?: Json
+          updated_at?: string
+        }
+        Update: {
+          level?: string
+          nivel?: string | null
+          permissions?: Json
+          updated_at?: string
         }
         Relationships: []
       }
@@ -296,6 +365,7 @@ export type Database = {
       }
       stock_movements: {
         Row: {
+          bau_id: string | null
           created_at: string
           id: string
           previous_balance: number
@@ -309,6 +379,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          bau_id?: string | null
           created_at?: string
           id?: string
           previous_balance: number
@@ -322,6 +393,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          bau_id?: string | null
           created_at?: string
           id?: string
           previous_balance?: number
@@ -357,6 +429,27 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      user_presence: {
+        Row: {
+          last_seen: string
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          last_seen?: string
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          last_seen?: string
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
       }
       user_roles: {
         Row: {
@@ -454,6 +547,10 @@ export type Database = {
         Args: { _reason?: string; _sale_id: string }
         Returns: undefined
       }
+      save_role_permissions: {
+        Args: { _level: string; _permissions: Json }
+        Returns: undefined
+      }
       review_signup_request: {
         Args: {
           _approve: boolean
@@ -474,13 +571,23 @@ export type Database = {
         Args: { _nickname?: string; _nome: string; _telefone: string }
         Returns: Database["public"]["Enums"]["signup_request_status"]
       }
+      sync_discord_user_rpc: {
+        Args: {
+          _discord_avatar_url: string
+          _discord_email: string
+          _discord_id: string
+          _discord_name: string
+          _discord_username: string
+        }
+        Returns: undefined
+      }
       verify_player_password: {
         Args: { _senha: string; _user_id: string }
         Returns: boolean
       }
     }
     Enums: {
-      app_level: "01" | "02" | "gerente" | "motoqueiro" | "membro" | "novato"
+      app_level: "desenvolvedor" | "01" | "02" | "gerente" | "motoqueiro" | "membro" | "novato"
       goal_type: "vendas" | "faturamento" | "quantidade"
       movement_type: "entrada" | "saida"
       sale_status: "concluida" | "estornada"

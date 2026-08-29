@@ -1,4 +1,5 @@
 import postgres from "postgres";
+import { createClient } from "@supabase/supabase-js";
 import { clearSession, updateSession, useSession } from "@tanstack/react-start/server";
 import { can, type AppLevel } from "@/lib/permissions";
 import type {
@@ -67,6 +68,10 @@ type MembershipRow = {
   data_entrada: string | null;
   nivel: AppLevel | null;
   signup_status: SignupRequestStatus | null;
+  discord_id: string | null;
+  discord_username: string | null;
+  discord_avatar_url: string | null;
+  discord_email: string | null;
 };
 
 const APP_SESSION_NAME = "twtools-session";
@@ -140,7 +145,11 @@ async function loadMembership(sql: postgres.Sql, userId: string): Promise<AuthSt
       p.status as profile_status,
       p.data_entrada::text,
       r.nivel::text as nivel,
-      sr.status::text as signup_status
+      sr.status::text as signup_status,
+      p.discord_id,
+      p.discord_username,
+      p.discord_avatar_url,
+      p.discord_email
     from auth.users u
     left join public.profiles p on p.user_id = u.id
     left join public.user_roles r on r.user_id = u.id
@@ -175,6 +184,10 @@ async function loadMembership(sql: postgres.Sql, userId: string): Promise<AuthSt
         avatar_url: row.avatar_url,
         status: row.profile_status ?? "ativo",
         data_entrada: row.data_entrada ?? new Date().toISOString().slice(0, 10),
+        discord_id: row.discord_id,
+        discord_username: row.discord_username,
+        discord_avatar_url: row.discord_avatar_url,
+        discord_email: row.discord_email,
       }
     : null;
 
@@ -625,7 +638,11 @@ export async function listMembers() {
       p.status,
       p.data_entrada::text,
       p.created_at::text,
-      r.nivel::text as nivel
+      r.nivel::text as nivel,
+      p.discord_id,
+      p.discord_username,
+      p.discord_avatar_url,
+      p.discord_email
     from public.profiles p
     left join public.user_roles r on r.user_id = p.user_id
     order by p.created_at asc
@@ -1008,6 +1025,206 @@ export async function createSale(payload: SalePayload) {
       )
     `;
   });
+
+  return { success: true };
+}
+
+async function verifySupabaseToken(token: string) {
+  const url = process.env["SUPABASE_URL"] || process.env["VITE_SUPABASE_URL"];
+  const key = process.env["SUPABASE_PUBLISHABLE_KEY"] || process.env["VITE_SUPABASE_PUBLISHABLE_KEY"];
+
+  if (!url || !key) {
+    throw new Error("Supabase credentials not configured on server.");
+  }
+
+  const supabase = createClient(url, key, {
+    auth: {
+      persistSession: false,
+      autoRefreshToken: false,
+    },
+  });
+
+  const { data: { user }, error } = await supabase.auth.getUser(token);
+  if (error || !user) {
+    throw new Error("Token inválido ou expirado: " + (error?.message || "User not found"));
+  }
+
+  return user;
+}
+
+export async function syncDiscordUser(token: string) {
+  const user = await verifySupabaseToken(token);
+  const newUserId = user.id;
+
+  const meta = (user.user_metadata || {}) as Record<string, any>;
+  const discordId = (meta["provider_id"] as string) || (meta["sub"] as string) || "";
+  const discordUsername = (meta["user_name"] as string) || (meta["name"] as string) || "";
+  const discordAvatarUrl = (meta["avatar_url"] as string) || "";
+  const discordEmail = user.email || (meta["email"] as string) || "";
+  const discordName = (meta["full_name"] as string) || (meta["name"] as string) || "Membro Discord";
+
+  if (!discordId) {
+    throw new Error("ID do Discord não encontrado nos metadados de autenticação.");
+  }
+
+  const sql = getSql();
+
+  await sql.begin(async (tx) => {
+    // 1. Check if profile already exists for this discordId
+    const existingByDiscord = await tx`
+      select user_id::text from public.profiles where discord_id = ${discordId} limit 1
+    `;
+
+    let targetUserId = newUserId;
+    let needsMerge = false;
+    let oldUserId = "";
+
+    if (existingByDiscord.length > 0 && existingByDiscord[0]) {
+      oldUserId = String(existingByDiscord[0]["user_id"] || "");
+      if (oldUserId !== newUserId) {
+        targetUserId = oldUserId;
+        needsMerge = true;
+      }
+    } else {
+      // 2. Not found by discordId. Try to find by email
+      const existingByEmail = await tx`
+        select id::text from auth.users where email = ${discordEmail} and id != ${newUserId}::uuid limit 1
+      `;
+      if (existingByEmail.length > 0 && existingByEmail[0]) {
+        oldUserId = String(existingByEmail[0]["id"] || "");
+        const profileExists = await tx`
+          select 1 from public.profiles where user_id = ${oldUserId}::uuid limit 1
+        `;
+        if (profileExists.length > 0) {
+          targetUserId = oldUserId;
+          needsMerge = true;
+        }
+      } else {
+        // 3. Try to find by nickname or nome
+        const existingByName = await tx`
+          select user_id::text from public.profiles 
+          where (lower(nickname) = lower(${discordUsername}) or lower(nome) = lower(${discordName}))
+            and user_id != ${newUserId}::uuid
+          limit 1
+        `;
+        if (existingByName.length > 0 && existingByName[0]) {
+          oldUserId = String(existingByName[0]["user_id"] || "");
+          targetUserId = oldUserId;
+          needsMerge = true;
+        }
+      }
+    }
+
+    if (needsMerge) {
+      console.log(`Merging old user ${oldUserId} into new Discord user ${newUserId}`);
+
+      await tx`delete from public.profiles where user_id = ${newUserId}::uuid`;
+      await tx`delete from public.user_roles where user_id = ${newUserId}::uuid`;
+
+      await tx`
+        update public.profiles set 
+          user_id = ${newUserId}::uuid,
+          discord_id = ${discordId},
+          discord_username = ${discordUsername},
+          discord_avatar_url = ${discordAvatarUrl},
+          discord_email = ${discordEmail},
+          nome = ${discordName},
+          avatar_url = ${discordAvatarUrl},
+          updated_at = now()
+        where user_id = ${oldUserId}::uuid
+      `;
+
+      await tx`
+        update public.user_roles set 
+          user_id = ${newUserId}::uuid,
+          updated_at = now()
+        where user_id = ${oldUserId}::uuid
+      `;
+
+      await tx`
+        update public.signup_requests set 
+          user_id = ${newUserId}::uuid,
+          updated_at = now()
+        where user_id = ${oldUserId}::uuid
+      `;
+
+      await tx`
+        update public.stock_movements set 
+          user_id = ${newUserId}::uuid
+        where user_id = ${oldUserId}::uuid
+      `;
+
+      await tx`
+        update public.sales set 
+          seller_id = ${newUserId}::uuid
+        where seller_id = ${oldUserId}::uuid
+      `;
+
+      await tx`
+        update public.goals set 
+          user_id = ${newUserId}::uuid
+        where user_id = ${oldUserId}::uuid
+      `;
+
+      await tx`
+        update public.audit_logs set 
+          user_id = ${newUserId}::uuid
+        where user_id = ${oldUserId}::uuid
+      `;
+      
+      await tx`
+        update public.signup_requests set
+          reviewed_by = ${newUserId}::uuid
+        where reviewed_by = ${oldUserId}::uuid
+      `;
+    } else {
+      const profileRes = await tx`
+        select 1 from public.profiles where user_id = ${newUserId}::uuid limit 1
+      `;
+
+      if (profileRes.length > 0) {
+        await tx`
+          update public.profiles set
+            discord_id = ${discordId},
+            discord_username = ${discordUsername},
+            discord_avatar_url = ${discordAvatarUrl},
+            discord_email = ${discordEmail},
+            nome = ${discordName},
+            avatar_url = ${discordAvatarUrl},
+            updated_at = now()
+          where user_id = ${newUserId}::uuid
+        `;
+      } else {
+        await tx`
+          insert into public.profiles (
+            user_id, nome, nickname, avatar_url, status, 
+            discord_id, discord_username, discord_avatar_url, discord_email
+          )
+          values (
+            ${newUserId}::uuid, ${discordName}, ${discordUsername}, ${discordAvatarUrl}, 'ativo',
+            ${discordId}, ${discordUsername}, ${discordAvatarUrl}, ${discordEmail}
+          )
+        `;
+
+        const roleRes = await tx`
+          select 1 from public.user_roles where user_id = ${newUserId}::uuid limit 1
+        `;
+
+        if (roleRes.length === 0) {
+          const countRes = await tx`select count(*) as count from public.user_roles`;
+          const count = parseInt(String(countRes[0]?.["count"] || "0"), 10);
+          const initialLevel = count === 0 ? "01" : "novato";
+          
+          await tx`
+            insert into public.user_roles (user_id, nivel)
+            values (${newUserId}::uuid, ${initialLevel})
+          `;
+        }
+      }
+    }
+  });
+
+  await updateSession<AppSessionData>(getSessionConfig(), { userId: newUserId });
 
   return { success: true };
 }
