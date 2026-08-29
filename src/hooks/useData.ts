@@ -1,4 +1,6 @@
-import { useQuery } from "@tanstack/react-query";
+import { useEffect } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 import {
   getAuditLogs,
   getBaus,
@@ -89,11 +91,37 @@ export function useMembers() {
 }
 
 export function usePendingSignupRequests(enabled = true) {
+  const queryClient = useQueryClient();
+
+  useEffect(() => {
+    if (!enabled) return;
+    const channelName = `realtime-signups-${Math.random().toString(36).substring(2, 9)}`;
+    const channel = supabase
+      .channel(channelName)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "signup_requests",
+        },
+        () => {
+          void queryClient.invalidateQueries({ queryKey: ["pending_signup_requests"] });
+          void queryClient.invalidateQueries({ queryKey: ["members"] });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, [enabled, queryClient]);
+
   return useQuery({
     enabled,
     queryKey: ["pending_signup_requests"],
-    queryFn: async (): Promise<PendingSignupRequest[]> => getPendingSignupRequests(),
-    refetchInterval: 10000,
+    queryFn: async (): Promise<PendingSignupRequest[]> => getPendingSignupRequests(enabled),
+    refetchInterval: 4000,
   });
 }
 
