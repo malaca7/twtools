@@ -998,13 +998,18 @@ function MovimentacoesPage() {
                             />
                           </div>
 
-                          {/* LINHA 2: CONTROLES DE PASSO (- / + / MÁX) EM LINHA DEDICADA */}
-                          <div className="flex items-center gap-1.5">
+                          {/* LINHA 2: CONTROLES DE PASSO (- / + / MÁX) EM GRID COM ZERO OVERFLOW */}
+                          <div
+                            className={cn(
+                              "grid gap-1 w-full",
+                              type === "saida" || type === "transferencia" ? "grid-cols-3" : "grid-cols-2"
+                            )}
+                          >
                             <Button
                               type="button"
                               variant="outline"
                               size="sm"
-                              className="h-7.5 flex-1 text-xs font-black rounded-xl bg-secondary/70 hover:bg-secondary border-border/80"
+                              className="h-7.5 w-full min-w-0 px-0 text-xs font-black rounded-xl bg-secondary/70 hover:bg-secondary border-border/80"
                               onClick={() => handleUpdateQueueQuantity(item.productId, item.quantity - 1)}
                               title="Diminuir 1"
                             >
@@ -1015,7 +1020,7 @@ function MovimentacoesPage() {
                               type="button"
                               variant="outline"
                               size="sm"
-                              className="h-7.5 flex-1 text-xs font-black rounded-xl bg-secondary/70 hover:bg-secondary border-border/80"
+                              className="h-7.5 w-full min-w-0 px-0 text-xs font-black rounded-xl bg-secondary/70 hover:bg-secondary border-border/80"
                               onClick={() => handleUpdateQueueQuantity(item.productId, item.quantity + 1)}
                               title="Aumentar 1"
                             >
@@ -1027,9 +1032,9 @@ function MovimentacoesPage() {
                                 type="button"
                                 variant="outline"
                                 size="sm"
-                                className="h-7.5 flex-1 text-xs font-black text-primary border-primary/40 rounded-xl bg-primary/10 hover:bg-primary/20"
+                                className="h-7.5 w-full min-w-0 px-0 text-[10.5px] sm:text-xs font-black text-primary border-primary/40 rounded-xl bg-primary/10 hover:bg-primary/20 truncate shadow-2xs"
                                 onClick={() => handleUpdateQueueQuantity(item.productId, Math.max(1, stockInChest))}
-                                title="Usar saldo máximo"
+                                title={`Usar saldo máximo (${num(stockInChest)})`}
                               >
                                 MÁX
                               </Button>
@@ -1037,7 +1042,7 @@ function MovimentacoesPage() {
                           </div>
 
                           {/* LINHA 3: ATALHOS RÁPIDOS DE QUANTIDADE (BOTÕES GRANDES EM GRID, SEM NENHUMA BARRA DE ROLAGEM) */}
-                          <div className="grid grid-cols-4 gap-1.5 pt-0.5">
+                          <div className="grid grid-cols-4 gap-1 pt-0.5 w-full">
                             {[1, 5, 10, 25, 50, 100, 250, 500].map((q) => (
                               <Button
                                 key={q}
@@ -1045,7 +1050,7 @@ function MovimentacoesPage() {
                                 variant="secondary"
                                 size="sm"
                                 className={cn(
-                                  "h-7.5 px-1 text-xs font-black rounded-xl transition-all active:scale-95 border",
+                                  "h-7 w-full min-w-0 px-0 text-[11px] font-black rounded-xl transition-all active:scale-95 border",
                                   item.quantity === q
                                     ? "bg-primary text-primary-foreground border-primary/50 shadow-md font-black ring-1 ring-primary/40"
                                     : "bg-secondary/70 border-border/60 hover:border-primary/40 hover:bg-primary/15 text-foreground/80 hover:text-foreground"
