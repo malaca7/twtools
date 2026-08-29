@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { createFileRoute } from "@tanstack/react-router";
-import { MessageSquare, Users, Plus, Shield, Sparkles, MessageCircle, ArrowRight, Radio } from "lucide-react";
+import { MessageSquare, Users, Plus, Shield, Sparkles, MessageCircle, ArrowRight, Radio, Columns2, Maximize2 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useRolePermissions } from "@/hooks/useData";
 import { useConversations } from "@/hooks/useChat";
@@ -30,6 +30,26 @@ function ChatPage() {
 
   const [activeConversation, setActiveConversation] = useState<ChatConversation | null>(null);
   const [createGroupOpen, setCreateGroupOpen] = useState(false);
+
+  // Configuração do modo de visualização: "split" (lado a lado) ou "focus" (entrar e voltar)
+  const [viewMode, setViewMode] = useState<"split" | "focus">(() => {
+    if (typeof window !== "undefined") {
+      return (localStorage.getItem("tw_chat_view_mode") as "split" | "focus") || "split";
+    }
+    return "split";
+  });
+
+  const handleToggleViewMode = (mode: "split" | "focus") => {
+    setViewMode(mode);
+    try {
+      localStorage.setItem("tw_chat_view_mode", mode);
+    } catch {}
+    toast.success(
+      mode === "split"
+        ? "Modo Dividido ativado (conversas e chat lado a lado)."
+        : "Modo Foco ativado (chat em tela cheia com opção de voltar)."
+    );
+  };
 
   const {
     conversations,
@@ -68,14 +88,22 @@ function ChatPage() {
     }
   };
 
+  const isSplitMode = viewMode === "split";
+
   return (
     <div className="space-y-2.5 max-w-7xl mx-auto h-[calc(100dvh-5.5rem)] flex flex-col min-h-[500px]">
-      {/* MAIN CHAT CONTAINER (DESKTOP: SIDEBAR + CHAT WINDOW | MOBILE: FULLSCREEN FLUID) */}
+      {/* MAIN CHAT CONTAINER */}
       <Card className="flex-1 flex overflow-hidden border border-border/80 bg-card/95 backdrop-blur-2xl shadow-2xl rounded-2xl relative ring-1 ring-white/5">
         {/* LEFT SIDEBAR: CONVERSATION LIST */}
         <div
-          className={`w-full md:w-80 lg:w-[22rem] border-r border-border/80 flex flex-col h-full bg-card/90 backdrop-blur-md shrink-0 transition-all ${
-            activeConversation ? "hidden md:flex" : "flex"
+          className={`border-r border-border/80 flex flex-col h-full bg-card/90 backdrop-blur-md shrink-0 transition-all ${
+            isSplitMode
+              ? activeConversation
+                ? "hidden md:flex md:w-80 lg:w-[22rem]"
+                : "w-full md:w-80 lg:w-[22rem] flex"
+              : activeConversation
+              ? "hidden"
+              : "w-full flex"
           }`}
         >
           <ConversationList
@@ -90,13 +118,21 @@ function ChatPage() {
               setCreateGroupOpen(true);
             }}
             isLoading={isLoading}
+            viewMode={viewMode}
+            onToggleViewMode={handleToggleViewMode}
           />
         </div>
 
-        {/* RIGHT AREA: ACTIVE CHAT WINDOW OR LUXURY EMPTY STATE */}
+        {/* RIGHT AREA: ACTIVE CHAT WINDOW OR EMPTY STATE */}
         <div
           className={`flex-1 flex flex-col h-full bg-card/60 overflow-hidden relative ${
-            !activeConversation ? "hidden md:flex" : "flex"
+            isSplitMode
+              ? !activeConversation
+                ? "hidden md:flex"
+                : "flex"
+              : !activeConversation
+              ? "hidden"
+              : "w-full flex"
           }`}
         >
           {activeConversation ? (
@@ -110,10 +146,11 @@ function ChatPage() {
                 void refetchConversations();
               }}
               onStartPrivateChat={handleStartPrivateChat}
+              viewMode={viewMode}
+              onToggleViewMode={handleToggleViewMode}
             />
           ) : (
             <div className="flex flex-col items-center justify-center h-full p-8 text-center text-muted-foreground space-y-5 select-none relative overflow-hidden bg-gradient-to-b from-primary/5 via-card/50 to-background/80">
-              {/* Glowing decorative background aura */}
               <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-primary/10 rounded-full blur-3xl pointer-events-none" />
 
               <div className="relative">

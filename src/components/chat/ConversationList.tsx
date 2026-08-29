@@ -10,6 +10,8 @@ import {
   Lock,
   User,
   Radio,
+  Columns2,
+  Maximize2,
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -26,6 +28,8 @@ interface ConversationListProps {
   onSelectConversation: (conv: ChatConversation) => void;
   onCreateGroup: () => void;
   isLoading?: boolean;
+  viewMode?: "split" | "focus";
+  onToggleViewMode?: (mode: "split" | "focus") => void;
 }
 
 export function ConversationList({
@@ -34,6 +38,8 @@ export function ConversationList({
   onSelectConversation,
   onCreateGroup,
   isLoading,
+  viewMode = "split",
+  onToggleViewMode,
 }: ConversationListProps) {
   const [search, setSearch] = useState("");
   const [activeFilter, setActiveFilter] = useState<"all" | "unread" | "groups" | "direct">("all");
@@ -72,7 +78,29 @@ export function ConversationList({
             </div>
           </div>
 
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-1">
+            {/* LAYOUT MODE TOGGLE (SPLIT VS FOCUS) */}
+            {onToggleViewMode && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                onClick={() => onToggleViewMode(viewMode === "split" ? "focus" : "split")}
+                className="h-7 w-7 text-muted-foreground hover:text-foreground rounded-lg cursor-pointer hidden sm:flex"
+                title={
+                  viewMode === "split"
+                    ? "Modo Dividido ativo (clique para alternar para Modo Foco em tela cheia)"
+                    : "Modo Foco ativo (clique para alternar para Modo Dividido lado a lado)"
+                }
+              >
+                {viewMode === "split" ? (
+                  <Columns2 className="h-4 w-4 text-primary" />
+                ) : (
+                  <Maximize2 className="h-4 w-4 text-muted-foreground" />
+                )}
+              </Button>
+            )}
+
             <Button
               type="button"
               variant="ghost"

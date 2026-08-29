@@ -11,6 +11,8 @@ import {
   Phone,
   Clock,
   Sparkles,
+  Columns2,
+  Maximize2,
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -36,6 +38,8 @@ interface ChatWindowProps {
   onBack: () => void;
   onConversationUpdated?: () => void;
   onStartPrivateChat?: (userId: string) => void;
+  viewMode?: "split" | "focus";
+  onToggleViewMode?: (mode: "split" | "focus") => void;
 }
 
 export function ChatWindow({
@@ -43,6 +47,8 @@ export function ChatWindow({
   onBack,
   onConversationUpdated,
   onStartPrivateChat,
+  viewMode = "split",
+  onToggleViewMode,
 }: ChatWindowProps) {
   const { user } = useAuth();
   const currentUserId = user?.id;
@@ -184,7 +190,10 @@ export function ChatWindow({
             variant="ghost"
             size="icon"
             onClick={onBack}
-            className="h-8 w-8 -ml-1 text-muted-foreground hover:text-foreground shrink-0 cursor-pointer"
+            className={cn(
+              "h-8 w-8 -ml-1 text-muted-foreground hover:text-foreground shrink-0 cursor-pointer",
+              viewMode === "split" && "md:hidden"
+            )}
             title="Voltar para lista de conversas"
           >
             <ArrowLeft className="h-4 w-4" />
@@ -294,6 +303,28 @@ export function ChatWindow({
                   <Unlock className="h-3.5 w-3.5 text-muted-foreground" />
                   <span className="hidden sm:inline">Chat Livre</span>
                 </>
+              )}
+            </Button>
+          )}
+
+          {/* LAYOUT MODE TOGGLE (SPLIT VS FOCUS) */}
+          {onToggleViewMode && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              onClick={() => onToggleViewMode(viewMode === "split" ? "focus" : "split")}
+              className="h-8 w-8 text-muted-foreground hover:text-foreground hover:bg-secondary rounded-lg cursor-pointer hidden sm:flex"
+              title={
+                viewMode === "split"
+                  ? "Modo Dividido ativo (clique para alternar para Modo Foco em tela cheia)"
+                  : "Modo Foco ativo (clique para alternar para Modo Dividido lado a lado)"
+              }
+            >
+              {viewMode === "split" ? (
+                <Columns2 className="h-4 w-4 text-primary" />
+              ) : (
+                <Maximize2 className="h-4 w-4 text-muted-foreground" />
               )}
             </Button>
           )}
