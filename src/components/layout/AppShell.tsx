@@ -221,18 +221,72 @@ function DynamicSidebarNavigation() {
 
   return (
     <>
-      {/* BADGE DE MODO DEV TOOLS NA BARRA LATERAL */}
-      {isDevMode && (
-        <div className="px-3 pt-1 pb-2">
-          <div className="flex items-center justify-between px-2.5 py-1.5 rounded-lg border border-rose-500/30 bg-rose-500/10 text-rose-400 font-mono text-[10px] font-bold shadow-sm">
-            <span className="flex items-center gap-1.5">
-              <Terminal className="h-3.5 w-3.5 animate-pulse" />
-              MODO DEV TOOLS
-            </span>
-            <Badge variant="outline" className="text-[9px] font-mono px-1 py-0 border-rose-500/40 bg-rose-500/20 text-rose-300 font-black">
-              TODOS MENUS
-            </Badge>
-          </div>
+      {/* SELETOR EM DESTAQUE NO TOPO DA BARRA: PAINEL MEMBRO vs DEV TOOLS */}
+      {isDevUser && (
+        <div className="px-2 pt-1 pb-2 space-y-1.5 border-b border-border/80 mb-2">
+          {isDevMode ? (
+            /* SE ESTIVER NO MODO DEV TOOLS: Botão em destaque para voltar ao Painel Normal "Painel Membro" */
+            <div className="space-y-1.5">
+              <Link
+                to="/dashboard"
+                onClick={() => {
+                  setPanelMode("member");
+                  if (isMobile) setOpenMobile(false);
+                }}
+                className="flex items-center justify-between w-full transition-all text-xs font-black p-2.5 rounded-xl border border-primary/50 bg-primary/15 hover:bg-primary/25 text-foreground hover:text-primary shadow-md group/btn cursor-pointer ring-1 ring-primary/40"
+              >
+                <div className="flex items-center gap-2.5">
+                  <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-xs">
+                    <ArrowLeft className="h-4 w-4 group-hover/btn:-translate-x-0.5 transition-transform" />
+                  </div>
+                  <div className="text-left">
+                    <span className="block font-black text-foreground leading-tight text-xs">Painel Membro</span>
+                    <span className="text-[10px] text-muted-foreground font-medium">Voltar ao modo membro</span>
+                  </div>
+                </div>
+                <Badge
+                  variant="outline"
+                  className="text-[9px] font-mono px-1.5 py-0 border-primary/40 bg-primary/20 text-primary font-bold shadow-none"
+                >
+                  MEMBRO
+                </Badge>
+              </Link>
+
+              <div className="flex items-center justify-between px-2.5 py-1 rounded-lg border border-rose-500/30 bg-rose-500/10 text-rose-400 font-mono text-[9.5px] font-bold shadow-xs">
+                <span className="flex items-center gap-1.5">
+                  <Terminal className="h-3.5 w-3.5 animate-pulse" />
+                  MODO DEV TOOLS ATIVO
+                </span>
+                <span className="text-[9px] text-rose-300/80">ACESSO TOTAL</span>
+              </div>
+            </div>
+          ) : (
+            /* SE ESTIVER NO MODO MEMBRO E FOR DEV: Botão em destaque no topo para abrir o Dev Tools */
+            <Link
+              to="/dev"
+              onClick={() => {
+                setPanelMode("dev");
+                if (isMobile) setOpenMobile(false);
+              }}
+              className="flex items-center justify-between w-full transition-all text-xs font-black p-2.5 rounded-xl border border-rose-500/50 bg-gradient-to-r from-rose-500/20 via-rose-500/10 to-transparent hover:from-rose-500/30 hover:to-rose-500/15 text-rose-300 hover:text-rose-200 shadow-md shadow-rose-950/20 group/btn cursor-pointer ring-1 ring-rose-500/40"
+            >
+              <div className="flex items-center gap-2.5">
+                <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-rose-600 text-white shadow-xs animate-pulse">
+                  <Terminal className="h-4 w-4" />
+                </div>
+                <div className="text-left">
+                  <span className="block font-black text-rose-300 leading-tight text-xs">Dev Tools</span>
+                  <span className="text-[10px] text-rose-400/80 font-medium">Painel do Desenvolvedor</span>
+                </div>
+              </div>
+              <Badge
+                variant="outline"
+                className="text-[9px] font-mono px-1.5 py-0 border-rose-500/50 bg-rose-500/30 text-rose-200 font-black shadow-none"
+              >
+                DEV TAG
+              </Badge>
+            </Link>
+          )}
         </div>
       )}
 
@@ -294,80 +348,6 @@ function DynamicSidebarNavigation() {
           </SidebarGroup>
         );
       })}
-
-      {/* SE ESTIVER NO MODO DEV TOOLS: Botão para voltar ao Painel Normal "Painel Membro" */}
-      {isDevMode && (
-        <SidebarGroup className="py-2 mt-3 border-t border-border/80 bg-muted/10">
-          <SidebarMenu>
-            <SidebarMenuItem>
-              <SidebarMenuButton
-                asChild
-                tooltip="Voltar ao Painel Normal do Membro"
-              >
-                <Link
-                  to="/dashboard"
-                  onClick={() => {
-                    setPanelMode("member");
-                    if (isMobile) setOpenMobile(false);
-                  }}
-                  className="flex items-center justify-between w-full transition-all text-xs font-bold px-3 py-2.5 rounded-xl border border-border/90 bg-card hover:bg-secondary text-foreground hover:text-primary shadow-sm group/btn cursor-pointer"
-                >
-                  <div className="flex items-center gap-2">
-                    <ArrowLeft className="h-4 w-4 text-primary group-hover/btn:-translate-x-0.5 transition-transform" />
-                    <span className="font-extrabold">Painel Membro</span>
-                  </div>
-                  <Badge
-                    variant="outline"
-                    className="text-[9px] font-mono px-1.5 py-0 border-border bg-secondary/50 text-muted-foreground font-semibold"
-                  >
-                    NORMAL
-                  </Badge>
-                </Link>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-          </SidebarMenu>
-        </SidebarGroup>
-      )}
-
-      {/* SE ESTIVER NO MODO NORMAL E FOR DEV: Botão para abrir o Dev Tools */}
-      {!isDevMode && isDevUser && (
-        <SidebarGroup className="py-1 mt-2 border-t border-rose-500/20">
-          <SidebarMenu>
-            <SidebarMenuItem>
-              <SidebarMenuButton
-                asChild
-                isActive={pathname.startsWith("/dev")}
-                tooltip="Dev Tools — Painel do Desenvolvedor (Acesso Total)"
-              >
-                <Link
-                  to="/dev"
-                  onClick={() => {
-                    setPanelMode("dev");
-                    if (isMobile) setOpenMobile(false);
-                  }}
-                  className={cn(
-                    "flex items-center justify-between w-full transition-all text-xs font-bold px-3 py-2 rounded-xl",
-                    pathname.startsWith("/dev")
-                      ? "font-black text-rose-400 bg-rose-500/15 border border-rose-500/40 shadow-sm ring-1 ring-rose-500/30"
-                      : "text-rose-400/90 hover:text-rose-300 hover:bg-rose-500/10 border border-rose-500/20"
-                  )}
-                >
-                  <div className="flex items-center gap-2.5">
-                    <Terminal className="h-4 w-4 text-rose-400 animate-pulse" />
-                    <span>Dev Tools</span>
-                  </div>
-                  <Badge
-                    variant="outline"
-                    className="text-[9px] font-mono px-1.5 py-0 border-rose-500/40 bg-rose-500/20 text-rose-300 font-black shadow-none"
-                  >
-                    DEV
-                  </Badge>
-                </Link>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-          </SidebarMenu>
-        </SidebarGroup>
-      )}
     </>
   );
 }
