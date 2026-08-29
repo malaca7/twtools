@@ -7,6 +7,7 @@ import {
   Info,
   Loader2,
   Lock,
+  Unlock,
   Phone,
   Clock,
   Sparkles,
@@ -16,6 +17,9 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
 import { useChatRoom } from "@/hooks/useChat";
+import { useQueryClient } from "@tanstack/react-query";
+import { updateGroupSettings } from "@/services/chatService";
+import { toast } from "sonner";
 import { MessageBubble } from "./MessageBubble";
 import { MessageInput } from "./MessageInput";
 import { TypingIndicator } from "./TypingIndicator";
@@ -108,6 +112,39 @@ export function ChatWindow({
   const isAusente = otherMember?.presence_status === "ausente";
   const memberNivelLabel = otherMember?.nivel ? LEVEL_LABEL[otherMember.nivel] || otherMember.nivel : null;
 
+  const queryClient = useQueryClient();
+  const [togglingLock, setTogglingLock] = useState(false);
+
+  const handleQuickToggleOnlyAdmins = async () => {
+    if (!isGroup || !isGroupAdmin || togglingLock) return;
+    const nextState = !conversation.only_admins_can_post;
+    setTogglingLock(true);
+
+    // Optimistic update
+    queryClient.setQueryData<ChatConversation[]>(["chat_conversations", currentUserId], (old = []) =>
+      old.map((c) => (c.id === conversation.id ? { ...c, only_admins_can_post: nextState } : c))
+    );
+
+    try {
+      await updateGroupSettings({
+        conversation_id: conversation.id,
+        title: conversation.title || "Grupo",
+        only_admins_can_post: nextState,
+      });
+      toast.success(
+        nextState
+          ? "🔒 Modo Somente Administradores ativado!"
+          : "🔓 Chat liberado para todos os membros."
+      );
+      onConversationUpdated?.();
+    } catch (err: any) {
+      toast.error(err.message || "Erro ao alterar permissão do grupo.");
+      void queryClient.invalidateQueries({ queryKey: ["chat_conversations", currentUserId] });
+    } finally {
+      setTogglingLock(false);
+    }
+  };
+
   return (
     <div className="flex flex-col h-full w-full bg-card overflow-hidden select-none">
       {/* HEADER */}
@@ -197,6 +234,41 @@ export function ChatWindow({
 
         {/* HEADER ACTIONS */}
         <div className="flex items-center gap-1 shrink-0">
+          {isGroup && isGroupAdmin && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={handleQuickToggleOnlyAdmins}
+              disabled={togglingLock}
+              className={cn(
+                "h-8 px-2 text-[11px] font-bold rounded-lg cursor-pointer transition-all flex items-center gap-1.5 mr-1",
+                conversation.only_admins_can_post
+                  ? "text-amber-400 bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30"
+                  : "text-muted-foreground hover:text-foreground hover:bg-secondary border border-transparent"
+              )}
+              title={
+                conversation.only_admins_can_post
+                  ? "Clique para liberar o chat para todos os membros"
+                  : "Clique para permitir envio de mensagens somente por administradores"
+              }
+            >
+              {togglingLock ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : conversation.only_admins_can_post ? (
+                <>
+                  <Lock className="h-3.5 w-3.5 text-amber-400" />
+                  <span className="hidden sm:inline">Somente Admins</span>
+                </>
+              ) : (
+                <>
+                  <Unlock className="h-3.5 w-3.5 text-muted-foreground" />
+                  <span className="hidden sm:inline">Chat Livre</span>
+                </>
+              )}
+            </Button>
+          )}
+
           <Button
             type="button"
             variant="ghost"
