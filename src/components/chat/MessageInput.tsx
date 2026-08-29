@@ -11,6 +11,7 @@ import {
   Loader2,
   Lock,
   ShieldCheck,
+  Sparkles,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -18,6 +19,12 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Progress } from "@/components/ui/progress";
 import type { ChatMessage, ParticipantRole } from "@/types/chat";
 import { cn } from "@/lib/utils";
@@ -142,8 +149,8 @@ export function MessageInput({
       timerRef.current = setInterval(() => {
         setRecordingSeconds((prev) => prev + 1);
       }, 1000);
-    } catch (err) {
-      console.warn("Could not access microphone", err);
+    } catch (err: any) {
+      alert("Não foi possível acessar o microfone.");
     }
   };
 
@@ -157,44 +164,55 @@ export function MessageInput({
 
   const cancelRecording = () => {
     if (mediaRecorderRef.current && isRecording) {
-      mediaRecorderRef.current.onstop = null; // Don't trigger send
-      mediaRecorderRef.current.stop();
+      mediaRecorderRef.current.stream.getTracks().forEach((track) => track.stop());
       setIsRecording(false);
       if (timerRef.current) clearInterval(timerRef.current);
     }
   };
 
-  // BLOCK NOTICE IF ONLY ADMINS CAN POST
+  const formatTimer = (sec: number) => {
+    const m = Math.floor(sec / 60);
+    const s = sec % 60;
+    return `${m}:${s < 10 ? "0" : ""}${s}`;
+  };
+
   if (isBlockedByAdminOnly) {
     return (
-      <div className="p-3.5 border-t border-border/80 bg-secondary/40 flex items-center justify-center gap-2 text-xs font-bold text-muted-foreground select-none backdrop-blur-sm">
-        <Lock className="h-4 w-4 text-amber-400 shrink-0" />
-        <span>Somente administradores podem enviar mensagens neste grupo.</span>
+      <div className="p-3 bg-secondary/30 border-t border-border/80">
+        <div className="flex items-center justify-center gap-2 p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-400 text-xs font-bold text-center">
+          <Lock className="h-4 w-4 shrink-0" />
+          <span>Somente administradores podem enviar mensagens neste grupo.</span>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="border-t border-border/80 bg-card p-2 sm:p-2.5 space-y-2 shrink-0">
-      {/* ADMIN PERMISSION NOTICE IF ONLY ADMINS POSTING ACTIVE */}
-      {onlyAdminsCanPost && userRole === "admin" && (
-        <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-500/10 border border-amber-500/30 text-[10px] font-bold text-amber-400">
-          <ShieldCheck className="h-3.5 w-3.5 shrink-0" />
-          <span>Modo Somente Admins ativo: Você é administrador e pode enviar mensagens.</span>
+    <div className="p-2.5 sm:p-3 bg-card/90 backdrop-blur-xl border-t border-border/80 space-y-2 shrink-0">
+      {/* UPLOAD PROGRESS */}
+      {uploadProgress !== null && (
+        <div className="space-y-1 px-1">
+          <div className="flex items-center justify-between text-[10px] text-muted-foreground font-mono">
+            <span className="flex items-center gap-1">
+              <Loader2 className="h-3 w-3 animate-spin text-primary" /> Enviando anexo...
+            </span>
+            <span>{uploadProgress}%</span>
+          </div>
+          <Progress value={uploadProgress} className="h-1 bg-secondary" />
         </div>
       )}
 
-      {/* REPLY BANNER */}
+      {/* REPLY PREVIEW BAR */}
       {replyingTo && (
-        <div className="flex items-center justify-between p-2 rounded-xl bg-secondary/70 border border-primary/40 text-xs animate-in slide-in-from-bottom-2 duration-150">
+        <div className="flex items-center justify-between p-2 rounded-xl bg-secondary/70 border border-primary/30 text-xs shadow-xs">
           <div className="flex items-center gap-2 min-w-0">
-            <span className="h-2 w-2 rounded-full bg-primary shrink-0" />
+            <div className="h-2 w-2 rounded-full bg-primary animate-pulse" />
             <div className="min-w-0">
-              <span className="font-bold text-primary block leading-tight">
-                Respondendo a {replyingTo.sender_name}
+              <span className="font-bold text-primary text-[11px] block">
+                Respondendo a {replyingTo.sender_name}:
               </span>
-              <p className="text-[11px] text-muted-foreground truncate leading-tight">
-                {replyingTo.content || replyingTo.attachment_name || "Anexo"}
+              <p className="text-[11px] text-muted-foreground truncate max-w-sm">
+                {replyingTo.attachment_name ? `📎 ${replyingTo.attachment_name}` : replyingTo.content}
               </p>
             </div>
           </div>
@@ -204,154 +222,170 @@ export function MessageInput({
             variant="ghost"
             size="icon"
             onClick={onCancelReply}
-            className="h-6 w-6 text-muted-foreground hover:text-foreground rounded-lg shrink-0 cursor-pointer"
+            className="h-6 w-6 text-muted-foreground hover:text-foreground rounded-lg cursor-pointer shrink-0"
           >
             <X className="h-3.5 w-3.5" />
           </Button>
         </div>
       )}
 
-      {/* UPLOAD PROGRESS BAR */}
-      {uploadProgress !== null && (
-        <div className="space-y-1 p-2 rounded-xl bg-secondary/40 border border-border text-xs">
-          <div className="flex items-center justify-between text-[10px] text-muted-foreground font-mono">
-            <span>Enviando anexo...</span>
-            <span>{uploadProgress}%</span>
-          </div>
-          <Progress value={uploadProgress} className="h-1.5" />
-        </div>
-      )}
+      {/* INPUT CONTAINER */}
+      <div className="flex items-end gap-2 relative">
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.txt,.zip"
+          onChange={handleFileSelected}
+          className="hidden"
+        />
 
-      {/* RECORDING BANNER */}
-      {isRecording ? (
-        <div className="flex items-center justify-between p-2 rounded-xl bg-rose-500/10 border border-rose-500/30 text-xs animate-pulse">
-          <div className="flex items-center gap-2 text-rose-400 font-bold font-mono">
-            <span className="h-2.5 w-2.5 rounded-full bg-rose-500 animate-ping" />
-            <span>Gravando áudio: {recordingSeconds}s</span>
-          </div>
+        {isRecording ? (
+          /* AUDIO RECORDING ACTIVE STATE */
+          <div className="flex-1 flex items-center justify-between p-2 rounded-2xl bg-rose-500/10 border border-rose-500/40 text-rose-400">
+            <div className="flex items-center gap-2">
+              <span className="h-3 w-3 rounded-full bg-rose-500 animate-ping" />
+              <span className="text-xs font-mono font-bold">Gravando áudio ({formatTimer(recordingSeconds)})</span>
+            </div>
 
-          <div className="flex items-center gap-1.5">
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={cancelRecording}
-              className="h-7 text-xs text-muted-foreground hover:text-foreground cursor-pointer"
-            >
-              Cancelar
-            </Button>
-            <Button
-              type="button"
-              size="sm"
-              onClick={stopRecording}
-              className="h-7 text-xs bg-rose-600 hover:bg-rose-700 text-white font-bold cursor-pointer"
-            >
-              <Square className="h-3 w-3 mr-1" /> Enviar Áudio
-            </Button>
-          </div>
-        </div>
-      ) : (
-        /* MAIN INPUT ROW */
-        <div className="flex items-end gap-1.5">
-          {/* ATTACHMENT MENU */}
-          <input
-            ref={fileInputRef}
-            type="file"
-            onChange={handleFileSelected}
-            className="hidden"
-            id="chat-file-uploader"
-          />
-
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            onClick={() => fileInputRef.current?.click()}
-            className="h-9 w-9 text-muted-foreground hover:text-foreground hover:bg-secondary rounded-xl shrink-0 cursor-pointer"
-            title="Anexar foto ou documento"
-            disabled={disabled || uploadProgress !== null}
-          >
-            <Paperclip className="h-4 w-4" />
-          </Button>
-
-          {/* EMOJI PICKER POPOVER */}
-          <Popover>
-            <PopoverTrigger asChild>
+            <div className="flex items-center gap-1.5">
               <Button
                 type="button"
                 variant="ghost"
-                size="icon"
-                className="h-9 w-9 text-muted-foreground hover:text-foreground hover:bg-secondary rounded-xl shrink-0 cursor-pointer"
-                title="Inserir emoji"
+                size="sm"
+                onClick={cancelRecording}
+                className="h-7 text-xs text-muted-foreground hover:text-foreground cursor-pointer"
               >
-                <Smile className="h-4 w-4" />
+                Cancelar
               </Button>
-            </PopoverTrigger>
-            <PopoverContent side="top" align="start" className="w-64 p-3 z-50 rounded-2xl shadow-xl">
-              <div className="space-y-2.5">
+              <Button
+                type="button"
+                size="sm"
+                onClick={stopRecording}
+                className="h-7 px-3 text-xs bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-lg cursor-pointer"
+              >
+                <Square className="h-3 w-3 mr-1 fill-current" /> Enviar Áudio
+              </Button>
+            </div>
+          </div>
+        ) : (
+          /* STANDARD INPUT BAR */
+          <>
+            {/* ATTACHMENT MENU */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="h-9 w-9 text-muted-foreground hover:text-foreground hover:bg-secondary rounded-xl shrink-0 cursor-pointer transition-colors"
+                  title="Anexar arquivo ou foto"
+                >
+                  <Paperclip className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" side="top" className="w-48 bg-card/95 backdrop-blur-xl border border-border rounded-xl shadow-xl">
+                <DropdownMenuItem
+                  onClick={() => {
+                    if (fileInputRef.current) {
+                      fileInputRef.current.accept = "image/*";
+                      fileInputRef.current.click();
+                    }
+                  }}
+                  className="cursor-pointer"
+                >
+                  <ImageIcon className="h-4 w-4 mr-2 text-primary" /> Foto / Imagem
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => {
+                    if (fileInputRef.current) {
+                      fileInputRef.current.accept = ".pdf,.doc,.docx,.xls,.xlsx,.txt,.zip";
+                      fileInputRef.current.click();
+                    }
+                  }}
+                  className="cursor-pointer"
+                >
+                  <FileText className="h-4 w-4 mr-2 text-emerald-400" /> Documento / Arquivo
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+
+            {/* EMOJI POPOVER */}
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="h-9 w-9 text-muted-foreground hover:text-foreground hover:bg-secondary rounded-xl shrink-0 cursor-pointer transition-colors"
+                  title="Emojis"
+                >
+                  <Smile className="h-4 w-4" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent side="top" align="start" className="w-72 p-3 bg-card/95 backdrop-blur-xl border border-border rounded-2xl shadow-2xl space-y-2.5">
                 {EMOJI_CATEGORIES.map((cat) => (
                   <div key={cat.label} className="space-y-1">
                     <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
                       {cat.label}
                     </span>
                     <div className="grid grid-cols-6 gap-1">
-                      {cat.emojis.map((em) => (
+                      {cat.emojis.map((emoji) => (
                         <button
-                          key={em}
+                          key={emoji}
                           type="button"
-                          onClick={() => handleAddEmoji(em)}
-                          className="h-7 w-7 text-base flex items-center justify-center rounded-lg hover:bg-secondary transition-transform hover:scale-120 cursor-pointer"
+                          onClick={() => handleAddEmoji(emoji)}
+                          className="h-8 rounded-lg hover:bg-secondary flex items-center justify-center text-lg hover:scale-125 transition-transform cursor-pointer"
                         >
-                          {em}
+                          {emoji}
                         </button>
                       ))}
                     </div>
                   </div>
                 ))}
-              </div>
-            </PopoverContent>
-          </Popover>
+              </PopoverContent>
+            </Popover>
 
-          {/* TEXTAREA */}
-          <div className="flex-1 relative min-w-0">
-            <textarea
-              ref={textareaRef}
-              rows={1}
-              placeholder="Digite uma mensagem..."
-              value={content}
-              onChange={handleChange}
-              onKeyDown={handleKeyDown}
-              className="w-full text-xs py-2 px-3 bg-secondary/40 border border-border/80 rounded-xl resize-none max-h-28 focus:outline-none focus:ring-1 focus:ring-primary text-foreground placeholder:text-muted-foreground leading-normal"
-              disabled={disabled}
-            />
-          </div>
+            {/* TEXTAREA WRAPPER */}
+            <div className="flex-1 min-w-0 relative flex items-center rounded-2xl bg-secondary/40 border border-border/80 focus-within:border-primary/50 focus-within:ring-2 focus-within:ring-primary/20 transition-all">
+              <textarea
+                ref={textareaRef}
+                value={content}
+                onChange={handleChange}
+                onKeyDown={handleKeyDown}
+                placeholder="Escreva uma mensagem..."
+                rows={1}
+                disabled={disabled}
+                className="w-full max-h-28 py-2.5 pl-3.5 pr-2 bg-transparent text-xs sm:text-[13px] text-foreground placeholder:text-muted-foreground/60 resize-none outline-none scrollbar-none leading-relaxed"
+              />
+            </div>
 
-          {/* MIC OR SEND BUTTON */}
-          {content.trim() ? (
-            <Button
-              type="button"
-              size="icon"
-              onClick={handleSend}
-              disabled={isSending || !content.trim()}
-              className="h-9 w-9 bg-primary text-primary-foreground hover:bg-primary/90 rounded-xl shadow-md shrink-0 cursor-pointer active:scale-95 transition-all"
-              title="Enviar mensagem"
-            >
-              {isSending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-            </Button>
-          ) : (
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              onClick={startRecording}
-              className="h-9 w-9 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-xl shrink-0 cursor-pointer"
-              title="Gravar áudio"
-            >
-              <Mic className="h-4 w-4" />
-            </Button>
-          )}
-        </div>
-      )}
+            {/* VOICE MIC OR SEND BUTTON */}
+            {content.trim() ? (
+              <Button
+                type="button"
+                size="icon"
+                onClick={handleSend}
+                disabled={isSending}
+                className="h-9 w-9 bg-primary hover:bg-primary/90 text-primary-foreground rounded-xl shadow-md shadow-primary/20 shrink-0 cursor-pointer transition-transform active:scale-95"
+                title="Enviar mensagem"
+              >
+                {isSending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+              </Button>
+            ) : (
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                onClick={startRecording}
+                className="h-9 w-9 text-muted-foreground hover:text-foreground hover:bg-secondary rounded-xl shrink-0 cursor-pointer transition-colors"
+                title="Gravar mensagem de voz"
+              >
+                <Mic className="h-4 w-4" />
+              </Button>
+            )}
+          </>
+        )}
+      </div>
     </div>
   );
 }

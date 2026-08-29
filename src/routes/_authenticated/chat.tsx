@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { createFileRoute } from "@tanstack/react-router";
-import { MessageSquare, Users, Plus, Shield, Sparkles, MessageCircle, ArrowRight } from "lucide-react";
+import { MessageSquare, Users, Plus, Shield, Sparkles, MessageCircle, ArrowRight, Radio } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useRolePermissions } from "@/hooks/useData";
 import { useConversations } from "@/hooks/useChat";
@@ -69,20 +69,12 @@ function ChatPage() {
   };
 
   return (
-    <div className="space-y-3 max-w-7xl mx-auto h-[calc(100dvh-5.5rem)] flex flex-col min-h-[500px]">
-      {/* HEADER */}
-      <div className="hidden sm:block shrink-0">
-        <PageHeader
-          title="Chat"
-          description="Comunicação em tempo real, grupos, canais diretos e compartilhamento de arquivos."
-        />
-      </div>
-
+    <div className="space-y-2.5 max-w-7xl mx-auto h-[calc(100dvh-5.5rem)] flex flex-col min-h-[500px]">
       {/* MAIN CHAT CONTAINER (DESKTOP: SIDEBAR + CHAT WINDOW | MOBILE: FULLSCREEN FLUID) */}
-      <Card className="flex-1 flex overflow-hidden border border-border/70 bg-card/95 backdrop-blur-xl shadow-2xl rounded-2xl relative">
+      <Card className="flex-1 flex overflow-hidden border border-border/80 bg-card/95 backdrop-blur-2xl shadow-2xl rounded-2xl relative ring-1 ring-white/5">
         {/* LEFT SIDEBAR: CONVERSATION LIST */}
         <div
-          className={`w-full md:w-80 lg:w-96 border-r border-border/70 flex flex-col h-full bg-card shrink-0 ${
+          className={`w-full md:w-80 lg:w-[22rem] border-r border-border/80 flex flex-col h-full bg-card/90 backdrop-blur-md shrink-0 transition-all ${
             activeConversation ? "hidden md:flex" : "flex"
           }`}
         >
@@ -101,9 +93,9 @@ function ChatPage() {
           />
         </div>
 
-        {/* RIGHT AREA: ACTIVE CHAT WINDOW OR EMPTY STATE */}
+        {/* RIGHT AREA: ACTIVE CHAT WINDOW OR LUXURY EMPTY STATE */}
         <div
-          className={`flex-1 flex flex-col h-full bg-card overflow-hidden ${
+          className={`flex-1 flex flex-col h-full bg-card/60 overflow-hidden relative ${
             !activeConversation ? "hidden md:flex" : "flex"
           }`}
         >
@@ -120,35 +112,54 @@ function ChatPage() {
               onStartPrivateChat={handleStartPrivateChat}
             />
           ) : (
-            <div className="flex flex-col items-center justify-center h-full p-8 text-center text-muted-foreground space-y-4 select-none relative overflow-hidden bg-radial from-primary/5 via-transparent to-transparent">
+            <div className="flex flex-col items-center justify-center h-full p-8 text-center text-muted-foreground space-y-5 select-none relative overflow-hidden bg-gradient-to-b from-primary/5 via-card/50 to-background/80">
+              {/* Glowing decorative background aura */}
+              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-primary/10 rounded-full blur-3xl pointer-events-none" />
+
               <div className="relative">
-                <div className="h-20 w-20 rounded-3xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary shadow-xl ring-8 ring-primary/5">
-                  <MessageSquare className="h-10 w-10" />
+                <div className="h-24 w-24 rounded-3xl bg-gradient-to-br from-primary/20 via-primary/10 to-transparent border border-primary/30 flex items-center justify-center text-primary shadow-2xl ring-8 ring-primary/5 backdrop-blur-md">
+                  <MessageSquare className="h-12 w-12 drop-shadow-md" />
                 </div>
-                <span className="absolute -top-1 -right-1 flex h-4 w-4">
+                <span className="absolute -top-1 -right-1 flex h-5 w-5">
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-                  <span className="relative inline-flex rounded-full h-4 w-4 bg-emerald-500 border-2 border-card" />
+                  <span className="relative inline-flex rounded-full h-5 w-5 bg-emerald-500 border-2 border-card shadow-sm" />
                 </span>
               </div>
 
-              <div className="space-y-1.5 max-w-md">
-                <h3 className="text-lg font-extrabold text-foreground tracking-tight">
-                  Central de Mensagens & Chat
-                </h3>
+              <div className="space-y-2 max-w-md z-10">
+                <div className="flex items-center justify-center gap-2">
+                  <Sparkles className="h-4 w-4 text-primary animate-pulse" />
+                  <h3 className="text-xl font-extrabold text-foreground tracking-tight">
+                    Central de Comunicação & Chat
+                  </h3>
+                </div>
                 <p className="text-xs text-muted-foreground leading-relaxed">
-                  Selecione uma conversa na lista ao lado para interagir em tempo real, enviar imagens, áudios, anexos ou iniciar um novo grupo.
+                  Converse em tempo real com membros e canais da organização. Envie imagens, documentos, áudios e interaja instantaneamente.
                 </p>
               </div>
 
-              {canCreateGroup && (
-                <Button
-                  type="button"
-                  onClick={() => setCreateGroupOpen(true)}
-                  className="bg-primary text-primary-foreground hover:bg-primary/90 font-bold text-xs rounded-xl shadow-lg px-4 py-2 cursor-pointer transition-all active:scale-95"
-                >
-                  <Plus className="h-4 w-4 mr-1.5" /> Criar Novo Grupo
-                </Button>
-              )}
+              <div className="flex items-center gap-2 z-10 pt-1">
+                {canCreateGroup && (
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={() => setCreateGroupOpen(true)}
+                    className="h-9 px-4 text-xs font-bold bg-primary hover:bg-primary/90 text-primary-foreground rounded-xl shadow-lg shadow-primary/20 cursor-pointer"
+                  >
+                    <Plus className="h-4 w-4 mr-1.5" /> Criar Novo Grupo
+                  </Button>
+                )}
+              </div>
+
+              <div className="flex items-center gap-4 text-[11px] text-muted-foreground/70 font-mono z-10 pt-4 border-t border-border/40">
+                <span className="flex items-center gap-1">
+                  <span className="h-2 w-2 rounded-full bg-emerald-400 inline-block" /> Criptografia ativa
+                </span>
+                <span>•</span>
+                <span className="flex items-center gap-1">
+                  <Radio className="h-3 w-3 text-primary animate-pulse inline-block" /> Realtime 0ms
+                </span>
+              </div>
             </div>
           )}
         </div>
@@ -158,8 +169,8 @@ function ChatPage() {
       <CreateGroupDialog
         open={createGroupOpen}
         onOpenChange={setCreateGroupOpen}
-        onGroupCreated={(newGroup) => {
-          setActiveConversation(newGroup);
+        onGroupCreated={(newConv) => {
+          setActiveConversation(newConv);
           void refetchConversations();
         }}
       />
