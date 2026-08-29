@@ -56,8 +56,8 @@ function ChatPage() {
     <div className="space-y-4 max-w-7xl mx-auto h-[calc(100vh-8.5rem)] flex flex-col min-h-[550px]">
       <div className="hidden sm:block shrink-0">
         <PageHeader
-          title="Chat da Facção & Comunicações"
-          description="Mensagens em tempo real, grupos táticos, arquivos e canais de comando."
+          title="Chat do Grupo & Mensagens"
+          description="Mensagens em tempo real, grupos, arquivos e canais de comunicação."
         />
       </div>
 
@@ -104,7 +104,7 @@ function ChatPage() {
               <div className="space-y-1">
                 <h3 className="text-base font-bold text-foreground">Suas Mensagens em Tempo Real</h3>
                 <p className="text-xs max-w-sm">
-                  Selecione uma conversa ao lado ou inicie um novo grupo com os membros da facção.
+                  Selecione uma conversa ao lado ou inicie um novo grupo com os membros.
                 </p>
               </div>
 

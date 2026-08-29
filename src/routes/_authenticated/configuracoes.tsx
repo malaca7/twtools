@@ -105,7 +105,7 @@ const DEFAULT_ITEMS: MenuItemConfig[] = [
   { id: "dashboard", title: "Dashboard", url: "/dashboard", visible: true, category: "Operação", order: 0 },
   { id: "movimentacoes", title: "Movimentações", url: "/movimentacoes", visible: true, category: "Operação", order: 1 },
   { id: "vendas", title: "Vendas", url: "/vendas", visible: true, category: "Operação", order: 2 },
-  { id: "chat", title: "Chat da Facção", url: "/chat", visible: true, category: "Operação", order: 3 },
+  { id: "chat", title: "Chat do Grupo", url: "/chat", visible: true, category: "Operação", order: 3 },
   { id: "estoque", title: "Controle de Estoque", url: "/estoque", visible: true, category: "Gestão", order: 4 },
   { id: "membros", title: "Membros", url: "/membros", visible: true, category: "Gestão", order: 5 },
   { id: "hierarquia", title: "Hierarquia", url: "/hierarquia", visible: true, category: "Gestão", order: 6 },

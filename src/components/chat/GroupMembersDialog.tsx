@@ -198,7 +198,7 @@ export function GroupMembersDialog({
               <div className="flex-1 overflow-y-auto max-h-52 rounded-lg border border-border/60 divide-y divide-border/30 p-1 space-y-0.5">
                 {availableToAdd.length === 0 ? (
                   <div className="p-4 text-center text-xs text-muted-foreground">
-                    Todos os membros da facção já estão no grupo.
+                    Todos os membros já estão no grupo.
                   </div>
                 ) : (
                   availableToAdd.map((m) => {

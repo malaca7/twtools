@@ -519,7 +519,7 @@ export function GroupSettingsDrawer({
               <UserPlus className="h-5 w-5 text-primary" /> Adicionar Participantes
             </DialogTitle>
             <DialogDescription className="text-xs">
-              Selecione os membros da facção que deseja adicionar a este grupo.
+              Selecione os membros que deseja adicionar a este grupo.
             </DialogDescription>
           </DialogHeader>
 
