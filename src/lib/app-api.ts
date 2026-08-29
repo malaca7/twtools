@@ -275,6 +275,30 @@ export async function deleteBau(id: string): Promise<void> {
   void logAuditAction("delete_bau", "baus", { id, nome: oldBau?.nome }, undefined, id);
 }
 
+export interface ProductBauStock {
+  product_id: string;
+  bau_id: string;
+  quantidade: number;
+}
+
+export async function getProductBaus(): Promise<ProductBauStock[]> {
+  try {
+    const { data, error } = await (supabase.from("product_baus" as any))
+      .select("product_id, bau_id, quantidade");
+    if (error) {
+      console.warn("Could not load product_baus directly:", error);
+      return [];
+    }
+    return (data || []).map((d: any) => ({
+      product_id: String(d.product_id),
+      bau_id: String(d.bau_id),
+      quantidade: Number(d.quantidade || 0),
+    }));
+  } catch {
+    return [];
+  }
+}
+
 export async function getProducts(): Promise<Product[]> {
   const { data, error } = await supabase
     .from("products")

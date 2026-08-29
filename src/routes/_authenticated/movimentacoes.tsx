@@ -42,6 +42,7 @@ import {
   useMovements,
   useProducts,
   useBaus,
+  useProductBaus,
   useCategories,
   useMembers,
   nameOf,
@@ -60,6 +61,8 @@ type BatchItem = {
   quantity: number;
 };
 
+const PRODUCTS_PER_PAGE = 18;
+
 function MovimentacoesPage() {
   const { hasPermission } = useAuth();
   const queryClient = useQueryClient();
@@ -75,6 +78,7 @@ function MovimentacoesPage() {
   const { data: movements = [], isLoading: loadingMovements } = useMovements();
   const { data: products = [] } = useProducts();
   const { data: baus = [] } = useBaus();
+  const { data: productBaus = [] } = useProductBaus();
   const { data: categories = [] } = useCategories();
   const { data: members = [] } = useMembers();
 
@@ -127,10 +131,16 @@ function MovimentacoesPage() {
 
     const prod = products.find((p) => p.id === productId);
     const globalStock = prod ? Number(prod.estoque_atual || 0) : 0;
-    if (globalStock <= 0) return 0;
 
     if (baus.length <= 1) {
       return globalStock;
+    }
+
+    const chestEntry = productBaus.find(
+      (pb) => pb.product_id === productId && pb.bau_id === bauId
+    );
+    if (chestEntry !== undefined) {
+      return Math.max(0, Number(chestEntry.quantidade || 0));
     }
 
     const defaultBauId = baus[0]?.id;
@@ -419,6 +429,7 @@ function MovimentacoesPage() {
       toast.success(msg);
       void queryClient.invalidateQueries({ queryKey: ["movements"] });
       void queryClient.invalidateQueries({ queryKey: ["products"] });
+      void queryClient.invalidateQueries({ queryKey: ["product_baus"] });
       void queryClient.invalidateQueries({ queryKey: ["audit_logs"] });
       setQueue([]);
       setSelectedProductId("");
@@ -439,6 +450,7 @@ function MovimentacoesPage() {
       toast.success("Movimentação estornada com sucesso.");
       void queryClient.invalidateQueries({ queryKey: ["movements"] });
       void queryClient.invalidateQueries({ queryKey: ["products"] });
+      void queryClient.invalidateQueries({ queryKey: ["product_baus"] });
     },
     onError: (err) => toast.error(errorMessage(err)),
   });

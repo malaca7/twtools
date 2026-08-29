@@ -42,6 +42,16 @@ export function useBaus() {
   });
 }
 
+export function useProductBaus() {
+  return useQuery({
+    queryKey: ["product_baus"],
+    queryFn: async () => {
+      const { getProductBaus } = await import("@/lib/app-api");
+      return getProductBaus();
+    },
+  });
+}
+
 export function useProducts() {
   return useQuery({
     queryKey: ["products"],

@@ -18,11 +18,13 @@ export function useRealtimeSync() {
         (payload) => {
           const table = payload.table;
 
-          if (table === "products") {
+          if (table === "products" || table === "product_baus") {
             void queryClient.invalidateQueries({ queryKey: ["products"] });
+            void queryClient.invalidateQueries({ queryKey: ["product_baus"] });
             void queryClient.invalidateQueries({ queryKey: ["movements"] });
           } else if (table === "stock_movements" || table === "sales") {
             void queryClient.invalidateQueries({ queryKey: ["movements"] });
+            void queryClient.invalidateQueries({ queryKey: ["product_baus"] });
             void queryClient.invalidateQueries({ queryKey: ["sales"] });
             void queryClient.invalidateQueries({ queryKey: ["products"] });
             void queryClient.invalidateQueries({ queryKey: ["audit_logs"] });
@@ -42,8 +44,10 @@ export function useRealtimeSync() {
           } else if (table === "categories") {
             void queryClient.invalidateQueries({ queryKey: ["categories"] });
             void queryClient.invalidateQueries({ queryKey: ["products"] });
+            void queryClient.invalidateQueries({ queryKey: ["product_baus"] });
           } else if (table === "baus") {
             void queryClient.invalidateQueries({ queryKey: ["baus"] });
+            void queryClient.invalidateQueries({ queryKey: ["product_baus"] });
             void queryClient.invalidateQueries({ queryKey: ["products"] });
           } else if (table === "profiles" || table === "user_roles") {
             void queryClient.invalidateQueries({ queryKey: ["members"] });

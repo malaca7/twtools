@@ -59,7 +59,7 @@ import { PageHeader, NoAccess, EmptyState, ProductThumbnail } from "@/components
 import { MovementDialog } from "@/components/operations/MovementDialog";
 import { BauManagerModal } from "@/components/operations/BauManagerModal";
 import { useAuth } from "@/hooks/useAuth";
-import { useCategories, useProducts, useBaus, useMovements } from "@/hooks/useData";
+import { useCategories, useProducts, useBaus, useMovements, useProductBaus } from "@/hooks/useData";
 import {
   createProduct,
   updateProduct,
@@ -100,6 +100,7 @@ function EstoquePage() {
   const { data: categories = [], isLoading: loadingCategories } = useCategories();
   const { data: baus = [], isLoading: loadingBaus } = useBaus();
   const { data: movements = [] } = useMovements();
+  const { data: productBaus = [] } = useProductBaus();
 
   // Product Modal State
   const [productModalOpen, setProductModalOpen] = useState(false);
@@ -148,7 +149,13 @@ function EstoquePage() {
     const prod = products.find((p) => p.id === productId);
     const globalStock = prod ? Number(prod.estoque_atual || 0) : 0;
     if (bauId === "all" || baus.length <= 1) return Math.max(0, globalStock);
-    if (globalStock <= 0) return 0;
+
+    const chestEntry = productBaus.find(
+      (pb) => pb.product_id === productId && pb.bau_id === bauId
+    );
+    if (chestEntry !== undefined) {
+      return Math.max(0, Number(chestEntry.quantidade || 0));
+    }
 
     const defaultBauId = baus[0]?.id;
     const relevantMovements = movements.filter((m) => {
