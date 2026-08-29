@@ -29,13 +29,12 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { PageHeader, NoAccess, TableSkeleton, EmptyState, ProductThumbnail } from "@/components/ui-kit";
 import { useAuth } from "@/hooks/useAuth";
 import {
@@ -462,6 +461,21 @@ function MovimentacoesPage() {
     const uName = nameOf(members, m.user_id).toLowerCase();
     return pName.includes(q) || uName.includes(q);
   });
+
+  // Paginação do Histórico de Lançamentos
+  const [logPage, setLogPage] = useState(1);
+  const [logsPerPage, setLogsPerPage] = useState<number>(20);
+
+  useEffect(() => {
+    setLogPage(1);
+  }, [logSearch, logsPerPage]);
+
+  const totalLogPages = Math.ceil(filteredLogs.length / logsPerPage) || 1;
+  const safeLogPage = Math.min(Math.max(1, logPage), totalLogPages);
+  const paginatedLogs = filteredLogs.slice(
+    (safeLogPage - 1) * logsPerPage,
+    safeLogPage * logsPerPage
+  );
 
   return (
     <div className="mx-auto max-w-6xl space-y-6">
@@ -1163,22 +1177,22 @@ function MovimentacoesPage() {
       {/* TABELA DE HISTÓRICO DE MOVIMENTAÇÕES (Controlado pela permissão Ver Histórico de Lançamentos) */}
       {canView ? (
         <Card className="surface-card border-border/80">
-          <CardContent className="p-6 space-y-4">
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <CardContent className="p-4 sm:p-6 space-y-4">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4">
               <div>
-                <h2 className="text-lg font-bold tracking-tight">Histórico de Lançamentos</h2>
+                <h2 className="text-base sm:text-lg font-bold tracking-tight text-foreground">Histórico de Lançamentos</h2>
                 <p className="text-xs text-muted-foreground">
-                  Últimas movimentações registradas por membros do grupo.
+                  Últimas movimentações registradas no estoque.
                 </p>
               </div>
 
-              <div className="relative w-full sm:w-64">
+              <div className="relative w-full sm:w-72">
                 <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
                   placeholder="Buscar por produto ou membro..."
                   value={logSearch}
                   onChange={(e) => setLogSearch(e.target.value)}
-                  className="pl-9 h-9 text-xs rounded-xl"
+                  className="pl-9 h-9 text-xs rounded-xl bg-secondary/30"
                 />
               </div>
             </div>
@@ -1191,192 +1205,158 @@ function MovimentacoesPage() {
                 description="Ainda não existem registros de movimentação no estoque para este filtro."
               />
             ) : (
-              <>
-                {/* MOBILE CARD VIEW (Visão em cards para celulares — sem rolagem lateral) */}
-                <div className="space-y-3 md:hidden">
-                    {filteredLogs.map((m) => {
-                      const isEntrada = m.type === "entrada";
-                      const isReversed = !!m.reversal_of || reversedIds.has(m.id);
-                      const prodObj = products.find((p) => p.id === m.product_id);
-                      const pName = prodObj?.nome || productName(products, m.product_id);
-                      const uName = nameOf(members, m.user_id);
-                      const bauName = baus.find((b) => b.id === m.bau_id)?.nome || "Baú Caixote";
+              <div className="space-y-3">
+                {/* LISTA RESPONSIVA EM CARDS MODERNOS (Sem barra de rolagem lateral) */}
+                <div className="space-y-2.5">
+                  {paginatedLogs.map((m) => {
+                    const isEntrada = m.type === "entrada";
+                    const isReversed = !!m.reversal_of || reversedIds.has(m.id);
+                    const prodObj = products.find((p) => p.id === m.product_id);
+                    const pName = prodObj?.nome || productName(products, m.product_id);
+                    const uName = nameOf(members, m.user_id);
+                    const bauName = baus.find((b) => b.id === m.bau_id)?.nome || "Baú Caixote";
 
-                      return (
-                        <div
-                          key={m.id}
-                          className={cn(
-                            "p-3.5 rounded-xl border bg-card shadow-sm space-y-2.5",
-                            isReversed ? "opacity-50 bg-secondary/20 border-border/50" : "border-border/80"
-                          )}
-                        >
-                          <div className="flex items-center justify-between gap-2 border-b border-border/50 pb-2">
-                            <Badge
-                              variant="outline"
-                              className={cn(
-                                "text-[10px] font-extrabold",
-                                isEntrada ? "border-emerald-500/40 text-emerald-400 bg-emerald-500/10" : "border-rose-500/40 text-rose-400 bg-rose-500/10"
-                              )}
-                            >
-                              {isEntrada ? "🟢 ENTRADA (+)" : "🔻 SAÍDA (-)"}
-                            </Badge>
-                            <span className="text-[0.65rem] font-mono text-muted-foreground">{dateTime(m.created_at)}</span>
-                          </div>
-
-                          <div className="flex items-center justify-between gap-2">
-                            <div className="flex items-center gap-2.5 min-w-0">
-                              <ProductThumbnail src={prodObj?.imagem_url} name={pName} size="xs" />
-                              <div className="min-w-0">
-                                <h5 className="font-bold text-xs text-foreground truncate">{pName}</h5>
-                                <div className="flex items-center gap-1.5 mt-0.5">
-                                  {canViewBaus && (
-                                    <Badge variant="outline" className="text-[9px] border-primary/30 text-primary px-1.5 py-0">
-                                      📦 {bauName}
-                                    </Badge>
-                                  )}
-                                  <span className="text-[0.65rem] text-muted-foreground">• {uName}</span>
-                                </div>
-                              </div>
-                            </div>
-
-                            <span className={cn("font-mono font-black text-sm", isEntrada ? "text-emerald-400" : "text-rose-400")}>
-                              {isEntrada ? "+" : "-"}{num(m.quantity)}
-                            </span>
-                          </div>
-
-                          {m.reason ? (
-                            <p className="text-[0.7rem] text-muted-foreground pt-1 border-t border-border/40">
-                              {m.reason}
-                            </p>
-                          ) : null}
-
-                          {canViewBalances && (m.previous_balance !== undefined) && (
-                            <p className="text-[0.65rem] text-muted-foreground font-mono pt-1 border-t border-border/40">
-                              Saldo: {num(m.previous_balance)} → <span className="font-bold text-foreground">{num(m.resulting_balance)}</span>
-                            </p>
-                          )}
-
-                          {canReverse && !isReversed ? (
-                            <div className="pt-2 border-t border-border/40 text-right">
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                className="h-7 text-xs text-amber-400 border-amber-500/40"
-                                onClick={() => reverseMutation.mutate(m.id)}
-                                disabled={reverseMutation.isPending}
-                              >
-                                <RotateCcw className="h-3.5 w-3.5 mr-1" /> Estornar Lançamento
-                              </Button>
-                            </div>
-                          ) : null}
-                        </div>
-                      );
-                    })}
-                  </div>
-
-                  {/* DESKTOP TABLE VIEW */}
-                  <div className="hidden md:block w-full overflow-x-auto rounded-xl border border-border/60">
-                    <Table>
-                      <TableHeader className="bg-secondary/40">
-                        <TableRow>
-                          <TableHead className="text-xs font-bold">Data & Hora</TableHead>
-                          <TableHead className="text-xs font-bold">Produto</TableHead>
-                          {canViewBaus && <TableHead className="text-xs font-bold">Baú</TableHead>}
-                          <TableHead className="text-xs font-bold">Operador</TableHead>
-                          <TableHead className="text-xs font-bold">Tipo</TableHead>
-                          <TableHead className="text-xs font-bold text-right">Qtd.</TableHead>
-                          {canViewBalances && <TableHead className="text-xs font-bold text-right">Saldo (Ant. → Final)</TableHead>}
-                          <TableHead className="text-xs font-bold">Motivo / Obs</TableHead>
-                          {canReverse && <TableHead className="text-xs font-bold text-right">Ação</TableHead>}
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {filteredLogs.map((m) => {
-                          const isEntrada = m.type === "entrada";
-                          const isReversed = !!m.reversal_of || reversedIds.has(m.id);
-                          const prodObj = products.find((p) => p.id === m.product_id);
-                          const pName = prodObj?.nome || productName(products, m.product_id);
-                          const uName = nameOf(members, m.user_id);
-                          const bauName = baus.find((b) => b.id === m.bau_id)?.nome || "Baú Caixote";
-
-                          return (
-                            <TableRow key={m.id} className={cn(isReversed && "opacity-50 bg-secondary/20")}>
-                              <TableCell className="text-xs font-mono whitespace-nowrap">
-                                {dateTime(m.created_at)}
-                              </TableCell>
-
-                              <TableCell className="text-xs">
-                                <div className="flex items-center gap-2">
-                                  <ProductThumbnail src={prodObj?.imagem_url} name={pName} size="xs" />
-                                  <span className="font-bold text-xs text-foreground">{pName}</span>
-                                </div>
-                              </TableCell>
-
-                            {canViewBaus && (
-                              <TableCell className="text-xs">
-                                <Badge variant="outline" className="text-[10px] border-primary/30 text-primary">
-                                  📦 {bauName}
-                                </Badge>
-                              </TableCell>
-                            )}
-
-                            <TableCell className="text-xs text-muted-foreground">{uName}</TableCell>
-
-                            <TableCell className="text-xs">
+                    return (
+                      <div
+                        key={m.id}
+                        className={cn(
+                          "flex flex-col md:flex-row items-start md:items-center justify-between p-3 sm:p-3.5 rounded-xl border bg-card/80 hover:bg-secondary/30 transition-all gap-3 shadow-xs",
+                          isReversed ? "opacity-50 bg-secondary/10 border-border/40" : "border-border/70"
+                        )}
+                      >
+                        {/* Esquerda: Produto, Baú, Operador e Data */}
+                        <div className="flex items-center gap-3 min-w-0 flex-1">
+                          <ProductThumbnail src={prodObj?.imagem_url} name={pName} size="sm" />
+                          <div className="min-w-0 space-y-0.5">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="font-extrabold text-xs sm:text-sm text-foreground truncate max-w-[200px] sm:max-w-xs">
+                                {pName}
+                              </span>
                               <Badge
                                 variant="outline"
                                 className={cn(
-                                  "text-[10px] font-bold",
+                                  "text-[10px] font-bold px-1.5 py-0 shrink-0",
                                   isEntrada
-                                    ? "border-emerald-500/40 text-emerald-500 bg-emerald-500/10"
-                                    : "border-rose-500/40 text-rose-500 bg-rose-500/10"
+                                    ? "border-emerald-500/40 text-emerald-400 bg-emerald-500/10"
+                                    : "border-rose-500/40 text-rose-400 bg-rose-500/10"
                                 )}
                               >
                                 {isEntrada ? "+ Entrada" : "- Saída"}
                               </Badge>
-                            </TableCell>
-
-                            <TableCell
-                              className={cn(
-                                "text-xs font-bold font-mono text-right",
-                                isEntrada ? "text-emerald-400" : "text-rose-400"
+                              {canViewBaus && (
+                                <Badge variant="outline" className="text-[10px] border-primary/30 text-primary px-1.5 py-0 shrink-0">
+                                  📦 {bauName}
+                                </Badge>
                               )}
-                            >
+                            </div>
+
+                            <div className="flex items-center gap-2 text-[11px] text-muted-foreground font-mono flex-wrap">
+                              <span>🕒 {dateTime(m.created_at)}</span>
+                              <span>•</span>
+                              <span>👤 {uName}</span>
+                              {m.reason && (
+                                <>
+                                  <span>•</span>
+                                  <span className="truncate max-w-[180px] sm:max-w-md text-foreground/70" title={m.reason}>
+                                    💬 {m.reason}
+                                  </span>
+                                </>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Direita: Quantidade, Saldo e Ação de Estorno */}
+                        <div className="flex items-center justify-between md:justify-end gap-3 sm:gap-4 w-full md:w-auto pt-2 md:pt-0 border-t md:border-t-0 border-border/40 shrink-0">
+                          <div className="text-left md:text-right space-y-0.5">
+                            <div className={cn("font-mono font-black text-sm sm:text-base leading-tight", isEntrada ? "text-emerald-400" : "text-rose-400")}>
                               {isEntrada ? "+" : "-"}{num(m.quantity)}
-                            </TableCell>
-
-                            {canViewBalances && (
-                              <TableCell className="text-xs font-mono text-right text-muted-foreground whitespace-nowrap">
-                                {num(m.previous_balance)} → <span className="font-bold text-foreground">{num(m.resulting_balance)}</span>
-                              </TableCell>
+                            </div>
+                            {canViewBalances && (m.previous_balance !== undefined) && (
+                              <div className="text-[10px] font-mono text-muted-foreground">
+                                Saldo: {num(m.previous_balance)} → <span className="font-bold text-foreground">{num(m.resulting_balance)}</span>
+                              </div>
                             )}
+                          </div>
 
-                            <TableCell className="text-xs text-muted-foreground max-w-xs truncate">
-                              {m.reason || "—"}
-                            </TableCell>
-
-                            {canReverse && (
-                              <TableCell className="text-xs text-right">
-                                {!isReversed && (
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    className="h-7 text-amber-400 hover:bg-amber-500/10 hover:text-amber-300"
-                                    onClick={() => reverseMutation.mutate(m.id)}
-                                    disabled={reverseMutation.isPending}
-                                  >
-                                    <RotateCcw className="h-3.5 w-3.5 mr-1" /> Estornar
-                                  </Button>
-                                )}
-                              </TableCell>
-                            )}
-                          </TableRow>
-                        );
-                      })}
-                    </TableBody>
-                  </Table>
+                          {canReverse && (
+                            <div className="shrink-0">
+                              {!isReversed ? (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-7 px-2 text-xs text-amber-400 hover:bg-amber-500/10 hover:text-amber-300 rounded-lg cursor-pointer"
+                                  onClick={() => reverseMutation.mutate(m.id)}
+                                  disabled={reverseMutation.isPending}
+                                  title="Estornar lançamento"
+                                >
+                                  <RotateCcw className="h-3.5 w-3.5 mr-1" /> Estornar
+                                </Button>
+                              ) : (
+                                <Badge variant="outline" className="text-[9px] border-border text-muted-foreground">
+                                  Estornado
+                                </Badge>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
-              </>
+
+                {/* CONTROLES DE PAGINAÇÃO */}
+                {totalLogPages > 1 || filteredLogs.length > 10 ? (
+                  <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-3 border-t border-border/60">
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground flex-wrap">
+                      <span>Exibir por página:</span>
+                      <Select
+                        value={String(logsPerPage)}
+                        onValueChange={(val) => setLogsPerPage(Number(val))}
+                      >
+                        <SelectTrigger className="h-8 w-28 text-xs rounded-lg bg-secondary/30">
+                          <SelectValue placeholder="20" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="10">10 por pág.</SelectItem>
+                          <SelectItem value="20">20 (padrão)</SelectItem>
+                          <SelectItem value="50">50 por pág.</SelectItem>
+                          <SelectItem value="100">100 por pág.</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <span className="text-[11px] font-mono">
+                        ({(safeLogPage - 1) * logsPerPage + 1} - {Math.min(safeLogPage * logsPerPage, filteredLogs.length)} de {filteredLogs.length})
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-1.5">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setLogPage((p) => Math.max(1, p - 1))}
+                        disabled={safeLogPage <= 1}
+                        className="h-8 px-2 text-xs rounded-lg cursor-pointer"
+                      >
+                        <ChevronLeft className="h-4 w-4 mr-1" /> Anterior
+                      </Button>
+
+                      <span className="text-xs font-mono font-bold px-2 text-foreground">
+                        Pág. {safeLogPage} de {totalLogPages}
+                      </span>
+
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setLogPage((p) => Math.min(totalLogPages, p + 1))}
+                        disabled={safeLogPage >= totalLogPages}
+                        className="h-8 px-2 text-xs rounded-lg cursor-pointer"
+                      >
+                        Próxima <ChevronRight className="h-4 w-4 ml-1" />
+                      </Button>
+                    </div>
+                  </div>
+                ) : null}
+              </div>
             )}
           </CardContent>
         </Card>
