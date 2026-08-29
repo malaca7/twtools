@@ -308,6 +308,12 @@ const PAGE_CARDS: PageCardConfig[] = [
         description: "Permite visualizar valores acumulados de vendas e contribuições por membro.",
       },
       {
+        key: "approve_requests",
+        label: "Aprovar / Recusar Solicitações de Novos Membros",
+        description: "Permite aprovar novos cadastros de jogadores que entraram pelo Discord, ativando-os como Novatos, ou rejeitar solicitações.",
+        badge: "Aprovação de Cadastros",
+      },
+      {
         key: "promote_members",
         label: "Promover / Alterar Cargo de Membros",
         description: "Permite promover ou rebaixar o cargo hierárquico de membros inferiores.",

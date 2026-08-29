@@ -77,7 +77,7 @@ function MembrosPage() {
     hasPermission("manage_roles");
 
   const { data: members = [], isLoading: membersLoading } = useMembers();
-  const { data: pending = [], isLoading: pendingLoading } = usePendingSignupRequests(canView);
+  const { data: pending = [], isLoading: pendingLoading } = usePendingSignupRequests(canApprove);
 
   // Search filter
   const [search, setSearch] = useState("");
