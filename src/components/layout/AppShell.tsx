@@ -33,6 +33,7 @@ import {
   Menu,
   Terminal,
   ArrowLeft,
+  MessageSquare,
 } from "lucide-react";
 import { isUserDeveloper } from "@/services/devService";
 import {
