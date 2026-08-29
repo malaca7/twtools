@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import {
   Users,
   Shield,
@@ -81,6 +81,14 @@ export function GroupSettingsDrawer({
   const [savingSettings, setSavingSettings] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
 
+  // Sync state whenever conversation updates
+  useEffect(() => {
+    setTitle(conversation.title || "");
+    setDescription(conversation.description || "");
+    setAvatarUrl(conversation.avatar_url || "");
+    setOnlyAdmins(Boolean(conversation.only_admins_can_post));
+  }, [conversation]);
+
   // Add members modal state
   const [addMembersOpen, setAddMembersOpen] = useState(false);
   const [memberSearch, setMemberSearch] = useState("");
@@ -89,10 +97,10 @@ export function GroupSettingsDrawer({
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Check roles
-  const myParticipant = conversation.participants.find((p) => p.user_id === currentUserId);
-  const isCallerAdmin = myParticipant?.role === "admin";
+  // Check roles (creator is always admin)
   const isCallerCreator = conversation.created_by === currentUserId;
+  const myParticipant = conversation.participants.find((p) => p.user_id === currentUserId);
+  const isCallerAdmin = isCallerCreator || myParticipant?.role === "admin" || conversation.my_role === "admin";
 
   // Handle saving group info
   const handleSaveInfo = async () => {
@@ -211,13 +219,13 @@ export function GroupSettingsDrawer({
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="sm:max-w-md max-h-[85vh] overflow-y-auto p-5 bg-card text-card-foreground border border-border">
+        <DialogContent className="sm:max-w-md max-h-[88vh] overflow-y-auto p-4 sm:p-5 bg-card text-card-foreground border border-border rounded-2xl shadow-2xl">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-base font-bold">
+            <DialogTitle className="flex items-center gap-2 text-base font-extrabold">
               <Users className="h-5 w-5 text-primary" /> Configurações do Grupo
             </DialogTitle>
             <DialogDescription className="text-xs text-muted-foreground">
-              Detalhes, membros e permissões administrativas do grupo.
+              Detalhes, membros e controle de permissões do grupo.
             </DialogDescription>
           </DialogHeader>
 
@@ -325,20 +333,21 @@ export function GroupSettingsDrawer({
 
             {/* ONLY ADMINS CAN POST TOGGLE */}
             {isCallerAdmin && (
-              <div className="flex items-center justify-between p-3 rounded-xl bg-secondary/40 border border-border/80">
-                <div className="space-y-0.5 min-w-0 pr-2">
+              <div className="flex items-center justify-between p-3.5 rounded-2xl bg-secondary/50 border border-primary/20 shadow-xs">
+                <div className="space-y-1 min-w-0 pr-3">
                   <div className="flex items-center gap-1.5">
-                    <Lock className="h-3.5 w-3.5 text-amber-400" />
-                    <Label className="text-xs font-bold text-foreground">
+                    <Lock className="h-4 w-4 text-amber-400 shrink-0" />
+                    <Label className="text-xs font-bold text-foreground cursor-pointer" htmlFor="switch-only-admins">
                       Somente Administradores Podem Falar
                     </Label>
                   </div>
-                  <p className="text-[10px] text-muted-foreground leading-tight">
-                    Quando ativado, membros comuns não podem enviar mensagens no grupo.
+                  <p className="text-[11px] text-muted-foreground leading-relaxed">
+                    Quando ativado, apenas os administradores e o criador do grupo podem enviar mensagens. Membros comuns ficam em modo leitura.
                   </p>
                 </div>
 
                 <Switch
+                  id="switch-only-admins"
                   checked={onlyAdmins}
                   onCheckedChange={async (checked) => {
                     setOnlyAdmins(checked);
@@ -348,7 +357,7 @@ export function GroupSettingsDrawer({
                         title: conversation.title || "Grupo",
                         only_admins_can_post: checked,
                       });
-                      toast.success(checked ? "Modo somente administradores ativado!" : "Envio liberado para todos.");
+                      toast.success(checked ? "🔒 Modo Somente Administradores ativado!" : "🔓 Envio liberado para todos os membros.");
                       onConversationUpdated?.();
                     } catch (err: any) {
                       setOnlyAdmins(!checked);
@@ -504,7 +513,7 @@ export function GroupSettingsDrawer({
 
       {/* ADD MEMBERS MODAL */}
       <Dialog open={addMembersOpen} onOpenChange={setAddMembersOpen}>
-        <DialogContent className="sm:max-w-md bg-card text-card-foreground border border-border p-5">
+        <DialogContent className="sm:max-w-md bg-card text-card-foreground border border-border p-5 rounded-2xl shadow-2xl">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-base font-bold">
               <UserPlus className="h-5 w-5 text-primary" /> Adicionar Participantes

@@ -10,6 +10,7 @@ import {
   Square,
   Loader2,
   Lock,
+  ShieldCheck,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -166,18 +167,26 @@ export function MessageInput({
   // BLOCK NOTICE IF ONLY ADMINS CAN POST
   if (isBlockedByAdminOnly) {
     return (
-      <div className="p-3 border-t border-border/80 bg-secondary/30 flex items-center justify-center gap-2 text-xs font-semibold text-muted-foreground select-none">
-        <Lock className="h-4 w-4 text-amber-500 shrink-0" />
+      <div className="p-3.5 border-t border-border/80 bg-secondary/40 flex items-center justify-center gap-2 text-xs font-bold text-muted-foreground select-none backdrop-blur-sm">
+        <Lock className="h-4 w-4 text-amber-400 shrink-0" />
         <span>Somente administradores podem enviar mensagens neste grupo.</span>
       </div>
     );
   }
 
   return (
-    <div className="border-t border-border/80 bg-card p-2.5 space-y-2 shrink-0">
+    <div className="border-t border-border/80 bg-card p-2 sm:p-2.5 space-y-2 shrink-0">
+      {/* ADMIN PERMISSION NOTICE IF ONLY ADMINS POSTING ACTIVE */}
+      {onlyAdminsCanPost && userRole === "admin" && (
+        <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-500/10 border border-amber-500/30 text-[10px] font-bold text-amber-400">
+          <ShieldCheck className="h-3.5 w-3.5 shrink-0" />
+          <span>Modo Somente Admins ativo: Você é administrador e pode enviar mensagens.</span>
+        </div>
+      )}
+
       {/* REPLY BANNER */}
       {replyingTo && (
-        <div className="flex items-center justify-between p-2 rounded-xl bg-secondary/60 border border-primary/30 text-xs animate-in slide-in-from-bottom-2 duration-150">
+        <div className="flex items-center justify-between p-2 rounded-xl bg-secondary/70 border border-primary/40 text-xs animate-in slide-in-from-bottom-2 duration-150">
           <div className="flex items-center gap-2 min-w-0">
             <span className="h-2 w-2 rounded-full bg-primary shrink-0" />
             <div className="min-w-0">
@@ -278,7 +287,7 @@ export function MessageInput({
                 <Smile className="h-4 w-4" />
               </Button>
             </PopoverTrigger>
-            <PopoverContent side="top" align="start" className="w-64 p-3 z-50">
+            <PopoverContent side="top" align="start" className="w-64 p-3 z-50 rounded-2xl shadow-xl">
               <div className="space-y-2.5">
                 {EMOJI_CATEGORIES.map((cat) => (
                   <div key={cat.label} className="space-y-1">

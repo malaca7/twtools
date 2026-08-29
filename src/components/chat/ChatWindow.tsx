@@ -87,8 +87,13 @@ export function ChatWindow({
     }
   };
 
-  // Header display calculations
+  // Header display calculations & admin role verification
   const isGroup = conversation.type === "group";
+  const isCreator = isGroup && conversation.created_by === currentUserId;
+  const myParticipant = isGroup ? conversation.participants.find((p) => p.user_id === currentUserId) : null;
+  const isGroupAdmin = isCreator || myParticipant?.role === "admin" || conversation.my_role === "admin";
+  const effectiveUserRole = isGroupAdmin ? "admin" : "member";
+
   const otherMember = conversation.other_participant;
   const title = isGroup
     ? conversation.title || "Grupo"
@@ -106,8 +111,8 @@ export function ChatWindow({
   return (
     <div className="flex flex-col h-full w-full bg-card overflow-hidden select-none">
       {/* HEADER */}
-      <div className="flex items-center justify-between p-3 border-b border-border/80 bg-secondary/30 shrink-0">
-        <div className="flex items-center gap-2.5 min-w-0">
+      <div className="flex items-center justify-between p-2.5 sm:p-3 border-b border-border/80 bg-secondary/30 shrink-0">
+        <div className="flex items-center gap-2 min-w-0">
           <Button
             type="button"
             variant="ghost"
@@ -165,7 +170,7 @@ export function ChatWindow({
                 )}
               </div>
 
-              <div className="flex items-center gap-2 text-[10px] text-muted-foreground leading-none font-mono flex-wrap">
+              <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground leading-none font-mono flex-wrap">
                 {isGroup ? (
                   <span>{conversation.participants.length} participantes</span>
                 ) : (
@@ -219,7 +224,7 @@ export function ChatWindow({
       </div>
 
       {/* MESSAGES SCROLL CONTAINER */}
-      <div ref={scrollContainerRef} className="flex-1 overflow-y-auto p-3 space-y-2 select-text">
+      <div ref={scrollContainerRef} className="flex-1 overflow-y-auto p-2.5 sm:p-3 space-y-2 select-text">
         {isLoading ? (
           <div className="flex flex-col items-center justify-center h-full gap-2 text-muted-foreground text-xs">
             <Loader2 className="h-6 w-6 animate-spin text-primary" />
@@ -243,7 +248,7 @@ export function ChatWindow({
                 message={m}
                 isSelf={Boolean(isSelf)}
                 isGroup={isGroup}
-                userRole={conversation.my_role || "member"}
+                userRole={effectiveUserRole}
                 currentUserId={currentUserId}
                 onReply={(msg) => setReplyingTo(msg)}
                 onReact={(msgId, emoji) => toggleReaction(msgId, emoji)}
@@ -281,7 +286,7 @@ export function ChatWindow({
         isSending={isSending}
         disabled={isLoading}
         onlyAdminsCanPost={Boolean(conversation.only_admins_can_post)}
-        userRole={conversation.my_role || "member"}
+        userRole={effectiveUserRole}
       />
 
       {/* GROUP SETTINGS DRAWER / DIALOG */}

@@ -70,13 +70,13 @@ function CompactMemberRow({
     <div
       onClick={() => !isSelf && onStartChat(member.user_id)}
       className={cn(
-        "flex items-center justify-between py-1.5 px-2 rounded-xl transition-all group text-xs",
+        "flex items-center justify-between py-2 px-2.5 rounded-xl transition-all group text-xs",
         isSelf ? "cursor-default opacity-85" : "hover:bg-secondary/70 cursor-pointer hover:shadow-xs"
       )}
     >
-      <div className="flex items-center gap-2 min-w-0">
+      <div className="flex items-center gap-2.5 min-w-0">
         <div className="relative shrink-0">
-          <Avatar className="h-7 w-7 border border-border/80 shadow-xs">
+          <Avatar className="h-7.5 w-7.5 border border-border/80 shadow-xs">
             {avatarUrl && <AvatarImage src={avatarUrl} alt={member.nome} />}
             <AvatarFallback className="bg-secondary font-bold text-[10px] text-primary">
               {initials}
@@ -147,15 +147,30 @@ export function FloatingPresenceWidget() {
   const [memberSearch, setMemberSearch] = useState("");
 
   const { data: members = [] } = useMembers();
-  const { conversations, isLoading: loadingConversations, totalUnreadCount, refetch: refetchConversations } = useConversations();
+  const {
+    conversations,
+    isLoading: loadingConversations,
+    totalUnreadCount,
+    refetch: refetchConversations,
+  } = useConversations(activeConversation?.id);
 
   const panelRef = useRef<HTMLDivElement>(null);
 
-  // Close panel on outside click if no active chat
+  // Sync active conversation when conversations query updates
+  useEffect(() => {
+    if (activeConversation) {
+      const updated = conversations.find((c) => c.id === activeConversation.id);
+      if (updated) {
+        setActiveConversation(updated);
+      }
+    }
+  }, [conversations]);
+
+  // Close panel on outside click only on desktop (on mobile, user uses close button)
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
+      if (window.innerWidth < 640) return; // Ignore on mobile
       if (panelRef.current && !panelRef.current.contains(e.target as Node)) {
-        // Se estiver num dialog modal aberto (ex: criar grupo), não fecha
         const inDialog = document.querySelector('[role="dialog"]');
         if (inDialog && inDialog.contains(e.target as Node)) return;
         setIsOpen(false);
@@ -181,7 +196,8 @@ export function FloatingPresenceWidget() {
     return list.filter(
       (m) =>
         m.nome.toLowerCase().includes(q) ||
-        (m.nickname && m.nickname.toLowerCase().includes(q))
+        (m.nickname && m.nickname.toLowerCase().includes(q)) ||
+        (m.game_id && m.game_id.includes(q))
     );
   };
 
@@ -194,13 +210,14 @@ export function FloatingPresenceWidget() {
       const conv = await getOrCreatePrivateConversation(currentUserId, targetUserId);
       setActiveConversation(conv);
       setActiveTab("chat");
+      void refetchConversations();
     } catch (err: any) {
       toast.error(`Erro ao abrir conversa: ${err.message || err}`);
     }
   };
 
   return (
-    <div ref={panelRef} className="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 z-50">
+    <div ref={panelRef} className="fixed bottom-3 right-3 sm:bottom-6 sm:right-6 z-50">
       {/* FLOATING ACTION BUTTON */}
       <button
         type="button"
@@ -243,7 +260,7 @@ export function FloatingPresenceWidget() {
 
       {/* FLOATING HIGH-DENSITY CHAT & PRESENCE DRAWER */}
       {isOpen && (
-        <div className="fixed inset-x-3 bottom-16 sm:absolute sm:inset-auto sm:bottom-14 sm:right-0 w-auto max-w-sm sm:w-[410px] h-[520px] max-h-[82vh] rounded-2xl border border-border/80 bg-card/95 backdrop-blur-2xl shadow-2xl overflow-hidden animate-in fade-in-50 slide-in-from-bottom-3 duration-200 flex flex-col z-50">
+        <div className="fixed inset-x-2.5 bottom-2 top-14 sm:inset-auto sm:bottom-16 sm:right-0 sm:top-auto sm:w-[420px] sm:h-[580px] rounded-2xl border border-border/80 bg-card/98 backdrop-blur-2xl shadow-2xl overflow-hidden animate-in fade-in-50 slide-in-from-bottom-3 duration-200 flex flex-col z-50">
           {/* SE UMA CONVERSA ESTIVER ABERTA, EXIBE A JANELA DE CHAT */}
           {activeConversation ? (
             <ChatWindow
@@ -263,7 +280,7 @@ export function FloatingPresenceWidget() {
             /* CASO CONTRÁRIO: EXIBE ABAS (MEMBROS / CONVERSAS) */
             <div className="flex flex-col h-full overflow-hidden">
               {/* TOP TABS & CLOSE BUTTON */}
-              <div className="p-2 border-b border-border/60 bg-secondary/30 flex items-center justify-between gap-2 shrink-0">
+              <div className="p-2.5 border-b border-border/60 bg-secondary/30 flex items-center justify-between gap-2 shrink-0">
                 <div className="flex items-center gap-1 bg-secondary/80 p-0.5 rounded-xl border border-border/50">
                   <button
                     type="button"
@@ -277,7 +294,7 @@ export function FloatingPresenceWidget() {
                   >
                     <Users className="h-3.5 w-3.5 text-primary" />
                     <span>Membros</span>
-                    <Badge variant="outline" className="text-[9px] font-mono px-1 py-0 border-emerald-500/40 text-emerald-400 bg-emerald-500/10">
+                    <Badge variant="outline" className="text-[9px] font-mono px-1 py-0 border-emerald-500/40 text-emerald-400 bg-emerald-500/10 font-bold">
                       {totalOnline}
                     </Badge>
                   </button>
@@ -305,8 +322,8 @@ export function FloatingPresenceWidget() {
                 <button
                   type="button"
                   onClick={() => setIsOpen(false)}
-                  className="h-7 w-7 rounded-lg hover:bg-secondary flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
-                  title="Fechar"
+                  className="h-8 w-8 rounded-xl hover:bg-secondary flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+                  title="Fechar popup"
                 >
                   <X className="h-4 w-4" />
                 </button>
@@ -316,9 +333,9 @@ export function FloatingPresenceWidget() {
               {activeTab === "members" ? (
                 <div className="flex flex-col h-full overflow-hidden">
                   {/* SEARCH */}
-                  <div className="p-2 border-b border-border/40 bg-secondary/10 shrink-0">
+                  <div className="p-2.5 border-b border-border/40 bg-secondary/10 shrink-0">
                     <Input
-                      placeholder="Buscar membros online..."
+                      placeholder="Buscar membros online ou por ID..."
                       value={memberSearch}
                       onChange={(e) => setMemberSearch(e.target.value)}
                       className="h-8 text-xs bg-secondary/40 border-border/60 rounded-xl"
