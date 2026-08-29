@@ -503,7 +503,7 @@ export async function getMembers(): Promise<Member[]> {
       .from("user_roles")
       .select("user_id, nivel"),
     (supabase.from("user_presence" as any))
-      .select("user_id, status, last_seen, online_since, total_seconds_online"),
+      .select("user_id, status, last_seen, online_since, total_seconds_online, updated_at"),
     (supabase.from("signup_requests" as any))
       .select("user_id, status")
   ]);
@@ -521,7 +521,7 @@ export async function getMembers(): Promise<Member[]> {
   });
 
   const nowMs = Date.now();
-  const presenceMap = new Map<string, { status: UserPresenceStatus; online_since?: string; total_seconds: number; total_hours: number }>();
+  const presenceMap = new Map<string, { status: UserPresenceStatus; last_seen?: string; updated_at?: string; online_since?: string; total_seconds: number; total_hours: number }>();
   (presenceRes.data || []).forEach((p: any) => {
     const secs = Number(p.total_seconds_online || 0);
     let computedStatus = (p.status as UserPresenceStatus) || "offline";
@@ -533,8 +533,10 @@ export async function getMembers(): Promise<Member[]> {
       computedStatus = diffSecs > 300 ? "offline" : "ausente";
     }
 
-    const item: { status: UserPresenceStatus; online_since?: string; total_seconds: number; total_hours: number } = {
+    const item: { status: UserPresenceStatus; last_seen?: string; updated_at?: string; online_since?: string; total_seconds: number; total_hours: number } = {
       status: computedStatus,
+      last_seen: p.last_seen ? String(p.last_seen) : undefined,
+      updated_at: p.updated_at ? String(p.updated_at) : undefined,
       total_seconds: secs,
       total_hours: Math.round((secs / 3600) * 10) / 10,
     };
@@ -564,6 +566,9 @@ export async function getMembers(): Promise<Member[]> {
         created_at: String(d.created_at),
         nivel: roleNivel,
         presence_status: pres?.status || "offline",
+        last_seen: pres?.last_seen || null,
+        presence_updated_at: pres?.updated_at || pres?.last_seen || null,
+        updated_at: pres?.updated_at || null,
         online_since: pres?.online_since || null,
         total_seconds_online: pres?.total_seconds || 0,
         total_hours_online: pres?.total_hours || 0,

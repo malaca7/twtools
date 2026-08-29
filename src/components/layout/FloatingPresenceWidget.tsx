@@ -12,7 +12,7 @@ import { getOrCreatePrivateConversation } from "@/services/chatService";
 import { ChatWindow } from "@/components/chat/ChatWindow";
 import { ConversationList } from "@/components/chat/ConversationList";
 import { CreateGroupDialog } from "@/components/chat/CreateGroupDialog";
-import { dateTime } from "@/lib/format";
+import { dateTime, formatAusenteDuration, formatLastSeen } from "@/lib/format";
 import { LEVEL_LABEL, levelBadgeClass, type AppLevel } from "@/lib/permissions";
 import { cn } from "@/lib/utils";
 import type { UserPresenceStatus, Member } from "@/lib/app-types";
@@ -66,6 +66,10 @@ function CompactMemberRow({
   const displayName = member.nickname || member.nome;
   const initials = displayName.slice(0, 2).toUpperCase();
 
+  const ausenteText = formatAusenteDuration(member.presence_updated_at || member.updated_at || member.last_seen);
+  const lastSeenFull = formatLastSeen(member.last_seen || member.presence_updated_at || member.updated_at);
+  const lastSeenCompact = lastSeenFull.replace("Visto por último ", "");
+
   return (
     <div
       onClick={() => !isSelf && onStartChat(member.user_id)}
@@ -74,7 +78,7 @@ function CompactMemberRow({
         isSelf ? "cursor-default opacity-85" : "hover:bg-secondary/70 cursor-pointer hover:shadow-xs"
       )}
     >
-      <div className="flex items-center gap-2.5 min-w-0">
+      <div className="flex items-center gap-2.5 min-w-0 flex-1">
         <div className="relative shrink-0">
           <Avatar className="h-7.5 w-7.5 border border-border/80 shadow-xs">
             {avatarUrl && <AvatarImage src={avatarUrl} alt={member.nome} />}
@@ -86,8 +90,8 @@ function CompactMemberRow({
         </div>
 
         <div className="min-w-0 flex flex-col justify-center">
-          <div className="flex items-center gap-1.5 min-w-0">
-            <span className="truncate font-bold text-foreground text-[11px] leading-tight group-hover:text-primary transition-colors">
+          <div className="flex items-center gap-1.5 min-w-0 flex-wrap">
+            <span className="truncate font-bold text-foreground text-[11px] leading-tight group-hover:text-primary transition-colors max-w-[130px] sm:max-w-none">
               {displayName}
             </span>
             {isSelf && <span className="text-[9px] font-mono text-muted-foreground">(você)</span>}
@@ -110,13 +114,19 @@ function CompactMemberRow({
         {status === "online" ? (
           <CompactLiveTimer onlineSinceISO={member.online_since} />
         ) : status === "ausente" ? (
-          <div className="flex items-center gap-1 px-1.5 py-0.5 rounded-md border border-amber-500/30 bg-amber-500/10 text-amber-400 font-mono text-[9px] font-bold">
+          <div
+            className="flex items-center gap-1 px-1.5 py-0.5 rounded-md border border-amber-500/30 bg-amber-500/10 text-amber-400 font-mono text-[9px] font-bold"
+            title={ausenteText}
+          >
             <Moon className="h-2.5 w-2.5 shrink-0" />
-            <span>Ausente</span>
+            <span>{ausenteText}</span>
           </div>
         ) : (
-          <span className="text-[9px] text-muted-foreground font-mono">
-            {member.online_since ? dateTime(member.online_since).split(" ")[1] || "—" : "Offline"}
+          <span
+            className="text-[9px] text-muted-foreground font-mono truncate max-w-[110px] text-right"
+            title={lastSeenFull}
+          >
+            {lastSeenCompact}
           </span>
         )}
 
