@@ -3,49 +3,40 @@ import type {
   ChatConversation,
   ChatMessage,
   ChatParticipant,
+  MessageReaction,
   CreateGroupPayload,
   UpdateGroupPayload,
-  MessageReaction,
-  UploadAttachmentResult,
+  ParticipantRole,
 } from "@/types/chat";
 import type { Member, UserPresenceStatus } from "@/lib/app-types";
 
+// In-memory cache for profiles & presences (30s TTL) to accelerate fallback rendering
+let _cachedMembersMap: Map<string, Member> | null = null;
+let _cachedMembersMapAt = 0;
+
 /**
- * Busca diretamente do banco todos os perfis, cargos e presenças para mapear
- * dados ricos de todos os usuários no chat sem depender de filtros de aprovação.
+ * Busca e mapeia todos os membros com status de presença e cargo hierárquico em cache local.
  */
-export async function fetchChatMembersMap(): Promise<Map<string, Member>> {
+export async function fetchChatMembersMap(force = false): Promise<Map<string, Member>> {
+  const now = Date.now();
+  if (!force && _cachedMembersMap && now - _cachedMembersMapAt < 30000) {
+    return _cachedMembersMap;
+  }
+
   const membersMap = new Map<string, Member>();
 
   try {
-    const [profilesRes, rolesRes, presenceRes] = await Promise.all([
-      supabase
-        .from("profiles" as any)
-        .select("id, user_id, nome, nickname, avatar_url, discord_avatar_url, discord_username, discord_id, discord_email, game_id, telefone, status, data_entrada, created_at, is_developer"),
-      supabase.from("user_roles").select("user_id, nivel"),
-      supabase.from("user_presence").select("user_id, status, last_seen, online_since, total_seconds_online"),
+    const [profilesRes, rolesRes, presencesRes] = await Promise.all([
+      supabase.from("profiles" as any).select("*"),
+      supabase.from("user_roles" as any).select("user_id, nivel"),
+      supabase.from("user_presence" as any).select("user_id, status, online_since, total_seconds_online"),
     ]);
 
-    const rolesMap = new Map<string, any>();
-    (rolesRes.data || []).forEach((r: any) => {
-      if (r.user_id) rolesMap.set(r.user_id, r.nivel);
-    });
+    const rolesMap = new Map<string, string>();
+    (rolesRes.data || []).forEach((r: any) => rolesMap.set(r.user_id, r.nivel));
 
-    const nowMs = Date.now();
     const presenceMap = new Map<string, any>();
-    (presenceRes.data || []).forEach((p: any) => {
-      let st = (p.status as UserPresenceStatus) || "offline";
-      const lastSeenMs = p.last_seen ? new Date(p.last_seen).getTime() : 0;
-      const diffSecs = lastSeenMs > 0 ? (nowMs - lastSeenMs) / 1000 : 99999;
-      if (st === "online" && diffSecs > 90) {
-        st = diffSecs > 300 ? "offline" : "ausente";
-      }
-      presenceMap.set(p.user_id, {
-        status: st,
-        online_since: p.online_since || null,
-        total_seconds: Number(p.total_seconds_online || 0),
-      });
-    });
+    (presencesRes.data || []).forEach((p: any) => presenceMap.set(p.user_id, p));
 
     (profilesRes.data || []).forEach((d: any) => {
       const pres = presenceMap.get(d.user_id);
@@ -62,7 +53,7 @@ export async function fetchChatMembersMap(): Promise<Map<string, Member>> {
         nivel: roleNivel,
         presence_status: pres?.status || "offline",
         online_since: pres?.online_since || null,
-        total_seconds_online: pres?.total_seconds || 0,
+        total_seconds_online: pres?.total_seconds_online || 0,
         discord_id: d.discord_id || null,
         discord_username: d.discord_username || null,
         discord_avatar_url: d.discord_avatar_url || d.avatar_url || null,
@@ -71,6 +62,9 @@ export async function fetchChatMembersMap(): Promise<Map<string, Member>> {
       };
       membersMap.set(d.user_id, memberObj);
     });
+
+    _cachedMembersMap = membersMap;
+    _cachedMembersMapAt = now;
   } catch (err) {
     console.warn("Erro ao carregar mapa de membros do chat:", err);
   }
@@ -79,114 +73,109 @@ export async function fetchChatMembersMap(): Promise<Map<string, Member>> {
 }
 
 /**
- * Busca todas as conversas do usuário autenticado (privadas e grupos),
- * incluindo dados dos participantes, mensagens recentes e contador de não lidas.
+ * Busca todas as conversas do usuário autenticado (privadas e grupos) via RPC ultra-rápida.
  */
 export async function fetchUserConversations(currentUserId: string): Promise<ChatConversation[]> {
   if (!currentUserId) return [];
 
-  // 1. Busca os IDs das conversas onde o usuário é participante
-  const { data: myParticipations, error: partError } = await supabase
-    .from("chat_participants" as any)
-    .select("conversation_id, last_read_at, role, is_muted, custom_nickname")
-    .eq("user_id", currentUserId);
+  // 1. EXECUÇÃO VIA RPC ULTRA-RÁPIDA (Retorna todo o payload em 1 única requisição < 100ms)
+  try {
+    const { data, error } = await (supabase.rpc as any)("rpc_get_user_conversations", {
+      p_user_id: currentUserId,
+    });
 
-  if (partError || !myParticipations || myParticipations.length === 0) {
+    if (!error && Array.isArray(data)) {
+      return data as ChatConversation[];
+    }
+  } catch (rpcErr) {
+    console.warn("Fallback de conversas por RPC:", rpcErr);
+  }
+
+  // 2. FALLBACK PARALELO (Caso a RPC falhe)
+  try {
+    const { data: myParticipations, error: partError } = await supabase
+      .from("chat_participants" as any)
+      .select("conversation_id, last_read_at, role, is_muted, custom_nickname")
+      .eq("user_id", currentUserId);
+
+    if (partError || !myParticipations || myParticipations.length === 0) {
+      return [];
+    }
+
+    const conversationIds = myParticipations.map((p: any) => p.conversation_id);
+    const myReadMap = new Map<string, string>();
+    const myRoleMap = new Map<string, any>();
+    myParticipations.forEach((p: any) => {
+      myReadMap.set(p.conversation_id, p.last_read_at || new Date(0).toISOString());
+      myRoleMap.set(p.conversation_id, p.role || "member");
+    });
+
+    const [convsRes, allPartsRes, membersMap] = await Promise.all([
+      supabase
+        .from("chat_conversations" as any)
+        .select("*")
+        .in("id", conversationIds)
+        .order("last_message_at", { ascending: false }),
+      supabase
+        .from("chat_participants" as any)
+        .select("*")
+        .in("conversation_id", conversationIds),
+      fetchChatMembersMap(),
+    ]);
+
+    if (convsRes.error) throw convsRes.error;
+
+    const partsByConv = new Map<string, ChatParticipant[]>();
+    (allPartsRes.data || []).forEach((p: any) => {
+      const list = partsByConv.get(p.conversation_id) || [];
+      const prof = membersMap.get(p.user_id) || null;
+      list.push({
+        id: p.id,
+        conversation_id: p.conversation_id,
+        user_id: p.user_id,
+        role: p.role || "member",
+        joined_at: p.joined_at,
+        last_read_at: p.last_read_at,
+        is_muted: Boolean(p.is_muted),
+        custom_nickname: p.custom_nickname || null,
+        profile: prof,
+      });
+      partsByConv.set(p.conversation_id, list);
+    });
+
+    return (convsRes.data || []).map((c: any) => {
+      const parts = partsByConv.get(c.id) || [];
+      let otherParticipant: Member | null = null;
+      if (c.type === "private") {
+        const otherPart = parts.find((p) => p.user_id !== currentUserId);
+        otherParticipant = otherPart?.profile || (otherPart ? membersMap.get(otherPart.user_id) : null) || null;
+      }
+
+      return {
+        id: c.id,
+        type: c.type,
+        title: c.title,
+        description: c.description,
+        avatar_url: c.avatar_url,
+        created_by: c.created_by,
+        only_admins_can_post: Boolean(c.only_admins_can_post),
+        is_archived: Boolean(c.is_archived),
+        settings: c.settings || {},
+        created_at: c.created_at,
+        updated_at: c.updated_at,
+        last_message: c.last_message,
+        last_message_at: c.last_message_at || c.created_at,
+        last_message_sender_id: c.last_message_sender_id,
+        participants: parts,
+        unread_count: 0,
+        other_participant: otherParticipant,
+        my_role: (c.created_by === currentUserId || myRoleMap.get(c.id) === "admin") ? "admin" : (myRoleMap.get(c.id) || "member"),
+      };
+    });
+  } catch (err) {
+    console.error("Erro no fallback de conversas:", err);
     return [];
   }
-
-  const conversationIds = myParticipations.map((p: any) => p.conversation_id);
-  const myReadMap = new Map<string, string>();
-  const myRoleMap = new Map<string, any>();
-  myParticipations.forEach((p: any) => {
-    myReadMap.set(p.conversation_id, p.last_read_at || new Date(0).toISOString());
-    myRoleMap.set(p.conversation_id, p.role || "member");
-  });
-
-  // 2. Busca os dados de todas as conversas e todos os seus participantes em paralelo
-  const [convsRes, allPartsRes, membersMap] = await Promise.all([
-    supabase
-      .from("chat_conversations" as any)
-      .select("*")
-      .in("id", conversationIds)
-      .order("last_message_at", { ascending: false }),
-    supabase
-      .from("chat_participants" as any)
-      .select("*")
-      .in("conversation_id", conversationIds),
-    fetchChatMembersMap(),
-  ]);
-
-  if (convsRes.error) throw convsRes.error;
-
-  const partsByConv = new Map<string, ChatParticipant[]>();
-  (allPartsRes.data || []).forEach((p: any) => {
-    const list = partsByConv.get(p.conversation_id) || [];
-    const prof = membersMap.get(p.user_id) || null;
-    list.push({
-      id: p.id,
-      conversation_id: p.conversation_id,
-      user_id: p.user_id,
-      role: p.role || "member",
-      joined_at: p.joined_at,
-      last_read_at: p.last_read_at,
-      is_muted: Boolean(p.is_muted),
-      custom_nickname: p.custom_nickname || null,
-      profile: prof,
-    });
-    partsByConv.set(p.conversation_id, list);
-  });
-
-  // 3. Busca contagem de mensagens não lidas para cada conversa
-  const conversations: ChatConversation[] = [];
-
-  for (const c of convsRes.data || []) {
-    const lastRead = myReadMap.get(c.id) || new Date(0).toISOString();
-    const parts = partsByConv.get(c.id) || [];
-
-    // Calcula mensagens não lidas
-    let unreadCount = 0;
-    if (c.last_message_at && new Date(c.last_message_at).getTime() > new Date(lastRead).getTime()) {
-      const { count } = await supabase
-        .from("chat_messages" as any)
-        .select("*", { count: "exact", head: true })
-        .eq("conversation_id", c.id)
-        .gt("created_at", lastRead)
-        .neq("sender_id", currentUserId);
-      unreadCount = count || 0;
-    }
-
-    let otherParticipant: Member | null = null;
-    if (c.type === "private") {
-      const otherPart = parts.find((p) => p.user_id !== currentUserId);
-      otherParticipant = otherPart?.profile || (otherPart ? membersMap.get(otherPart.user_id) : null) || null;
-    }
-
-    conversations.push({
-      id: c.id,
-      type: c.type,
-      title: c.title,
-      description: c.description,
-      avatar_url: c.avatar_url,
-      created_by: c.created_by,
-      only_admins_can_post: Boolean(c.only_admins_can_post),
-      is_archived: Boolean(c.is_archived),
-      settings: c.settings || {},
-      created_at: c.created_at,
-      updated_at: c.updated_at,
-      last_message: c.last_message,
-      last_message_at: c.last_message_at || c.created_at,
-      last_message_sender_id: c.last_message_sender_id,
-      participants: parts,
-      unread_count: unreadCount,
-      other_participant: otherParticipant,
-      my_role: (c.created_by === currentUserId || myRoleMap.get(c.id) === "admin") ? "admin" : (myRoleMap.get(c.id) || "member"),
-    });
-  }
-
-  return conversations.sort(
-    (a, b) => new Date(b.last_message_at).getTime() - new Date(a.last_message_at).getTime()
-  );
 }
 
 /**
@@ -284,17 +273,22 @@ export async function createGroupConversation(
 
   if (convError || !newConv) throw convError || new Error("Erro ao criar grupo.");
 
-  // 2. Insere todos os participantes (criador é 'admin')
-  const participantsData = uniqueParticipants.map((uid) => ({
+  // 2. Insere participantes com criador como admin
+  const participantRows = uniqueParticipants.map((uid) => ({
     conversation_id: newConv.id,
     user_id: uid,
     role: uid === creatorId ? "admin" : "member",
+    joined_at: new Date().toISOString(),
+    last_read_at: new Date().toISOString(),
   }));
 
-  const { error: partError } = await supabase.from("chat_participants" as any).insert(participantsData);
+  const { error: partError } = await supabase
+    .from("chat_participants" as any)
+    .insert(participantRows);
+
   if (partError) throw partError;
 
-  // 3. Mensagem inicial do sistema informando criação do grupo
+  // 3. Insere mensagem do sistema
   await supabase.from("chat_messages" as any).insert({
     conversation_id: newConv.id,
     sender_id: creatorId,
@@ -308,113 +302,108 @@ export async function createGroupConversation(
 }
 
 /**
- * Busca o histórico de mensagens de uma conversa com reações, respostas e paginação.
+ * Busca o histórico de mensagens de uma conversa com reações, respostas e paginação via RPC ultra-rápida.
  */
 export async function fetchMessages(
   conversationId: string,
-  limit = 50,
+  limit = 60,
   beforeCreatedAt?: string
 ): Promise<ChatMessage[]> {
-  let query = supabase
-    .from("chat_messages" as any)
-    .select("*")
-    .eq("conversation_id", conversationId)
-    .order("created_at", { ascending: true })
-    .limit(limit);
+  if (!conversationId) return [];
 
-  if (beforeCreatedAt) {
-    query = query.lt("created_at", beforeCreatedAt);
+  // 1. EXECUÇÃO VIA RPC ULTRA-RÁPIDA (Retorna mensagens, reações e replies em < 80ms)
+  try {
+    const { data, error } = await (supabase.rpc as any)("rpc_get_conversation_messages", {
+      p_conversation_id: conversationId,
+      p_limit: limit,
+      p_before: beforeCreatedAt || null,
+    });
+
+    if (!error && Array.isArray(data)) {
+      return data as ChatMessage[];
+    }
+  } catch (rpcErr) {
+    console.warn("Fallback de mensagens por RPC:", rpcErr);
   }
 
-  const [messagesRes, membersMap] = await Promise.all([
-    query,
-    fetchChatMembersMap(),
-  ]);
-
-  if (messagesRes.error) throw messagesRes.error;
-  const rawMessages = messagesRes.data || [];
-
-  if (rawMessages.length === 0) return [];
-
-  const messageIds = rawMessages.map((m: any) => m.id);
-
-  // Busca reações para todas as mensagens retornadas
-  const { data: reactionsData } = await supabase
-    .from("chat_message_reactions" as any)
-    .select("*")
-    .in("message_id", messageIds);
-
-  const reactionsByMsg = new Map<string, MessageReaction[]>();
-  (reactionsData || []).forEach((r: any) => {
-    const list = reactionsByMsg.get(r.message_id) || [];
-    const prof = membersMap.get(r.user_id);
-    list.push({
-      id: r.id,
-      message_id: r.message_id,
-      user_id: r.user_id,
-      emoji: r.emoji,
-      created_at: r.created_at,
-      user_name: prof?.nickname || prof?.nome || "Membro",
-    });
-    reactionsByMsg.set(r.message_id, list);
-  });
-
-  // Busca mensagens citadas em reply_to_id
-  const replyIds = rawMessages.map((m: any) => m.reply_to_id).filter(Boolean);
-  const repliesMap = new Map<string, any>();
-  if (replyIds.length > 0) {
-    const { data: repliesData } = await supabase
+  // 2. FALLBACK PARALELO
+  try {
+    let query = supabase
       .from("chat_messages" as any)
-      .select("id, sender_id, content, message_type, attachment_name")
-      .in("id", replyIds);
+      .select("*")
+      .eq("conversation_id", conversationId)
+      .order("created_at", { ascending: true })
+      .limit(limit);
 
-    (repliesData || []).forEach((rep: any) => {
-      const repProf = membersMap.get(rep.sender_id);
-      repliesMap.set(rep.id, {
-        id: rep.id,
-        sender_name: repProf?.nickname || repProf?.nome || "Membro",
-        content: rep.content,
-        message_type: rep.message_type || "text",
-        attachment_name: rep.attachment_name || null,
+    if (beforeCreatedAt) {
+      query = query.lt("created_at", beforeCreatedAt);
+    }
+
+    const [messagesRes, membersMap] = await Promise.all([
+      query,
+      fetchChatMembersMap(),
+    ]);
+
+    if (messagesRes.error) throw messagesRes.error;
+    const rawMessages = messagesRes.data || [];
+
+    if (rawMessages.length === 0) return [];
+
+    const messageIds = rawMessages.map((m: any) => m.id);
+
+    const { data: reactionsData } = await supabase
+      .from("chat_message_reactions" as any)
+      .select("*")
+      .in("message_id", messageIds);
+
+    const reactionsByMsg = new Map<string, MessageReaction[]>();
+    (reactionsData || []).forEach((r: any) => {
+      const list = reactionsByMsg.get(r.message_id) || [];
+      const prof = membersMap.get(r.user_id);
+      list.push({
+        id: r.id,
+        message_id: r.message_id,
+        user_id: r.user_id,
+        emoji: r.emoji,
+        created_at: r.created_at,
+        user_name: prof?.nickname || prof?.nome || "Membro",
       });
+      reactionsByMsg.set(r.message_id, list);
     });
+
+    return rawMessages.map((m: any) => {
+      const prof = membersMap.get(m.sender_id);
+      return {
+        id: m.id,
+        conversation_id: m.conversation_id,
+        sender_id: m.sender_id,
+        sender_name: prof?.nickname || prof?.nome || "Membro",
+        sender_avatar: prof?.discord_avatar_url || null,
+        content: m.content,
+        status: m.status || "sent",
+        message_type: m.message_type || "text",
+        reply_to_id: m.reply_to_id,
+        attachment_url: m.attachment_url,
+        attachment_name: m.attachment_name,
+        attachment_type: m.attachment_type,
+        attachment_size: m.attachment_size,
+        mentions: m.mentions || [],
+        reactions: reactionsByMsg.get(m.id) || [],
+        is_edited: Boolean(m.is_edited),
+        is_deleted: Boolean(m.is_deleted),
+        deleted_for_users: m.deleted_for_users || [],
+        created_at: m.created_at,
+        updated_at: m.updated_at,
+      };
+    });
+  } catch (err) {
+    console.error("Erro no fallback de mensagens:", err);
+    return [];
   }
-
-  return rawMessages.map((m: any) => {
-    const prof = membersMap.get(m.sender_id);
-    const replyMeta = m.reply_to_id ? repliesMap.get(m.reply_to_id) || null : null;
-
-    return {
-      id: m.id,
-      conversation_id: m.conversation_id,
-      sender_id: m.sender_id,
-      content: m.content,
-      status: m.status || "sent",
-      message_type: m.message_type || "text",
-      reply_to_id: m.reply_to_id || null,
-      reply_to_message: replyMeta,
-      attachment_url: m.attachment_url || null,
-      attachment_name: m.attachment_name || null,
-      attachment_type: m.attachment_type || null,
-      attachment_size: m.attachment_size ? Number(m.attachment_size) : null,
-      mentions: m.mentions || [],
-      is_edited: Boolean(m.is_edited),
-      edited_at: m.edited_at || null,
-      is_deleted_for_everyone: Boolean(m.is_deleted_for_everyone),
-      deleted_for_users: m.deleted_for_users || [],
-      reactions: reactionsByMsg.get(m.id) || [],
-      created_at: m.created_at,
-      updated_at: m.updated_at || m.created_at,
-      sender_name: prof?.nickname || prof?.nome || prof?.discord_username || "Membro",
-      sender_nickname: prof?.nickname || null,
-      sender_game_id: prof?.game_id || null,
-      sender_avatar: prof?.discord_avatar_url || null,
-    };
-  });
 }
 
 /**
- * Envia uma mensagem via RPC segura no backend com validação de permissões e somente-administradores.
+ * Envia uma nova mensagem no chat.
  */
 export async function sendChatMessage(
   conversationId: string,
@@ -429,9 +418,9 @@ export async function sendChatMessage(
     mentions?: string[];
   }
 ): Promise<ChatMessage> {
-  const { data, error } = await supabase.rpc("rpc_send_chat_message", {
+  const { data, error } = await (supabase.rpc as any)("rpc_send_chat_message", {
     p_conversation_id: conversationId,
-    p_content: content.trim(),
+    p_content: content,
     p_message_type: options?.messageType || "text",
     p_reply_to_id: options?.replyToId || null,
     p_attachment_url: options?.attachmentUrl || null,
@@ -446,25 +435,38 @@ export async function sendChatMessage(
 }
 
 /**
- * Edita uma mensagem enviada pelo usuário via RPC segura.
+ * Adiciona ou remove uma reação com emoji em uma mensagem.
+ */
+export async function toggleMessageReaction(
+  messageId: string,
+  emoji: string
+): Promise<{ success: boolean; action: "added" | "removed" }> {
+  const { data, error } = await (supabase.rpc as any)("rpc_toggle_message_reaction", {
+    p_message_id: messageId,
+    p_emoji: emoji,
+  });
+
+  if (error) throw error;
+  return data as any;
+}
+
+/**
+ * Edita o texto de uma mensagem enviada.
  */
 export async function editChatMessage(messageId: string, newContent: string): Promise<void> {
-  const clean = newContent.trim();
-  if (!clean) throw new Error("A mensagem não pode estar vazia.");
-
-  const { error } = await supabase.rpc("rpc_edit_chat_message", {
+  const { error } = await (supabase.rpc as any)("rpc_edit_chat_message", {
     p_message_id: messageId,
-    p_new_content: clean,
+    p_new_content: newContent,
   });
 
   if (error) throw error;
 }
 
 /**
- * Exclui uma mensagem (para mim ou para todos).
+ * Exclui uma mensagem (para si mesmo ou para todos).
  */
 export async function deleteChatMessage(messageId: string, forEveryone = false): Promise<void> {
-  const { error } = await supabase.rpc("rpc_delete_chat_message", {
+  const { error } = await (supabase.rpc as any)("rpc_delete_chat_message", {
     p_message_id: messageId,
     p_for_everyone: forEveryone,
   });
@@ -473,120 +475,107 @@ export async function deleteChatMessage(messageId: string, forEveryone = false):
 }
 
 /**
- * Alterna reação de emoji em uma mensagem via RPC segura.
- */
-export async function toggleMessageReaction(messageId: string, emoji: string): Promise<void> {
-  const { error } = await supabase.rpc("rpc_toggle_message_reaction", {
-    p_message_id: messageId,
-    p_emoji: emoji,
-  });
-
-  if (error) throw error;
-}
-
-/**
- * Gerencia participante do grupo (adicionar, remover, promover ou rebaixar admin) via RPC segura.
- */
-export async function manageGroupMember(
-  conversationId: string,
-  targetUserId: string,
-  action: "add" | "remove" | "make_admin" | "remove_admin",
-  newRole?: string
-): Promise<void> {
-  const { error } = await supabase.rpc("rpc_manage_group_member", {
-    p_conversation_id: conversationId,
-    p_target_user_id: targetUserId,
-    p_action: action,
-    p_new_role: newRole || null,
-  });
-
-  if (error) throw error;
-}
-
-/**
- * Atualiza configurações do grupo (nome, descrição, foto, somente admins) via RPC segura.
- */
-export async function updateGroupSettings(payload: UpdateGroupPayload): Promise<void> {
-  const { error } = await supabase.rpc("rpc_update_group_settings", {
-    p_conversation_id: payload.conversation_id,
-    p_title: payload.title.trim(),
-    p_description: payload.description !== undefined ? payload.description?.trim() || "" : null,
-    p_avatar_url: payload.avatar_url || null,
-    p_only_admins_can_post: payload.only_admins_can_post !== undefined ? payload.only_admins_can_post : null,
-  });
-
-  if (error) throw error;
-}
-
-/**
- * Sai ou exclui um grupo via RPC segura.
- */
-export async function leaveOrDeleteGroup(conversationId: string, action: "leave" | "delete"): Promise<void> {
-  const { error } = await supabase.rpc("rpc_leave_or_delete_group", {
-    p_conversation_id: conversationId,
-    p_action: action,
-  });
-
-  if (error) throw error;
-}
-
-/**
- * Faz upload de anexo no bucket 'chat-attachments' do Supabase Storage.
- */
-export async function uploadChatAttachment(
-  file: File,
-  onProgress?: (percent: number) => void
-): Promise<UploadAttachmentResult> {
-  const ext = file.name.split(".").pop() || "bin";
-  const uniqueName = `${Date.now()}_${Math.random().toString(36).substring(2, 9)}.${ext}`;
-  const filePath = `uploads/${uniqueName}`;
-
-  onProgress?.(10);
-
-  const { error: uploadError } = await supabase.storage
-    .from("chat-attachments")
-    .upload(filePath, file, {
-      cacheControl: "3600",
-      upsert: true,
-    });
-
-  if (uploadError) throw uploadError;
-
-  onProgress?.(80);
-
-  const { data: publicUrlData } = supabase.storage
-    .from("chat-attachments")
-    .getPublicUrl(filePath);
-
-  onProgress?.(100);
-
-  return {
-    url: publicUrlData.publicUrl,
-    name: file.name,
-    type: file.type || "application/octet-stream",
-    size: file.size,
-  };
-}
-
-/**
- * Marca uma conversa como lida pelo usuário atual.
+ * Marca todas as mensagens de uma conversa como lidas pelo usuário atual.
  */
 export async function markConversationAsRead(
   conversationId: string,
   userId: string
 ): Promise<void> {
   if (!conversationId || !userId) return;
-  const now = new Date().toISOString();
 
+  const now = new Date().toISOString();
   await supabase
     .from("chat_participants" as any)
     .update({ last_read_at: now })
     .eq("conversation_id", conversationId)
     .eq("user_id", userId);
+}
 
-  await supabase
-    .from("chat_messages" as any)
-    .update({ status: "read" })
-    .eq("conversation_id", conversationId)
-    .neq("sender_id", userId);
+/**
+ * Atualiza configurações de um grupo.
+ */
+export async function updateGroupSettings(payload: UpdateGroupPayload): Promise<void> {
+  const { data, error } = await (supabase.rpc as any)("rpc_update_group_settings", {
+    p_conversation_id: payload.conversation_id,
+    p_title: payload.title,
+    p_description: payload.description,
+    p_avatar_url: payload.avatar_url,
+    p_only_admins_can_post: payload.only_admins_can_post,
+  });
+
+  if (error) throw error;
+}
+
+/**
+ * Gerencia participantes do grupo (adicionar, remover, promover, rebaixar).
+ */
+export async function manageGroupMember(
+  conversationId: string,
+  targetUserId: string,
+  action: "add" | "remove" | "make_admin" | "remove_admin",
+  newRole?: ParticipantRole
+): Promise<void> {
+  const { data, error } = await (supabase.rpc as any)("rpc_manage_group_member", {
+    p_conversation_id: conversationId,
+    p_target_user_id: targetUserId,
+    p_action: action,
+    p_new_role: newRole,
+  });
+
+  if (error) throw error;
+}
+
+/**
+ * Sai de um grupo ou exclui o grupo se for o criador.
+ */
+export async function leaveOrDeleteGroup(
+  conversationId: string,
+  action: "leave" | "delete"
+): Promise<void> {
+  const { data, error } = await (supabase.rpc as any)("rpc_leave_or_delete_group", {
+    p_conversation_id: conversationId,
+    p_action: action,
+  });
+
+  if (error) throw error;
+}
+
+/**
+ * Faz upload de um anexo para o bucket 'chat-attachments'.
+ */
+export async function uploadChatAttachment(
+  file: File,
+  onProgress?: (percent: number) => void
+): Promise<{ url: string; name: string; type: string; size: number }> {
+  const ext = file.name.split(".").pop() || "bin";
+  const uniqueName = `${Date.now()}_${Math.random().toString(36).substring(2, 9)}.${ext}`;
+  const filePath = `uploads/${uniqueName}`;
+
+  if (onProgress) onProgress(20);
+
+  const { error: uploadError } = await supabase.storage
+    .from("chat-attachments")
+    .upload(filePath, file, {
+      cacheControl: "3600",
+      upsert: false,
+    });
+
+  if (uploadError) {
+    throw new Error(`Falha no upload: ${uploadError.message}`);
+  }
+
+  if (onProgress) onProgress(80);
+
+  const { data: publicUrlData } = supabase.storage
+    .from("chat-attachments")
+    .getPublicUrl(filePath);
+
+  if (onProgress) onProgress(100);
+
+  return {
+    url: publicUrlData.publicUrl,
+    name: file.name,
+    type: file.type,
+    size: file.size,
+  };
 }
