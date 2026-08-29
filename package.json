@@ -10,7 +10,7 @@
     "preview": "vite preview",
     "lint": "eslint .",
     "format": "prettier --write .",
-    "build:spa": "vite build --config vite.spa.config.ts && node -e \"require('fs').copyFileSync('dist/index.html', 'dist/404.html')\"",
+    "build:spa": "vite build --config vite.spa.config.ts && node -e \"import('fs').then(f => f.copyFileSync('dist/index.html', 'dist/404.html'))\"",
     "deploy:spa": "npm run build:spa && node deploy.cjs"
   },
   "dependencies": {
