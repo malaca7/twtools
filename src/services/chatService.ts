@@ -180,7 +180,7 @@ export async function fetchUserConversations(currentUserId: string): Promise<Cha
       participants: parts,
       unread_count: unreadCount,
       other_participant: otherParticipant,
-      my_role: myRoleMap.get(c.id) || "member",
+      my_role: (c.created_by === currentUserId || myRoleMap.get(c.id) === "admin") ? "admin" : (myRoleMap.get(c.id) || "member"),
     });
   }
 
