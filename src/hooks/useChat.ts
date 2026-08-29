@@ -51,8 +51,10 @@ export function useConversations(activeConversationId?: string | null) {
   useEffect(() => {
     if (!userId) return;
 
+    // Use unique channel name per hook instance to prevent collision errors
+    const channelName = `realtime-global-chat-${userId}-${Math.random().toString(36).substring(2, 9)}`;
     const channel = supabase
-      .channel(`realtime-global-chat-${userId}`)
+      .channel(channelName)
       .on(
         "postgres_changes",
         {
@@ -125,6 +127,7 @@ export function useChatRoom(activeConversationId: string | null) {
 
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const typingCleanersRef = useRef<Map<string, NodeJS.Timeout>>(new Map());
+  const channelRef = useRef<any>(null);
 
   const currentUserId = user?.id;
   const currentUserName = profile?.nickname || profile?.nome || "Membro";
@@ -148,10 +151,11 @@ export function useChatRoom(activeConversationId: string | null) {
   useEffect(() => {
     if (!activeConversationId || !currentUserId) return;
 
-    const channelName = `chat_room_${activeConversationId}`;
+    const channelName = `chat_room_${activeConversationId}_${Math.random().toString(36).substring(2, 9)}`;
     const channel = supabase.channel(channelName, {
       config: { broadcast: { self: false } },
     });
+    channelRef.current = channel;
 
     // 1. Mensagens novas em tempo real
     channel
@@ -239,6 +243,7 @@ export function useChatRoom(activeConversationId: string | null) {
       .subscribe();
 
     return () => {
+      channelRef.current = null;
       void supabase.removeChannel(channel);
       typingCleanersRef.current.forEach((t) => clearTimeout(t));
       typingCleanersRef.current.clear();
@@ -255,16 +260,16 @@ export function useChatRoom(activeConversationId: string | null) {
       typingTimeoutRef.current = null;
     }, 2500);
 
-    const channelName = `chat_room_${activeConversationId}`;
-    const channel = supabase.channel(channelName);
-    void channel.send({
-      type: "broadcast",
-      event: "typing",
-      payload: {
-        user_id: currentUserId,
-        user_name: currentUserName,
-      },
-    });
+    if (channelRef.current) {
+      void channelRef.current.send({
+        type: "broadcast",
+        event: "typing",
+        payload: {
+          user_id: currentUserId,
+          user_name: currentUserName,
+        },
+      });
+    }
   }, [activeConversationId, currentUserId, currentUserName]);
 
   // Mutation de envio de mensagem
