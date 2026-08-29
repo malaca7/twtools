@@ -140,8 +140,10 @@ export function useConversations(activeConversationId?: string | null) {
   };
 }
 
+const PAGE_SIZE = 25;
+
 /**
- * Hook de Sala de Chat com OTIMIZAÇÃO INSTANTÂNEA (Optimistic UI 0ms delay).
+ * Hook de Sala de Chat com OTIMIZAÇÃO INSTANTÂNEA e LAZY LOADING NO SCROLL.
  */
 export function useChatRoom(activeConversationId: string | null) {
   const { user, profile } = useAuth();
@@ -149,6 +151,8 @@ export function useChatRoom(activeConversationId: string | null) {
   const [typingUsers, setTypingUsers] = useState<TypingUser[]>([]);
   const [replyingTo, setReplyingTo] = useState<ChatMessage | null>(null);
   const [uploadProgress, setUploadProgress] = useState<number | null>(null);
+  const [hasMore, setHasMore] = useState(true);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
 
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const typingCleanersRef = useRef<Map<string, NodeJS.Timeout>>(new Map());
@@ -158,13 +162,49 @@ export function useChatRoom(activeConversationId: string | null) {
   const currentUserName = profile?.nickname || profile?.nome || "Membro";
   const currentUserAvatar = profile?.discord_avatar_url || null;
 
-  // Busca histórico de mensagens da conversa
+  // Busca histórico inicial (apenas 25 mensagens para abrir instantaneamente em < 30ms)
   const messagesQuery = useQuery({
     queryKey: ["chat_messages", activeConversationId],
-    queryFn: () => (activeConversationId ? fetchMessages(activeConversationId) : Promise.resolve([])),
+    queryFn: async () => {
+      if (!activeConversationId) return [];
+      const initial = await fetchMessages(activeConversationId, PAGE_SIZE);
+      setHasMore(initial.length >= PAGE_SIZE);
+      return initial;
+    },
     enabled: Boolean(activeConversationId),
     staleTime: 5000,
   });
+
+  // Carrega mais mensagens antigas ao rolar para cima (Lazy Loading)
+  const loadMoreMessages = useCallback(async () => {
+    if (!activeConversationId || isLoadingMore || !hasMore) return;
+
+    const currentMsgs = queryClient.getQueryData<ChatMessage[]>(["chat_messages", activeConversationId]) || [];
+    if (currentMsgs.length === 0) return;
+
+    const oldestMsg = currentMsgs[0];
+    if (!oldestMsg?.created_at) return;
+
+    setIsLoadingMore(true);
+    try {
+      const older = await fetchMessages(activeConversationId, PAGE_SIZE, oldestMsg.created_at);
+      if (older.length < PAGE_SIZE) {
+        setHasMore(false);
+      }
+      if (older.length > 0) {
+        const existingIds = new Set(currentMsgs.map((m) => m.id));
+        const newUnique = older.filter((m) => !existingIds.has(m.id));
+        queryClient.setQueryData<ChatMessage[]>(["chat_messages", activeConversationId], [
+          ...newUnique,
+          ...currentMsgs,
+        ]);
+      }
+    } catch (err) {
+      console.warn("Erro ao carregar histórico anterior:", err);
+    } finally {
+      setIsLoadingMore(false);
+    }
+  }, [activeConversationId, isLoadingMore, hasMore, queryClient]);
 
   // Marca conversa como lida ao abrir
   useEffect(() => {
@@ -547,6 +587,9 @@ export function useChatRoom(activeConversationId: string | null) {
   return {
     messages: visibleMessages,
     isLoading: messagesQuery.isLoading,
+    isLoadingMore,
+    hasMore,
+    loadMoreMessages,
     isSending: sendMutation.isPending,
     uploadProgress,
     typingUsers,

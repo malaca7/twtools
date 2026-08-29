@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useLayoutEffect } from "react";
 import {
   ArrowLeft,
   Users,
@@ -50,6 +50,9 @@ export function ChatWindow({
   const {
     messages,
     isLoading,
+    isLoadingMore,
+    hasMore,
+    loadMoreMessages,
     isSending,
     uploadProgress,
     typingUsers,
@@ -69,15 +72,41 @@ export function ChatWindow({
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const prevScrollHeightRef = useRef<number | null>(null);
+  const isInitialLoadRef = useRef(true);
 
-  // Auto-scroll to bottom on new messages
+  // Auto-scroll to bottom on initial load
   const scrollToBottom = (behavior: ScrollBehavior = "smooth") => {
     messagesEndRef.current?.scrollIntoView({ behavior });
   };
 
   useEffect(() => {
-    scrollToBottom(isLoading ? "auto" : "smooth");
-  }, [messages.length, typingUsers.length, isLoading]);
+    if (isLoading) {
+      isInitialLoadRef.current = true;
+      return;
+    }
+    if (isInitialLoadRef.current && messages.length > 0) {
+      scrollToBottom("auto");
+      isInitialLoadRef.current = false;
+    }
+  }, [messages.length, isLoading]);
+
+  // Adjust scroll position after loading older messages so viewport does not jump
+  useLayoutEffect(() => {
+    if (prevScrollHeightRef.current !== null && scrollContainerRef.current) {
+      const currentScrollHeight = scrollContainerRef.current.scrollHeight;
+      scrollContainerRef.current.scrollTop = currentScrollHeight - prevScrollHeightRef.current;
+      prevScrollHeightRef.current = null;
+    }
+  }, [messages.length]);
+
+  const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    const target = e.currentTarget;
+    if (target.scrollTop < 80 && hasMore && !isLoadingMore && !isLoading && messages.length >= 20) {
+      prevScrollHeightRef.current = target.scrollHeight;
+      void loadMoreMessages();
+    }
+  };
 
   // Scroll to a specific message
   const handleScrollToMessage = (messageId: string) => {
@@ -296,7 +325,25 @@ export function ChatWindow({
       </div>
 
       {/* MESSAGES SCROLL CONTAINER */}
-      <div ref={scrollContainerRef} className="flex-1 overflow-y-auto p-2.5 sm:p-3 space-y-2 select-text">
+      <div
+        ref={scrollContainerRef}
+        onScroll={handleScroll}
+        className="flex-1 overflow-y-auto p-2.5 sm:p-3 space-y-2 select-text"
+      >
+        {/* INDICADOR DE CARREGAMENTO DE MENSAGENS ANTERIORES NO TOPO */}
+        {isLoadingMore && (
+          <div className="flex items-center justify-center py-2 gap-2 text-[11px] text-muted-foreground animate-pulse">
+            <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />
+            <span>Carregando histórico anterior...</span>
+          </div>
+        )}
+
+        {!hasMore && messages.length >= 20 && (
+          <div className="flex items-center justify-center py-2 text-[10px] text-muted-foreground/60 font-mono select-none">
+            ✦ Início do histórico da conversa ✦
+          </div>
+        )}
+
         {isLoading ? (
           <div className="flex flex-col items-center justify-center h-full gap-2 text-muted-foreground text-xs">
             <Loader2 className="h-6 w-6 animate-spin text-primary" />
