@@ -370,6 +370,16 @@ export function AppShell({ children }: { children: ReactNode }) {
   // Live online timer for active session
   const { formattedHuman } = useOnlineTimer(myMember?.online_since);
 
+  // Contagem de membros online e ausentes
+  const onlineMembersCount = useMemo(
+    () => members.filter((m) => m.presence_status === "online").length,
+    [members]
+  );
+  const ausenteMembersCount = useMemo(
+    () => members.filter((m) => m.presence_status === "ausente" || m.presence_status === "ocupado").length,
+    [members]
+  );
+
   const avatarUrl = profile?.discord_avatar_url || profile?.avatar_url;
   const mainName = profile?.nickname || profile?.nome || "Membro";
   const subName = profile?.nickname ? profile.nome : null;
@@ -402,8 +412,8 @@ export function AppShell({ children }: { children: ReactNode }) {
               </span>
             </div>
 
-            {/* TOP HEADER: LIVE REALTIME ONLINE TIMER BADGE + USER AVATAR */}
-            <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+            {/* TOP HEADER: LIVE REALTIME ONLINE TIMER + ONLINE/AUSENTE MEMBERS BADGE + USER AVATAR */}
+            <div className="flex items-center gap-2 sm:gap-2.5 shrink-0">
               {/* LIVE ONLINE TIMER BADGE */}
               <div
                 className="flex items-center gap-1.5 px-2 py-1 sm:px-3 sm:py-1.5 rounded-full border border-emerald-500/40 bg-emerald-500/10 text-emerald-400 font-mono text-[10.5px] sm:text-xs font-bold shadow-sm"
@@ -415,6 +425,30 @@ export function AppShell({ children }: { children: ReactNode }) {
                 </span>
                 <Clock className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-emerald-400 shrink-0" />
                 <span className="truncate">{formattedHuman}</span>
+              </div>
+
+              {/* ONLINE & AUSENTES MEMBERS BADGE */}
+              <div
+                className="flex items-center gap-2 px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-full border border-border/70 bg-card/80 backdrop-blur-md text-xs font-mono font-bold shadow-sm"
+                title={`${onlineMembersCount} membro(s) online e ${ausenteMembersCount} ausente(s)`}
+              >
+                {/* Online */}
+                <div className="flex items-center gap-1.5 text-emerald-400">
+                  <span className="h-2 w-2 rounded-full bg-emerald-500 shadow-xs" />
+                  <span>{onlineMembersCount}</span>
+                  <span className="text-[10px] font-sans font-semibold text-muted-foreground hidden sm:inline">online</span>
+                </div>
+
+                <span className="h-3 w-px bg-border/80" />
+
+                {/* Ausentes */}
+                <div className="flex items-center gap-1.5 text-amber-400">
+                  <span className="h-2 w-2 rounded-full bg-amber-500 shadow-xs" />
+                  <span>{ausenteMembersCount}</span>
+                  <span className="text-[10px] font-sans font-semibold text-muted-foreground hidden sm:inline">
+                    {ausenteMembersCount === 1 ? "ausente" : "ausentes"}
+                  </span>
+                </div>
               </div>
 
               <DropdownMenu modal={false}>

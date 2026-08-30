@@ -1,5 +1,15 @@
 import { useState, useRef, useEffect } from "react";
-import { Users, X, Clock, Moon, MessageSquare, Plus, ChevronDown, MessageCircle, Send } from "lucide-react";
+import {
+  Users,
+  X,
+  MessageSquare,
+  MessageCircle,
+  MessageCircleMore,
+  Volume2,
+  VolumeX,
+  ChevronDown,
+  Moon,
+} from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -12,7 +22,8 @@ import { getOrCreatePrivateConversation } from "@/services/chatService";
 import { ChatWindow } from "@/components/chat/ChatWindow";
 import { ConversationList } from "@/components/chat/ConversationList";
 import { CreateGroupDialog } from "@/components/chat/CreateGroupDialog";
-import { dateTime, formatAusenteDuration, formatLastSeen } from "@/lib/format";
+import { chatSound } from "@/lib/chatSound";
+import { formatAusenteDuration, formatLastSeen } from "@/lib/format";
 import { LEVEL_LABEL, levelBadgeClass, type AppLevel } from "@/lib/permissions";
 import { cn } from "@/lib/utils";
 import type { UserPresenceStatus, Member } from "@/lib/app-types";
@@ -151,20 +162,53 @@ export function FloatingPresenceWidget() {
   const currentUserId = user?.id;
 
   const [isOpen, setIsOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<"members" | "chat">("members");
+  // Aba principal padrão: "chat"
+  const [activeTab, setActiveTab] = useState<"chat" | "members">("chat");
   const [activeConversation, setActiveConversation] = useState<ChatConversation | null>(null);
   const [createGroupOpen, setCreateGroupOpen] = useState(false);
   const [memberSearch, setMemberSearch] = useState("");
+  const [soundEnabled, setSoundEnabled] = useState(chatSound.isEnabled());
+  const [isAlerting, setIsAlerting] = useState(false);
 
   const { data: members = [] } = useMembers();
   const {
     conversations,
     isLoading: loadingConversations,
     totalUnreadCount,
+    unreadConversationsCount,
     refetch: refetchConversations,
   } = useConversations(activeConversation?.id);
 
   const panelRef = useRef<HTMLDivElement>(null);
+  const alertTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Sincronizar estado do som
+  useEffect(() => {
+    const handleSoundChange = (e: any) => {
+      if (typeof e.detail?.enabled === "boolean") {
+        setSoundEnabled(e.detail.enabled);
+      }
+    };
+    window.addEventListener("tw_chat_sound_change", handleSoundChange);
+    return () => window.removeEventListener("tw_chat_sound_change", handleSoundChange);
+  }, []);
+
+  // Escutar evento de nova mensagem para disparar animação visual no balão
+  useEffect(() => {
+    const handleNewMessageAlert = () => {
+      setIsAlerting(true);
+      if (alertTimeoutRef.current) clearTimeout(alertTimeoutRef.current);
+      alertTimeoutRef.current = setTimeout(() => {
+        setIsAlerting(false);
+      }, 4000);
+    };
+
+    window.addEventListener("tw_chat_new_message", handleNewMessageAlert);
+    return () => {
+      window.removeEventListener("tw_chat_new_message", handleNewMessageAlert);
+      if (alertTimeoutRef.current) clearTimeout(alertTimeoutRef.current);
+    };
+  }, []);
 
   // Sync active conversation when conversations query updates
   useEffect(() => {
@@ -180,11 +224,27 @@ export function FloatingPresenceWidget() {
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
       if (window.innerWidth < 640) return; // Ignore on mobile
-      if (panelRef.current && !panelRef.current.contains(e.target as Node)) {
-        const inDialog = document.querySelector('[role="dialog"]');
-        if (inDialog && inDialog.contains(e.target as Node)) return;
-        setIsOpen(false);
+      const target = e.target as Element | null;
+      if (!target) return;
+
+      // Se o clique foi dentro do próprio widget, não fecha
+      if (panelRef.current && panelRef.current.contains(target)) return;
+
+      // Se o clique foi em qualquer portal do Radix (Dialog, AlertDialog, DropdownMenu, Popover, etc.)
+      if (
+        target.closest(
+          '[role="dialog"], [role="alertdialog"], [role="menu"], [data-radix-portal], [data-radix-popper-content-wrapper], [data-radix-dropdown-menu-content], [data-radix-focus-guard]'
+        )
+      ) {
+        return;
       }
+
+      // Se houver algum Dialog ou AlertDialog aberto no DOM, não fecha o chat
+      if (document.querySelector('[role="dialog"], [role="alertdialog"]')) {
+        return;
+      }
+
+      setIsOpen(false);
     }
     if (isOpen) {
       document.addEventListener("mousedown", handleClickOutside);
@@ -192,13 +252,29 @@ export function FloatingPresenceWidget() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [isOpen]);
 
-  // Counts
+  // Limpa alerta de animação quando o usuário abre o balão
+  const handleToggleOpen = () => {
+    setIsOpen((prev) => {
+      const next = !prev;
+      if (next) {
+        setIsAlerting(false);
+      }
+      return next;
+    });
+  };
+
+  const handleToggleSound = () => {
+    const next = chatSound.toggle();
+    setSoundEnabled(next);
+    toast.info(next ? "Sons de notificação do chat ativados" : "Sons do chat silenciados");
+  };
+
+  // Counts de membros
   const onlineMembers = members.filter((m) => m.presence_status === "online");
   const ausenteMembers = members.filter((m) => m.presence_status === "ausente" || m.presence_status === "ocupado");
   const offlineMembers = members.filter((m) => !m.presence_status || m.presence_status === "offline");
 
   const totalOnline = onlineMembers.length;
-  const totalAusente = ausenteMembers.length;
 
   const filteredMembers = (list: Member[]) => {
     if (!memberSearch.trim()) return list;
@@ -228,21 +304,30 @@ export function FloatingPresenceWidget() {
 
   return (
     <div ref={panelRef} className="fixed bottom-3 right-3 sm:bottom-6 sm:right-6 z-50">
-      {/* FLOATING ACTION BUTTON */}
+      {/* FLOATING ACTION BUTTON — BALÃO FLUTUANTE DE CHAT 💬 */}
       <button
         type="button"
-        onClick={() => setIsOpen((prev) => !prev)}
+        onClick={handleToggleOpen}
         className={cn(
-          "relative flex items-center gap-2 px-3.5 py-2.5 rounded-full border shadow-2xl backdrop-blur-xl transition-all duration-200 cursor-pointer active:scale-95",
+          "relative flex items-center gap-2 px-3.5 py-2.5 sm:px-4 sm:py-3 rounded-full border shadow-2xl backdrop-blur-xl transition-all duration-300 cursor-pointer active:scale-95 group select-none",
           isOpen
-            ? "border-primary bg-primary text-primary-foreground shadow-primary/30 ring-2 ring-primary/40"
-            : "border-primary/40 bg-card/95 text-foreground hover:bg-secondary hover:border-primary/60 shadow-lg"
+            ? "border-primary bg-primary text-primary-foreground shadow-primary/40 ring-4 ring-primary/30"
+            : "border-primary/50 bg-card/95 text-foreground hover:bg-secondary hover:border-primary/80 shadow-xl",
+          isAlerting && !isOpen && "animate-bounce ring-4 ring-rose-500/70 border-rose-500 shadow-rose-500/40"
         )}
-        title="Ver membros ativos e mensagens em tempo real"
+        title={`${totalOnline} membro(s) online • Abrir Chat em tempo real`}
       >
+        {/* Pulsing ring indicator on new message */}
+        {isAlerting && !isOpen && (
+          <span className="absolute -inset-1 rounded-full bg-rose-500/30 animate-ping pointer-events-none" />
+        )}
+
+        {/* CHAT ICON 💬 */}
         <div className="relative flex items-center justify-center">
-          <Users className="h-4 w-4 shrink-0" />
-          {totalOnline > 0 && !isOpen && (
+          <MessageCircleMore className={cn("h-5 w-5 shrink-0 transition-transform group-hover:scale-110", isOpen ? "text-primary-foreground" : "text-primary")} />
+          
+          {/* Status online ping dot no ícone */}
+          {totalOnline > 0 && !isOpen && totalUnreadCount === 0 && (
             <span className="absolute -top-1 -right-1 flex h-2 w-2">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
               <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
@@ -250,16 +335,19 @@ export function FloatingPresenceWidget() {
           )}
         </div>
 
-        <div className="flex items-center gap-1.5 text-xs font-bold font-mono">
-          <span>{totalOnline}</span>
-          <span className="text-[10px] font-sans font-semibold opacity-80">Ativos</span>
-        </div>
+        {/* CHAT LABEL */}
+        <span className={cn("text-xs font-black tracking-tight", isOpen ? "text-primary-foreground" : "text-foreground")}>
+          Chat
+        </span>
 
-        {/* UNREAD MESSAGES BADGE ON BUBBLE */}
-        {totalUnreadCount > 0 && (
-          <div className="flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-rose-500 text-white font-mono text-[10px] font-black animate-pulse shadow-xs">
+        {/* UNREAD CONVERSATIONS BADGE (QUANTIDADE DE CONVERSAS COM MENSAGENS NÃO LIDAS) */}
+        {unreadConversationsCount > 0 && (
+          <div
+            className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-rose-600 text-white font-mono text-[10px] font-black animate-pulse shadow-md shadow-rose-600/40"
+            title={`${unreadConversationsCount} conversa(s) com mensagens não lidas`}
+          >
             <MessageSquare className="h-2.5 w-2.5" />
-            <span>{totalUnreadCount}</span>
+            <span>{unreadConversationsCount}</span>
           </div>
         )}
 
@@ -268,9 +356,9 @@ export function FloatingPresenceWidget() {
         />
       </button>
 
-      {/* FLOATING HIGH-DENSITY CHAT & PRESENCE DRAWER */}
+      {/* FLOATING HIGH-DENSITY CHAT & PRESENCE POPUP */}
       {isOpen && (
-        <div className="fixed inset-x-2.5 bottom-2 top-14 sm:inset-auto sm:bottom-16 sm:right-0 sm:top-auto sm:w-[420px] sm:h-[580px] rounded-2xl border border-border/80 bg-card/98 backdrop-blur-2xl shadow-2xl overflow-hidden animate-in fade-in-50 slide-in-from-bottom-3 duration-200 flex flex-col z-50">
+        <div className="fixed inset-x-2.5 bottom-2 top-14 sm:inset-auto sm:bottom-16 sm:right-0 sm:top-auto sm:w-[420px] sm:h-[590px] rounded-2xl border border-border/80 bg-card/98 backdrop-blur-2xl shadow-2xl overflow-hidden animate-in fade-in-50 slide-in-from-bottom-3 duration-200 flex flex-col z-50">
           {/* SE UMA CONVERSA ESTIVER ABERTA, EXIBE A JANELA DE CHAT */}
           {activeConversation ? (
             <ChatWindow
@@ -285,13 +373,39 @@ export function FloatingPresenceWidget() {
               onStartPrivateChat={(uid) => {
                 void handleStartPrivateChat(uid);
               }}
+              onSelectConversation={(conv) => {
+                setActiveConversation(conv);
+                void refetchConversations();
+              }}
+              viewMode="focus"
             />
           ) : (
-            /* CASO CONTRÁRIO: EXIBE ABAS (MEMBROS / CONVERSAS) */
+            /* CASO CONTRÁRIO: EXIBE ABAS (CHAT PRINCIPAL / MEMBROS ONLINE SECUNDÁRIA) */
             <div className="flex flex-col h-full overflow-hidden">
-              {/* TOP TABS & CLOSE BUTTON */}
+              {/* TOP TABS & CONTROLS */}
               <div className="p-2.5 border-b border-border/60 bg-secondary/30 flex items-center justify-between gap-2 shrink-0">
                 <div className="flex items-center gap-1 bg-secondary/80 p-0.5 rounded-xl border border-border/50">
+                  {/* ABA 1 (PRINCIPAL): CHAT */}
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab("chat")}
+                    className={cn(
+                      "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-extrabold transition-all cursor-pointer relative",
+                      activeTab === "chat"
+                        ? "bg-card text-foreground shadow-xs border border-border/40"
+                        : "text-muted-foreground hover:text-foreground"
+                    )}
+                  >
+                    <MessageCircle className="h-3.5 w-3.5 text-primary" />
+                    <span>Chat</span>
+                    {unreadConversationsCount > 0 && (
+                      <Badge className="h-4 min-w-4 px-1 rounded-full bg-rose-500 text-white font-mono text-[9px] font-black animate-pulse">
+                        {unreadConversationsCount}
+                      </Badge>
+                    )}
+                  </button>
+
+                  {/* ABA 2 (SECUNDÁRIA): MEMBROS ONLINE */}
                   <button
                     type="button"
                     onClick={() => setActiveTab("members")}
@@ -303,44 +417,51 @@ export function FloatingPresenceWidget() {
                     )}
                   >
                     <Users className="h-3.5 w-3.5 text-primary" />
-                    <span>Membros</span>
+                    <span>Membros online</span>
                     <Badge variant="outline" className="text-[9px] font-mono px-1 py-0 border-emerald-500/40 text-emerald-400 bg-emerald-500/10 font-bold">
                       {totalOnline}
                     </Badge>
                   </button>
+                </div>
+
+                {/* SOUND TOGGLE & CLOSE BUTTON */}
+                <div className="flex items-center gap-1">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    onClick={handleToggleSound}
+                    className="h-8 w-8 rounded-xl hover:bg-secondary flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+                    title={soundEnabled ? "Sons de notificação ativados (clique para silenciar)" : "Sons silenciados (clique para ativar)"}
+                  >
+                    {soundEnabled ? (
+                      <Volume2 className="h-4 w-4 text-emerald-400" />
+                    ) : (
+                      <VolumeX className="h-4 w-4 text-muted-foreground" />
+                    )}
+                  </Button>
 
                   <button
                     type="button"
-                    onClick={() => setActiveTab("chat")}
-                    className={cn(
-                      "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-extrabold transition-all cursor-pointer relative",
-                      activeTab === "chat"
-                        ? "bg-card text-foreground shadow-xs border border-border/40"
-                        : "text-muted-foreground hover:text-foreground"
-                    )}
+                    onClick={() => setIsOpen(false)}
+                    className="h-8 w-8 rounded-xl hover:bg-secondary flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+                    title="Fechar popup"
                   >
-                    <MessageSquare className="h-3.5 w-3.5 text-primary" />
-                    <span>Mensagens</span>
-                    {totalUnreadCount > 0 && (
-                      <Badge className="h-4 min-w-4 px-1 rounded-full bg-rose-500 text-white font-mono text-[9px] font-black animate-pulse">
-                        {totalUnreadCount}
-                      </Badge>
-                    )}
+                    <X className="h-4 w-4" />
                   </button>
                 </div>
-
-                <button
-                  type="button"
-                  onClick={() => setIsOpen(false)}
-                  className="h-8 w-8 rounded-xl hover:bg-secondary flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
-                  title="Fechar popup"
-                >
-                  <X className="h-4 w-4" />
-                </button>
               </div>
 
-              {/* ABA: MEMBROS */}
-              {activeTab === "members" ? (
+              {/* ABA PRINCIPAL: CHAT (LISTA DE CONVERSAS) */}
+              {activeTab === "chat" ? (
+                <ConversationList
+                  conversations={conversations}
+                  isLoading={loadingConversations}
+                  onSelectConversation={(conv) => setActiveConversation(conv)}
+                  onCreateGroup={() => setCreateGroupOpen(true)}
+                />
+              ) : (
+                /* ABA SECUNDÁRIA: MEMBROS ONLINE */
                 <div className="flex flex-col h-full overflow-hidden">
                   {/* SEARCH */}
                   <div className="p-2.5 border-b border-border/40 bg-secondary/10 shrink-0">
@@ -415,14 +536,6 @@ export function FloatingPresenceWidget() {
                     )}
                   </div>
                 </div>
-              ) : (
-                /* ABA: CONVERSAS / MENSAGENS */
-                <ConversationList
-                  conversations={conversations}
-                  isLoading={loadingConversations}
-                  onSelectConversation={(conv) => setActiveConversation(conv)}
-                  onCreateGroup={() => setCreateGroupOpen(true)}
-                />
               )}
             </div>
           )}

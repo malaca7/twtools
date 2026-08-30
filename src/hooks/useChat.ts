@@ -16,6 +16,7 @@ import {
   updateGroupSettings,
   leaveOrDeleteGroup,
   uploadChatAttachment,
+  getCachedMember,
 } from "@/services/chatService";
 import type {
   ChatConversation,
@@ -65,10 +66,17 @@ export function useConversations(activeConversationId?: string | null) {
         (payload) => {
           const newMsg = payload.new as any;
 
-          // Se a mensagem veio de outra pessoa e não é a conversa ativa no momento, toca som de notificação
+          // Se a mensagem veio de outra pessoa e não é a conversa ativa no momento, toca som de notificação e dispara evento visual
           if (newMsg.sender_id !== userId) {
             if (activeConvRef.current !== newMsg.conversation_id) {
               chatSound.playIncomingMessage();
+              if (typeof window !== "undefined") {
+                window.dispatchEvent(
+                  new CustomEvent("tw_chat_new_message", {
+                    detail: { message: newMsg, conversationId: newMsg.conversation_id },
+                  })
+                );
+              }
             }
           }
 
@@ -130,12 +138,14 @@ export function useConversations(activeConversationId?: string | null) {
   }, [userId, queryClient]);
 
   const totalUnreadCount = (query.data || []).reduce((sum, c) => sum + (c.unread_count || 0), 0);
+  const unreadConversationsCount = (query.data || []).filter((c) => (c.unread_count || 0) > 0).length;
 
   return {
     conversations: query.data || [],
     isLoading: query.isLoading,
     isError: query.isError,
     totalUnreadCount,
+    unreadConversationsCount,
     refetch: query.refetch,
   };
 }
@@ -239,16 +249,87 @@ export function useChatRoom(activeConversationId: string | null) {
         },
         async (payload) => {
           const newRaw = payload.new as any;
+          if (!newRaw || newRaw.conversation_id !== activeConversationId) return;
 
-          // Se a mensagem for de outro usuário, toca som sutil e marca lida imediatamente
+          // Se a mensagem for de outro usuário, marca como lida imediatamente (sem alerta sonoro, pois já está aberta)
           if (newRaw.sender_id !== currentUserId) {
-            chatSound.playIncomingMessage();
             void markConversationAsRead(activeConversationId, currentUserId);
           }
 
-          // Atualiza cache de mensagens sem piscar a tela
-          void queryClient.invalidateQueries({ queryKey: ["chat_messages", activeConversationId] });
-          void queryClient.invalidateQueries({ queryKey: ["chat_conversations", currentUserId] });
+          // Inserção instantânea (0ms) no cache do TanStack Query
+          queryClient.setQueryData<ChatMessage[]>(["chat_messages", activeConversationId], (old = []) => {
+            // Se já existe pelo ID real, não duplica
+            if (old.some((m) => m.id === newRaw.id)) return old;
+
+            // Se for mensagem própria enviada por este usuário, reconcilia com a mensagem otimista
+            if (newRaw.sender_id === currentUserId) {
+              const optIndex = old.findIndex(
+                (m) =>
+                  m.id.startsWith("optimistic-") &&
+                  m.content === newRaw.content &&
+                  m.sender_id === currentUserId
+              );
+              if (optIndex !== -1) {
+                const updated = [...old];
+                updated[optIndex] = {
+                  ...updated[optIndex],
+                  id: newRaw.id,
+                  created_at: newRaw.created_at || updated[optIndex].created_at,
+                  updated_at: newRaw.updated_at || newRaw.created_at || updated[optIndex].updated_at,
+                  status: newRaw.status || "sent",
+                };
+                return updated;
+              }
+            }
+
+            // Mensagem recebida em tempo real de outro membro
+            const senderProfile = getCachedMember(newRaw.sender_id);
+            const formattedMsg: ChatMessage = {
+              id: newRaw.id,
+              conversation_id: newRaw.conversation_id,
+              sender_id: newRaw.sender_id,
+              sender_name: senderProfile?.nickname || senderProfile?.nome || "Membro",
+              sender_avatar: senderProfile?.discord_avatar_url || null,
+              content: newRaw.content || "",
+              status: newRaw.status || "delivered",
+              message_type: newRaw.message_type || "text",
+              reply_to_id: newRaw.reply_to_id || null,
+              attachment_url: newRaw.attachment_url || null,
+              attachment_name: newRaw.attachment_name || null,
+              attachment_type: newRaw.attachment_type || null,
+              attachment_size: newRaw.attachment_size || null,
+              mentions: newRaw.mentions || [],
+              reactions: [],
+              is_edited: Boolean(newRaw.is_edited),
+              is_deleted: Boolean(newRaw.is_deleted || newRaw.is_deleted_for_everyone),
+              is_deleted_for_everyone: Boolean(newRaw.is_deleted_for_everyone),
+              is_forwarded: Boolean(newRaw.is_forwarded),
+              forwarded_from_name: newRaw.forwarded_from_name || null,
+              deleted_for_users: newRaw.deleted_for_users || [],
+              created_at: newRaw.created_at || new Date().toISOString(),
+              updated_at: newRaw.updated_at || newRaw.created_at || new Date().toISOString(),
+              is_self: newRaw.sender_id === currentUserId,
+            };
+
+            return [...old, formattedMsg];
+          });
+
+          // Atualiza lista lateral de conversas instantaneamente
+          queryClient.setQueryData<ChatConversation[]>(["chat_conversations", currentUserId], (old = []) =>
+            old
+              .map((c) =>
+                c.id === activeConversationId
+                  ? {
+                      ...c,
+                      last_message: newRaw.content || newRaw.attachment_name || "Anexo",
+                      last_message_at: newRaw.created_at || new Date().toISOString(),
+                      last_message_sender_id: newRaw.sender_id,
+                      unread_count: 0,
+                    }
+                  : c
+              )
+              .sort((a, b) => new Date(b.last_message_at).getTime() - new Date(a.last_message_at).getTime())
+          );
         }
       )
       // 2. Atualizações de mensagens (edição, exclusão)
@@ -264,13 +345,17 @@ export function useChatRoom(activeConversationId: string | null) {
           const updated = payload.new as any;
           queryClient.setQueryData<ChatMessage[]>(["chat_messages", activeConversationId], (old) => {
             if (!old) return old;
+            if (updated.deleted_for_users?.includes(currentUserId)) {
+              return old.filter((m) => m.id !== updated.id);
+            }
             return old.map((m) =>
               m.id === updated.id
                 ? {
                     ...m,
                     content: updated.content,
                     is_edited: Boolean(updated.is_edited),
-                    is_deleted: Boolean(updated.is_deleted),
+                    is_deleted: Boolean(updated.is_deleted_for_everyone || updated.is_deleted),
+                    is_deleted_for_everyone: Boolean(updated.is_deleted_for_everyone),
                     status: updated.status || m.status,
                     deleted_for_users: updated.deleted_for_users || m.deleted_for_users,
                   }
@@ -541,7 +626,7 @@ export function useChatRoom(activeConversationId: string | null) {
   // Editar mensagem com OTIMIZAÇÃO INSTANTÂNEA
   const editMutation = useMutation({
     mutationFn: async ({ messageId, newContent }: { messageId: string; newContent: string }) => {
-      await editChatMessage(messageId, newContent);
+      await editChatMessage(messageId, newContent, currentUserId);
     },
     onMutate: async ({ messageId, newContent }) => {
       queryClient.setQueryData<ChatMessage[]>(["chat_messages", activeConversationId], (old = []) =>
@@ -560,12 +645,16 @@ export function useChatRoom(activeConversationId: string | null) {
   // Excluir mensagem com OTIMIZAÇÃO INSTANTÂNEA
   const deleteMutation = useMutation({
     mutationFn: async ({ messageId, forEveryone }: { messageId: string; forEveryone: boolean }) => {
-      await deleteChatMessage(messageId, forEveryone);
+      await deleteChatMessage(messageId, forEveryone, currentUserId);
     },
     onMutate: async ({ messageId, forEveryone }) => {
       queryClient.setQueryData<ChatMessage[]>(["chat_messages", activeConversationId], (old = []) => {
         if (forEveryone) {
-          return old.map((m) => (m.id === messageId ? { ...m, is_deleted: true, content: "Mensagem apagada" } : m));
+          return old.map((m) =>
+            m.id === messageId
+              ? { ...m, is_deleted: true, is_deleted_for_everyone: true, content: "🚫 Mensagem apagada" }
+              : m
+          );
         }
         return old.filter((m) => m.id !== messageId);
       });

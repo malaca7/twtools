@@ -151,6 +151,10 @@ function ChatPage() {
                 void refetchConversations();
               }}
               onStartPrivateChat={handleStartPrivateChat}
+              onSelectConversation={(conv) => {
+                setActiveConversation(conv);
+                void refetchConversations();
+              }}
               viewMode={viewMode}
               onToggleViewMode={handleToggleViewMode}
             />

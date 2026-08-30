@@ -64,6 +64,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Slider } from "@/components/ui/slider";
 import { Separator } from "@/components/ui/separator";
 import { playGamerSuccessSound, playGamerOnlineAlertSound } from "@/lib/sound-effects";
+import { chatSound } from "@/lib/chatSound";
 import { PageHeader, NoAccess } from "@/components/ui-kit";
 import { useAuth } from "@/hooks/useAuth";
 import { cn } from "@/lib/utils";
@@ -1107,6 +1108,132 @@ function MenuTab({ canEdit }: { canEdit: boolean }) {
   );
 }
 
+/* ─── Chat Notification Sounds Component ─── */
+function ChatSoundConfigCard() {
+  const [chatSoundEnabled, setChatSoundEnabled] = useState(chatSound.isEnabled());
+
+  useEffect(() => {
+    const handleSoundChange = (e: any) => {
+      if (typeof e.detail?.enabled === "boolean") {
+        setChatSoundEnabled(e.detail.enabled);
+      }
+    };
+    window.addEventListener("tw_chat_sound_change", handleSoundChange);
+    return () => window.removeEventListener("tw_chat_sound_change", handleSoundChange);
+  }, []);
+
+  const handleToggle = (checked: boolean) => {
+    chatSound.setEnabled(checked);
+    setChatSoundEnabled(checked);
+    toast.success(
+      checked
+        ? "Notificações sonoras do chat ativadas com sucesso!"
+        : "Notificações sonoras do chat desativadas!"
+    );
+    if (checked) {
+      chatSound.playIncomingMessage();
+    }
+  };
+
+  const handleTestIncoming = () => {
+    chatSound.playIncomingMessage();
+    toast.info("Testando som de nova mensagem do chat");
+  };
+
+  const handleTestMention = () => {
+    chatSound.playMentionSound();
+    toast.info("Testando som de menção (@você) no chat");
+  };
+
+  const handleTestSent = () => {
+    chatSound.playSentMessage();
+    toast.info("Testando som de mensagem enviada");
+  };
+
+  return (
+    <Card className="surface-card">
+      <CardHeader className="pb-3 border-b border-border/60">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-400">
+              <MessageSquare className="h-4 w-4" />
+            </div>
+            <div>
+              <CardTitle className="text-sm font-bold">Notificações Sonoras do Chat</CardTitle>
+              <CardDescription className="text-[0.7rem]">
+                Alertas sonoros em tempo real para novas mensagens recebidas, menções e envio
+              </CardDescription>
+            </div>
+          </div>
+          <Badge
+            variant="outline"
+            className={cn(
+              "text-[10px] font-mono",
+              chatSoundEnabled
+                ? "border-emerald-500/40 text-emerald-400 bg-emerald-500/10"
+                : "border-zinc-500/40 text-muted-foreground"
+            )}
+          >
+            {chatSoundEnabled ? "Áudio Ativo" : "Silenciado"}
+          </Badge>
+        </div>
+      </CardHeader>
+      <CardContent className="p-4 space-y-4">
+        <div className="flex items-center justify-between p-3 rounded-xl bg-secondary/30 border border-border/40">
+          <div className="space-y-0.5">
+            <p className="text-xs font-bold text-foreground">Sons de novas mensagens e menções</p>
+            <p className="text-[0.7rem] text-muted-foreground">
+              Reproduzir tom sonoro discreto e cristalino ao receber novas mensagens fora da conversa aberta
+            </p>
+          </div>
+          <Switch
+            checked={chatSoundEnabled}
+            onCheckedChange={handleToggle}
+            className="data-[state=checked]:bg-emerald-500"
+          />
+        </div>
+
+        {/* Audio Test Buttons */}
+        <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-border/40">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={handleTestIncoming}
+            disabled={!chatSoundEnabled}
+            className="h-8 text-xs gap-1.5 border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10 disabled:opacity-50"
+          >
+            <Volume2 className="h-3.5 w-3.5" />
+            Testar Som de Mensagem Recebida
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={handleTestMention}
+            disabled={!chatSoundEnabled}
+            className="h-8 text-xs gap-1.5 border-amber-500/30 text-amber-400 hover:bg-amber-500/10 disabled:opacity-50"
+          >
+            <Sparkles className="h-3.5 w-3.5" />
+            Testar Som de Menção (@)
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={handleTestSent}
+            disabled={!chatSoundEnabled}
+            className="h-8 text-xs gap-1.5 border-primary/30 text-primary hover:bg-primary/10 disabled:opacity-50"
+          >
+            <Volume2 className="h-3.5 w-3.5" />
+            Testar Som de Envio
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 /* ─── Notifications & Notices Tab Component ─── */
 function NotificationsTab({ canEdit }: { canEdit: boolean }) {
   const { settings, save } = usePlatformSettings();
@@ -1257,6 +1384,9 @@ function NotificationsTab({ canEdit }: { canEdit: boolean }) {
           </div>
         </CardContent>
       </Card>
+
+      {/* CHAT NOTIFICATIONS SOUND CARD */}
+      <ChatSoundConfigCard />
 
       <Card className="surface-card">
         <CardHeader className="pb-3 border-b border-border/60">

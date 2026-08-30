@@ -41,7 +41,8 @@ import { DEFAULT_USER_THEME, type UserThemeSettings } from "@/lib/app-types";
 import { cn } from "@/lib/utils";
 
 export const THEME_CATEGORIES = [
-  { id: "all", name: "Todos (22)" },
+  { id: "all", name: "Todos (30)" },
+  { id: "light", name: "☀️ Temas Claros (8)" },
   { id: "cyberpunk", name: "Cyber & Neon" },
   { id: "faction", name: "Facções & Crime" },
   { id: "dark_minimal", name: "OLED & Minimal" },
@@ -49,6 +50,16 @@ export const THEME_CATEGORIES = [
 ];
 
 export const THEME_OPTIONS = [
+  // ☀️ Temas Claros & Clean
+  { id: "light_pearl", category: "light", name: "Clean Pearl White", color: "from-sky-300 to-blue-600", desc: "Branco pérola puro com detalhes em azul cobalto, sombras suaves e máxima legibilidade" },
+  { id: "light_cloud", category: "light", name: "Soft Cloud Minimal", color: "from-slate-200 to-cyan-500", desc: "Cinza claro ultra suave com detalhes em ciano e ardósia" },
+  { id: "light_sakura", category: "light", name: "Sakura Blossom Light", color: "from-pink-200 to-rose-400", desc: "Fundo claro floral suave com toques de rosa cerejeira e lavanda" },
+  { id: "light_mint", category: "light", name: "Emerald Mint Light", color: "from-emerald-200 to-teal-400", desc: "Fundo claro refrescante com acentos menta, esmeralda e eucalipto" },
+  { id: "light_amber", category: "light", name: "Solar Amber Light", color: "from-amber-200 to-orange-400", desc: "Fundo areia/bege claro com acentos dourados e laranja solar" },
+  { id: "light_arctic", category: "light", name: "Arctic Ice Light", color: "from-cyan-100 to-blue-400", desc: "Fundo azul gelo muito claro com acentos azul ártico" },
+  { id: "light_latte", category: "light", name: "Warm Latte & Vanilla", color: "from-amber-100 to-amber-600", desc: "Fundo pergaminho/latte quente com tons de café e bronze" },
+  { id: "light_slate", category: "light", name: "Neo Light Slate", color: "from-slate-200 to-indigo-500", desc: "Fundo cinza moderno neutro com azul elétrico corporativo" },
+
   // Cyber & Neon
   { id: "cyberpunk", category: "cyberpunk", name: "Dark Cyberpunk (Padrão)", color: "from-purple-500 to-pink-500", desc: "Tons escuros com acentos neon ciano e rosa elétrico" },
   { id: "midnight", category: "cyberpunk", name: "Midnight Neon", color: "from-blue-600 to-indigo-500", desc: "Azul profundo com contrastes vibrantes e magenta" },
@@ -81,16 +92,30 @@ export const THEME_OPTIONS = [
 ];
 
 export const ACCENT_COLOR_PRESETS = [
-  { name: "Padrão do Tema", value: null, hex: "transparent" },
-  { name: "Ciano Neon", value: "oklch(0.75 0.19 200)", hex: "#00e5ff" },
-  { name: "Rosa Cyber", value: "oklch(0.72 0.24 340)", hex: "#ff2a85" },
-  { name: "Verde Matrix", value: "oklch(0.78 0.22 145)", hex: "#00ff66" },
-  { name: "Ouro Real", value: "oklch(0.80 0.18 85)", hex: "#ffb700" },
-  { name: "Vermelho Fogo", value: "oklch(0.65 0.24 25)", hex: "#ff3333" },
-  { name: "Roxo Cósmico", value: "oklch(0.70 0.22 300)", hex: "#bf00ff" },
-  { name: "Azul Celeste", value: "oklch(0.68 0.20 240)", hex: "#2979ff" },
-  { name: "Laranja Vulcão", value: "oklch(0.72 0.22 45)", hex: "#ff6d00" },
-  { name: "Branco Puro", value: "oklch(0.96 0 0)", hex: "#f8fafc" },
+  { name: "Padrão do Tema", value: null, hex: "transparent", group: "default" },
+  
+  // Cores Claras & Pastéis
+  { name: "Azul Bebê", value: "oklch(0.78 0.14 235)", hex: "#70b5ff", group: "light" },
+  { name: "Menta Pastel", value: "oklch(0.85 0.15 160)", hex: "#6ee7b7", group: "light" },
+  { name: "Lavanda Pastel", value: "oklch(0.80 0.16 300)", hex: "#c084fc", group: "light" },
+  { name: "Rosa Algodão", value: "oklch(0.82 0.18 345)", hex: "#f472b6", group: "light" },
+  { name: "Pêssego Pastel", value: "oklch(0.84 0.16 55)", hex: "#fb923c", group: "light" },
+  { name: "Amarelo Canário", value: "oklch(0.90 0.16 95)", hex: "#fde047", group: "light" },
+  { name: "Turquesa Claro", value: "oklch(0.82 0.15 190)", hex: "#2dd4bf", group: "light" },
+  { name: "Coral Suave", value: "oklch(0.78 0.18 25)", hex: "#fb7185", group: "light" },
+  { name: "Champagne Ouro", value: "oklch(0.88 0.12 85)", hex: "#fde68a", group: "light" },
+  { name: "Platina Prata", value: "oklch(0.92 0.01 250)", hex: "#e2e8f0", group: "light" },
+
+  // Cores Vivas & Neon
+  { name: "Ciano Neon", value: "oklch(0.75 0.19 200)", hex: "#00e5ff", group: "vivid" },
+  { name: "Rosa Cyber", value: "oklch(0.72 0.24 340)", hex: "#ff2a85", group: "vivid" },
+  { name: "Verde Matrix", value: "oklch(0.78 0.22 145)", hex: "#00ff66", group: "vivid" },
+  { name: "Ouro Real 24k", value: "oklch(0.80 0.18 85)", hex: "#ffb700", group: "vivid" },
+  { name: "Vermelho Fogo", value: "oklch(0.65 0.24 25)", hex: "#ff3333", group: "vivid" },
+  { name: "Roxo Cósmico", value: "oklch(0.70 0.22 300)", hex: "#bf00ff", group: "vivid" },
+  { name: "Azul Celeste", value: "oklch(0.68 0.20 240)", hex: "#2979ff", group: "vivid" },
+  { name: "Laranja Vulcão", value: "oklch(0.72 0.22 45)", hex: "#ff6d00", group: "vivid" },
+  { name: "Branco Puro", value: "oklch(0.96 0 0)", hex: "#f8fafc", group: "vivid" },
 ];
 
 export const CARD_STYLE_OPTIONS = [
@@ -390,44 +415,141 @@ export function UserAppearanceSettings() {
         </CardHeader>
 
         <CardContent className="p-4 sm:p-5 space-y-4">
-          <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
-            {ACCENT_COLOR_PRESETS.map((preset) => {
-              const isSelected = formData.customPrimaryColor === preset.value;
+          {/* PADRÃO */}
+          <div>
+            {(() => {
+              const defaultPreset = ACCENT_COLOR_PRESETS[0];
+              const isSelected = formData.customPrimaryColor === defaultPreset.value;
               return (
                 <button
-                  key={preset.name}
                   type="button"
-                  onClick={() => handleChange("customPrimaryColor", preset.value)}
+                  onClick={() => handleChange("customPrimaryColor", defaultPreset.value)}
                   className={cn(
-                    "flex items-center gap-2 p-2 rounded-xl text-left border transition-all text-xs cursor-pointer",
+                    "flex items-center gap-2 p-2.5 rounded-xl text-left border transition-all text-xs cursor-pointer w-full sm:w-64",
                     isSelected
                       ? "border-primary bg-primary/15 text-primary font-bold shadow-xs ring-1 ring-primary/40"
                       : "border-border/60 bg-secondary/20 text-muted-foreground hover:text-foreground hover:bg-secondary/50"
                   )}
                 >
-                  <div
-                    className="h-3.5 w-3.5 rounded-full shrink-0 border border-white/20 shadow-xs"
-                    style={{ backgroundColor: preset.hex === "transparent" ? "var(--primary)" : preset.hex }}
-                  />
-                  <span className="truncate text-[11px] font-semibold">{preset.name}</span>
-                  {isSelected && <Check className="h-3 w-3 ml-auto text-primary shrink-0" />}
+                  <div className="h-4 w-4 rounded-full shrink-0 border border-white/20 shadow-xs bg-gradient-to-r from-primary to-accent" />
+                  <span className="truncate text-xs font-bold">{defaultPreset.name}</span>
+                  {isSelected && <Check className="h-3.5 w-3.5 ml-auto text-primary shrink-0" />}
                 </button>
               );
-            })}
+            })()}
           </div>
 
-          <div className="flex items-center gap-3 pt-2 border-t border-border/40">
-            <Label className="text-xs font-semibold shrink-0">Cor Específica (Seletor Livre):</Label>
+          {/* CORES CLARAS & PASTÉIS */}
+          <div className="space-y-2 pt-1">
+            <div className="flex items-center gap-1.5">
+              <span className="text-xs font-bold text-foreground">🌸 Cores Claras & Pastéis</span>
+              <Badge variant="outline" className="text-[9px] px-1 py-0 border-border text-muted-foreground">
+                Recomendado para temas claros
+              </Badge>
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+              {ACCENT_COLOR_PRESETS.filter((p) => p.group === "light").map((preset) => {
+                const isSelected = formData.customPrimaryColor === preset.value;
+                return (
+                  <button
+                    key={preset.name}
+                    type="button"
+                    onClick={() => handleChange("customPrimaryColor", preset.value)}
+                    className={cn(
+                      "flex items-center gap-2 p-2 rounded-xl text-left border transition-all text-xs cursor-pointer",
+                      isSelected
+                        ? "border-primary bg-primary/15 text-primary font-bold shadow-xs ring-1 ring-primary/40"
+                        : "border-border/60 bg-secondary/20 text-muted-foreground hover:text-foreground hover:bg-secondary/50"
+                    )}
+                  >
+                    <div
+                      className="h-3.5 w-3.5 rounded-full shrink-0 border border-black/10 shadow-xs"
+                      style={{ backgroundColor: preset.hex }}
+                    />
+                    <span className="truncate text-[11px] font-semibold">{preset.name}</span>
+                    {isSelected && <Check className="h-3 w-3 ml-auto text-primary shrink-0" />}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* CORES VIVAS & NEON */}
+          <div className="space-y-2 pt-1">
+            <div className="flex items-center gap-1.5">
+              <span className="text-xs font-bold text-foreground">⚡ Cores Vivas, Neon & Intensas</span>
+              <Badge variant="outline" className="text-[9px] px-1 py-0 border-border text-muted-foreground">
+                Alto impacto
+              </Badge>
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+              {ACCENT_COLOR_PRESETS.filter((p) => p.group === "vivid").map((preset) => {
+                const isSelected = formData.customPrimaryColor === preset.value;
+                return (
+                  <button
+                    key={preset.name}
+                    type="button"
+                    onClick={() => handleChange("customPrimaryColor", preset.value)}
+                    className={cn(
+                      "flex items-center gap-2 p-2 rounded-xl text-left border transition-all text-xs cursor-pointer",
+                      isSelected
+                        ? "border-primary bg-primary/15 text-primary font-bold shadow-xs ring-1 ring-primary/40"
+                        : "border-border/60 bg-secondary/20 text-muted-foreground hover:text-foreground hover:bg-secondary/50"
+                    )}
+                  >
+                    <div
+                      className="h-3.5 w-3.5 rounded-full shrink-0 border border-white/20 shadow-xs"
+                      style={{ backgroundColor: preset.hex }}
+                    />
+                    <span className="truncate text-[11px] font-semibold">{preset.name}</span>
+                    {isSelected && <Check className="h-3 w-3 ml-auto text-primary shrink-0" />}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* SELETOR LIVRE & HEX */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-3 border-t border-border/40 bg-secondary/15 p-3 rounded-xl">
+            <div className="space-y-0.5">
+              <Label className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                <Paintbrush className="h-3.5 w-3.5 text-primary" />
+                Seletor Livre & Código Hexadecimal
+              </Label>
+              <p className="text-[10px] text-muted-foreground">
+                Escolha qualquer cor da paleta ou cole o código Hexadecimal exato
+              </p>
+            </div>
+
             <div className="flex items-center gap-2">
               <input
                 type="color"
-                value={formData.customPrimaryColor && formData.customPrimaryColor.startsWith("#") ? formData.customPrimaryColor : "#6366f1"}
+                value={
+                  formData.customPrimaryColor && formData.customPrimaryColor.startsWith("#")
+                    ? formData.customPrimaryColor
+                    : "#6366f1"
+                }
                 onChange={(e) => handleChange("customPrimaryColor", e.target.value)}
-                className="h-8 w-10 rounded-lg border border-border bg-card cursor-pointer p-0.5"
+                className="h-9 w-12 rounded-xl border border-border bg-card cursor-pointer p-0.5 shadow-xs shrink-0"
               />
-              <span className="text-xs font-mono text-muted-foreground">
-                {formData.customPrimaryColor || "(Padrão do Tema Ativo)"}
-              </span>
+              <Input
+                placeholder="#6366f1 ou oklch(...)"
+                value={formData.customPrimaryColor || ""}
+                onChange={(e) => handleChange("customPrimaryColor", e.target.value || null)}
+                className="h-9 w-40 text-xs font-mono rounded-xl bg-background/80"
+              />
+              {formData.customPrimaryColor && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => handleChange("customPrimaryColor", null)}
+                  className="h-9 px-2 text-xs text-muted-foreground hover:text-foreground rounded-xl"
+                  title="Restaurar padrão do tema"
+                >
+                  Limpar
+                </Button>
+              )}
             </div>
           </div>
         </CardContent>

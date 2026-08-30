@@ -853,6 +853,274 @@ html[data-theme="cyber_samurai"] {
   --shadow-elegant: 0 18px 45px -22px oklch(0.68 0.22 255 / 45%);
 }
 
+/* ══════════════════════════════════════════════════════════════════════════ */
+/* ─── TEMAS CLAROS & CORES SUAVES (LIGHT THEMES) ─── */
+/* ══════════════════════════════════════════════════════════════════════════ */
+
+/* 23. Clean Pearl White (Branco Pérola Puro com Acentos Azul Real) */
+html[data-theme="light_pearl"] {
+  --background: oklch(0.985 0.003 250);
+  --foreground: oklch(0.18 0.02 250);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.18 0.02 250);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.18 0.02 250);
+  --primary: oklch(0.55 0.22 255);
+  --primary-foreground: oklch(0.99 0.005 250);
+  --secondary: oklch(0.94 0.008 250);
+  --secondary-foreground: oklch(0.22 0.02 250);
+  --muted: oklch(0.95 0.006 250);
+  --muted-foreground: oklch(0.48 0.02 250);
+  --accent: oklch(0.92 0.015 255);
+  --accent-foreground: oklch(0.20 0.02 250);
+  --border: oklch(0.88 0.01 250);
+  --input: oklch(0.88 0.01 250);
+  --ring: oklch(0.55 0.22 255);
+  --sidebar: oklch(0.97 0.005 250);
+  --sidebar-foreground: oklch(0.22 0.02 250);
+  --sidebar-primary: oklch(0.55 0.22 255);
+  --sidebar-primary-foreground: oklch(0.99 0.005 250);
+  --sidebar-accent: oklch(0.93 0.01 250);
+  --sidebar-accent-foreground: oklch(0.18 0.02 250);
+  --sidebar-border: oklch(0.89 0.008 250);
+  --sidebar-ring: oklch(0.55 0.22 255);
+  --gradient-brand: linear-gradient(100deg, oklch(0.55 0.22 255), oklch(0.65 0.18 210));
+  --gradient-surface: linear-gradient(160deg, oklch(1 0 0), oklch(0.975 0.005 250));
+  --shadow-card: 0 1px 3px 0 oklch(0 0 0 / 6%), 0 6px 18px -4px oklch(0 0 0 / 6%);
+  --shadow-elegant: 0 18px 45px -22px oklch(0.55 0.22 255 / 25%);
+}
+
+/* 24. Soft Cloud Minimal (Cinza Nuvem com Azul Turquesa & Ardósia) */
+html[data-theme="light_cloud"] {
+  --background: oklch(0.97 0.005 220);
+  --foreground: oklch(0.20 0.025 240);
+  --card: oklch(0.995 0.002 220);
+  --card-foreground: oklch(0.20 0.025 240);
+  --popover: oklch(0.995 0.002 220);
+  --popover-foreground: oklch(0.20 0.025 240);
+  --primary: oklch(0.58 0.19 220);
+  --primary-foreground: oklch(0.99 0.005 220);
+  --secondary: oklch(0.93 0.01 220);
+  --secondary-foreground: oklch(0.24 0.025 240);
+  --muted: oklch(0.94 0.008 220);
+  --muted-foreground: oklch(0.50 0.02 240);
+  --accent: oklch(0.90 0.02 210);
+  --accent-foreground: oklch(0.20 0.025 240);
+  --border: oklch(0.87 0.012 220);
+  --input: oklch(0.87 0.012 220);
+  --ring: oklch(0.58 0.19 220);
+  --sidebar: oklch(0.955 0.008 220);
+  --sidebar-foreground: oklch(0.22 0.025 240);
+  --sidebar-primary: oklch(0.58 0.19 220);
+  --sidebar-primary-foreground: oklch(0.99 0.005 220);
+  --sidebar-accent: oklch(0.91 0.015 220);
+  --sidebar-accent-foreground: oklch(0.20 0.025 240);
+  --sidebar-border: oklch(0.87 0.012 220);
+  --sidebar-ring: oklch(0.58 0.19 220);
+  --gradient-brand: linear-gradient(100deg, oklch(0.58 0.19 220), oklch(0.68 0.17 195));
+  --gradient-surface: linear-gradient(160deg, oklch(0.995 0.002 220), oklch(0.96 0.008 220));
+  --shadow-card: 0 1px 3px 0 oklch(0 0 0 / 6%), 0 6px 18px -4px oklch(0 0 0 / 5%);
+  --shadow-elegant: 0 18px 45px -22px oklch(0.58 0.19 220 / 25%);
+}
+
+/* 25. Sakura Blossom Light (Branco Floral com Rosa Pastel & Cerejeira) */
+html[data-theme="light_sakura"] {
+  --background: oklch(0.985 0.008 340);
+  --foreground: oklch(0.20 0.03 340);
+  --card: oklch(1 0.003 340);
+  --card-foreground: oklch(0.20 0.03 340);
+  --popover: oklch(1 0.003 340);
+  --popover-foreground: oklch(0.20 0.03 340);
+  --primary: oklch(0.62 0.22 345);
+  --primary-foreground: oklch(0.99 0.005 340);
+  --secondary: oklch(0.95 0.015 340);
+  --secondary-foreground: oklch(0.24 0.03 340);
+  --muted: oklch(0.95 0.012 340);
+  --muted-foreground: oklch(0.52 0.025 340);
+  --accent: oklch(0.92 0.03 330);
+  --accent-foreground: oklch(0.20 0.03 340);
+  --border: oklch(0.89 0.018 340);
+  --input: oklch(0.89 0.018 340);
+  --ring: oklch(0.62 0.22 345);
+  --sidebar: oklch(0.97 0.012 340);
+  --sidebar-foreground: oklch(0.22 0.03 340);
+  --sidebar-primary: oklch(0.62 0.22 345);
+  --sidebar-primary-foreground: oklch(0.99 0.005 340);
+  --sidebar-accent: oklch(0.93 0.02 340);
+  --sidebar-accent-foreground: oklch(0.20 0.03 340);
+  --sidebar-border: oklch(0.89 0.018 340);
+  --sidebar-ring: oklch(0.62 0.22 345);
+  --gradient-brand: linear-gradient(100deg, oklch(0.62 0.22 345), oklch(0.72 0.18 320));
+  --gradient-surface: linear-gradient(160deg, oklch(1 0.003 340), oklch(0.97 0.012 340));
+  --shadow-card: 0 1px 3px 0 oklch(0.62 0.22 345 / 8%), 0 6px 18px -4px oklch(0.62 0.22 345 / 8%);
+  --shadow-elegant: 0 18px 45px -22px oklch(0.62 0.22 345 / 25%);
+}
+
+/* 26. Emerald Mint Light (Branco Refrescante com Menta & Esmeralda) */
+html[data-theme="light_mint"] {
+  --background: oklch(0.985 0.008 160);
+  --foreground: oklch(0.18 0.03 160);
+  --card: oklch(1 0.003 160);
+  --card-foreground: oklch(0.18 0.03 160);
+  --popover: oklch(1 0.003 160);
+  --popover-foreground: oklch(0.18 0.03 160);
+  --primary: oklch(0.58 0.20 155);
+  --primary-foreground: oklch(0.99 0.005 160);
+  --secondary: oklch(0.94 0.018 160);
+  --secondary-foreground: oklch(0.22 0.03 160);
+  --muted: oklch(0.95 0.012 160);
+  --muted-foreground: oklch(0.48 0.025 160);
+  --accent: oklch(0.90 0.03 175);
+  --accent-foreground: oklch(0.18 0.03 160);
+  --border: oklch(0.88 0.02 160);
+  --input: oklch(0.88 0.02 160);
+  --ring: oklch(0.58 0.20 155);
+  --sidebar: oklch(0.965 0.012 160);
+  --sidebar-foreground: oklch(0.20 0.03 160);
+  --sidebar-primary: oklch(0.58 0.20 155);
+  --sidebar-primary-foreground: oklch(0.99 0.005 160);
+  --sidebar-accent: oklch(0.92 0.025 160);
+  --sidebar-accent-foreground: oklch(0.18 0.03 160);
+  --sidebar-border: oklch(0.88 0.02 160);
+  --sidebar-ring: oklch(0.58 0.20 155);
+  --gradient-brand: linear-gradient(100deg, oklch(0.58 0.20 155), oklch(0.68 0.16 185));
+  --gradient-surface: linear-gradient(160deg, oklch(1 0.003 160), oklch(0.97 0.012 160));
+  --shadow-card: 0 1px 3px 0 oklch(0.58 0.20 155 / 8%), 0 6px 18px -4px oklch(0.58 0.20 155 / 8%);
+  --shadow-elegant: 0 18px 45px -22px oklch(0.58 0.20 155 / 25%);
+}
+
+/* 27. Solar Amber Light (Bege Areia Dourado com Laranja Solar) */
+html[data-theme="light_amber"] {
+  --background: oklch(0.98 0.01 75);
+  --foreground: oklch(0.20 0.03 60);
+  --card: oklch(1 0.004 75);
+  --card-foreground: oklch(0.20 0.03 60);
+  --popover: oklch(1 0.004 75);
+  --popover-foreground: oklch(0.20 0.03 60);
+  --primary: oklch(0.65 0.20 55);
+  --primary-foreground: oklch(0.99 0.005 75);
+  --secondary: oklch(0.94 0.02 75);
+  --secondary-foreground: oklch(0.24 0.03 60);
+  --muted: oklch(0.94 0.015 75);
+  --muted-foreground: oklch(0.50 0.03 60);
+  --accent: oklch(0.91 0.035 85);
+  --accent-foreground: oklch(0.20 0.03 60);
+  --border: oklch(0.88 0.025 75);
+  --input: oklch(0.88 0.025 75);
+  --ring: oklch(0.65 0.20 55);
+  --sidebar: oklch(0.96 0.015 75);
+  --sidebar-foreground: oklch(0.22 0.03 60);
+  --sidebar-primary: oklch(0.65 0.20 55);
+  --sidebar-primary-foreground: oklch(0.99 0.005 75);
+  --sidebar-accent: oklch(0.92 0.03 75);
+  --sidebar-accent-foreground: oklch(0.20 0.03 60);
+  --sidebar-border: oklch(0.88 0.025 75);
+  --sidebar-ring: oklch(0.65 0.20 55);
+  --gradient-brand: linear-gradient(100deg, oklch(0.65 0.20 55), oklch(0.75 0.18 80));
+  --gradient-surface: linear-gradient(160deg, oklch(1 0.004 75), oklch(0.96 0.015 75));
+  --shadow-card: 0 1px 3px 0 oklch(0.65 0.20 55 / 8%), 0 6px 18px -4px oklch(0.65 0.20 55 / 8%);
+  --shadow-elegant: 0 18px 45px -22px oklch(0.65 0.20 55 / 25%);
+}
+
+/* 28. Arctic Ice Light (Gelo Glacial com Azul Ártico) */
+html[data-theme="light_arctic"] {
+  --background: oklch(0.98 0.01 225);
+  --foreground: oklch(0.18 0.025 230);
+  --card: oklch(1 0.003 225);
+  --card-foreground: oklch(0.18 0.025 230);
+  --popover: oklch(1 0.003 225);
+  --popover-foreground: oklch(0.18 0.025 230);
+  --primary: oklch(0.56 0.19 230);
+  --primary-foreground: oklch(0.99 0.005 225);
+  --secondary: oklch(0.93 0.015 225);
+  --secondary-foreground: oklch(0.22 0.025 230);
+  --muted: oklch(0.94 0.01 225);
+  --muted-foreground: oklch(0.48 0.02 230);
+  --accent: oklch(0.90 0.025 210);
+  --accent-foreground: oklch(0.18 0.025 230);
+  --border: oklch(0.87 0.018 225);
+  --input: oklch(0.87 0.018 225);
+  --ring: oklch(0.56 0.19 230);
+  --sidebar: oklch(0.96 0.012 225);
+  --sidebar-foreground: oklch(0.20 0.025 230);
+  --sidebar-primary: oklch(0.56 0.19 230);
+  --sidebar-primary-foreground: oklch(0.99 0.005 225);
+  --sidebar-accent: oklch(0.91 0.02 225);
+  --sidebar-accent-foreground: oklch(0.18 0.025 230);
+  --sidebar-border: oklch(0.87 0.018 225);
+  --sidebar-ring: oklch(0.56 0.19 230);
+  --gradient-brand: linear-gradient(100deg, oklch(0.56 0.19 230), oklch(0.70 0.15 200));
+  --gradient-surface: linear-gradient(160deg, oklch(1 0.003 225), oklch(0.96 0.012 225));
+  --shadow-card: 0 1px 3px 0 oklch(0.56 0.19 230 / 8%), 0 6px 18px -4px oklch(0.56 0.19 230 / 8%);
+  --shadow-elegant: 0 18px 45px -22px oklch(0.56 0.19 230 / 25%);
+}
+
+/* 29. Warm Latte & Vanilla (Café com Leite e Bronze Acolhedor) */
+html[data-theme="light_latte"] {
+  --background: oklch(0.975 0.012 65);
+  --foreground: oklch(0.22 0.025 50);
+  --card: oklch(0.995 0.006 65);
+  --card-foreground: oklch(0.22 0.025 50);
+  --popover: oklch(0.995 0.006 65);
+  --popover-foreground: oklch(0.22 0.025 50);
+  --primary: oklch(0.52 0.13 50);
+  --primary-foreground: oklch(0.99 0.005 65);
+  --secondary: oklch(0.93 0.02 65);
+  --secondary-foreground: oklch(0.25 0.025 50);
+  --muted: oklch(0.935 0.015 65);
+  --muted-foreground: oklch(0.52 0.025 50);
+  --accent: oklch(0.89 0.035 60);
+  --accent-foreground: oklch(0.22 0.025 50);
+  --border: oklch(0.87 0.022 65);
+  --input: oklch(0.87 0.022 65);
+  --ring: oklch(0.52 0.13 50);
+  --sidebar: oklch(0.955 0.015 65);
+  --sidebar-foreground: oklch(0.24 0.025 50);
+  --sidebar-primary: oklch(0.52 0.13 50);
+  --sidebar-primary-foreground: oklch(0.99 0.005 65);
+  --sidebar-accent: oklch(0.91 0.025 65);
+  --sidebar-accent-foreground: oklch(0.22 0.025 50);
+  --sidebar-border: oklch(0.87 0.022 65);
+  --sidebar-ring: oklch(0.52 0.13 50);
+  --gradient-brand: linear-gradient(100deg, oklch(0.52 0.13 50), oklch(0.68 0.15 70));
+  --gradient-surface: linear-gradient(160deg, oklch(0.995 0.006 65), oklch(0.955 0.015 65));
+  --shadow-card: 0 1px 3px 0 oklch(0.52 0.13 50 / 8%), 0 6px 18px -4px oklch(0.52 0.13 50 / 8%);
+  --shadow-elegant: 0 18px 45px -22px oklch(0.52 0.13 50 / 25%);
+}
+
+/* 30. Neo Light Slate (Ardósia Corporativa com Azul Cobalto) */
+html[data-theme="light_slate"] {
+  --background: oklch(0.975 0.005 250);
+  --foreground: oklch(0.18 0.02 250);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.18 0.02 250);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.18 0.02 250);
+  --primary: oklch(0.48 0.20 260);
+  --primary-foreground: oklch(0.99 0.005 250);
+  --secondary: oklch(0.93 0.008 250);
+  --secondary-foreground: oklch(0.22 0.02 250);
+  --muted: oklch(0.94 0.006 250);
+  --muted-foreground: oklch(0.48 0.02 250);
+  --accent: oklch(0.90 0.015 260);
+  --accent-foreground: oklch(0.18 0.02 250);
+  --border: oklch(0.86 0.01 250);
+  --input: oklch(0.86 0.01 250);
+  --ring: oklch(0.48 0.20 260);
+  --sidebar: oklch(0.955 0.008 250);
+  --sidebar-foreground: oklch(0.20 0.02 250);
+  --sidebar-primary: oklch(0.48 0.20 260);
+  --sidebar-primary-foreground: oklch(0.99 0.005 250);
+  --sidebar-accent: oklch(0.91 0.012 250);
+  --sidebar-accent-foreground: oklch(0.18 0.02 250);
+  --sidebar-border: oklch(0.86 0.01 250);
+  --sidebar-ring: oklch(0.48 0.20 260);
+  --gradient-brand: linear-gradient(100deg, oklch(0.48 0.20 260), oklch(0.60 0.18 240));
+  --gradient-surface: linear-gradient(160deg, oklch(1 0 0), oklch(0.96 0.008 250));
+  --shadow-card: 0 1px 3px 0 oklch(0 0 0 / 7%), 0 6px 18px -4px oklch(0 0 0 / 6%);
+  --shadow-elegant: 0 18px 45px -22px oklch(0.48 0.20 260 / 25%);
+}
+
 /* ─── Card Styles ─── */
 html[data-card-style="glassmorphism"] .surface-card {
   background-image: var(--gradient-surface);

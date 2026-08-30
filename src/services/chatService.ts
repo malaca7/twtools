@@ -15,6 +15,13 @@ let _cachedMembersMap: Map<string, Member> | null = null;
 let _cachedMembersMapAt = 0;
 
 /**
+ * Retorna membro do cache síncrono para renderização instantânea (0ms).
+ */
+export function getCachedMember(userId: string): Member | undefined {
+  return _cachedMembersMap?.get(userId);
+}
+
+/**
  * Busca e mapeia todos os membros com status de presença e cargo hierárquico em cache local.
  */
 export async function fetchChatMembersMap(force = false): Promise<Map<string, Member>> {
@@ -393,7 +400,10 @@ export async function fetchMessages(
         mentions: m.mentions || [],
         reactions: reactionsByMsg.get(m.id) || [],
         is_edited: Boolean(m.is_edited),
-        is_deleted: Boolean(m.is_deleted),
+        is_deleted: Boolean(m.is_deleted || m.is_deleted_for_everyone),
+        is_deleted_for_everyone: Boolean(m.is_deleted_for_everyone),
+        is_forwarded: Boolean(m.is_forwarded),
+        forwarded_from_name: m.forwarded_from_name || null,
         deleted_for_users: m.deleted_for_users || [],
         created_at: m.created_at,
         updated_at: m.updated_at,
@@ -419,22 +429,66 @@ export async function sendChatMessage(
     attachmentType?: string | null;
     attachmentSize?: number | null;
     mentions?: string[];
+    isForwarded?: boolean;
+    forwardedFromName?: string | null;
   }
 ): Promise<ChatMessage> {
-  const { data, error } = await (supabase.rpc as any)("rpc_send_chat_message", {
-    p_conversation_id: conversationId,
-    p_content: content,
-    p_message_type: options?.messageType || "text",
-    p_reply_to_id: options?.replyToId || null,
-    p_attachment_url: options?.attachmentUrl || null,
-    p_attachment_name: options?.attachmentName || null,
-    p_attachment_type: options?.attachmentType || null,
-    p_attachment_size: options?.attachmentSize || null,
-    p_mentions: options?.mentions || [],
-  });
+  // 1. Tenta envio via RPC ultra-rápida
+  try {
+    const { data, error } = await (supabase.rpc as any)("rpc_send_chat_message", {
+      p_conversation_id: conversationId,
+      p_content: content,
+      p_message_type: options?.messageType || "text",
+      p_reply_to_id: options?.replyToId || null,
+      p_attachment_url: options?.attachmentUrl || null,
+      p_attachment_name: options?.attachmentName || null,
+      p_attachment_type: options?.attachmentType || null,
+      p_attachment_size: options?.attachmentSize || null,
+      p_mentions: options?.mentions || [],
+      p_is_forwarded: Boolean(options?.isForwarded),
+      p_forwarded_from_name: options?.forwardedFromName || null,
+    });
 
-  if (error) throw error;
-  return data as ChatMessage;
+    if (!error && data) {
+      return data as ChatMessage;
+    }
+  } catch (rpcErr) {
+    console.warn("RPC send_chat_message falhou, utilizando inserção direta:", rpcErr);
+  }
+
+  // 2. Fallback direto via Supabase REST Client
+  const { data: inserted, error: insertError } = await supabase
+    .from("chat_messages" as any)
+    .insert({
+      conversation_id: conversationId,
+      content: content.trim(),
+      message_type: options?.messageType || "text",
+      reply_to_id: options?.replyToId || null,
+      attachment_url: options?.attachmentUrl || null,
+      attachment_name: options?.attachmentName || null,
+      attachment_type: options?.attachmentType || null,
+      attachment_size: options?.attachmentSize || null,
+      mentions: options?.mentions || [],
+      is_forwarded: Boolean(options?.isForwarded),
+      forwarded_from_name: options?.forwardedFromName || null,
+      status: "sent",
+    })
+    .select()
+    .single();
+
+  if (insertError || !inserted) throw insertError || new Error("Falha ao gravar mensagem.");
+
+  // Atualiza última mensagem na conversa em segundo plano
+  void supabase
+    .from("chat_conversations" as any)
+    .update({
+      last_message: content.trim() || options?.attachmentName || "Anexo",
+      last_message_at: (inserted as any).created_at || new Date().toISOString(),
+      last_message_sender_id: (inserted as any).sender_id,
+    })
+    .eq("id", conversationId);
+
+  return inserted as ChatMessage;
 }
 
 /**
@@ -456,25 +510,91 @@ export async function toggleMessageReaction(
 /**
  * Edita o texto de uma mensagem enviada.
  */
-export async function editChatMessage(messageId: string, newContent: string): Promise<void> {
-  const { error } = await (supabase.rpc as any)("rpc_edit_chat_message", {
-    p_message_id: messageId,
-    p_new_content: newContent,
-  });
+export async function editChatMessage(
+  messageId: string,
+  newContent: string,
+  currentUserId?: string
+): Promise<void> {
+  try {
+    const { error } = await (supabase.rpc as any)("rpc_edit_chat_message", {
+      p_message_id: messageId,
+      p_new_content: newContent.trim(),
+      p_user_id: currentUserId || null,
+    });
+    if (!error) return;
+  } catch (rpcErr) {
+    console.warn("RPC edit_chat_message falhou, utilizando fallback direto:", rpcErr);
+  }
 
-  if (error) throw error;
+  // Fallback direto
+  const { error: updateError } = await supabase
+    .from("chat_messages" as any)
+    .update({
+      content: newContent.trim(),
+      is_edited: true,
+      edited_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", messageId);
+
+  if (updateError) throw updateError;
 }
 
 /**
  * Exclui uma mensagem (para si mesmo ou para todos).
  */
-export async function deleteChatMessage(messageId: string, forEveryone = false): Promise<void> {
-  const { error } = await (supabase.rpc as any)("rpc_delete_chat_message", {
-    p_message_id: messageId,
-    p_for_everyone: forEveryone,
-  });
+export async function deleteChatMessage(
+  messageId: string,
+  forEveryone = false,
+  currentUserId?: string
+): Promise<void> {
+  try {
+    const { error } = await (supabase.rpc as any)("rpc_delete_chat_message", {
+      p_message_id: messageId,
+      p_for_everyone: forEveryone,
+      p_user_id: currentUserId || null,
+    });
+    if (!error) return;
+  } catch (rpcErr) {
+    console.warn("RPC delete_chat_message falhou, utilizando fallback direto:", rpcErr);
+  }
 
-  if (error) throw error;
+  // Fallback direto
+  if (forEveryone) {
+    const { error: delError } = await supabase
+      .from("chat_messages" as any)
+      .update({
+        is_deleted_for_everyone: true,
+        content: "🚫 Mensagem apagada",
+        attachment_url: null,
+        attachment_name: null,
+        attachment_type: null,
+        attachment_size: null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", messageId);
+
+    if (delError) throw delError;
+  } else if (currentUserId) {
+    const { data: existing } = await supabase
+      .from("chat_messages" as any)
+      .select("deleted_for_users")
+      .eq("id", messageId)
+      .single();
+
+    const users: string[] = (existing as any)?.deleted_for_users || [];
+    if (!users.includes(currentUserId)) {
+      const { error: hideError } = await supabase
+        .from("chat_messages" as any)
+        .update({
+          deleted_for_users: [...users, currentUserId],
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", messageId);
+
+      if (hideError) throw hideError;
+    }
+  }
 }
 
 /**
@@ -526,6 +646,39 @@ export async function manageGroupMember(
   });
 
   if (error) throw error;
+}
+
+/**
+ * Silencia ou desilencia um participante na conversa.
+ */
+export async function muteConversationParticipant(
+  conversationId: string,
+  targetUserId: string,
+  isMuted: boolean,
+  mutedUntil?: string | null,
+  actorId?: string
+): Promise<void> {
+  const { error } = await supabase
+    .from("chat_participants" as any)
+    .update({
+      is_muted: isMuted,
+      muted_until: mutedUntil || null,
+    })
+    .eq("conversation_id", conversationId)
+    .eq("user_id", targetUserId);
+
+  if (error) throw error;
+}
+
+/**
+ * Remove um participante de um grupo.
+ */
+export async function removeConversationParticipant(
+  conversationId: string,
+  targetUserId: string,
+  actorId?: string
+): Promise<void> {
+  await manageGroupMember(conversationId, targetUserId, "remove");
 }
 
 /**
@@ -581,4 +734,590 @@ export async function uploadChatAttachment(
     type: file.type,
     size: file.size,
   };
+}
+
+/**
+ * Fixa ou desafixa uma conversa no topo para o usuário atual.
+ */
+export async function togglePinConversation(conversationId: string, currentUserId?: string): Promise<boolean> {
+  const { data, error } = await (supabase.rpc as any)("rpc_toggle_pin_conversation", {
+    p_conversation_id: conversationId,
+    p_user_id: currentUserId || null,
+  });
+
+  if (error) throw error;
+  return Boolean(data);
+}
+
+/**
+ * Silencia ou ativa notificações de uma conversa para o usuário atual.
+ */
+export async function toggleMuteConversation(conversationId: string, currentUserId?: string): Promise<boolean> {
+  const { data, error } = await (supabase.rpc as any)("rpc_toggle_mute_conversation", {
+    p_conversation_id: conversationId,
+    p_user_id: currentUserId || null,
+  });
+
+  if (error) throw error;
+  return Boolean(data);
+}
+
+/**
+ * Arquiva ou desarquiva uma conversa para o usuário atual.
+ */
+export async function toggleArchiveConversation(conversationId: string, currentUserId?: string): Promise<boolean> {
+  const { data, error } = await (supabase.rpc as any)("rpc_toggle_archive_conversation", {
+    p_conversation_id: conversationId,
+    p_user_id: currentUserId || null,
+  });
+
+  if (error) throw error;
+  return Boolean(data);
+}
+
+/**
+ * Marca uma conversa como não lida pelo usuário atual.
+ */
+export async function markConversationAsUnread(conversationId: string, currentUserId?: string): Promise<void> {
+  const { error } = await (supabase.rpc as any)("rpc_mark_conversation_unread", {
+    p_conversation_id: conversationId,
+    p_user_id: currentUserId || null,
+  });
+
+  if (error) throw error;
+}
+
+/**
+ * Remove/apaga uma conversa da visualização do usuário atual.
+ */
+export async function deleteConversationForUser(conversationId: string, currentUserId?: string): Promise<void> {
+  const { error } = await (supabase.rpc as any)("rpc_delete_conversation_for_user", {
+    p_conversation_id: conversationId,
+    p_user_id: currentUserId || null,
+  });
+
+  if (error) throw error;
+}
+
+/**
+ * Encaminha uma mensagem para outra conversa.
+ */
+export async function forwardChatMessage(
+  targetConversationId: string,
+  message: ChatMessage,
+  currentUserId?: string
+): Promise<ChatMessage> {
+  const isOriginalAuthor = message.sender_id === currentUserId && !message.forwarded_from_name;
+  let originalAuthorName: string | null = null;
+
+  if (!isOriginalAuthor) {
+    originalAuthorName =
+      message.forwarded_from_name ||
+      message.sender_name ||
+      message.sender_nickname ||
+      getCachedMember(message.sender_id)?.nickname ||
+      getCachedMember(message.sender_id)?.nome ||
+      "Membro";
+  }
+
+  return sendChatMessage(targetConversationId, message.content, {
+    messageType: message.message_type,
+    attachmentUrl: message.attachment_url,
+    attachmentName: message.attachment_name,
+    attachmentType: message.attachment_type,
+    attachmentSize: message.attachment_size,
+    isForwarded: true,
+    forwardedFromName: originalAuthorName,
+  });
+}
+
+/**
+ * Fixa ou desafixa uma mensagem no topo da conversa.
+ */
+export async function togglePinChatMessage(messageId: string, currentUserId?: string): Promise<boolean> {
+  const { data, error } = await (supabase.rpc as any)("rpc_toggle_pin_message", {
+    p_message_id: messageId,
+    p_user_id: currentUserId || null,
+  });
+
+  if (error) throw error;
+  return Boolean(data);
+}
+
+/**
+ * Salva ou remove uma mensagem dos favoritos pessoais.
+ */
+export async function toggleSaveChatMessage(
+  messageId: string,
+  conversationId: string,
+  currentUserId?: string
+): Promise<boolean> {
+  const { data, error } = await (supabase.rpc as any)("rpc_toggle_save_message", {
+    p_message_id: messageId,
+    p_conversation_id: conversationId,
+    p_user_id: currentUserId || null,
+  });
+
+  if (error) throw error;
+  return Boolean(data);
+}
+
+/**
+ * Busca todas as mensagens salvas pelo usuário atual.
+ */
+export async function getSavedChatMessages(currentUserId?: string): Promise<any[]> {
+  const { data, error } = await (supabase.rpc as any)("rpc_get_saved_messages", {
+    p_user_id: currentUserId || null,
+  });
+
+  if (error) throw error;
+  return (data || []) as any[];
+}
+
+/**
+ * Cria e envia uma mensagem do tipo enquete.
+ */
+export async function sendPollChatMessage(
+  conversationId: string,
+  question: string,
+  options: string[],
+  isMultipleChoice: boolean,
+  expiresAt: string | null = null,
+  currentUserId?: string,
+  currentUserName?: string
+): Promise<ChatMessage> {
+  const pollData = {
+    question: question.trim(),
+    options: options.filter((o) => o.trim().length > 0).map((text, idx) => ({
+      id: `opt-${idx + 1}-${Date.now().toString(36)}`,
+      text: text.trim(),
+      votes: [],
+    })),
+    is_multiple_choice: isMultipleChoice,
+    is_closed: false,
+    expires_at: expiresAt || null,
+    created_by: currentUserId || "",
+    created_by_name: currentUserName || "Membro",
+  };
+
+  const { data: inserted, error } = await supabase
+    .from("chat_messages" as any)
+    .insert({
+      conversation_id: conversationId,
+      sender_id: currentUserId,
+      content: `🗳️ Enquete: ${question.trim()}`,
+      message_type: "poll",
+      poll_data: pollData,
+      status: "sent",
+    })
+    .select()
+    .single();
+
+  if (error || !inserted) throw error || new Error("Falha ao criar enquete.");
+
+  // Atualiza última mensagem na conversa
+  void supabase
+    .from("chat_conversations" as any)
+    .update({
+      last_message: `🗳️ Enquete: ${question.trim()}`,
+      last_message_at: (inserted as any).created_at || new Date().toISOString(),
+      last_message_sender_id: currentUserId,
+    })
+    .eq("id", conversationId);
+
+  return inserted as ChatMessage;
+}
+
+/**
+ * Registra ou remove voto em uma opção de enquete.
+ */
+export async function votePollChatMessage(
+  messageId: string,
+  optionId: string,
+  currentUserId?: string
+): Promise<any> {
+  const { data, error } = await (supabase.rpc as any)("rpc_vote_poll", {
+    p_message_id: messageId,
+    p_option_id: optionId,
+    p_user_id: currentUserId || null,
+  });
+
+  if (error) throw error;
+  return data;
+}
+
+/**
+ * Encerra uma enquete.
+ */
+export async function closePollChatMessage(messageId: string, currentUserId?: string): Promise<any> {
+  const { data, error } = await (supabase.rpc as any)("rpc_close_poll", {
+    p_message_id: messageId,
+    p_user_id: currentUserId || null,
+  });
+
+  if (error) throw error;
+  return data;
+}
+
+/**
+ * Silencia uma conversa com duração específica (0 = reativar, -1 = sempre, >0 = minutos).
+ */
+export async function setConversationMuteDuration(
+  conversationId: string,
+  durationMinutes: number,
+  currentUserId?: string
+): Promise<void> {
+  const { error } = await (supabase.rpc as any)("rpc_set_conversation_mute", {
+    p_conversation_id: conversationId,
+    p_duration_minutes: durationMinutes,
+    p_user_id: currentUserId || null,
+  });
+
+  if (error) throw error;
+}
+
+/**
+ * Cria um lembrete a partir de uma mensagem.
+ */
+export async function createChatMessageReminder(
+  messageId: string,
+  conversationId: string,
+  remindAt: string,
+  note?: string,
+  currentUserId?: string
+): Promise<any> {
+  const { data, error } = await (supabase.rpc as any)("rpc_create_message_reminder", {
+    p_message_id: messageId,
+    p_conversation_id: conversationId,
+    p_remind_at: remindAt,
+    p_note: note?.trim() || null,
+    p_user_id: currentUserId || null,
+  });
+
+  if (error) throw error;
+  return data;
+}
+
+/**
+ * Busca todos os lembretes ativos do usuário.
+ */
+export async function getUserChatReminders(currentUserId?: string): Promise<any[]> {
+  const { data, error } = await (supabase.rpc as any)("rpc_get_user_reminders", {
+    p_user_id: currentUserId || null,
+  });
+
+  if (error) throw error;
+  return (data || []) as any[];
+}
+
+/**
+ * Exclui ou marca lembrete como concluído.
+ */
+export async function deleteChatReminder(reminderId: string, currentUserId?: string): Promise<void> {
+  const { error } = await supabase
+    .from("chat_reminders" as any)
+    .delete()
+    .eq("id", reminderId);
+
+  if (error) throw error;
+}
+
+/**
+ * Cria e envia uma mensagem de evento com opções de RSVP (Vou / Não vou / Talvez).
+ */
+export async function sendEventChatMessage(
+  conversationId: string,
+  eventData: {
+    title: string;
+    description?: string;
+    event_date: string;
+    location?: string;
+  },
+  currentUserId?: string,
+  currentUserName?: string
+): Promise<ChatMessage> {
+  const fullEvent = {
+    title: eventData.title.trim(),
+    description: eventData.description?.trim() || null,
+    event_date: eventData.event_date,
+    location: eventData.location?.trim() || null,
+    responses: { vou: [], nao_vou: [], talvez: [] },
+    created_by: currentUserId || "",
+    created_by_name: currentUserName || "Membro",
+    is_cancelled: false,
+  };
+
+  const { data: inserted, error } = await supabase
+    .from("chat_messages" as any)
+    .insert({
+      conversation_id: conversationId,
+      sender_id: currentUserId,
+      content: `📅 Evento: ${eventData.title.trim()}`,
+      message_type: "event",
+      event_data: fullEvent,
+      status: "sent",
+    })
+    .select()
+    .single();
+
+  if (error || !inserted) throw error || new Error("Falha ao criar evento.");
+
+  void supabase
+    .from("chat_conversations" as any)
+    .update({
+      last_message: `📅 Evento: ${eventData.title.trim()}`,
+      last_message_at: (inserted as any).created_at || new Date().toISOString(),
+      last_message_sender_id: currentUserId,
+    })
+    .eq("id", conversationId);
+
+  return inserted as ChatMessage;
+}
+
+/**
+ * Responde a um evento no chat (Vou / Não vou / Talvez).
+ */
+export async function respondChatEvent(
+  messageId: string,
+  response: "vou" | "nao_vou" | "talvez",
+  currentUserId?: string
+): Promise<any> {
+  const { data, error } = await (supabase.rpc as any)("rpc_respond_chat_event", {
+    p_message_id: messageId,
+    p_response: response,
+    p_user_id: currentUserId || null,
+  });
+
+  if (error) throw error;
+  return data;
+}
+
+/**
+ * Cancela um evento no chat.
+ */
+export async function cancelChatEvent(messageId: string, currentUserId?: string): Promise<any> {
+  const { data: msg } = await supabase
+    .from("chat_messages" as any)
+    .select("event_data")
+    .eq("id", messageId)
+    .single();
+
+  if (!msg?.event_data) throw new Error("Evento não encontrado");
+
+  const updatedEvent = { ...msg.event_data, is_cancelled: true };
+  const { data, error } = await supabase
+    .from("chat_messages" as any)
+    .update({ event_data: updatedEvent, updated_at: new Date().toISOString() })
+    .eq("id", messageId)
+    .select()
+    .single();
+
+  if (error) throw error;
+  return updatedEvent;
+}
+
+/**
+ * Busca respostas de uma Thread de mensagem.
+ */
+export async function getThreadMessages(
+  parentMessageId: string,
+  currentUserId?: string
+): Promise<ChatMessage[]> {
+  const { data, error } = await (supabase.rpc as any)("rpc_get_thread_messages", {
+    p_parent_message_id: parentMessageId,
+    p_limit: 60,
+    p_user_id: currentUserId || null,
+  });
+
+  if (error) throw error;
+  return (data || []) as ChatMessage[];
+}
+
+/**
+ * Envia uma resposta dentro de uma Thread.
+ */
+export async function sendThreadReply(
+  parentMessageId: string,
+  conversationId: string,
+  content: string,
+  currentUserId?: string
+): Promise<ChatMessage> {
+  const { data, error } = await (supabase.rpc as any)("rpc_send_thread_reply", {
+    p_parent_message_id: parentMessageId,
+    p_conversation_id: conversationId,
+    p_content: content.trim(),
+    p_user_id: currentUserId || null,
+  });
+
+  if (error) throw error;
+  return data as ChatMessage;
+}
+
+/**
+ * Configura o tempo de expiração para mensagens temporárias na conversa (0 = desativado, 24, 168, 720 horas).
+ */
+export async function setConversationEphemeralTtl(
+  conversationId: string,
+  ttlHours: number,
+  currentUserId?: string
+): Promise<void> {
+  const { error } = await (supabase.rpc as any)("rpc_set_conversation_ephemeral", {
+    p_conversation_id: conversationId,
+    p_ttl_hours: ttlHours,
+    p_user_id: currentUserId || null,
+  });
+
+  if (error) throw error;
+}
+
+/**
+ * Busca as pastas de conversas personalizadas do usuário.
+ */
+export async function getUserChatFolders(currentUserId?: string): Promise<any[]> {
+  if (!currentUserId) return [];
+  const { data, error } = await supabase
+    .from("chat_user_folders" as any)
+    .select("*")
+    .eq("user_id", currentUserId)
+    .order("position", { ascending: true });
+
+  if (error) throw error;
+  return (data || []) as any[];
+}
+
+/**
+ * Cria ou atualiza uma pasta de conversas.
+ */
+export async function saveUserChatFolder(
+  folder: {
+    id?: string;
+    name: string;
+    icon?: string;
+    color?: string;
+    conversation_ids?: string[];
+    position?: number;
+  },
+  currentUserId?: string
+): Promise<any> {
+  if (!currentUserId) throw new Error("Não autorizado");
+
+  if (folder.id) {
+    const { data, error } = await supabase
+      .from("chat_user_folders" as any)
+      .update({
+        name: folder.name.trim(),
+        icon: folder.icon || "folder",
+        color: folder.color || "#6366f1",
+        conversation_ids: folder.conversation_ids || [],
+        position: folder.position ?? 0,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", folder.id)
+      .eq("user_id", currentUserId)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  } else {
+    const { data, error } = await supabase
+      .from("chat_user_folders" as any)
+      .insert({
+        user_id: currentUserId,
+        name: folder.name.trim(),
+        icon: folder.icon || "folder",
+        color: folder.color || "#6366f1",
+        conversation_ids: folder.conversation_ids || [],
+        position: folder.position ?? 0,
+      })
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  }
+}
+
+/**
+ * Exclui uma pasta de conversas do usuário.
+ */
+export async function deleteUserChatFolder(folderId: string, currentUserId?: string): Promise<void> {
+  const { error } = await supabase
+    .from("chat_user_folders" as any)
+    .delete()
+    .eq("id", folderId)
+    .eq("user_id", currentUserId);
+
+  if (error) throw error;
+}
+
+/**
+ * Cria uma denúncia de mensagem ou usuário.
+ */
+export async function reportChatMessage(
+  conversationId: string,
+  reportedUserId: string,
+  reason: string,
+  messageId?: string,
+  reporterId?: string
+): Promise<void> {
+  const { error } = await supabase
+    .from("chat_reports" as any)
+    .insert({
+      conversation_id: conversationId,
+      reported_user_id: reportedUserId,
+      message_id: messageId || null,
+      reason: reason.trim(),
+      reporter_id: reporterId,
+      status: "pending",
+    });
+
+  if (error) throw error;
+}
+
+/**
+ * Registra um log de ação de moderação.
+ */
+export async function logModerationAction(
+  conversationId: string,
+  action: string,
+  actorId: string,
+  targetUserId?: string,
+  reason?: string,
+  metadata?: any
+): Promise<void> {
+  await supabase
+    .from("chat_moderation_logs" as any)
+    .insert({
+      conversation_id: conversationId,
+      actor_id: actorId,
+      target_user_id: targetUserId || null,
+      action,
+      reason: reason?.trim() || null,
+      metadata: metadata || null,
+    });
+}
+
+/**
+ * Busca logs de moderação de uma conversa.
+ */
+export async function getConversationModerationLogs(conversationId: string): Promise<any[]> {
+  const { data, error } = await supabase
+    .from("chat_moderation_logs" as any)
+    .select(`
+      id,
+      conversation_id,
+      actor_id,
+      target_user_id,
+      action,
+      reason,
+      metadata,
+      created_at
+    `)
+    .eq("conversation_id", conversationId)
+    .order("created_at", { ascending: false })
+    .limit(40);
+
+  if (error) throw error;
+  return (data || []) as any[];
 }
