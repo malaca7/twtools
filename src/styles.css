@@ -1447,6 +1447,31 @@ html[data-status-pulse="false"] .animate-status-glow-green {
   transition: all 350ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 
+/* ─── Ultra-Sleek Custom Scrollbars ─── */
+.custom-scrollbar-thin::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+
+.custom-scrollbar-thin::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.custom-scrollbar-thin::-webkit-scrollbar-thumb {
+  background: oklch(from var(--foreground) l c h / 18%);
+  border-radius: 9999px;
+  transition: background 150ms ease;
+}
+
+.custom-scrollbar-thin::-webkit-scrollbar-thumb:hover {
+  background: oklch(from var(--primary) l c h / 65%);
+}
+
+.custom-scrollbar-thin {
+  scrollbar-width: thin;
+  scrollbar-color: oklch(from var(--foreground) l c h / 20%) transparent;
+}
+
 /* ─── Mobile Native App Feeling & Touch Optimizations ─── */
 html, body {
   -webkit-text-size-adjust: 100%;

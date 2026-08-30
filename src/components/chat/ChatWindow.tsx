@@ -657,7 +657,7 @@ export function ChatWindow({
       <div
         ref={scrollContainerRef}
         onScroll={handleScroll}
-        className="flex-1 overflow-y-auto p-2.5 sm:p-3 space-y-2 select-text"
+        className="flex-1 overflow-y-auto p-2.5 sm:p-3 space-y-2 select-text custom-scrollbar-thin"
       >
         {/* INDICADOR DE CARREGAMENTO DE MENSAGENS ANTERIORES NO TOPO */}
         {isLoadingMore && (

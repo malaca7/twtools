@@ -493,7 +493,7 @@ export function ConversationList({
       </div>
 
       {/* CONVERSATION ITEMS SCROLL LIST */}
-      <div className="flex-1 overflow-y-auto p-2 space-y-1 scrollbar-thin">
+      <div className="flex-1 overflow-y-auto p-2 space-y-1 custom-scrollbar-thin">
         {isLoading ? (
           <div className="flex flex-col items-center justify-center h-48 gap-2 text-muted-foreground text-xs">
             <div className="h-5 w-5 border-2 border-primary border-t-transparent rounded-full animate-spin" />

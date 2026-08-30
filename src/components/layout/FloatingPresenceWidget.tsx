@@ -9,6 +9,11 @@ import {
   VolumeX,
   ChevronDown,
   Moon,
+  Search,
+  Check,
+  Sparkles,
+  User,
+  Radio,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -34,7 +39,7 @@ import { toast } from "sonner";
 function CompactLiveTimer({ onlineSinceISO }: { onlineSinceISO?: string | null }) {
   const { formattedHuman } = useOnlineTimer(onlineSinceISO);
   return (
-    <div className="flex items-center gap-1 px-1.5 py-0.5 rounded-md border border-emerald-500/30 bg-emerald-500/10 text-emerald-400 font-mono text-[9px] font-bold">
+    <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 text-emerald-400 font-mono text-[9.5px] font-bold shadow-2xs">
       <span className="relative flex h-1.5 w-1.5 shrink-0">
         <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
         <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500" />
@@ -85,13 +90,15 @@ function CompactMemberRow({
     <div
       onClick={() => !isSelf && onStartChat(member.user_id)}
       className={cn(
-        "flex items-center justify-between py-2 px-2.5 rounded-xl transition-all group text-xs",
-        isSelf ? "cursor-default opacity-85" : "hover:bg-secondary/70 cursor-pointer hover:shadow-xs"
+        "flex items-center justify-between py-2 px-2.5 rounded-xl transition-all group text-xs border border-transparent select-none",
+        isSelf
+          ? "cursor-default opacity-85 bg-secondary/15"
+          : "hover:bg-secondary/70 hover:border-border/60 cursor-pointer hover:shadow-xs active:scale-[0.99]"
       )}
     >
       <div className="flex items-center gap-2.5 min-w-0 flex-1">
         <div className="relative shrink-0">
-          <Avatar className="h-7.5 w-7.5 border border-border/80 shadow-xs">
+          <Avatar className="h-8 w-8 border border-border/80 shadow-xs group-hover:border-primary/50 transition-colors">
             {avatarUrl && <AvatarImage src={avatarUrl} alt={member.nome} />}
             <AvatarFallback className="bg-secondary font-bold text-[10px] text-primary">
               {initials}
@@ -102,19 +109,19 @@ function CompactMemberRow({
 
         <div className="min-w-0 flex flex-col justify-center">
           <div className="flex items-center gap-1.5 min-w-0 flex-wrap">
-            <span className="truncate font-bold text-foreground text-[11px] leading-tight group-hover:text-primary transition-colors max-w-[130px] sm:max-w-none">
+            <span className="truncate font-black text-foreground text-xs leading-tight group-hover:text-primary transition-colors max-w-[140px] sm:max-w-none">
               {displayName}
             </span>
-            {isSelf && <span className="text-[9px] font-mono text-muted-foreground">(você)</span>}
+            {isSelf && <span className="text-[9px] font-mono text-muted-foreground font-bold">(você)</span>}
             <Badge
               variant="outline"
-              className={cn("text-[8px] uppercase font-mono font-bold px-1 py-0 h-3.5 leading-none shrink-0 border-border/60", levelBadgeClass(currentNivel))}
+              className={cn("text-[8.5px] uppercase font-mono font-bold px-1.5 py-0 h-4 leading-none shrink-0 border-border/60", levelBadgeClass(currentNivel))}
             >
               {LEVEL_LABEL[currentNivel] || currentNivel}
             </Badge>
           </div>
           {member.nickname && (
-            <span className="truncate text-[9px] text-muted-foreground leading-none mt-0.5">
+            <span className="truncate text-[10px] text-muted-foreground leading-none mt-0.5">
               {member.nome}
             </span>
           )}
@@ -134,7 +141,7 @@ function CompactMemberRow({
           </div>
         ) : (
           <span
-            className="text-[9px] text-muted-foreground font-mono truncate max-w-[110px] text-right"
+            className="text-[9.5px] text-muted-foreground font-mono truncate max-w-[110px] text-right"
             title={lastSeenFull}
           >
             {lastSeenCompact}
@@ -146,10 +153,10 @@ function CompactMemberRow({
             type="button"
             variant="ghost"
             size="icon"
-            className="h-6 w-6 text-muted-foreground group-hover:text-primary group-hover:bg-primary/10 rounded-md transition-all shrink-0"
+            className="h-7 w-7 text-muted-foreground group-hover:text-primary group-hover:bg-primary/15 rounded-lg transition-all shrink-0"
             title={`Conversar com ${displayName}`}
           >
-            <MessageSquare className="h-3 w-3" />
+            <MessageSquare className="h-3.5 w-3.5" />
           </Button>
         )}
       </div>
@@ -162,11 +169,11 @@ export function FloatingPresenceWidget() {
   const currentUserId = user?.id;
 
   const [isOpen, setIsOpen] = useState(false);
-  // Aba principal padrão: "chat"
   const [activeTab, setActiveTab] = useState<"chat" | "members">("chat");
   const [activeConversation, setActiveConversation] = useState<ChatConversation | null>(null);
   const [createGroupOpen, setCreateGroupOpen] = useState(false);
   const [memberSearch, setMemberSearch] = useState("");
+  const [memberFilter, setMemberFilter] = useState<"all" | "online" | "ausente" | "offline">("all");
   const [soundEnabled, setSoundEnabled] = useState(chatSound.isEnabled());
   const [isAlerting, setIsAlerting] = useState(false);
 
@@ -266,7 +273,7 @@ export function FloatingPresenceWidget() {
   const handleToggleSound = () => {
     const next = chatSound.toggle();
     setSoundEnabled(next);
-    toast.info(next ? "Sons de notificação do chat ativados" : "Sons do chat silenciados");
+    toast.info(next ? "Sons de notificação ativados" : "Sons silenciados");
   };
 
   // Counts de membros
@@ -340,7 +347,7 @@ export function FloatingPresenceWidget() {
           Chat
         </span>
 
-        {/* UNREAD CONVERSATIONS BADGE (QUANTIDADE DE CONVERSAS COM MENSAGENS NÃO LIDAS) */}
+        {/* UNREAD CONVERSATIONS BADGE */}
         {unreadConversationsCount > 0 && (
           <div
             className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-rose-600 text-white font-mono text-[10px] font-black animate-pulse shadow-md shadow-rose-600/40"
@@ -358,7 +365,7 @@ export function FloatingPresenceWidget() {
 
       {/* FLOATING HIGH-DENSITY CHAT & PRESENCE POPUP */}
       {isOpen && (
-        <div className="fixed inset-x-2.5 bottom-2 top-14 sm:inset-auto sm:bottom-16 sm:right-0 sm:top-auto sm:w-[420px] sm:h-[590px] rounded-2xl border border-border/80 bg-card/98 backdrop-blur-2xl shadow-2xl overflow-hidden animate-in fade-in-50 slide-in-from-bottom-3 duration-200 flex flex-col z-50">
+        <div className="fixed inset-x-2 bottom-[68px] top-12 sm:inset-auto sm:bottom-[72px] sm:right-0 sm:top-auto sm:w-[440px] sm:h-[630px] rounded-3xl border border-border/80 bg-card/95 backdrop-blur-2xl shadow-2xl overflow-hidden animate-in fade-in-50 slide-in-from-bottom-3 duration-200 flex flex-col z-50">
           {/* SE UMA CONVERSA ESTIVER ABERTA, EXIBE A JANELA DE CHAT */}
           {activeConversation ? (
             <ChatWindow
@@ -380,19 +387,19 @@ export function FloatingPresenceWidget() {
               viewMode="focus"
             />
           ) : (
-            /* CASO CONTRÁRIO: EXIBE ABAS (CHAT PRINCIPAL / MEMBROS ONLINE SECUNDÁRIA) */
+            /* CASO CONTRÁRIO: EXIBE ABAS (CHAT PRINCIPAL / MEMBROS ONLINE) */
             <div className="flex flex-col h-full overflow-hidden">
-              {/* TOP TABS & CONTROLS */}
-              <div className="p-2.5 border-b border-border/60 bg-secondary/30 flex items-center justify-between gap-2 shrink-0">
-                <div className="flex items-center gap-1 bg-secondary/80 p-0.5 rounded-xl border border-border/50">
+              {/* TOP HEADER & SEGMENTED PILL TABS */}
+              <div className="p-3 border-b border-border/60 bg-secondary/30 flex items-center justify-between gap-2 shrink-0 backdrop-blur-md">
+                <div className="flex items-center gap-1 bg-secondary/80 p-1 rounded-2xl border border-border/50 shadow-inner">
                   {/* ABA 1 (PRINCIPAL): CHAT */}
                   <button
                     type="button"
                     onClick={() => setActiveTab("chat")}
                     className={cn(
-                      "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-extrabold transition-all cursor-pointer relative",
+                      "flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-black transition-all cursor-pointer relative select-none",
                       activeTab === "chat"
-                        ? "bg-card text-foreground shadow-xs border border-border/40"
+                        ? "bg-card text-foreground shadow-sm border border-border/60"
                         : "text-muted-foreground hover:text-foreground"
                     )}
                   >
@@ -410,21 +417,21 @@ export function FloatingPresenceWidget() {
                     type="button"
                     onClick={() => setActiveTab("members")}
                     className={cn(
-                      "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-extrabold transition-all cursor-pointer",
+                      "flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-black transition-all cursor-pointer select-none",
                       activeTab === "members"
-                        ? "bg-card text-foreground shadow-xs border border-border/40"
+                        ? "bg-card text-foreground shadow-sm border border-border/60"
                         : "text-muted-foreground hover:text-foreground"
                     )}
                   >
                     <Users className="h-3.5 w-3.5 text-primary" />
-                    <span>Membros online</span>
-                    <Badge variant="outline" className="text-[9px] font-mono px-1 py-0 border-emerald-500/40 text-emerald-400 bg-emerald-500/10 font-bold">
+                    <span>Membros</span>
+                    <Badge variant="outline" className="text-[9.5px] font-mono px-1.5 py-0 border-emerald-500/40 text-emerald-400 bg-emerald-500/10 font-black">
                       {totalOnline}
                     </Badge>
                   </button>
                 </div>
 
-                {/* SOUND TOGGLE & CLOSE BUTTON */}
+                {/* CONTROLES: SOM & FECHAR */}
                 <div className="flex items-center gap-1">
                   <Button
                     type="button"
@@ -432,7 +439,7 @@ export function FloatingPresenceWidget() {
                     size="icon"
                     onClick={handleToggleSound}
                     className="h-8 w-8 rounded-xl hover:bg-secondary flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
-                    title={soundEnabled ? "Sons de notificação ativados (clique para silenciar)" : "Sons silenciados (clique para ativar)"}
+                    title={soundEnabled ? "Sons de notificação ativados" : "Sons silenciados"}
                   >
                     {soundEnabled ? (
                       <Volume2 className="h-4 w-4 text-emerald-400" />
@@ -454,84 +461,168 @@ export function FloatingPresenceWidget() {
 
               {/* ABA PRINCIPAL: CHAT (LISTA DE CONVERSAS) */}
               {activeTab === "chat" ? (
-                <ConversationList
-                  conversations={conversations}
-                  isLoading={loadingConversations}
-                  onSelectConversation={(conv) => setActiveConversation(conv)}
-                  onCreateGroup={() => setCreateGroupOpen(true)}
-                />
+                <div className="flex-1 overflow-hidden">
+                  <ConversationList
+                    conversations={conversations}
+                    isLoading={loadingConversations}
+                    onSelectConversation={(conv) => setActiveConversation(conv)}
+                    onCreateGroup={() => setCreateGroupOpen(true)}
+                  />
+                </div>
               ) : (
                 /* ABA SECUNDÁRIA: MEMBROS ONLINE */
                 <div className="flex flex-col h-full overflow-hidden">
-                  {/* SEARCH */}
-                  <div className="p-2.5 border-b border-border/40 bg-secondary/10 shrink-0">
-                    <Input
-                      placeholder="Buscar membros online ou por ID..."
-                      value={memberSearch}
-                      onChange={(e) => setMemberSearch(e.target.value)}
-                      className="h-8 text-xs bg-secondary/40 border-border/60 rounded-xl"
-                    />
+                  {/* SEARCH BOX & FILTERS */}
+                  <div className="p-3 border-b border-border/40 bg-secondary/15 space-y-2 shrink-0">
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                      <Input
+                        placeholder="Buscar membros ou por ID..."
+                        value={memberSearch}
+                        onChange={(e) => setMemberSearch(e.target.value)}
+                        className="h-9 pl-9 pr-8 text-xs bg-background/90 border-border/70 rounded-xl focus:border-primary/50"
+                      />
+                      {memberSearch && (
+                        <button
+                          type="button"
+                          onClick={() => setMemberSearch("")}
+                          className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground cursor-pointer"
+                        >
+                          <X className="h-3.5 w-3.5" />
+                        </button>
+                      )}
+                    </div>
+
+                    {/* STATUS FILTER CHIPS */}
+                    <div className="flex items-center gap-1 overflow-x-auto scrollbar-none pb-0.5">
+                      <button
+                        type="button"
+                        onClick={() => setMemberFilter("all")}
+                        className={cn(
+                          "px-2.5 py-1 rounded-lg text-[10.5px] font-bold border transition-all cursor-pointer shrink-0",
+                          memberFilter === "all"
+                            ? "bg-primary text-primary-foreground border-primary shadow-2xs font-black"
+                            : "bg-secondary/30 text-muted-foreground border-border/40 hover:bg-secondary hover:text-foreground"
+                        )}
+                      >
+                        Todos ({members.length})
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setMemberFilter("online")}
+                        className={cn(
+                          "px-2.5 py-1 rounded-lg text-[10.5px] font-bold border transition-all cursor-pointer shrink-0 flex items-center gap-1",
+                          memberFilter === "online"
+                            ? "bg-emerald-600 text-white border-emerald-500 shadow-2xs font-black"
+                            : "bg-secondary/30 text-muted-foreground border-border/40 hover:bg-secondary hover:text-foreground"
+                        )}
+                      >
+                        <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                        Online ({totalOnline})
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setMemberFilter("ausente")}
+                        className={cn(
+                          "px-2.5 py-1 rounded-lg text-[10.5px] font-bold border transition-all cursor-pointer shrink-0 flex items-center gap-1",
+                          memberFilter === "ausente"
+                            ? "bg-amber-600 text-white border-amber-500 shadow-2xs font-black"
+                            : "bg-secondary/30 text-muted-foreground border-border/40 hover:bg-secondary hover:text-foreground"
+                        )}
+                      >
+                        <span className="h-1.5 w-1.5 rounded-full bg-amber-400" />
+                        Ausentes ({ausenteMembers.length})
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setMemberFilter("offline")}
+                        className={cn(
+                          "px-2.5 py-1 rounded-lg text-[10.5px] font-bold border transition-all cursor-pointer shrink-0",
+                          memberFilter === "offline"
+                            ? "bg-zinc-700 text-white border-zinc-600 shadow-2xs font-black"
+                            : "bg-secondary/30 text-muted-foreground border-border/40 hover:bg-secondary hover:text-foreground"
+                        )}
+                      >
+                        Offline ({offlineMembers.length})
+                      </button>
+                    </div>
                   </div>
 
-                  {/* HIGH DENSITY LIST */}
-                  <div className="flex-1 overflow-y-auto p-1.5 space-y-2 divide-y divide-border/30">
+                  {/* MEMBERS LIST WITH SLEEK CUSTOM SCROLLBAR */}
+                  <div className="flex-1 overflow-y-auto p-2 space-y-3 custom-scrollbar-thin">
                     {/* ONLINE GROUP */}
-                    {filteredMembers(onlineMembers).length > 0 && (
-                      <div className="space-y-0.5 pt-1 first:pt-0">
-                        <div className="flex items-center justify-between px-2 py-1 text-[9px] font-bold font-mono text-emerald-400 uppercase tracking-wider">
-                          <span className="flex items-center gap-1">
-                            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" /> ONLINE
+                    {(memberFilter === "all" || memberFilter === "online") && filteredMembers(onlineMembers).length > 0 && (
+                      <div className="space-y-1">
+                        <div className="flex items-center justify-between px-2.5 py-1 text-[10px] font-black font-mono text-emerald-400 uppercase tracking-wider bg-emerald-500/5 rounded-lg border border-emerald-500/20">
+                          <span className="flex items-center gap-1.5">
+                            <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse shadow-sm" />
+                            ONLINE AGORA
                           </span>
-                          <span>{filteredMembers(onlineMembers).length}</span>
+                          <span className="font-bold">{filteredMembers(onlineMembers).length}</span>
                         </div>
-                        {filteredMembers(onlineMembers).map((m) => (
-                          <CompactMemberRow
-                            key={m.user_id}
-                            member={m}
-                            onStartChat={handleStartPrivateChat}
-                            isSelf={m.user_id === currentUserId}
-                          />
-                        ))}
+                        <div className="space-y-0.5">
+                          {filteredMembers(onlineMembers).map((m) => (
+                            <CompactMemberRow
+                              key={m.user_id}
+                              member={m}
+                              onStartChat={handleStartPrivateChat}
+                              isSelf={m.user_id === currentUserId}
+                            />
+                          ))}
+                        </div>
                       </div>
                     )}
 
                     {/* AUSENTE GROUP */}
-                    {filteredMembers(ausenteMembers).length > 0 && (
-                      <div className="space-y-0.5 pt-1.5">
-                        <div className="flex items-center justify-between px-2 py-1 text-[9px] font-bold font-mono text-amber-400 uppercase tracking-wider">
-                          <span className="flex items-center gap-1">
-                            <span className="h-1.5 w-1.5 rounded-full bg-amber-500" /> AUSENTES
+                    {(memberFilter === "all" || memberFilter === "ausente") && filteredMembers(ausenteMembers).length > 0 && (
+                      <div className="space-y-1">
+                        <div className="flex items-center justify-between px-2.5 py-1 text-[10px] font-black font-mono text-amber-400 uppercase tracking-wider bg-amber-500/5 rounded-lg border border-amber-500/20">
+                          <span className="flex items-center gap-1.5">
+                            <span className="h-2 w-2 rounded-full bg-amber-400" />
+                            AUSENTES / OCUPADOS
                           </span>
-                          <span>{filteredMembers(ausenteMembers).length}</span>
+                          <span className="font-bold">{filteredMembers(ausenteMembers).length}</span>
                         </div>
-                        {filteredMembers(ausenteMembers).map((m) => (
-                          <CompactMemberRow
-                            key={m.user_id}
-                            member={m}
-                            onStartChat={handleStartPrivateChat}
-                            isSelf={m.user_id === currentUserId}
-                          />
-                        ))}
+                        <div className="space-y-0.5">
+                          {filteredMembers(ausenteMembers).map((m) => (
+                            <CompactMemberRow
+                              key={m.user_id}
+                              member={m}
+                              onStartChat={handleStartPrivateChat}
+                              isSelf={m.user_id === currentUserId}
+                            />
+                          ))}
+                        </div>
                       </div>
                     )}
 
                     {/* OFFLINE GROUP */}
-                    {filteredMembers(offlineMembers).length > 0 && (
-                      <div className="space-y-0.5 pt-1.5">
-                        <div className="flex items-center justify-between px-2 py-1 text-[9px] font-bold font-mono text-zinc-400 uppercase tracking-wider">
-                          <span className="flex items-center gap-1">
-                            <span className="h-1.5 w-1.5 rounded-full bg-zinc-500" /> OFFLINE
+                    {(memberFilter === "all" || memberFilter === "offline") && filteredMembers(offlineMembers).length > 0 && (
+                      <div className="space-y-1">
+                        <div className="flex items-center justify-between px-2.5 py-1 text-[10px] font-black font-mono text-zinc-400 uppercase tracking-wider bg-zinc-500/5 rounded-lg border border-zinc-500/20">
+                          <span className="flex items-center gap-1.5">
+                            <span className="h-2 w-2 rounded-full bg-zinc-500" />
+                            OFFLINE
                           </span>
-                          <span>{filteredMembers(offlineMembers).length}</span>
+                          <span className="font-bold">{filteredMembers(offlineMembers).length}</span>
                         </div>
-                        {filteredMembers(offlineMembers).map((m) => (
-                          <CompactMemberRow
-                            key={m.user_id}
-                            member={m}
-                            onStartChat={handleStartPrivateChat}
-                            isSelf={m.user_id === currentUserId}
-                          />
-                        ))}
+                        <div className="space-y-0.5">
+                          {filteredMembers(offlineMembers).map((m) => (
+                            <CompactMemberRow
+                              key={m.user_id}
+                              member={m}
+                              onStartChat={handleStartPrivateChat}
+                              isSelf={m.user_id === currentUserId}
+                            />
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {filteredMembers(members).length === 0 && (
+                      <div className="text-center py-12 text-muted-foreground space-y-1">
+                        <p className="text-xs font-bold text-foreground">Nenhum membro encontrado</p>
+                        <p className="text-[11px]">Tente buscar por outro nome ou ID.</p>
                       </div>
                     )}
                   </div>
