@@ -59,6 +59,14 @@ export function BauManagerModal({ trigger }: { trigger?: ReactNode }) {
   const { data: productBaus = [] } = useProductBaus();
   const queryClient = useQueryClient();
 
+  const uniqueBaus = baus.filter(
+    (b, index, self) =>
+      index ===
+      self.findIndex(
+        (t) => t.id === b.id || (t.nome && b.nome && t.nome.trim().toLowerCase() === b.nome.trim().toLowerCase())
+      )
+  );
+
   const resetForm = () => {
     setEditingBau(null);
     setNome("");
@@ -115,18 +123,34 @@ export function BauManagerModal({ trigger }: { trigger?: ReactNode }) {
       if (!hasPermission("manage_baus")) {
         throw new Error("Você não possui permissão para gerenciar baús.");
       }
-      if (!nome.trim()) throw new Error("Informe o nome do baú.");
+      const cleanName = nome.trim();
+      if (!cleanName) throw new Error("Informe o nome do baú.");
+
       if (editingBau) {
+        const isDuplicate = baus.some(
+          (b) => b.id !== editingBau.id && b.nome.trim().toLowerCase() === cleanName.toLowerCase()
+        );
+        if (isDuplicate) {
+          throw new Error(`Já existe outro baú cadastrado com o nome "${cleanName}".`);
+        }
+
         const payload: { id: string; nome: string; descricao?: string; icone?: string } = {
           id: editingBau.id,
-          nome: nome.trim(),
+          nome: cleanName,
           icone,
         };
         if (descricao.trim()) payload.descricao = descricao.trim();
         await updateBau(payload);
       } else {
+        const isDuplicate = baus.some(
+          (b) => b.nome.trim().toLowerCase() === cleanName.toLowerCase()
+        );
+        if (isDuplicate) {
+          throw new Error(`Já existe um baú cadastrado com o nome "${cleanName}".`);
+        }
+
         const payload: { nome: string; descricao?: string; icone?: string } = {
-          nome: nome.trim(),
+          nome: cleanName,
           icone,
         };
         if (descricao.trim()) payload.descricao = descricao.trim();
@@ -306,7 +330,7 @@ export function BauManagerModal({ trigger }: { trigger?: ReactNode }) {
             <div className="space-y-4">
               <div className="flex justify-between items-center">
                 <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                  Baús Cadastrados ({baus.length})
+                  Baús Cadastrados ({uniqueBaus.length})
                 </p>
                 <Button
                   size="sm"
@@ -319,11 +343,11 @@ export function BauManagerModal({ trigger }: { trigger?: ReactNode }) {
 
               {isLoading ? (
                 <p className="text-sm text-muted-foreground py-4 text-center">Carregando...</p>
-              ) : baus.length === 0 ? (
+              ) : uniqueBaus.length === 0 ? (
                 <p className="text-sm text-muted-foreground py-4 text-center">Nenhum baú cadastrado.</p>
               ) : (
                 <div className="space-y-2 max-h-[340px] overflow-y-auto pr-1">
-                  {baus.map((b) => {
+                  {uniqueBaus.map((b) => {
                     const stockInfo = getBauStockInfo(b.id);
                     const hasStock = stockInfo.count > 0;
 

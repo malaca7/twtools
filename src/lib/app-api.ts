@@ -179,21 +179,50 @@ export async function getBaus(): Promise<Bau[]> {
     .order("created_at", { ascending: true });
   if (error) throw error;
   
-  return (data || []).map(d => ({
-    id: d.id,
-    nome: d.nome,
-    descricao: d.descricao,
-    icone: d.icone,
-    ativo: d.ativo ?? true,
-    created_at: String(d.created_at),
-  }));
+  const seenIds = new Set<string>();
+  const seenNames = new Set<string>();
+  const list: Bau[] = [];
+
+  for (const d of data || []) {
+    const id = String(d.id);
+    const normName = String(d.nome || "").trim().toLowerCase();
+    if (seenIds.has(id) || (normName && seenNames.has(normName))) {
+      continue;
+    }
+    seenIds.add(id);
+    if (normName) seenNames.add(normName);
+
+    list.push({
+      id: d.id,
+      nome: d.nome,
+      descricao: d.descricao,
+      icone: d.icone,
+      ativo: d.ativo ?? true,
+      created_at: String(d.created_at),
+    });
+  }
+
+  return list;
 }
 
 export async function createBau(payload: { nome: string; descricao?: string; icone?: string }): Promise<Bau> {
+  const cleanName = payload.nome.trim();
+  if (!cleanName) throw new Error("Informe o nome do baú.");
+
+  const { data: existing } = await supabase
+    .from("baus")
+    .select("id, nome")
+    .ilike("nome", cleanName)
+    .maybeSingle();
+
+  if (existing) {
+    throw new Error(`Já existe um baú cadastrado com o nome "${existing.nome}".`);
+  }
+
   const { data, error } = await supabase
     .from("baus")
     .insert({
-      nome: payload.nome.trim(),
+      nome: cleanName,
       descricao: payload.descricao?.trim() || null,
       icone: payload.icone || 'box',
       ativo: true
@@ -218,7 +247,23 @@ export async function updateBau(payload: { id: string; nome?: string; descricao?
   const { data: oldBau } = await supabase.from("baus").select("nome, descricao, ativo").eq("id", payload.id).maybeSingle();
 
   const updates: any = {};
-  if (payload.nome !== undefined) updates.nome = payload.nome.trim();
+  if (payload.nome !== undefined) {
+    const cleanName = payload.nome.trim();
+    if (!cleanName) throw new Error("Informe o nome do baú.");
+
+    const { data: existing } = await supabase
+      .from("baus")
+      .select("id, nome")
+      .ilike("nome", cleanName)
+      .neq("id", payload.id)
+      .maybeSingle();
+
+    if (existing) {
+      throw new Error(`Já existe outro baú cadastrado com o nome "${existing.nome}".`);
+    }
+
+    updates.nome = cleanName;
+  }
   if (payload.descricao !== undefined) updates.descricao = payload.descricao.trim();
   if (payload.icone !== undefined) updates.icone = payload.icone;
   if (payload.ativo !== undefined) updates.ativo = payload.ativo;
