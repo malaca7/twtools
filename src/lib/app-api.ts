@@ -179,7 +179,7 @@ export async function getBaus(): Promise<Bau[]> {
     .order("created_at", { ascending: true });
   if (error) throw error;
   
-  const list: Bau[] = (data || []).map(d => ({
+  return (data || []).map(d => ({
     id: d.id,
     nome: d.nome,
     descricao: d.descricao,
@@ -187,36 +187,6 @@ export async function getBaus(): Promise<Bau[]> {
     ativo: d.ativo ?? true,
     created_at: String(d.created_at),
   }));
-
-  // Ensure "Baú Caixote" is always present for unallocated items
-  const hasCaixote = list.some((b) => b.nome.toLowerCase().includes("caixote"));
-  if (!hasCaixote) {
-    try {
-      const { data: createdBau } = await (supabase.from("baus" as any))
-        .insert({
-          nome: "Baú Caixote",
-          descricao: "Baú padrão para alocação de itens e produtos.",
-          icone: "box",
-          ativo: true,
-        })
-        .select()
-        .single();
-
-      if (createdBau) {
-        const c = createdBau as any;
-        list.push({
-          id: c.id,
-          nome: c.nome,
-          descricao: c.descricao,
-          icone: c.icone,
-          ativo: c.ativo ?? true,
-          created_at: String(c.created_at),
-        });
-      }
-    } catch (err) {}
-  }
-
-  return list;
 }
 
 export async function createBau(payload: { nome: string; descricao?: string; icone?: string }): Promise<Bau> {
