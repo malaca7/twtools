@@ -269,6 +269,20 @@ export async function updateBau(payload: { id: string; nome?: string; descricao?
 
 export async function deleteBau(id: string): Promise<void> {
   const { data: oldBau } = await supabase.from("baus").select("nome").eq("id", id).maybeSingle();
+
+  // Desvincular produtos que apontavam para este baú
+  await supabase
+    .from("products")
+    .update({ bau_id: null, updated_at: new Date().toISOString() })
+    .eq("bau_id", id);
+
+  // Limpar entradas de product_baus se a tabela existir
+  try {
+    await (supabase.from("product_baus" as any)).delete().eq("bau_id", id);
+  } catch (err) {
+    console.warn("Could not delete product_baus records:", err);
+  }
+
   const { error } = await supabase.from("baus").delete().eq("id", id);
   if (error) throw error;
 

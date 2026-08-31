@@ -102,6 +102,13 @@ function EstoquePage() {
   const { data: movements = [] } = useMovements();
   const { data: productBaus = [] } = useProductBaus();
 
+  // Reset selectedBauId if deleted
+  useEffect(() => {
+    if (selectedBauId !== "all" && baus.length > 0 && !baus.some((b) => b.id === selectedBauId)) {
+      setSelectedBauId("all");
+    }
+  }, [baus, selectedBauId]);
+
   // Product Modal State
   const [productModalOpen, setProductModalOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
