@@ -186,6 +186,13 @@ export async function getBaus(): Promise<Bau[]> {
   for (const d of data || []) {
     const id = String(d.id);
     const normName = String(d.nome || "").trim().toLowerCase();
+    
+    // Ignore and cleanup any legacy caixote entries
+    if (normName.includes("caixote")) {
+      void supabase.from("baus").delete().eq("id", id);
+      continue;
+    }
+
     if (seenIds.has(id) || (normName && seenNames.has(normName))) {
       continue;
     }
