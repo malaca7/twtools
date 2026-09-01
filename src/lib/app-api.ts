@@ -372,7 +372,7 @@ export async function updateProductBau(productId: string, bauId: string | null):
 export async function getMovements(): Promise<Movement[]> {
   const { data: bausRes } = await supabase.from("baus").select("id, nome");
   const listBaus = bausRes || [];
-  const defaultBau = listBaus.find((b: any) => b.nome.toLowerCase().includes("caixote")) || listBaus[0];
+  const defaultBau = listBaus[0];
   const defaultBauId = defaultBau?.id || null;
 
   const { data, error } = await (supabase.from("stock_movements" as any))
@@ -1238,8 +1238,7 @@ export async function saveRolePermissions(level: AppLevel, permissions: Permissi
 
 export async function submitMovement({ data }: { data: { productId: string; type: "entrada" | "saida"; quantity: number; reason?: string; bauId?: string } }): Promise<{ success: boolean }> {
   const { data: bausData } = await supabase.from("baus").select("id, nome");
-  const caixote = (bausData || []).find((b: any) => b.nome.toLowerCase().includes("caixote")) || (bausData || [])[0];
-  const defaultBauId = caixote?.id || null;
+  const defaultBauId = (bausData || [])[0]?.id || null;
 
   const { data: prod } = await supabase.from("products").select("nome, estoque_atual, bau_id").eq("id", data.productId).maybeSingle();
   const bauIdToUse = data.bauId || prod?.bau_id || defaultBauId;

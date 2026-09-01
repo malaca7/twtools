@@ -95,7 +95,7 @@ function MovimentacoesPage() {
   useEffect(() => {
     if (baus.length > 0) {
       if (!selectedBauId || !baus.some((b) => b.id === selectedBauId)) {
-        const defaultBau = baus.find((b) => b.nome.toLowerCase().includes("caixote")) || baus[0];
+        const defaultBau = baus[0];
         if (defaultBau) setSelectedBauId(defaultBau.id);
       }
       if (!fromBauId || !baus.some((b) => b.id === fromBauId)) {
@@ -1214,7 +1214,7 @@ function MovimentacoesPage() {
                     const prodObj = products.find((p) => p.id === m.product_id);
                     const pName = prodObj?.nome || productName(products, m.product_id);
                     const uName = nameOf(members, m.user_id);
-                    const bauName = baus.find((b) => b.id === m.bau_id)?.nome || "Baú Caixote";
+                    const bauName = baus.find((b) => b.id === m.bau_id)?.nome || "Baú Geral";
 
                     return (
                       <div

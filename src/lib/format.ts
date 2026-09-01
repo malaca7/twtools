@@ -284,7 +284,7 @@ export function humanizeAuditLog(
         prodName = found?.nome || "Produto";
       }
 
-      const bauName = data.bau_name || "Baú Caixote";
+      const bauName = data.bau_name || "Baú";
       const motivo = data.reason ? ` Motivo: "${data.reason}".` : "";
       const res = data.resulting_balance !== undefined ? ` Saldo resultante: ${num(data.resulting_balance)}.` : "";
 
