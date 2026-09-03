@@ -195,22 +195,22 @@ function AuthPage() {
   });
 
   return (
-    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-background px-4 py-10">
-      {/* Background Decorative Glow */}
-      <div className="absolute top-1/4 left-1/4 h-[300px] w-[300px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-primary/10 blur-[120px] pointer-events-none" />
-      <div className="absolute bottom-1/4 right-1/4 h-[350px] w-[350px] translate-x-1/2 translate-y-1/2 rounded-full bg-gradient-brand/5 blur-[140px] pointer-events-none" />
+    <div className="relative flex min-h-screen items-center justify-center overflow-hidden px-4 py-10">
+      {/* Background Atmospheric Decorative Glows sincronizados com o tema e cor de destaque */}
+      <div className="absolute top-1/4 left-1/4 h-[380px] w-[380px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-primary/20 blur-[130px] pointer-events-none animate-pulse" />
+      <div className="absolute bottom-1/4 right-1/4 h-[420px] w-[420px] translate-x-1/2 translate-y-1/2 rounded-full bg-gradient-brand/15 blur-[150px] pointer-events-none" />
 
-      <div className="relative w-full max-w-md">
-        <div className="mb-8 text-center">
-          <Brand size="md" className="items-center" />
+      <div className="relative w-full max-w-md z-10">
+        <div className="mb-8 text-center flex flex-col items-center">
+          <Brand size="lg" className="items-center" />
         </div>
 
-        <Card className="surface-card border border-border/50 shadow-2xl backdrop-blur-md">
-          <CardContent className="p-8">
+        <Card className="surface-card border border-border/70 shadow-2xl backdrop-blur-2xl rounded-3xl overflow-hidden">
+          <CardContent className="p-7 sm:p-8">
             {authLoading ? (
               <div className="flex flex-col items-center justify-center py-10 space-y-4">
                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                <p className="text-sm text-muted-foreground">Verificando autenticação...</p>
+                <p className="text-sm text-muted-foreground font-medium">Verificando autenticação...</p>
               </div>
             ) : session && isPendingApproval ? (
               /* TELA: AGUARDANDO APROVAÇÃO DA LIDERANÇA */
@@ -380,6 +380,16 @@ function AuthPage() {
             )}
           </CardContent>
         </Card>
+
+        {/* Rodapé Estilizado do Site */}
+        <div className="mt-6 text-center space-y-1">
+          <p className="text-[11px] font-mono text-muted-foreground/80">
+            Plataforma Integrada de Gestão &bull; Twin Wheels
+          </p>
+          <p className="text-[10px] text-muted-foreground/50">
+            Design de Alto Impacto &bull; Sincronização em Tempo Real
+          </p>
+        </div>
       </div>
 
       {/* CONFIRMATION DIALOG FOR CANCELING REGISTRATION */}

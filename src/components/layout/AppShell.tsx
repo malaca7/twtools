@@ -407,9 +407,16 @@ export function AppShell({ children }: { children: ReactNode }) {
           <header className="sticky top-0 z-40 flex h-16 shrink-0 items-center justify-between gap-2 sm:gap-3 border-b border-border/70 bg-background/95 backdrop-blur-xl px-3 sm:px-6 shadow-sm">
             <div className="flex items-center gap-2 sm:gap-3 min-w-0">
               <SidebarTrigger />
-              <span className="font-extrabold text-xs sm:text-sm text-foreground/90 truncate hidden md:inline-block">
-                {settings.factionName || "Twin Wheels"}
-              </span>
+              <div className="flex items-center gap-2 min-w-0">
+                <span className="text-gradient-brand font-display font-extrabold text-sm sm:text-base tracking-[0.14em] uppercase truncate drop-shadow-xs">
+                  {settings.factionName || "Twin Wheels"}
+                </span>
+                {settings.slogan && (
+                  <span className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground hidden xl:inline-block">
+                    · {settings.slogan}
+                  </span>
+                )}
+              </div>
             </div>
 
             {/* TOP HEADER: LIVE REALTIME ONLINE TIMER + ONLINE/AUSENTE MEMBERS BADGE + USER AVATAR */}

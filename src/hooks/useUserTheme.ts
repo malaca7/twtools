@@ -34,16 +34,54 @@ export function applyThemeToDOM(theme: UserThemeSettings) {
   root.style.setProperty("--platform-contrast", `${theme.contrast ?? 100}%`);
   root.style.setProperty("--platform-saturation", `${theme.saturation ?? 100}%`);
 
-  // Custom Primary Color Override
+  // Custom Primary / Accent Color Override & Logo Brand Gradient
   if (theme.customPrimaryColor) {
-    root.style.setProperty("--primary", theme.customPrimaryColor);
-    root.style.setProperty("--ring", theme.customPrimaryColor);
-    root.style.setProperty("--sidebar-primary", theme.customPrimaryColor);
+    const custom = theme.customPrimaryColor;
+    root.style.setProperty("--primary", custom);
+    root.style.setProperty("--ring", custom);
+    root.style.setProperty("--sidebar-primary", custom);
+    root.style.setProperty("--sidebar-ring", custom);
+    root.style.setProperty("--color-primary", custom);
+    root.style.setProperty("--custom-accent", custom);
+    root.style.setProperty("--glow-color", custom);
+
+    // Gradiente dinâmico da Logo / Brand combinando a cor de destaque com tom luminoso
+    root.style.setProperty(
+      "--gradient-brand",
+      `linear-gradient(105deg, ${custom} 0%, color-mix(in srgb, ${custom} 60%, #ffffff 40%) 100%)`
+    );
+
+    // Variáveis derivadas para efeitos suaves de superfície e realces
+    root.style.setProperty("--accent", `color-mix(in srgb, ${custom} 18%, transparent)`);
+    root.style.setProperty("--accent-foreground", custom);
+    root.style.setProperty("--sidebar-accent", `color-mix(in srgb, ${custom} 14%, transparent)`);
+    root.style.setProperty("--sidebar-accent-foreground", custom);
+    root.style.setProperty("--shadow-elegant", `0 0 28px -4px color-mix(in srgb, ${custom} 45%, transparent)`);
+    root.style.setProperty("--shadow-glow", `0 0 20px -2px color-mix(in srgb, ${custom} 40%, transparent)`);
   } else {
     root.style.removeProperty("--primary");
     root.style.removeProperty("--ring");
     root.style.removeProperty("--sidebar-primary");
+    root.style.removeProperty("--sidebar-ring");
+    root.style.removeProperty("--color-primary");
+    root.style.removeProperty("--custom-accent");
+    root.style.removeProperty("--glow-color");
+    root.style.removeProperty("--gradient-brand");
+    root.style.removeProperty("--accent");
+    root.style.removeProperty("--accent-foreground");
+    root.style.removeProperty("--sidebar-accent");
+    root.style.removeProperty("--sidebar-accent-foreground");
+    root.style.removeProperty("--shadow-elegant");
+    root.style.removeProperty("--shadow-glow");
   }
+}
+
+// Auto-executa no primeiro carregamento do script no navegador
+if (typeof window !== "undefined") {
+  try {
+    const initialTheme = getLocalUserTheme();
+    applyThemeToDOM(initialTheme);
+  } catch {}
 }
 
 /**

@@ -115,7 +115,18 @@ export const ACCENT_COLOR_PRESETS = [
   { name: "Roxo Cósmico", value: "oklch(0.70 0.22 300)", hex: "#bf00ff", group: "vivid" },
   { name: "Azul Celeste", value: "oklch(0.68 0.20 240)", hex: "#2979ff", group: "vivid" },
   { name: "Laranja Vulcão", value: "oklch(0.72 0.22 45)", hex: "#ff6d00", group: "vivid" },
+  { name: "Verde Esmeralda", value: "oklch(0.74 0.20 160)", hex: "#10b981", group: "vivid" },
   { name: "Branco Puro", value: "oklch(0.96 0 0)", hex: "#f8fafc", group: "vivid" },
+
+  // Facções & Táticas
+  { name: "Carmesim Syndicate", value: "oklch(0.58 0.24 25)", hex: "#dc2626", group: "faction" },
+  { name: "Cartel Dourado", value: "oklch(0.76 0.18 80)", hex: "#eab308", group: "faction" },
+  { name: "Roxo Imperial", value: "oklch(0.55 0.24 300)", hex: "#9333ea", group: "faction" },
+  { name: "Azul BdM Midnight", value: "oklch(0.56 0.20 250)", hex: "#2563eb", group: "faction" },
+  { name: "Verde Oliva Tático", value: "oklch(0.62 0.16 140)", hex: "#15803d", group: "faction" },
+  { name: "Urso Âmbar Escuro", value: "oklch(0.58 0.18 60)", hex: "#d97706", group: "faction" },
+  { name: "Vinho Tinto Rubi", value: "oklch(0.48 0.22 15)", hex: "#991b1b", group: "faction" },
+  { name: "Titânio Grafite", value: "oklch(0.65 0.02 250)", hex: "#94a3b8", group: "faction" },
 ];
 
 export const CARD_STYLE_OPTIONS = [
@@ -509,6 +520,41 @@ export function UserAppearanceSettings() {
             </div>
           </div>
 
+          {/* FACÇÕES & TÁTICAS */}
+          <div className="space-y-2 pt-1">
+            <div className="flex items-center gap-1.5">
+              <span className="text-xs font-bold text-foreground">🛡️ Cores de Facções & Táticas</span>
+              <Badge variant="outline" className="text-[9px] px-1 py-0 border-border text-muted-foreground">
+                Identidade & RP
+              </Badge>
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+              {ACCENT_COLOR_PRESETS.filter((p) => p.group === "faction").map((preset) => {
+                const isSelected = formData.customPrimaryColor === preset.value;
+                return (
+                  <button
+                    key={preset.name}
+                    type="button"
+                    onClick={() => handleChange("customPrimaryColor", preset.value)}
+                    className={cn(
+                      "flex items-center gap-2 p-2 rounded-xl text-left border transition-all text-xs cursor-pointer",
+                      isSelected
+                        ? "border-primary bg-primary/15 text-primary font-bold shadow-xs ring-1 ring-primary/40"
+                        : "border-border/60 bg-secondary/20 text-muted-foreground hover:text-foreground hover:bg-secondary/50"
+                    )}
+                  >
+                    <div
+                      className="h-3.5 w-3.5 rounded-full shrink-0 border border-white/20 shadow-xs"
+                      style={{ backgroundColor: preset.hex }}
+                    />
+                    <span className="truncate text-[11px] font-semibold">{preset.name}</span>
+                    {isSelected && <Check className="h-3 w-3 ml-auto text-primary shrink-0" />}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
           {/* SELETOR LIVRE & HEX */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-3 border-t border-border/40 bg-secondary/15 p-3 rounded-xl">
             <div className="space-y-0.5">
@@ -550,6 +596,44 @@ export function UserAppearanceSettings() {
                   Limpar
                 </Button>
               )}
+            </div>
+          </div>
+
+          {/* LIVE PREVIEW BANNER DA COR DE DESTAQUE */}
+          <div className="p-3.5 rounded-xl border border-border/70 bg-card/60 backdrop-blur-md space-y-2.5">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-extrabold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                <Sparkles className="h-3.5 w-3.5 text-primary" />
+                Prévia em Tempo Real da Cor de Destaque
+              </span>
+              <span className="text-[10px] font-mono text-primary font-bold">
+                {formData.customPrimaryColor || "Padrão do Tema"}
+              </span>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-3 pt-1">
+              {/* Logo / Nome da Plataforma */}
+              <div className="px-3 py-1.5 rounded-lg border border-border/50 bg-background/80">
+                <span className="text-gradient-brand font-display font-extrabold text-sm sm:text-base tracking-[0.14em] uppercase">
+                  TWIN WHEELS
+                </span>
+              </div>
+
+              {/* Botão Primário com Glow */}
+              <Button size="sm" className="h-8 text-xs font-bold shadow-md glow-primary">
+                Botão de Ação
+              </Button>
+
+              {/* Badge de Destaque */}
+              <Badge className="bg-primary/20 text-primary border-primary/40 text-[10px] font-bold">
+                Status Ativo
+              </Badge>
+
+              {/* Tag Ativa */}
+              <div className="flex items-center gap-1 px-2.5 py-1 rounded-full border border-primary/50 bg-primary/10 text-primary text-[11px] font-bold">
+                <Zap className="h-3 w-3" />
+                Realce Dinâmico
+              </div>
             </div>
           </div>
         </CardContent>
