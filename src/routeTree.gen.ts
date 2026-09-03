@@ -36,6 +36,7 @@ import { Route as DevDiscordIdRouteImport } from './routes/dev.$discordId'
 import { Route as AuthenticatedDevIndexRouteImport } from './routes/_authenticated/dev.index'
 import { Route as AuthenticatedDevConfiguracaoRouteImport } from './routes/_authenticated/dev.configuracao'
 import { Route as AuthenticatedDevDesempenhoRouteImport } from './routes/_authenticated/dev.desempenho'
+import { Route as AuthenticatedDevMenuLateralRouteImport } from './routes/_authenticated/dev.menu-lateral'
 import { Route as AuthenticatedDevPermissoesRouteImport } from './routes/_authenticated/dev.permissoes'
 
 const IndexRoute = IndexRouteImport.update({
@@ -176,6 +177,12 @@ const AuthenticatedDevDesempenhoRoute =
     path: '/dev/desempenho',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedDevMenuLateralRoute =
+  AuthenticatedDevMenuLateralRouteImport.update({
+    id: '/dev/menu-lateral',
+    path: '/dev/menu-lateral',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedDevPermissoesRoute =
   AuthenticatedDevPermissoesRouteImport.update({
     id: '/dev/permissoes',
@@ -209,6 +216,7 @@ export interface FileRoutesByFullPath {
   '/dev/$discordId': typeof DevDiscordIdRoute
   '/dev/configuracao': typeof AuthenticatedDevConfiguracaoRoute
   '/dev/desempenho': typeof AuthenticatedDevDesempenhoRoute
+  '/dev/menu-lateral': typeof AuthenticatedDevMenuLateralRoute
   '/dev/permissoes': typeof AuthenticatedDevPermissoesRoute
   '/dev/': typeof AuthenticatedDevIndexRoute
 }
@@ -238,6 +246,7 @@ export interface FileRoutesByTo {
   '/dev/$discordId': typeof DevDiscordIdRoute
   '/dev/configuracao': typeof AuthenticatedDevConfiguracaoRoute
   '/dev/desempenho': typeof AuthenticatedDevDesempenhoRoute
+  '/dev/menu-lateral': typeof AuthenticatedDevMenuLateralRoute
   '/dev/permissoes': typeof AuthenticatedDevPermissoesRoute
   '/dev': typeof AuthenticatedDevIndexRoute
 }
@@ -269,6 +278,7 @@ export interface FileRoutesById {
   '/dev/$discordId': typeof DevDiscordIdRoute
   '/_authenticated/dev/configuracao': typeof AuthenticatedDevConfiguracaoRoute
   '/_authenticated/dev/desempenho': typeof AuthenticatedDevDesempenhoRoute
+  '/_authenticated/dev/menu-lateral': typeof AuthenticatedDevMenuLateralRoute
   '/_authenticated/dev/permissoes': typeof AuthenticatedDevPermissoesRoute
   '/_authenticated/dev/': typeof AuthenticatedDevIndexRoute
 }
@@ -300,6 +310,7 @@ export interface FileRouteTypes {
     | '/dev/$discordId'
     | '/dev/configuracao'
     | '/dev/desempenho'
+    | '/dev/menu-lateral'
     | '/dev/permissoes'
     | '/dev/'
   fileRoutesByTo: FileRoutesByTo
@@ -329,6 +340,7 @@ export interface FileRouteTypes {
     | '/dev/$discordId'
     | '/dev/configuracao'
     | '/dev/desempenho'
+    | '/dev/menu-lateral'
     | '/dev/permissoes'
     | '/dev'
   id:
@@ -359,6 +371,7 @@ export interface FileRouteTypes {
     | '/dev/$discordId'
     | '/_authenticated/dev/configuracao'
     | '/_authenticated/dev/desempenho'
+    | '/_authenticated/dev/menu-lateral'
     | '/_authenticated/dev/permissoes'
     | '/_authenticated/dev/'
   fileRoutesById: FileRoutesById
@@ -561,6 +574,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedDevDesempenhoRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/dev/menu-lateral': {
+      id: '/_authenticated/dev/menu-lateral'
+      path: '/dev/menu-lateral'
+      fullPath: '/dev/menu-lateral'
+      preLoaderRoute: typeof AuthenticatedDevMenuLateralRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/dev/permissoes': {
       id: '/_authenticated/dev/permissoes'
       path: '/dev/permissoes'
@@ -594,6 +614,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedVendasRoute: typeof AuthenticatedVendasRoute
   AuthenticatedDevConfiguracaoRoute: typeof AuthenticatedDevConfiguracaoRoute
   AuthenticatedDevDesempenhoRoute: typeof AuthenticatedDevDesempenhoRoute
+  AuthenticatedDevMenuLateralRoute: typeof AuthenticatedDevMenuLateralRoute
   AuthenticatedDevPermissoesRoute: typeof AuthenticatedDevPermissoesRoute
   AuthenticatedDevIndexRoute: typeof AuthenticatedDevIndexRoute
 }
@@ -621,6 +642,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedVendasRoute: AuthenticatedVendasRoute,
   AuthenticatedDevConfiguracaoRoute: AuthenticatedDevConfiguracaoRoute,
   AuthenticatedDevDesempenhoRoute: AuthenticatedDevDesempenhoRoute,
+  AuthenticatedDevMenuLateralRoute: AuthenticatedDevMenuLateralRoute,
   AuthenticatedDevPermissoesRoute: AuthenticatedDevPermissoesRoute,
   AuthenticatedDevIndexRoute: AuthenticatedDevIndexRoute,
 }

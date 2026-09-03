@@ -99,6 +99,7 @@ const ICON_MAP: Record<string, typeof LayoutDashboard> = {
   "/configuracoes": Wrench,
   "/dev/permissoes": KeyRound,
   "/dev/configuracao": Code2,
+  "/dev/menu-lateral": Sliders,
 };
 
 /* ─── Default menu items definition ─── */
@@ -492,16 +493,17 @@ function MenuTab({ canEdit }: { canEdit: boolean }) {
     }
   }, [config]);
 
-  // Items Drag and Drop state
-  const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
-  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
+  // Drag and Drop state for items
+  const [draggedItemId, setDraggedItemId] = useState<string | null>(null);
+  const [dragOverItemId, setDragOverItemId] = useState<string | null>(null);
 
   // Helper to update state and save config globally to Supabase + LocalStorage
   const persist = useCallback(
     (newCats: string[], newItems: MenuItemConfig[]) => {
+      const cleanedItems = newItems.map((item, idx) => ({ ...item, order: idx }));
       setCategories(newCats);
-      setItems(newItems);
-      save({ categories: newCats, items: newItems });
+      setItems(cleanedItems);
+      save({ categories: newCats, items: cleanedItems });
     },
     [save]
   );
@@ -628,18 +630,32 @@ function MenuTab({ canEdit }: { canEdit: boolean }) {
     [canEdit, categories, items, persist]
   );
 
-  const moveItem = useCallback(
+  const moveItemWithinCategory = useCallback(
     (id: string, direction: "up" | "down") => {
       if (!canEdit) return;
-      const idx = items.findIndex((i) => i.id === id);
-      if (idx < 0) return;
-      const swapIdx = direction === "up" ? idx - 1 : idx + 1;
-      if (swapIdx < 0 || swapIdx >= items.length) return;
+      const currentItem = items.find((i) => i.id === id);
+      if (!currentItem) return;
 
-      const next = [...items];
-      [next[idx], next[swapIdx]] = [next[swapIdx], next[idx]];
-      const reordered = next.map((item, i) => ({ ...item, order: i }));
-      persist(categories, reordered);
+      const cat = currentItem.category || "Gestão";
+      const catItems = items
+        .filter((i) => (i.category || "Gestão") === cat)
+        .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+      const indexInCat = catItems.findIndex((i) => i.id === id);
+      if (indexInCat < 0) return;
+
+      const targetIndexInCat = direction === "up" ? indexInCat - 1 : indexInCat + 1;
+      if (targetIndexInCat < 0 || targetIndexInCat >= catItems.length) return;
+
+      const otherItem = catItems[targetIndexInCat];
+      if (!otherItem) return;
+
+      // Swap positions of currentItem and otherItem in the items array
+      const nextItems = [...items];
+      const idxA = nextItems.findIndex((i) => i.id === currentItem.id);
+      const idxB = nextItems.findIndex((i) => i.id === otherItem.id);
+      [nextItems[idxA], nextItems[idxB]] = [nextItems[idxB], nextItems[idxA]];
+
+      persist(categories, nextItems);
     },
     [canEdit, categories, items, persist]
   );
@@ -653,41 +669,56 @@ function MenuTab({ canEdit }: { canEdit: boolean }) {
     toast.success("Menu restaurado para o padrão!");
   }, [reset, canEdit]);
 
-  /* ─── Drag and Drop Handlers ─── */
-  const handleDragStart = (e: React.DragEvent, index: number) => {
+  /* ─── Item Drag and Drop Handlers ─── */
+  const handleItemDragStart = (e: React.DragEvent, id: string) => {
     if (!canEdit) return;
-    setDraggedIndex(index);
+    setDraggedItemId(id);
     e.dataTransfer.effectAllowed = "move";
-    e.dataTransfer.setData("text/plain", index.toString());
+    e.dataTransfer.setData("text/plain", id);
   };
 
-  const handleDragOver = (e: React.DragEvent, index: number) => {
+  const handleItemDragOver = (e: React.DragEvent, id: string) => {
     e.preventDefault();
-    if (draggedIndex === null || draggedIndex === index) return;
-    setDragOverIndex(index);
+    if (draggedItemId === null || draggedItemId === id) return;
+    setDragOverItemId(id);
   };
 
-  const handleDragLeave = () => {
-    setDragOverIndex(null);
+  const handleItemDragLeave = () => {
+    setDragOverItemId(null);
   };
 
-  const handleDrop = (e: React.DragEvent, targetIndex: number) => {
+  const handleItemDrop = (e: React.DragEvent, targetId: string) => {
     e.preventDefault();
-    if (draggedIndex === null || draggedIndex === targetIndex) {
-      setDraggedIndex(null);
-      setDragOverIndex(null);
+    if (!draggedItemId || draggedItemId === targetId) {
+      setDraggedItemId(null);
+      setDragOverItemId(null);
       return;
     }
 
-    const reordered = [...items];
-    const [movedItem] = reordered.splice(draggedIndex, 1);
-    reordered.splice(targetIndex, 0, movedItem);
-    const updated = reordered.map((item, i) => ({ ...item, order: i }));
+    const draggedItem = items.find((i) => i.id === draggedItemId);
+    const targetItem = items.find((i) => i.id === targetId);
 
-    persist(categories, updated);
-    setDraggedIndex(null);
-    setDragOverIndex(null);
-    toast.success(`Item "${movedItem.title}" reordenado!`);
+    if (!draggedItem || !targetItem) {
+      setDraggedItemId(null);
+      setDragOverItemId(null);
+      return;
+    }
+
+    const nextItems = items.filter((i) => i.id !== draggedItemId);
+    const targetIdx = nextItems.findIndex((i) => i.id === targetId);
+
+    // Update dragged item's category to match the target's category
+    const updatedDraggedItem = {
+      ...draggedItem,
+      category: targetItem.category || "Gestão",
+    };
+
+    nextItems.splice(targetIdx, 0, updatedDraggedItem);
+
+    persist(categories, nextItems);
+    setDraggedItemId(null);
+    setDragOverItemId(null);
+    toast.success(`Item "${draggedItem.title}" reordenado!`);
   };
 
   // Group items by category for preview
@@ -938,21 +969,20 @@ function MenuTab({ canEdit }: { canEdit: boolean }) {
                     </p>
                   ) : (
                     <div className="space-y-2.5">
-                      {catItems.map((item) => {
-                        const globalIdx = items.findIndex((i) => i.id === item.id);
+                      {catItems.map((item, itemIdxInCat) => {
                         const Icon = ICON_MAP[item.url] || Settings;
                         const title = item.title || DEFAULT_ITEMS.find((d) => d.id === item.id)?.title || item.id;
-                        const isDragging = draggedIndex === globalIdx;
-                        const isDragOver = dragOverIndex === globalIdx;
+                        const isDragging = draggedItemId === item.id;
+                        const isDragOver = dragOverItemId === item.id;
 
                         return (
                           <div
                             key={item.id}
                             draggable={canEdit}
-                            onDragStart={(e) => handleDragStart(e, globalIdx)}
-                            onDragOver={(e) => handleDragOver(e, globalIdx)}
-                            onDragLeave={handleDragLeave}
-                            onDrop={(e) => handleDrop(e, globalIdx)}
+                            onDragStart={(e) => handleItemDragStart(e, item.id)}
+                            onDragOver={(e) => handleItemDragOver(e, item.id)}
+                            onDragLeave={handleItemDragLeave}
+                            onDrop={(e) => handleItemDrop(e, item.id)}
                             className={cn(
                               "flex items-center justify-between gap-3 p-3 rounded-xl border transition-all duration-200 cursor-grab active:cursor-grabbing",
                               item.visible
@@ -968,20 +998,20 @@ function MenuTab({ canEdit }: { canEdit: boolean }) {
                               <div className="flex flex-col items-center gap-0.5 shrink-0">
                                 <button
                                   type="button"
-                                  onClick={() => moveItem(item.id, "up")}
-                                  disabled={globalIdx === 0 || !canEdit}
+                                  onClick={() => moveItemWithinCategory(item.id, "up")}
+                                  disabled={itemIdxInCat === 0 || !canEdit}
                                   className="h-4 w-4 flex items-center justify-center rounded text-muted-foreground hover:text-foreground disabled:opacity-20"
-                                  title="Mover para cima"
+                                  title="Mover para cima nesta categoria"
                                 >
                                   <ChevronUp className="h-3 w-3" />
                                 </button>
                                 <GripVertical className="h-4 w-4 text-muted-foreground/60 hover:text-primary cursor-grab" />
                                 <button
                                   type="button"
-                                  onClick={() => moveItem(item.id, "down")}
-                                  disabled={globalIdx === items.length - 1 || !canEdit}
+                                  onClick={() => moveItemWithinCategory(item.id, "down")}
+                                  disabled={itemIdxInCat === catItems.length - 1 || !canEdit}
                                   className="h-4 w-4 flex items-center justify-center rounded text-muted-foreground hover:text-foreground disabled:opacity-20"
-                                  title="Mover para baixo"
+                                  title="Mover para baixo nesta categoria"
                                 >
                                   <ChevronDown className="h-3 w-3" />
                                 </button>

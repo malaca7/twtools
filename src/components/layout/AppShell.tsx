@@ -34,6 +34,7 @@ import {
   Terminal,
   ArrowLeft,
   MessageSquare,
+  Sliders,
 } from "lucide-react";
 import { isUserDeveloper } from "@/services/devService";
 import {
@@ -69,6 +70,7 @@ import { usePresence } from "@/hooks/usePresence";
 import { useOnlineTimer } from "@/hooks/useOnlineTimer";
 import { useMembers } from "@/hooks/useData";
 import { useMenuConfig } from "@/hooks/useMenuConfig";
+import { useDevMenuConfig } from "@/hooks/useDevMenuConfig";
 import { LEVEL_LABEL, levelBadgeClass, type Permission } from "@/lib/permissions";
 import { cn } from "@/lib/utils";
 import { FloatingPresenceWidget } from "./FloatingPresenceWidget";
@@ -108,12 +110,14 @@ const DEV_MODULE_NAV_ITEMS: MasterNavItem[] = [
   { id: "dev-desempenho", title: "Gestão Desempenho", url: "/dev/desempenho", icon: TrendingUp, defaultCat: "Ferramentas Dev", defaultOrder: 1 },
   { id: "dev-permissoes", title: "Permissões Tag Dev", url: "/dev/permissoes", icon: KeyRound, defaultCat: "Ferramentas Dev", defaultOrder: 2 },
   { id: "dev-configuracao", title: "Configurações Dev", url: "/dev/configuracao", icon: Code2, defaultCat: "Ferramentas Dev", defaultOrder: 3 },
+  { id: "dev-menu-lateral", title: "Menu Lateral Dev", url: "/dev/menu-lateral", icon: Sliders, defaultCat: "Ferramentas Dev", defaultOrder: 4 },
 ];
 
 function DynamicSidebarNavigation() {
   const pathname = useRouterState({ select: (r) => r.location.pathname });
   const { hasPermission, user, profile, level, isDevMode, setPanelMode } = useAuth();
   const { config: menuConfig } = useMenuConfig();
+  const { config: devMenuConfig } = useDevMenuConfig();
   const { isMobile, setOpenMobile } = useSidebar();
   const storageKey = "tw_sidebar_cats_v1";
 
@@ -149,25 +153,7 @@ function DynamicSidebarNavigation() {
   }, [pathname, isDevUser, isDevMode, setPanelMode]);
 
   const grouped = useMemo(() => {
-    if (isDevMode) {
-      // MODO DEV TOOLS: Exibe absolutamente todos os menus e módulos com bypass total
-      const allItemsWithDev = [...DEV_MODULE_NAV_ITEMS, ...MASTER_NAV_ITEMS];
-      const categories = ["Ferramentas Dev", "Operação", "Gestão", "Administração"];
-      const groups: { category: string; items: typeof allItemsWithDev }[] = [];
-
-      categories.forEach((cat) => {
-        const catItems = allItemsWithDev
-          .filter((i) => i.defaultCat === cat)
-          .sort((a, b) => a.defaultOrder - b.defaultOrder);
-        if (catItems.length > 0) {
-          groups.push({ category: cat, items: catItems });
-        }
-      });
-
-      return groups;
-    }
-
-    // MODO NORMAL (MEMBRO): Exibe estritamente as permissões e menus atribuídos ao cargo
+    // 1. Configuração do menu da plataforma (Membros / Geral)
     const validConfigItems = menuConfig?.items?.filter((c) => Boolean(c && (c.id || c.url))) || [];
     const configMap = new Map(validConfigItems.map((c) => [c.id || c.url, c]));
 
@@ -175,20 +161,94 @@ function DynamicSidebarNavigation() {
       ? menuConfig.categories
       : ["Operação", "Gestão", "Administração"];
 
-    // Customize master items with saved config
-    const customized = MASTER_NAV_ITEMS.map((item) => {
+    // Customiza itens da plataforma com a configuração salva
+    const customizedMaster = MASTER_NAV_ITEMS.map((item, defaultIdx) => {
       const cfg = configMap.get(item.id) || configMap.get(item.url);
       return {
         ...item,
         title: cfg?.title || item.title,
         visible: cfg ? cfg.visible !== false : true,
         category: cfg?.category || item.defaultCat,
-        order: typeof cfg?.order === "number" ? cfg.order : item.defaultOrder,
+        order: typeof cfg?.order === "number" ? cfg.order : item.defaultOrder ?? defaultIdx,
       };
     });
 
-    // Filter visible & authorized items
-    const visible = customized.filter(
+    if (isDevMode) {
+      // MODO DEV TOOLS:
+      // A) Agrupa itens de ferramentas Dev com base em devMenuConfig
+      const devValidItems = devMenuConfig?.items?.filter((c) => Boolean(c && (c.id || c.url))) || [];
+      const devConfigMap = new Map(devValidItems.map((c) => [c.id || c.url, c]));
+      const devCategoryOrder = devMenuConfig?.categories?.length
+        ? devMenuConfig.categories
+        : ["Ferramentas Dev"];
+
+      const customizedDev = DEV_MODULE_NAV_ITEMS.map((item, defaultIdx) => {
+        const cfg = devConfigMap.get(item.id) || devConfigMap.get(item.url);
+        return {
+          ...item,
+          title: cfg?.title || item.title,
+          visible: cfg ? cfg.visible !== false : true,
+          category: cfg?.category || item.defaultCat,
+          order: typeof cfg?.order === "number" ? cfg.order : item.defaultOrder ?? defaultIdx,
+        };
+      });
+
+      const visibleDev = customizedDev.filter((item) => item.visible);
+      const devGroups: { category: string; items: typeof visibleDev }[] = [];
+
+      devCategoryOrder.forEach((cat) => {
+        const catItems = visibleDev
+          .filter((i) => i.category === cat)
+          .sort((a, b) => a.order - b.order);
+        if (catItems.length > 0) {
+          devGroups.push({ category: cat, items: catItems });
+        }
+      });
+
+      const knownDevCats = new Set(devCategoryOrder);
+      visibleDev.forEach((item) => {
+        if (!knownDevCats.has(item.category)) {
+          knownDevCats.add(item.category);
+          const catItems = visibleDev
+            .filter((i) => i.category === item.category)
+            .sort((a, b) => a.order - b.order);
+          if (catItems.length > 0) {
+            devGroups.push({ category: item.category, items: catItems });
+          }
+        }
+      });
+
+      // B) Agrupa itens da plataforma com base em menuConfig (em modo dev, exibe todos os itens visíveis com bypass)
+      const visibleMaster = customizedMaster.filter((item) => item.visible);
+      const platformGroups: { category: string; items: typeof visibleMaster }[] = [];
+
+      categoryOrder.forEach((cat) => {
+        const catItems = visibleMaster
+          .filter((i) => i.category === cat)
+          .sort((a, b) => a.order - b.order);
+        if (catItems.length > 0) {
+          platformGroups.push({ category: cat, items: catItems });
+        }
+      });
+
+      const knownPlatformCats = new Set(categoryOrder);
+      visibleMaster.forEach((item) => {
+        if (!knownPlatformCats.has(item.category)) {
+          knownPlatformCats.add(item.category);
+          const catItems = visibleMaster
+            .filter((i) => i.category === item.category)
+            .sort((a, b) => a.order - b.order);
+          if (catItems.length > 0) {
+            platformGroups.push({ category: item.category, items: catItems });
+          }
+        }
+      });
+
+      return [...devGroups, ...platformGroups];
+    }
+
+    // MODO NORMAL (MEMBRO): Exibe estritamente as permissões e menus atribuídos ao cargo
+    const visible = customizedMaster.filter(
       (item) => item.visible && (!item.perm || hasPermission(item.perm))
     );
 
@@ -219,7 +279,7 @@ function DynamicSidebarNavigation() {
     });
 
     return groups;
-  }, [isDevMode, menuConfig, hasPermission]);
+  }, [isDevMode, menuConfig, devMenuConfig, hasPermission]);
 
   return (
     <>

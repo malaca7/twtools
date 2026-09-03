@@ -98,6 +98,7 @@ const ALL_SYSTEM_MODULES = [
       { title: "Gestão de Desempenho Dev", url: "/dev/desempenho", icon: TrendingUp, desc: "Inspeção aprofundada de produtividade, tempo online e auditoria de membros", color: "text-rose-400" },
       { title: "Permissões da Tag Dev", url: "/dev/permissoes", icon: KeyRound, desc: "Matriz granular e gerenciamento de permissões da tag desenvolvedor", color: "text-rose-400" },
       { title: "Configurações do Módulo Dev", url: "/dev/configuracao", icon: Code2, desc: "Flags de depuração, modo manutenção, mock data e diagnóstico", color: "text-rose-400" },
+      { title: "Menu Lateral Dev", url: "/dev/menu-lateral", icon: Sliders, desc: "Configuração de ordens, categorias e visibilidade do menu dev", color: "text-rose-400" },
     ],
   },
 ];
