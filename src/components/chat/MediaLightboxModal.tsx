@@ -35,8 +35,9 @@ export function MediaLightboxModal({
   const [rotation, setRotation] = useState(0);
 
   // Filtra apenas fotos e vídeos válidos
-  const mediaList = allMediaMessages.filter(
-    (m) => (m.message_type === "image" || m.message_type === "video") && m.attachment_url && !m.is_deleted
+  const safeMedia = Array.isArray(allMediaMessages) ? allMediaMessages : [];
+  const mediaList = safeMedia.filter(
+    (m) => m && (m.message_type === "image" || m.message_type === "video") && m.attachment_url && !m.is_deleted
   );
 
   const currentIndex = mediaList.findIndex((m) => m.id === currentMessage?.id);

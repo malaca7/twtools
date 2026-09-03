@@ -63,21 +63,23 @@ function ChatPage() {
   };
 
   const {
-    conversations,
+    conversations = [],
     isLoading,
     totalUnreadCount,
     refetch: refetchConversations,
   } = useConversations(activeConversation?.id);
 
+  const safeConversations = Array.isArray(conversations) ? conversations : [];
+
   // Sincroniza conversa ativa quando conversations atualizar
   useEffect(() => {
     if (activeConversation) {
-      const updated = conversations.find((c) => c.id === activeConversation.id);
+      const updated = safeConversations.find((c) => c.id === activeConversation.id);
       if (updated) {
         setActiveConversation(updated);
       }
     }
-  }, [conversations]);
+  }, [safeConversations]);
 
   useEffect(() => {
     window.scrollTo({ top: 0, left: 0, behavior: "instant" });

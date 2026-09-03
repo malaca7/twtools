@@ -178,8 +178,10 @@ export function ChatWindow({
   const [batchDeleteModalOpen, setBatchDeleteModalOpen] = useState(false);
   const isSelectionMode = selectedMessageIds.size > 0;
 
+  const safeMessages = Array.isArray(messages) ? messages : [];
+
   // Lista de mensagens fixadas na conversa
-  const pinnedMessages = messages.filter((m) => m.is_pinned && !m.is_deleted);
+  const pinnedMessages = safeMessages.filter((m) => m?.is_pinned && !m?.is_deleted);
 
   const toggleSelectMessage = (messageId: string) => {
     setSelectedMessageIds((prev) => {
@@ -191,10 +193,10 @@ export function ChatWindow({
   };
 
   const selectAllMessages = () => {
-    if (selectedMessageIds.size === messages.length) {
+    if (selectedMessageIds.size === safeMessages.length) {
       setSelectedMessageIds(new Set());
     } else {
-      setSelectedMessageIds(new Set(messages.map((m) => m.id)));
+      setSelectedMessageIds(new Set(safeMessages.map((m) => m.id)));
     }
   };
 
@@ -203,7 +205,7 @@ export function ChatWindow({
   };
 
   const handleBatchCopy = () => {
-    const selected = messages.filter((m) => selectedMessageIds.has(m.id));
+    const selected = safeMessages.filter((m) => m && selectedMessageIds.has(m.id));
     if (selected.length === 0) return;
     const text = selected
       .map((m) => `[${formatTimeOnly(m.created_at)}] ${m.sender_name || "Membro"}: ${m.content || m.attachment_name || "Anexo"}`)
@@ -214,7 +216,7 @@ export function ChatWindow({
   };
 
   const handleBatchForward = () => {
-    const selected = messages.filter((m) => selectedMessageIds.has(m.id));
+    const selected = safeMessages.filter((m) => m && selectedMessageIds.has(m.id));
     if (selected.length === 0) return;
     setForwardMessages(selected);
   };
@@ -352,7 +354,8 @@ export function ChatWindow({
   // Header display calculations
   const isGroup = conversation.type === "group";
   const isCreator = isGroup && conversation.created_by === currentUserId;
-  const myParticipant = isGroup ? conversation.participants.find((p) => p.user_id === currentUserId) : null;
+  const safeParticipants = Array.isArray(conversation.participants) ? conversation.participants : [];
+  const myParticipant = isGroup ? safeParticipants.find((p) => p?.user_id === currentUserId) : null;
   const isGroupAdmin = isCreator || myParticipant?.role === "admin" || conversation.my_role === "admin";
   const effectiveUserRole = isGroupAdmin ? "admin" : "member";
 
@@ -479,8 +482,8 @@ export function ChatWindow({
               <div className="flex items-center gap-1.5 text-[11px] text-[#8696a0] leading-none font-sans truncate">
                 {isGroup ? (
                   <span>
-                    {conversation.participants.map((p) => p.profile?.nickname || p.profile?.nome || "Membro").slice(0, 4).join(", ")}
-                    {conversation.participants.length > 4 && ` e mais ${conversation.participants.length - 4}`}
+                    {safeParticipants.map((p) => p?.profile?.nickname || p?.profile?.nome || "Membro").slice(0, 4).join(", ")}
+                    {safeParticipants.length > 4 && ` e mais ${safeParticipants.length - 4}`}
                   </span>
                 ) : (
                   <>
@@ -861,6 +864,7 @@ export function ChatWindow({
       <ChatSearchDialog
         open={searchOpen}
         onOpenChange={setSearchOpen}
+        messages={messages}
         conversationId={conversation.id}
         conversationTitle={title}
         onSelectMessage={handleScrollToMessage}

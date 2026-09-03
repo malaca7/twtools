@@ -40,39 +40,42 @@ export function ChatMediaGalleryDrawer({
 }: ChatMediaGalleryDrawerProps) {
   const [activeTab, setActiveTab] = useState<"images" | "videos" | "documents" | "audio" | "links">("images");
 
+  const safeMessages = Array.isArray(messages) ? messages : [];
+
   // Filtra itens compartilhados na conversa
   const images = useMemo(
-    () => messages.filter((m) => m.message_type === "image" && m.attachment_url && !m.is_deleted),
-    [messages]
+    () => safeMessages.filter((m) => m && m.message_type === "image" && m.attachment_url && !m.is_deleted),
+    [safeMessages]
   );
 
   const videos = useMemo(
-    () => messages.filter((m) => m.message_type === "video" && m.attachment_url && !m.is_deleted),
-    [messages]
+    () => safeMessages.filter((m) => m && m.message_type === "video" && m.attachment_url && !m.is_deleted),
+    [safeMessages]
   );
 
   const documents = useMemo(
     () =>
-      messages.filter(
+      safeMessages.filter(
         (m) =>
+          m &&
           (m.message_type === "document" || (!["image", "video", "audio"].includes(m.message_type) && m.attachment_url)) &&
           m.attachment_url &&
           !m.is_deleted
       ),
-    [messages]
+    [safeMessages]
   );
 
   const audios = useMemo(
-    () => messages.filter((m) => m.message_type === "audio" && m.attachment_url && !m.is_deleted),
-    [messages]
+    () => safeMessages.filter((m) => m && m.message_type === "audio" && m.attachment_url && !m.is_deleted),
+    [safeMessages]
   );
 
   // Extrai links de mensagens de texto
   const links = useMemo(() => {
     const urlRegex = /(https?:\/\/[^\s]+)/g;
     const list: Array<{ message: ChatMessage; url: string }> = [];
-    messages.forEach((m) => {
-      if (m.content && !m.is_deleted) {
+    safeMessages.forEach((m) => {
+      if (m && m.content && !m.is_deleted) {
         const matches = m.content.match(urlRegex);
         if (matches) {
           matches.forEach((u) => list.push({ message: m, url: u }));
@@ -80,7 +83,7 @@ export function ChatMediaGalleryDrawer({
       }
     });
     return list;
-  }, [messages]);
+  }, [safeMessages]);
 
   const handleJump = (messageId: string) => {
     onOpenChange(false);

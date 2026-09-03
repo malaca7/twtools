@@ -89,7 +89,7 @@ interface ConversationListProps {
 type FilterType = "all" | "unread" | "pinned" | "archived" | "groups" | "direct";
 
 export function ConversationList({
-  conversations,
+  conversations = [],
   activeConversationId,
   onSelectConversation,
   onCreateGroup,
@@ -114,9 +114,9 @@ export function ConversationList({
     if (!currentUserId) return;
     try {
       const data = await getUserChatFolders(currentUserId);
-      setUserFolders(data || []);
+      setUserFolders(Array.isArray(data) ? data : []);
     } catch {
-      // ignore
+      setUserFolders([]);
     }
   };
 
@@ -223,14 +223,18 @@ export function ConversationList({
     }
   };
 
+  const safeConversations = Array.isArray(conversations) ? conversations : [];
+  const safeUserFolders = Array.isArray(userFolders) ? userFolders : [];
+
   // Filtragem
-  const filteredConversations = conversations.filter((c) => {
+  const filteredConversations = safeConversations.filter((c) => {
+    if (!c) return false;
     const isGroup = c.type === "group";
     const other = c.other_participant;
     const title = isGroup ? c.title || "" : other?.nickname || other?.nome || "Membro";
 
     if (selectedFolderId) {
-      const activeFolder = userFolders.find((f) => f.id === selectedFolderId);
+      const activeFolder = safeUserFolders.find((f) => f.id === selectedFolderId);
       if (activeFolder && !activeFolder.conversation_ids?.includes(c.id)) {
         return false;
       }
@@ -252,9 +256,9 @@ export function ConversationList({
     return title.toLowerCase().includes(q) || (c.last_message || "").toLowerCase().includes(q);
   });
 
-  const pinnedCount = conversations.filter((c) => c.is_pinned && !c.is_archived).length;
-  const archivedCount = conversations.filter((c) => c.is_archived).length;
-  const unreadCount = conversations.filter((c) => (c.unread_count || 0) > 0 && !c.is_archived).length;
+  const pinnedCount = safeConversations.filter((c) => c?.is_pinned && !c?.is_archived).length;
+  const archivedCount = safeConversations.filter((c) => c?.is_archived).length;
+  const unreadCount = safeConversations.filter((c) => (c?.unread_count || 0) > 0 && !c?.is_archived).length;
 
   const myAvatarUrl = profile?.discord_avatar_url || profile?.avatar_url;
   const myInitials = (profile?.nickname || profile?.nome || "EU").slice(0, 2).toUpperCase();

@@ -205,14 +205,17 @@ export function GroupSettingsDrawer({
   };
 
   // Filter non-members for add dialog
-  const existingMemberIds = new Set(conversation.participants.map((p) => p.user_id));
-  const availableToAdd = allMembers.filter((m) => !existingMemberIds.has(m.user_id));
+  const safeParticipants = Array.isArray(conversation?.participants) ? conversation.participants : [];
+  const safeAllMembers = Array.isArray(allMembers) ? allMembers : [];
+  const existingMemberIds = new Set(safeParticipants.map((p) => p.user_id));
+  const availableToAdd = safeAllMembers.filter((m) => m && !existingMemberIds.has(m.user_id));
   const filteredAvailable = availableToAdd.filter((m) => {
+    if (!m) return false;
     const q = memberSearch.toLowerCase();
     return (
-      m.nome.toLowerCase().includes(q) ||
-      (m.nickname && m.nickname.toLowerCase().includes(q)) ||
-      (m.game_id && m.game_id.includes(q))
+      (m.nome || "").toLowerCase().includes(q) ||
+      Boolean(m.nickname && m.nickname.toLowerCase().includes(q)) ||
+      Boolean(m.game_id && String(m.game_id).includes(q))
     );
   });
 

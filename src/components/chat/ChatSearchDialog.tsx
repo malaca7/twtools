@@ -27,7 +27,9 @@ import { cn } from "@/lib/utils";
 interface ChatSearchDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  messages: ChatMessage[];
+  messages?: ChatMessage[];
+  conversationId?: string;
+  conversationTitle?: string;
   onSelectMessage: (messageId: string) => void;
 }
 
@@ -36,19 +38,22 @@ type FilterType = "all" | "media" | "docs" | "audio" | "links";
 export function ChatSearchDialog({
   open,
   onOpenChange,
-  messages,
+  messages = [],
+  conversationTitle,
   onSelectMessage,
 }: ChatSearchDialogProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const [filterType, setFilterType] = useState<FilterType>("all");
 
+  const safeMessages = Array.isArray(messages) ? messages : [];
+
   const filtered = useMemo(() => {
     const q = searchTerm.toLowerCase().trim();
     const urlRegex = /(https?:\/\/[^\s]+)/g;
 
-    return messages
+    return safeMessages
       .filter((m) => {
-        if (m.is_deleted || m.is_deleted_for_everyone) return false;
+        if (!m || m.is_deleted || m.is_deleted_for_everyone) return false;
 
         // Filtro por tipo de mídia
         if (filterType === "media" && !["image", "video"].includes(m.message_type)) return false;

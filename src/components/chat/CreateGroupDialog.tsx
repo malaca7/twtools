@@ -48,13 +48,15 @@ export function CreateGroupDialog({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const currentUserId = user?.id;
 
-  const availableMembers = members.filter((m) => m.user_id !== currentUserId);
+  const safeMembers = Array.isArray(members) ? members : [];
+  const availableMembers = safeMembers.filter((m) => m && m.user_id !== currentUserId);
   const filteredMembers = availableMembers.filter((m) => {
+    if (!m) return false;
     const q = search.toLowerCase();
     return (
-      m.nome.toLowerCase().includes(q) ||
-      (m.nickname && m.nickname.toLowerCase().includes(q)) ||
-      (m.game_id && m.game_id.includes(q))
+      (m.nome || "").toLowerCase().includes(q) ||
+      Boolean(m.nickname && m.nickname.toLowerCase().includes(q)) ||
+      Boolean(m.game_id && String(m.game_id).includes(q))
     );
   });
 

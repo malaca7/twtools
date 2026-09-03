@@ -22,9 +22,11 @@ interface ForwardMessageDialogProps {
   onOpenChange: (open: boolean) => void;
   message?: ChatMessage | null;
   messages?: ChatMessage[] | null;
-  conversations: ChatConversation[];
+  conversations?: ChatConversation[];
+  allConversations?: ChatConversation[];
   currentUserId?: string;
   onSuccess?: () => void;
+  onForwarded?: () => void;
   onForwardSuccess?: (targetConversation: ChatConversation) => void;
 }
 
@@ -34,8 +36,10 @@ export function ForwardMessageDialog({
   message,
   messages,
   conversations,
+  allConversations,
   currentUserId,
   onSuccess,
+  onForwarded,
   onForwardSuccess,
 }: ForwardMessageDialogProps) {
   const [search, setSearch] = useState("");
@@ -49,9 +53,13 @@ export function ForwardMessageDialog({
     ? [message]
     : [];
 
+  const rawConvs = conversations || allConversations || [];
+  const safeConversations = Array.isArray(rawConvs) ? rawConvs : [];
+
   if (messageList.length === 0) return null;
 
-  const filteredConversations = conversations.filter((c) => {
+  const filteredConversations = safeConversations.filter((c) => {
+    if (!c) return false;
     if (!search.trim()) return true;
     const q = search.toLowerCase();
     if (c.type === "group") {
@@ -81,11 +89,12 @@ export function ForwardMessageDialog({
           : "Mensagem encaminhada com sucesso!"
       );
 
-      const targetConv = conversations.find((c) => c.id === selectedConvId);
+      const targetConv = safeConversations.find((c) => c?.id === selectedConvId);
 
       onOpenChange(false);
       setSelectedConvId(null);
       setSearch("");
+      onForwarded?.();
       onSuccess?.();
 
       if (targetConv && onForwardSuccess) {
