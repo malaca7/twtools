@@ -34,30 +34,46 @@ export function applyThemeToDOM(theme: UserThemeSettings) {
   root.style.setProperty("--platform-contrast", `${theme.contrast ?? 100}%`);
   root.style.setProperty("--platform-saturation", `${theme.saturation ?? 100}%`);
 
-  // Custom Primary / Accent Color Override & Logo Brand Gradient
+  // Custom Primary / Accent Color Override & Logo Brand Gradient (Degradês e Sólidos)
   if (theme.customPrimaryColor) {
-    const custom = theme.customPrimaryColor;
-    root.style.setProperty("--primary", custom);
-    root.style.setProperty("--ring", custom);
-    root.style.setProperty("--sidebar-primary", custom);
-    root.style.setProperty("--sidebar-ring", custom);
-    root.style.setProperty("--color-primary", custom);
-    root.style.setProperty("--custom-accent", custom);
-    root.style.setProperty("--glow-color", custom);
+    const raw = theme.customPrimaryColor;
+    const isGradient = raw.startsWith("gradient:") || raw.includes("linear-gradient");
 
-    // Gradiente dinâmico da Logo / Brand combinando a cor de destaque com tom luminoso
-    root.style.setProperty(
-      "--gradient-brand",
-      `linear-gradient(105deg, ${custom} 0%, color-mix(in srgb, ${custom} 60%, #ffffff 40%) 100%)`
-    );
+    let gradientCss = "";
+    let solidColor = "";
+
+    if (raw.startsWith("gradient:")) {
+      const parts = raw.replace("gradient:", "").split("|");
+      gradientCss = parts[0];
+      solidColor = parts[1] || parts[0];
+    } else if (raw.includes("linear-gradient")) {
+      gradientCss = raw;
+      const match = raw.match(/#(?:[0-9a-fA-F]{3,8})|oklch\([^)]+\)|rgb\([^)]+\)|hsl\([^)]+\)/);
+      solidColor = match ? match[0] : "#6366f1";
+    } else {
+      solidColor = raw;
+      gradientCss = `linear-gradient(105deg, ${raw} 0%, color-mix(in srgb, ${raw} 60%, #ffffff 40%) 100%)`;
+    }
+
+    root.style.setProperty("--primary", solidColor);
+    root.style.setProperty("--ring", solidColor);
+    root.style.setProperty("--sidebar-primary", solidColor);
+    root.style.setProperty("--sidebar-ring", solidColor);
+    root.style.setProperty("--color-primary", solidColor);
+    root.style.setProperty("--custom-accent", solidColor);
+    root.style.setProperty("--glow-color", solidColor);
+
+    // Gradiente dinâmico da Logo / Brand e botões destacados
+    root.style.setProperty("--gradient-brand", gradientCss);
+    root.style.setProperty("--gradient-primary", gradientCss);
 
     // Variáveis derivadas para efeitos suaves de superfície e realces
-    root.style.setProperty("--accent", `color-mix(in srgb, ${custom} 18%, transparent)`);
-    root.style.setProperty("--accent-foreground", custom);
-    root.style.setProperty("--sidebar-accent", `color-mix(in srgb, ${custom} 14%, transparent)`);
-    root.style.setProperty("--sidebar-accent-foreground", custom);
-    root.style.setProperty("--shadow-elegant", `0 0 28px -4px color-mix(in srgb, ${custom} 45%, transparent)`);
-    root.style.setProperty("--shadow-glow", `0 0 20px -2px color-mix(in srgb, ${custom} 40%, transparent)`);
+    root.style.setProperty("--accent", `color-mix(in srgb, ${solidColor} 18%, transparent)`);
+    root.style.setProperty("--accent-foreground", solidColor);
+    root.style.setProperty("--sidebar-accent", `color-mix(in srgb, ${solidColor} 14%, transparent)`);
+    root.style.setProperty("--sidebar-accent-foreground", solidColor);
+    root.style.setProperty("--shadow-elegant", `0 0 28px -4px color-mix(in srgb, ${solidColor} 45%, transparent)`);
+    root.style.setProperty("--shadow-glow", `0 0 20px -2px color-mix(in srgb, ${solidColor} 40%, transparent)`);
   } else {
     root.style.removeProperty("--primary");
     root.style.removeProperty("--ring");
@@ -67,6 +83,7 @@ export function applyThemeToDOM(theme: UserThemeSettings) {
     root.style.removeProperty("--custom-accent");
     root.style.removeProperty("--glow-color");
     root.style.removeProperty("--gradient-brand");
+    root.style.removeProperty("--gradient-primary");
     root.style.removeProperty("--accent");
     root.style.removeProperty("--accent-foreground");
     root.style.removeProperty("--sidebar-accent");

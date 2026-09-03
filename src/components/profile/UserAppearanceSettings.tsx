@@ -129,6 +129,121 @@ export const ACCENT_COLOR_PRESETS = [
   { name: "Titânio Grafite", value: "oklch(0.65 0.02 250)", hex: "#94a3b8", group: "faction" },
 ];
 
+export const ACCENT_GRADIENT_PRESETS = [
+  {
+    name: "Cyber Synthwave",
+    desc: "Rosa Neon ➔ Ciano Elétrico",
+    gradient: "linear-gradient(135deg, #ff2a85 0%, #00e5ff 100%)",
+    fallbackHex: "#ff2a85",
+    value: "gradient:linear-gradient(135deg, #ff2a85 0%, #00e5ff 100%)|#ff2a85",
+  },
+  {
+    name: "Imperial Royal Gold",
+    desc: "Ouro 24k ➔ Âmbar Dourado",
+    gradient: "linear-gradient(135deg, #fbbf24 0%, #f59e0b 50%, #d97706 100%)",
+    fallbackHex: "#fbbf24",
+    value: "gradient:linear-gradient(135deg, #fbbf24 0%, #f59e0b 50%, #d97706 100%)|#fbbf24",
+  },
+  {
+    name: "Aurora Boreal & Esmeralda",
+    desc: "Verde Esmeralda ➔ Azul Ártico",
+    gradient: "linear-gradient(135deg, #10b981 0%, #06b6d4 100%)",
+    fallbackHex: "#10b981",
+    value: "gradient:linear-gradient(135deg, #10b981 0%, #06b6d4 100%)|#10b981",
+  },
+  {
+    name: "Sunset Paradise",
+    desc: "Laranja Solar ➔ Fúcsia Magenta",
+    gradient: "linear-gradient(135deg, #f97316 0%, #ec4899 100%)",
+    fallbackHex: "#f97316",
+    value: "gradient:linear-gradient(135deg, #f97316 0%, #ec4899 100%)|#f97316",
+  },
+  {
+    name: "Cosmic Nebula",
+    desc: "Roxo Cósmico ➔ Azul Índigo",
+    gradient: "linear-gradient(135deg, #a855f7 0%, #6366f1 100%)",
+    fallbackHex: "#a855f7",
+    value: "gradient:linear-gradient(135deg, #a855f7 0%, #6366f1 100%)|#a855f7",
+  },
+  {
+    name: "Crimson Blood & Fire",
+    desc: "Vermelho Sangue ➔ Laranja Brasa",
+    gradient: "linear-gradient(135deg, #ef4444 0%, #f97316 100%)",
+    fallbackHex: "#ef4444",
+    value: "gradient:linear-gradient(135deg, #ef4444 0%, #f97316 100%)|#ef4444",
+  },
+  {
+    name: "Ocean Atlantis",
+    desc: "Azul Cobalto ➔ Turquesa Marinho",
+    gradient: "linear-gradient(135deg, #3b82f6 0%, #14b8a6 100%)",
+    fallbackHex: "#3b82f6",
+    value: "gradient:linear-gradient(135deg, #3b82f6 0%, #14b8a6 100%)|#3b82f6",
+  },
+  {
+    name: "Sakura Dream",
+    desc: "Rosa Flor de Cerejeira ➔ Lavanda",
+    gradient: "linear-gradient(135deg, #f472b6 0%, #c084fc 100%)",
+    fallbackHex: "#f472b6",
+    value: "gradient:linear-gradient(135deg, #f472b6 0%, #c084fc 100%)|#f472b6",
+  },
+  {
+    name: "Toxic Biohazard Neon",
+    desc: "Verde Limão Hacker ➔ Ciano Laser",
+    gradient: "linear-gradient(135deg, #84cc16 0%, #06b6d4 100%)",
+    fallbackHex: "#84cc16",
+    value: "gradient:linear-gradient(135deg, #84cc16 0%, #06b6d4 100%)|#84cc16",
+  },
+  {
+    name: "Midnight Cartel",
+    desc: "Grafite Noturno ➔ Ouro Imperial",
+    gradient: "linear-gradient(135deg, #475569 0%, #d97706 50%, #fde047 100%)",
+    fallbackHex: "#d97706",
+    value: "gradient:linear-gradient(135deg, #475569 0%, #d97706 50%, #fde047 100%)|#d97706",
+  },
+  {
+    name: "Ruby Velvet & Wine",
+    desc: "Vinho Tinto Rubi ➔ Rosa Escarlate",
+    gradient: "linear-gradient(135deg, #991b1b 0%, #e11d48 100%)",
+    fallbackHex: "#991b1b",
+    value: "gradient:linear-gradient(135deg, #991b1b 0%, #e11d48 100%)|#991b1b",
+  },
+  {
+    name: "Platinum Titanium",
+    desc: "Prata Platina ➔ Azul Gelo Ártico",
+    gradient: "linear-gradient(135deg, #e2e8f0 0%, #93c5fd 100%)",
+    fallbackHex: "#93c5fd",
+    value: "gradient:linear-gradient(135deg, #e2e8f0 0%, #93c5fd 100%)|#93c5fd",
+  },
+  {
+    name: "Neo Vaporwave",
+    desc: "Azul Céu Retrô ➔ Rosa Chiclete",
+    gradient: "linear-gradient(135deg, #38bdf8 0%, #f43f5e 100%)",
+    fallbackHex: "#38bdf8",
+    value: "gradient:linear-gradient(135deg, #38bdf8 0%, #f43f5e 100%)|#38bdf8",
+  },
+  {
+    name: "Solar Flare",
+    desc: "Amarelo Solar ➔ Vermelho Vulcão",
+    gradient: "linear-gradient(135deg, #facc15 0%, #ea580c 100%)",
+    fallbackHex: "#ea580c",
+    value: "gradient:linear-gradient(135deg, #facc15 0%, #ea580c 100%)|#ea580c",
+  },
+  {
+    name: "Emerald Mint Wave",
+    desc: "Menta Pastel ➔ Verde Floresta",
+    gradient: "linear-gradient(135deg, #6ee7b7 0%, #059669 100%)",
+    fallbackHex: "#059669",
+    value: "gradient:linear-gradient(135deg, #6ee7b7 0%, #059669 100%)|#059669",
+  },
+  {
+    name: "Deep Space Obsidian",
+    desc: "Índigo Profundo ➔ Ciano Laser",
+    gradient: "linear-gradient(135deg, #4f46e5 0%, #06b6d4 100%)",
+    fallbackHex: "#4f46e5",
+    value: "gradient:linear-gradient(135deg, #4f46e5 0%, #06b6d4 100%)|#4f46e5",
+  },
+];
+
 export const CARD_STYLE_OPTIONS = [
   { id: "glassmorphism", name: "Glassmorphism", desc: "Vidro fosco translúcido com desfoque e reflexo" },
   { id: "flat_modern", name: "Flat Modern", desc: "Superfície fosca minimalista sem reflexos" },
@@ -450,6 +565,64 @@ export function UserAppearanceSettings() {
             })()}
           </div>
 
+          {/* 🌈 DEGRADÊS PREMIUM & GRADIENTES ELEGANTES */}
+          <div className="space-y-2.5 pt-2">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                  <Sparkles className="h-3.5 w-3.5 text-pink-400" />
+                  🌈 Degradês Premium & Cores em Gradiente
+                </span>
+                <Badge className="bg-gradient-to-r from-pink-500/20 to-cyan-500/20 text-pink-300 border-pink-500/40 text-[9px] px-1.5 py-0 font-bold">
+                  Novo · Alta Elegância
+                </Badge>
+              </div>
+              <span className="text-[10px] text-muted-foreground hidden sm:inline">
+                Aplica degradê na logo, badges e botões
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
+              {ACCENT_GRADIENT_PRESETS.map((grad) => {
+                const isSelected = formData.customPrimaryColor === grad.value;
+                return (
+                  <button
+                    key={grad.name}
+                    type="button"
+                    onClick={() => handleChange("customPrimaryColor", grad.value)}
+                    className={cn(
+                      "group relative flex flex-col p-2.5 rounded-2xl text-left border transition-all text-xs cursor-pointer overflow-hidden",
+                      isSelected
+                        ? "border-primary/80 bg-primary/15 font-bold shadow-md ring-2 ring-primary/50"
+                        : "border-border/60 bg-secondary/20 hover:border-border hover:bg-secondary/40"
+                    )}
+                  >
+                    <div className="flex items-center justify-between gap-2 mb-1.5">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <div
+                          className="h-4 w-7 rounded-full shrink-0 shadow-xs border border-white/20"
+                          style={{ backgroundImage: grad.gradient }}
+                        />
+                        <span className="font-extrabold text-foreground truncate text-xs">
+                          {grad.name}
+                        </span>
+                      </div>
+                      {isSelected && <Check className="h-4 w-4 text-primary shrink-0" />}
+                    </div>
+                    <p className="text-[10.5px] text-muted-foreground leading-tight truncate">
+                      {grad.desc}
+                    </p>
+                    {/* Barra de preview da cor em degradê na base */}
+                    <div
+                      className="h-1 w-full rounded-full mt-2 opacity-80 group-hover:opacity-100 transition-opacity"
+                      style={{ backgroundImage: grad.gradient }}
+                    />
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
           {/* CORES CLARAS & PASTÉIS */}
           <div className="space-y-2 pt-1">
             <div className="flex items-center gap-1.5">
@@ -606,8 +779,11 @@ export function UserAppearanceSettings() {
                 <Sparkles className="h-3.5 w-3.5 text-primary" />
                 Prévia em Tempo Real da Cor de Destaque
               </span>
-              <span className="text-[10px] font-mono text-primary font-bold">
-                {formData.customPrimaryColor || "Padrão do Tema"}
+              <span className="text-[10px] font-mono text-primary font-bold truncate max-w-[220px]">
+                {ACCENT_GRADIENT_PRESETS.find((g) => g.value === formData.customPrimaryColor)?.name ||
+                 ACCENT_COLOR_PRESETS.find((p) => p.value === formData.customPrimaryColor)?.name ||
+                 formData.customPrimaryColor ||
+                 "Padrão do Tema"}
               </span>
             </div>
 
