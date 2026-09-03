@@ -1,0 +1,578 @@
+import type { LucideIcon } from "lucide-react";
+import {
+  Workflow,
+  LayoutDashboard,
+  ArrowLeftRight,
+  ShoppingCart,
+  MessageSquare,
+  Boxes,
+  Users,
+  Landmark,
+  Trophy,
+  TrendingUp,
+  Target,
+  CalendarOff,
+  ShieldCheck,
+  Settings,
+  Megaphone,
+  ScrollText,
+  Wrench,
+  User,
+} from "lucide-react";
+import type { Permission } from "@/lib/permissions";
+
+export type PermissionDetail = {
+  key: Permission;
+  label: string;
+  description: string;
+  badge?: string;
+  importantNote?: string;
+};
+
+export type PageCardConfig = {
+  id: string;
+  title: string;
+  route: string;
+  icon: LucideIcon;
+  description: string;
+  color: string;
+  defaultCat: string;
+  defaultOrder: number;
+  permissions: PermissionDetail[];
+};
+
+export const READ_ONLY_PERMISSIONS: Permission[] = [
+  "view_dashboard",
+  "view_cash_fund",
+  "view_stock",
+  "view_baus",
+  "view_all_movements",
+  "view_movements",
+  "view_movement_balances",
+  "view_movement_baus",
+  "view_sales",
+  "view_products",
+  "view_categories",
+  "view_members",
+  "view_sensitive_data",
+  "view_consolidated_financials",
+  "view_rankings",
+  "view_performance",
+  "view_goals",
+  "view_absences",
+  "view_all_absences",
+  "view_hierarchy",
+  "view_audit",
+  "view_profile",
+  "view_chat",
+];
+
+export const PAGE_CARDS: PageCardConfig[] = [
+  {
+    id: "hierarquia",
+    title: "Hierarquia do Grupo",
+    route: "/hierarquia",
+    icon: Workflow,
+    description: "Visualização inovadora, minimalista e interativa da estrutura de comando e cargos do grupo.",
+    color: "border-purple-500/40 bg-purple-500/5 text-purple-400",
+    defaultCat: "Gestão",
+    defaultOrder: 0,
+    permissions: [
+      {
+        key: "view_hierarchy",
+        label: "Visualizar Árvore de Hierarquia",
+        description: "Permite acessar a rota /hierarquia e visualizar a árvore completa de cargos e membros do grupo.",
+      },
+      {
+        key: "manage_hierarchy",
+        label: "Gerenciar Estrutura de Hierarquia",
+        description: "Permite reordenar a estrutura e gerenciar limites de vagas por patente.",
+        badge: "Gestão de Cargos",
+      },
+    ],
+  },
+  {
+    id: "dashboard",
+    title: "Dashboard",
+    route: "/dashboard",
+    icon: LayoutDashboard,
+    description: "Tela inicial da plataforma com comunicados em destaque, membros online e resumo geral.",
+    color: "border-indigo-500/40 bg-indigo-500/5 text-indigo-400",
+    defaultCat: "Operação",
+    defaultOrder: 0,
+    permissions: [
+      {
+        key: "view_dashboard",
+        label: "Visualizar Dashboard",
+        description: "Permite acessar a tela inicial da plataforma Twin Wheels.",
+      },
+    ],
+  },
+  {
+    id: "movimentacoes",
+    title: "Movimentações de Estoque",
+    route: "/movimentacoes",
+    icon: ArrowLeftRight,
+    description: "Histórico completo de entradas e saídas de itens com filtro por baú, membro e data.",
+    color: "border-sky-500/40 bg-sky-500/5 text-sky-400",
+    defaultCat: "Operação",
+    defaultOrder: 1,
+    permissions: [
+      {
+        key: "view_movements",
+        label: "Ver Página de Movimentação",
+        description: "Permite acessar a rota /movimentacoes para visualizar a tela de movimentações de estoque.",
+        badge: "Acesso à Rota",
+      },
+      {
+        key: "view_all_movements",
+        label: "Ver Histórico de Lançamentos",
+        description: "Visualizar a seção de Histórico de Lançamentos com todos os registros de entrada e saída feitos pelos membros.",
+      },
+      {
+        key: "view_movement_balances",
+        label: "Ver Saldos (Anterior e Resultante)",
+        description: "Permite visualizar as colunas numéricas de saldo em estoque antes e depois de cada movimentação.",
+        badge: "Saldos Estoque",
+      },
+      {
+        key: "view_movement_baus",
+        label: "Ver Identificação dos Baús e Depósitos",
+        description: "Permite visualizar qual baú/depósito de origem e destino foi selecionado no lançamento.",
+        badge: "Identificação Baús",
+      },
+      {
+        key: "create_movement",
+        label: "Registrar Movimentações de Estoque",
+        description: "Dar entrada (+) ou saída (-) de insumos nos baús da facção.",
+      },
+      {
+        key: "reverse_movement",
+        label: "Estornar Movimentações de Estoque",
+        description: "Permite estornar lançamentos de estoque feitos por engano.",
+        badge: "Estorno Estoque",
+      },
+      {
+        key: "delete_movement",
+        label: "Apagar Lançamentos de Estoque",
+        description: "Permite deletar permanentemente um registro de movimentação de estoque.",
+        badge: "Ação Crítica",
+      },
+    ],
+  },
+  {
+    id: "vendas",
+    title: "Registro de Vendas",
+    route: "/vendas",
+    icon: ShoppingCart,
+    description: "Lançamento e controle de vendas de produtos com cálculo automático de receita e comissões.",
+    color: "border-emerald-500/40 bg-emerald-500/5 text-emerald-400",
+    defaultCat: "Operação",
+    defaultOrder: 2,
+    permissions: [
+      {
+        key: "view_sales",
+        label: "Visualizar Histórico de Vendas",
+        description: "Ver todas as vendas efetuadas pelos membros da facção.",
+      },
+      {
+        key: "create_sale",
+        label: "Registrar Novas Vendas",
+        description: "Permite efetuar lançamentos de vendas e movimentar faturamento.",
+      },
+      {
+        key: "reverse_sale",
+        label: "Estornar Registros de Vendas",
+        description: "Permite cancelar/estornar uma venda incorreta.",
+        badge: "Estorno Vendas",
+      },
+      {
+        key: "delete_sale",
+        label: "Apagar Registros de Vendas",
+        description: "Permite apagar definitivamente um lançamento de venda do sistema.",
+        badge: "Ação Crítica",
+      },
+    ],
+  },
+  {
+    id: "chat",
+    title: "Chat & Mensagens",
+    route: "/chat",
+    icon: MessageSquare,
+    description: "Comunicação em tempo real, canais privados, criação e administração de grupos de conversa.",
+    color: "border-primary/40 bg-primary/5 text-primary",
+    defaultCat: "Operação",
+    defaultOrder: 3,
+    permissions: [
+      {
+        key: "view_chat",
+        label: "Acessar e Visualizar o Chat",
+        description: "Permite acessar a página de chat e interagir nas mensagens privadas e grupos.",
+        badge: "Acesso à Rota",
+      },
+      {
+        key: "create_chat_group",
+        label: "Criar Novos Grupos de Chat",
+        description: "Permite criar novos grupos de conversa com os membros.",
+      },
+      {
+        key: "manage_chat_groups",
+        label: "Gerenciar Configurações de Grupos",
+        description: "Permite moderar participantes, alterar fotos/descrições e definir permissões de envio em grupos.",
+        badge: "Administração",
+      },
+    ],
+  },
+  {
+    id: "estoque",
+    title: "Estoque Geral e Depósitos",
+    route: "/estoque",
+    icon: Boxes,
+    description: "Visão geral, controle de insumos e gerenciamento de baús armazenados nos depósitos.",
+    color: "border-sky-500/40 bg-sky-500/5 text-sky-400",
+    defaultCat: "Gestão",
+    defaultOrder: 3,
+    permissions: [
+      {
+        key: "view_stock",
+        label: "Ver Saldos do Estoque Geral",
+        description: "Consultar as quantidades totais em estoque dos produtos da facção.",
+      },
+      {
+        key: "view_baus",
+        label: "Visualizar Lista de Baús",
+        description: "Permite visualizar quais baús existem na facção e seus respectivos itens.",
+      },
+      {
+        key: "manage_baus",
+        label: "Criar, Editar e Excluir Baús",
+        description: "Permite criar novos depósitos de armazenamento e alterar nomes de baús.",
+        badge: "Gestão Baús",
+      },
+      {
+        key: "view_products",
+        label: "Ver Lista de Produtos Cadastrados",
+        description: "Visualizar os insumos e itens disponíveis no catálogo.",
+      },
+      {
+        key: "manage_products",
+        label: "Cadastrar, Editar e Apagar Produtos",
+        description: "Criar novos itens, alterar nomes, preços de custo e venda.",
+        badge: "Catálogo",
+      },
+      {
+        key: "view_categories",
+        label: "Ver Categorias de Produtos",
+        description: "Visualizar as categorias dos itens (Armas, Munições, Drogas, etc.).",
+      },
+      {
+        key: "manage_categories",
+        label: "Gerenciar Categorias de Produtos",
+        description: "Criar, editar e excluir categorias de insumos.",
+        badge: "Categorias",
+      },
+    ],
+  },
+  {
+    id: "membros",
+    title: "Gerenciamento de Membros",
+    route: "/membros",
+    icon: Users,
+    description: "Lista de integrantes da facção, aprovação de cadastros e alteração de cargos.",
+    color: "border-purple-500/40 bg-purple-500/5 text-purple-400",
+    defaultCat: "Gestão",
+    defaultOrder: 4,
+    permissions: [
+      {
+        key: "view_members",
+        label: "Visualizar Lista de Membros",
+        description: "Acessar a lista de integrantes do grupo com nomes, cargos, ID e telefone.",
+      },
+      {
+        key: "view_sensitive_data",
+        label: "Visualizar Dados Confidenciais e Sensurados dos Membros",
+        description: "Permite visualizar IDs do Discord, estatísticas de presença e dados sensíveis completos dos membros sem censura.",
+        badge: "Dados Confidenciais",
+      },
+      {
+        key: "view_consolidated_financials",
+        label: "Ver Dados Financeiros dos Membros",
+        description: "Permite visualizar valores acumulados de vendas e contribuições por membro.",
+      },
+      {
+        key: "approve_requests",
+        label: "Aprovar / Recusar Solicitações de Novos Membros",
+        description: "Permite aprovar novos cadastros de jogadores que entraram pelo Discord, ativando-os como Novatos, ou rejeitar solicitações.",
+        badge: "Aprovação de Cadastros",
+      },
+      {
+        key: "promote_members",
+        label: "Promover / Alterar Cargo de Membros",
+        description: "Permite promover ou rebaixar o cargo hierárquico de membros inferiores.",
+        importantNote: "Regra Estrita: Só permite alterar cargos de ranks estritamente inferiores.",
+      },
+      {
+        key: "edit_members",
+        label: "Editar Dados de Membros",
+        description: "Permite alterar nome, apelido, telefone e ID do personagem de membros inferiores.",
+      },
+      {
+        key: "delete_members",
+        label: "Desligar / Excluir Membros",
+        description: "Permite desativar ou excluir registros de membros da facção.",
+        badge: "Ação Crítica",
+      },
+    ],
+  },
+  {
+    id: "fundo-caixa",
+    title: "Fundo de Caixa",
+    route: "/fundo-caixa",
+    icon: Landmark,
+    description: "Gestão do caixa geral da facção com entradas, saídas, estornos e saldo automático.",
+    color: "border-emerald-500/40 bg-emerald-500/5 text-emerald-400",
+    defaultCat: "Gestão",
+    defaultOrder: 5,
+    permissions: [
+      {
+        key: "view_cash_fund",
+        label: "Acessar Fundo de Caixa",
+        description: "Permite visualizar o saldo em tempo real e o histórico de movimentações financeiras.",
+      },
+      {
+        key: "manage_cash_fund",
+        label: "Registrar Lançamentos de Caixa",
+        description: "Permite efetuar entradas (+) e saídas (-) de dinheiro no fundo de caixa.",
+      },
+      {
+        key: "reverse_cash_fund",
+        label: "Estornar Lançamentos de Caixa",
+        description: "Permite estornar movimentações incorretas do caixa geral.",
+        badge: "Estorno Financeiro",
+      },
+      {
+        key: "delete_cash_movement",
+        label: "Apagar / Excluir Lançamentos de Caixa",
+        description: "Permite excluir definitivamente um registro do histórico do fundo de caixa.",
+        badge: "Ação Crítica",
+      },
+    ],
+  },
+  {
+    id: "rankings",
+    title: "Rankings",
+    route: "/rankings",
+    icon: Trophy,
+    description: "Pódio dos membros que mais movimentam estoques e realizam vendas na facção.",
+    color: "border-amber-500/40 bg-amber-500/5 text-amber-400",
+    defaultCat: "Gestão",
+    defaultOrder: 6,
+    permissions: [
+      {
+        key: "view_rankings",
+        label: "Ver Rankings da Facção",
+        description: "Acessar o pódio de membros em destaque.",
+      },
+    ],
+  },
+  {
+    id: "desempenho",
+    title: "Desempenho & Produtividade",
+    route: "/desempenho",
+    icon: TrendingUp,
+    description: "Estatísticas avançadas de produtividade individual, raio-x dos integrantes e relatórios executivos.",
+    color: "border-amber-500/40 bg-amber-500/5 text-amber-400",
+    defaultCat: "Gestão",
+    defaultOrder: 7,
+    permissions: [
+      {
+        key: "view_performance",
+        label: "Ver Meu Desempenho Pessoal (/desempenho)",
+        description: "Permite ao membro consultar sua própria ficha técnica de faturamento e produtividade.",
+      },
+      {
+        key: "manage_performance",
+        label: "Acessar Gestão Executiva de Desempenho (/dev.desempenho)",
+        description: "Permite acessar o painel geral da liderança com faturamento consolidado e ranking da facção.",
+        badge: "Gestão Executiva",
+      },
+      {
+        key: "inspect_member_performance",
+        label: "Inspecionar Raio-X & Histórico de Membros",
+        description: "Permite abrir o modal de inspeção individual para examinar vendas recentes e estoque por operador.",
+        badge: "Raio-X Membros",
+      },
+    ],
+  },
+  {
+    id: "metas",
+    title: "Metas",
+    route: "/metas",
+    icon: Target,
+    description: "Definição e acompanhamento de metas operacionais e de produção da equipe.",
+    color: "border-amber-500/40 bg-amber-500/5 text-amber-400",
+    defaultCat: "Gestão",
+    defaultOrder: 8,
+    permissions: [
+      {
+        key: "view_goals",
+        label: "Ver Progresso das Metas da Facção",
+        description: "Acompanhar a barra de evolução das metas da facção.",
+      },
+      {
+        key: "manage_goals",
+        label: "Criar e Gerenciar Metas Operacionais",
+        description: "Criar novas metas, definir alvos numéricos e editar metas ativas.",
+        badge: "Gestão Metas",
+      },
+    ],
+  },
+  {
+    id: "ausencias",
+    title: "Ausências & Licenças",
+    route: "/ausencias",
+    icon: CalendarOff,
+    description: "Registro e acompanhamento de ausências com data de início, data de volta, justificativas e gráficos estatísticos.",
+    color: "border-amber-500/40 bg-amber-500/5 text-amber-400",
+    defaultCat: "Gestão",
+    defaultOrder: 9,
+    permissions: [
+      {
+        key: "view_absences",
+        label: "Acessar Aba de Ausências",
+        description: "Permite acessar a rota /ausencias para consultar o histórico pessoal e avisos de ausência.",
+        badge: "Acesso à Rota",
+      },
+      {
+        key: "request_absence",
+        label: "Solicitar / Informar Ausência",
+        description: "Permite ao membro cadastrar novos períodos de ausência informando data de início, data de volta e motivo.",
+      },
+      {
+        key: "manage_absences",
+        label: "Gerenciar e Aprovar Ausências de Membros",
+        description: "Permite à liderança aprovar/rejeitar pedidos de ausência, adicionar notas e gerenciar licenças de todos os membros.",
+        badge: "Gestão / Aprovação",
+      },
+      {
+        key: "view_all_absences",
+        label: "Visualizar Gráficos e Estatísticas Gerenciais de Ausências",
+        description: "Permite visualizar o gráfico estatístico completo de ausências, taxa de aprovação, média de dias e membros ausentes em tempo real.",
+        badge: "Gráficos & Métricas",
+      },
+    ],
+  },
+  {
+    id: "cargos",
+    title: "Gerenciamento de Cargos",
+    route: "/cargos",
+    icon: ShieldCheck,
+    description: "Criação de novos cargos personalizados, ordem hierárquica e reordenação de níveis.",
+    color: "border-purple-500/40 bg-purple-500/5 text-purple-400",
+    defaultCat: "Gestão",
+    defaultOrder: 9,
+    permissions: [
+      {
+        key: "manage_roles",
+        label: "Gerenciar Cargos e Hierarquia",
+        description: "Permite criar cargos, editar nomes, descrições e reordenar a hierarquia.",
+        badge: "Administrativo",
+      },
+    ],
+  },
+  {
+    id: "permissoes",
+    title: "Permissões",
+    route: "/permissoes",
+    icon: Settings,
+    description: "Matriz de gerenciamento de permissões e controle de acesso aos módulos para cada cargo.",
+    color: "border-indigo-500/40 bg-indigo-500/5 text-indigo-400",
+    defaultCat: "Gestão",
+    defaultOrder: 10,
+    permissions: [
+      {
+        key: "manage_permissions",
+        label: "Gerenciar Permissões por Página",
+        description: "Permite configurar e ativar permissões individuais de cada cargo em tempo real.",
+        badge: "Admin Permissões",
+        importantNote: "Apenas administradores devem possuir permissão de alterar matrizes de cargos.",
+      },
+    ],
+  },
+  {
+    id: "avisos",
+    title: "Enviar Avisos",
+    route: "/avisos",
+    icon: Megaphone,
+    description: "Publicação de comunicados gerais em destaque para toda a facção com confirmação de leitura.",
+    color: "border-purple-500/40 bg-purple-500/5 text-purple-400",
+    defaultCat: "Gestão",
+    defaultOrder: 11,
+    permissions: [
+      {
+        key: "manage_announcements",
+        label: "Publicar e Apagar Comunicados",
+        description: "Criar comunicados em destaque na página inicial e remover comunicados antigos.",
+      },
+    ],
+  },
+  {
+    id: "logs",
+    title: "Logs da Plataforma",
+    route: "/logs",
+    icon: ScrollText,
+    description: "Histórico completo e transparente em tempo real de todas as ações, logins e eventos na plataforma.",
+    color: "border-indigo-500/40 bg-indigo-500/5 text-indigo-400",
+    defaultCat: "Gestão",
+    defaultOrder: 12,
+    permissions: [
+      {
+        key: "view_audit",
+        label: "Ver Logs da Plataforma",
+        description: "Permite consultar logs de logins, saídas, edições, vendas e movimentações.",
+        badge: "Logs Sistema",
+      },
+    ],
+  },
+  {
+    id: "configuracoes",
+    title: "Configurações da Plataforma",
+    route: "/configuracoes",
+    icon: Wrench,
+    description: "Gerenciamento das configurações gerais da facção, timeout de inatividade e personalização do menu lateral.",
+    color: "border-indigo-500/40 bg-indigo-500/5 text-indigo-400",
+    defaultCat: "Gestão",
+    defaultOrder: 14,
+    permissions: [
+      {
+        key: "manage_platform_settings",
+        label: "Gerenciar Aba Plataforma",
+        description: "Permite alterar o nome da facção, descrição, timeout de inatividade e parâmetros gerais.",
+        badge: "Configurações",
+      },
+      {
+        key: "manage_menu_settings",
+        label: "Gerenciar Aba Menu",
+        description: "Permite reordenar o menu lateral, alterar visibilidade dos itens e vincular categorias.",
+        badge: "Gestão Menu",
+      },
+    ],
+  },
+  {
+    id: "perfil",
+    title: "Meu Perfil",
+    route: "/perfil",
+    icon: User,
+    description: "Visualização e edição dos dados pessoais do integrante (nome, apelido, telefone e passaporte).",
+    color: "border-sky-500/40 bg-sky-500/5 text-sky-400",
+    defaultCat: "Gestão",
+    defaultOrder: 13,
+    permissions: [
+      {
+        key: "view_profile",
+        label: "Acessar e Editar Meu Perfil",
+        description: "Permite acessar a página de perfil pessoal e alterar dados em jogo.",
+      },
+    ],
+  },
+];

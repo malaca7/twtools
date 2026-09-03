@@ -88,5 +88,15 @@
     "typescript-eslint": "^8.56.1",
     "vite": "^8.2.0",
     "wrangler": "^4.124.0"
+  },
+  "cspell": {
+    "version": "0.2",
+    "language": "en,pt,pt_BR",
+    "ignorePaths": [],
+    "dictionaryDefinitions": [],
+    "dictionaries": [],
+    "words": [],
+    "ignoreWords": [],
+    "import": []
   }
 }
