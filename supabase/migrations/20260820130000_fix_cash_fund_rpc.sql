@@ -42,9 +42,9 @@ BEGIN
     RAISE EXCEPTION 'Informe o motivo da movimentação de caixa';
   END IF;
 
-  -- Lock latest movement to get exact balance (using scalar expression to guarantee 0 on empty table)
+  -- Calculate exact previous balance strictly from active movements
   _prev_balance := COALESCE(
-    (SELECT resulting_balance FROM public.cash_fund_movements ORDER BY created_at DESC, id DESC LIMIT 1),
+    (SELECT SUM(CASE WHEN type = 'entrada' THEN amount ELSE -amount END) FROM public.cash_fund_movements WHERE status = 'ativo'),
     0
   );
 

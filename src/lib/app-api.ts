@@ -1678,8 +1678,7 @@ export async function deleteGoal(id: string): Promise<void> {
 
 export async function getCashMovements(): Promise<CashMovement[]> {
   const { data, error } = await (supabase.from("cash_fund_movements" as any))
-    .select("id, user_id, type, amount, motive, notes, status, previous_balance, resulting_balance, reversal_of, created_at")
-    .order("created_at", { ascending: false });
+    .select("id, user_id, type, amount, motive, notes, status, previous_balance, resulting_balance, reversal_of, created_at");
 
   if (error) throw error;
 
@@ -1694,23 +1693,54 @@ export async function getCashMovements(): Promise<CashMovement[]> {
     });
   });
 
-  return (data || []).map((d: any) => {
+  // Ordenação cronológica ascendente para cálculo exato e consistente do saldo acumulado
+  const sortedAsc = [...(data || [])].sort((a: any, b: any) => {
+    const diff = new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+    if (diff !== 0) return diff;
+    return String(a.id).localeCompare(String(b.id));
+  });
+
+  let runningBalance = 0;
+
+  const processed: CashMovement[] = sortedAsc.map((d: any) => {
     const prof = d.user_id ? profileMap.get(d.user_id) : null;
+    const amt = Math.round((Number(d.amount) || 0) * 100) / 100;
+    const isEstornado = d.status === "estornado";
+
+    const prevBal = runningBalance;
+    let resBal = runningBalance;
+
+    if (!isEstornado) {
+      if (d.type === "entrada") {
+        runningBalance = Math.round((runningBalance + amt) * 100) / 100;
+      } else {
+        runningBalance = Math.round((runningBalance - amt) * 100) / 100;
+      }
+      resBal = runningBalance;
+    }
+
     return {
       id: String(d.id),
       user_id: d.user_id ? String(d.user_id) : null,
       type: d.type as "entrada" | "saida",
-      amount: Number(d.amount),
+      amount: amt,
       motive: String(d.motive),
       notes: d.notes ? String(d.notes) : null,
       status: d.status ? String(d.status) : "ativo",
-      previous_balance: Number(d.previous_balance),
-      resulting_balance: Number(d.resulting_balance),
+      previous_balance: isEstornado ? Number(d.previous_balance) : prevBal,
+      resulting_balance: isEstornado ? Number(d.resulting_balance) : resBal,
       reversal_of: d.reversal_of ? String(d.reversal_of) : null,
       created_at: String(d.created_at),
       user_name: prof?.name || "Sistema",
       user_avatar_url: prof?.avatar || undefined,
     };
+  });
+
+  // Retorna ordenado do mais recente para o mais antigo (padrão de extrato financeiro)
+  return processed.sort((a, b) => {
+    const diff = new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+    if (diff !== 0) return diff;
+    return String(b.id).localeCompare(String(a.id));
   });
 }
 
