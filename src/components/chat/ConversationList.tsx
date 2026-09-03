@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Users,
   Search,
@@ -25,6 +25,16 @@ import {
   Check,
   Music2,
   SlidersHorizontal,
+  Folder,
+  FolderCog,
+  Mic,
+  Image as ImageIcon,
+  Video,
+  FileText,
+  Vote,
+  Calendar,
+  MessageSquarePlus,
+  CheckCheck,
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -65,7 +75,6 @@ import { formatTimeOnly, formatUserPresenceText } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import type { ChatConversation, ChatUserFolder } from "@/types/chat";
 import { toast } from "sonner";
-import { Folder, FolderCog } from "lucide-react";
 
 interface ConversationListProps {
   conversations: ChatConversation[];
@@ -88,7 +97,7 @@ export function ConversationList({
   viewMode = "split",
   onToggleViewMode,
 }: ConversationListProps) {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const currentUserId = user?.id;
   const queryClient = useQueryClient();
 
@@ -132,11 +141,10 @@ export function ConversationList({
     setSoundEnabled(next);
   };
 
-  // HANDLERS DE GERENCIAMENTO DE CONVERSAS COM RESPOSTA EM 0ms
+  // Handlers de gerenciamento de conversa
   const handlePin = async (e: React.MouseEvent, conv: ChatConversation) => {
     e.stopPropagation();
     const nextPinned = !conv.is_pinned;
-    // Otimista
     queryClient.setQueryData<ChatConversation[]>(["chat_conversations", currentUserId], (old = []) =>
       old.map((c) => (c.id === conv.id ? { ...c, is_pinned: nextPinned } : c))
     );
@@ -152,7 +160,6 @@ export function ConversationList({
   const handleMute = async (e: React.MouseEvent, conv: ChatConversation) => {
     e.stopPropagation();
     const nextMuted = !conv.is_muted;
-    // Otimista
     queryClient.setQueryData<ChatConversation[]>(["chat_conversations", currentUserId], (old = []) =>
       old.map((c) => (c.id === conv.id ? { ...c, is_muted: nextMuted } : c))
     );
@@ -168,7 +175,6 @@ export function ConversationList({
   const handleArchive = async (e: React.MouseEvent, conv: ChatConversation) => {
     e.stopPropagation();
     const nextArchived = !conv.is_archived;
-    // Otimista
     queryClient.setQueryData<ChatConversation[]>(["chat_conversations", currentUserId], (old = []) =>
       old.map((c) => (c.id === conv.id ? { ...c, is_archived: nextArchived } : c))
     );
@@ -185,14 +191,12 @@ export function ConversationList({
     e.stopPropagation();
     const isCurrentlyUnread = (conv.unread_count || 0) > 0;
     if (isCurrentlyUnread) {
-      // Marcar como lido
       queryClient.setQueryData<ChatConversation[]>(["chat_conversations", currentUserId], (old = []) =>
         old.map((c) => (c.id === conv.id ? { ...c, unread_count: 0 } : c))
       );
       if (currentUserId) void markConversationAsRead(conv.id, currentUserId);
       toast.success("Marcada como lida.");
     } else {
-      // Marcar como não lido
       queryClient.setQueryData<ChatConversation[]>(["chat_conversations", currentUserId], (old = []) =>
         old.map((c) => (c.id === conv.id ? { ...c, unread_count: 1 } : c))
       );
@@ -206,27 +210,25 @@ export function ConversationList({
     const deletedId = convToDelete.id;
     setConvToDelete(null);
 
-    // Otimista: remove da lista imediatamente
     queryClient.setQueryData<ChatConversation[]>(["chat_conversations", currentUserId], (old = []) =>
       old.filter((c) => c.id !== deletedId)
     );
 
     try {
       await deleteConversationForUser(deletedId, currentUserId);
-      toast.success("Conversa apagada com sucesso!");
+      toast.success("Conversa apagada.");
     } catch {
       toast.error("Erro ao apagar conversa.");
       void queryClient.invalidateQueries({ queryKey: ["chat_conversations", currentUserId] });
     }
   };
 
-  // FILTRAGEM & ORDENAÇÃO
+  // Filtragem
   const filteredConversations = conversations.filter((c) => {
     const isGroup = c.type === "group";
     const other = c.other_participant;
     const title = isGroup ? c.title || "" : other?.nickname || other?.nome || "Membro";
 
-    // Filtro por Pasta Personalizada selecionada
     if (selectedFolderId) {
       const activeFolder = userFolders.find((f) => f.id === selectedFolderId);
       if (activeFolder && !activeFolder.conversation_ids?.includes(c.id)) {
@@ -234,11 +236,9 @@ export function ConversationList({
       }
     }
 
-    // Filtro de Arquivadas
     if (activeFilter === "archived") {
       if (!c.is_archived) return false;
     } else {
-      // Nas outras abas, omite as arquivadas por padrão
       if (c.is_archived) return false;
     }
 
@@ -256,179 +256,199 @@ export function ConversationList({
   const archivedCount = conversations.filter((c) => c.is_archived).length;
   const unreadCount = conversations.filter((c) => (c.unread_count || 0) > 0 && !c.is_archived).length;
 
-  return (
-    <div className="flex flex-col h-full w-full bg-card/80 overflow-hidden select-none">
-      {/* TOP HEADER */}
-      <div className="p-3.5 border-b border-border/80 bg-secondary/20 backdrop-blur-md space-y-2.5 shrink-0">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="h-7 w-7 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary shadow-xs">
-              <MessageSquare className="h-4 w-4" />
-            </div>
-            <div>
-              <h3 className="text-sm font-extrabold text-foreground tracking-tight">Mensagens</h3>
-            </div>
-          </div>
+  const myAvatarUrl = profile?.discord_avatar_url || profile?.avatar_url;
+  const myInitials = (profile?.nickname || profile?.nome || "EU").slice(0, 2).toUpperCase();
 
-          <div className="flex items-center gap-1">
-            {/* LAYOUT MODE TOGGLE (SPLIT VS FOCUS) */}
-            {onToggleViewMode && (
+  return (
+    <div className="flex flex-col h-full w-full bg-[#111b21] overflow-hidden select-none">
+      {/* ─── WHATSAPP WEB SIDEBAR HEADER (#202c33) ─── */}
+      <div className="p-2.5 sm:px-3 sm:py-2.5 bg-[#202c33] border-b border-white/5 flex items-center justify-between shrink-0 shadow-sm">
+        {/* AVATAR DO USUÁRIO LOGADO */}
+        <div className="flex items-center gap-2.5">
+          <Avatar className="h-9 w-9 border border-white/10 shadow-xs">
+            {myAvatarUrl && <AvatarImage src={myAvatarUrl} alt="Meu Perfil" />}
+            <AvatarFallback className="bg-emerald-700 text-white text-xs font-bold">
+              {myInitials}
+            </AvatarFallback>
+          </Avatar>
+          <span className="text-xs font-bold text-[#e9edef] hidden sm:inline truncate max-w-[110px]">
+            {profile?.nickname || profile?.nome || "Meu Chat"}
+          </span>
+        </div>
+
+        {/* AÇÕES DE TOPO DO WHATSAPP */}
+        <div className="flex items-center gap-1 text-[#aebac1]">
+          {/* LAYOUT MODE TOGGLE */}
+          {onToggleViewMode && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              onClick={() => onToggleViewMode(viewMode === "split" ? "focus" : "split")}
+              className="h-8 w-8 text-[#aebac1] hover:text-white hover:bg-white/10 rounded-full cursor-pointer hidden sm:flex"
+              title={viewMode === "split" ? "Modo Dividido ativo" : "Modo Foco ativo"}
+            >
+              {viewMode === "split" ? (
+                <Columns2 className="h-4 w-4 text-[#00a884]" />
+              ) : (
+                <Maximize2 className="h-4 w-4" />
+              )}
+            </Button>
+          )}
+
+          {/* NOVO GRUPO */}
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            onClick={onCreateGroup}
+            className="h-8 w-8 text-[#aebac1] hover:text-white hover:bg-white/10 rounded-full cursor-pointer"
+            title="Novo grupo"
+          >
+            <MessageSquarePlus className="h-4 w-4" />
+          </Button>
+
+          {/* SONS */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
               <Button
                 type="button"
                 variant="ghost"
                 size="icon"
-                onClick={() => onToggleViewMode(viewMode === "split" ? "focus" : "split")}
-                className="h-7 w-7 text-muted-foreground hover:text-foreground rounded-lg cursor-pointer hidden sm:flex"
-                title={
-                  viewMode === "split"
-                    ? "Modo Dividido ativo (clique para alternar para Modo Foco em tela cheia)"
-                    : "Modo Foco ativo (clique para alternar para Modo Dividido lado a lado)"
-                }
+                className="h-8 w-8 text-[#aebac1] hover:text-white hover:bg-white/10 rounded-full cursor-pointer"
+                title={soundEnabled ? "Sons ativados" : "Sons desativados"}
               >
-                {viewMode === "split" ? (
-                  <Columns2 className="h-4 w-4 text-primary" />
+                {soundEnabled ? (
+                  <Volume2 className="h-4 w-4 text-[#00a884]" />
                 ) : (
-                  <Maximize2 className="h-4 w-4 text-muted-foreground" />
+                  <VolumeX className="h-4 w-4" />
                 )}
               </Button>
-            )}
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-52 text-xs bg-[#233138] border border-white/10 text-white rounded-xl shadow-2xl p-1">
+              <DropdownMenuItem onClick={handleToggleSound} className="cursor-pointer hover:bg-white/10 rounded-lg">
+                {soundEnabled ? (
+                  <>
+                    <VolumeX className="h-3.5 w-3.5 mr-2 text-rose-400" /> Desativar sons
+                  </>
+                ) : (
+                  <>
+                    <Volume2 className="h-3.5 w-3.5 mr-2 text-[#00a884]" /> Ativar sons
+                  </>
+                )}
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setSoundSettingsOpen(true)} className="cursor-pointer hover:bg-white/10 rounded-lg text-[#00a884] font-bold">
+                <SlidersHorizontal className="h-3.5 w-3.5 mr-2" /> Personalizar sons
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
 
-            {/* SOUND TOGGLE & SETTINGS */}
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="h-7 w-7 text-muted-foreground hover:text-foreground rounded-lg cursor-pointer"
-                  title={soundEnabled ? "Sons ativados (clique para opções)" : "Sons desativados"}
-                >
-                  {soundEnabled ? (
-                    <Volume2 className="h-4 w-4 text-emerald-400" />
-                  ) : (
-                    <VolumeX className="h-4 w-4 text-muted-foreground" />
-                  )}
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-52 text-xs rounded-xl">
-                <DropdownMenuItem onClick={handleToggleSound} className="cursor-pointer">
-                  {soundEnabled ? (
-                    <>
-                      <VolumeX className="h-3.5 w-3.5 mr-2 text-rose-400" /> Silenciar Sons do Chat
-                    </>
-                  ) : (
-                    <>
-                      <Volume2 className="h-3.5 w-3.5 mr-2 text-emerald-400" /> Ativar Sons do Chat
-                    </>
-                  )}
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setSoundSettingsOpen(true)} className="cursor-pointer font-bold text-primary">
-                  <SlidersHorizontal className="h-3.5 w-3.5 mr-2 text-primary" /> Mudar Sons do Chat
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-
-            <Button
-              type="button"
-              size="sm"
-              onClick={onCreateGroup}
-              className="h-7 px-2.5 text-xs bg-primary hover:bg-primary/90 text-primary-foreground font-bold rounded-xl shadow-md shadow-primary/20 cursor-pointer"
-              title="Criar novo grupo"
-            >
-              <Plus className="h-3.5 w-3.5 mr-1" /> Novo Grupo
-            </Button>
-          </div>
+          {/* MENU 3-PONTOS */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 text-[#aebac1] hover:text-white hover:bg-white/10 rounded-full cursor-pointer"
+                title="Mais opções"
+              >
+                <MoreVertical className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-52 text-xs bg-[#233138] border border-white/10 text-white rounded-xl shadow-2xl p-1">
+              <DropdownMenuItem onClick={onCreateGroup} className="cursor-pointer hover:bg-white/10 rounded-lg">
+                <Users className="h-3.5 w-3.5 mr-2 text-[#00a884]" /> Novo grupo
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setManageFoldersOpen(true)} className="cursor-pointer hover:bg-white/10 rounded-lg">
+                <FolderCog className="h-3.5 w-3.5 mr-2 text-[#7f66ff]" /> Gerenciar pastas
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setSoundSettingsOpen(true)} className="cursor-pointer hover:bg-white/10 rounded-lg">
+                <Music2 className="h-3.5 w-3.5 mr-2 text-amber-400" /> Configurar notificações
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
+      </div>
 
-        {/* SEARCH BAR */}
+      {/* ─── WHATSAPP SEARCH BAR (#111b21) ─── */}
+      <div className="p-2.5 space-y-2 border-b border-white/5 bg-[#111b21] shrink-0">
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[#8696a0]" />
           <Input
-            placeholder="Buscar conversas..."
+            placeholder="Pesquisar ou começar uma nova conversa"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="h-8.5 pl-8.5 text-xs bg-background/80 border-border/70 rounded-xl focus:border-primary/50 transition-colors placeholder:text-muted-foreground/60"
+            className="h-9 pl-9 pr-3 text-xs bg-[#202c33] border-transparent rounded-lg text-[#e9edef] placeholder:text-[#8696a0] focus:border-white/10 transition-colors"
           />
         </div>
 
-        {/* PASTAS PERSONALIZADAS (FOLDERS BAR) */}
-        <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none pb-1 border-b border-border/40">
-          <button
-            type="button"
-            onClick={() => setSelectedFolderId(null)}
-            className={cn(
-              "px-2.5 py-1 rounded-lg text-[11px] font-extrabold transition-all shrink-0 cursor-pointer border flex items-center gap-1",
-              selectedFolderId === null
-                ? "bg-foreground/10 text-foreground border-foreground/30 font-black shadow-2xs"
-                : "bg-secondary/20 text-muted-foreground hover:text-foreground border-border/40 hover:bg-secondary"
-            )}
-          >
-            <Folder className="h-3 w-3" />
-            <span>Todas</span>
-          </button>
+        {/* PASTAS PERSONALIZADAS (SE EXISTIREM) */}
+        {userFolders.length > 0 && (
+          <div className="flex items-center gap-1 overflow-x-auto scrollbar-none pb-0.5">
+            <button
+              type="button"
+              onClick={() => setSelectedFolderId(null)}
+              className={cn(
+                "px-2.5 py-0.5 rounded-full text-[10.5px] font-bold transition-all shrink-0 cursor-pointer border",
+                selectedFolderId === null
+                  ? "bg-white/10 text-white border-white/20 font-black"
+                  : "bg-transparent text-[#8696a0] hover:text-white border-transparent"
+              )}
+            >
+              Todas
+            </button>
 
-          {userFolders.map((f) => {
-            const isSel = selectedFolderId === f.id;
-            return (
-              <button
-                key={f.id}
-                type="button"
-                onClick={() => setSelectedFolderId(f.id)}
-                className={cn(
-                  "px-2.5 py-1 rounded-lg text-[11px] font-extrabold transition-all shrink-0 cursor-pointer border flex items-center gap-1",
-                  isSel
-                    ? "text-white font-black shadow-xs"
-                    : "bg-secondary/20 text-muted-foreground hover:text-foreground border-border/40 hover:bg-secondary"
-                )}
-                style={isSel ? { backgroundColor: f.color || "#6366f1", borderColor: f.color } : {}}
-              >
-                <span>{f.name}</span>
-                {f.conversation_ids?.length > 0 && (
-                  <span className="text-[9px] opacity-75 font-mono">({f.conversation_ids.length})</span>
-                )}
-              </button>
-            );
-          })}
+            {userFolders.map((f) => {
+              const isSel = selectedFolderId === f.id;
+              return (
+                <button
+                  key={f.id}
+                  type="button"
+                  onClick={() => setSelectedFolderId(f.id)}
+                  className={cn(
+                    "px-2.5 py-0.5 rounded-full text-[10.5px] font-bold transition-all shrink-0 cursor-pointer border",
+                    isSel
+                      ? "text-white font-black"
+                      : "bg-transparent text-[#8696a0] hover:text-white border-transparent"
+                  )}
+                  style={isSel ? { backgroundColor: f.color || "#00a884", borderColor: f.color } : {}}
+                >
+                  {f.name}
+                </button>
+              );
+            })}
+          </div>
+        )}
 
-          <button
-            type="button"
-            onClick={() => setManageFoldersOpen(true)}
-            className="px-2 py-1 rounded-lg text-[10px] font-bold text-primary hover:bg-primary/10 transition-all shrink-0 cursor-pointer flex items-center gap-1 ml-auto border border-dashed border-primary/30"
-            title="Gerenciar pastas de conversas"
-          >
-            <FolderCog className="h-3 w-3" />
-            <span>Pastas</span>
-          </button>
-        </div>
-
-        {/* FILTER CHIPS */}
-        <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none pb-0.5 pt-0.5">
+        {/* ─── WHATSAPP FILTER CHIPS ─── */}
+        <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none pt-0.5">
           <button
             type="button"
             onClick={() => setActiveFilter("all")}
             className={cn(
-              "px-3 py-1 rounded-xl text-[11px] font-bold transition-all shrink-0 cursor-pointer border",
+              "px-3 py-1 rounded-full text-[11px] font-medium transition-all shrink-0 cursor-pointer",
               activeFilter === "all"
-                ? "bg-primary text-primary-foreground border-primary/40 shadow-xs shadow-primary/20"
-                : "bg-secondary/40 text-muted-foreground hover:text-foreground border-border/50 hover:bg-secondary"
+                ? "bg-[#00a884] text-white font-bold shadow-xs"
+                : "bg-[#202c33] text-[#8696a0] hover:text-[#e9edef] hover:bg-[#202c33]/80"
             )}
           >
-            Tudo ({conversations.filter((c) => !c.is_archived).length})
+            Tudo
           </button>
 
           <button
             type="button"
             onClick={() => setActiveFilter("unread")}
             className={cn(
-              "px-3 py-1 rounded-xl text-[11px] font-bold transition-all shrink-0 cursor-pointer border flex items-center gap-1",
+              "px-3 py-1 rounded-full text-[11px] font-medium transition-all shrink-0 cursor-pointer flex items-center gap-1",
               activeFilter === "unread"
-                ? "bg-primary text-primary-foreground border-primary/40 shadow-xs shadow-primary/20"
-                : "bg-secondary/40 text-muted-foreground hover:text-foreground border-border/50 hover:bg-secondary"
+                ? "bg-[#00a884] text-white font-bold shadow-xs"
+                : "bg-[#202c33] text-[#8696a0] hover:text-[#e9edef] hover:bg-[#202c33]/80"
             )}
           >
-            <span>Não Lidas</span>
+            <span>Não lidas</span>
             {unreadCount > 0 && (
-              <span className="px-1.5 py-0.2 rounded-full bg-rose-500 text-white font-mono text-[9px]">
+              <span className="px-1.5 py-0.2 rounded-full bg-[#25d366] text-black font-mono text-[9px] font-bold">
                 {unreadCount}
               </span>
             )}
@@ -436,26 +456,12 @@ export function ConversationList({
 
           <button
             type="button"
-            onClick={() => setActiveFilter("pinned")}
-            className={cn(
-              "px-3 py-1 rounded-xl text-[11px] font-bold transition-all shrink-0 cursor-pointer border flex items-center gap-1",
-              activeFilter === "pinned"
-                ? "bg-primary text-primary-foreground border-primary/40 shadow-xs shadow-primary/20"
-                : "bg-secondary/40 text-muted-foreground hover:text-foreground border-border/50 hover:bg-secondary"
-            )}
-          >
-            <Pin className="h-3 w-3" />
-            <span>Fixadas ({pinnedCount})</span>
-          </button>
-
-          <button
-            type="button"
             onClick={() => setActiveFilter("groups")}
             className={cn(
-              "px-3 py-1 rounded-xl text-[11px] font-bold transition-all shrink-0 cursor-pointer border",
+              "px-3 py-1 rounded-full text-[11px] font-medium transition-all shrink-0 cursor-pointer",
               activeFilter === "groups"
-                ? "bg-primary text-primary-foreground border-primary/40 shadow-xs shadow-primary/20"
-                : "bg-secondary/40 text-muted-foreground hover:text-foreground border-border/50 hover:bg-secondary"
+                ? "bg-[#00a884] text-white font-bold shadow-xs"
+                : "bg-[#202c33] text-[#8696a0] hover:text-[#e9edef] hover:bg-[#202c33]/80"
             )}
           >
             Grupos
@@ -465,24 +471,40 @@ export function ConversationList({
             type="button"
             onClick={() => setActiveFilter("direct")}
             className={cn(
-              "px-3 py-1 rounded-xl text-[11px] font-bold transition-all shrink-0 cursor-pointer border",
+              "px-3 py-1 rounded-full text-[11px] font-medium transition-all shrink-0 cursor-pointer",
               activeFilter === "direct"
-                ? "bg-primary text-primary-foreground border-primary/40 shadow-xs shadow-primary/20"
-                : "bg-secondary/40 text-muted-foreground hover:text-foreground border-border/50 hover:bg-secondary"
+                ? "bg-[#00a884] text-white font-bold shadow-xs"
+                : "bg-[#202c33] text-[#8696a0] hover:text-[#e9edef] hover:bg-[#202c33]/80"
             )}
           >
-            Diretas
+            Contatos
           </button>
+
+          {pinnedCount > 0 && (
+            <button
+              type="button"
+              onClick={() => setActiveFilter("pinned")}
+              className={cn(
+                "px-3 py-1 rounded-full text-[11px] font-medium transition-all shrink-0 cursor-pointer flex items-center gap-1",
+                activeFilter === "pinned"
+                  ? "bg-[#00a884] text-white font-bold shadow-xs"
+                  : "bg-[#202c33] text-[#8696a0] hover:text-[#e9edef] hover:bg-[#202c33]/80"
+              )}
+            >
+              <Pin className="h-3 w-3" />
+              <span>Fixadas</span>
+            </button>
+          )}
 
           {archivedCount > 0 && (
             <button
               type="button"
               onClick={() => setActiveFilter("archived")}
               className={cn(
-                "px-3 py-1 rounded-xl text-[11px] font-bold transition-all shrink-0 cursor-pointer border flex items-center gap-1",
+                "px-3 py-1 rounded-full text-[11px] font-medium transition-all shrink-0 cursor-pointer flex items-center gap-1",
                 activeFilter === "archived"
-                  ? "bg-primary text-primary-foreground border-primary/40 shadow-xs shadow-primary/20"
-                  : "bg-secondary/40 text-muted-foreground hover:text-foreground border-border/50 hover:bg-secondary"
+                  ? "bg-[#00a884] text-white font-bold shadow-xs"
+                  : "bg-[#202c33] text-[#8696a0] hover:text-[#e9edef] hover:bg-[#202c33]/80"
               )}
             >
               <Archive className="h-3 w-3" />
@@ -492,17 +514,17 @@ export function ConversationList({
         </div>
       </div>
 
-      {/* CONVERSATION ITEMS SCROLL LIST */}
-      <div className="flex-1 overflow-y-auto p-2 space-y-1 custom-scrollbar-thin">
+      {/* ─── WHATSAPP CONVERSATION LIST SCROLLER ─── */}
+      <div className="flex-1 overflow-y-auto divide-y divide-white/5 custom-scrollbar-thin">
         {isLoading ? (
-          <div className="flex flex-col items-center justify-center h-48 gap-2 text-muted-foreground text-xs">
-            <div className="h-5 w-5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+          <div className="flex flex-col items-center justify-center h-48 gap-2 text-[#8696a0] text-xs">
+            <div className="h-5 w-5 border-2 border-[#00a884] border-t-transparent rounded-full animate-spin" />
             <span>Carregando conversas...</span>
           </div>
         ) : filteredConversations.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-48 text-center p-4 text-muted-foreground space-y-1.5 select-none">
+          <div className="flex flex-col items-center justify-center h-48 text-center p-4 text-[#8696a0] space-y-1 select-none">
             <span className="text-2xl">💬</span>
-            <p className="text-xs font-bold text-foreground">Nenhuma conversa encontrada</p>
+            <p className="text-xs font-bold text-[#e9edef]">Nenhuma conversa encontrada</p>
             <p className="text-[11px]">
               {activeFilter === "archived"
                 ? "Você não possui conversas arquivadas."
@@ -534,28 +556,26 @@ export function ConversationList({
                 key={c.id}
                 onClick={() => onSelectConversation(c)}
                 className={cn(
-                  "group relative flex items-center gap-3 p-2.5 rounded-2xl cursor-pointer transition-all duration-150 border",
+                  "group relative flex items-center gap-3 px-3 py-3 cursor-pointer transition-colors duration-150 select-none",
                   isActive
-                    ? "bg-primary/15 border-primary/40 shadow-sm text-foreground before:absolute before:left-0 before:top-2 before:bottom-2 before:w-1.5 before:bg-primary before:rounded-r-full"
-                    : isPinned
-                    ? "bg-secondary/40 border-primary/20 hover:bg-secondary/70 text-foreground"
-                    : "border-transparent hover:bg-secondary/50 text-muted-foreground hover:text-foreground"
+                    ? "bg-[#2a3942] text-white"
+                    : "hover:bg-[#202c33]/70 text-[#8696a0]"
                 )}
               >
-                {/* AVATAR WITH STATUS INDICATOR */}
+                {/* AVATAR COM INDICADOR DE STATUS */}
                 <div className="relative shrink-0">
-                  <Avatar className="h-10 w-10 border border-border/80 group-hover:border-primary/40 transition-colors shadow-xs">
+                  <Avatar className="h-12 w-12 border border-white/10 shadow-xs">
                     {avatarUrl && <AvatarImage src={avatarUrl} alt={title} />}
-                    <AvatarFallback className="bg-secondary text-foreground font-bold text-xs">
-                      {isGroup ? <Users className="h-4 w-4 text-primary" /> : initials}
+                    <AvatarFallback className="bg-[#202c33] text-[#00a884] font-bold text-sm">
+                      {isGroup ? <Users className="h-5 w-5" /> : initials}
                     </AvatarFallback>
                   </Avatar>
 
                   {!isGroup && other && (
                     <span
                       className={cn(
-                        "absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full ring-2 ring-card",
-                        isOnline ? "bg-emerald-500" : isAusente ? "bg-amber-500 animate-pulse" : "bg-zinc-500"
+                        "absolute -bottom-0.5 -right-0.5 h-3.5 w-3.5 rounded-full ring-2 ring-[#111b21]",
+                        isOnline ? "bg-[#25d366]" : isAusente ? "bg-amber-500 animate-pulse" : "bg-zinc-500"
                       )}
                       title={formatUserPresenceText(
                         other.presence_status,
@@ -566,28 +586,30 @@ export function ConversationList({
                   )}
                 </div>
 
-                {/* TEXT & LAST MESSAGE */}
-                <div className="flex-1 min-w-0 space-y-0.5">
+                {/* CONVERSATION DETAILS & PREVIEW */}
+                <div className="flex-1 min-w-0 space-y-1">
                   <div className="flex items-center justify-between gap-1">
                     <div className="flex items-center gap-1.5 min-w-0">
-                      {isPinned && (
-                        <Pin className="h-3 w-3 text-primary shrink-0 fill-primary/30 rotate-45" title="Conversa Fixada" />
-                      )}
-                      <span className={cn("truncate text-xs font-bold leading-tight", isActive ? "text-primary font-extrabold" : "text-foreground")}>
+                      <span className={cn("truncate text-sm font-semibold leading-tight", isActive ? "text-white" : "text-[#e9edef]")}>
                         {title}
                       </span>
                       {isGroup && c.only_admins_can_post && (
-                        <Lock className="h-3 w-3 text-amber-400 shrink-0" title="Somente administradores podem falar" />
+                        <Lock className="h-3 w-3 text-amber-400 shrink-0" title="Somente admins" />
                       )}
                     </div>
 
-                    <span className="text-[10px] font-mono text-muted-foreground shrink-0">
+                    <span
+                      className={cn(
+                        "text-[11px] font-mono shrink-0",
+                        unread > 0 ? "text-[#25d366] font-bold" : "text-[#8696a0]"
+                      )}
+                    >
                       {formatTimeOnly(c.last_message_at)}
                     </span>
                   </div>
 
                   <div className="flex items-center justify-between gap-1">
-                    <p className="truncate text-[11px] text-muted-foreground leading-tight max-w-[190px] sm:max-w-[220px]">
+                    <p className="truncate text-xs text-[#8696a0] leading-tight flex items-center gap-1 max-w-[200px] sm:max-w-[230px]">
                       {c.last_message ? (
                         <span>{c.last_message}</span>
                       ) : (
@@ -597,21 +619,25 @@ export function ConversationList({
 
                     <div className="flex items-center gap-1 shrink-0">
                       {isMuted && (
-                        <VolumeX className="h-3 w-3 text-muted-foreground/70" title="Silenciado" />
+                        <VolumeX className="h-3.5 w-3.5 text-[#8696a0]" title="Silenciado" />
+                      )}
+
+                      {isPinned && (
+                        <Pin className="h-3.5 w-3.5 text-[#8696a0] fill-[#8696a0] rotate-45" title="Fixada" />
                       )}
 
                       {unread > 0 && (
-                        <span className="flex items-center justify-center min-w-4.5 h-4.5 px-1 rounded-full bg-primary text-primary-foreground font-black text-[10px] font-mono shadow-xs shrink-0 animate-pulse">
+                        <span className="flex items-center justify-center min-w-5 h-5 px-1.5 rounded-full bg-[#25d366] text-black font-black text-[11px] font-mono shadow-xs shrink-0">
                           {unread > 99 ? "99+" : unread}
                         </span>
                       )}
 
-                      {/* CONVERSATION ACTIONS DROPDOWN */}
+                      {/* CONTEXT MENU ON HOVER */}
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
                           <button
                             type="button"
-                            className="h-6 w-6 rounded-full opacity-0 group-hover:opacity-100 hover:bg-secondary flex items-center justify-center text-muted-foreground hover:text-foreground transition-opacity cursor-pointer"
+                            className="h-6 w-6 rounded-full opacity-0 group-hover:opacity-100 hover:bg-white/10 flex items-center justify-center text-[#8696a0] hover:text-white transition-opacity cursor-pointer"
                             title="Opções da conversa"
                           >
                             <MoreVertical className="h-3.5 w-3.5" />
@@ -619,78 +645,78 @@ export function ConversationList({
                         </DropdownMenuTrigger>
                         <DropdownMenuContent
                           align="end"
-                          className="w-48 text-xs bg-card/95 backdrop-blur-xl border border-border rounded-xl shadow-xl z-50"
+                          className="w-48 text-xs bg-[#233138] border border-white/10 text-white rounded-xl shadow-2xl p-1 z-50"
                         >
                           <DropdownMenuItem
                             onClick={(e) => handlePin(e, c)}
-                            className="cursor-pointer font-medium"
+                            className="cursor-pointer hover:bg-white/10 rounded-lg"
                           >
                             {isPinned ? (
                               <>
-                                <PinOff className="h-3.5 w-3.5 mr-2 text-primary" /> Desafixar Chat
+                                <PinOff className="h-3.5 w-3.5 mr-2 text-[#00a884]" /> Desafixar conversa
                               </>
                             ) : (
                               <>
-                                <Pin className="h-3.5 w-3.5 mr-2 text-primary" /> Fixar no Topo
+                                <Pin className="h-3.5 w-3.5 mr-2 text-[#00a884]" /> Fixar no topo
                               </>
                             )}
                           </DropdownMenuItem>
 
                           <DropdownMenuItem
                             onClick={(e) => handleToggleReadStatus(e, c)}
-                            className="cursor-pointer font-medium"
+                            className="cursor-pointer hover:bg-white/10 rounded-lg"
                           >
                             {unread > 0 ? (
                               <>
-                                <MailCheck className="h-3.5 w-3.5 mr-2 text-emerald-400" /> Marcar como Lido
+                                <MailCheck className="h-3.5 w-3.5 mr-2 text-[#00a884]" /> Marcar como lida
                               </>
                             ) : (
                               <>
-                                <Mail className="h-3.5 w-3.5 mr-2 text-amber-400" /> Marcar como Não Lido
+                                <Mail className="h-3.5 w-3.5 mr-2 text-amber-400" /> Marcar como não lida
                               </>
                             )}
                           </DropdownMenuItem>
 
                           <DropdownMenuItem
                             onClick={(e) => handleMute(e, c)}
-                            className="cursor-pointer font-medium"
+                            className="cursor-pointer hover:bg-white/10 rounded-lg"
                           >
                             {isMuted ? (
                               <>
-                                <Bell className="h-3.5 w-3.5 mr-2 text-emerald-400" /> Ativar Notificações
+                                <Bell className="h-3.5 w-3.5 mr-2 text-[#00a884]" /> Ativar notificações
                               </>
                             ) : (
                               <>
-                                <BellOff className="h-3.5 w-3.5 mr-2 text-muted-foreground" /> Silenciar Chat
+                                <BellOff className="h-3.5 w-3.5 mr-2 text-[#8696a0]" /> Silenciar conversa
                               </>
                             )}
                           </DropdownMenuItem>
 
                           <DropdownMenuItem
                             onClick={(e) => handleArchive(e, c)}
-                            className="cursor-pointer font-medium"
+                            className="cursor-pointer hover:bg-white/10 rounded-lg"
                           >
                             {isArchived ? (
                               <>
-                                <ArchiveRestore className="h-3.5 w-3.5 mr-2 text-primary" /> Desarquivar Chat
+                                <ArchiveRestore className="h-3.5 w-3.5 mr-2 text-[#00a884]" /> Desarquivar conversa
                               </>
                             ) : (
                               <>
-                                <Archive className="h-3.5 w-3.5 mr-2 text-muted-foreground" /> Arquivar Chat
+                                <Archive className="h-3.5 w-3.5 mr-2 text-[#8696a0]" /> Arquivar conversa
                               </>
                             )}
                           </DropdownMenuItem>
 
-                          <DropdownMenuSeparator />
+                          <DropdownMenuSeparator className="bg-white/10" />
 
                           <DropdownMenuItem
                             onClick={(e) => {
                               e.stopPropagation();
                               setConvToDelete(c);
                             }}
-                            className="cursor-pointer font-medium text-rose-400 focus:text-rose-400 focus:bg-rose-500/10"
+                            className="cursor-pointer hover:bg-rose-500/20 text-rose-400 rounded-lg font-bold"
                           >
-                            <Trash2 className="h-3.5 w-3.5 mr-2" /> Apagar Conversa
+                            <Trash2 className="h-3.5 w-3.5 mr-2" /> Apagar conversa
                           </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
@@ -708,41 +734,42 @@ export function ConversationList({
         open={Boolean(convToDelete)}
         onOpenChange={(open) => !open && setConvToDelete(null)}
       >
-        <AlertDialogContent className="max-w-md rounded-2xl">
+        <AlertDialogContent className="max-w-md rounded-2xl bg-[#233138] border border-white/10 text-white">
           <AlertDialogHeader>
-            <AlertDialogTitle className="text-base font-black flex items-center gap-2 text-rose-400">
+            <AlertDialogTitle className="text-base font-bold flex items-center gap-2 text-rose-400">
               <Trash2 className="h-4 w-4" />
               Apagar conversa?
             </AlertDialogTitle>
-            <AlertDialogDescription className="text-xs text-muted-foreground leading-relaxed">
+            <AlertDialogDescription className="text-xs text-[#8696a0] leading-relaxed">
               Você tem certeza de que deseja apagar a conversa com &quot;
-              <strong className="text-foreground">
+              <strong className="text-white">
                 {convToDelete?.type === "group"
                   ? convToDelete.title
                   : convToDelete?.other_participant?.nickname || convToDelete?.other_participant?.nome || "Membro"}
               </strong>
-              &quot;? As mensagens desta conversa deixarão de aparecer na sua lista.
+              &quot;?
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel className="text-xs rounded-xl">Cancelar</AlertDialogCancel>
+            <AlertDialogCancel className="text-xs rounded-xl bg-white/5 border-white/10 text-white hover:bg-white/10">
+              Cancelar
+            </AlertDialogCancel>
             <AlertDialogAction
               onClick={handleConfirmDeleteConversation}
               className="text-xs rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold"
             >
-              Sim, apagar conversa
+              Sim, apagar
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* DIÁLOGO DE CONFIGURAÇÃO DE SONS DO CHAT */}
+      {/* DIÁLOGOS DE SONS E PASTAS */}
       <ChatSoundSettingsDialog
         open={soundSettingsOpen}
         onOpenChange={setSoundSettingsOpen}
       />
 
-      {/* DIÁLOGO DE GERENCIAMENTO DE PASTAS */}
       <ManageFoldersDialog
         open={manageFoldersOpen}
         onOpenChange={setManageFoldersOpen}

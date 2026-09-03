@@ -1,6 +1,17 @@
 import { useState, useEffect } from "react";
 import { createFileRoute } from "@tanstack/react-router";
-import { MessageSquare, Users, Plus, Shield, Sparkles, MessageCircle, ArrowRight, Radio, Columns2, Maximize2 } from "lucide-react";
+import {
+  MessageSquare,
+  Users,
+  Plus,
+  Shield,
+  Sparkles,
+  MessageCircle,
+  Radio,
+  Lock,
+  Smartphone,
+  Laptop,
+} from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useRolePermissions } from "@/hooks/useData";
 import { useConversations } from "@/hooks/useChat";
@@ -31,7 +42,7 @@ function ChatPage() {
   const [activeConversation, setActiveConversation] = useState<ChatConversation | null>(null);
   const [createGroupOpen, setCreateGroupOpen] = useState(false);
 
-  // Configuração do modo de visualização: "split" (lado a lado) ou "focus" (entrar e voltar)
+  // Modo de visualização: "split" (lado a lado) ou "focus" (tela inteira)
   const [viewMode, setViewMode] = useState<"split" | "focus">(() => {
     if (typeof window !== "undefined") {
       return (localStorage.getItem("tw_chat_view_mode") as "split" | "focus") || "split";
@@ -58,7 +69,7 @@ function ChatPage() {
     refetch: refetchConversations,
   } = useConversations(activeConversation?.id);
 
-  // Sync active conversation when conversations update
+  // Sincroniza conversa ativa quando conversations atualizar
   useEffect(() => {
     if (activeConversation) {
       const updated = conversations.find((c) => c.id === activeConversation.id);
@@ -68,7 +79,6 @@ function ChatPage() {
     }
   }, [conversations]);
 
-  // Ensure window stays at the top of the page when opening a conversation
   useEffect(() => {
     window.scrollTo({ top: 0, left: 0, behavior: "instant" });
   }, [activeConversation?.id]);
@@ -96,16 +106,16 @@ function ChatPage() {
   const isSplitMode = viewMode === "split";
 
   return (
-    <div className="space-y-2.5 max-w-7xl mx-auto h-[calc(100dvh-5.5rem)] flex flex-col min-h-[500px]">
-      {/* MAIN CHAT CONTAINER */}
-      <Card className="flex-1 flex overflow-hidden border border-border/80 bg-card/95 backdrop-blur-2xl shadow-2xl rounded-2xl relative ring-1 ring-white/5">
+    <div className="space-y-2 max-w-7xl mx-auto h-[calc(100dvh-5.5rem)] flex flex-col min-h-[500px]">
+      {/* ─── WHATSAPP MAIN CONTAINER ─── */}
+      <Card className="flex-1 flex overflow-hidden border border-white/10 bg-[#111b21] shadow-2xl rounded-2xl relative">
         {/* LEFT SIDEBAR: CONVERSATION LIST */}
         <div
-          className={`border-r border-border/80 flex flex-col h-full bg-card/90 backdrop-blur-md shrink-0 transition-all ${
+          className={`border-r border-white/5 flex flex-col h-full bg-[#111b21] shrink-0 transition-all ${
             isSplitMode
               ? activeConversation
-                ? "hidden md:flex md:w-80 lg:w-[22rem]"
-                : "w-full md:w-80 lg:w-[22rem] flex"
+                ? "hidden md:flex md:w-80 lg:w-[24rem]"
+                : "w-full md:w-80 lg:w-[24rem] flex"
               : activeConversation
               ? "hidden"
               : "w-full flex"
@@ -128,9 +138,9 @@ function ChatPage() {
           />
         </div>
 
-        {/* RIGHT AREA: ACTIVE CHAT WINDOW OR EMPTY STATE */}
+        {/* RIGHT AREA: ACTIVE CHAT WINDOW OU EMPTY STATE WHATSAPP */}
         <div
-          className={`flex-1 flex flex-col h-full bg-card/60 overflow-hidden relative ${
+          className={`flex-1 flex flex-col h-full bg-[#0b141a] overflow-hidden relative ${
             isSplitMode
               ? !activeConversation
                 ? "hidden md:flex"
@@ -159,59 +169,46 @@ function ChatPage() {
               onToggleViewMode={handleToggleViewMode}
             />
           ) : (
-            <div className="flex flex-col items-center justify-center h-full p-8 text-center text-muted-foreground space-y-5 select-none relative overflow-hidden bg-gradient-to-b from-primary/5 via-card/50 to-background/80">
-              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-primary/10 rounded-full blur-3xl pointer-events-none" />
-
+            /* WHATSAPP WEB EMPTY STATE */
+            <div className="flex flex-col items-center justify-center h-full p-8 text-center text-[#8696a0] space-y-6 select-none relative overflow-hidden bg-[#222e35]/30">
               <div className="relative">
-                <div className="h-24 w-24 rounded-3xl bg-gradient-to-br from-primary/20 via-primary/10 to-transparent border border-primary/30 flex items-center justify-center text-primary shadow-2xl ring-8 ring-primary/5 backdrop-blur-md">
-                  <MessageSquare className="h-12 w-12 drop-shadow-md" />
+                <div className="h-28 w-28 rounded-full bg-[#202c33] border border-white/5 flex items-center justify-center text-[#00a884] shadow-2xl">
+                  <MessageSquare className="h-14 w-14" />
                 </div>
-                <span className="absolute -top-1 -right-1 flex h-5 w-5">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-                  <span className="relative inline-flex rounded-full h-5 w-5 bg-emerald-500 border-2 border-card shadow-sm" />
-                </span>
               </div>
 
               <div className="space-y-2 max-w-md z-10">
-                <div className="flex items-center justify-center gap-2">
-                  <Sparkles className="h-4 w-4 text-primary animate-pulse" />
-                  <h3 className="text-xl font-extrabold text-foreground tracking-tight">
-                    Central de Comunicação & Chat
-                  </h3>
-                </div>
-                <p className="text-xs text-muted-foreground leading-relaxed">
-                  Converse em tempo real com membros e canais da organização. Envie imagens, documentos, áudios e interaja instantaneamente.
+                <h3 className="text-2xl font-light text-[#e9edef] tracking-tight">
+                  Twin Wheels Web
+                </h3>
+                <p className="text-xs text-[#8696a0] leading-relaxed">
+                  Envie e receba mensagens em tempo real com membros da organização. Suporta fotos, áudios de voz, documentos e enquetes.
                 </p>
               </div>
 
-              <div className="flex items-center gap-2 z-10 pt-1">
-                {canCreateGroup && (
+              {canCreateGroup && (
+                <div className="flex items-center gap-2 z-10 pt-1">
                   <Button
                     type="button"
                     size="sm"
                     onClick={() => setCreateGroupOpen(true)}
-                    className="h-9 px-4 text-xs font-bold bg-primary hover:bg-primary/90 text-primary-foreground rounded-xl shadow-lg shadow-primary/20 cursor-pointer"
+                    className="h-9 px-4 text-xs font-bold bg-[#00a884] hover:bg-[#00a884]/90 text-white rounded-full shadow-lg cursor-pointer"
                   >
                     <Plus className="h-4 w-4 mr-1.5" /> Criar Novo Grupo
                   </Button>
-                )}
-              </div>
+                </div>
+              )}
 
-              <div className="flex items-center gap-4 text-[11px] text-muted-foreground/70 font-mono z-10 pt-4 border-t border-border/40">
-                <span className="flex items-center gap-1">
-                  <span className="h-2 w-2 rounded-full bg-emerald-400 inline-block" /> Criptografia ativa
-                </span>
-                <span>•</span>
-                <span className="flex items-center gap-1">
-                  <Radio className="h-3 w-3 text-primary animate-pulse inline-block" /> Realtime 0ms
-                </span>
+              <div className="flex items-center gap-2 text-[11px] text-[#8696a0] font-sans z-10 pt-8 mt-auto border-t border-white/5">
+                <Lock className="h-3.5 w-3.5 text-[#8696a0]" />
+                <span>Mensagens protegidas e sincronizadas em tempo real</span>
               </div>
             </div>
           )}
         </div>
       </Card>
 
-      {/* CREATE GROUP MODAL */}
+      {/* MODAL DE CRIAÇÃO DE GRUPO */}
       <CreateGroupDialog
         open={createGroupOpen}
         onOpenChange={setCreateGroupOpen}

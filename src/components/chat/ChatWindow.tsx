@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useLayoutEffect } from "react";
+import React, { useState, useRef, useEffect, useLayoutEffect, useMemo } from "react";
 import {
   ArrowLeft,
   Users,
@@ -26,6 +26,11 @@ import {
   Volume2,
   FolderArchive,
   Bell,
+  Image as ImageIcon,
+  MoreVertical,
+  Calendar,
+  ShieldAlert,
+  Timer,
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -40,8 +45,15 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/hooks/useAuth";
-import { useChatRoom } from "@/hooks/useChat";
+import { useChatRoom, useConversations } from "@/hooks/useChat";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   updateGroupSettings,
@@ -67,19 +79,11 @@ import { EphemeralSettingsDialog } from "./EphemeralSettingsDialog";
 import { ModerationToolsDialog } from "./ModerationToolsDialog";
 import { ReportMessageDialog } from "./ReportMessageDialog";
 import { MessageThreadDrawer } from "./MessageThreadDrawer";
-import { useConversations } from "@/hooks/useChat";
-import { formatTimeOnly, isTodayDate, isYesterdayDate, formatUserPresenceText } from "@/lib/format";
+import { WhatsAppWallpaperDialog } from "./WhatsAppWallpaperDialog";
+import { formatTimeOnly, formatUserPresenceText } from "@/lib/format";
 import { LEVEL_LABEL } from "@/lib/permissions";
 import { cn } from "@/lib/utils";
 import type { ChatConversation, ChatMessage } from "@/types/chat";
-import { Calendar, ShieldAlert, Timer, MoreVertical } from "lucide-react";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 
 interface ChatWindowProps {
   conversation: ChatConversation;
@@ -89,6 +93,18 @@ interface ChatWindowProps {
   onSelectConversation?: (targetConversation: ChatConversation) => void;
   viewMode?: "split" | "focus";
   onToggleViewMode?: (mode: "split" | "focus") => void;
+}
+
+function getDateLabel(dateStr: string) {
+  if (!dateStr) return "";
+  const d = new Date(dateStr);
+  const today = new Date();
+  const yesterday = new Date();
+  yesterday.setDate(yesterday.getDate() - 1);
+
+  if (d.toDateString() === today.toDateString()) return "HOJE";
+  if (d.toDateString() === yesterday.toDateString()) return "ONTEM";
+  return d.toLocaleDateString("pt-BR", { day: "numeric", month: "long", year: "numeric" }).toUpperCase();
 }
 
 export function ChatWindow({
@@ -136,8 +152,25 @@ export function ChatWindow({
   const [mediaGalleryOpen, setMediaGalleryOpen] = useState(false);
   const [reminderMessage, setReminderMessage] = useState<ChatMessage | null>(null);
   const [profileUserId, setProfileUserId] = useState<string | null>(null);
-  
-  // Estado de encaminhamento (único ou múltiplo)
+  const [wallpaperDialogOpen, setWallpaperDialogOpen] = useState(false);
+
+  // Tema de wallpaper do WhatsApp
+  const [wallpaperTheme, setWallpaperTheme] = useState<string>(() => {
+    if (typeof window !== "undefined") {
+      return localStorage.getItem("tw_chat_wallpaper_theme") || "default";
+    }
+    return "default";
+  });
+
+  useEffect(() => {
+    const handleWallpaperChange = (e: any) => {
+      if (e.detail?.theme) setWallpaperTheme(e.detail.theme);
+    };
+    window.addEventListener("tw_chat_wallpaper_change", handleWallpaperChange);
+    return () => window.removeEventListener("tw_chat_wallpaper_change", handleWallpaperChange);
+  }, []);
+
+  // Estado de encaminhamento
   const [forwardMessages, setForwardMessages] = useState<ChatMessage[] | null>(null);
 
   // Estado de seleção múltipla
@@ -219,7 +252,7 @@ export function ChatWindow({
   const handleToggleSave = async (messageId: string) => {
     try {
       const nextSaved = await toggleSaveChatMessage(messageId, conversation.id, currentUserId);
-      toast.success(nextSaved ? "Mensagem salva nos favoritos! ⭐" : "Mensagem removida dos favoritos.");
+      toast.success(nextSaved ? "Mensagem favoritada! ⭐" : "Mensagem removida dos favoritos.");
       queryClient.setQueryData<ChatMessage[]>(["chat_messages", conversation.id], (old = []) =>
         old.map((m) => (m.id === messageId ? { ...m, is_saved: nextSaved } : m))
       );
@@ -228,14 +261,13 @@ export function ChatWindow({
     }
   };
 
-  // Handler para atualização de enquete
+  // Handlers para enquete e evento
   const handlePollUpdated = (messageId: string, pollData: any) => {
     queryClient.setQueryData<ChatMessage[]>(["chat_messages", conversation.id], (old = []) =>
       old.map((m) => (m.id === messageId ? { ...m, poll_data: pollData } : m))
     );
   };
 
-  // Handler para atualização de evento
   const handleEventUpdated = (messageId: string, eventData: any) => {
     queryClient.setQueryData<ChatMessage[]>(["chat_messages", conversation.id], (old = []) =>
       old.map((m) => (m.id === messageId ? { ...m, event_data: eventData } : m))
@@ -249,7 +281,7 @@ export function ChatWindow({
   const isNearBottomRef = useRef(true);
   const prevLastMessageIdRef = useRef<string | null>(null);
 
-  // Auto-scroll to bottom inside the messages container (without scrolling the outer window)
+  // Auto-scroll to bottom inside container
   const scrollToBottom = (behavior: ScrollBehavior = "smooth") => {
     if (scrollContainerRef.current) {
       if (behavior === "auto") {
@@ -263,7 +295,6 @@ export function ChatWindow({
     }
   };
 
-  // Scroll no carregamento inicial da conversa
   useEffect(() => {
     if (isLoading) {
       isInitialLoadRef.current = true;
@@ -277,7 +308,6 @@ export function ChatWindow({
     }
   }, [conversation.id, isLoading]);
 
-  // Mantém a posição exata ao carregar mensagens antigas ou rola apenas em novas mensagens no fundo
   useLayoutEffect(() => {
     if (prevScrollHeightRef.current !== null && scrollContainerRef.current) {
       const currentScrollHeight = scrollContainerRef.current.scrollHeight;
@@ -286,12 +316,10 @@ export function ChatWindow({
       return;
     }
 
-    // Se uma nova mensagem foi adicionada no final da lista
     if (messages.length > 0) {
       const lastMsg = messages[messages.length - 1];
       if (lastMsg && lastMsg.id !== prevLastMessageIdRef.current) {
         prevLastMessageIdRef.current = lastMsg.id;
-        // Rola para baixo APENAS se a mensagem for enviada pelo próprio usuário OU se o usuário já estiver no final da tela
         if (lastMsg.is_self || isNearBottomRef.current) {
           scrollToBottom("smooth");
         }
@@ -304,26 +332,24 @@ export function ChatWindow({
     const distanceFromBottom = target.scrollHeight - target.scrollTop - target.clientHeight;
     isNearBottomRef.current = distanceFromBottom < 90;
 
-    // Carrega mensagens mais antigas quando o usuário rola perto do topo
     if (target.scrollTop < 80 && hasMore && !isLoadingMore && !isLoading && messages.length >= 20) {
       prevScrollHeightRef.current = target.scrollHeight;
       void loadMoreMessages();
     }
   };
 
-  // Scroll to a specific message
   const handleScrollToMessage = (messageId: string) => {
     const el = document.getElementById(`msg-${messageId}`);
     if (el) {
       el.scrollIntoView({ behavior: "smooth", block: "center" });
-      el.classList.add("ring-2", "ring-primary", "rounded-2xl");
+      el.classList.add("ring-2", "ring-[#00a884]", "rounded-lg");
       setTimeout(() => {
-        el.classList.remove("ring-2", "ring-primary");
+        el.classList.remove("ring-2", "ring-[#00a884]");
       }, 2000);
     }
   };
 
-  // Header display calculations & admin role verification
+  // Header display calculations
   const isGroup = conversation.type === "group";
   const isCreator = isGroup && conversation.created_by === currentUserId;
   const myParticipant = isGroup ? conversation.participants.find((p) => p.user_id === currentUserId) : null;
@@ -352,7 +378,6 @@ export function ChatWindow({
     const nextState = !conversation.only_admins_can_post;
     setTogglingLock(true);
 
-    // Optimistic update
     queryClient.setQueryData<ChatConversation[]>(["chat_conversations", currentUserId], (old = []) =>
       old.map((c) => (c.id === conversation.id ? { ...c, only_admins_can_post: nextState } : c))
     );
@@ -377,10 +402,19 @@ export function ChatWindow({
     }
   };
 
+  const bgThemeClass =
+    wallpaperTheme === "slate"
+      ? "theme-slate"
+      : wallpaperTheme === "emerald"
+      ? "theme-emerald"
+      : wallpaperTheme === "solid"
+      ? "theme-solid"
+      : "";
+
   return (
-    <div className="flex flex-col h-full w-full bg-card overflow-hidden select-none">
-      {/* HEADER */}
-      <div className="flex items-center justify-between p-2.5 sm:p-3 border-b border-border/80 bg-secondary/30 shrink-0">
+    <div className="flex flex-col h-full w-full bg-[#0b141a] overflow-hidden select-none relative">
+      {/* ─── WHATSAPP TOP HEADER BAR (#202c33) ─── */}
+      <div className="flex items-center justify-between p-2.5 sm:px-4 sm:py-2.5 bg-[#202c33] border-b border-white/5 shrink-0 z-20 shadow-md">
         <div className="flex items-center gap-2 min-w-0">
           <Button
             type="button"
@@ -388,12 +422,12 @@ export function ChatWindow({
             size="icon"
             onClick={onBack}
             className={cn(
-              "h-8 w-8 -ml-1 text-muted-foreground hover:text-foreground shrink-0 cursor-pointer",
+              "h-9 w-9 -ml-1 text-[#aebac1] hover:text-white hover:bg-white/10 rounded-full shrink-0 cursor-pointer",
               viewMode === "split" && Boolean(onToggleViewMode) && "md:hidden"
             )}
             title="Voltar para lista de conversas"
           >
-            <ArrowLeft className="h-4 w-4" />
+            <ArrowLeft className="h-5 w-5" />
           </Button>
 
           <div
@@ -404,12 +438,12 @@ export function ChatWindow({
                 setProfileUserId(otherMember.user_id);
               }
             }}
-            className="flex items-center gap-2.5 min-w-0 cursor-pointer group"
+            className="flex items-center gap-3 min-w-0 cursor-pointer group"
           >
             <div className="relative shrink-0">
-              <Avatar className="h-9 w-9 border border-border/80 shadow-xs group-hover:ring-1 group-hover:ring-primary transition-all">
+              <Avatar className="h-10 w-10 border border-white/10 shadow-xs group-hover:ring-2 group-hover:ring-[#00a884] transition-all">
                 {avatarUrl && <AvatarImage src={avatarUrl} alt={title} />}
-                <AvatarFallback className="bg-primary/10 text-primary text-xs font-bold">
+                <AvatarFallback className="bg-[#111b21] text-[#00a884] text-xs font-bold">
                   {isGroup ? <Users className="h-4 w-4" /> : initials}
                 </AvatarFallback>
               </Avatar>
@@ -417,8 +451,8 @@ export function ChatWindow({
               {!isGroup && (
                 <span
                   className={cn(
-                    "absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2 border-card",
-                    isOnline ? "bg-emerald-500 shadow-xs" : isAusente ? "bg-amber-500 animate-pulse" : "bg-zinc-500"
+                    "absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-[#202c33]",
+                    isOnline ? "bg-[#25d366]" : isAusente ? "bg-amber-500 animate-pulse" : "bg-zinc-500"
                   )}
                   title={isOnline ? "Online" : isAusente ? "Ausente" : "Offline"}
                 />
@@ -427,12 +461,12 @@ export function ChatWindow({
 
             <div className="min-w-0 space-y-0.5">
               <div className="flex items-center gap-1.5 min-w-0">
-                <h4 className="truncate font-extrabold text-xs text-foreground leading-tight group-hover:text-primary transition-colors">
+                <h4 className="truncate font-bold text-sm text-[#e9edef] leading-tight group-hover:text-[#00a884] transition-colors">
                   {title}
                 </h4>
                 {isGroup && conversation.only_admins_can_post && (
                   <Badge variant="outline" className="text-[8px] font-mono border-amber-500/40 text-amber-400 bg-amber-500/10 px-1 py-0 font-bold shrink-0">
-                    <Lock className="h-2.5 w-2.5 mr-0.5 inline" /> Somente Admins
+                    <Lock className="h-2.5 w-2.5 mr-0.5 inline" /> Admins
                   </Badge>
                 )}
                 {!isGroup && otherMember?.is_developer && (
@@ -442,32 +476,30 @@ export function ChatWindow({
                 )}
               </div>
 
-              <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground leading-none font-mono flex-wrap">
+              <div className="flex items-center gap-1.5 text-[11px] text-[#8696a0] leading-none font-sans truncate">
                 {isGroup ? (
-                  <span>{conversation.participants.length} participantes</span>
+                  <span>
+                    {conversation.participants.map((p) => p.profile?.nickname || p.profile?.nome || "Membro").slice(0, 4).join(", ")}
+                    {conversation.participants.length > 4 && ` e mais ${conversation.participants.length - 4}`}
+                  </span>
                 ) : (
                   <>
                     <span
                       className={cn(
-                        "font-bold flex items-center gap-1",
-                        isOnline ? "text-emerald-400" : isAusente ? "text-amber-400" : "text-zinc-400"
+                        "flex items-center gap-1 font-medium",
+                        isOnline ? "text-[#00a884] font-bold" : "text-[#8696a0]"
                       )}
                     >
-                      ● {formatUserPresenceText(
+                      {formatUserPresenceText(
                         otherMember?.presence_status,
                         otherMember?.last_seen,
                         otherMember?.presence_updated_at || otherMember?.updated_at
                       )}
                     </span>
                     {otherMember?.game_id && (
-                      <span className="text-foreground/80 font-bold">
+                      <span className="text-white/60 font-mono text-[10px]">
                         #{otherMember.game_id}
                       </span>
-                    )}
-                    {memberNivelLabel && (
-                      <Badge variant="secondary" className="text-[9px] px-1.5 py-0 font-normal">
-                        {memberNivelLabel}
-                      </Badge>
                     )}
                   </>
                 )}
@@ -476,7 +508,7 @@ export function ChatWindow({
           </div>
         </div>
 
-        {/* HEADER ACTIONS */}
+        {/* ─── HEADER ACTIONS WHATSAPP STYLE ─── */}
         <div className="flex items-center gap-1 shrink-0">
           {isGroup && isGroupAdmin && (
             <Button
@@ -486,16 +518,12 @@ export function ChatWindow({
               onClick={handleQuickToggleOnlyAdmins}
               disabled={togglingLock}
               className={cn(
-                "h-8 px-2 text-[11px] font-bold rounded-lg cursor-pointer transition-all flex items-center gap-1.5 mr-1",
+                "h-8 px-2 text-[11px] font-bold rounded-lg cursor-pointer transition-all flex items-center gap-1 mr-1",
                 conversation.only_admins_can_post
-                  ? "text-amber-400 bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30"
-                  : "text-muted-foreground hover:text-foreground hover:bg-secondary border border-transparent"
+                  ? "text-amber-400 bg-amber-500/15 border border-amber-500/30"
+                  : "text-[#aebac1] hover:text-white hover:bg-white/10"
               )}
-              title={
-                conversation.only_admins_can_post
-                  ? "Clique para liberar o chat para todos os membros"
-                  : "Clique para permitir envio de mensagens somente por administradores"
-              }
+              title={conversation.only_admins_can_post ? "Chat fechado (somente admins)" : "Chat aberto para todos"}
             >
               {togglingLock ? (
                 <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -506,139 +534,114 @@ export function ChatWindow({
                 </>
               ) : (
                 <>
-                  <Unlock className="h-3.5 w-3.5 text-muted-foreground" />
+                  <Unlock className="h-3.5 w-3.5 text-[#aebac1]" />
                   <span className="hidden sm:inline">Chat Livre</span>
                 </>
               )}
             </Button>
           )}
 
-          {/* LAYOUT MODE TOGGLE (SPLIT VS FOCUS) */}
-          {onToggleViewMode && (
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              onClick={() => onToggleViewMode(viewMode === "split" ? "focus" : "split")}
-              className="h-8 w-8 text-muted-foreground hover:text-foreground hover:bg-secondary rounded-lg cursor-pointer hidden sm:flex"
-              title={
-                viewMode === "split"
-                  ? "Modo Dividido ativo (clique para alternar para Modo Foco em tela cheia)"
-                  : "Modo Foco ativo (clique para alternar para Modo Dividido lado a lado)"
-              }
-            >
-              {viewMode === "split" ? (
-                <Columns2 className="h-4 w-4 text-primary" />
-              ) : (
-                <Maximize2 className="h-4 w-4 text-muted-foreground" />
-              )}
-            </Button>
-          )}
-
-          {/* CRIAR EVENTO */}
+          {/* BUSCA NA CONVERSA */}
           <Button
             type="button"
             variant="ghost"
             size="icon"
-            onClick={() => setCreateEventOpen(true)}
-            className="h-8 w-8 text-muted-foreground hover:text-foreground hover:bg-secondary rounded-lg cursor-pointer"
-            title="Criar Evento / Ação"
+            onClick={() => setSearchOpen(true)}
+            className="h-9 w-9 text-[#aebac1] hover:text-white hover:bg-white/10 rounded-full cursor-pointer"
+            title="Pesquisar mensagens"
           >
-            <Calendar className="h-4 w-4 text-emerald-400" />
+            <Search className="h-4 w-4" />
           </Button>
 
-          {/* CRIAR ENQUETE */}
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            onClick={() => setCreatePollOpen(true)}
-            className="h-8 w-8 text-muted-foreground hover:text-foreground hover:bg-secondary rounded-lg cursor-pointer"
-            title="Criar Enquete"
-          >
-            <Vote className="h-4 w-4 text-primary" />
-          </Button>
-
-          {/* CENTRAL DE MÍDIA E ARQUIVOS */}
+          {/* CENTRAL DE MÍDIA */}
           <Button
             type="button"
             variant="ghost"
             size="icon"
             onClick={() => setMediaGalleryOpen(true)}
-            className="h-8 w-8 text-muted-foreground hover:text-foreground hover:bg-secondary rounded-lg cursor-pointer"
-            title="Central de Mídia e Arquivos"
+            className="h-9 w-9 text-[#aebac1] hover:text-white hover:bg-white/10 rounded-full cursor-pointer"
+            title="Mídias, links e documentos"
           >
             <FolderArchive className="h-4 w-4" />
           </Button>
 
-          {/* SILENCIAR NOTIFICAÇÕES */}
+          {/* SILENCIAR */}
           <Button
             type="button"
             variant="ghost"
             size="icon"
             onClick={() => setMuteDialogOpen(true)}
             className={cn(
-              "h-8 w-8 rounded-lg cursor-pointer transition-colors",
+              "h-9 w-9 rounded-full cursor-pointer transition-colors",
               conversation.is_muted
-                ? "text-amber-400 hover:text-amber-300 bg-amber-500/10 hover:bg-amber-500/20"
-                : "text-muted-foreground hover:text-foreground hover:bg-secondary"
+                ? "text-amber-400 bg-amber-500/10 hover:bg-amber-500/20"
+                : "text-[#aebac1] hover:text-white hover:bg-white/10"
             )}
-            title={conversation.is_muted ? "Conversa Silenciada (clique para gerenciar)" : "Silenciar Notificações"}
+            title={conversation.is_muted ? "Silenciado" : "Silenciar notificações"}
           >
             {conversation.is_muted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
           </Button>
 
-          {/* MENSAGENS SALVAS */}
+          {/* PAPEL DE PAREDE WHATSAPP */}
           <Button
             type="button"
             variant="ghost"
             size="icon"
-            onClick={() => setSavedMessagesOpen(true)}
-            className="h-8 w-8 text-amber-400 hover:text-amber-300 hover:bg-amber-500/10 rounded-lg cursor-pointer"
-            title="Mensagens Salvas & Favoritos"
+            onClick={() => setWallpaperDialogOpen(true)}
+            className="h-9 w-9 text-[#aebac1] hover:text-white hover:bg-white/10 rounded-full cursor-pointer"
+            title="Mudar papel de parede"
           >
-            <Star className="h-4 w-4 fill-amber-400/40" />
+            <ImageIcon className="h-4 w-4 text-[#00a884]" />
           </Button>
 
-          {/* MENU DE OPÇÕES AVANÇADAS DA CONVERSA */}
+          {/* MENU 3-PONTOS WHATSAPP */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button
                 type="button"
                 variant="ghost"
                 size="icon"
-                className="h-8 w-8 text-muted-foreground hover:text-foreground hover:bg-secondary rounded-lg cursor-pointer"
-                title="Mais opções da conversa"
+                className="h-9 w-9 text-[#aebac1] hover:text-white hover:bg-white/10 rounded-full cursor-pointer"
+                title="Mais opções"
               >
                 <MoreVertical className="h-4 w-4" />
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-56 text-xs rounded-xl">
-              <DropdownMenuItem onClick={() => setSearchOpen(true)} className="cursor-pointer">
-                <Search className="h-3.5 w-3.5 mr-2 text-primary" /> Buscar Mensagens
+            <DropdownMenuContent align="end" className="w-56 text-xs bg-[#233138] border border-white/10 text-white rounded-xl shadow-2xl p-1">
+              <DropdownMenuItem
+                onClick={() => {
+                  if (isGroup) setGroupSettingsOpen(true);
+                  else if (otherMember) setProfileUserId(otherMember.user_id);
+                }}
+                className="cursor-pointer hover:bg-white/10 rounded-lg"
+              >
+                <Info className="h-3.5 w-3.5 mr-2 text-[#00a884]" />
+                {isGroup ? "Dados do grupo" : "Dados do contato"}
               </DropdownMenuItem>
 
-              <DropdownMenuItem onClick={() => setCreateEventOpen(true)} className="cursor-pointer">
-                <Calendar className="h-3.5 w-3.5 mr-2 text-emerald-400" /> Agendar Evento
+              <DropdownMenuItem onClick={() => setSavedMessagesOpen(true)} className="cursor-pointer hover:bg-white/10 rounded-lg">
+                <Star className="h-3.5 w-3.5 mr-2 text-amber-400" /> Mensagens favoritas
               </DropdownMenuItem>
 
-              <DropdownMenuItem onClick={() => setEphemeralSettingsOpen(true)} className="cursor-pointer">
-                <Timer className="h-3.5 w-3.5 mr-2 text-rose-400" /> Mensagens Temporárias
+              <DropdownMenuItem onClick={() => setCreateEventOpen(true)} className="cursor-pointer hover:bg-white/10 rounded-lg">
+                <Calendar className="h-3.5 w-3.5 mr-2 text-emerald-400" /> Agendar evento
+              </DropdownMenuItem>
+
+              <DropdownMenuItem onClick={() => setCreatePollOpen(true)} className="cursor-pointer hover:bg-white/10 rounded-lg">
+                <Vote className="h-3.5 w-3.5 mr-2 text-yellow-400" /> Criar enquete
+              </DropdownMenuItem>
+
+              <DropdownMenuItem onClick={() => setEphemeralSettingsOpen(true)} className="cursor-pointer hover:bg-white/10 rounded-lg">
+                <Timer className="h-3.5 w-3.5 mr-2 text-rose-400" /> Mensagens temporárias
               </DropdownMenuItem>
 
               {isGroup && isGroupAdmin && (
                 <>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={() => setModerationOpen(true)} className="cursor-pointer text-amber-400 font-bold">
-                    <ShieldAlert className="h-3.5 w-3.5 mr-2 text-amber-400" /> Moderação do Chat
+                  <DropdownMenuSeparator className="bg-white/10" />
+                  <DropdownMenuItem onClick={() => setModerationOpen(true)} className="cursor-pointer hover:bg-amber-500/20 text-amber-400 rounded-lg font-bold">
+                    <ShieldAlert className="h-3.5 w-3.5 mr-2" /> Moderação do chat
                   </DropdownMenuItem>
                 </>
-              )}
-
-              {isGroup && (
-                <DropdownMenuItem onClick={() => setGroupSettingsOpen(true)} className="cursor-pointer">
-                  <Settings className="h-3.5 w-3.5 mr-2" /> Dados e Membros do Grupo
-                </DropdownMenuItem>
               )}
             </DropdownMenuContent>
           </DropdownMenu>
@@ -653,69 +656,88 @@ export function ChatWindow({
         canManagePin={isGroupAdmin || !isGroup}
       />
 
-      {/* MESSAGES SCROLL CONTAINER */}
+      {/* ─── WHATSAPP CHAT WALLPAPER & MESSAGES SCROLL CONTAINER ─── */}
       <div
         ref={scrollContainerRef}
         onScroll={handleScroll}
-        className="flex-1 overflow-y-auto p-2.5 sm:p-3 space-y-2 select-text custom-scrollbar-thin"
+        className={cn(
+          "flex-1 overflow-y-auto p-3 sm:p-4 space-y-2 select-text custom-scrollbar-thin whatsapp-chat-bg",
+          bgThemeClass
+        )}
       >
-        {/* INDICADOR DE CARREGAMENTO DE MENSAGENS ANTERIORES NO TOPO */}
+        {/* CARREGAMENTO DE MENSAGENS ANTERIORES NO TOPO */}
         {isLoadingMore && (
-          <div className="flex items-center justify-center py-2 gap-2 text-[11px] text-muted-foreground animate-pulse">
-            <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />
+          <div className="flex items-center justify-center py-2 gap-2 text-[11px] text-[#8696a0] animate-pulse">
+            <Loader2 className="h-3.5 w-3.5 animate-spin text-[#00a884]" />
             <span>Carregando histórico anterior...</span>
           </div>
         )}
 
         {!hasMore && messages.length >= 20 && (
-          <div className="flex items-center justify-center py-2 text-[10px] text-muted-foreground/60 font-mono select-none">
+          <div className="flex items-center justify-center py-2 text-[10px] text-[#8696a0]/70 font-mono select-none">
             ✦ Início do histórico da conversa ✦
           </div>
         )}
 
         {isLoading ? (
-          <div className="flex flex-col items-center justify-center h-full gap-2 text-muted-foreground text-xs">
-            <Loader2 className="h-6 w-6 animate-spin text-primary" />
+          <div className="flex flex-col items-center justify-center h-full gap-2 text-[#8696a0] text-xs">
+            <Loader2 className="h-6 w-6 animate-spin text-[#00a884]" />
             <span>Carregando histórico...</span>
           </div>
         ) : messages.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-full text-center p-6 text-muted-foreground space-y-2 select-none">
-            <span className="text-3xl">💬</span>
-            <p className="text-sm font-bold text-foreground">Nenhuma mensagem ainda</p>
+          <div className="flex flex-col items-center justify-center h-full text-center p-6 text-[#8696a0] space-y-2 select-none">
+            <span className="text-4xl">💬</span>
+            <p className="text-sm font-bold text-[#e9edef]">Nenhuma mensagem ainda</p>
             <p className="text-xs max-w-xs">
-              Envie uma mensagem de texto, foto, áudio ou crie um evento para iniciar a conversa!
+              Envie uma mensagem de texto, foto, áudio de voz ou crie uma enquete para começar!
             </p>
           </div>
         ) : (
-          messages.map((m) => {
+          messages.map((m, idx) => {
             const isSelf = m.sender_id === currentUserId || m.is_self;
+            const prevMsg = idx > 0 ? messages[idx - 1] : null;
+
+            // Identifica se a data mudou para exibir a pílula de data estilo WhatsApp
+            const currentDateLabel = getDateLabel(m.created_at);
+            const prevDateLabel = prevMsg ? getDateLabel(prevMsg.created_at) : null;
+            const showDateHeader = currentDateLabel !== prevDateLabel;
 
             return (
-              <MessageBubble
-                key={m.id}
-                message={m}
-                isSelf={Boolean(isSelf)}
-                isGroup={isGroup}
-                userRole={effectiveUserRole}
-                currentUserId={currentUserId}
-                isSelectionMode={isSelectionMode}
-                isSelected={selectedMessageIds.has(m.id)}
-                onToggleSelect={toggleSelectMessage}
-                onReply={(msg) => setReplyingTo(msg)}
-                onOpenThread={(msg) => setThreadMessage(msg)}
-                onReportMessage={(msg) => setReportedMessage(msg)}
-                onForward={(msg) => setForwardMessages([msg])}
-                onPin={handleTogglePin}
-                onSave={handleToggleSave}
-                onReminder={(msg) => setReminderMessage(msg)}
-                onPollUpdated={handlePollUpdated}
-                onEventUpdated={handleEventUpdated}
-                onReact={(msgId, emoji) => toggleReaction(msgId, emoji)}
-                onEdit={(msgId, content) => editMessage(msgId, content)}
-                onDelete={(msgId, forEveryone) => deleteMessage(msgId, forEveryone)}
-                onScrollToMessage={handleScrollToMessage}
-                onOpenProfile={(uid) => setProfileUserId(uid)}
-              />
+              <React.Fragment key={m.id}>
+                {showDateHeader && (
+                  <div className="flex items-center justify-center my-3 sticky top-2 z-10 select-none">
+                    <span className="px-3 py-1 rounded-lg bg-[#182229]/90 border border-white/5 text-[#8696a0] text-[11px] font-bold shadow-md uppercase tracking-wider backdrop-blur-md">
+                      {currentDateLabel}
+                    </span>
+                  </div>
+                )}
+
+                <MessageBubble
+                  message={m}
+                  isSelf={Boolean(isSelf)}
+                  isGroup={isGroup}
+                  userRole={effectiveUserRole}
+                  currentUserId={currentUserId}
+                  isSelectionMode={isSelectionMode}
+                  isSelected={selectedMessageIds.has(m.id)}
+                  allMediaMessages={messages}
+                  onToggleSelect={toggleSelectMessage}
+                  onReply={(msg) => setReplyingTo(msg)}
+                  onOpenThread={(msg) => setThreadMessage(msg)}
+                  onReportMessage={(msg) => setReportedMessage(msg)}
+                  onForward={(msg) => setForwardMessages([msg])}
+                  onPin={handleTogglePin}
+                  onSave={handleToggleSave}
+                  onReminder={(msg) => setReminderMessage(msg)}
+                  onPollUpdated={handlePollUpdated}
+                  onEventUpdated={handleEventUpdated}
+                  onReact={(msgId, emoji) => toggleReaction(msgId, emoji)}
+                  onEdit={(msgId, content) => editMessage(msgId, content)}
+                  onDelete={(msgId, forEveryone) => deleteMessage(msgId, forEveryone)}
+                  onScrollToMessage={handleScrollToMessage}
+                  onOpenProfile={(uid) => setProfileUserId(uid)}
+                />
+              </React.Fragment>
             );
           })
         )}
@@ -726,11 +748,11 @@ export function ChatWindow({
         <div ref={messagesEndRef} />
       </div>
 
-      {/* MULTI-SELECTION ACTION BAR OU MESSAGE INPUT */}
+      {/* ─── BARRA INFERIOR: SELEÇÃO MÚLTIPLA OU INPUT WHATSAPP ─── */}
       {isSelectionMode ? (
-        <div className="p-3 border-t border-border/80 bg-card/95 backdrop-blur-xl flex items-center justify-between gap-2 animate-in slide-in-from-bottom-2 duration-200">
+        <div className="p-3 bg-[#202c33] border-t border-white/10 flex items-center justify-between gap-2 animate-in slide-in-from-bottom-2 duration-150">
           <div className="flex items-center gap-2">
-            <Badge className="bg-primary text-primary-foreground font-black px-2.5 py-1 text-xs">
+            <Badge className="bg-[#00a884] text-white font-bold px-2.5 py-1 text-xs">
               {selectedMessageIds.size} selecionada{selectedMessageIds.size > 1 ? "s" : ""}
             </Badge>
             <Button
@@ -738,7 +760,7 @@ export function ChatWindow({
               variant="ghost"
               size="sm"
               onClick={selectAllMessages}
-              className="h-8 text-xs font-bold rounded-xl hidden sm:inline-flex"
+              className="h-8 text-xs font-bold text-white hover:bg-white/10 rounded-lg hidden sm:inline-flex"
             >
               {selectedMessageIds.size === messages.length ? "Desmarcar tudo" : "Selecionar tudo"}
             </Button>
@@ -747,26 +769,24 @@ export function ChatWindow({
           <div className="flex items-center gap-1.5">
             <Button
               type="button"
-              variant="secondary"
+              variant="ghost"
               size="sm"
               onClick={handleBatchCopy}
-              className="h-8 px-2.5 text-xs font-bold rounded-xl gap-1"
-              title="Copiar selecionadas"
+              className="h-8 text-xs font-bold text-white hover:bg-white/10 rounded-lg"
+              title="Copiar mensagens"
             >
-              <Copy className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline">Copiar</span>
+              <Copy className="h-3.5 w-3.5 mr-1" /> Copiar
             </Button>
 
             <Button
               type="button"
-              variant="default"
+              variant="ghost"
               size="sm"
               onClick={handleBatchForward}
-              className="h-8 px-3 text-xs font-bold rounded-xl gap-1 shadow-md shadow-primary/20"
-              title="Encaminhar selecionadas"
+              className="h-8 text-xs font-bold text-white hover:bg-white/10 rounded-lg"
+              title="Encaminhar mensagens"
             >
-              <Forward className="h-3.5 w-3.5" />
-              <span>Encaminhar ({selectedMessageIds.size})</span>
+              <Forward className="h-3.5 w-3.5 mr-1 text-[#53bdeb]" /> Encaminhar
             </Button>
 
             <Button
@@ -774,11 +794,10 @@ export function ChatWindow({
               variant="destructive"
               size="sm"
               onClick={() => setBatchDeleteModalOpen(true)}
-              className="h-8 px-2.5 text-xs font-bold rounded-xl gap-1"
-              title="Apagar selecionadas"
+              className="h-8 text-xs font-bold bg-rose-600 hover:bg-rose-700 text-white rounded-lg"
+              title="Apagar mensagens"
             >
-              <Trash2 className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline">Apagar</span>
+              <Trash2 className="h-3.5 w-3.5 mr-1" /> Apagar
             </Button>
 
             <Button
@@ -786,7 +805,7 @@ export function ChatWindow({
               variant="ghost"
               size="icon"
               onClick={clearSelection}
-              className="h-8 w-8 rounded-xl text-muted-foreground hover:text-foreground"
+              className="h-8 w-8 text-[#8696a0] hover:text-white rounded-full cursor-pointer ml-1"
               title="Cancelar seleção"
             >
               <X className="h-4 w-4" />
@@ -794,153 +813,59 @@ export function ChatWindow({
           </div>
         </div>
       ) : (
-        /* MESSAGE INPUT COMPONENT */
         <MessageInput
-          onSendMessage={async (text) => {
-            await sendMessage(text);
-            scrollToBottom();
-            onConversationUpdated?.();
-          }}
+          onSendMessage={sendMessage}
           onSendAttachment={async (file, caption) => {
             await sendAttachment(file, caption);
-            scrollToBottom();
-            onConversationUpdated?.();
           }}
-          onTyping={sendTypingNotification}
+          onTyping={() => sendTypingNotification()}
           replyingTo={replyingTo}
           onCancelReply={() => setReplyingTo(null)}
           uploadProgress={uploadProgress}
           isSending={isSending}
           disabled={isLoading}
-          onlyAdminsCanPost={Boolean(conversation.only_admins_can_post)}
+          onlyAdminsCanPost={conversation.only_admins_can_post}
           userRole={effectiveUserRole}
+          onOpenPollDialog={() => setCreatePollOpen(true)}
+          onOpenEventDialog={() => setCreateEventOpen(true)}
         />
       )}
 
-      {/* GROUP SETTINGS DRAWER / DIALOG */}
-      {isGroup && (
-        <GroupSettingsDrawer
-          open={groupSettingsOpen}
-          onOpenChange={setGroupSettingsOpen}
-          conversation={conversation}
-          onConversationUpdated={() => {
-            onConversationUpdated?.();
-          }}
-          onLeaveGroup={onBack}
-          onOpenProfile={(uid) => setProfileUserId(uid)}
-        />
-      )}
-
-      {/* SEARCH IN CONVERSATION DIALOG */}
-      <ChatSearchDialog
-        open={searchOpen}
-        onOpenChange={setSearchOpen}
-        messages={messages}
-        onSelectMessage={handleScrollToMessage}
+      {/* DIÁLOGOS & DRAWERS */}
+      <WhatsAppWallpaperDialog
+        open={wallpaperDialogOpen}
+        onOpenChange={setWallpaperDialogOpen}
+        currentTheme={wallpaperTheme}
+        onThemeChange={setWallpaperTheme}
       />
 
-      {/* FORWARD MESSAGE DIALOG */}
-      <ForwardMessageDialog
-        open={Boolean(forwardMessages && forwardMessages.length > 0)}
-        onOpenChange={(op) => !op && setForwardMessages(null)}
-        messages={forwardMessages}
-        conversations={allConversations}
-        currentUserId={currentUserId}
-        onSuccess={() => onConversationUpdated?.()}
-        onForwardSuccess={(targetConv) => {
-          setForwardMessages(null);
-          clearSelection();
-          onSelectConversation?.(targetConv);
-        }}
+      <GroupSettingsDrawer
+        open={groupSettingsOpen}
+        onOpenChange={setGroupSettingsOpen}
+        conversation={conversation}
+        onConversationUpdated={onConversationUpdated}
+        onLeaveGroup={onBack}
+        onOpenProfile={(uid) => setProfileUserId(uid)}
       />
 
-      {/* BATCH DELETE CONFIRMATION DIALOG */}
-      <AlertDialog open={batchDeleteModalOpen} onOpenChange={setBatchDeleteModalOpen}>
-        <AlertDialogContent className="max-w-md rounded-2xl">
-          <AlertDialogHeader>
-            <AlertDialogTitle className="text-base font-black">
-              Apagar {selectedMessageIds.size} mensagem{selectedMessageIds.size > 1 ? "s" : ""}?
-            </AlertDialogTitle>
-            <AlertDialogDescription className="text-xs text-muted-foreground">
-              Escolha como deseja excluir as mensagens selecionadas:
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter className="flex-col sm:flex-row gap-2">
-            <AlertDialogCancel className="rounded-xl text-xs">Cancelar</AlertDialogCancel>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => handleBatchDelete(false)}
-              className="rounded-xl text-xs cursor-pointer"
-            >
-              Apagar para mim ({selectedMessageIds.size})
-            </Button>
-            <Button
-              type="button"
-              variant="destructive"
-              size="sm"
-              onClick={() => handleBatchDelete(true)}
-              className="rounded-xl text-xs font-bold cursor-pointer"
-            >
-              Apagar para todos ({selectedMessageIds.size})
-            </Button>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      {/* USER PROFILE MODAL */}
       <UserProfileDrawer
-        userId={profileUserId}
         open={Boolean(profileUserId)}
-        onOpenChange={(op) => !op && setProfileUserId(null)}
-        onStartChat={(uid) => {
+        onOpenChange={(open) => !open && setProfileUserId(null)}
+        userId={profileUserId}
+        onStartPrivateChat={(uid) => {
           setProfileUserId(null);
           onStartPrivateChat?.(uid);
         }}
       />
 
-      {/* CRIAR ENQUETE MODAL */}
-      <CreatePollDialog
-        open={createPollOpen}
-        onOpenChange={setCreatePollOpen}
-        conversationId={conversation.id}
-        currentUserId={currentUserId}
-        currentUserName={user?.user_metadata?.custom_claims?.global_name || user?.email || "Membro"}
-        onSuccess={() => onConversationUpdated?.()}
-      />
-
-      {/* MENSAGENS SALVAS DRAWER */}
-      <SavedMessagesDrawer
-        open={savedMessagesOpen}
-        onOpenChange={setSavedMessagesOpen}
-        currentUserId={currentUserId}
-        conversations={allConversations}
-        onNavigateToMessage={(convId, msgId) => {
-          if (convId === conversation.id) {
-            handleScrollToMessage(msgId);
-          } else {
-            const target = allConversations.find((c) => c.id === convId);
-            if (target && onSelectConversation) {
-              onSelectConversation(target);
-              setTimeout(() => handleScrollToMessage(msgId), 300);
-            }
-          }
-        }}
-      />
-
-      {/* SILENCIAR NOTIFICAÇÕES MODAL */}
-      <MuteConversationDialog
-        open={muteDialogOpen}
-        onOpenChange={setMuteDialogOpen}
+      <ChatSearchDialog
+        open={searchOpen}
+        onOpenChange={setSearchOpen}
         conversationId={conversation.id}
         conversationTitle={title}
-        isMuted={Boolean(conversation.is_muted)}
-        currentUserId={currentUserId}
-        onSuccess={() => onConversationUpdated?.()}
+        onSelectMessage={handleScrollToMessage}
       />
 
-      {/* CENTRAL DE MÍDIA E ARQUIVOS DRAWER */}
       <ChatMediaGalleryDrawer
         open={mediaGalleryOpen}
         onOpenChange={setMediaGalleryOpen}
@@ -949,64 +874,125 @@ export function ChatWindow({
         onSelectMessage={handleScrollToMessage}
       />
 
-      {/* CRIAR LEMBRETE MODAL */}
-      <CreateReminderDialog
-        open={Boolean(reminderMessage)}
-        onOpenChange={(op) => !op && setReminderMessage(null)}
-        message={reminderMessage}
+      <CreatePollDialog
+        open={createPollOpen}
+        onOpenChange={setCreatePollOpen}
         conversationId={conversation.id}
-        currentUserId={currentUserId}
-        onSuccess={() => onConversationUpdated?.()}
       />
 
-      {/* CRIAR EVENTO MODAL */}
       <CreateEventDialog
         open={createEventOpen}
         onOpenChange={setCreateEventOpen}
         conversationId={conversation.id}
-        currentUserId={currentUserId}
-        currentUserName={user?.user_metadata?.custom_claims?.global_name || user?.email || "Membro"}
-        onSuccess={() => onConversationUpdated?.()}
       />
 
-      {/* MENSAGENS TEMPORÁRIAS MODAL */}
+      <ForwardMessageDialog
+        open={Boolean(forwardMessages && forwardMessages.length > 0)}
+        onOpenChange={(open) => !open && setForwardMessages(null)}
+        messages={forwardMessages || []}
+        allConversations={allConversations}
+        onForwarded={() => {
+          setForwardMessages(null);
+          clearSelection();
+        }}
+      />
+
       <EphemeralSettingsDialog
         open={ephemeralSettingsOpen}
         onOpenChange={setEphemeralSettingsOpen}
         conversationId={conversation.id}
-        conversationTitle={title}
-        currentTtlHours={conversation.ephemeral_ttl_hours || 0}
-        currentUserId={currentUserId}
-        onSuccess={() => onConversationUpdated?.()}
+        currentTtlHours={conversation.ephemeral_ttl_hours}
+        canManage={effectiveUserRole === "admin"}
+        onSettingsUpdated={onConversationUpdated}
       />
 
-      {/* FERRAMENTAS DE MODERAÇÃO */}
+      <MuteConversationDialog
+        open={muteDialogOpen}
+        onOpenChange={setMuteDialogOpen}
+        conversationId={conversation.id}
+        conversationTitle={title}
+        isCurrentlyMuted={Boolean(conversation.is_muted)}
+        onMuteUpdated={onConversationUpdated}
+      />
+
+      <SavedMessagesDrawer
+        open={savedMessagesOpen}
+        onOpenChange={setSavedMessagesOpen}
+        onSelectSavedMessage={(saved) => {
+          if (saved.conversation_id === conversation.id) {
+            handleScrollToMessage(saved.message_id);
+          } else {
+            const target = allConversations.find((c) => c.id === saved.conversation_id);
+            if (target) {
+              onSelectConversation?.(target);
+            }
+          }
+        }}
+      />
+
+      <CreateReminderDialog
+        open={Boolean(reminderMessage)}
+        onOpenChange={(open) => !open && setReminderMessage(null)}
+        message={reminderMessage}
+      />
+
       <ModerationToolsDialog
         open={moderationOpen}
         onOpenChange={setModerationOpen}
         conversation={conversation}
-        currentUserId={currentUserId}
-        onActionComplete={() => onConversationUpdated?.()}
+        onMembersUpdated={onConversationUpdated}
       />
 
-      {/* DENUNCIAR MENSAGEM */}
       <ReportMessageDialog
         open={Boolean(reportedMessage)}
-        onOpenChange={(op) => !op && setReportedMessage(null)}
+        onOpenChange={(open) => !open && setReportedMessage(null)}
         message={reportedMessage}
-        conversationId={conversation.id}
-        currentUserId={currentUserId}
       />
 
-      {/* THREAD DE MENSAGEM DRAWER */}
       <MessageThreadDrawer
         open={Boolean(threadMessage)}
-        onOpenChange={(op) => !op && setThreadMessage(null)}
+        onOpenChange={(open) => !open && setThreadMessage(null)}
         parentMessage={threadMessage}
-        conversationId={conversation.id}
-        currentUserId={currentUserId}
-        onReplySent={() => onConversationUpdated?.()}
+        conversationTitle={title}
       />
+
+      {/* MODAL DE EXCLUSÃO EM MASSA */}
+      <AlertDialog
+        open={batchDeleteModalOpen}
+        onOpenChange={setBatchDeleteModalOpen}
+      >
+        <AlertDialogContent className="max-w-md rounded-2xl bg-[#233138] border border-white/10 text-white">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-base font-bold">
+              Apagar {selectedMessageIds.size} mensagens?
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-xs text-[#8696a0]">
+              Deseja apagar as mensagens selecionadas apenas da sua tela ou para todos os participantes?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="flex-col sm:flex-row gap-2">
+            <AlertDialogCancel className="text-xs rounded-xl bg-white/5 border-white/10 text-white hover:bg-white/10">
+              Cancelar
+            </AlertDialogCancel>
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => handleBatchDelete(false)}
+              className="text-xs rounded-xl bg-white/10 text-white hover:bg-white/20"
+            >
+              Apagar para mim
+            </Button>
+            {effectiveUserRole === "admin" && (
+              <AlertDialogAction
+                onClick={() => handleBatchDelete(true)}
+                className="text-xs rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold"
+              >
+                Apagar para todos
+              </AlertDialogAction>
+            )}
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

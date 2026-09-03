@@ -1655,5 +1655,79 @@ html, body {
   width: 0 !important;
   height: 0 !important;
 }
+/* ─── WHATSAPP THEME & CHAT VISUALS ─── */
+.whatsapp-chat-bg {
+  background-color: #0b141a;
+  background-image: radial-gradient(circle at 50% 50%, rgba(17, 27, 33, 0.4) 0%, rgba(11, 20, 26, 0.95) 100%),
+    url("data:image/svg+xml,%3Csvg width='400' height='400' viewBox='0 0 400 400' xmlns='http://www.w3.org/2000/svg'%3E%3Cdefs%3E%3Cpattern id='wa-doodle' x='0' y='0' width='80' height='80' patternUnits='userSpaceOnUse'%3E%3Cpath d='M15 10a5 5 0 0 1 5 5v5a5 5 0 0 1-5 5H10a5 5 0 0 1-5-5v-5a5 5 0 0 1 5-5h5zm45 10a3 3 0 1 1 0 6 3 3 0 0 1 0-6zm-20 25a4 4 0 1 1 0 8 4 4 0 0 1 0-8zm35 15a5 5 0 0 1 5 5v2a5 5 0 0 1-5 5h-2a5 5 0 0 1-5-5v-2a5 5 0 0 1 5-5h2zM25 60a4 4 0 1 1 0 8 4 4 0 0 1 0-8z' fill='%23ffffff' fill-opacity='0.035' fill-rule='evenodd'/%3E%3Cpath d='M65 45c2 0 4-2 4-4s-2-4-4-4-4 2-4 4 2 4 4 4zM10 40a2 2 0 1 0 0 4 2 2 0 0 0 0-4zm50-25c1.5 0 3-1.5 3-3s-1.5-3-3-3-3 1.5-3 3 1.5 3 3 3z' fill='%23ffffff' fill-opacity='0.03'/%3E%3C/pattern%3E%3C/defs%3E%3Crect width='100%25' height='100%25' fill='url(%23wa-doodle)'/%3E%3C/svg%3E");
+  background-repeat: repeat;
+  background-size: 360px 360px;
+}
 
+.whatsapp-chat-bg.theme-slate {
+  background-color: #0f172a;
+  background-image: radial-gradient(circle at 50% 50%, rgba(30, 41, 59, 0.4) 0%, rgba(15, 23, 42, 0.95) 100%),
+    url("data:image/svg+xml,%3Csvg width='400' height='400' viewBox='0 0 400 400' xmlns='http://www.w3.org/2000/svg'%3E%3Cdefs%3E%3Cpattern id='wa-doodle' x='0' y='0' width='80' height='80' patternUnits='userSpaceOnUse'%3E%3Cpath d='M15 10a5 5 0 0 1 5 5v5a5 5 0 0 1-5 5H10a5 5 0 0 1-5-5v-5a5 5 0 0 1 5-5h5zm45 10a3 3 0 1 1 0 6 3 3 0 0 1 0-6zm-20 25a4 4 0 1 1 0 8 4 4 0 0 1 0-8zm35 15a5 5 0 0 1 5 5v2a5 5 0 0 1-5 5h-2a5 5 0 0 1-5-5v-2a5 5 0 0 1 5-5h2zM25 60a4 4 0 1 1 0 8 4 4 0 0 1 0-8z' fill='%23ffffff' fill-opacity='0.035' fill-rule='evenodd'/%3E%3C/pattern%3E%3C/defs%3E%3Crect width='100%25' height='100%25' fill='url(%23wa-doodle)'/%3E%3C/svg%3E");
+}
 
+.whatsapp-chat-bg.theme-emerald {
+  background-color: #061c16;
+  background-image: radial-gradient(circle at 50% 50%, rgba(6, 44, 34, 0.4) 0%, rgba(6, 28, 22, 0.95) 100%),
+    url("data:image/svg+xml,%3Csvg width='400' height='400' viewBox='0 0 400 400' xmlns='http://www.w3.org/2000/svg'%3E%3Cdefs%3E%3Cpattern id='wa-doodle' x='0' y='0' width='80' height='80' patternUnits='userSpaceOnUse'%3E%3Cpath d='M15 10a5 5 0 0 1 5 5v5a5 5 0 0 1-5 5H10a5 5 0 0 1-5-5v-5a5 5 0 0 1 5-5h5zm45 10a3 3 0 1 1 0 6 3 3 0 0 1 0-6zm-20 25a4 4 0 1 1 0 8 4 4 0 0 1 0-8zm35 15a5 5 0 0 1 5 5v2a5 5 0 0 1-5 5h-2a5 5 0 0 1-5-5v-2a5 5 0 0 1 5-5h2zM25 60a4 4 0 1 1 0 8 4 4 0 0 1 0-8z' fill='%23ffffff' fill-opacity='0.035' fill-rule='evenodd'/%3E%3C/pattern%3E%3C/defs%3E%3Crect width='100%25' height='100%25' fill='url(%23wa-doodle)'/%3E%3C/svg%3E");
+}
+
+.whatsapp-chat-bg.theme-solid {
+  background-color: #0b141a;
+  background-image: none;
+}
+
+/* Bolha Outgoing (WhatsApp Green) */
+.whatsapp-bubble-out {
+  background-color: #005c4b !important;
+  color: #e9edef !important;
+  border: 1px solid rgba(0, 168, 132, 0.15);
+}
+
+/* Bolha Incoming (WhatsApp Dark Gray) */
+.whatsapp-bubble-in {
+  background-color: #202c33 !important;
+  color: #e9edef !important;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+/* Rabicho das bolhas */
+.whatsapp-tail-right::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  right: -8px;
+  width: 0;
+  height: 0;
+  border-top: 10px solid #005c4b;
+  border-right: 10px solid transparent;
+}
+
+.whatsapp-tail-left::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -8px;
+  width: 0;
+  height: 0;
+  border-top: 10px solid #202c33;
+  border-left: 10px solid transparent;
+}
+
+/* Animação suave para as barras do gravador de voz */
+@keyframes wa-wave {
+  0%, 100% {
+    height: 4px;
+  }
+  50% {
+    height: 18px;
+  }
+}
+
+.wa-wave-bar {
+  animation: wa-wave 1s ease-in-out infinite;
+}

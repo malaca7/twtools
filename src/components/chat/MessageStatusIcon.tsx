@@ -9,7 +9,7 @@ interface MessageStatusIconProps {
 
 export function MessageStatusIcon({ status = "sent", className }: MessageStatusIconProps) {
   if (status === "sending") {
-    return <Clock className={cn("h-3 w-3 text-muted-foreground/80 animate-spin", className)} />;
+    return <Clock className={cn("h-3 w-3 text-[#8696a0] animate-spin", className)} />;
   }
 
   if (status === "failed") {
@@ -20,7 +20,7 @@ export function MessageStatusIcon({ status = "sent", className }: MessageStatusI
     return (
       <CheckCheck
         className={cn(
-          "h-3.5 w-3.5 text-emerald-400 drop-shadow-[0_0_6px_rgba(52,211,153,0.5)]",
+          "h-3.5 w-3.5 text-[#53bdeb] stroke-[2.5]",
           className
         )}
       />
@@ -28,9 +28,10 @@ export function MessageStatusIcon({ status = "sent", className }: MessageStatusI
   }
 
   if (status === "delivered") {
-    return <CheckCheck className={cn("h-3.5 w-3.5 text-muted-foreground/80", className)} />;
+    return <CheckCheck className={cn("h-3.5 w-3.5 text-[#8696a0] stroke-[2.2]", className)} />;
   }
 
   // "sent"
-  return <Check className={cn("h-3 w-3 text-muted-foreground/80", className)} />;
+  return <Check className={cn("h-3 w-3 text-[#8696a0] stroke-[2.5]", className)} />;
 }
+
