@@ -35,6 +35,7 @@ import {
   ArrowLeft,
   MessageSquare,
   Sliders,
+  CalendarOff,
 } from "lucide-react";
 import { isUserDeveloper } from "@/services/devService";
 import {
@@ -94,15 +95,16 @@ const MASTER_NAV_ITEMS: MasterNavItem[] = [
   { id: "membros", title: "Membros", url: "/membros", icon: Users, perm: "view_members", defaultCat: "Gestão", defaultOrder: 5 },
   { id: "hierarquia", title: "Hierarquia", url: "/hierarquia", icon: Workflow, perm: "view_hierarchy", defaultCat: "Gestão", defaultOrder: 6 },
   { id: "fundo-caixa", title: "Fundo de Caixa", url: "/fundo-caixa", icon: Landmark, perm: "view_cash_fund", defaultCat: "Gestão", defaultOrder: 7 },
-  { id: "rankings", title: "Rankings", url: "/rankings", icon: Trophy, perm: "view_rankings", defaultCat: "Gestão", defaultOrder: 8 },
-  { id: "desempenho", title: "Meu Desempenho", url: "/desempenho", icon: User, perm: "view_performance", defaultCat: "Gestão", defaultOrder: 9 },
-  { id: "metas", title: "Metas", url: "/metas", icon: Target, perm: "view_goals", defaultCat: "Gestão", defaultOrder: 10 },
-  { id: "cargos", title: "Gerenciamento de Cargos", url: "/cargos", icon: ShieldCheck, perm: "manage_roles", defaultCat: "Gestão", defaultOrder: 11 },
-  { id: "permissoes", title: "Permissões", url: "/permissoes", icon: Settings, perm: "manage_permissions", defaultCat: "Gestão", defaultOrder: 12 },
-  { id: "avisos", title: "Enviar Avisos", url: "/avisos", icon: Megaphone, perm: "manage_announcements", defaultCat: "Gestão", defaultOrder: 13 },
-  { id: "logs", title: "Logs", url: "/logs", icon: ScrollText, perm: "view_audit", defaultCat: "Gestão", defaultOrder: 14 },
-  { id: "perfil", title: "Meu Perfil", url: "/perfil", icon: User, defaultCat: "Gestão", defaultOrder: 15 },
-  { id: "configuracoes", title: "Configurações", url: "/configuracoes", icon: Wrench, perm: "manage_platform_settings", defaultCat: "Gestão", defaultOrder: 16 },
+  { id: "ausencias", title: "Ausências", url: "/ausencias", icon: CalendarOff, perm: "view_absences", defaultCat: "Gestão", defaultOrder: 8 },
+  { id: "rankings", title: "Rankings", url: "/rankings", icon: Trophy, perm: "view_rankings", defaultCat: "Gestão", defaultOrder: 9 },
+  { id: "desempenho", title: "Meu Desempenho", url: "/desempenho", icon: User, perm: "view_performance", defaultCat: "Gestão", defaultOrder: 10 },
+  { id: "metas", title: "Metas", url: "/metas", icon: Target, perm: "view_goals", defaultCat: "Gestão", defaultOrder: 11 },
+  { id: "cargos", title: "Gerenciamento de Cargos", url: "/cargos", icon: ShieldCheck, perm: "manage_roles", defaultCat: "Gestão", defaultOrder: 12 },
+  { id: "permissoes", title: "Permissões", url: "/permissoes", icon: Settings, perm: "manage_permissions", defaultCat: "Gestão", defaultOrder: 13 },
+  { id: "avisos", title: "Enviar Avisos", url: "/avisos", icon: Megaphone, perm: "manage_announcements", defaultCat: "Gestão", defaultOrder: 14 },
+  { id: "logs", title: "Logs", url: "/logs", icon: ScrollText, perm: "view_audit", defaultCat: "Gestão", defaultOrder: 15 },
+  { id: "perfil", title: "Meu Perfil", url: "/perfil", icon: User, defaultCat: "Gestão", defaultOrder: 16 },
+  { id: "configuracoes", title: "Configurações", url: "/configuracoes", icon: Wrench, perm: "manage_platform_settings", defaultCat: "Gestão", defaultOrder: 17 },
 ];
 
 const DEV_MODULE_NAV_ITEMS: MasterNavItem[] = [

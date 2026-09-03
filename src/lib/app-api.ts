@@ -22,6 +22,8 @@ import type {
   CustomRole,
   ModuleAccessLevel,
   SystemModule,
+  MemberAbsence,
+  CreateAbsencePayload,
 } from "./app-types";
 import { LEVEL_LABEL, type AppLevel, type Permission } from "./permissions";
 
@@ -1889,3 +1891,264 @@ export async function reorderCustomRoles(orderedIds: string[]): Promise<void> {
     total_reordered: orderedIds.length,
   });
 }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   ABSENCES / LICENÇAS MANAGEMENT
+   ══════════════════════════════════════════════════════════════════════════ */
+const ABSENCES_STORAGE_KEY = "tw_absences_v1";
+const ABSENCES_DB_LEVEL = "system_absences_list";
+
+function getLocalAbsences(): MemberAbsence[] {
+  try {
+    if (typeof window === "undefined") return [];
+    const raw = localStorage.getItem(ABSENCES_STORAGE_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+function setLocalAbsences(absences: MemberAbsence[]): void {
+  try {
+    if (typeof window !== "undefined") {
+      localStorage.setItem(ABSENCES_STORAGE_KEY, JSON.stringify(absences));
+      window.dispatchEvent(new CustomEvent("tw_absences_updated"));
+    }
+  } catch {}
+}
+
+export async function getAbsences(): Promise<MemberAbsence[]> {
+  try {
+    const { data } = await supabase
+      .from("role_permissions")
+      .select("permissions")
+      .eq("level", ABSENCES_DB_LEVEL)
+      .maybeSingle();
+
+    if (data && data.permissions && typeof data.permissions === "object") {
+      const parsed = data.permissions as any;
+      if (Array.isArray(parsed.absences)) {
+        setLocalAbsences(parsed.absences);
+        return parsed.absences;
+      }
+    }
+  } catch (err) {
+    console.warn("Erro ao carregar ausências do banco:", err);
+  }
+  return getLocalAbsences();
+}
+
+export async function createAbsence(payload: CreateAbsencePayload): Promise<MemberAbsence> {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session?.user) throw new Error("Usuário não autenticado");
+
+  // Fetch current user's profile and role
+  const { data: profileRow } = await (supabase.from("profiles" as any))
+    .select("nome, nickname, avatar_url, discord_avatar_url")
+    .eq("user_id", session.user.id)
+    .maybeSingle();
+
+  const { data: roleRow } = await supabase
+    .from("user_roles")
+    .select("nivel")
+    .eq("user_id", session.user.id)
+    .maybeSingle();
+
+  const p = profileRow as any;
+  const memberName = p?.nome || "Membro";
+  const memberNickname = p?.nickname || null;
+  const memberAvatar = p?.discord_avatar_url || p?.avatar_url || null;
+  const memberRole = (roleRow?.nivel as AppLevel) || "membro";
+
+  // Calculate days count
+  const start = new Date(payload.start_date);
+  const end = new Date(payload.end_date);
+  const diffTime = Math.abs(end.getTime() - start.getTime());
+  const daysCount = Math.max(1, Math.round(diffTime / (1000 * 60 * 60 * 24)) + 1);
+
+  const newAbsence: MemberAbsence = {
+    id: `abs_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+    user_id: session.user.id,
+    member_name: memberName,
+    member_nickname: memberNickname,
+    member_role: memberRole,
+    member_avatar: memberAvatar,
+    start_date: payload.start_date,
+    end_date: payload.end_date,
+    days_count: daysCount,
+    reason: payload.reason,
+    reason_details: payload.reason_details?.trim() || null,
+    status: "pendente",
+    created_at: new Date().toISOString(),
+  };
+
+  const currentList = await getAbsences();
+  const updatedList = [newAbsence, ...currentList.filter((a) => a.id !== newAbsence.id)];
+
+  setLocalAbsences(updatedList);
+
+  try {
+    await supabase.from("role_permissions").upsert(
+      {
+        level: ABSENCES_DB_LEVEL,
+        nivel: ABSENCES_DB_LEVEL,
+        permissions: { absences: updatedList } as any,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "level" }
+    );
+  } catch (err) {
+    console.error("Erro ao sincronizar ausência no banco:", err);
+  }
+
+  void logAuditAction(
+    "create_absence",
+    "absences",
+    {
+      member_name: memberName,
+      start_date: payload.start_date,
+      end_date: payload.end_date,
+      days: daysCount,
+      reason: payload.reason,
+    },
+    undefined,
+    newAbsence.id
+  );
+
+  return newAbsence;
+}
+
+export async function reviewAbsence(
+  absenceId: string,
+  payload: { status: "aprovado" | "rejeitado"; review_notes?: string }
+): Promise<MemberAbsence> {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session?.user) throw new Error("Usuário não autenticado");
+
+  const { data: reviewerProfile } = await (supabase.from("profiles" as any))
+    .select("nome, nickname")
+    .eq("user_id", session.user.id)
+    .maybeSingle();
+
+  const rev = reviewerProfile as any;
+  const reviewerName = rev?.nickname || rev?.nome || "Liderança";
+
+  const currentList = await getAbsences();
+  const targetIndex = currentList.findIndex((a) => a.id === absenceId);
+  if (targetIndex === -1) throw new Error("Solicitação de ausência não encontrada.");
+
+  const target = currentList[targetIndex];
+  const updatedAbsence: MemberAbsence = {
+    ...target,
+    status: payload.status,
+    reviewed_by: session.user.id,
+    reviewed_by_name: reviewerName,
+    reviewed_at: new Date().toISOString(),
+    review_notes: payload.review_notes?.trim() || null,
+    updated_at: new Date().toISOString(),
+  };
+
+  const updatedList = [...currentList];
+  updatedList[targetIndex] = updatedAbsence;
+
+  setLocalAbsences(updatedList);
+
+  try {
+    await supabase.from("role_permissions").upsert(
+      {
+        level: ABSENCES_DB_LEVEL,
+        nivel: ABSENCES_DB_LEVEL,
+        permissions: { absences: updatedList } as any,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "level" }
+    );
+  } catch (err) {
+    console.error("Erro ao salvar revisão de ausência no banco:", err);
+  }
+
+  void logAuditAction(
+    payload.status === "aprovado" ? "approve_absence" : "reject_absence",
+    "absences",
+    {
+      member_name: target.member_name,
+      status: payload.status,
+      reviewer_name: reviewerName,
+      review_notes: payload.review_notes || null,
+    },
+    undefined,
+    absenceId
+  );
+
+  return updatedAbsence;
+}
+
+export async function cancelAbsence(absenceId: string): Promise<void> {
+  const currentList = await getAbsences();
+  const target = currentList.find((a) => a.id === absenceId);
+  if (!target) return;
+
+  const updatedList = currentList.map((a) =>
+    a.id === absenceId ? { ...a, status: "cancelada" as const, updated_at: new Date().toISOString() } : a
+  );
+
+  setLocalAbsences(updatedList);
+
+  try {
+    await supabase.from("role_permissions").upsert(
+      {
+        level: ABSENCES_DB_LEVEL,
+        nivel: ABSENCES_DB_LEVEL,
+        permissions: { absences: updatedList } as any,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "level" }
+    );
+  } catch {}
+
+  void logAuditAction(
+    "cancel_absence",
+    "absences",
+    {
+      member_name: target.member_name,
+      start_date: target.start_date,
+      end_date: target.end_date,
+    },
+    undefined,
+    absenceId
+  );
+}
+
+export async function deleteAbsence(absenceId: string): Promise<void> {
+  const currentList = await getAbsences();
+  const target = currentList.find((a) => a.id === absenceId);
+  const updatedList = currentList.filter((a) => a.id !== absenceId);
+
+  setLocalAbsences(updatedList);
+
+  try {
+    await supabase.from("role_permissions").upsert(
+      {
+        level: ABSENCES_DB_LEVEL,
+        nivel: ABSENCES_DB_LEVEL,
+        permissions: { absences: updatedList } as any,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "level" }
+    );
+  } catch {}
+
+  if (target) {
+    void logAuditAction(
+      "delete_absence",
+      "absences",
+      {
+        member_name: target.member_name,
+        start_date: target.start_date,
+        end_date: target.end_date,
+      },
+      undefined,
+      absenceId
+    );
+  }
+}

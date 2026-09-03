@@ -28,6 +28,7 @@ import {
   Wrench,
   Workflow,
   MessageSquare,
+  CalendarOff,
 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -432,6 +433,41 @@ const PAGE_CARDS: PageCardConfig[] = [
         label: "Criar e Gerenciar Metas Operacionais",
         description: "Criar novas metas, definir alvos numéricos e editar metas ativas.",
         badge: "Gestão Metas",
+      },
+    ],
+  },
+  {
+    id: "ausencias",
+    title: "Ausências & Licenças",
+    route: "/ausencias",
+    icon: CalendarOff,
+    description: "Registro e acompanhamento de ausências com data de início, data de volta, justificativas e gráficos estatísticos.",
+    color: "border-amber-500/40 bg-amber-500/5 text-amber-400",
+    defaultCat: "Gestão",
+    defaultOrder: 9,
+    permissions: [
+      {
+        key: "view_absences",
+        label: "Acessar Aba de Ausências",
+        description: "Permite acessar a rota /ausencias para consultar o histórico pessoal e avisos de ausência.",
+        badge: "Acesso à Rota",
+      },
+      {
+        key: "request_absence",
+        label: "Solicitar / Informar Ausência",
+        description: "Permite ao membro cadastrar novos períodos de ausência informando data de início, data de volta e motivo.",
+      },
+      {
+        key: "manage_absences",
+        label: "Gerenciar e Aprovar Ausências de Membros",
+        description: "Permite à liderança aprovar/rejeitar pedidos de ausência, adicionar notas e gerenciar licenças de todos os membros.",
+        badge: "Gestão / Aprovação",
+      },
+      {
+        key: "view_all_absences",
+        label: "Visualizar Gráficos e Estatísticas Gerenciais de Ausências",
+        description: "Permite visualizar o gráfico estatístico completo de ausências, taxa de aprovação, média de dias e membros ausentes em tempo real.",
+        badge: "Gráficos & Métricas",
       },
     ],
   },

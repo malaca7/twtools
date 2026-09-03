@@ -51,6 +51,7 @@ import {
   Sun,
   Contrast,
   MessageSquare,
+  CalendarOff,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -86,6 +87,7 @@ const ICON_MAP: Record<string, typeof LayoutDashboard> = {
   "/membros": Users,
   "/hierarquia": Workflow,
   "/fundo-caixa": Landmark,
+  "/ausencias": CalendarOff,
   "/rankings": Trophy,
   "/desempenho": User,
   "/dev/desempenho": TrendingUp,
@@ -112,15 +114,16 @@ const DEFAULT_ITEMS: MenuItemConfig[] = [
   { id: "membros", title: "Membros", url: "/membros", visible: true, category: "Gestão", order: 5 },
   { id: "hierarquia", title: "Hierarquia", url: "/hierarquia", visible: true, category: "Gestão", order: 6 },
   { id: "fundo-caixa", title: "Fundo de Caixa", url: "/fundo-caixa", visible: true, category: "Gestão", order: 7 },
-  { id: "rankings", title: "Rankings", url: "/rankings", visible: true, category: "Gestão", order: 8 },
-  { id: "desempenho", title: "Meu Desempenho", url: "/desempenho", visible: true, category: "Gestão", order: 9 },
-  { id: "metas", title: "Metas", url: "/metas", visible: true, category: "Gestão", order: 10 },
-  { id: "cargos", title: "Gerenciamento de Cargos", url: "/cargos", visible: true, category: "Gestão", order: 11 },
-  { id: "permissoes", title: "Permissões", url: "/permissoes", visible: true, category: "Gestão", order: 12 },
-  { id: "avisos", title: "Enviar Avisos", url: "/avisos", visible: true, category: "Gestão", order: 13 },
-  { id: "logs", title: "Logs", url: "/logs", visible: true, category: "Gestão", order: 14 },
-  { id: "perfil", title: "Meu Perfil", url: "/perfil", visible: true, category: "Gestão", order: 15 },
-  { id: "configuracoes", title: "Configurações", url: "/configuracoes", visible: true, category: "Gestão", order: 16 },
+  { id: "ausencias", title: "Ausências", url: "/ausencias", visible: true, category: "Gestão", order: 8 },
+  { id: "rankings", title: "Rankings", url: "/rankings", visible: true, category: "Gestão", order: 9 },
+  { id: "desempenho", title: "Meu Desempenho", url: "/desempenho", visible: true, category: "Gestão", order: 10 },
+  { id: "metas", title: "Metas", url: "/metas", visible: true, category: "Gestão", order: 11 },
+  { id: "cargos", title: "Gerenciamento de Cargos", url: "/cargos", visible: true, category: "Gestão", order: 12 },
+  { id: "permissoes", title: "Permissões", url: "/permissoes", visible: true, category: "Gestão", order: 13 },
+  { id: "avisos", title: "Enviar Avisos", url: "/avisos", visible: true, category: "Gestão", order: 14 },
+  { id: "logs", title: "Logs", url: "/logs", visible: true, category: "Gestão", order: 15 },
+  { id: "perfil", title: "Meu Perfil", url: "/perfil", visible: true, category: "Gestão", order: 16 },
+  { id: "configuracoes", title: "Configurações", url: "/configuracoes", visible: true, category: "Gestão", order: 17 },
 ];
 
 const CATEGORIES = ["Operação", "Gestão", "Administração"];

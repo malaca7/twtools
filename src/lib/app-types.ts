@@ -280,3 +280,48 @@ export type CustomRole = {
   created_at: string;
   updated_at: string;
 };
+
+export type AbsenceReason =
+  | "ferias"
+  | "viagem"
+  | "trabalho_estudos"
+  | "saude"
+  | "motivo_pessoal"
+  | "problemas_tecnicos"
+  | "outro";
+
+export type AbsenceStatus =
+  | "pendente"
+  | "aprovado"
+  | "rejeitado"
+  | "em_andamento"
+  | "concluida"
+  | "cancelada";
+
+export type MemberAbsence = {
+  id: string;
+  user_id: string;
+  member_name: string;
+  member_nickname?: string | null;
+  member_role?: string | null;
+  member_avatar?: string | null;
+  start_date: string; // YYYY-MM-DD
+  end_date: string; // YYYY-MM-DD
+  days_count: number;
+  reason: AbsenceReason;
+  reason_details?: string | null;
+  status: AbsenceStatus;
+  reviewed_by?: string | null;
+  reviewed_by_name?: string | null;
+  reviewed_at?: string | null;
+  review_notes?: string | null;
+  created_at: string;
+  updated_at?: string | null;
+};
+
+export type CreateAbsencePayload = {
+  start_date: string;
+  end_date: string;
+  reason: AbsenceReason;
+  reason_details?: string | null;
+};

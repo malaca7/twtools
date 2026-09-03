@@ -85,6 +85,10 @@ export type Permission =
   | "view_chat"
   | "create_chat_group"
   | "manage_chat_groups"
+  | "view_absences"
+  | "request_absence"
+  | "manage_absences"
+  | "view_all_absences"
   // Legacy aliases for backward compatibility
   | "view_financials"
   | "manage_members"
@@ -98,6 +102,10 @@ export const ALL_PERMISSIONS: Permission[] = [
   "view_chat",
   "create_chat_group",
   "manage_chat_groups",
+  "view_absences",
+  "request_absence",
+  "manage_absences",
+  "view_all_absences",
   "view_cash_fund",
   "manage_cash_fund",
   "reverse_cash_fund",
@@ -154,6 +162,10 @@ const OFFICER: Permission[] = [
   "view_chat",
   "create_chat_group",
   "manage_chat_groups",
+  "view_absences",
+  "request_absence",
+  "manage_absences",
+  "view_all_absences",
   "view_cash_fund",
   "manage_cash_fund",
   "view_stock",
@@ -194,6 +206,10 @@ const MANAGER: Permission[] = [
   "view_chat",
   "create_chat_group",
   "manage_chat_groups",
+  "view_absences",
+  "request_absence",
+  "manage_absences",
+  "view_all_absences",
   "view_cash_fund",
   "manage_cash_fund",
   "view_stock",
@@ -233,6 +249,8 @@ const MEMBER: Permission[] = [
   "view_dashboard",
   "view_chat",
   "create_chat_group",
+  "view_absences",
+  "request_absence",
   "view_stock",
   "create_movement",
   "view_baus",
@@ -251,6 +269,8 @@ const MEMBER: Permission[] = [
 const NOVATO: Permission[] = [
   "view_dashboard",
   "view_chat",
+  "view_absences",
+  "request_absence",
   "view_stock",
   "view_baus",
   "view_sales",

@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
+import { Route as AuthenticatedAusenciasRouteImport } from './routes/_authenticated/ausencias'
 import { Route as AuthenticatedAvisosRouteImport } from './routes/_authenticated/avisos'
 import { Route as AuthenticatedBausRouteImport } from './routes/_authenticated/baus'
 import { Route as AuthenticatedCargosRouteImport } from './routes/_authenticated/cargos'
@@ -47,6 +48,11 @@ const IndexRoute = IndexRouteImport.update({
 const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
   id: '/_authenticated',
   getParentRoute: () => rootRouteImport,
+} as any)
+const AuthenticatedAusenciasRoute = AuthenticatedAusenciasRouteImport.update({
+  id: '/ausencias',
+  path: '/ausencias',
+  getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedAvisosRoute = AuthenticatedAvisosRouteImport.update({
   id: '/avisos',
@@ -192,6 +198,7 @@ const AuthenticatedDevPermissoesRoute =
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/ausencias': typeof AuthenticatedAusenciasRoute
   '/avisos': typeof AuthenticatedAvisosRoute
   '/baus': typeof AuthenticatedBausRoute
   '/cargos': typeof AuthenticatedCargosRoute
@@ -222,6 +229,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/ausencias': typeof AuthenticatedAusenciasRoute
   '/avisos': typeof AuthenticatedAvisosRoute
   '/baus': typeof AuthenticatedBausRoute
   '/cargos': typeof AuthenticatedCargosRoute
@@ -254,6 +262,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
+  '/_authenticated/ausencias': typeof AuthenticatedAusenciasRoute
   '/_authenticated/avisos': typeof AuthenticatedAvisosRoute
   '/_authenticated/baus': typeof AuthenticatedBausRoute
   '/_authenticated/cargos': typeof AuthenticatedCargosRoute
@@ -286,6 +295,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/ausencias'
     | '/avisos'
     | '/baus'
     | '/cargos'
@@ -316,6 +326,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/ausencias'
     | '/avisos'
     | '/baus'
     | '/cargos'
@@ -347,6 +358,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/_authenticated'
+    | '/_authenticated/ausencias'
     | '/_authenticated/avisos'
     | '/_authenticated/baus'
     | '/_authenticated/cargos'
@@ -398,6 +410,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/'
       preLoaderRoute: typeof AuthenticatedRouteRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/_authenticated/ausencias': {
+      id: '/_authenticated/ausencias'
+      path: '/ausencias'
+      fullPath: '/ausencias'
+      preLoaderRoute: typeof AuthenticatedAusenciasRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/avisos': {
       id: '/_authenticated/avisos'
@@ -592,6 +611,7 @@ declare module '@tanstack/react-router' {
 }
 
 interface AuthenticatedRouteRouteChildren {
+  AuthenticatedAusenciasRoute: typeof AuthenticatedAusenciasRoute
   AuthenticatedAvisosRoute: typeof AuthenticatedAvisosRoute
   AuthenticatedBausRoute: typeof AuthenticatedBausRoute
   AuthenticatedCargosRoute: typeof AuthenticatedCargosRoute
@@ -620,6 +640,7 @@ interface AuthenticatedRouteRouteChildren {
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
+  AuthenticatedAusenciasRoute: AuthenticatedAusenciasRoute,
   AuthenticatedAvisosRoute: AuthenticatedAvisosRoute,
   AuthenticatedBausRoute: AuthenticatedBausRoute,
   AuthenticatedCargosRoute: AuthenticatedCargosRoute,

@@ -33,6 +33,7 @@ import {
   CheckCircle2,
   AlertCircle,
   Radio,
+  CalendarOff,
 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -76,6 +77,7 @@ const ALL_SYSTEM_MODULES = [
       { title: "Membros da Facção", url: "/membros", icon: Users, desc: "Lista de membros, aprovação de cadastros e atribuição de cargos", color: "text-cyan-400" },
       { title: "Hierarquia", url: "/hierarquia", icon: Workflow, desc: "Organograma visual da liderança e cargos da facção", color: "text-purple-400" },
       { title: "Rankings", url: "/rankings", icon: Trophy, desc: "Ranking de produtividade, vendas e presença dos membros", color: "text-yellow-400" },
+      { title: "Ausências & Licenças", url: "/ausencias", icon: CalendarOff, desc: "Controle e aprovação de ausências, justificativas e estatísticas", color: "text-amber-400" },
       { title: "Meu Desempenho", url: "/desempenho", icon: User, desc: "Visão pessoal de rendimento, horas online e metas do membro", color: "text-orange-400" },
       { title: "Gerenciamento de Cargos", url: "/cargos", icon: ShieldCheck, desc: "Criação, ordenação e configuração de cargos da facção", color: "text-rose-400" },
     ],
