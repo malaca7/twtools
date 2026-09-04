@@ -1,0 +1,544 @@
+import React, { useState, useMemo } from "react";
+import {
+  CheckCheck,
+  Check,
+  Clock,
+  Info,
+  Users,
+  Search,
+  FileText,
+  Vote,
+  Calendar,
+  Eye,
+  AlertCircle,
+} from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { MessageStatusIcon } from "./MessageStatusIcon";
+import { ChatMessageText } from "./ChatMessageText";
+import { getMessageReceiptInfo } from "@/services/chatService";
+import { LEVEL_LABEL, levelBadgeClass, type AppLevel } from "@/lib/permissions";
+import { formatTimeOnly, formatLastSeen } from "@/lib/format";
+import { cn } from "@/lib/utils";
+import type { ChatConversation, ChatMessage, MessageReceiptParticipantInfo } from "@/types/chat";
+
+interface MessageInfoModalProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  message: ChatMessage | null;
+  conversation: ChatConversation;
+  currentUserId?: string;
+  onOpenProfile?: (userId: string) => void;
+}
+
+function formatWhatsAppDateTime(isoStr?: string | null): string {
+  if (!isoStr) return "—";
+  const d = new Date(isoStr);
+  if (isNaN(d.getTime())) return "—";
+
+  const now = new Date();
+  const isToday = d.toDateString() === now.toDateString();
+  const yesterday = new Date(now.getTime() - 86400000);
+  const isYesterday = d.toDateString() === yesterday.toDateString();
+  const timeStr = d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+
+  if (isToday) return `Hoje às ${timeStr}`;
+  if (isYesterday) return `Ontem às ${timeStr}`;
+  return `${d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" })} às ${timeStr}`;
+}
+
+export function MessageInfoModal({
+  open,
+  onOpenChange,
+  message,
+  conversation,
+  currentUserId,
+  onOpenProfile,
+}: MessageInfoModalProps) {
+  const [activeTab, setActiveTab] = useState<"all" | "read" | "delivered" | "pending">("all");
+  const [searchTerm, setSearchTerm] = useState("");
+
+  const isGroup = conversation.type === "group";
+
+  const receiptSummary = useMemo(() => {
+    if (!message) return null;
+    return getMessageReceiptInfo(message, conversation);
+  }, [message, conversation]);
+
+  if (!message || !receiptSummary) return null;
+
+  const isSelf = message.sender_id === currentUserId || message.is_self;
+
+  // Filtra participantes pela busca e aba ativa
+  const filterList = (list: MessageReceiptParticipantInfo[]) => {
+    if (!searchTerm.trim()) return list;
+    const term = searchTerm.toLowerCase();
+    return list.filter(
+      (p) =>
+        p.user_name.toLowerCase().includes(term) ||
+        (p.nickname && p.nickname.toLowerCase().includes(term)) ||
+        (p.game_id && p.game_id.toLowerCase().includes(term))
+    );
+  };
+
+  const filteredRead = filterList(receiptSummary.readParticipants);
+  const filteredDelivered = filterList(receiptSummary.deliveredParticipants);
+  const filteredPending = filterList(receiptSummary.pendingParticipants);
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-md sm:max-w-lg p-0 overflow-hidden bg-[#111b21] border border-white/10 text-white rounded-2xl shadow-2xl z-50">
+        {/* HEADER ESTILO WHATSAPP */}
+        <DialogHeader className="p-4 bg-[#202c33] border-b border-white/5 space-y-1">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="h-8 w-8 rounded-full bg-[#00a884]/20 text-[#00a884] flex items-center justify-center">
+                <Info className="h-4 w-4" />
+              </div>
+              <DialogTitle className="text-base font-bold text-[#e9edef] leading-none">
+                Dados da mensagem
+              </DialogTitle>
+            </div>
+            <Badge
+              variant="outline"
+              className={cn(
+                "text-[10px] font-mono font-bold px-2 py-0.5 rounded-full border",
+                receiptSummary.status === "read"
+                  ? "border-[#53bdeb]/40 text-[#53bdeb] bg-[#53bdeb]/10"
+                  : receiptSummary.status === "delivered"
+                  ? "border-[#8696a0]/40 text-[#8696a0] bg-[#8696a0]/10"
+                  : "border-white/10 text-white/60 bg-white/5"
+              )}
+            >
+              {receiptSummary.status === "read"
+                ? "Visualizada"
+                : receiptSummary.status === "delivered"
+                ? "Entregue"
+                : "Enviada"}
+            </Badge>
+          </div>
+          <p className="text-[11px] text-[#8696a0] font-sans">
+            Enviada em {formatWhatsAppDateTime(message.created_at)}
+          </p>
+        </DialogHeader>
+
+        {/* PREVIEW DO BALÃO DA MENSAGEM */}
+        <div className="p-4 bg-[#0b141a] border-b border-white/5">
+          <div className="text-[10px] uppercase font-bold text-[#8696a0] tracking-wider mb-2 flex items-center gap-1.5">
+            <Eye className="h-3 w-3" />
+            <span>Mensagem enviada</span>
+          </div>
+
+          <div
+            className={cn(
+              "relative rounded-lg p-3 shadow-md text-[#e9edef] max-w-full overflow-hidden",
+              isSelf
+                ? "whatsapp-bubble-out rounded-tr-none ml-auto"
+                : "whatsapp-bubble-in rounded-tl-none mr-auto"
+            )}
+          >
+            {/* Se houver anexo */}
+            {message.attachment_url && (
+              <div className="mb-2">
+                {message.message_type === "image" && (
+                  <img
+                    src={message.attachment_url}
+                    alt={message.attachment_name || "Mídia"}
+                    className="max-h-48 w-full object-cover rounded-md"
+                  />
+                )}
+                {message.message_type === "video" && (
+                  <video
+                    src={message.attachment_url}
+                    controls
+                    className="max-h-48 w-full rounded-md"
+                  />
+                )}
+                {message.message_type === "document" && (
+                  <div className="flex items-center gap-2 p-2 rounded bg-black/20 text-xs">
+                    <FileText className="h-4 w-4 text-[#7f66ff]" />
+                    <span className="truncate flex-1">{message.attachment_name || "Documento"}</span>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Enquete */}
+            {message.poll_data && (
+              <div className="flex items-center gap-2 p-2 rounded bg-black/20 text-xs font-semibold text-amber-300 mb-1">
+                <Vote className="h-4 w-4 shrink-0" />
+                <span className="truncate">🗳️ {message.poll_data.question}</span>
+              </div>
+            )}
+
+            {/* Evento */}
+            {message.event_data && (
+              <div className="flex items-center gap-2 p-2 rounded bg-black/20 text-xs font-semibold text-emerald-300 mb-1">
+                <Calendar className="h-4 w-4 shrink-0" />
+                <span className="truncate">📅 {message.event_data.title}</span>
+              </div>
+            )}
+
+            {/* Texto */}
+            {!message.poll_data && !message.event_data && (
+              <ChatMessageText
+                content={message.content}
+                isDeleted={Boolean(message.is_deleted || message.is_deleted_for_everyone)}
+                showPreview={false}
+              />
+            )}
+
+            {/* Rodapé do preview com hora e status */}
+            <div className="flex items-center justify-end gap-1 mt-1 text-[10px] text-[#8696a0] font-mono leading-none">
+              <span>{formatTimeOnly(message.created_at)}</span>
+              <MessageStatusIcon status={receiptSummary.status} />
+            </div>
+          </div>
+        </div>
+
+        {/* CASO 1: CONVERSA PRIVADA (1:1) */}
+        {!isGroup && (
+          <div className="p-4 space-y-3 bg-[#111b21]">
+            <div className="text-xs font-bold text-[#e9edef] flex items-center gap-1.5 mb-1">
+              <Users className="h-3.5 w-3.5 text-[#00a884]" />
+              <span>Status com o destinatário</span>
+            </div>
+
+            <div className="divide-y divide-white/5 rounded-xl bg-[#202c33] border border-white/5 overflow-hidden">
+              {/* LIDA */}
+              <div className="p-3 flex items-center justify-between gap-3 hover:bg-white/5 transition-colors">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="h-8 w-8 rounded-lg bg-[#53bdeb]/10 text-[#53bdeb] flex items-center justify-center shrink-0">
+                    <CheckCheck className="h-4 w-4 stroke-[2.5]" />
+                  </div>
+                  <div>
+                    <h5 className="text-xs font-bold text-[#e9edef]">Lida</h5>
+                    <p className="text-[11px] text-[#8696a0]">
+                      {receiptSummary.readCount > 0
+                        ? formatWhatsAppDateTime(receiptSummary.readParticipants[0]?.timestamp)
+                        : "Ainda não visualizada"}
+                    </p>
+                  </div>
+                </div>
+                {receiptSummary.readCount > 0 && (
+                  <Badge className="bg-[#53bdeb]/20 text-[#53bdeb] border-[#53bdeb]/30 text-[10px] font-bold">
+                    Visualizada
+                  </Badge>
+                )}
+              </div>
+
+              {/* ENTREGUE */}
+              <div className="p-3 flex items-center justify-between gap-3 hover:bg-white/5 transition-colors">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="h-8 w-8 rounded-lg bg-[#8696a0]/10 text-[#8696a0] flex items-center justify-center shrink-0">
+                    <CheckCheck className="h-4 w-4 stroke-[2.2]" />
+                  </div>
+                  <div>
+                    <h5 className="text-xs font-bold text-[#e9edef]">Entregue</h5>
+                    <p className="text-[11px] text-[#8696a0]">
+                      {receiptSummary.readCount > 0 || receiptSummary.deliveredCount > 0
+                        ? formatWhatsAppDateTime(
+                            receiptSummary.readParticipants[0]?.timestamp ||
+                              receiptSummary.deliveredParticipants[0]?.timestamp ||
+                              message.created_at
+                          )
+                        : "Aguardando entrega"}
+                    </p>
+                  </div>
+                </div>
+                {(receiptSummary.readCount > 0 || receiptSummary.deliveredCount > 0) && (
+                  <Badge className="bg-[#8696a0]/20 text-[#8696a0] border-[#8696a0]/30 text-[10px] font-bold">
+                    Entregue
+                  </Badge>
+                )}
+              </div>
+
+              {/* ENVIADA */}
+              <div className="p-3 flex items-center justify-between gap-3 hover:bg-white/5 transition-colors">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="h-8 w-8 rounded-lg bg-[#8696a0]/10 text-[#8696a0] flex items-center justify-center shrink-0">
+                    <Check className="h-4 w-4 stroke-[2.5]" />
+                  </div>
+                  <div>
+                    <h5 className="text-xs font-bold text-[#e9edef]">Enviada</h5>
+                    <p className="text-[11px] text-[#8696a0]">
+                      {formatWhatsAppDateTime(message.created_at)}
+                    </p>
+                  </div>
+                </div>
+                <Badge className="bg-white/10 text-white/80 border-white/10 text-[10px] font-mono">
+                  Servidor
+                </Badge>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* CASO 2: CONVERSA EM GRUPO */}
+        {isGroup && (
+          <div className="flex flex-col flex-1 min-h-0 bg-[#111b21]">
+            {/* CARDS DE RESUMO DE MÉTRICAS */}
+            <div className="grid grid-cols-3 gap-2 p-3 bg-[#202c33]/70 border-b border-white/5 text-center">
+              {/* Lida */}
+              <button
+                type="button"
+                onClick={() => setActiveTab(activeTab === "read" ? "all" : "read")}
+                className={cn(
+                  "p-2 rounded-xl border transition-all cursor-pointer",
+                  activeTab === "read"
+                    ? "bg-[#53bdeb]/15 border-[#53bdeb]/50 text-white"
+                    : "bg-[#111b21] border-white/5 hover:border-white/10 text-[#8696a0]"
+                )}
+              >
+                <div className="flex items-center justify-center gap-1 text-[#53bdeb] text-xs font-bold mb-0.5">
+                  <CheckCheck className="h-3.5 w-3.5 stroke-[2.5]" />
+                  <span>Lida</span>
+                </div>
+                <div className="text-base font-black text-white leading-tight font-mono">
+                  {receiptSummary.readCount}{" "}
+                  <span className="text-[10px] text-[#8696a0] font-normal">
+                    / {receiptSummary.totalRecipients}
+                  </span>
+                </div>
+              </button>
+
+              {/* Entregue */}
+              <button
+                type="button"
+                onClick={() => setActiveTab(activeTab === "delivered" ? "all" : "delivered")}
+                className={cn(
+                  "p-2 rounded-xl border transition-all cursor-pointer",
+                  activeTab === "delivered"
+                    ? "bg-[#8696a0]/20 border-[#8696a0]/50 text-white"
+                    : "bg-[#111b21] border-white/5 hover:border-white/10 text-[#8696a0]"
+                )}
+              >
+                <div className="flex items-center justify-center gap-1 text-[#8696a0] text-xs font-bold mb-0.5">
+                  <CheckCheck className="h-3.5 w-3.5 stroke-[2]" />
+                  <span>Entregue</span>
+                </div>
+                <div className="text-base font-black text-white leading-tight font-mono">
+                  {receiptSummary.deliveredCount}{" "}
+                  <span className="text-[10px] text-[#8696a0] font-normal">
+                    / {receiptSummary.totalRecipients}
+                  </span>
+                </div>
+              </button>
+
+              {/* Pendente */}
+              <button
+                type="button"
+                onClick={() => setActiveTab(activeTab === "pending" ? "all" : "pending")}
+                className={cn(
+                  "p-2 rounded-xl border transition-all cursor-pointer",
+                  activeTab === "pending"
+                    ? "bg-amber-500/15 border-amber-500/50 text-white"
+                    : "bg-[#111b21] border-white/5 hover:border-white/10 text-[#8696a0]"
+                )}
+              >
+                <div className="flex items-center justify-center gap-1 text-amber-400 text-xs font-bold mb-0.5">
+                  <Clock className="h-3.5 w-3.5" />
+                  <span>Pendente</span>
+                </div>
+                <div className="text-base font-black text-white leading-tight font-mono">
+                  {receiptSummary.pendingCount}{" "}
+                  <span className="text-[10px] text-[#8696a0] font-normal">
+                    / {receiptSummary.totalRecipients}
+                  </span>
+                </div>
+              </button>
+            </div>
+
+            {/* CAMPO DE BUSCA SE HOUVER MAIS DE 4 PARTICIPANTES */}
+            {receiptSummary.totalRecipients > 4 && (
+              <div className="p-3 border-b border-white/5 bg-[#111b21]">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-[#8696a0]" />
+                  <Input
+                    placeholder="Filtrar participante..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="h-8 pl-8 pr-3 text-xs bg-[#202c33] border-transparent rounded-lg text-[#e9edef] placeholder:text-[#8696a0]"
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* LISTA ROLÁVEL DE PARTICIPANTES */}
+            <div className="max-h-72 overflow-y-auto divide-y divide-white/5 custom-scrollbar-thin">
+              {/* SEÇÃO LIDA POR */}
+              {(activeTab === "all" || activeTab === "read") && (
+                <div>
+                  <div className="px-4 py-2 bg-[#182229] flex items-center justify-between text-[11px] font-bold text-[#53bdeb] uppercase tracking-wider sticky top-0 z-10">
+                    <span className="flex items-center gap-1.5">
+                      <CheckCheck className="h-3.5 w-3.5 stroke-[2.5]" />
+                      Lida por ({filteredRead.length})
+                    </span>
+                  </div>
+
+                  {filteredRead.length === 0 ? (
+                    <div className="p-4 text-center text-xs text-[#8696a0] italic">
+                      {searchTerm ? "Nenhum membro encontrado" : "Nenhum participante visualizou ainda"}
+                    </div>
+                  ) : (
+                    filteredRead.map((p) => (
+                      <ParticipantReceiptRow
+                        key={p.user_id}
+                        participant={p}
+                        onOpenProfile={onOpenProfile}
+                      />
+                    ))
+                  )}
+                </div>
+              )}
+
+              {/* SEÇÃO ENTREGUE A */}
+              {(activeTab === "all" || activeTab === "delivered") && (
+                <div>
+                  <div className="px-4 py-2 bg-[#182229] flex items-center justify-between text-[11px] font-bold text-[#8696a0] uppercase tracking-wider sticky top-0 z-10">
+                    <span className="flex items-center gap-1.5">
+                      <CheckCheck className="h-3.5 w-3.5 stroke-[2]" />
+                      Entregue a ({filteredDelivered.length})
+                    </span>
+                  </div>
+
+                  {filteredDelivered.length === 0 ? (
+                    <div className="p-4 text-center text-xs text-[#8696a0] italic">
+                      {searchTerm
+                        ? "Nenhum membro encontrado"
+                        : "Nenhum membro aguardando apenas leitura"}
+                    </div>
+                  ) : (
+                    filteredDelivered.map((p) => (
+                      <ParticipantReceiptRow
+                        key={p.user_id}
+                        participant={p}
+                        onOpenProfile={onOpenProfile}
+                      />
+                    ))
+                  )}
+                </div>
+              )}
+
+              {/* SEÇÃO PENDENTE DE ENTREGA */}
+              {(activeTab === "all" || activeTab === "pending") && (
+                <div>
+                  <div className="px-4 py-2 bg-[#182229] flex items-center justify-between text-[11px] font-bold text-amber-400 uppercase tracking-wider sticky top-0 z-10">
+                    <span className="flex items-center gap-1.5">
+                      <Clock className="h-3.5 w-3.5" />
+                      Pendente de entrega ({filteredPending.length})
+                    </span>
+                  </div>
+
+                  {filteredPending.length === 0 ? (
+                    <div className="p-4 text-center text-xs text-[#8696a0] italic">
+                      {searchTerm ? "Nenhum membro encontrado" : "Todos os membros já receberam a mensagem"}
+                    </div>
+                  ) : (
+                    filteredPending.map((p) => (
+                      <ParticipantReceiptRow
+                        key={p.user_id}
+                        participant={p}
+                        onOpenProfile={onOpenProfile}
+                      />
+                    ))
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function ParticipantReceiptRow({
+  participant,
+  onOpenProfile,
+}: {
+  participant: MessageReceiptParticipantInfo;
+  onOpenProfile?: (userId: string) => void;
+}) {
+  const isOnline = participant.presence_status === "online";
+  const isAusente = participant.presence_status === "ausente";
+
+  const timeLabel =
+    participant.status === "read"
+      ? formatWhatsAppDateTime(participant.timestamp)
+      : participant.status === "delivered"
+      ? formatWhatsAppDateTime(participant.timestamp)
+      : participant.last_seen
+      ? formatLastSeen(participant.last_seen)
+      : "Aguardando conexão";
+
+  return (
+    <div
+      onClick={() => onOpenProfile?.(participant.user_id)}
+      className="flex items-center justify-between gap-3 p-3 hover:bg-[#202c33]/60 transition-colors cursor-pointer"
+    >
+      <div className="flex items-center gap-2.5 min-w-0">
+        <div className="relative shrink-0">
+          <Avatar className="h-9 w-9 border border-white/10">
+            {participant.avatar_url && (
+              <AvatarImage src={participant.avatar_url} alt={participant.user_name} />
+            )}
+            <AvatarFallback className="bg-[#202c33] text-[#00a884] text-xs font-bold">
+              {(participant.nickname || participant.user_name || "M").slice(0, 2).toUpperCase()}
+            </AvatarFallback>
+          </Avatar>
+          <span
+            className={cn(
+              "absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full ring-2 ring-[#111b21]",
+              isOnline ? "bg-[#25d366]" : isAusente ? "bg-amber-500" : "bg-zinc-500"
+            )}
+          />
+        </div>
+
+        <div className="min-w-0 space-y-0.5">
+          <div className="flex items-center gap-1.5 min-w-0">
+            <span className="text-xs font-bold text-[#e9edef] truncate">
+              {participant.nickname || participant.user_name}
+            </span>
+            {participant.game_id && (
+              <span className="text-[10px] font-mono text-[#8696a0]">
+                #{participant.game_id}
+              </span>
+            )}
+            {participant.role === "admin" && (
+              <Badge className="text-[8px] bg-[#00a884]/15 border-[#00a884]/30 text-[#00a884] font-bold px-1 py-0">
+                Admin
+              </Badge>
+            )}
+          </div>
+          {participant.nickname && participant.user_name && participant.nickname !== participant.user_name && (
+            <p className="text-[10px] text-[#8696a0] truncate leading-none">
+              {participant.user_name}
+            </p>
+          )}
+        </div>
+      </div>
+
+      <div className="text-right shrink-0 font-mono text-[10px] leading-tight">
+        <span
+          className={cn(
+            participant.status === "read"
+              ? "text-[#53bdeb] font-semibold"
+              : participant.status === "delivered"
+              ? "text-[#8696a0]"
+              : "text-amber-400/80"
+          )}
+        >
+          {timeLabel}
+        </span>
+      </div>
+    </div>
+  );
+}

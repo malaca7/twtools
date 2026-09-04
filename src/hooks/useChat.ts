@@ -17,6 +17,8 @@ import {
   leaveOrDeleteGroup,
   uploadChatAttachment,
   getCachedMember,
+  resolveMessageStatus,
+  syncMessageStatusInDb,
 } from "@/services/chatService";
 import type {
   ChatConversation,
@@ -153,9 +155,12 @@ export function useConversations(activeConversationId?: string | null) {
 const PAGE_SIZE = 25;
 
 /**
- * Hook de Sala de Chat com OTIMIZAÇÃO INSTANTÂNEA e LAZY LOADING NO SCROLL.
+ * Hook de Sala de Chat com OTIMIZAÇÃO INSTANTÂNEA, RECIBOS DE LEITURA EM TEMPO REAL e LAZY LOADING NO SCROLL.
  */
-export function useChatRoom(activeConversationId: string | null) {
+export function useChatRoom(
+  activeConversationId: string | null,
+  conversationProp?: ChatConversation | null
+) {
   const { user, profile } = useAuth();
   const queryClient = useQueryClient();
   const [typingUsers, setTypingUsers] = useState<TypingUser[]>([]);
@@ -216,14 +221,27 @@ export function useChatRoom(activeConversationId: string | null) {
     }
   }, [activeConversationId, isLoadingMore, hasMore, queryClient]);
 
-  // Marca conversa como lida ao abrir
+  // Marca conversa como lida ao abrir e transmite recibo de leitura em tempo real
   useEffect(() => {
     if (!activeConversationId || !currentUserId) return;
+    const nowIso = new Date().toISOString();
     void markConversationAsRead(activeConversationId, currentUserId).then(() => {
       queryClient.setQueryData<ChatConversation[]>(["chat_conversations", currentUserId], (old) => {
         if (!old) return old;
         return old.map((c) => (c.id === activeConversationId ? { ...c, unread_count: 0 } : c));
       });
+
+      if (channelRef.current) {
+        void channelRef.current.send({
+          type: "broadcast",
+          event: "read_receipt",
+          payload: {
+            conversation_id: activeConversationId,
+            user_id: currentUserId,
+            read_at: nowIso,
+          },
+        });
+      }
     });
   }, [activeConversationId, currentUserId, queryClient]);
 
@@ -251,9 +269,31 @@ export function useChatRoom(activeConversationId: string | null) {
           const newRaw = payload.new as any;
           if (!newRaw || newRaw.conversation_id !== activeConversationId) return;
 
-          // Se a mensagem for de outro usuário, marca como lida imediatamente (sem alerta sonoro, pois já está aberta)
+          // Se a mensagem for de outro usuário, marca como lida imediatamente e transmite recibo de entrega e leitura
           if (newRaw.sender_id !== currentUserId) {
+            const nowIso = new Date().toISOString();
             void markConversationAsRead(activeConversationId, currentUserId);
+            if (channelRef.current) {
+              void channelRef.current.send({
+                type: "broadcast",
+                event: "delivery_receipt",
+                payload: {
+                  conversation_id: activeConversationId,
+                  user_id: currentUserId,
+                  message_ids: [newRaw.id],
+                  delivered_at: nowIso,
+                },
+              });
+              void channelRef.current.send({
+                type: "broadcast",
+                event: "read_receipt",
+                payload: {
+                  conversation_id: activeConversationId,
+                  user_id: currentUserId,
+                  read_at: nowIso,
+                },
+              });
+            }
           }
 
           // Inserção instantânea (0ms) no cache do TanStack Query
@@ -410,6 +450,79 @@ export function useChatRoom(activeConversationId: string | null) {
 
         typingCleanersRef.current.set(user_id, newTimer);
       })
+      // 6. Recibo de Leitura em tempo real via Broadcast
+      .on("broadcast", { event: "read_receipt" }, ({ payload }) => {
+        if (!payload || payload.user_id === currentUserId) return;
+        const { user_id, read_at } = payload;
+        const readTime = new Date(read_at || Date.now()).getTime();
+
+        queryClient.setQueryData<ChatConversation[]>(["chat_conversations", currentUserId], (old) => {
+          if (!old) return old;
+          return old.map((c) => {
+            if (c.id !== activeConversationId) return c;
+            const updatedParts = (c.participants || []).map((p) =>
+              p.user_id === user_id ? { ...p, last_read_at: read_at || new Date().toISOString() } : p
+            );
+            return { ...c, participants: updatedParts };
+          });
+        });
+
+        queryClient.setQueryData<ChatMessage[]>(["chat_messages", activeConversationId], (old = []) =>
+          old.map((m) => {
+            if ((m.sender_id === currentUserId || m.is_self) && new Date(m.created_at).getTime() <= readTime) {
+              return { ...m, status: "read" as const };
+            }
+            return m;
+          })
+        );
+      })
+      // 7. Recibo de Entrega em tempo real via Broadcast
+      .on("broadcast", { event: "delivery_receipt" }, ({ payload }) => {
+        if (!payload || payload.user_id === currentUserId) return;
+        const { message_ids } = payload;
+
+        queryClient.setQueryData<ChatMessage[]>(["chat_messages", activeConversationId], (old = []) =>
+          old.map((m) => {
+            if (
+              (m.sender_id === currentUserId || m.is_self) &&
+              m.status === "sent" &&
+              (!message_ids || message_ids.includes(m.id))
+            ) {
+              return { ...m, status: "delivered" as const };
+            }
+            return m;
+          })
+        );
+      })
+      // 8. Atualizações de participantes no banco (ex: last_read_at)
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "chat_participants",
+          filter: `conversation_id=eq.${activeConversationId}`,
+        },
+        (payload) => {
+          const updatedPart = payload.new as any;
+          if (!updatedPart) return;
+
+          queryClient.setQueryData<ChatConversation[]>(["chat_conversations", currentUserId], (old) => {
+            if (!old) return old;
+            return old.map((c) => {
+              if (c.id !== activeConversationId) return c;
+              const updatedParts = (c.participants || []).map((p) =>
+                p.user_id === updatedPart.user_id
+                  ? { ...p, last_read_at: updatedPart.last_read_at || p.last_read_at }
+                  : p
+              );
+              return { ...c, participants: updatedParts };
+            });
+          });
+
+          void queryClient.invalidateQueries({ queryKey: ["chat_messages", activeConversationId] });
+        }
+      )
       .subscribe();
 
     return () => {
@@ -668,10 +781,33 @@ export function useChatRoom(activeConversationId: string | null) {
     },
   });
 
-  // Filtra mensagens não apagadas para o usuário atual
-  const visibleMessages = (messagesQuery.data || []).filter(
-    (m) => !m.deleted_for_users?.includes(currentUserId || "")
-  );
+  // Filtra mensagens não apagadas para o usuário atual e resolve status dinamicamente estilo WhatsApp
+  const visibleMessages = useMemo(() => {
+    const raw = (messagesQuery.data || []).filter(
+      (m) => !m.deleted_for_users?.includes(currentUserId || "")
+    );
+
+    const conv =
+      conversationProp ||
+      queryClient
+        .getQueryData<ChatConversation[]>(["chat_conversations", currentUserId])
+        ?.find((c) => c.id === activeConversationId);
+
+    const participants = conv?.participants || [];
+
+    return raw.map((m) => {
+      if (m.is_self || m.sender_id === currentUserId) {
+        const resolved = resolveMessageStatus(m, participants, currentUserId);
+        if (resolved !== m.status) {
+          if (!m.id.startsWith("optimistic-") && (resolved === "delivered" || resolved === "read")) {
+            void syncMessageStatusInDb(m.id, resolved);
+          }
+          return { ...m, status: resolved };
+        }
+      }
+      return m;
+    });
+  }, [messagesQuery.data, conversationProp, activeConversationId, currentUserId, queryClient]);
 
   return {
     messages: visibleMessages,

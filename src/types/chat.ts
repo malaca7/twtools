@@ -228,3 +228,27 @@ export interface UploadAttachmentResult {
   type: string;
   size: number;
 }
+
+export interface MessageReceiptParticipantInfo {
+  user_id: string;
+  user_name: string;
+  nickname?: string | null;
+  game_id?: string | null;
+  avatar_url?: string | null;
+  role?: ParticipantRole;
+  status: "read" | "delivered" | "pending";
+  timestamp: string | null; // ISO string do momento em que leu ou recebeu
+  presence_status?: UserPresenceStatus;
+  last_seen?: string | null;
+}
+
+export interface MessageReceiptSummary {
+  status: MessageStatus;
+  readCount: number;
+  deliveredCount: number;
+  pendingCount: number;
+  totalRecipients: number;
+  readParticipants: MessageReceiptParticipantInfo[];
+  deliveredParticipants: MessageReceiptParticipantInfo[];
+  pendingParticipants: MessageReceiptParticipantInfo[];
+}

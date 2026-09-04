@@ -7,6 +7,9 @@ import type {
   CreateGroupPayload,
   UpdateGroupPayload,
   ParticipantRole,
+  MessageStatus,
+  MessageReceiptParticipantInfo,
+  MessageReceiptSummary,
 } from "@/types/chat";
 import type { Member, UserPresenceStatus } from "@/lib/app-types";
 
@@ -612,6 +615,160 @@ export async function markConversationAsRead(
     .update({ last_read_at: now })
     .eq("conversation_id", conversationId)
     .eq("user_id", userId);
+}
+
+/**
+ * Determina com precisão o status de entrega e visualização de uma mensagem no estilo WhatsApp:
+ * - "sending": envio em andamento
+ * - "failed": erro no envio
+ * - "read": visualizada pelo destinatário (privado) ou por todos os membros (grupo) [2 tiques azuis]
+ * - "delivered": entregue ao dispositivo/sessão (destinatário online ou recebeu em tempo real) [2 tiques cinzas]
+ * - "sent": salva no servidor, aguardando entrega [1 tique cinza]
+ */
+export function resolveMessageStatus(
+  message: ChatMessage,
+  participants: ChatParticipant[] = [],
+  currentUserId?: string
+): MessageStatus {
+  if (message.status === "sending" || message.status === "failed") {
+    return message.status;
+  }
+
+  // Se o próprio registro já está marcado como "read", mantemos
+  if (message.status === "read") {
+    return "read";
+  }
+
+  const senderId = message.sender_id || currentUserId;
+  const recipients = participants.filter((p) => p.user_id !== senderId);
+
+  if (recipients.length === 0) {
+    return message.status || "sent";
+  }
+
+  const msgTime = new Date(message.created_at).getTime();
+
+  // Verifica quem já visualizou
+  const readers = recipients.filter((p) => {
+    if (!p.last_read_at) return false;
+    return new Date(p.last_read_at).getTime() >= msgTime;
+  });
+
+  // Se TODOS os destinatários leram -> "read" (2 tiques azuis)
+  if (readers.length === recipients.length) {
+    return "read";
+  }
+
+  // Se pelo menos um leu ou foi entregue
+  const delivered = recipients.filter((p) => {
+    // Se já leu, logicamente já foi entregue
+    if (p.last_read_at && new Date(p.last_read_at).getTime() >= msgTime) return true;
+    // Se o membro está online agora
+    const prof = p.profile || getCachedMember(p.user_id);
+    if (prof?.presence_status === "online") return true;
+    // Se foi visto por último após o envio da mensagem
+    if (prof?.last_seen && new Date(prof.last_seen).getTime() >= msgTime) return true;
+    // Se o status da mensagem já é entregue
+    if (message.status === "delivered") return true;
+    return false;
+  });
+
+  if (recipients.length === 1) {
+    // Conversa 1:1 privada
+    if (readers.length === 1) return "read";
+    if (delivered.length === 1) return "delivered";
+    return "sent";
+  } else {
+    // Grupo
+    if (readers.length === recipients.length) return "read";
+    if (readers.length > 0 || delivered.length > 0) return "delivered";
+    return "sent";
+  }
+}
+
+/**
+ * Monta o resumo detalhado de recibos de uma mensagem estilo WhatsApp ("Dados da mensagem"):
+ * - Lista de quem visualizou (com timestamp exato de leitura)
+ * - Lista de para quem foi entregue (com timestamp de entrega)
+ * - Lista de pendentes (membros que ainda não conectaram)
+ */
+export function getMessageReceiptInfo(
+  message: ChatMessage,
+  conversation: ChatConversation
+): MessageReceiptSummary {
+  const participants = conversation.participants || [];
+  const senderId = message.sender_id;
+  const recipients = participants.filter((p) => p.user_id !== senderId);
+  const msgTime = new Date(message.created_at).getTime();
+
+  const readParticipants: MessageReceiptParticipantInfo[] = [];
+  const deliveredParticipants: MessageReceiptParticipantInfo[] = [];
+  const pendingParticipants: MessageReceiptParticipantInfo[] = [];
+
+  recipients.forEach((p) => {
+    const prof = p.profile || getCachedMember(p.user_id);
+    const hasRead = Boolean(p.last_read_at && new Date(p.last_read_at).getTime() >= msgTime);
+
+    const isDelivered =
+      hasRead ||
+      prof?.presence_status === "online" ||
+      (prof?.last_seen && new Date(prof.last_seen).getTime() >= msgTime) ||
+      message.status === "delivered";
+
+    const baseInfo: MessageReceiptParticipantInfo = {
+      user_id: p.user_id,
+      user_name: prof?.nome || p.custom_nickname || "Membro",
+      nickname: prof?.nickname || p.custom_nickname || null,
+      game_id: prof?.game_id || null,
+      avatar_url: prof?.discord_avatar_url || null,
+      role: p.role,
+      presence_status: prof?.presence_status,
+      last_seen: prof?.last_seen || null,
+      status: hasRead ? "read" : isDelivered ? "delivered" : "pending",
+      timestamp: hasRead
+        ? p.last_read_at
+        : isDelivered
+        ? prof?.last_seen && new Date(prof.last_seen).getTime() >= msgTime
+          ? prof.last_seen
+          : message.created_at
+        : null,
+    };
+
+    if (hasRead) {
+      readParticipants.push(baseInfo);
+    } else if (isDelivered) {
+      deliveredParticipants.push(baseInfo);
+    } else {
+      pendingParticipants.push(baseInfo);
+    }
+  });
+
+  const overallStatus = resolveMessageStatus(message, participants, senderId);
+
+  return {
+    status: overallStatus,
+    readCount: readParticipants.length,
+    deliveredCount: deliveredParticipants.length,
+    pendingCount: pendingParticipants.length,
+    totalRecipients: recipients.length,
+    readParticipants,
+    deliveredParticipants,
+    pendingParticipants,
+  };
+}
+
+/**
+ * Atualiza o status da mensagem no banco em segundo plano (se necessário).
+ */
+export async function syncMessageStatusInDb(messageId: string, status: "delivered" | "read"): Promise<void> {
+  try {
+    await supabase
+      .from("chat_messages" as any)
+      .update({ status })
+      .eq("id", messageId);
+  } catch {
+    // Silently ignore
+  }
 }
 
 /**

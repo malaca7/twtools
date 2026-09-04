@@ -80,6 +80,7 @@ import { ModerationToolsDialog } from "./ModerationToolsDialog";
 import { ReportMessageDialog } from "./ReportMessageDialog";
 import { MessageThreadDrawer } from "./MessageThreadDrawer";
 import { WhatsAppWallpaperDialog } from "./WhatsAppWallpaperDialog";
+import { MessageInfoModal } from "./MessageInfoModal";
 import { formatTimeOnly, formatUserPresenceText } from "@/lib/format";
 import { LEVEL_LABEL } from "@/lib/permissions";
 import { cn } from "@/lib/utils";
@@ -136,7 +137,7 @@ export function ChatWindow({
     editMessage,
     deleteMessage,
     sendTypingNotification,
-  } = useChatRoom(conversation.id);
+  } = useChatRoom(conversation.id, conversation);
 
   const { conversations: allConversations } = useConversations();
   const [groupSettingsOpen, setGroupSettingsOpen] = useState(false);
@@ -153,6 +154,7 @@ export function ChatWindow({
   const [reminderMessage, setReminderMessage] = useState<ChatMessage | null>(null);
   const [profileUserId, setProfileUserId] = useState<string | null>(null);
   const [wallpaperDialogOpen, setWallpaperDialogOpen] = useState(false);
+  const [infoMessage, setInfoMessage] = useState<ChatMessage | null>(null);
 
   // Tema de wallpaper do WhatsApp
   const [wallpaperTheme, setWallpaperTheme] = useState<string>(() => {
@@ -739,6 +741,7 @@ export function ChatWindow({
                   onDelete={(msgId, forEveryone) => deleteMessage(msgId, forEveryone)}
                   onScrollToMessage={handleScrollToMessage}
                   onOpenProfile={(uid) => setProfileUserId(uid)}
+                  onOpenMessageInfo={(msg) => setInfoMessage(msg)}
                 />
               </React.Fragment>
             );
@@ -958,6 +961,18 @@ export function ChatWindow({
         onOpenChange={(open) => !open && setThreadMessage(null)}
         parentMessage={threadMessage}
         conversationTitle={title}
+      />
+
+      <MessageInfoModal
+        open={Boolean(infoMessage)}
+        onOpenChange={(open) => !open && setInfoMessage(null)}
+        message={infoMessage}
+        conversation={conversation}
+        currentUserId={currentUserId}
+        onOpenProfile={(uid) => {
+          setInfoMessage(null);
+          setProfileUserId(uid);
+        }}
       />
 
       {/* MODAL DE EXCLUSÃO EM MASSA */}

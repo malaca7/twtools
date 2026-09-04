@@ -73,7 +73,8 @@ import { ChatSoundSettingsDialog } from "./ChatSoundSettingsDialog";
 import { ManageFoldersDialog } from "./ManageFoldersDialog";
 import { formatTimeOnly, formatUserPresenceText } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import type { ChatConversation, ChatUserFolder } from "@/types/chat";
+import { MessageStatusIcon } from "./MessageStatusIcon";
+import type { ChatConversation, ChatUserFolder, MessageStatus } from "@/types/chat";
 import { toast } from "sonner";
 
 interface ConversationListProps {
@@ -555,6 +556,29 @@ export function ConversationList({
             const isMuted = Boolean(c.is_muted);
             const isArchived = Boolean(c.is_archived);
 
+            const isLastMsgSelf = c.last_message_sender_id === currentUserId;
+            let lastMsgStatus: MessageStatus = "sent";
+            if (isLastMsgSelf && c.last_message_at) {
+              const lastTime = new Date(c.last_message_at).getTime();
+              const otherParts = (c.participants || []).filter((p) => p.user_id !== currentUserId);
+              if (otherParts.length > 0) {
+                const allRead = otherParts.every(
+                  (p) => p.last_read_at && new Date(p.last_read_at).getTime() >= lastTime
+                );
+                if (allRead) {
+                  lastMsgStatus = "read";
+                } else {
+                  const anyDelivered = otherParts.some(
+                    (p) =>
+                      (p.last_read_at && new Date(p.last_read_at).getTime() >= lastTime) ||
+                      p.profile?.presence_status === "online" ||
+                      (p.profile?.last_seen && new Date(p.profile.last_seen).getTime() >= lastTime)
+                  );
+                  if (anyDelivered) lastMsgStatus = "delivered";
+                }
+              }
+            }
+
             return (
               <div
                 key={c.id}
@@ -614,8 +638,11 @@ export function ConversationList({
 
                   <div className="flex items-center justify-between gap-1">
                     <p className="truncate text-xs text-[#8696a0] leading-tight flex items-center gap-1 max-w-[200px] sm:max-w-[230px]">
+                      {isLastMsgSelf && c.last_message && (
+                        <MessageStatusIcon status={lastMsgStatus} className="h-3 w-3 shrink-0 inline-block mr-0.5" />
+                      )}
                       {c.last_message ? (
-                        <span>{c.last_message}</span>
+                        <span className="truncate">{c.last_message}</span>
                       ) : (
                         <span className="italic opacity-60">Nenhuma mensagem</span>
                       )}

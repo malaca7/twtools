@@ -17,6 +17,7 @@ import {
   AlertTriangle,
   MessageSquare,
   Sparkles,
+  Info,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -71,6 +72,7 @@ interface MessageBubbleProps {
   onDelete: (messageId: string, forEveryone: boolean) => void;
   onScrollToMessage?: (messageId: string) => void;
   onOpenProfile?: (userId: string) => void;
+  onOpenMessageInfo?: (message: ChatMessage) => void;
 }
 
 const QUICK_EMOJIS = ["👍", "❤️", "😂", "😮", "😢", "🙏"];
@@ -121,6 +123,7 @@ function MessageBubbleBase({
   onDelete,
   onScrollToMessage,
   onOpenProfile,
+  onOpenMessageInfo,
 }: MessageBubbleProps) {
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [editing, setEditing] = useState(false);
@@ -251,6 +254,15 @@ function MessageBubbleBase({
                   <DropdownMenuItem onClick={() => onReply(message)} className="cursor-pointer hover:bg-white/10 rounded-lg">
                     <Reply className="h-3.5 w-3.5 mr-2 text-[#00a884]" /> Responder
                   </DropdownMenuItem>
+
+                  {onOpenMessageInfo && (
+                    <DropdownMenuItem
+                      onClick={() => onOpenMessageInfo(message)}
+                      className="cursor-pointer hover:bg-white/10 rounded-lg text-[#53bdeb] font-medium"
+                    >
+                      <Info className="h-3.5 w-3.5 mr-2" /> Dados da mensagem
+                    </DropdownMenuItem>
+                  )}
 
                   <DropdownMenuItem onClick={() => setReactionMenuOpen(true)} className="cursor-pointer hover:bg-white/10 rounded-lg">
                     <Smile className="h-3.5 w-3.5 mr-2 text-yellow-400" /> Reagir à mensagem
@@ -527,7 +539,23 @@ function MessageBubbleBase({
               <span className="italic text-[9px] mr-0.5 text-[#8696a0]/80">editada</span>
             )}
             <span>{formatTimeOnly(message.created_at)}</span>
-            {isSelf && !isDeleted && <MessageStatusIcon status={message.status} />}
+            {isSelf && !isDeleted && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  if (!onOpenMessageInfo) return;
+                  e.stopPropagation();
+                  onOpenMessageInfo(message);
+                }}
+                className={cn(
+                  "inline-flex items-center transition-transform",
+                  onOpenMessageInfo ? "cursor-pointer hover:scale-125" : "cursor-default"
+                )}
+                title="Dados da mensagem (ver quem visualizou)"
+              >
+                <MessageStatusIcon status={message.status} />
+              </button>
+            )}
           </div>
           <div className="clear-both" />
         </div>
