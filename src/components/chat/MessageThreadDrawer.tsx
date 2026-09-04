@@ -18,6 +18,7 @@ import {
   CornerDownRight,
   FileText,
 } from "lucide-react";
+import { ChatMessageText } from "./ChatMessageText";
 import { getThreadMessages, sendThreadReply } from "@/services/chatService";
 import { formatTimeOnly, dateOnly } from "@/lib/format";
 import type { ChatMessage } from "@/types/chat";
@@ -121,9 +122,13 @@ export function MessageThreadDrawer({
             </span>
           </div>
 
-          <p className="text-xs text-foreground/90 font-medium pl-8 break-words">
-            {parentMessage.content || parentMessage.attachment_name || "Anexo"}
-          </p>
+          <div className="text-xs text-foreground/90 font-medium pl-8 break-words">
+            {parentMessage.content ? (
+              <ChatMessageText content={parentMessage.content} />
+            ) : (
+              parentMessage.attachment_name || "Anexo"
+            )}
+          </div>
         </div>
 
         {/* LISTA DE RESPOSTAS DA THREAD */}
@@ -171,7 +176,7 @@ export function MessageThreadDrawer({
                         {reply.sender_name}
                       </span>
                     )}
-                    <p className="leading-relaxed break-words whitespace-pre-wrap">{reply.content}</p>
+                    <ChatMessageText content={reply.content} />
                     <span
                       className={cn(
                         "text-[9px] font-mono block text-right",

@@ -41,6 +41,7 @@ import { AudioMessagePlayer } from "./AudioMessagePlayer";
 import { MediaLightboxModal } from "./MediaLightboxModal";
 import { PollBubbleCard } from "./PollBubbleCard";
 import { EventBubbleCard } from "./EventBubbleCard";
+import { ChatMessageText } from "./ChatMessageText";
 import { formatTimeOnly } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import type { ChatMessage, ParticipantRole, PollData, EventData } from "@/types/chat";
@@ -512,9 +513,11 @@ function MessageBubbleBase({
             />
           ) : (
             message.message_type !== "audio" && (
-              <p className="text-[13.5px] leading-relaxed whitespace-pre-wrap break-words select-text font-sans">
-                {isDeleted ? "🚫 Mensagem apagada" : message.content}
-              </p>
+              <ChatMessageText
+                content={message.content}
+                isDeleted={Boolean(isDeleted)}
+                showPreview={!isDeleted}
+              />
             )
           )}
 
