@@ -1,10 +1,9 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import {
   CalendarOff,
   Plus,
   Search,
-  Filter,
   CheckCircle2,
   XCircle,
   Clock,
@@ -13,8 +12,6 @@ import {
   ShieldCheck,
   TrendingUp,
   BarChart3,
-  PieChart as PieIcon,
-  AlertCircle,
   Trash2,
   FileText,
   Palmtree,
@@ -22,15 +19,15 @@ import {
   HeartPulse,
   Briefcase,
   HelpCircle,
-  Sparkles,
-  Info,
   Check,
   X,
   ChevronRight,
   RefreshCw,
   Users,
   Activity,
-  Layers,
+  Award,
+  Sparkles,
+  Info,
 } from "lucide-react";
 import {
   ResponsiveContainer,
@@ -65,8 +62,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { PageHeader, NoAccess } from "@/components/ui-kit";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { PageHeader, NoAccess, EmptyState } from "@/components/ui-kit";
 import { useAuth } from "@/hooks/useAuth";
 import {
   useAbsences,
@@ -76,7 +73,7 @@ import {
   useDeleteAbsence,
 } from "@/hooks/useAbsences";
 import { levelBadgeClass, getLevelLabel, type AppLevel } from "@/lib/permissions";
-import type { AbsenceReason, AbsenceStatus, MemberAbsence } from "@/lib/app-types";
+import type { AbsenceReason, MemberAbsence } from "@/lib/app-types";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/ausencias")({
@@ -237,12 +234,20 @@ function AusenciasPage() {
   const canView = hasPermission("view_absences") || isLeaderOrAdmin;
   const canManage = hasPermission("manage_absences") || isLeaderOrAdmin;
   const canViewStats = hasPermission("view_all_absences") || canManage;
+  const isManagerView = canManage || canViewStats;
 
-  // View state
-  const [activeTab, setActiveTab] = useState<string>("todas");
+  // View state: Non-managers default to their own records
+  const [activeTab, setActiveTab] = useState<string>(() => (isManagerView ? "todas" : "minhas"));
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [reasonFilter, setReasonFilter] = useState<string>("all");
+
+  // Keep activeTab in sync if permission changes
+  useEffect(() => {
+    if (!isManagerView && activeTab === "todas") {
+      setActiveTab("minhas");
+    }
+  }, [isManagerView, activeTab]);
 
   // Create Modal state
   const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -282,6 +287,7 @@ function AusenciasPage() {
   // KPIs & Metrics
   const today = new Date().toISOString().slice(0, 10);
 
+  // Overall General Count: Members currently absent today
   const activeTodayCount = useMemo(() => {
     return absences.filter(
       (a) =>
@@ -291,6 +297,7 @@ function AusenciasPage() {
     ).length;
   }, [absences, today]);
 
+  // Leadership Metrics
   const pendingCount = useMemo(() => {
     return absences.filter((a) => a.status === "pendente").length;
   }, [absences]);
@@ -301,12 +308,39 @@ function AusenciasPage() {
       .reduce((acc, a) => acc + (a.days_count || 1), 0);
   }, [absences]);
 
-  const myAbsencesCount = useMemo(() => {
-    return absences.filter((a) => a.user_id === user?.id).length;
+  // Member's Personal Metrics
+  const myAbsences = useMemo(() => {
+    if (!user?.id) return [];
+    return absences.filter((a) => a.user_id === user.id);
   }, [absences, user?.id]);
+
+  const myAbsencesCount = myAbsences.length;
+
+  const myPendingCount = useMemo(() => {
+    return myAbsences.filter((a) => a.status === "pendente").length;
+  }, [myAbsences]);
+
+  const myActiveAbsence = useMemo(() => {
+    return myAbsences.find(
+      (a) => a.status === "aprovado" && today >= a.start_date && today <= a.end_date
+    );
+  }, [myAbsences, today]);
+
+  const myActiveCount = myActiveAbsence ? 1 : 0;
+
+  const myApprovedCount = useMemo(() => {
+    return myAbsences.filter((a) => a.status === "aprovado").length;
+  }, [myAbsences]);
+
+  const myApprovedDays = useMemo(() => {
+    return myAbsences
+      .filter((a) => a.status === "aprovado")
+      .reduce((acc, a) => acc + (a.days_count || 1), 0);
+  }, [myAbsences]);
 
   // Statistics for Charts (Only for managers)
   const chartDataMonthly = useMemo(() => {
+    if (!canViewStats) return [];
     const monthNames = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
     const countsByMonth: Record<number, { ausencias: number; dias: number }> = {};
 
@@ -330,9 +364,10 @@ function AusenciasPage() {
       ausencias: countsByMonth[idx]?.ausencias || 0,
       dias: countsByMonth[idx]?.dias || 0,
     }));
-  }, [absences]);
+  }, [absences, canViewStats]);
 
   const chartDataReasons = useMemo(() => {
+    if (!canViewStats) return [];
     const counts: Record<string, number> = {};
     absences.forEach((a) => {
       const reasonKey = a.reason || "outro";
@@ -344,9 +379,10 @@ function AusenciasPage() {
       key,
       value,
     }));
-  }, [absences]);
+  }, [absences, canViewStats]);
 
   const statsSummary = useMemo(() => {
+    if (!canViewStats) return { total: 0, approved: 0, rejected: 0, approvalRate: 0, avgDays: "0" };
     const total = absences.length;
     const approved = absences.filter((a) => a.status === "aprovado").length;
     const rejected = absences.filter((a) => a.status === "rejeitado").length;
@@ -360,15 +396,23 @@ function AusenciasPage() {
       approvalRate,
       avgDays,
     };
-  }, [absences]);
+  }, [absences, canViewStats]);
 
   // Filtered absences list
   const filteredAbsences = useMemo(() => {
     return absences.filter((a) => {
-      // Tab filter
-      if (activeTab === "minhas" && a.user_id !== user?.id) return false;
-      if (activeTab === "pendentes" && a.status !== "pendente") return false;
-      if (activeTab === "ativas" && !(a.status === "aprovado" && today >= a.start_date && today <= a.end_date)) return false;
+      // Security: Non-managers can ONLY see their own absences
+      if (!isManagerView) {
+        if (a.user_id !== user?.id) return false;
+        if (activeTab === "ativas" && !(a.status === "aprovado" && today >= a.start_date && today <= a.end_date)) return false;
+        if (activeTab === "pendentes" && a.status !== "pendente") return false;
+        if (activeTab === "aprovadas" && a.status !== "aprovado") return false;
+      } else {
+        // Manager View tab filtering
+        if (activeTab === "minhas" && a.user_id !== user?.id) return false;
+        if (activeTab === "pendentes" && a.status !== "pendente") return false;
+        if (activeTab === "ativas" && !(a.status === "aprovado" && today >= a.start_date && today <= a.end_date)) return false;
+      }
 
       // Status filter
       if (statusFilter !== "all" && a.status !== statusFilter) return false;
@@ -388,7 +432,7 @@ function AusenciasPage() {
 
       return true;
     });
-  }, [absences, activeTab, user?.id, today, statusFilter, reasonFilter, searchTerm]);
+  }, [absences, isManagerView, activeTab, user?.id, today, statusFilter, reasonFilter, searchTerm]);
 
   // Handlers
   const handleCreateSubmit = async (e: React.FormEvent) => {
@@ -424,8 +468,12 @@ function AusenciasPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <PageHeader
-          title="Ausências & Licenças"
-          description="Informe seus períodos de ausência com data de início e retorno, acompanhe justificativas e status de aprovação."
+          title={isManagerView ? "Ausências & Licenças" : "Minhas Ausências & Licenças"}
+          description={
+            isManagerView
+              ? "Painel de gestão e acompanhamento de ausências da facção, aprovação de licenças e estatísticas gerais."
+              : "Informe seus períodos de ausência com data de início e retorno, acompanhe o status de aprovação e visualize o número geral de membros ausentes."
+          }
         >
           <div className="flex items-center gap-2">
             <Badge
@@ -433,7 +481,7 @@ function AusenciasPage() {
               className="border-amber-500/40 bg-amber-500/10 text-amber-400 font-mono font-bold text-xs px-2.5 py-1 flex items-center gap-1.5"
             >
               <CalendarOff className="h-3.5 w-3.5" />
-              REGISTRO DE AUSÊNCIAS
+              {isManagerView ? "PAINEL GERENCIAL DE AUSÊNCIAS" : "REGISTRO PESSOAL DE AUSÊNCIAS"}
             </Badge>
           </div>
         </PageHeader>
@@ -461,79 +509,169 @@ function AusenciasPage() {
         </div>
       </div>
 
-      {/* KPI Cards */}
+      {/* ─── KPI CARDS ─── */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
-        {/* Card 1: Ausentes Hoje */}
+        {/* Card 1: Membros Ausentes no Momento (Visível para todos) */}
         <Card className="surface-card border-emerald-500/30 bg-emerald-500/5">
           <CardHeader className="p-3.5 sm:p-4 pb-1 sm:pb-2">
             <div className="flex items-center justify-between">
               <CardTitle className="text-xs font-extrabold uppercase tracking-wider text-emerald-400">
-                Ausentes Hoje
+                {isManagerView ? "Ausentes Hoje" : "Ausentes no Momento"}
               </CardTitle>
               <div className="p-1.5 rounded-lg bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
-                <Palmtree className="h-4 w-4" />
+                <Users className="h-4 w-4" />
               </div>
             </div>
           </CardHeader>
           <CardContent className="p-3.5 sm:p-4 pt-0">
             <div className="text-2xl font-black text-foreground font-mono">{activeTodayCount}</div>
-            <p className="text-[0.7rem] text-muted-foreground mt-0.5">Membro(s) com licença ativa hoje</p>
+            <p className="text-[0.7rem] text-muted-foreground mt-0.5">
+              {isManagerView
+                ? "Membro(s) com licença ativa hoje"
+                : "Total geral da facção em licença hoje"}
+            </p>
           </CardContent>
         </Card>
 
-        {/* Card 2: Pendentes */}
-        <Card className="surface-card border-amber-500/30 bg-amber-500/5">
-          <CardHeader className="p-3.5 sm:p-4 pb-1 sm:pb-2">
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-xs font-extrabold uppercase tracking-wider text-amber-400">
-                Pendentes
-              </CardTitle>
-              <div className="p-1.5 rounded-lg bg-amber-500/15 text-amber-400 border border-amber-500/30">
-                <Clock className="h-4 w-4" />
+        {/* Card 2: Minhas Ausências ou Pendentes */}
+        {isManagerView ? (
+          <Card className="surface-card border-amber-500/30 bg-amber-500/5">
+            <CardHeader className="p-3.5 sm:p-4 pb-1 sm:pb-2">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-xs font-extrabold uppercase tracking-wider text-amber-400">
+                  Pendentes de Análise
+                </CardTitle>
+                <div className="p-1.5 rounded-lg bg-amber-500/15 text-amber-400 border border-amber-500/30">
+                  <Clock className="h-4 w-4" />
+                </div>
               </div>
-            </div>
-          </CardHeader>
-          <CardContent className="p-3.5 sm:p-4 pt-0">
-            <div className="text-2xl font-black text-foreground font-mono">{pendingCount}</div>
-            <p className="text-[0.7rem] text-muted-foreground mt-0.5">Aguardando análise da liderança</p>
-          </CardContent>
-        </Card>
+            </CardHeader>
+            <CardContent className="p-3.5 sm:p-4 pt-0">
+              <div className="text-2xl font-black text-foreground font-mono">{pendingCount}</div>
+              <p className="text-[0.7rem] text-muted-foreground mt-0.5">Aguardando análise da liderança</p>
+            </CardContent>
+          </Card>
+        ) : (
+          <Card className="surface-card border-purple-500/30 bg-purple-500/5">
+            <CardHeader className="p-3.5 sm:p-4 pb-1 sm:pb-2">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-xs font-extrabold uppercase tracking-wider text-purple-400">
+                  Minhas Ausências
+                </CardTitle>
+                <div className="p-1.5 rounded-lg bg-purple-500/15 text-purple-400 border border-purple-500/30">
+                  <User className="h-4 w-4" />
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="p-3.5 sm:p-4 pt-0">
+              <div className="text-2xl font-black text-foreground font-mono">{myAbsencesCount}</div>
+              <p className="text-[0.7rem] text-muted-foreground mt-0.5">Solicitações cadastradas por você</p>
+            </CardContent>
+          </Card>
+        )}
 
-        {/* Card 3: Total Dias Justificados */}
-        <Card className="surface-card border-sky-500/30 bg-sky-500/5">
-          <CardHeader className="p-3.5 sm:p-4 pb-1 sm:pb-2">
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-xs font-extrabold uppercase tracking-wider text-sky-400">
-                Dias Justificados
-              </CardTitle>
-              <div className="p-1.5 rounded-lg bg-sky-500/15 text-sky-400 border border-sky-500/30">
-                <Calendar className="h-4 w-4" />
+        {/* Card 3: Dias Justificados ou Status da Minha Licença */}
+        {isManagerView ? (
+          <Card className="surface-card border-sky-500/30 bg-sky-500/5">
+            <CardHeader className="p-3.5 sm:p-4 pb-1 sm:pb-2">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-xs font-extrabold uppercase tracking-wider text-sky-400">
+                  Dias Justificados
+                </CardTitle>
+                <div className="p-1.5 rounded-lg bg-sky-500/15 text-sky-400 border border-sky-500/30">
+                  <Calendar className="h-4 w-4" />
+                </div>
               </div>
-            </div>
-          </CardHeader>
-          <CardContent className="p-3.5 sm:p-4 pt-0">
-            <div className="text-2xl font-black text-foreground font-mono">{totalApprovedDays}</div>
-            <p className="text-[0.7rem] text-muted-foreground mt-0.5">Total de dias aprovados no grupo</p>
-          </CardContent>
-        </Card>
+            </CardHeader>
+            <CardContent className="p-3.5 sm:p-4 pt-0">
+              <div className="text-2xl font-black text-foreground font-mono">{totalApprovedDays}</div>
+              <p className="text-[0.7rem] text-muted-foreground mt-0.5">Total de dias aprovados no grupo</p>
+            </CardContent>
+          </Card>
+        ) : (
+          <Card
+            className={cn(
+              "surface-card border transition-all",
+              myActiveAbsence
+                ? "border-emerald-500/40 bg-emerald-500/5"
+                : myPendingCount > 0
+                ? "border-amber-500/40 bg-amber-500/5"
+                : "border-primary/30 bg-primary/5"
+            )}
+          >
+            <CardHeader className="p-3.5 sm:p-4 pb-1 sm:pb-2">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-xs font-extrabold uppercase tracking-wider text-primary">
+                  Status Atual
+                </CardTitle>
+                <div className="p-1.5 rounded-lg bg-primary/15 text-primary border border-primary/30">
+                  <Activity className="h-4 w-4" />
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="p-3.5 sm:p-4 pt-0">
+              <div className="text-lg font-black text-foreground truncate">
+                {myActiveAbsence ? (
+                  <span className="text-emerald-400 flex items-center gap-1 text-sm font-bold">
+                    🏖️ Licença Ativa
+                  </span>
+                ) : myPendingCount > 0 ? (
+                  <span className="text-amber-400 flex items-center gap-1 text-sm font-bold">
+                    ⏳ {myPendingCount} em Análise
+                  </span>
+                ) : (
+                  <span className="text-sky-400 flex items-center gap-1 text-sm font-bold">
+                    🟢 Em Atividade
+                  </span>
+                )}
+              </div>
+              <p className="text-[0.7rem] text-muted-foreground mt-0.5 truncate">
+                {myActiveAbsence
+                  ? `Retorno em ${formatDateBR(myActiveAbsence.end_date)}`
+                  : myPendingCount > 0
+                  ? "Aguardando aprovação da liderança"
+                  : "Sem afastamento ativo no momento"}
+              </p>
+            </CardContent>
+          </Card>
+        )}
 
-        {/* Card 4: Minhas Ausências */}
-        <Card className="surface-card border-purple-500/30 bg-purple-500/5">
-          <CardHeader className="p-3.5 sm:p-4 pb-1 sm:pb-2">
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-xs font-extrabold uppercase tracking-wider text-purple-400">
-                Minhas Ausências
-              </CardTitle>
-              <div className="p-1.5 rounded-lg bg-purple-500/15 text-purple-400 border border-purple-500/30">
-                <User className="h-4 w-4" />
+        {/* Card 4: Minhas Ausências (Líder) ou Meus Dias Justificados (Membro) */}
+        {isManagerView ? (
+          <Card className="surface-card border-purple-500/30 bg-purple-500/5">
+            <CardHeader className="p-3.5 sm:p-4 pb-1 sm:pb-2">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-xs font-extrabold uppercase tracking-wider text-purple-400">
+                  Minhas Ausências
+                </CardTitle>
+                <div className="p-1.5 rounded-lg bg-purple-500/15 text-purple-400 border border-purple-500/30">
+                  <User className="h-4 w-4" />
+                </div>
               </div>
-            </div>
-          </CardHeader>
-          <CardContent className="p-3.5 sm:p-4 pt-0">
-            <div className="text-2xl font-black text-foreground font-mono">{myAbsencesCount}</div>
-            <p className="text-[0.7rem] text-muted-foreground mt-0.5">Registros vinculados ao seu perfil</p>
-          </CardContent>
-        </Card>
+            </CardHeader>
+            <CardContent className="p-3.5 sm:p-4 pt-0">
+              <div className="text-2xl font-black text-foreground font-mono">{myAbsencesCount}</div>
+              <p className="text-[0.7rem] text-muted-foreground mt-0.5">Registros vinculados ao seu perfil</p>
+            </CardContent>
+          </Card>
+        ) : (
+          <Card className="surface-card border-sky-500/30 bg-sky-500/5">
+            <CardHeader className="p-3.5 sm:p-4 pb-1 sm:pb-2">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-xs font-extrabold uppercase tracking-wider text-sky-400">
+                  Dias Justificados
+                </CardTitle>
+                <div className="p-1.5 rounded-lg bg-sky-500/15 text-sky-400 border border-sky-500/30">
+                  <Calendar className="h-4 w-4" />
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="p-3.5 sm:p-4 pt-0">
+              <div className="text-2xl font-black text-foreground font-mono">{myApprovedDays}</div>
+              <p className="text-[0.7rem] text-muted-foreground mt-0.5">Total de dias aprovados para você</p>
+            </CardContent>
+          </Card>
+        )}
       </div>
 
       {/* ─── ESTATÍSTICAS E GRÁFICOS GERENCIAIS (APENAS COM PERMISSÃO DE GESTÃO) ─── */}
@@ -658,18 +796,37 @@ function AusenciasPage() {
           {/* Tabs Filter */}
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full md:w-auto">
             <TabsList className="bg-secondary/60 border border-border/50 p-1 rounded-xl w-full md:w-auto grid grid-cols-2 sm:grid-cols-4 gap-1 h-auto">
-              <TabsTrigger value="todas" className="text-xs font-bold py-1.5 px-3">
-                Todas ({absences.length})
-              </TabsTrigger>
-              <TabsTrigger value="ativas" className="text-xs font-bold py-1.5 px-3 text-emerald-400">
-                Ativas ({activeTodayCount})
-              </TabsTrigger>
-              <TabsTrigger value="pendentes" className="text-xs font-bold py-1.5 px-3 text-amber-400">
-                Pendentes ({pendingCount})
-              </TabsTrigger>
-              <TabsTrigger value="minhas" className="text-xs font-bold py-1.5 px-3">
-                Minhas ({myAbsencesCount})
-              </TabsTrigger>
+              {isManagerView ? (
+                <>
+                  <TabsTrigger value="todas" className="text-xs font-bold py-1.5 px-3">
+                    Todas ({absences.length})
+                  </TabsTrigger>
+                  <TabsTrigger value="ativas" className="text-xs font-bold py-1.5 px-3 text-emerald-400">
+                    Ativas ({activeTodayCount})
+                  </TabsTrigger>
+                  <TabsTrigger value="pendentes" className="text-xs font-bold py-1.5 px-3 text-amber-400">
+                    Pendentes ({pendingCount})
+                  </TabsTrigger>
+                  <TabsTrigger value="minhas" className="text-xs font-bold py-1.5 px-3">
+                    Minhas ({myAbsencesCount})
+                  </TabsTrigger>
+                </>
+              ) : (
+                <>
+                  <TabsTrigger value="minhas" className="text-xs font-bold py-1.5 px-3">
+                    Minhas ({myAbsencesCount})
+                  </TabsTrigger>
+                  <TabsTrigger value="ativas" className="text-xs font-bold py-1.5 px-3 text-emerald-400">
+                    Ativas ({myActiveCount})
+                  </TabsTrigger>
+                  <TabsTrigger value="pendentes" className="text-xs font-bold py-1.5 px-3 text-amber-400">
+                    Pendentes ({myPendingCount})
+                  </TabsTrigger>
+                  <TabsTrigger value="aprovadas" className="text-xs font-bold py-1.5 px-3 text-primary">
+                    Aprovadas ({myApprovedCount})
+                  </TabsTrigger>
+                </>
+              )}
             </TabsList>
           </Tabs>
 
@@ -678,7 +835,7 @@ function AusenciasPage() {
             <div className="relative flex-1 sm:w-56">
               <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
               <Input
-                placeholder="Buscar membro ou motivo..."
+                placeholder={isManagerView ? "Buscar membro ou motivo..." : "Buscar motivo ou detalhes..."}
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="pl-8 h-8 text-xs bg-secondary/50 border-border/60"
@@ -721,15 +878,19 @@ function AusenciasPage() {
               <CalendarOff className="h-6 w-6" />
             </div>
             <div>
-              <h4 className="text-sm font-extrabold text-foreground">Nenhuma ausência encontrada</h4>
+              <h4 className="text-sm font-extrabold text-foreground">
+                {isManagerView ? "Nenhuma ausência encontrada" : "Você não possui ausências registradas"}
+              </h4>
               <p className="text-xs text-muted-foreground mt-0.5">
-                Não há registros de ausências para os filtros selecionados.
+                {isManagerView
+                  ? "Não há registros de ausências para os filtros selecionados."
+                  : "Quando precisar se ausentar da facção por viagem, férias ou outros motivos, clique no botão abaixo para informar o período."}
               </p>
             </div>
             <Button
               size="sm"
               onClick={() => setIsCreateOpen(true)}
-              className="text-xs font-bold gap-1.5 bg-gradient-brand text-primary-foreground"
+              className="text-xs font-bold gap-1.5 bg-gradient-brand text-primary-foreground cursor-pointer"
             >
               <Plus className="h-3.5 w-3.5" />
               Informar Nova Ausência
@@ -881,12 +1042,16 @@ function AusenciasPage() {
                         )}
 
                         {/* Membro autor: Cancelar se pendente */}
-                        {isOwner && item.status === "pendente" && !canManage && (
+                        {isOwner && item.status === "pendente" && (
                           <Button
                             type="button"
                             size="sm"
                             variant="outline"
-                            onClick={() => cancelMutation.mutate(item.id)}
+                            onClick={() => {
+                              if (window.confirm("Deseja cancelar esta solicitação de ausência?")) {
+                                cancelMutation.mutate(item.id);
+                              }
+                            }}
                             disabled={cancelMutation.isPending}
                             className="h-7 px-2 text-xs border-zinc-500/40 text-zinc-400 hover:bg-zinc-500/10"
                           >

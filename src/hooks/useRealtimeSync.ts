@@ -63,6 +63,7 @@ export function useRealtimeSync() {
             void queryClient.invalidateQueries({ queryKey: ["weekly_goals"] });
             void queryClient.invalidateQueries({ queryKey: ["goal_submissions"] });
             void queryClient.invalidateQueries({ queryKey: ["goals"] });
+            void queryClient.invalidateQueries({ queryKey: ["absences"] });
             void queryClient.invalidateQueries({ queryKey: ["members"] });
             void fetchRemoteMenuConfig();
             void fetchRemotePlatformSettings();

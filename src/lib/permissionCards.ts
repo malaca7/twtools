@@ -440,7 +440,7 @@ export const PAGE_CARDS: PageCardConfig[] = [
       {
         key: "view_absences",
         label: "Acessar Aba de Ausências",
-        description: "Permite acessar a rota /ausencias para consultar o histórico pessoal e avisos de ausência.",
+        description: "Permite acessar a rota /ausencias. Membros sem permissão de gestão visualizam apenas suas próprias ausências e a contagem geral de ausentes.",
         badge: "Acesso à Rota",
       },
       {
@@ -451,13 +451,13 @@ export const PAGE_CARDS: PageCardConfig[] = [
       {
         key: "manage_absences",
         label: "Gerenciar e Aprovar Ausências de Membros",
-        description: "Permite à liderança aprovar/rejeitar pedidos de ausência, adicionar notas e gerenciar licenças de todos os membros.",
+        description: "Permite à liderança aprovar/rejeitar pedidos de ausência, adicionar parecer e gerenciar licenças de todos os membros.",
         badge: "Gestão / Aprovação",
       },
       {
         key: "view_all_absences",
-        label: "Visualizar Gráficos e Estatísticas Gerenciais de Ausências",
-        description: "Permite visualizar o gráfico estatístico completo de ausências, taxa de aprovação, média de dias e membros ausentes em tempo real.",
+        label: "Visualizar Gráficos e Ausências de Todos os Membros",
+        description: "Permite visualizar a lista completa de ausências de todos os membros e o painel de gráficos estatísticos da facção.",
         badge: "Gráficos & Métricas",
       },
     ],
