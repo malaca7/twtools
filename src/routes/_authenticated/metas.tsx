@@ -339,21 +339,29 @@ function MetasPage() {
       .filter((s) => s.status === "pendente")
       .reduce((acc, s) => acc + Number(s.amount), 0);
 
+    const totalDelivered = approvedAmount + pendingAmount;
     const targetVal = Number(activeWeeklyGoal.target_value) || 1;
-    const progressPct = Math.min(100, Math.max(0, (approvedAmount / targetVal) * 100));
-    const remaining = Math.max(0, targetVal - approvedAmount);
-    const isCompleted = progressPct >= 100;
+    const approvedPct = Math.min(100, Math.max(0, (approvedAmount / targetVal) * 100));
+    const totalProgressPct = Math.min(100, Math.max(0, (totalDelivered / targetVal) * 100));
+    const pendingPct = Math.min(100 - approvedPct, Math.max(0, (pendingAmount / targetVal) * 100));
+    const remaining = Math.max(0, targetVal - totalDelivered);
+    const isCompleted = approvedAmount >= targetVal;
+    const isFullyDelivered = totalDelivered >= targetVal;
 
     const today = new Date().toISOString().slice(0, 10);
-    const isExpired = today > activeWeeklyGoal.period_end && !isCompleted;
+    const isExpired = today > activeWeeklyGoal.period_end && !isCompleted && !isFullyDelivered;
 
     return {
       goal: activeWeeklyGoal,
       approvedAmount,
       pendingAmount,
+      totalDelivered,
       remaining,
-      progressPct,
+      progressPct: totalProgressPct,
+      approvedPct,
+      pendingPct,
       isCompleted,
+      isFullyDelivered,
       isExpired,
       submissions: mySubs,
     };
@@ -374,21 +382,28 @@ function MetasPage() {
         .filter((s) => s.status === "pendente")
         .reduce((acc, s) => acc + Number(s.amount), 0);
 
+      const totalDelivered = approvedAmount + pendingAmount;
       const targetVal = Number(activeWeeklyGoal.target_value) || 1;
-      const progressPct = Math.min(100, Math.max(0, (approvedAmount / targetVal) * 100));
-      const remaining = Math.max(0, targetVal - approvedAmount);
+      const approvedPct = Math.min(100, Math.max(0, (approvedAmount / targetVal) * 100));
+      const totalProgressPct = Math.min(100, Math.max(0, (totalDelivered / targetVal) * 100));
+      const pendingPct = Math.min(100 - approvedPct, Math.max(0, (pendingAmount / targetVal) * 100));
+      const remaining = Math.max(0, targetVal - totalDelivered);
       const isPaid = approvedAmount >= targetVal;
-      const hasPendingReview = pendingAmount > 0 && !isPaid;
+      const isFullyDelivered = totalDelivered >= targetVal;
+      const hasPendingReview = pendingAmount > 0;
 
       const today = new Date().toISOString().slice(0, 10);
-      const isExpired = today > activeWeeklyGoal.period_end && !isPaid;
+      const isExpired = today > activeWeeklyGoal.period_end && !isPaid && !isFullyDelivered;
 
       let statusBadge = "Pendente";
       let statusColor = "bg-secondary text-muted-foreground border-border";
 
       if (isPaid) {
-        statusBadge = "Meta Paga";
+        statusBadge = "Meta Paga 100%";
         statusColor = "bg-emerald-500/10 text-emerald-400 border-emerald-500/30";
+      } else if (isFullyDelivered) {
+        statusBadge = "100% (Em Análise)";
+        statusColor = "bg-amber-500/10 text-amber-400 border-amber-500/30";
       } else if (hasPendingReview) {
         statusBadge = "Em Análise";
         statusColor = "bg-amber-500/10 text-amber-400 border-amber-500/30";
@@ -404,9 +419,13 @@ function MetasPage() {
         member: m,
         approvedAmount,
         pendingAmount,
+        totalDelivered,
         remaining,
-        progressPct,
+        progressPct: totalProgressPct,
+        approvedPct,
+        pendingPct,
         isPaid,
+        isFullyDelivered,
         hasPendingReview,
         isExpired,
         statusBadge,
@@ -583,6 +602,8 @@ function MetasPage() {
             "surface-card border transition-all lg:col-span-1 flex flex-col justify-between",
             myGoalStats.isCompleted
               ? "border-emerald-500/40 bg-emerald-500/5"
+              : myGoalStats.isFullyDelivered
+              ? "border-amber-500/40 bg-amber-500/5"
               : myGoalStats.isExpired
               ? "border-destructive/40 bg-destructive/5"
               : "border-primary/40 bg-primary/5"
@@ -596,6 +617,10 @@ function MetasPage() {
               {myGoalStats.isCompleted ? (
                 <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/40 text-[10px] font-bold gap-1">
                   <CheckCircle2 className="h-3 w-3" /> Meta Paga 100%
+                </Badge>
+              ) : myGoalStats.isFullyDelivered ? (
+                <Badge className="bg-amber-500/20 text-amber-400 border-amber-500/40 text-[10px] font-bold gap-1">
+                  <Clock className="h-3 w-3" /> 100% Entregue (Em Análise)
                 </Badge>
               ) : myGoalStats.isExpired ? (
                 <Badge variant="destructive" className="text-[10px] font-bold">
@@ -626,29 +651,65 @@ function MetasPage() {
               <div className="flex items-end justify-between">
                 <div>
                   <p className="text-[0.65rem] font-bold uppercase tracking-wider text-muted-foreground">
-                    Já Pago / Alvo
+                    {myGoalStats.pendingAmount > 0 && myGoalStats.approvedAmount === 0
+                      ? "Total Entregue (Em Análise) / Alvo"
+                      : "Já Pago / Alvo"}
                   </p>
                   <p className="text-lg font-mono font-extrabold text-emerald-400">
-                    {formatGoalValue(myGoalStats.approvedAmount, myGoalStats.goal.type, myGoalStats.goal.unit_name)}
+                    {formatGoalValue(
+                      myGoalStats.totalDelivered,
+                      myGoalStats.goal.type,
+                      myGoalStats.goal.unit_name
+                    )}
                     <span className="text-xs font-normal text-muted-foreground">
                       {" / "}
-                      {formatGoalValue(myGoalStats.goal.target_value, myGoalStats.goal.type, myGoalStats.goal.unit_name)}
+                      {formatGoalValue(
+                        myGoalStats.goal.target_value,
+                        myGoalStats.goal.type,
+                        myGoalStats.goal.unit_name
+                      )}
                     </span>
                   </p>
                 </div>
-                <span className="text-base font-mono font-extrabold text-primary">
-                  {myGoalStats.progressPct.toFixed(0)}%
-                </span>
+                <div className="text-right">
+                  <span className="text-base font-mono font-extrabold text-primary">
+                    {myGoalStats.progressPct.toFixed(0)}%
+                  </span>
+                  {myGoalStats.pendingAmount > 0 && (
+                    <span className="block text-[10px] text-amber-400 font-bold">
+                      {myGoalStats.approvedAmount > 0
+                        ? `(${myGoalStats.approvedPct.toFixed(0)}% aprovado)`
+                        : "(aguardando print)"}
+                    </span>
+                  )}
+                </div>
               </div>
 
-              <Progress value={myGoalStats.progressPct} className="h-2.5" />
+              {/* Barra de Progresso Dual / Responsiva */}
+              <div className="relative h-2.5 w-full bg-secondary/80 rounded-full overflow-hidden">
+                <div
+                  className="absolute top-0 bottom-0 left-0 bg-emerald-500 transition-all duration-500 rounded-full"
+                  style={{ width: `${myGoalStats.approvedPct}%` }}
+                />
+                <div
+                  className="absolute top-0 bottom-0 bg-amber-500 transition-all duration-500 rounded-full"
+                  style={{
+                    left: `${myGoalStats.approvedPct}%`,
+                    width: `${myGoalStats.pendingPct}%`,
+                  }}
+                />
+              </div>
 
               <div className="flex items-center justify-between text-xs pt-1">
                 <span className="text-muted-foreground">Restante:</span>
                 <span className="font-mono font-bold text-foreground">
                   {myGoalStats.remaining === 0
-                    ? "Concluída!"
-                    : formatGoalValue(myGoalStats.remaining, myGoalStats.goal.type, myGoalStats.goal.unit_name)}
+                    ? "Meta Entregue! 🎉"
+                    : formatGoalValue(
+                        myGoalStats.remaining,
+                        myGoalStats.goal.type,
+                        myGoalStats.goal.unit_name
+                      )}
                 </span>
               </div>
 
@@ -1080,13 +1141,34 @@ function MetasPage() {
                     )}
                   </div>
 
-                  <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                  <div className="flex items-center gap-3 text-xs text-muted-foreground flex-wrap">
                     <span>
-                      Pago: <strong className="text-emerald-400 font-mono">{currency(item.approvedAmount)}</strong>
+                      Entregue:{" "}
+                      <strong className="text-emerald-400 font-mono">
+                        {formatGoalValue(
+                          item.totalDelivered,
+                          activeWeeklyGoal.type,
+                          activeWeeklyGoal.unit_name
+                        )}
+                      </strong>
+                      {item.pendingAmount > 0 && (
+                        <span className="text-[10px] text-amber-400 ml-1 font-bold">
+                          ({formatGoalValue(item.pendingAmount, activeWeeklyGoal.type, activeWeeklyGoal.unit_name)} em análise)
+                        </span>
+                      )}
                     </span>
                     <span>•</span>
                     <span>
-                      Restante: <strong className="text-foreground font-mono">{currency(item.remaining)}</strong>
+                      Restante:{" "}
+                      <strong className="text-foreground font-mono">
+                        {item.remaining === 0
+                          ? "Concluído"
+                          : formatGoalValue(
+                              item.remaining,
+                              activeWeeklyGoal.type,
+                              activeWeeklyGoal.unit_name
+                            )}
+                      </strong>
                     </span>
                   </div>
                 </div>
@@ -1098,7 +1180,19 @@ function MetasPage() {
                     <span>Progresso</span>
                     <span className="text-primary">{item.progressPct.toFixed(0)}%</span>
                   </div>
-                  <Progress value={item.progressPct} className="h-2" />
+                  <div className="relative h-2 w-full bg-secondary/80 rounded-full overflow-hidden">
+                    <div
+                      className="absolute top-0 bottom-0 left-0 bg-emerald-500 rounded-full"
+                      style={{ width: `${item.approvedPct}%` }}
+                    />
+                    <div
+                      className="absolute top-0 bottom-0 bg-amber-500 rounded-full"
+                      style={{
+                        left: `${item.approvedPct}%`,
+                        width: `${item.pendingPct}%`,
+                      }}
+                    />
+                  </div>
                 </div>
 
                 <Badge className={cn("text-xs font-bold shrink-0", item.statusColor)}>
@@ -1425,7 +1519,7 @@ function MetasPage() {
           <Card className="surface-card border-border/70 p-4 flex flex-col justify-between">
             <div className="flex items-center justify-between pb-2">
               <span className="text-[0.7rem] font-bold uppercase tracking-wider text-muted-foreground">
-                Meu Total Pago
+                Meu Total Pago / Entregue
               </span>
               <div className="p-1.5 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
                 <DollarSign className="h-4 w-4" />
@@ -1434,18 +1528,33 @@ function MetasPage() {
             <div>
               <h4 className="text-xl font-mono font-extrabold text-emerald-400">
                 {myGoalStats
-                  ? formatGoalValue(myGoalStats.approvedAmount, myGoalStats.goal.type, myGoalStats.goal.unit_name)
+                  ? formatGoalValue(myGoalStats.totalDelivered, myGoalStats.goal.type, myGoalStats.goal.unit_name)
                   : "R$ 0,00"}
               </h4>
               <p className="text-[0.7rem] text-muted-foreground mt-0.5">
-                Entregas aprovadas pela liderança
+                {myGoalStats && myGoalStats.pendingAmount > 0
+                  ? myGoalStats.approvedAmount > 0
+                    ? `${formatGoalValue(myGoalStats.approvedAmount, myGoalStats.goal.type, myGoalStats.goal.unit_name)} aprovado + ${formatGoalValue(myGoalStats.pendingAmount, myGoalStats.goal.type, myGoalStats.goal.unit_name)} em análise`
+                    : "Aguardando validação da liderança"
+                  : "Entregas aprovadas pela liderança"}
               </p>
             </div>
             <div className="flex items-center gap-1.5 text-[0.68rem] text-emerald-400 pt-2 mt-2 border-t border-border/40">
-              <CheckCircle2 className="h-3 w-3" />
-              <span>
-                {myGoalStats ? `${myGoalStats.progressPct.toFixed(0)}% concluído` : "0%"}
-              </span>
+              {myGoalStats && myGoalStats.pendingAmount > 0 && myGoalStats.approvedAmount === 0 ? (
+                <>
+                  <Clock className="h-3 w-3 text-amber-400" />
+                  <span className="text-amber-400 font-semibold">
+                    {myGoalStats.progressPct.toFixed(0)}% entregue (em análise)
+                  </span>
+                </>
+              ) : (
+                <>
+                  <CheckCircle2 className="h-3 w-3" />
+                  <span>
+                    {myGoalStats ? `${myGoalStats.progressPct.toFixed(0)}% concluído` : "0%"}
+                  </span>
+                </>
+              )}
             </div>
           </Card>
 
@@ -1471,7 +1580,7 @@ function MetasPage() {
             </div>
             <div className="flex items-center justify-between text-[0.68rem] text-muted-foreground pt-2 mt-2 border-t border-border/40">
               <span>{myGoalStats?.remaining === 0 ? "Tudo quitado" : "Valor faltante"}</span>
-              <span className="text-primary font-semibold">{myGoalStats?.progressPct.toFixed(0) || 0}% pago</span>
+              <span className="text-primary font-semibold">{myGoalStats?.progressPct.toFixed(0) || 0}% entregue</span>
             </div>
           </Card>
 
@@ -1490,6 +1599,10 @@ function MetasPage() {
                 {myGoalStats?.isCompleted ? (
                   <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/40 text-xs font-bold gap-1">
                     <CheckCircle2 className="h-3.5 w-3.5" /> Meta Paga 100%
+                  </Badge>
+                ) : myGoalStats?.isFullyDelivered ? (
+                  <Badge className="bg-amber-500/20 text-amber-400 border-amber-500/40 text-xs font-bold gap-1">
+                    <Clock className="h-3.5 w-3.5" /> 100% Entregue (Em Análise)
                   </Badge>
                 ) : myGoalStats && myGoalStats.pendingAmount > 0 ? (
                   <Badge className="bg-amber-500/20 text-amber-400 border-amber-500/40 text-xs font-bold gap-1">
