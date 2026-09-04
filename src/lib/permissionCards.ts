@@ -416,13 +416,13 @@ export const PAGE_CARDS: PageCardConfig[] = [
     permissions: [
       {
         key: "view_goals",
-        label: "Ver Progresso das Metas da Facção",
-        description: "Acompanhar a barra de evolução das metas da facção.",
+        label: "Visualizar Metas Semanais & Minhas Entregas",
+        description: "Acessar a rota /metas, acompanhar metas ativas e enviar comprovantes de entrega de meta com print.",
       },
       {
         key: "manage_goals",
-        label: "Criar e Gerenciar Metas Operacionais",
-        description: "Criar novas metas, definir alvos numéricos e editar metas ativas.",
+        label: "Gerenciar Metas Semanais & Validar Comprovantes",
+        description: "Criar e editar metas da família, definir alvos e aprovar ou recusar prints de entrega de metas dos membros.",
         badge: "Gestão Metas",
       },
     ],

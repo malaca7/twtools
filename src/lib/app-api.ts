@@ -24,6 +24,10 @@ import type {
   SystemModule,
   MemberAbsence,
   CreateAbsencePayload,
+  WeeklyGoal,
+  GoalSubmission,
+  CreateWeeklyGoalPayload,
+  SubmitGoalPayload,
 } from "./app-types";
 import { LEVEL_LABEL, type AppLevel, type Permission } from "./permissions";
 
@@ -2151,4 +2155,473 @@ export async function deleteAbsence(absenceId: string): Promise<void> {
       absenceId
     );
   }
-}
+}
+
+// ═══════════════════════════════════════════════════════════════
+// METAS SEMANAIS & ENTREGAS DE METAS COM COMPROVANTE (PRINT)
+// ═══════════════════════════════════════════════════════════════
+
+const WEEKLY_GOALS_DB_LEVEL = "system_weekly_goals";
+const GOAL_SUBMISSIONS_DB_LEVEL = "system_goal_submissions";
+const WEEKLY_GOALS_STORAGE_KEY = "tw_weekly_goals";
+const GOAL_SUBMISSIONS_STORAGE_KEY = "tw_goal_submissions";
+
+function getLocalWeeklyGoals(): WeeklyGoal[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = localStorage.getItem(WEEKLY_GOALS_STORAGE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function setLocalWeeklyGoals(goals: WeeklyGoal[]) {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.setItem(WEEKLY_GOALS_STORAGE_KEY, JSON.stringify(goals));
+    window.dispatchEvent(new CustomEvent("tw_weekly_goals_updated"));
+  } catch {}
+}
+
+function getLocalGoalSubmissions(): GoalSubmission[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = localStorage.getItem(GOAL_SUBMISSIONS_STORAGE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function setLocalGoalSubmissions(submissions: GoalSubmission[]) {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.setItem(GOAL_SUBMISSIONS_STORAGE_KEY, JSON.stringify(submissions));
+    window.dispatchEvent(new CustomEvent("tw_goal_submissions_updated"));
+  } catch {}
+}
+
+export async function getWeeklyGoals(): Promise<WeeklyGoal[]> {
+  try {
+    const { data } = await supabase
+      .from("role_permissions")
+      .select("permissions")
+      .eq("level", WEEKLY_GOALS_DB_LEVEL)
+      .maybeSingle();
+
+    if (data && data.permissions && typeof data.permissions === "object") {
+      const parsed = data.permissions as any;
+      if (Array.isArray(parsed.goals)) {
+        setLocalWeeklyGoals(parsed.goals);
+        return parsed.goals;
+      }
+    }
+  } catch (err) {
+    console.warn("Erro ao carregar metas semanais do banco:", err);
+  }
+
+  const local = getLocalWeeklyGoals();
+  if (local.length > 0) return local;
+
+  // Meta padrão inicial caso não exista nenhuma cadastrada
+  const now = new Date();
+  const dayOfWeek = now.getDay(); // 0 is Sunday
+  const monday = new Date(now);
+  monday.setDate(now.getDate() - (dayOfWeek === 0 ? 6 : dayOfWeek - 1));
+  const sunday = new Date(monday);
+  sunday.setDate(monday.getDate() + 6);
+
+  const defaultGoal: WeeklyGoal = {
+    id: `goal_default_${Date.now()}`,
+    title: "Meta Semanal Operacional",
+    description: "Meta semanal padrão de contribuição da família Twin Wheels. Entregue os insumos ou dinheiro para um líder/gerente em serviço e anexe o print do F8.",
+    type: "financeiro",
+    target_value: 50000,
+    unit_name: "R$",
+    target_scope: "todos",
+    period_start: monday.toISOString().slice(0, 10),
+    period_end: sunday.toISOString().slice(0, 10),
+    is_active: true,
+    created_by_name: "Liderança Twin Wheels",
+    created_at: new Date().toISOString(),
+  };
+
+  const initialList = [defaultGoal];
+  setLocalWeeklyGoals(initialList);
+  return initialList;
+}
+
+export async function createWeeklyGoal(payload: CreateWeeklyGoalPayload): Promise<WeeklyGoal> {
+  const { data: { session } } = await supabase.auth.getSession();
+  
+  let creatorName = "Liderança";
+  if (session?.user?.id) {
+    const { data: profileRow } = await (supabase.from("profiles" as any))
+      .select("nome, nickname")
+      .eq("user_id", session.user.id)
+      .maybeSingle();
+    const p = profileRow as any;
+    if (p) creatorName = p.nickname || p.nome || "Liderança";
+  }
+
+  const newGoal: WeeklyGoal = {
+    id: `wgoal_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+    title: payload.title.trim(),
+    description: payload.description?.trim() || null,
+    type: payload.type,
+    target_value: Number(payload.target_value),
+    unit_name: payload.unit_name?.trim() || (payload.type === "financeiro" ? "R$" : "itens"),
+    target_scope: payload.target_scope,
+    target_role: payload.target_role || null,
+    target_user_id: payload.target_user_id || null,
+    target_user_name: payload.target_user_name || null,
+    period_start: payload.period_start,
+    period_end: payload.period_end,
+    is_active: payload.is_active ?? true,
+    created_by: session?.user?.id,
+    created_by_name: creatorName,
+    created_at: new Date().toISOString(),
+  };
+
+  const currentList = await getWeeklyGoals();
+  const updatedList = [newGoal, ...currentList.filter((g) => g.id !== newGoal.id)];
+  setLocalWeeklyGoals(updatedList);
+
+  try {
+    await supabase.from("role_permissions").upsert(
+      {
+        level: WEEKLY_GOALS_DB_LEVEL,
+        nivel: WEEKLY_GOALS_DB_LEVEL,
+        permissions: { goals: updatedList } as any,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "level" }
+    );
+  } catch (err) {
+    console.warn("Erro ao salvar meta semanal no banco:", err);
+  }
+
+  void logAuditAction(
+    "create_goal",
+    "goals",
+    {
+      title: newGoal.title,
+      type: newGoal.type,
+      target_value: newGoal.target_value,
+      period_start: newGoal.period_start,
+      period_end: newGoal.period_end,
+      target_scope: newGoal.target_scope,
+    },
+    undefined,
+    newGoal.id
+  );
+
+  return newGoal;
+}
+
+export async function updateWeeklyGoal(
+  id: string,
+  updates: Partial<Omit<WeeklyGoal, "id" | "created_at">>
+): Promise<WeeklyGoal> {
+  const currentList = await getWeeklyGoals();
+  const target = currentList.find((g) => g.id === id);
+  if (!target) throw new Error("Meta semanal não encontrada.");
+
+  const updated: WeeklyGoal = {
+    ...target,
+    ...updates,
+    updated_at: new Date().toISOString(),
+  };
+
+  const updatedList = currentList.map((g) => (g.id === id ? updated : g));
+  setLocalWeeklyGoals(updatedList);
+
+  try {
+    await supabase.from("role_permissions").upsert(
+      {
+        level: WEEKLY_GOALS_DB_LEVEL,
+        nivel: WEEKLY_GOALS_DB_LEVEL,
+        permissions: { goals: updatedList } as any,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "level" }
+    );
+  } catch {}
+
+  void logAuditAction(
+    "update_goal",
+    "goals",
+    {
+      id,
+      title: updated.title,
+      is_active: updated.is_active,
+    },
+    undefined,
+    id
+  );
+
+  return updated;
+}
+
+export async function deleteWeeklyGoal(id: string): Promise<void> {
+  const currentList = await getWeeklyGoals();
+  const target = currentList.find((g) => g.id === id);
+  const updatedList = currentList.filter((g) => g.id !== id);
+
+  setLocalWeeklyGoals(updatedList);
+
+  try {
+    await supabase.from("role_permissions").upsert(
+      {
+        level: WEEKLY_GOALS_DB_LEVEL,
+        nivel: WEEKLY_GOALS_DB_LEVEL,
+        permissions: { goals: updatedList } as any,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "level" }
+    );
+  } catch {}
+
+  if (target) {
+    void logAuditAction(
+      "delete_goal",
+      "goals",
+      {
+        id,
+        title: target.title,
+      },
+      undefined,
+      id
+    );
+  }
+}
+
+// ─── ENTREGAS DE METAS (SUBMISSIONS) ───
+
+export async function getGoalSubmissions(): Promise<GoalSubmission[]> {
+  try {
+    const { data } = await supabase
+      .from("role_permissions")
+      .select("permissions")
+      .eq("level", GOAL_SUBMISSIONS_DB_LEVEL)
+      .maybeSingle();
+
+    if (data && data.permissions && typeof data.permissions === "object") {
+      const parsed = data.permissions as any;
+      if (Array.isArray(parsed.submissions)) {
+        setLocalGoalSubmissions(parsed.submissions);
+        return parsed.submissions;
+      }
+    }
+  } catch (err) {
+    console.warn("Erro ao carregar entregas de metas do banco:", err);
+  }
+  return getLocalGoalSubmissions();
+}
+
+export async function submitGoalDelivery(payload: SubmitGoalPayload): Promise<GoalSubmission> {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session?.user) throw new Error("Usuário não autenticado.");
+
+  // Membro que está entregando
+  const { data: profileRow } = await (supabase.from("profiles" as any))
+    .select("nome, nickname, avatar_url, discord_avatar_url")
+    .eq("user_id", session.user.id)
+    .maybeSingle();
+
+  const { data: roleRow } = await supabase
+    .from("user_roles")
+    .select("nivel")
+    .eq("user_id", session.user.id)
+    .maybeSingle();
+
+  const p = profileRow as any;
+  const memberName = p?.nome || "Membro";
+  const memberNickname = p?.nickname || null;
+  const memberAvatar = p?.discord_avatar_url || p?.avatar_url || null;
+  const memberRole = (roleRow?.nivel as AppLevel) || "membro";
+
+  // Membro recebedor
+  const { data: receiverProfileRow } = await (supabase.from("profiles" as any))
+    .select("nome, nickname, avatar_url, discord_avatar_url")
+    .eq("user_id", payload.receiver_id)
+    .maybeSingle();
+
+  const { data: receiverRoleRow } = await supabase
+    .from("user_roles")
+    .select("nivel")
+    .eq("user_id", payload.receiver_id)
+    .maybeSingle();
+
+  const rp = receiverProfileRow as any;
+  const receiverName = rp?.nickname || rp?.nome || "Membro da Liderança";
+  const receiverAvatar = rp?.discord_avatar_url || rp?.avatar_url || null;
+  const receiverRole = (receiverRoleRow?.nivel as AppLevel) || null;
+
+  // Localiza a meta
+  const weeklyGoals = await getWeeklyGoals();
+  const goal = weeklyGoals.find((g) => g.id === payload.goal_id);
+  const goalTitle = goal ? goal.title : "Meta Semanal";
+  const unitName = goal?.unit_name || (goal?.type === "financeiro" ? "R$" : "itens");
+
+  const newSubmission: GoalSubmission = {
+    id: `gsub_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+    goal_id: payload.goal_id,
+    goal_title: goalTitle,
+    user_id: session.user.id,
+    member_name: memberName,
+    member_nickname: memberNickname,
+    member_role: memberRole,
+    member_avatar: memberAvatar,
+    receiver_id: payload.receiver_id,
+    receiver_name: receiverName,
+    receiver_role: receiverRole,
+    receiver_avatar: receiverAvatar,
+    amount: Number(payload.amount),
+    unit_name: unitName,
+    proof_url: payload.proof_url || null,
+    notes: payload.notes?.trim() || null,
+    delivered_at: payload.delivered_at || new Date().toISOString(),
+    status: "pendente",
+    created_at: new Date().toISOString(),
+  };
+
+  const currentList = await getGoalSubmissions();
+  const updatedList = [newSubmission, ...currentList.filter((s) => s.id !== newSubmission.id)];
+  setLocalGoalSubmissions(updatedList);
+
+  try {
+    await supabase.from("role_permissions").upsert(
+      {
+        level: GOAL_SUBMISSIONS_DB_LEVEL,
+        nivel: GOAL_SUBMISSIONS_DB_LEVEL,
+        permissions: { submissions: updatedList } as any,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "level" }
+    );
+  } catch (err) {
+    console.warn("Erro ao sincronizar entrega de meta no banco:", err);
+  }
+
+  void logAuditAction(
+    "submit_goal_delivery",
+    "goals",
+    {
+      goal_title: goalTitle,
+      member_name: memberName,
+      receiver_name: receiverName,
+      amount: newSubmission.amount,
+      unit: unitName,
+      has_proof: Boolean(newSubmission.proof_url),
+    },
+    undefined,
+    newSubmission.id
+  );
+
+  return newSubmission;
+}
+
+export async function reviewGoalSubmission(
+  submissionId: string,
+  payload: { status: "aprovado" | "rejeitado"; review_notes?: string }
+): Promise<GoalSubmission> {
+  const { data: { session } } = await supabase.auth.getSession();
+  let reviewerName = "Liderança";
+
+  if (session?.user?.id) {
+    const { data: reviewerProfile } = await (supabase.from("profiles" as any))
+      .select("nome, nickname")
+      .eq("user_id", session.user.id)
+      .maybeSingle();
+    const rp = reviewerProfile as any;
+    if (rp) reviewerName = rp.nickname || rp.nome || "Liderança";
+  }
+
+  const currentList = await getGoalSubmissions();
+  const target = currentList.find((s) => s.id === submissionId);
+  if (!target) throw new Error("Entrega de meta não encontrada.");
+
+  const updated: GoalSubmission = {
+    ...target,
+    status: payload.status,
+    reviewed_by: session?.user?.id || null,
+    reviewed_by_name: reviewerName,
+    reviewed_at: new Date().toISOString(),
+    review_notes: payload.review_notes?.trim() || null,
+    updated_at: new Date().toISOString(),
+  };
+
+  const updatedList = currentList.map((s) => (s.id === submissionId ? updated : s));
+  setLocalGoalSubmissions(updatedList);
+
+  try {
+    await supabase.from("role_permissions").upsert(
+      {
+        level: GOAL_SUBMISSIONS_DB_LEVEL,
+        nivel: GOAL_SUBMISSIONS_DB_LEVEL,
+        permissions: { submissions: updatedList } as any,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "level" }
+    );
+  } catch (err) {
+    console.warn("Erro ao salvar revisão de entrega no banco:", err);
+  }
+
+  void logAuditAction(
+    payload.status === "aprovado" ? "approve_goal_delivery" : "reject_goal_delivery",
+    "goals",
+    {
+      goal_title: target.goal_title,
+      member_name: target.member_name,
+      amount: target.amount,
+      reviewed_by: reviewerName,
+      review_notes: payload.review_notes || null,
+    },
+    undefined,
+    submissionId
+  );
+
+  return updated;
+}
+
+export async function deleteGoalSubmission(submissionId: string): Promise<void> {
+  const currentList = await getGoalSubmissions();
+  const target = currentList.find((s) => s.id === submissionId);
+  const updatedList = currentList.filter((s) => s.id !== submissionId);
+
+  setLocalGoalSubmissions(updatedList);
+
+  try {
+    await supabase.from("role_permissions").upsert(
+      {
+        level: GOAL_SUBMISSIONS_DB_LEVEL,
+        nivel: GOAL_SUBMISSIONS_DB_LEVEL,
+        permissions: { submissions: updatedList } as any,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "level" }
+    );
+  } catch {}
+
+  if (target) {
+    void logAuditAction(
+      "delete_goal_submission",
+      "goals",
+      {
+        goal_title: target.goal_title,
+        member_name: target.member_name,
+        amount: target.amount,
+      },
+      undefined,
+      submissionId
+    );
+  }
+}
+

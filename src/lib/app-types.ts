@@ -324,4 +324,81 @@ export type CreateAbsencePayload = {
   end_date: string;
   reason: AbsenceReason;
   reason_details?: string | null;
-};
+};
+
+export type WeeklyGoalType = "financeiro" | "quantidade" | "vendas" | "geral";
+export type GoalTargetScope = "todos" | "cargo" | "membro";
+
+export type WeeklyGoal = {
+  id: string;
+  title: string;
+  description?: string | null;
+  type: WeeklyGoalType;
+  target_value: number;
+  unit_name?: string | null;
+  target_scope: GoalTargetScope;
+  target_role?: AppLevel | null;
+  target_user_id?: string | null;
+  target_user_name?: string | null;
+  period_start: string; // YYYY-MM-DD
+  period_end: string; // YYYY-MM-DD
+  is_active: boolean;
+  created_by?: string;
+  created_by_name?: string;
+  created_at: string;
+  updated_at?: string | null;
+};
+
+export type GoalSubmissionStatus = "pendente" | "aprovado" | "rejeitado" | "cancelado";
+
+export type GoalSubmission = {
+  id: string;
+  goal_id: string;
+  goal_title: string;
+  user_id: string;
+  member_name: string;
+  member_nickname?: string | null;
+  member_role?: string | null;
+  member_avatar?: string | null;
+  receiver_id: string;
+  receiver_name: string;
+  receiver_role?: string | null;
+  receiver_avatar?: string | null;
+  amount: number;
+  unit_name?: string | null;
+  proof_url?: string | null;
+  notes?: string | null;
+  delivered_at: string;
+  status: GoalSubmissionStatus;
+  reviewed_by?: string | null;
+  reviewed_by_name?: string | null;
+  reviewed_at?: string | null;
+  review_notes?: string | null;
+  created_at: string;
+  updated_at?: string | null;
+};
+
+export type CreateWeeklyGoalPayload = {
+  title: string;
+  description?: string;
+  type: WeeklyGoalType;
+  target_value: number;
+  unit_name?: string;
+  target_scope: GoalTargetScope;
+  target_role?: AppLevel;
+  target_user_id?: string;
+  target_user_name?: string;
+  period_start: string;
+  period_end: string;
+  is_active?: boolean;
+};
+
+export type SubmitGoalPayload = {
+  goal_id: string;
+  receiver_id: string;
+  amount: number;
+  proof_url?: string;
+  notes?: string;
+  delivered_at?: string;
+};
+
