@@ -1902,6 +1902,30 @@ export async function reorderCustomRoles(orderedIds: string[]): Promise<void> {
 const ABSENCES_STORAGE_KEY = "tw_absences_v1";
 const ABSENCES_DB_LEVEL = "system_absences_list";
 
+async function persistRolePermissionsData(level: string, permissions: any): Promise<void> {
+  try {
+    const { error: rpcError } = await supabase.rpc("save_role_permissions", {
+      _level: level,
+      _permissions: permissions,
+    });
+    if (!rpcError) return;
+  } catch {}
+
+  try {
+    await supabase.from("role_permissions").upsert(
+      {
+        level,
+        nivel: level,
+        permissions,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "level" }
+    );
+  } catch (err) {
+    console.warn(`Erro ao salvar ${level} no banco:`, err);
+  }
+}
+
 function getLocalAbsences(): MemberAbsence[] {
   try {
     if (typeof window === "undefined") return [];
@@ -1912,11 +1936,13 @@ function getLocalAbsences(): MemberAbsence[] {
   }
 }
 
-function setLocalAbsences(absences: MemberAbsence[]): void {
+function setLocalAbsences(absences: MemberAbsence[], emitEvent: boolean = true): void {
   try {
     if (typeof window !== "undefined") {
       localStorage.setItem(ABSENCES_STORAGE_KEY, JSON.stringify(absences));
-      window.dispatchEvent(new CustomEvent("tw_absences_updated"));
+      if (emitEvent) {
+        window.dispatchEvent(new CustomEvent("tw_absences_updated"));
+      }
     }
   } catch {}
 }
@@ -1932,7 +1958,7 @@ export async function getAbsences(): Promise<MemberAbsence[]> {
     if (data && data.permissions && typeof data.permissions === "object") {
       const parsed = data.permissions as any;
       if (Array.isArray(parsed.absences)) {
-        setLocalAbsences(parsed.absences);
+        setLocalAbsences(parsed.absences, false);
         return parsed.absences;
       }
     }
@@ -1989,21 +2015,9 @@ export async function createAbsence(payload: CreateAbsencePayload): Promise<Memb
   const currentList = await getAbsences();
   const updatedList = [newAbsence, ...currentList.filter((a) => a.id !== newAbsence.id)];
 
-  setLocalAbsences(updatedList);
+  setLocalAbsences(updatedList, true);
 
-  try {
-    await supabase.from("role_permissions").upsert(
-      {
-        level: ABSENCES_DB_LEVEL,
-        nivel: ABSENCES_DB_LEVEL,
-        permissions: { absences: updatedList } as any,
-        updated_at: new Date().toISOString(),
-      },
-      { onConflict: "level" }
-    );
-  } catch (err) {
-    console.error("Erro ao sincronizar ausência no banco:", err);
-  }
+  await persistRolePermissionsData(ABSENCES_DB_LEVEL, { absences: updatedList });
 
   void logAuditAction(
     "create_absence",
@@ -2055,21 +2069,9 @@ export async function reviewAbsence(
   const updatedList = [...currentList];
   updatedList[targetIndex] = updatedAbsence;
 
-  setLocalAbsences(updatedList);
+  setLocalAbsences(updatedList, true);
 
-  try {
-    await supabase.from("role_permissions").upsert(
-      {
-        level: ABSENCES_DB_LEVEL,
-        nivel: ABSENCES_DB_LEVEL,
-        permissions: { absences: updatedList } as any,
-        updated_at: new Date().toISOString(),
-      },
-      { onConflict: "level" }
-    );
-  } catch (err) {
-    console.error("Erro ao salvar revisão de ausência no banco:", err);
-  }
+  await persistRolePermissionsData(ABSENCES_DB_LEVEL, { absences: updatedList });
 
   void logAuditAction(
     payload.status === "aprovado" ? "approve_absence" : "reject_absence",
@@ -2096,19 +2098,9 @@ export async function cancelAbsence(absenceId: string): Promise<void> {
     a.id === absenceId ? { ...a, status: "cancelada" as const, updated_at: new Date().toISOString() } : a
   );
 
-  setLocalAbsences(updatedList);
+  setLocalAbsences(updatedList, true);
 
-  try {
-    await supabase.from("role_permissions").upsert(
-      {
-        level: ABSENCES_DB_LEVEL,
-        nivel: ABSENCES_DB_LEVEL,
-        permissions: { absences: updatedList } as any,
-        updated_at: new Date().toISOString(),
-      },
-      { onConflict: "level" }
-    );
-  } catch {}
+  await persistRolePermissionsData(ABSENCES_DB_LEVEL, { absences: updatedList });
 
   void logAuditAction(
     "cancel_absence",
@@ -2128,19 +2120,9 @@ export async function deleteAbsence(absenceId: string): Promise<void> {
   const target = currentList.find((a) => a.id === absenceId);
   const updatedList = currentList.filter((a) => a.id !== absenceId);
 
-  setLocalAbsences(updatedList);
+  setLocalAbsences(updatedList, true);
 
-  try {
-    await supabase.from("role_permissions").upsert(
-      {
-        level: ABSENCES_DB_LEVEL,
-        nivel: ABSENCES_DB_LEVEL,
-        permissions: { absences: updatedList } as any,
-        updated_at: new Date().toISOString(),
-      },
-      { onConflict: "level" }
-    );
-  } catch {}
+  await persistRolePermissionsData(ABSENCES_DB_LEVEL, { absences: updatedList });
 
   if (target) {
     void logAuditAction(
@@ -2208,30 +2190,6 @@ function setLocalGoalSubmissions(submissions: GoalSubmission[], emitEvent: boole
       window.dispatchEvent(new CustomEvent("tw_goal_submissions_updated"));
     }
   } catch {}
-}
-
-async function persistRolePermissionsData(level: string, permissions: any): Promise<void> {
-  try {
-    const { error: rpcError } = await supabase.rpc("save_role_permissions", {
-      _level: level,
-      _permissions: permissions,
-    });
-    if (!rpcError) return;
-  } catch {}
-
-  try {
-    await supabase.from("role_permissions").upsert(
-      {
-        level,
-        nivel: level,
-        permissions,
-        updated_at: new Date().toISOString(),
-      },
-      { onConflict: "level" }
-    );
-  } catch (err) {
-    console.warn(`Erro ao salvar ${level} no banco:`, err);
-  }
 }
 
 export async function getWeeklyGoals(): Promise<WeeklyGoal[]> {
