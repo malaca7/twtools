@@ -94,15 +94,15 @@ export function MessageInfoModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md sm:max-w-lg p-0 overflow-hidden bg-[#111b21] border border-white/10 text-white rounded-2xl shadow-2xl z-50">
+      <DialogContent className="max-w-md sm:max-w-lg p-0 overflow-hidden bg-[#182229] border border-white/20 text-white rounded-2xl shadow-2xl ring-1 ring-white/10">
         {/* HEADER ESTILO WHATSAPP */}
-        <DialogHeader className="p-4 bg-[#202c33] border-b border-white/5 space-y-1">
+        <DialogHeader className="p-4 bg-[#202c33] border-b border-white/10 space-y-1">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <div className="h-8 w-8 rounded-full bg-[#00a884]/20 text-[#00a884] flex items-center justify-center">
                 <Info className="h-4 w-4" />
               </div>
-              <DialogTitle className="text-base font-bold text-[#e9edef] leading-none">
+              <DialogTitle className="text-base font-bold text-white leading-none">
                 Dados da mensagem
               </DialogTitle>
             </div>
