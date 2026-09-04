@@ -129,6 +129,41 @@ function formatGoalValue(val: number, type: WeeklyGoalType, unitName?: string | 
   return `${num(val)} ${unitName || "unid"}`;
 }
 
+function parseGoalAmount(
+  val: string | number | null | undefined,
+  goalType?: WeeklyGoalType,
+  unitName?: string | null
+): number {
+  if (val === null || val === undefined || val === "") return 0;
+  if (typeof val === "number") return isNaN(val) ? 0 : val;
+
+  const str = String(val).trim();
+  if (!str) return 0;
+
+  const isFinancial = goalType === "financeiro" || unitName === "R$" || str.includes("R$");
+
+  if (isFinancial) {
+    if (str.includes(",") || str.includes("R$")) {
+      const digits = str.replace(/\D/g, "");
+      if (!digits) return 0;
+      return parseInt(digits, 10) / 100;
+    }
+    const digits = str.replace(/\D/g, "");
+    return digits ? parseInt(digits, 10) : 0;
+  }
+
+  // Non-financial
+  if (str.includes("R$")) {
+    const digits = str.replace(/\D/g, "");
+    if (!digits) return 0;
+    return str.includes(",") ? parseInt(digits, 10) / 100 : parseInt(digits, 10);
+  }
+
+  const sanitized = str.replace(/\s/g, "").replace(",", ".");
+  const numVal = parseFloat(sanitized);
+  return isNaN(numVal) ? 0 : numVal;
+}
+
 function MetasPage() {
   const { user, profile, hasPermission } = useAuth();
   const currentUserId = user?.id;
@@ -206,12 +241,37 @@ function MetasPage() {
     return weeklyGoals.find((g) => g.is_active) || weeklyGoals[0] || null;
   }, [weeklyGoals]);
 
+  // Selected Goal for delivery modal
+  const selectedGoalForDelivery = useMemo(() => {
+    return weeklyGoals.find((g) => g.id === selectedGoalId) || activeWeeklyGoal;
+  }, [weeklyGoals, selectedGoalId, activeWeeklyGoal]);
+
+  const isDeliverFinancial = useMemo(() => {
+    if (!selectedGoalForDelivery) return true;
+    return selectedGoalForDelivery.type === "financeiro" || selectedGoalForDelivery.unit_name === "R$";
+  }, [selectedGoalForDelivery]);
+
   // Set default selected goal when opening delivery modal
   useEffect(() => {
     if (activeWeeklyGoal && !selectedGoalId) {
       setSelectedGoalId(activeWeeklyGoal.id);
     }
   }, [activeWeeklyGoal, selectedGoalId]);
+
+  const handleOpenDeliverModal = (goalId?: string) => {
+    if (goalId) {
+      setSelectedGoalId(goalId);
+    } else if (activeWeeklyGoal) {
+      setSelectedGoalId(activeWeeklyGoal.id);
+    } else if (weeklyGoals.length > 0) {
+      setSelectedGoalId(weeklyGoals[0].id);
+    }
+    setDeliverAmount("");
+    setDeliverProofUrl("");
+    setDeliverNotes("");
+    setReceiverId("");
+    setDeliverModalOpen(true);
+  };
 
   // Helper for quick current week date presets
   const setThisWeekPreset = () => {
@@ -410,14 +470,14 @@ function MetasPage() {
 
   // Handler: Submit Delivery
   const handleDeliverGoal = async () => {
-    const goal = weeklyGoals.find((g) => g.id === selectedGoalId) || activeWeeklyGoal;
+    const goal = selectedGoalForDelivery;
     if (!goal) {
       toast.error("Selecione uma meta válida.");
       return;
     }
-    const val = goal.type === "financeiro" ? parseCurrencyInput(deliverAmount) : Number(deliverAmount);
+    const val = parseGoalAmount(deliverAmount, goal.type, goal.unit_name);
     if (!Number.isFinite(val) || val <= 0) {
-      toast.error("Informe um valor ou quantidade válida entregue.");
+      toast.error("Informe um valor ou quantidade válida entregue maior que zero.");
       return;
     }
     if (!receiverId) {
@@ -438,6 +498,7 @@ function MetasPage() {
       setDeliverAmount("");
       setDeliverProofUrl("");
       setDeliverNotes("");
+      setReceiverId("");
     } catch {}
   };
 
@@ -611,10 +672,7 @@ function MetasPage() {
 
           <CardFooter className="pt-2 border-t border-border/40">
             <Button
-              onClick={() => {
-                setSelectedGoalId(myGoalStats.goal.id);
-                setDeliverModalOpen(true);
-              }}
+              onClick={() => handleOpenDeliverModal(myGoalStats.goal.id)}
               className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold gap-2 cursor-pointer"
             >
               <Send className="h-4 w-4" /> Informar Pagamento / Entrega
@@ -648,7 +706,7 @@ function MetasPage() {
                 <Button
                   size="sm"
                   variant="outline"
-                  onClick={() => setDeliverModalOpen(true)}
+                  onClick={() => handleOpenDeliverModal()}
                   className="text-xs font-bold border-emerald-500/40 text-emerald-400"
                 >
                   Enviar Primeiro Comprovante
@@ -1185,7 +1243,7 @@ function MetasPage() {
         actions={
           <div className="flex flex-wrap items-center gap-2.5">
             <Button
-              onClick={() => setDeliverModalOpen(true)}
+              onClick={() => handleOpenDeliverModal()}
               className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold shadow-lg shadow-emerald-600/20 gap-2 cursor-pointer"
             >
               <Send className="h-4 w-4" /> Entregar Meta
@@ -1546,7 +1604,13 @@ function MetasPage() {
             {/* 1. Seleção da Meta */}
             <div className="space-y-1.5">
               <Label className="text-xs font-bold">Meta Semanal</Label>
-              <Select value={selectedGoalId} onValueChange={setSelectedGoalId}>
+              <Select
+                value={selectedGoalId || (activeWeeklyGoal ? activeWeeklyGoal.id : "")}
+                onValueChange={(val) => {
+                  setSelectedGoalId(val);
+                  setDeliverAmount("");
+                }}
+              >
                 <SelectTrigger className="bg-secondary/40">
                   <SelectValue placeholder="Selecione a meta..." />
                 </SelectTrigger>
@@ -1564,15 +1628,32 @@ function MetasPage() {
 
             {/* 2. Valor ou Quantidade Entregue */}
             <div className="space-y-1.5">
-              <Label className="text-xs font-bold">Valor / Quantidade Entregue</Label>
+              <Label className="text-xs font-bold">
+                {isDeliverFinancial
+                  ? "Valor Entregue (R$)"
+                  : `Quantidade Entregue (${selectedGoalForDelivery?.unit_name || "itens"})`}
+              </Label>
               <Input
-                placeholder="Ex: R$ 50.000 ou 500"
+                placeholder={
+                  isDeliverFinancial
+                    ? "Ex: R$ 50.000,00"
+                    : `Ex: 500 (${selectedGoalForDelivery?.unit_name || "itens"})`
+                }
                 value={deliverAmount}
-                onChange={(e) => setDeliverAmount(formatCurrencyInput(e.target.value))}
+                onChange={(e) => {
+                  const raw = e.target.value;
+                  if (isDeliverFinancial) {
+                    setDeliverAmount(formatCurrencyInput(raw));
+                  } else {
+                    setDeliverAmount(raw.replace(/[^0-9.]/g, ""));
+                  }
+                }}
                 className="font-mono font-bold text-emerald-400 bg-secondary/40 text-sm"
               />
               <p className="text-[0.68rem] text-muted-foreground">
-                Você pode entregar o valor total da meta ou pagamentos parciais.
+                {isDeliverFinancial
+                  ? "Você pode entregar o valor total da meta ou pagamentos parciais."
+                  : `Informe a quantidade de ${selectedGoalForDelivery?.unit_name || "insumos/itens"} entregues.`}
               </p>
             </div>
 
