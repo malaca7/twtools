@@ -299,7 +299,7 @@ function MetasPage() {
     };
   }, [activeWeeklyGoal, currentUserId, submissions]);
 
-  // General Family / Members Progress Overview
+  // General Family / Members Progress Overview (Manager only)
   const membersProgress = useMemo(() => {
     if (!activeWeeklyGoal) return [];
 
@@ -502,12 +502,686 @@ function MetasPage() {
     } catch {}
   };
 
+  // ─── RENDER HELPER 1: VISÃO PESSOAL (MINHA META & MINHAS ENTREGAS) ───
+  const renderPersonalGoalView = () => {
+    if (!myGoalStats) {
+      return (
+        <EmptyState
+          icon={<Target className="h-10 w-10 text-muted-foreground" />}
+          title="Nenhuma meta semanal ativa"
+          description="A liderança ainda não ativou nenhuma meta semanal para a família."
+        />
+      );
+    }
+
+    return (
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Card de Status Pessoal da Semana */}
+        <Card
+          className={cn(
+            "surface-card border transition-all lg:col-span-1 flex flex-col justify-between",
+            myGoalStats.isCompleted
+              ? "border-emerald-500/40 bg-emerald-500/5"
+              : myGoalStats.isExpired
+              ? "border-destructive/40 bg-destructive/5"
+              : "border-primary/40 bg-primary/5"
+          )}
+        >
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <Badge variant="outline" className="text-[10px] font-bold border-primary/40 text-primary">
+                {GOAL_TYPE_META[myGoalStats.goal.type]?.label || "Meta Semanal"}
+              </Badge>
+              {myGoalStats.isCompleted ? (
+                <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/40 text-[10px] font-bold gap-1">
+                  <CheckCircle2 className="h-3 w-3" /> Meta Paga 100%
+                </Badge>
+              ) : myGoalStats.isExpired ? (
+                <Badge variant="destructive" className="text-[10px] font-bold">
+                  Prazo Expirado
+                </Badge>
+              ) : myGoalStats.pendingAmount > 0 ? (
+                <Badge className="bg-amber-500/20 text-amber-400 border-amber-500/40 text-[10px] font-bold gap-1">
+                  <Clock className="h-3 w-3" /> Em Análise
+                </Badge>
+              ) : (
+                <Badge variant="secondary" className="text-[10px] font-bold">
+                  Em Aberto
+                </Badge>
+              )}
+            </div>
+            <CardTitle className="text-lg font-extrabold text-foreground pt-1">
+              {myGoalStats.goal.title}
+            </CardTitle>
+            {myGoalStats.goal.description && (
+              <CardDescription className="text-xs text-muted-foreground line-clamp-3">
+                {myGoalStats.goal.description}
+              </CardDescription>
+            )}
+          </CardHeader>
+
+          <CardContent className="space-y-4 pt-0">
+            <div className="p-3.5 rounded-xl bg-background/60 border border-border/70 space-y-3">
+              <div className="flex items-end justify-between">
+                <div>
+                  <p className="text-[0.65rem] font-bold uppercase tracking-wider text-muted-foreground">
+                    Já Pago / Alvo
+                  </p>
+                  <p className="text-lg font-mono font-extrabold text-emerald-400">
+                    {formatGoalValue(myGoalStats.approvedAmount, myGoalStats.goal.type, myGoalStats.goal.unit_name)}
+                    <span className="text-xs font-normal text-muted-foreground">
+                      {" / "}
+                      {formatGoalValue(myGoalStats.goal.target_value, myGoalStats.goal.type, myGoalStats.goal.unit_name)}
+                    </span>
+                  </p>
+                </div>
+                <span className="text-base font-mono font-extrabold text-primary">
+                  {myGoalStats.progressPct.toFixed(0)}%
+                </span>
+              </div>
+
+              <Progress value={myGoalStats.progressPct} className="h-2.5" />
+
+              <div className="flex items-center justify-between text-xs pt-1">
+                <span className="text-muted-foreground">Restante:</span>
+                <span className="font-mono font-bold text-foreground">
+                  {myGoalStats.remaining === 0
+                    ? "Concluída!"
+                    : formatGoalValue(myGoalStats.remaining, myGoalStats.goal.type, myGoalStats.goal.unit_name)}
+                </span>
+              </div>
+
+              {myGoalStats.pendingAmount > 0 && (
+                <div className="p-2 rounded-lg bg-amber-500/10 border border-amber-500/20 text-[0.7rem] text-amber-400 flex items-center gap-1.5">
+                  <Clock className="h-3.5 w-3.5 shrink-0" />
+                  <span>
+                    Você possui <strong>{formatGoalValue(myGoalStats.pendingAmount, myGoalStats.goal.type, myGoalStats.goal.unit_name)}</strong> aguardando aprovação de print.
+                  </span>
+                </div>
+              )}
+            </div>
+
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <Calendar className="h-3.5 w-3.5 text-primary" />
+              <span>
+                Vigência: <strong>{myGoalStats.goal.period_start}</strong> até <strong>{myGoalStats.goal.period_end}</strong>
+              </span>
+            </div>
+          </CardContent>
+
+          <CardFooter className="pt-2 border-t border-border/40">
+            <Button
+              onClick={() => {
+                setSelectedGoalId(myGoalStats.goal.id);
+                setDeliverModalOpen(true);
+              }}
+              className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold gap-2 cursor-pointer"
+            >
+              <Send className="h-4 w-4" /> Informar Pagamento / Entrega
+            </Button>
+          </CardFooter>
+        </Card>
+
+        {/* Histórico Pessoal de Entregas */}
+        <Card className="surface-card border-border/70 lg:col-span-2">
+          <CardHeader className="pb-3 border-b border-border/40">
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="text-sm font-extrabold text-foreground flex items-center gap-2">
+                  <Receipt className="h-4 w-4 text-primary" /> Meus Comprovantes & Entregas Registradas
+                </CardTitle>
+                <CardDescription className="text-xs">
+                  Lista de todas as entregas de meta que você enviou com comprovante.
+                </CardDescription>
+              </div>
+              <Badge variant="outline" className="text-xs font-mono font-bold">
+                {myGoalStats.submissions.length} entregas
+              </Badge>
+            </div>
+          </CardHeader>
+
+          <CardContent className="p-0">
+            {myGoalStats.submissions.length === 0 ? (
+              <div className="p-8 text-center text-muted-foreground space-y-2">
+                <ImageIcon className="h-8 w-8 mx-auto opacity-40" />
+                <p className="text-xs font-medium">Nenhum comprovante de entrega enviado ainda nesta semana.</p>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setDeliverModalOpen(true)}
+                  className="text-xs font-bold border-emerald-500/40 text-emerald-400"
+                >
+                  Enviar Primeiro Comprovante
+                </Button>
+              </div>
+            ) : (
+              <div className="divide-y divide-border/40">
+                {myGoalStats.submissions.map((sub) => (
+                  <div key={sub.id} className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-secondary/20 transition-colors">
+                    <div className="flex items-start gap-3 min-w-0">
+                      {/* Preview do print ou ícone */}
+                      {sub.proof_url ? (
+                        <div
+                          onClick={() => {
+                            setSelectedProofSubmission(sub);
+                            setProofViewerOpen(true);
+                          }}
+                          className="relative w-14 h-14 rounded-xl overflow-hidden border border-border/70 shrink-0 cursor-pointer group bg-black/40"
+                        >
+                          <img
+                            src={sub.proof_url}
+                            alt="Print do comprovante"
+                            className="w-full h-full object-cover group-hover:scale-110 transition-transform"
+                          />
+                          <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+                            <Eye className="h-4 w-4 text-white" />
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="w-12 h-12 rounded-xl bg-secondary/60 border border-border/70 flex items-center justify-center text-muted-foreground shrink-0">
+                          <Receipt className="h-5 w-5" />
+                        </div>
+                      )}
+
+                      <div className="space-y-0.5 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-mono font-extrabold text-sm text-foreground">
+                            {sub.unit_name === "R$" ? currency(sub.amount) : `${num(sub.amount)} ${sub.unit_name || "itens"}`}
+                          </span>
+                          {sub.status === "aprovado" ? (
+                            <Badge className="bg-emerald-500/10 text-emerald-400 border-emerald-500/30 text-[9px] font-bold">
+                              <Check className="h-2.5 w-2.5 mr-0.5" /> Aprovado
+                            </Badge>
+                          ) : sub.status === "rejeitado" ? (
+                            <Badge className="bg-destructive/10 text-destructive border-destructive/30 text-[9px] font-bold">
+                              <X className="h-2.5 w-2.5 mr-0.5" /> Recusado
+                            </Badge>
+                          ) : (
+                            <Badge className="bg-amber-500/10 text-amber-400 border-amber-500/30 text-[9px] font-bold">
+                              <Clock className="h-2.5 w-2.5 mr-0.5" /> Pendente
+                            </Badge>
+                          )}
+                        </div>
+
+                        <p className="text-xs text-muted-foreground">
+                          Entregue para: <strong className="text-foreground">{sub.receiver_name}</strong>
+                        </p>
+
+                        <p className="text-[0.68rem] text-muted-foreground">
+                          {dateTime(sub.delivered_at)}
+                        </p>
+
+                        {sub.notes && (
+                          <p className="text-[0.7rem] text-foreground/80 italic pt-0.5">
+                            "{sub.notes}"
+                          </p>
+                        )}
+
+                        {sub.review_notes && (
+                          <p className="text-[0.7rem] text-amber-400 font-medium pt-0.5">
+                            Nota da Liderança: {sub.review_notes}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
+                      {sub.proof_url && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => {
+                            setSelectedProofSubmission(sub);
+                            setProofViewerOpen(true);
+                          }}
+                          className="h-8 text-xs gap-1.5 border-border/80"
+                        >
+                          <Eye className="h-3.5 w-3.5" /> Ver Print
+                        </Button>
+                      )}
+
+                      {sub.status === "pendente" && (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => deleteSubmissionMutation.mutate(sub.id)}
+                          className="h-8 text-xs text-destructive hover:bg-destructive/10"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+    );
+  };
+
+  // ─── RENDER HELPER 2: PAINEL DE VALIDAÇÃO (GESTOR ONLY) ───
+  const renderValidationPanel = () => (
+    <Card className="surface-card border-border/70">
+      <CardHeader className="pb-3 border-b border-border/40">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div>
+            <CardTitle className="text-base font-extrabold text-foreground flex items-center gap-2">
+              <ShieldCheck className="h-5 w-5 text-primary" /> Painel de Validação e Análise de Entregas
+            </CardTitle>
+            <CardDescription className="text-xs">
+              Examine os comprovantes de prints enviados pelos membros, verifique quem recebeu e aprove ou recuse.
+            </CardDescription>
+          </div>
+
+          {/* Filtros de Status */}
+          <div className="flex items-center gap-1.5 bg-secondary/40 p-1 rounded-xl border border-border/60">
+            {["todos", "pendente", "aprovado", "rejeitado"].map((st) => (
+              <button
+                key={st}
+                type="button"
+                onClick={() => setSubmissionFilter(st)}
+                className={cn(
+                  "px-2.5 py-1 rounded-lg text-xs font-bold capitalize transition-all cursor-pointer",
+                  submissionFilter === st
+                    ? "bg-primary text-primary-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                {st}
+              </button>
+            ))}
+          </div>
+        </div>
+      </CardHeader>
+
+      <CardContent className="p-0">
+        {loadingSubmissions ? (
+          <TableSkeleton rows={4} />
+        ) : filteredSubmissions.length === 0 ? (
+          <div className="p-12 text-center text-muted-foreground space-y-2">
+            <CheckCircle2 className="h-10 w-10 mx-auto text-emerald-400 opacity-60" />
+            <h4 className="text-sm font-bold text-foreground">Nenhuma entrega encontrada</h4>
+            <p className="text-xs">
+              {submissionFilter === "pendente"
+                ? "Todas as entregas enviadas já foram analisadas pela liderança!"
+                : "Nenhum comprovante de entrega registrado para este filtro."}
+            </p>
+          </div>
+        ) : (
+          <div className="divide-y divide-border/40">
+            {filteredSubmissions.map((sub) => (
+              <div
+                key={sub.id}
+                className={cn(
+                  "p-4 flex flex-col md:flex-row md:items-center justify-between gap-4 transition-colors",
+                  sub.status === "pendente"
+                    ? "bg-amber-500/5 hover:bg-amber-500/10"
+                    : "hover:bg-secondary/20"
+                )}
+              >
+                {/* Lado Esquerdo: Dados do Membro e Entrega */}
+                <div className="flex items-start gap-3.5 min-w-0">
+                  {/* Print Thumbnail */}
+                  {sub.proof_url ? (
+                    <div
+                      onClick={() => {
+                        setSelectedProofSubmission(sub);
+                        setProofViewerOpen(true);
+                      }}
+                      className="relative w-16 h-16 rounded-xl overflow-hidden border border-border/80 shrink-0 cursor-pointer group bg-black/60 shadow-md"
+                    >
+                      <img
+                        src={sub.proof_url}
+                        alt="Comprovante"
+                        className="w-full h-full object-cover group-hover:scale-110 transition-transform"
+                      />
+                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+                        <Maximize2 className="h-4 w-4 text-white" />
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="w-16 h-16 rounded-xl bg-secondary/60 border border-border flex items-center justify-center text-muted-foreground shrink-0">
+                      <Receipt className="h-6 w-6" />
+                    </div>
+                  )}
+
+                  <div className="space-y-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-extrabold text-sm text-foreground">
+                        {sub.member_name}
+                      </span>
+                      {sub.member_role && (
+                        <Badge className={cn("text-[9px] font-mono py-0 px-1.5", levelBadgeClass(sub.member_role as AppLevel))}>
+                          {LEVEL_LABEL[sub.member_role as AppLevel] || sub.member_role}
+                        </Badge>
+                      )}
+                      <ChevronRight className="h-3 w-3 text-muted-foreground" />
+                      <span className="font-mono font-extrabold text-sm text-emerald-400">
+                        {sub.unit_name === "R$" ? currency(sub.amount) : `${num(sub.amount)} ${sub.unit_name || "itens"}`}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-3 text-xs text-muted-foreground flex-wrap">
+                      <span>
+                        Meta: <strong className="text-foreground">{sub.goal_title}</strong>
+                      </span>
+                      <span>•</span>
+                      <span>
+                        Entregue para: <strong className="text-foreground">{sub.receiver_name}</strong>
+                      </span>
+                      <span>•</span>
+                      <span>{dateTime(sub.delivered_at)}</span>
+                    </div>
+
+                    {sub.notes && (
+                      <p className="text-xs text-foreground/80 bg-background/40 p-1.5 rounded-lg border border-border/50">
+                        💬 <em>"{sub.notes}"</em>
+                      </p>
+                    )}
+
+                    {sub.review_notes && (
+                      <p className="text-xs text-amber-400 font-medium">
+                        ⚠️ Motivo da recusa: {sub.review_notes}
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                {/* Lado Direito: Ações de Aprovação / Rejeição */}
+                <div className="flex items-center gap-2 shrink-0 self-end md:self-center">
+                  {sub.proof_url && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        setSelectedProofSubmission(sub);
+                        setProofViewerOpen(true);
+                      }}
+                      className="h-8 text-xs gap-1 font-bold border-border"
+                    >
+                      <Eye className="h-3.5 w-3.5" /> Abrir Print
+                    </Button>
+                  )}
+
+                  {canManage && sub.status === "pendente" && (
+                    <>
+                      <Button
+                        size="sm"
+                        disabled={reviewGoalMutation.isPending}
+                        onClick={() =>
+                          reviewGoalMutation.mutate({
+                            submissionId: sub.id,
+                            status: "aprovado",
+                          })
+                        }
+                        className="h-8 text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white gap-1"
+                      >
+                        <Check className="h-3.5 w-3.5" /> Aprovar
+                      </Button>
+
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={reviewGoalMutation.isPending}
+                        onClick={() => {
+                          setRejectingSubmission(sub);
+                          setRejectModalOpen(true);
+                        }}
+                        className="h-8 text-xs font-bold border-destructive/40 text-destructive hover:bg-destructive/10 gap-1"
+                      >
+                        <X className="h-3.5 w-3.5" /> Recusar
+                      </Button>
+                    </>
+                  )}
+
+                  {canManage && (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => deleteSubmissionMutation.mutate(sub.id)}
+                      className="h-8 text-xs text-muted-foreground hover:text-destructive"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+
+  // ─── RENDER HELPER 3: CONTROLE GERAL DA FAMÍLIA (GESTOR ONLY) ───
+  const renderFamilyMembersControl = () => (
+    <Card className="surface-card border-border/70">
+      <CardHeader className="pb-3 border-b border-border/40">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div>
+            <CardTitle className="text-base font-extrabold text-foreground flex items-center gap-2">
+              <Users className="h-5 w-5 text-primary" /> Raio-X de Cumprimento Semanal da Família
+            </CardTitle>
+            <CardDescription className="text-xs">
+              Veja quais membros já pagaram a meta da semana, valores parciais e membros pendentes.
+            </CardDescription>
+          </div>
+
+          {/* Busca e Filtro de Cargo */}
+          <div className="flex items-center gap-2 flex-wrap">
+            <div className="relative w-48">
+              <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
+              <Input
+                placeholder="Buscar membro..."
+                value={memberSearch}
+                onChange={(e) => setMemberSearch(e.target.value)}
+                className="pl-8 h-8 text-xs bg-secondary/40"
+              />
+            </div>
+
+            <Select value={roleFilter} onValueChange={setRoleFilter}>
+              <SelectTrigger className="h-8 text-xs w-36 bg-secondary/40">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="todos">Todos os Cargos</SelectItem>
+                {LEVELS.map((lvl) => (
+                  <SelectItem key={lvl} value={lvl}>
+                    {LEVEL_LABEL[lvl]}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+      </CardHeader>
+
+      <CardContent className="p-0">
+        <div className="divide-y divide-border/40">
+          {filteredMembersProgress.map((item) => (
+            <div
+              key={item.member.user_id}
+              className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-secondary/20 transition-colors"
+            >
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-10 h-10 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center font-bold text-primary shrink-0">
+                  {item.member.nome.slice(0, 2).toUpperCase()}
+                </div>
+
+                <div className="space-y-0.5 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <h5 className="font-extrabold text-sm text-foreground truncate">
+                      {item.member.nickname ? `${item.member.nickname} (${item.member.nome})` : item.member.nome}
+                    </h5>
+                    {item.member.nivel && (
+                      <Badge className={cn("text-[9px] font-mono py-0 px-1.5", levelBadgeClass(item.member.nivel))}>
+                        {LEVEL_LABEL[item.member.nivel] || item.member.nivel}
+                      </Badge>
+                    )}
+                  </div>
+
+                  <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                    <span>
+                      Pago: <strong className="text-emerald-400 font-mono">{currency(item.approvedAmount)}</strong>
+                    </span>
+                    <span>•</span>
+                    <span>
+                      Restante: <strong className="text-foreground font-mono">{currency(item.remaining)}</strong>
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-4 shrink-0 sm:w-64 justify-between sm:justify-end">
+                <div className="w-28 space-y-1">
+                  <div className="flex justify-between text-[10px] font-mono font-bold">
+                    <span>Progresso</span>
+                    <span className="text-primary">{item.progressPct.toFixed(0)}%</span>
+                  </div>
+                  <Progress value={item.progressPct} className="h-2" />
+                </div>
+
+                <Badge className={cn("text-xs font-bold shrink-0", item.statusColor)}>
+                  {item.statusBadge}
+                </Badge>
+              </div>
+            </div>
+          ))}
+        </div>
+      </CardContent>
+    </Card>
+  );
+
+  // ─── RENDER HELPER 4: GESTÃO DE METAS CADASTRADAS (GESTOR ONLY) ───
+  const renderGoalsManagement = () => (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <div>
+          <h3 className="text-sm font-extrabold text-foreground">Metas Semanais Registradas</h3>
+          <p className="text-xs text-muted-foreground">Gerencie as metas ativas e históricas da facção.</p>
+        </div>
+        {canManage && (
+          <Button
+            onClick={() => setCreateGoalModalOpen(true)}
+            size="sm"
+            className="bg-gradient-brand text-primary-foreground text-xs font-bold gap-1.5"
+          >
+            <Plus className="h-3.5 w-3.5" /> Adicionar Meta
+          </Button>
+        )}
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {weeklyGoals.map((g) => {
+          const metaConfig = GOAL_TYPE_META[g.type] || GOAL_TYPE_META.geral;
+          const MetaIcon = metaConfig.icon;
+
+          return (
+            <Card key={g.id} className="surface-card border-border/70 flex flex-col justify-between">
+              <CardHeader className="pb-2">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <div className={cn("p-2 rounded-xl border", metaConfig.color)}>
+                      <MetaIcon className="h-4 w-4" />
+                    </div>
+                    <div>
+                      <Badge variant="outline" className={cn("text-[9px] font-bold", metaConfig.badgeClass)}>
+                        {metaConfig.label}
+                      </Badge>
+                      <CardTitle className="text-sm font-extrabold text-foreground mt-0.5">
+                        {g.title}
+                      </CardTitle>
+                    </div>
+                  </div>
+
+                  <Badge
+                    variant={g.is_active ? "default" : "secondary"}
+                    className="text-[9px] font-mono uppercase shrink-0"
+                  >
+                    {g.is_active ? "Ativa" : "Encerrada"}
+                  </Badge>
+                </div>
+
+                {g.description && (
+                  <CardDescription className="text-xs text-muted-foreground line-clamp-2 pt-1">
+                    {g.description}
+                  </CardDescription>
+                )}
+              </CardHeader>
+
+              <CardContent className="space-y-3 pt-2">
+                <div className="p-2.5 rounded-xl bg-secondary/30 border border-border/60 flex items-center justify-between">
+                  <span className="text-xs text-muted-foreground font-medium">Alvo por Membro:</span>
+                  <span className="font-mono font-extrabold text-sm text-emerald-400">
+                    {formatGoalValue(g.target_value, g.type, g.unit_name)}
+                  </span>
+                </div>
+
+                <div className="space-y-1 text-xs text-muted-foreground">
+                  <div className="flex items-center justify-between">
+                    <span>Escopo:</span>
+                    <strong className="text-foreground capitalize">
+                      {g.target_scope === "todos"
+                        ? "Todos os Membros"
+                        : g.target_scope === "cargo"
+                        ? `Cargo: ${LEVEL_LABEL[g.target_role as AppLevel] || g.target_role}`
+                        : `Membro: ${g.target_user_name || "Individual"}`}
+                    </strong>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span>Vigência:</span>
+                    <strong className="text-foreground font-mono text-[11px]">
+                      {g.period_start} até {g.period_end}
+                    </strong>
+                  </div>
+                </div>
+              </CardContent>
+
+              {canManage && (
+                <CardFooter className="pt-2 border-t border-border/40 flex items-center justify-between">
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() =>
+                      updateGoalMutation.mutate({
+                        id: g.id,
+                        updates: { is_active: !g.is_active },
+                      })
+                    }
+                    className="text-xs h-7 text-muted-foreground hover:text-foreground"
+                  >
+                    {g.is_active ? "Desativar" : "Ativar"}
+                  </Button>
+
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => deleteGoalMutation.mutate(g.id)}
+                    className="text-xs h-7 text-destructive hover:bg-destructive/10"
+                  >
+                    <Trash2 className="h-3.5 w-3.5 mr-1" /> Excluir
+                  </Button>
+                </CardFooter>
+              )}
+            </Card>
+          );
+        })}
+      </div>
+    </div>
+  );
+
   return (
     <div className="mx-auto max-w-7xl space-y-6 pb-12 animate-in fade-in-50 duration-300">
       {/* ─── PAGE HEADER & QUICK ACTIONS ─── */}
       <PageHeader
         title="Metas & Contribuições Semanais"
-        description="Acompanhe o cumprimento das metas da facção, informe suas entregas com print do comprovante e gerencie a arrecadação da família."
+        description={
+          canManage
+            ? "Acompanhe o cumprimento das metas da facção, valide comprovantes com prints e gerencie a arrecadação da família."
+            : "Consulte a meta semanal da facção, acompanhe seu saldo pago/restante e envie seus comprovantes de entrega de meta."
+        }
         actions={
           <div className="flex flex-wrap items-center gap-2.5">
             <Button
@@ -530,845 +1204,329 @@ function MetasPage() {
       />
 
       {/* ─── KPIS & CARDS SUMMARY ─── */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Card 1: Meta Semanal Vigente */}
-        <Card className="surface-card border-border/70 p-4 flex flex-col justify-between">
-          <div className="flex items-center justify-between pb-2">
-            <span className="text-[0.7rem] font-bold uppercase tracking-wider text-muted-foreground">
-              Meta Semanal Vigente
-            </span>
-            <div className="p-1.5 rounded-lg bg-primary/10 text-primary border border-primary/20">
-              <Target className="h-4 w-4" />
+      {canManage ? (
+        /* VISÃO DE GESTÃO / LIDERANÇA */
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {/* Card 1: Meta Semanal Vigente */}
+          <Card className="surface-card border-border/70 p-4 flex flex-col justify-between">
+            <div className="flex items-center justify-between pb-2">
+              <span className="text-[0.7rem] font-bold uppercase tracking-wider text-muted-foreground">
+                Meta Semanal Vigente
+              </span>
+              <div className="p-1.5 rounded-lg bg-primary/10 text-primary border border-primary/20">
+                <Target className="h-4 w-4" />
+              </div>
             </div>
-          </div>
-          <div>
-            <h4 className="text-base font-extrabold text-foreground truncate">
-              {activeWeeklyGoal ? activeWeeklyGoal.title : "Nenhuma Meta Ativa"}
-            </h4>
-            <p className="text-xs font-mono font-bold text-emerald-400 mt-0.5">
-              {activeWeeklyGoal
-                ? formatGoalValue(activeWeeklyGoal.target_value, activeWeeklyGoal.type, activeWeeklyGoal.unit_name)
-                : "R$ 0,00"}
-              <span className="text-[0.7rem] font-normal text-muted-foreground ml-1">/ membro</span>
-            </p>
-          </div>
-          <div className="flex items-center gap-1.5 text-[0.68rem] text-muted-foreground pt-2 mt-2 border-t border-border/40">
-            <CalendarDays className="h-3 w-3 text-primary" />
-            <span>
-              {activeWeeklyGoal
-                ? `${activeWeeklyGoal.period_start} até ${activeWeeklyGoal.period_end}`
-                : "Sem prazo ativo"}
-            </span>
-          </div>
-        </Card>
-
-        {/* Card 2: Arrecadação Aprovada */}
-        <Card className="surface-card border-border/70 p-4 flex flex-col justify-between">
-          <div className="flex items-center justify-between pb-2">
-            <span className="text-[0.7rem] font-bold uppercase tracking-wider text-muted-foreground">
-              Total Arrecadado (Semana)
-            </span>
-            <div className="p-1.5 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-              <DollarSign className="h-4 w-4" />
-            </div>
-          </div>
-          <div>
-            <h4 className="text-xl font-mono font-extrabold text-emerald-400">
-              {currency(weeklyKpis.totalCollectedApproved)}
-            </h4>
-            <p className="text-[0.7rem] text-muted-foreground mt-0.5">
-              Soma de pagamentos confirmados e aprovados
-            </p>
-          </div>
-          <div className="flex items-center gap-1.5 text-[0.68rem] text-emerald-400 pt-2 mt-2 border-t border-border/40">
-            <CheckCircle2 className="h-3 w-3" />
-            <span>Validado pela liderança</span>
-          </div>
-        </Card>
-
-        {/* Card 3: Cumprimento da Família */}
-        <Card className="surface-card border-border/70 p-4 flex flex-col justify-between">
-          <div className="flex items-center justify-between pb-2">
-            <span className="text-[0.7rem] font-bold uppercase tracking-wider text-muted-foreground">
-              Membros em Dia
-            </span>
-            <div className="p-1.5 rounded-lg bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
-              <Users className="h-4 w-4" />
-            </div>
-          </div>
-          <div>
-            <div className="flex items-baseline justify-between">
-              <h4 className="text-xl font-mono font-extrabold text-foreground">
-                {weeklyKpis.paidMembersCount} / {weeklyKpis.totalMembers}
+            <div>
+              <h4 className="text-base font-extrabold text-foreground truncate">
+                {activeWeeklyGoal ? activeWeeklyGoal.title : "Nenhuma Meta Ativa"}
               </h4>
-              <span className="text-xs font-mono font-bold text-primary">
-                {weeklyKpis.familyCompletionPct}%
+              <p className="text-xs font-mono font-bold text-emerald-400 mt-0.5">
+                {activeWeeklyGoal
+                  ? formatGoalValue(activeWeeklyGoal.target_value, activeWeeklyGoal.type, activeWeeklyGoal.unit_name)
+                  : "R$ 0,00"}
+                <span className="text-[0.7rem] font-normal text-muted-foreground ml-1">/ membro</span>
+              </p>
+            </div>
+            <div className="flex items-center gap-1.5 text-[0.68rem] text-muted-foreground pt-2 mt-2 border-t border-border/40">
+              <CalendarDays className="h-3 w-3 text-primary" />
+              <span>
+                {activeWeeklyGoal
+                  ? `${activeWeeklyGoal.period_start} até ${activeWeeklyGoal.period_end}`
+                  : "Sem prazo ativo"}
               </span>
             </div>
-            <Progress value={weeklyKpis.familyCompletionPct} className="h-1.5 mt-2" />
-          </div>
-          <div className="flex items-center justify-between text-[0.68rem] text-muted-foreground pt-2 mt-2 border-t border-border/40">
-            <span>{weeklyKpis.pendingMembersCount} pendentes</span>
-            <span className="text-emerald-400 font-semibold">{weeklyKpis.paidMembersCount} concluídos</span>
-          </div>
-        </Card>
+          </Card>
 
-        {/* Card 4: Entregas Pendentes de Revisão */}
-        <Card
-          onClick={() => {
-            if (canManage) setActiveTab("painel_validacao");
-          }}
-          className={cn(
-            "surface-card border-border/70 p-4 flex flex-col justify-between transition-all",
-            canManage ? "cursor-pointer hover:border-amber-500/40 hover:bg-amber-500/5" : ""
-          )}
-        >
-          <div className="flex items-center justify-between pb-2">
-            <span className="text-[0.7rem] font-bold uppercase tracking-wider text-muted-foreground">
-              Entregas Pendentes
-            </span>
-            <div
-              className={cn(
-                "p-1.5 rounded-lg border",
-                pendingSubmissionsCount > 0
-                  ? "bg-amber-500/15 text-amber-400 border-amber-500/30 animate-pulse"
-                  : "bg-secondary text-muted-foreground border-border"
-              )}
-            >
-              <Clock className="h-4 w-4" />
+          {/* Card 2: Arrecadação Aprovada */}
+          <Card className="surface-card border-border/70 p-4 flex flex-col justify-between">
+            <div className="flex items-center justify-between pb-2">
+              <span className="text-[0.7rem] font-bold uppercase tracking-wider text-muted-foreground">
+                Total Arrecadado (Semana)
+              </span>
+              <div className="p-1.5 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                <DollarSign className="h-4 w-4" />
+              </div>
             </div>
-          </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <h4 className="text-xl font-mono font-extrabold text-foreground">
-                {pendingSubmissionsCount}
+            <div>
+              <h4 className="text-xl font-mono font-extrabold text-emerald-400">
+                {currency(weeklyKpis.totalCollectedApproved)}
               </h4>
-              {pendingSubmissionsCount > 0 && (
-                <Badge className="bg-amber-500/10 text-amber-400 border-amber-500/30 text-[9px] font-bold">
-                  Aguardando Análise
-                </Badge>
-              )}
+              <p className="text-[0.7rem] text-muted-foreground mt-0.5">
+                Soma de pagamentos confirmados e aprovados
+              </p>
             </div>
-            <p className="text-[0.7rem] text-muted-foreground mt-0.5">
-              Comprovantes com prints enviados pelos membros
-            </p>
-          </div>
-          <div className="flex items-center justify-between text-[0.68rem] text-primary font-semibold pt-2 mt-2 border-t border-border/40">
-            <span>{canManage ? "Clique para analisar →" : "Análise dos Gerentes"}</span>
-            <Receipt className="h-3 w-3" />
-          </div>
-        </Card>
-      </div>
+            <div className="flex items-center gap-1.5 text-[0.68rem] text-emerald-400 pt-2 mt-2 border-t border-border/40">
+              <CheckCircle2 className="h-3 w-3" />
+              <span>Validado pela liderança</span>
+            </div>
+          </Card>
 
-      {/* ─── TABS NAVIGATION ─── */}
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="bg-secondary/40 p-1 border border-border/60 flex flex-wrap h-auto gap-1">
-          <TabsTrigger
-            value="minhas_metas"
-            className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground text-xs font-bold py-2 px-4 cursor-pointer gap-2"
+          {/* Card 3: Cumprimento da Família */}
+          <Card className="surface-card border-border/70 p-4 flex flex-col justify-between">
+            <div className="flex items-center justify-between pb-2">
+              <span className="text-[0.7rem] font-bold uppercase tracking-wider text-muted-foreground">
+                Membros em Dia
+              </span>
+              <div className="p-1.5 rounded-lg bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
+                <Users className="h-4 w-4" />
+              </div>
+            </div>
+            <div>
+              <div className="flex items-baseline justify-between">
+                <h4 className="text-xl font-mono font-extrabold text-foreground">
+                  {weeklyKpis.paidMembersCount} / {weeklyKpis.totalMembers}
+                </h4>
+                <span className="text-xs font-mono font-bold text-primary">
+                  {weeklyKpis.familyCompletionPct}%
+                </span>
+              </div>
+              <Progress value={weeklyKpis.familyCompletionPct} className="h-1.5 mt-2" />
+            </div>
+            <div className="flex items-center justify-between text-[0.68rem] text-muted-foreground pt-2 mt-2 border-t border-border/40">
+              <span>{weeklyKpis.pendingMembersCount} pendentes</span>
+              <span className="text-emerald-400 font-semibold">{weeklyKpis.paidMembersCount} concluídos</span>
+            </div>
+          </Card>
+
+          {/* Card 4: Entregas Pendentes de Revisão */}
+          <Card
+            onClick={() => setActiveTab("painel_validacao")}
+            className="surface-card border-border/70 p-4 flex flex-col justify-between transition-all cursor-pointer hover:border-amber-500/40 hover:bg-amber-500/5"
           >
-            <User className="h-3.5 w-3.5" /> Minha Meta & Minhas Entregas
-          </TabsTrigger>
-
-          <TabsTrigger
-            value="painel_validacao"
-            className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground text-xs font-bold py-2 px-4 cursor-pointer gap-2"
-          >
-            <ShieldCheck className="h-3.5 w-3.5" /> Validação de Comprovantes
-            {pendingSubmissionsCount > 0 && (
-              <Badge className="ml-1 bg-amber-500 text-black font-extrabold text-[10px] py-0 px-1.5 h-4">
-                {pendingSubmissionsCount}
-              </Badge>
-            )}
-          </TabsTrigger>
-
-          <TabsTrigger
-            value="membros"
-            className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground text-xs font-bold py-2 px-4 cursor-pointer gap-2"
-          >
-            <Users className="h-3.5 w-3.5" /> Controle Geral da Família
-          </TabsTrigger>
-
-          <TabsTrigger
-            value="metas_cadastradas"
-            className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground text-xs font-bold py-2 px-4 cursor-pointer gap-2"
-          >
-            <Layers className="h-3.5 w-3.5" /> Metas Cadastradas ({weeklyGoals.length})
-          </TabsTrigger>
-        </TabsList>
-
-        {/* ═══════════════════════════════════════════════════════════════ */}
-        {/* ABA 1: MINHA META & MINHAS ENTREGAS                            */}
-        {/* ═══════════════════════════════════════════════════════════════ */}
-        <TabsContent value="minhas_metas" className="space-y-6 mt-0">
-          {myGoalStats ? (
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              {/* Card de Status Pessoal da Semana */}
-              <Card
+            <div className="flex items-center justify-between pb-2">
+              <span className="text-[0.7rem] font-bold uppercase tracking-wider text-muted-foreground">
+                Entregas Pendentes
+              </span>
+              <div
                 className={cn(
-                  "surface-card border transition-all lg:col-span-1 flex flex-col justify-between",
-                  myGoalStats.isCompleted
-                    ? "border-emerald-500/40 bg-emerald-500/5"
-                    : myGoalStats.isExpired
-                    ? "border-destructive/40 bg-destructive/5"
-                    : "border-primary/40 bg-primary/5"
+                  "p-1.5 rounded-lg border",
+                  pendingSubmissionsCount > 0
+                    ? "bg-amber-500/15 text-amber-400 border-amber-500/30 animate-pulse"
+                    : "bg-secondary text-muted-foreground border-border"
                 )}
               >
-                <CardHeader className="pb-3">
-                  <div className="flex items-center justify-between">
-                    <Badge variant="outline" className="text-[10px] font-bold border-primary/40 text-primary">
-                      {GOAL_TYPE_META[myGoalStats.goal.type]?.label || "Meta Semanal"}
-                    </Badge>
-                    {myGoalStats.isCompleted ? (
-                      <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/40 text-[10px] font-bold gap-1">
-                        <CheckCircle2 className="h-3 w-3" /> Meta Paga 100%
-                      </Badge>
-                    ) : myGoalStats.isExpired ? (
-                      <Badge variant="destructive" className="text-[10px] font-bold">
-                        Prazo Expirado
-                      </Badge>
-                    ) : myGoalStats.pendingAmount > 0 ? (
-                      <Badge className="bg-amber-500/20 text-amber-400 border-amber-500/40 text-[10px] font-bold gap-1">
-                        <Clock className="h-3 w-3" /> Em Análise
-                      </Badge>
-                    ) : (
-                      <Badge variant="secondary" className="text-[10px] font-bold">
-                        Em Aberto
-                      </Badge>
-                    )}
-                  </div>
-                  <CardTitle className="text-lg font-extrabold text-foreground pt-1">
-                    {myGoalStats.goal.title}
-                  </CardTitle>
-                  {myGoalStats.goal.description && (
-                    <CardDescription className="text-xs text-muted-foreground line-clamp-3">
-                      {myGoalStats.goal.description}
-                    </CardDescription>
-                  )}
-                </CardHeader>
-
-                <CardContent className="space-y-4 pt-0">
-                  <div className="p-3.5 rounded-xl bg-background/60 border border-border/70 space-y-3">
-                    <div className="flex items-end justify-between">
-                      <div>
-                        <p className="text-[0.65rem] font-bold uppercase tracking-wider text-muted-foreground">
-                          Já Pago / Alvo
-                        </p>
-                        <p className="text-lg font-mono font-extrabold text-emerald-400">
-                          {formatGoalValue(myGoalStats.approvedAmount, myGoalStats.goal.type, myGoalStats.goal.unit_name)}
-                          <span className="text-xs font-normal text-muted-foreground">
-                            {" / "}
-                            {formatGoalValue(myGoalStats.goal.target_value, myGoalStats.goal.type, myGoalStats.goal.unit_name)}
-                          </span>
-                        </p>
-                      </div>
-                      <span className="text-base font-mono font-extrabold text-primary">
-                        {myGoalStats.progressPct.toFixed(0)}%
-                      </span>
-                    </div>
-
-                    <Progress value={myGoalStats.progressPct} className="h-2.5" />
-
-                    <div className="flex items-center justify-between text-xs pt-1">
-                      <span className="text-muted-foreground">Restante:</span>
-                      <span className="font-mono font-bold text-foreground">
-                        {myGoalStats.remaining === 0
-                          ? "Concluída!"
-                          : formatGoalValue(myGoalStats.remaining, myGoalStats.goal.type, myGoalStats.goal.unit_name)}
-                      </span>
-                    </div>
-
-                    {myGoalStats.pendingAmount > 0 && (
-                      <div className="p-2 rounded-lg bg-amber-500/10 border border-amber-500/20 text-[0.7rem] text-amber-400 flex items-center gap-1.5">
-                        <Clock className="h-3.5 w-3.5 shrink-0" />
-                        <span>
-                          Você possui <strong>{formatGoalValue(myGoalStats.pendingAmount, myGoalStats.goal.type, myGoalStats.goal.unit_name)}</strong> aguardando aprovação de print.
-                        </span>
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                    <Calendar className="h-3.5 w-3.5 text-primary" />
-                    <span>
-                      Vigência: <strong>{myGoalStats.goal.period_start}</strong> até <strong>{myGoalStats.goal.period_end}</strong>
-                    </span>
-                  </div>
-                </CardContent>
-
-                <CardFooter className="pt-2 border-t border-border/40">
-                  <Button
-                    onClick={() => {
-                      setSelectedGoalId(myGoalStats.goal.id);
-                      setDeliverModalOpen(true);
-                    }}
-                    className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold gap-2 cursor-pointer"
-                  >
-                    <Send className="h-4 w-4" /> Informar Pagamento / Entrega
-                  </Button>
-                </CardFooter>
-              </Card>
-
-              {/* Histórico Pessoal de Entregas */}
-              <Card className="surface-card border-border/70 lg:col-span-2">
-                <CardHeader className="pb-3 border-b border-border/40">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <CardTitle className="text-sm font-extrabold text-foreground flex items-center gap-2">
-                        <Receipt className="h-4 w-4 text-primary" /> Meus Comprovantes & Entregas Registradas
-                      </CardTitle>
-                      <CardDescription className="text-xs">
-                        Lista de todas as entregas de meta que você enviou com comprovante.
-                      </CardDescription>
-                    </div>
-                    <Badge variant="outline" className="text-xs font-mono font-bold">
-                      {myGoalStats.submissions.length} entregas
-                    </Badge>
-                  </div>
-                </CardHeader>
-
-                <CardContent className="p-0">
-                  {myGoalStats.submissions.length === 0 ? (
-                    <div className="p-8 text-center text-muted-foreground space-y-2">
-                      <ImageIcon className="h-8 w-8 mx-auto opacity-40" />
-                      <p className="text-xs font-medium">Nenhum comprovante de entrega enviado ainda nesta semana.</p>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => setDeliverModalOpen(true)}
-                        className="text-xs font-bold border-emerald-500/40 text-emerald-400"
-                      >
-                        Enviar Primeiro Comprovante
-                      </Button>
-                    </div>
-                  ) : (
-                    <div className="divide-y divide-border/40">
-                      {myGoalStats.submissions.map((sub) => (
-                        <div key={sub.id} className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-secondary/20 transition-colors">
-                          <div className="flex items-start gap-3 min-w-0">
-                            {/* Preview do print ou ícone */}
-                            {sub.proof_url ? (
-                              <div
-                                onClick={() => {
-                                  setSelectedProofSubmission(sub);
-                                  setProofViewerOpen(true);
-                                }}
-                                className="relative w-14 h-14 rounded-xl overflow-hidden border border-border/70 shrink-0 cursor-pointer group bg-black/40"
-                              >
-                                <img
-                                  src={sub.proof_url}
-                                  alt="Print do comprovante"
-                                  className="w-full h-full object-cover group-hover:scale-110 transition-transform"
-                                />
-                                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
-                                  <Eye className="h-4 w-4 text-white" />
-                                </div>
-                              </div>
-                            ) : (
-                              <div className="w-12 h-12 rounded-xl bg-secondary/60 border border-border/70 flex items-center justify-center text-muted-foreground shrink-0">
-                                <Receipt className="h-5 w-5" />
-                              </div>
-                            )}
-
-                            <div className="space-y-0.5 min-w-0">
-                              <div className="flex items-center gap-2 flex-wrap">
-                                <span className="font-mono font-extrabold text-sm text-foreground">
-                                  {sub.unit_name === "R$" ? currency(sub.amount) : `${num(sub.amount)} ${sub.unit_name || "itens"}`}
-                                </span>
-                                {sub.status === "aprovado" ? (
-                                  <Badge className="bg-emerald-500/10 text-emerald-400 border-emerald-500/30 text-[9px] font-bold">
-                                    <Check className="h-2.5 w-2.5 mr-0.5" /> Aprovado
-                                  </Badge>
-                                ) : sub.status === "rejeitado" ? (
-                                  <Badge className="bg-destructive/10 text-destructive border-destructive/30 text-[9px] font-bold">
-                                    <X className="h-2.5 w-2.5 mr-0.5" /> Recusado
-                                  </Badge>
-                                ) : (
-                                  <Badge className="bg-amber-500/10 text-amber-400 border-amber-500/30 text-[9px] font-bold">
-                                    <Clock className="h-2.5 w-2.5 mr-0.5" /> Pendente
-                                  </Badge>
-                                )}
-                              </div>
-
-                              <p className="text-xs text-muted-foreground">
-                                Entregue para: <strong className="text-foreground">{sub.receiver_name}</strong>
-                              </p>
-
-                              <p className="text-[0.68rem] text-muted-foreground">
-                                {dateTime(sub.delivered_at)}
-                              </p>
-
-                              {sub.notes && (
-                                <p className="text-[0.7rem] text-foreground/80 italic pt-0.5">
-                                  "{sub.notes}"
-                                </p>
-                              )}
-
-                              {sub.review_notes && (
-                                <p className="text-[0.7rem] text-amber-400 font-medium pt-0.5">
-                                  Nota da Liderança: {sub.review_notes}
-                                </p>
-                              )}
-                            </div>
-                          </div>
-
-                          <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
-                            {sub.proof_url && (
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => {
-                                  setSelectedProofSubmission(sub);
-                                  setProofViewerOpen(true);
-                                }}
-                                className="h-8 text-xs gap-1.5 border-border/80"
-                              >
-                                <Eye className="h-3.5 w-3.5" /> Ver Print
-                              </Button>
-                            )}
-
-                            {sub.status === "pendente" && (
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                onClick={() => deleteSubmissionMutation.mutate(sub.id)}
-                                className="h-8 text-xs text-destructive hover:bg-destructive/10"
-                              >
-                                <Trash2 className="h-3.5 w-3.5" />
-                              </Button>
-                            )}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
+                <Clock className="h-4 w-4" />
+              </div>
             </div>
-          ) : (
-            <EmptyState
-              icon={<Target className="h-10 w-10 text-muted-foreground" />}
-              title="Nenhuma meta semanal ativa"
-              description="A liderança ainda não ativou nenhuma meta semanal para a família."
-            />
-          )}
-        </TabsContent>
-
-        {/* ═══════════════════════════════════════════════════════════════ */}
-        {/* ABA 2: PAINEL DE VALIDAÇÃO DE COMPROVANTES                      */}
-        {/* ═══════════════════════════════════════════════════════════════ */}
-        <TabsContent value="painel_validacao" className="space-y-4 mt-0">
-          <Card className="surface-card border-border/70">
-            <CardHeader className="pb-3 border-b border-border/40">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                <div>
-                  <CardTitle className="text-base font-extrabold text-foreground flex items-center gap-2">
-                    <ShieldCheck className="h-5 w-5 text-primary" /> Painel de Validação e Análise de Entregas
-                  </CardTitle>
-                  <CardDescription className="text-xs">
-                    Examine os comprovantes de prints enviados pelos membros, verifique quem recebeu e aprove ou recuse.
-                  </CardDescription>
-                </div>
-
-                {/* Filtros de Status */}
-                <div className="flex items-center gap-1.5 bg-secondary/40 p-1 rounded-xl border border-border/60">
-                  {["todos", "pendente", "aprovado", "rejeitado"].map((st) => (
-                    <button
-                      key={st}
-                      type="button"
-                      onClick={() => setSubmissionFilter(st)}
-                      className={cn(
-                        "px-2.5 py-1 rounded-lg text-xs font-bold capitalize transition-all cursor-pointer",
-                        submissionFilter === st
-                          ? "bg-primary text-primary-foreground shadow-sm"
-                          : "text-muted-foreground hover:text-foreground"
-                      )}
-                    >
-                      {st}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </CardHeader>
-
-            <CardContent className="p-0">
-              {loadingSubmissions ? (
-                <TableSkeleton rows={4} />
-              ) : filteredSubmissions.length === 0 ? (
-                <div className="p-12 text-center text-muted-foreground space-y-2">
-                  <CheckCircle2 className="h-10 w-10 mx-auto text-emerald-400 opacity-60" />
-                  <h4 className="text-sm font-bold text-foreground">Nenhuma entrega encontrada</h4>
-                  <p className="text-xs">
-                    {submissionFilter === "pendente"
-                      ? "Todas as entregas enviadas já foram analisadas pela liderança!"
-                      : "Nenhum comprovante de entrega registrado para este filtro."}
-                  </p>
-                </div>
-              ) : (
-                <div className="divide-y divide-border/40">
-                  {filteredSubmissions.map((sub) => (
-                    <div
-                      key={sub.id}
-                      className={cn(
-                        "p-4 flex flex-col md:flex-row md:items-center justify-between gap-4 transition-colors",
-                        sub.status === "pendente"
-                          ? "bg-amber-500/5 hover:bg-amber-500/10"
-                          : "hover:bg-secondary/20"
-                      )}
-                    >
-                      {/* Lado Esquerdo: Dados do Membro e Entrega */}
-                      <div className="flex items-start gap-3.5 min-w-0">
-                        {/* Print Thumbnail */}
-                        {sub.proof_url ? (
-                          <div
-                            onClick={() => {
-                              setSelectedProofSubmission(sub);
-                              setProofViewerOpen(true);
-                            }}
-                            className="relative w-16 h-16 rounded-xl overflow-hidden border border-border/80 shrink-0 cursor-pointer group bg-black/60 shadow-md"
-                          >
-                            <img
-                              src={sub.proof_url}
-                              alt="Comprovante"
-                              className="w-full h-full object-cover group-hover:scale-110 transition-transform"
-                            />
-                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
-                              <Maximize2 className="h-4 w-4 text-white" />
-                            </div>
-                          </div>
-                        ) : (
-                          <div className="w-16 h-16 rounded-xl bg-secondary/60 border border-border flex items-center justify-center text-muted-foreground shrink-0">
-                            <Receipt className="h-6 w-6" />
-                          </div>
-                        )}
-
-                        <div className="space-y-1 min-w-0">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <span className="font-extrabold text-sm text-foreground">
-                              {sub.member_name}
-                            </span>
-                            {sub.member_role && (
-                              <Badge className={cn("text-[9px] font-mono py-0 px-1.5", levelBadgeClass(sub.member_role as AppLevel))}>
-                                {LEVEL_LABEL[sub.member_role as AppLevel] || sub.member_role}
-                              </Badge>
-                            )}
-                            <ChevronRight className="h-3 w-3 text-muted-foreground" />
-                            <span className="font-mono font-extrabold text-sm text-emerald-400">
-                              {sub.unit_name === "R$" ? currency(sub.amount) : `${num(sub.amount)} ${sub.unit_name || "itens"}`}
-                            </span>
-                          </div>
-
-                          <div className="flex items-center gap-3 text-xs text-muted-foreground flex-wrap">
-                            <span>
-                              Meta: <strong className="text-foreground">{sub.goal_title}</strong>
-                            </span>
-                            <span>•</span>
-                            <span>
-                              Entregue para: <strong className="text-foreground">{sub.receiver_name}</strong>
-                            </span>
-                            <span>•</span>
-                            <span>{dateTime(sub.delivered_at)}</span>
-                          </div>
-
-                          {sub.notes && (
-                            <p className="text-xs text-foreground/80 bg-background/40 p-1.5 rounded-lg border border-border/50">
-                              💬 <em>"{sub.notes}"</em>
-                            </p>
-                          )}
-
-                          {sub.review_notes && (
-                            <p className="text-xs text-amber-400 font-medium">
-                              ⚠️ Motivo da recusa: {sub.review_notes}
-                            </p>
-                          )}
-                        </div>
-                      </div>
-
-                      {/* Lado Direito: Ações de Aprovação / Rejeição */}
-                      <div className="flex items-center gap-2 shrink-0 self-end md:self-center">
-                        {sub.proof_url && (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => {
-                              setSelectedProofSubmission(sub);
-                              setProofViewerOpen(true);
-                            }}
-                            className="h-8 text-xs gap-1 font-bold border-border"
-                          >
-                            <Eye className="h-3.5 w-3.5" /> Abrir Print
-                          </Button>
-                        )}
-
-                        {canManage && sub.status === "pendente" && (
-                          <>
-                            <Button
-                              size="sm"
-                              disabled={reviewGoalMutation.isPending}
-                              onClick={() =>
-                                reviewGoalMutation.mutate({
-                                  submissionId: sub.id,
-                                  status: "aprovado",
-                                })
-                              }
-                              className="h-8 text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white gap-1"
-                            >
-                              <Check className="h-3.5 w-3.5" /> Aprovar
-                            </Button>
-
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              disabled={reviewGoalMutation.isPending}
-                              onClick={() => {
-                                setRejectingSubmission(sub);
-                                setRejectModalOpen(true);
-                              }}
-                              className="h-8 text-xs font-bold border-destructive/40 text-destructive hover:bg-destructive/10 gap-1"
-                            >
-                              <X className="h-3.5 w-3.5" /> Recusar
-                            </Button>
-                          </>
-                        )}
-
-                        {canManage && (
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => deleteSubmissionMutation.mutate(sub.id)}
-                            className="h-8 text-xs text-muted-foreground hover:text-destructive"
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </Button>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        {/* ═══════════════════════════════════════════════════════════════ */}
-        {/* ABA 3: CONTROLE GERAL DA FAMÍLIA (TODOS OS MEMBROS)             */}
-        {/* ═══════════════════════════════════════════════════════════════ */}
-        <TabsContent value="membros" className="space-y-4 mt-0">
-          <Card className="surface-card border-border/70">
-            <CardHeader className="pb-3 border-b border-border/40">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                <div>
-                  <CardTitle className="text-base font-extrabold text-foreground flex items-center gap-2">
-                    <Users className="h-5 w-5 text-primary" /> Raio-X de Cumprimento Semanal da Família
-                  </CardTitle>
-                  <CardDescription className="text-xs">
-                    Veja quais membros já pagaram a meta da semana, valores parciais e membros pendentes.
-                  </CardDescription>
-                </div>
-
-                {/* Busca e Filtro de Cargo */}
-                <div className="flex items-center gap-2 flex-wrap">
-                  <div className="relative w-48">
-                    <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
-                    <Input
-                      placeholder="Buscar membro..."
-                      value={memberSearch}
-                      onChange={(e) => setMemberSearch(e.target.value)}
-                      className="pl-8 h-8 text-xs bg-secondary/40"
-                    />
-                  </div>
-
-                  <Select value={roleFilter} onValueChange={setRoleFilter}>
-                    <SelectTrigger className="h-8 text-xs w-36 bg-secondary/40">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="todos">Todos os Cargos</SelectItem>
-                      {LEVELS.map((lvl) => (
-                        <SelectItem key={lvl} value={lvl}>
-                          {LEVEL_LABEL[lvl]}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-            </CardHeader>
-
-            <CardContent className="p-0">
-              <div className="divide-y divide-border/40">
-                {filteredMembersProgress.map((item) => (
-                  <div
-                    key={item.member.user_id}
-                    className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-secondary/20 transition-colors"
-                  >
-                    <div className="flex items-center gap-3 min-w-0">
-                      <div className="w-10 h-10 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center font-bold text-primary shrink-0">
-                        {item.member.nome.slice(0, 2).toUpperCase()}
-                      </div>
-
-                      <div className="space-y-0.5 min-w-0">
-                        <div className="flex items-center gap-2">
-                          <h5 className="font-extrabold text-sm text-foreground truncate">
-                            {item.member.nickname ? `${item.member.nickname} (${item.member.nome})` : item.member.nome}
-                          </h5>
-                          {item.member.nivel && (
-                            <Badge className={cn("text-[9px] font-mono py-0 px-1.5", levelBadgeClass(item.member.nivel))}>
-                              {LEVEL_LABEL[item.member.nivel] || item.member.nivel}
-                            </Badge>
-                          )}
-                        </div>
-
-                        <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                          <span>
-                            Pago: <strong className="text-emerald-400 font-mono">{currency(item.approvedAmount)}</strong>
-                          </span>
-                          <span>•</span>
-                          <span>
-                            Restante: <strong className="text-foreground font-mono">{currency(item.remaining)}</strong>
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-4 shrink-0 sm:w-64 justify-between sm:justify-end">
-                      <div className="w-28 space-y-1">
-                        <div className="flex justify-between text-[10px] font-mono font-bold">
-                          <span>Progresso</span>
-                          <span className="text-primary">{item.progressPct.toFixed(0)}%</span>
-                        </div>
-                        <Progress value={item.progressPct} className="h-2" />
-                      </div>
-
-                      <Badge className={cn("text-xs font-bold shrink-0", item.statusColor)}>
-                        {item.statusBadge}
-                      </Badge>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        {/* ═══════════════════════════════════════════════════════════════ */}
-        {/* ABA 4: METAS CADASTRADAS                                        */}
-        {/* ═══════════════════════════════════════════════════════════════ */}
-        <TabsContent value="metas_cadastradas" className="space-y-4 mt-0">
-          <div className="flex items-center justify-between">
             <div>
-              <h3 className="text-sm font-extrabold text-foreground">Metas Semanais Registradas</h3>
-              <p className="text-xs text-muted-foreground">Gerencie as metas ativas e históricas da facção.</p>
+              <div className="flex items-center gap-2">
+                <h4 className="text-xl font-mono font-extrabold text-foreground">
+                  {pendingSubmissionsCount}
+                </h4>
+                {pendingSubmissionsCount > 0 && (
+                  <Badge className="bg-amber-500/10 text-amber-400 border-amber-500/30 text-[9px] font-bold">
+                    Aguardando Análise
+                  </Badge>
+                )}
+              </div>
+              <p className="text-[0.7rem] text-muted-foreground mt-0.5">
+                Comprovantes com prints enviados pelos membros
+              </p>
             </div>
-            {canManage && (
-              <Button
-                onClick={() => setCreateGoalModalOpen(true)}
-                size="sm"
-                className="bg-gradient-brand text-primary-foreground text-xs font-bold gap-1.5"
-              >
-                <Plus className="h-3.5 w-3.5" /> Adicionar Meta
-              </Button>
-            )}
-          </div>
+            <div className="flex items-center justify-between text-[0.68rem] text-primary font-semibold pt-2 mt-2 border-t border-border/40">
+              <span>Clique para analisar →</span>
+              <Receipt className="h-3 w-3" />
+            </div>
+          </Card>
+        </div>
+      ) : (
+        /* VISÃO PESSOAL RESUMIDA PARA O MEMBRO */
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {/* Card 1: Meta Vigente */}
+          <Card className="surface-card border-border/70 p-4 flex flex-col justify-between">
+            <div className="flex items-center justify-between pb-2">
+              <span className="text-[0.7rem] font-bold uppercase tracking-wider text-muted-foreground">
+                Minha Meta da Semana
+              </span>
+              <div className="p-1.5 rounded-lg bg-primary/10 text-primary border border-primary/20">
+                <Target className="h-4 w-4" />
+              </div>
+            </div>
+            <div>
+              <h4 className="text-base font-extrabold text-foreground truncate">
+                {activeWeeklyGoal ? activeWeeklyGoal.title : "Nenhuma Meta Ativa"}
+              </h4>
+              <p className="text-xs font-mono font-bold text-emerald-400 mt-0.5">
+                {activeWeeklyGoal
+                  ? formatGoalValue(activeWeeklyGoal.target_value, activeWeeklyGoal.type, activeWeeklyGoal.unit_name)
+                  : "R$ 0,00"}
+              </p>
+            </div>
+            <div className="flex items-center gap-1.5 text-[0.68rem] text-muted-foreground pt-2 mt-2 border-t border-border/40">
+              <CalendarDays className="h-3 w-3 text-primary" />
+              <span>
+                {activeWeeklyGoal
+                  ? `${activeWeeklyGoal.period_start} até ${activeWeeklyGoal.period_end}`
+                  : "Sem prazo"}
+              </span>
+            </div>
+          </Card>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {weeklyGoals.map((g) => {
-              const metaConfig = GOAL_TYPE_META[g.type] || GOAL_TYPE_META.geral;
-              const MetaIcon = metaConfig.icon;
+          {/* Card 2: Meu Total Entregue / Aprovado */}
+          <Card className="surface-card border-border/70 p-4 flex flex-col justify-between">
+            <div className="flex items-center justify-between pb-2">
+              <span className="text-[0.7rem] font-bold uppercase tracking-wider text-muted-foreground">
+                Meu Total Pago
+              </span>
+              <div className="p-1.5 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                <DollarSign className="h-4 w-4" />
+              </div>
+            </div>
+            <div>
+              <h4 className="text-xl font-mono font-extrabold text-emerald-400">
+                {myGoalStats
+                  ? formatGoalValue(myGoalStats.approvedAmount, myGoalStats.goal.type, myGoalStats.goal.unit_name)
+                  : "R$ 0,00"}
+              </h4>
+              <p className="text-[0.7rem] text-muted-foreground mt-0.5">
+                Entregas aprovadas pela liderança
+              </p>
+            </div>
+            <div className="flex items-center gap-1.5 text-[0.68rem] text-emerald-400 pt-2 mt-2 border-t border-border/40">
+              <CheckCircle2 className="h-3 w-3" />
+              <span>
+                {myGoalStats ? `${myGoalStats.progressPct.toFixed(0)}% concluído` : "0%"}
+              </span>
+            </div>
+          </Card>
 
-              return (
-                <Card key={g.id} className="surface-card border-border/70 flex flex-col justify-between">
-                  <CardHeader className="pb-2">
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="flex items-center gap-2">
-                        <div className={cn("p-2 rounded-xl border", metaConfig.color)}>
-                          <MetaIcon className="h-4 w-4" />
-                        </div>
-                        <div>
-                          <Badge variant="outline" className={cn("text-[9px] font-bold", metaConfig.badgeClass)}>
-                            {metaConfig.label}
-                          </Badge>
-                          <CardTitle className="text-sm font-extrabold text-foreground mt-0.5">
-                            {g.title}
-                          </CardTitle>
-                        </div>
-                      </div>
+          {/* Card 3: Meu Saldo Restante */}
+          <Card className="surface-card border-border/70 p-4 flex flex-col justify-between">
+            <div className="flex items-center justify-between pb-2">
+              <span className="text-[0.7rem] font-bold uppercase tracking-wider text-muted-foreground">
+                Saldo Restante
+              </span>
+              <div className="p-1.5 rounded-lg bg-sky-500/10 text-sky-400 border border-sky-500/20">
+                <Boxes className="h-4 w-4" />
+              </div>
+            </div>
+            <div>
+              <h4 className="text-xl font-mono font-extrabold text-foreground">
+                {myGoalStats
+                  ? myGoalStats.remaining === 0
+                    ? "Meta Paga! 🎉"
+                    : formatGoalValue(myGoalStats.remaining, myGoalStats.goal.type, myGoalStats.goal.unit_name)
+                  : "R$ 0,00"}
+              </h4>
+              <Progress value={myGoalStats?.progressPct || 0} className="h-1.5 mt-2" />
+            </div>
+            <div className="flex items-center justify-between text-[0.68rem] text-muted-foreground pt-2 mt-2 border-t border-border/40">
+              <span>{myGoalStats?.remaining === 0 ? "Tudo quitado" : "Valor faltante"}</span>
+              <span className="text-primary font-semibold">{myGoalStats?.progressPct.toFixed(0) || 0}% pago</span>
+            </div>
+          </Card>
 
-                      <Badge
-                        variant={g.is_active ? "default" : "secondary"}
-                        className="text-[9px] font-mono uppercase shrink-0"
-                      >
-                        {g.is_active ? "Ativa" : "Encerrada"}
-                      </Badge>
-                    </div>
+          {/* Card 4: Meu Status */}
+          <Card className="surface-card border-border/70 p-4 flex flex-col justify-between">
+            <div className="flex items-center justify-between pb-2">
+              <span className="text-[0.7rem] font-bold uppercase tracking-wider text-muted-foreground">
+                Meu Status Atual
+              </span>
+              <div className="p-1.5 rounded-lg bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
+                <Award className="h-4 w-4" />
+              </div>
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                {myGoalStats?.isCompleted ? (
+                  <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/40 text-xs font-bold gap-1">
+                    <CheckCircle2 className="h-3.5 w-3.5" /> Meta Paga 100%
+                  </Badge>
+                ) : myGoalStats && myGoalStats.pendingAmount > 0 ? (
+                  <Badge className="bg-amber-500/20 text-amber-400 border-amber-500/40 text-xs font-bold gap-1">
+                    <Clock className="h-3.5 w-3.5" /> Em Análise
+                  </Badge>
+                ) : myGoalStats && myGoalStats.approvedAmount > 0 ? (
+                  <Badge className="bg-sky-500/20 text-sky-400 border-sky-500/40 text-xs font-bold gap-1">
+                    <Info className="h-3.5 w-3.5" /> Pagamento Parcial
+                  </Badge>
+                ) : myGoalStats?.isExpired ? (
+                  <Badge variant="destructive" className="text-xs font-bold">
+                    Prazo Expirado
+                  </Badge>
+                ) : (
+                  <Badge variant="secondary" className="text-xs font-bold">
+                    Em Aberto
+                  </Badge>
+                )}
+              </div>
+              <p className="text-[0.7rem] text-muted-foreground mt-2">
+                {myGoalStats ? `${myGoalStats.submissions.length} entregas registradas` : "Nenhum comprovante"}
+              </p>
+            </div>
+            <div className="flex items-center gap-1.5 text-[0.68rem] text-muted-foreground pt-2 mt-2 border-t border-border/40">
+              <Receipt className="h-3 w-3 text-primary" />
+              <span>Histórico pessoal salvo</span>
+            </div>
+          </Card>
+        </div>
+      )}
 
-                    {g.description && (
-                      <CardDescription className="text-xs text-muted-foreground line-clamp-2 pt-1">
-                        {g.description}
-                      </CardDescription>
-                    )}
-                  </CardHeader>
+      {/* ─── CONTEÚDO PRINCIPAL (COM OU SEM ABAS DE GESTÃO) ─── */}
+      {canManage ? (
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+          <TabsList className="bg-secondary/40 p-1 border border-border/60 flex flex-wrap h-auto gap-1">
+            <TabsTrigger
+              value="minhas_metas"
+              className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground text-xs font-bold py-2 px-4 cursor-pointer gap-2"
+            >
+              <User className="h-3.5 w-3.5" /> Minha Meta & Minhas Entregas
+            </TabsTrigger>
 
-                  <CardContent className="space-y-3 pt-2">
-                    <div className="p-2.5 rounded-xl bg-secondary/30 border border-border/60 flex items-center justify-between">
-                      <span className="text-xs text-muted-foreground font-medium">Alvo por Membro:</span>
-                      <span className="font-mono font-extrabold text-sm text-emerald-400">
-                        {formatGoalValue(g.target_value, g.type, g.unit_name)}
-                      </span>
-                    </div>
+            <TabsTrigger
+              value="painel_validacao"
+              className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground text-xs font-bold py-2 px-4 cursor-pointer gap-2"
+            >
+              <ShieldCheck className="h-3.5 w-3.5" /> Validação de Comprovantes
+              {pendingSubmissionsCount > 0 && (
+                <Badge className="ml-1 bg-amber-500 text-black font-extrabold text-[10px] py-0 px-1.5 h-4">
+                  {pendingSubmissionsCount}
+                </Badge>
+              )}
+            </TabsTrigger>
 
-                    <div className="space-y-1 text-xs text-muted-foreground">
-                      <div className="flex items-center justify-between">
-                        <span>Escopo:</span>
-                        <strong className="text-foreground capitalize">
-                          {g.target_scope === "todos"
-                            ? "Todos os Membros"
-                            : g.target_scope === "cargo"
-                            ? `Cargo: ${LEVEL_LABEL[g.target_role as AppLevel] || g.target_role}`
-                            : `Membro: ${g.target_user_name || "Individual"}`}
-                        </strong>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span>Vigência:</span>
-                        <strong className="text-foreground font-mono text-[11px]">
-                          {g.period_start} até {g.period_end}
-                        </strong>
-                      </div>
-                    </div>
-                  </CardContent>
+            <TabsTrigger
+              value="membros"
+              className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground text-xs font-bold py-2 px-4 cursor-pointer gap-2"
+            >
+              <Users className="h-3.5 w-3.5" /> Controle Geral da Família
+            </TabsTrigger>
 
-                  {canManage && (
-                    <CardFooter className="pt-2 border-t border-border/40 flex items-center justify-between">
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() =>
-                          updateGoalMutation.mutate({
-                            id: g.id,
-                            updates: { is_active: !g.is_active },
-                          })
-                        }
-                        className="text-xs h-7 text-muted-foreground hover:text-foreground"
-                      >
-                        {g.is_active ? "Desativar" : "Ativar"}
-                      </Button>
+            <TabsTrigger
+              value="metas_cadastradas"
+              className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground text-xs font-bold py-2 px-4 cursor-pointer gap-2"
+            >
+              <Layers className="h-3.5 w-3.5" /> Metas Cadastradas ({weeklyGoals.length})
+            </TabsTrigger>
+          </TabsList>
 
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => deleteGoalMutation.mutate(g.id)}
-                        className="text-xs h-7 text-destructive hover:bg-destructive/10"
-                      >
-                        <Trash2 className="h-3.5 w-3.5 mr-1" /> Excluir
-                      </Button>
-                    </CardFooter>
-                  )}
-                </Card>
-              );
-            })}
-          </div>
-        </TabsContent>
-      </Tabs>
+          {/* ABA 1 */}
+          <TabsContent value="minhas_metas" className="space-y-6 mt-0">
+            {renderPersonalGoalView()}
+          </TabsContent>
+
+          {/* ABA 2 */}
+          <TabsContent value="painel_validacao" className="space-y-4 mt-0">
+            {renderValidationPanel()}
+          </TabsContent>
+
+          {/* ABA 3 */}
+          <TabsContent value="membros" className="space-y-4 mt-0">
+            {renderFamilyMembersControl()}
+          </TabsContent>
+
+          {/* ABA 4 */}
+          <TabsContent value="metas_cadastradas" className="space-y-4 mt-0">
+            {renderGoalsManagement()}
+          </TabsContent>
+        </Tabs>
+      ) : (
+        /* MEMBROS SEM PERMISSÃO DE GESTÃO: APENAS VISÃO PESSOAL E RESUMIDA */
+        <div className="space-y-6">
+          {renderPersonalGoalView()}
+        </div>
+      )}
 
       {/* ═══════════════════════════════════════════════════════════════ */}
       {/* MODAL 1: ENTREGAR META / PAGAR META COM PRINT                   */}
@@ -1393,11 +1551,13 @@ function MetasPage() {
                   <SelectValue placeholder="Selecione a meta..." />
                 </SelectTrigger>
                 <SelectContent>
-                  {weeklyGoals.map((g) => (
-                    <SelectItem key={g.id} value={g.id}>
-                      {g.title} — Alvo: {formatGoalValue(g.target_value, g.type, g.unit_name)}
-                    </SelectItem>
-                  ))}
+                  {weeklyGoals
+                    .filter((g) => g.is_active)
+                    .map((g) => (
+                      <SelectItem key={g.id} value={g.id}>
+                        {g.title} — Alvo: {formatGoalValue(g.target_value, g.type, g.unit_name)}
+                      </SelectItem>
+                    ))}
                 </SelectContent>
               </Select>
             </div>
