@@ -2178,11 +2178,13 @@ function getLocalWeeklyGoals(): WeeklyGoal[] {
   }
 }
 
-function setLocalWeeklyGoals(goals: WeeklyGoal[]) {
+function setLocalWeeklyGoals(goals: WeeklyGoal[], emitEvent: boolean = true) {
   if (typeof window === "undefined") return;
   try {
     localStorage.setItem(WEEKLY_GOALS_STORAGE_KEY, JSON.stringify(goals));
-    window.dispatchEvent(new CustomEvent("tw_weekly_goals_updated"));
+    if (emitEvent) {
+      window.dispatchEvent(new CustomEvent("tw_weekly_goals_updated"));
+    }
   } catch {}
 }
 
@@ -2198,12 +2200,38 @@ function getLocalGoalSubmissions(): GoalSubmission[] {
   }
 }
 
-function setLocalGoalSubmissions(submissions: GoalSubmission[]) {
+function setLocalGoalSubmissions(submissions: GoalSubmission[], emitEvent: boolean = true) {
   if (typeof window === "undefined") return;
   try {
     localStorage.setItem(GOAL_SUBMISSIONS_STORAGE_KEY, JSON.stringify(submissions));
-    window.dispatchEvent(new CustomEvent("tw_goal_submissions_updated"));
+    if (emitEvent) {
+      window.dispatchEvent(new CustomEvent("tw_goal_submissions_updated"));
+    }
   } catch {}
+}
+
+async function persistRolePermissionsData(level: string, permissions: any): Promise<void> {
+  try {
+    const { error: rpcError } = await supabase.rpc("save_role_permissions", {
+      _level: level,
+      _permissions: permissions,
+    });
+    if (!rpcError) return;
+  } catch {}
+
+  try {
+    await supabase.from("role_permissions").upsert(
+      {
+        level,
+        nivel: level,
+        permissions,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "level" }
+    );
+  } catch (err) {
+    console.warn(`Erro ao salvar ${level} no banco:`, err);
+  }
 }
 
 export async function getWeeklyGoals(): Promise<WeeklyGoal[]> {
@@ -2217,7 +2245,7 @@ export async function getWeeklyGoals(): Promise<WeeklyGoal[]> {
     if (data && data.permissions && typeof data.permissions === "object") {
       const parsed = data.permissions as any;
       if (Array.isArray(parsed.goals)) {
-        setLocalWeeklyGoals(parsed.goals);
+        setLocalWeeklyGoals(parsed.goals, false);
         return parsed.goals;
       }
     }
@@ -2252,7 +2280,7 @@ export async function getWeeklyGoals(): Promise<WeeklyGoal[]> {
   };
 
   const initialList = [defaultGoal];
-  setLocalWeeklyGoals(initialList);
+  setLocalWeeklyGoals(initialList, false);
   return initialList;
 }
 
@@ -2290,21 +2318,9 @@ export async function createWeeklyGoal(payload: CreateWeeklyGoalPayload): Promis
 
   const currentList = await getWeeklyGoals();
   const updatedList = [newGoal, ...currentList.filter((g) => g.id !== newGoal.id)];
-  setLocalWeeklyGoals(updatedList);
+  setLocalWeeklyGoals(updatedList, true);
 
-  try {
-    await supabase.from("role_permissions").upsert(
-      {
-        level: WEEKLY_GOALS_DB_LEVEL,
-        nivel: WEEKLY_GOALS_DB_LEVEL,
-        permissions: { goals: updatedList } as any,
-        updated_at: new Date().toISOString(),
-      },
-      { onConflict: "level" }
-    );
-  } catch (err) {
-    console.warn("Erro ao salvar meta semanal no banco:", err);
-  }
+  await persistRolePermissionsData(WEEKLY_GOALS_DB_LEVEL, { goals: updatedList });
 
   void logAuditAction(
     "create_goal",
@@ -2339,19 +2355,9 @@ export async function updateWeeklyGoal(
   };
 
   const updatedList = currentList.map((g) => (g.id === id ? updated : g));
-  setLocalWeeklyGoals(updatedList);
+  setLocalWeeklyGoals(updatedList, true);
 
-  try {
-    await supabase.from("role_permissions").upsert(
-      {
-        level: WEEKLY_GOALS_DB_LEVEL,
-        nivel: WEEKLY_GOALS_DB_LEVEL,
-        permissions: { goals: updatedList } as any,
-        updated_at: new Date().toISOString(),
-      },
-      { onConflict: "level" }
-    );
-  } catch {}
+  await persistRolePermissionsData(WEEKLY_GOALS_DB_LEVEL, { goals: updatedList });
 
   void logAuditAction(
     "update_goal",
@@ -2373,19 +2379,9 @@ export async function deleteWeeklyGoal(id: string): Promise<void> {
   const target = currentList.find((g) => g.id === id);
   const updatedList = currentList.filter((g) => g.id !== id);
 
-  setLocalWeeklyGoals(updatedList);
+  setLocalWeeklyGoals(updatedList, true);
 
-  try {
-    await supabase.from("role_permissions").upsert(
-      {
-        level: WEEKLY_GOALS_DB_LEVEL,
-        nivel: WEEKLY_GOALS_DB_LEVEL,
-        permissions: { goals: updatedList } as any,
-        updated_at: new Date().toISOString(),
-      },
-      { onConflict: "level" }
-    );
-  } catch {}
+  await persistRolePermissionsData(WEEKLY_GOALS_DB_LEVEL, { goals: updatedList });
 
   if (target) {
     void logAuditAction(
@@ -2414,7 +2410,7 @@ export async function getGoalSubmissions(): Promise<GoalSubmission[]> {
     if (data && data.permissions && typeof data.permissions === "object") {
       const parsed = data.permissions as any;
       if (Array.isArray(parsed.submissions)) {
-        setLocalGoalSubmissions(parsed.submissions);
+        setLocalGoalSubmissions(parsed.submissions, false);
         return parsed.submissions;
       }
     }
@@ -2493,21 +2489,9 @@ export async function submitGoalDelivery(payload: SubmitGoalPayload): Promise<Go
 
   const currentList = await getGoalSubmissions();
   const updatedList = [newSubmission, ...currentList.filter((s) => s.id !== newSubmission.id)];
-  setLocalGoalSubmissions(updatedList);
+  setLocalGoalSubmissions(updatedList, true);
 
-  try {
-    await supabase.from("role_permissions").upsert(
-      {
-        level: GOAL_SUBMISSIONS_DB_LEVEL,
-        nivel: GOAL_SUBMISSIONS_DB_LEVEL,
-        permissions: { submissions: updatedList } as any,
-        updated_at: new Date().toISOString(),
-      },
-      { onConflict: "level" }
-    );
-  } catch (err) {
-    console.warn("Erro ao sincronizar entrega de meta no banco:", err);
-  }
+  await persistRolePermissionsData(GOAL_SUBMISSIONS_DB_LEVEL, { submissions: updatedList });
 
   void logAuditAction(
     "submit_goal_delivery",
@@ -2558,21 +2542,9 @@ export async function reviewGoalSubmission(
   };
 
   const updatedList = currentList.map((s) => (s.id === submissionId ? updated : s));
-  setLocalGoalSubmissions(updatedList);
+  setLocalGoalSubmissions(updatedList, true);
 
-  try {
-    await supabase.from("role_permissions").upsert(
-      {
-        level: GOAL_SUBMISSIONS_DB_LEVEL,
-        nivel: GOAL_SUBMISSIONS_DB_LEVEL,
-        permissions: { submissions: updatedList } as any,
-        updated_at: new Date().toISOString(),
-      },
-      { onConflict: "level" }
-    );
-  } catch (err) {
-    console.warn("Erro ao salvar revisão de entrega no banco:", err);
-  }
+  await persistRolePermissionsData(GOAL_SUBMISSIONS_DB_LEVEL, { submissions: updatedList });
 
   void logAuditAction(
     payload.status === "aprovado" ? "approve_goal_delivery" : "reject_goal_delivery",
@@ -2596,25 +2568,16 @@ export async function deleteGoalSubmission(submissionId: string): Promise<void> 
   const target = currentList.find((s) => s.id === submissionId);
   const updatedList = currentList.filter((s) => s.id !== submissionId);
 
-  setLocalGoalSubmissions(updatedList);
+  setLocalGoalSubmissions(updatedList, true);
 
-  try {
-    await supabase.from("role_permissions").upsert(
-      {
-        level: GOAL_SUBMISSIONS_DB_LEVEL,
-        nivel: GOAL_SUBMISSIONS_DB_LEVEL,
-        permissions: { submissions: updatedList } as any,
-        updated_at: new Date().toISOString(),
-      },
-      { onConflict: "level" }
-    );
-  } catch {}
+  await persistRolePermissionsData(GOAL_SUBMISSIONS_DB_LEVEL, { submissions: updatedList });
 
   if (target) {
     void logAuditAction(
       "delete_goal_submission",
       "goals",
       {
+        submission_id: submissionId,
         goal_title: target.goal_title,
         member_name: target.member_name,
         amount: target.amount,

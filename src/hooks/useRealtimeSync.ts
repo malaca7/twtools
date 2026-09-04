@@ -60,6 +60,9 @@ export function useRealtimeSync() {
             void queryClient.invalidateQueries({ queryKey: ["members"] });
           } else if (table === "role_permissions") {
             void queryClient.invalidateQueries({ queryKey: ["role_permissions"] });
+            void queryClient.invalidateQueries({ queryKey: ["weekly_goals"] });
+            void queryClient.invalidateQueries({ queryKey: ["goal_submissions"] });
+            void queryClient.invalidateQueries({ queryKey: ["goals"] });
             void queryClient.invalidateQueries({ queryKey: ["members"] });
             void fetchRemoteMenuConfig();
             void fetchRemotePlatformSettings();

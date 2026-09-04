@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -21,25 +21,48 @@ import type {
 import { currency, num } from "@/lib/format";
 
 // Shared BroadcastChannel for instant same-browser cross-tab sync
-const REALTIME_CHANNEL_NAME = "tw_realtime_metas_sync_channel";
-const metasBroadcast = typeof BroadcastChannel !== "undefined" ? new BroadcastChannel(REALTIME_CHANNEL_NAME) : null;
+const REALTIME_CHANNEL_NAME = "tw_metas_cross_tab_sync";
+const SUPABASE_METAS_CHANNEL = "tw_metas_realtime_sync";
 
-// Realtime broadcaster to other connected clients
-const metasSupabaseChannel = supabase.channel("tw_realtime_metas_live_stream");
-metasSupabaseChannel.subscribe();
+// Singleton channel for Supabase Realtime Broadcast across all clients
+let globalMetasChannel: ReturnType<typeof supabase.channel> | null = null;
 
-function triggerRealtimeSync(type: "goals" | "submissions") {
-  // 1. Cross-tab local broadcast
+function getGlobalMetasChannel() {
+  if (!globalMetasChannel) {
+    globalMetasChannel = supabase.channel(SUPABASE_METAS_CHANNEL, {
+      config: { broadcast: { self: true } },
+    });
+    globalMetasChannel.subscribe();
+  }
+  return globalMetasChannel;
+}
+
+export function broadcastMetasRealtimeUpdate(type: "goals" | "submissions" | "all" = "all") {
   try {
-    metasBroadcast?.postMessage({ type: `${type}_updated`, timestamp: Date.now() });
-  } catch {}
-
-  // 2. Supabase Realtime broadcast to other devices/users
-  try {
-    void metasSupabaseChannel.send({
+    // 1. Local DOM CustomEvent
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(
+        new CustomEvent(
+          type === "goals"
+            ? "tw_weekly_goals_updated"
+            : type === "submissions"
+            ? "tw_goal_submissions_updated"
+            : "tw_metas_all_updated"
+        )
+      );
+    }
+    // 2. Cross-tab BroadcastChannel
+    if (typeof BroadcastChannel !== "undefined") {
+      const bc = new BroadcastChannel(REALTIME_CHANNEL_NAME);
+      bc.postMessage({ type: `${type}_updated`, timestamp: Date.now() });
+      bc.close();
+    }
+    // 3. Supabase Realtime Broadcast (all connected users/devices worldwide)
+    const ch = getGlobalMetasChannel();
+    void ch.send({
       type: "broadcast",
-      event: `${type}_sync`,
-      payload: { timestamp: Date.now() },
+      event: "metas_sync",
+      payload: { type, timestamp: Date.now() },
     });
   } catch {}
 }
@@ -50,19 +73,26 @@ export function useWeeklyGoals() {
   useEffect(() => {
     const handleUpdate = () => {
       void queryClient.invalidateQueries({ queryKey: ["weekly_goals"] });
+      void queryClient.invalidateQueries({ queryKey: ["goals"] });
     };
 
-    // 1. Local window event
+    // 1. Local window events
     window.addEventListener("tw_weekly_goals_updated", handleUpdate);
+    window.addEventListener("tw_metas_all_updated", handleUpdate);
 
     // 2. Cross-tab BroadcastChannel
-    const handleBcMessage = (e: MessageEvent) => {
-      if (e.data?.type === "goals_updated" || e.data?.type === "metas_sync") {
-        handleUpdate();
-      }
-    };
-    if (metasBroadcast) {
-      metasBroadcast.addEventListener("message", handleBcMessage);
+    let bc: BroadcastChannel | null = null;
+    if (typeof BroadcastChannel !== "undefined") {
+      bc = new BroadcastChannel(REALTIME_CHANNEL_NAME);
+      bc.onmessage = (e) => {
+        if (
+          e.data?.type === "goals_updated" ||
+          e.data?.type === "all_updated" ||
+          e.data?.type === "metas_sync"
+        ) {
+          handleUpdate();
+        }
+      };
     }
 
     // 3. Storage event
@@ -73,9 +103,10 @@ export function useWeeklyGoals() {
     };
     window.addEventListener("storage", handleStorage);
 
-    // 4. Supabase Realtime Postgres Changes & Broadcast
+    // 4. Supabase Realtime Broadcast & Postgres Changes
+    const channelId = `realtime_goals_${Math.random().toString(36).substring(2, 9)}`;
     const channel = supabase
-      .channel("tw_realtime_weekly_goals_sub")
+      .channel(channelId)
       .on(
         "postgres_changes",
         {
@@ -90,17 +121,22 @@ export function useWeeklyGoals() {
           }
         }
       )
-      .on("broadcast", { event: "goals_sync" }, () => {
-        handleUpdate();
+      .on("broadcast", { event: "metas_sync" }, (payload) => {
+        if (
+          !payload?.payload?.type ||
+          payload.payload.type === "goals" ||
+          payload.payload.type === "all"
+        ) {
+          handleUpdate();
+        }
       })
       .subscribe();
 
     return () => {
       window.removeEventListener("tw_weekly_goals_updated", handleUpdate);
+      window.removeEventListener("tw_metas_all_updated", handleUpdate);
       window.removeEventListener("storage", handleStorage);
-      if (metasBroadcast) {
-        metasBroadcast.removeEventListener("message", handleBcMessage);
-      }
+      if (bc) bc.close();
       void supabase.removeChannel(channel);
     };
   }, [queryClient]);
@@ -109,7 +145,7 @@ export function useWeeklyGoals() {
     queryKey: ["weekly_goals"],
     queryFn: getWeeklyGoals,
     staleTime: 0,
-    refetchInterval: 3000,
+    refetchInterval: 1500,
     refetchOnWindowFocus: true,
     refetchOnReconnect: true,
   });
@@ -123,7 +159,7 @@ export function useCreateWeeklyGoal() {
     onSuccess: (newGoal) => {
       void queryClient.invalidateQueries({ queryKey: ["weekly_goals"] });
       void queryClient.invalidateQueries({ queryKey: ["goals"] });
-      triggerRealtimeSync("goals");
+      broadcastMetasRealtimeUpdate("goals");
       toast.success("Meta semanal criada com sucesso!", {
         description: `${newGoal.title} — Alvo: ${
           newGoal.type === "financeiro" ? currency(newGoal.target_value) : `${num(newGoal.target_value)} ${newGoal.unit_name || "unid"}`
@@ -150,7 +186,7 @@ export function useUpdateWeeklyGoal() {
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["weekly_goals"] });
       void queryClient.invalidateQueries({ queryKey: ["goals"] });
-      triggerRealtimeSync("goals");
+      broadcastMetasRealtimeUpdate("goals");
       toast.success("Meta semanal atualizada.");
     },
     onError: (err: any) => {
@@ -167,7 +203,7 @@ export function useDeleteWeeklyGoal() {
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["weekly_goals"] });
       void queryClient.invalidateQueries({ queryKey: ["goals"] });
-      triggerRealtimeSync("goals");
+      broadcastMetasRealtimeUpdate("goals");
       toast.success("Meta semanal removida.");
     },
     onError: (err: any) => {
@@ -184,17 +220,23 @@ export function useGoalSubmissions() {
       void queryClient.invalidateQueries({ queryKey: ["goal_submissions"] });
     };
 
-    // 1. Local window event
+    // 1. Local window events
     window.addEventListener("tw_goal_submissions_updated", handleUpdate);
+    window.addEventListener("tw_metas_all_updated", handleUpdate);
 
     // 2. Cross-tab BroadcastChannel
-    const handleBcMessage = (e: MessageEvent) => {
-      if (e.data?.type === "submissions_updated" || e.data?.type === "submissions_sync") {
-        handleUpdate();
-      }
-    };
-    if (metasBroadcast) {
-      metasBroadcast.addEventListener("message", handleBcMessage);
+    let bc: BroadcastChannel | null = null;
+    if (typeof BroadcastChannel !== "undefined") {
+      bc = new BroadcastChannel(REALTIME_CHANNEL_NAME);
+      bc.onmessage = (e) => {
+        if (
+          e.data?.type === "submissions_updated" ||
+          e.data?.type === "all_updated" ||
+          e.data?.type === "metas_sync"
+        ) {
+          handleUpdate();
+        }
+      };
     }
 
     // 3. Storage event
@@ -205,9 +247,10 @@ export function useGoalSubmissions() {
     };
     window.addEventListener("storage", handleStorage);
 
-    // 4. Supabase Realtime Postgres Changes & Broadcast
+    // 4. Supabase Realtime Broadcast & Postgres Changes
+    const channelId = `realtime_subs_${Math.random().toString(36).substring(2, 9)}`;
     const channel = supabase
-      .channel("tw_realtime_goal_submissions_sub")
+      .channel(channelId)
       .on(
         "postgres_changes",
         {
@@ -222,17 +265,22 @@ export function useGoalSubmissions() {
           }
         }
       )
-      .on("broadcast", { event: "submissions_sync" }, () => {
-        handleUpdate();
+      .on("broadcast", { event: "metas_sync" }, (payload) => {
+        if (
+          !payload?.payload?.type ||
+          payload.payload.type === "submissions" ||
+          payload.payload.type === "all"
+        ) {
+          handleUpdate();
+        }
       })
       .subscribe();
 
     return () => {
       window.removeEventListener("tw_goal_submissions_updated", handleUpdate);
+      window.removeEventListener("tw_metas_all_updated", handleUpdate);
       window.removeEventListener("storage", handleStorage);
-      if (metasBroadcast) {
-        metasBroadcast.removeEventListener("message", handleBcMessage);
-      }
+      if (bc) bc.close();
       void supabase.removeChannel(channel);
     };
   }, [queryClient]);
@@ -241,7 +289,7 @@ export function useGoalSubmissions() {
     queryKey: ["goal_submissions"],
     queryFn: getGoalSubmissions,
     staleTime: 0,
-    refetchInterval: 2500,
+    refetchInterval: 1500,
     refetchOnWindowFocus: true,
     refetchOnReconnect: true,
   });
@@ -254,7 +302,7 @@ export function useSubmitGoalDelivery() {
     mutationFn: (payload: SubmitGoalPayload) => submitGoalDelivery(payload),
     onSuccess: (sub) => {
       void queryClient.invalidateQueries({ queryKey: ["goal_submissions"] });
-      triggerRealtimeSync("submissions");
+      broadcastMetasRealtimeUpdate("submissions");
       toast.success("Comprovante de entrega enviado com sucesso!", {
         description: `Entregue para ${sub.receiver_name} (${
           sub.unit_name === "R$" ? currency(sub.amount) : `${num(sub.amount)} ${sub.unit_name || "itens"}`
@@ -282,7 +330,7 @@ export function useReviewGoalSubmission() {
     }) => reviewGoalSubmission(submissionId, { status, review_notes: reviewNotes }),
     onSuccess: (updated) => {
       void queryClient.invalidateQueries({ queryKey: ["goal_submissions"] });
-      triggerRealtimeSync("submissions");
+      broadcastMetasRealtimeUpdate("submissions");
       if (updated.status === "aprovado") {
         toast.success(`Entrega de ${updated.member_name} foi APROVADA com sucesso!`);
       } else {
@@ -302,7 +350,7 @@ export function useDeleteGoalSubmission() {
     mutationFn: (submissionId: string) => deleteGoalSubmission(submissionId),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["goal_submissions"] });
-      triggerRealtimeSync("submissions");
+      broadcastMetasRealtimeUpdate("submissions");
       toast.success("Registro de entrega removido.");
     },
     onError: (err: any) => {
@@ -310,3 +358,4 @@ export function useDeleteGoalSubmission() {
     },
   });
 }
+
