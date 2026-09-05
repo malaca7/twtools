@@ -800,6 +800,9 @@ export function ChatWindow({
           onlyAdminsCanPost={conversation.only_admins_can_post}
           userRole={effectiveUserRole}
           participants={conversation.participants}
+          isGroup={isGroup}
+          otherParticipant={otherMember}
+          currentUserId={currentUserId}
           onOpenPollDialog={() => setCreatePollOpen(true)}
           onOpenEventDialog={() => setCreateEventOpen(true)}
         />

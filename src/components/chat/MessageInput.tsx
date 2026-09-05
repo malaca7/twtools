@@ -20,9 +20,11 @@ import {
 import { Progress } from "@/components/ui/progress";
 import { WhatsAppAttachmentMenu } from "./WhatsAppAttachmentMenu";
 import type { ChatMessage, ParticipantRole, ChatParticipant } from "@/types/chat";
+import type { Member } from "@/lib/app-types";
 import { cn } from "@/lib/utils";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { chatSound } from "@/lib/chatSound";
+import { useMembers } from "@/hooks/useData";
 
 interface MessageInputProps {
   onSendMessage: (text: string) => Promise<any>;
@@ -36,6 +38,9 @@ interface MessageInputProps {
   onlyAdminsCanPost?: boolean;
   userRole?: ParticipantRole;
   participants?: ChatParticipant[];
+  isGroup?: boolean;
+  otherParticipant?: Member | null;
+  currentUserId?: string;
   onOpenPollDialog?: () => void;
   onOpenEventDialog?: () => void;
 }
@@ -58,11 +63,19 @@ export function MessageInput({
   onlyAdminsCanPost = false,
   userRole = "member",
   participants = [],
+  isGroup = false,
+  otherParticipant,
+  currentUserId,
   onOpenPollDialog,
   onOpenEventDialog,
 }: MessageInputProps) {
   const [content, setContent] = useState("");
   const [attachmentMenuOpen, setAttachmentMenuOpen] = useState(false);
+
+  const { data: allMembers = [] } = useMembers();
+  const allMembersMap = useMemo(() => {
+    return new Map(allMembers.map((m) => [m.user_id, m]));
+  }, [allMembers]);
 
   // States para menções (@)
   const [showMentionPopup, setShowMentionPopup] = useState(false);
@@ -120,25 +133,72 @@ export function MessageInput({
     }
   };
 
-  // ─── LÓGICA DE MENÇÕES ───
+  // ─── LÓGICA DE MENÇÕES (@) ───
   const availableMentions = useMemo(() => {
-    const list = participants
-      .filter((p) => p.nickname || p.nome)
-      .map((p) => ({
-        id: p.user_id,
-        name: p.nickname || p.nome,
-        avatar: p.discord_avatar_url,
-      }));
-    if (userRole === "admin" || userRole === "creator") {
-      list.unshift({ id: "todos", name: "todos", avatar: null });
+    const list: Array<{ id: string; name: string; subtitle?: string; avatar: string | null }> = [];
+
+    if (!isGroup) {
+      // ─── CHAT INDIVIDUAL (1:1) ───
+      // 1. O outro membro deve ser sugerido PRIMEIRO
+      const other =
+        otherParticipant ||
+        (participants.find((p) => p.user_id !== currentUserId)?.profile) ||
+        (participants.find((p) => p.user_id !== currentUserId)
+          ? allMembersMap.get(participants.find((p) => p.user_id !== currentUserId)!.user_id)
+          : null);
+
+      if (other) {
+        const otherName = other.nickname || other.nome;
+        list.push({
+          id: other.user_id,
+          name: otherName,
+          subtitle: other.nickname ? other.nome : "Membro da conversa",
+          avatar: other.avatar_url || other.discord_avatar_url || null,
+        });
+      }
+
+      // Em chat individual, @todos NUNCA aparece!
+      return list;
     }
+
+    // ─── CHAT DE GRUPO ───
+    // 1. @todos só aparece se for chat de grupo E usuário for admin/creator
+    if (userRole === "admin" || (userRole as string) === "creator") {
+      list.push({
+        id: "todos",
+        name: "todos",
+        subtitle: "Mencionar todos do grupo",
+        avatar: null,
+      });
+    }
+
+    // 2. Apenas membros que pertencem a ESTE grupo
+    participants.forEach((p) => {
+      // Não sugerir a si mesmo como prioridade
+      if (p.user_id === currentUserId) return;
+
+      const memberData = p.profile || allMembersMap.get(p.user_id);
+      const name = p.custom_nickname || memberData?.nickname || memberData?.nome;
+      if (name) {
+        list.push({
+          id: p.user_id,
+          name,
+          subtitle: memberData?.nickname ? memberData.nome : undefined,
+          avatar: memberData?.avatar_url || memberData?.discord_avatar_url || (p as any).discord_avatar_url || null,
+        });
+      }
+    });
+
     return list;
-  }, [participants, userRole]);
+  }, [isGroup, otherParticipant, participants, currentUserId, userRole, allMembersMap]);
 
   const filteredMentions = useMemo(() => {
     if (!showMentionPopup) return [];
-    return availableMentions.filter((m) =>
-      m.name.toLowerCase().includes(mentionQuery.toLowerCase())
+    const q = mentionQuery.toLowerCase();
+    return availableMentions.filter(
+      (m) =>
+        m.name.toLowerCase().includes(q) ||
+        (m.subtitle && m.subtitle.toLowerCase().includes(q))
     );
   }, [availableMentions, showMentionPopup, mentionQuery]);
 
@@ -151,13 +211,14 @@ export function MessageInput({
     
     if (match) {
       const startIdx = textBeforeCursor.lastIndexOf("@");
-      const newContent = content.slice(0, startIdx) + `@${name} ` + textAfterCursor;
+      const formattedMention = name === "todos" ? "todos" : name.replace(/\s+/g, "_");
+      const newContent = content.slice(0, startIdx) + `@${formattedMention} ` + textAfterCursor;
       setContent(newContent);
       setShowMentionPopup(false);
       setTimeout(() => {
         if (textareaRef.current) {
           textareaRef.current.focus();
-          const newCursorPos = startIdx + name.length + 2;
+          const newCursorPos = startIdx + formattedMention.length + 2;
           textareaRef.current.setSelectionRange(newCursorPos, newCursorPos);
         }
       }, 0);
@@ -534,36 +595,44 @@ export function MessageInput({
 
             {/* TEXTAREA WRAPPER COM VISUAL WHATSAPP E MENU DE MENÇÕES */}
             <div className="flex-1 min-w-0 relative flex flex-col justify-end">
-              {/* MENTION POPOVER */}
+              {/* POPUP DE MENÇÕES (@) */}
               {showMentionPopup && filteredMentions.length > 0 && (
-                <div className="absolute bottom-full left-0 mb-2 w-56 max-h-48 overflow-y-auto bg-card border border-border/70 shadow-2xl rounded-2xl z-50 py-1.5 custom-scrollbar-thin select-none">
-                  <div className="px-3 py-1.5 mb-1 border-b border-border/50 text-[10px] font-black text-muted-foreground uppercase tracking-wider">
-                    Mencionar Membro
+                <div className="absolute bottom-full mb-2 left-0 w-72 max-h-56 overflow-y-auto bg-[#233138] border border-white/10 rounded-xl shadow-2xl z-50 p-1 divide-y divide-white/5 scrollbar-thin">
+                  <div className="px-3 py-1.5 text-[10px] font-black text-[#8696a0] uppercase tracking-wider flex items-center justify-between">
+                    <span>Mencionar no Chat</span>
+                    <span className="text-[9px] font-normal lowercase">{filteredMentions.length} opção(ões)</span>
                   </div>
-                  {filteredMentions.map((m, i) => {
-                    const isSelected = i === mentionIndex;
-                    return (
-                      <div
-                        key={m.id}
-                        onClick={() => insertMention(m.name)}
-                        onMouseEnter={() => setMentionIndex(i)}
-                        className={cn(
-                          "px-3 py-1.5 cursor-pointer flex items-center gap-2 text-xs transition-colors mx-1 rounded-lg",
-                          isSelected ? "bg-primary/20 text-primary" : "hover:bg-secondary/50 text-foreground"
-                        )}
-                      >
-                        <Avatar className="h-6 w-6 shrink-0 border border-border/50">
-                          {m.avatar && <AvatarImage src={m.avatar} />}
-                          <AvatarFallback className={cn("text-[9px] font-black", m.id === "todos" && "bg-primary/20 text-primary")}>
-                            {m.id === "todos" ? "@" : m.name.slice(0, 2).toUpperCase()}
-                          </AvatarFallback>
-                        </Avatar>
-                        <span className={cn("truncate", isSelected ? "font-black" : "font-semibold")}>
-                          {m.name}
-                        </span>
-                      </div>
-                    );
-                  })}
+                  <div className="pt-1 space-y-0.5">
+                    {filteredMentions.map((m, i) => {
+                      const isSelected = i === mentionIndex;
+                      return (
+                        <div
+                          key={m.id}
+                          onClick={() => insertMention(m.name)}
+                          onMouseEnter={() => setMentionIndex(i)}
+                          className={cn(
+                            "px-2.5 py-1.5 cursor-pointer flex items-center gap-2.5 text-xs transition-colors rounded-lg",
+                            isSelected ? "bg-[#00a884]/20 text-[#00a884]" : "hover:bg-white/5 text-[#e9edef]"
+                          )}
+                        >
+                          <Avatar className="h-7 w-7 shrink-0 border border-white/10">
+                            {m.avatar && <AvatarImage src={m.avatar} />}
+                            <AvatarFallback className={cn("text-[10px] font-bold", m.id === "todos" ? "bg-[#00a884] text-white" : "bg-[#111b21] text-[#00a884]")}>
+                              {m.id === "todos" ? "@" : m.name.slice(0, 2).toUpperCase()}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div className="min-w-0 flex-1">
+                            <p className={cn("truncate text-xs", isSelected ? "font-bold text-[#00a884]" : "font-medium text-[#e9edef]")}>
+                              {m.id === "todos" ? "@todos" : `@${m.name}`}
+                            </p>
+                            {m.subtitle && (
+                              <p className="text-[10px] text-[#8696a0] truncate">{m.subtitle}</p>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
               )}
 

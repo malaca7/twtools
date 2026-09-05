@@ -1,4 +1,4 @@
-import React, { useState, memo, useMemo } from "react";
+import React, { useState, memo, useMemo, useRef } from "react";
 import {
   Reply,
   Copy,
@@ -131,6 +131,50 @@ function MessageBubbleBase({
   const [reactionMenuOpen, setReactionMenuOpen] = useState(false);
   const [deleteConfirmMode, setDeleteConfirmMode] = useState<"self" | "everyone" | null>(null);
 
+  // Click & hold (long-press) para seleção de mensagens
+  const longPressTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const isLongPressTriggeredRef = useRef(false);
+
+  const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (isSelectionMode) return;
+    if (e.button !== 0) return; // Apenas botão principal
+
+    const target = e.target as HTMLElement;
+    if (target.closest("button, a, video, audio, input, textarea, select, [data-no-select]")) {
+      return;
+    }
+
+    isLongPressTriggeredRef.current = false;
+    longPressTimerRef.current = setTimeout(() => {
+      isLongPressTriggeredRef.current = true;
+      if (typeof navigator !== "undefined" && navigator.vibrate) {
+        try {
+          navigator.vibrate(50);
+        } catch {}
+      }
+      onToggleSelect?.(message.id);
+    }, 420);
+  };
+
+  const handlePointerUpOrCancel = () => {
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+  };
+
+  const handleBubbleClick = (e: React.MouseEvent) => {
+    if (isLongPressTriggeredRef.current) {
+      isLongPressTriggeredRef.current = false;
+      e.stopPropagation();
+      return;
+    }
+    if (isSelectionMode) {
+      e.stopPropagation();
+      onToggleSelect?.(message.id);
+    }
+  };
+
   const isSystem = message.message_type === "system";
   const isDeleted = message.is_deleted || message.is_deleted_for_everyone;
   const canDeleteForEveryone = isSelf || userRole === "admin";
@@ -217,19 +261,26 @@ function MessageBubbleBase({
           isSelf ? "items-end" : "items-start",
           isSelectionMode && "cursor-pointer"
         )}
-        onClick={() => {
-          if (isSelectionMode) onToggleSelect?.(message.id);
-        }}
       >
         {/* BOLHA WHATSAPP */}
         <div
+          onPointerDown={handlePointerDown}
+          onPointerUp={handlePointerUpOrCancel}
+          onPointerLeave={handlePointerUpOrCancel}
+          onPointerCancel={handlePointerUpOrCancel}
+          onClick={handleBubbleClick}
+          onContextMenu={(e) => {
+            if (isLongPressTriggeredRef.current) {
+              e.preventDefault();
+            }
+          }}
           className={cn(
-            "relative rounded-lg px-2.5 py-1.5 sm:px-3 sm:py-2 shadow-md transition-all text-[#e9edef] max-w-full",
+            "relative rounded-lg px-2.5 py-1.5 sm:px-3 sm:py-2 shadow-md transition-all text-[#e9edef] max-w-full select-none cursor-pointer",
             isSelf
               ? "whatsapp-bubble-out whatsapp-tail-right rounded-tr-none"
               : "whatsapp-bubble-in whatsapp-tail-left rounded-tl-none",
             isDeleted && "opacity-70 italic border border-dashed border-white/10",
-            isSelected && "ring-2 ring-[#00a884] ring-offset-2 ring-offset-[#0b141a]"
+            isSelected && "ring-2 ring-[#00a884] ring-offset-2 ring-offset-[#0b141a] scale-[1.01]"
           )}
         >
           {/* HOVER DROPDOWN TRIGGER (CHEVRON WHATSAPP) */}
@@ -598,19 +649,22 @@ function MessageBubbleBase({
           </div>
         )}
 
-        {/* FLOATING QUICK REACTIONS BAR ON HOVER */}
-        {!isDeleted && !editing && (
+        {/* FLOATING QUICK REACTIONS BAR ON HOVER (POSICIONADO ABAIXO DA MENSAGEM) */}
+        {!isDeleted && !editing && !isSelectionMode && (
           <div
             className={cn(
-              "absolute -top-4 opacity-0 group-hover:opacity-100 transition-all duration-150 flex items-center gap-0.5 p-1 rounded-full bg-[#233138] border border-white/10 shadow-xl z-20 backdrop-blur-md",
-              isSelf ? "right-6" : "left-6"
+              "absolute -bottom-4.5 opacity-0 group-hover:opacity-100 transition-all duration-150 flex items-center gap-0.5 p-1 rounded-full bg-[#233138] border border-white/10 shadow-xl z-20 backdrop-blur-md pointer-events-auto",
+              isSelf ? "right-4" : "left-4"
             )}
           >
             {QUICK_EMOJIS.map((emoji) => (
               <button
                 key={emoji}
                 type="button"
-                onClick={() => onReact(message.id, emoji)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onReact(message.id, emoji);
+                }}
                 className="h-6 w-6 rounded-full hover:bg-white/10 flex items-center justify-center text-sm hover:scale-125 transition-transform cursor-pointer"
               >
                 {emoji}

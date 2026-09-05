@@ -603,13 +603,32 @@ export function useChatRoom(
         const currentConv = convs?.find(c => c.id === activeConversationId);
         if (currentConv && currentConv.participants) {
           const names = mentionMatches.map(m => m[1].toLowerCase());
-          if (names.includes("todos")) {
+          const isGroup = currentConv.type === "group";
+          const isCreator = isGroup && currentConv.created_by === currentUserId;
+          const myPart = currentConv.participants.find(p => p.user_id === currentUserId);
+          const isGroupAdmin = isCreator || myPart?.role === "admin" || currentConv.my_role === "admin";
+
+          if (isGroup && isGroupAdmin && names.includes("todos")) {
             parsedMentions.push("todos");
           }
+
           currentConv.participants.forEach(p => {
-            if ((p.nickname && names.includes(p.nickname.toLowerCase())) || 
-                (p.nome && names.includes(p.nome.toLowerCase()))) {
-              parsedMentions.push(p.user_id);
+            const nick = (p.custom_nickname || p.profile?.nickname || (p as any).nickname || "")?.toLowerCase();
+            const nome = (p.profile?.nome || (p as any).nome || "")?.toLowerCase();
+            const discordUser = (p.profile?.discord_username || "")?.toLowerCase();
+            const nickSnake = nick.replace(/\s+/g, "_");
+            const nomeSnake = nome.replace(/\s+/g, "_");
+
+            if (
+              (nick && names.includes(nick)) ||
+              (nickSnake && names.includes(nickSnake)) ||
+              (nome && names.includes(nome)) ||
+              (nomeSnake && names.includes(nomeSnake)) ||
+              (discordUser && names.includes(discordUser))
+            ) {
+              if (!parsedMentions.includes(p.user_id)) {
+                parsedMentions.push(p.user_id);
+              }
             }
           });
         }
