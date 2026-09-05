@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { toast } from "sonner";
@@ -45,7 +45,7 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { NoAccess, PageHeader, TableSkeleton, EmptyState } from "@/components/ui-kit";
 import { useAuth } from "@/hooks/useAuth";
-import { useMembers, usePendingSignupRequests } from "@/hooks/useData";
+import { useMembers, usePendingSignupRequests, useCustomRoles } from "@/hooks/useData";
 import {
   submitSignupReview,
   setMemberLevel,
@@ -78,6 +78,26 @@ function MembrosPage() {
 
   const { data: members = [], isLoading: membersLoading } = useMembers();
   const { data: pending = [], isLoading: pendingLoading } = usePendingSignupRequests(canApprove);
+  const { data: dbCustomRoles = [] } = useCustomRoles();
+
+  // Cargos válidos da facção (excluindo desenvolvedor, que é tag de sistema)
+  const availableLevels = useMemo(() => {
+    if (dbCustomRoles && dbCustomRoles.length > 0) {
+      const filtered = dbCustomRoles.filter(
+        (r) => r.id !== "desenvolvedor" && r.nome.toLowerCase() !== "desenvolvedor"
+      );
+      if (filtered.length > 0) {
+        return filtered.map((r) => ({
+          id: r.id as AppLevel,
+          label: r.nome,
+        }));
+      }
+    }
+    return LEVELS.filter((lvl) => lvl !== "desenvolvedor").map((lvl) => ({
+      id: lvl,
+      label: LEVEL_LABEL[lvl] || lvl,
+    }));
+  }, [dbCustomRoles]);
 
   // Search filter
   const [search, setSearch] = useState("");
@@ -369,9 +389,6 @@ function MembrosPage() {
                   const initials = (m.nickname || m.nome).slice(0, 2).toUpperCase();
                   const targetIsDev = Boolean(m.is_developer || m.nivel === "desenvolvedor");
                   const canChangeThisTargetRole = canChangeRoles && (!targetIsDev || isDevMode);
-                  const availableLevels = isDevMode
-                    ? (["desenvolvedor", ...LEVELS] as AppLevel[])
-                    : LEVELS;
 
                   return (
                     <div key={m.user_id} className="p-4 rounded-xl border border-border/80 bg-card text-card-foreground shadow-sm space-y-3">
@@ -406,9 +423,9 @@ function MembrosPage() {
                             }}
                             disabled={changeRoleMutation.isPending}
                           >
-                            {availableLevels.map((lvl) => (
-                              <option key={lvl} value={lvl}>
-                                {LEVEL_LABEL[lvl] || lvl}
+                            {availableLevels.map(({ id, label }) => (
+                              <option key={id} value={id}>
+                                {label}
                               </option>
                             ))}
                           </select>
@@ -473,9 +490,6 @@ function MembrosPage() {
                       const initials = (m.nickname || m.nome).slice(0, 2).toUpperCase();
                       const targetIsDev = Boolean(m.is_developer || m.nivel === "desenvolvedor");
                       const canChangeThisTargetRole = canChangeRoles && (!targetIsDev || isDevMode);
-                      const availableLevels = isDevMode
-                        ? (["desenvolvedor", ...LEVELS] as AppLevel[])
-                        : LEVELS;
 
                       return (
                         <TableRow key={m.user_id}>
@@ -542,9 +556,9 @@ function MembrosPage() {
                                 }}
                                 disabled={changeRoleMutation.isPending}
                               >
-                                {availableLevels.map((lvl) => (
-                                  <option key={lvl} value={lvl}>
-                                    {LEVEL_LABEL[lvl] || lvl}
+                                {availableLevels.map(({ id, label }) => (
+                                  <option key={id} value={id}>
+                                    {label}
                                   </option>
                                 ))}
                               </select>
