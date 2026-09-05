@@ -68,17 +68,19 @@ export function useConversations(activeConversationId?: string | null) {
         (payload) => {
           const newMsg = payload.new as any;
 
-          // Se a mensagem veio de outra pessoa e não é a conversa ativa no momento, toca som de notificação e dispara evento visual
+          // Se a mensagem veio de outra pessoa e não é a conversa ativa no momento, aciona o alerta completo (Som + Toast + Notificação Nativa)
           if (newMsg.sender_id !== userId) {
             if (activeConvRef.current !== newMsg.conversation_id) {
-              chatSound.playIncomingMessage();
-              if (typeof window !== "undefined") {
-                window.dispatchEvent(
-                  new CustomEvent("tw_chat_new_message", {
-                    detail: { message: newMsg, conversationId: newMsg.conversation_id },
-                  })
-                );
-              }
+              void getCachedMember(newMsg.sender_id).then((senderMember) => {
+                const senderName = senderMember?.nickname || senderMember?.nome || "Alguém";
+                const senderAvatar = senderMember?.discord_avatar_url || null;
+                chatSound.triggerNewMessageAlert({
+                  message: newMsg,
+                  conversationId: newMsg.conversation_id,
+                  senderName,
+                  senderAvatar,
+                });
+              });
             }
           }
 

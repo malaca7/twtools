@@ -1,6 +1,8 @@
 /**
- * Gerenciador Avançado de Efeitos Sonoros do Chat usando Web Audio API.
- * Suporta múltiplos temas sonoros sintetizados em tempo real, controle de volume e canais independentes.
+ * Gerenciador Avançado de Notificações, Sons e Efeitos Visuais do Chat.
+ * Suporta múltiplos temas sonoros sintetizados em Web Audio API, volume,
+ * efeitos visuais personalizáveis (Toast, Neon Glow, Screen Flash),
+ * notificações nativas do sistema/navegador e piscamento do título da aba.
  */
 
 export type ChatSoundTheme =
@@ -10,16 +12,41 @@ export type ChatSoundTheme =
   | "bubble"
   | "retro"
   | "cyber"
-  | "electronic";
+  | "electronic"
+  | "whatsapp";
 
-export interface ChatSoundSettings {
+export type ChatVisualAlertStyle =
+  | "toast"        // Card flutuante interativo com foto do membro e prévia
+  | "neon_button"  // Botão pulsante com brilho intenso neon
+  | "screen_glow"  // Aura brilhante nas bordas da tela
+  | "silent";      // Apenas atualizar contador de não lidas
+
+export type ChatGlowColor = "emerald" | "rose" | "purple" | "cyan" | "amber";
+
+export interface ChatNotificationSettings {
   enabled: boolean;
   theme: ChatSoundTheme;
   volume: number; // 0 a 100
   incomingEnabled: boolean;
   sentEnabled: boolean;
   mentionEnabled: boolean;
+  
+  // Opções visuais personalizadas
+  visualStyle: ChatVisualAlertStyle;
+  glowColor: ChatGlowColor;
+  
+  // Notificações Nativas do Sistema/Navegador
+  nativeNotificationsEnabled: boolean;
+  
+  // Piscar título da aba no navegador
+  flashTabTitle: boolean;
+  
+  // Expansão automática do balão ao receber DM
+  autoExpandOnDM: boolean;
 }
+
+// Mantido para compatibilidade retroativa com código existente
+export type ChatSoundSettings = ChatNotificationSettings;
 
 export const SOUND_THEMES: Array<{
   id: ChatSoundTheme;
@@ -28,40 +55,86 @@ export const SOUND_THEMES: Array<{
   emoji: string;
 }> = [
   { id: "crystal", name: "Cristalino", desc: "Suave, elegante e cristalino (Padrão)", emoji: "💎" },
+  { id: "whatsapp", name: "WhatsApp Classic", desc: "Tom clássico duplo tom de mensagens instantâneas", emoji: "💬" },
   { id: "pop", name: "Pop Moderno", desc: "Graves ágeis e responsivos estilo Discord", emoji: "🫧" },
-  { id: "chime", name: "Sino Suave", desc: "Harmônicos metálicos e acolhedores", emoji: "🔔" },
+  { id: "chime", name: "Sino Harmônico", desc: "Harmônicos metálicos e acolhedores", emoji: "🔔" },
   { id: "bubble", name: "Gota d'Água", desc: "Toque orgânico e relaxante de bolha", emoji: "💧" },
   { id: "retro", name: "Arcade 8-Bit", desc: "Nostálgico estilo videogame retrô", emoji: "👾" },
   { id: "cyber", name: "Cyberpunk", desc: "Varredura sintetizada e futurista", emoji: "⚡" },
   { id: "electronic", name: "Sintetizador", desc: "Acorde harmônico e moderno", emoji: "🎹" },
 ];
 
-const DEFAULT_SETTINGS: ChatSoundSettings = {
+export const VISUAL_ALERT_STYLES: Array<{
+  id: ChatVisualAlertStyle;
+  name: string;
+  desc: string;
+  emoji: string;
+}> = [
+  { id: "toast", name: "Card Flutuante (Toast com Foto)", desc: "Exibe foto, nome e prévia da mensagem no canto da tela", emoji: "🚀" },
+  { id: "neon_button", name: "Botão Pulsante Neon", desc: "Faz o balão de chat pulsar com um brilho radiante", emoji: "⚡" },
+  { id: "screen_glow", name: "Aura nas Bordas da Tela", desc: "Pisca um brilho suave nas bordas para chamar atenção máxima", emoji: "🎆" },
+  { id: "silent", name: "Silencioso", desc: "Atualiza apenas os contadores de mensagens não lidas", emoji: "🔕" },
+];
+
+export const GLOW_COLORS: Array<{
+  id: ChatGlowColor;
+  name: string;
+  hex: string;
+  bgClass: string;
+  borderClass: string;
+  ringClass: string;
+  shadowClass: string;
+}> = [
+  { id: "emerald", name: "Verde Neon", hex: "#10b981", bgClass: "bg-emerald-500", borderClass: "border-emerald-500", ringClass: "ring-emerald-500/70", shadowClass: "shadow-emerald-500/50" },
+  { id: "rose", name: "Rosa Chama", hex: "#f43f5e", bgClass: "bg-rose-500", borderClass: "border-rose-500", ringClass: "ring-rose-500/70", shadowClass: "shadow-rose-500/50" },
+  { id: "purple", name: "Roxo Cyber", hex: "#a855f7", bgClass: "bg-purple-500", borderClass: "border-purple-500", ringClass: "ring-purple-500/70", shadowClass: "shadow-purple-500/50" },
+  { id: "cyan", name: "Azul Elétrico", hex: "#06b6d4", bgClass: "bg-cyan-500", borderClass: "border-cyan-500", ringClass: "ring-cyan-500/70", shadowClass: "shadow-cyan-500/50" },
+  { id: "amber", name: "Amarelo Ouro", hex: "#f59e0b", bgClass: "bg-amber-500", borderClass: "border-amber-500", ringClass: "ring-amber-500/70", shadowClass: "shadow-amber-500/50" },
+];
+
+const DEFAULT_SETTINGS: ChatNotificationSettings = {
   enabled: true,
   theme: "crystal",
-  volume: 75,
+  volume: 80,
   incomingEnabled: true,
   sentEnabled: true,
   mentionEnabled: true,
+  visualStyle: "toast",
+  glowColor: "emerald",
+  nativeNotificationsEnabled: true,
+  flashTabTitle: true,
+  autoExpandOnDM: false,
 };
 
-class ChatSoundManager {
+class ChatNotificationManager {
   private ctx: AudioContext | null = null;
-  private settings: ChatSoundSettings = { ...DEFAULT_SETTINGS };
+  private settings: ChatNotificationSettings = { ...DEFAULT_SETTINGS };
+  private originalTitle: string = "";
+  private titleInterval: NodeJS.Timeout | null = null;
 
   constructor() {
     this.loadSettings();
+    if (typeof document !== "undefined") {
+      this.originalTitle = document.title;
+    }
   }
 
   private loadSettings(): void {
     try {
-      const saved = localStorage.getItem("tw_chat_sound_settings_v2");
+      const saved = localStorage.getItem("tw_chat_notification_settings_v3");
       if (saved) {
         this.settings = { ...DEFAULT_SETTINGS, ...JSON.parse(saved) };
         return;
       }
 
-      // Legado
+      // Migração de v2 ou legado
+      const legacyV2 = localStorage.getItem("tw_chat_sound_settings_v2");
+      if (legacyV2) {
+        const parsed = JSON.parse(legacyV2);
+        this.settings = { ...DEFAULT_SETTINGS, ...parsed };
+        return;
+      }
+
       const legacyEnabled = localStorage.getItem("tw_chat_sound_enabled");
       if (legacyEnabled !== null) {
         this.settings.enabled = legacyEnabled === "true";
@@ -71,18 +144,22 @@ class ChatSoundManager {
     }
   }
 
-  public getSettings(): ChatSoundSettings {
+  public getSettings(): ChatNotificationSettings {
     return { ...this.settings };
   }
 
-  public updateSettings(partial: Partial<ChatSoundSettings>): ChatSoundSettings {
+  public updateSettings(partial: Partial<ChatNotificationSettings>): ChatNotificationSettings {
     this.settings = { ...this.settings, ...partial };
     try {
+      localStorage.setItem("tw_chat_notification_settings_v3", JSON.stringify(this.settings));
       localStorage.setItem("tw_chat_sound_settings_v2", JSON.stringify(this.settings));
       localStorage.setItem("tw_chat_sound_enabled", String(this.settings.enabled));
       if (typeof window !== "undefined") {
         window.dispatchEvent(
           new CustomEvent("tw_chat_sound_change", { detail: this.settings })
+        );
+        window.dispatchEvent(
+          new CustomEvent("tw_chat_notification_change", { detail: this.settings })
         );
       }
     } catch {
@@ -113,6 +190,31 @@ class ChatSoundManager {
     this.updateSettings({ volume: Math.max(0, Math.min(100, volume)) });
   }
 
+  public getNativePermissionStatus(): "granted" | "denied" | "default" | "unsupported" {
+    if (typeof window === "undefined" || !("Notification" in window)) {
+      return "unsupported";
+    }
+    return Notification.permission;
+  }
+
+  public async requestNativePermission(): Promise<boolean> {
+    if (typeof window === "undefined" || !("Notification" in window)) {
+      return false;
+    }
+    try {
+      const permission = await Notification.requestPermission();
+      if (permission === "granted") {
+        this.updateSettings({ nativeNotificationsEnabled: true });
+        return true;
+      } else {
+        this.updateSettings({ nativeNotificationsEnabled: false });
+        return false;
+      }
+    } catch {
+      return false;
+    }
+  }
+
   private getAudioContext(): AudioContext | null {
     if (typeof window === "undefined") return null;
     try {
@@ -131,14 +233,6 @@ class ChatSoundManager {
     }
   }
 
-  private getEffectiveGain(ctx: AudioContext, baseGain: number): GainNode {
-    const gainNode = ctx.createGain();
-    gainNode.connect(ctx.destination);
-    const volumeMultiplier = (this.settings.volume / 100);
-    gainNode.gain.setValueAtTime(baseGain * volumeMultiplier, ctx.currentTime);
-    return gainNode;
-  }
-
   /**
    * Toca o som de nova mensagem recebida com base no tema escolhido
    */
@@ -153,7 +247,24 @@ class ChatSoundManager {
       const now = ctx.currentTime;
       const vol = (this.settings.volume / 100);
 
-      if (theme === "pop") {
+      if (theme === "whatsapp") {
+        // WhatsApp Classic Dual Tone
+        [1046.5, 1318.51].forEach((freq, i) => {
+          const t = now + i * 0.08;
+          const gain = ctx.createGain();
+          gain.connect(ctx.destination);
+          gain.gain.setValueAtTime(0, t);
+          gain.gain.linearRampToValueAtTime(0.15 * vol, t + 0.01);
+          gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.14);
+
+          const osc = ctx.createOscillator();
+          osc.type = "sine";
+          osc.frequency.setValueAtTime(freq, t);
+          osc.connect(gain);
+          osc.start(t);
+          osc.stop(t + 0.14);
+        });
+      } else if (theme === "pop") {
         // Pop suave moderno
         const gain = ctx.createGain();
         gain.connect(ctx.destination);
@@ -333,6 +444,99 @@ class ChatSoundManager {
       console.warn("Could not play mention sound", e);
     }
   }
+
+  /**
+   * Dispara o pacote completo de alertas (Som + Notificação Nativa + Tab Flash + Evento Visual)
+   */
+  public triggerNewMessageAlert(payload: {
+    message?: any;
+    conversationId: string;
+    senderName?: string;
+    senderAvatar?: string | null;
+    conversationTitle?: string;
+    isDM?: boolean;
+    isMention?: boolean;
+  }): void {
+    const { senderName = "Alguém", senderAvatar, message, conversationId } = payload;
+    const contentPreview = message?.content || message?.attachment_name || "Enviou um anexo";
+
+    // 1. Toca som
+    if (payload.isMention) {
+      this.playMentionSound();
+    } else {
+      this.playIncomingMessage();
+    }
+
+    // 2. Notificação nativa do navegador (se ativada e permitido)
+    if (
+      this.settings.nativeNotificationsEnabled &&
+      typeof window !== "undefined" &&
+      "Notification" in window &&
+      Notification.permission === "granted"
+    ) {
+      try {
+        const n = new Notification(`💬 Mensagem de ${senderName}`, {
+          body: contentPreview,
+          icon: senderAvatar || "/favicon.ico",
+          tag: conversationId,
+        });
+        n.onclick = () => {
+          window.focus();
+          window.dispatchEvent(
+            new CustomEvent("tw_chat_open_conversation", { detail: { conversationId } })
+          );
+        };
+      } catch {
+        // ignore
+      }
+    }
+
+    // 3. Piscar título da aba do navegador (se ativado)
+    if (this.settings.flashTabTitle && typeof document !== "undefined" && document.hidden) {
+      this.flashTitle(`(1) 💬 Nova Mensagem de ${senderName}`);
+    }
+
+    // 4. Dispara evento visual global
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(
+        new CustomEvent("tw_chat_new_message", {
+          detail: {
+            message,
+            conversationId,
+            senderName,
+            senderAvatar,
+            visualStyle: this.settings.visualStyle,
+            glowColor: this.settings.glowColor,
+            autoExpandOnDM: this.settings.autoExpandOnDM,
+          },
+        })
+      );
+    }
+  }
+
+  private flashTitle(text: string): void {
+    if (typeof document === "undefined") return;
+    if (this.titleInterval) clearInterval(this.titleInterval);
+
+    let step = 0;
+    this.originalTitle = document.title.replace(/^\(\d+\)\s*💬\s*/, "");
+    this.titleInterval = setInterval(() => {
+      document.title = step % 2 === 0 ? text : this.originalTitle;
+      step++;
+    }, 1200);
+
+    const stopFlashing = () => {
+      if (this.titleInterval) {
+        clearInterval(this.titleInterval);
+        this.titleInterval = null;
+      }
+      document.title = this.originalTitle;
+      window.removeEventListener("focus", stopFlashing);
+    };
+
+    window.addEventListener("focus", stopFlashing);
+  }
 }
 
-export const chatSound = new ChatSoundManager();
+export const chatSound = new ChatNotificationManager();
+export const chatNotification = chatSound;
