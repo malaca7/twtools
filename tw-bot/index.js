@@ -34,6 +34,7 @@ let productsCache = new Map();
 let bausCache = new Map();
 const processedTestIds = new Set();
 const processedLogIds = new Set();
+const recentSemanticEvents = new Map(); // chaveSemantica -> timestampMs (janela deslizante)
 let lastAuditLogPollTimestamp = new Date(Date.now() - 30000).toISOString();
 let testSharedChannel = null;
 
@@ -630,6 +631,79 @@ async function respondTestResult(testId, result) {
 }
 
 /**
+ * Gera uma chave semântica única para o evento baseada no conteúdo real da ação.
+ * Essa chave não depende de divisões de timestamp rígidas ou de IDs voláteis,
+ * garantindo que RPCs do banco e eventos do cliente sejam reconhecidos como idênticos.
+ */
+function getLogSemanticKey(log) {
+  const action = log.action || "";
+  const data = log.new_data || log.old_data || {};
+  const userId = log.user_id || data.user_id || "";
+
+  switch (action) {
+    case "create_cash_movement": {
+      const type = data.type || "";
+      const amount = Number(data.amount || 0).toFixed(2);
+      return `cash_${userId}_${type}_${amount}`;
+    }
+    case "reverse_cash_movement":
+    case "delete_cash_movement": {
+      const movId = data.movement_id || data.id || log.entity_id || "";
+      const amount = Number(data.amount || 0).toFixed(2);
+      return `${action}_${movId}_${amount}`;
+    }
+    case "create_movement": {
+      const prodId = data.product_id || "";
+      const type = data.type || "";
+      const qty = Number(data.quantity || 0);
+      return `mov_${userId}_${prodId}_${type}_${qty}`;
+    }
+    case "transfer_between_chests": {
+      const prodId = data.product_id || "";
+      const qty = Number(data.quantity || 0);
+      return `transfer_${userId}_${prodId}_${qty}`;
+    }
+    case "create_sale": {
+      const prodId = data.product_id || "";
+      const qty = Number(data.quantity || 0);
+      const total = Number(data.total_price || 0).toFixed(2);
+      return `sale_${userId}_${prodId}_${qty}_${total}`;
+    }
+    case "reverse_sale": {
+      const saleId = data.sale_id || data.id || log.entity_id || "";
+      return `rev_sale_${saleId}`;
+    }
+    case "reverse_movement": {
+      const movId = data.movement_id || data.id || log.entity_id || "";
+      return `rev_mov_${movId}`;
+    }
+    case "approve_signup":
+    case "reject_signup": {
+      const target = data.target_id || log.entity_id || data.request_id || "";
+      return `review_signup_${action}_${target}`;
+    }
+    case "submit_signup": {
+      const pId = data.game_id || data.nome || userId;
+      return `submit_signup_${pId}`;
+    }
+    case "update_level": {
+      const target = data.target_id || log.entity_id || "";
+      const newLvl = data.new_level || data.nivel || "";
+      return `update_level_${target}_${newLvl}`;
+    }
+    case "delete_member":
+    case "delete_members": {
+      const target = data.target_id || data.user_id || log.entity_id || "";
+      return `del_member_${target}`;
+    }
+    default: {
+      const entId = log.entity_id || data.id || data.target_id || "";
+      return `${action}_${userId}_${log.entity || ""}_${entId}`;
+    }
+  }
+}
+
+/**
  * Roteia e envia o embed do log diretamente para o canal do Discord através do Bot
  */
 async function dispatchAuditLogToDiscord(log) {
@@ -642,30 +716,42 @@ async function dispatchAuditLogToDiscord(log) {
     setTimeout(() => processedTestIds.delete(testId), 30000);
   }
 
-  // Deduplicação inteligente de logs normais para evitar disparos duplicados (RPC + Client)
-  const action = log.action || "";
-  const data = log.new_data || log.old_data || {};
-  let dedupKey = log.id;
-  if (action === "create_movement") {
-    const timeBlock = Math.floor((log.created_at ? new Date(log.created_at).getTime() : Date.now()) / 4000);
-    dedupKey = `mov_${data.product_id}_${data.bau_id}_${data.quantity}_${data.type}_${timeBlock}`;
-  } else if (action === "create_sale") {
-    const timeBlock = Math.floor((log.created_at ? new Date(log.created_at).getTime() : Date.now()) / 4000);
-    dedupKey = `sale_${data.product_id}_${data.quantity}_${data.total_price}_${timeBlock}`;
-  } else if (action === "create_cash_movement") {
-    const timeBlock = Math.floor((log.created_at ? new Date(log.created_at).getTime() : Date.now()) / 4000);
-    dedupKey = `cash_${data.amount}_${data.type}_${timeBlock}`;
-  } else if (!dedupKey) {
-    dedupKey = `${action}_${log.user_id}_${log.created_at || Date.now()}`;
-  }
+  // Deduplicação inteligente de logs por janela deslizante semântica (evita disparos duplicados RPC + Broadcast + Polling)
+  const isTest = log.action === "test_discord_log" || Boolean(testId);
+  if (!isTest) {
+    const semanticKey = getLogSemanticKey(log);
+    const now = Date.now();
 
-  if (dedupKey) {
-    if (processedLogIds.has(dedupKey)) return;
-    processedLogIds.add(dedupKey);
-    if (processedLogIds.size > 2000) {
-      const first = processedLogIds.values().next().value;
-      processedLogIds.delete(first);
+    // Limpeza de itens antigos (> 25s) na janela deslizante
+    if (recentSemanticEvents.size > 300) {
+      for (const [k, ts] of recentSemanticEvents.entries()) {
+        if (now - ts > 25000) {
+          recentSemanticEvents.delete(k);
+        }
+      }
     }
+
+    // Se a mesma ação semântica já foi transmitida nos últimos 12 segundos, descarta como duplicata
+    const lastSeen = recentSemanticEvents.get(semanticKey);
+    if (lastSeen && (now - lastSeen < 12000)) {
+      console.log(`🛡️ [DEDUP] Log duplicado descartado com sucesso: [${semanticKey}] (já transmitido há ${now - lastSeen}ms)`);
+      return;
+    }
+
+    // Se temos um ID de banco já processado, descarta também
+    if (log.id) {
+      if (processedLogIds.has(log.id)) {
+        console.log(`🛡️ [DEDUP] Log com ID ${log.id} já processado anteriormente. Descartando.`);
+        return;
+      }
+      processedLogIds.add(log.id);
+      if (processedLogIds.size > 2000) {
+        const first = processedLogIds.values().next().value;
+        processedLogIds.delete(first);
+      }
+    }
+
+    recentSemanticEvents.set(semanticKey, now);
   }
 
   try {

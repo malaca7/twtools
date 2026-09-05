@@ -1803,57 +1803,26 @@ export async function submitCashMovement(payload: {
   });
 
   if (error) throw error;
-
-  void logAuditAction("create_cash_movement", "cash_fund_movements", {
-    type: payload.type,
-    amount: payload.amount,
-    motive: payload.motive.trim(),
-    notes: payload.notes?.trim() || null,
-  });
+  // Nota: register_cash_movement já grava o log de auditoria oficial com os saldos exatos calculados no banco.
 }
 
 export async function reverseCashMovement(movementId: string, reason?: string | undefined): Promise<void> {
-  const { data: oldMov } = await (supabase.from("cash_fund_movements" as any))
-    .select("type, amount, motive")
-    .eq("id", movementId)
-    .maybeSingle();
-
   const { error } = await (supabase.rpc as any)("reverse_cash_movement", {
     _movement_id: movementId,
     _reason: reason?.trim() || null,
   });
 
   if (error) throw error;
-
-  const oldM = oldMov as any;
-  void logAuditAction("reverse_cash_movement", "cash_fund_movements", {
-    movement_id: movementId,
-    original_type: oldM?.type || "desconhecido",
-    amount: oldM?.amount,
-    original_motive: oldM?.motive || null,
-    reason: reason?.trim() || "Sem motivo informado",
-  }, undefined, movementId);
+  // Nota: reverse_cash_movement já grava o log de estorno oficial diretamente no banco.
 }
 
 export async function deleteCashMovement(movementId: string): Promise<void> {
-  const { data: oldMov } = await (supabase.from("cash_fund_movements" as any))
-    .select("type, amount, motive")
-    .eq("id", movementId)
-    .maybeSingle();
-
   const { error } = await (supabase.rpc as any)("delete_cash_movement", {
     _movement_id: movementId,
   });
 
   if (error) throw error;
-
-  const oldM = oldMov as any;
-  void logAuditAction("delete_cash_movement", "cash_fund_movements", {
-    movement_id: movementId,
-    type: oldM?.type || "desconhecido",
-    amount: oldM?.amount,
-    motive: oldM?.motive || null,
-  }, undefined, movementId);
+  // Nota: delete_cash_movement já grava o log de exclusão oficial diretamente no banco.
 }
 
 /* ==========================================================================
