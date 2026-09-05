@@ -70,7 +70,15 @@ import { chatSound } from "@/lib/chatSound";
 import { PageHeader, NoAccess } from "@/components/ui-kit";
 import { useAuth } from "@/hooks/useAuth";
 import { cn } from "@/lib/utils";
-import { useMenuConfig, saveMenuConfig, type MenuItemConfig, type MenuConfig } from "@/hooks/useMenuConfig";
+import {
+  useMenuConfig,
+  saveMenuConfig,
+  syncMenuConfig,
+  DEFAULT_MENU_CATEGORIES,
+  DEFAULT_MENU_ITEMS,
+  type MenuItemConfig,
+  type MenuConfig,
+} from "@/hooks/useMenuConfig";
 import { usePlatformSettings, savePlatformSettings, DEFAULT_PLATFORM_SETTINGS, type PlatformSettings } from "@/hooks/usePlatformSettings";
 import { UserAppearanceSettings } from "@/components/profile/UserAppearanceSettings";
 
@@ -107,31 +115,9 @@ const ICON_MAP: Record<string, typeof LayoutDashboard> = {
   "/dev/menu-lateral": Sliders,
 };
 
-/* ─── Default menu items definition ─── */
-const DEFAULT_ITEMS: MenuItemConfig[] = [
-  { id: "dashboard", title: "Dashboard", url: "/dashboard", visible: true, category: "Operação", order: 0 },
-  { id: "movimentacoes", title: "Movimentações", url: "/movimentacoes", visible: true, category: "Operação", order: 1 },
-  { id: "vendas", title: "Vendas", url: "/vendas", visible: true, category: "Operação", order: 2 },
-  { id: "chat", title: "Chat", url: "/chat", visible: true, category: "Operação", order: 3 },
-  { id: "tickets", title: "Tickets / Ouvidoria", url: "/tickets", visible: true, category: "Operação", order: 4 },
-  { id: "estoque", title: "Controle de Estoque", url: "/estoque", visible: true, category: "Gestão", order: 5 },
-  { id: "membros", title: "Membros", url: "/membros", visible: true, category: "Gestão", order: 5 },
-  { id: "hierarquia", title: "Hierarquia", url: "/hierarquia", visible: true, category: "Gestão", order: 6 },
-  { id: "fundo-caixa", title: "Fundo de Caixa", url: "/fundo-caixa", visible: true, category: "Gestão", order: 7 },
-  { id: "ausencias", title: "Ausências", url: "/ausencias", visible: true, category: "Gestão", order: 8 },
-  { id: "rankings", title: "Rankings", url: "/rankings", visible: true, category: "Gestão", order: 9 },
-  { id: "desempenho", title: "Meu Desempenho", url: "/desempenho", visible: true, category: "Gestão", order: 10 },
-  { id: "metas", title: "Metas", url: "/metas", visible: true, category: "Gestão", order: 11 },
-  { id: "cargos", title: "Gerenciamento de Cargos", url: "/cargos", visible: true, category: "Gestão", order: 12 },
-  { id: "permissoes", title: "Permissões", url: "/permissoes", visible: true, category: "Gestão", order: 13 },
-  { id: "avisos", title: "Enviar Avisos", url: "/avisos", visible: true, category: "Gestão", order: 14 },
-  { id: "logs", title: "Logs", url: "/logs", visible: true, category: "Gestão", order: 15 },
-  { id: "atualizacoes", title: "Atualizações", url: "/atualizacoes", visible: true, category: "Gestão", order: 16 },
-  { id: "perfil", title: "Meu Perfil", url: "/perfil", visible: true, category: "Gestão", order: 17 },
-  { id: "configuracoes", title: "Configurações", url: "/configuracoes", visible: true, category: "Gestão", order: 18 },
-];
-
-const CATEGORIES = ["Operação", "Gestão", "Administração"];
+/* ─── Canonical menu items & categories definition ─── */
+const DEFAULT_ITEMS: MenuItemConfig[] = DEFAULT_MENU_ITEMS;
+const CATEGORIES: string[] = DEFAULT_MENU_CATEGORIES;
 
 /* ─── Platform tab component ─── */
 function PlatformTab({ canEdit }: { canEdit: boolean }) {
@@ -427,91 +413,36 @@ function PlatformTab({ canEdit }: { canEdit: boolean }) {
 function MenuTab({ canEdit }: { canEdit: boolean }) {
   const { config, save, reset } = useMenuConfig();
 
-  // Categories state
-  const [categories, setCategories] = useState<string[]>(() => {
-    if (config?.categories && Array.isArray(config.categories) && config.categories.length > 0) {
-      return config.categories;
-    }
-    return ["Operação", "Gestão", "Administração"];
-  });
+  // Categories state - initialized and synchronized with config
+  const [categories, setCategories] = useState<string[]>(() => config.categories || DEFAULT_MENU_CATEGORIES);
 
   const [newCatName, setNewCatName] = useState("");
   const [editingCatIndex, setEditingCatIndex] = useState<number | null>(null);
   const [editingCatText, setEditingCatText] = useState("");
 
-  // Items state
-  const [items, setItems] = useState<MenuItemConfig[]>(() => {
-    try {
-      if (config && Array.isArray(config.items) && config.items.length > 0) {
-        const savedMap = new Map<string, MenuItemConfig>();
-        config.items.forEach((item) => {
-          if (item && typeof item === "object" && item.id) {
-            savedMap.set(item.id, item);
-          }
-        });
+  // Items state - initialized and synchronized with config
+  const [items, setItems] = useState<MenuItemConfig[]>(() => config.items || DEFAULT_MENU_ITEMS);
 
-        const merged = DEFAULT_ITEMS.map((def, defaultIdx) => {
-          const saved = savedMap.get(def.id);
-          if (!saved) return def;
-          return {
-            id: def.id,
-            title: saved.title || def.title,
-            url: saved.url || def.url,
-            visible: typeof saved.visible === "boolean" ? saved.visible : def.visible,
-            category: saved.category || def.category,
-            order: typeof saved.order === "number" ? saved.order : defaultIdx,
-          };
-        });
-
-        return merged.sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
-      }
-    } catch (e) {
-      console.error("Error parsing menu config:", e);
-    }
-    return [...DEFAULT_ITEMS];
-  });
-
-  // Sync state when config finishes fetching remotely from Supabase
+  // Sync state when config updates (e.g. initial fetch or remote updates)
   useEffect(() => {
-    if (config?.categories && Array.isArray(config.categories) && config.categories.length > 0) {
+    if (config) {
       setCategories(config.categories);
-    }
-    if (config?.items && Array.isArray(config.items) && config.items.length > 0) {
-      const savedMap = new Map<string, MenuItemConfig>();
-      config.items.forEach((item) => {
-        if (item && typeof item === "object" && item.id) {
-          savedMap.set(item.id, item);
-        }
-      });
-
-      const merged = DEFAULT_ITEMS.map((def, defaultIdx) => {
-        const saved = savedMap.get(def.id);
-        if (!saved) return def;
-        return {
-          id: def.id,
-          title: saved.title || def.title,
-          url: saved.url || def.url,
-          visible: typeof saved.visible === "boolean" ? saved.visible : def.visible,
-          category: saved.category || def.category,
-          order: typeof saved.order === "number" ? saved.order : defaultIdx,
-        };
-      });
-
-      setItems(merged.sort((a, b) => (a.order ?? 0) - (b.order ?? 0)));
+      setItems(config.items);
     }
   }, [config]);
 
   // Drag and Drop state for items
   const [draggedItemId, setDraggedItemId] = useState<string | null>(null);
   const [dragOverItemId, setDragOverItemId] = useState<string | null>(null);
+  const [dragOverCatName, setDragOverCatName] = useState<string | null>(null);
 
   // Helper to update state and save config globally to Supabase + LocalStorage
   const persist = useCallback(
     (newCats: string[], newItems: MenuItemConfig[]) => {
-      const cleanedItems = newItems.map((item, idx) => ({ ...item, order: idx }));
-      setCategories(newCats);
-      setItems(cleanedItems);
-      save({ categories: newCats, items: cleanedItems });
+      const synced = syncMenuConfig({ categories: newCats, items: newItems });
+      setCategories(synced.categories);
+      setItems(synced.items);
+      save(synced);
     },
     [save]
   );
@@ -628,12 +559,48 @@ function MenuTab({ canEdit }: { canEdit: boolean }) {
     toast.success(`Categoria "${movedCat}" reordenada!`);
   };
 
+  /* ─── Category Drop Target (Drop items onto categories) ─── */
+  const handleCategoryCardDragOver = (e: React.DragEvent, cat: string) => {
+    if (!draggedItemId || !canEdit) return;
+    e.preventDefault();
+    setDragOverCatName(cat);
+  };
+
+  const handleCategoryCardDragLeave = () => {
+    setDragOverCatName(null);
+  };
+
+  const handleCategoryCardDrop = (e: React.DragEvent, targetCat: string) => {
+    e.preventDefault();
+    setDragOverCatName(null);
+    if (!draggedItemId || !canEdit) return;
+
+    const draggedItem = items.find((i) => i.id === draggedItemId);
+    if (!draggedItem) return;
+
+    if (draggedItem.category === targetCat) {
+      setDraggedItemId(null);
+      return;
+    }
+
+    const nextItems = items.map((i) =>
+      i.id === draggedItemId ? { ...i, category: targetCat } : i
+    );
+    persist(categories, nextItems);
+    setDraggedItemId(null);
+    toast.success(`Item "${draggedItem.title}" movido para a categoria "${targetCat}"!`);
+  };
+
   /* ─── Item Handlers ─── */
   const updateItem = useCallback(
     (id: string, updates: Partial<MenuItemConfig>) => {
       if (!canEdit) return;
       const nextItems = items.map((item) => (item.id === id ? { ...item, ...updates } : item));
-      persist(categories, nextItems);
+      let nextCats = categories;
+      if (updates.category && !categories.includes(updates.category)) {
+        nextCats = [...categories, updates.category];
+      }
+      persist(nextCats, nextItems);
     },
     [canEdit, categories, items, persist]
   );
@@ -670,12 +637,21 @@ function MenuTab({ canEdit }: { canEdit: boolean }) {
 
   const handleReset = useCallback(() => {
     if (!canEdit) return;
-    const defaultCats = ["Operação", "Gestão", "Administração"];
-    setCategories(defaultCats);
-    setItems([...DEFAULT_ITEMS]);
+    const defaultSynced = syncMenuConfig(null);
+    setCategories(defaultSynced.categories);
+    setItems(defaultSynced.items);
     reset();
-    toast.success("Menu restaurado para o padrão!");
+    toast.success("Menu restaurado para o padrão do sistema!");
   }, [reset, canEdit]);
+
+  const handleSyncAll = useCallback(() => {
+    if (!canEdit) return;
+    const synced = syncMenuConfig({ categories, items });
+    setCategories(synced.categories);
+    setItems(synced.items);
+    save(synced);
+    toast.success("Todas as categorias e menus foram sincronizados com sucesso!");
+  }, [canEdit, categories, items, save]);
 
   /* ─── Item Drag and Drop Handlers ─── */
   const handleItemDragStart = (e: React.DragEvent, id: string) => {
@@ -753,7 +729,18 @@ function MenuTab({ canEdit }: { canEdit: boolean }) {
             Arraste as categorias ou os cards para reordenar e veja as alterações em tempo real no menu.
           </p>
         </div>
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex items-center gap-2 shrink-0 flex-wrap">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleSyncAll}
+            disabled={!canEdit}
+            className="h-8 text-xs gap-1.5 border-primary/40 text-primary hover:bg-primary/10 font-bold"
+            title="Sincronizar e verificar todas as categorias e menus do sistema"
+          >
+            <Sparkles className="h-3.5 w-3.5" />
+            Sincronizar Tudo
+          </Button>
           <Button
             variant="outline"
             size="sm"
@@ -954,8 +941,19 @@ function MenuTab({ canEdit }: { canEdit: boolean }) {
               .filter((i) => (i.category || "Gestão") === cat)
               .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
 
+            const isCatOver = dragOverCatName === cat;
+
             return (
-              <Card key={cat} className="surface-card border-border/60">
+              <Card
+                key={cat}
+                className={cn(
+                  "surface-card border-border/60 transition-all",
+                  isCatOver && "border-primary ring-2 ring-primary/20 bg-primary/5"
+                )}
+                onDragOver={(e) => handleCategoryCardDragOver(e, cat)}
+                onDragLeave={handleCategoryCardDragLeave}
+                onDrop={(e) => handleCategoryCardDrop(e, cat)}
+              >
                 <CardHeader className="pb-2 pt-3 px-4 border-b border-border/40 bg-secondary/20">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
@@ -972,9 +970,14 @@ function MenuTab({ canEdit }: { canEdit: boolean }) {
 
                 <CardContent className="p-3">
                   {catItems.length === 0 ? (
-                    <p className="text-[0.75rem] text-muted-foreground italic py-3 text-center">
-                      Nenhum item nesta categoria. Altere a categoria de um item abaixo para trazê-lo para cá.
-                    </p>
+                    <div className="border border-dashed border-border/60 rounded-xl p-5 text-center space-y-1.5 bg-secondary/10 hover:border-primary/40 transition-colors">
+                      <p className="text-xs font-bold text-foreground">
+                        Nenhum item nesta categoria
+                      </p>
+                      <p className="text-[0.7rem] text-muted-foreground">
+                        Arraste um menu para cá ou altere a categoria de um item no seletor abaixo.
+                      </p>
+                    </div>
                   ) : (
                     <div className="space-y-2.5">
                       {catItems.map((item, itemIdxInCat) => {
@@ -1050,7 +1053,7 @@ function MenuTab({ canEdit }: { canEdit: boolean }) {
                             <div className="flex items-center gap-3 shrink-0 pl-2">
                               {/* Category Select */}
                               <Select
-                                value={item.category}
+                                value={item.category || "Gestão"}
                                 onValueChange={(val) => updateItem(item.id, { category: val })}
                                 disabled={!canEdit}
                               >
@@ -1092,6 +1095,99 @@ function MenuTab({ canEdit }: { canEdit: boolean }) {
               </Card>
             );
           })}
+
+          {/* Safety Catch-All: Garantia absoluta de que qualquer item fora das categorias conhecidas seja exibido e recuperado */}
+          {(() => {
+            const knownCats = new Set(categories);
+            const orphanItems = items.filter((i) => !knownCats.has(i.category || "Gestão"));
+            if (orphanItems.length === 0) return null;
+
+            const orphanCategories = Array.from(new Set(orphanItems.map((i) => i.category || "Gestão")));
+
+            return orphanCategories.map((orphanCat) => {
+              const catItems = orphanItems
+                .filter((i) => (i.category || "Gestão") === orphanCat)
+                .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+
+              return (
+                <Card key={`orphan-${orphanCat}`} className="surface-card border-amber-500/40">
+                  <CardHeader className="pb-2 pt-3 px-4 border-b border-amber-500/30 bg-amber-500/10">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <FolderTree className="h-4 w-4 text-amber-400" />
+                        <CardTitle className="text-xs font-bold text-amber-400">
+                          Categoria Detectada: <span className="font-extrabold">{orphanCat}</span>
+                        </CardTitle>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Badge variant="outline" className="text-[10px] font-mono border-amber-500/40 text-amber-400">
+                          {catItems.length} {catItems.length === 1 ? "item" : "itens"}
+                        </Badge>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => {
+                            if (!categories.includes(orphanCat)) {
+                              persist([...categories, orphanCat], items);
+                            }
+                          }}
+                          className="h-6 text-[10px] px-2 border-amber-500/40 text-amber-300 hover:bg-amber-500/20"
+                        >
+                          Fixar Categoria
+                        </Button>
+                      </div>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="p-3">
+                    <div className="space-y-2.5">
+                      {catItems.map((item) => {
+                        const Icon = ICON_MAP[item.url] || Settings;
+                        const title = item.title || DEFAULT_ITEMS.find((d) => d.id === item.id)?.title || item.id;
+                        return (
+                          <div
+                            key={item.id}
+                            className="flex items-center justify-between gap-3 p-3 rounded-xl border border-amber-500/30 bg-amber-500/5"
+                          >
+                            <div className="flex items-center gap-3 min-w-0 flex-1">
+                              <div className="flex h-9 w-9 items-center justify-center rounded-xl border border-amber-500/40 bg-amber-500/10 text-amber-400 shrink-0">
+                                <Icon className="h-4 w-4" />
+                              </div>
+                              <div className="min-w-0 flex-1">
+                                <p className="text-sm font-extrabold text-foreground truncate leading-snug">
+                                  {title}
+                                </p>
+                                <p className="text-[0.65rem] text-muted-foreground font-mono truncate mt-0.5">
+                                  {item.url}
+                                </p>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-3 shrink-0 pl-2">
+                              <Select
+                                value={item.category || "Gestão"}
+                                onValueChange={(val) => updateItem(item.id, { category: val })}
+                                disabled={!canEdit}
+                              >
+                                <SelectTrigger className="h-7 w-28 text-[10px] font-bold border-border/60 bg-secondary/40 shrink-0">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {categories.map((c) => (
+                                    <SelectItem key={c} value={c} className="text-xs font-medium">
+                                      {c}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            });
+          })()}
         </div>
 
         {/* Live Preview */}
@@ -1110,7 +1206,7 @@ function MenuTab({ canEdit }: { canEdit: boolean }) {
             </CardHeader>
             <CardContent className="p-3">
               <div className="rounded-xl bg-sidebar border border-sidebar-border p-3 space-y-3">
-                {categories.map((cat) => {
+                {Object.keys(grouped).map((cat) => {
                   const catItems = grouped[cat] || [];
                   const visibleItems = catItems.filter((i) => i.visible);
                   if (visibleItems.length === 0) return null;
