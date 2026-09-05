@@ -32,6 +32,7 @@ import { Route as AuthenticatedPerfilRouteImport } from './routes/_authenticated
 import { Route as AuthenticatedPermissoesRouteImport } from './routes/_authenticated/permissoes'
 import { Route as AuthenticatedProdutosRouteImport } from './routes/_authenticated/produtos'
 import { Route as AuthenticatedRankingsRouteImport } from './routes/_authenticated/rankings'
+import { Route as AuthenticatedTicketsRouteImport } from './routes/_authenticated/tickets'
 import { Route as AuthenticatedVendasRouteImport } from './routes/_authenticated/vendas'
 import { Route as AuthCallbackRouteImport } from './routes/auth.callback'
 import { Route as DevDiscordIdRouteImport } from './routes/dev.$discordId'
@@ -159,6 +160,11 @@ const AuthenticatedRankingsRoute = AuthenticatedRankingsRouteImport.update({
   path: '/rankings',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedTicketsRoute = AuthenticatedTicketsRouteImport.update({
+  id: '/tickets',
+  path: '/tickets',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedVendasRoute = AuthenticatedVendasRouteImport.update({
   id: '/vendas',
   path: '/vendas',
@@ -233,6 +239,7 @@ export interface FileRoutesByFullPath {
   '/permissoes': typeof AuthenticatedPermissoesRoute
   '/produtos': typeof AuthenticatedProdutosRoute
   '/rankings': typeof AuthenticatedRankingsRoute
+  '/tickets': typeof AuthenticatedTicketsRoute
   '/vendas': typeof AuthenticatedVendasRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/dev/$discordId': typeof DevDiscordIdRoute
@@ -266,6 +273,7 @@ export interface FileRoutesByTo {
   '/permissoes': typeof AuthenticatedPermissoesRoute
   '/produtos': typeof AuthenticatedProdutosRoute
   '/rankings': typeof AuthenticatedRankingsRoute
+  '/tickets': typeof AuthenticatedTicketsRoute
   '/vendas': typeof AuthenticatedVendasRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/dev/$discordId': typeof DevDiscordIdRoute
@@ -301,6 +309,7 @@ export interface FileRoutesById {
   '/_authenticated/permissoes': typeof AuthenticatedPermissoesRoute
   '/_authenticated/produtos': typeof AuthenticatedProdutosRoute
   '/_authenticated/rankings': typeof AuthenticatedRankingsRoute
+  '/_authenticated/tickets': typeof AuthenticatedTicketsRoute
   '/_authenticated/vendas': typeof AuthenticatedVendasRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/dev/$discordId': typeof DevDiscordIdRoute
@@ -336,6 +345,7 @@ export interface FileRouteTypes {
     | '/permissoes'
     | '/produtos'
     | '/rankings'
+    | '/tickets'
     | '/vendas'
     | '/auth/callback'
     | '/dev/$discordId'
@@ -369,6 +379,7 @@ export interface FileRouteTypes {
     | '/permissoes'
     | '/produtos'
     | '/rankings'
+    | '/tickets'
     | '/vendas'
     | '/auth/callback'
     | '/dev/$discordId'
@@ -403,6 +414,7 @@ export interface FileRouteTypes {
     | '/_authenticated/permissoes'
     | '/_authenticated/produtos'
     | '/_authenticated/rankings'
+    | '/_authenticated/tickets'
     | '/_authenticated/vendas'
     | '/auth/callback'
     | '/dev/$discordId'
@@ -584,6 +596,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedRankingsRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/tickets': {
+      id: '/_authenticated/tickets'
+      path: '/tickets'
+      fullPath: '/tickets'
+      preLoaderRoute: typeof AuthenticatedTicketsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/vendas': {
       id: '/_authenticated/vendas'
       path: '/vendas'
@@ -672,6 +691,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedPermissoesRoute: typeof AuthenticatedPermissoesRoute
   AuthenticatedProdutosRoute: typeof AuthenticatedProdutosRoute
   AuthenticatedRankingsRoute: typeof AuthenticatedRankingsRoute
+  AuthenticatedTicketsRoute: typeof AuthenticatedTicketsRoute
   AuthenticatedVendasRoute: typeof AuthenticatedVendasRoute
   AuthenticatedDevConfiguracaoRoute: typeof AuthenticatedDevConfiguracaoRoute
   AuthenticatedDevDesempenhoRoute: typeof AuthenticatedDevDesempenhoRoute
@@ -703,6 +723,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedPermissoesRoute: AuthenticatedPermissoesRoute,
   AuthenticatedProdutosRoute: AuthenticatedProdutosRoute,
   AuthenticatedRankingsRoute: AuthenticatedRankingsRoute,
+  AuthenticatedTicketsRoute: AuthenticatedTicketsRoute,
   AuthenticatedVendasRoute: AuthenticatedVendasRoute,
   AuthenticatedDevConfiguracaoRoute: AuthenticatedDevConfiguracaoRoute,
   AuthenticatedDevDesempenhoRoute: AuthenticatedDevDesempenhoRoute,

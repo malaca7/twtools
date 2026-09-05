@@ -29,7 +29,20 @@ import type {
   CreateWeeklyGoalPayload,
   SubmitGoalPayload,
 } from "./app-types";
-import { LEVEL_LABEL, type AppLevel, type Permission } from "./permissions";
+import { LEVEL_LABEL, can, type AppLevel, type Permission } from "./permissions";
+import type {
+  Ticket,
+  TicketCategory,
+  TicketPriority,
+  TicketStatus,
+  TicketMessage,
+  TicketAttachment,
+  CreateTicketPayload,
+  AddTicketMessagePayload,
+  TransferTicketPayload,
+  CloseTicketPayload,
+} from "@/types/tickets";
+import { getCategoryInfo, getStatusInfo } from "@/types/tickets";
 
 export async function getCurrentAuth(): Promise<AuthState> {
   try {
@@ -2559,6 +2572,683 @@ export async function deleteGoalSubmission(submissionId: string): Promise<void> 
       },
       undefined,
       submissionId
+    );
+  }
+}
+
+/* ==========================================================================
+   MÓDULO TICKETS / OUVIDORIA
+   ========================================================================== */
+
+const TICKETS_STORAGE_KEY = "tw_tickets_v1";
+const TICKETS_DB_LEVEL = "system_tickets_data";
+
+let ticketsBroadcastChannel: any = null;
+
+export function broadcastTicketsRealtimeUpdate(): void {
+  try {
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("tw_tickets_updated"));
+      try {
+        const bc = new BroadcastChannel("tw_tickets_channel");
+        bc.postMessage({ type: "tickets_sync", timestamp: Date.now() });
+        bc.close();
+      } catch {}
+    }
+
+    if (!ticketsBroadcastChannel) {
+      ticketsBroadcastChannel = supabase.channel("tw_tickets_realtime_sync");
+      ticketsBroadcastChannel.subscribe();
+    }
+    void ticketsBroadcastChannel.send({
+      type: "broadcast",
+      event: "tickets_sync",
+      payload: { timestamp: Date.now() },
+    });
+  } catch {}
+}
+
+function getLocalTickets(): Ticket[] {
+  try {
+    if (typeof window === "undefined") return [];
+    const raw = localStorage.getItem(TICKETS_STORAGE_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+function setLocalTickets(tickets: Ticket[], emitEvent: boolean = true): void {
+  try {
+    if (typeof window !== "undefined") {
+      localStorage.setItem(TICKETS_STORAGE_KEY, JSON.stringify(tickets));
+      if (emitEvent) {
+        window.dispatchEvent(new CustomEvent("tw_tickets_updated"));
+      }
+    }
+  } catch {}
+}
+
+async function fetchAllRawTickets(): Promise<Ticket[]> {
+  try {
+    const { data } = await supabase
+      .from("role_permissions")
+      .select("permissions")
+      .eq("level", TICKETS_DB_LEVEL)
+      .maybeSingle();
+
+    if (data && data.permissions && typeof data.permissions === "object") {
+      const parsed = data.permissions as any;
+      if (Array.isArray(parsed.tickets)) {
+        return parsed.tickets as Ticket[];
+      }
+    }
+  } catch (err) {
+    console.warn("Erro ao carregar tickets do banco:", err);
+  }
+  return getLocalTickets();
+}
+
+/**
+ * Retorna todos os tickets acessíveis ao usuário atual de acordo com suas permissões.
+ * - Membro comum: visualiza apenas os próprios chamados (`user_id === session.user.id`).
+ * - Usuários sem `manage_tickets`: todas as mensagens com `is_internal_note: true` são removidas da resposta.
+ * - Gerência com `view_all_tickets`: visualiza todos os tickets de toda a facção.
+ */
+export async function getTickets(): Promise<Ticket[]> {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session?.user) return [];
+
+  const { data: roleRow } = await supabase
+    .from("user_roles")
+    .select("nivel")
+    .eq("user_id", session.user.id)
+    .maybeSingle();
+
+  const userLevel = (roleRow?.nivel as AppLevel) || "membro";
+  const canViewAll = can(userLevel, "view_all_tickets");
+  const canManage = can(userLevel, "manage_tickets");
+
+  const rawTickets = await fetchAllRawTickets();
+
+  // Filtragem de privacidade
+  const filteredTickets = rawTickets.filter((ticket) => {
+    if (canViewAll) return true;
+    return ticket.user_id === session.user.id;
+  });
+
+  // Ocultar notas internas confidenciais para quem não é da gerência
+  const sanitizedTickets = filteredTickets.map((ticket) => {
+    if (canManage) return ticket;
+    return {
+      ...ticket,
+      messages: (ticket.messages || []).filter((msg) => !msg.is_internal_note),
+    };
+  });
+
+  setLocalTickets(sanitizedTickets, false);
+  return sanitizedTickets;
+}
+
+export async function getTicketById(ticketId: string): Promise<Ticket | null> {
+  const tickets = await getTickets();
+  return tickets.find((t) => t.id === ticketId) || null;
+}
+
+export async function createTicket(payload: CreateTicketPayload): Promise<Ticket> {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session?.user) throw new Error("Usuário não autenticado");
+
+  const { data: profileRow } = await (supabase.from("profiles" as any))
+    .select("nome, nickname, avatar_url, discord_avatar_url")
+    .eq("user_id", session.user.id)
+    .maybeSingle();
+
+  const { data: roleRow } = await supabase
+    .from("user_roles")
+    .select("nivel")
+    .eq("user_id", session.user.id)
+    .maybeSingle();
+
+  const p = profileRow as any;
+  const creatorName = p?.nome || "Membro";
+  const creatorNickname = p?.nickname || null;
+  const creatorAvatar = p?.avatar_url || p?.discord_avatar_url || null;
+  const creatorRole = (roleRow?.nivel as AppLevel) || "membro";
+
+  const allRawTickets = await fetchAllRawTickets();
+
+  // Cálculo do número sequencial
+  const maxNumber = allRawTickets.reduce((max, t) => Math.max(max, t.ticket_number || 0), 0);
+  const nextTicketNumber = maxNumber + 1;
+
+  const now = new Date().toISOString();
+  const newTicket: Ticket = {
+    id: `tkt_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+    ticket_number: nextTicketNumber,
+    category: payload.category,
+    subject: payload.subject.trim(),
+    description: payload.description.trim(),
+    priority: payload.priority,
+    status: "aberto",
+    user_id: session.user.id,
+    creator_name: creatorName,
+    creator_nickname: creatorNickname,
+    creator_role: creatorRole,
+    creator_avatar: creatorAvatar,
+    assigned_to_id: null,
+    assigned_to_name: null,
+    assigned_to_nickname: null,
+    assigned_to_role: null,
+    assigned_to_avatar: null,
+    attachments: payload.attachments || [],
+    messages: [],
+    created_at: now,
+    updated_at: now,
+    closed_at: null,
+    closed_by_id: null,
+    closed_by_name: null,
+    closed_reason: null,
+  };
+
+  const updatedRawList = [newTicket, ...allRawTickets.filter((t) => t.id !== newTicket.id)];
+  await persistRolePermissionsData(TICKETS_DB_LEVEL, { tickets: updatedRawList });
+
+  broadcastTicketsRealtimeUpdate();
+
+  const catInfo = getCategoryInfo(payload.category);
+  void logAuditAction(
+    "create_ticket",
+    "tickets",
+    {
+      ticket_id: newTicket.id,
+      ticket_number: newTicket.ticket_number,
+      subject: newTicket.subject,
+      category: newTicket.category,
+      category_label: catInfo?.label,
+      priority: newTicket.priority,
+      user_id: session.user.id,
+      creator_name: creatorName,
+    },
+    undefined,
+    newTicket.id
+  );
+
+  return newTicket;
+}
+
+export async function addTicketMessage(
+  ticketId: string,
+  payload: AddTicketMessagePayload
+): Promise<TicketMessage> {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session?.user) throw new Error("Usuário não autenticado");
+
+  const { data: profileRow } = await (supabase.from("profiles" as any))
+    .select("nome, nickname, avatar_url, discord_avatar_url")
+    .eq("user_id", session.user.id)
+    .maybeSingle();
+
+  const { data: roleRow } = await supabase
+    .from("user_roles")
+    .select("nivel")
+    .eq("user_id", session.user.id)
+    .maybeSingle();
+
+  const p = profileRow as any;
+  const senderName = p?.nome || "Membro";
+  const senderNickname = p?.nickname || null;
+  const senderAvatar = p?.avatar_url || p?.discord_avatar_url || null;
+  const senderRole = (roleRow?.nivel as AppLevel) || "membro";
+  const canManage = can(senderRole, "manage_tickets");
+
+  const allRawTickets = await fetchAllRawTickets();
+  const targetIndex = allRawTickets.findIndex((t) => t.id === ticketId);
+  if (targetIndex === -1) throw new Error("Ticket não encontrado");
+
+  const ticket = allRawTickets[targetIndex];
+
+  // Verificação de autorização: Criador do ticket ou Gerência
+  const isCreator = ticket.user_id === session.user.id;
+  if (!isCreator && !canManage) {
+    throw new Error("Você não tem permissão para responder a este ticket");
+  }
+
+  // Apenas gerência pode enviar nota interna
+  const isInternal = Boolean(payload.is_internal_note && canManage);
+
+  const now = new Date().toISOString();
+  const newMessage: TicketMessage = {
+    id: `msg_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+    ticket_id: ticketId,
+    sender_id: session.user.id,
+    sender_name: senderName,
+    sender_nickname: senderNickname,
+    sender_role: senderRole,
+    sender_avatar: senderAvatar,
+    content: payload.content.trim(),
+    is_internal_note: isInternal,
+    attachments: payload.attachments || [],
+    created_at: now,
+  };
+
+  // Progressão inteligente de estados:
+  // Se estava "aguardando" e o membro respondeu, volta para "em_atendimento"
+  // Se estava "aberto" e a gerência respondeu publicamente, avança para "em_atendimento"
+  let nextStatus = ticket.status;
+  if (ticket.status === "aguardando" && isCreator && !isInternal) {
+    nextStatus = "em_atendimento";
+  } else if (ticket.status === "aberto" && canManage && !isInternal) {
+    nextStatus = "em_atendimento";
+  }
+
+  const updatedTicket: Ticket = {
+    ...ticket,
+    status: nextStatus,
+    messages: [...(ticket.messages || []), newMessage],
+    updated_at: now,
+  };
+
+  allRawTickets[targetIndex] = updatedTicket;
+  await persistRolePermissionsData(TICKETS_DB_LEVEL, { tickets: allRawTickets });
+
+  broadcastTicketsRealtimeUpdate();
+
+  void logAuditAction(
+    isInternal ? "ticket_internal_note" : "ticket_reply",
+    "tickets",
+    {
+      ticket_id: ticket.id,
+      ticket_number: ticket.ticket_number,
+      subject: ticket.subject,
+      sender_name: senderName,
+      is_internal_note: isInternal,
+      attachments_count: payload.attachments?.length || 0,
+    },
+    undefined,
+    ticket.id
+  );
+
+  return newMessage;
+}
+
+export async function claimTicket(ticketId: string): Promise<Ticket> {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session?.user) throw new Error("Usuário não autenticado");
+
+  const { data: profileRow } = await (supabase.from("profiles" as any))
+    .select("nome, nickname, avatar_url, discord_avatar_url")
+    .eq("user_id", session.user.id)
+    .maybeSingle();
+
+  const { data: roleRow } = await supabase
+    .from("user_roles")
+    .select("nivel")
+    .eq("user_id", session.user.id)
+    .maybeSingle();
+
+  const p = profileRow as any;
+  const actorName = p?.nome || "Gestor";
+  const actorNickname = p?.nickname || null;
+  const actorAvatar = p?.avatar_url || p?.discord_avatar_url || null;
+  const actorRole = (roleRow?.nivel as AppLevel) || "gerente";
+
+  if (!can(actorRole, "manage_tickets")) {
+    throw new Error("Permissão insuficiente para assumir tickets");
+  }
+
+  const allRawTickets = await fetchAllRawTickets();
+  const targetIndex = allRawTickets.findIndex((t) => t.id === ticketId);
+  if (targetIndex === -1) throw new Error("Ticket não encontrado");
+
+  const ticket = allRawTickets[targetIndex];
+  const now = new Date().toISOString();
+
+  const updatedTicket: Ticket = {
+    ...ticket,
+    assigned_to_id: session.user.id,
+    assigned_to_name: actorName,
+    assigned_to_nickname: actorNickname,
+    assigned_to_role: actorRole,
+    assigned_to_avatar: actorAvatar,
+    status: ticket.status === "aberto" ? "em_atendimento" : ticket.status,
+    updated_at: now,
+  };
+
+  allRawTickets[targetIndex] = updatedTicket;
+  await persistRolePermissionsData(TICKETS_DB_LEVEL, { tickets: allRawTickets });
+
+  broadcastTicketsRealtimeUpdate();
+
+  void logAuditAction(
+    "claim_ticket",
+    "tickets",
+    {
+      ticket_id: ticket.id,
+      ticket_number: ticket.ticket_number,
+      subject: ticket.subject,
+      assigned_to_id: session.user.id,
+      assigned_to_name: actorName,
+    },
+    undefined,
+    ticket.id
+  );
+
+  return updatedTicket;
+}
+
+export async function transferTicket(
+  ticketId: string,
+  payload: TransferTicketPayload
+): Promise<Ticket> {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session?.user) throw new Error("Usuário não autenticado");
+
+  const { data: roleRow } = await supabase
+    .from("user_roles")
+    .select("nivel")
+    .eq("user_id", session.user.id)
+    .maybeSingle();
+
+  const actorRole = (roleRow?.nivel as AppLevel) || "gerente";
+  if (!can(actorRole, "manage_tickets")) {
+    throw new Error("Permissão insuficiente para transferir tickets");
+  }
+
+  const allRawTickets = await fetchAllRawTickets();
+  const targetIndex = allRawTickets.findIndex((t) => t.id === ticketId);
+  if (targetIndex === -1) throw new Error("Ticket não encontrado");
+
+  const ticket = allRawTickets[targetIndex];
+  const now = new Date().toISOString();
+
+  const updatedTicket: Ticket = {
+    ...ticket,
+    assigned_to_id: payload.new_assigned_to_id,
+    assigned_to_name: payload.new_assigned_to_name,
+    assigned_to_nickname: payload.new_assigned_to_nickname || null,
+    assigned_to_role: payload.new_assigned_to_role || null,
+    assigned_to_avatar: payload.new_assigned_to_avatar || null,
+    status: ticket.status === "aberto" ? "em_atendimento" : ticket.status,
+    updated_at: now,
+  };
+
+  // Se houver nota interna na transferência, adiciona ao histórico
+  if (payload.note && payload.note.trim()) {
+    const { data: profileRow } = await (supabase.from("profiles" as any))
+      .select("nome, nickname, avatar_url, discord_avatar_url")
+      .eq("user_id", session.user.id)
+      .maybeSingle();
+    const p = profileRow as any;
+    const actorName = p?.nome || "Gestor";
+
+    const transferNoteMsg: TicketMessage = {
+      id: `msg_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+      ticket_id: ticketId,
+      sender_id: session.user.id,
+      sender_name: actorName,
+      sender_nickname: p?.nickname || null,
+      sender_role: actorRole,
+      sender_avatar: p?.avatar_url || p?.discord_avatar_url || null,
+      content: `🔄 [Transferência de Responsável] Chamado transferido para ${payload.new_assigned_to_name}.${payload.note ? ` Nota: "${payload.note.trim()}"` : ""}`,
+      is_internal_note: true,
+      created_at: now,
+    };
+    updatedTicket.messages = [...(updatedTicket.messages || []), transferNoteMsg];
+  }
+
+  allRawTickets[targetIndex] = updatedTicket;
+  await persistRolePermissionsData(TICKETS_DB_LEVEL, { tickets: allRawTickets });
+
+  broadcastTicketsRealtimeUpdate();
+
+  void logAuditAction(
+    "transfer_ticket",
+    "tickets",
+    {
+      ticket_id: ticket.id,
+      ticket_number: ticket.ticket_number,
+      subject: ticket.subject,
+      old_assigned_to: ticket.assigned_to_name,
+      new_assigned_to_id: payload.new_assigned_to_id,
+      new_assigned_to_name: payload.new_assigned_to_name,
+      note: payload.note || null,
+    },
+    undefined,
+    ticket.id
+  );
+
+  return updatedTicket;
+}
+
+export async function updateTicketStatus(
+  ticketId: string,
+  newStatus: TicketStatus
+): Promise<Ticket> {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session?.user) throw new Error("Usuário não autenticado");
+
+  const { data: roleRow } = await supabase
+    .from("user_roles")
+    .select("nivel")
+    .eq("user_id", session.user.id)
+    .maybeSingle();
+
+  const actorRole = (roleRow?.nivel as AppLevel) || "gerente";
+  if (!can(actorRole, "manage_tickets")) {
+    throw new Error("Permissão insuficiente para alterar status de tickets");
+  }
+
+  const allRawTickets = await fetchAllRawTickets();
+  const targetIndex = allRawTickets.findIndex((t) => t.id === ticketId);
+  if (targetIndex === -1) throw new Error("Ticket não encontrado");
+
+  const ticket = allRawTickets[targetIndex];
+  const now = new Date().toISOString();
+
+  let closedAt = ticket.closed_at;
+  let closedById = ticket.closed_by_id;
+  let closedByName = ticket.closed_by_name;
+
+  if (newStatus === "fechado") {
+    closedAt = now;
+    closedById = session.user.id;
+    const { data: pRow } = await (supabase.from("profiles" as any))
+      .select("nome, nickname")
+      .eq("user_id", session.user.id)
+      .maybeSingle();
+    const p = pRow as any;
+    closedByName = p?.nickname || p?.nome || "Gestor";
+  } else if (ticket.status === "fechado" && newStatus !== "fechado") {
+    closedAt = null;
+    closedById = null;
+    closedByName = null;
+  }
+
+  const updatedTicket: Ticket = {
+    ...ticket,
+    status: newStatus,
+    updated_at: now,
+    closed_at: closedAt,
+    closed_by_id: closedById,
+    closed_by_name: closedByName,
+  };
+
+  allRawTickets[targetIndex] = updatedTicket;
+  await persistRolePermissionsData(TICKETS_DB_LEVEL, { tickets: allRawTickets });
+
+  broadcastTicketsRealtimeUpdate();
+
+  const stInfo = getStatusInfo(newStatus);
+  void logAuditAction(
+    "update_ticket_status",
+    "tickets",
+    {
+      ticket_id: ticket.id,
+      ticket_number: ticket.ticket_number,
+      subject: ticket.subject,
+      old_status: ticket.status,
+      new_status: newStatus,
+      new_status_label: stInfo?.label,
+    },
+    undefined,
+    ticket.id
+  );
+
+  return updatedTicket;
+}
+
+export async function closeTicket(
+  ticketId: string,
+  payload?: CloseTicketPayload
+): Promise<Ticket> {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session?.user) throw new Error("Usuário não autenticado");
+
+  const { data: roleRow } = await supabase
+    .from("user_roles")
+    .select("nivel")
+    .eq("user_id", session.user.id)
+    .maybeSingle();
+
+  const actorRole = (roleRow?.nivel as AppLevel) || "gerente";
+  if (!can(actorRole, "manage_tickets")) {
+    throw new Error("Permissão insuficiente para fechar tickets");
+  }
+
+  const { data: pRow } = await (supabase.from("profiles" as any))
+    .select("nome, nickname")
+    .eq("user_id", session.user.id)
+    .maybeSingle();
+  const p = pRow as any;
+  const actorName = p?.nickname || p?.nome || "Gestor";
+
+  const allRawTickets = await fetchAllRawTickets();
+  const targetIndex = allRawTickets.findIndex((t) => t.id === ticketId);
+  if (targetIndex === -1) throw new Error("Ticket não encontrado");
+
+  const ticket = allRawTickets[targetIndex];
+  const now = new Date().toISOString();
+  const reason = payload?.reason?.trim() || "Chamado concluído e resolvido pela gerência.";
+
+  const updatedTicket: Ticket = {
+    ...ticket,
+    status: "fechado",
+    updated_at: now,
+    closed_at: now,
+    closed_by_id: session.user.id,
+    closed_by_name: actorName,
+    closed_reason: reason,
+  };
+
+  allRawTickets[targetIndex] = updatedTicket;
+  await persistRolePermissionsData(TICKETS_DB_LEVEL, { tickets: allRawTickets });
+
+  broadcastTicketsRealtimeUpdate();
+
+  void logAuditAction(
+    "close_ticket",
+    "tickets",
+    {
+      ticket_id: ticket.id,
+      ticket_number: ticket.ticket_number,
+      subject: ticket.subject,
+      closed_by_name: actorName,
+      reason,
+    },
+    undefined,
+    ticket.id
+  );
+
+  return updatedTicket;
+}
+
+export async function reopenTicket(ticketId: string): Promise<Ticket> {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session?.user) throw new Error("Usuário não autenticado");
+
+  const { data: roleRow } = await supabase
+    .from("user_roles")
+    .select("nivel")
+    .eq("user_id", session.user.id)
+    .maybeSingle();
+
+  const actorRole = (roleRow?.nivel as AppLevel) || "gerente";
+  if (!can(actorRole, "manage_tickets")) {
+    throw new Error("Permissão insuficiente para reabrir tickets");
+  }
+
+  const allRawTickets = await fetchAllRawTickets();
+  const targetIndex = allRawTickets.findIndex((t) => t.id === ticketId);
+  if (targetIndex === -1) throw new Error("Ticket não encontrado");
+
+  const ticket = allRawTickets[targetIndex];
+  const now = new Date().toISOString();
+
+  const updatedTicket: Ticket = {
+    ...ticket,
+    status: ticket.assigned_to_id ? "em_atendimento" : "aberto",
+    updated_at: now,
+    closed_at: null,
+    closed_by_id: null,
+    closed_by_name: null,
+    closed_reason: null,
+  };
+
+  allRawTickets[targetIndex] = updatedTicket;
+  await persistRolePermissionsData(TICKETS_DB_LEVEL, { tickets: allRawTickets });
+
+  broadcastTicketsRealtimeUpdate();
+
+  void logAuditAction(
+    "reopen_ticket",
+    "tickets",
+    {
+      ticket_id: ticket.id,
+      ticket_number: ticket.ticket_number,
+      subject: ticket.subject,
+    },
+    undefined,
+    ticket.id
+  );
+
+  return updatedTicket;
+}
+
+export async function deleteTicket(ticketId: string): Promise<void> {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session?.user) throw new Error("Usuário não autenticado");
+
+  const { data: roleRow } = await supabase
+    .from("user_roles")
+    .select("nivel")
+    .eq("user_id", session.user.id)
+    .maybeSingle();
+
+  const actorRole = (roleRow?.nivel as AppLevel) || "membro";
+  if (actorRole !== "desenvolvedor" && actorRole !== "01") {
+    throw new Error("Apenas desenvolvedor e 01 podem excluir tickets permanentemente");
+  }
+
+  const allRawTickets = await fetchAllRawTickets();
+  const target = allRawTickets.find((t) => t.id === ticketId);
+  const updatedList = allRawTickets.filter((t) => t.id !== ticketId);
+
+  await persistRolePermissionsData(TICKETS_DB_LEVEL, { tickets: updatedList });
+
+  broadcastTicketsRealtimeUpdate();
+
+  if (target) {
+    void logAuditAction(
+      "delete_ticket",
+      "tickets",
+      {
+        ticket_id: ticketId,
+        ticket_number: target.ticket_number,
+        subject: target.subject,
+      },
+      undefined,
+      ticketId
     );
   }
 }

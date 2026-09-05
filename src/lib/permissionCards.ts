@@ -19,6 +19,7 @@ import {
   Wrench,
   User,
   Sparkles,
+  LifeBuoy,
 } from "lucide-react";
 import type { Permission } from "@/lib/permissions";
 
@@ -67,6 +68,8 @@ export const READ_ONLY_PERMISSIONS: Permission[] = [
   "view_patch_notes",
   "view_profile",
   "view_chat",
+  "view_tickets",
+  "view_all_tickets",
 ];
 
 export const PAGE_CARDS: PageCardConfig[] = [
@@ -611,6 +614,42 @@ export const PAGE_CARDS: PageCardConfig[] = [
         key: "view_profile",
         label: "Acessar e Editar Meu Perfil",
         description: "Permite acessar a página de perfil pessoal e alterar dados em jogo.",
+      },
+    ],
+  },
+  {
+    id: "tickets",
+    title: "Tickets / Ouvidoria",
+    route: "/tickets",
+    icon: LifeBuoy,
+    description: "Canal interno e privado de solicitações, denúncias, reembolsos e ouvidoria direta com a gerência.",
+    color: "border-amber-500/40 bg-amber-500/5 text-amber-400",
+    defaultCat: "Gestão",
+    defaultOrder: 17,
+    permissions: [
+      {
+        key: "view_tickets",
+        label: "Acessar Módulo Tickets / Ouvidoria",
+        description: "Permite acessar a página /tickets e visualizar seus próprios chamados.",
+        badge: "Acesso Geral",
+      },
+      {
+        key: "create_ticket",
+        label: "Abrir Novos Tickets / Solicitações",
+        description: "Permite criar novos chamados com categoria, assunto, prioridade e anexos.",
+      },
+      {
+        key: "view_all_tickets",
+        label: "Visualizar Tickets de Todos os Membros",
+        description: "Permite que a liderança visualize os tickets de toda a facção (em vez de apenas os próprios).",
+        badge: "Liderança / Gestão",
+      },
+      {
+        key: "manage_tickets",
+        label: "Gerenciar, Responder e Fechar Chamados",
+        description: "Permite assumir atendimento, transferir responsável, postar notas internas privadas, alterar status, resolver, reabrir e fechar tickets.",
+        badge: "Gerência / Moderação",
+        importantNote: "Acesso a notas internas confidenciais e alteração de status operacional de tickets.",
       },
     ],
   },

@@ -33,6 +33,7 @@ import {
   Boxes,
   Info,
   Shield,
+  LifeBuoy,
 } from "lucide-react";
 import { PageHeader, NoAccess, TableSkeleton, EmptyState, ProductThumbnail } from "@/components/ui-kit";
 import { useAuth } from "@/hooks/useAuth";
@@ -141,6 +142,18 @@ function getActionIcon(action: string) {
       return <Package className="h-4 w-4 text-sky-400" />;
     case "update_profile":
       return <User className="h-4 w-4 text-sky-400" />;
+    case "create_ticket":
+    case "ticket_reply":
+      return <LifeBuoy className="h-4 w-4 text-emerald-400" />;
+    case "claim_ticket":
+    case "transfer_ticket":
+    case "update_ticket_status":
+    case "reopen_ticket":
+      return <LifeBuoy className="h-4 w-4 text-sky-400" />;
+    case "ticket_internal_note":
+      return <LifeBuoy className="h-4 w-4 text-amber-400" />;
+    case "close_ticket":
+      return <LifeBuoy className="h-4 w-4 text-zinc-400" />;
     default:
       return <Activity className="h-4 w-4 text-primary" />;
   }
@@ -192,6 +205,7 @@ function getModuleFromAction(action: string): string {
   if (action === "page_view" || action === "view_log_detail") return "navegacao";
   if (action === "access_denied") return "seguranca";
   if (action === "operation_error") return "erros";
+  if (action.includes("ticket")) return "tickets";
   if (action === "update_profile") return "perfil";
   return "geral";
 }
@@ -498,6 +512,7 @@ function LogsPage() {
     seguranca: "🔒 Segurança",
     erros: "❌ Erros",
     perfil: "👤 Perfil",
+    tickets: "🎫 Tickets / Ouvidoria",
     geral: "📋 Geral",
   };
 

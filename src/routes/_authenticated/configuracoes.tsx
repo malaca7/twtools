@@ -52,6 +52,7 @@ import {
   Contrast,
   MessageSquare,
   CalendarOff,
+  LifeBuoy,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -83,6 +84,7 @@ const ICON_MAP: Record<string, typeof LayoutDashboard> = {
   "/movimentacoes": ArrowLeftRight,
   "/vendas": ShoppingCart,
   "/chat": MessageSquare,
+  "/tickets": LifeBuoy,
   "/estoque": Boxes,
   "/membros": Users,
   "/hierarquia": Workflow,
@@ -111,7 +113,8 @@ const DEFAULT_ITEMS: MenuItemConfig[] = [
   { id: "movimentacoes", title: "Movimentações", url: "/movimentacoes", visible: true, category: "Operação", order: 1 },
   { id: "vendas", title: "Vendas", url: "/vendas", visible: true, category: "Operação", order: 2 },
   { id: "chat", title: "Chat", url: "/chat", visible: true, category: "Operação", order: 3 },
-  { id: "estoque", title: "Controle de Estoque", url: "/estoque", visible: true, category: "Gestão", order: 4 },
+  { id: "tickets", title: "Tickets / Ouvidoria", url: "/tickets", visible: true, category: "Operação", order: 4 },
+  { id: "estoque", title: "Controle de Estoque", url: "/estoque", visible: true, category: "Gestão", order: 5 },
   { id: "membros", title: "Membros", url: "/membros", visible: true, category: "Gestão", order: 5 },
   { id: "hierarquia", title: "Hierarquia", url: "/hierarquia", visible: true, category: "Gestão", order: 6 },
   { id: "fundo-caixa", title: "Fundo de Caixa", url: "/fundo-caixa", visible: true, category: "Gestão", order: 7 },

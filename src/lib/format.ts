@@ -933,6 +933,92 @@ export function humanizeAuditLog(
       };
     }
 
+    /* ===== TICKETS / OUVIDORIA ===== */
+
+    case "create_ticket": {
+      const numStr = data.ticket_number ? `#${String(data.ticket_number).padStart(3, "0")}` : "Ticket";
+      const cat = data.category_label || data.category || "Geral";
+      return {
+        title: "Abertura de Chamado / Ticket",
+        description: `O membro ${actor} abriu o chamado ${numStr} com o assunto "${data.subject || "Sem assunto"}" (Categoria: ${cat}).`,
+        tag: "Ticket Aberto",
+        tagColor: "border-emerald-500/40 bg-emerald-500/10 text-emerald-400 font-bold",
+      };
+    }
+
+    case "claim_ticket": {
+      const numStr = data.ticket_number ? `#${String(data.ticket_number).padStart(3, "0")}` : "Ticket";
+      return {
+        title: "Atendimento de Chamado Assumido",
+        description: `O gestor ${actor} assumiu a responsabilidade pelo chamado ${numStr}.`,
+        tag: "Ticket Assumido",
+        tagColor: "border-sky-500/40 bg-sky-500/10 text-sky-400 font-bold",
+      };
+    }
+
+    case "transfer_ticket": {
+      const numStr = data.ticket_number ? `#${String(data.ticket_number).padStart(3, "0")}` : "Ticket";
+      const newResp = data.new_assigned_to_name || "outro gestor";
+      return {
+        title: "Transferência de Responsável de Ticket",
+        description: `O gestor ${actor} transferiu a responsabilidade do chamado ${numStr} para ${newResp}.`,
+        tag: "Ticket Transferido",
+        tagColor: "border-purple-500/40 bg-purple-500/10 text-purple-400 font-bold",
+      };
+    }
+
+    case "update_ticket_status": {
+      const numStr = data.ticket_number ? `#${String(data.ticket_number).padStart(3, "0")}` : "Ticket";
+      const st = data.new_status_label || data.new_status || "Atualizado";
+      return {
+        title: "Atualização de Status de Ticket",
+        description: `O gestor ${actor} alterou o status do chamado ${numStr} para "${st}".`,
+        tag: "Status Ticket",
+        tagColor: "border-blue-500/40 bg-blue-500/10 text-blue-400 font-bold",
+      };
+    }
+
+    case "close_ticket": {
+      const numStr = data.ticket_number ? `#${String(data.ticket_number).padStart(3, "0")}` : "Ticket";
+      const motivo = data.reason ? ` Motivo: "${data.reason}".` : "";
+      return {
+        title: "Fechamento de Ticket",
+        description: `O gestor ${actor} finalizou e fechou o chamado ${numStr}.${motivo}`,
+        tag: "Ticket Fechado",
+        tagColor: "border-zinc-500/40 bg-zinc-500/10 text-zinc-400 font-bold",
+      };
+    }
+
+    case "reopen_ticket": {
+      const numStr = data.ticket_number ? `#${String(data.ticket_number).padStart(3, "0")}` : "Ticket";
+      return {
+        title: "Reabertura de Ticket",
+        description: `O gestor ${actor} reabriu o chamado ${numStr}.`,
+        tag: "Ticket Reaberto",
+        tagColor: "border-amber-500/40 bg-amber-500/10 text-amber-400 font-bold",
+      };
+    }
+
+    case "ticket_reply": {
+      const numStr = data.ticket_number ? `#${String(data.ticket_number).padStart(3, "0")}` : "Ticket";
+      return {
+        title: "Resposta em Chamado",
+        description: `${actor} enviou uma nova resposta no chamado ${numStr}.`,
+        tag: "Resposta Ticket",
+        tagColor: "border-sky-500/40 bg-sky-500/10 text-sky-400 font-bold",
+      };
+    }
+
+    case "ticket_internal_note": {
+      const numStr = data.ticket_number ? `#${String(data.ticket_number).padStart(3, "0")}` : "Ticket";
+      return {
+        title: "Nota Interna em Ticket (Privada)",
+        description: `O gestor ${actor} registrou uma nota interna confidencial no chamado ${numStr}.`,
+        tag: "Nota Interna",
+        tagColor: "border-amber-500/40 bg-amber-500/10 text-amber-400 font-bold",
+      };
+    }
+
     default: {
       const actionClean = log.action.replace(/_/g, " ");
       return {

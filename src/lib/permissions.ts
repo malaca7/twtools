@@ -92,6 +92,10 @@ export type Permission =
   | "view_patch_notes"
   | "manage_patch_notes"
   | "trigger_force_cache_purge"
+  | "view_tickets"
+  | "create_ticket"
+  | "manage_tickets"
+  | "view_all_tickets"
   // Legacy aliases for backward compatibility
   | "view_financials"
   | "manage_members"
@@ -155,6 +159,10 @@ export const ALL_PERMISSIONS: Permission[] = [
   "trigger_force_cache_purge",
   "view_patch_notes",
   "manage_patch_notes",
+  "view_tickets",
+  "create_ticket",
+  "manage_tickets",
+  "view_all_tickets",
   "view_profile",
   "view_financials",
   "manage_members",
@@ -207,6 +215,10 @@ const OFFICER: Permission[] = [
   "trigger_force_cache_purge",
   "view_patch_notes",
   "manage_patch_notes",
+  "view_tickets",
+  "create_ticket",
+  "manage_tickets",
+  "view_all_tickets",
   "view_profile",
 ];
 
@@ -252,6 +264,10 @@ const MANAGER: Permission[] = [
   "manage_platform_settings",
   "manage_menu_settings",
   "view_patch_notes",
+  "view_tickets",
+  "create_ticket",
+  "manage_tickets",
+  "view_all_tickets",
   "view_profile",
 ];
 
@@ -274,6 +290,8 @@ const MEMBER: Permission[] = [
   "view_goals",
   "view_hierarchy",
   "view_patch_notes",
+  "view_tickets",
+  "create_ticket",
   "view_profile",
 ];
 
@@ -293,6 +311,8 @@ const NOVATO: Permission[] = [
   "view_goals",
   "view_hierarchy",
   "view_patch_notes",
+  "view_tickets",
+  "create_ticket",
   "view_profile",
 ];
 
