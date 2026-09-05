@@ -27,6 +27,7 @@ import { chatSound } from "@/lib/chatSound";
 import { useMembers } from "@/hooks/useData";
 
 interface MessageInputProps {
+  conversationId?: string;
   onSendMessage: (text: string) => Promise<any>;
   onSendAttachment: (file: File, caption?: string) => Promise<any>;
   onTyping: () => void;
@@ -52,6 +53,7 @@ const EMOJI_CATEGORIES = [
 ];
 
 export function MessageInput({
+  conversationId,
   onSendMessage,
   onSendAttachment,
   onTyping,
@@ -99,12 +101,34 @@ export function MessageInput({
 
   const isBlockedByAdminOnly = onlyAdminsCanPost && userRole !== "admin";
 
-  // Auto-focus input on mount or reply change without scrolling the page viewport
+  // Auto-focus input ao montar, trocar de conversa ou ao acionar resposta
   useEffect(() => {
     if (!isBlockedByAdminOnly) {
-      textareaRef.current?.focus({ preventScroll: true });
+      const timer1 = setTimeout(() => {
+        textareaRef.current?.focus({ preventScroll: true });
+      }, 50);
+      const timer2 = setTimeout(() => {
+        textareaRef.current?.focus({ preventScroll: true });
+      }, 150);
+      return () => {
+        clearTimeout(timer1);
+        clearTimeout(timer2);
+      };
     }
-  }, [replyingTo, isBlockedByAdminOnly]);
+  }, [conversationId, replyingTo, isBlockedByAdminOnly]);
+
+  // Listener global para focar no campo de digitação sempre que alguma ação no chat for acionada (ex: responder)
+  useEffect(() => {
+    const handleFocusRequest = () => {
+      if (!isBlockedByAdminOnly) {
+        setTimeout(() => {
+          textareaRef.current?.focus({ preventScroll: true });
+        }, 50);
+      }
+    };
+    window.addEventListener("tw_chat_focus_input", handleFocusRequest);
+    return () => window.removeEventListener("tw_chat_focus_input", handleFocusRequest);
+  }, [isBlockedByAdminOnly]);
 
   // Limpa áudio preview ao desmontar
   useEffect(() => {
@@ -417,7 +441,7 @@ export function MessageInput({
         <div className="flex items-center justify-between p-2 rounded-xl bg-[#111b21]/90 border-l-4 border-[#00a884] text-xs shadow-lg animate-in slide-in-from-bottom-2 duration-150">
           <div className="min-w-0 pr-2">
             <span className="font-bold text-[#00a884] text-xs block truncate">
-              {replyingTo.sender_name}
+              {replyingTo.sender_id === currentUserId ? "Você" : replyingTo.sender_name}
             </span>
             <p className="text-[11px] text-[#8696a0] truncate max-w-sm">
               {replyingTo.attachment_name ? `📎 ${replyingTo.attachment_name}` : replyingTo.content}
@@ -428,7 +452,10 @@ export function MessageInput({
             type="button"
             variant="ghost"
             size="icon"
-            onClick={onCancelReply}
+            onClick={() => {
+              onCancelReply();
+              textareaRef.current?.focus();
+            }}
             className="h-7 w-7 text-[#8696a0] hover:text-white rounded-full cursor-pointer shrink-0"
           >
             <X className="h-4 w-4" />

@@ -265,13 +265,8 @@ export function FloatingPresenceWidget() {
         setShowScreenGlow(true);
       }
 
-      if (detail.autoExpandOnDM || settings.autoExpandOnDM) {
-        setIsOpen(true);
-        if (conversationId && conversations) {
-          const found = conversations.find((c) => c.id === conversationId);
-          if (found) setActiveConversation(found);
-        }
-      }
+      // NÃO abrir automaticamente o balão do chat ao receber mensagem!
+      // O balão só abre quando o usuário clica manualmente no botão flutuante.
 
       if (alertTimeoutRef.current) clearTimeout(alertTimeoutRef.current);
       alertTimeoutRef.current = setTimeout(() => {
@@ -334,6 +329,9 @@ export function FloatingPresenceWidget() {
       }
 
       setIsOpen(false);
+      setIsAlerting(false);
+      setShowToastAlert(false);
+      setShowScreenGlow(false);
     }
     if (isOpen) {
       document.addEventListener("mousedown", handleClickOutside);
@@ -341,17 +339,12 @@ export function FloatingPresenceWidget() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [isOpen]);
 
-  // Limpa alerta de animação quando o usuário abre o balão
+  // Limpa alerta de animação quando o usuário abre ou fecha o balão
   const handleToggleOpen = () => {
-    setIsOpen((prev) => {
-      const next = !prev;
-      if (next) {
-        setIsAlerting(false);
-        setShowToastAlert(false);
-        setShowScreenGlow(false);
-      }
-      return next;
-    });
+    setIsAlerting(false);
+    setShowToastAlert(false);
+    setShowScreenGlow(false);
+    setIsOpen((prev) => !prev);
   };
 
   const handleToggleSound = () => {
@@ -537,6 +530,7 @@ export function FloatingPresenceWidget() {
             {/* SE UMA CONVERSA ESTIVER ABERTA, EXIBE A JANELA DE CHAT */}
             {activeConversation ? (
               <ChatWindow
+                key={activeConversation.id}
                 conversation={activeConversation}
                 allConversations={conversations}
                 onBack={() => {

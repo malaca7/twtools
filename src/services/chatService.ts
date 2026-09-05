@@ -384,8 +384,43 @@ export async function fetchMessages(
       reactionsByMsg.set(r.message_id, list);
     });
 
+    const rawMap = new Map<string, any>(rawMessages.map((m: any) => [m.id, m]));
+
+    // Identificar mensagens respondidas que possam estar fora do lote atual
+    const missingReplyIds = rawMessages
+      .map((m: any) => m.reply_to_id)
+      .filter((id: any) => id && !rawMap.has(id));
+
+    if (missingReplyIds.length > 0) {
+      try {
+        const { data: missingData } = await supabase
+          .from("chat_messages" as any)
+          .select("id, sender_id, content, message_type, attachment_name, attachment_url")
+          .in("id", missingReplyIds);
+        (missingData || []).forEach((rep: any) => rawMap.set(rep.id, rep));
+      } catch (err) {
+        console.warn("Não foi possível buscar mensagens respondidas anteriores:", err);
+      }
+    }
+
     return rawMessages.map((m: any) => {
       const prof = membersMap.get(m.sender_id);
+
+      let replyToMessage = null;
+      if (m.reply_to_id && rawMap.has(m.reply_to_id)) {
+        const rep = rawMap.get(m.reply_to_id);
+        const repProf = membersMap.get(rep.sender_id);
+        replyToMessage = {
+          id: rep.id,
+          sender_id: rep.sender_id,
+          sender_name: repProf?.nickname || repProf?.nome || "Membro",
+          content: rep.content,
+          message_type: rep.message_type || "text",
+          attachment_name: rep.attachment_name,
+          attachment_url: rep.attachment_url,
+        };
+      }
+
       return {
         id: m.id,
         conversation_id: m.conversation_id,
@@ -396,6 +431,7 @@ export async function fetchMessages(
         status: m.status || "sent",
         message_type: m.message_type || "text",
         reply_to_id: m.reply_to_id,
+        reply_to_message: replyToMessage,
         attachment_url: m.attachment_url,
         attachment_name: m.attachment_name,
         attachment_type: m.attachment_type,

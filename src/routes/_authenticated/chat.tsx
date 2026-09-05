@@ -154,6 +154,7 @@ function ChatPage() {
         >
           {activeConversation ? (
             <ChatWindow
+              key={activeConversation.id}
               conversation={activeConversation}
               allConversations={conversations}
               onBack={() => {

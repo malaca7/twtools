@@ -69,64 +69,95 @@ export function useConversations(activeConversationId?: string | null) {
           schema: "public",
           table: "chat_messages",
         },
-        (payload) => {
+        async (payload) => {
           const newMsg = payload.new as any;
+          if (!newMsg || !newMsg.conversation_id) return;
 
-          // Lógica de alerta para mensagens recebidas
-          if (newMsg.sender_id !== userId) {
-            if (newMsg.id && !recentlyAlertedMessageIds.has(newMsg.id)) {
-              recentlyAlertedMessageIds.add(newMsg.id);
-              setTimeout(() => recentlyAlertedMessageIds.delete(newMsg.id), 8000);
+          // 1. O autor da mensagem NUNCA deve ser notificado da própria mensagem
+          if (newMsg.sender_id === userId) return;
 
-              const isActiveConv = activeConvRef.current === newMsg.conversation_id;
-              const isMention =
-                Boolean(newMsg.mentions) &&
-                (newMsg.mentions.includes(userId) || newMsg.mentions.includes("todos"));
+          // 2. Notificar APENAS participantes daquela conversa específica
+          const userConvs = queryClient.getQueryData<ChatConversation[]>(["chat_conversations", userId]) || [];
+          let targetConv = userConvs.find((c) => c.id === newMsg.conversation_id);
 
-              const senderMember = getCachedMember(newMsg.sender_id);
-              const senderName =
-                senderMember?.nickname ||
-                senderMember?.nome ||
-                newMsg.sender_name ||
-                "Alguém";
-              const senderAvatar =
-                senderMember?.avatar_url ||
-                senderMember?.discord_avatar_url ||
-                newMsg.sender_avatar ||
-                null;
+          if (!targetConv) {
+            // Se não estiver no cache local de conversas, verifica no Supabase se o usuário é participante
+            try {
+              const { data: participant } = await supabase
+                .from("chat_participants" as any)
+                .select("id, is_muted")
+                .eq("conversation_id", newMsg.conversation_id)
+                .eq("user_id", userId)
+                .maybeSingle();
 
-              if (isMention) {
-                if (isActiveConv) {
-                  chatSound.playMentionSound();
-                } else {
-                  chatSound.triggerNewMessageAlert({
-                    message: newMsg,
-                    conversationId: newMsg.conversation_id,
-                    senderName,
-                    senderAvatar,
-                    isMention: true,
-                  });
-                }
-              } else if (!isActiveConv) {
+              if (!participant) {
+                // Usuário NÃO faz parte desta conversa: NENHUMA notificação deve ser emitida!
+                return;
+              }
+
+              // Se for participante (ex: conversa nova criada agora), atualiza a lista de conversas
+              void queryClient.invalidateQueries({ queryKey: ["chat_conversations", userId] });
+            } catch {
+              return;
+            }
+          }
+
+          // Se a conversa estiver silenciada, não emitir som nem alerta
+          if (targetConv?.is_muted) return;
+
+          // 3. Lógica de alerta para mensagens recebidas nesta conversa
+          if (newMsg.id && !recentlyAlertedMessageIds.has(newMsg.id)) {
+            recentlyAlertedMessageIds.add(newMsg.id);
+            setTimeout(() => recentlyAlertedMessageIds.delete(newMsg.id), 8000);
+
+            const isActiveConv = activeConvRef.current === newMsg.conversation_id;
+            const isMention =
+              Boolean(newMsg.mentions) &&
+              (newMsg.mentions.includes(userId) || (targetConv?.type === "group" && newMsg.mentions.includes("todos")));
+
+            const senderMember = getCachedMember(newMsg.sender_id);
+            const senderName =
+              senderMember?.nickname ||
+              senderMember?.nome ||
+              newMsg.sender_name ||
+              "Alguém";
+            const senderAvatar =
+              senderMember?.avatar_url ||
+              senderMember?.discord_avatar_url ||
+              newMsg.sender_avatar ||
+              null;
+
+            if (isMention) {
+              if (isActiveConv) {
+                chatSound.playMentionSound();
+              } else {
                 chatSound.triggerNewMessageAlert({
                   message: newMsg,
                   conversationId: newMsg.conversation_id,
                   senderName,
                   senderAvatar,
-                  isMention: false,
+                  isMention: true,
                 });
-              } else {
-                // Conversa ativa, sem menção: toca som de chegada
-                chatSound.playIncomingMessage();
               }
+            } else if (!isActiveConv) {
+              chatSound.triggerNewMessageAlert({
+                message: newMsg,
+                conversationId: newMsg.conversation_id,
+                senderName,
+                senderAvatar,
+                isMention: false,
+              });
+            } else {
+              // Conversa ativa, sem menção: toca som de chegada
+              chatSound.playIncomingMessage();
+            }
 
-              if (!senderMember) {
-                void fetchChatMembersMap();
-              }
+            if (!senderMember) {
+              void fetchChatMembersMap();
             }
           }
 
-          // Atualização imediata no cache de conversas sem bloquear o render
+          // Atualização imediata no cache de conversas apenas se o usuário fizer parte dela
           queryClient.setQueryData<ChatConversation[]>(["chat_conversations", userId], (old) => {
             if (!old) return old;
             const preview = newMsg.content || newMsg.attachment_name || "Anexo";
@@ -409,6 +440,22 @@ export function useChatRoom(
 
             // Mensagem recebida em tempo real de outro membro
             const senderProfile = getCachedMember(newRaw.sender_id);
+            let replyToMessage = null;
+            if (newRaw.reply_to_id) {
+              const prev = old.find((m) => m && m.id === newRaw.reply_to_id);
+              if (prev) {
+                replyToMessage = {
+                  id: prev.id,
+                  sender_id: prev.sender_id,
+                  sender_name: prev.sender_name || "Membro",
+                  content: prev.content,
+                  message_type: prev.message_type || "text",
+                  attachment_name: prev.attachment_name,
+                  attachment_url: prev.attachment_url,
+                };
+              }
+            }
+
             const formattedMsg: ChatMessage = {
               id: newRaw.id,
               conversation_id: newRaw.conversation_id,
@@ -419,6 +466,7 @@ export function useChatRoom(
               status: newRaw.status || "delivered",
               message_type: newRaw.message_type || "text",
               reply_to_id: newRaw.reply_to_id || null,
+              reply_to_message: replyToMessage,
               attachment_url: newRaw.attachment_url || null,
               attachment_name: newRaw.attachment_name || null,
               attachment_type: newRaw.attachment_type || null,

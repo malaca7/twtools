@@ -697,7 +697,10 @@ export function ChatWindow({
                   isSelected={selectedMessageIds.has(m.id)}
                   allMediaMessages={messages}
                   onToggleSelect={toggleSelectMessage}
-                  onReply={(msg) => setReplyingTo(msg)}
+                  onReply={(msg) => {
+                    setReplyingTo(msg);
+                    window.dispatchEvent(new CustomEvent("tw_chat_focus_input"));
+                  }}
                   onOpenThread={(msg) => setThreadMessage(msg)}
                   onReportMessage={(msg) => setReportedMessage(msg)}
                   onForward={(msg) => setForwardMessages([msg])}
@@ -790,6 +793,8 @@ export function ChatWindow({
         </div>
       ) : (
         <MessageInput
+          key={conversation.id}
+          conversationId={conversation.id}
           onSendMessage={sendMessage}
           onSendAttachment={async (file, caption) => {
             await sendAttachment(file, caption);

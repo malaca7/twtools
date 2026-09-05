@@ -18,6 +18,11 @@ import {
   MessageSquare,
   Sparkles,
   Info,
+  Camera,
+  Video,
+  Mic,
+  BarChart2,
+  Calendar,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -266,6 +271,22 @@ function MessageBubbleBase({
     reactionsMap.set(r.emoji, cur);
   });
 
+  // Resolver mensagem respondida (do payload ou da lista de mensagens da conversa)
+  const repliedMsg =
+    message.reply_to_message ||
+    (message.reply_to_id
+      ? allMediaMessages.find((m) => m && m.id === message.reply_to_id)
+      : null);
+
+  const repliedIsSelf = Boolean(
+    (repliedMsg as any)?.sender_id && currentUserId && (repliedMsg as any).sender_id === currentUserId
+  );
+  const repliedSenderName = (repliedMsg as any)?.sender_name || "Membro";
+  const repliedThumbnailUrl =
+    (repliedMsg as any)?.attachment_url && (repliedMsg as any)?.message_type === "image"
+      ? (repliedMsg as any)?.attachment_url
+      : null;
+
   return (
     <div
       id={`msg-${message.id}`}
@@ -345,9 +366,19 @@ function MessageBubbleBase({
                 <DropdownMenuContent
                   side="bottom"
                   align={isSelf ? "end" : "start"}
+                  onCloseAutoFocus={(e) => {
+                    // Evita que o Radix roube o foco de volta para o trigger chevron da mensagem
+                    e.preventDefault();
+                  }}
                   className="w-52 text-xs bg-[#233138] border border-white/10 text-white rounded-xl shadow-2xl z-50 p-1"
                 >
-                  <DropdownMenuItem onClick={() => onReply(message)} className="cursor-pointer hover:bg-white/10 rounded-lg">
+                  <DropdownMenuItem
+                    onClick={() => {
+                      onReply(message);
+                      window.dispatchEvent(new CustomEvent("tw_chat_focus_input"));
+                    }}
+                    className="cursor-pointer hover:bg-white/10 rounded-lg"
+                  >
                     <Reply className="h-3.5 w-3.5 mr-2 text-[#00a884]" /> Responder
                   </DropdownMenuItem>
 
@@ -493,23 +524,82 @@ function MessageBubbleBase({
           )}
 
           {/* REPLIED MESSAGE QUOTE PREVIEW ESTILO WHATSAPP */}
-          {message.reply_to_message && !isDeleted && (
+          {repliedMsg && !isDeleted && (
             <div
-              onClick={() => message.reply_to_id && onScrollToMessage?.(message.reply_to_id)}
+              onClick={(e) => {
+                e.stopPropagation();
+                const targetId = message.reply_to_id || repliedMsg.id;
+                if (targetId) onScrollToMessage?.(targetId);
+              }}
               className={cn(
-                "flex flex-col border-l-4 pl-2.5 py-1 mb-1.5 rounded-r-md text-[11px] cursor-pointer transition-opacity hover:opacity-90",
-                isSelf ? "border-[#25d366] bg-black/25" : "border-[#34b7f1] bg-black/25"
+                "flex items-stretch justify-between mb-1.5 rounded-lg overflow-hidden cursor-pointer select-none transition-all",
+                "bg-black/25 hover:bg-black/35 border-l-[3.5px]",
+                repliedIsSelf ? "border-[#00a884]" : "border-[#53bdeb]"
               )}
+              title="Clique para ir à mensagem respondida"
             >
-              <span
-                style={{ color: getSenderColor(message.reply_to_message.sender_name) }}
-                className="font-bold text-[11px] block leading-tight truncate"
-              >
-                {message.reply_to_message.sender_name}
-              </span>
-              <span className="text-[#8696a0] line-clamp-1 italic text-[11px]">
-                {message.reply_to_message.content || message.reply_to_message.attachment_name || "Anexo"}
-              </span>
+              <div className="flex flex-col justify-center min-w-0 p-2 pl-2.5 flex-1 space-y-0.5">
+                <span
+                  style={{ color: repliedIsSelf ? "#00a884" : getSenderColor(repliedSenderName) }}
+                  className="font-bold text-[11px] sm:text-xs block leading-tight truncate"
+                >
+                  {repliedIsSelf ? "Você" : repliedSenderName}
+                </span>
+                <div className="flex items-center gap-1.5 text-[11px] text-[#8696a0] leading-tight truncate">
+                  {repliedMsg.message_type === "image" && (
+                    <>
+                      <Camera className="h-3 w-3 shrink-0 text-[#8696a0]" />
+                      <span>{repliedMsg.content || "Foto"}</span>
+                    </>
+                  )}
+                  {repliedMsg.message_type === "video" && (
+                    <>
+                      <Video className="h-3 w-3 shrink-0 text-[#8696a0]" />
+                      <span>{repliedMsg.content || "Vídeo"}</span>
+                    </>
+                  )}
+                  {repliedMsg.message_type === "audio" && (
+                    <>
+                      <Mic className="h-3 w-3 shrink-0 text-[#8696a0]" />
+                      <span>{repliedMsg.content || "Mensagem de voz"}</span>
+                    </>
+                  )}
+                  {repliedMsg.message_type === "document" && (
+                    <>
+                      <FileText className="h-3 w-3 shrink-0 text-[#8696a0]" />
+                      <span className="truncate">{repliedMsg.attachment_name || repliedMsg.content || "Documento"}</span>
+                    </>
+                  )}
+                  {repliedMsg.message_type === "poll" && (
+                    <>
+                      <BarChart2 className="h-3 w-3 shrink-0 text-[#8696a0]" />
+                      <span className="truncate">{repliedMsg.content || "Enquete"}</span>
+                    </>
+                  )}
+                  {repliedMsg.message_type === "event" && (
+                    <>
+                      <Calendar className="h-3 w-3 shrink-0 text-[#8696a0]" />
+                      <span className="truncate">{repliedMsg.content || "Evento"}</span>
+                    </>
+                  )}
+                  {(!repliedMsg.message_type || repliedMsg.message_type === "text" || repliedMsg.message_type === "system") && (
+                    <span className="line-clamp-2 italic text-[11px] leading-tight break-words">
+                      {repliedMsg.content || (repliedMsg.attachment_name ? `Anexo: ${repliedMsg.attachment_name}` : "Mensagem")}
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              {/* Se a mensagem respondida possuir imagem, exibe thumbnail no canto direito como no WhatsApp */}
+              {repliedThumbnailUrl && (
+                <div className="w-11 h-11 shrink-0 bg-black/40 overflow-hidden self-center my-1 mr-1.5 rounded-md">
+                  <img
+                    src={repliedThumbnailUrl}
+                    alt="Prévia"
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+              )}
             </div>
           )}
 
