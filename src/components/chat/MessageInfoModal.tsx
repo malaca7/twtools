@@ -101,15 +101,20 @@ export function MessageInfoModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md sm:max-w-lg p-0 sm:p-0 gap-0 bg-[#182229] border border-white/20 text-white rounded-2xl shadow-2xl ring-1 ring-white/10 max-h-[82vh] overflow-y-hidden overflow-x-hidden flex flex-col">
+      <DialogContent
+        className={cn(
+          "max-w-md sm:max-w-lg p-0 sm:p-0 gap-0 bg-[#182229] border border-white/20 text-white rounded-2xl shadow-2xl ring-1 ring-white/10 overflow-y-hidden overflow-x-hidden flex flex-col",
+          isGroup ? "h-[min(84vh,690px)]" : "h-auto max-h-[82vh]"
+        )}
+      >
         {/* HEADER ESTILO WHATSAPP */}
-        <DialogHeader className="p-4 pr-12 bg-[#202c33] border-b border-white/10 space-y-1 shrink-0 relative">
+        <DialogHeader className="p-3 sm:p-3.5 pr-12 bg-[#202c33] border-b border-white/10 space-y-0.5 shrink-0 relative">
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-2 min-w-0">
-              <div className="h-8 w-8 rounded-full bg-[#00a884]/20 text-[#00a884] flex items-center justify-center shrink-0">
+              <div className="h-7 w-7 rounded-full bg-[#00a884]/20 text-[#00a884] flex items-center justify-center shrink-0">
                 <Info className="h-4 w-4" />
               </div>
-              <DialogTitle className="text-base font-bold text-white leading-none truncate">
+              <DialogTitle className="text-sm font-bold text-white leading-none truncate">
                 Dados da mensagem
               </DialogTitle>
             </div>
@@ -138,7 +143,7 @@ export function MessageInfoModal({
         </DialogHeader>
 
         {/* PREVIEW DO BALÃO DA MENSAGEM */}
-        <div className="px-4 py-2.5 bg-[#0b141a] border-b border-white/5 shrink-0">
+        <div className="px-3.5 py-2 bg-[#0b141a] border-b border-white/5 shrink-0">
           <div className="text-[10px] uppercase font-bold text-[#8696a0] tracking-wider mb-1 flex items-center justify-between">
             <span className="flex items-center gap-1.5">
               <Eye className="h-3 w-3" />
@@ -148,7 +153,7 @@ export function MessageInfoModal({
 
           <div
             className={cn(
-              "relative rounded-lg p-2.5 shadow-md text-[#e9edef] max-w-full max-h-28 overflow-y-auto custom-scrollbar-thin text-xs",
+              "relative rounded-lg p-2 shadow-md text-[#e9edef] max-w-full max-h-20 overflow-y-auto custom-scrollbar-thin text-xs",
               isSelf
                 ? "whatsapp-bubble-out rounded-tr-none ml-auto"
                 : "whatsapp-bubble-in rounded-tl-none mr-auto"
@@ -298,24 +303,44 @@ export function MessageInfoModal({
         {/* CASO 2: CONVERSA EM GRUPO */}
         {isGroup && (
           <div className="flex flex-col flex-1 min-h-0 bg-[#111b21] overflow-hidden">
-            {/* CARDS DE RESUMO DE MÉTRICAS */}
-            <div className="grid grid-cols-3 gap-2 p-3 bg-[#202c33]/70 border-b border-white/5 text-center shrink-0">
+            {/* CARDS INTERATIVOS DE STATUS (FILTROS COMBINADOS) */}
+            <div className="grid grid-cols-4 gap-1.5 p-2 bg-[#202c33]/80 border-b border-white/5 text-center shrink-0">
+              {/* Todos */}
+              <button
+                type="button"
+                onClick={() => setActiveTab("all")}
+                className={cn(
+                  "p-1.5 sm:p-2 rounded-xl border transition-all cursor-pointer flex flex-col items-center justify-center min-w-0",
+                  activeTab === "all"
+                    ? "bg-white/15 border-white/40 text-white shadow-sm ring-1 ring-white/20"
+                    : "bg-[#111b21] border-white/5 hover:border-white/15 text-[#8696a0]"
+                )}
+              >
+                <div className="flex items-center gap-1 text-white/80 text-[10px] sm:text-xs font-bold mb-0.5 truncate">
+                  <Users className="h-3 w-3 shrink-0" />
+                  <span>Todos</span>
+                </div>
+                <div className="text-sm sm:text-base font-black text-white leading-none font-mono">
+                  {receiptSummary.totalRecipients}
+                </div>
+              </button>
+
               {/* Lida */}
               <button
                 type="button"
-                onClick={() => setActiveTab(activeTab === "read" ? "all" : "read")}
+                onClick={() => setActiveTab("read")}
                 className={cn(
-                  "p-2 rounded-xl border transition-all cursor-pointer",
+                  "p-1.5 sm:p-2 rounded-xl border transition-all cursor-pointer flex flex-col items-center justify-center min-w-0",
                   activeTab === "read"
-                    ? "bg-[#53bdeb]/20 border-[#53bdeb] text-white shadow-sm ring-1 ring-[#53bdeb]/40"
-                    : "bg-[#111b21] border-white/5 hover:border-white/10 text-[#8696a0]"
+                    ? "bg-[#53bdeb]/20 border-[#53bdeb] text-[#53bdeb] shadow-sm ring-1 ring-[#53bdeb]/40"
+                    : "bg-[#111b21] border-white/5 hover:border-white/15 text-[#8696a0]"
                 )}
               >
-                <div className="flex items-center justify-center gap-1 text-[#53bdeb] text-xs font-bold mb-0.5">
-                  <CheckCheck className="h-3.5 w-3.5 stroke-[2.5]" />
+                <div className="flex items-center gap-1 text-[#53bdeb] text-[10px] sm:text-xs font-bold mb-0.5 truncate">
+                  <CheckCheck className="h-3 w-3 stroke-[2.5] shrink-0" />
                   <span>Lida</span>
                 </div>
-                <div className="text-base font-black text-white leading-tight font-mono">
+                <div className="text-sm sm:text-base font-black text-white leading-none font-mono">
                   {receiptSummary.readCount}
                 </div>
               </button>
@@ -323,19 +348,19 @@ export function MessageInfoModal({
               {/* Entregue */}
               <button
                 type="button"
-                onClick={() => setActiveTab(activeTab === "delivered" ? "all" : "delivered")}
+                onClick={() => setActiveTab("delivered")}
                 className={cn(
-                  "p-2 rounded-xl border transition-all cursor-pointer",
+                  "p-1.5 sm:p-2 rounded-xl border transition-all cursor-pointer flex flex-col items-center justify-center min-w-0",
                   activeTab === "delivered"
                     ? "bg-[#8696a0]/25 border-[#8696a0] text-white shadow-sm ring-1 ring-[#8696a0]/40"
-                    : "bg-[#111b21] border-white/5 hover:border-white/10 text-[#8696a0]"
+                    : "bg-[#111b21] border-white/5 hover:border-white/15 text-[#8696a0]"
                 )}
               >
-                <div className="flex items-center justify-center gap-1 text-[#8696a0] text-xs font-bold mb-0.5">
-                  <CheckCheck className="h-3.5 w-3.5 stroke-[2]" />
+                <div className="flex items-center gap-1 text-[#8696a0] text-[10px] sm:text-xs font-bold mb-0.5 truncate">
+                  <CheckCheck className="h-3 w-3 stroke-[2] shrink-0" />
                   <span>Entregue</span>
                 </div>
-                <div className="text-base font-black text-white leading-tight font-mono">
+                <div className="text-sm sm:text-base font-black text-white leading-none font-mono">
                   {receiptSummary.deliveredCount}
                 </div>
               </button>
@@ -343,95 +368,43 @@ export function MessageInfoModal({
               {/* Pendente */}
               <button
                 type="button"
-                onClick={() => setActiveTab(activeTab === "pending" ? "all" : "pending")}
+                onClick={() => setActiveTab("pending")}
                 className={cn(
-                  "p-2 rounded-xl border transition-all cursor-pointer",
+                  "p-1.5 sm:p-2 rounded-xl border transition-all cursor-pointer flex flex-col items-center justify-center min-w-0",
                   activeTab === "pending"
-                    ? "bg-amber-500/20 border-amber-500 text-white shadow-sm ring-1 ring-amber-500/40"
-                    : "bg-[#111b21] border-white/5 hover:border-white/10 text-[#8696a0]"
+                    ? "bg-amber-500/20 border-amber-500 text-amber-400 shadow-sm ring-1 ring-amber-500/40"
+                    : "bg-[#111b21] border-white/5 hover:border-white/15 text-[#8696a0]"
                 )}
               >
-                <div className="flex items-center justify-center gap-1 text-amber-400 text-xs font-bold mb-0.5">
-                  <Clock className="h-3.5 w-3.5" />
+                <div className="flex items-center gap-1 text-amber-400 text-[10px] sm:text-xs font-bold mb-0.5 truncate">
+                  <Clock className="h-3 w-3 shrink-0" />
                   <span>Pendente</span>
                 </div>
-                <div className="text-base font-black text-white leading-tight font-mono">
+                <div className="text-sm sm:text-base font-black text-white leading-none font-mono">
                   {receiptSummary.pendingCount}
                 </div>
               </button>
             </div>
 
-            {/* BARRA DE ABAS RÁPIDAS */}
-            <div className="flex items-center gap-1.5 px-3 py-1.5 bg-[#182229] border-b border-white/5 shrink-0 overflow-x-auto no-scrollbar scroll-smooth">
-              <button
-                type="button"
-                onClick={() => setActiveTab("all")}
-                className={cn(
-                  "px-2.5 py-1 rounded-lg text-xs font-bold transition-colors cursor-pointer shrink-0 whitespace-nowrap",
-                  activeTab === "all"
-                    ? "bg-white/15 text-white"
-                    : "text-[#8696a0] hover:text-white hover:bg-white/5"
-                )}
-              >
-                Todos ({receiptSummary.totalRecipients})
-              </button>
-              <button
-                type="button"
-                onClick={() => setActiveTab("read")}
-                className={cn(
-                  "px-2.5 py-1 rounded-lg text-xs font-bold transition-colors cursor-pointer shrink-0 flex items-center gap-1 whitespace-nowrap",
-                  activeTab === "read"
-                    ? "bg-[#53bdeb]/20 text-[#53bdeb]"
-                    : "text-[#8696a0] hover:text-[#53bdeb] hover:bg-white/5"
-                )}
-              >
-                <CheckCheck className="h-3 w-3 stroke-[2.5]" /> Lida ({receiptSummary.readCount})
-              </button>
-              <button
-                type="button"
-                onClick={() => setActiveTab("delivered")}
-                className={cn(
-                  "px-2.5 py-1 rounded-lg text-xs font-bold transition-colors cursor-pointer shrink-0 flex items-center gap-1 whitespace-nowrap",
-                  activeTab === "delivered"
-                    ? "bg-[#8696a0]/25 text-white"
-                    : "text-[#8696a0] hover:text-white hover:bg-white/5"
-                )}
-              >
-                <CheckCheck className="h-3 w-3 stroke-[2]" /> Entregue ({receiptSummary.deliveredCount})
-              </button>
-              <button
-                type="button"
-                onClick={() => setActiveTab("pending")}
-                className={cn(
-                  "px-2.5 py-1 rounded-lg text-xs font-bold transition-colors cursor-pointer shrink-0 flex items-center gap-1 whitespace-nowrap",
-                  activeTab === "pending"
-                    ? "bg-amber-500/20 text-amber-400"
-                    : "text-[#8696a0] hover:text-amber-400 hover:bg-white/5"
-                )}
-              >
-                <Clock className="h-3 w-3" /> Pendente ({receiptSummary.pendingCount})
-              </button>
-            </div>
-
-            {/* CAMPO DE BUSCA SE HOUVER MAIS DE 2 PARTICIPANTES */}
-            {receiptSummary.totalRecipients > 2 && (
-              <div className="p-2.5 border-b border-white/5 bg-[#111b21] shrink-0">
+            {/* CAMPO DE BUSCA SE HOUVER MAIS DE 5 PARTICIPANTES */}
+            {receiptSummary.totalRecipients > 5 && (
+              <div className="p-2 border-b border-white/5 bg-[#111b21] shrink-0">
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-[#8696a0]" />
                   <Input
                     placeholder="Buscar participante por nome, apelido ou ID..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    className="h-8 pl-8 pr-3 text-xs bg-[#202c33] border-transparent rounded-lg text-[#e9edef] placeholder:text-[#8696a0]"
+                    className="h-7 pl-8 pr-3 text-xs bg-[#202c33] border-transparent rounded-lg text-[#e9edef] placeholder:text-[#8696a0]"
                   />
                 </div>
               </div>
             )}
 
-            {/* LISTA ROLÁVEL DE PARTICIPANTES */}
-            <div className="flex-1 min-h-0 overflow-y-auto divide-y divide-white/5 custom-scrollbar-thin">
-              {/* SEÇÃO LIDA POR */}
-              {(activeTab === "all" || activeTab === "read") && (
+            {/* LISTA ROLAVEL DE PARTICIPANTES */}
+            <div className="flex-1 min-h-0 overflow-y-auto divide-y divide-white/5 custom-scrollbar-thin pb-8">
+              {/* SECAO LIDA POR */}
+              {(activeTab === "all" ? filteredRead.length > 0 : activeTab === "read") && (
                 <div>
                   <div className="px-4 py-1.5 bg-[#182229] flex items-center justify-between text-[11px] font-bold text-[#53bdeb] uppercase tracking-wider sticky top-0 z-10">
                     <span className="flex items-center gap-1.5">
@@ -441,7 +414,7 @@ export function MessageInfoModal({
                   </div>
 
                   {filteredRead.length === 0 ? (
-                    <div className="p-2.5 text-center text-[11px] text-[#8696a0]/80 italic">
+                    <div className="p-3 text-center text-xs text-[#8696a0] italic">
                       {searchTerm ? "Nenhum membro encontrado" : "Nenhum participante visualizou ainda"}
                     </div>
                   ) : (
@@ -456,8 +429,8 @@ export function MessageInfoModal({
                 </div>
               )}
 
-              {/* SEÇÃO ENTREGUE A */}
-              {(activeTab === "all" || activeTab === "delivered") && (
+              {/* SECAO ENTREGUE A */}
+              {(activeTab === "all" ? filteredDelivered.length > 0 : activeTab === "delivered") && (
                 <div>
                   <div className="px-4 py-1.5 bg-[#182229] flex items-center justify-between text-[11px] font-bold text-[#8696a0] uppercase tracking-wider sticky top-0 z-10">
                     <span className="flex items-center gap-1.5">
@@ -467,7 +440,7 @@ export function MessageInfoModal({
                   </div>
 
                   {filteredDelivered.length === 0 ? (
-                    <div className="p-2.5 text-center text-[11px] text-[#8696a0]/80 italic">
+                    <div className="p-3 text-center text-xs text-[#8696a0] italic">
                       {searchTerm
                         ? "Nenhum membro encontrado"
                         : "Nenhum membro aguardando apenas leitura"}
@@ -484,8 +457,8 @@ export function MessageInfoModal({
                 </div>
               )}
 
-              {/* SEÇÃO PENDENTE DE ENTREGA */}
-              {(activeTab === "all" || activeTab === "pending") && (
+              {/* SECAO PENDENTE DE ENTREGA */}
+              {(activeTab === "all" ? filteredPending.length > 0 : activeTab === "pending") && (
                 <div>
                   <div className="px-4 py-1.5 bg-[#182229] flex items-center justify-between text-[11px] font-bold text-amber-400 uppercase tracking-wider sticky top-0 z-10">
                     <span className="flex items-center gap-1.5">
@@ -495,7 +468,7 @@ export function MessageInfoModal({
                   </div>
 
                   {filteredPending.length === 0 ? (
-                    <div className="p-2.5 text-center text-[11px] text-[#8696a0]/80 italic">
+                    <div className="p-3 text-center text-xs text-[#8696a0] italic">
                       {searchTerm ? "Nenhum membro encontrado" : "Todos os membros já receberam a mensagem"}
                     </div>
                   ) : (
@@ -507,6 +480,13 @@ export function MessageInfoModal({
                       />
                     ))
                   )}
+                </div>
+              )}
+
+              {/* Se todos estiverem vazios devido a busca */}
+              {searchTerm && filteredRead.length === 0 && filteredDelivered.length === 0 && filteredPending.length === 0 && (
+                <div className="p-8 text-center text-xs text-[#8696a0]">
+                  Nenhum participante encontrado para "{searchTerm}"
                 </div>
               )}
             </div>

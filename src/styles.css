@@ -1655,6 +1655,37 @@ html, body {
   width: 0 !important;
   height: 0 !important;
 }
+
+/* Permite scrollbar visível e elegante em elementos com custom-scrollbar-thin dentro de modais */
+[role="dialog"] .custom-scrollbar-thin,
+[role="alertdialog"] .custom-scrollbar-thin {
+  scrollbar-width: thin !important;
+  scrollbar-color: rgba(255, 255, 255, 0.25) transparent !important;
+}
+
+[role="dialog"] .custom-scrollbar-thin::-webkit-scrollbar,
+[role="alertdialog"] .custom-scrollbar-thin::-webkit-scrollbar {
+  display: block !important;
+  width: 6px !important;
+  height: 6px !important;
+}
+
+[role="dialog"] .custom-scrollbar-thin::-webkit-scrollbar-track,
+[role="alertdialog"] .custom-scrollbar-thin::-webkit-scrollbar-track {
+  background: transparent !important;
+}
+
+[role="dialog"] .custom-scrollbar-thin::-webkit-scrollbar-thumb,
+[role="alertdialog"] .custom-scrollbar-thin::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.25) !important;
+  border-radius: 9999px !important;
+}
+
+[role="dialog"] .custom-scrollbar-thin::-webkit-scrollbar-thumb:hover,
+[role="alertdialog"] .custom-scrollbar-thin::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.45) !important;
+}
+
 /* ─── WHATSAPP THEME & CHAT VISUALS ─── */
 .whatsapp-chat-bg {
   background-color: #0b141a;
