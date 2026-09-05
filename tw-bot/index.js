@@ -32,6 +32,7 @@ const client = new Client({
 let membersCache = new Map();
 let productsCache = new Map();
 let bausCache = new Map();
+const processedTestIds = new Set();
 
 /**
  * Configuração padrão do Discord & Bot (100% direta via IDs dos Canais do Bot)
@@ -595,10 +596,38 @@ function parseAuditLogForDiscord(log) {
 }
 
 /**
+ * Responde a confirmação de teste de volta para a aplicação frontend via Supabase Broadcast
+ */
+async function respondTestResult(testId, result) {
+  if (!testId) return;
+  try {
+    const resChannel = supabase.channel(`discord-test-res-${testId}`);
+    await resChannel.send({
+      type: "broadcast",
+      event: "test_embed_result",
+      payload: {
+        test_id: testId,
+        ...result,
+      },
+    });
+  } catch (err) {
+    console.warn("⚠️ Falha ao responder broadcast de teste:", err.message);
+  }
+}
+
+/**
  * Roteia e envia o embed do log diretamente para o canal do Discord através do Bot
  */
 async function dispatchAuditLogToDiscord(log) {
   if (!discordConfig.enabled) return;
+
+  const testId = log?.test_id || log?.new_data?.test_id;
+  if (testId) {
+    if (processedTestIds.has(testId)) return;
+    processedTestIds.add(testId);
+    // Limpa do set após 30 segundos
+    setTimeout(() => processedTestIds.delete(testId), 30000);
+  }
 
   try {
     const parsed = parseAuditLogForDiscord(log);
@@ -630,6 +659,12 @@ async function dispatchAuditLogToDiscord(log) {
 
     if (!targetChannelId) {
       console.warn(`⚠️ [DISCORD LOG] Nenhum ID de canal configurado para [${parsed.category}] e nenhum canal geral definido.`);
+      if (testId) {
+        await respondTestResult(testId, {
+          success: false,
+          error_message: "Nenhum ID de canal do Discord foi informado.",
+        });
+      }
       return;
     }
 
@@ -664,19 +699,53 @@ async function dispatchAuditLogToDiscord(log) {
         });
 
         if (channel && channel.isTextBased()) {
-          await channel.send({ embeds: [embed] });
-          console.log(`📡 [DISCORD BOT] Embed entregue no canal #${channel.name || targetChannelId} (${targetChannelId}) [${parsed.category}]`);
+          const sentMsg = await channel.send({ embeds: [embed] });
+          console.log(`📡 [DISCORD BOT] Embed entregue no canal #${channel.name || targetChannelId} (${targetChannelId}) [${parsed.category}] (ID: ${sentMsg.id})`);
+
+          if (testId) {
+            await respondTestResult(testId, {
+              success: true,
+              message_id: sentMsg.id,
+              channel_name: channel.name,
+              channel_id: targetChannelId,
+            });
+          }
         } else {
-          console.warn(`⚠️ [DISCORD BOT] Canal ${targetChannelId} não é de texto ou não está acessível pelo Bot.`);
+          const errMsg = `Canal ID ${targetChannelId} não é de texto ou o bot não tem permissão de visualização.`;
+          console.warn(`⚠️ [DISCORD BOT] ${errMsg}`);
+          if (testId) {
+            await respondTestResult(testId, {
+              success: false,
+              error_message: errMsg,
+            });
+          }
         }
       } catch (err) {
         console.error(`❌ [DISCORD BOT] Falha ao enviar no canal ${targetChannelId}:`, err.message);
+        if (testId) {
+          await respondTestResult(testId, {
+            success: false,
+            error_message: err.message,
+          });
+        }
       }
     } else {
       console.warn("⚠️ [DISCORD BOT] Bot ainda não está conectado no Discord. Aguardando conexão...");
+      if (testId) {
+        await respondTestResult(testId, {
+          success: false,
+          error_message: "Bot está inicializando ou desconectado do Discord.",
+        });
+      }
     }
   } catch (err) {
     console.error("❌ [DISCORD LOG ERRO CRÍTICO]", err);
+    if (testId) {
+      await respondTestResult(testId, {
+        success: false,
+        error_message: err.message || String(err),
+      });
+    }
   }
 }
 

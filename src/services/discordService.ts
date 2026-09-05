@@ -60,8 +60,8 @@ export interface DiscordBotConfig {
 
 export const DEFAULT_DISCORD_CONFIG: DiscordBotConfig = {
   enabled: true,
-  guildId: "",
-  guildName: "Twin Wheels RP",
+  guildId: "1537229296697999462",
+  guildName: "TW | Logs",
   botStatusText: "Twin Wheels • Logs em Tempo Real",
   botActivityType: "Watching",
   footerText: "Twin Wheels RP • Sistema Integrado de Logs",
@@ -69,7 +69,7 @@ export const DEFAULT_DISCORD_CONFIG: DiscordBotConfig = {
   botAvatarUrl: "https://i.ibb.co/ymH1BQPQ/Uma124.png",
   serverIconUrl: "",
   logChannels: {
-    generalLogsChannelId: "",
+    generalLogsChannelId: "1538375505953165312",
     stockMovementsChannelId: "",
     salesChannelId: "",
     cashFundChannelId: "",
@@ -229,6 +229,7 @@ export function hexToInt(hex: string): number {
 
 /**
  * Dispara um embed de teste diretamente através do Bot oficial (sem necessidade de webhook)
+ * e aguarda confirmação real de entrega via WebSocket.
  */
 export async function triggerDiscordBotTestEmbed(
   categoryKey: keyof DiscordLogChannels,
@@ -238,7 +239,7 @@ export async function triggerDiscordBotTestEmbed(
   user?: AppUser | null,
   profile?: Profile | null,
   level?: AppLevel | null
-): Promise<{ success: boolean; message: string }> {
+): Promise<{ success: boolean; message: string; messageId?: string; channelName?: string }> {
   assertDeveloperAccess(user, profile, level);
 
   if (!targetChannelId || targetChannelId.trim().length < 5) {
@@ -248,48 +249,88 @@ export async function triggerDiscordBotTestEmbed(
     };
   }
 
-  try {
-    const payload = {
-      action: "test_discord_log",
-      entity: "discord_channel_test",
-      entity_id: targetChannelId,
-      user_id: user?.id || null,
-      created_at: new Date().toISOString(),
-      new_data: {
-        category_key: categoryKey,
-        category_name: categoryName,
-        channel_id: targetChannelId,
-        user_name: senderName,
-        user_nickname: profile?.nickname || profile?.nome || senderName,
-        discord_id: profile?.discord_id || null,
-        notes: `Disparo de teste efetuado via Painel Dev para o canal #${categoryName} (ID: ${targetChannelId}).`,
-      },
+  const testId = `test_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+
+  const payload = {
+    test_id: testId,
+    action: "test_discord_log",
+    entity: "discord_channel_test",
+    entity_id: targetChannelId,
+    user_id: user?.id || null,
+    created_at: new Date().toISOString(),
+    new_data: {
+      test_id: testId,
+      category_key: categoryKey,
+      category_name: categoryName,
+      channel_id: targetChannelId,
+      user_name: senderName,
+      user_nickname: profile?.nickname || profile?.nome || senderName,
+      discord_id: profile?.discord_id || null,
+      notes: `Disparo de teste efetuado via Painel Dev para o canal #${categoryName} (ID: ${targetChannelId}).`,
+    },
+  };
+
+  return new Promise(async (resolve) => {
+    let hasResolved = false;
+
+    // Escuta a confirmação de entrega do tw-bot
+    const responseChannel = supabase.channel(`discord-test-res-${testId}`);
+
+    const cleanup = () => {
+      try {
+        void supabase.removeChannel(responseChannel);
+      } catch {}
     };
 
-    // 1. Registra no audit_logs para que o listener Realtime do tw-bot envie imediatamente
-    const { error: insertError } = await supabase.from("audit_logs").insert(payload as any);
+    // Timeout de 6 segundos caso o tw-bot esteja desligado
+    const timeoutTimer = setTimeout(() => {
+      if (!hasResolved) {
+        hasResolved = true;
+        cleanup();
+        resolve({
+          success: false,
+          message: `O Bot oficial (tw-bot) não respondeu. Certifique-se de que o bot está ligado e conectado ao Discord (execute 'npm start' dentro da pasta tw-bot ou verifique a Discloud).`,
+        });
+      }
+    }, 6000);
 
-    if (insertError) {
-      console.warn("Aviso ao registrar log de teste em audit_logs:", insertError.message);
-    }
+    responseChannel
+      .on("broadcast", { event: "test_embed_result" }, (msg: any) => {
+        if (msg?.payload?.test_id === testId && !hasResolved) {
+          hasResolved = true;
+          clearTimeout(timeoutTimer);
+          cleanup();
 
-    // 2. Envia também via Broadcast Realtime direto para o tw-bot
-    const broadcastChannel = supabase.channel("system-discord-test-trigger");
-    await broadcastChannel.send({
-      type: "broadcast",
-      event: "trigger_test_embed",
-      payload,
-    });
+          if (msg.payload.success) {
+            resolve({
+              success: true,
+              message: `✅ Embed de teste entregue com sucesso no canal #${msg.payload.channel_name || categoryName}! (ID da Mensagem: ${msg.payload.message_id})`,
+              messageId: msg.payload.message_id,
+              channelName: msg.payload.channel_name,
+            });
+          } else {
+            resolve({
+              success: false,
+              message: `❌ Falha no Bot do Discord: ${msg.payload.error_message || "Erro ao postar mensagem no canal."}`,
+            });
+          }
+        }
+      })
+      .subscribe(async (status) => {
+        if (status === "SUBSCRIBED") {
+          // 1. Envia broadcast para o tw-bot
+          const broadcastChannel = supabase.channel("system-discord-test-trigger");
+          await broadcastChannel.send({
+            type: "broadcast",
+            event: "trigger_test_embed",
+            payload,
+          });
 
-    return {
-      success: true,
-      message: `Embed de teste transmitido com sucesso para o Bot no canal #${categoryName} (ID: ${targetChannelId})!`,
-    };
-  } catch (err: any) {
-    console.error("Erro ao disparar teste do Bot Discord:", err);
-    return {
-      success: false,
-      message: `Falha ao disparar teste para o bot: ${err?.message || err}`,
-    };
-  }
+          // 2. Insere no audit_logs para persistência e fallback de listener
+          try {
+            await supabase.from("audit_logs").insert(payload as any);
+          } catch {}
+        }
+      });
+  });
 }
