@@ -1,5 +1,7 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
+import { cn } from "@/lib/utils";
 import {
   Bot,
   Hash,
@@ -24,6 +26,8 @@ import {
   Megaphone,
   Terminal,
   HelpCircle,
+  UploadCloud,
+  Link as LinkIcon,
 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -112,6 +116,59 @@ export function DevDiscordConfigCard() {
       ...prev,
       [key]: value,
     }));
+  };
+
+  // Estados e handler para upload de imagens (Bot Avatar e Footer Icon)
+  const [uploadingBotAvatar, setUploadingBotAvatar] = useState(false);
+  const [uploadingFooterIcon, setUploadingFooterIcon] = useState(false);
+  const [isDraggingAvatar, setIsDraggingAvatar] = useState(false);
+  const [showManualUrlInput, setShowManualUrlInput] = useState(false);
+  const botAvatarInputRef = useRef<HTMLInputElement>(null);
+  const footerIconInputRef = useRef<HTMLInputElement>(null);
+
+  const handleUploadImage = async (file: File, targetField: "botAvatarUrl" | "footerIconUrl") => {
+    if (!file.type.startsWith("image/")) {
+      toast.error("Selecione um arquivo de imagem válido (PNG, JPG, WEBP, GIF).");
+      return;
+    }
+    if (file.size > 8 * 1024 * 1024) {
+      toast.error("O tamanho da imagem não pode ultrapassar 8MB.");
+      return;
+    }
+
+    const setUploading = targetField === "botAvatarUrl" ? setUploadingBotAvatar : setUploadingFooterIcon;
+    setUploading(true);
+
+    try {
+      const ext = file.name.split(".").pop()?.toLowerCase() || "png";
+      const cleanExt = ["png", "jpg", "jpeg", "webp", "gif", "svg"].includes(ext) ? ext : "png";
+      const sanitizedName = file.name.replace(/[^a-zA-Z0-9.-]/g, "_").toLowerCase();
+      const fileName = `bot-avatar/${Date.now()}_${sanitizedName}`;
+
+      const { data, error } = await supabase.storage.from("products").upload(fileName, file, {
+        cacheControl: "31536000",
+        upsert: true,
+        contentType: file.type || `image/${cleanExt}`,
+      });
+
+      if (error) {
+        throw new Error(error.message);
+      }
+
+      const { data: publicUrlData } = supabase.storage.from("products").getPublicUrl(data.path);
+      const publicUrl = publicUrlData.publicUrl;
+
+      handleRootChange(targetField, publicUrl);
+      toast.success(
+        targetField === "botAvatarUrl"
+          ? "Imagem do Bot carregada com sucesso!"
+          : "Ícone do rodapé carregado com sucesso!"
+      );
+    } catch (err: any) {
+      toast.error(`Falha ao fazer upload da imagem: ${err?.message || "Erro desconhecido"}`);
+    } finally {
+      setUploading(false);
+    }
   };
 
   // Atualiza canal individual
@@ -666,66 +723,194 @@ export function DevDiscordConfigCard() {
               </div>
             </CardHeader>
             <CardContent className="p-4 space-y-4">
-              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 p-3.5 rounded-2xl bg-secondary/30 border border-border/60">
-                {/* PREVIEW AO VIVO DA IMAGEM DO BOT */}
-                <div className="relative shrink-0 flex flex-col items-center gap-1.5 self-center sm:self-auto">
-                  <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl border-2 border-indigo-500/50 bg-[#1e1f22] overflow-hidden shadow-xl flex items-center justify-center group relative">
-                    <img
-                      src={config.botAvatarUrl || "https://i.ibb.co/ymH1BQPQ/Uma124.png"}
-                      alt="Imagem do Bot no Embed"
-                      className="w-full h-full object-cover transition-transform group-hover:scale-105"
-                      onError={(e) => {
-                        (e.currentTarget as HTMLImageElement).src = "https://i.ibb.co/ymH1BQPQ/Uma124.png";
-                      }}
-                    />
-                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                      <Sparkles className="h-5 w-5 text-indigo-300" />
-                    </div>
+              <div
+                className={cn(
+                  "flex flex-col sm:flex-row items-start sm:items-center gap-5 p-4 rounded-2xl bg-secondary/30 border transition-all",
+                  isDraggingAvatar ? "border-indigo-500 bg-indigo-500/10 ring-2 ring-indigo-500/40" : "border-border/60"
+                )}
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  setIsDraggingAvatar(true);
+                }}
+                onDragLeave={() => setIsDraggingAvatar(false)}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  setIsDraggingAvatar(false);
+                  const file = e.dataTransfer.files?.[0];
+                  if (file) void handleUploadImage(file, "botAvatarUrl");
+                }}
+                onPaste={(e) => {
+                  const items = e.clipboardData?.items;
+                  if (!items) return;
+                  for (let i = 0; i < items.length; i++) {
+                    if (items[i].type.startsWith("image/")) {
+                      const file = items[i].getAsFile();
+                      if (file) {
+                        void handleUploadImage(file, "botAvatarUrl");
+                        break;
+                      }
+                    }
+                  }
+                }}
+              >
+                {/* PREVIEW AO VIVO DA IMAGEM DO BOT COM BOTÃO DE TROCA */}
+                <div className="relative shrink-0 flex flex-col items-center gap-2 self-center sm:self-auto">
+                  <div
+                    onClick={() => botAvatarInputRef.current?.click()}
+                    className="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl border-2 border-indigo-500/50 bg-[#1e1f22] overflow-hidden shadow-xl flex items-center justify-center group relative cursor-pointer"
+                    title="Clique para trocar imagem do Bot"
+                  >
+                    {uploadingBotAvatar ? (
+                      <div className="absolute inset-0 bg-black/70 flex flex-col items-center justify-center gap-1 z-10">
+                        <Loader2 className="h-6 w-6 text-indigo-400 animate-spin" />
+                        <span className="text-[9px] text-indigo-200 font-medium">Enviando...</span>
+                      </div>
+                    ) : (
+                      <>
+                        <img
+                          src={config.botAvatarUrl || "https://i.ibb.co/ymH1BQPQ/Uma124.png"}
+                          alt="Imagem do Bot no Embed"
+                          className="w-full h-full object-cover transition-transform group-hover:scale-105"
+                          onError={(e) => {
+                            (e.currentTarget as HTMLImageElement).src = "https://i.ibb.co/ymH1BQPQ/Uma124.png";
+                          }}
+                        />
+                        <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-1 text-white">
+                          <UploadCloud className="h-5 w-5 text-indigo-300" />
+                          <span className="text-[9px] font-bold">Alterar</span>
+                        </div>
+                      </>
+                    )}
                   </div>
                   <Badge variant="outline" className="text-[9px] font-mono font-bold text-indigo-400 border-indigo-500/30 bg-indigo-500/10">
-                    Preview Embed
+                    Avatar & Thumbnail
                   </Badge>
                 </div>
 
-                {/* CAMPO DE URL E INFORMAÇÕES */}
-                <div className="flex-1 min-w-0 space-y-2.5 w-full">
-                  <div className="space-y-1.5">
-                    <div className="flex items-center justify-between gap-2">
+                {/* ÁREA DE UPLOAD E CONTROLES */}
+                <div className="flex-1 min-w-0 space-y-3 w-full">
+                  <div className="flex items-center justify-between gap-2">
+                    <div>
                       <Label className="text-xs font-bold text-foreground flex items-center gap-1.5">
                         <Sparkles className="h-3.5 w-3.5 text-indigo-400" />
-                        URL da Imagem / Ícone do Bot no Embed
+                        Upload da Imagem do Bot
                       </Label>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleRootChange("botAvatarUrl", "https://i.ibb.co/ymH1BQPQ/Uma124.png")}
-                        className="h-6 px-2 text-[10px] text-muted-foreground hover:text-indigo-400 cursor-pointer"
-                        title="Restaurar imagem padrão da Twin Wheels"
-                      >
-                        <RotateCcw className="h-2.5 w-2.5 mr-1" /> Padrão TW
-                      </Button>
+                      <p className="text-[0.72rem] text-muted-foreground mt-0.5">
+                        Faça upload direto do arquivo de imagem do seu computador ou celular.
+                      </p>
                     </div>
-                    <Input
-                      placeholder="https://... (link direto da imagem PNG/JPG/WEBP)"
-                      value={config.botAvatarUrl || ""}
-                      onChange={(e) => handleRootChange("botAvatarUrl", e.target.value.trim())}
-                      className="text-xs bg-secondary/30 h-9 font-mono"
-                    />
+
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleRootChange("botAvatarUrl", "https://i.ibb.co/ymH1BQPQ/Uma124.png")}
+                      className="h-7 px-2 text-[10px] text-muted-foreground hover:text-indigo-400 cursor-pointer"
+                      title="Restaurar imagem padrão da Twin Wheels"
+                    >
+                      <RotateCcw className="h-3 w-3 mr-1" /> Padrão TW
+                    </Button>
                   </div>
 
-                  <p className="text-[0.68rem] text-muted-foreground leading-relaxed">
-                    Insira o link direto de uma imagem hospedada (ex: <em>ImgBB</em>, <em>Discord CDN</em>, <em>Imgur</em>). Essa imagem é aplicada automaticamente como <strong>Thumbnail (canto superior direito)</strong> e <strong>Avatar do Bot</strong> nos Embeds de log transmitidos aos canais.
-                  </p>
+                  {/* BOTÕES DE UPLOAD E ARRASTE */}
+                  <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                    <input
+                      ref={botAvatarInputRef}
+                      type="file"
+                      accept="image/png,image/jpeg,image/webp,image/gif"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) void handleUploadImage(file, "botAvatarUrl");
+                      }}
+                    />
+
+                    <Button
+                      type="button"
+                      onClick={() => botAvatarInputRef.current?.click()}
+                      disabled={uploadingBotAvatar}
+                      className="h-9 px-4 text-xs font-semibold bg-indigo-600 hover:bg-indigo-700 text-white gap-2 shadow-sm shadow-indigo-600/20 cursor-pointer"
+                    >
+                      {uploadingBotAvatar ? (
+                        <>
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          Fazendo Upload...
+                        </>
+                      ) : (
+                        <>
+                          <UploadCloud className="h-4 w-4" />
+                          Fazer Upload de Imagem
+                        </>
+                      )}
+                    </Button>
+
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setShowManualUrlInput(!showManualUrlInput)}
+                      className="h-9 px-3 text-xs gap-1.5 border-border/80 text-muted-foreground hover:text-foreground"
+                    >
+                      <LinkIcon className="h-3.5 w-3.5" />
+                      {showManualUrlInput ? "Ocultar Link" : "Informar por Link"}
+                    </Button>
+                  </div>
+
+                  {/* CAMPO DE LINK MANUAL (OPCIONAL/COLAPSÁVEL) */}
+                  {showManualUrlInput && (
+                    <div className="p-2.5 rounded-xl border border-indigo-500/20 bg-indigo-500/5 space-y-1.5 animate-in fade-in duration-200">
+                      <Label className="text-[11px] font-semibold text-indigo-300 flex items-center gap-1">
+                        <LinkIcon className="h-3 w-3" /> Link direto da imagem (URL)
+                      </Label>
+                      <Input
+                        placeholder="https://... (link direto da imagem)"
+                        value={config.botAvatarUrl || ""}
+                        onChange={(e) => handleRootChange("botAvatarUrl", e.target.value.trim())}
+                        className="text-xs bg-background/80 h-8 font-mono"
+                      />
+                    </div>
+                  )}
+
+                  <div className="flex items-center gap-2 text-[0.68rem] text-muted-foreground">
+                    <span className="inline-block w-1.5 h-1.5 rounded-full bg-indigo-400 shrink-0" />
+                    <span>Formatos aceitos: <strong>PNG, JPG, WEBP, GIF</strong> até 8MB. Você também pode arrastar ou colar com <kbd className="px-1 py-0.2 rounded bg-muted border text-[9px]">Ctrl+V</kbd>.</span>
+                  </div>
                 </div>
               </div>
 
               {/* RODAPÉ DO EMBED (TEXTO E ÍCONE) */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-3 border-t border-border/40">
                 <div className="space-y-1.5">
-                  <Label className="text-xs font-bold text-foreground flex items-center gap-1.5">
-                    URL do Ícone do Rodapé (Footer Icon)
-                  </Label>
+                  <div className="flex items-center justify-between">
+                    <Label className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                      Ícone do Rodapé (Footer Icon)
+                    </Label>
+                    <input
+                      ref={footerIconInputRef}
+                      type="file"
+                      accept="image/png,image/jpeg,image/webp,image/gif"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) void handleUploadImage(file, "footerIconUrl");
+                      }}
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => footerIconInputRef.current?.click()}
+                      disabled={uploadingFooterIcon}
+                      className="h-6 px-2 text-[10px] text-indigo-400 hover:text-indigo-300 gap-1 cursor-pointer"
+                    >
+                      {uploadingFooterIcon ? (
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                      ) : (
+                        <UploadCloud className="h-3 w-3" />
+                      )}
+                      Upload Ícone
+                    </Button>
+                  </div>
                   <Input
                     placeholder="Deixe em branco para usar a imagem do Bot"
                     value={config.footerIconUrl || ""}
