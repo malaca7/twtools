@@ -155,6 +155,7 @@ function ChatPage() {
           {activeConversation ? (
             <ChatWindow
               conversation={activeConversation}
+              allConversations={conversations}
               onBack={() => {
                 setActiveConversation(null);
                 void refetchConversations();

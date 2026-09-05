@@ -53,7 +53,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/hooks/useAuth";
-import { useChatRoom } from "@/hooks/useChat";
+import { useChatRoom, useConversations } from "@/hooks/useChat";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   updateGroupSettings,
@@ -88,6 +88,7 @@ import type { ChatConversation, ChatMessage } from "@/types/chat";
 
 interface ChatWindowProps {
   conversation: ChatConversation;
+  allConversations?: ChatConversation[];
   onBack: () => void;
   onConversationUpdated?: () => void;
   onStartPrivateChat?: (userId: string) => void;
@@ -110,6 +111,7 @@ function getDateLabel(dateStr: string) {
 
 export function ChatWindow({
   conversation,
+  allConversations: passedAllConversations,
   onBack,
   onConversationUpdated,
   onStartPrivateChat,
@@ -119,6 +121,8 @@ export function ChatWindow({
 }: ChatWindowProps) {
   const { user } = useAuth();
   const currentUserId = user?.id;
+  const { conversations: fetchedConversations } = useConversations();
+  const allConversations = passedAllConversations || fetchedConversations || [];
 
   const {
     messages,
