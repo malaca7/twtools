@@ -26,8 +26,6 @@ import {
   Eye,
   Zap,
   Globe,
-  Flame,
-  Layers,
   Palette,
 } from "lucide-react";
 import {
@@ -37,8 +35,6 @@ import {
   GLOW_COLORS,
   type ChatNotificationSettings,
   type ChatSoundTheme,
-  type ChatVisualAlertStyle,
-  type ChatGlowColor,
 } from "@/lib/chatSound";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -127,9 +123,9 @@ export function ChatSoundSettingsDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-xl bg-card border-border/80 shadow-2xl rounded-3xl p-0 overflow-hidden flex flex-col max-h-[90vh] z-[1000]">
+      <DialogContent className="sm:max-w-xl w-[95vw] bg-card border-border/80 shadow-2xl rounded-3xl p-0 flex flex-col h-[85vh] max-h-[660px] z-[10000] overflow-hidden justify-between !grid-cols-1 select-none">
         {/* HEADER COM NAVEGAÇÃO DE ABAS */}
-        <DialogHeader className="p-4 pb-3 border-b border-border/60 bg-secondary/30 backdrop-blur-md">
+        <DialogHeader className="p-4 pb-3 border-b border-border/60 bg-secondary/30 backdrop-blur-md shrink-0">
           <div className="flex items-center justify-between gap-2 mb-2">
             <div>
               <DialogTitle className="text-base font-black flex items-center gap-2">
@@ -188,8 +184,8 @@ export function ChatSoundSettingsDialog({
           </div>
         </DialogHeader>
 
-        {/* DIALOG BODY */}
-        <div className="p-4 space-y-4 overflow-y-auto max-h-[62vh]">
+        {/* DIALOG SCROLLABLE BODY */}
+        <div className="p-4 space-y-4 flex-1 overflow-y-auto min-h-0 custom-scrollbar-thin">
           {/* TAB 1: SONS & ÁUDIO */}
           {activeTab === "audio" && (
             <div className="space-y-4 animate-in fade-in-50 duration-150">
@@ -218,7 +214,7 @@ export function ChatSoundSettingsDialog({
               {settings.enabled && (
                 <div className="space-y-2 p-3.5 rounded-2xl border border-border/70 bg-secondary/20">
                   <div className="flex items-center justify-between text-xs">
-                    <span className="font-bold text-foreground">Volume Master</span>
+                    <span className="font-bold text-foreground">Volume dos Efeitos (Padrão 100%)</span>
                     <span className="font-mono font-bold text-primary">{settings.volume}%</span>
                   </div>
                   <Slider
@@ -238,7 +234,7 @@ export function ChatSoundSettingsDialog({
                   <div className="flex items-center justify-between">
                     <Label className="text-xs font-black text-foreground">Tema dos Sons</Label>
                     <span className="text-[10px] text-muted-foreground font-mono">
-                      {SOUND_THEMES.length} sons sintetizados
+                      {SOUND_THEMES.length} sons disponíveis
                     </span>
                   </div>
 
@@ -543,8 +539,8 @@ export function ChatSoundSettingsDialog({
           )}
         </div>
 
-        {/* FOOTER */}
-        <DialogFooter className="p-3 border-t border-border/60 bg-secondary/30 flex items-center justify-between gap-2">
+        {/* DIALOG FOOTER */}
+        <DialogFooter className="p-3 border-t border-border/60 bg-secondary/30 flex items-center justify-between gap-2 shrink-0">
           <Button
             type="button"
             variant="outline"

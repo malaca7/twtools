@@ -6,14 +6,18 @@
  */
 
 export type ChatSoundTheme =
+  | "whatsapp_classic"
+  | "whatsapp_pop"
+  | "iphone_tri_tone"
+  | "slack_knock"
+  | "telegram_chirp"
   | "crystal"
-  | "pop"
   | "chime"
   | "bubble"
+  | "harp"
   | "retro"
   | "cyber"
-  | "electronic"
-  | "whatsapp";
+  | "electronic";
 
 export type ChatVisualAlertStyle =
   | "toast"        // Card flutuante interativo com foto do membro e prévia
@@ -54,13 +58,17 @@ export const SOUND_THEMES: Array<{
   desc: string;
   emoji: string;
 }> = [
+  { id: "whatsapp_classic", name: "WhatsApp Antigo (Note)", desc: "O tom clássico e nostálgico das primeiras versões do WhatsApp", emoji: "💬" },
+  { id: "whatsapp_pop", name: "WhatsApp Pop Web", desc: "Bolha ágil e suave padrão do WhatsApp Web", emoji: "🟢" },
+  { id: "iphone_tri_tone", name: "iPhone Tri-Tone", desc: "O lendário tom triplo da Apple (Mi-Dó-Sol)", emoji: "📱" },
+  { id: "slack_knock", name: "Slack Knock", desc: "Batida executiva em madeira no estilo Slack", emoji: "💼" },
+  { id: "telegram_chirp", name: "Telegram Chirp", desc: "Varredura rápida de frequência estilo Telegram", emoji: "✈️" },
   { id: "crystal", name: "Cristalino", desc: "Suave, elegante e cristalino (Padrão)", emoji: "💎" },
-  { id: "whatsapp", name: "WhatsApp Classic", desc: "Tom clássico duplo tom de mensagens instantâneas", emoji: "💬" },
-  { id: "pop", name: "Pop Moderno", desc: "Graves ágeis e responsivos estilo Discord", emoji: "🫧" },
   { id: "chime", name: "Sino Harmônico", desc: "Harmônicos metálicos e acolhedores", emoji: "🔔" },
   { id: "bubble", name: "Gota d'Água", desc: "Toque orgânico e relaxante de bolha", emoji: "💧" },
+  { id: "harp", name: "Harpa Celestial", desc: "Arpejo relaxante de harpa celestial", emoji: "🎼" },
   { id: "retro", name: "Arcade 8-Bit", desc: "Nostálgico estilo videogame retrô", emoji: "👾" },
-  { id: "cyber", name: "Cyberpunk", desc: "Varredura sintetizada e futurista", emoji: "⚡" },
+  { id: "cyber", name: "Cyberpunk", desc: "Varredura sintetizada futurista", emoji: "⚡" },
   { id: "electronic", name: "Sintetizador", desc: "Acorde harmônico e moderno", emoji: "🎹" },
 ];
 
@@ -94,8 +102,8 @@ export const GLOW_COLORS: Array<{
 
 const DEFAULT_SETTINGS: ChatNotificationSettings = {
   enabled: true,
-  theme: "crystal",
-  volume: 80,
+  theme: "whatsapp_classic",
+  volume: 100, // Padrão 100% solicitado
   incomingEnabled: true,
   sentEnabled: true,
   mentionEnabled: true,
@@ -247,8 +255,25 @@ class ChatNotificationManager {
       const now = ctx.currentTime;
       const vol = (this.settings.volume / 100);
 
-      if (theme === "whatsapp") {
-        // WhatsApp Classic Dual Tone
+      if (theme === "whatsapp_classic") {
+        // WhatsApp Antigo / Nostálgico (Note / Tri-tone Chime)
+        [739.99, 987.77].forEach((freq, i) => {
+          const t = now + i * 0.07;
+          const gain = ctx.createGain();
+          gain.connect(ctx.destination);
+          gain.gain.setValueAtTime(0, t);
+          gain.gain.linearRampToValueAtTime(0.18 * vol, t + 0.01);
+          gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.25);
+
+          const osc = ctx.createOscillator();
+          osc.type = "sine";
+          osc.frequency.setValueAtTime(freq, t);
+          osc.connect(gain);
+          osc.start(t);
+          osc.stop(t + 0.25);
+        });
+      } else if (theme === "whatsapp_pop" || theme === "whatsapp") {
+        // WhatsApp Pop Web Dual Tone
         [1046.5, 1318.51].forEach((freq, i) => {
           const t = now + i * 0.08;
           const gain = ctx.createGain();
@@ -263,6 +288,71 @@ class ChatNotificationManager {
           osc.connect(gain);
           osc.start(t);
           osc.stop(t + 0.14);
+        });
+      } else if (theme === "iphone_tri_tone") {
+        // iPhone Tri-Tone (Mi - Dó - Sol)
+        [783.99, 1046.5, 1318.51].forEach((freq, i) => {
+          const t = now + i * 0.09;
+          const gain = ctx.createGain();
+          gain.connect(ctx.destination);
+          gain.gain.setValueAtTime(0, t);
+          gain.gain.linearRampToValueAtTime(0.15 * vol, t + 0.01);
+          gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.3);
+
+          const osc = ctx.createOscillator();
+          osc.type = "sine";
+          osc.frequency.setValueAtTime(freq, t);
+          osc.connect(gain);
+          osc.start(t);
+          osc.stop(t + 0.3);
+        });
+      } else if (theme === "slack_knock") {
+        // Slack Knock (Batida suave em madeira)
+        const gain = ctx.createGain();
+        gain.connect(ctx.destination);
+        gain.gain.setValueAtTime(0, now);
+        gain.gain.linearRampToValueAtTime(0.2 * vol, now + 0.005);
+        gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.08);
+
+        const osc = ctx.createOscillator();
+        osc.type = "triangle";
+        osc.frequency.setValueAtTime(320, now);
+        osc.frequency.exponentialRampToValueAtTime(110, now + 0.07);
+        osc.connect(gain);
+        osc.start(now);
+        osc.stop(now + 0.08);
+      } else if (theme === "telegram_chirp") {
+        // Telegram Chirp (Varredura rápida)
+        const gain = ctx.createGain();
+        gain.connect(ctx.destination);
+        gain.gain.setValueAtTime(0, now);
+        gain.gain.linearRampToValueAtTime(0.14 * vol, now + 0.01);
+        gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.15);
+
+        const osc = ctx.createOscillator();
+        osc.type = "sine";
+        osc.frequency.setValueAtTime(800, now);
+        osc.frequency.linearRampToValueAtTime(1600, now + 0.06);
+        osc.frequency.exponentialRampToValueAtTime(1200, now + 0.14);
+        osc.connect(gain);
+        osc.start(now);
+        osc.stop(now + 0.15);
+      } else if (theme === "harp") {
+        // Harpa Celestial (Arpejo suave)
+        [587.33, 739.99, 880, 1174.66].forEach((freq, i) => {
+          const t = now + i * 0.06;
+          const gain = ctx.createGain();
+          gain.connect(ctx.destination);
+          gain.gain.setValueAtTime(0, t);
+          gain.gain.linearRampToValueAtTime(0.1 * vol, t + 0.01);
+          gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.35);
+
+          const osc = ctx.createOscillator();
+          osc.type = "sine";
+          osc.frequency.setValueAtTime(freq, t);
+          osc.connect(gain);
+          osc.start(t);
+          osc.stop(t + 0.35);
         });
       } else if (theme === "pop") {
         // Pop suave moderno
