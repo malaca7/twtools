@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { toast } from "sonner";
@@ -8,11 +8,23 @@ import {
   HelpCircle,
   FolderTree,
   CheckCircle2,
+  ChevronDown,
+  ArrowUp,
+  SlidersHorizontal,
+  Check,
 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { PageHeader, NoAccess } from "@/components/ui-kit";
 import { useAuth } from "@/hooks/useAuth";
 import { useRolePermissions, useMembers } from "@/hooks/useData";
@@ -54,6 +66,24 @@ function PermissoesPage() {
   const [selectedLevel, setSelectedLevel] = useState<AppLevel>("novato");
   const [activePermissions, setActivePermissions] = useState<Permission[]>([]);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [showFloatingBar, setShowFloatingBar] = useState(false);
+  const roleCardRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      if (roleCardRef.current) {
+        const rect = roleCardRef.current.getBoundingClientRect();
+        // Exibe a barra flutuante assim que a barra de seleção de cargo do topo rolar para fora da visão
+        setShowFloatingBar(rect.bottom < 60);
+      } else {
+        setShowFloatingBar(window.scrollY > 250);
+      }
+    };
+
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    handleScroll();
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
 
   useEffect(() => {
     if (dbPermissions && dbPermissions[selectedLevel]) {
@@ -175,7 +205,7 @@ function PermissoesPage() {
       />
 
       {/* ROLE SELECTION BUTTONS */}
-      <Card className="surface-card">
+      <Card ref={roleCardRef} className="surface-card">
         <CardHeader className="pb-3">
           <div className="space-y-1">
             <CardTitle className="text-base font-semibold flex items-center gap-2">
@@ -353,6 +383,121 @@ function PermissoesPage() {
           </div>
         ))}
       </div>
+
+      {/* FLOATING ACTIVE ROLE SWITCHER BAR */}
+      {showFloatingBar && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 flex items-center gap-2 p-1.5 sm:p-2 rounded-2xl bg-card/95 border border-primary/40 backdrop-blur-xl shadow-2xl shadow-primary/20 animate-in fade-in slide-in-from-bottom-5 duration-300 max-w-[calc(100vw-2rem)]">
+          {/* Cargo Ativo Atual */}
+          <div className="flex items-center gap-2 pl-2 pr-1">
+            <ShieldCheck className="h-4 w-4 text-primary shrink-0 animate-pulse" />
+            <div className="flex items-center gap-1.5">
+              <span className="text-[11px] font-bold text-muted-foreground hidden sm:inline">Configurando:</span>
+              <Badge className={cn("text-xs px-2.5 py-0.5 font-bold shadow-xs", levelBadgeClass(selectedLevel))}>
+                {LEVEL_LABEL[selectedLevel] || selectedLevel}
+              </Badge>
+            </div>
+            {isSyncing ? (
+              <Loader2 className="h-3 w-3 animate-spin text-emerald-400 shrink-0 ml-0.5" title="Sincronizando..." />
+            ) : (
+              <CheckCircle2 className="h-3 w-3 text-emerald-400 shrink-0 ml-0.5" title="Sincronizado em tempo real" />
+            )}
+          </div>
+
+          {/* Dropdown para Trocar Cargo */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                type="button"
+                size="sm"
+                variant="secondary"
+                className="h-8 text-xs font-bold gap-1.5 rounded-xl border border-border/80 hover:border-primary/50 cursor-pointer bg-secondary/80 hover:bg-secondary active:scale-95 transition-all shadow-xs"
+              >
+                <span>Alternar Cargo</span>
+                <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="center" className="w-64 bg-card border border-border text-foreground rounded-2xl p-1.5 shadow-2xl z-50 animate-in fade-in-50 zoom-in-95 duration-150">
+              <DropdownMenuLabel className="text-[10px] font-mono text-muted-foreground uppercase px-2 py-1 flex items-center justify-between">
+                <span>Alternar Cargo</span>
+                <span className="text-[9px] text-emerald-400 font-bold font-mono">Ao Vivo</span>
+              </DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              {LEVELS.map((lvl) => {
+                const isSelected = selectedLevel === lvl;
+                const count = members.filter((m) => m.nivel === lvl).length;
+                return (
+                  <DropdownMenuItem
+                    key={lvl}
+                    onClick={() => setSelectedLevel(lvl)}
+                    className={cn(
+                      "flex items-center justify-between px-2.5 py-2 rounded-xl text-xs font-bold cursor-pointer transition-all mb-0.5",
+                      isSelected
+                        ? "bg-primary text-primary-foreground font-black shadow-xs"
+                        : "hover:bg-secondary text-foreground"
+                    )}
+                  >
+                    <div className="flex items-center gap-2">
+                      <ShieldCheck className={cn("h-3.5 w-3.5", isSelected ? "text-primary-foreground" : "text-primary")} />
+                      <span>{LEVEL_LABEL[lvl] || lvl}</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <Badge
+                        variant="secondary"
+                        className={cn(
+                          "text-[9px] px-1.5 py-0 font-mono font-bold",
+                          isSelected ? "bg-black/30 text-white" : "bg-background text-muted-foreground"
+                        )}
+                      >
+                        {count}
+                      </Badge>
+                      {isSelected && <Check className="h-3.5 w-3.5 stroke-[3]" />}
+                    </div>
+                  </DropdownMenuItem>
+                );
+              })}
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          {/* Ações Rápidas de Permissões */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                type="button"
+                size="icon"
+                variant="ghost"
+                className="h-8 w-8 rounded-xl text-muted-foreground hover:text-foreground hover:bg-secondary/80 cursor-pointer shrink-0"
+                title="Ações rápidas de permissões"
+              >
+                <SlidersHorizontal className="h-3.5 w-3.5" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48 bg-card border border-border text-foreground rounded-2xl p-1.5 shadow-2xl z-50">
+              <DropdownMenuItem onClick={setAllPermissions} className="text-xs font-bold cursor-pointer hover:bg-secondary rounded-xl">
+                Marcar Todos
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={setReadOnlyPermissions} className="text-xs font-bold cursor-pointer hover:bg-secondary rounded-xl">
+                Apenas Leitura
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={clearAllPermissions} className="text-xs font-bold text-rose-400 hover:bg-rose-500/10 cursor-pointer rounded-xl">
+                Limpar Todos
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          {/* Botão de Voltar ao Topo */}
+          <Button
+            type="button"
+            size="icon"
+            variant="ghost"
+            onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
+            className="h-8 w-8 rounded-xl text-muted-foreground hover:text-foreground hover:bg-secondary/80 cursor-pointer shrink-0"
+            title="Voltar ao topo da página"
+          >
+            <ArrowUp className="h-4 w-4" />
+          </Button>
+        </div>
+      )}
     </div>
   );
 }
