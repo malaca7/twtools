@@ -55,11 +55,14 @@ export function useConversations(activeConversationId?: string | null) {
     refetchInterval: 15000,
   });
 
+  const conversationsRef = useRef<ChatConversation[]>([]);
+  conversationsRef.current = query.data || [];
+
   // Supabase Realtime subscription for conversation updates and unread counts
   useEffect(() => {
     if (!userId) return;
 
-    const channelName = `realtime-global-chat-${userId}-${Math.random().toString(36).substring(2, 9)}`;
+    const channelName = `realtime-global-chat-${userId}`;
     const channel = supabase
       .channel(channelName)
       .on(
@@ -74,14 +77,15 @@ export function useConversations(activeConversationId?: string | null) {
           if (!newMsg || !newMsg.conversation_id) return;
 
           // 1. O autor da mensagem NUNCA deve ser notificado da própria mensagem
-          if (newMsg.sender_id === userId) return;
+          if (!userId || newMsg.sender_id === userId) return;
 
-          // 2. Notificar APENAS participantes daquela conversa específica
-          const userConvs = queryClient.getQueryData<ChatConversation[]>(["chat_conversations", userId]) || [];
+          // 2. Notificar ESTRITAMENTE participantes daquela conversa específica
+          const userConvs = queryClient.getQueryData<ChatConversation[]>(["chat_conversations", userId]) || conversationsRef.current || [];
           let targetConv = userConvs.find((c) => c.id === newMsg.conversation_id);
+          let isMuted = Boolean(targetConv?.is_muted);
 
           if (!targetConv) {
-            // Se não estiver no cache local de conversas, verifica no Supabase se o usuário é participante
+            // Se não estiver no cache local de conversas, verifica rigorosamente no Supabase se o usuário é participante
             try {
               const { data: participant } = await supabase
                 .from("chat_participants" as any)
@@ -95,15 +99,17 @@ export function useConversations(activeConversationId?: string | null) {
                 return;
               }
 
+              isMuted = Boolean(participant.is_muted);
               // Se for participante (ex: conversa nova criada agora), atualiza a lista de conversas
               void queryClient.invalidateQueries({ queryKey: ["chat_conversations", userId] });
             } catch {
+              // Em caso de erro na checagem, por segurança NÃO notifica
               return;
             }
           }
 
           // Se a conversa estiver silenciada, não emitir som nem alerta
-          if (targetConv?.is_muted) return;
+          if (isMuted) return;
 
           // 3. Lógica de alerta para mensagens recebidas nesta conversa
           if (newMsg.id && !recentlyAlertedMessageIds.has(newMsg.id)) {
@@ -227,7 +233,7 @@ export function useConversations(activeConversationId?: string | null) {
   };
 }
 
-const PAGE_SIZE = 25;
+const PAGE_SIZE = 50;
 
 /**
  * Hook de Sala de Chat com OTIMIZAÇÃO INSTANTÂNEA, RECIBOS DE LEITURA EM TEMPO REAL e LAZY LOADING NO SCROLL.
@@ -257,7 +263,7 @@ export function useChatRoom(
     queryKey: ["chat_messages", activeConversationId],
     queryFn: async () => {
       if (!activeConversationId) return [];
-      const initial = await fetchMessages(activeConversationId, PAGE_SIZE);
+      const initial = await fetchMessages(activeConversationId, PAGE_SIZE, undefined, currentUserId);
       setHasMore(initial.length >= PAGE_SIZE);
       return initial;
     },
@@ -277,7 +283,7 @@ export function useChatRoom(
 
     setIsLoadingMore(true);
     try {
-      const older = await fetchMessages(activeConversationId, PAGE_SIZE, oldestMsg.created_at);
+      const older = await fetchMessages(activeConversationId, PAGE_SIZE, oldestMsg.created_at, currentUserId);
       if (older.length < PAGE_SIZE) {
         setHasMore(false);
       }
@@ -344,11 +350,93 @@ export function useChatRoom(
   useEffect(() => {
     if (!activeConversationId || !currentUserId) return;
 
-    const channelName = `chat_room_${activeConversationId}_${Math.random().toString(36).substring(2, 9)}`;
+    const channelName = `chat_room_${activeConversationId}`;
     const channel = supabase.channel(channelName, {
       config: { broadcast: { self: false } },
     });
     channelRef.current = channel;
+
+    // 0. Mensagens instantâneas via WebSocket Broadcast (15ms latency)
+    channel
+      .on("broadcast", { event: "new_message" }, ({ payload }) => {
+        const newMsg = payload?.message as ChatMessage;
+        if (!newMsg || newMsg.conversation_id !== activeConversationId) return;
+        if (newMsg.sender_id === currentUserId) return; // Própria mensagem já adicionada otimisticamente
+
+        // Alerta sonoro de mensagem recebida
+        if (newMsg.id && !recentlyAlertedMessageIds.has(newMsg.id)) {
+          recentlyAlertedMessageIds.add(newMsg.id);
+          setTimeout(() => recentlyAlertedMessageIds.delete(newMsg.id), 8000);
+
+          const isMention =
+            Boolean(newMsg.mentions) &&
+            (newMsg.mentions.includes(currentUserId) || newMsg.mentions.includes("todos"));
+
+          if (isMention) {
+            chatSound.playMentionSound();
+          } else {
+            chatSound.playIncomingMessage();
+          }
+        }
+
+        const nowIso = new Date().toISOString();
+        if (channelRef.current) {
+          void channelRef.current.send({
+            type: "broadcast",
+            event: "delivery_receipt",
+            payload: {
+              conversation_id: activeConversationId,
+              user_id: currentUserId,
+              message_ids: [newMsg.id],
+              delivered_at: nowIso,
+            },
+          });
+        }
+
+        if (typeof document === "undefined" || !document.hidden) {
+          void markConversationAsRead(activeConversationId, currentUserId);
+          if (channelRef.current) {
+            void channelRef.current.send({
+              type: "broadcast",
+              event: "read_receipt",
+              payload: {
+                conversation_id: activeConversationId,
+                user_id: currentUserId,
+                read_at: nowIso,
+              },
+            });
+          }
+        }
+
+        // Insere imediatamente no cache de mensagens da conversa (0ms)
+        queryClient.setQueryData<ChatMessage[]>(["chat_messages", activeConversationId], (old = []) => {
+          if (old.some((m) => m.id === newMsg.id)) return old;
+          return [...old, { ...newMsg, is_self: false }];
+        });
+
+        // Atualiza conversa na barra lateral
+        queryClient.setQueryData<ChatConversation[]>(["chat_conversations", currentUserId], (old = []) =>
+          old
+            .map((c) =>
+              c.id === activeConversationId
+                ? {
+                    ...c,
+                    last_message: newMsg.content || newMsg.attachment_name || "Anexo",
+                    last_message_at: newMsg.created_at || nowIso,
+                    last_message_sender_id: newMsg.sender_id,
+                    unread_count: 0,
+                  }
+                : c
+            )
+            .sort((a, b) => new Date(b.last_message_at).getTime() - new Date(a.last_message_at).getTime())
+        );
+      })
+      .on("broadcast", { event: "message_saved" }, ({ payload }) => {
+        if (!payload?.tempId || !payload?.message) return;
+        queryClient.setQueryData<ChatMessage[]>(["chat_messages", activeConversationId], (old = []) =>
+          old.map((m) => (m.id === payload.tempId ? { ...m, ...payload.message, id: payload.message.id || m.id } : m))
+        );
+      })
 
     // 1. Mensagens novas em tempo real
     channel
@@ -701,6 +789,7 @@ export function useChatRoom(
       text,
       messageType = "text",
       attachment,
+      replyTo,
     }: {
       text: string;
       messageType?: "text" | "image" | "video" | "audio" | "document" | "system";
@@ -710,6 +799,7 @@ export function useChatRoom(
         type: string;
         size: number;
       } | null;
+      replyTo?: ChatMessage | null;
     }) => {
       if (!activeConversationId || !currentUserId) throw new Error("Chat não selecionado");
 
@@ -753,9 +843,10 @@ export function useChatRoom(
         }
       }
 
+      const activeReply = replyTo || replyingTo || null;
       return sendChatMessage(activeConversationId, text, {
         messageType,
-        replyToId: replyingTo?.id || null,
+        replyToId: activeReply?.id || null,
         attachmentUrl: attachment?.url || null,
         attachmentName: attachment?.name || null,
         attachmentType: attachment?.type || null,
@@ -763,9 +854,10 @@ export function useChatRoom(
         mentions: parsedMentions,
       });
     },
-    onMutate: async ({ text, messageType = "text", attachment }) => {
+    onMutate: async ({ text, messageType = "text", attachment, replyTo }) => {
       if (!activeConversationId || !currentUserId) return;
 
+      const activeReply = replyTo || replyingTo || null;
       // Cria mensagem otimista e insere imediatamente no cache do TanStack Query
       const tempId = `optimistic-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
       const nowIso = new Date().toISOString();
@@ -779,8 +871,16 @@ export function useChatRoom(
         content: text.trim(),
         status: "sent",
         message_type: messageType,
-        reply_to_id: replyingTo?.id || null,
-        reply_to_message: replyingTo || null,
+        reply_to_id: activeReply?.id || null,
+        reply_to_message: activeReply ? {
+          id: activeReply.id,
+          sender_id: activeReply.sender_id,
+          sender_name: activeReply.sender_name || "Membro",
+          content: activeReply.content,
+          message_type: activeReply.message_type || "text",
+          attachment_name: activeReply.attachment_name,
+          attachment_url: activeReply.attachment_url,
+        } : null,
         attachment_url: attachment?.url || null,
         attachment_name: attachment?.name || null,
         attachment_type: attachment?.type || null,
@@ -823,6 +923,15 @@ export function useChatRoom(
           .sort((a, b) => new Date(b.last_message_at).getTime() - new Date(a.last_message_at).getTime())
       );
 
+      // Envia broadcast instantâneo (15ms) para todos conectados nesta conversa
+      if (channelRef.current) {
+        void channelRef.current.send({
+          type: "broadcast",
+          event: "new_message",
+          payload: { message: optimisticMsg },
+        });
+      }
+
       return { tempId };
     },
     onSuccess: (savedMsg, _, context) => {
@@ -831,6 +940,14 @@ export function useChatRoom(
         queryClient.setQueryData<ChatMessage[]>(["chat_messages", activeConversationId], (old = []) =>
           old.map((m) => (m.id === context.tempId ? { ...m, ...savedMsg, id: savedMsg.id || m.id } : m))
         );
+
+        if (channelRef.current) {
+          void channelRef.current.send({
+            type: "broadcast",
+            event: "message_saved",
+            payload: { tempId: context.tempId, message: savedMsg },
+          });
+        }
       }
     },
     onError: (err: any, _, context) => {
@@ -846,6 +963,7 @@ export function useChatRoom(
 
   // Enviar anexo (arquivo / foto / vídeo / documento)
   const sendAttachment = async (file: File, caption = "") => {
+    const currentReply = replyingTo;
     try {
       setUploadProgress(15);
       const res = await uploadChatAttachment(file, (pct) => setUploadProgress(pct));
@@ -859,6 +977,7 @@ export function useChatRoom(
         text: caption.trim() || res.name,
         messageType: mType,
         attachment: res,
+        replyTo: currentReply,
       });
     } catch (err: any) {
       toast.error(`Falha no upload: ${err.message || err}`);
@@ -1001,7 +1120,10 @@ export function useChatRoom(
     typingUsers,
     replyingTo,
     setReplyingTo,
-    sendMessage: (text: string) => sendMutation.mutateAsync({ text }),
+    sendMessage: (text: string) => {
+      const currentReply = replyingTo;
+      return sendMutation.mutateAsync({ text, replyTo: currentReply });
+    },
     sendAttachment,
     toggleReaction: (messageId: string, emoji: string) => reactMutation.mutate({ messageId, emoji }),
     editMessage: (messageId: string, newContent: string) => editMutation.mutateAsync({ messageId, newContent }),

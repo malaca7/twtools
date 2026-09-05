@@ -320,9 +320,23 @@ export async function createGroupConversation(
 export async function fetchMessages(
   conversationId: string,
   limit = 60,
-  beforeCreatedAt?: string
+  beforeCreatedAt?: string,
+  userId?: string
 ): Promise<ChatMessage[]> {
   if (!conversationId) return [];
+
+  let effectiveUserId = userId || null;
+  if (!effectiveUserId && typeof window !== "undefined") {
+    try {
+      const rawSession = localStorage.getItem("sb-adgdivossyzpwofouhrh-auth-token");
+      if (rawSession) {
+        const parsed = JSON.parse(rawSession);
+        effectiveUserId = parsed?.user?.id || null;
+      }
+    } catch {
+      // Ignora erro
+    }
+  }
 
   // 1. EXECUÇÃO VIA RPC ULTRA-RÁPIDA (Retorna mensagens, reações e replies em < 80ms)
   try {
@@ -330,10 +344,33 @@ export async function fetchMessages(
       p_conversation_id: conversationId,
       p_limit: limit,
       p_before: beforeCreatedAt || null,
+      p_user_id: effectiveUserId,
     });
 
     if (!error && Array.isArray(data)) {
-      return data as ChatMessage[];
+      const messagesMap = new Map<string, any>(data.map((m: any) => [m.id, m]));
+      const list = data.map((m: any) => {
+        let replyToMessage = m.reply_to_message || null;
+        if (!replyToMessage && m.reply_to_id && messagesMap.has(m.reply_to_id)) {
+          const rep = messagesMap.get(m.reply_to_id);
+          replyToMessage = {
+            id: rep.id,
+            sender_id: rep.sender_id,
+            sender_name: rep.sender_name || "Membro",
+            content: rep.content,
+            message_type: rep.message_type || "text",
+            attachment_name: rep.attachment_name,
+            attachment_url: rep.attachment_url,
+          };
+        }
+        return {
+          ...m,
+          reply_to_message: replyToMessage,
+        };
+      }) as ChatMessage[];
+
+      // Garante ordenação cronológica crescente rigorosa (mais antigas no topo, mais recentes embaixo)
+      return list.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
     }
   } catch (rpcErr) {
     console.warn("Fallback de mensagens por RPC:", rpcErr);
@@ -345,7 +382,7 @@ export async function fetchMessages(
       .from("chat_messages" as any)
       .select("*")
       .eq("conversation_id", conversationId)
-      .order("created_at", { ascending: true })
+      .order("created_at", { ascending: false })
       .limit(limit);
 
     if (beforeCreatedAt) {
@@ -358,7 +395,7 @@ export async function fetchMessages(
     ]);
 
     if (messagesRes.error) throw messagesRes.error;
-    const rawMessages = messagesRes.data || [];
+    const rawMessages = (messagesRes.data || []).reverse();
 
     if (rawMessages.length === 0) return [];
 
@@ -472,30 +509,7 @@ export async function sendChatMessage(
     forwardedFromName?: string | null;
   }
 ): Promise<ChatMessage> {
-  // 1. Tenta envio via RPC ultra-rápida
-  try {
-    const { data, error } = await (supabase.rpc as any)("rpc_send_chat_message", {
-      p_conversation_id: conversationId,
-      p_content: content,
-      p_message_type: options?.messageType || "text",
-      p_reply_to_id: options?.replyToId || null,
-      p_attachment_url: options?.attachmentUrl || null,
-      p_attachment_name: options?.attachmentName || null,
-      p_attachment_type: options?.attachmentType || null,
-      p_attachment_size: options?.attachmentSize || null,
-      p_mentions: options?.mentions || [],
-      p_is_forwarded: Boolean(options?.isForwarded),
-      p_forwarded_from_name: options?.forwardedFromName || null,
-    });
-
-    if (!error && data) {
-      return data as ChatMessage;
-    }
-  } catch (rpcErr) {
-    console.warn("RPC send_chat_message falhou, utilizando inserção direta:", rpcErr);
-  }
-
-  // 2. Fallback direto via Supabase REST Client
+  // Inserção direta via Supabase REST Client (< 80ms)
   const { data: inserted, error: insertError } = await supabase
     .from("chat_messages" as any)
     .insert({
@@ -661,6 +675,30 @@ export async function markConversationAsRead(
     .neq("sender_id", userId)
     .in("status", ["sent", "delivered"]);
 }
+
+/**
+ * Marca todas as conversas como lidas para o usuário atual.
+ */
+export async function markAllConversationsAsRead(userId: string): Promise<void> {
+  if (!userId) return;
+
+  const now = new Date().toISOString();
+  // 1. Atualiza timestamp de última leitura de todos os registros de participantes do usuário
+  await supabase
+    .from("chat_participants" as any)
+    .update({ last_read_at: now })
+    .eq("user_id", userId);
+
+  // 2. Tenta chamar RPC se disponível
+  try {
+    await (supabase.rpc as any)("rpc_mark_all_conversations_read", {
+      p_user_id: userId,
+    });
+  } catch {
+    // Ignora se não existir RPC específica
+  }
+}
+
 
 /**
  * Determina com precisão o status de entrega e visualização de uma mensagem no estilo WhatsApp:

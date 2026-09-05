@@ -804,7 +804,7 @@ export function ChatWindow({
           onCancelReply={() => setReplyingTo(null)}
           uploadProgress={uploadProgress}
           isSending={isSending}
-          disabled={isLoading}
+          disabled={false}
           onlyAdminsCanPost={conversation.only_admins_can_post}
           userRole={effectiveUserRole}
           participants={conversation.participants}

@@ -65,6 +65,7 @@ import {
   toggleArchiveConversation,
   markConversationAsRead,
   markConversationAsUnread,
+  markAllConversationsAsRead,
   deleteConversationForUser,
   getUserChatFolders,
 } from "@/services/chatService";
@@ -203,6 +204,19 @@ export function ConversationList({
       );
       if (currentUserId) void markConversationAsUnread(conv.id, currentUserId);
       toast.success("Marcada como não lida.");
+    }
+  };
+
+  const handleMarkAllAsRead = async () => {
+    if (!currentUserId) return;
+    queryClient.setQueryData<ChatConversation[]>(["chat_conversations", currentUserId], (old = []) =>
+      old.map((c) => ({ ...c, unread_count: 0 }))
+    );
+    try {
+      await markAllConversationsAsRead(currentUserId);
+      toast.success("Todas as conversas foram marcadas como lidas.");
+    } catch {
+      void queryClient.invalidateQueries({ queryKey: ["chat_conversations", currentUserId] });
     }
   };
 
@@ -361,7 +375,15 @@ export function ConversationList({
                 <MoreVertical className="h-4 w-4" />
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-52 text-xs bg-[#233138] border border-white/10 text-white rounded-xl shadow-2xl p-1">
+            <DropdownMenuContent align="end" className="w-56 text-xs bg-[#233138] border border-white/10 text-white rounded-xl shadow-2xl p-1 z-50">
+              <DropdownMenuItem
+                onClick={handleMarkAllAsRead}
+                disabled={unreadCount === 0}
+                className="cursor-pointer hover:bg-white/10 rounded-lg text-[#00a884] font-bold"
+              >
+                <CheckCheck className="h-3.5 w-3.5 mr-2" /> Marcar todas como lidas
+              </DropdownMenuItem>
+              <DropdownMenuSeparator className="bg-white/10" />
               <DropdownMenuItem onClick={onCreateGroup} className="cursor-pointer hover:bg-white/10 rounded-lg">
                 <Users className="h-3.5 w-3.5 mr-2 text-[#00a884]" /> Novo grupo
               </DropdownMenuItem>
@@ -513,6 +535,18 @@ export function ConversationList({
               <span>Arquivadas ({archivedCount})</span>
             </button>
           )}
+
+          {unreadCount > 0 && (
+            <button
+              type="button"
+              onClick={handleMarkAllAsRead}
+              className="ml-auto px-2.5 py-1 rounded-full text-[11px] font-bold transition-all shrink-0 cursor-pointer flex items-center gap-1.5 bg-[#00a884]/15 hover:bg-[#00a884]/25 text-[#00a884] border border-[#00a884]/30 active:scale-95 shadow-2xs"
+              title="Marcar todas as conversas como lidas"
+            >
+              <CheckCheck className="h-3.5 w-3.5" />
+              <span>Ler todas</span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -581,9 +615,11 @@ export function ConversationList({
                 key={c.id}
                 onClick={() => onSelectConversation(c)}
                 className={cn(
-                  "group relative flex items-center gap-3 px-3 py-3 cursor-pointer transition-colors duration-150 select-none",
+                  "group relative flex items-center gap-3 px-3 py-3 cursor-pointer transition-all duration-150 select-none",
                   isActive
                     ? "bg-[#2a3942] text-white"
+                    : unread > 0
+                    ? "bg-[#00a884]/[0.08] hover:bg-[#00a884]/[0.15] text-[#d1d7db] border-l-[3.5px] border-[#25d366]"
                     : "hover:bg-[#202c33]/70 text-[#8696a0]"
                 )}
               >
@@ -615,9 +651,24 @@ export function ConversationList({
                 <div className="flex-1 min-w-0 space-y-1">
                   <div className="flex items-center justify-between gap-1">
                     <div className="flex items-center gap-1.5 min-w-0">
-                      <span className={cn("truncate text-sm font-semibold leading-tight", isActive ? "text-white" : "text-[#e9edef]")}>
+                      <span
+                        className={cn(
+                          "truncate text-sm leading-tight",
+                          isActive
+                            ? "text-white font-semibold"
+                            : unread > 0
+                            ? "text-white font-bold"
+                            : "text-[#e9edef] font-medium"
+                        )}
+                      >
                         {title}
                       </span>
+                      {unread > 0 && !isActive && (
+                        <span
+                          className="h-2 w-2 rounded-full bg-[#25d366] shrink-0 shadow-[0_0_6px_rgba(37,211,102,0.7)] animate-pulse"
+                          title="Mensagens não lidas"
+                        />
+                      )}
                       {isGroup && c.only_admins_can_post && (
                         <Lock className="h-3 w-3 text-amber-400 shrink-0" title="Somente admins" />
                       )}
@@ -634,7 +685,12 @@ export function ConversationList({
                   </div>
 
                   <div className="flex items-center justify-between gap-1">
-                    <p className="truncate text-xs text-[#8696a0] leading-tight flex items-center gap-1 max-w-[200px] sm:max-w-[230px]">
+                    <p
+                      className={cn(
+                        "truncate text-xs leading-tight flex items-center gap-1 max-w-[200px] sm:max-w-[230px]",
+                        unread > 0 ? "text-[#e9edef] font-medium" : "text-[#8696a0]"
+                      )}
+                    >
                       {isLastMsgSelf && c.last_message && (
                         <MessageStatusIcon status={lastMsgStatus} className="h-3 w-3 shrink-0 inline-block mr-0.5" />
                       )}
@@ -655,7 +711,7 @@ export function ConversationList({
                       )}
 
                       {unread > 0 && (
-                        <span className="flex items-center justify-center min-w-5 h-5 px-1.5 rounded-full bg-[#25d366] text-black font-black text-[11px] font-mono shadow-xs shrink-0">
+                        <span className="flex items-center justify-center min-w-5 h-5 px-1.5 rounded-full bg-[#25d366] text-black font-black text-[11px] font-mono shadow-[0_0_10px_rgba(37,211,102,0.45)] shrink-0 animate-in zoom-in-75">
                           {unread > 99 ? "99+" : unread}
                         </span>
                       )}

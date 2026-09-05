@@ -16,6 +16,7 @@ import {
   Radio,
   SlidersHorizontal,
   Bell,
+  CheckCheck,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -25,7 +26,8 @@ import { useAuth } from "@/hooks/useAuth";
 import { useMembers } from "@/hooks/useData";
 import { useOnlineTimer } from "@/hooks/useOnlineTimer";
 import { useConversations } from "@/hooks/useChat";
-import { getOrCreatePrivateConversation } from "@/services/chatService";
+import { useQueryClient } from "@tanstack/react-query";
+import { getOrCreatePrivateConversation, markAllConversationsAsRead } from "@/services/chatService";
 import { ChatWindow } from "@/components/chat/ChatWindow";
 import { ConversationList } from "@/components/chat/ConversationList";
 import { CreateGroupDialog } from "@/components/chat/CreateGroupDialog";
@@ -198,6 +200,7 @@ export function FloatingPresenceWidget() {
   const [showToastAlert, setShowToastAlert] = useState(false);
   const [showScreenGlow, setShowScreenGlow] = useState(false);
 
+  const queryClient = useQueryClient();
   const { data: members = [] } = useMembers();
   const {
     conversations,
@@ -610,6 +613,31 @@ export function FloatingPresenceWidget() {
 
                   {/* AÇÕES NO HEADER: CONFIGURAÇÕES E FECHAR */}
                   <div className="flex items-center gap-1">
+                    {totalUnreadCount > 0 && activeTab === "chat" && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={async () => {
+                          if (!currentUserId) return;
+                          queryClient.setQueryData<ChatConversation[]>(["chat_conversations", currentUserId], (old = []) =>
+                            old.map((c) => ({ ...c, unread_count: 0 }))
+                          );
+                          try {
+                            await markAllConversationsAsRead(currentUserId);
+                            toast.success("Todas as conversas marcadas como lidas.");
+                          } catch {
+                            void refetchConversations();
+                          }
+                        }}
+                        className="h-8 px-2.5 text-[11px] font-bold text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/10 rounded-xl transition-all flex items-center gap-1.5 border border-emerald-500/30 active:scale-95"
+                        title="Marcar todas as conversas como lidas"
+                      >
+                        <CheckCheck className="h-3.5 w-3.5" />
+                        <span className="hidden sm:inline">Ler todas</span>
+                      </Button>
+                    )}
+
                     <Button
                       type="button"
                       variant="ghost"

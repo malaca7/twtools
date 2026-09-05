@@ -36,6 +36,7 @@ import {
   MessageSquare,
   Sliders,
   CalendarOff,
+  Sparkles,
 } from "lucide-react";
 import { isUserDeveloper } from "@/services/devService";
 import {
@@ -75,6 +76,7 @@ import { useDevMenuConfig } from "@/hooks/useDevMenuConfig";
 import { LEVEL_LABEL, levelBadgeClass, type Permission } from "@/lib/permissions";
 import { cn } from "@/lib/utils";
 import { FloatingPresenceWidget } from "./FloatingPresenceWidget";
+import { ForceCachePurgeListener } from "@/components/dev/ForceCachePurgeListener";
 
 type MasterNavItem = {
   id: string;
@@ -103,16 +105,18 @@ const MASTER_NAV_ITEMS: MasterNavItem[] = [
   { id: "permissoes", title: "Permissões", url: "/permissoes", icon: Settings, perm: "manage_permissions", defaultCat: "Gestão", defaultOrder: 13 },
   { id: "avisos", title: "Enviar Avisos", url: "/avisos", icon: Megaphone, perm: "manage_announcements", defaultCat: "Gestão", defaultOrder: 14 },
   { id: "logs", title: "Logs", url: "/logs", icon: ScrollText, perm: "view_audit", defaultCat: "Gestão", defaultOrder: 15 },
-  { id: "perfil", title: "Meu Perfil", url: "/perfil", icon: User, defaultCat: "Gestão", defaultOrder: 16 },
-  { id: "configuracoes", title: "Configurações", url: "/configuracoes", icon: Wrench, perm: "manage_platform_settings", defaultCat: "Gestão", defaultOrder: 17 },
+  { id: "atualizacoes", title: "Atualizações", url: "/atualizacoes", icon: Sparkles, defaultCat: "Gestão", defaultOrder: 16 },
+  { id: "perfil", title: "Meu Perfil", url: "/perfil", icon: User, defaultCat: "Gestão", defaultOrder: 17 },
+  { id: "configuracoes", title: "Configurações", url: "/configuracoes", icon: Wrench, perm: "manage_platform_settings", defaultCat: "Gestão", defaultOrder: 18 },
 ];
 
 const DEV_MODULE_NAV_ITEMS: MasterNavItem[] = [
   { id: "dev-hub", title: "Painel Dev Geral", url: "/dev", icon: Terminal, defaultCat: "Ferramentas Dev", defaultOrder: 0 },
-  { id: "dev-desempenho", title: "Gestão Desempenho", url: "/dev/desempenho", icon: TrendingUp, defaultCat: "Ferramentas Dev", defaultOrder: 1 },
-  { id: "dev-permissoes", title: "Permissões Tag Dev", url: "/dev/permissoes", icon: KeyRound, defaultCat: "Ferramentas Dev", defaultOrder: 2 },
-  { id: "dev-configuracao", title: "Configurações Dev", url: "/dev/configuracao", icon: Code2, defaultCat: "Ferramentas Dev", defaultOrder: 3 },
-  { id: "dev-menu-lateral", title: "Menu Lateral Dev", url: "/dev/menu-lateral", icon: Sliders, defaultCat: "Ferramentas Dev", defaultOrder: 4 },
+  { id: "dev-patch-notes", title: "Patch Notes & Releases", url: "/dev/patch-notes", icon: Sparkles, defaultCat: "Ferramentas Dev", defaultOrder: 1 },
+  { id: "dev-desempenho", title: "Gestão Desempenho", url: "/dev/desempenho", icon: TrendingUp, defaultCat: "Ferramentas Dev", defaultOrder: 2 },
+  { id: "dev-permissoes", title: "Permissões Tag Dev", url: "/dev/permissoes", icon: KeyRound, defaultCat: "Ferramentas Dev", defaultOrder: 3 },
+  { id: "dev-configuracao", title: "Configurações Dev", url: "/dev/configuracao", icon: Code2, defaultCat: "Ferramentas Dev", defaultOrder: 4 },
+  { id: "dev-menu-lateral", title: "Menu Lateral Dev", url: "/dev/menu-lateral", icon: Sliders, defaultCat: "Ferramentas Dev", defaultOrder: 5 },
 ];
 
 function DynamicSidebarNavigation() {
@@ -605,6 +609,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
       {/* BOTÃO E CARD FLUTUANTE DE STATUS DE MEMBROS (PRESENCE WIDGET) */}
       <FloatingPresenceWidget />
+      <ForceCachePurgeListener />
 
       {/* POPUP COMPACTO DE AUSÊNCIA POR INATIVIDADE */}
       {isAbsenceMode && (

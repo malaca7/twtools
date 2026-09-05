@@ -31,6 +31,7 @@ import {
   DEFAULT_DEV_CONFIG,
   type DevConfiguration,
 } from "@/services/devService";
+import { DevForcePurgeCard } from "@/components/dev/DevForcePurgeCard";
 
 export const Route = createFileRoute("/_authenticated/dev/configuracao")({
   component: DevConfiguracaoPageWrapper,
@@ -209,8 +210,12 @@ function DevConfiguracaoContent() {
           <p className="text-sm font-bold text-rose-400">{error}</p>
         </Card>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-          {/* Option 1: Developer Bypass */}
+        <div className="space-y-6">
+          {/* Card de Limpeza Forçada de Cache em Tempo Real */}
+          <DevForcePurgeCard />
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+            {/* Option 1: Developer Bypass */}
           <Card className="surface-card border transition-all duration-300">
             <CardHeader className="pb-3 border-b border-border/60">
               <div className="flex items-center gap-2.5">
@@ -306,6 +311,7 @@ function DevConfiguracaoContent() {
             </CardContent>
           </Card>
         </div>
+      </div>
       )}
     </div>
   );

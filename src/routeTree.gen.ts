@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
+import { Route as AuthenticatedAtualizacoesRouteImport } from './routes/_authenticated/atualizacoes'
 import { Route as AuthenticatedAusenciasRouteImport } from './routes/_authenticated/ausencias'
 import { Route as AuthenticatedAvisosRouteImport } from './routes/_authenticated/avisos'
 import { Route as AuthenticatedBausRouteImport } from './routes/_authenticated/baus'
@@ -38,6 +39,7 @@ import { Route as AuthenticatedDevIndexRouteImport } from './routes/_authenticat
 import { Route as AuthenticatedDevConfiguracaoRouteImport } from './routes/_authenticated/dev.configuracao'
 import { Route as AuthenticatedDevDesempenhoRouteImport } from './routes/_authenticated/dev.desempenho'
 import { Route as AuthenticatedDevMenuLateralRouteImport } from './routes/_authenticated/dev.menu-lateral'
+import { Route as AuthenticatedDevPatchNotesRouteImport } from './routes/_authenticated/dev.patch-notes'
 import { Route as AuthenticatedDevPermissoesRouteImport } from './routes/_authenticated/dev.permissoes'
 
 const IndexRoute = IndexRouteImport.update({
@@ -49,6 +51,12 @@ const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
   id: '/_authenticated',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthenticatedAtualizacoesRoute =
+  AuthenticatedAtualizacoesRouteImport.update({
+    id: '/atualizacoes',
+    path: '/atualizacoes',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedAusenciasRoute = AuthenticatedAusenciasRouteImport.update({
   id: '/ausencias',
   path: '/ausencias',
@@ -189,6 +197,12 @@ const AuthenticatedDevMenuLateralRoute =
     path: '/dev/menu-lateral',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedDevPatchNotesRoute =
+  AuthenticatedDevPatchNotesRouteImport.update({
+    id: '/dev/patch-notes',
+    path: '/dev/patch-notes',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedDevPermissoesRoute =
   AuthenticatedDevPermissoesRouteImport.update({
     id: '/dev/permissoes',
@@ -198,6 +212,7 @@ const AuthenticatedDevPermissoesRoute =
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/atualizacoes': typeof AuthenticatedAtualizacoesRoute
   '/ausencias': typeof AuthenticatedAusenciasRoute
   '/avisos': typeof AuthenticatedAvisosRoute
   '/baus': typeof AuthenticatedBausRoute
@@ -224,11 +239,13 @@ export interface FileRoutesByFullPath {
   '/dev/configuracao': typeof AuthenticatedDevConfiguracaoRoute
   '/dev/desempenho': typeof AuthenticatedDevDesempenhoRoute
   '/dev/menu-lateral': typeof AuthenticatedDevMenuLateralRoute
+  '/dev/patch-notes': typeof AuthenticatedDevPatchNotesRoute
   '/dev/permissoes': typeof AuthenticatedDevPermissoesRoute
   '/dev/': typeof AuthenticatedDevIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/atualizacoes': typeof AuthenticatedAtualizacoesRoute
   '/ausencias': typeof AuthenticatedAusenciasRoute
   '/avisos': typeof AuthenticatedAvisosRoute
   '/baus': typeof AuthenticatedBausRoute
@@ -255,6 +272,7 @@ export interface FileRoutesByTo {
   '/dev/configuracao': typeof AuthenticatedDevConfiguracaoRoute
   '/dev/desempenho': typeof AuthenticatedDevDesempenhoRoute
   '/dev/menu-lateral': typeof AuthenticatedDevMenuLateralRoute
+  '/dev/patch-notes': typeof AuthenticatedDevPatchNotesRoute
   '/dev/permissoes': typeof AuthenticatedDevPermissoesRoute
   '/dev': typeof AuthenticatedDevIndexRoute
 }
@@ -262,6 +280,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
+  '/_authenticated/atualizacoes': typeof AuthenticatedAtualizacoesRoute
   '/_authenticated/ausencias': typeof AuthenticatedAusenciasRoute
   '/_authenticated/avisos': typeof AuthenticatedAvisosRoute
   '/_authenticated/baus': typeof AuthenticatedBausRoute
@@ -288,6 +307,7 @@ export interface FileRoutesById {
   '/_authenticated/dev/configuracao': typeof AuthenticatedDevConfiguracaoRoute
   '/_authenticated/dev/desempenho': typeof AuthenticatedDevDesempenhoRoute
   '/_authenticated/dev/menu-lateral': typeof AuthenticatedDevMenuLateralRoute
+  '/_authenticated/dev/patch-notes': typeof AuthenticatedDevPatchNotesRoute
   '/_authenticated/dev/permissoes': typeof AuthenticatedDevPermissoesRoute
   '/_authenticated/dev/': typeof AuthenticatedDevIndexRoute
 }
@@ -295,6 +315,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/atualizacoes'
     | '/ausencias'
     | '/avisos'
     | '/baus'
@@ -321,11 +342,13 @@ export interface FileRouteTypes {
     | '/dev/configuracao'
     | '/dev/desempenho'
     | '/dev/menu-lateral'
+    | '/dev/patch-notes'
     | '/dev/permissoes'
     | '/dev/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/atualizacoes'
     | '/ausencias'
     | '/avisos'
     | '/baus'
@@ -352,12 +375,14 @@ export interface FileRouteTypes {
     | '/dev/configuracao'
     | '/dev/desempenho'
     | '/dev/menu-lateral'
+    | '/dev/patch-notes'
     | '/dev/permissoes'
     | '/dev'
   id:
     | '__root__'
     | '/'
     | '/_authenticated'
+    | '/_authenticated/atualizacoes'
     | '/_authenticated/ausencias'
     | '/_authenticated/avisos'
     | '/_authenticated/baus'
@@ -384,6 +409,7 @@ export interface FileRouteTypes {
     | '/_authenticated/dev/configuracao'
     | '/_authenticated/dev/desempenho'
     | '/_authenticated/dev/menu-lateral'
+    | '/_authenticated/dev/patch-notes'
     | '/_authenticated/dev/permissoes'
     | '/_authenticated/dev/'
   fileRoutesById: FileRoutesById
@@ -410,6 +436,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/'
       preLoaderRoute: typeof AuthenticatedRouteRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/_authenticated/atualizacoes': {
+      id: '/_authenticated/atualizacoes'
+      path: '/atualizacoes'
+      fullPath: '/atualizacoes'
+      preLoaderRoute: typeof AuthenticatedAtualizacoesRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/ausencias': {
       id: '/_authenticated/ausencias'
@@ -600,6 +633,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedDevMenuLateralRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/dev/patch-notes': {
+      id: '/_authenticated/dev/patch-notes'
+      path: '/dev/patch-notes'
+      fullPath: '/dev/patch-notes'
+      preLoaderRoute: typeof AuthenticatedDevPatchNotesRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/dev/permissoes': {
       id: '/_authenticated/dev/permissoes'
       path: '/dev/permissoes'
@@ -611,6 +651,7 @@ declare module '@tanstack/react-router' {
 }
 
 interface AuthenticatedRouteRouteChildren {
+  AuthenticatedAtualizacoesRoute: typeof AuthenticatedAtualizacoesRoute
   AuthenticatedAusenciasRoute: typeof AuthenticatedAusenciasRoute
   AuthenticatedAvisosRoute: typeof AuthenticatedAvisosRoute
   AuthenticatedBausRoute: typeof AuthenticatedBausRoute
@@ -635,11 +676,13 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedDevConfiguracaoRoute: typeof AuthenticatedDevConfiguracaoRoute
   AuthenticatedDevDesempenhoRoute: typeof AuthenticatedDevDesempenhoRoute
   AuthenticatedDevMenuLateralRoute: typeof AuthenticatedDevMenuLateralRoute
+  AuthenticatedDevPatchNotesRoute: typeof AuthenticatedDevPatchNotesRoute
   AuthenticatedDevPermissoesRoute: typeof AuthenticatedDevPermissoesRoute
   AuthenticatedDevIndexRoute: typeof AuthenticatedDevIndexRoute
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
+  AuthenticatedAtualizacoesRoute: AuthenticatedAtualizacoesRoute,
   AuthenticatedAusenciasRoute: AuthenticatedAusenciasRoute,
   AuthenticatedAvisosRoute: AuthenticatedAvisosRoute,
   AuthenticatedBausRoute: AuthenticatedBausRoute,
@@ -664,6 +707,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedDevConfiguracaoRoute: AuthenticatedDevConfiguracaoRoute,
   AuthenticatedDevDesempenhoRoute: AuthenticatedDevDesempenhoRoute,
   AuthenticatedDevMenuLateralRoute: AuthenticatedDevMenuLateralRoute,
+  AuthenticatedDevPatchNotesRoute: AuthenticatedDevPatchNotesRoute,
   AuthenticatedDevPermissoesRoute: AuthenticatedDevPermissoesRoute,
   AuthenticatedDevIndexRoute: AuthenticatedDevIndexRoute,
 }
@@ -680,13 +724,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}

@@ -165,11 +165,11 @@ export async function saveAdminTagPermissions(
   try {
     localStorage.setItem(ADMIN_PERMS_KEY, JSON.stringify(permissions));
 
-    await supabase.from("platform_settings").upsert({
+    await (supabase.from as any)("platform_settings").upsert({
       key: "admin_tag_permissions",
       value: JSON.stringify(permissions),
       updated_at: new Date().toISOString(),
-    } as any);
+    });
   } catch (err) {
     console.warn("Salvo localmente (Supabase fallback):", err);
   }
@@ -255,11 +255,11 @@ export async function saveDevPermissions(
     localStorage.setItem(DEV_PERMS_KEY, JSON.stringify(permissions));
 
     // Opcional: Persistir no Supabase platform_settings se disponível
-    await supabase.from("platform_settings").upsert({
+    await (supabase.from as any)("platform_settings").upsert({
       key: "dev_permissions",
       value: JSON.stringify(permissions),
       updated_at: new Date().toISOString(),
-    } as any);
+    });
   } catch (err) {
     console.warn("Salvo localmente (Supabase fallback):", err);
   }
@@ -306,12 +306,85 @@ export async function saveDevConfiguration(
     localStorage.setItem(DEV_CONFIG_KEY, JSON.stringify(config));
 
     // Opcional: Persistir no Supabase platform_settings se disponível
-    await supabase.from("platform_settings").upsert({
+    await (supabase.from as any)("platform_settings").upsert({
       key: "dev_configuration",
       value: JSON.stringify(config),
       updated_at: new Date().toISOString(),
-    } as any);
+    });
   } catch (err) {
     console.warn("Salvo localmente (Supabase fallback):", err);
   }
+}
+
+export interface ForceCachePurgeRecord {
+  timestamp: number;
+  requested_by_id?: string | null;
+  requested_by_name?: string | null;
+  reason?: string;
+}
+
+/**
+ * Dispara uma ordem global para que todos os membros conectados limpem os caches
+ * do navegador (Service Workers, Cache Storage) e recarreguem a página em tempo real.
+ */
+export async function triggerForceCachePurge(
+  user?: AppUser | null,
+  profile?: Profile | null,
+  level?: AppLevel | null,
+  reason?: string
+): Promise<ForceCachePurgeRecord> {
+  assertDeveloperAccess(user, profile, level);
+
+  const record: ForceCachePurgeRecord = {
+    timestamp: Date.now(),
+    requested_by_id: user?.id || null,
+    requested_by_name: profile?.nickname || profile?.nome || "Desenvolvedor",
+    reason: reason?.trim() || "Atualização e limpeza de versão da plataforma",
+  };
+
+  try {
+    // 1. Persiste no banco Supabase para que clientes recém-abertos também recebam a instrução
+    await supabase.from("role_permissions").upsert(
+      {
+        level: "system_force_cache_purge",
+        nivel: "system_force_cache_purge",
+        permissions: record as any,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "level" }
+    );
+
+    // 2. Transmite via WebSocket Realtime Broadcast (latência imediata < 50ms)
+    const channel = supabase.channel("global-twtools-realtime");
+    await channel.send({
+      type: "broadcast",
+      event: "force_cache_purge",
+      payload: record,
+    });
+  } catch (err) {
+    console.error("Erro ao emitir ordem de limpeza de cache:", err);
+    throw err;
+  }
+
+  return record;
+}
+
+/**
+ * Busca a última instrução de limpeza forçada de cache emitida no sistema.
+ */
+export async function fetchLastForceCachePurge(): Promise<ForceCachePurgeRecord | null> {
+  try {
+    const { data } = await supabase
+      .from("role_permissions")
+      .select("permissions")
+      .eq("level", "system_force_cache_purge")
+      .maybeSingle();
+
+    if (data && data.permissions && typeof data.permissions === "object") {
+      return data.permissions as unknown as ForceCachePurgeRecord;
+    }
+  } catch (err) {
+    console.warn("Erro ao buscar registro de purga de cache:", err);
+  }
+  return null;
 }

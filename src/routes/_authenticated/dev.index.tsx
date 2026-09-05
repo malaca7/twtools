@@ -90,6 +90,7 @@ const ALL_SYSTEM_MODULES = [
       { title: "Enviar Avisos", url: "/avisos", icon: Megaphone, desc: "Disparo de notificações e comunicados para toda a facção", color: "text-amber-400" },
       { title: "Logs de Auditoria", url: "/logs", icon: ScrollText, desc: "Histórico completo de auditoria e ações realizadas na plataforma", color: "text-slate-400" },
       { title: "Configurações da Plataforma", url: "/configuracoes", icon: Wrench, desc: "Personalização de tema, regras, menus e integrações", color: "text-blue-400" },
+      { title: "Atualizações do Sistema", url: "/atualizacoes", icon: Sparkles, desc: "Visualização completa das notas de versão e melhorias postadas pela equipe de desenvolvimento", color: "text-emerald-400" },
       { title: "Meu Perfil", url: "/perfil", icon: User, desc: "Dados cadastrais do jogador, Discord e preferências", color: "text-emerald-400" },
     ],
   },
@@ -97,6 +98,8 @@ const ALL_SYSTEM_MODULES = [
     category: "Módulo Exclusivo Dev (Tag Desenvolvedor)",
     description: "Recursos avançados de engenharia, diagnóstico, inspeção e controle da tag dev.",
     items: [
+      { title: "Patch Notes & Atualizações Dev", url: "/dev/patch-notes", icon: Sparkles, desc: "Publicação de notas de versão, changelog técnico e envio de imagens para a administração", color: "text-emerald-400" },
+      { title: "Limpeza de Cache & Recarregar Clientes", url: "/dev/configuracao", icon: RefreshCw, desc: "Forçar limpeza de cache dos navegadores e recarregar todos os membros online via Realtime", color: "text-cyan-400" },
       { title: "Gestão de Desempenho Dev", url: "/dev/desempenho", icon: TrendingUp, desc: "Inspeção aprofundada de produtividade, tempo online e auditoria de membros", color: "text-rose-400" },
       { title: "Permissões da Tag Dev", url: "/dev/permissoes", icon: KeyRound, desc: "Matriz granular e gerenciamento de permissões da tag desenvolvedor", color: "text-rose-400" },
       { title: "Configurações do Módulo Dev", url: "/dev/configuracao", icon: Code2, desc: "Flags de depuração, modo manutenção, mock data e diagnóstico", color: "text-rose-400" },

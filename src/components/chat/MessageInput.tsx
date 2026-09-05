@@ -103,32 +103,43 @@ export function MessageInput({
 
   // Auto-focus input ao montar, trocar de conversa ou ao acionar resposta
   useEffect(() => {
-    if (!isBlockedByAdminOnly) {
+    if (!isBlockedByAdminOnly && !disabled) {
       const timer1 = setTimeout(() => {
         textareaRef.current?.focus({ preventScroll: true });
-      }, 50);
+      }, 40);
       const timer2 = setTimeout(() => {
         textareaRef.current?.focus({ preventScroll: true });
-      }, 150);
+      }, 120);
+      const timer3 = setTimeout(() => {
+        textareaRef.current?.focus({ preventScroll: true });
+      }, 300);
+      const timer4 = setTimeout(() => {
+        textareaRef.current?.focus({ preventScroll: true });
+      }, 600);
       return () => {
         clearTimeout(timer1);
         clearTimeout(timer2);
+        clearTimeout(timer3);
+        clearTimeout(timer4);
       };
     }
-  }, [conversationId, replyingTo, isBlockedByAdminOnly]);
+  }, [conversationId, replyingTo, isBlockedByAdminOnly, disabled]);
 
   // Listener global para focar no campo de digitação sempre que alguma ação no chat for acionada (ex: responder)
   useEffect(() => {
     const handleFocusRequest = () => {
-      if (!isBlockedByAdminOnly) {
+      if (!isBlockedByAdminOnly && !disabled) {
         setTimeout(() => {
           textareaRef.current?.focus({ preventScroll: true });
-        }, 50);
+        }, 30);
+        setTimeout(() => {
+          textareaRef.current?.focus({ preventScroll: true });
+        }, 150);
       }
     };
     window.addEventListener("tw_chat_focus_input", handleFocusRequest);
     return () => window.removeEventListener("tw_chat_focus_input", handleFocusRequest);
-  }, [isBlockedByAdminOnly]);
+  }, [isBlockedByAdminOnly, disabled]);
 
   // Limpa áudio preview ao desmontar
   useEffect(() => {
@@ -151,9 +162,11 @@ export function MessageInput({
       await onSendMessage(text);
       if (textareaRef.current) {
         textareaRef.current.style.height = "auto";
+        textareaRef.current.focus({ preventScroll: true });
       }
     } catch {
       setContent(text);
+      textareaRef.current?.focus({ preventScroll: true });
     }
   };
 
@@ -663,7 +676,10 @@ export function MessageInput({
                 </div>
               )}
 
-              <div className="relative flex items-center rounded-lg bg-[#2a3942] border border-transparent focus-within:border-white/10 transition-all">
+              <div
+                onClick={() => textareaRef.current?.focus()}
+                className="relative flex items-center rounded-lg bg-[#2a3942] border border-transparent focus-within:border-[#00a884]/40 transition-all cursor-text"
+              >
                 <textarea
                   ref={textareaRef}
                   value={content}
