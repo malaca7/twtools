@@ -229,7 +229,7 @@ export function hexToInt(hex: string): number {
 
 /**
  * Dispara um embed de teste diretamente através do Bot oficial (sem necessidade de webhook)
- * e aguarda confirmação real de entrega via WebSocket.
+ * e aguarda confirmação real de entrega via WebSocket persistente.
  */
 export async function triggerDiscordBotTestEmbed(
   categoryKey: keyof DiscordLogChannels,
@@ -270,36 +270,28 @@ export async function triggerDiscordBotTestEmbed(
     },
   };
 
-  return new Promise(async (resolve) => {
+  return new Promise((resolve) => {
     let hasResolved = false;
 
-    // Escuta a confirmação de entrega do tw-bot
-    const responseChannel = supabase.channel(`discord-test-res-${testId}`);
-
-    const cleanup = () => {
-      try {
-        void supabase.removeChannel(responseChannel);
-      } catch {}
-    };
-
-    // Timeout de 6 segundos caso o tw-bot esteja desligado
+    // Timeout de segurança de 8 segundos
     const timeoutTimer = setTimeout(() => {
       if (!hasResolved) {
         hasResolved = true;
-        cleanup();
         resolve({
           success: false,
-          message: `O Bot oficial (tw-bot) não respondeu. Certifique-se de que o bot está ligado e conectado ao Discord (execute 'npm start' dentro da pasta tw-bot ou verifique a Discloud).`,
+          message: `O Bot oficial (tw-bot) não respondeu em 8 segundos. Certifique-se de que o bot está ligado e conectado ao Discord (execute 'npm start' na pasta tw-bot ou verifique a Discloud).`,
         });
       }
-    }, 6000);
+    }, 8000);
 
-    responseChannel
-      .on("broadcast", { event: "test_embed_result" }, (msg: any) => {
+    // Canal persistente compartilhado entre frontend e bot
+    const sharedTestChannel = supabase.channel("system-discord-test-channel");
+
+    sharedTestChannel
+      .on("broadcast", { event: "test_result" }, (msg: any) => {
         if (msg?.payload?.test_id === testId && !hasResolved) {
           hasResolved = true;
           clearTimeout(timeoutTimer);
-          cleanup();
 
           if (msg.payload.success) {
             resolve({
@@ -318,15 +310,14 @@ export async function triggerDiscordBotTestEmbed(
       })
       .subscribe(async (status) => {
         if (status === "SUBSCRIBED") {
-          // 1. Envia broadcast para o tw-bot
-          const broadcastChannel = supabase.channel("system-discord-test-trigger");
-          await broadcastChannel.send({
+          // 1. Envia broadcast no canal compartilhado
+          await sharedTestChannel.send({
             type: "broadcast",
-            event: "trigger_test_embed",
+            event: "trigger_test",
             payload,
           });
 
-          // 2. Insere no audit_logs para persistência e fallback de listener
+          // 2. Insere no audit_logs para persistência e fallback
           try {
             await supabase.from("audit_logs").insert(payload as any);
           } catch {}

@@ -33,6 +33,7 @@ let membersCache = new Map();
 let productsCache = new Map();
 let bausCache = new Map();
 const processedTestIds = new Set();
+let testSharedChannel = null;
 
 /**
  * Configuração padrão do Discord & Bot (100% direta via IDs dos Canais do Bot)
@@ -596,15 +597,14 @@ function parseAuditLogForDiscord(log) {
 }
 
 /**
- * Responde a confirmação de teste de volta para a aplicação frontend via Supabase Broadcast
+ * Responde a confirmação de teste de volta para o canal compartilhado
  */
 async function respondTestResult(testId, result) {
-  if (!testId) return;
+  if (!testId || !testSharedChannel) return;
   try {
-    const resChannel = supabase.channel(`discord-test-res-${testId}`);
-    await resChannel.send({
+    await testSharedChannel.send({
       type: "broadcast",
-      event: "test_embed_result",
+      event: "test_result",
       payload: {
         test_id: testId,
         ...result,
@@ -625,7 +625,6 @@ async function dispatchAuditLogToDiscord(log) {
   if (testId) {
     if (processedTestIds.has(testId)) return;
     processedTestIds.add(testId);
-    // Limpa do set após 30 segundos
     setTimeout(() => processedTestIds.delete(testId), 30000);
   }
 
@@ -803,16 +802,18 @@ function setupRealtimeListeners() {
     })
     .subscribe();
 
-  // Canal de Broadcast para disparo direto de embeds de teste
-  supabase
-    .channel("system-discord-test-trigger")
-    .on("broadcast", { event: "trigger_test_embed" }, (payload) => {
+  // Canal persistente compartilhado para testes instantâneos bidirecionais
+  testSharedChannel = supabase.channel("system-discord-test-channel");
+  testSharedChannel
+    .on("broadcast", { event: "trigger_test" }, (payload) => {
       if (payload?.payload) {
-        console.log("🧪 [BROADCAST TEST] Teste de embed recebido via Broadcast!");
+        console.log("🧪 [TEST CHANNEL] Trigger de teste recebido:", payload.payload.test_id);
         dispatchAuditLogToDiscord(payload.payload);
       }
     })
-    .subscribe();
+    .subscribe((status) => {
+      console.log(`📡 [TEST CHANNEL STATUS] status: ${status}`);
+    });
 }
 
 /**
