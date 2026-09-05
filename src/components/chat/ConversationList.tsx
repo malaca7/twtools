@@ -58,6 +58,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useAuth } from "@/hooks/useAuth";
+import { useMembers } from "@/hooks/useData";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   togglePinConversation,
@@ -72,7 +73,7 @@ import {
 import { chatSound } from "@/lib/chatSound";
 import { ChatSoundSettingsDialog } from "./ChatSoundSettingsDialog";
 import { ManageFoldersDialog } from "./ManageFoldersDialog";
-import { formatTimeOnly, formatUserPresenceText } from "@/lib/format";
+import { formatTimeOnly, formatUserPresenceText, resolveMemberPresence } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { MessageStatusIcon } from "./MessageStatusIcon";
 import type { ChatConversation, ChatUserFolder, MessageStatus } from "@/types/chat";
@@ -101,6 +102,7 @@ export function ConversationList({
 }: ConversationListProps) {
   const { user, profile } = useAuth();
   const currentUserId = user?.id;
+  const { data: allMembers = [] } = useMembers();
   const queryClient = useQueryClient();
 
   const [search, setSearch] = useState("");
@@ -572,16 +574,22 @@ export function ConversationList({
             const isGroup = c.type === "group";
             const isActive = activeConversationId === c.id;
             const other = c.other_participant;
+            const liveOther = other ? allMembers.find((m) => m.user_id === other.user_id) || other : null;
             const title = isGroup
               ? c.title || "Grupo"
-              : other?.nickname
-              ? `${other.nickname} (${other.nome})`
-              : other?.nome || other?.discord_username || "Membro";
+              : liveOther?.nickname
+              ? `${liveOther.nickname} (${liveOther.nome})`
+              : liveOther?.nome || liveOther?.discord_username || "Membro";
 
-            const avatarUrl = isGroup ? c.avatar_url : other?.discord_avatar_url;
-            const initials = (isGroup ? c.title || "GR" : other?.nickname || other?.nome || "M").slice(0, 2).toUpperCase();
-            const isOnline = other?.presence_status === "online";
-            const isAusente = other?.presence_status === "ausente";
+            const avatarUrl = isGroup ? c.avatar_url : liveOther?.discord_avatar_url;
+            const initials = (isGroup ? c.title || "GR" : liveOther?.nickname || liveOther?.nome || "M").slice(0, 2).toUpperCase();
+            
+            const effectivePresence = liveOther
+              ? resolveMemberPresence(liveOther.presence_status, liveOther.last_seen, liveOther.presence_updated_at || liveOther.updated_at)
+              : "offline";
+            const isOnline = effectivePresence === "online";
+            const isAusente = effectivePresence === "ausente";
+
             const unread = c.unread_count || 0;
             const isPinned = Boolean(c.is_pinned);
             const isMuted = Boolean(c.is_muted);
@@ -632,16 +640,16 @@ export function ConversationList({
                     </AvatarFallback>
                   </Avatar>
 
-                  {!isGroup && other && (
+                  {!isGroup && liveOther && (
                     <span
                       className={cn(
                         "absolute -bottom-0.5 -right-0.5 h-3.5 w-3.5 rounded-full ring-2 ring-[#111b21]",
                         isOnline ? "bg-[#25d366]" : isAusente ? "bg-amber-500 animate-pulse" : "bg-zinc-500"
                       )}
                       title={formatUserPresenceText(
-                        other.presence_status,
-                        other.last_seen,
-                        other.presence_updated_at || other.updated_at
+                        liveOther.presence_status,
+                        liveOther.last_seen,
+                        liveOther.presence_updated_at || liveOther.updated_at
                       )}
                     />
                   )}
@@ -691,8 +699,11 @@ export function ConversationList({
                         unread > 0 ? "text-[#e9edef] font-medium" : "text-[#8696a0]"
                       )}
                     >
-                      {isLastMsgSelf && c.last_message && (
-                        <MessageStatusIcon status={lastMsgStatus} className="h-3 w-3 shrink-0 inline-block mr-0.5" />
+                      {isLastMsgSelf && (
+                        <>
+                          <MessageStatusIcon status={lastMsgStatus} className="h-3 w-3 shrink-0 inline-block" />
+                          <span className="font-bold text-[#aebac1] shrink-0 mr-0.5">Você:</span>
+                        </>
                       )}
                       {c.last_message ? (
                         <span className="truncate">{c.last_message}</span>

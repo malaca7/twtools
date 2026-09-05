@@ -124,6 +124,36 @@ export function formatLastSeen(lastSeenOrUpdatedAt?: string | Date | null): stri
 }
 
 /**
+ * Determina o status real do membro calculando tempo desde o último heartbeat/last_seen
+ */
+export function resolveMemberPresence(
+  status?: string | null,
+  lastSeen?: string | Date | null,
+  updatedAt?: string | Date | null
+): "online" | "ausente" | "offline" {
+  const raw = (status || "offline").toLowerCase();
+  if (raw !== "online" && raw !== "ausente") return "offline";
+
+  const targetDate = lastSeen || updatedAt;
+  if (!targetDate) return raw === "online" ? "offline" : (raw as any);
+
+  const ms = new Date(targetDate).getTime();
+  if (isNaN(ms) || ms <= 0) return "offline";
+
+  const diffSecs = (Date.now() - ms) / 1000;
+  if (raw === "online") {
+    if (diffSecs > 300) return "offline";
+    if (diffSecs > 90) return "ausente";
+    return "online";
+  }
+  if (raw === "ausente") {
+    if (diffSecs > 86400 * 7) return "offline";
+    return "ausente";
+  }
+  return "offline";
+}
+
+/**
  * Retorna o texto formatado completo do status de presença do usuário
  */
 export function formatUserPresenceText(
@@ -131,9 +161,9 @@ export function formatUserPresenceText(
   lastSeen?: string | Date | null,
   updatedAt?: string | Date | null
 ): string {
-  if (status === "online") return "Online";
-  if (status === "ausente") return formatAusenteDuration(updatedAt || lastSeen);
-  if (status === "ocupado") return "Ocupado";
+  const resolved = resolveMemberPresence(status, lastSeen, updatedAt);
+  if (resolved === "online") return "Online";
+  if (resolved === "ausente") return formatAusenteDuration(updatedAt || lastSeen);
   return formatLastSeen(lastSeen || updatedAt);
 }
 

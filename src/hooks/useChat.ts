@@ -74,12 +74,11 @@ export function useConversations(activeConversationId?: string | null) {
         },
         async (payload) => {
           const newMsg = payload.new as any;
-          if (!newMsg || !newMsg.conversation_id) return;
+          if (!newMsg || !newMsg.conversation_id || !userId) return;
 
-          // 1. O autor da mensagem NUNCA deve ser notificado da própria mensagem
-          if (!userId || newMsg.sender_id === userId) return;
+          const isSelf = newMsg.sender_id === userId;
 
-          // 2. Notificar ESTRITAMENTE participantes daquela conversa específica
+          // 1. Notificar ESTRITAMENTE participantes daquela conversa específica
           const userConvs = queryClient.getQueryData<ChatConversation[]>(["chat_conversations", userId]) || conversationsRef.current || [];
           let targetConv = userConvs.find((c) => c.id === newMsg.conversation_id);
           let isMuted = Boolean(targetConv?.is_muted);
@@ -108,71 +107,79 @@ export function useConversations(activeConversationId?: string | null) {
             }
           }
 
-          // Se a conversa estiver silenciada, não emitir som nem alerta
-          if (isMuted) return;
+          // 2. Alertas sonoros e visuais: SOMENTE para mensagens de terceiros e se não estiver silenciada
+          if (!isSelf && !isMuted) {
+            if (newMsg.id && !recentlyAlertedMessageIds.has(newMsg.id)) {
+              recentlyAlertedMessageIds.add(newMsg.id);
+              setTimeout(() => recentlyAlertedMessageIds.delete(newMsg.id), 8000);
 
-          // 3. Lógica de alerta para mensagens recebidas nesta conversa
-          if (newMsg.id && !recentlyAlertedMessageIds.has(newMsg.id)) {
-            recentlyAlertedMessageIds.add(newMsg.id);
-            setTimeout(() => recentlyAlertedMessageIds.delete(newMsg.id), 8000);
+              const isActiveConv = activeConvRef.current === newMsg.conversation_id;
+              const isMention =
+                Boolean(newMsg.mentions) &&
+                (newMsg.mentions.includes(userId) || (targetConv?.type === "group" && newMsg.mentions.includes("todos")));
 
-            const isActiveConv = activeConvRef.current === newMsg.conversation_id;
-            const isMention =
-              Boolean(newMsg.mentions) &&
-              (newMsg.mentions.includes(userId) || (targetConv?.type === "group" && newMsg.mentions.includes("todos")));
+              const senderMember = getCachedMember(newMsg.sender_id);
+              const senderName =
+                senderMember?.nickname ||
+                senderMember?.nome ||
+                newMsg.sender_name ||
+                "Alguém";
+              const senderAvatar =
+                senderMember?.avatar_url ||
+                senderMember?.discord_avatar_url ||
+                newMsg.sender_avatar ||
+                null;
 
-            const senderMember = getCachedMember(newMsg.sender_id);
-            const senderName =
-              senderMember?.nickname ||
-              senderMember?.nome ||
-              newMsg.sender_name ||
-              "Alguém";
-            const senderAvatar =
-              senderMember?.avatar_url ||
-              senderMember?.discord_avatar_url ||
-              newMsg.sender_avatar ||
-              null;
-
-            if (isMention) {
-              if (isActiveConv) {
-                chatSound.playMentionSound();
-              } else {
+              if (isMention) {
+                if (isActiveConv) {
+                  chatSound.playMentionSound();
+                } else {
+                  chatSound.triggerNewMessageAlert({
+                    message: newMsg,
+                    conversationId: newMsg.conversation_id,
+                    senderName,
+                    senderAvatar,
+                    isMention: true,
+                  });
+                }
+              } else if (!isActiveConv) {
                 chatSound.triggerNewMessageAlert({
                   message: newMsg,
                   conversationId: newMsg.conversation_id,
                   senderName,
                   senderAvatar,
-                  isMention: true,
+                  isMention: false,
                 });
+              } else {
+                // Conversa ativa, sem menção: toca som de chegada
+                chatSound.playIncomingMessage();
               }
-            } else if (!isActiveConv) {
-              chatSound.triggerNewMessageAlert({
-                message: newMsg,
-                conversationId: newMsg.conversation_id,
-                senderName,
-                senderAvatar,
-                isMention: false,
-              });
-            } else {
-              // Conversa ativa, sem menção: toca som de chegada
-              chatSound.playIncomingMessage();
-            }
 
-            if (!senderMember) {
-              void fetchChatMembersMap();
+              if (!senderMember) {
+                void fetchChatMembersMap();
+              }
             }
           }
 
-          // Atualização imediata no cache de conversas apenas se o usuário fizer parte dela
+          // Formatação legível da prévia da mensagem
+          let preview = newMsg.content?.trim();
+          if (!preview) {
+            if (newMsg.message_type === "audio") preview = "🎤 Mensagem de voz";
+            else if (newMsg.message_type === "image") preview = "📷 Foto";
+            else if (newMsg.message_type === "video") preview = "🎥 Vídeo";
+            else if (newMsg.message_type === "document") preview = `📄 ${newMsg.attachment_name || "Documento"}`;
+            else preview = newMsg.attachment_name || "Anexo";
+          }
+
+          // 3. Atualização imediata no cache de conversas (para remetente e destinatário)
           queryClient.setQueryData<ChatConversation[]>(["chat_conversations", userId], (old) => {
             if (!old) return old;
-            const preview = newMsg.content || newMsg.attachment_name || "Anexo";
             return old
               .map((c) => {
                 if (c.id === newMsg.conversation_id) {
                   const isCurrentActive = activeConvRef.current === c.id;
                   const newUnread =
-                    newMsg.sender_id !== userId && !isCurrentActive ? (c.unread_count || 0) + 1 : c.unread_count;
+                    !isSelf && !isCurrentActive ? (c.unread_count || 0) + 1 : (isCurrentActive ? 0 : c.unread_count);
                   return {
                     ...c,
                     last_message: preview,
@@ -908,6 +915,15 @@ export function useChatRoom(
         optimisticMsg,
       ]);
 
+      let optimisticPreview = text.trim();
+      if (!optimisticPreview) {
+        if (messageType === "audio") optimisticPreview = "🎤 Mensagem de voz";
+        else if (messageType === "image") optimisticPreview = "📷 Foto";
+        else if (messageType === "video") optimisticPreview = "🎥 Vídeo";
+        else if (messageType === "document") optimisticPreview = `📄 ${attachment?.name || "Documento"}`;
+        else optimisticPreview = attachment?.name || "Anexo";
+      }
+
       // Atualiza lista lateral de conversas instantaneamente
       queryClient.setQueryData<ChatConversation[]>(["chat_conversations", currentUserId], (old = []) =>
         old
@@ -915,7 +931,7 @@ export function useChatRoom(
             c.id === activeConversationId
               ? {
                   ...c,
-                  last_message: text.trim() || attachment?.name || "Anexo",
+                  last_message: optimisticPreview,
                   last_message_at: nowIso,
                   last_message_sender_id: currentUserId,
                 }

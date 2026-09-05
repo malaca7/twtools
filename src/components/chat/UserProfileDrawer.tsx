@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { MessageSquare, Phone, Clock, ShieldCheck, User } from "lucide-react";
 import { useMembers } from "@/hooks/useData";
 import { LEVEL_LABEL, levelBadgeClass, type AppLevel } from "@/lib/permissions";
-import { formatSecondsToHoursAndMinutes, formatUserPresenceText } from "@/lib/format";
+import { formatSecondsToHoursAndMinutes, formatUserPresenceText, resolveMemberPresence } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 interface UserProfileDrawerProps {
@@ -35,8 +35,13 @@ export function UserProfileDrawer({
   const displayName = member.nickname || member.nome;
   const initials = displayName.slice(0, 2).toUpperCase();
   const nivel = (member.nivel || "novato") as AppLevel;
-  const isOnline = member.presence_status === "online";
-  const isAusente = member.presence_status === "ausente";
+  const presenceStatus = resolveMemberPresence(
+    member.presence_status,
+    member.last_seen,
+    member.presence_updated_at || member.updated_at
+  );
+  const isOnline = presenceStatus === "online";
+  const isAusente = presenceStatus === "ausente";
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>

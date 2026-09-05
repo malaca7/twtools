@@ -197,7 +197,14 @@ export function ForwardMessageDialog({
                       )}
                     </div>
                     <p className={cn("text-[11px] truncate opacity-80", isSelected ? "text-primary-foreground" : "text-muted-foreground")}>
-                      {conv.last_message || "Sem mensagens"}
+                      {conv.last_message ? (
+                        <>
+                          {conv.last_message_sender_id === currentUserId && <span className="font-bold mr-1">Você:</span>}
+                          {conv.last_message}
+                        </>
+                      ) : (
+                        "Sem mensagens"
+                      )}
                     </p>
                   </div>
 

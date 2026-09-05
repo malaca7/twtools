@@ -11,6 +11,7 @@ import type {
   MessageReceiptParticipantInfo,
   MessageReceiptSummary,
 } from "@/types/chat";
+import { resolveMemberPresence } from "@/lib/format";
 import type { Member, UserPresenceStatus } from "@/lib/app-types";
 
 // In-memory cache for profiles & presences (30s TTL) to accelerate fallback rendering
@@ -61,7 +62,7 @@ export async function fetchChatMembersMap(force = false): Promise<Map<string, Me
         data_entrada: String(d.data_entrada || ""),
         created_at: String(d.created_at || ""),
         nivel: roleNivel,
-        presence_status: pres?.status || "offline",
+        presence_status: resolveMemberPresence(pres?.status, pres?.last_seen, pres?.updated_at),
         last_seen: pres?.last_seen || null,
         presence_updated_at: pres?.updated_at || null,
         updated_at: pres?.updated_at || null,
@@ -543,11 +544,20 @@ export async function sendChatMessage(
 
   if (insertError || !inserted) throw insertError || new Error("Falha ao gravar mensagem.");
 
+  let previewText = content.trim();
+  if (!previewText) {
+    if (options?.messageType === "audio") previewText = "🎤 Mensagem de voz";
+    else if (options?.messageType === "image") previewText = "📷 Foto";
+    else if (options?.messageType === "video") previewText = "🎥 Vídeo";
+    else if (options?.messageType === "document") previewText = `📄 ${options?.attachmentName || "Documento"}`;
+    else previewText = options?.attachmentName || "Anexo";
+  }
+
   // Atualiza última mensagem na conversa em segundo plano
   void supabase
     .from("chat_conversations" as any)
     .update({
-      last_message: content.trim() || options?.attachmentName || "Anexo",
+      last_message: previewText,
       last_message_at: (inserted as any).created_at || new Date().toISOString(),
       last_message_sender_id: (inserted as any).sender_id,
     })

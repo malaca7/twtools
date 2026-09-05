@@ -53,6 +53,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/hooks/useAuth";
+import { useMembers } from "@/hooks/useData";
 import { useChatRoom } from "@/hooks/useChat";
 import { useQueryClient } from "@tanstack/react-query";
 import {
@@ -81,7 +82,7 @@ import { ReportMessageDialog } from "./ReportMessageDialog";
 import { MessageThreadDrawer } from "./MessageThreadDrawer";
 import { WhatsAppWallpaperDialog } from "./WhatsAppWallpaperDialog";
 import { MessageInfoModal } from "./MessageInfoModal";
-import { formatTimeOnly, formatUserPresenceText } from "@/lib/format";
+import { formatTimeOnly, formatUserPresenceText, resolveMemberPresence } from "@/lib/format";
 import { LEVEL_LABEL } from "@/lib/permissions";
 import { cn } from "@/lib/utils";
 import type { ChatConversation, ChatMessage } from "@/types/chat";
@@ -121,6 +122,7 @@ export function ChatWindow({
 }: ChatWindowProps) {
   const { user } = useAuth();
   const currentUserId = user?.id;
+  const { data: allMembers = [] } = useMembers();
   const queryClient = useQueryClient();
   const cachedConversations = queryClient.getQueryData<ChatConversation[]>(["chat_conversations", currentUserId]) || [];
   const allConversations = passedAllConversations || cachedConversations;
@@ -366,18 +368,32 @@ export function ChatWindow({
   const effectiveUserRole = isGroupAdmin ? "admin" : "member";
 
   const otherMember = conversation.other_participant;
+  const liveMember = useMemo(() => {
+    if (!otherMember) return null;
+    const found = allMembers.find((m) => m.user_id === otherMember.user_id);
+    if (!found) return otherMember;
+    return {
+      ...otherMember,
+      ...found,
+      presence_status: resolveMemberPresence(found.presence_status, found.last_seen, found.presence_updated_at || found.updated_at),
+    };
+  }, [otherMember, allMembers]);
+
   const title = isGroup
     ? conversation.title || "Grupo"
-    : otherMember?.nickname
-    ? `${otherMember.nickname} (${otherMember.nome})`
-    : otherMember?.nome || otherMember?.discord_username || "Membro";
+    : liveMember?.nickname
+    ? `${liveMember.nickname} (${liveMember.nome})`
+    : liveMember?.nome || liveMember?.discord_username || "Membro";
 
-  const avatarUrl = isGroup ? conversation.avatar_url : otherMember?.discord_avatar_url;
-  const initials = (isGroup ? conversation.title || "GR" : otherMember?.nickname || otherMember?.nome || "M").slice(0, 2).toUpperCase();
+  const avatarUrl = isGroup ? conversation.avatar_url : liveMember?.discord_avatar_url;
+  const initials = (isGroup ? conversation.title || "GR" : liveMember?.nickname || liveMember?.nome || "M").slice(0, 2).toUpperCase();
 
-  const isOnline = otherMember?.presence_status === "online";
-  const isAusente = otherMember?.presence_status === "ausente";
-  const memberNivelLabel = otherMember?.nivel ? LEVEL_LABEL[otherMember.nivel] || otherMember.nivel : null;
+  const livePresence = liveMember
+    ? resolveMemberPresence(liveMember.presence_status, liveMember.last_seen, liveMember.presence_updated_at || liveMember.updated_at)
+    : "offline";
+  const isOnline = livePresence === "online";
+  const isAusente = livePresence === "ausente";
+  const memberNivelLabel = liveMember?.nivel ? LEVEL_LABEL[liveMember.nivel] || liveMember.nivel : null;
   const [togglingLock, setTogglingLock] = useState(false);
 
   const handleQuickToggleOnlyAdmins = async () => {
@@ -441,8 +457,8 @@ export function ChatWindow({
             onClick={() => {
               if (isGroup) {
                 setGroupSettingsOpen(true);
-              } else if (otherMember) {
-                setProfileUserId(otherMember.user_id);
+              } else if (liveMember) {
+                setProfileUserId(liveMember.user_id);
               }
             }}
             className="flex items-center gap-3 min-w-0 flex-1 cursor-pointer group select-none"
@@ -476,7 +492,7 @@ export function ChatWindow({
                     <Lock className="h-2.5 w-2.5 mr-0.5 inline" /> Admins
                   </Badge>
                 )}
-                {!isGroup && otherMember?.is_developer && (
+                {!isGroup && liveMember?.is_developer && (
                   <Badge variant="outline" className="text-[8.5px] font-mono px-1.5 py-0 border-rose-500/40 text-rose-400 bg-rose-500/10 font-bold shrink-0">
                     DEV
                   </Badge>
@@ -499,14 +515,14 @@ export function ChatWindow({
                       )}
                     >
                       {formatUserPresenceText(
-                        otherMember?.presence_status,
-                        otherMember?.last_seen,
-                        otherMember?.presence_updated_at || otherMember?.updated_at
+                        liveMember?.presence_status,
+                        liveMember?.last_seen,
+                        liveMember?.presence_updated_at || liveMember?.updated_at
                       )}
                     </span>
-                    {otherMember?.game_id && (
+                    {liveMember?.game_id && (
                       <span className="text-white/60 font-mono text-[10px]">
-                        #{otherMember.game_id}
+                        #{liveMember.game_id}
                       </span>
                     )}
                   </>
