@@ -135,47 +135,47 @@ export function DevForcePurgeCard() {
               </Button>
             </DialogTrigger>
 
-            <DialogContent className="max-w-md bg-[#0a0f1d] border-cyan-500/40 text-white p-6 shadow-2xl">
+            <DialogContent className="sm:max-w-lg w-[calc(100%-2rem)] bg-[#0c1222] border border-cyan-500/40 text-white p-5 sm:p-6 shadow-2xl rounded-2xl ring-1 ring-cyan-500/30 backdrop-blur-2xl">
               <DialogHeader className="space-y-2">
-                <div className="flex items-center gap-2">
-                  <div className="p-2 rounded-xl bg-cyan-500/20 text-cyan-400 border border-cyan-500/40">
+                <div className="flex items-center gap-3">
+                  <div className="p-2.5 rounded-xl bg-cyan-500/20 text-cyan-400 border border-cyan-500/40 shadow-inner">
                     <RotateCcw className="h-5 w-5 animate-spin" />
                   </div>
                   <div>
-                    <DialogTitle className="text-base font-black text-white">
+                    <DialogTitle className="text-base font-black text-white tracking-tight">
                       Confirmar Limpeza Forçada de Cache
                     </DialogTitle>
                     <DialogDescription className="text-xs text-slate-300">
-                      Esta ação enviará uma ordem para todos os clientes online no site.
+                      Esta ação enviará uma instrução global para todos os clientes online.
                     </DialogDescription>
                   </div>
                 </div>
               </DialogHeader>
 
               <div className="space-y-4 py-3 text-xs">
-                <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3.5 text-amber-300 space-y-1.5">
+                <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3.5 text-amber-300 space-y-2">
                   <div className="flex items-center gap-1.5 font-bold text-xs">
                     <AlertTriangle className="h-4 w-4 shrink-0 text-amber-400" />
                     <span>O que acontece ao acionar?</span>
                   </div>
-                  <ul className="list-disc pl-5 space-y-1 text-[0.72rem] text-amber-200/90">
+                  <ul className="list-disc pl-5 space-y-1 text-[0.72rem] text-amber-200/90 leading-relaxed">
                     <li>O <strong>Cache Storage</strong> de todos os navegadores conectados é apagado.</li>
                     <li>Todos os <strong>Service Workers</strong> ativos são desregistrados.</li>
-                    <li>O cache em memória do TanStack Query é limpo.</li>
-                    <li>Um aviso elegante e futurista é exibido para o usuário antes da recarga automática.</li>
+                    <li>O cache em memória do TanStack Query é limpo instantaneamente.</li>
+                    <li>Um aviso futurista com contagem regressiva é exibido antes do recarregamento automático.</li>
                   </ul>
                 </div>
 
-                <div className="space-y-2">
+                <div className="space-y-1.5">
                   <Label htmlFor="purge-reason" className="text-xs font-bold text-slate-200">
                     Motivo / Notas da Atualização (Opcional)
                   </Label>
                   <Input
                     id="purge-reason"
-                    placeholder="Ex: Correção no sistema de notificações e nova versão do chat"
-                    value={reason}
+                    placeholder="Ex: Atualização de funcionalidades e limpeza de cache"
+                    value={reason ?? ""}
                     onChange={(e) => setReason(e.target.value)}
-                    className="bg-black/40 border-white/10 text-xs text-white placeholder:text-slate-500 focus-visible:ring-cyan-500"
+                    className="bg-black/50 border-white/15 text-xs text-white placeholder:text-slate-500 focus-visible:ring-cyan-500 h-10 rounded-xl"
                   />
                   <p className="text-[0.68rem] text-slate-400">
                     Este texto será visível no aviso de carregamento de todos os membros.
@@ -183,13 +183,13 @@ export function DevForcePurgeCard() {
                 </div>
               </div>
 
-              <DialogFooter className="gap-2 sm:gap-0">
+              <DialogFooter className="gap-2 sm:gap-2 pt-2">
                 <Button
                   type="button"
                   variant="ghost"
                   onClick={() => setDialogOpen(false)}
                   disabled={isSubmitting}
-                  className="text-xs hover:bg-white/10 text-slate-300"
+                  className="text-xs hover:bg-white/10 text-slate-300 rounded-xl h-9"
                 >
                   Cancelar
                 </Button>
@@ -197,7 +197,7 @@ export function DevForcePurgeCard() {
                   type="button"
                   onClick={handleTrigger}
                   disabled={isSubmitting}
-                  className="bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white font-bold text-xs shadow-md shadow-cyan-500/30 gap-1.5"
+                  className="bg-gradient-to-r from-cyan-500 via-blue-600 to-indigo-600 hover:from-cyan-400 hover:to-blue-500 text-white font-bold text-xs shadow-lg shadow-cyan-500/30 gap-1.5 rounded-xl h-9 transition-all cursor-pointer active:scale-95"
                 >
                   {isSubmitting ? (
                     <>

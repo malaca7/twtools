@@ -187,9 +187,9 @@ const DialogContent = React.forwardRef<
 >((props, ref) => {
   const { open } = useDialogContext();
 
-  if (!open) return null;
+  if (!open || typeof document === "undefined") return null;
 
-  return <DialogContentInner ref={ref} {...props} />;
+  return createPortal(<DialogContentInner ref={ref} {...props} />, document.body);
 });
 DialogContent.displayName = "DialogContent";
 
