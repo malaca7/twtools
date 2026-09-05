@@ -80,6 +80,7 @@ import { LEVEL_LABEL, levelBadgeClass, type Permission } from "@/lib/permissions
 import { cn } from "@/lib/utils";
 import { FloatingPresenceWidget } from "./FloatingPresenceWidget";
 import { ForceCachePurgeListener } from "@/components/dev/ForceCachePurgeListener";
+import { NotificationCenter } from "@/components/notifications/NotificationCenter";
 
 type MasterNavItem = {
   id: string;
@@ -568,6 +569,9 @@ export function AppShell({ children }: { children: ReactNode }) {
                   </span>
                 </div>
               </div>
+
+              {/* CENTRAL DE NOTIFICAÇÕES EM TEMPO REAL */}
+              <NotificationCenter />
 
               <DropdownMenu modal={false}>
                 <DropdownMenuTrigger asChild>

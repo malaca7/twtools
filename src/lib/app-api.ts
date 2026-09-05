@@ -45,6 +45,7 @@ import type {
   AddTicketMemberPayload,
 } from "@/types/tickets";
 import { getCategoryInfo, getStatusInfo } from "@/types/tickets";
+import { createNotification } from "./notifications-api";
 
 export async function getCurrentAuth(): Promise<AuthState> {
   try {
@@ -839,6 +840,16 @@ export async function createAnnouncement(payload: { title: string; content: stri
 
   void logAuditAction("create_announcement", "announcements", { title: payload.title, priority: payload.priority }, undefined, (data as any).id);
 
+  void createNotification({
+    title: `Novo Comunicado: ${payload.title}`,
+    message: payload.content.slice(0, 110) + (payload.content.length > 110 ? "..." : ""),
+    type: "announcement",
+    category: payload.priority === "urgente" ? "error" : payload.priority === "importante" ? "warning" : "info",
+    user_id: "all",
+    link: "/avisos",
+    sender_id: session.user.id,
+  });
+
   return {
     id: (data as any).id,
     author_id: (data as any).author_id,
@@ -1158,6 +1169,15 @@ export async function submitSignupRequest(payload: { nome: string; nickname?: st
     telefone: payload.telefone.trim(),
     game_id: payload.game_id.trim(),
   });
+
+  void createNotification({
+    title: "Novo Pedido de Cadastro",
+    message: `${payload.nome.trim()}${payload.nickname ? ` (${payload.nickname.trim()})` : ""} solicitou aprovação de cadastro na plataforma.`,
+    type: "signup",
+    category: "info",
+    target_roles: ["01", "02", "gerente", "desenvolvedor"],
+    link: "/painel-geral",
+  });
 }
 
 export async function submitSignupReview({ data }: { data: { requestId: string; approve: boolean; nivel?: AppLevel; reason?: string } }): Promise<void> {
@@ -1186,6 +1206,17 @@ export async function submitSignupReview({ data }: { data: { requestId: string; 
       nome: applicantName,
       nivel: data.nivel || "novato",
     });
+
+    if (targetId) {
+      void createNotification({
+        title: "Cadastro Aprovado! 🎉",
+        message: "Seu pedido de cadastro foi aprovado pela liderança. Bem-vindo à facção!",
+        type: "signup",
+        category: "success",
+        user_id: targetId,
+        link: "/",
+      });
+    }
   } else {
     // 1. Audit log entry is written first so history is preserved
     void logAuditAction("reject_signup", "signup_requests", {
@@ -2056,6 +2087,18 @@ export async function createAbsence(payload: CreateAbsencePayload): Promise<Memb
     newAbsence.id
   );
 
+  void createNotification({
+    title: "Nova Solicitação de Licença",
+    message: `${memberName} solicitou licença de ${daysCount} dia(s) (${payload.start_date} a ${payload.end_date}). Motivo: ${payload.reason}`,
+    type: "absence",
+    category: "warning",
+    target_roles: ["01", "02", "gerente", "desenvolvedor"],
+    link: "/ausencias",
+    sender_id: session.user.id,
+    sender_name: memberName,
+    sender_avatar: memberAvatar,
+  });
+
   return newAbsence;
 }
 
@@ -2108,6 +2151,17 @@ export async function reviewAbsence(
     undefined,
     absenceId
   );
+
+  void createNotification({
+    title: payload.status === "aprovado" ? "Licença Aprovada! 🏖️" : "Licença Não Aprovada",
+    message: `Sua solicitação de licença (${target.start_date} a ${target.end_date}) foi ${payload.status} por ${reviewerName}.`,
+    type: "absence",
+    category: payload.status === "aprovado" ? "success" : "error",
+    user_id: target.user_id,
+    link: "/ausencias",
+    sender_id: session.user.id,
+    sender_name: reviewerName,
+  });
 
   return updatedAbsence;
 }
@@ -2489,6 +2543,19 @@ export async function submitGoalDelivery(payload: SubmitGoalPayload): Promise<Go
     newSubmission.id
   );
 
+  void createNotification({
+    title: "Nova Entrega de Meta",
+    message: `${memberName} registrou entrega de ${newSubmission.amount} ${unitName} para "${goalTitle}".`,
+    type: "goal",
+    category: "info",
+    user_id: payload.receiver_id || "all",
+    target_roles: ["01", "02", "gerente", "desenvolvedor"],
+    link: "/metas",
+    sender_id: session.user.id,
+    sender_name: memberName,
+    sender_avatar: memberAvatar,
+  });
+
   return newSubmission;
 }
 
@@ -2549,6 +2616,19 @@ export async function reviewGoalSubmission(
     undefined,
     submissionId
   );
+
+  if (!isPending) {
+    void createNotification({
+      title: payload.status === "aprovado" ? "Entrega de Meta Aprovada! 🎯" : "Entrega de Meta Não Aprovada",
+      message: `Sua entrega de ${target.amount} ${target.unit_name} para "${target.goal_title}" foi ${payload.status} por ${reviewerName}.`,
+      type: "goal",
+      category: payload.status === "aprovado" ? "success" : "error",
+      user_id: target.user_id,
+      link: "/metas",
+      sender_id: session?.user?.id,
+      sender_name: reviewerName,
+    });
+  }
 
   return updated;
 }
@@ -2905,6 +2985,18 @@ export async function createTicket(payload: CreateTicketPayload): Promise<Ticket
     newTicket.id
   );
 
+  void createNotification({
+    title: `Novo Chamado #${String(newTicket.ticket_number).padStart(3, "0")}`,
+    message: `${creatorName} abriu um chamado: "${newTicket.subject}" (${catInfo?.label || newTicket.category})`,
+    type: "ticket",
+    category: newTicket.priority === "urgente" || newTicket.priority === "alta" ? "alert" : "info",
+    target_roles: ["01", "02", "gerente", "desenvolvedor"],
+    link: `/tickets/${newTicket.id}`,
+    sender_id: auth.user.id,
+    sender_name: creatorName,
+    sender_avatar: creatorAvatar,
+  });
+
   return newTicket;
 }
 
@@ -2987,6 +3079,29 @@ export async function addTicketMessage(
     ticket.id
   );
 
+  if (!isInternal) {
+    const recipients = new Set<string>();
+    if (ticket.user_id !== auth.user.id) recipients.add(ticket.user_id);
+    if (ticket.assigned_to_id && ticket.assigned_to_id !== auth.user.id) recipients.add(ticket.assigned_to_id);
+    (ticket.members || []).forEach((m) => {
+      if (m.user_id !== auth.user.id) recipients.add(m.user_id);
+    });
+
+    for (const recipientId of recipients) {
+      void createNotification({
+        title: `Resposta no Chamado #${String(ticket.ticket_number).padStart(3, "0")}`,
+        message: `${auth.nome}: "${payload.content.slice(0, 95)}${payload.content.length > 95 ? "..." : ""}"`,
+        type: "ticket",
+        category: "info",
+        user_id: recipientId,
+        link: `/tickets/${ticket.id}`,
+        sender_id: auth.user.id,
+        sender_name: auth.nome,
+        sender_avatar: auth.avatar,
+      });
+    }
+  }
+
   return newMessage;
 }
 
@@ -3035,6 +3150,20 @@ export async function claimTicket(ticketId: string): Promise<Ticket> {
     undefined,
     ticket.id
   );
+
+  if (ticket.user_id !== auth.user.id) {
+    void createNotification({
+      title: `Chamado #${String(ticket.ticket_number).padStart(3, "0")} em atendimento`,
+      message: `${auth.nome} assumiu o atendimento do seu chamado.`,
+      type: "ticket",
+      category: "info",
+      user_id: ticket.user_id,
+      link: `/tickets/${ticket.id}`,
+      sender_id: auth.user.id,
+      sender_name: auth.nome,
+      sender_avatar: auth.avatar,
+    });
+  }
 
   return updatedTicket;
 }
@@ -3231,6 +3360,19 @@ export async function closeTicket(
     undefined,
     ticket.id
   );
+
+  if (ticket.user_id !== auth.user.id) {
+    void createNotification({
+      title: `Chamado #${String(ticket.ticket_number).padStart(3, "0")} finalizado`,
+      message: `Seu chamado "${ticket.subject}" foi finalizado por ${actorName}. Motivo: "${reason}"`,
+      type: "ticket",
+      category: "success",
+      user_id: ticket.user_id,
+      link: `/tickets/${ticket.id}`,
+      sender_id: auth.user.id,
+      sender_name: actorName,
+    });
+  }
 
   return updatedTicket;
 }
