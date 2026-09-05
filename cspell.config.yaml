@@ -1,0 +1,8 @@
+version: "0.2"
+language: "en,pt,pt_BR"
+ignorePaths: []
+dictionaryDefinitions: []
+dictionaries: []
+words: []
+ignoreWords: []
+import: []

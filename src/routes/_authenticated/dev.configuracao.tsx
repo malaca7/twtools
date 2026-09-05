@@ -16,12 +16,15 @@ import {
   Cpu,
   Database,
   Lock,
+  Bot,
+  Settings,
 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PageHeader } from "@/components/ui-kit";
 import { useAuth } from "@/hooks/useAuth";
 import { DeveloperGuard } from "@/dev/guards/DeveloperGuard";
@@ -32,6 +35,7 @@ import {
   type DevConfiguration,
 } from "@/services/devService";
 import { DevForcePurgeCard } from "@/components/dev/DevForcePurgeCard";
+import { DevDiscordConfigCard } from "@/components/dev/DevDiscordConfigCard";
 
 export const Route = createFileRoute("/_authenticated/dev/configuracao")({
   component: DevConfiguracaoPageWrapper,
@@ -210,108 +214,127 @@ function DevConfiguracaoContent() {
           <p className="text-sm font-bold text-rose-400">{error}</p>
         </Card>
       ) : (
-        <div className="space-y-6">
-          {/* Card de Limpeza Forçada de Cache em Tempo Real */}
-          <DevForcePurgeCard />
+        <Tabs defaultValue="discord" className="space-y-6">
+          <TabsList className="grid w-full grid-cols-2 max-w-md bg-secondary/40 p-1 rounded-xl border border-border/60">
+            <TabsTrigger value="discord" className="text-xs font-bold gap-2 py-2 data-[state=active]:bg-gradient-to-r data-[state=active]:from-indigo-600 data-[state=active]:to-purple-600 data-[state=active]:text-white">
+              <Bot className="h-4 w-4" />
+              Discord & Bot de Logs
+            </TabsTrigger>
+            <TabsTrigger value="general" className="text-xs font-bold gap-2 py-2 data-[state=active]:bg-gradient-to-r data-[state=active]:from-rose-600 data-[state=active]:to-pink-600 data-[state=active]:text-white">
+              <Settings className="h-4 w-4" />
+              Ajustes Gerais Dev
+            </TabsTrigger>
+          </TabsList>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-            {/* Option 1: Developer Bypass */}
-          <Card className="surface-card border transition-all duration-300">
-            <CardHeader className="pb-3 border-b border-border/60">
-              <div className="flex items-center gap-2.5">
-                <div className="p-2 rounded-lg bg-rose-500/10 text-rose-400 border border-rose-500/20">
-                  <ShieldCheck className="h-4 w-4" />
-                </div>
-                <div>
-                  <CardTitle className="text-sm font-extrabold text-foreground">Bypass de Autorização Dev</CardTitle>
-                  <CardDescription className="text-[0.7rem]">Privilégio supremo de desenvolvedor</CardDescription>
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between gap-3 p-3 rounded-xl bg-secondary/30 border border-border/40 hover:border-primary/30 transition-all">
-                <div className="space-y-0.5">
-                  <Label htmlFor="developerBypassMode" className="text-xs font-bold text-foreground cursor-pointer block">
-                    Acesso Irrestrito Supremo
-                  </Label>
-                  <p className="text-[0.65rem] text-muted-foreground">
-                    Garante acesso completo a todas as páginas e ações sem bloqueio de patente.
-                  </p>
-                </div>
-                <Switch
-                  id="developerBypassMode"
-                  checked={config.developerBypassMode}
-                  onCheckedChange={() => handleToggle("developerBypassMode")}
-                />
-              </div>
-            </CardContent>
-          </Card>
+          {/* TAB 1: DISCORD & BOT DE LOGS */}
+          <TabsContent value="discord" className="space-y-6 animate-in fade-in-50 duration-300">
+            <DevDiscordConfigCard />
+          </TabsContent>
 
-          {/* Option 2: Dev Audit Logs */}
-          <Card className="surface-card border transition-all duration-300">
-            <CardHeader className="pb-3 border-b border-border/60">
-              <div className="flex items-center gap-2.5">
-                <div className="p-2 rounded-lg bg-purple-500/10 text-purple-400 border border-purple-500/20">
-                  <Terminal className="h-4 w-4" />
-                </div>
-                <div>
-                  <CardTitle className="text-sm font-extrabold text-foreground">Auditoria de Ações Dev</CardTitle>
-                  <CardDescription className="text-[0.7rem]">Rastreamento e histórico de alterações</CardDescription>
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between gap-3 p-3 rounded-xl bg-secondary/30 border border-border/40 hover:border-primary/30 transition-all">
-                <div className="space-y-0.5">
-                  <Label htmlFor="devAuditLogs" className="text-xs font-bold text-foreground cursor-pointer block">
-                    Registrar Ações Dev no Servidor
-                  </Label>
-                  <p className="text-[0.65rem] text-muted-foreground">
-                    Armazena em log de auditoria todas as alterações efetuadas por usuários com tag dev.
-                  </p>
-                </div>
-                <Switch
-                  id="devAuditLogs"
-                  checked={config.devAuditLogs}
-                  onCheckedChange={() => handleToggle("devAuditLogs")}
-                />
-              </div>
-            </CardContent>
-          </Card>
+          {/* TAB 2: AJUSTES GERAIS DEV */}
+          <TabsContent value="general" className="space-y-6 animate-in fade-in-50 duration-300">
+            {/* Card de Limpeza Forçada de Cache em Tempo Real */}
+            <DevForcePurgeCard />
 
-          {/* Option 3: Dev System Notifications */}
-          <Card className="surface-card border transition-all duration-300">
-            <CardHeader className="pb-3 border-b border-border/60">
-              <div className="flex items-center gap-2.5">
-                <div className="p-2 rounded-lg bg-sky-500/10 text-sky-400 border border-sky-500/20">
-                  <Bell className="h-4 w-4" />
-                </div>
-                <div>
-                  <CardTitle className="text-sm font-extrabold text-foreground">Alertas de Exceção</CardTitle>
-                  <CardDescription className="text-[0.7rem]">Notificações em tempo real</CardDescription>
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between gap-3 p-3 rounded-xl bg-secondary/30 border border-border/40 hover:border-primary/30 transition-all">
-                <div className="space-y-0.5">
-                  <Label htmlFor="devSystemNotifications" className="text-xs font-bold text-foreground cursor-pointer block">
-                    Notificações Instantâneas Dev
-                  </Label>
-                  <p className="text-[0.65rem] text-muted-foreground">
-                    Exibe popups de aviso em tela quando ocorrem exceções não tratadas na plataforma.
-                  </p>
-                </div>
-                <Switch
-                  id="devSystemNotifications"
-                  checked={config.devSystemNotifications}
-                  onCheckedChange={() => handleToggle("devSystemNotifications")}
-                />
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+              {/* Option 1: Developer Bypass */}
+              <Card className="surface-card border transition-all duration-300">
+                <CardHeader className="pb-3 border-b border-border/60">
+                  <div className="flex items-center gap-2.5">
+                    <div className="p-2 rounded-lg bg-rose-500/10 text-rose-400 border border-rose-500/20">
+                      <ShieldCheck className="h-4 w-4" />
+                    </div>
+                    <div>
+                      <CardTitle className="text-sm font-extrabold text-foreground">Bypass de Autorização Dev</CardTitle>
+                      <CardDescription className="text-[0.7rem]">Privilégio supremo de desenvolvedor</CardDescription>
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between gap-3 p-3 rounded-xl bg-secondary/30 border border-border/40 hover:border-primary/30 transition-all">
+                    <div className="space-y-0.5">
+                      <Label htmlFor="developerBypassMode" className="text-xs font-bold text-foreground cursor-pointer block">
+                        Acesso Irrestrito Supremo
+                      </Label>
+                      <p className="text-[0.65rem] text-muted-foreground">
+                        Garante acesso completo a todas as páginas e ações sem bloqueio de patente.
+                      </p>
+                    </div>
+                    <Switch
+                      id="developerBypassMode"
+                      checked={config.developerBypassMode}
+                      onCheckedChange={() => handleToggle("developerBypassMode")}
+                    />
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Option 2: Dev Audit Logs */}
+              <Card className="surface-card border transition-all duration-300">
+                <CardHeader className="pb-3 border-b border-border/60">
+                  <div className="flex items-center gap-2.5">
+                    <div className="p-2 rounded-lg bg-purple-500/10 text-purple-400 border border-purple-500/20">
+                      <Terminal className="h-4 w-4" />
+                    </div>
+                    <div>
+                      <CardTitle className="text-sm font-extrabold text-foreground">Auditoria de Ações Dev</CardTitle>
+                      <CardDescription className="text-[0.7rem]">Rastreamento e histórico de alterações</CardDescription>
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between gap-3 p-3 rounded-xl bg-secondary/30 border border-border/40 hover:border-primary/30 transition-all">
+                    <div className="space-y-0.5">
+                      <Label htmlFor="devAuditLogs" className="text-xs font-bold text-foreground cursor-pointer block">
+                        Registrar Ações Dev no Servidor
+                      </Label>
+                      <p className="text-[0.65rem] text-muted-foreground">
+                        Armazena em log de auditoria todas as alterações efetuadas por usuários com tag dev.
+                      </p>
+                    </div>
+                    <Switch
+                      id="devAuditLogs"
+                      checked={config.devAuditLogs}
+                      onCheckedChange={() => handleToggle("devAuditLogs")}
+                    />
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Option 3: Dev System Notifications */}
+              <Card className="surface-card border transition-all duration-300">
+                <CardHeader className="pb-3 border-b border-border/60">
+                  <div className="flex items-center gap-2.5">
+                    <div className="p-2 rounded-lg bg-sky-500/10 text-sky-400 border border-sky-500/20">
+                      <Bell className="h-4 w-4" />
+                    </div>
+                    <div>
+                      <CardTitle className="text-sm font-extrabold text-foreground">Alertas de Exceção</CardTitle>
+                      <CardDescription className="text-[0.7rem]">Notificações em tempo real</CardDescription>
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between gap-3 p-3 rounded-xl bg-secondary/30 border border-border/40 hover:border-primary/30 transition-all">
+                    <div className="space-y-0.5">
+                      <Label htmlFor="devSystemNotifications" className="text-xs font-bold text-foreground cursor-pointer block">
+                        Notificações Instantâneas Dev
+                      </Label>
+                      <p className="text-[0.65rem] text-muted-foreground">
+                        Exibe popups de aviso em tela quando ocorrem exceções não tratadas na plataforma.
+                      </p>
+                    </div>
+                    <Switch
+                      id="devSystemNotifications"
+                      checked={config.devSystemNotifications}
+                      onCheckedChange={() => handleToggle("devSystemNotifications")}
+                    />
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
+        </Tabs>
       )}
     </div>
   );
