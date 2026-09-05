@@ -35,40 +35,19 @@ import { useAuth } from "@/hooks/useAuth";
 import { useSales, useMovements, useMembers, useGoals } from "@/hooks/useData";
 import { currency, num, dateTime } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import { getLevelLabel, levelBadgeClass } from "@/lib/permissions";
-import { isUserDeveloper } from "@/services/devService";
-import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import { Progress } from "@/components/ui/progress";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-} from "@/components/ui/dialog";
+import { DeveloperGuard } from "@/dev/guards/DeveloperGuard";
 
 export const Route = createFileRoute("/_authenticated/dev/desempenho")({
-  component: GestaoDesempenhoPage,
+  component: GestaoDesempenhoPageWrapper,
 });
+
+function GestaoDesempenhoPageWrapper() {
+  return (
+    <DeveloperGuard>
+      <GestaoDesempenhoPage />
+    </DeveloperGuard>
+  );
+}
 
 type TimeFilter = "all" | "today" | "7days" | "month" | "last_month";
 type SortOption = "revenue" | "score" | "sales" | "ticket" | "movements";

@@ -147,10 +147,12 @@ function DynamicSidebarNavigation() {
 
   const isDevUser = isUserDeveloper(user, profile, level);
 
-  // Se o usuário acessar uma rota /dev diretamente, ativa o modo dev
+  // Se o usuário acessar uma rota /dev diretamente, ativa o modo dev apenas se for Dev verificado
   useEffect(() => {
     if (isDevUser && pathname.startsWith("/dev") && !isDevMode) {
       setPanelMode("dev");
+    } else if (!isDevUser && isDevMode) {
+      setPanelMode("member");
     }
   }, [pathname, isDevUser, isDevMode, setPanelMode]);
 
@@ -175,7 +177,7 @@ function DynamicSidebarNavigation() {
       };
     });
 
-    if (isDevMode) {
+    if (isDevUser && isDevMode) {
       // MODO DEV TOOLS:
       // A) Agrupa itens de ferramentas Dev com base em devMenuConfig
       const devValidItems = devMenuConfig?.items?.filter((c) => Boolean(c && (c.id || c.url))) || [];

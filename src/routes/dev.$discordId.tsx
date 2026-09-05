@@ -10,9 +10,19 @@ import { supabase } from "@/integrations/supabase/client";
 import { LEVEL_LABEL, levelBadgeClass, type AppLevel } from "@/lib/permissions";
 import { cn } from "@/lib/utils";
 
+import { DeveloperGuard } from "@/dev/guards/DeveloperGuard";
+
 export const Route = createFileRoute("/dev/$discordId")({
-  component: DevLoginPage,
+  component: DevLoginPageWrapper,
 });
+
+function DevLoginPageWrapper() {
+  return (
+    <DeveloperGuard>
+      <DevLoginPage />
+    </DeveloperGuard>
+  );
+}
 
 type DevProfile = {
   user_id: string;

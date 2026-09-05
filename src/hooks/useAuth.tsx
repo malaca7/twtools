@@ -256,8 +256,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const hasPermission = useCallback(
     (permission: Permission) => {
-      // Se o cargo hierárquico for diretamente 'desenvolvedor', possui todas as permissões
-      if (level === "desenvolvedor") {
+      // Se for um desenvolvedor verificado (isDevUser), possui todas as permissões de desenvolvedor
+      if (level === "desenvolvedor" && isDevUser) {
         return true;
       }
 
