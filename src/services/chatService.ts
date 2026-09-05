@@ -13,6 +13,7 @@ import type {
 } from "@/types/chat";
 import { resolveMemberPresence } from "@/lib/format";
 import type { Member, UserPresenceStatus } from "@/lib/app-types";
+import { createNotification } from "@/lib/notifications-api";
 
 // In-memory cache for profiles & presences (30s TTL) to accelerate fallback rendering
 let _cachedMembersMap: Map<string, Member> | null = null;
@@ -562,6 +563,52 @@ export async function sendChatMessage(
       last_message_sender_id: (inserted as any).sender_id,
     })
     .eq("id", conversationId);
+
+  // Dispara notificação pessoal para cada participante destinatário no sistema de notificações
+  void (async () => {
+    try {
+      const [{ data: conv }, { data: participants }, { data: senderProf }] = await Promise.all([
+        supabase.from("chat_conversations" as any).select("type, name").eq("id", conversationId).maybeSingle(),
+        supabase.from("chat_participants" as any).select("user_id, is_muted").eq("conversation_id", conversationId).neq("user_id", effectiveSenderId),
+        supabase.from("profiles" as any).select("nome, nickname, avatar_url, discord_avatar_url").eq("user_id", effectiveSenderId).maybeSingle(),
+      ]);
+
+      const sp = senderProf as any;
+      const senderName = sp?.nickname || sp?.nome || "Membro";
+      const senderAvatar = sp?.avatar_url || sp?.discord_avatar_url || null;
+      const isGroup = (conv as any)?.type === "group";
+      const convName = (conv as any)?.name || (isGroup ? "Grupo" : "Chat Privado");
+      const mentions = options?.mentions || [];
+
+      if (Array.isArray(participants)) {
+        for (const p of participants as any[]) {
+          if (p.is_muted) continue;
+          const isUserMentioned = mentions.includes(p.user_id) || mentions.includes("todos");
+
+          let notifTitle = `Mensagem de ${senderName}`;
+          if (isUserMentioned) {
+            notifTitle = `Menção de ${senderName} em ${convName}`;
+          } else if (isGroup) {
+            notifTitle = `${convName}: ${senderName}`;
+          }
+
+          void createNotification({
+            title: notifTitle,
+            message: previewText.slice(0, 110),
+            type: "chat",
+            category: isUserMentioned ? "alert" : "info",
+            user_id: p.user_id,
+            link: `/chat?conv=${conversationId}`,
+            sender_id: effectiveSenderId,
+            sender_name: senderName,
+            sender_avatar: senderAvatar,
+          });
+        }
+      }
+    } catch (err) {
+      console.warn("Erro ao disparar notificações de chat:", err);
+    }
+  })();
 
   return inserted as ChatMessage;
 }

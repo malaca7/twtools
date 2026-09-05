@@ -313,6 +313,11 @@ export function NotificationCenter() {
                           >
                             {typeInfo.label}
                           </span>
+                          {notif.user_id !== "all" && (
+                            <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.2 rounded bg-amber-500/15 text-amber-400 border border-amber-500/30 shrink-0">
+                              Direto
+                            </span>
+                          )}
                           <p
                             className={cn(
                               "text-xs truncate",

@@ -974,6 +974,15 @@ export async function setMemberLevel(targetUserId: string, newLevel: AppLevel): 
     { nivel: targetRole?.nivel },
     targetUserId
   );
+
+  void createNotification({
+    title: "Cargo Atualizado! 🛡️",
+    message: `Seu cargo foi atualizado para "${newLevelLabel}" pela liderança.`,
+    type: "system",
+    category: "success",
+    user_id: targetUserId,
+    link: "/perfil",
+  });
 }
 
 /* ==========================================================================
@@ -1383,6 +1392,17 @@ export async function submitMovement({ data }: { data: { productId: string; type
     data.productId
   );
 
+  if (newBalance <= (prod?.estoque_minimo || 0)) {
+    void createNotification({
+      title: `⚠️ Estoque Baixo: ${prod?.nome || "Produto"}`,
+      message: `O estoque de ${prod?.nome} atingiu nível crítico: ${newBalance} ${prod?.unidade || "unid."} restantes.`,
+      type: "movement",
+      category: "warning",
+      target_roles: ["01", "02", "gerente", "desenvolvedor"],
+      link: "/baus",
+    });
+  }
+
   return { success: true };
 }
 
@@ -1450,6 +1470,15 @@ export async function submitChestTransfer(payload: {
     quantity: payload.quantity,
     reason: payload.reason || null,
   });
+
+  void createNotification({
+    title: "Transferência entre Baús Realizada",
+    message: `${payload.quantity}x ${prodName} transferidos de "${fromBauName}" para "${toBauName}".`,
+    type: "movement",
+    category: "info",
+    target_roles: ["01", "02", "gerente", "desenvolvedor"],
+    link: "/baus",
+  });
 }
 
 export async function batchSubmitMovements(items: { productId: string; type: "entrada" | "saida"; quantity: number; reason?: string; bauId?: string }[]): Promise<void> {
@@ -1491,6 +1520,15 @@ export async function reverseMovement(movementId: string, reason?: string): Prom
     original_quantity: oldMov?.quantity,
     reason: reason || "Sem motivo informado",
   }, undefined, movementId);
+
+  void createNotification({
+    title: "Movimentação Estornada",
+    message: `Estorno de ${oldMov?.quantity || ""}x ${prodName}. Motivo: "${rawReason}"`,
+    type: "movement",
+    category: "warning",
+    target_roles: ["01", "02", "gerente", "desenvolvedor"],
+    link: "/movimentacoes",
+  });
 }
 
 export async function submitSale({ data }: { data: { productId: string; quantity: number; unitPrice: number; buyerName: string; paymentMethod: string; notes?: string } }): Promise<{ success: boolean }> {
@@ -1524,6 +1562,15 @@ export async function submitSale({ data }: { data: { productId: string; quantity
     undefined,
     data.productId
   );
+
+  void createNotification({
+    title: "Nova Venda Registrada",
+    message: `${data.quantity}x ${prod?.nome || "item"} para ${data.buyerName} (R$ ${totalPrice.toLocaleString("pt-BR")}).`,
+    type: "sale",
+    category: "success",
+    target_roles: ["01", "02", "gerente", "desenvolvedor"],
+    link: "/vendas",
+  });
 
   return { success: true };
 }
@@ -2371,6 +2418,41 @@ export async function createWeeklyGoal(payload: CreateWeeklyGoalPayload): Promis
     undefined,
     newGoal.id
   );
+
+  if (newGoal.target_scope === "individual" && newGoal.target_user_id) {
+    void createNotification({
+      title: "Nova Meta Atribuída a Você! 🎯",
+      message: `Você recebeu uma meta individual: "${newGoal.title}" (Alvo: ${newGoal.target_value} ${newGoal.unit_name}).`,
+      type: "goal",
+      category: "info",
+      user_id: newGoal.target_user_id,
+      link: "/metas",
+      sender_id: session?.user?.id,
+      sender_name: creatorName,
+    });
+  } else if (newGoal.target_scope === "cargo" && newGoal.target_role) {
+    void createNotification({
+      title: "Nova Meta para seu Cargo! 🎯",
+      message: `Uma meta foi definida para seu cargo: "${newGoal.title}" (Alvo: ${newGoal.target_value} ${newGoal.unit_name}).`,
+      type: "goal",
+      category: "info",
+      target_roles: [newGoal.target_role],
+      link: "/metas",
+      sender_id: session?.user?.id,
+      sender_name: creatorName,
+    });
+  } else {
+    void createNotification({
+      title: "Nova Meta Semanal Criada! 🎯",
+      message: `Meta para todos os membros: "${newGoal.title}" (Alvo: ${newGoal.target_value} ${newGoal.unit_name}).`,
+      type: "goal",
+      category: "info",
+      user_id: "all",
+      link: "/metas",
+      sender_id: session?.user?.id,
+      sender_name: creatorName,
+    });
+  }
 
   return newGoal;
 }
@@ -3236,6 +3318,32 @@ export async function transferTicket(
     ticket.id
   );
 
+  // Notifica o novo atendente individualmente
+  void createNotification({
+    title: `Chamado #${String(ticket.ticket_number).padStart(3, "0")} atribuído a você`,
+    message: `${auth.nome} atribuiu a responsabilidade do chamado "${ticket.subject}" a você.`,
+    type: "ticket",
+    category: "info",
+    user_id: payload.new_assigned_to_id,
+    link: `/tickets/${ticket.id}`,
+    sender_id: auth.user.id,
+    sender_name: auth.nome,
+  });
+
+  // Notifica o autor do chamado sobre o novo responsável
+  if (ticket.user_id !== auth.user.id && ticket.user_id !== payload.new_assigned_to_id) {
+    void createNotification({
+      title: `Chamado #${String(ticket.ticket_number).padStart(3, "0")} transferido`,
+      message: `Seu chamado foi transferido para ${payload.new_assigned_to_name}.`,
+      type: "ticket",
+      category: "info",
+      user_id: ticket.user_id,
+      link: `/tickets/${ticket.id}`,
+      sender_id: auth.user.id,
+      sender_name: auth.nome,
+    });
+  }
+
   return updatedTicket;
 }
 
@@ -3301,6 +3409,20 @@ export async function updateTicketStatus(
     undefined,
     ticket.id
   );
+
+  // Notifica o autor individualmente se o status não for fechado (fechamento já possui notificação específica)
+  if (ticket.user_id !== auth.user.id && newStatus !== "fechado") {
+    void createNotification({
+      title: `Status do Chamado #${String(ticket.ticket_number).padStart(3, "0")} atualizado`,
+      message: `Status do seu chamado "${ticket.subject}" foi alterado para "${stInfo?.label || newStatus}".`,
+      type: "ticket",
+      category: "info",
+      user_id: ticket.user_id,
+      link: `/tickets/${ticket.id}`,
+      sender_id: auth.user.id,
+      sender_name: auth.nome,
+    });
+  }
 
   return updatedTicket;
 }
@@ -3598,6 +3720,17 @@ export async function addTicketMember(
     ticket.id
   );
 
+  void createNotification({
+    title: `Adicionado ao Chamado #${String(ticket.ticket_number).padStart(3, "0")}`,
+    message: `${actorName} adicionou você como participante no chamado: "${ticket.subject}".`,
+    type: "ticket",
+    category: "info",
+    user_id: payload.user_id,
+    link: `/tickets/${ticket.id}`,
+    sender_id: auth.user.id,
+    sender_name: actorName,
+  });
+
   return updatedTicket;
 }
 
@@ -3670,6 +3803,17 @@ export async function removeTicketMember(
     undefined,
     ticket.id
   );
+
+  void createNotification({
+    title: `Removido do Chamado #${String(ticket.ticket_number).padStart(3, "0")}`,
+    message: `Você foi removido(a) do chamado "${ticket.subject}" por ${actorName}.`,
+    type: "ticket",
+    category: "warning",
+    user_id: memberUserId,
+    link: "/tickets",
+    sender_id: auth.user.id,
+    sender_name: actorName,
+  });
 
   return updatedTicket;
 }
