@@ -145,6 +145,9 @@ export function useRolePermissions() {
   return useQuery({
     queryKey: ["role_permissions"],
     queryFn: async (): Promise<Record<AppLevel, Permission[]>> => getRolePermissions(),
+    staleTime: 3000,
+    refetchInterval: 5000,
+    refetchOnWindowFocus: true,
   });
 }
 

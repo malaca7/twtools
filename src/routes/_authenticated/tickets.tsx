@@ -60,18 +60,33 @@ export const Route = createFileRoute("/_authenticated/tickets")({
 
 function TicketsPage() {
   const { user, profile, hasPermission } = useAuth();
-  const canView = hasPermission("view_tickets");
-  const canCreate = hasPermission("create_ticket");
-  const canManage = hasPermission("manage_tickets");
-  const canViewAll = hasPermission("view_all_tickets");
-  const canSeeAll = canViewAll || canManage;
+  const isDevUser = Boolean(profile?.is_developer);
+  const canView = hasPermission("view_tickets") || isDevUser;
+  const canCreate = hasPermission("create_ticket") || isDevUser;
+  const canManage = hasPermission("manage_tickets") || isDevUser;
+  const canViewAll = hasPermission("view_all_tickets") || isDevUser;
+  const canSeeAll = canViewAll || canManage || isDevUser;
 
   const { data: tickets = [], isLoading, isFetching } = useTickets();
 
   // State
-  const [activeTab, setActiveTab] = useState<"my" | "all">(canSeeAll ? "all" : "my");
+  const [activeTab, setActiveTab] = useState<"my" | "all">("all");
+  const [hasManuallySelectedTab, setHasManuallySelectedTab] = useState(false);
   const [selectedTicketId, setSelectedTicketId] = useState<string | null>(null);
   const [isNewDialogOpen, setIsNewDialogOpen] = useState(false);
+
+  // Sincronização inteligente da aba inicial:
+  // Se o usuário tem permissão para ver todos os tickets (ou liderança/dev),
+  // e ainda não alternou manualmente para "Meus Chamados", manter em "all" para exibir os chamados existentes.
+  useEffect(() => {
+    if (!hasManuallySelectedTab) {
+      if (canSeeAll) {
+        setActiveTab("all");
+      } else {
+        setActiveTab("my");
+      }
+    }
+  }, [canSeeAll, hasManuallySelectedTab]);
 
   // Filters
   const [searchTerm, setSearchTerm] = useState("");
@@ -275,7 +290,10 @@ function TicketsPage() {
           {canSeeAll ? (
             <Tabs
               value={activeTab}
-              onValueChange={(val) => setActiveTab(val as "my" | "all")}
+              onValueChange={(val) => {
+                setHasManuallySelectedTab(true);
+                setActiveTab(val as "my" | "all");
+              }}
               className="w-full sm:w-auto"
             >
               <TabsList className="bg-secondary/60 border border-border/80 p-0.5 h-9">

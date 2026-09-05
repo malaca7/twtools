@@ -78,7 +78,9 @@ interface TicketDetailViewProps {
 }
 
 export function TicketDetailView({ ticket, onClose, canManage }: TicketDetailViewProps) {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
+  const isDevUser = Boolean(profile?.is_developer);
+  const effectiveCanManage = canManage || isDevUser;
   const { data: members = [] } = useMembers();
 
   // Mutations
@@ -175,7 +177,7 @@ export function TicketDetailView({ ticket, onClose, canManage }: TicketDetailVie
         ticketId: ticket.id,
         payload: {
           content: replyContent.trim(),
-          is_internal_note: Boolean(isInternalNote && canManage),
+          is_internal_note: Boolean(isInternalNote && effectiveCanManage),
           attachments: replyAttachments,
         },
       });
@@ -227,7 +229,7 @@ export function TicketDetailView({ ticket, onClose, canManage }: TicketDetailVie
         payload: {
           reason:
             closeReason.trim() ||
-            (isCreator && !canManage
+            (isCreator && !effectiveCanManage
               ? "Chamado finalizado pelo próprio autor."
               : "Chamado concluído e resolvido pela gerência."),
         },
@@ -354,10 +356,10 @@ export function TicketDetailView({ ticket, onClose, canManage }: TicketDetailVie
         </div>
 
         {/* Linha 4: Barra de Ações (Gerência ou Autor) */}
-        {(canManage || isCreator) && (
+        {(effectiveCanManage || isCreator) && (
           <div className="flex items-center gap-2 pt-2 border-t border-border/50 flex-wrap">
             {/* Assumir (Apenas Gerência) */}
-            {canManage && ticket.assigned_to_id !== user?.id && !isClosed && (
+            {effectiveCanManage && ticket.assigned_to_id !== user?.id && !isClosed && (
               <Button
                 variant="outline"
                 size="sm"
@@ -371,7 +373,7 @@ export function TicketDetailView({ ticket, onClose, canManage }: TicketDetailVie
             )}
 
             {/* Transferir (Apenas Gerência) */}
-            {canManage && !isClosed && (
+            {effectiveCanManage && !isClosed && (
               <Button
                 variant="outline"
                 size="sm"
@@ -384,7 +386,7 @@ export function TicketDetailView({ ticket, onClose, canManage }: TicketDetailVie
             )}
 
             {/* Alterar Status (Apenas Gerência) */}
-            {canManage && !isClosed && (
+            {effectiveCanManage && !isClosed && (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="outline" size="sm" className="h-7 text-xs gap-1.5">
@@ -419,7 +421,7 @@ export function TicketDetailView({ ticket, onClose, canManage }: TicketDetailVie
                 className="h-7 text-xs gap-1.5 border-rose-500/30 bg-rose-500/10 text-rose-400 hover:bg-rose-500/20 ml-auto"
               >
                 <Lock className="h-3.5 w-3.5" />
-                {isCreator && !canManage ? "Encerrar Chamado" : "Fechar Ticket"}
+                {isCreator && !effectiveCanManage ? "Encerrar Chamado" : "Fechar Ticket"}
               </Button>
             ) : (
               <Button
@@ -678,7 +680,7 @@ export function TicketDetailView({ ticket, onClose, canManage }: TicketDetailVie
               />
 
               {/* Botão Switch Nota Interna (somente gerência) */}
-              {canManage && (
+              {effectiveCanManage && (
                 <div className="flex items-center gap-2 px-2.5 py-1 rounded-md border border-amber-500/30 bg-amber-500/10">
                   <Switch
                     id="internal_note_switch"
