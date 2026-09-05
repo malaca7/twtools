@@ -444,7 +444,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     [members]
   );
 
-  const avatarUrl = profile?.discord_avatar_url || profile?.avatar_url;
+  const avatarUrl = profile?.avatar_url || profile?.discord_avatar_url;
   const mainName = profile?.nickname || profile?.nome || "Membro";
   const subName = profile?.nickname ? profile.nome : null;
   const initials = mainName.slice(0, 2).toUpperCase();

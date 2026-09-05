@@ -77,16 +77,30 @@ export async function getCurrentAuth(): Promise<AuthState> {
       nickname: pAny.nickname ?? null,
       telefone: pAny.telefone ?? null,
       game_id: pAny.game_id ?? null,
-      avatar_url: pAny.avatar_url ?? null,
+      avatar_url: pAny.avatar_url ?? pAny.discord_avatar_url ?? null,
       status: pAny.status ?? "pendente",
       data_entrada: pAny.data_entrada ?? new Date().toISOString().slice(0, 10),
       discord_id: pAny.discord_id ?? null,
       discord_username: pAny.discord_username ?? null,
-      discord_avatar_url: pAny.discord_avatar_url ?? null,
+      discord_avatar_url: pAny.avatar_url ?? pAny.discord_avatar_url ?? null,
       discord_email: pAny.discord_email ?? null,
       is_developer: Boolean(pAny.is_developer),
       custom_theme: pAny.custom_theme || null,
     } : null;
+
+    if (profile && !profile.discord_avatar_url && session.user.user_metadata?.avatar_url) {
+      const initialDiscordAvatar = session.user.user_metadata.avatar_url;
+      profile.discord_avatar_url = initialDiscordAvatar;
+      profile.avatar_url = initialDiscordAvatar;
+
+      // Initialize database if avatar was completely missing
+      supabase.from("profiles").update({ 
+        discord_avatar_url: initialDiscordAvatar,
+        avatar_url: initialDiscordAvatar,
+      }).eq("user_id", user.id).then(({ error }) => {
+        if (error) console.error("Falha ao gravar foto inicial do Discord no perfil:", error);
+      });
+    }
 
     let level = (roleRow?.nivel as AppLevel) ?? null;
 
@@ -539,7 +553,7 @@ export async function updateUserPresence(status: UserPresenceStatus, incrementSe
 export async function getMembers(): Promise<Member[]> {
   const [profilesRes, rolesRes, presenceRes, signupReqsRes] = await Promise.all([
     (supabase.from("profiles" as any))
-      .select("user_id, nome, nickname, telefone, game_id, status, data_entrada, created_at, discord_id, discord_username, discord_avatar_url, discord_email, is_developer")
+      .select("user_id, nome, nickname, telefone, game_id, status, data_entrada, created_at, discord_id, discord_username, discord_avatar_url, avatar_url, discord_email, is_developer")
       .order("created_at", { ascending: true }),
     supabase
       .from("user_roles")
@@ -616,7 +630,8 @@ export async function getMembers(): Promise<Member[]> {
         total_hours_online: pres?.total_hours || 0,
         discord_id: d.discord_id,
         discord_username: d.discord_username,
-        discord_avatar_url: d.discord_avatar_url,
+        discord_avatar_url: d.avatar_url || d.discord_avatar_url || null,
+        avatar_url: d.avatar_url || d.discord_avatar_url || null,
         discord_email: d.discord_email,
         is_developer: Boolean(d.is_developer || roleNivel === "desenvolvedor" || d.discord_id === "917826984778797087"),
       };
@@ -1695,7 +1710,7 @@ export async function getCashMovements(): Promise<CashMovement[]> {
   (profiles || []).forEach((p: any) => {
     profileMap.set(p.user_id, {
       name: p.nickname || p.nome || "Membro",
-      avatar: p.discord_avatar_url || p.avatar_url || null,
+      avatar: p.avatar_url || p.discord_avatar_url || null,
     });
   });
 
@@ -1987,7 +2002,7 @@ export async function createAbsence(payload: CreateAbsencePayload): Promise<Memb
   const p = profileRow as any;
   const memberName = p?.nome || "Membro";
   const memberNickname = p?.nickname || null;
-  const memberAvatar = p?.discord_avatar_url || p?.avatar_url || null;
+  const memberAvatar = p?.avatar_url || p?.discord_avatar_url || null;
   const memberRole = (roleRow?.nivel as AppLevel) || "membro";
 
   // Calculate days count
@@ -2397,7 +2412,7 @@ export async function submitGoalDelivery(payload: SubmitGoalPayload): Promise<Go
   const p = profileRow as any;
   const memberName = p?.nome || "Membro";
   const memberNickname = p?.nickname || null;
-  const memberAvatar = p?.discord_avatar_url || p?.avatar_url || null;
+  const memberAvatar = p?.avatar_url || p?.discord_avatar_url || null;
   const memberRole = (roleRow?.nivel as AppLevel) || "membro";
 
   // Membro recebedor
@@ -2414,7 +2429,7 @@ export async function submitGoalDelivery(payload: SubmitGoalPayload): Promise<Go
 
   const rp = receiverProfileRow as any;
   const receiverName = rp?.nickname || rp?.nome || "Membro da Liderança";
-  const receiverAvatar = rp?.discord_avatar_url || rp?.avatar_url || null;
+  const receiverAvatar = rp?.avatar_url || rp?.discord_avatar_url || null;
   const receiverRole = (receiverRoleRow?.nivel as AppLevel) || null;
 
   // Localiza a meta

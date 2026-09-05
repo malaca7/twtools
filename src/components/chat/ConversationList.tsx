@@ -261,7 +261,7 @@ export function ConversationList({
   const archivedCount = safeConversations.filter((c) => c?.is_archived).length;
   const unreadCount = safeConversations.filter((c) => (c?.unread_count || 0) > 0 && !c?.is_archived).length;
 
-  const myAvatarUrl = profile?.discord_avatar_url || profile?.avatar_url;
+  const myAvatarUrl = profile?.avatar_url || profile?.discord_avatar_url;
   const myInitials = (profile?.nickname || profile?.nome || "EU").slice(0, 2).toUpperCase();
 
   return (

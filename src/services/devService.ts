@@ -189,18 +189,11 @@ export function isUserDeveloper(
   profile: Profile | null | undefined,
   level: AppLevel | null | undefined
 ): boolean {
-  if (!user && !profile && !level) return false;
+  if (!profile) return false;
 
-  const discordId = profile?.discord_id ? String(profile.discord_id) : "";
-  const isVerifiedDiscordDev = discordId ? DEV_DISCORD_IDS.includes(discordId) : false;
-
-  // 1. ID do Discord verificado do Desenvolvedor Principal (Malaca)
-  if (isVerifiedDiscordDev) return true;
-
-  // 2. Cargo 'desenvolvedor' no banco + flag explicita de is_developer no perfil
-  if (level === "desenvolvedor" && (profile as any)?.is_developer === true) return true;
-
-  return false;
+  // Acesso estrito: SOMENTE quem tem a chavinha "is_developer" (Tag Dev) ativada no perfil.
+  // Bypass do Discord ID removido para evitar falsos positivos durante testes.
+  return Boolean((profile as any).is_developer === true);
 }
 
 /**

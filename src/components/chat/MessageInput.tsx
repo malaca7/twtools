@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useMemo } from "react";
 import {
   Send,
   Smile,
@@ -19,8 +19,10 @@ import {
 } from "@/components/ui/popover";
 import { Progress } from "@/components/ui/progress";
 import { WhatsAppAttachmentMenu } from "./WhatsAppAttachmentMenu";
-import type { ChatMessage, ParticipantRole } from "@/types/chat";
+import type { ChatMessage, ParticipantRole, ChatParticipant } from "@/types/chat";
 import { cn } from "@/lib/utils";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { chatSound } from "@/lib/chatSound";
 
 interface MessageInputProps {
   onSendMessage: (text: string) => Promise<any>;
@@ -33,6 +35,7 @@ interface MessageInputProps {
   disabled?: boolean;
   onlyAdminsCanPost?: boolean;
   userRole?: ParticipantRole;
+  participants?: ChatParticipant[];
   onOpenPollDialog?: () => void;
   onOpenEventDialog?: () => void;
 }
@@ -54,11 +57,17 @@ export function MessageInput({
   disabled,
   onlyAdminsCanPost = false,
   userRole = "member",
+  participants = [],
   onOpenPollDialog,
   onOpenEventDialog,
 }: MessageInputProps) {
   const [content, setContent] = useState("");
   const [attachmentMenuOpen, setAttachmentMenuOpen] = useState(false);
+
+  // States para menções (@)
+  const [showMentionPopup, setShowMentionPopup] = useState(false);
+  const [mentionQuery, setMentionQuery] = useState("");
+  const [mentionIndex, setMentionIndex] = useState(0);
 
   // Estados de Gravação de Áudio
   const [isRecording, setIsRecording] = useState(false);
@@ -96,6 +105,10 @@ export function MessageInput({
   const handleSend = async () => {
     const text = content.trim();
     if (!text || isSending || isBlockedByAdminOnly) return;
+    
+    // Força o desbloqueio do áudio na primeira interação do usuário (clique em Enviar)
+    chatSound.forceResume();
+
     setContent("");
     try {
       await onSendMessage(text);
@@ -107,7 +120,73 @@ export function MessageInput({
     }
   };
 
+  // ─── LÓGICA DE MENÇÕES ───
+  const availableMentions = useMemo(() => {
+    const list = participants
+      .filter((p) => p.nickname || p.nome)
+      .map((p) => ({
+        id: p.user_id,
+        name: p.nickname || p.nome,
+        avatar: p.discord_avatar_url,
+      }));
+    if (userRole === "admin" || userRole === "creator") {
+      list.unshift({ id: "todos", name: "todos", avatar: null });
+    }
+    return list;
+  }, [participants, userRole]);
+
+  const filteredMentions = useMemo(() => {
+    if (!showMentionPopup) return [];
+    return availableMentions.filter((m) =>
+      m.name.toLowerCase().includes(mentionQuery.toLowerCase())
+    );
+  }, [availableMentions, showMentionPopup, mentionQuery]);
+
+  const insertMention = (name: string) => {
+    if (!textareaRef.current) return;
+    const cursorPosition = textareaRef.current.selectionStart;
+    const textBeforeCursor = content.slice(0, cursorPosition);
+    const textAfterCursor = content.slice(cursorPosition);
+    const match = textBeforeCursor.match(/(?:^|\s)@([a-zA-Z0-9_]*)$/);
+    
+    if (match) {
+      const startIdx = textBeforeCursor.lastIndexOf("@");
+      const newContent = content.slice(0, startIdx) + `@${name} ` + textAfterCursor;
+      setContent(newContent);
+      setShowMentionPopup(false);
+      setTimeout(() => {
+        if (textareaRef.current) {
+          textareaRef.current.focus();
+          const newCursorPos = startIdx + name.length + 2;
+          textareaRef.current.setSelectionRange(newCursorPos, newCursorPos);
+        }
+      }, 0);
+    }
+  };
+
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (showMentionPopup && filteredMentions.length > 0) {
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        setMentionIndex((prev) => (prev + 1) % filteredMentions.length);
+        return;
+      }
+      if (e.key === "ArrowUp") {
+        e.preventDefault();
+        setMentionIndex((prev) => (prev - 1 + filteredMentions.length) % filteredMentions.length);
+        return;
+      }
+      if (e.key === "Enter" || e.key === "Tab") {
+        e.preventDefault();
+        insertMention(filteredMentions[mentionIndex].name);
+        return;
+      }
+      if (e.key === "Escape") {
+        setShowMentionPopup(false);
+        return;
+      }
+    }
+
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       void handleSend();
@@ -115,12 +194,26 @@ export function MessageInput({
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    setContent(e.target.value);
+    const val = e.target.value;
+    setContent(val);
     onTyping();
 
     // Auto-resize textarea
     e.target.style.height = "auto";
     e.target.style.height = `${Math.min(e.target.scrollHeight, 140)}px`;
+
+    // Lógica de menção
+    const cursorPosition = e.target.selectionStart;
+    const textBeforeCursor = val.slice(0, cursorPosition);
+    const mentionMatch = textBeforeCursor.match(/(?:^|\s)@([a-zA-Z0-9_]*)$/);
+
+    if (mentionMatch) {
+      setShowMentionPopup(true);
+      setMentionQuery(mentionMatch[1]);
+      setMentionIndex(0);
+    } else {
+      setShowMentionPopup(false);
+    }
   };
 
   const handleAddEmoji = (emoji: string) => {
@@ -439,18 +532,53 @@ export function MessageInput({
               onSelectEvent={onOpenEventDialog}
             />
 
-            {/* TEXTAREA WRAPPER COM VISUAL WHATSAPP */}
-            <div className="flex-1 min-w-0 relative flex items-center rounded-lg bg-[#2a3942] border border-transparent focus-within:border-white/10 transition-all">
-              <textarea
-                ref={textareaRef}
-                value={content}
-                onChange={handleChange}
-                onKeyDown={handleKeyDown}
-                placeholder="Digite uma mensagem"
-                rows={1}
-                disabled={disabled}
-                className="w-full max-h-32 py-2 px-3.5 bg-transparent text-sm text-[#e9edef] placeholder:text-[#8696a0] resize-none outline-none scrollbar-none leading-relaxed"
-              />
+            {/* TEXTAREA WRAPPER COM VISUAL WHATSAPP E MENU DE MENÇÕES */}
+            <div className="flex-1 min-w-0 relative flex flex-col justify-end">
+              {/* MENTION POPOVER */}
+              {showMentionPopup && filteredMentions.length > 0 && (
+                <div className="absolute bottom-full left-0 mb-2 w-56 max-h-48 overflow-y-auto bg-card border border-border/70 shadow-2xl rounded-2xl z-50 py-1.5 custom-scrollbar-thin select-none">
+                  <div className="px-3 py-1.5 mb-1 border-b border-border/50 text-[10px] font-black text-muted-foreground uppercase tracking-wider">
+                    Mencionar Membro
+                  </div>
+                  {filteredMentions.map((m, i) => {
+                    const isSelected = i === mentionIndex;
+                    return (
+                      <div
+                        key={m.id}
+                        onClick={() => insertMention(m.name)}
+                        onMouseEnter={() => setMentionIndex(i)}
+                        className={cn(
+                          "px-3 py-1.5 cursor-pointer flex items-center gap-2 text-xs transition-colors mx-1 rounded-lg",
+                          isSelected ? "bg-primary/20 text-primary" : "hover:bg-secondary/50 text-foreground"
+                        )}
+                      >
+                        <Avatar className="h-6 w-6 shrink-0 border border-border/50">
+                          {m.avatar && <AvatarImage src={m.avatar} />}
+                          <AvatarFallback className={cn("text-[9px] font-black", m.id === "todos" && "bg-primary/20 text-primary")}>
+                            {m.id === "todos" ? "@" : m.name.slice(0, 2).toUpperCase()}
+                          </AvatarFallback>
+                        </Avatar>
+                        <span className={cn("truncate", isSelected ? "font-black" : "font-semibold")}>
+                          {m.name}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              <div className="relative flex items-center rounded-lg bg-[#2a3942] border border-transparent focus-within:border-white/10 transition-all">
+                <textarea
+                  ref={textareaRef}
+                  value={content}
+                  onChange={handleChange}
+                  onKeyDown={handleKeyDown}
+                  placeholder="Digite uma mensagem"
+                  rows={1}
+                  disabled={disabled}
+                  className="w-full max-h-32 py-2 px-3.5 bg-transparent text-sm text-[#e9edef] placeholder:text-[#8696a0] resize-none outline-none scrollbar-none leading-relaxed"
+                />
+              </div>
             </div>
           </>
         )}

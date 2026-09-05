@@ -2,8 +2,9 @@ import { useState, useEffect } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { User, Phone, IdCard, Lock, Save, Loader2, CheckCircle2, Palette, Sparkles } from "lucide-react";
+import { User, Phone, IdCard, Lock, Save, Loader2, CheckCircle2, Palette, Sparkles, RefreshCw } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -70,7 +71,28 @@ function PerfilPage() {
     onError: (err) => toast.error(errorMessage(err)),
   });
 
-  const discordAvatar = profile?.discord_avatar_url || profile?.avatar_url;
+  const [isSyncingAvatar, setIsSyncingAvatar] = useState(false);
+
+  const handleManualSyncAvatar = async () => {
+    try {
+      setIsSyncingAvatar(true);
+      // Notifica o bot para sincronização caso esteja acessível
+      try {
+        await fetch("https://twin.discloud.app/sync", { mode: "no-cors" });
+      } catch {}
+      await new Promise((r) => setTimeout(r, 600));
+      await refresh();
+      void queryClient.invalidateQueries({ queryKey: ["auth"] });
+      void queryClient.invalidateQueries({ queryKey: ["members"] });
+      toast.success("Foto e dados sincronizados com o Discord!");
+    } catch {
+      toast.error("Falha ao sincronizar foto com o Discord.");
+    } finally {
+      setIsSyncingAvatar(false);
+    }
+  };
+
+  const discordAvatar = profile?.avatar_url || profile?.discord_avatar_url;
   const initials = (nickname || nome || "P").slice(0, 2).toUpperCase();
 
   return (
@@ -232,16 +254,34 @@ function PerfilPage() {
               {/* READ-ONLY DISCORD INFO CARD */}
               <Card className="surface-card border-indigo-500/20 bg-indigo-500/5">
                 <CardHeader className="pb-3 border-b border-indigo-500/20">
-                  <div className="flex items-center justify-between">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
                     <CardTitle className="text-base font-semibold text-indigo-400 flex items-center gap-2">
                       <Lock className="h-4 w-4 text-indigo-400" /> Conta do Discord Vinculada
                     </CardTitle>
-                    <Badge variant="outline" className="border-indigo-500/40 text-indigo-400 text-[10px]">
-                      Bloqueado para Edição
-                    </Badge>
+                    <div className="flex items-center gap-2">
+                      <Badge variant="outline" className="border-emerald-500/40 text-emerald-400 bg-emerald-500/10 text-[10px] flex items-center gap-1.5 py-0.5">
+                        <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                        Sincronização Ativa
+                      </Badge>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="h-7 px-2.5 text-xs border-indigo-500/30 hover:bg-indigo-500/20 text-indigo-300 gap-1.5 cursor-pointer"
+                        onClick={handleManualSyncAvatar}
+                        disabled={isSyncingAvatar}
+                      >
+                        {isSyncingAvatar ? (
+                          <Loader2 className="h-3 w-3 animate-spin" />
+                        ) : (
+                          <RefreshCw className="h-3 w-3" />
+                        )}
+                        <span>Sincronizar Foto Agora</span>
+                      </Button>
+                    </div>
                   </div>
                   <CardDescription className="text-xs text-muted-foreground">
-                    Sua identidade no Discord sincronizada via OAuth.
+                    Sua foto de perfil e dados são sincronizados automaticamente sempre que você alterar no Discord.
                   </CardDescription>
                 </CardHeader>
 

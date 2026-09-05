@@ -68,20 +68,40 @@ export function useConversations(activeConversationId?: string | null) {
         (payload) => {
           const newMsg = payload.new as any;
 
-          // Se a mensagem veio de outra pessoa e não é a conversa ativa no momento, aciona o alerta completo (Som + Toast + Notificação Nativa)
+          // Lógica de alerta para mensagens recebidas
           if (newMsg.sender_id !== userId) {
-            if (activeConvRef.current !== newMsg.conversation_id) {
-              void getCachedMember(newMsg.sender_id).then((senderMember) => {
-                const senderName = senderMember?.nickname || senderMember?.nome || "Alguém";
-                const senderAvatar = senderMember?.discord_avatar_url || null;
+            const isActiveConv = activeConvRef.current === newMsg.conversation_id;
+            const isMention = newMsg.mentions && (newMsg.mentions.includes(userId) || newMsg.mentions.includes("todos"));
+
+            void getCachedMember(newMsg.sender_id).then((senderMember) => {
+              const senderName = senderMember?.nickname || senderMember?.nome || "Alguém";
+              const senderAvatar = senderMember?.discord_avatar_url || null;
+              
+              if (isMention) {
+                if (isActiveConv) {
+                  chatSound.playMentionSound();
+                } else {
+                  chatSound.triggerNewMessageAlert({
+                    message: newMsg,
+                    conversationId: newMsg.conversation_id,
+                    senderName,
+                    senderAvatar,
+                  });
+                  // Overwrite sound with mention sound in this specific case
+                  chatSound.playMentionSound();
+                }
+              } else if (!isActiveConv) {
                 chatSound.triggerNewMessageAlert({
                   message: newMsg,
                   conversationId: newMsg.conversation_id,
                   senderName,
                   senderAvatar,
                 });
-              });
-            }
+              } else {
+                // Conversa ativa, sem menção: apenas toca um som de chegada sutil
+                chatSound.playIncomingMessage();
+              }
+            });
           }
 
           // Atualização imediata no cache de conversas sem bloquear o render
@@ -557,7 +577,6 @@ export function useChatRoom(
     }
   }, [activeConversationId, currentUserId, currentUserName]);
 
-  // Mutation de envio com ATUALIZAÇÃO OTIMISTA INSTANTÂNEA (0ms)
   const sendMutation = useMutation({
     mutationFn: async ({
       text,
@@ -575,6 +594,27 @@ export function useChatRoom(
     }) => {
       if (!activeConversationId || !currentUserId) throw new Error("Chat não selecionado");
 
+      let parsedMentions: string[] = [];
+      const mentionRegex = /(?:^|\s)@([a-zA-Z0-9_]+)/g;
+      const mentionMatches = Array.from(text.matchAll(mentionRegex));
+      
+      if (mentionMatches.length > 0) {
+        const convs = queryClient.getQueryData<ChatConversation[]>(["chat_conversations", currentUserId]);
+        const currentConv = convs?.find(c => c.id === activeConversationId);
+        if (currentConv && currentConv.participants) {
+          const names = mentionMatches.map(m => m[1].toLowerCase());
+          if (names.includes("todos")) {
+            parsedMentions.push("todos");
+          }
+          currentConv.participants.forEach(p => {
+            if ((p.nickname && names.includes(p.nickname.toLowerCase())) || 
+                (p.nome && names.includes(p.nome.toLowerCase()))) {
+              parsedMentions.push(p.user_id);
+            }
+          });
+        }
+      }
+
       return sendChatMessage(activeConversationId, text, {
         messageType,
         replyToId: replyingTo?.id || null,
@@ -582,6 +622,7 @@ export function useChatRoom(
         attachmentName: attachment?.name || null,
         attachmentType: attachment?.type || null,
         attachmentSize: attachment?.size || null,
+        mentions: parsedMentions,
       });
     },
     onMutate: async ({ text, messageType = "text", attachment }) => {

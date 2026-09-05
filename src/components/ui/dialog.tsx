@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -94,8 +95,8 @@ interface DialogPortalProps {
 
 const DialogPortal: React.FC<DialogPortalProps> = ({ children }) => {
   const { open } = useDialogContext();
-  if (!open) return null;
-  return <>{children}</>;
+  if (!open || typeof document === "undefined") return null;
+  return createPortal(<>{children}</>, document.body);
 };
 DialogPortal.displayName = "DialogPortal";
 

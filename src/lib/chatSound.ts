@@ -243,6 +243,39 @@ class ChatNotificationManager {
     }
   }
 
+  public forceResume(): void {
+    this.getAudioContext();
+  }
+
+  public playMentionSound(): void {
+    if (!this.settings.enabled) return;
+    try {
+      const ctx = this.getAudioContext();
+      if (!ctx) return;
+      const now = ctx.currentTime;
+      const vol = (this.settings.volume / 100);
+
+      // Distinctive triple chime for mentions
+      [880, 1108.73, 1318.51].forEach((freq, i) => {
+        const t = now + i * 0.12;
+        const gain = ctx.createGain();
+        gain.connect(ctx.destination);
+        gain.gain.setValueAtTime(0, t);
+        gain.gain.linearRampToValueAtTime(0.3 * vol, t + 0.02);
+        gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.3);
+
+        const osc = ctx.createOscillator();
+        osc.type = "sine";
+        osc.frequency.setValueAtTime(freq, t);
+        osc.connect(gain);
+        osc.start(t);
+        osc.stop(t + 0.3);
+      });
+    } catch (e) {
+      console.warn("Could not play mention sound", e);
+    }
+  }
+
   /**
    * Toca o som de nova mensagem recebida com base no tema escolhido
    */

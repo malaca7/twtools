@@ -26,6 +26,16 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -80,6 +90,8 @@ export function GroupSettingsDrawer({
   const [onlyAdmins, setOnlyAdmins] = useState(Boolean(conversation.only_admins_can_post));
   const [savingSettings, setSavingSettings] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const [deleteAlertOpen, setDeleteAlertOpen] = useState(false);
+  const [deletingGroup, setDeletingGroup] = useState(false);
 
   // Sync state whenever conversation updates
   useEffect(() => {
@@ -185,22 +197,33 @@ export function GroupSettingsDrawer({
     }
   };
 
-  // Handle Leave / Delete Group
-  const handleLeaveOrDelete = async (action: "leave" | "delete") => {
-    const confirmText =
-      action === "delete"
-        ? "Tem certeza que deseja EXCLUIR este grupo para todos? Esta ação é irreversível."
-        : "Tem certeza que deseja sair deste grupo?";
-
-    if (!window.confirm(confirmText)) return;
+  // Handle Leave Group
+  const handleLeaveGroup = async () => {
+    if (!window.confirm("Tem certeza que deseja sair deste grupo?")) return;
 
     try {
-      await leaveOrDeleteGroup(conversation.id, action);
-      toast.success(action === "delete" ? "Grupo excluído com sucesso." : "Você saiu do grupo.");
+      await leaveOrDeleteGroup(conversation.id, "leave");
+      toast.success("Você saiu do grupo.");
       onOpenChange(false);
       onLeaveGroup?.();
     } catch (err: any) {
       toast.error(err.message || "Erro na operação.");
+    }
+  };
+
+  // Handle Delete Group Confirm
+  const handleConfirmDelete = async () => {
+    setDeletingGroup(true);
+    try {
+      await leaveOrDeleteGroup(conversation.id, "delete");
+      toast.success("Grupo excluído com sucesso.");
+      setDeleteAlertOpen(false);
+      onOpenChange(false);
+      onLeaveGroup?.(); // fechar janelas e remover de listas
+    } catch (err: any) {
+      toast.error(err.message || "Erro ao excluir grupo.");
+    } finally {
+      setDeletingGroup(false);
     }
   };
 
@@ -492,18 +515,18 @@ export function GroupSettingsDrawer({
                 type="button"
                 variant="outline"
                 size="sm"
-                onClick={() => handleLeaveOrDelete("leave")}
+                onClick={handleLeaveGroup}
                 className="w-full text-xs text-amber-500 border-amber-500/40 hover:bg-amber-500/10 font-bold rounded-xl cursor-pointer"
               >
                 <LogOut className="h-3.5 w-3.5 mr-1.5" /> Sair do Grupo
               </Button>
 
-              {isCallerCreator && (
+              {isCallerAdmin && (
                 <Button
                   type="button"
                   variant="destructive"
                   size="sm"
-                  onClick={() => handleLeaveOrDelete("delete")}
+                  onClick={() => setDeleteAlertOpen(true)}
                   className="w-full text-xs font-bold rounded-xl shadow-md cursor-pointer"
                 >
                   <Trash2 className="h-3.5 w-3.5 mr-1.5" /> Excluir Grupo Permanentemente
@@ -608,6 +631,41 @@ export function GroupSettingsDrawer({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* DELETE GROUP ALERT DIALOG */}
+      <AlertDialog open={deleteAlertOpen} onOpenChange={setDeleteAlertOpen}>
+        <AlertDialogContent className="border-destructive/30 shadow-2xl shadow-destructive/10">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-destructive font-extrabold flex items-center gap-2">
+              <Trash2 className="h-5 w-5" /> Você tem absoluta certeza?
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-foreground">
+              Esta ação <strong>NÃO</strong> pode ser desfeita. Excluir este grupo vai resultar em:
+              <ul className="list-disc pl-5 mt-2 space-y-1 text-xs text-muted-foreground">
+                <li>O grupo deixará de existir para <strong>todos</strong> os participantes.</li>
+                <li>Todas as mensagens, fotos, vídeos e arquivos enviados serão <strong>apagados permanentemente</strong>.</li>
+                <li>Todos os membros serão removidos imediatamente.</li>
+              </ul>
+              <div className="mt-4 p-3 bg-destructive/10 border border-destructive/20 rounded-md text-xs text-destructive-foreground font-medium">
+                Apenas clique em Confirmar se você entende todos os riscos acima.
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deletingGroup} className="text-xs">
+              Cancelar
+            </AlertDialogCancel>
+            <Button
+              variant="destructive"
+              disabled={deletingGroup}
+              onClick={handleConfirmDelete}
+              className="font-bold text-xs"
+            >
+              {deletingGroup ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : "Sim, Excluir Grupo"}
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }

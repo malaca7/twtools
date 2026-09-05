@@ -10,6 +10,24 @@ interface ChatMessageTextProps {
   showPreview?: boolean;
 }
 
+export function parseMentions(text: string): React.ReactNode[] {
+  const regex = /(@[a-zA-Z0-9_]+)/g;
+  const parts = text.split(regex);
+  return parts.map((part, i) => {
+    if (part.startsWith("@") && part.length > 1) {
+      return (
+        <span
+          key={i}
+          className="font-black text-sky-400 bg-sky-500/10 px-1 py-0.5 mx-0.5 rounded-md border border-sky-500/20"
+        >
+          {part}
+        </span>
+      );
+    }
+    return <React.Fragment key={i}>{part}</React.Fragment>;
+  });
+}
+
 /**
  * Função utilitária para formatar texto no estilo WhatsApp:
  * - *texto* => negrito (<strong>)
@@ -84,7 +102,7 @@ export function parseWhatsAppFormatting(text: string): React.ReactNode[] {
       );
     }
 
-    return <React.Fragment key={i}>{part}</React.Fragment>;
+    return <React.Fragment key={i}>{parseMentions(part)}</React.Fragment>;
   });
 }
 

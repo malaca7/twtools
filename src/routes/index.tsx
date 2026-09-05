@@ -137,7 +137,7 @@ function AuthPage() {
     try {
       const origin = typeof window !== "undefined" && window.location.origin
         ? window.location.origin
-        : "https://2w.malaca.com.br";
+        : "http://twin.malaca.com.br";
 
       const cleanOrigin = origin.startsWith("http://") || origin.startsWith("https://")
         ? origin

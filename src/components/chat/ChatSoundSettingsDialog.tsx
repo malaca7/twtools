@@ -469,6 +469,10 @@ export function ChatSoundSettingsDialog({
                       <Badge className="bg-rose-500/20 text-rose-400 border-rose-500/30 text-[10px] font-mono">
                         Bloqueado pelo Navegador
                       </Badge>
+                    ) : nativeStatus === "unsupported" ? (
+                      <Badge className="bg-destructive/20 text-destructive border-destructive/30 text-[10px] font-mono">
+                        Não Suportado (HTTP)
+                      </Badge>
                     ) : (
                       <Badge className="bg-amber-500/20 text-amber-400 border-amber-500/30 text-[10px] font-mono">
                         Pendente
@@ -477,16 +481,7 @@ export function ChatSoundSettingsDialog({
                   </div>
 
                   <div className="flex items-center gap-1.5">
-                    {nativeStatus !== "granted" ? (
-                      <Button
-                        type="button"
-                        size="sm"
-                        onClick={handleRequestNativePermission}
-                        className="h-7 text-[11px] font-bold rounded-xl bg-primary text-primary-foreground"
-                      >
-                        Permitir
-                      </Button>
-                    ) : (
+                    {nativeStatus === "granted" ? (
                       <Button
                         type="button"
                         variant="outline"
@@ -496,6 +491,29 @@ export function ChatSoundSettingsDialog({
                       >
                         <Bell className="h-3 w-3 text-primary" />
                         Testar Notificação
+                      </Button>
+                    ) : nativeStatus === "denied" ? (
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="secondary"
+                        onClick={() => alert("Seu navegador bloqueou as notificações para este site. Para liberar, clique no ícone de CADEADO 🔒 ao lado da barra de endereços (URL) lá no topo do navegador e mude Notificações para Permitir.")}
+                        className="h-7 text-[10px] font-bold rounded-xl text-rose-500 hover:text-rose-600"
+                      >
+                        Como Desbloquear?
+                      </Button>
+                    ) : nativeStatus === "unsupported" ? (
+                      <Badge className="bg-destructive/10 text-destructive border-destructive/20 text-[10px]">
+                        Requer HTTPS Seguro
+                      </Badge>
+                    ) : (
+                      <Button
+                        type="button"
+                        size="sm"
+                        onClick={handleRequestNativePermission}
+                        className="h-7 text-[11px] font-bold rounded-xl bg-primary text-primary-foreground"
+                      >
+                        Permitir
                       </Button>
                     )}
                   </div>
