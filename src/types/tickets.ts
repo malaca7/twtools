@@ -40,6 +40,17 @@ export interface TicketMessage {
   created_at: string;
 }
 
+export interface TicketMember {
+  user_id: string;
+  name: string;
+  nickname?: string | null;
+  role?: AppLevel | null;
+  avatar?: string | null;
+  added_at: string;
+  added_by_id: string;
+  added_by_name: string;
+}
+
 export interface Ticket {
   id: string;
   ticket_number: number; // e.g. 1, 2, 3 -> formatted as #001, #002...
@@ -58,6 +69,7 @@ export interface Ticket {
   assigned_to_nickname?: string | null;
   assigned_to_role?: AppLevel | null;
   assigned_to_avatar?: string | null;
+  members?: TicketMember[];
   attachments?: TicketAttachment[];
   messages: TicketMessage[];
   created_at: string;
@@ -93,6 +105,14 @@ export interface TransferTicketPayload {
 
 export interface CloseTicketPayload {
   reason?: string;
+}
+
+export interface AddTicketMemberPayload {
+  user_id: string;
+  name: string;
+  nickname?: string | null;
+  role?: AppLevel | null;
+  avatar?: string | null;
 }
 
 export const TICKET_CATEGORIES: {

@@ -11,6 +11,8 @@ import {
   closeTicket,
   reopenTicket,
   deleteTicket,
+  addTicketMember,
+  removeTicketMember,
   broadcastTicketsRealtimeUpdate,
   getTicketsRealtimeChannel,
 } from "@/lib/app-api";
@@ -21,6 +23,7 @@ import type {
   AddTicketMessagePayload,
   TransferTicketPayload,
   CloseTicketPayload,
+  AddTicketMemberPayload,
   TicketStatus,
 } from "@/types/tickets";
 import { formatTicketNumber, getStatusInfo } from "@/types/tickets";
@@ -109,13 +112,53 @@ export function useAddTicketMessage() {
       ticketId: string;
       payload: AddTicketMessagePayload;
     }) => addTicketMessage(ticketId, payload),
-    onSuccess: (newMsg: TicketMessage, vars) => {
+    onMutate: async ({ ticketId, payload }) => {
+      await queryClient.cancelQueries({ queryKey: ["tickets"] });
+      const previousTickets = queryClient.getQueryData<Ticket[]>(["tickets"]);
+
+      const tempId = `temp_msg_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+      const optimisticMsg: TicketMessage = {
+        id: tempId,
+        ticket_id: ticketId,
+        sender_id: "me",
+        sender_name: "Você",
+        sender_nickname: null,
+        sender_role: "membro",
+        sender_avatar: null,
+        content: payload.content.trim(),
+        is_internal_note: Boolean(payload.is_internal_note),
+        attachments: payload.attachments || [],
+        created_at: new Date().toISOString(),
+      };
+
+      queryClient.setQueryData<Ticket[]>(["tickets"], (old = []) => {
+        return old.map((t) => {
+          if (t.id !== ticketId) return t;
+          let nextStatus = t.status;
+          if (t.status === "aguardando" && !payload.is_internal_note) {
+            nextStatus = "em_atendimento";
+          } else if (t.status === "aberto" && !payload.is_internal_note) {
+            nextStatus = "em_atendimento";
+          }
+          return {
+            ...t,
+            status: nextStatus,
+            messages: [...(t.messages || []), optimisticMsg],
+            updated_at: optimisticMsg.created_at,
+          };
+        });
+      });
+
+      return { previousTickets, tempId };
+    },
+    onSuccess: (newMsg: TicketMessage, vars, context) => {
       queryClient.setQueryData<Ticket[]>(["tickets"], (old = []) => {
         return old.map((t) => {
           if (t.id !== vars.ticketId) return t;
           const currentMsgs = t.messages || [];
-          const exists = currentMsgs.some((m) => m.id === newMsg.id);
-          const updatedMsgs = exists ? currentMsgs : [...currentMsgs, newMsg];
+          const filtered = currentMsgs.filter(
+            (m) => m.id !== context?.tempId && m.id !== newMsg.id
+          );
           let nextStatus = t.status;
           if (t.status === "aguardando" && !newMsg.is_internal_note) {
             nextStatus = "em_atendimento";
@@ -125,7 +168,7 @@ export function useAddTicketMessage() {
           return {
             ...t,
             status: nextStatus,
-            messages: updatedMsgs,
+            messages: [...filtered, newMsg],
             updated_at: newMsg.created_at,
           };
         });
@@ -136,11 +179,12 @@ export function useAddTicketMessage() {
         toast.success("Nota interna privada registrada com sucesso.", {
           description: "Visível apenas para membros da gerência.",
         });
-      } else {
-        toast.success("Mensagem enviada com sucesso.");
       }
     },
-    onError: (err: any) => {
+    onError: (err: any, _, context) => {
+      if (context?.previousTickets) {
+        queryClient.setQueryData(["tickets"], context.previousTickets);
+      }
       toast.error(err?.message || "Erro ao enviar mensagem.");
     },
   });
@@ -281,6 +325,56 @@ export function useDeleteTicket() {
     },
     onError: (err: any) => {
       toast.error(err?.message || "Erro ao excluir chamado.");
+    },
+  });
+}
+
+export function useAddTicketMember() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({
+      ticketId,
+      payload,
+    }: {
+      ticketId: string;
+      payload: AddTicketMemberPayload;
+    }) => addTicketMember(ticketId, payload),
+    onSuccess: (updatedTicket, vars) => {
+      queryClient.setQueryData<Ticket[]>(["tickets"], (old = []) => {
+        return old.map((t) => (t.id === updatedTicket.id ? updatedTicket : t));
+      });
+      void queryClient.invalidateQueries({ queryKey: ["tickets"] });
+      broadcastTicketsRealtimeUpdate();
+      toast.success(`${vars.payload.nickname || vars.payload.name} adicionado(a) ao chamado!`);
+    },
+    onError: (err: any) => {
+      toast.error(err?.message || "Erro ao adicionar membro ao chamado.");
+    },
+  });
+}
+
+export function useRemoveTicketMember() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({
+      ticketId,
+      memberUserId,
+    }: {
+      ticketId: string;
+      memberUserId: string;
+    }) => removeTicketMember(ticketId, memberUserId),
+    onSuccess: (updatedTicket) => {
+      queryClient.setQueryData<Ticket[]>(["tickets"], (old = []) => {
+        return old.map((t) => (t.id === updatedTicket.id ? updatedTicket : t));
+      });
+      void queryClient.invalidateQueries({ queryKey: ["tickets"] });
+      broadcastTicketsRealtimeUpdate();
+      toast.success("Membro removido do chamado.");
+    },
+    onError: (err: any) => {
+      toast.error(err?.message || "Erro ao remover membro do chamado.");
     },
   });
 }

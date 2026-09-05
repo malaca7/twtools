@@ -37,10 +37,12 @@ import type {
   TicketStatus,
   TicketMessage,
   TicketAttachment,
+  TicketMember,
   CreateTicketPayload,
   AddTicketMessagePayload,
   TransferTicketPayload,
   CloseTicketPayload,
+  AddTicketMemberPayload,
 } from "@/types/tickets";
 import { getCategoryInfo, getStatusInfo } from "@/types/tickets";
 
@@ -2807,7 +2809,9 @@ export async function getTickets(): Promise<Ticket[]> {
   const filteredTickets = rawTickets.filter((ticket) => {
     if (auth.canViewAll || auth.canManage || auth.isSuperUser) return true;
     if (ticket.assigned_to_id === auth.user.id) return true;
-    return ticket.user_id === auth.user.id;
+    if (ticket.user_id === auth.user.id) return true;
+    if (ticket.members && ticket.members.some((m) => m.user_id === auth.user.id)) return true;
+    return false;
   });
 
   // Ocultar notas internas confidenciais para quem não possui manage_tickets
@@ -2866,6 +2870,7 @@ export async function createTicket(payload: CreateTicketPayload): Promise<Ticket
     assigned_to_nickname: null,
     assigned_to_role: null,
     assigned_to_avatar: null,
+    members: [],
     attachments: payload.attachments || [],
     messages: [],
     created_at: now,
@@ -2916,10 +2921,11 @@ export async function addTicketMessage(
 
   const ticket = allRawTickets[targetIndex];
 
-  // Verificação de autorização: Criador do ticket, Responsável atribuído, Gerência (canManage ou canViewAll) ou SuperUser
+  // Verificação de autorização: Criador do ticket, Responsável atribuído, Membro participante adicionado, Gerência ou SuperUser
   const isCreator = ticket.user_id === auth.user.id;
   const isAssigned = ticket.assigned_to_id === auth.user.id;
-  const canReply = isCreator || isAssigned || auth.canManage || auth.canViewAll || auth.isSuperUser;
+  const isMember = (ticket.members || []).some((m) => m.user_id === auth.user.id);
+  const canReply = isCreator || isAssigned || isMember || auth.canManage || auth.canViewAll || auth.isSuperUser;
 
   if (!canReply) {
     throw new Error("Você não tem permissão para responder a este ticket");
@@ -3307,5 +3313,222 @@ export async function deleteTicket(ticketId: string): Promise<void> {
       ticketId
     );
   }
+}
+
+/**
+ * Upload otimizado de anexo de chamado para o bucket 'chat-attachments'.
+ * Retorna URL pública leve para evitar inchar a tabela com Base64.
+ */
+export async function uploadTicketAttachment(file: File): Promise<TicketAttachment> {
+  const maxBytes = 10 * 1024 * 1024; // 10MB
+  if (file.size > maxBytes) {
+    throw new Error("O anexo não pode exceder 10MB");
+  }
+
+  const ext = file.name.split(".").pop()?.toLowerCase() || "png";
+  const sanitizedExt = ["png", "jpg", "jpeg", "webp", "gif"].includes(ext) ? ext : "png";
+  const uniqueName = `ticket_${Date.now()}_${Math.random().toString(36).substring(2, 8)}.${sanitizedExt}`;
+  const filePath = `tickets/${uniqueName}`;
+
+  try {
+    const { error } = await supabase.storage.from("chat-attachments").upload(filePath, file, {
+      cacheControl: "31536000",
+      upsert: true,
+      contentType: file.type || `image/${sanitizedExt}`,
+    });
+
+    if (!error) {
+      const { data: publicUrlData } = supabase.storage.from("chat-attachments").getPublicUrl(filePath);
+      return {
+        id: `att_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+        name: file.name || "print.png",
+        url: publicUrlData.publicUrl,
+        size: file.size,
+        type: file.type || `image/${sanitizedExt}`,
+        created_at: new Date().toISOString(),
+      };
+    }
+  } catch (err) {
+    console.warn("Upload de anexo para storage falhou, gerando fallback:", err);
+  }
+
+  // Fallback se upload falhar
+  const dataUrl = await new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+
+  return {
+    id: `att_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+    name: file.name || "print.png",
+    url: dataUrl,
+    size: file.size,
+    type: file.type,
+    created_at: new Date().toISOString(),
+  };
+}
+
+/**
+ * Adiciona um membro participante ao chamado.
+ */
+export async function addTicketMember(
+  ticketId: string,
+  payload: AddTicketMemberPayload
+): Promise<Ticket> {
+  const auth = await getEffectiveTicketAuth();
+  if (!auth) throw new Error("Usuário não autenticado");
+
+  const allRawTickets = await fetchAllRawTickets();
+  const targetIndex = allRawTickets.findIndex((t) => t.id === ticketId);
+  if (targetIndex === -1) throw new Error("Ticket não encontrado");
+
+  const ticket = allRawTickets[targetIndex];
+
+  // Permissão: Gerência/Liderança/SuperUser ou Criador do ticket
+  const isCreator = ticket.user_id === auth.user.id;
+  if (!auth.canManage && !auth.isSuperUser && !isCreator) {
+    throw new Error("Você não tem permissão para adicionar membros a este ticket");
+  }
+
+  const currentMembers = ticket.members || [];
+  if (currentMembers.some((m) => m.user_id === payload.user_id)) {
+    throw new Error("Este membro já está no chamado");
+  }
+  if (ticket.user_id === payload.user_id) {
+    throw new Error("Este membro é o autor do chamado");
+  }
+
+  const now = new Date().toISOString();
+  const newMember: TicketMember = {
+    user_id: payload.user_id,
+    name: payload.name,
+    nickname: payload.nickname || null,
+    role: payload.role || null,
+    avatar: payload.avatar || null,
+    added_at: now,
+    added_by_id: auth.user.id,
+    added_by_name: auth.nickname || auth.nome || "Membro",
+  };
+
+  // Mensagem de sistema no histórico da conversa
+  const actorName = auth.nickname || auth.nome || "Gestor";
+  const targetName = payload.nickname || payload.name;
+  const memberSystemMsg: TicketMessage = {
+    id: `msg_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+    ticket_id: ticketId,
+    sender_id: auth.user.id,
+    sender_name: auth.nome,
+    sender_nickname: auth.nickname,
+    sender_role: auth.role,
+    sender_avatar: auth.avatar,
+    content: `👥 [Membros] ${targetName} foi adicionado(a) ao chamado por ${actorName}.`,
+    is_internal_note: false,
+    created_at: now,
+  };
+
+  const updatedTicket: Ticket = {
+    ...ticket,
+    members: [...currentMembers, newMember],
+    messages: [...(ticket.messages || []), memberSystemMsg],
+    updated_at: now,
+  };
+
+  allRawTickets[targetIndex] = updatedTicket;
+  setLocalTickets(allRawTickets, false);
+  await persistRolePermissionsData(TICKETS_DB_LEVEL, { tickets: allRawTickets });
+
+  broadcastTicketsRealtimeUpdate();
+
+  void logAuditAction(
+    "add_ticket_member",
+    "tickets",
+    {
+      ticket_id: ticket.id,
+      ticket_number: ticket.ticket_number,
+      subject: ticket.subject,
+      member_id: payload.user_id,
+      member_name: targetName,
+      added_by: actorName,
+    },
+    undefined,
+    ticket.id
+  );
+
+  return updatedTicket;
+}
+
+/**
+ * Remove um membro participante do chamado.
+ */
+export async function removeTicketMember(
+  ticketId: string,
+  memberUserId: string
+): Promise<Ticket> {
+  const auth = await getEffectiveTicketAuth();
+  if (!auth) throw new Error("Usuário não autenticado");
+
+  const allRawTickets = await fetchAllRawTickets();
+  const targetIndex = allRawTickets.findIndex((t) => t.id === ticketId);
+  if (targetIndex === -1) throw new Error("Ticket não encontrado");
+
+  const ticket = allRawTickets[targetIndex];
+
+  const isCreator = ticket.user_id === auth.user.id;
+  if (!auth.canManage && !auth.isSuperUser && !isCreator) {
+    throw new Error("Você não tem permissão para remover membros deste ticket");
+  }
+
+  const currentMembers = ticket.members || [];
+  const targetMember = currentMembers.find((m) => m.user_id === memberUserId);
+  if (!targetMember) throw new Error("Membro não encontrado no chamado");
+
+  const now = new Date().toISOString();
+  const actorName = auth.nickname || auth.nome || "Gestor";
+  const targetName = targetMember.nickname || targetMember.name;
+
+  const memberSystemMsg: TicketMessage = {
+    id: `msg_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+    ticket_id: ticketId,
+    sender_id: auth.user.id,
+    sender_name: auth.nome,
+    sender_nickname: auth.nickname,
+    sender_role: auth.role,
+    sender_avatar: auth.avatar,
+    content: `👥 [Membros] ${targetName} foi removido(a) do chamado por ${actorName}.`,
+    is_internal_note: false,
+    created_at: now,
+  };
+
+  const updatedTicket: Ticket = {
+    ...ticket,
+    members: currentMembers.filter((m) => m.user_id !== memberUserId),
+    messages: [...(ticket.messages || []), memberSystemMsg],
+    updated_at: now,
+  };
+
+  allRawTickets[targetIndex] = updatedTicket;
+  setLocalTickets(allRawTickets, false);
+  await persistRolePermissionsData(TICKETS_DB_LEVEL, { tickets: allRawTickets });
+
+  broadcastTicketsRealtimeUpdate();
+
+  void logAuditAction(
+    "remove_ticket_member",
+    "tickets",
+    {
+      ticket_id: ticket.id,
+      ticket_number: ticket.ticket_number,
+      subject: ticket.subject,
+      member_id: memberUserId,
+      member_name: targetName,
+      removed_by: actorName,
+    },
+    undefined,
+    ticket.id
+  );
+
+  return updatedTicket;
 }
 

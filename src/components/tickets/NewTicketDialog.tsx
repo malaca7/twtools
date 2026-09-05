@@ -37,6 +37,7 @@ import {
   type TicketAttachment,
 } from "@/types/tickets";
 import { useCreateTicket } from "@/hooks/useTickets";
+import { uploadTicketAttachment } from "@/lib/app-api";
 
 interface NewTicketDialogProps {
   open: boolean;
@@ -68,35 +69,33 @@ export function NewTicketDialog({ open, onOpenChange }: NewTicketDialogProps) {
   const [description, setDescription] = useState("");
   const [attachments, setAttachments] = useState<TicketAttachment[]>([]);
   const [isDragging, setIsDragging] = useState(false);
+  const [isUploadingAttachment, setIsUploadingAttachment] = useState(false);
   const [previewAttachment, setPreviewAttachment] = useState<TicketAttachment | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const createTicketMutation = useCreateTicket();
 
-  const handleImageFile = (file: File) => {
+  const handleImageFile = async (file: File) => {
     if (!file.type.startsWith("image/")) {
       toast.error("Apenas imagens são suportadas (PNG, JPG, WEBP).");
       return;
     }
-    if (file.size > 8 * 1024 * 1024) {
-      toast.error("O arquivo deve ter no máximo 8MB.");
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error("O arquivo deve ter no máximo 10MB.");
       return;
     }
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const result = e.target?.result as string;
-      const newAtt: TicketAttachment = {
-        id: `att_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
-        name: file.name || "print_anexo.png",
-        url: result,
-        size: file.size,
-        type: file.type,
-        created_at: new Date().toISOString(),
-      };
+
+    setIsUploadingAttachment(true);
+    const toastId = toast.loading("Enviando imagem...");
+    try {
+      const newAtt = await uploadTicketAttachment(file);
       setAttachments((prev) => [...prev, newAtt]);
-      toast.success("Print/Imagem anexada com sucesso!");
-    };
-    reader.readAsDataURL(file);
+      toast.success("Print/Imagem anexada com sucesso!", { id: toastId });
+    } catch (err: any) {
+      toast.error(err?.message || "Erro ao anexar print.", { id: toastId });
+    } finally {
+      setIsUploadingAttachment(false);
+    }
   };
 
   const handlePaste = (e: React.ClipboardEvent) => {

@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import {
   X,
   UserCheck,
@@ -12,6 +12,10 @@ import {
   ArrowRightLeft,
   Calendar,
   User,
+  Users,
+  UserPlus,
+  Plus,
+  Search,
   Shield,
   UploadCloud,
   ChevronRight,
@@ -67,11 +71,14 @@ import {
   useCloseTicket,
   useReopenTicket,
   useDeleteTicket,
+  useAddTicketMember,
+  useRemoveTicketMember,
 } from "@/hooks/useTickets";
 import { useAuth } from "@/hooks/useAuth";
 import { useMembers } from "@/hooks/useData";
 import { dateTime, formatTimeOnly } from "@/lib/format";
 import { LEVEL_LABEL, levelBadgeClass } from "@/lib/permissions";
+import { uploadTicketAttachment } from "@/lib/app-api";
 
 interface TicketDetailViewProps {
   ticket: Ticket;
@@ -93,12 +100,15 @@ export function TicketDetailView({ ticket, onClose, canManage }: TicketDetailVie
   const closeMutation = useCloseTicket();
   const reopenMutation = useReopenTicket();
   const deleteMutation = useDeleteTicket();
+  const addMemberMutation = useAddTicketMember();
+  const removeMemberMutation = useRemoveTicketMember();
 
   // Local state for sending reply
   const [replyContent, setReplyContent] = useState("");
   const [isInternalNote, setIsInternalNote] = useState(false);
   const [replyAttachments, setReplyAttachments] = useState<TicketAttachment[]>([]);
   const [isDragging, setIsDragging] = useState(false);
+  const [isUploadingAttachment, setIsUploadingAttachment] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -111,6 +121,9 @@ export function TicketDetailView({ ticket, onClose, canManage }: TicketDetailVie
   const [closeReason, setCloseReason] = useState("");
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
 
+  const [memberDialogOpen, setMemberDialogOpen] = useState(false);
+  const [memberSearchTerm, setMemberSearchTerm] = useState("");
+
   const [lightboxImage, setLightboxImage] = useState<TicketAttachment | null>(null);
 
   const catInfo = getCategoryInfo(ticket.category);
@@ -119,6 +132,24 @@ export function TicketDetailView({ ticket, onClose, canManage }: TicketDetailVie
   const isClosed = ticket.status === "fechado";
   const isCreator = ticket.user_id === user?.id;
   const isAssigned = ticket.assigned_to_id === user?.id;
+  const canManageMembers = effectiveCanManage || isCreator;
+
+  // Lista de membros da facção disponíveis para adicionar (não criador e ainda não participante)
+  const availableMembersToAdd = useMemo(() => {
+    const existingIds = new Set<string>([
+      ticket.user_id,
+      ...(ticket.members || []).map((m) => m.user_id),
+    ]);
+    const term = memberSearchTerm.toLowerCase().trim();
+    return members
+      .filter((m) => !existingIds.has(m.user_id))
+      .filter((m) => {
+        if (!term) return true;
+        const name = (m.nome || "").toLowerCase();
+        const nick = (m.nickname || "").toLowerCase();
+        return name.includes(term) || nick.includes(term);
+      });
+  }, [members, ticket.user_id, ticket.members, memberSearchTerm]);
 
   // Auto-scroll on new messages
   useEffect(() => {
@@ -130,30 +161,27 @@ export function TicketDetailView({ ticket, onClose, canManage }: TicketDetailVie
     ["desenvolvedor", "01", "02", "gerente", "motoqueiro", "membro"].includes(m.nivel || "")
   );
 
-  const handleImageFile = (file: File) => {
+  const handleImageFile = async (file: File) => {
     if (!file.type.startsWith("image/")) {
       toast.error("Apenas imagens são aceitas como anexo.");
       return;
     }
-    if (file.size > 8 * 1024 * 1024) {
-      toast.error("O arquivo deve ter no máximo 8MB.");
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error("O arquivo deve ter no máximo 10MB.");
       return;
     }
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const result = e.target?.result as string;
-      const newAtt: TicketAttachment = {
-        id: `att_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
-        name: file.name || "print.png",
-        url: result,
-        size: file.size,
-        type: file.type,
-        created_at: new Date().toISOString(),
-      };
+
+    setIsUploadingAttachment(true);
+    const toastId = toast.loading("Enviando print para o servidor...");
+    try {
+      const newAtt = await uploadTicketAttachment(file);
       setReplyAttachments((prev) => [...prev, newAtt]);
-      toast.success("Print anexado!");
-    };
-    reader.readAsDataURL(file);
+      toast.success("Print anexado com sucesso!", { id: toastId });
+    } catch (err: any) {
+      toast.error(err?.message || "Erro ao processar anexo.", { id: toastId });
+    } finally {
+      setIsUploadingAttachment(false);
+    }
   };
 
   const handlePaste = (e: React.ClipboardEvent) => {
@@ -163,7 +191,7 @@ export function TicketDetailView({ ticket, onClose, canManage }: TicketDetailVie
       if (items[i].type.startsWith("image/")) {
         const file = items[i].getAsFile();
         if (file) {
-          handleImageFile(file);
+          void handleImageFile(file);
           break;
         }
       }
@@ -171,26 +199,34 @@ export function TicketDetailView({ ticket, onClose, canManage }: TicketDetailVie
   };
 
   const handleSendReply = async () => {
-    if (!replyContent.trim() && replyAttachments.length === 0) {
+    const text = replyContent.trim();
+    const attachments = [...replyAttachments];
+    const isNote = Boolean(isInternalNote && effectiveCanManage);
+
+    if (!text && attachments.length === 0) {
       toast.error("Digite uma mensagem ou anexe uma imagem.");
       return;
     }
+
+    // Limpa o formulário imediatamente para resposta instantânea de 0ms
+    setReplyContent("");
+    setReplyAttachments([]);
+    setIsInternalNote(false);
 
     try {
       await addMessageMutation.mutateAsync({
         ticketId: ticket.id,
         payload: {
-          content: replyContent.trim(),
-          is_internal_note: Boolean(isInternalNote && effectiveCanManage),
-          attachments: replyAttachments,
+          content: text,
+          is_internal_note: isNote,
+          attachments,
         },
       });
-
-      setReplyContent("");
-      setReplyAttachments([]);
-      setIsInternalNote(false);
     } catch {
-      // Handled by mutation
+      // Em caso de falha de conexão, restaura o texto para o usuário
+      setReplyContent(text);
+      setReplyAttachments(attachments);
+      setIsInternalNote(isNote);
     }
   };
 
@@ -365,6 +401,94 @@ export function TicketDetailView({ ticket, onClose, canManage }: TicketDetailVie
               );
             })}
           </div>
+        </div>
+
+        {/* Linha: Membros Participantes do Chamado */}
+        <div className="flex items-center gap-1.5 pt-2 border-t border-border/40 flex-wrap text-xs">
+          <span className="text-[11px] font-semibold text-muted-foreground flex items-center gap-1 shrink-0">
+            <Users className="h-3.5 w-3.5 text-amber-400" />
+            Membros:
+          </span>
+
+          {/* Autor */}
+          <div className="flex items-center gap-1 bg-secondary/70 border border-border/70 rounded-full px-2 py-0.5" title="Autor do Chamado">
+            <Avatar className="h-3.5 w-3.5">
+              <AvatarImage src={ticket.creator_avatar || undefined} />
+              <AvatarFallback className="text-[7px]">
+                {ticket.creator_name.slice(0, 2).toUpperCase()}
+              </AvatarFallback>
+            </Avatar>
+            <span className="text-[11px] font-medium text-foreground">
+              {ticket.creator_nickname || ticket.creator_name}
+            </span>
+            <Badge variant="outline" className="text-[8px] py-0 px-1 border-amber-500/30 text-amber-400 bg-amber-500/10">
+              Autor
+            </Badge>
+          </div>
+
+          {/* Responsável */}
+          {ticket.assigned_to_name && (
+            <div className="flex items-center gap-1 bg-secondary/70 border border-border/70 rounded-full px-2 py-0.5" title="Responsável Atribuído">
+              <Avatar className="h-3.5 w-3.5">
+                <AvatarImage src={ticket.assigned_to_avatar || undefined} />
+                <AvatarFallback className="text-[7px]">
+                  {ticket.assigned_to_name.slice(0, 2).toUpperCase()}
+                </AvatarFallback>
+              </Avatar>
+              <span className="text-[11px] font-medium text-sky-400">
+                {ticket.assigned_to_nickname || ticket.assigned_to_name}
+              </span>
+              <Badge variant="outline" className="text-[8px] py-0 px-1 border-sky-500/30 text-sky-400 bg-sky-500/10">
+                Resp
+              </Badge>
+            </div>
+          )}
+
+          {/* Membros Adicionados */}
+          {(ticket.members || []).map((m) => (
+            <div
+              key={m.user_id}
+              className="group flex items-center gap-1 bg-secondary/70 border border-border/70 rounded-full pl-2 pr-1 py-0.5 hover:border-border transition-colors"
+              title={`Adicionado por ${m.added_by_name}`}
+            >
+              <Avatar className="h-3.5 w-3.5">
+                <AvatarImage src={m.avatar || undefined} />
+                <AvatarFallback className="text-[7px]">
+                  {m.name.slice(0, 2).toUpperCase()}
+                </AvatarFallback>
+              </Avatar>
+              <span className="text-[11px] font-medium text-foreground">
+                {m.nickname || m.name}
+              </span>
+              {canManageMembers && !isClosed && (
+                <button
+                  type="button"
+                  onClick={() => removeMemberMutation.mutate({ ticketId: ticket.id, memberUserId: m.user_id })}
+                  disabled={removeMemberMutation.isPending}
+                  className="ml-0.5 text-muted-foreground hover:text-rose-400 p-0.5 rounded-full transition-colors"
+                  title="Remover membro do chamado"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              )}
+            </div>
+          ))}
+
+          {/* Botão Adicionar Membro */}
+          {canManageMembers && !isClosed && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                setMemberSearchTerm("");
+                setMemberDialogOpen(true);
+              }}
+              className="h-6 text-[11px] px-2 gap-1 text-amber-400 hover:text-amber-300 hover:bg-amber-500/10 rounded-full border border-dashed border-amber-500/30"
+            >
+              <UserPlus className="h-3 w-3" />
+              Adicionar Membro
+            </Button>
+          )}
         </div>
 
         {/* Linha 4: Barra de Ações (Gerência ou Autor) */}
@@ -959,6 +1083,89 @@ export function TicketDetailView({ ticket, onClose, canManage }: TicketDetailVie
               {deleteMutation.isPending ? "Excluindo..." : "Confirmar Exclusão"}
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal Adicionar Membro ao Chamado */}
+      <Dialog open={memberDialogOpen} onOpenChange={setMemberDialogOpen}>
+        <DialogContent className="sm:max-w-md bg-card border-border">
+          <DialogHeader>
+            <div className="flex items-center gap-2 text-amber-400">
+              <UserPlus className="h-5 w-5" />
+              <DialogTitle>Adicionar Membro ao Chamado</DialogTitle>
+            </div>
+            <DialogDescription className="text-xs text-muted-foreground pt-1">
+              O membro adicionado poderá visualizar todo o histórico do chamado e participar das mensagens.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-3 pt-2">
+            <div className="relative">
+              <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
+              <Input
+                value={memberSearchTerm}
+                onChange={(e) => setMemberSearchTerm(e.target.value)}
+                placeholder="Buscar membro por nome ou apelido..."
+                className="pl-8 h-8 text-xs bg-secondary/40 border-border"
+                autoFocus
+              />
+            </div>
+
+            <div className="max-h-60 overflow-y-auto space-y-1 pr-1">
+              {availableMembersToAdd.length === 0 ? (
+                <p className="text-xs text-muted-foreground text-center py-4">
+                  Nenhum membro disponível para adicionar.
+                </p>
+              ) : (
+                availableMembersToAdd.map((m) => (
+                  <div
+                    key={m.user_id}
+                    className="flex items-center justify-between p-2 rounded-lg hover:bg-secondary/50 border border-transparent hover:border-border/60 transition-all"
+                  >
+                    <div className="flex items-center gap-2">
+                      <Avatar className="h-6 w-6">
+                        <AvatarImage src={m.avatar_url || m.discord_avatar_url || undefined} />
+                        <AvatarFallback className="text-[9px]">
+                          {m.nome.slice(0, 2).toUpperCase()}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div>
+                        <p className="text-xs font-semibold text-foreground">
+                          {m.nickname || m.nome}
+                        </p>
+                        <p className="text-[10px] text-muted-foreground">
+                          {m.nivel ? LEVEL_LABEL[m.nivel as AppLevel] || m.nivel : "Membro"}
+                        </p>
+                      </div>
+                    </div>
+
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={async () => {
+                        await addMemberMutation.mutateAsync({
+                          ticketId: ticket.id,
+                          payload: {
+                            user_id: m.user_id,
+                            name: m.nome,
+                            nickname: m.nickname || null,
+                            role: (m.nivel as AppLevel) || null,
+                            avatar: m.avatar_url || m.discord_avatar_url || null,
+                          },
+                        });
+                        setMemberDialogOpen(false);
+                      }}
+                      disabled={addMemberMutation.isPending}
+                      className="h-7 text-xs bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 border-amber-500/30 gap-1"
+                    >
+                      <Plus className="h-3 w-3" />
+                      Adicionar
+                    </Button>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
 
