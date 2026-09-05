@@ -17,7 +17,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { PageHeader } from "@/components/ui-kit";
+import { PageHeader, NoAccess } from "@/components/ui-kit";
 import { useAuth } from "@/hooks/useAuth";
 import { isUserDeveloper } from "@/services/devService";
 import {
@@ -36,8 +36,10 @@ export const Route = createFileRoute("/_authenticated/atualizacoes")({
 });
 
 function AtualizacoesPage() {
-  const { user, profile, level } = useAuth();
+  const { user, profile, level, hasPermission } = useAuth();
   const isDev = isUserDeveloper(user, profile, level);
+  const canView = hasPermission("view_patch_notes") || isDev || level === "desenvolvedor" || level === "01" || level === "02";
+  const canManage = isDev || hasPermission("manage_patch_notes") || level === "desenvolvedor" || level === "01";
 
   const [patchNotes, setPatchNotes] = useState<DevPatchNote[]>([]);
   const [loading, setLoading] = useState(true);
@@ -112,6 +114,15 @@ function AtualizacoesPage() {
     };
   }, [patchNotes]);
 
+  if (!canView) {
+    return (
+      <NoAccess
+        title="Acesso Restrito às Atualizações"
+        description="Seu cargo atual não possui permissão para visualizar o histórico de notas de versão e atualizações do sistema."
+      />
+    );
+  }
+
   return (
     <div className="space-y-6 animate-in fade-in-50 duration-300">
       {/* PAGE HEADER */}
@@ -130,8 +141,8 @@ function AtualizacoesPage() {
           </p>
         </div>
 
-        {/* BOTAO PARA DESENVOLVEDORES */}
-        {isDev && (
+        {/* BOTAO PARA DESENVOLVEDORES / GESTAO */}
+        {canManage && (
           <div className="flex items-center gap-2 shrink-0">
             <Button
               type="button"
@@ -142,7 +153,7 @@ function AtualizacoesPage() {
               className="h-10 px-4 bg-[#00a884] hover:bg-[#00a884]/90 text-white font-bold text-xs rounded-xl shadow-lg flex items-center gap-2 cursor-pointer transition-transform active:scale-95"
             >
               <Plus className="h-4 w-4" />
-              <span>Postar Atualização (Dev)</span>
+              <span>Postar Atualização</span>
             </Button>
           </div>
         )}
@@ -255,7 +266,7 @@ function AtualizacoesPage() {
             <PatchNoteCard
               key={note.id}
               note={note}
-              isDev={isDev}
+              isDev={canManage}
               onEdit={(n) => {
                 setEditingNote(n);
                 setEditorOpen(true);
@@ -266,8 +277,8 @@ function AtualizacoesPage() {
         </div>
       )}
 
-      {/* DIALOG DE POSTAGEM / EDIÇÃO EXCLUSIVO DEV */}
-      {isDev && (
+      {/* DIALOG DE POSTAGEM / EDIÇÃO EXCLUSIVO DEV / GESTAO */}
+      {canManage && (
         <PatchNoteEditorDialog
           open={editorOpen}
           onOpenChange={setEditorOpen}

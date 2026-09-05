@@ -62,7 +62,7 @@ export function useConversations(activeConversationId?: string | null) {
   useEffect(() => {
     if (!userId) return;
 
-    const channelName = `realtime-global-chat-${userId}`;
+    const channelName = `realtime-global-chat-${userId}-${Math.random().toString(36).substring(2, 9)}`;
     const channel = supabase
       .channel(channelName)
       .on(
@@ -350,7 +350,7 @@ export function useChatRoom(
   useEffect(() => {
     if (!activeConversationId || !currentUserId) return;
 
-    const channelName = `chat_room_${activeConversationId}`;
+    const channelName = `chat_room_${activeConversationId}_${currentUserId}_${Math.random().toString(36).substring(2, 9)}`;
     const channel = supabase.channel(channelName, {
       config: { broadcast: { self: false } },
     });

@@ -28,6 +28,7 @@ import {
   ShieldCheck,
   LayoutDashboard,
   Layers,
+  Sparkles,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -60,6 +61,7 @@ function DevMenuLateralPageWrapper() {
 
 const DEV_ICON_MAP: Record<string, typeof Terminal> = {
   "/dev": Terminal,
+  "/dev/patch-notes": Sparkles,
   "/dev/desempenho": TrendingUp,
   "/dev/permissoes": KeyRound,
   "/dev/configuracao": Code2,

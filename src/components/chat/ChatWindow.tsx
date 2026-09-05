@@ -53,7 +53,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/hooks/useAuth";
-import { useChatRoom, useConversations } from "@/hooks/useChat";
+import { useChatRoom } from "@/hooks/useChat";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   updateGroupSettings,
@@ -121,8 +121,9 @@ export function ChatWindow({
 }: ChatWindowProps) {
   const { user } = useAuth();
   const currentUserId = user?.id;
-  const { conversations: fetchedConversations } = useConversations();
-  const allConversations = passedAllConversations || fetchedConversations || [];
+  const queryClient = useQueryClient();
+  const cachedConversations = queryClient.getQueryData<ChatConversation[]>(["chat_conversations", currentUserId]) || [];
+  const allConversations = passedAllConversations || cachedConversations;
 
   const {
     messages,
@@ -377,8 +378,6 @@ export function ChatWindow({
   const isOnline = otherMember?.presence_status === "online";
   const isAusente = otherMember?.presence_status === "ausente";
   const memberNivelLabel = otherMember?.nivel ? LEVEL_LABEL[otherMember.nivel] || otherMember.nivel : null;
-
-  const queryClient = useQueryClient();
   const [togglingLock, setTogglingLock] = useState(false);
 
   const handleQuickToggleOnlyAdmins = async () => {

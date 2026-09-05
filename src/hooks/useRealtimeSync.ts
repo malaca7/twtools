@@ -10,8 +10,9 @@ export function useRealtimeSync() {
   const queryClient = useQueryClient();
 
   useEffect(() => {
+    const channelName = `global-twtools-realtime-${Math.random().toString(36).substring(2, 9)}`;
     const channel = supabase
-      .channel("global-twtools-realtime")
+      .channel(channelName)
       .on(
         "postgres_changes",
         { event: "*", schema: "public" },

@@ -89,6 +89,9 @@ export type Permission =
   | "request_absence"
   | "manage_absences"
   | "view_all_absences"
+  | "view_patch_notes"
+  | "manage_patch_notes"
+  | "trigger_force_cache_purge"
   // Legacy aliases for backward compatibility
   | "view_financials"
   | "manage_members"
@@ -149,6 +152,9 @@ export const ALL_PERMISSIONS: Permission[] = [
   "view_audit",
   "manage_platform_settings",
   "manage_menu_settings",
+  "trigger_force_cache_purge",
+  "view_patch_notes",
+  "manage_patch_notes",
   "view_profile",
   "view_financials",
   "manage_members",
@@ -198,6 +204,9 @@ const OFFICER: Permission[] = [
   "view_audit",
   "manage_platform_settings",
   "manage_menu_settings",
+  "trigger_force_cache_purge",
+  "view_patch_notes",
+  "manage_patch_notes",
   "view_profile",
 ];
 
@@ -242,6 +251,7 @@ const MANAGER: Permission[] = [
   "view_audit",
   "manage_platform_settings",
   "manage_menu_settings",
+  "view_patch_notes",
   "view_profile",
 ];
 
@@ -263,6 +273,7 @@ const MEMBER: Permission[] = [
   "view_performance",
   "view_goals",
   "view_hierarchy",
+  "view_patch_notes",
   "view_profile",
 ];
 
@@ -281,6 +292,7 @@ const NOVATO: Permission[] = [
   "view_performance",
   "view_goals",
   "view_hierarchy",
+  "view_patch_notes",
   "view_profile",
 ];
 

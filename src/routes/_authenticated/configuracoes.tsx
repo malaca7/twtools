@@ -97,6 +97,7 @@ const ICON_MAP: Record<string, typeof LayoutDashboard> = {
   "/permissoes": Settings,
   "/avisos": Megaphone,
   "/logs": ScrollText,
+  "/atualizacoes": Sparkles,
   "/perfil": User,
   "/configuracoes": Wrench,
   "/dev/permissoes": KeyRound,
@@ -122,8 +123,9 @@ const DEFAULT_ITEMS: MenuItemConfig[] = [
   { id: "permissoes", title: "Permissões", url: "/permissoes", visible: true, category: "Gestão", order: 13 },
   { id: "avisos", title: "Enviar Avisos", url: "/avisos", visible: true, category: "Gestão", order: 14 },
   { id: "logs", title: "Logs", url: "/logs", visible: true, category: "Gestão", order: 15 },
-  { id: "perfil", title: "Meu Perfil", url: "/perfil", visible: true, category: "Gestão", order: 16 },
-  { id: "configuracoes", title: "Configurações", url: "/configuracoes", visible: true, category: "Gestão", order: 17 },
+  { id: "atualizacoes", title: "Atualizações", url: "/atualizacoes", visible: true, category: "Gestão", order: 16 },
+  { id: "perfil", title: "Meu Perfil", url: "/perfil", visible: true, category: "Gestão", order: 17 },
+  { id: "configuracoes", title: "Configurações", url: "/configuracoes", visible: true, category: "Gestão", order: 18 },
 ];
 
 const CATEGORIES = ["Operação", "Gestão", "Administração"];

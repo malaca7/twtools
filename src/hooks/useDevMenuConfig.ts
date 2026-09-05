@@ -19,10 +19,11 @@ export const DEFAULT_DEV_CATEGORIES = ["Ferramentas Dev"];
 
 export const DEFAULT_DEV_MENU_ITEMS: DevMenuItemConfig[] = [
   { id: "dev-hub", title: "Painel Dev Geral", url: "/dev", visible: true, category: "Ferramentas Dev", order: 0 },
-  { id: "dev-desempenho", title: "Gestão Desempenho", url: "/dev/desempenho", visible: true, category: "Ferramentas Dev", order: 1 },
-  { id: "dev-permissoes", title: "Permissões Tag Dev", url: "/dev/permissoes", visible: true, category: "Ferramentas Dev", order: 2 },
-  { id: "dev-configuracao", title: "Configurações Dev", url: "/dev/configuracao", visible: true, category: "Ferramentas Dev", order: 3 },
-  { id: "dev-menu-lateral", title: "Menu Lateral Dev", url: "/dev/menu-lateral", visible: true, category: "Ferramentas Dev", order: 4 },
+  { id: "dev-patch-notes", title: "Patch Notes & Releases", url: "/dev/patch-notes", visible: true, category: "Ferramentas Dev", order: 1 },
+  { id: "dev-desempenho", title: "Gestão Desempenho", url: "/dev/desempenho", visible: true, category: "Ferramentas Dev", order: 2 },
+  { id: "dev-permissoes", title: "Permissões Tag Dev", url: "/dev/permissoes", visible: true, category: "Ferramentas Dev", order: 3 },
+  { id: "dev-configuracao", title: "Configurações Dev", url: "/dev/configuracao", visible: true, category: "Ferramentas Dev", order: 4 },
+  { id: "dev-menu-lateral", title: "Menu Lateral Dev", url: "/dev/menu-lateral", visible: true, category: "Ferramentas Dev", order: 5 },
 ];
 
 const STORAGE_KEY = "tw_dev_menu_config";

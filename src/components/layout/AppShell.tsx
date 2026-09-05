@@ -105,7 +105,7 @@ const MASTER_NAV_ITEMS: MasterNavItem[] = [
   { id: "permissoes", title: "Permissões", url: "/permissoes", icon: Settings, perm: "manage_permissions", defaultCat: "Gestão", defaultOrder: 13 },
   { id: "avisos", title: "Enviar Avisos", url: "/avisos", icon: Megaphone, perm: "manage_announcements", defaultCat: "Gestão", defaultOrder: 14 },
   { id: "logs", title: "Logs", url: "/logs", icon: ScrollText, perm: "view_audit", defaultCat: "Gestão", defaultOrder: 15 },
-  { id: "atualizacoes", title: "Atualizações", url: "/atualizacoes", icon: Sparkles, defaultCat: "Gestão", defaultOrder: 16 },
+  { id: "atualizacoes", title: "Atualizações", url: "/atualizacoes", icon: Sparkles, perm: "view_patch_notes", defaultCat: "Gestão", defaultOrder: 16 },
   { id: "perfil", title: "Meu Perfil", url: "/perfil", icon: User, defaultCat: "Gestão", defaultOrder: 17 },
   { id: "configuracoes", title: "Configurações", url: "/configuracoes", icon: Wrench, perm: "manage_platform_settings", defaultCat: "Gestão", defaultOrder: 18 },
 ];

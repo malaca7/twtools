@@ -18,6 +18,7 @@ import {
   ScrollText,
   Wrench,
   User,
+  Sparkles,
 } from "lucide-react";
 import type { Permission } from "@/lib/permissions";
 
@@ -63,6 +64,7 @@ export const READ_ONLY_PERMISSIONS: Permission[] = [
   "view_all_absences",
   "view_hierarchy",
   "view_audit",
+  "view_patch_notes",
   "view_profile",
   "view_chat",
 ];
@@ -312,6 +314,12 @@ export const PAGE_CARDS: PageCardConfig[] = [
         importantNote: "Regra Estrita: Só permite alterar cargos de ranks estritamente inferiores.",
       },
       {
+        key: "change_roles",
+        label: "Alterar Patente Hierárquica Direta",
+        description: "Permite modificar diretamente a patente ou nível hierárquico de integrantes.",
+        badge: "Hierarquia",
+      },
+      {
         key: "edit_members",
         label: "Editar Dados de Membros",
         description: "Permite alterar nome, apelido, telefone e ID do personagem de membros inferiores.",
@@ -556,6 +564,37 @@ export const PAGE_CARDS: PageCardConfig[] = [
         description: "Permite reordenar o menu lateral, alterar visibilidade dos itens e vincular categorias.",
         badge: "Gestão Menu",
       },
+      {
+        key: "trigger_force_cache_purge",
+        label: "Disparar Limpeza Global de Cache e Reload",
+        description: "Permite emitir o comando de limpeza de cache e recarregamento automático nos navegadores de todos os membros.",
+        badge: "Ação Global / Dev",
+        importantNote: "Ação de impacto global imediato em todos os navegadores conectados.",
+      },
+    ],
+  },
+  {
+    id: "atualizacoes",
+    title: "Atualizações do Sistema",
+    route: "/atualizacoes",
+    icon: Sparkles,
+    description: "Histórico completo de releases, notas de atualização, novidades e correções postadas pelos desenvolvedores.",
+    color: "border-emerald-500/40 bg-emerald-500/5 text-emerald-400",
+    defaultCat: "Gestão",
+    defaultOrder: 15,
+    permissions: [
+      {
+        key: "view_patch_notes",
+        label: "Visualizar Atualizações e Patch Notes (/atualizacoes)",
+        description: "Permite acessar a rota /atualizacoes e acompanhar o feed de notas de versão e melhorias do sistema.",
+        badge: "Acesso à Rota",
+      },
+      {
+        key: "manage_patch_notes",
+        label: "Postar, Editar e Gerenciar Atualizações",
+        description: "Permite criar novas notas de atualização, adicionar imagens, publicar ou remover releases do sistema.",
+        badge: "Dev / Gestão",
+      },
     ],
   },
   {
@@ -566,7 +605,7 @@ export const PAGE_CARDS: PageCardConfig[] = [
     description: "Visualização e edição dos dados pessoais do integrante (nome, apelido, telefone e passaporte).",
     color: "border-sky-500/40 bg-sky-500/5 text-sky-400",
     defaultCat: "Gestão",
-    defaultOrder: 13,
+    defaultOrder: 16,
     permissions: [
       {
         key: "view_profile",
