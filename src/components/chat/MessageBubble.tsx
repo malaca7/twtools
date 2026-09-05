@@ -176,8 +176,12 @@ function MessageBubbleBase({
   };
 
   const isSystem = message.message_type === "system";
-  const isDeleted = message.is_deleted || message.is_deleted_for_everyone;
+  const isDeleted = Boolean(message.is_deleted || message.is_deleted_for_everyone);
   const canDeleteForEveryone = isSelf || userRole === "admin";
+  // Apenas o autor da mensagem ou administradores do grupo podem ver os dados da mensagem
+  const canViewMessageInfo = Boolean(
+    onOpenMessageInfo && (isSelf || (isGroup && userRole === "admin"))
+  );
 
   const senderColor = useMemo(
     () => getSenderColor(message.sender_id || message.sender_name || "Membro"),
@@ -306,7 +310,7 @@ function MessageBubbleBase({
                     <Reply className="h-3.5 w-3.5 mr-2 text-[#00a884]" /> Responder
                   </DropdownMenuItem>
 
-                  {onOpenMessageInfo && (
+                  {canViewMessageInfo && (
                     <DropdownMenuItem
                       onClick={() => onOpenMessageInfo(message)}
                       className="cursor-pointer hover:bg-white/10 rounded-lg text-[#53bdeb] font-medium"

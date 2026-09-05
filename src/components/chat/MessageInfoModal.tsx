@@ -75,6 +75,13 @@ export function MessageInfoModal({
   if (!message || !receiptSummary) return null;
 
   const isSelf = message.sender_id === currentUserId || message.is_self;
+  const isGroupAdmin =
+    isGroup &&
+    (conversation.created_by === currentUserId ||
+      conversation.my_role === "admin" ||
+      conversation.participants?.some((p) => p.user_id === currentUserId && p.role === "admin"));
+
+  if (!isSelf && !isGroupAdmin) return null;
 
   // Filtra participantes pela busca e aba ativa
   const filterList = (list: MessageReceiptParticipantInfo[]) => {
@@ -94,9 +101,9 @@ export function MessageInfoModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md sm:max-w-lg p-0 overflow-hidden bg-[#182229] border border-white/20 text-white rounded-2xl shadow-2xl ring-1 ring-white/10">
+      <DialogContent className="max-w-md sm:max-w-lg p-0 bg-[#182229] border border-white/20 text-white rounded-2xl shadow-2xl ring-1 ring-white/10 h-[88vh] max-h-[720px] flex flex-col overflow-hidden">
         {/* HEADER ESTILO WHATSAPP */}
-        <DialogHeader className="p-4 bg-[#202c33] border-b border-white/10 space-y-1">
+        <DialogHeader className="p-4 bg-[#202c33] border-b border-white/10 space-y-1 shrink-0">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <div className="h-8 w-8 rounded-full bg-[#00a884]/20 text-[#00a884] flex items-center justify-center">
@@ -125,20 +132,23 @@ export function MessageInfoModal({
             </Badge>
           </div>
           <p className="text-[11px] text-[#8696a0] font-sans">
-            Enviada em {formatWhatsAppDateTime(message.created_at)}
+            {isSelf ? "Enviada por você em " : `Enviada por ${message.sender_name || "Membro"} em `}
+            {formatWhatsAppDateTime(message.created_at)}
           </p>
         </DialogHeader>
 
         {/* PREVIEW DO BALÃO DA MENSAGEM */}
-        <div className="p-4 bg-[#0b141a] border-b border-white/5">
-          <div className="text-[10px] uppercase font-bold text-[#8696a0] tracking-wider mb-2 flex items-center gap-1.5">
-            <Eye className="h-3 w-3" />
-            <span>Mensagem enviada</span>
+        <div className="px-4 py-2.5 bg-[#0b141a] border-b border-white/5 shrink-0">
+          <div className="text-[10px] uppercase font-bold text-[#8696a0] tracking-wider mb-1 flex items-center justify-between">
+            <span className="flex items-center gap-1.5">
+              <Eye className="h-3 w-3" />
+              <span>{isSelf ? "Mensagem enviada por você" : `Mensagem enviada por ${message.sender_name || "Membro"}`}</span>
+            </span>
           </div>
 
           <div
             className={cn(
-              "relative rounded-lg p-3 shadow-md text-[#e9edef] max-w-full overflow-hidden",
+              "relative rounded-lg p-2.5 shadow-md text-[#e9edef] max-w-full max-h-28 overflow-y-auto custom-scrollbar-thin text-xs",
               isSelf
                 ? "whatsapp-bubble-out rounded-tr-none ml-auto"
                 : "whatsapp-bubble-in rounded-tl-none mr-auto"
@@ -151,14 +161,14 @@ export function MessageInfoModal({
                   <img
                     src={message.attachment_url}
                     alt={message.attachment_name || "Mídia"}
-                    className="max-h-48 w-full object-cover rounded-md"
+                    className="max-h-36 w-full object-cover rounded-md"
                   />
                 )}
                 {message.message_type === "video" && (
                   <video
                     src={message.attachment_url}
                     controls
-                    className="max-h-48 w-full rounded-md"
+                    className="max-h-36 w-full rounded-md"
                   />
                 )}
                 {message.message_type === "document" && (
@@ -194,12 +204,6 @@ export function MessageInfoModal({
                 showPreview={false}
               />
             )}
-
-            {/* Rodapé do preview com hora e status */}
-            <div className="flex items-center justify-end gap-1 mt-1 text-[10px] text-[#8696a0] font-mono leading-none">
-              <span>{formatTimeOnly(message.created_at)}</span>
-              <MessageStatusIcon status={receiptSummary.status} />
-            </div>
           </div>
         </div>
 
@@ -221,13 +225,13 @@ export function MessageInfoModal({
             message.created_at;
 
           return (
-            <div className="p-4 space-y-3 bg-[#111b21]">
-              <div className="text-xs font-bold text-[#e9edef] flex items-center gap-1.5 mb-1">
-                <Users className="h-3.5 w-3.5 text-[#00a884]" />
+            <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-4 bg-[#111b21] custom-scrollbar-thin">
+              <div className="text-[10px] uppercase font-bold text-[#8696a0] tracking-wider flex items-center gap-1.5">
+                <Users className="h-3 w-3" />
                 <span>Status com o destinatário</span>
               </div>
 
-              <div className="divide-y divide-white/5 rounded-xl bg-[#202c33] border border-white/5 overflow-hidden">
+              <div className="rounded-xl bg-[#202c33]/70 border border-white/5 divide-y divide-white/5 overflow-hidden">
                 {/* LIDA */}
                 <div className="p-3 flex items-center justify-between gap-3 hover:bg-white/5 transition-colors">
                   <div className="flex items-center gap-3 min-w-0">
@@ -248,11 +252,6 @@ export function MessageInfoModal({
                       </p>
                     </div>
                   </div>
-                  {isDirectRead && (
-                    <Badge className="bg-[#53bdeb]/20 text-[#53bdeb] border-[#53bdeb]/30 text-[10px] font-bold">
-                      Visualizada
-                    </Badge>
-                  )}
                 </div>
 
                 {/* ENTREGUE */}
@@ -275,11 +274,6 @@ export function MessageInfoModal({
                       </p>
                     </div>
                   </div>
-                  {isDirectDelivered && (
-                    <Badge className="bg-[#8696a0]/20 text-[#8696a0] border-[#8696a0]/30 text-[10px] font-bold">
-                      Entregue
-                    </Badge>
-                  )}
                 </div>
 
                 {/* ENVIADA */}
@@ -295,9 +289,6 @@ export function MessageInfoModal({
                       </p>
                     </div>
                   </div>
-                  <Badge className="bg-white/10 text-white/80 border-white/10 text-[10px] font-mono">
-                    Servidor
-                  </Badge>
                 </div>
               </div>
             </div>
@@ -306,9 +297,9 @@ export function MessageInfoModal({
 
         {/* CASO 2: CONVERSA EM GRUPO */}
         {isGroup && (
-          <div className="flex flex-col flex-1 min-h-0 bg-[#111b21]">
+          <div className="flex flex-col flex-1 min-h-0 bg-[#111b21] overflow-hidden">
             {/* CARDS DE RESUMO DE MÉTRICAS */}
-            <div className="grid grid-cols-3 gap-2 p-3 bg-[#202c33]/70 border-b border-white/5 text-center">
+            <div className="grid grid-cols-3 gap-2 p-3 bg-[#202c33]/70 border-b border-white/5 text-center shrink-0">
               {/* Lida */}
               <button
                 type="button"
@@ -316,7 +307,7 @@ export function MessageInfoModal({
                 className={cn(
                   "p-2 rounded-xl border transition-all cursor-pointer",
                   activeTab === "read"
-                    ? "bg-[#53bdeb]/15 border-[#53bdeb]/50 text-white"
+                    ? "bg-[#53bdeb]/20 border-[#53bdeb] text-white shadow-sm ring-1 ring-[#53bdeb]/40"
                     : "bg-[#111b21] border-white/5 hover:border-white/10 text-[#8696a0]"
                 )}
               >
@@ -325,10 +316,7 @@ export function MessageInfoModal({
                   <span>Lida</span>
                 </div>
                 <div className="text-base font-black text-white leading-tight font-mono">
-                  {receiptSummary.readCount}{" "}
-                  <span className="text-[10px] text-[#8696a0] font-normal">
-                    / {receiptSummary.totalRecipients}
-                  </span>
+                  {receiptSummary.readCount}
                 </div>
               </button>
 
@@ -339,7 +327,7 @@ export function MessageInfoModal({
                 className={cn(
                   "p-2 rounded-xl border transition-all cursor-pointer",
                   activeTab === "delivered"
-                    ? "bg-[#8696a0]/20 border-[#8696a0]/50 text-white"
+                    ? "bg-[#8696a0]/25 border-[#8696a0] text-white shadow-sm ring-1 ring-[#8696a0]/40"
                     : "bg-[#111b21] border-white/5 hover:border-white/10 text-[#8696a0]"
                 )}
               >
@@ -348,10 +336,7 @@ export function MessageInfoModal({
                   <span>Entregue</span>
                 </div>
                 <div className="text-base font-black text-white leading-tight font-mono">
-                  {receiptSummary.deliveredCount}{" "}
-                  <span className="text-[10px] text-[#8696a0] font-normal">
-                    / {receiptSummary.totalRecipients}
-                  </span>
+                  {receiptSummary.deliveredCount}
                 </div>
               </button>
 
@@ -362,7 +347,7 @@ export function MessageInfoModal({
                 className={cn(
                   "p-2 rounded-xl border transition-all cursor-pointer",
                   activeTab === "pending"
-                    ? "bg-amber-500/15 border-amber-500/50 text-white"
+                    ? "bg-amber-500/20 border-amber-500 text-white shadow-sm ring-1 ring-amber-500/40"
                     : "bg-[#111b21] border-white/5 hover:border-white/10 text-[#8696a0]"
                 )}
               >
@@ -371,21 +356,70 @@ export function MessageInfoModal({
                   <span>Pendente</span>
                 </div>
                 <div className="text-base font-black text-white leading-tight font-mono">
-                  {receiptSummary.pendingCount}{" "}
-                  <span className="text-[10px] text-[#8696a0] font-normal">
-                    / {receiptSummary.totalRecipients}
-                  </span>
+                  {receiptSummary.pendingCount}
                 </div>
               </button>
             </div>
 
-            {/* CAMPO DE BUSCA SE HOUVER MAIS DE 4 PARTICIPANTES */}
-            {receiptSummary.totalRecipients > 4 && (
-              <div className="p-3 border-b border-white/5 bg-[#111b21]">
+            {/* BARRA DE ABAS RÁPIDAS */}
+            <div className="flex items-center gap-1.5 px-3 py-1.5 bg-[#182229] border-b border-white/5 shrink-0 overflow-x-auto">
+              <button
+                type="button"
+                onClick={() => setActiveTab("all")}
+                className={cn(
+                  "px-2.5 py-1 rounded-lg text-xs font-bold transition-colors cursor-pointer shrink-0",
+                  activeTab === "all"
+                    ? "bg-white/15 text-white"
+                    : "text-[#8696a0] hover:text-white hover:bg-white/5"
+                )}
+              >
+                Todos ({receiptSummary.totalRecipients})
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab("read")}
+                className={cn(
+                  "px-2.5 py-1 rounded-lg text-xs font-bold transition-colors cursor-pointer shrink-0 flex items-center gap-1",
+                  activeTab === "read"
+                    ? "bg-[#53bdeb]/20 text-[#53bdeb]"
+                    : "text-[#8696a0] hover:text-[#53bdeb] hover:bg-white/5"
+                )}
+              >
+                <CheckCheck className="h-3 w-3 stroke-[2.5]" /> Lida ({receiptSummary.readCount})
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab("delivered")}
+                className={cn(
+                  "px-2.5 py-1 rounded-lg text-xs font-bold transition-colors cursor-pointer shrink-0 flex items-center gap-1",
+                  activeTab === "delivered"
+                    ? "bg-[#8696a0]/25 text-white"
+                    : "text-[#8696a0] hover:text-white hover:bg-white/5"
+                )}
+              >
+                <CheckCheck className="h-3 w-3 stroke-[2]" /> Entregue ({receiptSummary.deliveredCount})
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab("pending")}
+                className={cn(
+                  "px-2.5 py-1 rounded-lg text-xs font-bold transition-colors cursor-pointer shrink-0 flex items-center gap-1",
+                  activeTab === "pending"
+                    ? "bg-amber-500/20 text-amber-400"
+                    : "text-[#8696a0] hover:text-amber-400 hover:bg-white/5"
+                )}
+              >
+                <Clock className="h-3 w-3" /> Pendente ({receiptSummary.pendingCount})
+              </button>
+            </div>
+
+            {/* CAMPO DE BUSCA SE HOUVER MAIS DE 2 PARTICIPANTES */}
+            {receiptSummary.totalRecipients > 2 && (
+              <div className="p-2.5 border-b border-white/5 bg-[#111b21] shrink-0">
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-[#8696a0]" />
                   <Input
-                    placeholder="Filtrar participante..."
+                    placeholder="Buscar participante por nome, apelido ou ID..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                     className="h-8 pl-8 pr-3 text-xs bg-[#202c33] border-transparent rounded-lg text-[#e9edef] placeholder:text-[#8696a0]"
@@ -395,11 +429,11 @@ export function MessageInfoModal({
             )}
 
             {/* LISTA ROLÁVEL DE PARTICIPANTES */}
-            <div className="max-h-72 overflow-y-auto divide-y divide-white/5 custom-scrollbar-thin">
+            <div className="flex-1 min-h-0 overflow-y-auto divide-y divide-white/5 custom-scrollbar-thin">
               {/* SEÇÃO LIDA POR */}
               {(activeTab === "all" || activeTab === "read") && (
                 <div>
-                  <div className="px-4 py-2 bg-[#182229] flex items-center justify-between text-[11px] font-bold text-[#53bdeb] uppercase tracking-wider sticky top-0 z-10">
+                  <div className="px-4 py-1.5 bg-[#182229] flex items-center justify-between text-[11px] font-bold text-[#53bdeb] uppercase tracking-wider sticky top-0 z-10">
                     <span className="flex items-center gap-1.5">
                       <CheckCheck className="h-3.5 w-3.5 stroke-[2.5]" />
                       Lida por ({filteredRead.length})
@@ -407,7 +441,7 @@ export function MessageInfoModal({
                   </div>
 
                   {filteredRead.length === 0 ? (
-                    <div className="p-4 text-center text-xs text-[#8696a0] italic">
+                    <div className="p-3 text-center text-xs text-[#8696a0] italic">
                       {searchTerm ? "Nenhum membro encontrado" : "Nenhum participante visualizou ainda"}
                     </div>
                   ) : (
@@ -425,7 +459,7 @@ export function MessageInfoModal({
               {/* SEÇÃO ENTREGUE A */}
               {(activeTab === "all" || activeTab === "delivered") && (
                 <div>
-                  <div className="px-4 py-2 bg-[#182229] flex items-center justify-between text-[11px] font-bold text-[#8696a0] uppercase tracking-wider sticky top-0 z-10">
+                  <div className="px-4 py-1.5 bg-[#182229] flex items-center justify-between text-[11px] font-bold text-[#8696a0] uppercase tracking-wider sticky top-0 z-10">
                     <span className="flex items-center gap-1.5">
                       <CheckCheck className="h-3.5 w-3.5 stroke-[2]" />
                       Entregue a ({filteredDelivered.length})
@@ -433,7 +467,7 @@ export function MessageInfoModal({
                   </div>
 
                   {filteredDelivered.length === 0 ? (
-                    <div className="p-4 text-center text-xs text-[#8696a0] italic">
+                    <div className="p-3 text-center text-xs text-[#8696a0] italic">
                       {searchTerm
                         ? "Nenhum membro encontrado"
                         : "Nenhum membro aguardando apenas leitura"}
@@ -453,7 +487,7 @@ export function MessageInfoModal({
               {/* SEÇÃO PENDENTE DE ENTREGA */}
               {(activeTab === "all" || activeTab === "pending") && (
                 <div>
-                  <div className="px-4 py-2 bg-[#182229] flex items-center justify-between text-[11px] font-bold text-amber-400 uppercase tracking-wider sticky top-0 z-10">
+                  <div className="px-4 py-1.5 bg-[#182229] flex items-center justify-between text-[11px] font-bold text-amber-400 uppercase tracking-wider sticky top-0 z-10">
                     <span className="flex items-center gap-1.5">
                       <Clock className="h-3.5 w-3.5" />
                       Pendente de entrega ({filteredPending.length})
@@ -461,7 +495,7 @@ export function MessageInfoModal({
                   </div>
 
                   {filteredPending.length === 0 ? (
-                    <div className="p-4 text-center text-xs text-[#8696a0] italic">
+                    <div className="p-3 text-center text-xs text-[#8696a0] italic">
                       {searchTerm ? "Nenhum membro encontrado" : "Todos os membros já receberam a mensagem"}
                     </div>
                   ) : (
@@ -499,15 +533,15 @@ function ParticipantReceiptRow({
       : participant.status === "delivered"
       ? formatWhatsAppDateTime(participant.timestamp)
       : participant.last_seen
-      ? formatLastSeen(participant.last_seen)
+      ? `Visto ${formatLastSeen(participant.last_seen)}`
       : "Aguardando conexão";
 
   return (
     <div
       onClick={() => onOpenProfile?.(participant.user_id)}
-      className="flex items-center justify-between gap-3 p-3 hover:bg-[#202c33]/60 transition-colors cursor-pointer"
+      className="flex items-center justify-between gap-3 px-4 py-2.5 hover:bg-[#202c33]/60 transition-colors cursor-pointer"
     >
-      <div className="flex items-center gap-2.5 min-w-0">
+      <div className="flex items-center gap-3 min-w-0">
         <div className="relative shrink-0">
           <Avatar className="h-9 w-9 border border-white/10">
             {participant.avatar_url && (
@@ -526,12 +560,12 @@ function ParticipantReceiptRow({
         </div>
 
         <div className="min-w-0 space-y-0.5">
-          <div className="flex items-center gap-1.5 min-w-0">
+          <div className="flex items-center gap-1.5 min-w-0 flex-wrap">
             <span className="text-xs font-bold text-[#e9edef] truncate">
               {participant.nickname || participant.user_name}
             </span>
             {participant.game_id && (
-              <span className="text-[10px] font-mono text-[#8696a0]">
+              <span className="text-[10px] font-mono text-[#8696a0] bg-white/5 px-1 rounded">
                 #{participant.game_id}
               </span>
             )}
@@ -549,18 +583,35 @@ function ParticipantReceiptRow({
         </div>
       </div>
 
-      <div className="text-right shrink-0 font-mono text-[10px] leading-tight">
-        <span
-          className={cn(
-            participant.status === "read"
-              ? "text-[#53bdeb] font-semibold"
-              : participant.status === "delivered"
-              ? "text-[#8696a0]"
-              : "text-amber-400/80"
-          )}
-        >
-          {timeLabel}
-        </span>
+      <div className="flex items-center gap-2 shrink-0">
+        <div className="text-right font-mono text-[11px] leading-tight">
+          <div
+            className={cn(
+              "flex items-center justify-end gap-1 font-semibold",
+              participant.status === "read"
+                ? "text-[#53bdeb]"
+                : participant.status === "delivered"
+                ? "text-[#8696a0]"
+                : "text-amber-400"
+            )}
+          >
+            {participant.status === "read" ? (
+              <CheckCheck className="h-3.5 w-3.5 stroke-[2.5]" />
+            ) : participant.status === "delivered" ? (
+              <CheckCheck className="h-3.5 w-3.5 stroke-[2]" />
+            ) : (
+              <Clock className="h-3.5 w-3.5" />
+            )}
+            <span>
+              {participant.status === "read"
+                ? "Lida"
+                : participant.status === "delivered"
+                ? "Entregue"
+                : "Pendente"}
+            </span>
+          </div>
+          <p className="text-[10px] text-[#8696a0] mt-0.5">{timeLabel}</p>
+        </div>
       </div>
     </div>
   );

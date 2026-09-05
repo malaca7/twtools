@@ -717,7 +717,6 @@ export function getMessageReceiptInfo(
   recipients.forEach((p) => {
     const prof = p.profile || getCachedMember(p.user_id);
     const hasRead = Boolean(
-      message.status === "read" ||
       (recipients.length === 1 && (message.status as string) === "read") ||
       (p.last_read_at && new Date(p.last_read_at).getTime() >= msgTime)
     );
