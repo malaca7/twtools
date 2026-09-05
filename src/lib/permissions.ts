@@ -333,10 +333,36 @@ export function can(
 ): boolean {
   if (!userLevel) return false;
 
-  // Custom role override check (if custom permissions were saved in DB for this level)
+  // Liderança / Desenvolvedores possuem acesso irrestrito a todos os módulos
+  if (userLevel === "desenvolvedor" || userLevel === "01") return true;
+
+  // Custom role override check (se permissões customizadas foram salvas no banco para este cargo)
   if (customRoleMap && customRoleMap[userLevel]) {
     const list = customRoleMap[userLevel];
     if (list.includes(permission)) return true;
+
+    // Herança e equivalências do sistema de tickets
+    if (list.includes("manage_tickets")) {
+      if (
+        permission === "view_all_tickets" ||
+        permission === "view_tickets" ||
+        permission === "create_ticket"
+      ) {
+        return true;
+      }
+    }
+    if (list.includes("view_all_tickets") && permission === "view_tickets") {
+      return true;
+    }
+
+    // Fallback gracioso: se o cargo foi salvo no banco antes do módulo de tickets existir
+    const hasAnySavedTicketPerm = list.some((p) => typeof p === "string" && p.includes("ticket"));
+    if (!hasAnySavedTicketPerm) {
+      const defaultRolePerms = PERMISSIONS[userLevel] || [];
+      if (defaultRolePerms.includes(permission)) return true;
+    }
+
+    // Outros aliases de permissões legadas
     if (permission === "view_movements" && (list.includes("create_movement") || list.includes("view_all_movements") || list.includes("view_stock"))) return true;
     if (permission === "view_consolidated_financials" && list.includes("view_financials")) return true;
     if (permission === "approve_requests" && list.includes("manage_members")) return true;
@@ -345,11 +371,22 @@ export function can(
     return false;
   }
 
-  // Liderança / Admins default fallback
-  if (userLevel === "desenvolvedor" || userLevel === "01") return true;
-
   const rolePerms = PERMISSIONS[userLevel] || [];
   if (rolePerms.includes(permission)) return true;
+
+  // Herança e equivalências padrão de tickets
+  if (rolePerms.includes("manage_tickets")) {
+    if (
+      permission === "view_all_tickets" ||
+      permission === "view_tickets" ||
+      permission === "create_ticket"
+    ) {
+      return true;
+    }
+  }
+  if (rolePerms.includes("view_all_tickets") && permission === "view_tickets") {
+    return true;
+  }
 
   // Fallback alias checks
   if (permission === "view_movements" && (rolePerms.includes("create_movement") || rolePerms.includes("view_all_movements") || rolePerms.includes("view_stock"))) return true;

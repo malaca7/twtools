@@ -111,6 +111,8 @@ export function TicketDetailView({ ticket, onClose, canManage }: TicketDetailVie
   const priorityInfo = getPriorityInfo(ticket.priority);
   const statusInfo = getStatusInfo(ticket.status);
   const isClosed = ticket.status === "fechado";
+  const isCreator = ticket.user_id === user?.id;
+  const isAssigned = ticket.assigned_to_id === user?.id;
 
   // Auto-scroll on new messages
   useEffect(() => {
@@ -119,7 +121,7 @@ export function TicketDetailView({ ticket, onClose, canManage }: TicketDetailVie
 
   // Management members for transfer dropdown
   const managementMembers = members.filter((m) =>
-    ["desenvolvedor", "01", "02", "gerente"].includes(m.nivel || "")
+    ["desenvolvedor", "01", "02", "gerente", "motoqueiro", "membro"].includes(m.nivel || "")
   );
 
   const handleImageFile = (file: File) => {
@@ -223,7 +225,11 @@ export function TicketDetailView({ ticket, onClose, canManage }: TicketDetailVie
       await closeMutation.mutateAsync({
         ticketId: ticket.id,
         payload: {
-          reason: closeReason.trim() || "Chamado concluído e resolvido pela gerência.",
+          reason:
+            closeReason.trim() ||
+            (isCreator && !canManage
+              ? "Chamado finalizado pelo próprio autor."
+              : "Chamado concluído e resolvido pela gerência."),
         },
       });
       setCloseDialogOpen(false);
@@ -347,11 +353,11 @@ export function TicketDetailView({ ticket, onClose, canManage }: TicketDetailVie
           </div>
         </div>
 
-        {/* Linha 4: Barra de Ações da Gerência */}
-        {canManage && (
+        {/* Linha 4: Barra de Ações (Gerência ou Autor) */}
+        {(canManage || isCreator) && (
           <div className="flex items-center gap-2 pt-2 border-t border-border/50 flex-wrap">
-            {/* Assumir */}
-            {ticket.assigned_to_id !== user?.id && !isClosed && (
+            {/* Assumir (Apenas Gerência) */}
+            {canManage && ticket.assigned_to_id !== user?.id && !isClosed && (
               <Button
                 variant="outline"
                 size="sm"
@@ -364,8 +370,8 @@ export function TicketDetailView({ ticket, onClose, canManage }: TicketDetailVie
               </Button>
             )}
 
-            {/* Transferir */}
-            {!isClosed && (
+            {/* Transferir (Apenas Gerência) */}
+            {canManage && !isClosed && (
               <Button
                 variant="outline"
                 size="sm"
@@ -377,8 +383,8 @@ export function TicketDetailView({ ticket, onClose, canManage }: TicketDetailVie
               </Button>
             )}
 
-            {/* Alterar Status */}
-            {!isClosed && (
+            {/* Alterar Status (Apenas Gerência) */}
+            {canManage && !isClosed && (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="outline" size="sm" className="h-7 text-xs gap-1.5">
@@ -404,7 +410,7 @@ export function TicketDetailView({ ticket, onClose, canManage }: TicketDetailVie
               </DropdownMenu>
             )}
 
-            {/* Fechar Ticket */}
+            {/* Fechar Ticket (Gerência ou Autor) */}
             {!isClosed ? (
               <Button
                 variant="outline"
@@ -413,7 +419,7 @@ export function TicketDetailView({ ticket, onClose, canManage }: TicketDetailVie
                 className="h-7 text-xs gap-1.5 border-rose-500/30 bg-rose-500/10 text-rose-400 hover:bg-rose-500/20 ml-auto"
               >
                 <Lock className="h-3.5 w-3.5" />
-                Fechar Ticket
+                {isCreator && !canManage ? "Encerrar Chamado" : "Fechar Ticket"}
               </Button>
             ) : (
               <Button

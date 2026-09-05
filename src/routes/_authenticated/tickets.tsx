@@ -11,7 +11,6 @@ import {
   Paperclip,
   User,
   Shield,
-  RefreshCw,
   SlidersHorizontal,
   ChevronRight,
   ArrowLeft,
@@ -65,11 +64,12 @@ function TicketsPage() {
   const canCreate = hasPermission("create_ticket");
   const canManage = hasPermission("manage_tickets");
   const canViewAll = hasPermission("view_all_tickets");
+  const canSeeAll = canViewAll || canManage;
 
-  const { data: tickets = [], isLoading, isFetching, refetch } = useTickets();
+  const { data: tickets = [], isLoading, isFetching } = useTickets();
 
   // State
-  const [activeTab, setActiveTab] = useState<"my" | "all">(canViewAll ? "all" : "my");
+  const [activeTab, setActiveTab] = useState<"my" | "all">(canSeeAll ? "all" : "my");
   const [selectedTicketId, setSelectedTicketId] = useState<string | null>(null);
   const [isNewDialogOpen, setIsNewDialogOpen] = useState(false);
 
@@ -180,30 +180,16 @@ function TicketsPage() {
         title="Tickets / Ouvidoria"
         description="Canal confidencial de solicitações, denúncias, reembolsos e ouvidoria direta com a gerência Twin Wheels."
         actions={
-          <div className="flex items-center gap-2">
+          canCreate ? (
             <Button
-              variant="outline"
               size="sm"
-              onClick={() => refetch()}
-              disabled={isFetching}
-              className="h-9 gap-1.5 text-xs text-muted-foreground hover:text-foreground"
-              title="Atualizar dados"
+              onClick={() => setIsNewDialogOpen(true)}
+              className="h-9 gap-1.5 text-xs bg-amber-500 hover:bg-amber-600 text-black font-semibold shadow-md shadow-amber-500/10"
             >
-              <RefreshCw className={cn("h-3.5 w-3.5", isFetching && "animate-spin text-amber-400")} />
-              <span className="hidden sm:inline">Sincronizar</span>
+              <Plus className="h-4 w-4" />
+              Novo Chamado
             </Button>
-
-            {canCreate && (
-              <Button
-                size="sm"
-                onClick={() => setIsNewDialogOpen(true)}
-                className="h-9 gap-1.5 text-xs bg-amber-500 hover:bg-amber-600 text-black font-semibold shadow-md shadow-amber-500/10"
-              >
-                <Plus className="h-4 w-4" />
-                Novo Chamado
-              </Button>
-            )}
-          </div>
+          ) : undefined
         }
       />
 
@@ -286,7 +272,7 @@ function TicketsPage() {
       <div className="space-y-3">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           {/* Abas: Meus vs Todos */}
-          {canViewAll ? (
+          {canSeeAll ? (
             <Tabs
               value={activeTab}
               onValueChange={(val) => setActiveTab(val as "my" | "all")}

@@ -51,10 +51,9 @@ export function useTickets() {
     };
     window.addEventListener("storage", handleStorage);
 
-    // 4. Supabase Realtime Broadcast & Postgres Changes (sincronização global entre todos os usuários)
-    const channelId = `realtime_tickets_${Math.random().toString(36).substring(2, 9)}`;
+    // 4. Supabase Realtime Broadcast & Postgres Changes (sincronização global em tempo real entre todos os usuários)
     const channel = supabase
-      .channel(channelId)
+      .channel("tw_tickets_realtime_sync")
       .on(
         "postgres_changes",
         {
@@ -86,7 +85,8 @@ export function useTickets() {
     queryKey: ["tickets"],
     queryFn: getTickets,
     staleTime: 0,
-    refetchInterval: 3000,
+    refetchInterval: 2000,
+    refetchIntervalInBackground: true,
     refetchOnWindowFocus: true,
     refetchOnReconnect: true,
   });

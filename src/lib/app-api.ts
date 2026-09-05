@@ -2666,18 +2666,23 @@ export async function getTickets(): Promise<Ticket[]> {
     .maybeSingle();
 
   const userLevel = (roleRow?.nivel as AppLevel) || "membro";
-  const canViewAll = can(userLevel, "view_all_tickets");
-  const canManage = can(userLevel, "manage_tickets");
+  const customRoleMap = await getRolePermissions();
+  const canViewAll = can(userLevel, "view_all_tickets", customRoleMap);
+  const canManage = can(userLevel, "manage_tickets", customRoleMap);
 
   const rawTickets = await fetchAllRawTickets();
 
-  // Filtragem de privacidade
+  // Filtragem de privacidade:
+  // - Quem tem view_all_tickets vê todos os tickets da facção
+  // - Quem está atribuído ao ticket também pode vê-lo
+  // - Membro comum visualiza apenas os próprios chamados
   const filteredTickets = rawTickets.filter((ticket) => {
     if (canViewAll) return true;
+    if (ticket.assigned_to_id === session.user.id) return true;
     return ticket.user_id === session.user.id;
   });
 
-  // Ocultar notas internas confidenciais para quem não é da gerência
+  // Ocultar notas internas confidenciais para quem não possui manage_tickets
   const sanitizedTickets = filteredTickets.map((ticket) => {
     if (canManage) return ticket;
     return {
@@ -2710,11 +2715,16 @@ export async function createTicket(payload: CreateTicketPayload): Promise<Ticket
     .eq("user_id", session.user.id)
     .maybeSingle();
 
+  const creatorRole = (roleRow?.nivel as AppLevel) || "membro";
+  const customRoleMap = await getRolePermissions();
+  if (!can(creatorRole, "create_ticket", customRoleMap)) {
+    throw new Error("Permissão insuficiente para abrir novos tickets");
+  }
+
   const p = profileRow as any;
   const creatorName = p?.nome || "Membro";
   const creatorNickname = p?.nickname || null;
   const creatorAvatar = p?.avatar_url || p?.discord_avatar_url || null;
-  const creatorRole = (roleRow?.nivel as AppLevel) || "membro";
 
   const allRawTickets = await fetchAllRawTickets();
 
@@ -2800,7 +2810,8 @@ export async function addTicketMessage(
   const senderNickname = p?.nickname || null;
   const senderAvatar = p?.avatar_url || p?.discord_avatar_url || null;
   const senderRole = (roleRow?.nivel as AppLevel) || "membro";
-  const canManage = can(senderRole, "manage_tickets");
+  const customRoleMap = await getRolePermissions();
+  const canManage = can(senderRole, "manage_tickets", customRoleMap);
 
   const allRawTickets = await fetchAllRawTickets();
   const targetIndex = allRawTickets.findIndex((t) => t.id === ticketId);
@@ -2808,13 +2819,14 @@ export async function addTicketMessage(
 
   const ticket = allRawTickets[targetIndex];
 
-  // Verificação de autorização: Criador do ticket ou Gerência
+  // Verificação de autorização: Criador do ticket, Responsável atribuído ou Gerência
   const isCreator = ticket.user_id === session.user.id;
-  if (!isCreator && !canManage) {
+  const isAssigned = ticket.assigned_to_id === session.user.id;
+  if (!isCreator && !canManage && !isAssigned) {
     throw new Error("Você não tem permissão para responder a este ticket");
   }
 
-  // Apenas gerência pode enviar nota interna
+  // Apenas quem possui manage_tickets pode enviar nota interna privada
   const isInternal = Boolean(payload.is_internal_note && canManage);
 
   const now = new Date().toISOString();
@@ -2891,9 +2903,10 @@ export async function claimTicket(ticketId: string): Promise<Ticket> {
   const actorName = p?.nome || "Gestor";
   const actorNickname = p?.nickname || null;
   const actorAvatar = p?.avatar_url || p?.discord_avatar_url || null;
-  const actorRole = (roleRow?.nivel as AppLevel) || "gerente";
+  const actorRole = (roleRow?.nivel as AppLevel) || "membro";
+  const customRoleMap = await getRolePermissions();
 
-  if (!can(actorRole, "manage_tickets")) {
+  if (!can(actorRole, "manage_tickets", customRoleMap)) {
     throw new Error("Permissão insuficiente para assumir tickets");
   }
 
@@ -2950,8 +2963,9 @@ export async function transferTicket(
     .eq("user_id", session.user.id)
     .maybeSingle();
 
-  const actorRole = (roleRow?.nivel as AppLevel) || "gerente";
-  if (!can(actorRole, "manage_tickets")) {
+  const actorRole = (roleRow?.nivel as AppLevel) || "membro";
+  const customRoleMap = await getRolePermissions();
+  if (!can(actorRole, "manage_tickets", customRoleMap)) {
     throw new Error("Permissão insuficiente para transferir tickets");
   }
 
@@ -3034,8 +3048,9 @@ export async function updateTicketStatus(
     .eq("user_id", session.user.id)
     .maybeSingle();
 
-  const actorRole = (roleRow?.nivel as AppLevel) || "gerente";
-  if (!can(actorRole, "manage_tickets")) {
+  const actorRole = (roleRow?.nivel as AppLevel) || "membro";
+  const customRoleMap = await getRolePermissions();
+  if (!can(actorRole, "manage_tickets", customRoleMap)) {
     throw new Error("Permissão insuficiente para alterar status de tickets");
   }
 
@@ -3111,8 +3126,18 @@ export async function closeTicket(
     .eq("user_id", session.user.id)
     .maybeSingle();
 
-  const actorRole = (roleRow?.nivel as AppLevel) || "gerente";
-  if (!can(actorRole, "manage_tickets")) {
+  const actorRole = (roleRow?.nivel as AppLevel) || "membro";
+  const customRoleMap = await getRolePermissions();
+  const canManage = can(actorRole, "manage_tickets", customRoleMap);
+
+  const allRawTickets = await fetchAllRawTickets();
+  const targetIndex = allRawTickets.findIndex((t) => t.id === ticketId);
+  if (targetIndex === -1) throw new Error("Ticket não encontrado");
+
+  const ticket = allRawTickets[targetIndex];
+  const isCreator = ticket.user_id === session.user.id;
+
+  if (!canManage && !isCreator) {
     throw new Error("Permissão insuficiente para fechar tickets");
   }
 
@@ -3121,15 +3146,14 @@ export async function closeTicket(
     .eq("user_id", session.user.id)
     .maybeSingle();
   const p = pRow as any;
-  const actorName = p?.nickname || p?.nome || "Gestor";
+  const actorName = p?.nickname || p?.nome || (isCreator ? "Autor do Chamado" : "Gestor");
 
-  const allRawTickets = await fetchAllRawTickets();
-  const targetIndex = allRawTickets.findIndex((t) => t.id === ticketId);
-  if (targetIndex === -1) throw new Error("Ticket não encontrado");
-
-  const ticket = allRawTickets[targetIndex];
   const now = new Date().toISOString();
-  const reason = payload?.reason?.trim() || "Chamado concluído e resolvido pela gerência.";
+  const reason =
+    payload?.reason?.trim() ||
+    (isCreator
+      ? "Chamado finalizado pelo próprio autor."
+      : "Chamado concluído e resolvido pela gerência.");
 
   const updatedTicket: Ticket = {
     ...ticket,
@@ -3173,16 +3197,21 @@ export async function reopenTicket(ticketId: string): Promise<Ticket> {
     .eq("user_id", session.user.id)
     .maybeSingle();
 
-  const actorRole = (roleRow?.nivel as AppLevel) || "gerente";
-  if (!can(actorRole, "manage_tickets")) {
-    throw new Error("Permissão insuficiente para reabrir tickets");
-  }
+  const actorRole = (roleRow?.nivel as AppLevel) || "membro";
+  const customRoleMap = await getRolePermissions();
+  const canManage = can(actorRole, "manage_tickets", customRoleMap);
 
   const allRawTickets = await fetchAllRawTickets();
   const targetIndex = allRawTickets.findIndex((t) => t.id === ticketId);
   if (targetIndex === -1) throw new Error("Ticket não encontrado");
 
   const ticket = allRawTickets[targetIndex];
+  const isCreator = ticket.user_id === session.user.id;
+
+  if (!canManage && !isCreator) {
+    throw new Error("Permissão insuficiente para reabrir tickets");
+  }
+
   const now = new Date().toISOString();
 
   const updatedTicket: Ticket = {
@@ -3226,8 +3255,12 @@ export async function deleteTicket(ticketId: string): Promise<void> {
     .maybeSingle();
 
   const actorRole = (roleRow?.nivel as AppLevel) || "membro";
-  if (actorRole !== "desenvolvedor" && actorRole !== "01") {
-    throw new Error("Apenas desenvolvedor e 01 podem excluir tickets permanentemente");
+  const customRoleMap = await getRolePermissions();
+  const isSuperAdmin = actorRole === "desenvolvedor" || actorRole === "01";
+  const canManage = can(actorRole, "manage_tickets", customRoleMap);
+
+  if (!isSuperAdmin && !canManage) {
+    throw new Error("Permissão insuficiente para excluir tickets");
   }
 
   const allRawTickets = await fetchAllRawTickets();
