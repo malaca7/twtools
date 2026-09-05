@@ -11,26 +11,19 @@ import {
   Settings2,
   Palette,
   BellRing,
-  Layers,
   Globe,
   Radio,
-  ExternalLink,
   Loader2,
-  Eye,
-  EyeOff,
   RotateCcw,
   Save,
   Package,
   DollarSign,
   Landmark,
   Users,
-  Shield,
   Target,
   Megaphone,
   Terminal,
-  Activity,
-  Check,
-  Copy,
+  HelpCircle,
 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -51,7 +44,7 @@ import {
   DEFAULT_DISCORD_CONFIG,
   getDiscordBotConfig,
   saveDiscordBotConfig,
-  sendTestDiscordWebhook,
+  triggerDiscordBotTestEmbed,
   type DiscordBotConfig,
   type DiscordLogChannels,
   type DiscordEnabledEvents,
@@ -65,12 +58,11 @@ export function DevDiscordConfigCard() {
   const [initialConfig, setInitialConfig] = useState<DiscordBotConfig>(DEFAULT_DISCORD_CONFIG);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [showToken, setShowToken] = useState(false);
   const [subTab, setSubTab] = useState("channels");
 
-  // Estados para Teste de Envio
-  const [testCategory, setTestCategory] = useState<keyof DiscordLogChannels>("generalLogsWebhookUrl");
-  const [testWebhookUrl, setTestWebhookUrl] = useState("");
+  // Estados para Teste de Envio pelo Bot
+  const [testCategory, setTestCategory] = useState<keyof DiscordLogChannels>("generalLogsChannelId");
+  const [customTestChannelId, setCustomTestChannelId] = useState("");
   const [isTesting, setIsTesting] = useState(false);
   const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null);
 
@@ -103,6 +95,12 @@ export function DevDiscordConfigCard() {
     };
   }, []);
 
+  // Sincroniza o ID de teste com o canal selecionado
+  useEffect(() => {
+    const currentId = config.logChannels[testCategory] || config.logChannels.generalLogsChannelId || "";
+    setCustomTestChannelId(currentId);
+  }, [testCategory, config.logChannels]);
+
   // Detecta se existem alterações pendentes
   const hasChanges = useMemo(() => {
     return JSON.stringify(config) !== JSON.stringify(initialConfig);
@@ -122,7 +120,7 @@ export function DevDiscordConfigCard() {
       ...prev,
       logChannels: {
         ...prev.logChannels,
-        [channelKey]: value,
+        [channelKey]: value.trim(),
       },
     }));
   };
@@ -173,37 +171,40 @@ export function DevDiscordConfigCard() {
     toast.info("Configurações do Discord restauradas para os padrões recomendados.");
   };
 
-  // Dispara teste de webhook
+  // Dispara teste de envio pelo bot (sem webhook)
   const handleSendTest = async () => {
-    const targetUrl = testWebhookUrl.trim() || (config.logChannels[testCategory] as string) || config.logChannels.generalLogsWebhookUrl || "";
+    const targetChannelId = customTestChannelId.trim() || (config.logChannels[testCategory] as string) || config.logChannels.generalLogsChannelId || "";
 
-    if (!targetUrl) {
-      toast.error("Informe uma URL de Webhook válida ou configure-a na aba Canais.");
+    if (!targetChannelId) {
+      toast.error("Informe um ID de Canal do Discord válido para realizar o teste.");
       return;
     }
 
     setIsTesting(true);
     setTestResult(null);
 
-    const categoryNames: Record<string, { label: string; color: string }> = {
-      generalLogsWebhookUrl: { label: "Geral de Logs", color: config.embedColors.system },
-      stockMovementsWebhookUrl: { label: "Estoque & Movimentações", color: config.embedColors.movements },
-      salesWebhookUrl: { label: "Vendas & Lucros", color: config.embedColors.sales },
-      cashFundWebhookUrl: { label: "Fundo de Caixa", color: config.embedColors.cashFund },
-      membersWebhookUrl: { label: "Gestão de Membros", color: config.embedColors.members },
-      goalsWebhookUrl: { label: "Metas da Facção", color: config.embedColors.goals },
-      announcementsWebhookUrl: { label: "Avisos & Comunicados", color: config.embedColors.announcements },
-      systemWebhookUrl: { label: "Sistema & Auditoria", color: config.embedColors.system },
+    const categoryNames: Record<string, string> = {
+      generalLogsChannelId: "Geral de Logs",
+      stockMovementsChannelId: "Estoque & Movimentações",
+      salesChannelId: "Vendas & Lucros",
+      cashFundChannelId: "Fundo de Caixa",
+      membersChannelId: "Gestão de Membros",
+      goalsChannelId: "Metas da Facção",
+      announcementsChannelId: "Avisos & Comunicados",
+      systemChannelId: "Sistema & Auditoria",
     };
 
-    const sel = categoryNames[testCategory as string] || { label: "Logs Gerais", color: "#10B981" };
+    const label = categoryNames[testCategory as string] || "Logs Gerais";
 
     try {
-      const res = await sendTestDiscordWebhook(
-        targetUrl,
-        sel.label,
-        sel.color,
-        profile?.nickname || profile?.nome || "Desenvolvedor"
+      const res = await triggerDiscordBotTestEmbed(
+        testCategory,
+        label,
+        targetChannelId,
+        profile?.nickname || profile?.nome || "Desenvolvedor",
+        user,
+        profile,
+        level
       );
       setTestResult(res);
       if (res.success) {
@@ -259,11 +260,11 @@ export function DevDiscordConfigCard() {
                     {config.enabled ? "Bot & Logs Ativos" : "Transmissão Pausada"}
                   </Badge>
                   <Badge variant="outline" className="text-[0.65rem] border-indigo-500/40 text-indigo-300 bg-indigo-500/10 font-mono">
-                    Embeds Realtime
+                    100% Bot Direto (Sem Webhooks)
                   </Badge>
                 </div>
                 <CardDescription className="text-xs mt-1 text-muted-foreground">
-                  Transmita automaticamente todas as operações, vendas, estoques e logs de auditoria em embeds ricos e coloridos para os canais do seu servidor Discord.
+                  Envio automático de logs em tempo real através do Bot do Discord configurando apenas os IDs dos canais e do servidor.
                 </CardDescription>
               </div>
             </div>
@@ -305,10 +306,10 @@ export function DevDiscordConfigCard() {
               </div>
               <div className="space-y-0.5">
                 <Label htmlFor="discord-enabled-toggle" className="text-xs font-extrabold text-foreground cursor-pointer block">
-                  Habilitar Envio de Logs em Embeds para o Discord
+                  Habilitar Transmissão de Logs no Discord
                 </Label>
                 <p className="text-[0.7rem] text-muted-foreground">
-                  Quando ativo, cada novo registro na tabela de auditoria será processado pelo bot e postado como Embed no Discord.
+                  Quando ativo, o bot oficial (`tw-bot`) processa cada inserção de auditoria e posta como Embed no canal correspondente.
                 </p>
               </div>
             </div>
@@ -326,7 +327,7 @@ export function DevDiscordConfigCard() {
         <TabsList className="grid grid-cols-2 md:grid-cols-5 gap-1 bg-secondary/40 p-1 rounded-xl border border-border/60 h-auto">
           <TabsTrigger value="channels" className="text-xs font-bold gap-1.5 py-2 data-[state=active]:bg-indigo-600 data-[state=active]:text-white">
             <Hash className="h-3.5 w-3.5" />
-            Canais de Logs
+            IDs dos Canais
           </TabsTrigger>
           <TabsTrigger value="server" className="text-xs font-bold gap-1.5 py-2 data-[state=active]:bg-indigo-600 data-[state=active]:text-white">
             <Server className="h-3.5 w-3.5" />
@@ -346,7 +347,7 @@ export function DevDiscordConfigCard() {
           </TabsTrigger>
         </TabsList>
 
-        {/* ABA 1: CANAIS DE LOGS */}
+        {/* ABA 1: IDS DOS CANAIS DE LOGS (SEM WEBHOOKS) */}
         <TabsContent value="channels" className="space-y-4">
           {/* Canal Geral (Fallback Principal) */}
           <Card className="surface-card border-indigo-500/40 bg-indigo-500/5">
@@ -357,47 +358,29 @@ export function DevDiscordConfigCard() {
                 </div>
                 <div>
                   <CardTitle className="text-sm font-extrabold text-foreground">
-                    Canal Geral de Auditoria (Principal / Fallback)
+                    Canal Geral de Auditoria (Principal / Padrão)
                   </CardTitle>
                   <CardDescription className="text-xs">
-                    Canal padrão onde todos os logs serão enviados caso nenhum canal específico de categoria seja configurado.
+                    Canal padrão onde todos os logs serão postados caso uma categoria específica não tenha ID próprio configurado.
                   </CardDescription>
                 </div>
               </div>
             </CardHeader>
-            <CardContent className="p-4 space-y-3">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                  <Label className="text-xs font-bold text-foreground flex items-center gap-1.5">
-                    <Hash className="h-3.5 w-3.5 text-indigo-400" />
-                    ID do Canal no Discord (Para o Bot)
-                  </Label>
-                  <Input
-                    placeholder="Ex: 112233445566778899"
-                    value={config.logChannels.generalLogsChannelId || ""}
-                    onChange={(e) => handleChannelChange("generalLogsChannelId", e.target.value)}
-                    className="font-mono text-xs bg-secondary/30 h-9"
-                  />
-                  <p className="text-[0.68rem] text-muted-foreground">
-                    Clique com botão direito no canal do Discord com Modo Desenvolvedor ativo e copie o ID.
-                  </p>
-                </div>
-
-                <div className="space-y-1.5">
-                  <Label className="text-xs font-bold text-foreground flex items-center gap-1.5">
-                    <ExternalLink className="h-3.5 w-3.5 text-purple-400" />
-                    URL do Webhook do Discord (Disparo Direto & Fallback)
-                  </Label>
-                  <Input
-                    placeholder="https://discord.com/api/webhooks/..."
-                    value={config.logChannels.generalLogsWebhookUrl || ""}
-                    onChange={(e) => handleChannelChange("generalLogsWebhookUrl", e.target.value)}
-                    className="font-mono text-xs bg-secondary/30 h-9"
-                  />
-                  <p className="text-[0.68rem] text-muted-foreground">
-                    Criado em Configurações do Canal → Integrações → Webhooks no Discord.
-                  </p>
-                </div>
+            <CardContent className="p-4 space-y-2">
+              <div className="space-y-1.5">
+                <Label className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                  <Hash className="h-3.5 w-3.5 text-indigo-400" />
+                  ID do Canal no Discord
+                </Label>
+                <Input
+                  placeholder="Ex: 112233445566778899"
+                  value={config.logChannels.generalLogsChannelId || ""}
+                  onChange={(e) => handleChannelChange("generalLogsChannelId", e.target.value)}
+                  className="font-mono text-xs bg-secondary/30 h-10 max-w-xl"
+                />
+                <p className="text-[0.68rem] text-muted-foreground">
+                  Como pegar: no Discord, ative o Modo Desenvolvedor em Configurações de Usuário → Avançado → clique com botão direito no canal e clique em <strong>Copiar ID</strong>.
+                </p>
               </div>
             </CardContent>
           </Card>
@@ -417,25 +400,16 @@ export function DevDiscordConfigCard() {
                   </div>
                 </div>
               </CardHeader>
-              <CardContent className="p-3.5 space-y-2.5">
-                <div className="space-y-1">
-                  <Label className="text-[0.7rem] font-semibold text-muted-foreground">ID do Canal no Discord</Label>
-                  <Input
-                    placeholder="Ex: 112233445566778899"
-                    value={config.logChannels.stockMovementsChannelId || ""}
-                    onChange={(e) => handleChannelChange("stockMovementsChannelId", e.target.value)}
-                    className="font-mono text-xs h-8 bg-secondary/30"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-[0.7rem] font-semibold text-muted-foreground">URL do Webhook (Opcional)</Label>
-                  <Input
-                    placeholder="https://discord.com/api/webhooks/..."
-                    value={config.logChannels.stockMovementsWebhookUrl || ""}
-                    onChange={(e) => handleChannelChange("stockMovementsWebhookUrl", e.target.value)}
-                    className="font-mono text-xs h-8 bg-secondary/30"
-                  />
-                </div>
+              <CardContent className="p-3.5 space-y-1.5">
+                <Label className="text-[0.7rem] font-semibold text-muted-foreground flex items-center gap-1">
+                  <Hash className="h-3 w-3 text-sky-400" /> ID do Canal no Discord
+                </Label>
+                <Input
+                  placeholder="Ex: 112233445566778899"
+                  value={config.logChannels.stockMovementsChannelId || ""}
+                  onChange={(e) => handleChannelChange("stockMovementsChannelId", e.target.value)}
+                  className="font-mono text-xs h-9 bg-secondary/30"
+                />
               </CardContent>
             </Card>
 
@@ -452,25 +426,16 @@ export function DevDiscordConfigCard() {
                   </div>
                 </div>
               </CardHeader>
-              <CardContent className="p-3.5 space-y-2.5">
-                <div className="space-y-1">
-                  <Label className="text-[0.7rem] font-semibold text-muted-foreground">ID do Canal no Discord</Label>
-                  <Input
-                    placeholder="Ex: 112233445566778899"
-                    value={config.logChannels.salesChannelId || ""}
-                    onChange={(e) => handleChannelChange("salesChannelId", e.target.value)}
-                    className="font-mono text-xs h-8 bg-secondary/30"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-[0.7rem] font-semibold text-muted-foreground">URL do Webhook (Opcional)</Label>
-                  <Input
-                    placeholder="https://discord.com/api/webhooks/..."
-                    value={config.logChannels.salesWebhookUrl || ""}
-                    onChange={(e) => handleChannelChange("salesWebhookUrl", e.target.value)}
-                    className="font-mono text-xs h-8 bg-secondary/30"
-                  />
-                </div>
+              <CardContent className="p-3.5 space-y-1.5">
+                <Label className="text-[0.7rem] font-semibold text-muted-foreground flex items-center gap-1">
+                  <Hash className="h-3 w-3 text-emerald-400" /> ID do Canal no Discord
+                </Label>
+                <Input
+                  placeholder="Ex: 112233445566778899"
+                  value={config.logChannels.salesChannelId || ""}
+                  onChange={(e) => handleChannelChange("salesChannelId", e.target.value)}
+                  className="font-mono text-xs h-9 bg-secondary/30"
+                />
               </CardContent>
             </Card>
 
@@ -487,25 +452,16 @@ export function DevDiscordConfigCard() {
                   </div>
                 </div>
               </CardHeader>
-              <CardContent className="p-3.5 space-y-2.5">
-                <div className="space-y-1">
-                  <Label className="text-[0.7rem] font-semibold text-muted-foreground">ID do Canal no Discord</Label>
-                  <Input
-                    placeholder="Ex: 112233445566778899"
-                    value={config.logChannels.cashFundChannelId || ""}
-                    onChange={(e) => handleChannelChange("cashFundChannelId", e.target.value)}
-                    className="font-mono text-xs h-8 bg-secondary/30"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-[0.7rem] font-semibold text-muted-foreground">URL do Webhook (Opcional)</Label>
-                  <Input
-                    placeholder="https://discord.com/api/webhooks/..."
-                    value={config.logChannels.cashFundWebhookUrl || ""}
-                    onChange={(e) => handleChannelChange("cashFundWebhookUrl", e.target.value)}
-                    className="font-mono text-xs h-8 bg-secondary/30"
-                  />
-                </div>
+              <CardContent className="p-3.5 space-y-1.5">
+                <Label className="text-[0.7rem] font-semibold text-muted-foreground flex items-center gap-1">
+                  <Hash className="h-3 w-3 text-amber-400" /> ID do Canal no Discord
+                </Label>
+                <Input
+                  placeholder="Ex: 112233445566778899"
+                  value={config.logChannels.cashFundChannelId || ""}
+                  onChange={(e) => handleChannelChange("cashFundChannelId", e.target.value)}
+                  className="font-mono text-xs h-9 bg-secondary/30"
+                />
               </CardContent>
             </Card>
 
@@ -522,25 +478,16 @@ export function DevDiscordConfigCard() {
                   </div>
                 </div>
               </CardHeader>
-              <CardContent className="p-3.5 space-y-2.5">
-                <div className="space-y-1">
-                  <Label className="text-[0.7rem] font-semibold text-muted-foreground">ID do Canal no Discord</Label>
-                  <Input
-                    placeholder="Ex: 112233445566778899"
-                    value={config.logChannels.membersChannelId || ""}
-                    onChange={(e) => handleChannelChange("membersChannelId", e.target.value)}
-                    className="font-mono text-xs h-8 bg-secondary/30"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-[0.7rem] font-semibold text-muted-foreground">URL do Webhook (Opcional)</Label>
-                  <Input
-                    placeholder="https://discord.com/api/webhooks/..."
-                    value={config.logChannels.membersWebhookUrl || ""}
-                    onChange={(e) => handleChannelChange("membersWebhookUrl", e.target.value)}
-                    className="font-mono text-xs h-8 bg-secondary/30"
-                  />
-                </div>
+              <CardContent className="p-3.5 space-y-1.5">
+                <Label className="text-[0.7rem] font-semibold text-muted-foreground flex items-center gap-1">
+                  <Hash className="h-3 w-3 text-purple-400" /> ID do Canal no Discord
+                </Label>
+                <Input
+                  placeholder="Ex: 112233445566778899"
+                  value={config.logChannels.membersChannelId || ""}
+                  onChange={(e) => handleChannelChange("membersChannelId", e.target.value)}
+                  className="font-mono text-xs h-9 bg-secondary/30"
+                />
               </CardContent>
             </Card>
 
@@ -557,25 +504,16 @@ export function DevDiscordConfigCard() {
                   </div>
                 </div>
               </CardHeader>
-              <CardContent className="p-3.5 space-y-2.5">
-                <div className="space-y-1">
-                  <Label className="text-[0.7rem] font-semibold text-muted-foreground">ID do Canal no Discord</Label>
-                  <Input
-                    placeholder="Ex: 112233445566778899"
-                    value={config.logChannels.goalsChannelId || ""}
-                    onChange={(e) => handleChannelChange("goalsChannelId", e.target.value)}
-                    className="font-mono text-xs h-8 bg-secondary/30"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-[0.7rem] font-semibold text-muted-foreground">URL do Webhook (Opcional)</Label>
-                  <Input
-                    placeholder="https://discord.com/api/webhooks/..."
-                    value={config.logChannels.goalsWebhookUrl || ""}
-                    onChange={(e) => handleChannelChange("goalsWebhookUrl", e.target.value)}
-                    className="font-mono text-xs h-8 bg-secondary/30"
-                  />
-                </div>
+              <CardContent className="p-3.5 space-y-1.5">
+                <Label className="text-[0.7rem] font-semibold text-muted-foreground flex items-center gap-1">
+                  <Hash className="h-3 w-3 text-pink-400" /> ID do Canal no Discord
+                </Label>
+                <Input
+                  placeholder="Ex: 112233445566778899"
+                  value={config.logChannels.goalsChannelId || ""}
+                  onChange={(e) => handleChannelChange("goalsChannelId", e.target.value)}
+                  className="font-mono text-xs h-9 bg-secondary/30"
+                />
               </CardContent>
             </Card>
 
@@ -592,25 +530,16 @@ export function DevDiscordConfigCard() {
                   </div>
                 </div>
               </CardHeader>
-              <CardContent className="p-3.5 space-y-2.5">
-                <div className="space-y-1">
-                  <Label className="text-[0.7rem] font-semibold text-muted-foreground">ID do Canal no Discord</Label>
-                  <Input
-                    placeholder="Ex: 112233445566778899"
-                    value={config.logChannels.announcementsChannelId || ""}
-                    onChange={(e) => handleChannelChange("announcementsChannelId", e.target.value)}
-                    className="font-mono text-xs h-8 bg-secondary/30"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-[0.7rem] font-semibold text-muted-foreground">URL do Webhook (Opcional)</Label>
-                  <Input
-                    placeholder="https://discord.com/api/webhooks/..."
-                    value={config.logChannels.announcementsWebhookUrl || ""}
-                    onChange={(e) => handleChannelChange("announcementsWebhookUrl", e.target.value)}
-                    className="font-mono text-xs h-8 bg-secondary/30"
-                  />
-                </div>
+              <CardContent className="p-3.5 space-y-1.5">
+                <Label className="text-[0.7rem] font-semibold text-muted-foreground flex items-center gap-1">
+                  <Hash className="h-3 w-3 text-yellow-400" /> ID do Canal no Discord
+                </Label>
+                <Input
+                  placeholder="Ex: 112233445566778899"
+                  value={config.logChannels.announcementsChannelId || ""}
+                  onChange={(e) => handleChannelChange("announcementsChannelId", e.target.value)}
+                  className="font-mono text-xs h-9 bg-secondary/30"
+                />
               </CardContent>
             </Card>
 
@@ -627,27 +556,16 @@ export function DevDiscordConfigCard() {
                   </div>
                 </div>
               </CardHeader>
-              <CardContent className="p-3.5">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-1">
-                    <Label className="text-[0.7rem] font-semibold text-muted-foreground">ID do Canal no Discord</Label>
-                    <Input
-                      placeholder="Ex: 112233445566778899"
-                      value={config.logChannels.systemChannelId || ""}
-                      onChange={(e) => handleChannelChange("systemChannelId", e.target.value)}
-                      className="font-mono text-xs h-8 bg-secondary/30"
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <Label className="text-[0.7rem] font-semibold text-muted-foreground">URL do Webhook (Opcional)</Label>
-                    <Input
-                      placeholder="https://discord.com/api/webhooks/..."
-                      value={config.logChannels.systemWebhookUrl || ""}
-                      onChange={(e) => handleChannelChange("systemWebhookUrl", e.target.value)}
-                      className="font-mono text-xs h-8 bg-secondary/30"
-                    />
-                  </div>
-                </div>
+              <CardContent className="p-3.5 space-y-1.5">
+                <Label className="text-[0.7rem] font-semibold text-muted-foreground flex items-center gap-1">
+                  <Hash className="h-3 w-3 text-cyan-400" /> ID do Canal no Discord
+                </Label>
+                <Input
+                  placeholder="Ex: 112233445566778899"
+                  value={config.logChannels.systemChannelId || ""}
+                  onChange={(e) => handleChannelChange("systemChannelId", e.target.value)}
+                  className="font-mono text-xs h-9 bg-secondary/30"
+                />
               </CardContent>
             </Card>
           </div>
@@ -668,7 +586,10 @@ export function DevDiscordConfigCard() {
             <CardContent className="p-4 space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
-                  <Label className="text-xs font-bold text-foreground">ID do Servidor Discord (Guild ID)</Label>
+                  <Label className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                    <Server className="h-3.5 w-3.5 text-indigo-400" />
+                    ID do Servidor Discord (Guild ID)
+                  </Label>
                   <Input
                     placeholder="Ex: 917826984778797087"
                     value={config.guildId || ""}
@@ -676,7 +597,7 @@ export function DevDiscordConfigCard() {
                     className="font-mono text-xs bg-secondary/30 h-9"
                   />
                   <p className="text-[0.68rem] text-muted-foreground">
-                    ID único do seu servidor Discord (clique com botão direito no ícone do servidor → Copiar ID).
+                    Clique com botão direito no ícone do servidor no Discord → <strong>Copiar ID do Servidor</strong>.
                   </p>
                 </div>
 
@@ -694,7 +615,7 @@ export function DevDiscordConfigCard() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2 border-t border-border/40">
                 <div className="space-y-1.5">
                   <Label className="text-xs font-bold text-foreground">Texto de Presença / Status do Bot</Label>
                   <Input
@@ -723,22 +644,6 @@ export function DevDiscordConfigCard() {
                   </Select>
                 </div>
               </div>
-
-              <div className="flex items-center justify-between gap-3 p-3.5 rounded-xl bg-secondary/30 border border-border/40 mt-2">
-                <div className="space-y-0.5">
-                  <Label htmlFor="webhook-fallback-toggle" className="text-xs font-bold text-foreground cursor-pointer block">
-                    Fallback Inteligente para Webhooks
-                  </Label>
-                  <p className="text-[0.68rem] text-muted-foreground">
-                    Caso o Bot perca conexão com o Discord ou não encontre o canal pelo ID, despacha o log através das URLs de Webhook cadastradas.
-                  </p>
-                </div>
-                <Switch
-                  id="webhook-fallback-toggle"
-                  checked={config.sendViaWebhookFallback}
-                  onCheckedChange={(val) => handleRootChange("sendViaWebhookFallback", val)}
-                />
-              </div>
             </CardContent>
           </Card>
         </TabsContent>
@@ -752,7 +657,7 @@ export function DevDiscordConfigCard() {
                 Eventos Habilitados para Transmissão
               </CardTitle>
               <CardDescription className="text-xs">
-                Selecione com precisão quais ações da plataforma devem gerar notificações e Embeds no Discord.
+                Selecione quais ações da plataforma devem gerar notificações e Embeds no Discord.
               </CardDescription>
             </CardHeader>
             <CardContent className="p-4">
@@ -1110,14 +1015,12 @@ export function DevDiscordConfigCard() {
               <CardContent className="p-4 space-y-3 font-sans">
                 {/* DISCORD MESSAGE CONTAINER */}
                 <div className="flex items-start gap-3">
-                  {/* Bot Avatar */}
                   <img
                     src="https://i.ibb.co/ymH1BQPQ/Uma124.png"
                     alt="Bot Avatar"
                     className="w-10 h-10 rounded-full bg-[#5865f2] shrink-0 mt-0.5 object-cover"
                   />
                   <div className="space-y-1.5 flex-1 min-w-0">
-                    {/* Bot Name & Tag */}
                     <div className="flex items-center gap-1.5 leading-none">
                       <span className="font-bold text-white text-sm hover:underline cursor-pointer">
                         Twin Wheels Bot
@@ -1149,7 +1052,6 @@ export function DevDiscordConfigCard() {
                           </p>
                         </div>
 
-                        {/* Fields Grid */}
                         <div className="grid grid-cols-2 gap-2 pt-1">
                           <div className="p-2 rounded bg-[#1e1f22]/60">
                             <span className="text-[0.65rem] uppercase font-bold text-[#949ba4] block">Produto / Item</span>
@@ -1169,7 +1071,6 @@ export function DevDiscordConfigCard() {
                           </div>
                         </div>
 
-                        {/* Footer */}
                         <div className="flex items-center gap-2 pt-2 border-t border-white/5 text-[0.68rem] text-[#949ba4]">
                           <img
                             src={config.footerIconUrl || "https://i.ibb.co/ymH1BQPQ/Uma124.png"}
@@ -1274,16 +1175,16 @@ export function DevDiscordConfigCard() {
           </div>
         </TabsContent>
 
-        {/* ABA 5: DIAGNÓSTICO & TESTE DE ENVIO */}
+        {/* ABA 5: DIAGNÓSTICO & TESTE DE ENVIO VIA BOT (SEM WEBHOOK) */}
         <TabsContent value="diagnostics" className="space-y-4">
           <Card className="surface-card border-indigo-500/30">
             <CardHeader className="pb-3 border-b border-border/60">
               <CardTitle className="text-sm font-extrabold text-foreground flex items-center gap-2">
                 <Send className="h-4 w-4 text-indigo-400" />
-                Disparo de Embed de Teste para o Discord
+                Disparo de Embed de Teste via Bot Oficial
               </CardTitle>
               <CardDescription className="text-xs">
-                Envie um embed de teste instantâneo para verificar se a URL de Webhook ou o Bot está entregando as mensagens no canal correto.
+                Dispare um embed de teste em tempo real para o Bot enviar diretamente no canal do Discord através da API do Discord.
               </CardDescription>
             </CardHeader>
             <CardContent className="p-4 space-y-4">
@@ -1295,33 +1196,34 @@ export function DevDiscordConfigCard() {
                     onValueChange={(val: any) => {
                       setTestCategory(val);
                       const currentVal = config.logChannels[val as keyof DiscordLogChannels] || "";
-                      setTestWebhookUrl(currentVal);
+                      setCustomTestChannelId(currentVal);
                     }}
                   >
                     <SelectTrigger className="text-xs bg-secondary/30 h-9">
                       <SelectValue placeholder="Selecione o canal" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="generalLogsWebhookUrl">Canal Geral de Logs</SelectItem>
-                      <SelectItem value="stockMovementsWebhookUrl">Estoque & Movimentações</SelectItem>
-                      <SelectItem value="salesWebhookUrl">Vendas & Lucros</SelectItem>
-                      <SelectItem value="cashFundWebhookUrl">Fundo de Caixa</SelectItem>
-                      <SelectItem value="membersWebhookUrl">Membros & Cadastros</SelectItem>
-                      <SelectItem value="goalsWebhookUrl">Metas & Desempenho</SelectItem>
-                      <SelectItem value="announcementsWebhookUrl">Avisos & Comunicados</SelectItem>
-                      <SelectItem value="systemWebhookUrl">Sistema & Purga de Cache</SelectItem>
+                      <SelectItem value="generalLogsChannelId">Canal Geral de Logs</SelectItem>
+                      <SelectItem value="stockMovementsChannelId">Estoque & Movimentações</SelectItem>
+                      <SelectItem value="salesChannelId">Vendas & Lucros</SelectItem>
+                      <SelectItem value="cashFundChannelId">Fundo de Caixa</SelectItem>
+                      <SelectItem value="membersChannelId">Membros & Cadastros</SelectItem>
+                      <SelectItem value="goalsChannelId">Metas & Desempenho</SelectItem>
+                      <SelectItem value="announcementsChannelId">Avisos & Comunicados</SelectItem>
+                      <SelectItem value="systemChannelId">Sistema & Purga de Cache</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
 
                 <div className="space-y-1.5">
-                  <Label className="text-xs font-bold text-foreground">
-                    URL do Webhook a Testar
+                  <Label className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                    <Hash className="h-3.5 w-3.5 text-indigo-400" />
+                    ID do Canal no Discord
                   </Label>
                   <Input
-                    placeholder="https://discord.com/api/webhooks/..."
-                    value={testWebhookUrl || (config.logChannels[testCategory] as string) || ""}
-                    onChange={(e) => setTestWebhookUrl(e.target.value)}
+                    placeholder="Ex: 112233445566778899"
+                    value={customTestChannelId || (config.logChannels[testCategory] as string) || ""}
+                    onChange={(e) => setCustomTestChannelId(e.target.value.trim())}
                     className="font-mono text-xs bg-secondary/30 h-9"
                   />
                 </div>
@@ -1329,7 +1231,7 @@ export function DevDiscordConfigCard() {
 
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2">
                 <p className="text-[0.72rem] text-muted-foreground">
-                  O teste enviará uma mensagem formatada com timestamp, cores oficiais e dados de autoria do seu usuário.
+                  O teste é processado pelo bot em milissegundos via Supabase Realtime e enviado diretamente ao canal do servidor.
                 </p>
 
                 <Button
@@ -1345,7 +1247,7 @@ export function DevDiscordConfigCard() {
                   ) : (
                     <>
                       <Send className="h-4 w-4" />
-                      Disparar Embed de Teste
+                      Disparar Embed de Teste via Bot
                     </>
                   )}
                 </Button>

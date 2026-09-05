@@ -2,7 +2,6 @@ require("dotenv").config();
 const { Client, GatewayIntentBits, EmbedBuilder, ActivityType } = require("discord.js");
 const { createClient } = require("@supabase/supabase-js");
 const http = require("http");
-const https = require("https");
 
 // Validate environment variables
 if (!process.env.DISCORD_BOT_TOKEN) {
@@ -35,7 +34,7 @@ let productsCache = new Map();
 let bausCache = new Map();
 
 /**
- * Configuração padrão do Discord & Bot
+ * Configuração padrão do Discord & Bot (100% direta via IDs dos Canais do Bot)
  */
 let discordConfig = {
   enabled: true,
@@ -43,27 +42,18 @@ let discordConfig = {
   guildName: "Twin Wheels RP",
   botStatusText: "Twin Wheels • Logs em Tempo Real",
   botActivityType: "Watching",
-  sendViaWebhookFallback: true,
   footerText: "Twin Wheels RP • Sistema Integrado de Logs",
   footerIconUrl: "https://i.ibb.co/ymH1BQPQ/Uma124.png",
   botAvatarUrl: "https://i.ibb.co/ymH1BQPQ/Uma124.png",
   logChannels: {
     generalLogsChannelId: "",
-    generalLogsWebhookUrl: "",
     stockMovementsChannelId: "",
-    stockMovementsWebhookUrl: "",
     salesChannelId: "",
-    salesWebhookUrl: "",
     cashFundChannelId: "",
-    cashFundWebhookUrl: "",
     membersChannelId: "",
-    membersWebhookUrl: "",
     goalsChannelId: "",
-    goalsWebhookUrl: "",
     announcementsChannelId: "",
-    announcementsWebhookUrl: "",
     systemChannelId: "",
-    systemWebhookUrl: "",
   },
   enabledEvents: {
     logins: true,
@@ -224,7 +214,7 @@ function parseAuditLogForDiscord(log) {
   const data = log.new_data || log.old_data || {};
   const old = log.old_data || {};
 
-  // Busca dados do ator
+  // Busca dados do autor
   let actorName = "Sistema";
   let actorAvatar = null;
   let actorDiscordId = null;
@@ -234,8 +224,9 @@ function parseAuditLogForDiscord(log) {
     actorName = mem.nickname ? `${mem.nickname} (${mem.nome})` : mem.nome;
     actorAvatar = mem.discord_avatar_url || mem.avatar_url || null;
     actorDiscordId = mem.discord_id || null;
-  } else if (data.user_name) {
-    actorName = data.user_name;
+  } else if (data.user_nickname || data.user_name) {
+    actorName = data.user_nickname || data.user_name;
+    actorDiscordId = data.discord_id || null;
   }
 
   const actorMention = actorDiscordId ? `<@${actorDiscordId}> (${actorName})` : `**${actorName}**`;
@@ -247,6 +238,22 @@ function parseAuditLogForDiscord(log) {
   let fields = [];
 
   switch (action) {
+    // 0. TESTE DE CONEXÃO DIRETO VIA BOT
+    case "test_discord_log": {
+      category = "system";
+      color = "#6366F1";
+      const catName = data.category_name || "Logs Gerais";
+      title = `🧪 Teste de Conexão: #${catName}`;
+      description = `Este é um disparo de teste enviado diretamente do **Painel Dev da Twin Wheels** pelo **Bot oficial do Discord** (sem webhook).`;
+      fields = [
+        { name: "🏷️ Categoria de Teste", value: `\`${catName}\``, inline: true },
+        { name: "🤖 Disparador", value: "`Twin Wheels Bot (Direto)`", inline: true },
+        { name: "👤 Solicitante", value: actorMention, inline: true },
+        ...(data.notes ? [{ name: "📝 Notas", value: String(data.notes), inline: false }] : []),
+      ];
+      break;
+    }
+
     // 1. VENDAS
     case "create_sale": {
       category = "sales";
@@ -588,57 +595,7 @@ function parseAuditLogForDiscord(log) {
 }
 
 /**
- * Envia um embed via Webhook HTTP fallback
- */
-function sendEmbedViaWebhook(webhookUrl, embedPayload) {
-  if (!webhookUrl || !webhookUrl.startsWith("http")) return Promise.resolve(false);
-
-  return new Promise((resolve) => {
-    try {
-      const url = new URL(webhookUrl);
-      const body = JSON.stringify({
-        username: "Twin Wheels Bot",
-        avatar_url: discordConfig.botAvatarUrl || "https://i.ibb.co/ymH1BQPQ/Uma124.png",
-        embeds: [embedPayload],
-      });
-
-      const req = https.request(
-        {
-          hostname: url.hostname,
-          port: 443,
-          path: url.pathname + url.search,
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Content-Length": Buffer.byteLength(body),
-          },
-        },
-        (res) => {
-          if (res.statusCode >= 200 && res.statusCode < 300) {
-            resolve(true);
-          } else {
-            console.warn(`[WEBHOOK HTTP] Discord respondeu status ${res.statusCode}`);
-            resolve(false);
-          }
-        }
-      );
-
-      req.on("error", (err) => {
-        console.warn("[WEBHOOK ERRO]", err.message);
-        resolve(false);
-      });
-
-      req.write(body);
-      req.end();
-    } catch (err) {
-      console.warn("[WEBHOOK FATAL]", err.message);
-      resolve(false);
-    }
-  });
-}
-
-/**
- * Roteia e envia o embed do log para o canal do Discord correto
+ * Roteia e envia o embed do log diretamente para o canal do Discord através do Bot
  */
 async function dispatchAuditLogToDiscord(log) {
   if (!discordConfig.enabled) return;
@@ -646,29 +603,35 @@ async function dispatchAuditLogToDiscord(log) {
   try {
     const parsed = parseAuditLogForDiscord(log);
 
-    // Verifica se a categoria do evento está habilitada nas configurações
-    if (discordConfig.enabledEvents && discordConfig.enabledEvents[parsed.category] === false) {
+    // Se for log normal (não for teste), verifica se a categoria do evento está habilitada
+    if (log.action !== "test_discord_log" && discordConfig.enabledEvents && discordConfig.enabledEvents[parsed.category] === false) {
       return;
     }
 
+    // Se o log for de teste e trouxer channel_id explícito, usa ele
+    const explicitChannelId = (log.new_data && log.new_data.channel_id) || (log.entity === "discord_channel_test" ? log.entity_id : null);
+
     // Mapeia canais específicos por categoria
     const channelMap = {
-      sales: { id: discordConfig.logChannels.salesChannelId, webhook: discordConfig.logChannels.salesWebhookUrl },
-      stockMovements: { id: discordConfig.logChannels.stockMovementsChannelId, webhook: discordConfig.logChannels.stockMovementsWebhookUrl },
-      cashFund: { id: discordConfig.logChannels.cashFundChannelId, webhook: discordConfig.logChannels.cashFundWebhookUrl },
-      members: { id: discordConfig.logChannels.membersChannelId, webhook: discordConfig.logChannels.membersWebhookUrl },
-      roles: { id: discordConfig.logChannels.membersChannelId, webhook: discordConfig.logChannels.membersWebhookUrl },
-      goals: { id: discordConfig.logChannels.goalsChannelId, webhook: discordConfig.logChannels.goalsWebhookUrl },
-      announcements: { id: discordConfig.logChannels.announcementsChannelId, webhook: discordConfig.logChannels.announcementsWebhookUrl },
-      forcePurge: { id: discordConfig.logChannels.systemChannelId, webhook: discordConfig.logChannels.systemWebhookUrl },
-      systemErrors: { id: discordConfig.logChannels.systemChannelId, webhook: discordConfig.logChannels.systemWebhookUrl },
-      logins: { id: discordConfig.logChannels.systemChannelId, webhook: discordConfig.logChannels.systemWebhookUrl },
-      system: { id: discordConfig.logChannels.systemChannelId, webhook: discordConfig.logChannels.systemWebhookUrl },
+      sales: discordConfig.logChannels.salesChannelId,
+      stockMovements: discordConfig.logChannels.stockMovementsChannelId,
+      cashFund: discordConfig.logChannels.cashFundChannelId,
+      members: discordConfig.logChannels.membersChannelId,
+      roles: discordConfig.logChannels.membersChannelId,
+      goals: discordConfig.logChannels.goalsChannelId,
+      announcements: discordConfig.logChannels.announcementsChannelId,
+      forcePurge: discordConfig.logChannels.systemChannelId,
+      systemErrors: discordConfig.logChannels.systemChannelId,
+      logins: discordConfig.logChannels.systemChannelId,
+      system: discordConfig.logChannels.systemChannelId,
     };
 
-    const target = channelMap[parsed.category] || {};
-    const targetChannelId = target.id || discordConfig.logChannels.generalLogsChannelId;
-    const targetWebhookUrl = target.webhook || discordConfig.logChannels.generalLogsWebhookUrl;
+    const targetChannelId = explicitChannelId || channelMap[parsed.category] || discordConfig.logChannels.generalLogsChannelId;
+
+    if (!targetChannelId) {
+      console.warn(`⚠️ [DISCORD LOG] Nenhum ID de canal configurado para [${parsed.category}] e nenhum canal geral definido.`);
+      return;
+    }
 
     // Constrói o Discord Embed oficial usando EmbedBuilder
     const embed = new EmbedBuilder()
@@ -692,26 +655,25 @@ async function dispatchAuditLogToDiscord(log) {
       embed.addFields(parsed.fields);
     }
 
-    let sentViaBot = false;
-
-    // 1. Tenta enviar diretamente através do Bot pelo Channel ID
-    if (targetChannelId && client.isReady()) {
+    // Dispara diretamente através do Bot no canal especificado pelo ID
+    if (client.isReady()) {
       try {
-        const channel = await client.channels.fetch(targetChannelId).catch(() => null);
+        const channel = await client.channels.fetch(targetChannelId).catch((err) => {
+          console.warn(`⚠️ [DISCORD BOT] Não foi possível encontrar o canal ${targetChannelId}: ${err.message}`);
+          return null;
+        });
+
         if (channel && channel.isTextBased()) {
           await channel.send({ embeds: [embed] });
-          sentViaBot = true;
-          console.log(`📡 [DISCORD LOG] Embed enviado no canal #${channel.name} (${targetChannelId}) [${parsed.category}]`);
+          console.log(`📡 [DISCORD BOT] Embed entregue no canal #${channel.name || targetChannelId} (${targetChannelId}) [${parsed.category}]`);
+        } else {
+          console.warn(`⚠️ [DISCORD BOT] Canal ${targetChannelId} não é de texto ou não está acessível pelo Bot.`);
         }
       } catch (err) {
-        console.warn(`⚠️ [DISCORD LOG] Falha ao enviar no canal ${targetChannelId}:`, err.message);
+        console.error(`❌ [DISCORD BOT] Falha ao enviar no canal ${targetChannelId}:`, err.message);
       }
-    }
-
-    // 2. Se o bot não enviou e o fallback de webhook está ativo, despacha pelo Webhook
-    if (!sentViaBot && discordConfig.sendViaWebhookFallback && targetWebhookUrl) {
-      await sendEmbedViaWebhook(targetWebhookUrl, embed.toJSON());
-      console.log(`🌐 [DISCORD LOG] Embed enviado via Webhook Fallback [${parsed.category}]`);
+    } else {
+      console.warn("⚠️ [DISCORD BOT] Bot ainda não está conectado no Discord. Aguardando conexão...");
     }
   } catch (err) {
     console.error("❌ [DISCORD LOG ERRO CRÍTICO]", err);
@@ -719,7 +681,7 @@ async function dispatchAuditLogToDiscord(log) {
 }
 
 /**
- * Escuta em tempo real inserções na tabela `audit_logs` e atualizações de configuração
+ * Escuta em tempo real inserções na tabela `audit_logs` e broadcasts
  */
 function setupRealtimeListeners() {
   console.log("⚡ [REALTIME] Conectando listener de audit_logs e role_permissions no Supabase...");
@@ -768,6 +730,17 @@ function setupRealtimeListeners() {
           ...payload.payload,
         };
         updateBotPresence();
+      }
+    })
+    .subscribe();
+
+  // Canal de Broadcast para disparo direto de embeds de teste
+  supabase
+    .channel("system-discord-test-trigger")
+    .on("broadcast", { event: "trigger_test_embed" }, (payload) => {
+      if (payload?.payload) {
+        console.log("🧪 [BROADCAST TEST] Teste de embed recebido via Broadcast!");
+        dispatchAuditLogToDiscord(payload.payload);
       }
     })
     .subscribe();
@@ -886,7 +859,7 @@ const server = http.createServer(async (req, res) => {
   res.writeHead(200, { "Content-Type": "application/json" });
   res.end(
     JSON.stringify({
-      app: "Twin Wheels Sync Bot & Discord Logs System",
+      app: "Twin Wheels Bot - Direct Discord Logs",
       status: "online",
       botUser: client.user ? client.user.tag : null,
       guilds: client.guilds.cache.size,

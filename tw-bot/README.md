@@ -6,13 +6,13 @@ Servidor backend do **Bot oficial da Twin Wheels** (Discord.js v14 + Supabase Re
 
 1. **Sincronização de Fotos de Perfil em Tempo Real**:
    - Escuta eventos `userUpdate` e `guildMemberUpdate` para atualizar avatares do Supabase instantaneamente.
-2. **Sistema Automatizado de Logs em Discord Embeds**:
-   - Escuta a tabela `audit_logs` do Supabase em tempo real.
+2. **Sistema Automatizado de Logs em Discord Embeds (100% Nativo via Bot)**:
+   - Escuta a tabela `audit_logs` do Supabase e eventos em tempo real.
    - Constrói Discord Embeds ricos, com cores categorizadas, emojis, campos detalhados e timestamps dinâmicos.
-   - Envia para os canais específicos configurados pelo painel Dev da plataforma (Estoque, Vendas, Fundo de Caixa, Membros, Metas, Avisos, Purga de Cache, Sistema).
-   - Suporta fallback inteligente via Webhooks HTTP caso o canal não seja encontrado no cache.
+   - Envia diretamente para os canais específicos configurados pelo painel Dev da plataforma usando apenas os **IDs dos Canais** (sem necessidade de criar ou configurar Webhooks).
+   - Suporte a múltiplos canais: Geral, Estoque, Vendas, Fundo de Caixa, Membros, Metas, Avisos, Purga e Sistema.
 3. **Painel de Configuração Dev Integrado**:
-   - Todas as configurações de canais (IDs e Webhook URLs), ativação de eventos, paleta de cores e presença do bot são configuráveis diretamente na página **Dev → Configuração → Discord & Bot de Logs**.
+   - Todas as configurações de canais (IDs), ativação de eventos, paleta de cores e presença do bot são configuráveis diretamente na página **Dev → Configuração → Discord & Bot de Logs**.
 
 ## Pré-requisitos
 
@@ -33,7 +33,7 @@ Servidor backend do **Bot oficial da Twin Wheels** (Discord.js v14 + Supabase Re
 4. Na aba **OAuth2** > **URL Generator**:
    - Escopos: `bot`, `applications.commands`
    - Permissões do Bot: `Send Messages`, `Embed Links`, `Attach Files`, `View Channels`, `Read Message History`.
-   - Copie a URL gerada e convide o bot para o seu servidor Discord.
+   - Copie a URL gerada e convide o bot para o seu servidor Discord com permissão para enviar mensagens nos canais desejados.
 
 ### 2. Variáveis de Ambiente (.env)
 Preencha o arquivo `.env` dentro da pasta `tw-bot`:
@@ -49,8 +49,11 @@ npm install
 npm start
 ```
 Após iniciado, o bot exibirá:
-`✅ Twin Wheels Bot conectado com sucesso`
+`✅ Twin Wheels Bot conectado com sucesso como ...`
 `⚡ [REALTIME] Conectando listener de audit_logs e role_permissions no Supabase...`
 
-### 4. Hospedagem (Discloud / Railway / Render / VPS)
-O bot já possui suporte nativo para **Discloud** (configurado em `discloud.config`) com endpoint HTTP na porta 8080 para health checks contínuos.
+### 4. Configurar os Canais no Painel Dev
+1. Acesse o Painel Dev na plataforma: `/dev/configuracao`.
+2. Abra a aba **Discord & Bot de Logs**.
+3. Preencha o **ID do Servidor** e os **IDs dos Canais** onde deseja receber cada tipo de log.
+4. Salve e teste o envio na aba **Testar Envio**. O bot postará na hora no canal!
