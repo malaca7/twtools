@@ -355,7 +355,7 @@ export async function triggerForceCachePurge(
     );
 
     // 2. Transmite via WebSocket Realtime Broadcast (latência imediata < 50ms)
-    const channel = supabase.channel("global-twtools-realtime");
+    const channel = supabase.channel("system-force-cache-purge-channel");
     await channel.send({
       type: "broadcast",
       event: "force_cache_purge",

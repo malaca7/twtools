@@ -112,9 +112,9 @@ export function ForceCachePurgeListener() {
 
     void checkInitialPurge();
 
-    // 2. Escuta canal WebSocket Realtime global para disparo instantâneo
+    // 2. Escuta canal WebSocket Realtime exclusivo para disparo instantâneo
     const channel = supabase
-      .channel("global-twtools-realtime")
+      .channel("system-force-cache-purge-channel")
       .on("broadcast", { event: "force_cache_purge" }, ({ payload }) => {
         if (!payload || !payload.timestamp) return;
         const lastProcessed = Number(localStorage.getItem(STORAGE_LAST_PURGE) || "0");
@@ -125,7 +125,7 @@ export function ForceCachePurgeListener() {
       .subscribe();
 
     return () => {
-      // Não remove o canal se compartilhado com o useRealtimeSync
+      void supabase.removeChannel(channel);
     };
   }, []);
 
