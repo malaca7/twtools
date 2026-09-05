@@ -610,11 +610,20 @@ export async function markConversationAsRead(
   if (!conversationId || !userId) return;
 
   const now = new Date().toISOString();
+  // 1. Atualiza timestamp de última leitura do participante
   await supabase
     .from("chat_participants" as any)
     .update({ last_read_at: now })
     .eq("conversation_id", conversationId)
     .eq("user_id", userId);
+
+  // 2. Atualiza status de mensagens recebidas de outros membros para 'read' (recibo de leitura 2 tiques azuis)
+  await supabase
+    .from("chat_messages" as any)
+    .update({ status: "read" })
+    .eq("conversation_id", conversationId)
+    .neq("sender_id", userId)
+    .in("status", ["sent", "delivered"]);
 }
 
 /**

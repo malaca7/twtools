@@ -471,7 +471,7 @@ export function useChatRoom(
 
         queryClient.setQueryData<ChatMessage[]>(["chat_messages", activeConversationId], (old = []) =>
           old.map((m) => {
-            if ((m.sender_id === currentUserId || m.is_self) && new Date(m.created_at).getTime() <= readTime) {
+            if (m.sender_id === currentUserId || m.is_self) {
               return { ...m, status: "read" as const };
             }
             return m;

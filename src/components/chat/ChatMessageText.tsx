@@ -10,6 +10,84 @@ interface ChatMessageTextProps {
   showPreview?: boolean;
 }
 
+/**
+ * Função utilitária para formatar texto no estilo WhatsApp:
+ * - *texto* => negrito (<strong>)
+ * - _texto_ => itálico (<em>)
+ * - ~texto~ => tachado (<del>)
+ * - `texto` => código inline (<code>)
+ * - ```texto``` => bloco de código (<pre><code>)
+ */
+export function parseWhatsAppFormatting(text: string): React.ReactNode[] {
+  if (!text) return [];
+
+  // Divide em blocos de código (```), código inline (`), negrito (*), itálico (_) e tachado (~)
+  const regex = /(```[\s\S]+?```|`[^`\n]+`|\*[^\*\n]+\*|_[^_\n]+_|~[^~\n]+~)/g;
+  const parts = text.split(regex);
+
+  return parts.map((part, i) => {
+    if (!part) return null;
+
+    // Bloco de código: ```codigo```
+    if (part.startsWith("```") && part.endsWith("```") && part.length >= 6) {
+      const codeContent = part.slice(3, -3).trim();
+      return (
+        <pre
+          key={i}
+          className="my-1.5 p-2.5 rounded-xl bg-black/60 border border-white/15 font-mono text-[11.5px] overflow-x-auto text-emerald-300 shadow-inner whitespace-pre leading-relaxed select-text"
+        >
+          <code>{codeContent}</code>
+        </pre>
+      );
+    }
+
+    // Código inline: `codigo`
+    if (part.startsWith("`") && part.endsWith("`") && part.length >= 2) {
+      const codeContent = part.slice(1, -1);
+      return (
+        <code
+          key={i}
+          className="px-1.5 py-0.5 mx-0.5 rounded-md bg-black/40 border border-white/10 font-mono text-[12px] text-amber-300 font-bold inline-block select-text"
+        >
+          {codeContent}
+        </code>
+      );
+    }
+
+    // Negrito: *texto*
+    if (part.startsWith("*") && part.endsWith("*") && part.length >= 2) {
+      const inner = part.slice(1, -1);
+      return (
+        <strong key={i} className="font-extrabold text-foreground tracking-tight">
+          {parseWhatsAppFormatting(inner)}
+        </strong>
+      );
+    }
+
+    // Itálico: _texto_
+    if (part.startsWith("_") && part.endsWith("_") && part.length >= 2) {
+      const inner = part.slice(1, -1);
+      return (
+        <em key={i} className="italic opacity-90 font-medium">
+          {parseWhatsAppFormatting(inner)}
+        </em>
+      );
+    }
+
+    // Tachado (rasurado): ~texto~
+    if (part.startsWith("~") && part.endsWith("~") && part.length >= 2) {
+      const inner = part.slice(1, -1);
+      return (
+        <del key={i} className="line-through opacity-75 decoration-current">
+          {parseWhatsAppFormatting(inner)}
+        </del>
+      );
+    }
+
+    return <React.Fragment key={i}>{part}</React.Fragment>;
+  });
+}
+
 export const ChatMessageText: React.FC<ChatMessageTextProps> = ({
   content,
   isDeleted = false,
@@ -81,10 +159,10 @@ export const ChatMessageText: React.FC<ChatMessageTextProps> = ({
 
   return (
     <div className="space-y-1">
-      {/* MESSAGE TEXT WITH CLICKABLE LINKS */}
-      <p className={cn("text-[13.5px] leading-relaxed whitespace-pre-wrap break-words select-text font-sans", className)}>
+      {/* MESSAGE TEXT WITH WHATSAPP FORMATTING & CLICKABLE LINKS */}
+      <div className={cn("text-[13.5px] leading-relaxed whitespace-pre-wrap break-words select-text font-sans", className)}>
         {tokens.length === 0
-          ? content
+          ? parseWhatsAppFormatting(content)
           : tokens.map((token, idx) => {
               if (token.type === "link") {
                 return (
@@ -102,9 +180,9 @@ export const ChatMessageText: React.FC<ChatMessageTextProps> = ({
                   </a>
                 );
               }
-              return <React.Fragment key={idx}>{token.value}</React.Fragment>;
+              return <React.Fragment key={idx}>{parseWhatsAppFormatting(token.value)}</React.Fragment>;
             })}
-      </p>
+      </div>
 
       {/* RICH LINK PREVIEW CARD */}
       {showPreview && firstUrl && <LinkPreviewCard url={firstUrl} />}
