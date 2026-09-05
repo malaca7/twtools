@@ -507,13 +507,25 @@ export async function sendChatMessage(
     mentions?: string[];
     isForwarded?: boolean;
     forwardedFromName?: string | null;
+    senderId?: string | null;
   }
 ): Promise<ChatMessage> {
+  let effectiveSenderId = options?.senderId;
+  if (!effectiveSenderId) {
+    const { data: userData } = await supabase.auth.getUser();
+    effectiveSenderId = userData?.user?.id;
+  }
+  if (!effectiveSenderId) {
+    const { data: sessionData } = await supabase.auth.getSession();
+    effectiveSenderId = sessionData?.session?.user?.id;
+  }
+
   // Inserção direta via Supabase REST Client (< 80ms)
   const { data: inserted, error: insertError } = await supabase
     .from("chat_messages" as any)
     .insert({
       conversation_id: conversationId,
+      sender_id: effectiveSenderId,
       content: content.trim(),
       message_type: options?.messageType || "text",
       reply_to_id: options?.replyToId || null,
@@ -1071,6 +1083,7 @@ export async function forwardChatMessage(
     attachmentSize: message.attachment_size,
     isForwarded: true,
     forwardedFromName: originalAuthorName,
+    senderId: currentUserId,
   });
 }
 

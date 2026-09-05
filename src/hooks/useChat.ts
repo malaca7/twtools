@@ -852,6 +852,7 @@ export function useChatRoom(
         attachmentType: attachment?.type || null,
         attachmentSize: attachment?.size || null,
         mentions: parsedMentions,
+        senderId: currentUserId,
       });
     },
     onMutate: async ({ text, messageType = "text", attachment, replyTo }) => {
