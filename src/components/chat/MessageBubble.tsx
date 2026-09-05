@@ -130,6 +130,45 @@ function MessageBubbleBase({
   const [editContent, setEditContent] = useState(message.content);
   const [reactionMenuOpen, setReactionMenuOpen] = useState(false);
   const [deleteConfirmMode, setDeleteConfirmMode] = useState<"self" | "everyone" | null>(null);
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [showQuickReactions, setShowQuickReactions] = useState(false);
+  const quickReactionsTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  const handleChevronMouseEnter = () => {
+    if (quickReactionsTimerRef.current) {
+      clearTimeout(quickReactionsTimerRef.current);
+      quickReactionsTimerRef.current = null;
+    }
+    setShowQuickReactions(true);
+  };
+
+  const handleChevronMouseLeave = () => {
+    quickReactionsTimerRef.current = setTimeout(() => {
+      setShowQuickReactions(false);
+    }, 250);
+  };
+
+  const handleReactionsMouseEnter = () => {
+    if (quickReactionsTimerRef.current) {
+      clearTimeout(quickReactionsTimerRef.current);
+      quickReactionsTimerRef.current = null;
+    }
+    setShowQuickReactions(true);
+  };
+
+  const handleReactionsMouseLeave = () => {
+    quickReactionsTimerRef.current = setTimeout(() => {
+      setShowQuickReactions(false);
+    }, 150);
+  };
+
+  React.useEffect(() => {
+    return () => {
+      if (quickReactionsTimerRef.current) {
+        clearTimeout(quickReactionsTimerRef.current);
+      }
+    };
+  }, []);
 
   // Click & hold (long-press) para seleção de mensagens
   const longPressTimerRef = useRef<NodeJS.Timeout | null>(null);
@@ -290,12 +329,14 @@ function MessageBubbleBase({
           {/* HOVER DROPDOWN TRIGGER (CHEVRON WHATSAPP) */}
           {!isDeleted && !editing && (
             <div
+              onMouseEnter={handleChevronMouseEnter}
+              onMouseLeave={handleChevronMouseLeave}
               className={cn(
                 "absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity z-10",
                 "h-5 w-5 rounded-full bg-black/30 hover:bg-black/50 flex items-center justify-center cursor-pointer text-white/80 hover:text-white"
               )}
             >
-              <DropdownMenu>
+              <DropdownMenu open={dropdownOpen} onOpenChange={setDropdownOpen}>
                 <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
                   <button type="button" className="h-full w-full flex items-center justify-center cursor-pointer">
                     <ChevronDown className="h-3.5 w-3.5" />
@@ -653,12 +694,17 @@ function MessageBubbleBase({
           </div>
         )}
 
-        {/* FLOATING QUICK REACTIONS BAR ON HOVER (POSICIONADO ABAIXO DA MENSAGEM) */}
+        {/* FLOATING QUICK REACTIONS BAR ON HOVER (POSICIONADO MAIS ABAIXO DA MENSAGEM, DISPARADO APENAS AO PASSAR O MOUSE NA SETA) */}
         {!isDeleted && !editing && !isSelectionMode && (
           <div
+            onMouseEnter={handleReactionsMouseEnter}
+            onMouseLeave={handleReactionsMouseLeave}
             className={cn(
-              "absolute -bottom-4.5 opacity-0 group-hover:opacity-100 transition-all duration-150 flex items-center gap-0.5 p-1 rounded-full bg-[#233138] border border-white/10 shadow-xl z-20 backdrop-blur-md pointer-events-auto",
-              isSelf ? "right-4" : "left-4"
+              "absolute -bottom-8 sm:-bottom-8.5 transition-all duration-200 flex items-center gap-0.5 p-1 rounded-full bg-[#233138] border border-white/10 shadow-2xl z-30 backdrop-blur-md",
+              isSelf ? "right-2" : "left-2",
+              showQuickReactions && !dropdownOpen
+                ? "opacity-100 scale-100 pointer-events-auto translate-y-0"
+                : "opacity-0 scale-95 pointer-events-none -translate-y-1"
             )}
           >
             {QUICK_EMOJIS.map((emoji) => (
@@ -668,6 +714,7 @@ function MessageBubbleBase({
                 onClick={(e) => {
                   e.stopPropagation();
                   onReact(message.id, emoji);
+                  setShowQuickReactions(false);
                 }}
                 className="h-6 w-6 rounded-full hover:bg-white/10 flex items-center justify-center text-sm hover:scale-125 transition-transform cursor-pointer"
               >

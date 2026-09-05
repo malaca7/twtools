@@ -101,22 +101,22 @@ export function MessageInfoModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md sm:max-w-lg p-0 bg-[#182229] border border-white/20 text-white rounded-2xl shadow-2xl ring-1 ring-white/10 h-[88vh] max-h-[720px] flex flex-col overflow-hidden">
+      <DialogContent className="max-w-md sm:max-w-lg p-0 sm:p-0 gap-0 bg-[#182229] border border-white/20 text-white rounded-2xl shadow-2xl ring-1 ring-white/10 max-h-[82vh] overflow-y-hidden overflow-x-hidden flex flex-col">
         {/* HEADER ESTILO WHATSAPP */}
-        <DialogHeader className="p-4 bg-[#202c33] border-b border-white/10 space-y-1 shrink-0">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <div className="h-8 w-8 rounded-full bg-[#00a884]/20 text-[#00a884] flex items-center justify-center">
+        <DialogHeader className="p-4 pr-12 bg-[#202c33] border-b border-white/10 space-y-1 shrink-0 relative">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2 min-w-0">
+              <div className="h-8 w-8 rounded-full bg-[#00a884]/20 text-[#00a884] flex items-center justify-center shrink-0">
                 <Info className="h-4 w-4" />
               </div>
-              <DialogTitle className="text-base font-bold text-white leading-none">
+              <DialogTitle className="text-base font-bold text-white leading-none truncate">
                 Dados da mensagem
               </DialogTitle>
             </div>
             <Badge
               variant="outline"
               className={cn(
-                "text-[10px] font-mono font-bold px-2 py-0.5 rounded-full border",
+                "text-[10px] font-mono font-bold px-2 py-0.5 rounded-full border shrink-0",
                 receiptSummary.status === "read"
                   ? "border-[#53bdeb]/40 text-[#53bdeb] bg-[#53bdeb]/10"
                   : receiptSummary.status === "delivered"
@@ -131,7 +131,7 @@ export function MessageInfoModal({
                 : "Enviada"}
             </Badge>
           </div>
-          <p className="text-[11px] text-[#8696a0] font-sans">
+          <p className="text-[11px] text-[#8696a0] font-sans truncate">
             {isSelf ? "Enviada por você em " : `Enviada por ${message.sender_name || "Membro"} em `}
             {formatWhatsAppDateTime(message.created_at)}
           </p>
@@ -362,12 +362,12 @@ export function MessageInfoModal({
             </div>
 
             {/* BARRA DE ABAS RÁPIDAS */}
-            <div className="flex items-center gap-1.5 px-3 py-1.5 bg-[#182229] border-b border-white/5 shrink-0 overflow-x-auto">
+            <div className="flex items-center gap-1.5 px-3 py-1.5 bg-[#182229] border-b border-white/5 shrink-0 overflow-x-auto no-scrollbar scroll-smooth">
               <button
                 type="button"
                 onClick={() => setActiveTab("all")}
                 className={cn(
-                  "px-2.5 py-1 rounded-lg text-xs font-bold transition-colors cursor-pointer shrink-0",
+                  "px-2.5 py-1 rounded-lg text-xs font-bold transition-colors cursor-pointer shrink-0 whitespace-nowrap",
                   activeTab === "all"
                     ? "bg-white/15 text-white"
                     : "text-[#8696a0] hover:text-white hover:bg-white/5"
@@ -379,7 +379,7 @@ export function MessageInfoModal({
                 type="button"
                 onClick={() => setActiveTab("read")}
                 className={cn(
-                  "px-2.5 py-1 rounded-lg text-xs font-bold transition-colors cursor-pointer shrink-0 flex items-center gap-1",
+                  "px-2.5 py-1 rounded-lg text-xs font-bold transition-colors cursor-pointer shrink-0 flex items-center gap-1 whitespace-nowrap",
                   activeTab === "read"
                     ? "bg-[#53bdeb]/20 text-[#53bdeb]"
                     : "text-[#8696a0] hover:text-[#53bdeb] hover:bg-white/5"
@@ -391,7 +391,7 @@ export function MessageInfoModal({
                 type="button"
                 onClick={() => setActiveTab("delivered")}
                 className={cn(
-                  "px-2.5 py-1 rounded-lg text-xs font-bold transition-colors cursor-pointer shrink-0 flex items-center gap-1",
+                  "px-2.5 py-1 rounded-lg text-xs font-bold transition-colors cursor-pointer shrink-0 flex items-center gap-1 whitespace-nowrap",
                   activeTab === "delivered"
                     ? "bg-[#8696a0]/25 text-white"
                     : "text-[#8696a0] hover:text-white hover:bg-white/5"
@@ -403,7 +403,7 @@ export function MessageInfoModal({
                 type="button"
                 onClick={() => setActiveTab("pending")}
                 className={cn(
-                  "px-2.5 py-1 rounded-lg text-xs font-bold transition-colors cursor-pointer shrink-0 flex items-center gap-1",
+                  "px-2.5 py-1 rounded-lg text-xs font-bold transition-colors cursor-pointer shrink-0 flex items-center gap-1 whitespace-nowrap",
                   activeTab === "pending"
                     ? "bg-amber-500/20 text-amber-400"
                     : "text-[#8696a0] hover:text-amber-400 hover:bg-white/5"
@@ -441,7 +441,7 @@ export function MessageInfoModal({
                   </div>
 
                   {filteredRead.length === 0 ? (
-                    <div className="p-3 text-center text-xs text-[#8696a0] italic">
+                    <div className="p-2.5 text-center text-[11px] text-[#8696a0]/80 italic">
                       {searchTerm ? "Nenhum membro encontrado" : "Nenhum participante visualizou ainda"}
                     </div>
                   ) : (
@@ -467,7 +467,7 @@ export function MessageInfoModal({
                   </div>
 
                   {filteredDelivered.length === 0 ? (
-                    <div className="p-3 text-center text-xs text-[#8696a0] italic">
+                    <div className="p-2.5 text-center text-[11px] text-[#8696a0]/80 italic">
                       {searchTerm
                         ? "Nenhum membro encontrado"
                         : "Nenhum membro aguardando apenas leitura"}
@@ -495,7 +495,7 @@ export function MessageInfoModal({
                   </div>
 
                   {filteredPending.length === 0 ? (
-                    <div className="p-3 text-center text-xs text-[#8696a0] italic">
+                    <div className="p-2.5 text-center text-[11px] text-[#8696a0]/80 italic">
                       {searchTerm ? "Nenhum membro encontrado" : "Todos os membros já receberam a mensagem"}
                     </div>
                   ) : (
