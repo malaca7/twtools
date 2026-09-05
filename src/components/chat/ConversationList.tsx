@@ -368,9 +368,6 @@ export function ConversationList({
               <DropdownMenuItem onClick={() => setManageFoldersOpen(true)} className="cursor-pointer hover:bg-white/10 rounded-lg">
                 <FolderCog className="h-3.5 w-3.5 mr-2 text-[#7f66ff]" /> Gerenciar pastas
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setSoundSettingsOpen(true)} className="cursor-pointer hover:bg-white/10 rounded-lg">
-                <Music2 className="h-3.5 w-3.5 mr-2 text-amber-400" /> Configurar notificações
-              </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>

@@ -245,6 +245,22 @@ export function FloatingPresenceWidget() {
 
       if (style === "toast") {
         setShowToastAlert(true);
+        if (isOpen) {
+          toast(detail.isMention ? `📢 Mencionado por ${senderName}` : `💬 ${senderName}`, {
+            description: content,
+            action: conversationId
+              ? {
+                  label: "Ver",
+                  onClick: () => {
+                    if (conversations) {
+                      const found = conversations.find((c) => c.id === conversationId);
+                      if (found) setActiveConversation(found);
+                    }
+                  },
+                }
+              : undefined,
+          });
+        }
       } else if (style === "screen_glow") {
         setShowScreenGlow(true);
       }

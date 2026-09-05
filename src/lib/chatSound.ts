@@ -234,9 +234,6 @@ class ChatNotificationManager {
           this.ctx = new AudioCtx();
         }
       }
-      if (this.ctx && this.ctx.state === "suspended") {
-        void this.ctx.resume();
-      }
       return this.ctx;
     } catch {
       return null;
@@ -244,35 +241,33 @@ class ChatNotificationManager {
   }
 
   public forceResume(): void {
-    this.getAudioContext();
+    const ctx = this.getAudioContext();
+    if (ctx && ctx.state === "suspended") {
+      void ctx.resume();
+    }
   }
 
-  public playMentionSound(): void {
-    if (!this.settings.enabled) return;
-    try {
-      const ctx = this.getAudioContext();
-      if (!ctx) return;
-      const now = ctx.currentTime;
-      const vol = (this.settings.volume / 100);
+  private runWithAudioContext(callback: (ctx: AudioContext) => void): void {
+    const ctx = this.getAudioContext();
+    if (!ctx) return;
 
-      // Distinctive triple chime for mentions
-      [880, 1108.73, 1318.51].forEach((freq, i) => {
-        const t = now + i * 0.12;
-        const gain = ctx.createGain();
-        gain.connect(ctx.destination);
-        gain.gain.setValueAtTime(0, t);
-        gain.gain.linearRampToValueAtTime(0.3 * vol, t + 0.02);
-        gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.3);
-
-        const osc = ctx.createOscillator();
-        osc.type = "sine";
-        osc.frequency.setValueAtTime(freq, t);
-        osc.connect(gain);
-        osc.start(t);
-        osc.stop(t + 0.3);
-      });
-    } catch (e) {
-      console.warn("Could not play mention sound", e);
+    if (ctx.state === "suspended") {
+      ctx
+        .resume()
+        .then(() => {
+          try {
+            callback(ctx);
+          } catch (e) {
+            console.warn("Could not play sound after audio resume", e);
+          }
+        })
+        .catch((e) => console.warn("AudioContext resume failed:", e));
+    } else {
+      try {
+        callback(ctx);
+      } catch (e) {
+        console.warn("Could not play sound", e);
+      }
     }
   }
 
@@ -282,10 +277,7 @@ class ChatNotificationManager {
   public playIncomingMessage(themeOverride?: ChatSoundTheme): void {
     if (!this.settings.enabled || !this.settings.incomingEnabled) return;
 
-    try {
-      const ctx = this.getAudioContext();
-      if (!ctx) return;
-
+    this.runWithAudioContext((ctx) => {
       const theme = themeOverride || this.settings.theme;
       const now = ctx.currentTime;
       const vol = (this.settings.volume / 100);
@@ -297,7 +289,7 @@ class ChatNotificationManager {
           const gain = ctx.createGain();
           gain.connect(ctx.destination);
           gain.gain.setValueAtTime(0, t);
-          gain.gain.linearRampToValueAtTime(0.18 * vol, t + 0.01);
+          gain.gain.linearRampToValueAtTime(0.28 * vol, t + 0.01);
           gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.25);
 
           const osc = ctx.createOscillator();
@@ -499,41 +491,35 @@ class ChatNotificationManager {
         osc.start(now);
         osc.stop(now + 0.28);
       }
-    } catch (e) {
-      console.warn("Could not play chat incoming sound", e);
-    }
+    });
   }
 
   /**
-   * Toca o som suave de envio de mensagem
+   * Toca o som suave e nítido de envio de mensagem
    */
   public playSentMessage(themeOverride?: ChatSoundTheme): void {
     if (!this.settings.enabled || !this.settings.sentEnabled) return;
 
-    try {
-      const ctx = this.getAudioContext();
-      if (!ctx) return;
-
+    this.runWithAudioContext((ctx) => {
       const now = ctx.currentTime;
-      const vol = (this.settings.volume / 100);
+      const vol = this.settings.volume / 100;
 
+      // WhatsApp Web Pop/Sent click sonoro e agradável
       const gain = ctx.createGain();
       gain.connect(ctx.destination);
       gain.gain.setValueAtTime(0, now);
-      gain.gain.linearRampToValueAtTime(0.05 * vol, now + 0.01);
+      gain.gain.linearRampToValueAtTime(0.24 * vol, now + 0.008);
       gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.12);
 
       const osc = ctx.createOscillator();
-      osc.type = "triangle";
-      osc.frequency.setValueAtTime(580, now);
-      osc.frequency.exponentialRampToValueAtTime(920, now + 0.06);
+      osc.type = "sine";
+      osc.frequency.setValueAtTime(620, now);
+      osc.frequency.exponentialRampToValueAtTime(1150, now + 0.06);
 
       osc.connect(gain);
       osc.start(now);
       osc.stop(now + 0.12);
-    } catch (e) {
-      console.warn("Could not play sent sound", e);
-    }
+    });
   }
 
   /**
@@ -542,12 +528,9 @@ class ChatNotificationManager {
   public playMentionSound(themeOverride?: ChatSoundTheme): void {
     if (!this.settings.enabled || !this.settings.mentionEnabled) return;
 
-    try {
-      const ctx = this.getAudioContext();
-      if (!ctx) return;
-
+    this.runWithAudioContext((ctx) => {
       const now = ctx.currentTime;
-      const vol = (this.settings.volume / 100);
+      const vol = this.settings.volume / 100;
 
       const notes = [587.33, 880, 1174.66]; // D5 -> A5 -> D6
       notes.forEach((freq, idx) => {
@@ -555,7 +538,7 @@ class ChatNotificationManager {
         const gain = ctx.createGain();
         gain.connect(ctx.destination);
         gain.gain.setValueAtTime(0, t);
-        gain.gain.linearRampToValueAtTime(0.12 * vol, t + 0.015);
+        gain.gain.linearRampToValueAtTime(0.26 * vol, t + 0.015);
         gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.3);
 
         const osc = ctx.createOscillator();
@@ -565,9 +548,7 @@ class ChatNotificationManager {
         osc.start(t);
         osc.stop(t + 0.3);
       });
-    } catch (e) {
-      console.warn("Could not play mention sound", e);
-    }
+    });
   }
 
   /**
@@ -585,7 +566,7 @@ class ChatNotificationManager {
     const { senderName = "Alguém", senderAvatar, message, conversationId } = payload;
     const contentPreview = message?.content || message?.attachment_name || "Enviou um anexo";
 
-    // 1. Toca som
+    // 1. Toca som (menção prioritária ou som de chegada)
     if (payload.isMention) {
       this.playMentionSound();
     } else {
@@ -600,7 +581,11 @@ class ChatNotificationManager {
       Notification.permission === "granted"
     ) {
       try {
-        const n = new Notification(`💬 Mensagem de ${senderName}`, {
+        const title = payload.isMention
+          ? `📢 Mencionado por ${senderName}`
+          : `💬 Mensagem de ${senderName}`;
+
+        const n = new Notification(title, {
           body: contentPreview,
           icon: senderAvatar || "/favicon.ico",
           tag: conversationId,
@@ -611,14 +596,17 @@ class ChatNotificationManager {
             new CustomEvent("tw_chat_open_conversation", { detail: { conversationId } })
           );
         };
-      } catch {
-        // ignore
+      } catch (err) {
+        console.warn("Could not display native notification:", err);
       }
     }
 
     // 3. Piscar título da aba do navegador (se ativado)
     if (this.settings.flashTabTitle && typeof document !== "undefined" && document.hidden) {
-      this.flashTitle(`(1) 💬 Nova Mensagem de ${senderName}`);
+      const flashText = payload.isMention
+        ? `(1) 📢 Menção de ${senderName}`
+        : `(1) 💬 Nova Mensagem de ${senderName}`;
+      this.flashTitle(flashText);
     }
 
     // 4. Dispara evento visual global
@@ -633,6 +621,7 @@ class ChatNotificationManager {
             visualStyle: this.settings.visualStyle,
             glowColor: this.settings.glowColor,
             autoExpandOnDM: this.settings.autoExpandOnDM,
+            isMention: payload.isMention,
           },
         })
       );
@@ -665,3 +654,16 @@ class ChatNotificationManager {
 
 export const chatSound = new ChatNotificationManager();
 export const chatNotification = chatSound;
+
+// Desbloqueio automático do AudioContext no primeiro toque/clique em qualquer lugar da tela
+if (typeof window !== "undefined") {
+  const unlockAudio = () => {
+    chatSound.forceResume();
+    window.removeEventListener("pointerdown", unlockAudio);
+    window.removeEventListener("keydown", unlockAudio);
+    window.removeEventListener("touchstart", unlockAudio);
+  };
+  window.addEventListener("pointerdown", unlockAudio, { passive: true });
+  window.addEventListener("keydown", unlockAudio, { passive: true });
+  window.addEventListener("touchstart", unlockAudio, { passive: true });
+}

@@ -53,7 +53,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/hooks/useAuth";
-import { useChatRoom, useConversations } from "@/hooks/useChat";
+import { useChatRoom } from "@/hooks/useChat";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   updateGroupSettings,
@@ -139,7 +139,6 @@ export function ChatWindow({
     sendTypingNotification,
   } = useChatRoom(conversation.id, conversation);
 
-  const { conversations: allConversations } = useConversations();
   const [groupSettingsOpen, setGroupSettingsOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [createPollOpen, setCreatePollOpen] = useState(false);

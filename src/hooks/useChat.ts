@@ -17,6 +17,7 @@ import {
   leaveOrDeleteGroup,
   uploadChatAttachment,
   getCachedMember,
+  fetchChatMembersMap,
   resolveMessageStatus,
   syncMessageStatusInDb,
 } from "@/services/chatService";
@@ -29,6 +30,9 @@ import type {
 } from "@/types/chat";
 import { chatSound } from "@/lib/chatSound";
 import { toast } from "sonner";
+
+// Evita disparar múltiplos alertas/sons para a mesma mensagem recebida via múltiplos canais
+const recentlyAlertedMessageIds = new Set<string>();
 
 /**
  * Hook para listar e sincronizar em tempo real todas as conversas do usuário.
@@ -70,13 +74,27 @@ export function useConversations(activeConversationId?: string | null) {
 
           // Lógica de alerta para mensagens recebidas
           if (newMsg.sender_id !== userId) {
-            const isActiveConv = activeConvRef.current === newMsg.conversation_id;
-            const isMention = newMsg.mentions && (newMsg.mentions.includes(userId) || newMsg.mentions.includes("todos"));
+            if (newMsg.id && !recentlyAlertedMessageIds.has(newMsg.id)) {
+              recentlyAlertedMessageIds.add(newMsg.id);
+              setTimeout(() => recentlyAlertedMessageIds.delete(newMsg.id), 8000);
 
-            void getCachedMember(newMsg.sender_id).then((senderMember) => {
-              const senderName = senderMember?.nickname || senderMember?.nome || "Alguém";
-              const senderAvatar = senderMember?.discord_avatar_url || null;
-              
+              const isActiveConv = activeConvRef.current === newMsg.conversation_id;
+              const isMention =
+                Boolean(newMsg.mentions) &&
+                (newMsg.mentions.includes(userId) || newMsg.mentions.includes("todos"));
+
+              const senderMember = getCachedMember(newMsg.sender_id);
+              const senderName =
+                senderMember?.nickname ||
+                senderMember?.nome ||
+                newMsg.sender_name ||
+                "Alguém";
+              const senderAvatar =
+                senderMember?.avatar_url ||
+                senderMember?.discord_avatar_url ||
+                newMsg.sender_avatar ||
+                null;
+
               if (isMention) {
                 if (isActiveConv) {
                   chatSound.playMentionSound();
@@ -86,9 +104,8 @@ export function useConversations(activeConversationId?: string | null) {
                     conversationId: newMsg.conversation_id,
                     senderName,
                     senderAvatar,
+                    isMention: true,
                   });
-                  // Overwrite sound with mention sound in this specific case
-                  chatSound.playMentionSound();
                 }
               } else if (!isActiveConv) {
                 chatSound.triggerNewMessageAlert({
@@ -96,12 +113,17 @@ export function useConversations(activeConversationId?: string | null) {
                   conversationId: newMsg.conversation_id,
                   senderName,
                   senderAvatar,
+                  isMention: false,
                 });
               } else {
-                // Conversa ativa, sem menção: apenas toca um som de chegada sutil
+                // Conversa ativa, sem menção: toca som de chegada
                 chatSound.playIncomingMessage();
               }
-            });
+
+              if (!senderMember) {
+                void fetchChatMembersMap();
+              }
+            }
           }
 
           // Atualização imediata no cache de conversas sem bloquear o render
@@ -291,8 +313,23 @@ export function useChatRoom(
           const newRaw = payload.new as any;
           if (!newRaw || newRaw.conversation_id !== activeConversationId) return;
 
-          // Se a mensagem for de outro usuário, marca como lida imediatamente e transmite recibo de entrega e leitura
+          // Se a mensagem for de outro usuário, toca som (se ainda não alertado) e marca como lida imediatamente
           if (newRaw.sender_id !== currentUserId) {
+            if (newRaw.id && !recentlyAlertedMessageIds.has(newRaw.id)) {
+              recentlyAlertedMessageIds.add(newRaw.id);
+              setTimeout(() => recentlyAlertedMessageIds.delete(newRaw.id), 8000);
+
+              const isMention =
+                Boolean(newRaw.mentions) &&
+                (newRaw.mentions.includes(currentUserId) || newRaw.mentions.includes("todos"));
+
+              if (isMention) {
+                chatSound.playMentionSound();
+              } else {
+                chatSound.playIncomingMessage();
+              }
+            }
+
             const nowIso = new Date().toISOString();
             void markConversationAsRead(activeConversationId, currentUserId);
             if (channelRef.current) {
