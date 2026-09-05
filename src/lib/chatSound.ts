@@ -131,7 +131,9 @@ class ChatNotificationManager {
     try {
       const saved = localStorage.getItem("tw_chat_notification_settings_v3");
       if (saved) {
-        this.settings = { ...DEFAULT_SETTINGS, ...JSON.parse(saved) };
+        const parsed = JSON.parse(saved);
+        if ((parsed.theme as string) === "whatsapp") parsed.theme = "whatsapp_classic";
+        this.settings = { ...DEFAULT_SETTINGS, ...parsed };
         return;
       }
 

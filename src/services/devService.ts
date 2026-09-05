@@ -190,9 +190,16 @@ export function isUserDeveloper(
   level: AppLevel | null | undefined
 ): boolean {
   if (!user && !profile && !level) return false;
+
+  // 1. Nível/Cargo hierárquico explícito 'desenvolvedor'
   if (level === "desenvolvedor") return true;
-  if ((profile as any)?.is_developer === true) return true;
-  if (profile?.discord_id && DEV_DISCORD_IDS.includes(profile.discord_id)) return true;
+
+  // 2. ID do Discord verificado de Desenvolvedor Principal (Malaca)
+  if (profile?.discord_id && DEV_DISCORD_IDS.includes(String(profile.discord_id))) return true;
+
+  // 3. Flag de desenvolvedor ativada no perfil (somente válida se o cargo for desenvolvedor)
+  if ((profile as any)?.is_developer === true && level === "desenvolvedor") return true;
+
   return false;
 }
 

@@ -123,9 +123,9 @@ export function ChatSoundSettingsDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-xl w-[95vw] bg-card border-border/80 shadow-2xl rounded-3xl p-0 flex flex-col h-[85vh] max-h-[660px] z-[10000] overflow-hidden justify-between !grid-cols-1 select-none">
+      <DialogContent className="sm:max-w-xl w-[95vw] !flex !flex-col h-[85vh] max-h-[660px] bg-card border border-border/80 shadow-2xl rounded-3xl !p-0 !gap-0 !overflow-hidden z-[10000] select-none">
         {/* HEADER COM NAVEGAÇÃO DE ABAS */}
-        <DialogHeader className="p-4 pb-3 border-b border-border/60 bg-secondary/30 backdrop-blur-md shrink-0">
+        <DialogHeader className="p-4 pb-3 border-b border-border/60 bg-secondary/30 backdrop-blur-md shrink-0 block">
           <div className="flex items-center justify-between gap-2 mb-2">
             <div>
               <DialogTitle className="text-base font-black flex items-center gap-2">
@@ -185,7 +185,7 @@ export function ChatSoundSettingsDialog({
         </DialogHeader>
 
         {/* DIALOG SCROLLABLE BODY */}
-        <div className="p-4 space-y-4 flex-1 overflow-y-auto min-h-0 custom-scrollbar-thin">
+        <div className="p-4 space-y-4 flex-1 overflow-y-auto min-h-0 custom-scrollbar-thin block">
           {/* TAB 1: SONS & ÁUDIO */}
           {activeTab === "audio" && (
             <div className="space-y-4 animate-in fade-in-50 duration-150">
@@ -240,7 +240,7 @@ export function ChatSoundSettingsDialog({
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     {SOUND_THEMES.map((theme) => {
-                      const isSelected = settings.theme === theme.id;
+                      const isSelected = settings.theme === theme.id || ((settings.theme as string) === "whatsapp" && theme.id === "whatsapp_classic");
                       return (
                         <div
                           key={theme.id}
