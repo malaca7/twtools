@@ -646,6 +646,112 @@ export function DevDiscordConfigCard() {
               </div>
             </CardContent>
           </Card>
+
+          {/* IDENTIDADE VISUAL & IMAGEM DO BOT NO EMBED */}
+          <Card className="surface-card border border-indigo-500/30">
+            <CardHeader className="pb-3 border-b border-border/60 bg-indigo-500/[0.03]">
+              <div className="flex items-center justify-between gap-2">
+                <div className="space-y-0.5">
+                  <CardTitle className="text-sm font-extrabold text-foreground flex items-center gap-2">
+                    <Bot className="h-4 w-4 text-indigo-400" />
+                    Imagem do Bot no Embed (Avatar & Thumbnail)
+                  </CardTitle>
+                  <CardDescription className="text-xs">
+                    Defina a imagem oficial que o Bot utilizará como miniatura/thumbnail no canto superior e como avatar nos Embeds do Discord.
+                  </CardDescription>
+                </div>
+                <Badge variant="outline" className="text-[10px] font-mono border-indigo-500/30 text-indigo-400 bg-indigo-500/10 font-bold">
+                  Embed Visual
+                </Badge>
+              </div>
+            </CardHeader>
+            <CardContent className="p-4 space-y-4">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 p-3.5 rounded-2xl bg-secondary/30 border border-border/60">
+                {/* PREVIEW AO VIVO DA IMAGEM DO BOT */}
+                <div className="relative shrink-0 flex flex-col items-center gap-1.5 self-center sm:self-auto">
+                  <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl border-2 border-indigo-500/50 bg-[#1e1f22] overflow-hidden shadow-xl flex items-center justify-center group relative">
+                    <img
+                      src={config.botAvatarUrl || "https://i.ibb.co/ymH1BQPQ/Uma124.png"}
+                      alt="Imagem do Bot no Embed"
+                      className="w-full h-full object-cover transition-transform group-hover:scale-105"
+                      onError={(e) => {
+                        (e.currentTarget as HTMLImageElement).src = "https://i.ibb.co/ymH1BQPQ/Uma124.png";
+                      }}
+                    />
+                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                      <Sparkles className="h-5 w-5 text-indigo-300" />
+                    </div>
+                  </div>
+                  <Badge variant="outline" className="text-[9px] font-mono font-bold text-indigo-400 border-indigo-500/30 bg-indigo-500/10">
+                    Preview Embed
+                  </Badge>
+                </div>
+
+                {/* CAMPO DE URL E INFORMAÇÕES */}
+                <div className="flex-1 min-w-0 space-y-2.5 w-full">
+                  <div className="space-y-1.5">
+                    <div className="flex items-center justify-between gap-2">
+                      <Label className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                        <Sparkles className="h-3.5 w-3.5 text-indigo-400" />
+                        URL da Imagem / Ícone do Bot no Embed
+                      </Label>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleRootChange("botAvatarUrl", "https://i.ibb.co/ymH1BQPQ/Uma124.png")}
+                        className="h-6 px-2 text-[10px] text-muted-foreground hover:text-indigo-400 cursor-pointer"
+                        title="Restaurar imagem padrão da Twin Wheels"
+                      >
+                        <RotateCcw className="h-2.5 w-2.5 mr-1" /> Padrão TW
+                      </Button>
+                    </div>
+                    <Input
+                      placeholder="https://... (link direto da imagem PNG/JPG/WEBP)"
+                      value={config.botAvatarUrl || ""}
+                      onChange={(e) => handleRootChange("botAvatarUrl", e.target.value.trim())}
+                      className="text-xs bg-secondary/30 h-9 font-mono"
+                    />
+                  </div>
+
+                  <p className="text-[0.68rem] text-muted-foreground leading-relaxed">
+                    Insira o link direto de uma imagem hospedada (ex: <em>ImgBB</em>, <em>Discord CDN</em>, <em>Imgur</em>). Essa imagem é aplicada automaticamente como <strong>Thumbnail (canto superior direito)</strong> e <strong>Avatar do Bot</strong> nos Embeds de log transmitidos aos canais.
+                  </p>
+                </div>
+              </div>
+
+              {/* RODAPÉ DO EMBED (TEXTO E ÍCONE) */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-3 border-t border-border/40">
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                    URL do Ícone do Rodapé (Footer Icon)
+                  </Label>
+                  <Input
+                    placeholder="Deixe em branco para usar a imagem do Bot"
+                    value={config.footerIconUrl || ""}
+                    onChange={(e) => handleRootChange("footerIconUrl", e.target.value.trim())}
+                    className="text-xs bg-secondary/30 h-9 font-mono"
+                  />
+                  <p className="text-[0.68rem] text-muted-foreground">
+                    Miniatura pequena exibida no rodapé inferior do embed junto ao timestamp.
+                  </p>
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-bold text-foreground">Texto do Rodapé (Footer Text)</Label>
+                  <Input
+                    placeholder="Ex: Twin Wheels RP • Sistema Integrado de Logs"
+                    value={config.footerText || ""}
+                    onChange={(e) => handleRootChange("footerText", e.target.value)}
+                    className="text-xs bg-secondary/30 h-9"
+                  />
+                  <p className="text-[0.68rem] text-muted-foreground">
+                    Texto descritivo exibido na base de cada Embed.
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
         </TabsContent>
 
         {/* ABA 3: FILTRO DE EVENTOS */}
@@ -1016,14 +1122,17 @@ export function DevDiscordConfigCard() {
                 {/* DISCORD MESSAGE CONTAINER */}
                 <div className="flex items-start gap-3">
                   <img
-                    src="https://i.ibb.co/ymH1BQPQ/Uma124.png"
+                    src={config.botAvatarUrl || "https://i.ibb.co/ymH1BQPQ/Uma124.png"}
                     alt="Bot Avatar"
-                    className="w-10 h-10 rounded-full bg-[#5865f2] shrink-0 mt-0.5 object-cover"
+                    className="w-10 h-10 rounded-full bg-[#5865f2] shrink-0 mt-0.5 object-cover shadow-sm"
+                    onError={(e) => {
+                      (e.currentTarget as HTMLImageElement).src = "https://i.ibb.co/ymH1BQPQ/Uma124.png";
+                    }}
                   />
                   <div className="space-y-1.5 flex-1 min-w-0">
                     <div className="flex items-center gap-1.5 leading-none">
                       <span className="font-bold text-white text-sm hover:underline cursor-pointer">
-                        Twin Wheels Bot
+                        {config.guildName ? `${config.guildName} Bot` : "Twin Wheels Bot"}
                       </span>
                       <span className="text-[0.62rem] bg-[#5865f2] text-white px-1 py-0.5 rounded font-bold uppercase tracking-wider">
                         APP
@@ -1039,17 +1148,26 @@ export function DevDiscordConfigCard() {
                         className="rounded-md bg-[#2b2d31] border-l-4 p-3.5 space-y-2.5 max-w-lg shadow-md"
                         style={{ borderLeftColor: config.embedColors.sales }}
                       >
-                        <div className="flex items-center gap-1.5 text-[0.72rem] text-[#b5bac1] font-semibold">
-                          <span>Operador: {profile?.nickname || profile?.nome || "Vendedor"}</span>
-                        </div>
-
-                        <div>
-                          <h4 className="font-bold text-white text-sm hover:underline cursor-pointer">
-                            💰 Venda Concluída — Insumos Operacionais
-                          </h4>
-                          <p className="text-xs text-[#dbdee1] mt-1 leading-relaxed">
-                            O vendedor <strong>{profile?.nickname || profile?.nome || "Vendedor"}</strong> registrou uma venda no valor total de <strong className="text-emerald-400">R$ 450.000</strong>.
-                          </p>
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="space-y-1 flex-1 min-w-0">
+                            <div className="flex items-center gap-1.5 text-[0.72rem] text-[#b5bac1] font-semibold">
+                              <span>Operador: {profile?.nickname || profile?.nome || "Vendedor"}</span>
+                            </div>
+                            <h4 className="font-bold text-white text-sm hover:underline cursor-pointer">
+                              💰 Venda Concluída — Insumos Operacionais
+                            </h4>
+                            <p className="text-xs text-[#dbdee1] mt-1 leading-relaxed">
+                              O vendedor <strong>{profile?.nickname || profile?.nome || "Vendedor"}</strong> registrou uma venda no valor total de <strong className="text-emerald-400">R$ 450.000</strong>.
+                            </p>
+                          </div>
+                          <img
+                            src={config.botAvatarUrl || "https://i.ibb.co/ymH1BQPQ/Uma124.png"}
+                            alt="Embed Thumbnail"
+                            className="w-14 h-14 rounded-lg object-cover bg-black/40 border border-white/10 shrink-0 shadow-sm"
+                            onError={(e) => {
+                              (e.currentTarget as HTMLImageElement).src = "https://i.ibb.co/ymH1BQPQ/Uma124.png";
+                            }}
+                          />
                         </div>
 
                         <div className="grid grid-cols-2 gap-2 pt-1">
@@ -1073,9 +1191,12 @@ export function DevDiscordConfigCard() {
 
                         <div className="flex items-center gap-2 pt-2 border-t border-white/5 text-[0.68rem] text-[#949ba4]">
                           <img
-                            src={config.footerIconUrl || "https://i.ibb.co/ymH1BQPQ/Uma124.png"}
+                            src={config.footerIconUrl || config.botAvatarUrl || "https://i.ibb.co/ymH1BQPQ/Uma124.png"}
                             alt="Footer Icon"
-                            className="w-4 h-4 rounded-full"
+                            className="w-4 h-4 rounded-full object-cover"
+                            onError={(e) => {
+                              (e.currentTarget as HTMLImageElement).src = "https://i.ibb.co/ymH1BQPQ/Uma124.png";
+                            }}
                           />
                           <span>{config.footerText || "Twin Wheels RP • Sistema Integrado de Logs"}</span>
                         </div>
@@ -1087,16 +1208,26 @@ export function DevDiscordConfigCard() {
                         className="rounded-md bg-[#2b2d31] border-l-4 p-3.5 space-y-2.5 max-w-lg shadow-md"
                         style={{ borderLeftColor: config.embedColors.movements }}
                       >
-                        <div className="flex items-center gap-1.5 text-[0.72rem] text-[#b5bac1] font-semibold">
-                          <span>Operador: {profile?.nickname || profile?.nome || "Membro"}</span>
-                        </div>
-                        <div>
-                          <h4 className="font-bold text-white text-sm">
-                            📦 Entrada de Estoque — Baú de Insumos
-                          </h4>
-                          <p className="text-xs text-[#dbdee1] mt-1">
-                            O membro guardou <strong>1.200x Peças Mecânicas</strong> no <strong>Baú da Oficina</strong>.
-                          </p>
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="space-y-1 flex-1 min-w-0">
+                            <div className="flex items-center gap-1.5 text-[0.72rem] text-[#b5bac1] font-semibold">
+                              <span>Operador: {profile?.nickname || profile?.nome || "Membro"}</span>
+                            </div>
+                            <h4 className="font-bold text-white text-sm">
+                              📦 Entrada de Estoque — Baú de Insumos
+                            </h4>
+                            <p className="text-xs text-[#dbdee1] mt-1">
+                              O membro guardou <strong>1.200x Peças Mecânicas</strong> no <strong>Baú da Oficina</strong>.
+                            </p>
+                          </div>
+                          <img
+                            src={config.botAvatarUrl || "https://i.ibb.co/ymH1BQPQ/Uma124.png"}
+                            alt="Embed Thumbnail"
+                            className="w-14 h-14 rounded-lg object-cover bg-black/40 border border-white/10 shrink-0 shadow-sm"
+                            onError={(e) => {
+                              (e.currentTarget as HTMLImageElement).src = "https://i.ibb.co/ymH1BQPQ/Uma124.png";
+                            }}
+                          />
                         </div>
                         <div className="grid grid-cols-2 gap-2 pt-1">
                           <div className="p-2 rounded bg-[#1e1f22]/60">
@@ -1109,7 +1240,14 @@ export function DevDiscordConfigCard() {
                           </div>
                         </div>
                         <div className="flex items-center gap-2 pt-2 border-t border-white/5 text-[0.68rem] text-[#949ba4]">
-                          <img src="https://i.ibb.co/ymH1BQPQ/Uma124.png" alt="" className="w-4 h-4 rounded-full" />
+                          <img
+                            src={config.footerIconUrl || config.botAvatarUrl || "https://i.ibb.co/ymH1BQPQ/Uma124.png"}
+                            alt="Footer Icon"
+                            className="w-4 h-4 rounded-full object-cover"
+                            onError={(e) => {
+                              (e.currentTarget as HTMLImageElement).src = "https://i.ibb.co/ymH1BQPQ/Uma124.png";
+                            }}
+                          />
                           <span>{config.footerText || "Twin Wheels RP • Sistema Integrado de Logs"}</span>
                         </div>
                       </div>
@@ -1120,14 +1258,33 @@ export function DevDiscordConfigCard() {
                         className="rounded-md bg-[#2b2d31] border-l-4 p-3.5 space-y-2.5 max-w-lg shadow-md"
                         style={{ borderLeftColor: config.embedColors.cashFund }}
                       >
-                        <h4 className="font-bold text-white text-sm">
-                          🏦 Depósito no Fundo de Caixa da Facção
-                        </h4>
-                        <p className="text-xs text-[#dbdee1] mt-1">
-                          Depósito confirmado de <strong className="text-amber-400">R$ 1.500.000</strong> efetuado por {profile?.nickname || "Gestor"}.
-                        </p>
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="space-y-1 flex-1 min-w-0">
+                            <h4 className="font-bold text-white text-sm">
+                              🏦 Depósito no Fundo de Caixa da Facção
+                            </h4>
+                            <p className="text-xs text-[#dbdee1] mt-1">
+                              Depósito confirmado de <strong className="text-amber-400">R$ 1.500.000</strong> efetuado por {profile?.nickname || "Gestor"}.
+                            </p>
+                          </div>
+                          <img
+                            src={config.botAvatarUrl || "https://i.ibb.co/ymH1BQPQ/Uma124.png"}
+                            alt="Embed Thumbnail"
+                            className="w-14 h-14 rounded-lg object-cover bg-black/40 border border-white/10 shrink-0 shadow-sm"
+                            onError={(e) => {
+                              (e.currentTarget as HTMLImageElement).src = "https://i.ibb.co/ymH1BQPQ/Uma124.png";
+                            }}
+                          />
+                        </div>
                         <div className="flex items-center gap-2 pt-2 border-t border-white/5 text-[0.68rem] text-[#949ba4]">
-                          <img src="https://i.ibb.co/ymH1BQPQ/Uma124.png" alt="" className="w-4 h-4 rounded-full" />
+                          <img
+                            src={config.footerIconUrl || config.botAvatarUrl || "https://i.ibb.co/ymH1BQPQ/Uma124.png"}
+                            alt="Footer Icon"
+                            className="w-4 h-4 rounded-full object-cover"
+                            onError={(e) => {
+                              (e.currentTarget as HTMLImageElement).src = "https://i.ibb.co/ymH1BQPQ/Uma124.png";
+                            }}
+                          />
                           <span>{config.footerText || "Twin Wheels RP • Sistema Integrado de Logs"}</span>
                         </div>
                       </div>
@@ -1138,14 +1295,33 @@ export function DevDiscordConfigCard() {
                         className="rounded-md bg-[#2b2d31] border-l-4 p-3.5 space-y-2.5 max-w-lg shadow-md"
                         style={{ borderLeftColor: config.embedColors.members }}
                       >
-                        <h4 className="font-bold text-white text-sm">
-                          👥 Nova Aprovação de Membro na Facção
-                        </h4>
-                        <p className="text-xs text-[#dbdee1] mt-1">
-                          O gestor aprovou o cadastro do membro <strong>Novo Integrante (ID: 4821)</strong>.
-                        </p>
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="space-y-1 flex-1 min-w-0">
+                            <h4 className="font-bold text-white text-sm">
+                              👥 Nova Aprovação de Membro na Facção
+                            </h4>
+                            <p className="text-xs text-[#dbdee1] mt-1">
+                              O gestor aprovou o cadastro do membro <strong>Novo Integrante (ID: 4821)</strong>.
+                            </p>
+                          </div>
+                          <img
+                            src={config.botAvatarUrl || "https://i.ibb.co/ymH1BQPQ/Uma124.png"}
+                            alt="Embed Thumbnail"
+                            className="w-14 h-14 rounded-lg object-cover bg-black/40 border border-white/10 shrink-0 shadow-sm"
+                            onError={(e) => {
+                              (e.currentTarget as HTMLImageElement).src = "https://i.ibb.co/ymH1BQPQ/Uma124.png";
+                            }}
+                          />
+                        </div>
                         <div className="flex items-center gap-2 pt-2 border-t border-white/5 text-[0.68rem] text-[#949ba4]">
-                          <img src="https://i.ibb.co/ymH1BQPQ/Uma124.png" alt="" className="w-4 h-4 rounded-full" />
+                          <img
+                            src={config.footerIconUrl || config.botAvatarUrl || "https://i.ibb.co/ymH1BQPQ/Uma124.png"}
+                            alt="Footer Icon"
+                            className="w-4 h-4 rounded-full object-cover"
+                            onError={(e) => {
+                              (e.currentTarget as HTMLImageElement).src = "https://i.ibb.co/ymH1BQPQ/Uma124.png";
+                            }}
+                          />
                           <span>{config.footerText || "Twin Wheels RP • Sistema Integrado de Logs"}</span>
                         </div>
                       </div>
@@ -1156,14 +1332,33 @@ export function DevDiscordConfigCard() {
                         className="rounded-md bg-[#2b2d31] border-l-4 p-3.5 space-y-2.5 max-w-lg shadow-md"
                         style={{ borderLeftColor: config.embedColors.system }}
                       >
-                        <h4 className="font-bold text-white text-sm">
-                          ⚡ Ordem Global de Limpeza Forçada de Cache (Dev)
-                        </h4>
-                        <p className="text-xs text-[#dbdee1] mt-1">
-                          Todos os clientes online foram instruídos a limpar os caches locais e recarregar a plataforma.
-                        </p>
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="space-y-1 flex-1 min-w-0">
+                            <h4 className="font-bold text-white text-sm">
+                              ⚡ Ordem Global de Limpeza Forçada de Cache (Dev)
+                            </h4>
+                            <p className="text-xs text-[#dbdee1] mt-1">
+                              Todos os clientes online foram instruídos a limpar os caches locais e recarregar a plataforma.
+                            </p>
+                          </div>
+                          <img
+                            src={config.botAvatarUrl || "https://i.ibb.co/ymH1BQPQ/Uma124.png"}
+                            alt="Embed Thumbnail"
+                            className="w-14 h-14 rounded-lg object-cover bg-black/40 border border-white/10 shrink-0 shadow-sm"
+                            onError={(e) => {
+                              (e.currentTarget as HTMLImageElement).src = "https://i.ibb.co/ymH1BQPQ/Uma124.png";
+                            }}
+                          />
+                        </div>
                         <div className="flex items-center gap-2 pt-2 border-t border-white/5 text-[0.68rem] text-[#949ba4]">
-                          <img src="https://i.ibb.co/ymH1BQPQ/Uma124.png" alt="" className="w-4 h-4 rounded-full" />
+                          <img
+                            src={config.footerIconUrl || config.botAvatarUrl || "https://i.ibb.co/ymH1BQPQ/Uma124.png"}
+                            alt="Footer Icon"
+                            className="w-4 h-4 rounded-full object-cover"
+                            onError={(e) => {
+                              (e.currentTarget as HTMLImageElement).src = "https://i.ibb.co/ymH1BQPQ/Uma124.png";
+                            }}
+                          />
                           <span>{config.footerText || "Twin Wheels RP • Sistema Integrado de Logs"}</span>
                         </div>
                       </div>

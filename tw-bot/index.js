@@ -142,6 +142,10 @@ function updateBotPresence() {
       ],
       status: "online",
     });
+
+    if (discordConfig.botAvatarUrl && typeof discordConfig.botAvatarUrl === "string" && discordConfig.botAvatarUrl.startsWith("http")) {
+      client.user.setAvatar(discordConfig.botAvatarUrl).catch(() => {});
+    }
   } catch (err) {
     console.warn("⚠️ Erro ao atualizar presença do bot:", err.message);
   }
@@ -705,20 +709,33 @@ async function dispatchAuditLogToDiscord(log) {
     }
 
     // Constrói o Discord Embed oficial usando EmbedBuilder
+    const botImage = (discordConfig && discordConfig.botAvatarUrl) || "https://i.ibb.co/ymH1BQPQ/Uma124.png";
+    const footerIcon = (discordConfig && discordConfig.footerIconUrl) || botImage;
+
     const embed = new EmbedBuilder()
       .setTitle(parsed.title)
       .setDescription(parsed.description)
       .setColor(hexToInt(parsed.color))
       .setTimestamp(parsed.createdTimestamp)
       .setFooter({
-        text: discordConfig.footerText || "Twin Wheels RP • Sistema de Logs",
-        iconURL: discordConfig.footerIconUrl || "https://i.ibb.co/ymH1BQPQ/Uma124.png",
+        text: (discordConfig && discordConfig.footerText) || "Twin Wheels RP • Sistema de Logs",
+        iconURL: footerIcon,
       });
+
+    // Define a imagem configurada como Thumbnail (canto superior direito)
+    if (botImage) {
+      embed.setThumbnail(botImage);
+    }
 
     if (parsed.actorName) {
       embed.setAuthor({
         name: parsed.actorName,
-        iconURL: parsed.actorAvatar || discordConfig.botAvatarUrl || "https://i.ibb.co/ymH1BQPQ/Uma124.png",
+        iconURL: parsed.actorAvatar || botImage,
+      });
+    } else {
+      embed.setAuthor({
+        name: (discordConfig && discordConfig.guildName) || "Twin Wheels RP",
+        iconURL: botImage,
       });
     }
 
