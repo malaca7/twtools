@@ -53,6 +53,10 @@ import {
   MessageSquare,
   CalendarOff,
   LifeBuoy,
+  Search,
+  ExternalLink,
+  Globe,
+  Bookmark,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -65,6 +69,15 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Slider } from "@/components/ui/slider";
 import { Separator } from "@/components/ui/separator";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { AVAILABLE_MENU_ICONS, resolveMenuIcon, type MenuIconDef } from "@/lib/menuIcons";
 import { playGamerSuccessSound, playGamerOnlineAlertSound } from "@/lib/sound-effects";
 import { chatSound } from "@/lib/chatSound";
 import { PageHeader, NoAccess } from "@/components/ui-kit";
@@ -422,29 +435,88 @@ function MenuTab({ canEdit }: { canEdit: boolean }) {
 
   // Items state - initialized and synchronized with config
   const [items, setItems] = useState<MenuItemConfig[]>(() => config.items || DEFAULT_MENU_ITEMS);
+  const [deletedItemIds, setDeletedItemIds] = useState<string[]>(() => config.deletedItemIds || []);
 
-  // Sync state when config updates (e.g. initial fetch or remote updates)
-  useEffect(() => {
-    if (config) {
-      setCategories(config.categories);
-      setItems(config.items);
-    }
-  }, [config]);
+  // Modal State: Create Menu
+  const [isAddMenuOpen, setIsAddMenuOpen] = useState(false);
+  const [newMenuTitle, setNewMenuTitle] = useState("");
+  const [newMenuUrl, setNewMenuUrl] = useState("");
+  const [newMenuCategory, setNewMenuCategory] = useState(categories[0] || "Gestão");
+  const [newMenuIconName, setNewMenuIconName] = useState("LayoutDashboard");
+  const [newMenuVisible, setNewMenuVisible] = useState(true);
+  const [newIconSearch, setNewIconSearch] = useState("");
+
+  // Modal State: Edit Menu
+  const [editingItem, setEditingItem] = useState<MenuItemConfig | null>(null);
+  const [editItemTitle, setEditItemTitle] = useState("");
+  const [editItemUrl, setEditItemUrl] = useState("");
+  const [editItemCategory, setEditItemCategory] = useState("");
+  const [editItemIconName, setEditItemIconName] = useState("LayoutDashboard");
+  const [editItemVisible, setEditItemVisible] = useState(true);
+  const [editIconSearch, setEditIconSearch] = useState("");
+
+  // Modal State: Delete Confirmation
+  const [itemToDelete, setItemToDelete] = useState<MenuItemConfig | null>(null);
+  const [catToDelete, setCatToDelete] = useState<string | null>(null);
 
   // Drag and Drop state for items
   const [draggedItemId, setDraggedItemId] = useState<string | null>(null);
   const [dragOverItemId, setDragOverItemId] = useState<string | null>(null);
   const [dragOverCatName, setDragOverCatName] = useState<string | null>(null);
 
-  // Helper to update state and save config globally to Supabase + LocalStorage
-  const persist = useCallback(
-    (newCats: string[], newItems: MenuItemConfig[]) => {
-      const synced = syncMenuConfig({ categories: newCats, items: newItems });
+  // Category Drag and Drop state
+  const [draggedCatIdx, setDraggedCatIdx] = useState<number | null>(null);
+  const [dragOverCatIdx, setDragOverCatIdx] = useState<number | null>(null);
+
+  // Sync state when config updates (e.g. initial fetch or remote updates)
+  useEffect(() => {
+    if (config) {
+      setCategories(config.categories || DEFAULT_MENU_CATEGORIES);
+      setItems(config.items || DEFAULT_MENU_ITEMS);
+      if (config.deletedItemIds) {
+        setDeletedItemIds(config.deletedItemIds);
+      }
+    }
+  }, [config]);
+
+  // Master persistent reordering function: guarantees sequential order indices 0, 1, 2...
+  const reorderAndPersist = useCallback(
+    (newCats: string[], newItems: MenuItemConfig[], newDeletedIds?: string[]) => {
+      const activeDeletedIds = newDeletedIds ?? deletedItemIds;
+      const catSet = new Set(newCats);
+
+      // Group items strictly according to newCats order
+      const categorizedItems: MenuItemConfig[] = [];
+      newCats.forEach((cat) => {
+        const inCat = newItems.filter((i) => (i.category || newCats[0]) === cat);
+        categorizedItems.push(...inCat);
+      });
+
+      // Append any items in orphan categories
+      newItems.forEach((item) => {
+        const cat = item.category || newCats[0];
+        if (!catSet.has(cat) && !categorizedItems.some((ci) => ci.id === item.id)) {
+          categorizedItems.push(item);
+        }
+      });
+
+      // Sequential 0, 1, 2, ... indexing so order is rock-solid and never resets
+      categorizedItems.forEach((item, idx) => {
+        item.order = idx;
+      });
+
+      const synced = syncMenuConfig({
+        categories: newCats,
+        items: categorizedItems,
+        deletedItemIds: activeDeletedIds,
+      });
+
       setCategories(synced.categories);
       setItems(synced.items);
+      setDeletedItemIds(synced.deletedItemIds || []);
       save(synced);
     },
-    [save]
+    [deletedItemIds, save]
   );
 
   /* ─── Category Handlers ─── */
@@ -457,7 +529,7 @@ function MenuTab({ canEdit }: { canEdit: boolean }) {
     }
     const nextCats = [...categories, cat];
     setNewCatName("");
-    persist(nextCats, items);
+    reorderAndPersist(nextCats, items);
     toast.success(`Categoria "${cat}" criada com sucesso!`);
   };
 
@@ -487,25 +559,28 @@ function MenuTab({ canEdit }: { canEdit: boolean }) {
     const nextItems = items.map((i) => (i.category === oldName ? { ...i, category: newName } : i));
 
     setEditingCatIndex(null);
-    persist(nextCats, nextItems);
+    reorderAndPersist(nextCats, nextItems);
     toast.success(`Categoria alterada para "${newName}"!`);
   };
 
-  const handleDeleteCategory = (catToDelete: string) => {
-    if (!canEdit) return;
+  const handleConfirmDeleteCategory = () => {
+    if (!canEdit || !catToDelete) return;
     if (categories.length <= 1) {
       toast.error("Você deve ter pelo menos 1 categoria no menu!");
+      setCatToDelete(null);
       return;
     }
 
-    const nextCats = categories.filter((c) => c !== catToDelete);
+    const targetCat = catToDelete;
+    const nextCats = categories.filter((c) => c !== targetCat);
     const fallbackCat = nextCats[0] || "Gestão";
 
     // Move items in deleted category to fallback category
-    const nextItems = items.map((i) => (i.category === catToDelete ? { ...i, category: fallbackCat } : i));
+    const nextItems = items.map((i) => (i.category === targetCat ? { ...i, category: fallbackCat } : i));
 
-    persist(nextCats, nextItems);
-    toast.success(`Categoria "${catToDelete}" removida! Itens movidos para "${fallbackCat}".`);
+    reorderAndPersist(nextCats, nextItems);
+    setCatToDelete(null);
+    toast.success(`Categoria "${targetCat}" excluída! Itens vinculados foram movidos para "${fallbackCat}".`);
   };
 
   const handleMoveCategory = (index: number, direction: "up" | "down") => {
@@ -516,13 +591,9 @@ function MenuTab({ canEdit }: { canEdit: boolean }) {
     const nextCats = [...categories];
     [nextCats[index], nextCats[targetIndex]] = [nextCats[targetIndex], nextCats[index]];
 
-    persist(nextCats, items);
+    reorderAndPersist(nextCats, items);
     toast.success("Ordem das categorias atualizada!");
   };
-
-  // Category Drag and Drop state
-  const [draggedCatIdx, setDraggedCatIdx] = useState<number | null>(null);
-  const [dragOverCatIdx, setDragOverCatIdx] = useState<number | null>(null);
 
   const handleCatDragStart = (e: React.DragEvent, index: number) => {
     if (!canEdit) return;
@@ -553,13 +624,13 @@ function MenuTab({ canEdit }: { canEdit: boolean }) {
     const [movedCat] = nextCats.splice(draggedCatIdx, 1);
     nextCats.splice(targetIndex, 0, movedCat);
 
-    persist(nextCats, items);
+    reorderAndPersist(nextCats, items);
     setDraggedCatIdx(null);
     setDragOverCatIdx(null);
-    toast.success(`Categoria "${movedCat}" reordenada!`);
+    toast.success(`Categoria "${movedCat}" reordenada com sucesso!`);
   };
 
-  /* ─── Category Drop Target (Drop items onto categories) ─── */
+  /* ─── Category Drop Target (Drop items onto category cards) ─── */
   const handleCategoryCardDragOver = (e: React.DragEvent, cat: string) => {
     if (!draggedItemId || !canEdit) return;
     e.preventDefault();
@@ -586,7 +657,7 @@ function MenuTab({ canEdit }: { canEdit: boolean }) {
     const nextItems = items.map((i) =>
       i.id === draggedItemId ? { ...i, category: targetCat } : i
     );
-    persist(categories, nextItems);
+    reorderAndPersist(categories, nextItems);
     setDraggedItemId(null);
     toast.success(`Item "${draggedItem.title}" movido para a categoria "${targetCat}"!`);
   };
@@ -600,9 +671,9 @@ function MenuTab({ canEdit }: { canEdit: boolean }) {
       if (updates.category && !categories.includes(updates.category)) {
         nextCats = [...categories, updates.category];
       }
-      persist(nextCats, nextItems);
+      reorderAndPersist(nextCats, nextItems);
     },
-    [canEdit, categories, items, persist]
+    [canEdit, categories, items, reorderAndPersist]
   );
 
   const moveItemWithinCategory = useCallback(
@@ -611,28 +682,29 @@ function MenuTab({ canEdit }: { canEdit: boolean }) {
       const currentItem = items.find((i) => i.id === id);
       if (!currentItem) return;
 
-      const cat = currentItem.category || "Gestão";
+      const cat = currentItem.category || categories[0] || "Gestão";
       const catItems = items
-        .filter((i) => (i.category || "Gestão") === cat)
+        .filter((i) => (i.category || categories[0] || "Gestão") === cat)
         .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
-      const indexInCat = catItems.findIndex((i) => i.id === id);
-      if (indexInCat < 0) return;
+      const idxInCat = catItems.findIndex((i) => i.id === id);
+      if (idxInCat < 0) return;
 
-      const targetIndexInCat = direction === "up" ? indexInCat - 1 : indexInCat + 1;
-      if (targetIndexInCat < 0 || targetIndexInCat >= catItems.length) return;
+      const targetIdxInCat = direction === "up" ? idxInCat - 1 : idxInCat + 1;
+      if (targetIdxInCat < 0 || targetIdxInCat >= catItems.length) return;
 
-      const otherItem = catItems[targetIndexInCat];
+      const otherItem = catItems[targetIdxInCat];
       if (!otherItem) return;
 
-      // Swap positions of currentItem and otherItem in the items array
-      const nextItems = [...items];
-      const idxA = nextItems.findIndex((i) => i.id === currentItem.id);
-      const idxB = nextItems.findIndex((i) => i.id === otherItem.id);
-      [nextItems[idxA], nextItems[idxB]] = [nextItems[idxB], nextItems[idxA]];
+      const nextCatItems = [...catItems];
+      [nextCatItems[idxInCat], nextCatItems[targetIdxInCat]] = [nextCatItems[targetIdxInCat], nextCatItems[idxInCat]];
 
-      persist(categories, nextItems);
+      const otherItems = items.filter((i) => (i.category || categories[0] || "Gestão") !== cat);
+      const nextItems = [...otherItems, ...nextCatItems];
+
+      reorderAndPersist(categories, nextItems);
+      toast.success(`Ordem de "${currentItem.title}" atualizada!`);
     },
-    [canEdit, categories, items, persist]
+    [canEdit, categories, items, reorderAndPersist]
   );
 
   const handleReset = useCallback(() => {
@@ -640,18 +712,16 @@ function MenuTab({ canEdit }: { canEdit: boolean }) {
     const defaultSynced = syncMenuConfig(null);
     setCategories(defaultSynced.categories);
     setItems(defaultSynced.items);
+    setDeletedItemIds([]);
     reset();
     toast.success("Menu restaurado para o padrão do sistema!");
   }, [reset, canEdit]);
 
   const handleSyncAll = useCallback(() => {
     if (!canEdit) return;
-    const synced = syncMenuConfig({ categories, items });
-    setCategories(synced.categories);
-    setItems(synced.items);
-    save(synced);
+    reorderAndPersist(categories, items);
     toast.success("Todas as categorias e menus foram sincronizados com sucesso!");
-  }, [canEdit, categories, items, save]);
+  }, [canEdit, categories, items, reorderAndPersist]);
 
   /* ─── Item Drag and Drop Handlers ─── */
   const handleItemDragStart = (e: React.DragEvent, id: string) => {
@@ -673,7 +743,7 @@ function MenuTab({ canEdit }: { canEdit: boolean }) {
 
   const handleItemDrop = (e: React.DragEvent, targetId: string) => {
     e.preventDefault();
-    if (!draggedItemId || draggedItemId === targetId) {
+    if (!canEdit || !draggedItemId || draggedItemId === targetId) {
       setDraggedItemId(null);
       setDragOverItemId(null);
       return;
@@ -688,36 +758,167 @@ function MenuTab({ canEdit }: { canEdit: boolean }) {
       return;
     }
 
-    const nextItems = items.filter((i) => i.id !== draggedItemId);
-    const targetIdx = nextItems.findIndex((i) => i.id === targetId);
+    const targetCategory = targetItem.category || categories[0] || "Gestão";
+    const catItems = items
+      .filter((i) => (i.category || categories[0] || "Gestão") === targetCategory && i.id !== draggedItemId)
+      .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
 
-    // Update dragged item's category to match the target's category
-    const updatedDraggedItem = {
-      ...draggedItem,
-      category: targetItem.category || "Gestão",
-    };
+    const targetIdxInCat = catItems.findIndex((i) => i.id === targetId);
+    const updatedDraggedItem = { ...draggedItem, category: targetCategory };
 
-    nextItems.splice(targetIdx, 0, updatedDraggedItem);
+    if (targetIdxInCat >= 0) {
+      catItems.splice(targetIdxInCat, 0, updatedDraggedItem);
+    } else {
+      catItems.push(updatedDraggedItem);
+    }
 
-    persist(categories, nextItems);
+    const remainingItems = items.filter(
+      (i) => i.id !== draggedItemId && (i.category || categories[0] || "Gestão") !== targetCategory
+    );
+    const nextItems = [...remainingItems, ...catItems];
+
+    reorderAndPersist(categories, nextItems);
     setDraggedItemId(null);
     setDragOverItemId(null);
-    toast.success(`Item "${draggedItem.title}" reordenado!`);
+    toast.success(`Item "${draggedItem.title}" reordenado com sucesso!`);
+  };
+
+  /* ─── Modal Triggers: Add & Edit Menu Items ─── */
+  const handleOpenAddMenu = (defaultCategory?: string) => {
+    if (!canEdit) return;
+    setNewMenuTitle("");
+    setNewMenuUrl("");
+    setNewMenuCategory(defaultCategory || categories[0] || "Gestão");
+    setNewMenuIconName("LayoutDashboard");
+    setNewMenuVisible(true);
+    setNewIconSearch("");
+    setIsAddMenuOpen(true);
+  };
+
+  const handleCreateMenu = () => {
+    if (!canEdit) return;
+    const title = newMenuTitle.trim();
+    const url = newMenuUrl.trim();
+    if (!title) {
+      toast.error("Informe o título do menu.");
+      return;
+    }
+    if (!url) {
+      toast.error("Informe a URL ou rota do menu.");
+      return;
+    }
+
+    const newId = `custom-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
+    const category = newMenuCategory || categories[0] || "Gestão";
+
+    const newItem: MenuItemConfig = {
+      id: newId,
+      title,
+      url,
+      category,
+      visible: newMenuVisible,
+      iconName: newMenuIconName,
+      isCustom: true,
+      order: items.length,
+    };
+
+    reorderAndPersist(categories, [...items, newItem]);
+    setIsAddMenuOpen(false);
+    setNewMenuTitle("");
+    setNewMenuUrl("");
+    toast.success(`Menu "${title}" criado com sucesso!`);
+  };
+
+  const handleStartEditItem = (item: MenuItemConfig) => {
+    if (!canEdit) return;
+    setEditingItem(item);
+    setEditItemTitle(item.title);
+    setEditItemUrl(item.url);
+    setEditItemCategory(item.category || categories[0] || "Gestão");
+    setEditItemIconName(item.iconName || "LayoutDashboard");
+    setEditItemVisible(item.visible !== false);
+    setEditIconSearch("");
+  };
+
+  const handleSaveEditItem = () => {
+    if (!canEdit || !editingItem) return;
+    const title = editItemTitle.trim();
+    const url = editItemUrl.trim();
+    if (!title) {
+      toast.error("O título do menu não pode ficar vazio.");
+      return;
+    }
+    if (!url) {
+      toast.error("A URL / rota do menu não pode ficar vazia.");
+      return;
+    }
+
+    const nextItems = items.map((it) => {
+      if (it.id === editingItem.id) {
+        return {
+          ...it,
+          title,
+          url,
+          category: editItemCategory || categories[0] || "Gestão",
+          iconName: editItemIconName,
+          visible: editItemVisible,
+        };
+      }
+      return it;
+    });
+
+    reorderAndPersist(categories, nextItems);
+    setEditingItem(null);
+    toast.success(`Menu "${title}" atualizado com sucesso!`);
+  };
+
+  const handleConfirmDeleteItem = () => {
+    if (!canEdit || !itemToDelete) return;
+    const item = itemToDelete;
+    const remaining = items.filter((i) => i.id !== item.id);
+    const nextDeletedIds = item.isCustom
+      ? deletedItemIds
+      : Array.from(new Set([...deletedItemIds, item.id]));
+
+    reorderAndPersist(categories, remaining, nextDeletedIds);
+    setItemToDelete(null);
+    toast.success(`Menu "${item.title}" excluído com sucesso!`);
   };
 
   // Group items by category for preview
   const grouped = useMemo(() => {
     const groups: Record<string, MenuItemConfig[]> = {};
     categories.forEach((cat) => {
-      groups[cat] = items.filter((item) => (item.category || "Gestão") === cat);
+      groups[cat] = items
+        .filter((item) => (item.category || categories[0] || "Gestão") === cat)
+        .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
     });
     // Include items from missing categories
     items.forEach((item) => {
-      const cat = item.category || "Gestão";
-      if (!groups[cat]) groups[cat] = [item];
+      const cat = item.category || categories[0] || "Gestão";
+      if (!groups[cat]) {
+        groups[cat] = [item];
+      }
     });
     return groups;
   }, [categories, items]);
+
+  // Icon search filters
+  const filteredNewIcons = useMemo(() => {
+    const term = newIconSearch.trim().toLowerCase();
+    if (!term) return AVAILABLE_MENU_ICONS;
+    return AVAILABLE_MENU_ICONS.filter(
+      (i) => i.name.toLowerCase().includes(term) || i.label.toLowerCase().includes(term)
+    );
+  }, [newIconSearch]);
+
+  const filteredEditIcons = useMemo(() => {
+    const term = editIconSearch.trim().toLowerCase();
+    if (!term) return AVAILABLE_MENU_ICONS;
+    return AVAILABLE_MENU_ICONS.filter(
+      (i) => i.name.toLowerCase().includes(term) || i.label.toLowerCase().includes(term)
+    );
+  }, [editIconSearch]);
 
   return (
     <div className="space-y-6 animate-in fade-in-50 slide-in-from-bottom-2 duration-300">
@@ -726,17 +927,26 @@ function MenuTab({ canEdit }: { canEdit: boolean }) {
         <div>
           <h3 className="text-sm font-extrabold text-foreground">Personalização do Menu Lateral</h3>
           <p className="text-xs text-muted-foreground mt-0.5">
-            Arraste as categorias ou os cards para reordenar e veja as alterações em tempo real no menu.
+            Crie novos menus, edite títulos e ícones, apague itens e arraste para reordenar categorias e páginas em tempo real.
           </p>
         </div>
         <div className="flex items-center gap-2 shrink-0 flex-wrap">
+          <Button
+            size="sm"
+            onClick={() => handleOpenAddMenu()}
+            disabled={!canEdit}
+            className="h-8 text-xs gap-1.5 bg-gradient-brand text-primary-foreground font-bold shadow-sm"
+          >
+            <Plus className="h-3.5 w-3.5" />
+            Novo Menu
+          </Button>
           <Button
             variant="outline"
             size="sm"
             onClick={handleSyncAll}
             disabled={!canEdit}
             className="h-8 text-xs gap-1.5 border-primary/40 text-primary hover:bg-primary/10 font-bold"
-            title="Sincronizar e verificar todas as categorias e menus do sistema"
+            title="Sincronizar e persistir todas as categorias e menus"
           >
             <Sparkles className="h-3.5 w-3.5" />
             Sincronizar Tudo
@@ -747,6 +957,7 @@ function MenuTab({ canEdit }: { canEdit: boolean }) {
             onClick={handleReset}
             disabled={!canEdit}
             className="h-8 text-xs gap-1.5"
+            title="Restaurar menus e categorias para o padrão original"
           >
             <RotateCcw className="h-3.5 w-3.5" />
             Restaurar Padrão
@@ -774,14 +985,14 @@ function MenuTab({ canEdit }: { canEdit: boolean }) {
                 <Tag className="h-4 w-4" />
               </div>
               <div>
-                <CardTitle className="text-sm font-bold">Categorias do Menu (Arraste para Reordenar)</CardTitle>
+                <CardTitle className="text-sm font-bold">Categorias do Menu</CardTitle>
                 <CardDescription className="text-[0.7rem]">
-                  Crie, edite, apague e arraste os cards para alterar a ordem das categorias
+                  Crie, edite, apague e reordene as categorias da barra lateral (use as setas ou arraste)
                 </CardDescription>
               </div>
             </div>
             <Badge variant="outline" className="text-[10px] font-mono gap-1 border-primary/30 text-primary">
-              <Move className="h-3 w-3" /> Drag & Drop Ativo ({categories.length})
+              <Move className="h-3 w-3" /> {categories.length} categorias
             </Badge>
           </div>
         </CardHeader>
@@ -790,7 +1001,7 @@ function MenuTab({ canEdit }: { canEdit: boolean }) {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
             {categories.map((cat, idx) => {
               const isEditing = editingCatIndex === idx;
-              const itemCount = items.filter((i) => (i.category || "Gestão") === cat).length;
+              const itemCount = items.filter((i) => (i.category || categories[0] || "Gestão") === cat).length;
               const isDraggingCat = draggedCatIdx === idx;
               const isOverCat = dragOverCatIdx === idx;
 
@@ -814,7 +1025,10 @@ function MenuTab({ canEdit }: { canEdit: boolean }) {
                       <Input
                         value={editingCatText}
                         onChange={(e) => setEditingCatText(e.target.value)}
-                        onKeyDown={(e) => e.key === "Enter" && handleSaveEditCategory(idx)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") handleSaveEditCategory(idx);
+                          if (e.key === "Escape") setEditingCatIndex(null);
+                        }}
                         autoFocus
                         className="h-7 text-xs bg-background font-bold"
                       />
@@ -823,6 +1037,7 @@ function MenuTab({ canEdit }: { canEdit: boolean }) {
                         variant="ghost"
                         onClick={() => handleSaveEditCategory(idx)}
                         className="h-7 w-7 p-0 text-emerald-400 hover:text-emerald-300"
+                        title="Salvar nome da categoria"
                       >
                         <Check className="h-3.5 w-3.5" />
                       </Button>
@@ -831,6 +1046,7 @@ function MenuTab({ canEdit }: { canEdit: boolean }) {
                         variant="ghost"
                         onClick={() => setEditingCatIndex(null)}
                         className="h-7 w-7 p-0 text-muted-foreground"
+                        title="Cancelar"
                       >
                         <X className="h-3.5 w-3.5" />
                       </Button>
@@ -878,8 +1094,8 @@ function MenuTab({ canEdit }: { canEdit: boolean }) {
                         </button>
                         <button
                           type="button"
-                          onClick={() => handleDeleteCategory(cat)}
-                          disabled={!canEdit}
+                          onClick={() => setCatToDelete(cat)}
+                          disabled={!canEdit || categories.length <= 1}
                           className="h-6 w-6 flex items-center justify-center rounded text-muted-foreground hover:text-destructive disabled:opacity-20"
                           title="Excluir categoria"
                         >
@@ -919,26 +1135,32 @@ function MenuTab({ canEdit }: { canEdit: boolean }) {
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
         {/* Menu Items Editor - Grouped by Category */}
         <div className="xl:col-span-2 space-y-4">
-          <div className="flex items-center justify-between gap-2 p-3 rounded-xl bg-card border border-border/60">
+          <div className="flex items-center justify-between gap-2 p-3 rounded-xl bg-card border border-border/60 shadow-xs">
             <div className="flex items-center gap-2">
               <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 border border-primary/30 text-primary">
                 <Menu className="h-4 w-4" />
               </div>
               <div>
-                <h4 className="text-sm font-bold text-foreground">Itens do Menu Agrupados por Categoria</h4>
+                <h4 className="text-sm font-bold text-foreground">Itens do Menu por Categoria</h4>
                 <p className="text-[0.7rem] text-muted-foreground">
-                  {items.length} itens no total · {items.filter((i) => i.visible).length} visíveis na navegação
+                  {items.length} itens cadastrados · {items.filter((i) => i.visible).length} visíveis na navegação
                 </p>
               </div>
             </div>
-            <Badge variant="outline" className="text-[10px] gap-1 border-primary/30 text-primary">
-              <Move className="h-3 w-3" /> Arraste para Reordenar
-            </Badge>
+            <Button
+              size="sm"
+              onClick={() => handleOpenAddMenu()}
+              disabled={!canEdit}
+              className="h-7 text-xs gap-1 bg-primary/15 text-primary hover:bg-primary/25 border border-primary/30 font-bold"
+            >
+              <Plus className="h-3.5 w-3.5" />
+              Adicionar Menu
+            </Button>
           </div>
 
           {categories.map((cat) => {
             const catItems = items
-              .filter((i) => (i.category || "Gestão") === cat)
+              .filter((i) => (i.category || categories[0] || "Gestão") === cat)
               .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
 
             const isCatOver = dragOverCatName === cat;
@@ -962,29 +1184,52 @@ function MenuTab({ canEdit }: { canEdit: boolean }) {
                         Categoria: <span className="text-primary font-extrabold">{cat}</span>
                       </CardTitle>
                     </div>
-                    <Badge variant="outline" className="text-[10px] font-mono border-primary/30 text-primary bg-primary/5">
-                      {catItems.length} {catItems.length === 1 ? "item" : "itens"}
-                    </Badge>
+                    <div className="flex items-center gap-2">
+                      <Badge variant="outline" className="text-[10px] font-mono border-primary/30 text-primary bg-primary/5">
+                        {catItems.length} {catItems.length === 1 ? "item" : "itens"}
+                      </Badge>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => handleOpenAddMenu(cat)}
+                        disabled={!canEdit}
+                        className="h-6 text-[10px] px-2 text-primary hover:bg-primary/10 gap-1 font-bold"
+                        title={`Adicionar novo menu dentro de ${cat}`}
+                      >
+                        <Plus className="h-3 w-3" />
+                        Novo Menu
+                      </Button>
+                    </div>
                   </div>
                 </CardHeader>
 
                 <CardContent className="p-3">
                   {catItems.length === 0 ? (
-                    <div className="border border-dashed border-border/60 rounded-xl p-5 text-center space-y-1.5 bg-secondary/10 hover:border-primary/40 transition-colors">
+                    <div className="border border-dashed border-border/60 rounded-xl p-5 text-center space-y-2 bg-secondary/10 hover:border-primary/40 transition-colors">
                       <p className="text-xs font-bold text-foreground">
                         Nenhum item nesta categoria
                       </p>
                       <p className="text-[0.7rem] text-muted-foreground">
-                        Arraste um menu para cá ou altere a categoria de um item no seletor abaixo.
+                        Arraste um menu para cá ou crie um novo menu vinculado a {cat}.
                       </p>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleOpenAddMenu(cat)}
+                        disabled={!canEdit}
+                        className="h-7 text-xs gap-1 border-primary/40 text-primary hover:bg-primary/10 font-bold"
+                      >
+                        <Plus className="h-3.5 w-3.5" />
+                        Criar Menu em {cat}
+                      </Button>
                     </div>
                   ) : (
-                    <div className="space-y-2.5">
+                    <div className="space-y-2">
                       {catItems.map((item, itemIdxInCat) => {
-                        const Icon = ICON_MAP[item.url] || Settings;
-                        const title = item.title || DEFAULT_ITEMS.find((d) => d.id === item.id)?.title || item.id;
+                        const ItemIcon = resolveMenuIcon(item.iconName, item.url);
                         const isDragging = draggedItemId === item.id;
                         const isDragOver = dragOverItemId === item.id;
+                        const isExternal = item.url.startsWith("http://") || item.url.startsWith("https://");
 
                         return (
                           <div
@@ -995,17 +1240,17 @@ function MenuTab({ canEdit }: { canEdit: boolean }) {
                             onDragLeave={handleItemDragLeave}
                             onDrop={(e) => handleItemDrop(e, item.id)}
                             className={cn(
-                              "flex items-center justify-between gap-3 p-3 rounded-xl border transition-all duration-200 cursor-grab active:cursor-grabbing",
+                              "flex items-center justify-between gap-3 p-2.5 rounded-xl border transition-all duration-200 cursor-grab active:cursor-grabbing",
                               item.visible
-                                ? "bg-card/40 border-border/60 shadow-sm hover:border-primary/40"
+                                ? "bg-card/40 border-border/60 shadow-xs hover:border-primary/40"
                                 : "bg-secondary/20 border-border/30 opacity-50",
                               isDragging && "opacity-30 scale-95 border-dashed border-primary",
                               isDragOver && "border-primary bg-primary/10 shadow-lg scale-[1.01]"
                             )}
                           >
-                            {/* Left Group: Controls + Icon + Title */}
-                            <div className="flex items-center gap-3 min-w-0 flex-1">
-                              {/* Drag Handle & Arrows */}
+                            {/* Left Group: Reorder Arrows + Icon + Title + URL */}
+                            <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                              {/* Reorder Arrows & Handle */}
                               <div className="flex flex-col items-center gap-0.5 shrink-0">
                                 <button
                                   type="button"
@@ -1016,7 +1261,7 @@ function MenuTab({ canEdit }: { canEdit: boolean }) {
                                 >
                                   <ChevronUp className="h-3 w-3" />
                                 </button>
-                                <GripVertical className="h-4 w-4 text-muted-foreground/60 hover:text-primary cursor-grab" />
+                                <GripVertical className="h-3.5 w-3.5 text-muted-foreground/50 hover:text-primary cursor-grab" />
                                 <button
                                   type="button"
                                   onClick={() => moveItemWithinCategory(item.id, "down")}
@@ -1028,32 +1273,45 @@ function MenuTab({ canEdit }: { canEdit: boolean }) {
                                 </button>
                               </div>
 
-                              {/* Icon */}
+                              {/* Icon Badge */}
                               <div className={cn(
-                                "flex h-9 w-9 items-center justify-center rounded-xl border shrink-0 transition-colors shadow-sm",
+                                "flex h-8 w-8 items-center justify-center rounded-lg border shrink-0 transition-colors shadow-xs",
                                 item.visible
                                   ? "bg-primary/10 border-primary/30 text-primary"
                                   : "bg-secondary/50 border-border/40 text-muted-foreground"
                               )}>
-                                <Icon className="h-4 w-4" />
+                                <ItemIcon className="h-4 w-4" />
                               </div>
 
-                              {/* Title & URL */}
+                              {/* Title & Route */}
                               <div className="min-w-0 flex-1">
-                                <p className="text-sm font-extrabold text-foreground truncate leading-snug">
-                                  {title}
-                                </p>
+                                <div className="flex items-center gap-1.5">
+                                  <p className="text-xs font-bold text-foreground truncate">
+                                    {item.title}
+                                  </p>
+                                  {item.isCustom && (
+                                    <Badge variant="outline" className="text-[9px] px-1 py-0 border-purple-500/40 text-purple-400 bg-purple-500/10 font-bold shrink-0">
+                                      Custom
+                                    </Badge>
+                                  )}
+                                  {isExternal && (
+                                    <Badge variant="outline" className="text-[9px] px-1 py-0 border-sky-500/40 text-sky-400 bg-sky-500/10 font-bold shrink-0 gap-0.5">
+                                      <ExternalLink className="h-2.5 w-2.5" />
+                                      Link
+                                    </Badge>
+                                  )}
+                                </div>
                                 <p className="text-[0.65rem] text-muted-foreground font-mono truncate mt-0.5">
                                   {item.url}
                                 </p>
                               </div>
                             </div>
 
-                            {/* Right Group: Category + Visibility */}
-                            <div className="flex items-center gap-3 shrink-0 pl-2">
+                            {/* Right Group: Category Selector + Visibility + Edit & Delete Actions */}
+                            <div className="flex items-center gap-2 shrink-0">
                               {/* Category Select */}
                               <Select
-                                value={item.category || "Gestão"}
+                                value={item.category || categories[0] || "Gestão"}
                                 onValueChange={(val) => updateItem(item.id, { category: val })}
                                 disabled={!canEdit}
                               >
@@ -1069,10 +1327,10 @@ function MenuTab({ canEdit }: { canEdit: boolean }) {
                                 </SelectContent>
                               </Select>
 
-                              <Separator orientation="vertical" className="h-6" />
+                              <Separator orientation="vertical" className="h-5" />
 
                               {/* Visibility Switch */}
-                              <div className="flex items-center gap-1.5 shrink-0">
+                              <div className="flex items-center gap-1 shrink-0" title={item.visible ? "Visível no menu" : "Oculto no menu"}>
                                 {item.visible ? (
                                   <Eye className="h-3.5 w-3.5 text-emerald-400" />
                                 ) : (
@@ -1085,6 +1343,32 @@ function MenuTab({ canEdit }: { canEdit: boolean }) {
                                   className="data-[state=checked]:bg-emerald-500"
                                 />
                               </div>
+
+                              <Separator orientation="vertical" className="h-5" />
+
+                              {/* Edit Button */}
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => handleStartEditItem(item)}
+                                disabled={!canEdit}
+                                className="h-7 w-7 p-0 text-muted-foreground hover:text-primary hover:bg-primary/10"
+                                title="Editar título, rota ou ícone do menu"
+                              >
+                                <Edit3 className="h-3.5 w-3.5" />
+                              </Button>
+
+                              {/* Delete Button */}
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => setItemToDelete(item)}
+                                disabled={!canEdit}
+                                className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                                title="Excluir este item de menu"
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </Button>
                             </div>
                           </div>
                         );
@@ -1096,17 +1380,17 @@ function MenuTab({ canEdit }: { canEdit: boolean }) {
             );
           })}
 
-          {/* Safety Catch-All: Garantia absoluta de que qualquer item fora das categorias conhecidas seja exibido e recuperado */}
+          {/* Safety Catch-All for any Orphan Categories */}
           {(() => {
             const knownCats = new Set(categories);
-            const orphanItems = items.filter((i) => !knownCats.has(i.category || "Gestão"));
+            const orphanItems = items.filter((i) => !knownCats.has(i.category || categories[0] || "Gestão"));
             if (orphanItems.length === 0) return null;
 
-            const orphanCategories = Array.from(new Set(orphanItems.map((i) => i.category || "Gestão")));
+            const orphanCategories = Array.from(new Set(orphanItems.map((i) => i.category || categories[0] || "Gestão")));
 
             return orphanCategories.map((orphanCat) => {
               const catItems = orphanItems
-                .filter((i) => (i.category || "Gestão") === orphanCat)
+                .filter((i) => (i.category || categories[0] || "Gestão") === orphanCat)
                 .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
 
               return (
@@ -1128,7 +1412,8 @@ function MenuTab({ canEdit }: { canEdit: boolean }) {
                           variant="outline"
                           onClick={() => {
                             if (!categories.includes(orphanCat)) {
-                              persist([...categories, orphanCat], items);
+                              reorderAndPersist([...categories, orphanCat], items);
+                              toast.success(`Categoria "${orphanCat}" adicionada às categorias ativas!`);
                             }
                           }}
                           className="h-6 text-[10px] px-2 border-amber-500/40 text-amber-300 hover:bg-amber-500/20"
@@ -1139,31 +1424,30 @@ function MenuTab({ canEdit }: { canEdit: boolean }) {
                     </div>
                   </CardHeader>
                   <CardContent className="p-3">
-                    <div className="space-y-2.5">
+                    <div className="space-y-2">
                       {catItems.map((item) => {
-                        const Icon = ICON_MAP[item.url] || Settings;
-                        const title = item.title || DEFAULT_ITEMS.find((d) => d.id === item.id)?.title || item.id;
+                        const ItemIcon = resolveMenuIcon(item.iconName, item.url);
                         return (
                           <div
                             key={item.id}
-                            className="flex items-center justify-between gap-3 p-3 rounded-xl border border-amber-500/30 bg-amber-500/5"
+                            className="flex items-center justify-between gap-3 p-2.5 rounded-xl border border-amber-500/30 bg-amber-500/5"
                           >
                             <div className="flex items-center gap-3 min-w-0 flex-1">
-                              <div className="flex h-9 w-9 items-center justify-center rounded-xl border border-amber-500/40 bg-amber-500/10 text-amber-400 shrink-0">
-                                <Icon className="h-4 w-4" />
+                              <div className="flex h-8 w-8 items-center justify-center rounded-lg border border-amber-500/40 bg-amber-500/10 text-amber-400 shrink-0">
+                                <ItemIcon className="h-4 w-4" />
                               </div>
                               <div className="min-w-0 flex-1">
-                                <p className="text-sm font-extrabold text-foreground truncate leading-snug">
-                                  {title}
+                                <p className="text-xs font-bold text-foreground truncate">
+                                  {item.title}
                                 </p>
                                 <p className="text-[0.65rem] text-muted-foreground font-mono truncate mt-0.5">
                                   {item.url}
                                 </p>
                               </div>
                             </div>
-                            <div className="flex items-center gap-3 shrink-0 pl-2">
+                            <div className="flex items-center gap-2 shrink-0">
                               <Select
-                                value={item.category || "Gestão"}
+                                value={item.category || categories[0] || "Gestão"}
                                 onValueChange={(val) => updateItem(item.id, { category: val })}
                                 disabled={!canEdit}
                               >
@@ -1190,7 +1474,7 @@ function MenuTab({ canEdit }: { canEdit: boolean }) {
           })()}
         </div>
 
-        {/* Live Preview */}
+        {/* Live Preview Column */}
         <div className="space-y-3">
           <Card className="surface-card sticky top-20">
             <CardHeader className="pb-3 border-b border-border/60">
@@ -1199,8 +1483,8 @@ function MenuTab({ canEdit }: { canEdit: boolean }) {
                   <Monitor className="h-4 w-4" />
                 </div>
                 <div>
-                  <CardTitle className="text-sm font-bold">Preview do Menu</CardTitle>
-                  <CardDescription className="text-[0.7rem]">Visualização em tempo real</CardDescription>
+                  <CardTitle className="text-sm font-bold">Preview do Menu Lateral</CardTitle>
+                  <CardDescription className="text-[0.7rem]">Visualização exata da barra de navegação</CardDescription>
                 </div>
               </div>
             </CardHeader>
@@ -1217,15 +1501,20 @@ function MenuTab({ canEdit }: { canEdit: boolean }) {
                       </p>
                       <div className="space-y-0.5">
                         {visibleItems.map((item) => {
-                          const Icon = ICON_MAP[item.url] || Settings;
-                          const title = item.title || DEFAULT_ITEMS.find((d) => d.id === item.id)?.title || item.id;
+                          const ItemIcon = resolveMenuIcon(item.iconName, item.url);
+                          const isExternal = item.url.startsWith("http://") || item.url.startsWith("https://");
                           return (
                             <div
                               key={item.id}
-                              className="flex items-center gap-2 px-2 py-1.5 rounded-md text-xs text-sidebar-foreground hover:bg-sidebar-accent/50 transition-colors"
+                              className="flex items-center justify-between gap-2 px-2 py-1.5 rounded-md text-xs text-sidebar-foreground hover:bg-sidebar-accent/50 transition-colors"
                             >
-                              <Icon className="h-3.5 w-3.5 shrink-0 opacity-70" />
-                              <span className="truncate font-medium">{title}</span>
+                              <div className="flex items-center gap-2 min-w-0">
+                                <ItemIcon className="h-3.5 w-3.5 shrink-0 opacity-70" />
+                                <span className="truncate font-medium">{item.title}</span>
+                              </div>
+                              {isExternal && (
+                                <ExternalLink className="h-3 w-3 opacity-40 shrink-0" />
+                              )}
                             </div>
                           );
                         })}
@@ -1238,6 +1527,341 @@ function MenuTab({ canEdit }: { canEdit: boolean }) {
           </Card>
         </div>
       </div>
+
+      {/* ─── MODAL: CRIAR NOVO MENU ─── */}
+      <Dialog open={isAddMenuOpen} onOpenChange={setIsAddMenuOpen}>
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-base font-extrabold flex items-center gap-2">
+              <Plus className="h-4 w-4 text-primary" />
+              Novo Item de Menu
+            </DialogTitle>
+            <DialogDescription className="text-xs">
+              Adicione uma rota interna ou link externo para a navegação dos membros.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-2">
+            {/* Title */}
+            <div className="space-y-1.5">
+              <Label className="text-xs font-bold">Título do Menu</Label>
+              <Input
+                value={newMenuTitle}
+                onChange={(e) => setNewMenuTitle(e.target.value)}
+                placeholder="Ex: Discord da Facção, Planilha de Armas, Loja VIP..."
+                className="h-9 text-xs"
+              />
+            </div>
+
+            {/* URL / Route */}
+            <div className="space-y-1.5">
+              <Label className="text-xs font-bold">URL ou Rota</Label>
+              <Input
+                value={newMenuUrl}
+                onChange={(e) => setNewMenuUrl(e.target.value)}
+                placeholder="Ex: /minha-pagina ou https://discord.gg/exemplo"
+                className="h-9 text-xs font-mono"
+              />
+              <p className="text-[0.65rem] text-muted-foreground">
+                Dica: Endereços com <span className="font-mono text-primary">http://</span> ou <span className="font-mono text-primary">https://</span> serão abertos automaticamente em nova aba.
+              </p>
+            </div>
+
+            {/* Category & Visibility */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-xs font-bold">Categoria</Label>
+                <Select value={newMenuCategory} onValueChange={setNewMenuCategory}>
+                  <SelectTrigger className="h-9 text-xs font-bold">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {categories.map((c) => (
+                      <SelectItem key={c} value={c} className="text-xs font-medium">
+                        {c}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-1.5 flex flex-col justify-end">
+                <div className="flex items-center justify-between p-2 rounded-lg bg-secondary/30 border border-border/40 h-9">
+                  <span className="text-xs font-bold">Visível no Menu</span>
+                  <Switch
+                    checked={newMenuVisible}
+                    onCheckedChange={setNewMenuVisible}
+                    className="data-[state=checked]:bg-emerald-500"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Icon Picker */}
+            <div className="space-y-2 pt-2 border-t border-border/40">
+              <div className="flex items-center justify-between">
+                <Label className="text-xs font-bold">Selecione o Ícone</Label>
+                <div className="flex items-center gap-1.5 text-xs text-primary font-bold">
+                  {(() => {
+                    const CurrentIcon = resolveMenuIcon(newMenuIconName);
+                    return (
+                      <>
+                        <CurrentIcon className="h-3.5 w-3.5" />
+                        <span className="text-[11px]">{newMenuIconName}</span>
+                      </>
+                    );
+                  })()}
+                </div>
+              </div>
+
+              <div className="relative">
+                <Search className="h-3.5 w-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  value={newIconSearch}
+                  onChange={(e) => setNewIconSearch(e.target.value)}
+                  placeholder="Buscar ícone..."
+                  className="h-8 pl-8 text-xs bg-secondary/40"
+                />
+              </div>
+
+              <div className="grid grid-cols-6 sm:grid-cols-8 gap-1.5 max-h-36 overflow-y-auto p-1.5 rounded-lg border border-border/40 bg-secondary/20">
+                {filteredNewIcons.map((ic) => {
+                  const IconComp = ic.icon;
+                  const isSelected = newMenuIconName === ic.name;
+                  return (
+                    <button
+                      key={ic.name}
+                      type="button"
+                      onClick={() => setNewMenuIconName(ic.name)}
+                      className={cn(
+                        "flex flex-col items-center justify-center p-2 rounded-lg border transition-all hover:scale-105",
+                        isSelected
+                          ? "border-primary bg-primary/20 text-primary shadow-xs ring-1 ring-primary"
+                          : "border-border/40 bg-card hover:bg-secondary/50 text-muted-foreground hover:text-foreground"
+                      )}
+                      title={ic.label}
+                    >
+                      <IconComp className="h-4 w-4" />
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="ghost" size="sm" onClick={() => setIsAddMenuOpen(false)}>
+              Cancelar
+            </Button>
+            <Button
+              size="sm"
+              onClick={handleCreateMenu}
+              className="bg-primary text-primary-foreground font-bold"
+            >
+              Criar Menu
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ─── MODAL: EDITAR MENU ─── */}
+      <Dialog open={Boolean(editingItem)} onOpenChange={(open) => !open && setEditingItem(null)}>
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-base font-extrabold flex items-center gap-2">
+              <Edit3 className="h-4 w-4 text-primary" />
+              Editar Menu
+            </DialogTitle>
+            <DialogDescription className="text-xs">
+              Altere o título, URL, categoria, visibilidade ou ícone deste item.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-2">
+            {/* Title */}
+            <div className="space-y-1.5">
+              <Label className="text-xs font-bold">Título do Menu</Label>
+              <Input
+                value={editItemTitle}
+                onChange={(e) => setEditItemTitle(e.target.value)}
+                placeholder="Título do menu..."
+                className="h-9 text-xs font-bold"
+              />
+            </div>
+
+            {/* URL / Route */}
+            <div className="space-y-1.5">
+              <Label className="text-xs font-bold">URL ou Rota</Label>
+              <Input
+                value={editItemUrl}
+                onChange={(e) => setEditItemUrl(e.target.value)}
+                placeholder="/rota ou https://..."
+                className="h-9 text-xs font-mono"
+              />
+            </div>
+
+            {/* Category & Visibility */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-xs font-bold">Categoria</Label>
+                <Select value={editItemCategory} onValueChange={setEditItemCategory}>
+                  <SelectTrigger className="h-9 text-xs font-bold">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {categories.map((c) => (
+                      <SelectItem key={c} value={c} className="text-xs font-medium">
+                        {c}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-1.5 flex flex-col justify-end">
+                <div className="flex items-center justify-between p-2 rounded-lg bg-secondary/30 border border-border/40 h-9">
+                  <span className="text-xs font-bold">Visível no Menu</span>
+                  <Switch
+                    checked={editItemVisible}
+                    onCheckedChange={setEditItemVisible}
+                    className="data-[state=checked]:bg-emerald-500"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Icon Picker */}
+            <div className="space-y-2 pt-2 border-t border-border/40">
+              <div className="flex items-center justify-between">
+                <Label className="text-xs font-bold">Ícone</Label>
+                <div className="flex items-center gap-1.5 text-xs text-primary font-bold">
+                  {(() => {
+                    const CurrentIcon = resolveMenuIcon(editItemIconName);
+                    return (
+                      <>
+                        <CurrentIcon className="h-3.5 w-3.5" />
+                        <span className="text-[11px]">{editItemIconName}</span>
+                      </>
+                    );
+                  })()}
+                </div>
+              </div>
+
+              <div className="relative">
+                <Search className="h-3.5 w-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  value={editIconSearch}
+                  onChange={(e) => setEditIconSearch(e.target.value)}
+                  placeholder="Buscar ícone..."
+                  className="h-8 pl-8 text-xs bg-secondary/40"
+                />
+              </div>
+
+              <div className="grid grid-cols-6 sm:grid-cols-8 gap-1.5 max-h-36 overflow-y-auto p-1.5 rounded-lg border border-border/40 bg-secondary/20">
+                {filteredEditIcons.map((ic) => {
+                  const IconComp = ic.icon;
+                  const isSelected = editItemIconName === ic.name;
+                  return (
+                    <button
+                      key={ic.name}
+                      type="button"
+                      onClick={() => setEditItemIconName(ic.name)}
+                      className={cn(
+                        "flex flex-col items-center justify-center p-2 rounded-lg border transition-all hover:scale-105",
+                        isSelected
+                          ? "border-primary bg-primary/20 text-primary shadow-xs ring-1 ring-primary"
+                          : "border-border/40 bg-card hover:bg-secondary/50 text-muted-foreground hover:text-foreground"
+                      )}
+                      title={ic.label}
+                    >
+                      <IconComp className="h-4 w-4" />
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="ghost" size="sm" onClick={() => setEditingItem(null)}>
+              Cancelar
+            </Button>
+            <Button
+              size="sm"
+              onClick={handleSaveEditItem}
+              className="bg-primary text-primary-foreground font-bold"
+            >
+              Salvar Alterações
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ─── MODAL: CONFIRMAR EXCLUSÃO DE ITEM ─── */}
+      <Dialog open={Boolean(itemToDelete)} onOpenChange={(open) => !open && setItemToDelete(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-base font-extrabold flex items-center gap-2 text-destructive">
+              <Trash2 className="h-4 w-4" />
+              Excluir Item de Menu
+            </DialogTitle>
+            <DialogDescription className="text-xs">
+              Tem certeza que deseja excluir o menu <strong>"{itemToDelete?.title}"</strong>?
+              {itemToDelete?.isCustom ? (
+                <span> Este item customizado será removido permanentemente.</span>
+              ) : (
+                <span> Ele não será mais exibido na barra lateral de navegação (você pode recuperá-lo usando "Restaurar Padrão").</span>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="ghost" size="sm" onClick={() => setItemToDelete(null)}>
+              Cancelar
+            </Button>
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={handleConfirmDeleteItem}
+              className="font-bold gap-1"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+              Excluir Menu
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ─── MODAL: CONFIRMAR EXCLUSÃO DE CATEGORIA ─── */}
+      <Dialog open={Boolean(catToDelete)} onOpenChange={(open) => !open && setCatToDelete(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-base font-extrabold flex items-center gap-2 text-destructive">
+              <Trash2 className="h-4 w-4" />
+              Excluir Categoria
+            </DialogTitle>
+            <DialogDescription className="text-xs">
+              Tem certeza que deseja excluir a categoria <strong>"{catToDelete}"</strong>?
+              Os itens vinculados a ela serão automaticamente transferidos para outra categoria ativa e esta categoria não será recriada.
+            </DialogDescription>
+          </DialogHeader>
+
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="ghost" size="sm" onClick={() => setCatToDelete(null)}>
+              Cancelar
+            </Button>
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={handleConfirmDeleteCategory}
+              className="font-bold gap-1"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+              Excluir Categoria
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

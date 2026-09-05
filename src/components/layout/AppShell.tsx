@@ -38,7 +38,9 @@ import {
   CalendarOff,
   Sparkles,
   LifeBuoy,
+  ExternalLink,
 } from "lucide-react";
+import { resolveMenuIcon } from "@/lib/menuIcons";
 import { isUserDeveloper } from "@/services/devService";
 import {
   Sidebar,
@@ -171,17 +173,38 @@ function DynamicSidebarNavigation() {
       ? menuConfig.categories
       : ["Operação", "Gestão", "Administração"];
 
-    // Customiza itens da plataforma com a configuração salva
-    const customizedMaster = MASTER_NAV_ITEMS.map((item, defaultIdx) => {
+    // Customiza itens nativos da plataforma com a configuração salva
+    const customizedMaster: MasterNavItem[] = MASTER_NAV_ITEMS.map((item, defaultIdx) => {
       const cfg = configMap.get(item.id) || configMap.get(item.url);
       return {
         ...item,
         title: cfg?.title || item.title,
+        icon: cfg?.iconName ? resolveMenuIcon(cfg.iconName, item.url) : item.icon,
         visible: cfg ? cfg.visible !== false : true,
         category: cfg?.category || item.defaultCat,
         order: typeof cfg?.order === "number" ? cfg.order : item.defaultOrder ?? defaultIdx,
       };
     });
+
+    // Anexa itens customizados criados pelo usuário
+    const masterIds = new Set(MASTER_NAV_ITEMS.map((m) => m.id));
+    const customNavItems: MasterNavItem[] = validConfigItems
+      .filter((c) => !masterIds.has(c.id))
+      .map((c, idx) => ({
+        id: c.id,
+        title: c.title,
+        url: c.url,
+        icon: resolveMenuIcon(c.iconName, c.url) as typeof LayoutDashboard,
+        perm: undefined,
+        defaultCat: c.category || categoryOrder[0] || "Gestão",
+        category: c.category || categoryOrder[0] || "Gestão",
+        defaultOrder: typeof c.order === "number" ? c.order : 100 + idx,
+        order: typeof c.order === "number" ? c.order : 100 + idx,
+        visible: c.visible !== false,
+        isCustom: true,
+      }));
+
+    const allPlatformItems: MasterNavItem[] = [...customizedMaster, ...customNavItems];
 
     if (isDevUser && isDevMode) {
       // MODO DEV TOOLS:
@@ -229,7 +252,7 @@ function DynamicSidebarNavigation() {
       });
 
       // B) Agrupa itens da plataforma com base em menuConfig (em modo dev, exibe todos os itens visíveis com bypass)
-      const visibleMaster = customizedMaster.filter((item) => item.visible);
+      const visibleMaster = allPlatformItems.filter((item) => item.visible);
       const platformGroups: { category: string; items: typeof visibleMaster }[] = [];
 
       categoryOrder.forEach((cat) => {
@@ -258,7 +281,7 @@ function DynamicSidebarNavigation() {
     }
 
     // MODO NORMAL (MEMBRO): Exibe estritamente as permissões e menus atribuídos ao cargo
-    const visible = customizedMaster.filter(
+    const visible = allPlatformItems.filter(
       (item) => item.visible && (!item.perm || hasPermission(item.perm))
     );
 
@@ -393,23 +416,41 @@ function DynamicSidebarNavigation() {
                   {items.map((item) => {
                     const active = pathname === item.url;
                     const isDevItem = item.url.startsWith("/dev");
+                    const isExternal = item.url.startsWith("http://") || item.url.startsWith("https://");
+                    const ItemIcon = item.icon || resolveMenuIcon(undefined, item.url);
 
                     return (
-                      <SidebarMenuItem key={item.url}>
+                      <SidebarMenuItem key={item.id || item.url}>
                         <SidebarMenuButton asChild isActive={active} tooltip={item.title}>
-                          <Link
-                            to={item.url}
-                            onClick={() => {
-                              if (isMobile) setOpenMobile(false);
-                            }}
-                            className={cn(
-                              "flex items-center gap-3 transition-colors",
-                              active && (isDevItem ? "font-black text-rose-400 bg-rose-500/10 border border-rose-500/30 rounded-lg" : "font-medium text-primary")
-                            )}
-                          >
-                            <item.icon className={cn("h-4 w-4", isDevItem && "text-rose-400")} />
-                            <span>{item.title}</span>
-                          </Link>
+                          {isExternal ? (
+                            <a
+                              href={item.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              onClick={() => {
+                                if (isMobile) setOpenMobile(false);
+                              }}
+                              className="flex items-center gap-3 transition-colors hover:text-primary text-sidebar-foreground"
+                            >
+                              <ItemIcon className="h-4 w-4 shrink-0" />
+                              <span className="truncate">{item.title}</span>
+                              <ExternalLink className="h-3 w-3 ml-auto opacity-50 shrink-0" />
+                            </a>
+                          ) : (
+                            <Link
+                              to={item.url}
+                              onClick={() => {
+                                if (isMobile) setOpenMobile(false);
+                              }}
+                              className={cn(
+                                "flex items-center gap-3 transition-colors",
+                                active && (isDevItem ? "font-black text-rose-400 bg-rose-500/10 border border-rose-500/30 rounded-lg" : "font-medium text-primary")
+                              )}
+                            >
+                              <ItemIcon className={cn("h-4 w-4 shrink-0", isDevItem && "text-rose-400")} />
+                              <span className="truncate">{item.title}</span>
+                            </Link>
+                          )}
                         </SidebarMenuButton>
                       </SidebarMenuItem>
                     );

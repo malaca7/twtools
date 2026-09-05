@@ -8,11 +8,14 @@ export type MenuItemConfig = {
   visible: boolean;
   category: string;
   order: number;
+  iconName?: string;
+  isCustom?: boolean;
 };
 
 export type MenuConfig = {
   categories?: string[];
   items: MenuItemConfig[];
+  deletedItemIds?: string[];
 };
 
 const STORAGE_KEY = "tw_menu_config";
@@ -21,6 +24,11 @@ const STORAGE_KEY = "tw_menu_config";
 const listeners = new Set<() => void>();
 export function emitChange() {
   listeners.forEach((l) => l());
+  if (typeof window !== "undefined") {
+    try {
+      window.dispatchEvent(new Event("storage"));
+    } catch {}
+  }
 }
 
 function getSnapshot(): string {
@@ -59,18 +67,30 @@ export const DEFAULT_MENU_ITEMS: MenuItemConfig[] = [
 ];
 
 /**
- * Reconciles and synchronizes any partial or saved menu configuration.
- * Always guarantees that:
- * 1. All standard categories ("Operação", "Gestão", "Administração") exist.
- * 2. All 20 canonical platform menus exist and are properly mapped.
- * 3. Any custom categories and custom menu items are preserved.
- * 4. Stale configurations where admin items were defaulted to "Gestão" heal to "Administração".
+ * Reconcilia e sincroniza configurações parciais ou salvas do menu lateral.
+ * Garante que:
+ * 1. A ordem e as categorias customizadas do usuário são fielmente respeitadas (sem ressuscitar categorias excluídas).
+ * 2. A ordem de itens salva/arranjada pelo usuário é preservada 1:1 com reindexação sequencial limpa.
+ * 3. Novos módulos canônicos da plataforma ausentes na configuração do usuário são anexados ao fim sem perder dados e sem ressuscitar categorias excluídas.
+ * 4. Itens customizados criados pelo usuário são preservados com suas rotas, ícones e categorias.
+ * 5. Itens explicitamente excluídos pelo usuário permanecem excluídos.
  */
 export function syncMenuConfig(raw: Partial<MenuConfig> | null | undefined): MenuConfig {
-  const savedCats = Array.isArray(raw?.categories) ? raw.categories : [];
-  const savedItems = Array.isArray(raw?.items) ? raw.items : [];
+  const savedCats = Array.isArray(raw?.categories)
+    ? raw.categories.filter((c): c is string => typeof c === "string" && Boolean(c.trim()))
+    : [];
 
-  // 1. Synchronize categories
+  const savedItems = Array.isArray(raw?.items)
+    ? raw.items.filter((it): it is MenuItemConfig => Boolean(it && typeof it === "object" && it.id))
+    : [];
+
+  const deletedSet = new Set<string>(
+    Array.isArray(raw?.deletedItemIds)
+      ? raw.deletedItemIds.filter((id): id is string => typeof id === "string" && Boolean(id.trim()))
+      : []
+  );
+
+  // 1. Sincronização de Categorias
   const categories: string[] = [];
   const addCategory = (c: unknown) => {
     if (typeof c !== "string") return;
@@ -80,75 +100,90 @@ export function syncMenuConfig(raw: Partial<MenuConfig> | null | undefined): Men
     }
   };
 
-  // Preserve user custom categories order
-  savedCats.forEach(addCategory);
-  // Ensure default base categories are always included
-  DEFAULT_MENU_CATEGORIES.forEach(addCategory);
-  // Ensure any category assigned to an item is included
-  savedItems.forEach((it) => {
-    if (it && typeof it.category === "string") addCategory(it.category);
+  // Se o usuário especificou uma lista de categorias (mesmo com nomes customizados), respeita estritamente
+  if (savedCats.length > 0) {
+    savedCats.forEach(addCategory);
+  } else {
+    // Apenas se não houver nenhuma categoria configurada usa o padrão
+    DEFAULT_MENU_CATEGORIES.forEach(addCategory);
+  }
+
+  // 2. Mapa de itens padrão da plataforma
+  const defaultItemsMap = new Map<string, MenuItemConfig>();
+  DEFAULT_MENU_ITEMS.forEach((def) => {
+    defaultItemsMap.set(def.id, def);
   });
 
-  // 2. Build map of saved items by id and url
-  const savedMap = new Map<string, MenuItemConfig>();
-  savedItems.forEach((item) => {
-    if (item && typeof item === "object") {
-      if (item.id) savedMap.set(item.id, item);
-      if (item.url) savedMap.set(item.url, item);
-    }
-  });
+  // 3. Processa os itens preservando a sequência exata configurada pelo usuário
+  const items: MenuItemConfig[] = [];
+  const processedIds = new Set<string>();
 
-  // 3. Merge DEFAULT_MENU_ITEMS
-  const items: MenuItemConfig[] = DEFAULT_MENU_ITEMS.map((def, defaultIdx) => {
-    const saved = savedMap.get(def.id) || savedMap.get(def.url);
-    if (!saved) {
-      return { ...def, order: defaultIdx };
-    }
+  if (savedItems.length > 0) {
+    savedItems.forEach((saved) => {
+      if (!saved || !saved.id || processedIds.has(saved.id) || deletedSet.has(saved.id)) return;
+      processedIds.add(saved.id);
 
-    let category = typeof saved.category === "string" && saved.category.trim() ? saved.category.trim() : def.category;
-    // Auto-heal admin items that were previously stuck in "Gestão" because the old code lacked "Administração"
-    if (
-      def.category === "Administração" &&
-      category === "Gestão" &&
-      !savedCats.includes("Administração")
-    ) {
-      category = "Administração";
-    }
+      const defaultMatch = defaultItemsMap.get(saved.id) || DEFAULT_MENU_ITEMS.find((d) => d.url === saved.url);
+      const title =
+        typeof saved.title === "string" && saved.title.trim()
+          ? saved.title.trim()
+          : defaultMatch?.title || saved.id;
 
-    return {
-      id: def.id,
-      title: typeof saved.title === "string" && saved.title.trim() ? saved.title.trim() : def.title,
-      url: def.url,
-      visible: typeof saved.visible === "boolean" ? saved.visible : def.visible,
-      category,
-      order: typeof saved.order === "number" ? saved.order : defaultIdx,
-    };
-  });
+      const url =
+        typeof saved.url === "string" && saved.url.trim()
+          ? saved.url.trim()
+          : defaultMatch?.url || `/${saved.id}`;
 
-  // 4. Retain any extra items that user may have saved
-  const defaultIds = new Set(DEFAULT_MENU_ITEMS.map((d) => d.id));
-  const defaultUrls = new Set(DEFAULT_MENU_ITEMS.map((d) => d.url));
-  savedItems.forEach((saved) => {
-    if (saved && saved.id && !defaultIds.has(saved.id) && !defaultUrls.has(saved.url)) {
-      const cat = typeof saved.category === "string" && saved.category.trim() ? saved.category.trim() : "Gestão";
-      addCategory(cat);
+      let category =
+        typeof saved.category === "string" && saved.category.trim()
+          ? saved.category.trim()
+          : defaultMatch?.category || categories[0] || "Gestão";
+
+      const visible = typeof saved.visible === "boolean" ? saved.visible : true;
+      const iconName = typeof saved.iconName === "string" ? saved.iconName : undefined;
+      const isCustom = Boolean(saved.isCustom || !defaultMatch);
+
+      // Garante que a categoria do item está registrada na lista de categorias
+      addCategory(category);
+
       items.push({
         id: saved.id,
-        title: typeof saved.title === "string" && saved.title.trim() ? saved.title.trim() : saved.id,
-        url: saved.url || `/${saved.id}`,
-        visible: typeof saved.visible === "boolean" ? saved.visible : true,
-        category: cat,
-        order: typeof saved.order === "number" ? saved.order : items.length,
+        title,
+        url,
+        visible,
+        category,
+        order: items.length,
+        iconName,
+        isCustom,
+      });
+    });
+  }
+
+  // 4. Garante que qualquer módulo canônico do sistema que não esteja na lista do usuário seja anexado (a não ser que tenha sido excluído)
+  DEFAULT_MENU_ITEMS.forEach((def) => {
+    if (!processedIds.has(def.id) && !deletedSet.has(def.id)) {
+      processedIds.add(def.id);
+      // Se a categoria padrão ainda existe na lista, usa ela. Senão mapeia para a primeira categoria válida sem ressuscitar categorias deletadas
+      const targetCategory = categories.includes(def.category) ? def.category : (categories[0] || "Gestão");
+      items.push({
+        ...def,
+        category: targetCategory,
+        order: items.length,
       });
     }
   });
 
-  // Sort items by order
-  items.sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+  // 5. Reindexação sequencial estrita de order (0, 1, 2, ...)
+  items.forEach((item, idx) => {
+    item.order = idx;
+  });
+
+  const finalCategories = categories.length > 0 ? categories : [...DEFAULT_MENU_CATEGORIES];
 
   return {
-    categories,
+    categories: finalCategories,
     items,
+    deletedItemIds: Array.from(deletedSet),
   };
 }
 
@@ -191,6 +226,7 @@ export async function fetchRemoteMenuConfig(): Promise<MenuConfig> {
 
 /**
  * Saves menu config locally and persists globally to Supabase DB for all members.
+ * Tries RPC save_role_permissions first to bypass RLS restrictions, then falls back to direct upsert.
  */
 export async function saveMenuConfig(config: MenuConfig) {
   const synced = syncMenuConfig(config);
@@ -198,15 +234,22 @@ export async function saveMenuConfig(config: MenuConfig) {
   emitChange();
 
   try {
-    await supabase.from("role_permissions").upsert(
-      {
-        level: "system_menu_config",
-        nivel: "system_menu_config",
-        permissions: synced as any,
-        updated_at: new Date().toISOString(),
-      },
-      { onConflict: "level" }
-    );
+    const { error: rpcErr } = await supabase.rpc("save_role_permissions", {
+      _level: "system_menu_config",
+      _permissions: synced as any,
+    });
+
+    if (rpcErr) {
+      await supabase.from("role_permissions").upsert(
+        {
+          level: "system_menu_config",
+          nivel: "system_menu_config",
+          permissions: synced as any,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "level" }
+      );
+    }
   } catch (err) {
     console.error("Erro ao sincronizar menu_config no banco:", err);
   }
@@ -217,7 +260,13 @@ export async function clearMenuConfig() {
   emitChange();
 
   try {
-    await supabase.from("role_permissions").delete().eq("level", "system_menu_config");
+    const { error: rpcErr } = await supabase.rpc("save_role_permissions", {
+      _level: "system_menu_config",
+      _permissions: null as any,
+    });
+    if (rpcErr) {
+      await supabase.from("role_permissions").delete().eq("level", "system_menu_config");
+    }
   } catch {}
 }
 
@@ -254,4 +303,3 @@ export function useMenuConfig() {
 
   return { config, save, reset };
 }
-
