@@ -1,5 +1,5 @@
 require("dotenv").config();
-const { Client, GatewayIntentBits, EmbedBuilder, ActivityType } = require("discord.js");
+const { Client, GatewayIntentBits, EmbedBuilder, ActivityType, Events } = require("discord.js");
 const { createClient } = require("@supabase/supabase-js");
 const http = require("http");
 
@@ -973,7 +973,7 @@ const onReady = async () => {
   setInterval(refreshAuxiliaryCaches, 5 * 60 * 1000);
 };
 
-client.once("clientReady", onReady);
+client.once(Events?.ClientReady || "ready", onReady);
 
 // 1. Escuta em tempo real: evento userUpdate do Discord
 client.on("userUpdate", async (oldUser, newUser) => {
