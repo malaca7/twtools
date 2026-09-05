@@ -419,8 +419,8 @@ export function ChatWindow({
   return (
     <div className="flex flex-col h-full w-full bg-[#0b141a] overflow-hidden select-none relative">
       {/* ─── WHATSAPP TOP HEADER BAR (#202c33) ─── */}
-      <div className="flex items-center justify-between p-2.5 sm:px-4 sm:py-2.5 bg-[#202c33] border-b border-white/5 shrink-0 z-20 shadow-md">
-        <div className="flex items-center gap-2 min-w-0">
+      <div className="flex items-center justify-between p-2.5 sm:px-4 sm:py-2.5 bg-[#202c33] border-b border-white/5 shrink-0 z-20 shadow-md gap-2">
+        <div className="flex items-center gap-2 min-w-0 flex-1">
           <Button
             type="button"
             variant="ghost"
@@ -443,7 +443,7 @@ export function ChatWindow({
                 setProfileUserId(otherMember.user_id);
               }
             }}
-            className="flex items-center gap-3 min-w-0 cursor-pointer group"
+            className="flex items-center gap-3 min-w-0 flex-1 cursor-pointer group select-none"
           >
             <div className="relative shrink-0">
               <Avatar className="h-10 w-10 border border-white/10 shadow-xs group-hover:ring-2 group-hover:ring-[#00a884] transition-all">
@@ -464,18 +464,18 @@ export function ChatWindow({
               )}
             </div>
 
-            <div className="min-w-0 space-y-0.5">
+            <div className="min-w-0 flex-1 space-y-0.5">
               <div className="flex items-center gap-1.5 min-w-0">
                 <h4 className="truncate font-bold text-sm text-[#e9edef] leading-tight group-hover:text-[#00a884] transition-colors">
                   {title}
                 </h4>
                 {isGroup && conversation.only_admins_can_post && (
-                  <Badge variant="outline" className="text-[8px] font-mono border-amber-500/40 text-amber-400 bg-amber-500/10 px-1 py-0 font-bold shrink-0">
+                  <Badge variant="outline" className="text-[8.5px] font-mono border-amber-500/40 text-amber-400 bg-amber-500/10 px-1.5 py-0 font-bold shrink-0">
                     <Lock className="h-2.5 w-2.5 mr-0.5 inline" /> Admins
                   </Badge>
                 )}
                 {!isGroup && otherMember?.is_developer && (
-                  <Badge variant="outline" className="text-[8px] font-mono px-1 py-0 border-rose-500/40 text-rose-400 bg-rose-500/10 font-bold shrink-0">
+                  <Badge variant="outline" className="text-[8.5px] font-mono px-1.5 py-0 border-rose-500/40 text-rose-400 bg-rose-500/10 font-bold shrink-0">
                     DEV
                   </Badge>
                 )}
@@ -486,6 +486,7 @@ export function ChatWindow({
                   <span>
                     {safeParticipants.map((p) => p?.profile?.nickname || p?.profile?.nome || "Membro").slice(0, 4).join(", ")}
                     {safeParticipants.length > 4 && ` e mais ${safeParticipants.length - 4}`}
+                    {conversation.only_admins_can_post && " • 🔒 Somente Admins Falam"}
                   </span>
                 ) : (
                   <>
@@ -513,93 +514,8 @@ export function ChatWindow({
           </div>
         </div>
 
-        {/* ─── HEADER ACTIONS WHATSAPP STYLE ─── */}
-        <div className="flex items-center gap-1 shrink-0">
-          {isGroup && isGroupAdmin && (
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={handleQuickToggleOnlyAdmins}
-              disabled={togglingLock}
-              className={cn(
-                "h-8 px-2 text-[11px] font-bold rounded-lg cursor-pointer transition-all flex items-center gap-1 mr-1",
-                conversation.only_admins_can_post
-                  ? "text-amber-400 bg-amber-500/15 border border-amber-500/30"
-                  : "text-[#aebac1] hover:text-white hover:bg-white/10"
-              )}
-              title={conversation.only_admins_can_post ? "Chat fechado (somente admins)" : "Chat aberto para todos"}
-            >
-              {togglingLock ? (
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              ) : conversation.only_admins_can_post ? (
-                <>
-                  <Lock className="h-3.5 w-3.5 text-amber-400" />
-                  <span className="hidden sm:inline">Somente Admins</span>
-                </>
-              ) : (
-                <>
-                  <Unlock className="h-3.5 w-3.5 text-[#aebac1]" />
-                  <span className="hidden sm:inline">Chat Livre</span>
-                </>
-              )}
-            </Button>
-          )}
-
-          {/* BUSCA NA CONVERSA */}
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            onClick={() => setSearchOpen(true)}
-            className="h-9 w-9 text-[#aebac1] hover:text-white hover:bg-white/10 rounded-full cursor-pointer"
-            title="Pesquisar mensagens"
-          >
-            <Search className="h-4 w-4" />
-          </Button>
-
-          {/* CENTRAL DE MÍDIA */}
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            onClick={() => setMediaGalleryOpen(true)}
-            className="h-9 w-9 text-[#aebac1] hover:text-white hover:bg-white/10 rounded-full cursor-pointer"
-            title="Mídias, links e documentos"
-          >
-            <FolderArchive className="h-4 w-4" />
-          </Button>
-
-          {/* SILENCIAR */}
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            onClick={() => setMuteDialogOpen(true)}
-            className={cn(
-              "h-9 w-9 rounded-full cursor-pointer transition-colors",
-              conversation.is_muted
-                ? "text-amber-400 bg-amber-500/10 hover:bg-amber-500/20"
-                : "text-[#aebac1] hover:text-white hover:bg-white/10"
-            )}
-            title={conversation.is_muted ? "Silenciado" : "Silenciar notificações"}
-          >
-            {conversation.is_muted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
-          </Button>
-
-          {/* PAPEL DE PAREDE WHATSAPP */}
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            onClick={() => setWallpaperDialogOpen(true)}
-            className="h-9 w-9 text-[#aebac1] hover:text-white hover:bg-white/10 rounded-full cursor-pointer"
-            title="Mudar papel de parede"
-          >
-            <ImageIcon className="h-4 w-4 text-[#00a884]" />
-          </Button>
-
-          {/* MENU 3-PONTOS WHATSAPP */}
+        {/* ─── HEADER ACTIONS: APENAS MENU 3-PONTOS ORGANIZADO ─── */}
+        <div className="flex items-center shrink-0">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button
@@ -607,44 +523,95 @@ export function ChatWindow({
                 variant="ghost"
                 size="icon"
                 className="h-9 w-9 text-[#aebac1] hover:text-white hover:bg-white/10 rounded-full cursor-pointer"
-                title="Mais opções"
+                title="Opções da conversa"
               >
-                <MoreVertical className="h-4 w-4" />
+                <MoreVertical className="h-5 w-5 text-[#aebac1]" />
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-56 text-xs bg-[#233138] border border-white/10 text-white rounded-xl shadow-2xl p-1">
+            <DropdownMenuContent
+              align="end"
+              className="w-64 text-xs bg-[#233138] border border-white/10 text-white rounded-2xl shadow-2xl p-1.5 z-[1000] animate-in fade-in-50 zoom-in-95 duration-150"
+            >
               <DropdownMenuItem
                 onClick={() => {
                   if (isGroup) setGroupSettingsOpen(true);
                   else if (otherMember) setProfileUserId(otherMember.user_id);
                 }}
-                className="cursor-pointer hover:bg-white/10 rounded-lg"
+                className="cursor-pointer hover:bg-white/10 rounded-xl p-2 font-medium"
               >
-                <Info className="h-3.5 w-3.5 mr-2 text-[#00a884]" />
+                <Info className="h-4 w-4 mr-2.5 text-[#00a884]" />
                 {isGroup ? "Dados do grupo" : "Dados do contato"}
               </DropdownMenuItem>
 
-              <DropdownMenuItem onClick={() => setSavedMessagesOpen(true)} className="cursor-pointer hover:bg-white/10 rounded-lg">
-                <Star className="h-3.5 w-3.5 mr-2 text-amber-400" /> Mensagens favoritas
+              <DropdownMenuItem onClick={() => setSearchOpen(true)} className="cursor-pointer hover:bg-white/10 rounded-xl p-2 font-medium">
+                <Search className="h-4 w-4 mr-2.5 text-cyan-400" />
+                Pesquisar na conversa
               </DropdownMenuItem>
 
-              <DropdownMenuItem onClick={() => setCreateEventOpen(true)} className="cursor-pointer hover:bg-white/10 rounded-lg">
-                <Calendar className="h-3.5 w-3.5 mr-2 text-emerald-400" /> Agendar evento
+              <DropdownMenuItem onClick={() => setMediaGalleryOpen(true)} className="cursor-pointer hover:bg-white/10 rounded-xl p-2 font-medium">
+                <FolderArchive className="h-4 w-4 mr-2.5 text-indigo-400" />
+                Mídias, links e arquivos
               </DropdownMenuItem>
 
-              <DropdownMenuItem onClick={() => setCreatePollOpen(true)} className="cursor-pointer hover:bg-white/10 rounded-lg">
-                <Vote className="h-3.5 w-3.5 mr-2 text-yellow-400" /> Criar enquete
+              <DropdownMenuItem onClick={() => setMuteDialogOpen(true)} className="cursor-pointer hover:bg-white/10 rounded-xl p-2 font-medium">
+                {conversation.is_muted ? (
+                  <>
+                    <Volume2 className="h-4 w-4 mr-2.5 text-amber-400" /> Reativar som de notificações
+                  </>
+                ) : (
+                  <>
+                    <VolumeX className="h-4 w-4 mr-2.5 text-amber-400" /> Silenciar notificações
+                  </>
+                )}
               </DropdownMenuItem>
 
-              <DropdownMenuItem onClick={() => setEphemeralSettingsOpen(true)} className="cursor-pointer hover:bg-white/10 rounded-lg">
-                <Timer className="h-3.5 w-3.5 mr-2 text-rose-400" /> Mensagens temporárias
+              <DropdownMenuItem onClick={() => setWallpaperDialogOpen(true)} className="cursor-pointer hover:bg-white/10 rounded-xl p-2 font-medium">
+                <ImageIcon className="h-4 w-4 mr-2.5 text-emerald-400" />
+                Mudar papel de parede
               </DropdownMenuItem>
 
+              <DropdownMenuItem onClick={() => setSavedMessagesOpen(true)} className="cursor-pointer hover:bg-white/10 rounded-xl p-2 font-medium">
+                <Star className="h-4 w-4 mr-2.5 text-yellow-400" /> Mensagens favoritas
+              </DropdownMenuItem>
+
+              <DropdownMenuItem onClick={() => setCreateEventOpen(true)} className="cursor-pointer hover:bg-white/10 rounded-xl p-2 font-medium">
+                <Calendar className="h-4 w-4 mr-2.5 text-emerald-400" /> Agendar evento
+              </DropdownMenuItem>
+
+              <DropdownMenuItem onClick={() => setCreatePollOpen(true)} className="cursor-pointer hover:bg-white/10 rounded-xl p-2 font-medium">
+                <Vote className="h-4 w-4 mr-2.5 text-purple-400" /> Criar enquete
+              </DropdownMenuItem>
+
+              <DropdownMenuItem onClick={() => setEphemeralSettingsOpen(true)} className="cursor-pointer hover:bg-white/10 rounded-xl p-2 font-medium">
+                <Timer className="h-4 w-4 mr-2.5 text-rose-400" /> Mensagens temporárias
+              </DropdownMenuItem>
+
+              {/* TOGGLE APENAS ADMINS FALAM DENTRO DO MENU */}
               {isGroup && isGroupAdmin && (
                 <>
-                  <DropdownMenuSeparator className="bg-white/10" />
-                  <DropdownMenuItem onClick={() => setModerationOpen(true)} className="cursor-pointer hover:bg-amber-500/20 text-amber-400 rounded-lg font-bold">
-                    <ShieldAlert className="h-3.5 w-3.5 mr-2" /> Moderação do chat
+                  <DropdownMenuSeparator className="bg-white/10 my-1" />
+                  <DropdownMenuItem
+                    onClick={handleQuickToggleOnlyAdmins}
+                    disabled={togglingLock}
+                    className="cursor-pointer hover:bg-amber-500/20 text-amber-400 rounded-xl p-2 font-bold flex items-center justify-between"
+                  >
+                    <div className="flex items-center gap-2">
+                      {togglingLock ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : conversation.only_admins_can_post ? (
+                        <Lock className="h-4 w-4 text-amber-400" />
+                      ) : (
+                        <Unlock className="h-4 w-4 text-amber-400" />
+                      )}
+                      <span>Modo Somente Admins</span>
+                    </div>
+                    <Badge className={cn("text-[9px] px-1.5 py-0.5 font-mono font-bold", conversation.only_admins_can_post ? "bg-amber-500 text-black" : "bg-white/20 text-white")}>
+                      {conversation.only_admins_can_post ? "ATIVADO" : "LIVRE"}
+                    </Badge>
+                  </DropdownMenuItem>
+
+                  <DropdownMenuItem onClick={() => setModerationOpen(true)} className="cursor-pointer hover:bg-amber-500/20 text-amber-400 rounded-xl p-2 font-bold">
+                    <ShieldAlert className="h-4 w-4 mr-2.5" /> Moderação do chat
                   </DropdownMenuItem>
                 </>
               )}
