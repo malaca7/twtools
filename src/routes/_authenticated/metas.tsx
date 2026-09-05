@@ -33,8 +33,9 @@ import {
   Receipt,
   AlertTriangle,
   Info,
-  CalendarDays,
   Award,
+  RotateCcw,
+  Edit3,
 } from "lucide-react";
 import { PageHeader, NoAccess, TableSkeleton, EmptyState } from "@/components/ui-kit";
 import { useAuth } from "@/hooks/useAuth";
@@ -574,11 +575,13 @@ function MetasPage() {
         reviewNotes: rejectNotes.trim() || undefined,
       });
       setRejectModalOpen(false);
+      if (selectedProofSubmission?.id === rejectingSubmission.id) {
+        setSelectedProofSubmission((prev) =>
+          prev ? { ...prev, status: "rejeitado", review_notes: rejectNotes.trim() || undefined } : null
+        );
+      }
       setRejectingSubmission(null);
       setRejectNotes("");
-      if (selectedProofSubmission?.id === rejectingSubmission.id) {
-        setProofViewerOpen(false);
-      }
     } catch {}
   };
 
@@ -1035,7 +1038,8 @@ function MetasPage() {
                             status: "aprovado",
                           })
                         }
-                        className="h-8 text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white gap-1"
+                        className="h-8 text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white gap-1 cursor-pointer"
+                        title="Aprovar entrega"
                       >
                         <Check className="h-3.5 w-3.5" /> Aprovar
                       </Button>
@@ -1046,11 +1050,100 @@ function MetasPage() {
                         disabled={reviewGoalMutation.isPending}
                         onClick={() => {
                           setRejectingSubmission(sub);
+                          setRejectNotes(sub.review_notes || "");
                           setRejectModalOpen(true);
                         }}
-                        className="h-8 text-xs font-bold border-destructive/40 text-destructive hover:bg-destructive/10 gap-1"
+                        className="h-8 text-xs font-bold border-destructive/40 text-destructive hover:bg-destructive/10 gap-1 cursor-pointer"
+                        title="Recusar entrega"
                       >
                         <X className="h-3.5 w-3.5" /> Recusar
+                      </Button>
+                    </>
+                  )}
+
+                  {canManage && sub.status === "aprovado" && (
+                    <>
+                      <Badge className="bg-emerald-500/15 text-emerald-400 border-emerald-500/30 text-xs font-bold gap-1 py-1 px-2.5">
+                        <Check className="h-3.5 w-3.5" /> Aprovado
+                      </Badge>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={reviewGoalMutation.isPending}
+                        onClick={() =>
+                          reviewGoalMutation.mutate({
+                            submissionId: sub.id,
+                            status: "pendente",
+                          })
+                        }
+                        className="h-8 text-xs font-semibold border-amber-500/40 text-amber-400 hover:bg-amber-500/10 gap-1 cursor-pointer"
+                        title="Voltar para validação (status pendente)"
+                      >
+                        <RotateCcw className="h-3.5 w-3.5" /> Voltar p/ Validação
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={reviewGoalMutation.isPending}
+                        onClick={() => {
+                          setRejectingSubmission(sub);
+                          setRejectNotes(sub.review_notes || "");
+                          setRejectModalOpen(true);
+                        }}
+                        className="h-8 text-xs font-semibold border-destructive/40 text-destructive hover:bg-destructive/10 gap-1 cursor-pointer"
+                        title="Alterar para Recusado"
+                      >
+                        <X className="h-3.5 w-3.5" /> Recusar
+                      </Button>
+                    </>
+                  )}
+
+                  {canManage && sub.status === "rejeitado" && (
+                    <>
+                      <Badge className="bg-destructive/15 text-destructive border-destructive/30 text-xs font-bold gap-1 py-1 px-2.5">
+                        <X className="h-3.5 w-3.5" /> Recusado
+                      </Badge>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={reviewGoalMutation.isPending}
+                        onClick={() =>
+                          reviewGoalMutation.mutate({
+                            submissionId: sub.id,
+                            status: "pendente",
+                          })
+                        }
+                        className="h-8 text-xs font-semibold border-amber-500/40 text-amber-400 hover:bg-amber-500/10 gap-1 cursor-pointer"
+                        title="Voltar para validação (status pendente)"
+                      >
+                        <RotateCcw className="h-3.5 w-3.5" /> Voltar p/ Validação
+                      </Button>
+                      <Button
+                        size="sm"
+                        disabled={reviewGoalMutation.isPending}
+                        onClick={() =>
+                          reviewGoalMutation.mutate({
+                            submissionId: sub.id,
+                            status: "aprovado",
+                          })
+                        }
+                        className="h-8 text-xs font-semibold bg-emerald-600 hover:bg-emerald-500 text-white gap-1 cursor-pointer"
+                        title="Alterar para Aprovado"
+                      >
+                        <Check className="h-3.5 w-3.5" /> Aprovar
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => {
+                          setRejectingSubmission(sub);
+                          setRejectNotes(sub.review_notes || "");
+                          setRejectModalOpen(true);
+                        }}
+                        className="h-8 text-xs text-muted-foreground hover:text-foreground gap-1 cursor-pointer"
+                        title="Editar motivo da recusa"
+                      >
+                        <Edit3 className="h-3.5 w-3.5" /> Editar Motivo
                       </Button>
                     </>
                   )}
@@ -2137,38 +2230,132 @@ function MetasPage() {
             </div>
           )}
 
-          <DialogFooter className="pt-2 border-t border-border/40 flex items-center justify-between sm:justify-between">
+          <DialogFooter className="pt-2 border-t border-border/40 flex items-center justify-between sm:justify-between flex-wrap gap-2">
             <Button variant="ghost" onClick={() => setProofViewerOpen(false)}>
               Fechar
             </Button>
 
-            {canManage && selectedProofSubmission && selectedProofSubmission.status === "pendente" && (
-              <div className="flex items-center gap-2">
-                <Button
-                  size="sm"
-                  onClick={() => {
-                    setRejectingSubmission(selectedProofSubmission);
-                    setRejectModalOpen(true);
-                  }}
-                  variant="outline"
-                  className="border-destructive/40 text-destructive hover:bg-destructive/10 text-xs font-bold"
-                >
-                  <X className="h-3.5 w-3.5 mr-1" /> Recusar
-                </Button>
+            {canManage && selectedProofSubmission && (
+              <div className="flex items-center gap-2 flex-wrap">
+                {selectedProofSubmission.status === "pendente" && (
+                  <>
+                    <Button
+                      size="sm"
+                      onClick={() => {
+                        setRejectingSubmission(selectedProofSubmission);
+                        setRejectNotes(selectedProofSubmission.review_notes || "");
+                        setRejectModalOpen(true);
+                      }}
+                      variant="outline"
+                      className="border-destructive/40 text-destructive hover:bg-destructive/10 text-xs font-bold cursor-pointer"
+                    >
+                      <X className="h-3.5 w-3.5 mr-1" /> Recusar
+                    </Button>
 
-                <Button
-                  size="sm"
-                  onClick={async () => {
-                    await reviewGoalMutation.mutateAsync({
-                      submissionId: selectedProofSubmission.id,
-                      status: "aprovado",
-                    });
-                    setProofViewerOpen(false);
-                  }}
-                  className="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold"
-                >
-                  <Check className="h-3.5 w-3.5 mr-1" /> Aprovar Comprovante
-                </Button>
+                    <Button
+                      size="sm"
+                      onClick={async () => {
+                        await reviewGoalMutation.mutateAsync({
+                          submissionId: selectedProofSubmission.id,
+                          status: "aprovado",
+                        });
+                        setSelectedProofSubmission((prev) =>
+                          prev ? { ...prev, status: "aprovado" } : null
+                        );
+                      }}
+                      className="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold cursor-pointer"
+                    >
+                      <Check className="h-3.5 w-3.5 mr-1" /> Aprovar Comprovante
+                    </Button>
+                  </>
+                )}
+
+                {selectedProofSubmission.status === "aprovado" && (
+                  <>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={reviewGoalMutation.isPending}
+                      onClick={async () => {
+                        await reviewGoalMutation.mutateAsync({
+                          submissionId: selectedProofSubmission.id,
+                          status: "pendente",
+                        });
+                        setSelectedProofSubmission((prev) =>
+                          prev ? { ...prev, status: "pendente", review_notes: undefined } : null
+                        );
+                      }}
+                      className="border-amber-500/40 text-amber-400 hover:bg-amber-500/10 text-xs font-bold cursor-pointer"
+                    >
+                      <RotateCcw className="h-3.5 w-3.5 mr-1" /> Voltar p/ Validação
+                    </Button>
+
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        setRejectingSubmission(selectedProofSubmission);
+                        setRejectNotes(selectedProofSubmission.review_notes || "");
+                        setRejectModalOpen(true);
+                      }}
+                      className="border-destructive/40 text-destructive hover:bg-destructive/10 text-xs font-bold cursor-pointer"
+                    >
+                      <X className="h-3.5 w-3.5 mr-1" /> Mudar p/ Recusado
+                    </Button>
+                  </>
+                )}
+
+                {selectedProofSubmission.status === "rejeitado" && (
+                  <>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={reviewGoalMutation.isPending}
+                      onClick={async () => {
+                        await reviewGoalMutation.mutateAsync({
+                          submissionId: selectedProofSubmission.id,
+                          status: "pendente",
+                        });
+                        setSelectedProofSubmission((prev) =>
+                          prev ? { ...prev, status: "pendente", review_notes: undefined } : null
+                        );
+                      }}
+                      className="border-amber-500/40 text-amber-400 hover:bg-amber-500/10 text-xs font-bold cursor-pointer"
+                    >
+                      <RotateCcw className="h-3.5 w-3.5 mr-1" /> Voltar p/ Validação
+                    </Button>
+
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        setRejectingSubmission(selectedProofSubmission);
+                        setRejectNotes(selectedProofSubmission.review_notes || "");
+                        setRejectModalOpen(true);
+                      }}
+                      className="border-muted text-muted-foreground hover:text-foreground text-xs font-bold cursor-pointer"
+                    >
+                      <Edit3 className="h-3.5 w-3.5 mr-1" /> Editar Motivo
+                    </Button>
+
+                    <Button
+                      size="sm"
+                      disabled={reviewGoalMutation.isPending}
+                      onClick={async () => {
+                        await reviewGoalMutation.mutateAsync({
+                          submissionId: selectedProofSubmission.id,
+                          status: "aprovado",
+                        });
+                        setSelectedProofSubmission((prev) =>
+                          prev ? { ...prev, status: "aprovado" } : null
+                        );
+                      }}
+                      className="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold cursor-pointer"
+                    >
+                      <Check className="h-3.5 w-3.5 mr-1" /> Mudar p/ Aprovado
+                    </Button>
+                  </>
+                )}
               </div>
             )}
           </DialogFooter>
@@ -2182,7 +2369,10 @@ function MetasPage() {
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-base font-extrabold text-destructive">
-              <AlertTriangle className="h-5 w-5" /> Recusar Comprovante de Entrega
+              <AlertTriangle className="h-5 w-5" />{" "}
+              {rejectingSubmission?.status === "rejeitado"
+                ? "Editar Motivo da Recusa"
+                : "Recusar Comprovante de Entrega"}
             </DialogTitle>
             <DialogDescription className="text-xs">
               Informe o motivo da recusa para que o integrante possa corrigir e reenviar o comprovante corretamente.
@@ -2210,10 +2400,10 @@ function MetasPage() {
               variant="destructive"
               disabled={reviewGoalMutation.isPending}
               onClick={handleConfirmReject}
-              className="font-bold"
+              className="font-bold cursor-pointer"
             >
               {reviewGoalMutation.isPending && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
-              Confirmar Recusa
+              {rejectingSubmission?.status === "rejeitado" ? "Salvar Motivo" : "Confirmar Recusa"}
             </Button>
           </DialogFooter>
         </DialogContent>

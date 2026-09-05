@@ -265,28 +265,48 @@ export function useChatRoom(
     }
   }, [activeConversationId, isLoadingMore, hasMore, queryClient]);
 
-  // Marca conversa como lida ao abrir e transmite recibo de leitura em tempo real
+  // Marca conversa como lida ao abrir e ao focar na janela, e transmite recibo de leitura em tempo real
   useEffect(() => {
     if (!activeConversationId || !currentUserId) return;
-    const nowIso = new Date().toISOString();
-    void markConversationAsRead(activeConversationId, currentUserId).then(() => {
-      queryClient.setQueryData<ChatConversation[]>(["chat_conversations", currentUserId], (old) => {
-        if (!old) return old;
-        return old.map((c) => (c.id === activeConversationId ? { ...c, unread_count: 0 } : c));
-      });
 
-      if (channelRef.current) {
-        void channelRef.current.send({
-          type: "broadcast",
-          event: "read_receipt",
-          payload: {
-            conversation_id: activeConversationId,
-            user_id: currentUserId,
-            read_at: nowIso,
-          },
+    const triggerMarkAsRead = () => {
+      if (typeof document !== "undefined" && document.hidden) return;
+      const nowIso = new Date().toISOString();
+      void markConversationAsRead(activeConversationId, currentUserId).then(() => {
+        queryClient.setQueryData<ChatConversation[]>(["chat_conversations", currentUserId], (old) => {
+          if (!old) return old;
+          return old.map((c) => (c.id === activeConversationId ? { ...c, unread_count: 0 } : c));
         });
+
+        if (channelRef.current) {
+          void channelRef.current.send({
+            type: "broadcast",
+            event: "read_receipt",
+            payload: {
+              conversation_id: activeConversationId,
+              user_id: currentUserId,
+              read_at: nowIso,
+            },
+          });
+        }
+      });
+    };
+
+    triggerMarkAsRead();
+
+    const handleFocusOrVisibility = () => {
+      if (typeof document !== "undefined" && !document.hidden) {
+        triggerMarkAsRead();
       }
-    });
+    };
+
+    window.addEventListener("focus", handleFocusOrVisibility);
+    document.addEventListener("visibilitychange", handleFocusOrVisibility);
+
+    return () => {
+      window.removeEventListener("focus", handleFocusOrVisibility);
+      document.removeEventListener("visibilitychange", handleFocusOrVisibility);
+    };
   }, [activeConversationId, currentUserId, queryClient]);
 
   // Realtime subscription para mensagens, reações e indicador de digitação (Broadcast)
@@ -331,7 +351,6 @@ export function useChatRoom(
             }
 
             const nowIso = new Date().toISOString();
-            void markConversationAsRead(activeConversationId, currentUserId);
             if (channelRef.current) {
               void channelRef.current.send({
                 type: "broadcast",
@@ -343,15 +362,22 @@ export function useChatRoom(
                   delivered_at: nowIso,
                 },
               });
-              void channelRef.current.send({
-                type: "broadcast",
-                event: "read_receipt",
-                payload: {
-                  conversation_id: activeConversationId,
-                  user_id: currentUserId,
-                  read_at: nowIso,
-                },
-              });
+            }
+
+            // Se o usuário está com o chat aberto e a aba visível, marca como lida imediatamente
+            if (typeof document === "undefined" || !document.hidden) {
+              void markConversationAsRead(activeConversationId, currentUserId);
+              if (channelRef.current) {
+                void channelRef.current.send({
+                  type: "broadcast",
+                  event: "read_receipt",
+                  payload: {
+                    conversation_id: activeConversationId,
+                    user_id: currentUserId,
+                    read_at: nowIso,
+                  },
+                });
+              }
             }
           }
 
@@ -529,7 +555,11 @@ export function useChatRoom(
         queryClient.setQueryData<ChatMessage[]>(["chat_messages", activeConversationId], (old = []) =>
           old.map((m) => {
             if (m.sender_id === currentUserId || m.is_self) {
-              return { ...m, status: "read" as const };
+              return {
+                ...m,
+                status: "read" as const,
+                updated_at: m.updated_at || read_at || new Date().toISOString(),
+              };
             }
             return m;
           })
@@ -538,7 +568,7 @@ export function useChatRoom(
       // 7. Recibo de Entrega em tempo real via Broadcast
       .on("broadcast", { event: "delivery_receipt" }, ({ payload }) => {
         if (!payload || payload.user_id === currentUserId) return;
-        const { message_ids } = payload;
+        const { message_ids, delivered_at } = payload as any;
 
         queryClient.setQueryData<ChatMessage[]>(["chat_messages", activeConversationId], (old = []) =>
           old.map((m) => {
@@ -547,7 +577,11 @@ export function useChatRoom(
               m.status === "sent" &&
               (!message_ids || message_ids.includes(m.id))
             ) {
-              return { ...m, status: "delivered" as const };
+              return {
+                ...m,
+                status: "delivered" as const,
+                updated_at: m.updated_at || delivered_at || new Date().toISOString(),
+              };
             }
             return m;
           })

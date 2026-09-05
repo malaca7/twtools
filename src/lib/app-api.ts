@@ -2486,7 +2486,7 @@ export async function submitGoalDelivery(payload: SubmitGoalPayload): Promise<Go
 
 export async function reviewGoalSubmission(
   submissionId: string,
-  payload: { status: "aprovado" | "rejeitado"; review_notes?: string }
+  payload: { status: "aprovado" | "rejeitado" | "pendente"; review_notes?: string }
 ): Promise<GoalSubmission> {
   const { data: { session } } = await supabase.auth.getSession();
   let reviewerName = "Liderança";
@@ -2504,13 +2504,18 @@ export async function reviewGoalSubmission(
   const target = currentList.find((s) => s.id === submissionId);
   if (!target) throw new Error("Entrega de meta não encontrada.");
 
+  const isPending = payload.status === "pendente";
   const updated: GoalSubmission = {
     ...target,
     status: payload.status,
-    reviewed_by: session?.user?.id || null,
-    reviewed_by_name: reviewerName,
-    reviewed_at: new Date().toISOString(),
-    review_notes: payload.review_notes?.trim() || null,
+    reviewed_by: isPending ? null : session?.user?.id || null,
+    reviewed_by_name: isPending ? null : reviewerName,
+    reviewed_at: isPending ? null : new Date().toISOString(),
+    review_notes: isPending
+      ? null
+      : payload.review_notes !== undefined
+      ? (payload.review_notes?.trim() || null)
+      : target.review_notes,
     updated_at: new Date().toISOString(),
   };
 
@@ -2520,14 +2525,18 @@ export async function reviewGoalSubmission(
   await persistRolePermissionsData(GOAL_SUBMISSIONS_DB_LEVEL, { submissions: updatedList });
 
   void logAuditAction(
-    payload.status === "aprovado" ? "approve_goal_delivery" : "reject_goal_delivery",
+    payload.status === "aprovado"
+      ? "approve_goal_delivery"
+      : payload.status === "rejeitado"
+      ? "reject_goal_delivery"
+      : "reopen_goal_delivery",
     "goals",
     {
       goal_title: target.goal_title,
       member_name: target.member_name,
       amount: target.amount,
-      reviewed_by: reviewerName,
-      review_notes: payload.review_notes || null,
+      reviewed_by: isPending ? null : reviewerName,
+      review_notes: isPending ? null : payload.review_notes || null,
     },
     undefined,
     submissionId

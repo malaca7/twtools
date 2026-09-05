@@ -325,7 +325,7 @@ export function useReviewGoalSubmission() {
       reviewNotes,
     }: {
       submissionId: string;
-      status: "aprovado" | "rejeitado";
+      status: "aprovado" | "rejeitado" | "pendente";
       reviewNotes?: string;
     }) => reviewGoalSubmission(submissionId, { status, review_notes: reviewNotes }),
     onSuccess: (updated) => {
@@ -333,8 +333,10 @@ export function useReviewGoalSubmission() {
       broadcastMetasRealtimeUpdate("submissions");
       if (updated.status === "aprovado") {
         toast.success(`Entrega de ${updated.member_name} foi APROVADA com sucesso!`);
-      } else {
+      } else if (updated.status === "rejeitado") {
         toast.info(`Entrega de ${updated.member_name} foi RECUSADA.`);
+      } else {
+        toast.info(`Entrega de ${updated.member_name} retornou para VALIDAÇÃO.`);
       }
     },
     onError: (err: any) => {

@@ -204,82 +204,105 @@ export function MessageInfoModal({
         </div>
 
         {/* CASO 1: CONVERSA PRIVADA (1:1) */}
-        {!isGroup && (
-          <div className="p-4 space-y-3 bg-[#111b21]">
-            <div className="text-xs font-bold text-[#e9edef] flex items-center gap-1.5 mb-1">
-              <Users className="h-3.5 w-3.5 text-[#00a884]" />
-              <span>Status com o destinatário</span>
-            </div>
+        {!isGroup && (() => {
+          const isDirectRead = receiptSummary.status === "read" || receiptSummary.readCount > 0;
+          const directReadTime =
+            receiptSummary.readParticipants[0]?.timestamp ||
+            (isDirectRead ? message.updated_at || message.created_at : null);
 
-            <div className="divide-y divide-white/5 rounded-xl bg-[#202c33] border border-white/5 overflow-hidden">
-              {/* LIDA */}
-              <div className="p-3 flex items-center justify-between gap-3 hover:bg-white/5 transition-colors">
-                <div className="flex items-center gap-3 min-w-0">
-                  <div className="h-8 w-8 rounded-lg bg-[#53bdeb]/10 text-[#53bdeb] flex items-center justify-center shrink-0">
-                    <CheckCheck className="h-4 w-4 stroke-[2.5]" />
+          const isDirectDelivered =
+            isDirectRead ||
+            receiptSummary.status === "delivered" ||
+            receiptSummary.deliveredCount > 0 ||
+            message.status === "delivered";
+          const directDeliveredTime =
+            receiptSummary.deliveredParticipants[0]?.timestamp ||
+            directReadTime ||
+            message.created_at;
+
+          return (
+            <div className="p-4 space-y-3 bg-[#111b21]">
+              <div className="text-xs font-bold text-[#e9edef] flex items-center gap-1.5 mb-1">
+                <Users className="h-3.5 w-3.5 text-[#00a884]" />
+                <span>Status com o destinatário</span>
+              </div>
+
+              <div className="divide-y divide-white/5 rounded-xl bg-[#202c33] border border-white/5 overflow-hidden">
+                {/* LIDA */}
+                <div className="p-3 flex items-center justify-between gap-3 hover:bg-white/5 transition-colors">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div
+                      className={cn(
+                        "h-8 w-8 rounded-lg flex items-center justify-center shrink-0 transition-colors",
+                        isDirectRead ? "bg-[#53bdeb]/15 text-[#53bdeb]" : "bg-white/5 text-[#8696a0]"
+                      )}
+                    >
+                      <CheckCheck className={cn("h-4 w-4 stroke-[2.5]", isDirectRead ? "text-[#53bdeb]" : "text-[#8696a0]")} />
+                    </div>
+                    <div>
+                      <h5 className="text-xs font-bold text-[#e9edef]">Lida</h5>
+                      <p className="text-[11px] text-[#8696a0]">
+                        {isDirectRead
+                          ? formatWhatsAppDateTime(directReadTime)
+                          : "Ainda não visualizada"}
+                      </p>
+                    </div>
                   </div>
-                  <div>
-                    <h5 className="text-xs font-bold text-[#e9edef]">Lida</h5>
-                    <p className="text-[11px] text-[#8696a0]">
-                      {receiptSummary.readCount > 0
-                        ? formatWhatsAppDateTime(receiptSummary.readParticipants[0]?.timestamp)
-                        : "Ainda não visualizada"}
-                    </p>
-                  </div>
+                  {isDirectRead && (
+                    <Badge className="bg-[#53bdeb]/20 text-[#53bdeb] border-[#53bdeb]/30 text-[10px] font-bold">
+                      Visualizada
+                    </Badge>
+                  )}
                 </div>
-                {receiptSummary.readCount > 0 && (
-                  <Badge className="bg-[#53bdeb]/20 text-[#53bdeb] border-[#53bdeb]/30 text-[10px] font-bold">
-                    Visualizada
+
+                {/* ENTREGUE */}
+                <div className="p-3 flex items-center justify-between gap-3 hover:bg-white/5 transition-colors">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div
+                      className={cn(
+                        "h-8 w-8 rounded-lg flex items-center justify-center shrink-0 transition-colors",
+                        isDirectDelivered ? "bg-[#8696a0]/15 text-[#8696a0]" : "bg-white/5 text-[#8696a0]"
+                      )}
+                    >
+                      <CheckCheck className="h-4 w-4 stroke-[2.2]" />
+                    </div>
+                    <div>
+                      <h5 className="text-xs font-bold text-[#e9edef]">Entregue</h5>
+                      <p className="text-[11px] text-[#8696a0]">
+                        {isDirectDelivered
+                          ? formatWhatsAppDateTime(directDeliveredTime)
+                          : "Aguardando entrega"}
+                      </p>
+                    </div>
+                  </div>
+                  {isDirectDelivered && (
+                    <Badge className="bg-[#8696a0]/20 text-[#8696a0] border-[#8696a0]/30 text-[10px] font-bold">
+                      Entregue
+                    </Badge>
+                  )}
+                </div>
+
+                {/* ENVIADA */}
+                <div className="p-3 flex items-center justify-between gap-3 hover:bg-white/5 transition-colors">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="h-8 w-8 rounded-lg bg-[#8696a0]/10 text-[#8696a0] flex items-center justify-center shrink-0">
+                      <Check className="h-4 w-4 stroke-[2.5]" />
+                    </div>
+                    <div>
+                      <h5 className="text-xs font-bold text-[#e9edef]">Enviada</h5>
+                      <p className="text-[11px] text-[#8696a0]">
+                        {formatWhatsAppDateTime(message.created_at)}
+                      </p>
+                    </div>
+                  </div>
+                  <Badge className="bg-white/10 text-white/80 border-white/10 text-[10px] font-mono">
+                    Servidor
                   </Badge>
-                )}
-              </div>
-
-              {/* ENTREGUE */}
-              <div className="p-3 flex items-center justify-between gap-3 hover:bg-white/5 transition-colors">
-                <div className="flex items-center gap-3 min-w-0">
-                  <div className="h-8 w-8 rounded-lg bg-[#8696a0]/10 text-[#8696a0] flex items-center justify-center shrink-0">
-                    <CheckCheck className="h-4 w-4 stroke-[2.2]" />
-                  </div>
-                  <div>
-                    <h5 className="text-xs font-bold text-[#e9edef]">Entregue</h5>
-                    <p className="text-[11px] text-[#8696a0]">
-                      {receiptSummary.readCount > 0 || receiptSummary.deliveredCount > 0
-                        ? formatWhatsAppDateTime(
-                            receiptSummary.readParticipants[0]?.timestamp ||
-                              receiptSummary.deliveredParticipants[0]?.timestamp ||
-                              message.created_at
-                          )
-                        : "Aguardando entrega"}
-                    </p>
-                  </div>
                 </div>
-                {(receiptSummary.readCount > 0 || receiptSummary.deliveredCount > 0) && (
-                  <Badge className="bg-[#8696a0]/20 text-[#8696a0] border-[#8696a0]/30 text-[10px] font-bold">
-                    Entregue
-                  </Badge>
-                )}
-              </div>
-
-              {/* ENVIADA */}
-              <div className="p-3 flex items-center justify-between gap-3 hover:bg-white/5 transition-colors">
-                <div className="flex items-center gap-3 min-w-0">
-                  <div className="h-8 w-8 rounded-lg bg-[#8696a0]/10 text-[#8696a0] flex items-center justify-center shrink-0">
-                    <Check className="h-4 w-4 stroke-[2.5]" />
-                  </div>
-                  <div>
-                    <h5 className="text-xs font-bold text-[#e9edef]">Enviada</h5>
-                    <p className="text-[11px] text-[#8696a0]">
-                      {formatWhatsAppDateTime(message.created_at)}
-                    </p>
-                  </div>
-                </div>
-                <Badge className="bg-white/10 text-white/80 border-white/10 text-[10px] font-mono">
-                  Servidor
-                </Badge>
               </div>
             </div>
-          </div>
-        )}
+          );
+        })()}
 
         {/* CASO 2: CONVERSA EM GRUPO */}
         {isGroup && (

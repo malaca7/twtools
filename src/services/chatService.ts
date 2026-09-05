@@ -716,13 +716,23 @@ export function getMessageReceiptInfo(
 
   recipients.forEach((p) => {
     const prof = p.profile || getCachedMember(p.user_id);
-    const hasRead = Boolean(p.last_read_at && new Date(p.last_read_at).getTime() >= msgTime);
+    const hasRead = Boolean(
+      message.status === "read" ||
+      (recipients.length === 1 && (message.status as string) === "read") ||
+      (p.last_read_at && new Date(p.last_read_at).getTime() >= msgTime)
+    );
 
     const isDelivered =
       hasRead ||
+      message.status === "delivered" ||
       prof?.presence_status === "online" ||
-      (prof?.last_seen && new Date(prof.last_seen).getTime() >= msgTime) ||
-      message.status === "delivered";
+      (prof?.last_seen && new Date(prof.last_seen).getTime() >= msgTime);
+
+    const readTimestamp = p.last_read_at || (hasRead ? message.updated_at || message.created_at : null);
+    const delivTimestamp =
+      prof?.last_seen && new Date(prof.last_seen).getTime() >= msgTime
+        ? prof.last_seen
+        : readTimestamp || message.created_at;
 
     const baseInfo: MessageReceiptParticipantInfo = {
       user_id: p.user_id,
@@ -734,13 +744,7 @@ export function getMessageReceiptInfo(
       presence_status: prof?.presence_status,
       last_seen: prof?.last_seen || null,
       status: hasRead ? "read" : isDelivered ? "delivered" : "pending",
-      timestamp: hasRead
-        ? p.last_read_at
-        : isDelivered
-        ? prof?.last_seen && new Date(prof.last_seen).getTime() >= msgTime
-          ? prof.last_seen
-          : message.created_at
-        : null,
+      timestamp: hasRead ? readTimestamp : isDelivered ? delivTimestamp : null,
     };
 
     if (hasRead) {
