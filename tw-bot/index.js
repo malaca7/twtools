@@ -973,7 +973,6 @@ const onReady = async () => {
 };
 
 client.once("clientReady", onReady);
-client.once("ready", onReady);
 
 // 1. Escuta em tempo real: evento userUpdate do Discord
 client.on("userUpdate", async (oldUser, newUser) => {
