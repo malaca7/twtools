@@ -33,6 +33,7 @@ import {
   Receipt,
   AlertTriangle,
   Info,
+  CalendarDays,
   Award,
   RotateCcw,
   Edit3,
