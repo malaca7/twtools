@@ -33,6 +33,8 @@ let membersCache = new Map();
 let productsCache = new Map();
 let bausCache = new Map();
 const processedTestIds = new Set();
+const processedLogIds = new Set();
+let lastAuditLogPollTimestamp = new Date(Date.now() - 30000).toISOString();
 let testSharedChannel = null;
 
 /**
@@ -152,7 +154,7 @@ async function refreshAuxiliaryCaches() {
   try {
     const [profilesRes, productsRes, bausRes] = await Promise.all([
       supabase.from("profiles").select("id, user_id, nome, nickname, discord_id, discord_avatar_url, avatar_url, discord_username"),
-      supabase.from("produtos").select("id, nome, categoria_id, preco_sugerido"),
+      supabase.from("products").select("id, nome, categoria, preco_sugerido, preco_venda"),
       supabase.from("baus").select("id, nome"),
     ]);
 
@@ -240,6 +242,12 @@ function parseAuditLogForDiscord(log) {
   let fields = [];
 
   switch (action) {
+    case "batch_movement":
+    case "view_log_detail":
+    case "page_view":
+      // Ignora logs internos que não devem gerar embed no Discord
+      return null;
+
     // 0. TESTE DE CONEXÃO DIRETO VIA BOT
     case "test_discord_log": {
       category = "system";
@@ -314,6 +322,7 @@ function parseAuditLogForDiscord(log) {
         { name: "🗄️ Baú", value: bauName, inline: true },
         { name: "👤 Responsável", value: actorMention, inline: true },
         ...(data.resulting_balance !== undefined ? [{ name: "📊 Saldo Resultante", value: `\`${num(data.resulting_balance)} un\``, inline: true }] : []),
+        ...(data.chest_balance !== undefined && data.resulting_balance === undefined ? [{ name: "📊 Saldo Baú", value: `\`${num(data.chest_balance)} un\``, inline: true }] : []),
         ...(data.reason ? [{ name: "📝 Motivo / Observação", value: String(data.reason), inline: false }] : []),
       ];
       break;
@@ -516,11 +525,12 @@ function parseAuditLogForDiscord(log) {
     }
 
     // 8. LOGINS & SESSÕES
-    case "login": {
+    case "login":
+    case "session_start": {
       category = "logins";
       color = discordConfig.embedColors.logins || "#10B981";
       title = "🟢 Membro Conectado (Login)";
-      description = `O membro ${actorMention} realizou login na plataforma Twin Wheels via Discord.`;
+      description = `O membro ${actorMention} conectou-se na plataforma Twin Wheels.`;
       fields = [
         { name: "👤 Membro", value: actorMention, inline: true },
         { name: "🌐 Plataforma", value: "`Twin Wheels Web`", inline: true },
@@ -619,7 +629,7 @@ async function respondTestResult(testId, result) {
  * Roteia e envia o embed do log diretamente para o canal do Discord através do Bot
  */
 async function dispatchAuditLogToDiscord(log) {
-  if (!discordConfig.enabled) return;
+  if (!discordConfig.enabled || !log) return;
 
   const testId = log?.test_id || log?.new_data?.test_id;
   if (testId) {
@@ -628,8 +638,35 @@ async function dispatchAuditLogToDiscord(log) {
     setTimeout(() => processedTestIds.delete(testId), 30000);
   }
 
+  // Deduplicação inteligente de logs normais para evitar disparos duplicados (RPC + Client)
+  const action = log.action || "";
+  const data = log.new_data || log.old_data || {};
+  let dedupKey = log.id;
+  if (action === "create_movement") {
+    const timeBlock = Math.floor((log.created_at ? new Date(log.created_at).getTime() : Date.now()) / 4000);
+    dedupKey = `mov_${data.product_id}_${data.bau_id}_${data.quantity}_${data.type}_${timeBlock}`;
+  } else if (action === "create_sale") {
+    const timeBlock = Math.floor((log.created_at ? new Date(log.created_at).getTime() : Date.now()) / 4000);
+    dedupKey = `sale_${data.product_id}_${data.quantity}_${data.total_price}_${timeBlock}`;
+  } else if (action === "create_cash_movement") {
+    const timeBlock = Math.floor((log.created_at ? new Date(log.created_at).getTime() : Date.now()) / 4000);
+    dedupKey = `cash_${data.amount}_${data.type}_${timeBlock}`;
+  } else if (!dedupKey) {
+    dedupKey = `${action}_${log.user_id}_${log.created_at || Date.now()}`;
+  }
+
+  if (dedupKey) {
+    if (processedLogIds.has(dedupKey)) return;
+    processedLogIds.add(dedupKey);
+    if (processedLogIds.size > 2000) {
+      const first = processedLogIds.values().next().value;
+      processedLogIds.delete(first);
+    }
+  }
+
   try {
     const parsed = parseAuditLogForDiscord(log);
+    if (!parsed) return; // Ignora logs como batch_movement, view_log_detail, etc.
 
     // Se for log normal (não for teste), verifica se a categoria do evento está habilitada
     if (log.action !== "test_discord_log" && discordConfig.enabledEvents && discordConfig.enabledEvents[parsed.category] === false) {
@@ -749,11 +786,51 @@ async function dispatchAuditLogToDiscord(log) {
 }
 
 /**
+ * Polling contínuo de novos logs de auditoria como garantia de 100% de entrega
+ */
+async function pollUnprocessedAuditLogs() {
+  if (!discordConfig.enabled) return;
+  try {
+    const { data, error } = await supabase
+      .from("audit_logs")
+      .select("*")
+      .gte("created_at", lastAuditLogPollTimestamp)
+      .order("created_at", { ascending: true })
+      .limit(50);
+
+    if (error || !data || data.length === 0) return;
+
+    for (const log of data) {
+      if (log.created_at && log.created_at > lastAuditLogPollTimestamp) {
+        lastAuditLogPollTimestamp = log.created_at;
+      }
+      dispatchAuditLogToDiscord(log);
+    }
+  } catch (err) {
+    console.warn("⚠️ [POLL AUDIT LOGS ERRO]:", err.message);
+  }
+}
+
+/**
  * Escuta em tempo real inserções na tabela `audit_logs` e broadcasts
  */
 function setupRealtimeListeners() {
-  console.log("⚡ [REALTIME] Conectando listener de audit_logs e role_permissions no Supabase...");
+  console.log("⚡ [REALTIME] Conectando listeners de logs e canais no Supabase...");
 
+  // 1. Canal de broadcast em tempo real para novos logs emitidos instantaneamente pelo frontend (<50ms)
+  supabase
+    .channel("system-audit-logs")
+    .on("broadcast", { event: "new_audit_log" }, (payload) => {
+      if (payload?.payload) {
+        console.log(`⚡ [BROADCAST] Novo log recebido em tempo real: ${payload.payload.action}`);
+        dispatchAuditLogToDiscord(payload.payload);
+      }
+    })
+    .subscribe((status) => {
+      console.log(`📡 [AUDIT LOGS BROADCAST STATUS] status: ${status}`);
+    });
+
+  // 2. Canal de postgres_changes caso esteja ativo no banco de dados
   supabase
     .channel("audit-logs-to-discord-bot")
     .on(
@@ -765,6 +842,7 @@ function setupRealtimeListeners() {
       },
       (payload) => {
         if (payload && payload.new) {
+          console.log(`📡 [POSTGRES_CHANGES] Insert recebido em audit_logs: ${payload.new.action}`);
           dispatchAuditLogToDiscord(payload.new);
         }
       }
@@ -787,7 +865,7 @@ function setupRealtimeListeners() {
       console.log(`📡 [REALTIME STATUS] Canal de logs do Supabase status: ${status}`);
     });
 
-  // Canal de Broadcast para sincronização instantânea (<50ms) enviada pelo frontend
+  // 3. Canal de Broadcast para sincronização instantânea de configurações
   supabase
     .channel("system-discord-config-sync")
     .on("broadcast", { event: "discord_config_updated" }, (payload) => {
@@ -802,7 +880,7 @@ function setupRealtimeListeners() {
     })
     .subscribe();
 
-  // Canal persistente compartilhado para testes instantâneos bidirecionais
+  // 4. Canal persistente compartilhado para testes instantâneos bidirecionais
   testSharedChannel = supabase.channel("system-discord-test-channel");
   testSharedChannel
     .on("broadcast", { event: "trigger_test" }, (payload) => {
@@ -814,6 +892,9 @@ function setupRealtimeListeners() {
     .subscribe((status) => {
       console.log(`📡 [TEST CHANNEL STATUS] status: ${status}`);
     });
+
+  // 5. Polling Engine de segurança executado a cada 3 segundos
+  setInterval(pollUnprocessedAuditLogs, 3000);
 }
 
 /**

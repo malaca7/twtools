@@ -991,6 +991,16 @@ function getBrowserUserAgent(): string {
   return "server";
 }
 
+let auditBroadcastChannel: any = null;
+
+function getAuditBroadcastChannel() {
+  if (!auditBroadcastChannel) {
+    auditBroadcastChannel = supabase.channel("system-audit-logs");
+    auditBroadcastChannel.subscribe();
+  }
+  return auditBroadcastChannel;
+}
+
 export async function logAuditAction(
   action: string,
   entity: string,
@@ -1019,6 +1029,16 @@ export async function logAuditAction(
     },
   };
 
+  const logPayload = {
+    user_id: userId,
+    action,
+    entity,
+    entity_id: entityId || null,
+    old_data: oldData || null,
+    new_data: enrichedNewData,
+    created_at: new Date().toISOString(),
+  };
+
   try {
     // 1. Try SECURITY DEFINER RPC first
     const { error: rpcError } = await (supabase.rpc as any)("log_audit_action_rpc", {
@@ -1031,19 +1051,23 @@ export async function logAuditAction(
 
     if (rpcError) {
       // 2. Fallback to direct insert
-      const { error } = await supabase.from("audit_logs").insert({
-        user_id: userId,
-        action,
-        entity,
-        entity_id: entityId || null,
-        old_data: oldData || null,
-        new_data: enrichedNewData,
-        created_at: new Date().toISOString(),
-      } as any);
+      const { error } = await supabase.from("audit_logs").insert(logPayload as any);
 
       if (error) {
         console.error("Erro ao inserir log de auditoria:", error);
       }
+    }
+
+    // 3. Broadcast instantâneo em tempo real para o tw-bot na Discloud (< 50ms)
+    try {
+      const ch = getAuditBroadcastChannel();
+      ch.send({
+        type: "broadcast",
+        event: "new_audit_log",
+        payload: logPayload,
+      });
+    } catch (bErr) {
+      console.warn("Falha no broadcast de audit_log:", bErr);
     }
   } catch (err) {
     console.error("Exceção ao inserir log de auditoria:", err);
