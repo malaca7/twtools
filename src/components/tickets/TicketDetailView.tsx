@@ -21,6 +21,7 @@ import {
   Eye,
   Info,
   SlidersHorizontal,
+  Trash2,
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -65,6 +66,7 @@ import {
   useUpdateTicketStatus,
   useCloseTicket,
   useReopenTicket,
+  useDeleteTicket,
 } from "@/hooks/useTickets";
 import { useAuth } from "@/hooks/useAuth";
 import { useMembers } from "@/hooks/useData";
@@ -90,6 +92,7 @@ export function TicketDetailView({ ticket, onClose, canManage }: TicketDetailVie
   const updateStatusMutation = useUpdateTicketStatus();
   const closeMutation = useCloseTicket();
   const reopenMutation = useReopenTicket();
+  const deleteMutation = useDeleteTicket();
 
   // Local state for sending reply
   const [replyContent, setReplyContent] = useState("");
@@ -106,6 +109,7 @@ export function TicketDetailView({ ticket, onClose, canManage }: TicketDetailVie
 
   const [closeDialogOpen, setCloseDialogOpen] = useState(false);
   const [closeReason, setCloseReason] = useState("");
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
 
   const [lightboxImage, setLightboxImage] = useState<TicketAttachment | null>(null);
 
@@ -236,6 +240,14 @@ export function TicketDetailView({ ticket, onClose, canManage }: TicketDetailVie
       });
       setCloseDialogOpen(false);
       setCloseReason("");
+    } catch {}
+  };
+
+  const handleConfirmDelete = async () => {
+    try {
+      await deleteMutation.mutateAsync(ticket.id);
+      setDeleteDialogOpen(false);
+      onClose();
     } catch {}
   };
 
@@ -433,6 +445,20 @@ export function TicketDetailView({ ticket, onClose, canManage }: TicketDetailVie
               >
                 <RefreshCw className="h-3.5 w-3.5" />
                 Reabrir Chamado
+              </Button>
+            )}
+
+            {/* Excluir Chamado (Apenas Gerência / Liderança / Dev) */}
+            {effectiveCanManage && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setDeleteDialogOpen(true)}
+                className="h-7 text-xs gap-1.5 border-rose-500/30 bg-rose-500/10 text-rose-400 hover:bg-rose-500/20"
+                title="Excluir chamado permanentemente"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+                Excluir
               </Button>
             )}
           </div>
@@ -894,6 +920,43 @@ export function TicketDetailView({ ticket, onClose, canManage }: TicketDetailVie
               className="text-xs bg-rose-600 hover:bg-rose-700 text-white font-semibold"
             >
               Fechar Ticket
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal Confirmar Exclusão */}
+      <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <DialogContent className="sm:max-w-md bg-card border-border">
+          <DialogHeader>
+            <div className="flex items-center gap-2 text-rose-400">
+              <AlertTriangle className="h-5 w-5" />
+              <DialogTitle>Excluir Chamado Permanentemente</DialogTitle>
+            </div>
+            <DialogDescription className="text-xs text-muted-foreground pt-1">
+              Tem certeza que deseja excluir o chamado{" "}
+              <strong className="text-foreground">{formatTicketNumber(ticket.ticket_number)} — {ticket.subject}</strong>?
+              Esta ação não pode ser desfeita e removerá todo o histórico de mensagens e anexos.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2 sm:gap-0 pt-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setDeleteDialogOpen(false)}
+              className="text-xs"
+            >
+              Cancelar
+            </Button>
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={handleConfirmDelete}
+              disabled={deleteMutation.isPending}
+              className="text-xs gap-1.5 bg-rose-600 hover:bg-rose-700 text-white"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+              {deleteMutation.isPending ? "Excluindo..." : "Confirmar Exclusão"}
             </Button>
           </DialogFooter>
         </DialogContent>

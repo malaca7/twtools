@@ -2585,27 +2585,105 @@ const TICKETS_DB_LEVEL = "system_tickets_data";
 
 let ticketsBroadcastChannel: any = null;
 
+export function getTicketsRealtimeChannel() {
+  if (!ticketsBroadcastChannel) {
+    ticketsBroadcastChannel = supabase.channel("tw_tickets_realtime_sync", {
+      config: { broadcast: { self: true } },
+    });
+
+    // 1. Escutar broadcast tickets_sync enviado por qualquer outro cliente/dispositivo
+    ticketsBroadcastChannel.on("broadcast", { event: "tickets_sync" }, () => {
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("tw_tickets_updated"));
+      }
+    });
+
+    // 2. Escutar inserções em audit_logs para entidade 'tickets' (registro leve <1KB, sempre transmitido pelo WAL)
+    ticketsBroadcastChannel.on(
+      "postgres_changes",
+      {
+        event: "INSERT",
+        schema: "public",
+        table: "audit_logs",
+      },
+      (payload: any) => {
+        const row = payload.new;
+        if (row?.entity === "tickets" || (row?.action && String(row.action).includes("ticket"))) {
+          if (typeof window !== "undefined") {
+            window.dispatchEvent(new CustomEvent("tw_tickets_updated"));
+          }
+        }
+      }
+    );
+
+    // 3. Escutar mudanças em role_permissions para level = 'system_tickets_data'
+    ticketsBroadcastChannel.on(
+      "postgres_changes",
+      {
+        event: "*",
+        schema: "public",
+        table: "role_permissions",
+      },
+      (payload: any) => {
+        const row = payload.new || payload.old;
+        if (row?.level === TICKETS_DB_LEVEL || !row?.level) {
+          if (typeof window !== "undefined") {
+            window.dispatchEvent(new CustomEvent("tw_tickets_updated"));
+          }
+        }
+      }
+    );
+
+    ticketsBroadcastChannel.subscribe();
+  }
+  return ticketsBroadcastChannel;
+}
+
 export function broadcastTicketsRealtimeUpdate(): void {
   try {
     if (typeof window !== "undefined") {
+      // 1. Notificar a aba atual
       window.dispatchEvent(new CustomEvent("tw_tickets_updated"));
+
+      // 2. Disparar storage event para todas as outras abas abertas no mesmo navegador
+      try {
+        localStorage.setItem("tw_tickets_sync_ping", String(Date.now()));
+      } catch {}
+
+      // 3. Notificar via BroadcastChannel do navegador
       try {
         const bc = new BroadcastChannel("tw_tickets_channel");
         bc.postMessage({ type: "tickets_sync", timestamp: Date.now() });
-        bc.close();
+        setTimeout(() => {
+          try {
+            bc.close();
+          } catch {}
+        }, 1000);
       } catch {}
     }
 
-    if (!ticketsBroadcastChannel) {
-      ticketsBroadcastChannel = supabase.channel("tw_tickets_realtime_sync");
-      ticketsBroadcastChannel.subscribe();
+    // 4. Notificar outros computadores/usuários via WebSocket do Supabase Realtime
+    const ch = getTicketsRealtimeChannel();
+    const sendMsg = () => {
+      void ch.send({
+        type: "broadcast",
+        event: "tickets_sync",
+        payload: { timestamp: Date.now() },
+      });
+    };
+
+    if (ch.state === "joined") {
+      sendMsg();
+    } else {
+      ch.subscribe((status: string) => {
+        if (status === "SUBSCRIBED") {
+          sendMsg();
+        }
+      });
     }
-    void ticketsBroadcastChannel.send({
-      type: "broadcast",
-      event: "tickets_sync",
-      payload: { timestamp: Date.now() },
-    });
-  } catch {}
+  } catch (err) {
+    console.warn("Erro ao emitir broadcast de tickets:", err);
+  }
 }
 
 function getLocalTickets(): Ticket[] {
@@ -2799,6 +2877,7 @@ export async function createTicket(payload: CreateTicketPayload): Promise<Ticket
   };
 
   const updatedRawList = [newTicket, ...allRawTickets.filter((t) => t.id !== newTicket.id)];
+  setLocalTickets(updatedRawList, false);
   await persistRolePermissionsData(TICKETS_DB_LEVEL, { tickets: updatedRawList });
 
   broadcastTicketsRealtimeUpdate();
@@ -2882,6 +2961,7 @@ export async function addTicketMessage(
   };
 
   allRawTickets[targetIndex] = updatedTicket;
+  setLocalTickets(allRawTickets, false);
   await persistRolePermissionsData(TICKETS_DB_LEVEL, { tickets: allRawTickets });
 
   broadcastTicketsRealtimeUpdate();
@@ -2931,6 +3011,7 @@ export async function claimTicket(ticketId: string): Promise<Ticket> {
   };
 
   allRawTickets[targetIndex] = updatedTicket;
+  setLocalTickets(allRawTickets, false);
   await persistRolePermissionsData(TICKETS_DB_LEVEL, { tickets: allRawTickets });
 
   broadcastTicketsRealtimeUpdate();
@@ -2999,6 +3080,7 @@ export async function transferTicket(
   }
 
   allRawTickets[targetIndex] = updatedTicket;
+  setLocalTickets(allRawTickets, false);
   await persistRolePermissionsData(TICKETS_DB_LEVEL, { tickets: allRawTickets });
 
   broadcastTicketsRealtimeUpdate();
@@ -3064,6 +3146,7 @@ export async function updateTicketStatus(
   };
 
   allRawTickets[targetIndex] = updatedTicket;
+  setLocalTickets(allRawTickets, false);
   await persistRolePermissionsData(TICKETS_DB_LEVEL, { tickets: allRawTickets });
 
   broadcastTicketsRealtimeUpdate();
@@ -3124,6 +3207,7 @@ export async function closeTicket(
   };
 
   allRawTickets[targetIndex] = updatedTicket;
+  setLocalTickets(allRawTickets, false);
   await persistRolePermissionsData(TICKETS_DB_LEVEL, { tickets: allRawTickets });
 
   broadcastTicketsRealtimeUpdate();
@@ -3173,6 +3257,7 @@ export async function reopenTicket(ticketId: string): Promise<Ticket> {
   };
 
   allRawTickets[targetIndex] = updatedTicket;
+  setLocalTickets(allRawTickets, false);
   await persistRolePermissionsData(TICKETS_DB_LEVEL, { tickets: allRawTickets });
 
   broadcastTicketsRealtimeUpdate();
@@ -3203,6 +3288,7 @@ export async function deleteTicket(ticketId: string): Promise<void> {
   const allRawTickets = await fetchAllRawTickets();
   const target = allRawTickets.find((t) => t.id === ticketId);
   const updatedList = allRawTickets.filter((t) => t.id !== ticketId);
+  setLocalTickets(updatedList, false);
 
   await persistRolePermissionsData(TICKETS_DB_LEVEL, { tickets: updatedList });
 

@@ -88,6 +88,13 @@ function TicketsPage() {
     }
   }, [canSeeAll, hasManuallySelectedTab]);
 
+  // Limpar seleção caso o ticket selecionado seja excluído em tempo real
+  useEffect(() => {
+    if (selectedTicketId && tickets.length > 0 && !tickets.some((t) => t.id === selectedTicketId)) {
+      setSelectedTicketId(null);
+    }
+  }, [tickets, selectedTicketId]);
+
   // Filters
   const [searchTerm, setSearchTerm] = useState("");
   const [filterCategory, setFilterCategory] = useState<string>("all");
