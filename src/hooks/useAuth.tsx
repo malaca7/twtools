@@ -5,7 +5,7 @@ import { getCurrentAuth, logoutFromApp } from "@/lib/app-api";
 import type { AppUser, AuthState, Profile, SignupRequestStatus } from "@/lib/app-types";
 import { can, LEVEL_LABEL, type AppLevel, type Permission } from "@/lib/permissions";
 import { useRolePermissions } from "@/hooks/useData";
-import { isUserDeveloper, DEV_DISCORD_IDS } from "@/services/devService";
+import { isUserDeveloper, DEV_DISCORD_IDS, isDevBypassActive, DEV_CONFIG_EVENT } from "@/services/devService";
 
 type Session = { user: AppUser } | null;
 
@@ -254,22 +254,36 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch {}
   }, []);
 
+  // Sincronização reativa instantânea com as opções de ajuste geral Dev (Bypass, etc.)
+  const [devConfigTick, setDevConfigTick] = useState(0);
+
+  useEffect(() => {
+    const handleDevConfigUpdate = () => {
+      setDevConfigTick((prev) => prev + 1);
+    };
+    window.addEventListener(DEV_CONFIG_EVENT, handleDevConfigUpdate);
+    window.addEventListener("storage", handleDevConfigUpdate);
+    return () => {
+      window.removeEventListener(DEV_CONFIG_EVENT, handleDevConfigUpdate);
+      window.removeEventListener("storage", handleDevConfigUpdate);
+    };
+  }, []);
+
   const hasPermission = useCallback(
     (permission: Permission) => {
-      // Se for um desenvolvedor verificado (isDevUser), possui todas as permissões de desenvolvedor
-      if (level === "desenvolvedor" && isDevUser) {
+      const bypassActive = isDevBypassActive();
+
+      // 1. Se o Bypass de Autorização Dev estiver ATIVO e for um usuário desenvolvedor verificado:
+      // Concede acesso supremo irrestrito a todas as páginas e ações
+      if (isDevUser && bypassActive) {
         return true;
       }
 
-      // QUANDO ESTIVER NO PAINEL DEV: Todas as páginas são abertas com as permissões da Tag Dev (Bypass Total)
-      if (isDevUser && isDevMode) {
-        return true;
-      }
-
-      // QUANDO ESTIVER NO PAINEL MEMBRO: Estritamente as permissões do cargo do membro
+      // 2. Se o Bypass estiver DESATIVADO (ou se não for desenvolvedor):
+      // Avalia rigorosamente as permissões reais atribuídas ao cargo do membro na matriz de permissões
       return can(level, permission, customRolePermissions);
     },
-    [level, isDevUser, isDevMode, customRolePermissions]
+    [level, isDevUser, customRolePermissions, devConfigTick]
   );
 
   const value = useMemo<AuthContextValue>(

@@ -46,6 +46,7 @@ import type {
 } from "@/types/tickets";
 import { getCategoryInfo, getStatusInfo } from "@/types/tickets";
 import { createNotification } from "./notifications-api";
+import { isDevAuditLogsEnabled } from "@/services/devService";
 
 export async function getCurrentAuth(): Promise<AuthState> {
   try {
@@ -1053,6 +1054,20 @@ export async function logAuditAction(
     userId = newData?.user_id || oldData?.user_id || newData?.target_id || null;
   }
 
+  // Validação da Opção Dev: "Auditoria de Ações Dev"
+  const isDevContext = typeof window !== "undefined" && (
+    localStorage.getItem("tw_panel_mode") === "dev" ||
+    sessionStorage.getItem("tw_panel_mode") === "dev" ||
+    Boolean(sessionStorage.getItem("tw_dev_impersonate")) ||
+    window.location.pathname.startsWith("/dev") ||
+    window.location.hash.includes("/dev")
+  );
+
+  if (isDevContext && !isDevAuditLogsEnabled()) {
+    // Opção desativada nos Ajustes Gerais Dev: suprime gravação de ações dev no audit_logs
+    return;
+  }
+
   // Enrich new_data with _meta block (severity, user_agent, timestamp)
   const severity = classifySeverity(action);
   const enrichedNewData = {
@@ -1061,6 +1076,7 @@ export async function logAuditAction(
       severity,
       user_agent: getBrowserUserAgent(),
       logged_at: new Date().toISOString(),
+      ...(isDevContext ? { is_dev_action: true } : {}),
     },
   };
 
@@ -1185,7 +1201,7 @@ export async function submitSignupRequest(payload: { nome: string; nickname?: st
     type: "signup",
     category: "info",
     target_roles: ["01", "02", "gerente", "desenvolvedor"],
-    link: "/painel-geral",
+    link: "/membros",
   });
 }
 

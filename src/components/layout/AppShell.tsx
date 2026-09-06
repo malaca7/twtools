@@ -130,23 +130,27 @@ function DynamicSidebarNavigation() {
   const { config: menuConfig } = useMenuConfig();
   const { config: devMenuConfig } = useDevMenuConfig();
   const { isMobile, setOpenMobile } = useSidebar();
-  const storageKey = "tw_sidebar_cats_v1";
+  const storageKey = "tw_sidebar_open_cat_v2";
 
-  const [collapsedCats, setCollapsedCats] = useState<Record<string, boolean>>(() => {
+  const [openCategory, setOpenCategory] = useState<string | null>(() => {
     try {
-      const raw = localStorage.getItem(storageKey);
-      return raw ? JSON.parse(raw) : {};
+      return localStorage.getItem(storageKey);
     } catch {
-      return {};
+      return null;
     }
   });
 
   const toggleCategory = useCallback(
     (cat: string) => {
-      setCollapsedCats((prev) => {
-        const next = { ...prev, [cat]: !prev[cat] };
+      setOpenCategory((prev) => {
+        // Modo acordeão: Se já estiver aberta, fecha (null). Se for outra, abre a nova e fecha qualquer outra.
+        const next = prev === cat ? null : cat;
         try {
-          localStorage.setItem(storageKey, JSON.stringify(next));
+          if (next) {
+            localStorage.setItem(storageKey, next);
+          } else {
+            localStorage.removeItem(storageKey);
+          }
         } catch {}
         return next;
       });
@@ -315,13 +319,31 @@ function DynamicSidebarNavigation() {
     return groups;
   }, [isDevMode, menuConfig, devMenuConfig, hasPermission]);
 
+  useEffect(() => {
+    if (!grouped.length) return;
+    const activeGroup = grouped.find((g) => g.items.some((i) => i.url === pathname));
+    if (activeGroup) {
+      setOpenCategory((prev) => {
+        if (!prev || !grouped.some((g) => g.category === prev)) {
+          return activeGroup.category;
+        }
+        return prev;
+      });
+    } else {
+      setOpenCategory((prev) => {
+        if (!prev || !grouped.some((g) => g.category === prev)) {
+          return grouped[0]?.category || null;
+        }
+        return prev;
+      });
+    }
+  }, [pathname, grouped]);
+
   return (
     <>
-      {/* SELETOR EM DESTAQUE NO TOPO DA BARRA: PAINEL MEMBRO vs DEV TOOLS */}
       {isDevUser && (
         <div className="px-2 pt-1 pb-2 space-y-1.5 border-b border-border/80 mb-2">
           {isDevMode ? (
-            /* SE ESTIVER NO MODO DEV TOOLS: Botão em destaque para voltar ao Painel Normal "Painel Membro" */
             <div className="space-y-1.5">
               <Link
                 to="/dashboard"
@@ -342,9 +364,9 @@ function DynamicSidebarNavigation() {
                 </div>
                 <Badge
                   variant="outline"
-                  className="text-[9px] font-mono px-1.5 py-0 border-primary/40 bg-primary/20 text-primary font-bold shadow-none"
+                  className="text-[9px] font-mono px-1.5 py-0 border-primary/40 bg-primary/20 text-primary font-black shadow-none"
                 >
-                  MEMBRO
+                  VOLTAR
                 </Badge>
               </Link>
 
@@ -357,14 +379,13 @@ function DynamicSidebarNavigation() {
               </div>
             </div>
           ) : (
-            /* SE ESTIVER NO MODO MEMBRO E FOR DEV: Botão em destaque no topo para abrir o Dev Tools */
             <Link
               to="/dev"
               onClick={() => {
                 setPanelMode("dev");
                 if (isMobile) setOpenMobile(false);
               }}
-              className="flex items-center justify-between w-full transition-all text-xs font-black p-2.5 rounded-xl border border-rose-500/50 bg-gradient-to-r from-rose-500/20 via-rose-500/10 to-transparent hover:from-rose-500/30 hover:to-rose-500/15 text-rose-300 hover:text-rose-200 shadow-md shadow-rose-950/20 group/btn cursor-pointer ring-1 ring-rose-500/40"
+              className="flex items-center justify-between w-full transition-all text-xs font-black p-2.5 rounded-xl border border-rose-500/50 bg-rose-500/15 hover:bg-rose-500/25 text-rose-300 hover:text-rose-200 shadow-md group/btn cursor-pointer ring-1 ring-rose-500/40"
             >
               <div className="flex items-center gap-2.5">
                 <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-rose-600 text-white shadow-xs animate-pulse">
@@ -387,7 +408,7 @@ function DynamicSidebarNavigation() {
       )}
 
       {grouped.map(({ category, items }) => {
-        const isCollapsed = Boolean(collapsedCats[category]);
+        const isOpen = openCategory === category;
 
         return (
           <SidebarGroup key={category} className="py-1">
@@ -396,7 +417,6 @@ function DynamicSidebarNavigation() {
                 type="button"
                 onClick={() => toggleCategory(category)}
                 className="flex items-center justify-between w-full text-[0.65rem] uppercase tracking-[0.2em] text-sidebar-foreground/70 hover:text-sidebar-foreground font-bold px-2 py-1 rounded transition-colors group/label cursor-pointer"
-                title={isCollapsed ? `Expandir ${category}` : `Recolher ${category}`}
               >
                 <span className={cn(category === "Ferramentas Dev" && "text-rose-400 font-black flex items-center gap-1.5")}>
                   {category === "Ferramentas Dev" && <Terminal className="h-3 w-3" />}
@@ -405,13 +425,13 @@ function DynamicSidebarNavigation() {
                 <ChevronDown
                   className={cn(
                     "h-3 w-3 transition-transform duration-200 opacity-60 group-hover/label:opacity-100 shrink-0",
-                    isCollapsed && "-rotate-90 text-primary font-bold"
+                    !isOpen && "-rotate-90 text-primary font-bold"
                   )}
                 />
               </button>
             </SidebarGroupLabel>
 
-            {!isCollapsed && (
+            {isOpen && (
               <SidebarGroupContent className="animate-in fade-in-50 duration-200">
                 <SidebarMenu>
                   {items.map((item) => {

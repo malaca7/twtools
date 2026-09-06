@@ -62,11 +62,57 @@ console.error = (...args: unknown[]) => {
   originalConsoleError(...expanded);
 };
 
+export function notifyDevException(error: unknown) {
+  if (typeof window === "undefined") return;
+  try {
+    const devConfig = localStorage.getItem("tw_dev_module_config_v1");
+    let enabled = true;
+    if (devConfig) {
+      try {
+        const parsed = JSON.parse(devConfig);
+        if (typeof parsed.devSystemNotifications === "boolean") {
+          enabled = parsed.devSystemNotifications;
+        }
+      } catch {}
+    }
+    if (!enabled) return;
+
+    const isDev =
+      localStorage.getItem("tw_panel_mode") === "dev" ||
+      sessionStorage.getItem("tw_panel_mode") === "dev" ||
+      Boolean(sessionStorage.getItem("tw_dev_impersonate")) ||
+      window.location.pathname.startsWith("/dev") ||
+      window.location.hash.includes("/dev");
+
+    if (!isDev) return;
+
+    import("sonner").then(({ toast }) => {
+      const msg =
+        error instanceof Error
+          ? error.message
+          : typeof error === "object" && error !== null && "message" in error
+          ? String((error as any).message)
+          : String(error);
+
+      toast.error("⚠️ [Dev] Alerta de Exceção", {
+        description: msg ? msg.slice(0, 160) : "Exceção não tratada capturada pelo runtime da aplicação.",
+        duration: 6000,
+      });
+    }).catch(() => {});
+  } catch {}
+}
+
 if (typeof globalThis.addEventListener === "function") {
-  globalThis.addEventListener("error", (event) => record((event as ErrorEvent).error ?? event));
-  globalThis.addEventListener("unhandledrejection", (event) =>
-    record((event as PromiseRejectionEvent).reason),
-  );
+  globalThis.addEventListener("error", (event) => {
+    const err = (event as ErrorEvent).error ?? event;
+    record(err);
+    notifyDevException(err);
+  });
+  globalThis.addEventListener("unhandledrejection", (event) => {
+    const reason = (event as PromiseRejectionEvent).reason;
+    record(reason);
+    notifyDevException(reason);
+  });
 }
 
 export function consumeLastCapturedError(): unknown {

@@ -265,6 +265,46 @@ export async function saveDevPermissions(
   }
 }
 
+export const DEV_CONFIG_EVENT = "tw_dev_config_updated";
+
+/**
+ * Carrega as configurações do Módulo Dev de forma síncrona do armazenamento local.
+ */
+export function getDevConfigurationSync(): DevConfiguration {
+  if (typeof window === "undefined") return DEFAULT_DEV_CONFIG;
+  try {
+    const local = localStorage.getItem(DEV_CONFIG_KEY);
+    if (local) {
+      const parsed = JSON.parse(local);
+      return { ...DEFAULT_DEV_CONFIG, ...parsed };
+    }
+  } catch (err) {
+    console.warn("Falha ao ler configurações Dev sincronamente:", err);
+  }
+  return DEFAULT_DEV_CONFIG;
+}
+
+/**
+ * Retorna se o Bypass de Autorização Dev está ativado.
+ */
+export function isDevBypassActive(): boolean {
+  return getDevConfigurationSync().developerBypassMode;
+}
+
+/**
+ * Retorna se a Auditoria de Ações Dev está ativada.
+ */
+export function isDevAuditLogsEnabled(): boolean {
+  return getDevConfigurationSync().devAuditLogs;
+}
+
+/**
+ * Retorna se os Alertas de Exceção Dev estão ativados.
+ */
+export function isDevSystemNotificationsEnabled(): boolean {
+  return getDevConfigurationSync().devSystemNotifications;
+}
+
 /**
  * Carrega as configurações do Módulo Dev.
  */
@@ -300,10 +340,14 @@ export async function saveDevConfiguration(
   assertDeveloperAccess(user, profile, level);
 
   // Simula latência de rede profissional para feedback visual de carregamento
-  await new Promise((resolve) => setTimeout(resolve, 600));
+  await new Promise((resolve) => setTimeout(resolve, 300));
 
   try {
     localStorage.setItem(DEV_CONFIG_KEY, JSON.stringify(config));
+
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent(DEV_CONFIG_EVENT, { detail: config }));
+    }
 
     // Opcional: Persistir no Supabase platform_settings se disponível
     await (supabase.from as any)("platform_settings").upsert({

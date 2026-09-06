@@ -18,7 +18,9 @@ import {
   Lock,
   Bot,
   Settings,
+  AlertTriangle,
 } from "lucide-react";
+import { reportAppError } from "@/lib/app-error-reporting";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -329,6 +331,28 @@ function DevConfiguracaoContent() {
                       checked={config.devSystemNotifications}
                       onCheckedChange={() => handleToggle("devSystemNotifications")}
                     />
+                  </div>
+                  <div className="mt-3 flex items-center justify-between pt-2 border-t border-border/40 text-xs">
+                    <span className="text-[0.7rem] text-muted-foreground">
+                      Validação em tempo real:
+                    </span>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="text-xs font-semibold gap-1.5 border-sky-500/30 hover:border-sky-500/60 text-sky-400 hover:text-sky-300 bg-sky-500/10 hover:bg-sky-500/20 h-7"
+                      onClick={() => {
+                        reportAppError(new Error("Teste de alerta de exceção dev executado com sucesso!"));
+                        if (!config.devSystemNotifications) {
+                          toast.info("Alertas de Exceção estão desativados. Nenhum popup de erro foi disparado.", {
+                            duration: 3500,
+                          });
+                        }
+                      }}
+                    >
+                      <AlertTriangle className="h-3 w-3" />
+                      Disparar Exceção de Teste
+                    </Button>
                   </div>
                 </CardContent>
               </Card>

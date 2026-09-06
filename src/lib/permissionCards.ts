@@ -20,6 +20,7 @@ import {
   User,
   Sparkles,
   LifeBuoy,
+  Bell,
 } from "lucide-react";
 import type { Permission } from "@/lib/permissions";
 
@@ -70,6 +71,7 @@ export const READ_ONLY_PERMISSIONS: Permission[] = [
   "view_chat",
   "view_tickets",
   "view_all_tickets",
+  "view_notifications",
 ];
 
 export const PAGE_CARDS: PageCardConfig[] = [
@@ -650,6 +652,37 @@ export const PAGE_CARDS: PageCardConfig[] = [
         description: "Permite assumir atendimento, transferir responsável, postar notas internas privadas, alterar status, resolver, reabrir e fechar tickets.",
         badge: "Gerência / Moderação",
         importantNote: "Acesso a notas internas confidenciais e alteração de status operacional de tickets.",
+      },
+    ],
+  },
+  {
+    id: "notificacoes",
+    title: "Central de Notificações",
+    route: "/notificacoes",
+    icon: Bell,
+    description: "Sistema de avisos, alertas em tempo real, comunicados e notificações de pendências da organização.",
+    color: "border-primary/40 bg-primary/5 text-primary",
+    defaultCat: "Operação",
+    defaultOrder: 18,
+    permissions: [
+      {
+        key: "view_notifications",
+        label: "Visualizar Central de Notificações",
+        description: "Permite receber alertas em tempo real, notificações sonoras e consultar o histórico de avisos.",
+        badge: "Acesso Geral",
+      },
+      {
+        key: "send_notifications",
+        label: "Emitir Avisos e Notificações Globais",
+        description: "Permite enviar notificações manuais, avisos importantes e comunicados direcionados a membros ou cargos.",
+        badge: "Liderança / Gestão",
+      },
+      {
+        key: "manage_notifications",
+        label: "Gerenciar Notificações do Sistema",
+        description: "Permite gerenciar a central, excluir alertas globais e supervisionar a fila de notificações da facção.",
+        badge: "Gerência / Moderação",
+        importantNote: "Concede controle sobre comunicados e notificações enviadas a toda a organização.",
       },
     ],
   },

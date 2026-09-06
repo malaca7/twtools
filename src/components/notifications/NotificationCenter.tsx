@@ -19,7 +19,11 @@ import {
   UserPlus,
   Check,
   Sparkles,
+  ShieldAlert,
+  ShieldCheck,
+  ArrowRight,
 } from "lucide-react";
+import { useManagementPendingActions } from "@/hooks/useManagementPendingActions";
 import {
   Popover,
   PopoverTrigger,
@@ -75,7 +79,7 @@ export function NotificationCenter() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<"all" | "unread">("all");
+  const [activeTab, setActiveTab] = useState<"all" | "unread" | "management">("all");
 
   const {
     notifications,
@@ -87,10 +91,32 @@ export function NotificationCenter() {
     isLoading,
   } = useNotifications();
 
+  const {
+    isManager,
+    totalPendingCount,
+    hasPendingActions,
+    allActionItems,
+  } = useManagementPendingActions();
+
   const markAsReadMutation = useMarkNotificationAsRead();
   const markAllMutation = useMarkAllNotificationsAsRead();
   const deleteMutation = useDeleteNotification();
   const clearAllMutation = useClearAllNotifications();
+
+  const managementNotifications = useMemo(() => {
+    return notifications.filter((n) => {
+      if (n.type === "ticket" || n.type === "absence" || n.type === "signup" || n.type === "goal") {
+        return true;
+      }
+      if (
+        n.target_roles &&
+        n.target_roles.some((r) => r === "01" || r === "02" || r === "gerente" || r === "desenvolvedor")
+      ) {
+        return true;
+      }
+      return false;
+    });
+  }, [notifications]);
 
   const displayList = activeTab === "unread" ? unreadNotifications : notifications;
 
@@ -104,6 +130,10 @@ export function NotificationCenter() {
     }
   };
 
+  const hasManagementPending = isManager && totalPendingCount > 0;
+  const showBadge = hasUnread || hasManagementPending;
+  const displayBadgeCount = unreadCount > 0 ? unreadCount : totalPendingCount;
+
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
@@ -113,26 +143,38 @@ export function NotificationCenter() {
           size="icon"
           className={cn(
             "relative h-10 w-10 sm:h-11 sm:w-11 rounded-full transition-all duration-200 outline-none hover:bg-secondary/60",
-            hasUnread && "text-primary hover:text-primary"
+            showBadge && "text-primary hover:text-primary"
           )}
           title={
-            hasUnread
-              ? `${unreadCount} nova(s) notificação(ões) em tempo real`
+            showBadge
+              ? `${unreadCount} nova(s) notificação(ões)${hasManagementPending ? ` • ${totalPendingCount} ação(ões) de gestão pendente(s)` : ""}`
               : "Central de Notificações"
           }
         >
-          {hasUnread ? (
-            <BellRing className="h-5 w-5 text-primary animate-bounce-subtle" />
+          {showBadge ? (
+            <BellRing className={cn("h-5 w-5 animate-bounce-subtle", hasUnread ? "text-primary" : "text-amber-400")} />
           ) : (
             <Bell className="h-5 w-5 text-muted-foreground transition-colors hover:text-foreground" />
           )}
 
-          {/* Indicador pulsante e badge de não lidas */}
-          {hasUnread && (
+          {/* Indicador pulsante e badge de não lidas / ações de gestão */}
+          {showBadge && (
             <span className="absolute -top-0.5 -right-0.5 flex h-5 min-w-5 items-center justify-center">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary/60 opacity-80" />
-              <span className="relative inline-flex items-center justify-center rounded-full bg-primary px-1.5 py-0.5 text-[10px] font-extrabold text-primary-foreground font-mono shadow-md border border-background">
-                {unreadCount > 99 ? "99+" : unreadCount}
+              <span
+                className={cn(
+                  "animate-ping absolute inline-flex h-full w-full rounded-full opacity-80",
+                  hasUnread ? "bg-primary/60" : "bg-amber-500/60"
+                )}
+              />
+              <span
+                className={cn(
+                  "relative inline-flex items-center justify-center rounded-full px-1.5 py-0.5 text-[10px] font-extrabold font-mono shadow-md border border-background",
+                  hasUnread
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-amber-500 text-black"
+                )}
+              >
+                {displayBadgeCount > 99 ? "99+" : displayBadgeCount}
               </span>
             </span>
           )}
@@ -142,7 +184,7 @@ export function NotificationCenter() {
       <PopoverContent
         align="end"
         sideOffset={8}
-        className="w-[360px] sm:w-[430px] p-0 z-50 rounded-2xl border border-border/80 bg-card/95 backdrop-blur-2xl shadow-2xl overflow-hidden"
+        className="w-[360px] sm:w-[440px] p-0 z-50 rounded-2xl border border-border/80 bg-card/95 backdrop-blur-2xl shadow-2xl overflow-hidden"
       >
         {/* CABEÇALHO */}
         <div className="flex items-center justify-between p-4 pb-3 border-b border-border/60 bg-muted/20">
@@ -153,11 +195,15 @@ export function NotificationCenter() {
             <div>
               <div className="flex items-center gap-2">
                 <h3 className="text-sm font-bold text-foreground">Notificações</h3>
-                {hasUnread && (
+                {hasUnread ? (
                   <Badge variant="secondary" className="px-1.5 py-0 text-[10px] font-mono font-bold bg-primary/15 text-primary border-primary/20">
                     {unreadCount} nova{unreadCount === 1 ? "" : "s"}
                   </Badge>
-                )}
+                ) : hasManagementPending ? (
+                  <Badge variant="secondary" className="px-1.5 py-0 text-[10px] font-mono font-bold bg-amber-500/15 text-amber-400 border-amber-500/30">
+                    {totalPendingCount} pendência{totalPendingCount === 1 ? "" : "s"}
+                  </Badge>
+                ) : null}
               </div>
               <p className="text-[11px] text-muted-foreground">Sincronizadas em tempo real</p>
             </div>
@@ -198,10 +244,15 @@ export function NotificationCenter() {
           </div>
         </div>
 
-        {/* ABAS: TODAS / NÃO LIDAS */}
+        {/* ABAS: TODAS / NÃO LIDAS / GESTÃO */}
         <div className="px-4 pt-2.5 pb-2 bg-muted/10 border-b border-border/40">
           <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)}>
-            <TabsList className="grid grid-cols-2 h-8 w-full bg-background/80 border border-border/60 p-0.5 rounded-xl">
+            <TabsList
+              className={cn(
+                "grid h-8 w-full bg-background/80 border border-border/60 p-0.5 rounded-xl",
+                isManager ? "grid-cols-3" : "grid-cols-2"
+              )}
+            >
               <TabsTrigger
                 value="all"
                 className="text-xs font-semibold rounded-lg data-[state=active]:bg-card data-[state=active]:text-foreground data-[state=active]:shadow-xs"
@@ -219,13 +270,177 @@ export function NotificationCenter() {
                   </span>
                 )}
               </TabsTrigger>
+              {isManager && (
+                <TabsTrigger
+                  value="management"
+                  className="text-xs font-semibold rounded-lg data-[state=active]:bg-card data-[state=active]:text-foreground data-[state=active]:shadow-xs flex items-center gap-1.5"
+                >
+                  Gestão
+                  {totalPendingCount > 0 && (
+                    <span className="px-1.5 py-0.2 rounded-full bg-amber-500 text-black text-[10px] font-mono font-extrabold animate-pulse">
+                      {totalPendingCount}
+                    </span>
+                  )}
+                </TabsTrigger>
+              )}
             </TabsList>
           </Tabs>
         </div>
 
-        {/* LISTA DE NOTIFICAÇÕES */}
-        <ScrollArea className="h-[360px] sm:h-[400px]">
-          {isLoading ? (
+        {/* CONTEÚDO PRINCIPAL: LISTA OU PAINEL DE GESTÃO */}
+        <ScrollArea className="h-[360px] sm:h-[420px]">
+          {activeTab === "management" ? (
+            <div className="p-3 space-y-2.5">
+              {/* BANNER STATUS DE GESTÃO */}
+              {totalPendingCount > 0 ? (
+                <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-start gap-2.5 text-xs text-amber-200">
+                  <ShieldAlert className="h-4 w-4 text-amber-400 shrink-0 mt-0.5" />
+                  <div className="space-y-0.5">
+                    <p className="font-bold text-foreground">Ações de Gestão Pendentes</p>
+                    <p className="text-[11px] text-muted-foreground">
+                      {totalPendingCount} demanda(s) operacional(is) aguardando atendimento ou validação pela liderança.
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/25 flex items-start gap-2.5 text-xs text-emerald-200">
+                  <ShieldCheck className="h-4 w-4 text-emerald-400 shrink-0 mt-0.5" />
+                  <div className="space-y-0.5">
+                    <p className="font-bold text-foreground">Painel de Gestão em Dia</p>
+                    <p className="text-[11px] text-muted-foreground">
+                      Nenhuma pendência operacional em aberto no momento. Todos os chamados, cadastros e licenças estão processados.
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {/* CARDS DE AÇÕES PENDENTES */}
+              <div className="space-y-2">
+                {allActionItems.map((item) => {
+                  const hasCount = item.count > 0;
+                  const ItemIcon = item.icon;
+
+                  return (
+                    <div
+                      key={item.id}
+                      className={cn(
+                        "flex items-center justify-between p-2.5 rounded-xl border transition-all text-left",
+                        hasCount
+                          ? "bg-secondary/40 border-border/80 hover:border-primary/40 shadow-xs"
+                          : "bg-muted/20 border-border/30 opacity-65"
+                      )}
+                    >
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <div
+                          className={cn(
+                            "p-2 rounded-lg border shrink-0",
+                            hasCount
+                              ? "bg-primary/10 text-primary border-primary/20"
+                              : "bg-muted/40 text-muted-foreground border-border/40"
+                          )}
+                        >
+                          <ItemIcon className="h-4 w-4" />
+                        </div>
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-xs font-bold text-foreground truncate">
+                              {item.title}
+                            </span>
+                            {hasCount && (
+                              <Badge
+                                variant="secondary"
+                                className="px-1.5 py-0 text-[10px] font-mono font-extrabold bg-amber-500/20 text-amber-300 border-amber-500/40"
+                              >
+                                {item.count}
+                              </Badge>
+                            )}
+                          </div>
+                          <p className="text-[10px] text-muted-foreground truncate">
+                            {hasCount ? item.description : "Nenhuma pendência em aberto"}
+                          </p>
+                        </div>
+                      </div>
+
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant={hasCount ? "default" : "outline"}
+                        className={cn(
+                          "h-7 text-[11px] font-bold px-2.5 gap-1 shrink-0 ml-2",
+                          hasCount
+                            ? "bg-primary hover:bg-primary/90 text-primary-foreground shadow-xs"
+                            : "opacity-60 hover:opacity-100"
+                        )}
+                        onClick={() => {
+                          setOpen(false);
+                          navigate({ to: item.link as any });
+                        }}
+                      >
+                        {item.actionLabel}
+                        <ArrowRight className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* HISTÓRICO DE NOTIFICAÇÕES DE GESTÃO */}
+              {managementNotifications.length > 0 && (
+                <div className="mt-4 pt-3 border-t border-border/40 space-y-2">
+                  <div className="flex items-center justify-between px-1">
+                    <h4 className="text-[10px] uppercase tracking-wider font-extrabold text-muted-foreground">
+                      Últimos Avisos para a Liderança
+                    </h4>
+                    <span className="text-[10px] font-mono text-muted-foreground">
+                      {managementNotifications.length} recente(s)
+                    </span>
+                  </div>
+
+                  <div className="divide-y divide-border/30 space-y-1">
+                    {managementNotifications.slice(0, 5).map((notif) => {
+                      const isRead = Boolean(user?.id && notif.read_by?.includes(user.id));
+                      const typeInfo = getNotificationTypeInfo(notif.type);
+
+                      return (
+                        <div
+                          key={notif.id}
+                          onClick={() => handleNotificationClick(notif)}
+                          className={cn(
+                            "flex items-start gap-2.5 p-2 rounded-lg transition-colors cursor-pointer text-left",
+                            isRead ? "hover:bg-muted/30" : "bg-primary/5 hover:bg-primary/10"
+                          )}
+                        >
+                          <div
+                            className={cn(
+                              "p-1.5 rounded-md border shrink-0 mt-0.5",
+                              typeInfo.badgeBg,
+                              typeInfo.badgeColor,
+                              typeInfo.borderColor
+                            )}
+                          >
+                            {renderTypeIcon(notif.type, "h-3.5 w-3.5")}
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center justify-between gap-1">
+                              <p className="text-xs font-bold text-foreground truncate">
+                                {notif.title}
+                              </p>
+                              <span className="text-[9px] font-mono text-muted-foreground shrink-0">
+                                {formatRelativeTime(notif.created_at)}
+                              </span>
+                            </div>
+                            <p className="text-[11px] text-muted-foreground line-clamp-1">
+                              {notif.message}
+                            </p>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : isLoading ? (
             <div className="flex flex-col items-center justify-center h-48 text-muted-foreground space-y-2">
               <div className="h-6 w-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
               <p className="text-xs font-medium">Sincronizando notificações...</p>

@@ -96,6 +96,9 @@ export type Permission =
   | "create_ticket"
   | "manage_tickets"
   | "view_all_tickets"
+  | "view_notifications"
+  | "send_notifications"
+  | "manage_notifications"
   // Legacy aliases for backward compatibility
   | "view_financials"
   | "manage_members"
@@ -163,6 +166,9 @@ export const ALL_PERMISSIONS: Permission[] = [
   "create_ticket",
   "manage_tickets",
   "view_all_tickets",
+  "view_notifications",
+  "send_notifications",
+  "manage_notifications",
   "view_profile",
   "view_financials",
   "manage_members",
@@ -219,6 +225,9 @@ const OFFICER: Permission[] = [
   "create_ticket",
   "manage_tickets",
   "view_all_tickets",
+  "view_notifications",
+  "send_notifications",
+  "manage_notifications",
   "view_profile",
 ];
 
@@ -268,6 +277,9 @@ const MANAGER: Permission[] = [
   "create_ticket",
   "manage_tickets",
   "view_all_tickets",
+  "view_notifications",
+  "send_notifications",
+  "manage_notifications",
   "view_profile",
 ];
 
@@ -292,6 +304,7 @@ const MEMBER: Permission[] = [
   "view_patch_notes",
   "view_tickets",
   "create_ticket",
+  "view_notifications",
   "view_profile",
 ];
 
@@ -313,6 +326,7 @@ const NOVATO: Permission[] = [
   "view_patch_notes",
   "view_tickets",
   "create_ticket",
+  "view_notifications",
   "view_profile",
 ];
 

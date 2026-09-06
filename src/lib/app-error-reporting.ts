@@ -1,3 +1,5 @@
+import { notifyDevException } from "./error-capture";
+
 type AppErrorOptions = {
   mechanism?: "manual" | "onerror" | "unhandledrejection" | "react_error_boundary";
   handled?: boolean;
@@ -21,4 +23,6 @@ export function reportAppError(error: unknown, context: Record<string, unknown> 
     route: window.location.pathname,
     ...context,
   });
+
+  notifyDevException(error);
 }
