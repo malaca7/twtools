@@ -209,6 +209,7 @@ export type AuditLog = {
   severity?: AuditLogSeverity;
   user_agent?: string;
   ip_address?: string;
+  is_dev_action?: boolean;
 };
 
 export type PendingSignupRequest = {

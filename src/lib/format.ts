@@ -1019,13 +1019,45 @@ export function humanizeAuditLog(
       };
     }
 
+    case "test_dev_action": {
+      return {
+        title: "Disparo de Teste Dev",
+        description: `O desenvolvedor ${actor} disparou um log de auditoria técnica para validação de integridade.`,
+        tag: "Teste Dev",
+        tagColor: "border-purple-500/40 bg-purple-500/10 text-purple-400 font-bold",
+      };
+    }
+
+    case "save_dev_configuration": {
+      return {
+        title: "Salvar Configurações Dev",
+        description: `O desenvolvedor ${actor} salvou novos parâmetros globais no painel de configurações de desenvolvimento.`,
+        tag: "Config Dev",
+        tagColor: "border-purple-500/40 bg-purple-500/10 text-purple-400 font-bold",
+      };
+    }
+
+    case "dev_setting_toggle": {
+      const settingName = data.setting ? String(data.setting) : "ajuste";
+      const statusText = data.enabled ? "ATIVADO" : "DESATIVADO";
+      return {
+        title: "Alternância de Ajuste Dev",
+        description: `O desenvolvedor ${actor} alterou o parâmetro dev "${settingName}" para ${statusText}.`,
+        tag: "Ajuste Dev",
+        tagColor: "border-purple-500/40 bg-purple-500/10 text-purple-400 font-bold",
+      };
+    }
+
     default: {
       const actionClean = log.action.replace(/_/g, " ");
+      const isDev = Boolean(log.is_dev_action || data?._meta?.is_dev_action || log.action.includes("dev") || log.entity?.includes("dev"));
       return {
-        title: `Atividade (${actionClean})`,
+        title: isDev ? `Ação Dev (${actionClean})` : `Atividade (${actionClean})`,
         description: `O membro ${actor} realizou a ação "${actionClean}".`,
-        tag: actionClean,
-        tagColor: "border-slate-500/40 bg-slate-500/10 text-slate-400 font-bold",
+        tag: isDev ? `Dev: ${actionClean}` : actionClean,
+        tagColor: isDev
+          ? "border-purple-500/40 bg-purple-500/10 text-purple-400 font-bold"
+          : "border-slate-500/40 bg-slate-500/10 text-slate-400 font-bold",
       };
     }
   }

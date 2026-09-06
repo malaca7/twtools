@@ -1043,7 +1043,7 @@ export async function logAuditAction(
   newData?: any,
   oldData?: any,
   entityId?: string
-): Promise<void> {
+): Promise<boolean> {
   let userId: string | null = null;
   try {
     const { data: { session } } = await supabase.auth.getSession();
@@ -1059,13 +1059,17 @@ export async function logAuditAction(
     localStorage.getItem("tw_panel_mode") === "dev" ||
     sessionStorage.getItem("tw_panel_mode") === "dev" ||
     Boolean(sessionStorage.getItem("tw_dev_impersonate")) ||
-    window.location.pathname.startsWith("/dev") ||
-    window.location.hash.includes("/dev")
+    window.location.pathname.includes("/dev") ||
+    window.location.hash.includes("/dev") ||
+    action.startsWith("dev_") ||
+    action.includes("dev") ||
+    entity.startsWith("dev_") ||
+    entity.includes("dev")
   );
 
   if (isDevContext && !isDevAuditLogsEnabled()) {
     // Opção desativada nos Ajustes Gerais Dev: suprime gravação de ações dev no audit_logs
-    return;
+    return false;
   }
 
   // Enrich new_data with _meta block (severity, user_agent, timestamp)
@@ -1123,6 +1127,7 @@ export async function logAuditAction(
   } catch (err) {
     console.error("Exceção ao inserir log de auditoria:", err);
   }
+  return true;
 }
 
 /* ==========================================================================
@@ -1308,6 +1313,7 @@ export async function getAuditLogs(enabled?: boolean, offset = 0, limit = 500): 
       created_at: String(d.created_at),
       severity: (meta.severity as AuditLog["severity"]) || classifySeverity(d.action),
       user_agent: meta.user_agent || undefined,
+      is_dev_action: Boolean(meta.is_dev_action) || String(d.action || "").includes("dev") || String(d.entity || "").includes("dev"),
     };
   });
 }

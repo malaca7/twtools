@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useEffect } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import {
   ScrollText,
@@ -34,6 +34,7 @@ import {
   Info,
   Shield,
   LifeBuoy,
+  Terminal,
 } from "lucide-react";
 import { PageHeader, NoAccess, TableSkeleton, EmptyState, ProductThumbnail } from "@/components/ui-kit";
 import { useAuth } from "@/hooks/useAuth";
@@ -106,6 +107,10 @@ function getActionIcon(action: string) {
     case "reverse_cash_movement":
     case "delete_cash_movement":
       return <Landmark className="h-4 w-4 text-emerald-400" />;
+    case "test_dev_action":
+    case "save_dev_configuration":
+    case "dev_setting_toggle":
+      return <Terminal className="h-4 w-4 text-purple-400" />;
     case "update_level":
     case "save_custom_role":
     case "delete_custom_role":
@@ -164,6 +169,9 @@ function getActionIcon(action: string) {
    ========================================================================== */
 
 function getCardAccentBorder(action: string): string {
+  if (action.includes("dev") || action.startsWith("dev_")) {
+    return "border-l-4 border-l-purple-500";
+  }
   if (action === "login" || action === "session_start" || action.includes("approve") || action === "create_sale") {
     return "border-l-4 border-l-emerald-500";
   }
@@ -192,7 +200,16 @@ function getCardAccentBorder(action: string): string {
    MÓDULO E CATEGORIA POR AÇÃO (expandido)
    ========================================================================== */
 
-function getModuleFromAction(action: string): string {
+function getModuleFromAction(action: string, log?: AuditLog): string {
+  if (
+    action.startsWith("dev_") ||
+    action.includes("dev") ||
+    log?.is_dev_action ||
+    Boolean((log?.new_data as any)?._meta?.is_dev_action) ||
+    String(log?.entity || "").includes("dev")
+  ) {
+    return "dev";
+  }
   if (action === "login" || action === "logout" || action.startsWith("session_")) return "auth";
   if (action.includes("cash_movement")) return "fundo_caixa";
   if (action.includes("movement") || action.includes("bau") || action.includes("transfer")) return "estoque";
@@ -402,11 +419,28 @@ function LogsPage() {
   // Filters State
   const [search, setSearch] = useState("");
   const [memberFilter, setMemberFilter] = useState("all");
-  const [moduleFilter, setModuleFilter] = useState("all");
+  const [moduleFilter, setModuleFilter] = useState(() => {
+    if (typeof window !== "undefined") {
+      const p = new URLSearchParams(window.location.search);
+      return p.get("module") || "all";
+    }
+    return "all";
+  });
   const [categoryTypeFilter, setCategoryTypeFilter] = useState("all");
   const [severityFilter, setSeverityFilter] = useState("all");
   const [rangeFilter, setRangeFilter] = useState<RangeKey>("tudo");
   const [sortOrder, setSortOrder] = useState<"desc" | "asc">("desc");
+
+  // Sincroniza query params da URL caso mude
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const p = new URLSearchParams(window.location.search);
+      const mod = p.get("module");
+      if (mod) {
+        setModuleFilter(mod);
+      }
+    }
+  }, []);
 
   // Pagination State
   const [currentPage, setCurrentPage] = useState(1);
@@ -437,7 +471,7 @@ function LogsPage() {
         l.action.toLowerCase().includes(q);
 
       const matchesMember = memberFilter === "all" || l.user_id === memberFilter;
-      const mod = getModuleFromAction(l.action);
+      const mod = getModuleFromAction(l.action, l);
       const matchesModule = moduleFilter === "all" || mod === moduleFilter;
       const catType = getCategoryTypeFromAction(l.action);
       const matchesCatType = categoryTypeFilter === "all" || catType === categoryTypeFilter;
@@ -696,6 +730,7 @@ function LogsPage() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Todos os Módulos</SelectItem>
+                  <SelectItem value="dev">💻 Módulo Dev & Auditoria</SelectItem>
                   <SelectItem value="auth">🔑 Autenticação</SelectItem>
                   <SelectItem value="fundo_caixa">💵 Fundo de Caixa</SelectItem>
                   <SelectItem value="estoque">📦 Estoque & Baús</SelectItem>
