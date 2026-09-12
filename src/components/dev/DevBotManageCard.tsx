@@ -327,11 +327,19 @@ export function DevBotManageCard() {
       if (cropTarget === "avatar") {
         const publicUrl = await uploadBotImage(croppedFile, "avatar");
         setAvatarInput(publicUrl);
-        toast.success("Foto do avatar recortada e carregada com sucesso!");
+        await handleUpdateConfig(
+          { botAvatarUrl: publicUrl },
+          "Foto de perfil do bot atualizada com sucesso!"
+        );
+        setIsAvatarModalOpen(false);
       } else {
         const publicUrl = await uploadBotImage(croppedFile, "banner");
         setBannerUrlInput(publicUrl);
-        toast.success("Banner recortado e carregado com sucesso!");
+        await handleUpdateConfig(
+          { botBannerUrl: publicUrl },
+          "Banner do bot atualizado com sucesso!"
+        );
+        setIsBannerModalOpen(false);
       }
       setIsCropModalOpen(false);
     } catch (err: any) {

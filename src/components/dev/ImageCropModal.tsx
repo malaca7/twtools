@@ -14,12 +14,11 @@ import {
   ZoomIn,
   ZoomOut,
   RotateCw,
-  RotateCcw,
   Crop,
   Check,
   RefreshCw,
   Loader2,
-  Image as ImageIcon,
+  Move,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -45,7 +44,7 @@ export function ImageCropModal({
   cropShape = "rect",
   defaultAspectRatio = 1,
   title = "Ajustar e Recortar Imagem",
-  description = "Arraste para reposicionar e ajuste o zoom na proporção desejada.",
+  description = "Arraste a imagem para reposicionar e use o slider ou a rodinha do mouse para dar zoom.",
   targetWidth,
   targetHeight,
   allowedRatios,
@@ -98,9 +97,9 @@ export function ImageCropModal({
     };
   }, [imageFile, defaultAspectRatio]);
 
-  // Dimensões do Crop Box
-  const CROP_BOX_MAX_WIDTH = 440;
-  const CROP_BOX_MAX_HEIGHT = 280;
+  // Dimensões dinâmicas do Crop Box na tela (compacto para caber em telas menores sem cortar botões)
+  const CROP_BOX_MAX_WIDTH = 460;
+  const CROP_BOX_MAX_HEIGHT = 220;
 
   let cropWidth = CROP_BOX_MAX_WIDTH;
   let cropHeight = cropWidth / aspectRatio;
@@ -181,7 +180,6 @@ export function ImageCropModal({
     if (!imageObj || !imageFile) return;
 
     try {
-      // Dimensões finais do recorte
       const finalWidth = targetWidth || (cropShape === "round" ? 512 : 1280);
       const finalHeight = targetHeight || Math.round(finalWidth / aspectRatio);
 
@@ -197,33 +195,17 @@ export function ImageCropModal({
       ctx.imageSmoothingEnabled = true;
       ctx.imageSmoothingQuality = "high";
 
-      // Fundo escuro se for banner
-      if (cropShape !== "round") {
-        ctx.fillStyle = "#18181b";
-        ctx.fillRect(0, 0, finalWidth, finalHeight);
-      }
+      // Fundo escuro
+      ctx.fillStyle = "#18181b";
+      ctx.fillRect(0, 0, finalWidth, finalHeight);
 
       ctx.save();
 
       // Mover origem para o centro do canvas final
       ctx.translate(finalWidth / 2, finalHeight / 2);
-
-      // Aplicar rotação
       ctx.rotate((rotation * Math.PI) / 180);
 
-      // Calcular proporção entre o box na tela e a imagem natural
-      const scaleMultiplier = finalWidth / cropWidth;
-
-      // Aplicar zoom e pan escalados
-      const drawScale = zoom * scaleMultiplier;
-      ctx.scale(drawScale, drawScale);
-
-      // O pan na tela deve ser escalado
-      const drawX = (pan.x / zoom) * (imageObj.naturalWidth / cropWidth);
-      const drawY = (pan.y / zoom) * (imageObj.naturalHeight / cropHeight);
-
-      // Desenhar a imagem centralizada
-      // Calcula como a imagem é mapeada no cropbox inicialmente
+      // Calcular mapeamento da imagem original para a área do crop
       const imgAspect = imageObj.naturalWidth / imageObj.naturalHeight;
       let baseDrawWidth: number;
       let baseDrawHeight: number;
@@ -236,24 +218,16 @@ export function ImageCropModal({
         baseDrawHeight = cropWidth / imgAspect;
       }
 
-      // Converte para coordenadas do canvas final
       const screenToCanvasFactor = finalWidth / cropWidth;
       const renderW = baseDrawWidth * screenToCanvasFactor;
       const renderH = baseDrawHeight * screenToCanvasFactor;
       const renderPanX = pan.x * screenToCanvasFactor;
       const renderPanY = pan.y * screenToCanvasFactor;
 
-      // Reseta transformação anterior para desenho matematicamente preciso
-      ctx.restore();
-      ctx.save();
-
-      ctx.translate(finalWidth / 2, finalHeight / 2);
-      ctx.rotate((rotation * Math.PI) / 180);
-
       ctx.drawImage(
         imageObj,
-        -renderW * zoom / 2 + renderPanX,
-        -renderH * zoom / 2 + renderPanY,
+        (-renderW * zoom) / 2 + renderPanX,
+        (-renderH * zoom) / 2 + renderPanY,
         renderW * zoom,
         renderH * zoom
       );
@@ -270,7 +244,10 @@ export function ImageCropModal({
         throw new Error("Erro ao gerar arquivo recortado.");
       }
 
-      const croppedFileName = imageFile.name.replace(/\.[^/.]+$/, "") + "_cropped." + (mimeType === "image/png" ? "png" : "jpg");
+      const croppedFileName =
+        imageFile.name.replace(/\.[^/.]+$/, "") +
+        "_cropped." +
+        (mimeType === "image/png" ? "png" : "jpg");
       const croppedFile = new File([blob], croppedFileName, { type: mimeType });
 
       await onCropSave(croppedFile);
@@ -281,22 +258,26 @@ export function ImageCropModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-xl bg-zinc-950 border-zinc-800 text-foreground p-5 sm:p-6 overflow-hidden">
-        <DialogHeader>
-          <DialogTitle className="text-base font-black flex items-center gap-2">
-            <Crop className="h-5 w-5 text-primary" />
+      <DialogContent className="max-w-2xl bg-zinc-950 border-zinc-800 text-foreground p-0 gap-0 flex flex-col max-h-[92vh] overflow-hidden shadow-2xl rounded-2xl">
+        {/* CABEÇALHO FIXO */}
+        <DialogHeader className="p-4 sm:p-5 pb-3 shrink-0 border-b border-zinc-800/80 bg-zinc-950 pr-12">
+          <DialogTitle className="text-base sm:text-lg font-black flex items-center gap-2 text-white">
+            <Crop className="h-5 w-5 text-emerald-400" />
             {title}
           </DialogTitle>
-          <DialogDescription className="text-xs text-muted-foreground">
+          <DialogDescription className="text-xs text-muted-foreground mt-0.5">
             {description}
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4 py-2">
-          {/* Alternância de Proporções Rápidas (caso fornecidas) */}
+        {/* CORPO COM ROLAGEM INDEPENDENTE */}
+        <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-3.5 min-h-0 bg-zinc-950/60">
+          {/* Seletor de Proporções (quando houver mais de uma permitida) */}
           {allowedRatios && allowedRatios.length > 1 && (
             <div className="flex items-center gap-1.5 flex-wrap">
-              <span className="text-[0.7rem] font-bold text-muted-foreground mr-1">Proporção:</span>
+              <span className="text-[0.7rem] font-bold text-muted-foreground mr-1 uppercase tracking-wider">
+                Proporção:
+              </span>
               {allowedRatios.map((item) => (
                 <Button
                   key={item.label}
@@ -308,9 +289,9 @@ export function ImageCropModal({
                     handleReset();
                   }}
                   className={cn(
-                    "h-7 text-xs font-bold px-2.5 rounded-lg border",
-                    aspectRatio === item.ratio
-                      ? "bg-primary text-primary-foreground border-primary shadow-sm"
+                    "h-7 text-xs font-bold px-2.5 rounded-lg border transition-all",
+                    Math.abs(aspectRatio - item.ratio) < 0.01
+                      ? "bg-emerald-600 text-white border-emerald-500 shadow-sm"
                       : "bg-zinc-900 border-zinc-800 text-muted-foreground hover:text-white"
                   )}
                 >
@@ -320,7 +301,7 @@ export function ImageCropModal({
             </div>
           )}
 
-          {/* VIEWPORT DO CROP INTERATIVO */}
+          {/* VIEWPORT INTERATIVO DE CORTE E ARRASTE */}
           <div
             ref={containerRef}
             onMouseDown={handleMouseDown}
@@ -331,7 +312,7 @@ export function ImageCropModal({
             onTouchMove={handleTouchMove}
             onTouchEnd={handleTouchEnd}
             onWheel={handleWheel}
-            className="relative w-full h-80 rounded-xl bg-zinc-950 border border-zinc-800 overflow-hidden flex items-center justify-center cursor-grab active:cursor-grabbing select-none"
+            className="relative w-full h-60 sm:h-64 rounded-xl bg-zinc-950 border border-zinc-800 overflow-hidden flex items-center justify-center cursor-grab active:cursor-grabbing select-none shadow-inner"
           >
             {/* Imagem a ser manipulada */}
             {imageSrc && (
@@ -351,95 +332,95 @@ export function ImageCropModal({
               />
             )}
 
-            {/* Máscara escura com buraco central na proporção do Crop */}
+            {/* Máscara escura ao redor da área de corte */}
             <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
               <div
                 style={{
                   width: `${cropWidth}px`,
                   height: `${cropHeight}px`,
-                  boxShadow: "0 0 0 9999px rgba(9, 9, 11, 0.78)",
+                  boxShadow: "0 0 0 9999px rgba(9, 9, 11, 0.82)",
                 }}
                 className={cn(
-                  "relative border-2 border-primary/90 transition-all",
+                  "relative border-2 border-emerald-500 shadow-2xl transition-all",
                   cropShape === "round" ? "rounded-full" : "rounded-lg"
                 )}
               >
                 {/* Linhas guias tipo regra dos terços */}
                 {cropShape === "rect" && (
                   <div className="absolute inset-0 grid grid-cols-3 grid-rows-3 pointer-events-none opacity-40">
-                    <div className="border-r border-b border-primary/40" />
-                    <div className="border-r border-b border-primary/40" />
-                    <div className="border-b border-primary/40" />
-                    <div className="border-r border-b border-primary/40" />
-                    <div className="border-r border-b border-primary/40" />
-                    <div className="border-b border-primary/40" />
-                    <div className="border-r border-primary/40" />
-                    <div className="border-r border-primary/40" />
+                    <div className="border-r border-b border-emerald-400/40" />
+                    <div className="border-r border-b border-emerald-400/40" />
+                    <div className="border-b border-emerald-400/40" />
+                    <div className="border-r border-b border-emerald-400/40" />
+                    <div className="border-r border-b border-emerald-400/40" />
+                    <div className="border-b border-emerald-400/40" />
+                    <div className="border-r border-b border-emerald-400/40" />
+                    <div className="border-r border-b border-emerald-400/40" />
                     <div />
                   </div>
                 )}
               </div>
             </div>
 
-            {/* Indicador de arraste */}
-            <span className="absolute bottom-2 left-2 text-[10px] text-zinc-400 bg-black/70 px-2 py-0.5 rounded pointer-events-none font-medium backdrop-blur-xs">
-              Arraste para mover • Scroll para zoom
-            </span>
+            {/* Badge orientativa flutuante */}
+            <div className="absolute bottom-2.5 left-2.5 flex items-center gap-1 text-[10px] text-zinc-300 bg-black/80 border border-zinc-800/80 px-2.5 py-1 rounded-md pointer-events-none font-medium backdrop-blur-sm shadow-md">
+              <Move className="h-3 w-3 text-emerald-400" />
+              <span>Arraste para mover • Scroll da roda para zoom</span>
+            </div>
           </div>
 
-          {/* CONTROLES DE ZOOM E ROTAÇÃO */}
-          <div className="space-y-3 p-3 rounded-xl bg-zinc-900/60 border border-zinc-800">
-            {/* Slider de Zoom */}
-            <div className="space-y-1.5">
-              <div className="flex items-center justify-between text-xs">
-                <Label className="font-bold flex items-center gap-1.5 text-muted-foreground">
-                  <ZoomIn className="h-3.5 w-3.5 text-primary" />
-                  Zoom ({zoom.toFixed(1)}x)
-                </Label>
-                <div className="flex items-center gap-1">
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setZoom((prev) => Math.max(1, prev - 0.2))}
-                    disabled={zoom <= 1}
-                    className="h-6 w-6 p-0 text-muted-foreground hover:text-white"
-                  >
-                    <ZoomOut className="h-3 w-3" />
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setZoom((prev) => Math.min(4, prev + 0.2))}
-                    disabled={zoom >= 4}
-                    className="h-6 w-6 p-0 text-muted-foreground hover:text-white"
-                  >
-                    <ZoomIn className="h-3 w-3" />
-                  </Button>
-                </div>
+          {/* BARRA DE CONTROLE: ZOOM, ROTAÇÃO E RESET */}
+          <div className="p-3 rounded-xl bg-zinc-900/60 border border-zinc-800/80 space-y-2.5">
+            <div className="flex items-center justify-between text-xs">
+              <Label className="font-bold flex items-center gap-1.5 text-zinc-300">
+                <ZoomIn className="h-3.5 w-3.5 text-emerald-400" />
+                Zoom: <span className="text-white font-mono">{zoom.toFixed(1)}x</span>
+              </Label>
+              <div className="flex items-center gap-1">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setZoom((prev) => Math.max(1, prev - 0.2))}
+                  disabled={zoom <= 1}
+                  className="h-6 w-6 p-0 text-muted-foreground hover:text-white"
+                  title="Diminuir Zoom"
+                >
+                  <ZoomOut className="h-3 w-3" />
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setZoom((prev) => Math.min(4, prev + 0.2))}
+                  disabled={zoom >= 4}
+                  className="h-6 w-6 p-0 text-muted-foreground hover:text-white"
+                  title="Aumentar Zoom"
+                >
+                  <ZoomIn className="h-3 w-3" />
+                </Button>
               </div>
-              <Slider
-                value={[zoom]}
-                min={1}
-                max={4}
-                step={0.05}
-                onValueChange={(val) => setZoom(val[0])}
-                className="cursor-pointer"
-              />
             </div>
 
-            {/* Botões de Ação Secundária: Girar e Resetar */}
-            <div className="flex items-center justify-between pt-1 border-t border-zinc-800/80">
+            <Slider
+              value={[zoom]}
+              min={1}
+              max={4}
+              step={0.05}
+              onValueChange={(val) => setZoom(val[0])}
+              className="cursor-pointer"
+            />
+
+            <div className="flex items-center justify-between pt-1 border-t border-zinc-800/60">
               <div className="flex items-center gap-1.5">
                 <Button
                   type="button"
                   variant="outline"
                   size="sm"
                   onClick={handleRotate}
-                  className="h-7 text-xs font-bold gap-1 bg-zinc-900 border-zinc-800 hover:bg-zinc-800"
+                  className="h-7 text-xs font-bold gap-1 bg-zinc-900 border-zinc-800 hover:bg-zinc-800 text-zinc-300"
                 >
-                  <RotateCw className="h-3 w-3 text-primary" />
+                  <RotateCw className="h-3 w-3 text-emerald-400" />
                   Girar 90°
                 </Button>
                 <Button
@@ -450,35 +431,48 @@ export function ImageCropModal({
                   className="h-7 text-xs text-muted-foreground hover:text-white gap-1"
                 >
                   <RefreshCw className="h-3 w-3" />
-                  Resetar
+                  Resetar Posição
                 </Button>
               </div>
 
-              <span className="text-[10px] text-muted-foreground font-mono">
-                {cropShape === "round" ? "Avatar Redondo (1:1)" : `Banner (${aspectRatio.toFixed(2)}:1)`}
+              <span className="text-[10px] text-zinc-400 font-mono">
+                {cropShape === "round"
+                  ? "Avatar Redondo (1:1)"
+                  : `Banner (${aspectRatio.toFixed(2)}:1)`}
               </span>
             </div>
           </div>
         </div>
 
-        <DialogFooter className="gap-2 sm:gap-0 pt-2">
+        {/* RODAPÉ FIXO (SEMPRE VISÍVEL, NUNCA CORTA NA TELA) */}
+        <DialogFooter className="p-3.5 sm:p-4 shrink-0 border-t border-zinc-800 bg-zinc-950 flex flex-row items-center justify-between gap-2.5">
           <Button
             type="button"
             variant="outline"
             onClick={onClose}
             disabled={isSaving}
-            className="bg-zinc-900 border-zinc-800 text-xs"
+            className="bg-zinc-900 hover:bg-zinc-800 border-zinc-800 text-xs font-bold text-zinc-300 px-4"
           >
             Cancelar
           </Button>
+
           <Button
             type="button"
             onClick={handleConfirmCrop}
             disabled={isSaving || !imageObj}
-            className="bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-bold gap-1.5 shadow-md"
+            className="bg-emerald-600 hover:bg-emerald-500 text-white text-xs sm:text-sm font-bold gap-2 px-5 py-2 rounded-lg shadow-lg shadow-emerald-950/60 transition-all hover:scale-[1.02]"
           >
-            {isSaving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
-            {isSaving ? "Processando e Enviando..." : "Cortar e Aplicar"}
+            {isSaving ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" />
+                <span>Processando e Salvando...</span>
+              </>
+            ) : (
+              <>
+                <Check className="h-4 w-4 stroke-[2.5]" />
+                <span>Confirmar Ajuste e Salvar</span>
+              </>
+            )}
           </Button>
         </DialogFooter>
       </DialogContent>
