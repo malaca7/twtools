@@ -1054,9 +1054,13 @@ function setupRealtimeListeners() {
       console.log(`📡 [TEST CHANNEL STATUS] status: ${status}`);
     });
 
-  // 5. Canal de Controle de Ciclo de Vida do Bot (Start, Stop, Restart, Presence)
+  // 5. Canal de Controle de Ciclo de Vida do Bot (Start, Stop, Restart, Presence, Heartbeat Request)
   supabase
     .channel("system-discord-bot-control")
+    .on("broadcast", { event: "request_heartbeat" }, async () => {
+      console.log("📡 [BOT CONTROL] Requisição de Heartbeat recebida. Enviando servidores e status...");
+      await sendHeartbeat();
+    })
     .on("broadcast", { event: "bot_command" }, async (payload) => {
       const data = payload?.payload;
       if (!data) return;
@@ -1097,10 +1101,29 @@ function setupRealtimeListeners() {
       console.log(`📡 [BOT CONTROL CHANNEL STATUS] status: ${status}`);
     });
 
-  // 6. Emissor periódico de Heartbeat (a cada 15 segundos)
-  setInterval(async () => {
+  // 6. Função de emissão de Heartbeat com lista completa e rica de servidores (guilds)
+  const sendHeartbeat = async () => {
     try {
       if (!client.user) return;
+      const guildsList = Array.from(client.guilds.cache.values()).map((g) => {
+        const iconUrl =
+          g.iconURL({ size: 128, forceStatic: false }) ||
+          (g.icon
+            ? `https://cdn.discordapp.com/icons/${g.id}/${g.icon}.${g.icon.startsWith("a_") ? "gif" : "png"}?size=128`
+            : null);
+
+        return {
+          id: g.id,
+          name: g.name,
+          icon: g.icon,
+          iconUrl,
+          memberCount: g.memberCount || 0,
+          isMain:
+            g.id === (process.env.DISCORD_GUILD_ID || "1535505650308620400") ||
+            g.name.toLowerCase().includes("twin wheel"),
+        };
+      });
+
       const hbChannel = supabase.channel("system-discord-bot-heartbeat");
       await hbChannel.send({
         type: "broadcast",
@@ -1115,10 +1138,17 @@ function setupRealtimeListeners() {
           botTag: client.user.tag,
           botId: client.user.id,
           timestamp: new Date().toISOString(),
+          guilds: guildsList,
         },
       });
-    } catch {}
-  }, 15000);
+    } catch (err) {
+      console.warn("Erro ao emitir heartbeat:", err.message);
+    }
+  };
+
+  // Emissor periódico de Heartbeat (a cada 15 segundos e logo na inicialização)
+  setInterval(sendHeartbeat, 15000);
+  setTimeout(sendHeartbeat, 2000);
 
   // 7. Canal de Despacho de Webhooks / Postagem em Canais por ID de Servidor e Canal
   supabase

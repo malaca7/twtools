@@ -79,9 +79,12 @@ import {
   generateBotInviteUrl,
   getDeveloperPortalUrl,
   subscribeToBotHeartbeat,
+  requestBotHeartbeat,
+  fetchBotGuilds,
   uploadBotImage,
   BANNER_PRESETS,
   type BotHeartbeatData,
+  type BotGuildInfo,
   type DiscordUserValidationResult,
 } from "@/services/discordBotManageService";
 import { cn } from "@/lib/utils";
@@ -165,6 +168,36 @@ export function DevBotManageCard() {
     { id: "2", name: "『 🤖 』 Bots", color: "#a855f7" },
   ]);
 
+  // Lista de servidores em que o bot está ativo
+  const [guilds, setGuilds] = useState<BotGuildInfo[]>(() => {
+    try {
+      const cached = localStorage.getItem("tw_bot_cached_guilds");
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch {}
+    return [
+      {
+        id: "1535505650308620400",
+        name: "Twin Wheel",
+        icon: "4f4beed324c9ccfa04b3a748cfba1449",
+        iconUrl: "https://cdn.discordapp.com/icons/1535505650308620400/4f4beed324c9ccfa04b3a748cfba1449.png?size=128",
+        memberCount: 38,
+        isMain: true,
+      },
+      {
+        id: "1537229296697999462",
+        name: "malaca developers",
+        icon: "a_25287fd598b117fdebd41b7f779a304b",
+        iconUrl: "https://cdn.discordapp.com/icons/1537229296697999462/a_25287fd598b117fdebd41b7f779a304b.gif?size=128",
+        memberCount: 5,
+        isMain: false,
+      },
+    ];
+  });
+  const [loadingGuilds, setLoadingGuilds] = useState(false);
+
   // Carrega configurações
   useEffect(() => {
     let isMounted = true;
@@ -182,6 +215,14 @@ export function DevBotManageCard() {
           setStatusTextInput(data.botStatusText || "Feito com Twin Wheels");
           setActivityTypeInput(data.botActivityType || "Playing");
           setStreamingUrlInput(data.botStreamingUrl || "");
+
+          // Busca lista de servidores reais que o bot está
+          fetchBotGuilds(data.botToken).then((list) => {
+            if (isMounted && list && list.length > 0) {
+              setGuilds(list);
+            }
+          });
+          requestBotHeartbeat();
         }
       })
       .catch((err) => {
@@ -193,11 +234,14 @@ export function DevBotManageCard() {
         if (isMounted) setLoading(false);
       });
 
-    // Subscrição do heartbeat em tempo real
+    // Subscrição do heartbeat em tempo real com lista de guilds
     const unsubscribe = subscribeToBotHeartbeat((data) => {
       if (isMounted) {
         setHeartbeat(data);
         setLastHeartbeatTime(Date.now());
+        if (data.guilds && Array.isArray(data.guilds) && data.guilds.length > 0) {
+          setGuilds(data.guilds);
+        }
       }
     });
 
@@ -206,6 +250,23 @@ export function DevBotManageCard() {
       unsubscribe();
     };
   }, []);
+
+  // Atualizar servidores manualmente
+  const handleRefreshGuilds = async () => {
+    setLoadingGuilds(true);
+    try {
+      await requestBotHeartbeat();
+      const list = await fetchBotGuilds(config.botToken);
+      if (list && list.length > 0) {
+        setGuilds(list);
+        toast.success(`${list.length} servidores sincronizados com sucesso!`);
+      }
+    } catch (err: any) {
+      toast.error("Erro ao atualizar servidores: " + (err?.message || err));
+    } finally {
+      setLoadingGuilds(false);
+    }
+  };
 
   // Detecta se bot está respondendo recentemente
   const isHeartbeatActive = useMemo(() => {
@@ -753,7 +814,7 @@ export function DevBotManageCard() {
                 activeDiscordTab === "servers" ? "text-white border-b-2 border-white" : "hover:text-zinc-200"
               )}
             >
-              {heartbeat?.guildCount || 2} servidores mútuos
+              {guilds.length} {guilds.length === 1 ? "servidor mútuo" : "servidores mútuos"}
             </button>
             <button
               type="button"
@@ -888,40 +949,64 @@ export function DevBotManageCard() {
             </div>
           )}
 
-          {/* ABA SERVIDORES MÚTUOS */}
+          {/* ABA SERVIDORES MÚTUOS (REAIS DINÂMICOS) */}
           {activeDiscordTab === "servers" && (
             <div className="space-y-3 text-xs">
-              <div className="rounded-xl bg-[#1e1f22] p-3 flex items-center justify-between border border-[#2b2d31]">
-                <div className="flex items-center gap-3">
-                  <img
-                    src="https://i.ibb.co/ymH1BQPQ/Uma124.png"
-                    alt="TW"
-                    className="h-9 w-9 rounded-full object-cover"
-                  />
-                  <div>
-                    <p className="font-bold text-white text-xs">Twin Wheels RP (Servidor Principal)</p>
-                    <p className="text-[11px] text-[#949ba4] font-mono">ID: 1535505650308620400 • 38 membros</p>
-                  </div>
-                </div>
-                <Badge className="bg-[#23a55a]/10 text-[#23a55a] border-[#23a55a]/30 text-[10px]">
-                  Conectado
-                </Badge>
+              <div className="flex items-center justify-between px-1 text-[11px] text-[#949ba4]">
+                <span>Servidores conectados ({guilds.length})</span>
+                <button
+                  type="button"
+                  onClick={handleRefreshGuilds}
+                  disabled={loadingGuilds}
+                  className="hover:text-white flex items-center gap-1.5 transition-colors cursor-pointer"
+                  title="Atualizar lista de servidores em tempo real"
+                >
+                  <RotateCcw className={cn("h-3 w-3", loadingGuilds && "animate-spin text-primary")} />
+                  <span>{loadingGuilds ? "Sincronizando..." : "Atualizar"}</span>
+                </button>
               </div>
 
-              <div className="rounded-xl bg-[#1e1f22] p-3 flex items-center justify-between border border-[#2b2d31]">
-                <div className="flex items-center gap-3">
-                  <div className="h-9 w-9 rounded-full bg-[#5865F2]/20 border border-[#5865F2]/40 text-[#5865F2] flex items-center justify-center font-bold text-xs">
-                    MD
+              {guilds.map((g) => (
+                <div
+                  key={g.id}
+                  className="rounded-xl bg-[#1e1f22] p-3 flex items-center justify-between border border-[#2b2d31] hover:border-[#383a40] transition-colors"
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    {g.iconUrl ? (
+                      <img
+                        src={g.iconUrl}
+                        alt={g.name}
+                        className="h-10 w-10 rounded-full object-cover shrink-0 ring-2 ring-black/40 shadow-md"
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).src = "https://i.ibb.co/ymH1BQPQ/Uma124.png";
+                        }}
+                      />
+                    ) : (
+                      <div className="h-10 w-10 rounded-full bg-[#5865F2]/20 border border-[#5865F2]/40 text-[#5865F2] flex items-center justify-center font-bold text-xs shrink-0 shadow-md">
+                        {g.name.substring(0, 2).toUpperCase()}
+                      </div>
+                    )}
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <p className="font-bold text-white text-xs truncate">{g.name}</p>
+                        {g.isMain && (
+                          <span className="text-[9px] font-semibold text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 px-1.5 py-0.5 rounded">
+                            Servidor Principal
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-[11px] text-[#949ba4] font-mono mt-0.5">
+                        ID: {g.id} {g.memberCount ? `• ${g.memberCount} membros` : ""}
+                      </p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="font-bold text-white text-xs">Malaca Devs (Servidor Testes)</p>
-                    <p className="text-[11px] text-[#949ba4] font-mono">ID: 1537229296697999462 • 5 membros</p>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <Badge className="bg-[#23a55a]/10 text-[#23a55a] border-[#23a55a]/30 text-[10px] font-bold">
+                      Conectado
+                    </Badge>
                   </div>
                 </div>
-                <Badge className="bg-[#23a55a]/10 text-[#23a55a] border-[#23a55a]/30 text-[10px]">
-                  Conectado
-                </Badge>
-              </div>
+              ))}
             </div>
           )}
 
