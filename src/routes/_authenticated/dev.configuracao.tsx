@@ -24,6 +24,7 @@ import {
   Eye,
   ExternalLink,
   Webhook,
+  Hash,
 } from "lucide-react";
 import { reportAppError } from "@/lib/app-error-reporting";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -42,6 +43,7 @@ import {
   type DevConfiguration,
 } from "@/services/devService";
 import { DevForcePurgeCard } from "@/components/dev/DevForcePurgeCard";
+import { DevBotManageCard } from "@/components/dev/DevBotManageCard";
 import { DevDiscordConfigCard } from "@/components/dev/DevDiscordConfigCard";
 import { DevWebhooksConfigCard } from "@/components/dev/DevWebhooksConfigCard";
 import { DevAuditLogModal } from "@/components/dev/DevAuditLogModal";
@@ -290,15 +292,19 @@ function DevConfiguracaoContent() {
           <p className="text-sm font-bold text-rose-400">{error}</p>
         </Card>
       ) : (
-        <Tabs defaultValue="webhooks" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-3 max-w-2xl bg-secondary/40 p-1 rounded-xl border border-border/60">
-            <TabsTrigger value="webhooks" className="text-xs font-bold gap-2 py-2 data-[state=active]:bg-gradient-to-r data-[state=active]:from-indigo-600 data-[state=active]:to-purple-600 data-[state=active]:text-white">
+        <Tabs defaultValue="bot-manage" className="space-y-6">
+          <TabsList className="grid w-full grid-cols-2 md:grid-cols-4 max-w-4xl bg-secondary/40 p-1 rounded-xl border border-border/60 gap-1">
+            <TabsTrigger value="bot-manage" className="text-xs font-bold gap-2 py-2 data-[state=active]:bg-gradient-to-r data-[state=active]:from-indigo-600 data-[state=active]:to-purple-600 data-[state=active]:text-white">
+              <Bot className="h-4 w-4" />
+              Gerenciar Bot
+            </TabsTrigger>
+            <TabsTrigger value="webhooks" className="text-xs font-bold gap-2 py-2 data-[state=active]:bg-gradient-to-r data-[state=active]:from-violet-600 data-[state=active]:to-pink-600 data-[state=active]:text-white">
               <Webhook className="h-4 w-4" />
               Webhooks Discord
             </TabsTrigger>
-            <TabsTrigger value="discord" className="text-xs font-bold gap-2 py-2 data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-600 data-[state=active]:to-cyan-600 data-[state=active]:text-white">
-              <Bot className="h-4 w-4" />
-              Bot & Integração
+            <TabsTrigger value="discord-logs" className="text-xs font-bold gap-2 py-2 data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-600 data-[state=active]:to-cyan-600 data-[state=active]:text-white">
+              <Hash className="h-4 w-4" />
+              Canais & Logs
             </TabsTrigger>
             <TabsTrigger value="general" className="text-xs font-bold gap-2 py-2 data-[state=active]:bg-gradient-to-r data-[state=active]:from-rose-600 data-[state=active]:to-pink-600 data-[state=active]:text-white">
               <Settings className="h-4 w-4" />
@@ -306,17 +312,22 @@ function DevConfiguracaoContent() {
             </TabsTrigger>
           </TabsList>
 
-          {/* TAB: WEBHOOKS DISCORD */}
+          {/* TAB 1: GERENCIAR BOT DISCORD */}
+          <TabsContent value="bot-manage" className="space-y-6 animate-in fade-in-50 duration-300">
+            <DevBotManageCard />
+          </TabsContent>
+
+          {/* TAB 2: WEBHOOKS DISCORD */}
           <TabsContent value="webhooks" className="space-y-6 animate-in fade-in-50 duration-300">
             <DevWebhooksConfigCard />
           </TabsContent>
 
-          {/* TAB: BOT DISCORD & LOGS */}
-          <TabsContent value="discord" className="space-y-6 animate-in fade-in-50 duration-300">
+          {/* TAB 3: CANAIS & LOGS DO BOT */}
+          <TabsContent value="discord-logs" className="space-y-6 animate-in fade-in-50 duration-300">
             <DevDiscordConfigCard />
           </TabsContent>
 
-          {/* TAB 2: AJUSTES GERAIS DEV */}
+          {/* TAB 4: AJUSTES GERAIS DEV */}
           <TabsContent value="general" className="space-y-6 animate-in fade-in-50 duration-300">
             {/* Card de Limpeza Forçada de Cache em Tempo Real */}
             <DevForcePurgeCard />

@@ -47,8 +47,21 @@ export interface DiscordBotConfig {
   guildName: string;
   botToken?: string;
   clientId?: string;
+  botName?: string;
+  botBannerUrl?: string;
+  botStatus?: "online" | "idle" | "dnd" | "invisible";
   botStatusText?: string;
-  botActivityType?: "Playing" | "Watching" | "Listening" | "Competing";
+  botActivityType?: "Playing" | "Watching" | "Listening" | "Competing" | "Streaming" | "Custom";
+  botStreamingUrl?: string;
+  intentPresences?: "always" | "never" | "auto";
+  intentGuildMembers?: "always" | "never" | "auto";
+  intentMessageContent?: "always" | "never" | "auto";
+  isBotRunning?: boolean;
+  discloudAppId?: string;
+  discloudApiToken?: string;
+  lastStartedAt?: string;
+  lastStoppedAt?: string;
+  lastRestartedAt?: string;
   logChannels: DiscordLogChannels;
   enabledEvents: DiscordEnabledEvents;
   embedColors: DiscordEmbedColors;
@@ -62,11 +75,23 @@ export const DEFAULT_DISCORD_CONFIG: DiscordBotConfig = {
   enabled: true,
   guildId: "1537229296697999462",
   guildName: "TW | Logs",
-  botStatusText: "Twin Wheels • Logs em Tempo Real",
-  botActivityType: "Watching",
+  botName: "Roda Dupla",
+  clientId: "1536184283197079622",
+  botToken: "",
+  botBannerUrl: "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=1600&auto=format&fit=crop",
+  botAvatarUrl: "https://i.ibb.co/ymH1BQPQ/Uma124.png",
+  botStatus: "online",
+  botActivityType: "Playing",
+  botStatusText: "Feito com Twin Wheels",
+  botStreamingUrl: "",
+  intentPresences: "always",
+  intentGuildMembers: "always",
+  intentMessageContent: "always",
+  isBotRunning: true,
+  discloudAppId: "twin",
+  discloudApiToken: "",
   footerText: "Twin Wheels RP • Sistema Integrado de Logs",
   footerIconUrl: "https://i.ibb.co/ymH1BQPQ/Uma124.png",
-  botAvatarUrl: "https://i.ibb.co/ymH1BQPQ/Uma124.png",
   serverIconUrl: "",
   logChannels: {
     generalLogsChannelId: "1538375505953165312",

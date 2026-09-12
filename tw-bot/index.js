@@ -133,15 +133,28 @@ function updateBotPresence() {
     if (discordConfig.botActivityType === "Playing") actType = ActivityType.Playing;
     else if (discordConfig.botActivityType === "Listening") actType = ActivityType.Listening;
     else if (discordConfig.botActivityType === "Competing") actType = ActivityType.Competing;
+    else if (discordConfig.botActivityType === "Streaming") actType = ActivityType.Streaming;
+
+    const presenceStatus =
+      discordConfig.botStatus === "idle"
+        ? "idle"
+        : discordConfig.botStatus === "dnd"
+        ? "dnd"
+        : discordConfig.botStatus === "invisible"
+        ? "invisible"
+        : "online";
+
+    const activityObj = {
+      name: discordConfig.botStatusText || "Twin Wheels RP • Logs",
+      type: actType,
+    };
+    if (actType === ActivityType.Streaming && discordConfig.botStreamingUrl) {
+      activityObj.url = discordConfig.botStreamingUrl;
+    }
 
     client.user.setPresence({
-      activities: [
-        {
-          name: discordConfig.botStatusText || "Twin Wheels RP • Logs",
-          type: actType,
-        },
-      ],
-      status: "online",
+      activities: [activityObj],
+      status: presenceStatus,
     });
 
     if (discordConfig.botAvatarUrl && typeof discordConfig.botAvatarUrl === "string" && discordConfig.botAvatarUrl.startsWith("http")) {
@@ -996,7 +1009,73 @@ function setupRealtimeListeners() {
       console.log(`📡 [TEST CHANNEL STATUS] status: ${status}`);
     });
 
-  // 5. Polling Engine de segurança executado a cada 3 segundos
+  // 5. Canal de Controle de Ciclo de Vida do Bot (Start, Stop, Restart, Presence)
+  supabase
+    .channel("system-discord-bot-control")
+    .on("broadcast", { event: "bot_command" }, async (payload) => {
+      const data = payload?.payload;
+      if (!data) return;
+      console.log(`🤖 [BOT CONTROL] Comando recebido: "${data.action}" por ${data.actor || "Dev"}`);
+
+      if (data.action === "restart") {
+        console.log("🔄 [BOT CONTROL] Reinicialização solicitada. Encerrando processo para autorrestart do Discloud...");
+        try {
+          if (client) client.destroy();
+        } catch {}
+        setTimeout(() => {
+          process.exit(0);
+        }, 800);
+      } else if (data.action === "stop") {
+        console.log("⏹ [BOT CONTROL] Parada solicitada. Desconectando do Discord...");
+        try {
+          if (client) client.destroy();
+        } catch (e) {
+          console.error("Erro ao parar cliente:", e.message);
+        }
+      } else if (data.action === "start") {
+        console.log("▶ [BOT CONTROL] Inicialização solicitada. Conectando ao Discord...");
+        try {
+          if (!client.isReady()) {
+            client.login(process.env.DISCORD_BOT_TOKEN);
+          }
+        } catch (e) {
+          console.error("Erro ao iniciar cliente:", e.message);
+        }
+      }
+
+      if (data.config) {
+        discordConfig = { ...discordConfig, ...data.config };
+        updateBotPresence();
+      }
+    })
+    .subscribe((status) => {
+      console.log(`📡 [BOT CONTROL CHANNEL STATUS] status: ${status}`);
+    });
+
+  // 6. Emissor periódico de Heartbeat (a cada 15 segundos)
+  setInterval(async () => {
+    try {
+      if (!client.user) return;
+      const hbChannel = supabase.channel("system-discord-bot-heartbeat");
+      await hbChannel.send({
+        type: "broadcast",
+        event: "heartbeat",
+        payload: {
+          status: client.ws?.status === 0 ? (discordConfig.botStatus || "online") : "offline",
+          uptimeSeconds: Math.floor(process.uptime()),
+          pingMs: client.ws?.ping || 0,
+          guildCount: client.guilds?.cache?.size || 0,
+          memberCount: membersCache?.size || 0,
+          memoryMb: Math.round(process.memoryUsage().heapUsed / 1024 / 1024),
+          botTag: client.user.tag,
+          botId: client.user.id,
+          timestamp: new Date().toISOString(),
+        },
+      });
+    } catch {}
+  }, 15000);
+
+  // 7. Polling Engine de segurança executado a cada 3 segundos
   setInterval(pollUnprocessedAuditLogs, 3000);
 }
 
