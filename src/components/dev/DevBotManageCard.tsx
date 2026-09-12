@@ -33,6 +33,8 @@ import {
   Clock,
   Zap,
   Upload,
+  MessageSquare,
+  Crop,
 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -73,6 +75,7 @@ import {
   type DiscordUserValidationResult,
 } from "@/services/discordBotManageService";
 import { cn } from "@/lib/utils";
+import { ImageCropModal } from "./ImageCropModal";
 
 export function DevBotManageCard() {
   const { user, profile, level } = useAuth();
@@ -111,9 +114,15 @@ export function DevBotManageCard() {
   const [isStatusModalOpen, setIsStatusModalOpen] = useState(false);
   const [statusTextInput, setStatusTextInput] = useState("");
   const [activityTypeInput, setActivityTypeInput] = useState<
-    "Playing" | "Watching" | "Listening" | "Competing" | "Streaming" | "Custom"
+    "Playing" | "Watching" | "Listening" | "Competing" | "Streaming" | "Custom" | "None"
   >("Playing");
   const [streamingUrlInput, setStreamingUrlInput] = useState("");
+
+  // Modal de Recorte, Zoom e Redimensionamento (Avatar & Banner)
+  const [isCropModalOpen, setIsCropModalOpen] = useState(false);
+  const [cropTarget, setCropTarget] = useState<"avatar" | "banner">("avatar");
+  const [cropFile, setCropFile] = useState<File | null>(null);
+  const [isCropSaving, setIsCropSaving] = useState(false);
 
   const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
   const [customPermissions, setCustomPermissions] = useState("8"); // 8 = Administrator
@@ -267,8 +276,8 @@ export function DevBotManageCard() {
     );
   };
 
-  // Upload do Banner direto de arquivo
-  const handleBannerFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Upload do Banner direto de arquivo abrindo o modal de recorte e zoom
+  const handleBannerFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -277,26 +286,20 @@ export function DevBotManageCard() {
       return;
     }
 
-    if (file.size > 8 * 1024 * 1024) {
-      toast.error("A imagem do banner deve ter no máximo 8MB.");
+    if (file.size > 15 * 1024 * 1024) {
+      toast.error("A imagem do banner deve ter no máximo 15MB.");
       return;
     }
 
-    setIsUploadingBanner(true);
-    try {
-      const publicUrl = await uploadBotImage(file, "banner");
-      setBannerUrlInput(publicUrl);
-      toast.success("Banner carregado com sucesso!");
-    } catch (err: any) {
-      toast.error(err.message || "Erro ao fazer upload do banner.");
-    } finally {
-      setIsUploadingBanner(false);
-      if (bannerFileInputRef.current) bannerFileInputRef.current.value = "";
-    }
+    setCropFile(file);
+    setCropTarget("banner");
+    setIsCropModalOpen(true);
+
+    if (bannerFileInputRef.current) bannerFileInputRef.current.value = "";
   };
 
-  // Upload do Avatar direto de arquivo
-  const handleAvatarFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Upload do Avatar direto de arquivo abrindo o modal de recorte e zoom
+  const handleAvatarFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -305,21 +308,36 @@ export function DevBotManageCard() {
       return;
     }
 
-    if (file.size > 5 * 1024 * 1024) {
-      toast.error("A imagem de avatar deve ter no máximo 5MB.");
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error("A imagem de avatar deve ter no máximo 10MB.");
       return;
     }
 
-    setIsUploadingAvatar(true);
+    setCropFile(file);
+    setCropTarget("avatar");
+    setIsCropModalOpen(true);
+
+    if (avatarFileInputRef.current) avatarFileInputRef.current.value = "";
+  };
+
+  // Processar e salvar imagem recortada
+  const handleCropSave = async (croppedFile: File) => {
+    setIsCropSaving(true);
     try {
-      const publicUrl = await uploadBotImage(file, "avatar");
-      setAvatarInput(publicUrl);
-      toast.success("Avatar carregado com sucesso!");
+      if (cropTarget === "avatar") {
+        const publicUrl = await uploadBotImage(croppedFile, "avatar");
+        setAvatarInput(publicUrl);
+        toast.success("Foto do avatar recortada e carregada com sucesso!");
+      } else {
+        const publicUrl = await uploadBotImage(croppedFile, "banner");
+        setBannerUrlInput(publicUrl);
+        toast.success("Banner recortado e carregado com sucesso!");
+      }
+      setIsCropModalOpen(false);
     } catch (err: any) {
-      toast.error(err.message || "Erro ao fazer upload do avatar.");
+      toast.error(err.message || "Erro ao salvar imagem recortada.");
     } finally {
-      setIsUploadingAvatar(false);
-      if (avatarFileInputRef.current) avatarFileInputRef.current.value = "";
+      setIsCropSaving(false);
     }
   };
 
@@ -369,6 +387,9 @@ export function DevBotManageCard() {
   // Ícone da atividade
   const renderActivityIcon = (type: string) => {
     switch (type) {
+      case "Custom":
+      case "None":
+        return <MessageSquare className="h-4 w-4" />;
       case "Watching":
         return <Tv className="h-4 w-4" />;
       case "Listening":
@@ -385,6 +406,9 @@ export function DevBotManageCard() {
   // Label amigável da atividade
   const getActivityLabel = (type: string) => {
     switch (type) {
+      case "Custom":
+      case "None":
+        return "STATUS PERSONALIZADO";
       case "Watching":
         return "ASSISTINDO";
       case "Listening":
@@ -498,9 +522,6 @@ export function DevBotManageCard() {
                       <Edit2 className="h-4 w-4" />
                     </button>
                   </h3>
-                  <Badge className="bg-rose-600 hover:bg-rose-500 text-white font-black text-[10px] tracking-wider px-2 py-0.5 rounded uppercase border-0 shadow-sm">
-                    PREMIUM
-                  </Badge>
                   {isBotRunning ? (
                     <Badge className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 text-[10px] font-bold">
                       ATIVO
@@ -1252,6 +1273,7 @@ export function DevBotManageCard() {
                   <SelectValue placeholder="Selecione a atividade" />
                 </SelectTrigger>
                 <SelectContent className="bg-zinc-900 border-zinc-800 text-xs">
+                  <SelectItem value="Custom">Status Personalizado (Sem tipo de atividade)</SelectItem>
                   <SelectItem value="Playing">Jogando (Playing)</SelectItem>
                   <SelectItem value="Watching">Assistindo (Watching)</SelectItem>
                   <SelectItem value="Listening">Ouvindo (Listening)</SelectItem>
@@ -1259,6 +1281,11 @@ export function DevBotManageCard() {
                   <SelectItem value="Streaming">Transmitindo (Streaming)</SelectItem>
                 </SelectContent>
               </Select>
+              {(activityTypeInput === "Custom" || activityTypeInput === "None") && (
+                <p className="text-[0.68rem] text-emerald-400 font-medium">
+                  ✓ O status será exibido de forma limpa como mensagem de texto direta no Discord, sem o prefixo &quot;Jogando&quot;, &quot;Assistindo&quot; ou &quot;Ouvindo&quot;.
+                </p>
+              )}
             </div>
 
             {/* Texto da Mensagem */}
@@ -1374,6 +1401,40 @@ export function DevBotManageCard() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* ========================================================================= */}
+      {/* MODAL 6: CORTE, REDIMENSIONAMENTO E ZOOM DE IMAGEM (AVATAR E BANNER) */}
+      {/* ========================================================================= */}
+      <ImageCropModal
+        isOpen={isCropModalOpen}
+        onClose={() => setIsCropModalOpen(false)}
+        imageFile={cropFile}
+        cropShape={cropTarget === "avatar" ? "round" : "rect"}
+        defaultAspectRatio={cropTarget === "avatar" ? 1 : 16 / 9}
+        allowedRatios={
+          cropTarget === "banner"
+            ? [
+                { label: "16:9 Panorâmico", ratio: 16 / 9 },
+                { label: "2.5:1 Banner Discord", ratio: 2.5 },
+                { label: "3:1 Ultrawide", ratio: 3 },
+              ]
+            : undefined
+        }
+        title={
+          cropTarget === "avatar"
+            ? "Ajustar Foto de Avatar do Bot (1:1)"
+            : "Ajustar Imagem do Banner do Bot"
+        }
+        description={
+          cropTarget === "avatar"
+            ? "Arraste para reposicionar e use o slider ou scroll para dar zoom na foto circular do bot."
+            : "Arraste para reposicionar e use o slider ou scroll para dar zoom e enquadrar o banner do bot."
+        }
+        targetWidth={cropTarget === "avatar" ? 512 : 1280}
+        targetHeight={cropTarget === "avatar" ? 512 : 720}
+        onCropSave={handleCropSave}
+        isSaving={isCropSaving}
+      />
     </div>
   );
 }

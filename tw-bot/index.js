@@ -129,11 +129,8 @@ async function loadDiscordConfig() {
 function updateBotPresence() {
   if (!client.user) return;
   try {
-    let actType = ActivityType.Watching;
-    if (discordConfig.botActivityType === "Playing") actType = ActivityType.Playing;
-    else if (discordConfig.botActivityType === "Listening") actType = ActivityType.Listening;
-    else if (discordConfig.botActivityType === "Competing") actType = ActivityType.Competing;
-    else if (discordConfig.botActivityType === "Streaming") actType = ActivityType.Streaming;
+    const typeStr = discordConfig.botActivityType;
+    const statusText = discordConfig.botStatusText || "";
 
     const presenceStatus =
       discordConfig.botStatus === "idle"
@@ -144,16 +141,38 @@ function updateBotPresence() {
         ? "invisible"
         : "online";
 
-    const activityObj = {
-      name: discordConfig.botStatusText || "Twin Wheels RP • Logs",
-      type: actType,
-    };
-    if (actType === ActivityType.Streaming && discordConfig.botStreamingUrl) {
-      activityObj.url = discordConfig.botStreamingUrl;
+    let activities = [];
+
+    if (typeStr === "Custom" || typeStr === "None") {
+      if (statusText.trim()) {
+        activities = [
+          {
+            name: "Custom Status",
+            state: statusText.trim(),
+            type: ActivityType.Custom,
+          },
+        ];
+      }
+    } else {
+      let actType = ActivityType.Playing;
+      if (typeStr === "Watching") actType = ActivityType.Watching;
+      else if (typeStr === "Listening") actType = ActivityType.Listening;
+      else if (typeStr === "Competing") actType = ActivityType.Competing;
+      else if (typeStr === "Streaming") actType = ActivityType.Streaming;
+      else if (typeStr === "Playing") actType = ActivityType.Playing;
+
+      const activityObj = {
+        name: statusText.trim() || "Twin Wheels RP • Logs",
+        type: actType,
+      };
+      if (actType === ActivityType.Streaming && discordConfig.botStreamingUrl) {
+        activityObj.url = discordConfig.botStreamingUrl;
+      }
+      activities = [activityObj];
     }
 
     client.user.setPresence({
-      activities: [activityObj],
+      activities,
       status: presenceStatus,
     });
 
