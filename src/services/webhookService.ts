@@ -6,18 +6,39 @@ import { logAuditAction } from "@/lib/app-api";
 
 export interface DiscordWebhook {
   id: string;
-  name: string; // Nome do Webhook / Postador (ex: "Avisos da Diretoria", "Canal de Postagens")
+  name: string; // Nome do Webhook / Postador (ex: "TW | Logs Baú QG", "Canal de Postagens")
   guildId: string; // ID do Servidor Discord
   channelId: string; // ID do Canal Discord
   description?: string; // Descrição / Finalidade
   enabled: boolean;
-  webhookUrl?: string; // URL Oficial do Webhook Discord (https://discord.com/api/webhooks/...) aceita pelo Discohook
+  webhookUrl?: string; // URL Oficial do Webhook Discord aceita pelo Discohook e FiveM
+
+  // Identidade do Emissor
   username?: string; // Nome personalizado do bot ao enviar mensagens
-  avatarUrl?: string; // URL da imagem enviada por upload direto
-  embedColor?: string; // Cor do embed (HEX)
+  avatarUrl?: string; // URL do avatar do bot
+
+  // Cores & Design do Embed
+  embedColor?: string; // Cor do embed em HEX (ex: #10B981)
+
+  // Configurações Padrões da Mensagem e Embed
+  defaultTitle?: string; // Título padrão do embed (ex: "💻 Teste Desenvolvedor")
+  defaultDescription?: string; // Subtítulo / descrição padrão (ex: "by malaca")
+  useCodeblockField?: boolean; // Se deve renderizar mensagem em caixa de código em destaque
+  codeblockLanguage?: string; // Linguagem opcional do codeblock
+
+  authorName?: string; // Nome do autor no topo do embed
+  authorIconUrl?: string; // Ícone do autor
+  authorUrl?: string; // Link clicável no autor
+
+  thumbnailUrl?: string; // Miniatura no canto superior direito do embed
+  imageUrl?: string; // Imagem grande / Banner decorativo no corpo do embed
+
   footerText?: string; // Texto do rodapé
+  footerIconUrl?: string; // Ícone do rodapé
+  showTimestamp?: boolean; // Exibir data/hora no rodapé
+
   mentionRoles?: string; // Menções padrão (ex: @everyone, @here ou ID de cargo)
-  showTimestamp?: boolean; // Exibir timestamp
+
   createdAt: string;
   updatedAt: string;
   lastTriggeredAt?: string;
@@ -412,9 +433,34 @@ export async function postMessageToWebhookChannel(
 
   const testId = `post_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
   const cleanDescription = messageData.description.trim();
-  const cleanTitle = messageData.title?.trim() || webhook.name || "Comunicado Oficial";
+  const cleanTitle = messageData.title?.trim() || webhook.defaultTitle || webhook.name || "Comunicado Oficial";
   const contentMention = messageData.mention || webhook.mentionRoles || undefined;
-  const imageUrl = messageData.imageUrl?.trim() || undefined;
+  const imageUrl = messageData.imageUrl?.trim() || webhook.imageUrl || undefined;
+  const thumbnailUrl = webhook.thumbnailUrl?.trim() || undefined;
+
+  let embedDescription = cleanDescription;
+  let embedFields = [...(messageData.fields || [])];
+
+  // Se o webhook tiver ativado o estilo de destaque em bloco de código (ex: print do usuário)
+  if (webhook.useCodeblockField) {
+    if (webhook.defaultDescription && cleanDescription !== webhook.defaultDescription) {
+      embedDescription = webhook.defaultDescription;
+      embedFields.unshift({
+        name: "\u200b",
+        value: `\`\`\`${webhook.codeblockLanguage || ""}\n${cleanDescription}\n\`\`\``,
+        inline: false,
+      });
+    } else {
+      embedDescription = webhook.defaultDescription || "";
+      embedFields.unshift({
+        name: "\u200b",
+        value: `\`\`\`${webhook.codeblockLanguage || ""}\n${cleanDescription}\n\`\`\``,
+        inline: false,
+      });
+    }
+  } else if (!embedDescription && webhook.defaultDescription) {
+    embedDescription = webhook.defaultDescription;
+  }
 
   // Formata o conteúdo para renderizar link/preview da imagem anexa caso presente
   let formattedContent = cleanDescription;
@@ -442,7 +488,7 @@ export async function postMessageToWebhookChannel(
       user_nickname: webhook.username || senderName,
       notes: formattedContent,
       embed_color: webhook.embedColor || "#10B981",
-      fields: messageData.fields || [],
+      fields: embedFields,
       mention: contentMention,
     },
   };
@@ -450,20 +496,31 @@ export async function postMessageToWebhookChannel(
   // Prepara embed legado para canais alternativos
   const embedPayload: any = {
     title: cleanTitle,
-    description: cleanDescription,
+    description: embedDescription || cleanDescription,
     color: hexToInt(webhook.embedColor || "#10B981"),
     footer: {
       text: webhook.footerText || "Twin Wheels RP",
+      icon_url: webhook.footerIconUrl || webhook.avatarUrl,
     },
   };
+  if (webhook.authorName) {
+    embedPayload.author = {
+      name: webhook.authorName,
+      icon_url: webhook.authorIconUrl || webhook.avatarUrl,
+      url: webhook.authorUrl,
+    };
+  }
+  if (thumbnailUrl) {
+    embedPayload.thumbnail = { url: thumbnailUrl };
+  }
   if (imageUrl) {
     embedPayload.image = { url: imageUrl };
   }
   if (webhook.showTimestamp !== false) {
     embedPayload.timestamp = true;
   }
-  if (messageData.fields && messageData.fields.length > 0) {
-    embedPayload.fields = messageData.fields;
+  if (embedFields.length > 0) {
+    embedPayload.fields = embedFields;
   }
 
   // 1. TENTA ENVIO DIRETO AO WEBHOOK DO DISCORD (Resposta em milissegundos)
@@ -477,15 +534,23 @@ export async function postMessageToWebhookChannel(
         embeds: [
           {
             title: cleanTitle,
-            description: cleanDescription,
+            description: embedDescription || undefined,
             color: hexToInt(webhook.embedColor || "#10B981"),
+            author: webhook.authorName
+              ? {
+                  name: webhook.authorName,
+                  icon_url: webhook.authorIconUrl || webhook.avatarUrl,
+                  url: webhook.authorUrl || undefined,
+                }
+              : undefined,
+            thumbnail: thumbnailUrl ? { url: thumbnailUrl } : undefined,
+            image: imageUrl ? { url: imageUrl } : undefined,
             footer: {
               text: webhook.footerText || "Twin Wheels RP",
-              icon_url: webhook.avatarUrl || "https://i.ibb.co/ymH1BQPQ/Uma124.png",
+              icon_url: webhook.footerIconUrl || webhook.avatarUrl || "https://i.ibb.co/ymH1BQPQ/Uma124.png",
             },
             timestamp: webhook.showTimestamp !== false ? new Date().toISOString() : undefined,
-            image: imageUrl ? { url: imageUrl } : undefined,
-            fields: messageData.fields && messageData.fields.length > 0 ? messageData.fields : undefined,
+            fields: embedFields.length > 0 ? embedFields : undefined,
           },
         ],
       };
@@ -671,19 +736,48 @@ export async function testDiscordWebhookChannel(
   const officialUrl = getWebhookShareableUrl(webhook);
   if (officialUrl && isDiscordWebhookUrl(officialUrl)) {
     try {
+      const testTitle = webhook.defaultTitle || `💻 Teste: ${webhook.name}`;
+      const testDesc = webhook.defaultDescription || `by ${profile?.nome || senderName || "Desenvolvedor"}`;
+
+      const testFields: any[] = [];
+      if (webhook.useCodeblockField) {
+        testFields.push({
+          name: "\u200b",
+          value: `\`\`\`${webhook.codeblockLanguage || ""}\nTestando webhook\n\`\`\``,
+          inline: false,
+        });
+      } else {
+        testFields.push({
+          name: "Status do Webhook",
+          value: `Conexão 100% confirmada no canal <#${webhook.channelId}>`,
+          inline: false,
+        });
+      }
+
       const discordPayload: any = {
         username: webhook.username || webhook.name || "Twin Wheels RP",
         avatar_url: webhook.avatarUrl || "https://i.ibb.co/ymH1BQPQ/Uma124.png",
+        content: webhook.mentionRoles || undefined,
         embeds: [
           {
-            title: `🧪 Teste de Conexão: #${webhook.name || webhook.channelId}`,
-            description: `Este é um disparo de teste enviado pelo **Painel TWTools** para validar a conexão do Webhook.\n\nServidor: \`${webhook.guildId}\` | Canal: \`${webhook.channelId}\``,
+            title: testTitle,
+            description: testDesc,
             color: hexToInt(webhook.embedColor || "#10B981"),
+            author: webhook.authorName
+              ? {
+                  name: webhook.authorName,
+                  icon_url: webhook.authorIconUrl || webhook.avatarUrl,
+                  url: webhook.authorUrl || undefined,
+                }
+              : undefined,
+            thumbnail: webhook.thumbnailUrl ? { url: webhook.thumbnailUrl } : undefined,
+            image: webhook.imageUrl ? { url: webhook.imageUrl } : undefined,
             footer: {
               text: webhook.footerText || "Twin Wheels RP • Teste de Conexão",
-              icon_url: webhook.avatarUrl || "https://i.ibb.co/ymH1BQPQ/Uma124.png",
+              icon_url: webhook.footerIconUrl || webhook.avatarUrl || "https://i.ibb.co/ymH1BQPQ/Uma124.png",
             },
-            timestamp: new Date().toISOString(),
+            timestamp: webhook.showTimestamp !== false ? new Date().toISOString() : undefined,
+            fields: testFields,
           },
         ],
       };

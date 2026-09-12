@@ -1320,8 +1320,21 @@ async function handleWebhookHttpRequest(targetParam, req, res) {
   let botUsername = "Twin Wheels RP";
   let botAvatar = (discordConfig && discordConfig.botAvatarUrl) || "https://i.ibb.co/ymH1BQPQ/Uma124.png";
   let embedColorHex = "#10B981";
+  let defaultTitle = undefined;
+  let defaultDescription = undefined;
+  let useCodeblockField = false;
+  let codeblockLanguage = "";
+  let authorName = undefined;
+  let authorIconUrl = undefined;
+  let authorUrl = undefined;
+  let thumbnailUrl = undefined;
+  let webhookImageUrl = undefined;
+  let footerText = (discordConfig && discordConfig.footerText) || "Twin Wheels RP • Canal de Mensagens";
+  let footerIconUrl = undefined;
+  let showTimestamp = true;
+  let defaultMention = undefined;
 
-  // Sempre busca nas configurações de webhooks do banco para obter metadados (nome, avatar, cor, canal)
+  // Sempre busca nas configurações de webhooks do banco para obter metadados (nome, avatar, cor, canal, embeds)
   try {
     const { data } = await supabase
       .from("role_permissions")
@@ -1342,6 +1355,19 @@ async function handleWebhookHttpRequest(targetParam, req, res) {
         botUsername = found.username || botUsername;
         botAvatar = found.avatarUrl || botAvatar;
         embedColorHex = found.embedColor || embedColorHex;
+        defaultTitle = found.defaultTitle;
+        defaultDescription = found.defaultDescription;
+        useCodeblockField = !!found.useCodeblockField;
+        codeblockLanguage = found.codeblockLanguage || "";
+        authorName = found.authorName;
+        authorIconUrl = found.authorIconUrl;
+        authorUrl = found.authorUrl;
+        thumbnailUrl = found.thumbnailUrl;
+        webhookImageUrl = found.imageUrl;
+        footerText = found.footerText || footerText;
+        footerIconUrl = found.footerIconUrl;
+        showTimestamp = found.showTimestamp !== false;
+        defaultMention = found.mentionRoles;
       }
     }
   } catch (e) {
@@ -1534,11 +1560,13 @@ async function handleWebhookHttpRequest(targetParam, req, res) {
           return res.end(JSON.stringify({ success: false, error: "O campo 'description', 'content', 'message' ou 'embeds' é obrigatório." }));
         }
 
-        const title = payload.title || webhookName || "Comunicado Oficial";
-        const imageUrl = payload.imageUrl || payload.image_url || payload.image || undefined;
+        const title = payload.title || defaultTitle || webhookName || "Comunicado Oficial";
+        const imageUrl = payload.imageUrl || payload.image_url || payload.image || webhookImageUrl || undefined;
+        const finalThumbnail = payload.thumbnailUrl || payload.thumbnail_url || payload.thumbnail || thumbnailUrl || undefined;
         const color = payload.color || payload.embedColor || embedColorHex || "#10B981";
         const sender = payload.username || payload.author || botUsername || "Twin Wheels RP";
         const avatar = payload.avatarUrl || payload.avatar_url || botAvatar;
+        const finalMention = payload.mention || defaultMention || undefined;
 
         if (!client.isReady()) {
           res.writeHead(503, { "Content-Type": "application/json" });
@@ -1556,33 +1584,59 @@ async function handleWebhookHttpRequest(targetParam, req, res) {
         }
 
         let contentText = undefined;
-        if (payload.mention && payload.content) {
-          contentText = `${String(payload.mention)}\n${String(payload.content)}`;
-        } else if (payload.mention) {
-          contentText = String(payload.mention);
+        if (finalMention && payload.content) {
+          contentText = `${String(finalMention)}\n${String(payload.content)}`;
+        } else if (finalMention) {
+          contentText = String(finalMention);
         } else if (payload.content) {
           contentText = String(payload.content);
         }
 
         if (embedsToSend.length === 0) {
           // Gera Embed se o chamador passou description, title, imageUrl, fields ou não passou content puro
-          if (payload.description || payload.title || imageUrl || (payload.fields && payload.fields.length > 0) || !payload.content) {
+          if (payload.description || payload.title || defaultTitle || imageUrl || (payload.fields && payload.fields.length > 0) || !payload.content) {
             const embed = new EmbedBuilder()
               .setTitle(title)
-              .setDescription(description.trim() || "\u200b")
               .setColor(hexToInt(color))
-              .setTimestamp()
               .setFooter({
-                text: (discordConfig && discordConfig.footerText) || "Twin Wheels RP • Canal de Mensagens",
-                iconURL: (discordConfig && discordConfig.footerIconUrl) || avatar,
+                text: payload.footerText || footerText || "Twin Wheels RP • Canal de Mensagens",
+                iconURL: payload.footerIconUrl || footerIconUrl || avatar,
               });
 
-            if (avatar) {
-              embed.setThumbnail(avatar);
+            if (showTimestamp) {
+              embed.setTimestamp();
+            }
+
+            if (useCodeblockField) {
+              const subDesc = defaultDescription || "";
+              if (subDesc) {
+                embed.setDescription(subDesc);
+              }
+              embed.addFields({
+                name: "\u200b",
+                value: `\`\`\`${codeblockLanguage}\n${description.trim() || "Testando webhook"}\n\`\`\``,
+                inline: false,
+              });
+            } else {
+              embed.setDescription(description.trim() || defaultDescription || "\u200b");
+            }
+
+            const finalAuthor = payload.authorName || authorName;
+            if (finalAuthor) {
+              embed.setAuthor({
+                name: String(finalAuthor),
+                iconURL: payload.authorIconUrl || authorIconUrl || avatar,
+                url: payload.authorUrl || authorUrl || undefined,
+              });
+            } else if (avatar) {
               embed.setAuthor({
                 name: sender,
                 iconURL: avatar,
               });
+            }
+
+            if (finalThumbnail && typeof finalThumbnail === "string" && finalThumbnail.startsWith("http")) {
+              embed.setThumbnail(finalThumbnail.trim());
             }
 
             if (imageUrl && typeof imageUrl === "string" && imageUrl.startsWith("http")) {
@@ -1600,7 +1654,7 @@ async function handleWebhookHttpRequest(targetParam, req, res) {
             embedsToSend = [embed];
             // Se description for idêntica ao content, evita repetir o mesmo texto fora do embed
             if (contentText === description.trim()) {
-              contentText = payload.mention ? String(payload.mention) : undefined;
+              contentText = finalMention ? String(finalMention) : undefined;
             }
           }
         }

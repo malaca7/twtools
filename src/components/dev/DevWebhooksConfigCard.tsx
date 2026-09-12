@@ -30,6 +30,10 @@ import {
   Terminal,
   ExternalLink,
   Code2,
+  Eye,
+  Type,
+  AtSign,
+  Bookmark,
 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -69,13 +73,17 @@ import { cn } from "@/lib/utils";
 
 const COLOR_PRESETS = [
   { name: "Verde Esmeralda", hex: "#10B981" },
-  { name: "Azul Céu", hex: "#0284C7" },
-  { name: "Âmbar Dourado", hex: "#F59E0B" },
+  { name: "Verde Militar", hex: "#15803D" },
+  { name: "Azul Polícia", hex: "#3B82F6" },
+  { name: "Ciano Diamante", hex: "#06B6D4" },
   { name: "Roxo Real", hex: "#8B5CF6" },
   { name: "Rosa Neon", hex: "#EC4899" },
-  { name: "Índigo", hex: "#6366F1" },
-  { name: "Vermelho Rubi", hex: "#EF4444" },
-  { name: "Ciano Brilhante", hex: "#06B6D4" },
+  { name: "Laranja Twin Wheels", hex: "#F97316" },
+  { name: "Âmbar Dourado", hex: "#F59E0B" },
+  { name: "Vermelho Alerta", hex: "#EF4444" },
+  { name: "Carmim Crime", hex: "#E11D48" },
+  { name: "Discord Blurple", hex: "#5865F2" },
+  { name: "Preto Tático", hex: "#27272A" },
 ];
 
 const SERVERS_PRESETS = [
@@ -119,6 +127,10 @@ export function DevWebhooksConfigCard() {
   const [isNew, setIsNew] = useState(false);
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
   const avatarFileInputRef = useRef<HTMLInputElement | null>(null);
+  const [isUploadingThumbnail, setIsUploadingThumbnail] = useState(false);
+  const thumbnailFileInputRef = useRef<HTMLInputElement | null>(null);
+  const [isUploadingBanner, setIsUploadingBanner] = useState(false);
+  const bannerFileInputRef = useRef<HTMLInputElement | null>(null);
 
   // Modal de Postagem Manual de Mensagem
   const [isPostModalOpen, setIsPostModalOpen] = useState(false);
@@ -196,7 +208,17 @@ export function DevWebhooksConfigCard() {
       username: config.defaultUsername || "Twin Wheels RP",
       avatarUrl: config.defaultAvatarUrl || "https://i.ibb.co/ymH1BQPQ/Uma124.png",
       embedColor: "#10B981",
+      defaultTitle: "💻 Teste Desenvolvedor",
+      defaultDescription: "by malaca",
+      useCodeblockField: true,
+      codeblockLanguage: "",
+      authorName: "",
+      authorIconUrl: "",
+      authorUrl: "",
+      thumbnailUrl: "",
+      imageUrl: "",
       footerText: config.defaultFooterText || "Twin Wheels RP",
+      footerIconUrl: "",
       mentionRoles: "",
       showTimestamp: true,
       createdAt: new Date().toISOString(),
@@ -208,7 +230,14 @@ export function DevWebhooksConfigCard() {
 
   // Abrir Modal de Edição
   const handleEdit = (wh: DiscordWebhook) => {
-    setEditingWebhook(JSON.parse(JSON.stringify(wh)));
+    setEditingWebhook({
+      ...wh,
+      defaultTitle: wh.defaultTitle !== undefined ? wh.defaultTitle : "💻 Teste Desenvolvedor",
+      defaultDescription: wh.defaultDescription !== undefined ? wh.defaultDescription : "by malaca",
+      useCodeblockField: wh.useCodeblockField ?? true,
+      embedColor: wh.embedColor || "#10B981",
+      showTimestamp: wh.showTimestamp ?? true,
+    });
     setIsNew(false);
     setIsEditorOpen(true);
   };
@@ -238,6 +267,62 @@ export function DevWebhooksConfigCard() {
     } finally {
       setIsUploadingAvatar(false);
       if (avatarFileInputRef.current) avatarFileInputRef.current.value = "";
+    }
+  };
+
+  // Upload de Miniatura (Thumbnail) direto do arquivo
+  const handleThumbnailFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith("image/")) {
+      toast.error("Selecione um arquivo de imagem válido.");
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("A miniatura deve ter no máximo 5MB.");
+      return;
+    }
+
+    setIsUploadingThumbnail(true);
+    try {
+      const publicUrl = await uploadWebhookAvatar(file);
+      setEditingWebhook((prev) => (prev ? { ...prev, thumbnailUrl: publicUrl } : null));
+      toast.success("Miniatura (thumbnail) carregada com sucesso!");
+    } catch (err: any) {
+      toast.error(err.message || "Erro ao fazer upload da miniatura.");
+    } finally {
+      setIsUploadingThumbnail(false);
+      if (thumbnailFileInputRef.current) thumbnailFileInputRef.current.value = "";
+    }
+  };
+
+  // Upload de Imagem Grande / Banner direto do arquivo
+  const handleBannerFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith("image/")) {
+      toast.error("Selecione um arquivo de imagem válido.");
+      return;
+    }
+
+    if (file.size > 8 * 1024 * 1024) {
+      toast.error("A imagem deve ter no máximo 8MB.");
+      return;
+    }
+
+    setIsUploadingBanner(true);
+    try {
+      const publicUrl = await uploadWebhookAvatar(file);
+      setEditingWebhook((prev) => (prev ? { ...prev, imageUrl: publicUrl } : null));
+      toast.success("Imagem grande / Banner carregado com sucesso!");
+    } catch (err: any) {
+      toast.error(err.message || "Erro ao fazer upload do banner.");
+    } finally {
+      setIsUploadingBanner(false);
+      if (bannerFileInputRef.current) bannerFileInputRef.current.value = "";
     }
   };
 
@@ -297,6 +382,20 @@ export function DevWebhooksConfigCard() {
         description: editingWebhook.description?.trim() || "",
         avatarUrl: editingWebhook.avatarUrl?.trim() || config.defaultAvatarUrl || "https://i.ibb.co/ymH1BQPQ/Uma124.png",
         webhookUrl: resolvedWebhookUrl || undefined,
+        embedColor: editingWebhook.embedColor?.trim() || "#10B981",
+        defaultTitle: editingWebhook.defaultTitle?.trim() || undefined,
+        defaultDescription: editingWebhook.defaultDescription?.trim() || undefined,
+        useCodeblockField: editingWebhook.useCodeblockField ?? true,
+        codeblockLanguage: editingWebhook.codeblockLanguage?.trim() || undefined,
+        authorName: editingWebhook.authorName?.trim() || undefined,
+        authorIconUrl: editingWebhook.authorIconUrl?.trim() || undefined,
+        authorUrl: editingWebhook.authorUrl?.trim() || undefined,
+        thumbnailUrl: editingWebhook.thumbnailUrl?.trim() || undefined,
+        imageUrl: editingWebhook.imageUrl?.trim() || undefined,
+        footerText: editingWebhook.footerText?.trim() || undefined,
+        footerIconUrl: editingWebhook.footerIconUrl?.trim() || undefined,
+        showTimestamp: editingWebhook.showTimestamp ?? true,
+        mentionRoles: editingWebhook.mentionRoles?.trim() || undefined,
         updatedAt: new Date().toISOString(),
       };
 
@@ -408,9 +507,9 @@ export function DevWebhooksConfigCard() {
   // Abrir Modal de Postagem
   const handleOpenPostModal = (wh: DiscordWebhook) => {
     setTargetWebhookForPost(wh);
-    setPostTitle("");
-    setPostDescription("");
-    setPostImageUrl("");
+    setPostTitle(wh.defaultTitle || "");
+    setPostDescription(wh.defaultDescription || "");
+    setPostImageUrl(wh.imageUrl || "");
     setPostMention(wh.mentionRoles || "");
     setIsPostModalOpen(true);
   };
@@ -545,9 +644,10 @@ export function DevWebhooksConfigCard() {
             <Card
               key={wh.id}
               className={cn(
-                "surface-card border transition-all duration-200 hover:shadow-lg flex flex-col justify-between",
+                "surface-card border transition-all duration-200 hover:shadow-lg flex flex-col justify-between overflow-hidden",
                 wh.enabled ? "border-border/80 bg-zinc-950/60" : "border-border/40 opacity-75 bg-zinc-950/30"
               )}
+              style={{ borderLeftWidth: "4px", borderLeftColor: wh.embedColor || "#10B981" }}
             >
               <CardHeader className="pb-3">
                 <div className="flex items-start justify-between gap-3">
@@ -567,7 +667,7 @@ export function DevWebhooksConfigCard() {
                         <span
                           className="h-2.5 w-2.5 rounded-full shrink-0 shadow-sm"
                           style={{ backgroundColor: wh.embedColor || "#10B981" }}
-                          title={`Cor do Embed: ${wh.embedColor}`}
+                          title={`Cor do Embed: ${wh.embedColor || "#10B981"}`}
                         />
                         {wh.guildId === "1535505650308620400" ? (
                           <Badge className="bg-emerald-500/10 text-emerald-400 border-emerald-500/25 text-[10px] px-1.5 py-0 font-bold gap-1">
@@ -583,9 +683,21 @@ export function DevWebhooksConfigCard() {
                           </Badge>
                         )}
                       </div>
-                      <p className="text-[0.7rem] text-muted-foreground truncate">
-                        Emissor: <strong className="text-foreground">{wh.username || "Twin Wheels RP"}</strong>
-                      </p>
+                      <div className="flex items-center gap-2 flex-wrap pt-0.5">
+                        <p className="text-[0.7rem] text-muted-foreground truncate">
+                          Emissor: <strong className="text-foreground">{wh.username || "Twin Wheels RP"}</strong>
+                        </p>
+                        {wh.defaultTitle && (
+                          <Badge variant="outline" className="text-[9px] bg-zinc-900 border-zinc-800 text-zinc-300 font-mono py-0 h-4">
+                            {wh.defaultTitle}
+                          </Badge>
+                        )}
+                        {wh.useCodeblockField && (
+                          <Badge variant="outline" className="text-[9px] bg-violet-950/30 border-violet-800/30 text-violet-300 font-mono py-0 h-4">
+                            Codeblock
+                          </Badge>
+                        )}
+                      </div>
                     </div>
                   </div>
 
@@ -603,6 +715,11 @@ export function DevWebhooksConfigCard() {
               <CardContent className="space-y-3 pb-3">
                 {wh.description && (
                   <p className="text-xs text-muted-foreground/90 line-clamp-2">{wh.description}</p>
+                )}
+                {wh.defaultDescription && (
+                  <p className="text-[11px] text-zinc-400 italic bg-zinc-900/50 px-2 py-1 rounded border border-zinc-800/60 line-clamp-1">
+                    Subtítulo: &ldquo;{wh.defaultDescription}&rdquo;
+                  </p>
                 )}
 
                 {/* IDs do Servidor e Canal */}
@@ -833,329 +950,731 @@ export function DevWebhooksConfigCard() {
       {/* MODAL: CRIAR / EDITAR WEBHOOK */}
       {/* ========================================================================= */}
       <Dialog open={isEditorOpen} onOpenChange={setIsEditorOpen}>
-        <DialogContent className="max-w-2xl bg-zinc-950 border-zinc-800 text-foreground max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-5xl lg:max-w-6xl bg-zinc-950 border-zinc-800 text-foreground max-h-[92vh] overflow-y-auto p-4 sm:p-6">
           <DialogHeader>
             <DialogTitle className="text-base font-black flex items-center gap-2">
               <Webhook className="h-5 w-5 text-primary" />
-              {isNew ? "Criar Novo Webhook de Canal" : "Editar Webhook de Canal"}
+              {isNew ? "Criar Novo Webhook de Canal" : "Editar Webhook & Estilo de Mensagem"}
             </DialogTitle>
             <DialogDescription className="text-xs text-muted-foreground">
-              Configure o ID do servidor e ID do canal no Discord com nome e avatar customizados para postagens.
+              Configure o destino, identidade do bot, cores personalizadas e estilo padrão dos embeds com pré-visualização ao vivo.
             </DialogDescription>
           </DialogHeader>
 
           {editingWebhook && (
-            <div className="space-y-4 py-2">
-              {/* Nome do Webhook e Descrição */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                <div className="space-y-1.5">
-                  <Label className="text-xs font-bold">
-                    Nome do Webhook <span className="text-rose-400">*</span>
-                  </Label>
-                  <Input
-                    value={editingWebhook.name}
-                    onChange={(e) =>
-                      setEditingWebhook({
-                        ...editingWebhook,
-                        name: e.target.value,
-                        // Se username for igual ao nome anterior ou vazio, sincroniza automaticamente
-                        username:
-                          !editingWebhook.username || editingWebhook.username === editingWebhook.name
-                            ? e.target.value
-                            : editingWebhook.username,
-                      })
-                    }
-                    placeholder="Ex: Avisos Oficiais Twin Wheel"
-                    className="bg-zinc-900 border-zinc-800 text-xs font-bold"
-                  />
-                  <p className="text-[0.65rem] text-muted-foreground">
-                    Nome descritivo para identificar facilmente este webhook no painel.
-                  </p>
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 py-2">
+              {/* ================================================================= */}
+              {/* COLUNA ESQUERDA: FORMULÁRIO DE CONFIGURAÇÃO (lg:col-span-7) */}
+              {/* ================================================================= */}
+              <div className="lg:col-span-7 space-y-4">
+                {/* 1. Identificação Geral */}
+                <div className="space-y-3 p-3.5 rounded-xl bg-zinc-900/60 border border-zinc-800">
+                  <h4 className="text-xs font-black tracking-wider uppercase text-muted-foreground flex items-center gap-1.5">
+                    <Bookmark className="h-3.5 w-3.5 text-primary" />
+                    Identificação do Webhook
+                  </h4>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="space-y-1.5">
+                      <Label className="text-xs font-bold">
+                        Nome do Webhook <span className="text-rose-400">*</span>
+                      </Label>
+                      <Input
+                        value={editingWebhook.name}
+                        onChange={(e) =>
+                          setEditingWebhook({
+                            ...editingWebhook,
+                            name: e.target.value,
+                            username:
+                              !editingWebhook.username || editingWebhook.username === editingWebhook.name
+                                ? e.target.value
+                                : editingWebhook.username,
+                          })
+                        }
+                        placeholder="Ex: TW | Logs Baú QG"
+                        className="bg-zinc-950 border-zinc-800 text-xs font-bold"
+                      />
+                      <p className="text-[0.65rem] text-muted-foreground">
+                        Nome descritivo para identificar facilmente este webhook no painel.
+                      </p>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <Label className="text-xs font-bold">Finalidade / Descrição (Opcional)</Label>
+                      <Input
+                        value={editingWebhook.description || ""}
+                        onChange={(e) => setEditingWebhook({ ...editingWebhook, description: e.target.value })}
+                        placeholder="Ex: Canal para comunicados e informativos da liderança"
+                        className="bg-zinc-950 border-zinc-800 text-xs"
+                      />
+                      <p className="text-[0.65rem] text-muted-foreground">
+                        Explicação sobre para que serve e onde é usado este webhook.
+                      </p>
+                    </div>
+                  </div>
                 </div>
 
-                <div className="space-y-1.5">
-                  <Label className="text-xs font-bold">Finalidade / Descrição (Opcional)</Label>
-                  <Input
-                    value={editingWebhook.description || ""}
-                    onChange={(e) => setEditingWebhook({ ...editingWebhook, description: e.target.value })}
-                    placeholder="Ex: Canal para comunicados e informativos da liderança"
-                    className="bg-zinc-900 border-zinc-800 text-xs"
-                  />
-                  <p className="text-[0.65rem] text-muted-foreground">
-                    Explicação sobre para que serve e onde é usado este webhook.
-                  </p>
-                </div>
-              </div>
+                {/* 2. Servidor Discord e Canal de Destino */}
+                <div className="space-y-3 p-3.5 rounded-xl bg-zinc-900/60 border border-zinc-800">
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-xs font-black tracking-wider uppercase text-muted-foreground flex items-center gap-1.5">
+                      <Server className="h-3.5 w-3.5 text-indigo-400" />
+                      Servidor & Canal Discord <span className="text-rose-400">*</span>
+                    </h4>
+                    <span className="text-[10px] text-muted-foreground font-mono">
+                      Guild: {editingWebhook.guildId || "Nenhum"}
+                    </span>
+                  </div>
 
-              {/* Escolha do Servidor Discord com Presets */}
-              <div className="space-y-2 p-3.5 rounded-xl bg-zinc-900/60 border border-zinc-800">
-                <div className="flex items-center justify-between">
-                  <Label className="text-xs font-bold flex items-center gap-1.5">
-                    <Server className="h-3.5 w-3.5 text-indigo-400" />
-                    Servidor Discord <span className="text-rose-400">*</span>
-                  </Label>
-                  <span className="text-[10px] text-muted-foreground font-mono">
-                    ID: {editingWebhook.guildId || "Nenhum"}
-                  </span>
-                </div>
-
-                {/* Botões Rápidos de Servidor */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                  {SERVERS_PRESETS.map((srv) => {
-                    const isSelected = editingWebhook.guildId === srv.id;
-                    return (
-                      <button
-                        key={srv.id}
-                        type="button"
-                        onClick={() => {
-                          setEditingWebhook((prev) => (prev ? { ...prev, guildId: srv.id } : null));
-                        }}
-                        className={cn(
-                          "p-2.5 rounded-lg border text-left transition-all flex items-center justify-between gap-2",
-                          isSelected
-                            ? "bg-primary/15 border-primary/60 shadow-sm"
-                            : "bg-zinc-950/60 border-zinc-800 hover:border-zinc-700"
-                        )}
-                      >
-                        <div className="min-w-0">
-                          <div className="flex items-center gap-1.5 font-bold text-xs">
-                            <Server className={cn("h-3.5 w-3.5", isSelected ? "text-primary" : "text-muted-foreground")} />
-                            <span className={isSelected ? "text-primary" : "text-foreground"}>{srv.name}</span>
+                  {/* Botões Rápidos de Servidor */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    {SERVERS_PRESETS.map((srv) => {
+                      const isSelected = editingWebhook.guildId === srv.id;
+                      return (
+                        <button
+                          key={srv.id}
+                          type="button"
+                          onClick={() => {
+                            setEditingWebhook((prev) => (prev ? { ...prev, guildId: srv.id } : null));
+                          }}
+                          className={cn(
+                            "p-2.5 rounded-lg border text-left transition-all flex items-center justify-between gap-2",
+                            isSelected
+                              ? "bg-primary/15 border-primary/60 shadow-sm"
+                              : "bg-zinc-950/60 border-zinc-800 hover:border-zinc-700"
+                          )}
+                        >
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-1.5 font-bold text-xs">
+                              <Server className={cn("h-3.5 w-3.5", isSelected ? "text-primary" : "text-muted-foreground")} />
+                              <span className={isSelected ? "text-primary" : "text-foreground"}>{srv.name}</span>
+                            </div>
+                            <span className="text-[10px] text-muted-foreground truncate block font-mono">{srv.id}</span>
                           </div>
-                          <span className="text-[10px] text-muted-foreground truncate block font-mono">{srv.id}</span>
-                        </div>
-                        <Badge className={cn("text-[9px] px-1.5 py-0 font-bold", srv.badgeColor)}>
-                          {srv.tag}
-                        </Badge>
-                      </button>
-                    );
-                  })}
-                </div>
+                          <Badge className={cn("text-[9px] px-1.5 py-0 font-bold", srv.badgeColor)}>
+                            {srv.tag}
+                          </Badge>
+                        </button>
+                      );
+                    })}
+                  </div>
 
-                {/* Input de ID de servidor caso queira customizado */}
-                <div className="pt-1">
+                  {/* Input de ID de servidor customizado */}
                   <Input
                     value={editingWebhook.guildId}
                     onChange={(e) => setEditingWebhook({ ...editingWebhook, guildId: e.target.value })}
                     placeholder="ID do Servidor Discord (ex: 1535505650308620400)"
                     className="bg-zinc-950 border-zinc-800 text-xs font-mono font-bold h-8"
                   />
-                </div>
-              </div>
 
-              {/* Canal do Servidor com chips dos canais conhecidos */}
-              <div className="space-y-2 p-3.5 rounded-xl bg-zinc-900/60 border border-zinc-800">
-                <div className="flex items-center justify-between">
-                  <Label className="text-xs font-bold flex items-center gap-1.5">
-                    <Hash className="h-3.5 w-3.5 text-blue-400" />
-                    ID do Canal do Servidor <span className="text-rose-400">*</span>
-                  </Label>
-                  <span className="text-[10px] text-muted-foreground">
-                    Canal onde as mensagens serão publicadas
-                  </span>
-                </div>
-
-                {/* Chips de canais sugeridos para o servidor selecionado */}
-                {(() => {
-                  const curPreset = SERVERS_PRESETS.find((s) => s.id === editingWebhook.guildId);
-                  if (!curPreset) return null;
-                  return (
-                    <div className="space-y-1">
-                      <span className="text-[0.65rem] font-semibold text-muted-foreground block">
-                        Canais Sugeridos no servidor {curPreset.name}:
-                      </span>
-                      <div className="flex flex-wrap gap-1.5">
-                        {curPreset.channels.map((ch) => {
-                          const isSel = editingWebhook.channelId === ch.id;
-                          return (
-                            <button
-                              key={ch.id}
-                              type="button"
-                              onClick={() => {
-                                setEditingWebhook((prev) => {
-                                  if (!prev) return null;
-                                  const newName = !prev.name || prev.name.startsWith("Canal") ? ch.name : prev.name;
-                                  return {
-                                    ...prev,
-                                    channelId: ch.id,
-                                    name: newName,
-                                    webhookUrl: KNOWN_CHANNEL_WEBHOOKS[ch.id] || prev.webhookUrl,
-                                  };
-                                });
-                              }}
-                              className={cn(
-                                "px-2.5 py-1 rounded-md text-[0.7rem] font-mono border transition-all flex items-center gap-1.5",
-                                isSel
-                                  ? "bg-violet-600 text-white border-violet-500 font-bold shadow-sm"
-                                  : "bg-zinc-950 border-zinc-800 text-zinc-300 hover:border-zinc-700 hover:text-white"
-                              )}
-                            >
-                              <Hash className="h-3 w-3" />
-                              <span>{ch.name}</span>
-                            </button>
-                          );
-                        })}
-                      </div>
+                  {/* Canal com chips dos canais conhecidos */}
+                  <div className="space-y-2 pt-1 border-t border-zinc-800/80">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-xs font-bold flex items-center gap-1.5">
+                        <Hash className="h-3.5 w-3.5 text-blue-400" />
+                        ID do Canal Discord <span className="text-rose-400">*</span>
+                      </Label>
+                      <span className="text-[10px] text-muted-foreground">Canal de postagem</span>
                     </div>
-                  );
-                })()}
 
-                <Input
-                  value={editingWebhook.channelId}
-                  onChange={(e) => setEditingWebhook({ ...editingWebhook, channelId: e.target.value })}
-                  placeholder="Ex: 1548413371194286314"
-                  className="bg-zinc-950 border-zinc-800 text-xs font-mono font-bold h-8"
-                />
-                <p className="text-[0.65rem] text-muted-foreground">
-                  Copie o ID do canal no Discord com botão direito &gt; &quot;Copiar ID do canal&quot;, ou clique em um dos canais sugeridos acima.
-                </p>
-              </div>
+                    {(() => {
+                      const curPreset = SERVERS_PRESETS.find((s) => s.id === editingWebhook.guildId);
+                      if (!curPreset) return null;
+                      return (
+                        <div className="space-y-1">
+                          <span className="text-[0.65rem] font-semibold text-muted-foreground block">
+                            Canais sugeridos no servidor {curPreset.name}:
+                          </span>
+                          <div className="flex flex-wrap gap-1.5">
+                            {curPreset.channels.map((ch) => {
+                              const isSel = editingWebhook.channelId === ch.id;
+                              return (
+                                <button
+                                  key={ch.id}
+                                  type="button"
+                                  onClick={() => {
+                                    setEditingWebhook((prev) => {
+                                      if (!prev) return null;
+                                      const newName = !prev.name || prev.name.startsWith("Canal") ? ch.name : prev.name;
+                                      return {
+                                        ...prev,
+                                        channelId: ch.id,
+                                        name: newName,
+                                        webhookUrl: KNOWN_CHANNEL_WEBHOOKS[ch.id] || prev.webhookUrl,
+                                      };
+                                    });
+                                  }}
+                                  className={cn(
+                                    "px-2.5 py-1 rounded-md text-[0.7rem] font-mono border transition-all flex items-center gap-1.5",
+                                    isSel
+                                      ? "bg-violet-600 text-white border-violet-500 font-bold shadow-sm"
+                                      : "bg-zinc-950 border-zinc-800 text-zinc-300 hover:border-zinc-700 hover:text-white"
+                                  )}
+                                >
+                                  <Hash className="h-3 w-3" />
+                                  <span>{ch.name}</span>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      );
+                    })()}
 
-              {/* URL Oficial do Webhook Discord (Opcional - gerada automaticamente se vazia) */}
-              <div className="space-y-1.5 p-3.5 rounded-xl bg-zinc-900/60 border border-zinc-800">
-                <div className="flex items-center justify-between">
-                  <Label className="text-xs font-bold flex items-center gap-1.5">
-                    <ExternalLink className="h-3.5 w-3.5 text-emerald-400" />
-                    URL Oficial do Webhook Discord (Opcional)
-                  </Label>
-                  <Badge className="bg-emerald-500/10 text-emerald-400 border-emerald-500/20 text-[9px] font-mono">
-                    Discohook / FiveM
-                  </Badge>
-                </div>
-                <Input
-                  value={editingWebhook.webhookUrl || ""}
-                  onChange={(e) => setEditingWebhook({ ...editingWebhook, webhookUrl: e.target.value })}
-                  placeholder="https://discord.com/api/webhooks/... (deixe vazio para gerar automaticamente)"
-                  className="bg-zinc-950 border-zinc-800 text-xs font-mono"
-                />
-                <p className="text-[0.65rem] text-muted-foreground">
-                  Se você já tiver a URL gerada do Discord, cole-a aqui. Se deixar vazio, o sistema usa a URL oficial mapeada ou gera automaticamente.
-                </p>
-              </div>
-
-              {/* Personalização do Emissor: Nome e Upload de Avatar */}
-              <div className="space-y-4 p-4 rounded-xl bg-zinc-900/60 border border-zinc-800">
-                <h4 className="text-xs font-black tracking-wider uppercase text-muted-foreground flex items-center gap-2">
-                  <Bot className="h-4 w-4 text-emerald-400" />
-                  Personalização do Bot Emissor
-                </h4>
-
-                <div className="space-y-3">
-                  {/* Nome do Bot */}
-                  <div className="space-y-1.5">
-                    <Label className="text-xs font-bold">Nome do Bot ao Postar</Label>
                     <Input
-                      value={editingWebhook.username || ""}
-                      onChange={(e) => setEditingWebhook({ ...editingWebhook, username: e.target.value })}
-                      placeholder="Ex: Twin Wheels RP"
-                      className="bg-zinc-950 border-zinc-800 text-xs font-bold"
+                      value={editingWebhook.channelId}
+                      onChange={(e) => setEditingWebhook({ ...editingWebhook, channelId: e.target.value })}
+                      placeholder="Ex: 1548413371194286314"
+                      className="bg-zinc-950 border-zinc-800 text-xs font-mono font-bold h-8"
                     />
                   </div>
 
-                  {/* Upload do Avatar e URL Direta */}
-                  <div className="space-y-2 p-3.5 rounded-xl bg-zinc-950/80 border border-zinc-800">
-                    <Label className="text-xs font-bold flex items-center gap-1.5">
-                      <ImageIcon className="h-3.5 w-3.5 text-emerald-400" />
-                      Avatar do Bot (Upload de Imagem ou Link Direto)
-                    </Label>
+                  {/* URL Oficial do Webhook Discord */}
+                  <div className="space-y-1 pt-1 border-t border-zinc-800/80">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-xs font-bold flex items-center gap-1.5">
+                        <ExternalLink className="h-3.5 w-3.5 text-emerald-400" />
+                        URL Oficial do Webhook (Discohook / FiveM)
+                      </Label>
+                      <Badge className="bg-emerald-500/10 text-emerald-400 border-emerald-500/20 text-[9px] font-mono">
+                        Oficial Discord
+                      </Badge>
+                    </div>
+                    <Input
+                      value={editingWebhook.webhookUrl || ""}
+                      onChange={(e) => setEditingWebhook({ ...editingWebhook, webhookUrl: e.target.value })}
+                      placeholder="https://discord.com/api/webhooks/... (preenchida automaticamente se vazia)"
+                      className="bg-zinc-950 border-zinc-800 text-xs font-mono"
+                    />
+                  </div>
+                </div>
 
-                    <div className="flex items-center gap-3">
-                      <img
-                        src={editingWebhook.avatarUrl || "https://i.ibb.co/ymH1BQPQ/Uma124.png"}
-                        alt="Avatar Preview"
-                        className="h-12 w-12 rounded-full object-cover ring-2 ring-primary/40 bg-zinc-900 shrink-0 shadow-md"
-                        onError={(e) => {
-                          (e.target as HTMLImageElement).src = "https://i.ibb.co/ymH1BQPQ/Uma124.png";
-                        }}
+                {/* 3. Identidade do Bot Emissor */}
+                <div className="space-y-3 p-3.5 rounded-xl bg-zinc-900/60 border border-zinc-800">
+                  <h4 className="text-xs font-black tracking-wider uppercase text-muted-foreground flex items-center gap-2">
+                    <Bot className="h-4 w-4 text-emerald-400" />
+                    Identidade do Bot Emissor
+                  </h4>
+
+                  <div className="space-y-3">
+                    <div className="space-y-1.5">
+                      <Label className="text-xs font-bold">Nome de Exibição do Bot</Label>
+                      <Input
+                        value={editingWebhook.username || ""}
+                        onChange={(e) => setEditingWebhook({ ...editingWebhook, username: e.target.value })}
+                        placeholder="Ex: TW | Logs Baú QG"
+                        className="bg-zinc-950 border-zinc-800 text-xs font-bold"
                       />
-                      <div className="flex-1 space-y-1.5">
-                        <input
-                          type="file"
-                          ref={avatarFileInputRef}
-                          accept="image/*"
-                          onChange={handleAvatarFileUpload}
-                          className="hidden"
-                        />
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <Button
-                            type="button"
-                            variant="outline"
-                            onClick={() => avatarFileInputRef.current?.click()}
-                            disabled={isUploadingAvatar}
-                            className="bg-zinc-900 border-zinc-700 text-xs font-bold gap-1.5 h-8"
-                          >
-                            {isUploadingAvatar ? (
-                              <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />
-                            ) : (
-                              <Upload className="h-3.5 w-3.5 text-primary" />
-                            )}
-                            {isUploadingAvatar ? "Enviando Imagem..." : "Fazer Upload de Imagem"}
-                          </Button>
-
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            onClick={() =>
-                              setEditingWebhook((prev) =>
-                                prev ? { ...prev, avatarUrl: "https://i.ibb.co/ymH1BQPQ/Uma124.png" } : null
-                              )
-                            }
-                            className="text-[0.65rem] text-muted-foreground hover:text-foreground h-8"
-                          >
-                            Restaurar Padrão TW
-                          </Button>
-                        </div>
-                        <p className="text-[0.65rem] text-muted-foreground">
-                          PNG, JPG, WebP ou GIF (máx. 5MB). Salvo automaticamente após o upload.
-                        </p>
-                      </div>
                     </div>
 
-                    <div className="space-y-1 pt-1">
-                      <Label className="text-[0.7rem] text-muted-foreground font-semibold">
-                        Ou informe a URL direta da imagem:
+                    {/* Avatar do Bot com Upload */}
+                    <div className="space-y-2 p-3 rounded-xl bg-zinc-950/80 border border-zinc-800">
+                      <Label className="text-xs font-bold flex items-center gap-1.5">
+                        <ImageIcon className="h-3.5 w-3.5 text-emerald-400" />
+                        Avatar do Bot
                       </Label>
+
+                      <div className="flex items-center gap-3">
+                        <img
+                          src={editingWebhook.avatarUrl || "https://i.ibb.co/ymH1BQPQ/Uma124.png"}
+                          alt="Avatar Preview"
+                          className="h-12 w-12 rounded-full object-cover ring-2 ring-primary/40 bg-zinc-900 shrink-0 shadow-md"
+                          onError={(e) => {
+                            (e.target as HTMLImageElement).src = "https://i.ibb.co/ymH1BQPQ/Uma124.png";
+                          }}
+                        />
+                        <div className="flex-1 space-y-1.5">
+                          <input
+                            type="file"
+                            ref={avatarFileInputRef}
+                            accept="image/*"
+                            onChange={handleAvatarFileUpload}
+                            className="hidden"
+                          />
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              onClick={() => avatarFileInputRef.current?.click()}
+                              disabled={isUploadingAvatar}
+                              className="bg-zinc-900 border-zinc-700 text-xs font-bold gap-1.5 h-8"
+                            >
+                              {isUploadingAvatar ? (
+                                <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />
+                              ) : (
+                                <Upload className="h-3.5 w-3.5 text-primary" />
+                              )}
+                              {isUploadingAvatar ? "Enviando..." : "Fazer Upload de Imagem"}
+                            </Button>
+
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() =>
+                                setEditingWebhook((prev) =>
+                                  prev ? { ...prev, avatarUrl: "https://i.ibb.co/ymH1BQPQ/Uma124.png" } : null
+                                )
+                              }
+                              className="text-[0.65rem] text-muted-foreground hover:text-foreground h-8"
+                            >
+                              Restaurar Padrão TW
+                            </Button>
+                          </div>
+                          <p className="text-[0.65rem] text-muted-foreground">
+                            PNG, JPG, WebP ou GIF (máx. 5MB). Salvo automaticamente na nuvem.
+                          </p>
+                        </div>
+                      </div>
+
                       <Input
                         value={editingWebhook.avatarUrl || ""}
                         onChange={(e) => setEditingWebhook({ ...editingWebhook, avatarUrl: e.target.value })}
-                        placeholder="https://i.ibb.co/... ou link público de imagem"
+                        placeholder="Ou cole a URL direta: https://i.ibb.co/... ou link público"
                         className="bg-zinc-900 border-zinc-800 text-xs font-mono h-8"
                       />
                     </div>
                   </div>
                 </div>
 
-                {/* Cor do Embed e Rodapé */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
+                {/* 4. Cores & Paleta do Embed Discord */}
+                <div className="space-y-3 p-3.5 rounded-xl bg-zinc-900/60 border border-zinc-800">
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-xs font-black tracking-wider uppercase text-muted-foreground flex items-center gap-2">
+                      <Palette className="h-4 w-4 text-primary" />
+                      Cores do Embed Discord
+                    </h4>
+                    <span className="text-xs font-mono font-bold text-foreground">
+                      {editingWebhook.embedColor || "#10B981"}
+                    </span>
+                  </div>
+
+                  {/* Paleta de 12 Cores Curadas */}
                   <div className="space-y-1.5">
-                    <Label className="text-xs font-bold flex items-center gap-1.5">
-                      <Palette className="h-3.5 w-3.5 text-primary" />
-                      Cor da Barra do Embed
+                    <Label className="text-[0.7rem] text-muted-foreground font-semibold">
+                      Paleta Recomendada (GTA RP / Twin Wheels):
                     </Label>
+                    <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+                      {COLOR_PRESETS.map((color) => {
+                        const isCur = editingWebhook.embedColor?.toLowerCase() === color.hex.toLowerCase();
+                        return (
+                          <button
+                            key={color.hex}
+                            type="button"
+                            onClick={() =>
+                              setEditingWebhook((prev) => (prev ? { ...prev, embedColor: color.hex } : null))
+                            }
+                            className={cn(
+                              "p-2 rounded-lg border text-left flex items-center gap-2 transition-all",
+                              isCur
+                                ? "bg-zinc-900 border-primary ring-1 ring-primary shadow-sm"
+                                : "bg-zinc-950/60 border-zinc-800 hover:border-zinc-700"
+                            )}
+                          >
+                            <span
+                              className="h-3.5 w-3.5 rounded-full shrink-0 shadow-sm border border-black/30"
+                              style={{ backgroundColor: color.hex }}
+                            />
+                            <span className="text-[10px] font-semibold truncate text-zinc-300">
+                              {color.name}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Seletor Customizado HEX & Color Picker */}
+                  <div className="space-y-1.5 pt-1">
+                    <Label className="text-xs font-bold">Cor Customizada (HEX ou Seletor):</Label>
                     <div className="flex items-center gap-2">
                       <Input
                         type="color"
                         value={editingWebhook.embedColor || "#10B981"}
                         onChange={(e) => setEditingWebhook({ ...editingWebhook, embedColor: e.target.value })}
-                        className="h-8 w-12 p-0.5 bg-zinc-950 border-zinc-800 rounded cursor-pointer"
+                        className="h-8 w-14 p-0.5 bg-zinc-950 border-zinc-800 rounded cursor-pointer shrink-0"
                       />
                       <Input
                         value={editingWebhook.embedColor || "#10B981"}
                         onChange={(e) => setEditingWebhook({ ...editingWebhook, embedColor: e.target.value })}
-                        className="bg-zinc-950 border-zinc-800 text-xs font-mono font-bold h-8"
+                        placeholder="#10B981"
+                        className="bg-zinc-950 border-zinc-800 text-xs font-mono font-bold h-8 flex-1"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* 5. Configurações Padrões da Mensagem e Embed (Novo!) */}
+                <div className="space-y-4 p-4 rounded-xl bg-zinc-900/60 border border-zinc-800">
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-xs font-black tracking-wider uppercase text-muted-foreground flex items-center gap-2">
+                      <Sparkles className="h-4 w-4 text-violet-400" />
+                      Configurações Padrões de Mensagem & Embed
+                    </h4>
+                    <Badge className="bg-violet-500/10 text-violet-400 border-violet-500/25 text-[9px]">
+                      Padrão de Disparo
+                    </Badge>
+                  </div>
+
+                  {/* Título e Subtítulo Padrões */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="space-y-1.5">
+                      <Label className="text-xs font-bold flex items-center gap-1.5">
+                        <Type className="h-3 w-3 text-primary" />
+                        Título Padrão do Embed
+                      </Label>
+                      <Input
+                        value={editingWebhook.defaultTitle || ""}
+                        onChange={(e) => setEditingWebhook({ ...editingWebhook, defaultTitle: e.target.value })}
+                        placeholder="Ex: 💻 Teste Desenvolvedor"
+                        className="bg-zinc-950 border-zinc-800 text-xs font-bold h-8"
+                      />
+                      <p className="text-[0.65rem] text-muted-foreground">
+                        Usado como título principal caso a mensagem não defina um.
+                      </p>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <Label className="text-xs font-bold">Subtítulo / Descrição Padrão</Label>
+                      <Input
+                        value={editingWebhook.defaultDescription || ""}
+                        onChange={(e) => setEditingWebhook({ ...editingWebhook, defaultDescription: e.target.value })}
+                        placeholder="Ex: by malaca"
+                        className="bg-zinc-950 border-zinc-800 text-xs h-8"
+                      />
+                      <p className="text-[0.65rem] text-muted-foreground">
+                        Texto de cabeçalho ou autoria antes do corpo da mensagem.
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Switch: Caixa de Código Monospace (Codeblock) */}
+                  <div className="flex items-center justify-between p-3 rounded-xl bg-zinc-950/80 border border-zinc-800 gap-3">
+                    <div className="space-y-0.5">
+                      <Label className="text-xs font-bold flex items-center gap-1.5">
+                        <Code2 className="h-3.5 w-3.5 text-violet-400" />
+                        Destacar Mensagem em Caixa de Código (Codeblock)
+                      </Label>
+                      <p className="text-[0.65rem] text-muted-foreground">
+                        Renderiza a mensagem em caixa escura monospace de destaque (idêntico ao print do Discord da Facção).
+                      </p>
+                    </div>
+                    <Switch
+                      checked={editingWebhook.useCodeblockField ?? true}
+                      onCheckedChange={(val) => setEditingWebhook({ ...editingWebhook, useCodeblockField: val })}
+                    />
+                  </div>
+
+                  {/* Miniatura (Thumbnail) do Canto Superior Direito */}
+                  <div className="space-y-2 p-3 rounded-xl bg-zinc-950/80 border border-zinc-800">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-xs font-bold flex items-center gap-1.5">
+                        <ImageIcon className="h-3.5 w-3.5 text-blue-400" />
+                        Miniatura do Embed (Thumbnail no Canto Superior Direito)
+                      </Label>
+                      {editingWebhook.thumbnailUrl && (
+                        <button
+                          type="button"
+                          onClick={() => setEditingWebhook({ ...editingWebhook, thumbnailUrl: "" })}
+                          className="text-[10px] text-rose-400 hover:underline font-semibold"
+                        >
+                          Remover
+                        </button>
+                      )}
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="file"
+                        ref={thumbnailFileInputRef}
+                        accept="image/*"
+                        onChange={handleThumbnailFileUpload}
+                        className="hidden"
+                      />
+                      <Input
+                        value={editingWebhook.thumbnailUrl || ""}
+                        onChange={(e) => setEditingWebhook({ ...editingWebhook, thumbnailUrl: e.target.value })}
+                        placeholder="URL da miniatura ou faça upload..."
+                        className="bg-zinc-900 border-zinc-800 text-xs font-mono h-8 flex-1"
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => thumbnailFileInputRef.current?.click()}
+                        disabled={isUploadingThumbnail}
+                        className="bg-zinc-900 border-zinc-700 text-xs font-bold gap-1.5 h-8 shrink-0"
+                      >
+                        {isUploadingThumbnail ? <Loader2 className="h-3 w-3 animate-spin" /> : <Upload className="h-3 w-3" />}
+                        Upload
+                      </Button>
+                    </div>
+                  </div>
+
+                  {/* Imagem Grande / Banner do Embed */}
+                  <div className="space-y-2 p-3 rounded-xl bg-zinc-950/80 border border-zinc-800">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-xs font-bold flex items-center gap-1.5">
+                        <ImageIcon className="h-3.5 w-3.5 text-amber-400" />
+                        Banner / Imagem Grande do Embed
+                      </Label>
+                      {editingWebhook.imageUrl && (
+                        <button
+                          type="button"
+                          onClick={() => setEditingWebhook({ ...editingWebhook, imageUrl: "" })}
+                          className="text-[10px] text-rose-400 hover:underline font-semibold"
+                        >
+                          Remover
+                        </button>
+                      )}
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="file"
+                        ref={bannerFileInputRef}
+                        accept="image/*"
+                        onChange={handleBannerFileUpload}
+                        className="hidden"
+                      />
+                      <Input
+                        value={editingWebhook.imageUrl || ""}
+                        onChange={(e) => setEditingWebhook({ ...editingWebhook, imageUrl: e.target.value })}
+                        placeholder="URL da imagem grande ou faça upload..."
+                        className="bg-zinc-900 border-zinc-800 text-xs font-mono h-8 flex-1"
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => bannerFileInputRef.current?.click()}
+                        disabled={isUploadingBanner}
+                        className="bg-zinc-900 border-zinc-700 text-xs font-bold gap-1.5 h-8 shrink-0"
+                      >
+                        {isUploadingBanner ? <Loader2 className="h-3 w-3 animate-spin" /> : <Upload className="h-3 w-3" />}
+                        Upload
+                      </Button>
+                    </div>
+                  </div>
+
+                  {/* Autor do Embed (Opcional) */}
+                  <div className="space-y-2 p-3 rounded-xl bg-zinc-950/80 border border-zinc-800">
+                    <Label className="text-xs font-bold">Autor do Embed (Opcional)</Label>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      <Input
+                        value={editingWebhook.authorName || ""}
+                        onChange={(e) => setEditingWebhook({ ...editingWebhook, authorName: e.target.value })}
+                        placeholder="Nome do autor (ex: Twin Wheels RP)"
+                        className="bg-zinc-900 border-zinc-800 text-xs h-8"
+                      />
+                      <Input
+                        value={editingWebhook.authorIconUrl || ""}
+                        onChange={(e) => setEditingWebhook({ ...editingWebhook, authorIconUrl: e.target.value })}
+                        placeholder="URL do ícone do autor (opcional)"
+                        className="bg-zinc-900 border-zinc-800 text-xs font-mono h-8"
                       />
                     </div>
                   </div>
 
+                  {/* Rodapé e Timestamp */}
+                  <div className="space-y-3 p-3 rounded-xl bg-zinc-950/80 border border-zinc-800">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      <div className="space-y-1">
+                        <Label className="text-xs font-bold">Texto do Rodapé (Footer)</Label>
+                        <Input
+                          value={editingWebhook.footerText || ""}
+                          onChange={(e) => setEditingWebhook({ ...editingWebhook, footerText: e.target.value })}
+                          placeholder="Ex: Twin Wheels RP"
+                          className="bg-zinc-900 border-zinc-800 text-xs h-8"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs font-bold">Ícone do Rodapé URL (Opcional)</Label>
+                        <Input
+                          value={editingWebhook.footerIconUrl || ""}
+                          onChange={(e) => setEditingWebhook({ ...editingWebhook, footerIconUrl: e.target.value })}
+                          placeholder="URL do ícone minúsculo do rodapé"
+                          className="bg-zinc-900 border-zinc-800 text-xs font-mono h-8"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between pt-1 border-t border-zinc-800/60">
+                      <Label className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+                        <Clock className="h-3.5 w-3.5 text-zinc-400" />
+                        Exibir Data e Horário no Rodapé (Timestamp)
+                      </Label>
+                      <Switch
+                        checked={editingWebhook.showTimestamp ?? true}
+                        onCheckedChange={(val) => setEditingWebhook({ ...editingWebhook, showTimestamp: val })}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Menção Padrão */}
                   <div className="space-y-1.5">
-                    <Label className="text-xs font-bold">Texto do Rodapé (Footer)</Label>
+                    <Label className="text-xs font-bold flex items-center gap-1.5">
+                      <AtSign className="h-3.5 w-3.5 text-primary" />
+                      Menções Padrão (Opcional)
+                    </Label>
                     <Input
-                      value={editingWebhook.footerText || ""}
-                      onChange={(e) => setEditingWebhook({ ...editingWebhook, footerText: e.target.value })}
-                      placeholder="Ex: Twin Wheels RP • Sistema Integrado"
-                      className="bg-zinc-950 border-zinc-800 text-xs h-8"
+                      value={editingWebhook.mentionRoles || ""}
+                      onChange={(e) => setEditingWebhook({ ...editingWebhook, mentionRoles: e.target.value })}
+                      placeholder="Ex: @everyone, @here ou ID de cargo <@&...>"
+                      className="bg-zinc-950 border-zinc-800 text-xs font-mono h-8"
                     />
+                    <p className="text-[0.65rem] text-muted-foreground">
+                      Notifica membros ou cargos automaticamente ao enviar mensagens.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* ================================================================= */}
+              {/* COLUNA DIREITA: LIVE DISCORD PREVIEW (lg:col-span-5) */}
+              {/* ================================================================= */}
+              <div className="lg:col-span-5 space-y-3">
+                <div className="sticky top-2 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-black uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                      <Eye className="h-3.5 w-3.5 text-primary" />
+                      Pré-visualização Discord (Live)
+                    </span>
+                    <Badge variant="outline" className="text-[10px] bg-zinc-900 border-zinc-800 text-emerald-400 font-mono">
+                      Tempo Real
+                    </Badge>
+                  </div>
+
+                  {/* Janela de Mensagem Estilo Discord */}
+                  <div className="p-4 rounded-xl bg-[#313338] border border-[#232428] text-[#dbdee1] shadow-2xl space-y-3 select-none">
+                    {/* Header: Avatar + Nome + Tag APP + Horário */}
+                    <div className="flex items-start gap-3">
+                      <img
+                        src={editingWebhook.avatarUrl || "https://i.ibb.co/ymH1BQPQ/Uma124.png"}
+                        alt="Bot Avatar"
+                        className="w-10 h-10 rounded-full object-cover shrink-0 bg-[#2b2d31] shadow-sm ring-1 ring-black/40"
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).src = "https://i.ibb.co/ymH1BQPQ/Uma124.png";
+                        }}
+                      />
+
+                      <div className="flex-1 min-w-0 space-y-1.5">
+                        {/* Linha superior: Nome + Tag APP + Horário */}
+                        <div className="flex items-center gap-1.5 flex-wrap leading-none">
+                          <span className="font-semibold text-sm text-[#f2f3f5] truncate">
+                            {editingWebhook.username || editingWebhook.name || "Twin Wheels RP"}
+                          </span>
+                          <span className="inline-flex items-center gap-0.5 bg-[#5865F2] text-white text-[9px] font-bold px-1 py-0.5 rounded leading-none shadow-xs">
+                            APP
+                          </span>
+                          <span className="text-[11px] text-[#949ba4] font-normal ml-1">
+                            Hoje às 17:54
+                          </span>
+                        </div>
+
+                        {/* Menção no topo caso configurada */}
+                        {editingWebhook.mentionRoles && (
+                          <div className="text-xs text-[#c9cdfb] bg-[#5865f2]/15 px-1.5 py-0.5 rounded inline-block font-medium">
+                            {editingWebhook.mentionRoles.startsWith("@") || editingWebhook.mentionRoles.startsWith("<")
+                              ? editingWebhook.mentionRoles
+                              : `@${editingWebhook.mentionRoles}`}
+                          </div>
+                        )}
+
+                        {/* Cartão do Embed Discord com a barra colorida na lateral */}
+                        <div
+                          className="rounded-md bg-[#2b2d31] border border-[#1e1f22] p-3.5 space-y-2.5 max-w-full relative shadow-md"
+                          style={{
+                            borderLeftWidth: "4px",
+                            borderLeftColor: editingWebhook.embedColor || "#10B981",
+                          }}
+                        >
+                          {/* Autor do Embed */}
+                          {editingWebhook.authorName && (
+                            <div className="flex items-center gap-1.5 text-xs font-semibold text-[#f2f3f5]">
+                              {editingWebhook.authorIconUrl && (
+                                <img
+                                  src={editingWebhook.authorIconUrl}
+                                  alt="Author Icon"
+                                  className="w-4 h-4 rounded-full object-cover shrink-0"
+                                />
+                              )}
+                              <span className="truncate">{editingWebhook.authorName}</span>
+                            </div>
+                          )}
+
+                          {/* Título, Subtítulo e Miniatura (Thumbnail) lado a lado */}
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="space-y-1 min-w-0 flex-1">
+                              <div className="font-bold text-sm text-[#f2f3f5] leading-snug break-words">
+                                {editingWebhook.defaultTitle || "💻 Teste Desenvolvedor"}
+                              </div>
+                              <div className="text-xs text-[#dbdee1] leading-relaxed break-words whitespace-pre-wrap">
+                                {editingWebhook.defaultDescription || "by malaca"}
+                              </div>
+                            </div>
+
+                            {editingWebhook.thumbnailUrl && (
+                              <img
+                                src={editingWebhook.thumbnailUrl}
+                                alt="Thumbnail"
+                                className="w-16 h-16 rounded object-cover shrink-0 border border-black/20 bg-[#1e1f22]"
+                                onError={(e) => {
+                                  (e.target as HTMLImageElement).style.display = "none";
+                                }}
+                              />
+                            )}
+                          </div>
+
+                          {/* Caixa de Código em Destaque (Codeblock Monospace) */}
+                          {editingWebhook.useCodeblockField ? (
+                            <div className="bg-[#1e1f22] rounded-md p-2.5 border border-[#111214] font-mono text-xs text-[#dbdee1] shadow-inner break-words">
+                              Testando webhook
+                            </div>
+                          ) : (
+                            <div className="text-xs text-[#dbdee1] italic text-muted-foreground/80">
+                              (Mensagem em texto comum sem destaque de código)
+                            </div>
+                          )}
+
+                          {/* Imagem Grande / Banner do Embed */}
+                          {editingWebhook.imageUrl && (
+                            <div className="rounded overflow-hidden max-h-48 w-full border border-black/20 bg-[#1e1f22]">
+                              <img
+                                src={editingWebhook.imageUrl}
+                                alt="Banner"
+                                className="w-full object-cover max-h-48"
+                                onError={(e) => {
+                                  (e.target as HTMLImageElement).style.display = "none";
+                                }}
+                              />
+                            </div>
+                          )}
+
+                          {/* Rodapé (Footer) */}
+                          <div className="flex items-center gap-1.5 text-[11px] text-[#949ba4] pt-1">
+                            {editingWebhook.footerIconUrl && (
+                              <img
+                                src={editingWebhook.footerIconUrl}
+                                alt="Footer Icon"
+                                className="w-4 h-4 rounded-full object-cover shrink-0"
+                              />
+                            )}
+                            <span className="truncate">{editingWebhook.footerText || "Twin Wheels RP"}</span>
+                            {editingWebhook.showTimestamp !== false && <span>• Hoje às 17:54</span>}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Dica de Integração */}
+                  <div className="p-3 rounded-lg bg-zinc-900/60 border border-zinc-800 text-[11px] text-muted-foreground space-y-1">
+                    <span className="font-bold text-foreground flex items-center gap-1.5">
+                      <Sparkles className="h-3 w-3 text-primary" />
+                      Como os padrões são aplicados:
+                    </span>
+                    <p className="leading-relaxed">
+                      Sempre que mensagens externas forem recebidas pelo link do webhook (Discohook, scripts cURL ou FiveM) sem campos específicos, essas cores, títulos e caixa de código são injetados automaticamente.
+                    </p>
                   </div>
                 </div>
               </div>
