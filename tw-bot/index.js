@@ -1075,7 +1075,106 @@ function setupRealtimeListeners() {
     } catch {}
   }, 15000);
 
-  // 7. Polling Engine de segurança executado a cada 3 segundos
+  // 7. Canal de Despacho de Webhooks / Postagem em Canais por ID de Servidor e Canal
+  supabase
+    .channel("system-discord-webhook-dispatch")
+    .on("broadcast", { event: "dispatch_post" }, async (payload) => {
+      const data = payload?.payload;
+      if (!data || !data.channelId) return;
+      console.log(`📤 [WEBHOOK DISPATCH] Postagem recebida para o canal Discord: ${data.channelId}`);
+
+      try {
+        const channel = await client.channels.fetch(data.channelId).catch((err) => {
+          console.warn(`[WEBHOOK DISPATCH] Erro ao buscar canal ${data.channelId}:`, err.message);
+          return null;
+        });
+
+        if (!channel) {
+          console.warn(`[WEBHOOK DISPATCH] Canal ${data.channelId} não encontrado no Discord.`);
+          const resultChannel = supabase.channel("system-discord-webhook-results");
+          await resultChannel.send({
+            type: "broadcast",
+            event: "post_result",
+            payload: {
+              webhookId: data.webhookId,
+              success: false,
+              error: `Canal ${data.channelId} não encontrado ou o bot não tem permissão para acessá-lo.`,
+              timestamp: Date.now(),
+            },
+          });
+          return;
+        }
+
+        const embed = new EmbedBuilder();
+        if (data.embed?.title) embed.setTitle(data.embed.title);
+        if (data.embed?.description) embed.setDescription(data.embed.description);
+        if (data.embed?.color) embed.setColor(data.embed.color);
+        if (data.embed?.fields && Array.isArray(data.embed.fields)) {
+          for (const f of data.embed.fields) {
+            if (f.name && f.value) embed.addFields({ name: f.name, value: f.value, inline: !!f.inline });
+          }
+        }
+        if (data.username || data.avatarUrl) {
+          embed.setAuthor({
+            name: data.username || "Twin Wheels RP",
+            iconURL: data.avatarUrl && typeof data.avatarUrl === "string" && data.avatarUrl.startsWith("http") ? data.avatarUrl : undefined,
+          });
+        }
+        if (data.embed?.footer) {
+          embed.setFooter({
+            text: data.embed.footer.text || "Twin Wheels RP",
+            iconURL: data.embed.footer.icon_url || undefined,
+          });
+        }
+        if (data.embed?.image) {
+          const imgUrl = typeof data.embed.image === "string" ? data.embed.image : data.embed.image.url;
+          if (imgUrl && imgUrl.startsWith("http")) embed.setImage(imgUrl);
+        }
+        if (data.embed?.timestamp) {
+          embed.setTimestamp();
+        }
+
+        const sentMessage = await channel.send({
+          content: data.content || undefined,
+          embeds: [embed],
+        });
+
+        console.log(`✅ [WEBHOOK DISPATCH] Mensagem postada com sucesso em #${channel.name || data.channelId} (ID: ${sentMessage.id})`);
+
+        const resultChannel = supabase.channel("system-discord-webhook-results");
+        await resultChannel.send({
+          type: "broadcast",
+          event: "post_result",
+          payload: {
+            webhookId: data.webhookId,
+            channelId: data.channelId,
+            channelName: channel.name,
+            guildName: channel.guild?.name,
+            messageId: sentMessage.id,
+            success: true,
+            timestamp: Date.now(),
+          },
+        });
+      } catch (err) {
+        console.error("[WEBHOOK DISPATCH ERRO]:", err.message);
+        const resultChannel = supabase.channel("system-discord-webhook-results");
+        await resultChannel.send({
+          type: "broadcast",
+          event: "post_result",
+          payload: {
+            webhookId: data.webhookId,
+            success: false,
+            error: err.message,
+            timestamp: Date.now(),
+          },
+        });
+      }
+    })
+    .subscribe((status) => {
+      console.log(`📡 [WEBHOOK DISPATCH STATUS] status: ${status}`);
+    });
+
+  // 8. Polling Engine de segurança executado a cada 3 segundos
   setInterval(pollUnprocessedAuditLogs, 3000);
 }
 
