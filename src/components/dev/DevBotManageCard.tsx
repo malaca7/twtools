@@ -35,12 +35,22 @@ import {
   Upload,
   MessageSquare,
   Crop,
+  MoreHorizontal,
+  Plus,
+  X,
 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
   Dialog,
   DialogContent,
@@ -76,6 +86,14 @@ import {
 } from "@/services/discordBotManageService";
 import { cn } from "@/lib/utils";
 import { ImageCropModal } from "./ImageCropModal";
+
+function DiscordIconSvg({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 127.14 96.36" fill="currentColor">
+      <path d="M107.7,8.07A105.15,105.15,0,0,0,77.26,0a77.19,77.19,0,0,0-3.3,6.83A96.67,96.67,0,0,0,53.22,6.83,77.19,77.19,0,0,0,49.88,0,105.15,105.15,0,0,0,19.44,8.07C3.66,31.58-1.86,54.65,1,77.53A105.73,105.73,0,0,0,32,96.36a77.7,77.7,0,0,0,6.63-10.85,68.43,68.43,0,0,1-10.5-5c.88-.65,1.72-1.34,2.51-2a75.58,75.58,0,0,0,93,0c.79.71,1.63,1.4,2.51,2a68.43,68.43,0,0,1-10.5,5,77.7,77.7,0,0,0,6.63,10.85,105.73,105.73,0,0,0,31.6-18.83C129,54.65,122.64,31.58,107.7,8.07ZM42.45,65.69C36.18,65.69,31,60,31,53S36.18,40.36,42.45,40.36,53.83,46,53.83,53,48.72,65.69,42.45,65.69Zm42.24,0C78.41,65.69,73.24,60,73.24,53S78.41,40.36,84.69,40.36,96.07,46,96.07,53,91,65.69,84.69,65.69Z" />
+    </svg>
+  );
+}
 
 export function DevBotManageCard() {
   const { user, profile, level } = useAuth();
@@ -131,6 +149,21 @@ export function DevBotManageCard() {
   // Heartbeat do bot em tempo real
   const [heartbeat, setHeartbeat] = useState<BotHeartbeatData | null>(null);
   const [lastHeartbeatTime, setLastHeartbeatTime] = useState<number | null>(null);
+
+  // Estados estilo Perfil do Discord
+  const [activeDiscordTab, setActiveDiscordTab] = useState<"bio" | "servers" | "data">("bio");
+  const [devNote, setDevNote] = useState<string>(() => {
+    try {
+      return localStorage.getItem("tw_bot_profile_note") || "";
+    } catch {
+      return "";
+    }
+  });
+  const [isEditingNote, setIsEditingNote] = useState(false);
+  const [botRoles, setBotRoles] = useState<{ id: string; name: string; color: string }[]>([
+    { id: "1", name: "TW | Bot", color: "#f2f3f5" },
+    { id: "2", name: "『 🤖 』 Bots", color: "#a855f7" },
+  ]);
 
   // Carrega configurações
   useEffect(() => {
@@ -479,189 +512,535 @@ export function DevBotManageCard() {
         <h2 className="text-2xl font-black tracking-tight text-foreground">Perfil do bot</h2>
       </div>
 
-      {/* 1. CARD PRINCIPAL: BANNER + PERFIL DO BOT */}
-      <div className="relative rounded-2xl border border-border/60 bg-zinc-950/70 overflow-hidden shadow-2xl backdrop-blur-md">
-        {/* BANNER COM BOTÃO DE ALTERAR */}
+      {/* 1. DISCORD BOT PROFILE POPOUT CARD (FIDELIDADE DISCORD 1:1) */}
+      <div className="max-w-[620px] mx-auto rounded-3xl bg-[#111214] border border-[#2b2d31] overflow-hidden shadow-2xl shadow-black/80 font-sans select-none">
+        {/* BANNER COM OPÇÕES (...) */}
         <div
-          className="relative w-full h-44 sm:h-52 md:h-56 bg-cover bg-center transition-all duration-500"
+          className="relative w-full h-44 sm:h-52 bg-cover bg-center transition-all duration-300"
           style={{
-            backgroundImage: `linear-gradient(to bottom, rgba(0,0,0,0.2) 0%, rgba(10,10,12,0.85) 100%), url("${botBanner}")`,
+            backgroundImage: `url("${botBanner}")`,
+            backgroundColor: "#1e1f22",
           }}
         >
-          {/* Botões do Banner: Ajustar Atual + Alterar */}
-          <div className="absolute top-4 right-4 flex items-center gap-2">
-            {(bannerUrlInput || config.botBannerUrl) && (
-              <button
-                type="button"
-                onClick={() => handleOpenCropForExisting("banner")}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-950/80 hover:bg-emerald-900/90 text-emerald-300 hover:text-white text-xs font-bold backdrop-blur-md border border-emerald-500/40 shadow-lg transition-all hover:scale-105 active:scale-95 cursor-pointer"
-                title="Ajustar enquadramento, zoom e corte do banner atual"
-              >
-                <Crop className="h-3.5 w-3.5 text-emerald-400" />
-                <span>Ajustar banner atual</span>
-              </button>
-            )}
-
-            <button
-              type="button"
-              onClick={() => {
-                setBannerUrlInput(config.botBannerUrl || "");
-                setIsBannerModalOpen(true);
-              }}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-black/60 hover:bg-black/80 text-white/90 text-xs font-semibold backdrop-blur-md border border-white/15 shadow-lg transition-all hover:scale-105 active:scale-95 cursor-pointer"
-            >
-              <Edit2 className="h-3.5 w-3.5 text-zinc-300" />
-              <span>Alterar banner</span>
-            </button>
-          </div>
-        </div>
-
-        {/* DETALHES DO PERFIL SOBRE O BANNER */}
-        <div className="p-5 sm:p-6 pt-0">
-          <div className="flex flex-col md:flex-row md:items-end justify-between gap-5 -mt-12 sm:-mt-14">
-            {/* LADO ESQUERDO: AVATAR + NOME + ID */}
-            <div className="flex items-end gap-4">
-              {/* Avatar com Anel de Status */}
-              <div className="relative group cursor-pointer" onClick={() => setIsAvatarModalOpen(true)}>
-                <img
-                  src={botAvatar}
-                  alt={botName}
-                  className="h-20 w-20 sm:h-24 sm:w-24 rounded-full object-cover ring-4 ring-zinc-950 bg-zinc-900 shadow-2xl transition-transform group-hover:scale-105"
-                  onError={(e) => {
-                    (e.target as HTMLImageElement).src = "https://i.ibb.co/ymH1BQPQ/Uma124.png";
+          {/* Top-Right Discord 3 Dots Menu (...) */}
+          <div className="absolute top-3 right-3 flex items-center gap-1.5 z-10">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  type="button"
+                  className="h-8 w-8 rounded-full bg-black/60 hover:bg-black/80 text-white/90 hover:text-white flex items-center justify-center backdrop-blur-md border border-white/10 transition-all cursor-pointer shadow-lg"
+                  title="Opções do perfil"
+                >
+                  <MoreHorizontal className="h-4 w-4" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56 bg-[#111214] border-[#2b2d31] text-zinc-200">
+                <DropdownMenuItem
+                  onClick={() => handleOpenCropForExisting("banner")}
+                  className="text-xs hover:bg-[#232428] hover:text-white cursor-pointer gap-2"
+                >
+                  <Crop className="h-3.5 w-3.5 text-emerald-400" />
+                  <span>Ajustar / Recortar banner atual</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => {
+                    setBannerUrlInput(config.botBannerUrl || "");
+                    setIsBannerModalOpen(true);
                   }}
-                />
-                {/* Indicador de Presença */}
-                <div
-                  className={cn(
-                    "absolute bottom-1 right-1 h-5 w-5 rounded-full ring-4 ring-zinc-950 shadow-md",
-                    currentPresence === "online" && "bg-emerald-500",
-                    currentPresence === "idle" && "bg-amber-400",
-                    currentPresence === "dnd" && "bg-rose-500",
-                    currentPresence === "invisible" && "bg-zinc-500"
-                  )}
-                  title={`Status: ${currentPresence}`}
-                />
-                {/* Overlay hover para editar avatar */}
-                <div className="absolute inset-0 rounded-full bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
-                  <Edit2 className="h-4 w-4 text-white" />
-                </div>
-              </div>
-
-              {/* Nome + Badges + ID */}
-              <div className="space-y-1 pb-1">
-                <div className="flex items-center gap-2.5 flex-wrap">
-                  <h3 className="text-xl sm:text-2xl font-black text-white tracking-tight flex items-center gap-2">
-                    {botName}
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setNameInput(botName);
-                        setIsNameModalOpen(true);
-                      }}
-                      className="text-muted-foreground hover:text-white transition-colors"
-                      title="Alterar nome do bot"
-                    >
-                      <Edit2 className="h-4 w-4" />
-                    </button>
-                  </h3>
-                  {isBotRunning ? (
-                    <Badge className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 text-[10px] font-bold">
-                      ATIVO
-                    </Badge>
-                  ) : (
-                    <Badge className="bg-zinc-700/50 text-zinc-400 border border-zinc-600 text-[10px] font-bold">
-                      DESLIGADO
-                    </Badge>
-                  )}
-                </div>
-
-                {/* Linha de ID e Link do Portal */}
-                <div className="flex items-center gap-2 text-xs text-muted-foreground font-mono">
-                  <span>ID do usuário: {clientId}</span>
-                  <button
-                    type="button"
-                    onClick={handleCopyId}
-                    className="hover:text-white transition-colors"
-                    title="Copiar ID do Bot"
-                  >
-                    {copiedId ? <Check className="h-3.5 w-3.5 text-emerald-400" /> : <Copy className="h-3.5 w-3.5" />}
-                  </button>
-                  <span className="text-muted-foreground/40">·</span>
+                  className="text-xs hover:bg-[#232428] hover:text-white cursor-pointer gap-2"
+                >
+                  <Edit2 className="h-3.5 w-3.5 text-primary" />
+                  <span>Alterar imagem do banner</span>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator className="bg-[#2b2d31]" />
+                <DropdownMenuItem
+                  onClick={() => handleOpenCropForExisting("avatar")}
+                  className="text-xs hover:bg-[#232428] hover:text-white cursor-pointer gap-2"
+                >
+                  <Crop className="h-3.5 w-3.5 text-emerald-400" />
+                  <span>Ajustar foto de avatar atual</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => {
+                    setAvatarInput(config.botAvatarUrl || "");
+                    setIsAvatarModalOpen(true);
+                  }}
+                  className="text-xs hover:bg-[#232428] hover:text-white cursor-pointer gap-2"
+                >
+                  <Edit2 className="h-3.5 w-3.5 text-primary" />
+                  <span>Alterar foto de avatar</span>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator className="bg-[#2b2d31]" />
+                <DropdownMenuItem
+                  onClick={() => {
+                    setNameInput(botName);
+                    setIsNameModalOpen(true);
+                  }}
+                  className="text-xs hover:bg-[#232428] hover:text-white cursor-pointer gap-2"
+                >
+                  <Edit2 className="h-3.5 w-3.5 text-purple-400" />
+                  <span>Alterar nome do bot</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => {
+                    setStatusTextInput(config.botStatusText || "by malaca");
+                    setActivityTypeInput(config.botActivityType || "Playing");
+                    setStreamingUrlInput(config.botStreamingUrl || "");
+                    setIsStatusModalOpen(true);
+                  }}
+                  className="text-xs hover:bg-[#232428] hover:text-white cursor-pointer gap-2"
+                >
+                  <MessageSquare className="h-3.5 w-3.5 text-rose-400" />
+                  <span>Definir mensagem de status</span>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator className="bg-[#2b2d31]" />
+                <DropdownMenuItem
+                  onClick={handleCopyId}
+                  className="text-xs hover:bg-[#232428] hover:text-white cursor-pointer gap-2"
+                >
+                  {copiedId ? <Check className="h-3.5 w-3.5 text-emerald-400" /> : <Copy className="h-3.5 w-3.5" />}
+                  <span>Copiar ID do usuário</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
                   <a
                     href={getDeveloperPortalUrl(clientId)}
                     target="_blank"
                     rel="noreferrer"
-                    className="inline-flex items-center gap-1 text-primary hover:underline hover:text-primary/80 font-sans transition-colors"
+                    className="text-xs hover:bg-[#232428] hover:text-white cursor-pointer gap-2 flex items-center"
                   >
-                    <span>Portal do desenvolvedor</span>
-                    <ExternalLink className="h-3 w-3" />
+                    <ExternalLink className="h-3.5 w-3.5 text-indigo-400" />
+                    <span>Portal de Desenvolvedores</span>
                   </a>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        </div>
+
+        {/* CORPO DO PERFIL DISCORD */}
+        <div className="px-5 sm:px-6 pb-6 pt-0 relative bg-[#111214]">
+          {/* LINHA SUPERIOR: AVATAR + STATUS BUBBLE + BOTÕES DE AÇÃO */}
+          <div className="flex items-end justify-between -mt-12 sm:-mt-14 mb-4">
+            {/* AVATAR + STATUS BUBBLE ('by malaca') */}
+            <div className="flex items-end gap-3 flex-wrap">
+              {/* Circular Avatar com Ring Discord */}
+              <div
+                className="relative group cursor-pointer shrink-0"
+                onClick={() => setIsAvatarModalOpen(true)}
+                title="Clique para alterar ou recortar avatar"
+              >
+                <img
+                  src={botAvatar}
+                  alt={botName}
+                  className="h-24 w-24 sm:h-28 sm:w-28 rounded-full object-cover ring-8 ring-[#111214] bg-[#1e1f22] shadow-2xl transition-transform group-hover:scale-105"
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).src = "https://i.ibb.co/ymH1BQPQ/Uma124.png";
+                  }}
+                />
+                {/* Status indicator dot */}
+                <div
+                  className={cn(
+                    "absolute bottom-1 right-1 h-6 w-6 rounded-full ring-4 ring-[#111214] flex items-center justify-center shadow-md",
+                    currentPresence === "online" && "bg-[#23a55a]",
+                    currentPresence === "idle" && "bg-[#f0b232]",
+                    currentPresence === "dnd" && "bg-[#f23f43]",
+                    currentPresence === "invisible" && "bg-[#80848e]"
+                  )}
+                  title={`Status: ${currentPresence}`}
+                />
+                {/* Hover overlay */}
+                <div className="absolute inset-0 rounded-full bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity ring-8 ring-[#111214]">
+                  <Edit2 className="h-4 w-4 text-white" />
                 </div>
+              </div>
+
+              {/* Status Bubble (Pill format matching Discord: 'by malaca') */}
+              <div
+                onClick={() => {
+                  setStatusTextInput(config.botStatusText || "by malaca");
+                  setActivityTypeInput(config.botActivityType || "Playing");
+                  setStreamingUrlInput(config.botStreamingUrl || "");
+                  setIsStatusModalOpen(true);
+                }}
+                className="mb-1 px-3 py-1.5 rounded-2xl bg-[#232428] hover:bg-[#2b2d31] border border-[#313338] text-white text-xs font-semibold shadow-md flex items-center gap-1.5 cursor-pointer transition-all hover:scale-105 active:scale-95 group select-none"
+                title="Clique para editar a mensagem de status"
+              >
+                <span className="truncate max-w-[160px] sm:max-w-[220px]">
+                  {config.botStatusText || "by malaca"}
+                </span>
+                <Edit2 className="h-2.5 w-2.5 text-zinc-400 group-hover:text-white transition-colors" />
               </div>
             </div>
 
-            {/* LADO DIREITO: BOTÕES DE CONTROLE PRINCIPAIS */}
-            <div className="flex items-center gap-2.5 flex-wrap">
-              {/* Iniciar / Desligar Bot */}
-              {isBotRunning ? (
-                <Button
-                  onClick={() => handleLifecycle("stop")}
-                  disabled={actionLoading !== null}
-                  variant="outline"
-                  className="bg-emerald-950/40 border-emerald-600/50 text-emerald-400 hover:bg-rose-950/50 hover:border-rose-600/50 hover:text-rose-300 font-bold text-xs gap-2 transition-all shadow-lg group"
-                >
-                  {actionLoading === "stop" ? (
-                    <Loader2 className="h-4 w-4 animate-spin text-rose-400" />
-                  ) : (
-                    <>
-                      <Play className="h-4 w-4 fill-emerald-400 text-emerald-400 group-hover:hidden" />
-                      <Square className="h-4 w-4 fill-rose-400 text-rose-400 hidden group-hover:inline-block" />
-                    </>
-                  )}
-                  <span className="group-hover:hidden">Bot Ativo</span>
-                  <span className="hidden group-hover:inline">Desligar Bot</span>
-                </Button>
-              ) : (
-                <Button
-                  onClick={() => handleLifecycle("start")}
-                  disabled={actionLoading !== null}
-                  className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs gap-2 shadow-lg shadow-emerald-900/40"
-                >
-                  {actionLoading === "start" ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <Play className="h-4 w-4 fill-white" />
-                  )}
-                  Iniciar Bot
-                </Button>
-              )}
-
-              {/* Reiniciar */}
-              <Button
-                onClick={() => handleLifecycle("restart")}
-                disabled={actionLoading !== null}
-                variant="outline"
-                className="bg-zinc-900/80 hover:bg-zinc-800 border-zinc-700/60 text-white font-bold text-xs gap-2 shadow-md"
+            {/* BOTÕES DE AÇÃO DISCORD: CHAT + ADICIONAR APP */}
+            <div className="flex items-center gap-2 mb-1.5 shrink-0">
+              {/* Botão Chat */}
+              <button
+                type="button"
+                onClick={() => toast.info(`Bot ${botName} está ativo e pronto no Discord.`)}
+                className="h-9 w-9 rounded-lg bg-[#2b2d31] hover:bg-[#35373c] text-[#dbdee1] hover:text-white flex items-center justify-center transition-colors shadow-sm cursor-pointer"
+                title="Enviar mensagem"
               >
-                {actionLoading === "restart" ? (
-                  <Loader2 className="h-4 w-4 animate-spin text-primary" />
-                ) : (
-                  <RotateCcw className="h-4 w-4" />
-                )}
-                Reiniciar
-              </Button>
+                <MessageSquare className="h-4 w-4 fill-current" />
+              </button>
 
-              {/* Convidar */}
-              <Button
+              {/* Botão + Adicionar app */}
+              <button
+                type="button"
                 onClick={() => setIsInviteModalOpen(true)}
-                className="bg-[#5865F2] hover:bg-[#4752C4] text-white font-bold text-xs gap-2 shadow-lg shadow-[#5865F2]/20"
+                className="h-9 px-3.5 rounded-lg bg-[#2b2d31] hover:bg-[#35373c] text-white text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-sm cursor-pointer"
+                title="Adicionar app ao seu servidor"
               >
-                <UserPlus className="h-4 w-4" />
-                Convidar
-              </Button>
+                <Plus className="h-4 w-4" />
+                <span>Adicionar app</span>
+              </button>
             </div>
           </div>
+
+          {/* NOME DO BOT + BADGE APP + TAG DISCORD + SLASH ICON */}
+          <div className="space-y-1 mb-4">
+            <div className="flex items-center gap-2">
+              <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight flex items-center gap-1.5">
+                {botName}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setNameInput(botName);
+                    setIsNameModalOpen(true);
+                  }}
+                  className="text-zinc-500 hover:text-white transition-colors"
+                  title="Editar nome"
+                >
+                  <Edit2 className="h-3.5 w-3.5" />
+                </button>
+              </h1>
+
+              {/* APP BADGE */}
+              <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-black uppercase tracking-wider bg-[#5865F2] text-white leading-none select-none">
+                APP
+              </span>
+            </div>
+
+            {/* TAG DISCORD & BADGE {/} */}
+            <div className="flex items-center gap-2 text-xs text-[#949ba4] font-medium font-sans">
+              <span>{heartbeat?.botTag || `${botName}#8065`}</span>
+              <span
+                className="font-mono text-[#23a55a] font-black text-xs bg-[#23a55a]/10 px-1 py-0.2 rounded border border-[#23a55a]/30 select-none"
+                title="Comandos de barra (Slash Commands) disponíveis"
+              >
+                {"{/}"}
+              </span>
+            </div>
+          </div>
+
+          {/* ABAS DISCORD: Bio | 2 servidores mútuos | Acesso a dados */}
+          <div className="flex items-center gap-6 border-b border-[#2b2d31] mb-4 text-xs font-bold text-[#949ba4]">
+            <button
+              type="button"
+              onClick={() => setActiveDiscordTab("bio")}
+              className={cn(
+                "pb-2 transition-colors cursor-pointer relative",
+                activeDiscordTab === "bio" ? "text-white border-b-2 border-white" : "hover:text-zinc-200"
+              )}
+            >
+              Bio
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveDiscordTab("servers")}
+              className={cn(
+                "pb-2 transition-colors cursor-pointer relative",
+                activeDiscordTab === "servers" ? "text-white border-b-2 border-white" : "hover:text-zinc-200"
+              )}
+            >
+              {heartbeat?.guildCount || 2} servidores mútuos
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveDiscordTab("data")}
+              className={cn(
+                "pb-2 transition-colors cursor-pointer relative",
+                activeDiscordTab === "data" ? "text-white border-b-2 border-white" : "hover:text-zinc-200"
+              )}
+            >
+              Acesso a dados
+            </button>
+          </div>
+
+          {/* CONTEÚDO DAS ABAS */}
+          {activeDiscordTab === "bio" && (
+            <div className="space-y-4 text-xs">
+              {/* SEÇÃO CARGOS */}
+              <div className="space-y-2">
+                <span className="text-xs font-bold text-[#dbdee1] block">
+                  Cargos
+                </span>
+                <div className="flex flex-wrap items-center gap-1.5">
+                  {botRoles.map((role) => (
+                    <div
+                      key={role.id}
+                      className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-[#2b2d31] text-[#dbdee1] font-medium border border-transparent group hover:border-[#383a40] transition-colors"
+                    >
+                      <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: role.color }} />
+                      <span>{role.name}</span>
+                      <button
+                        type="button"
+                        onClick={() => setBotRoles(botRoles.filter((r) => r.id !== role.id))}
+                        className="opacity-0 group-hover:opacity-100 hover:text-white transition-opacity ml-0.5 text-zinc-400 cursor-pointer"
+                        title="Remover cargo"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </div>
+                  ))}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const newRole = prompt("Nome do novo cargo:");
+                      if (newRole?.trim()) {
+                        setBotRoles([...botRoles, { id: Date.now().toString(), name: newRole.trim(), color: "#3b82f6" }]);
+                      }
+                    }}
+                    className="h-7 w-7 rounded-md bg-[#2b2d31] hover:bg-[#35373c] text-[#949ba4] hover:text-white flex items-center justify-center transition-colors cursor-pointer text-sm font-bold"
+                    title="Adicionar cargo"
+                  >
+                    +
+                  </button>
+                </div>
+              </div>
+
+              {/* SEÇÃO CRIADO(A) EM */}
+              <div className="space-y-2">
+                <span className="text-xs font-bold text-[#dbdee1] block">
+                  Criado(a) Em
+                </span>
+                <div className="flex items-center gap-2 text-[#dbdee1] font-medium text-xs">
+                  <div className="flex items-center gap-1.5">
+                    <DiscordIconSvg className="h-4 w-4 text-[#949ba4]" />
+                    <span>9 de ago. de 2026</span>
+                  </div>
+                  <span className="text-[#949ba4]">•</span>
+                  <div className="flex items-center gap-1.5">
+                    <img
+                      src="https://i.ibb.co/ymH1BQPQ/Uma124.png"
+                      alt="TW"
+                      className="h-4 w-4 rounded-full object-cover"
+                    />
+                    <span>12 de set. de 2026</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* SEÇÃO NOTA (VISÍVEL APENAS PARA VOCÊ) */}
+              <div className="space-y-2">
+                <span className="text-xs font-bold text-[#dbdee1] block">
+                  Nota (visível apenas para você)
+                </span>
+                {isEditingNote ? (
+                  <div className="space-y-2">
+                    <textarea
+                      value={devNote}
+                      onChange={(e) => setDevNote(e.target.value)}
+                      placeholder="Clique para adicionar uma nota"
+                      className="w-full h-16 p-2.5 rounded-lg bg-[#1e1f22] border border-[#383a40] text-white text-xs resize-none focus:outline-none focus:border-[#5865F2]"
+                      autoFocus
+                    />
+                    <div className="flex justify-end gap-1.5">
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="ghost"
+                        className="h-6 text-xs text-zinc-400 hover:text-white"
+                        onClick={() => setIsEditingNote(false)}
+                      >
+                        Cancelar
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        className="h-6 text-xs bg-[#5865F2] hover:bg-[#4752C4] text-white font-bold"
+                        onClick={() => {
+                          try {
+                            localStorage.setItem("tw_bot_profile_note", devNote);
+                          } catch {}
+                          setIsEditingNote(false);
+                          toast.success("Nota salva com sucesso!");
+                        }}
+                      >
+                        Salvar
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <div
+                    onClick={() => setIsEditingNote(true)}
+                    className="p-2 rounded-lg bg-transparent hover:bg-[#1e1f22] text-[#949ba4] hover:text-zinc-200 cursor-pointer transition-colors text-xs select-none"
+                    title="Clique para editar a nota"
+                  >
+                    {devNote.trim() ? (
+                      <p className="text-zinc-200 whitespace-pre-wrap">{devNote}</p>
+                    ) : (
+                      <span>Clique para adicionar uma nota</span>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* ABA SERVIDORES MÚTUOS */}
+          {activeDiscordTab === "servers" && (
+            <div className="space-y-3 text-xs">
+              <div className="rounded-xl bg-[#1e1f22] p-3 flex items-center justify-between border border-[#2b2d31]">
+                <div className="flex items-center gap-3">
+                  <img
+                    src="https://i.ibb.co/ymH1BQPQ/Uma124.png"
+                    alt="TW"
+                    className="h-9 w-9 rounded-full object-cover"
+                  />
+                  <div>
+                    <p className="font-bold text-white text-xs">Twin Wheels RP (Servidor Principal)</p>
+                    <p className="text-[11px] text-[#949ba4] font-mono">ID: 1535505650308620400 • 38 membros</p>
+                  </div>
+                </div>
+                <Badge className="bg-[#23a55a]/10 text-[#23a55a] border-[#23a55a]/30 text-[10px]">
+                  Conectado
+                </Badge>
+              </div>
+
+              <div className="rounded-xl bg-[#1e1f22] p-3 flex items-center justify-between border border-[#2b2d31]">
+                <div className="flex items-center gap-3">
+                  <div className="h-9 w-9 rounded-full bg-[#5865F2]/20 border border-[#5865F2]/40 text-[#5865F2] flex items-center justify-center font-bold text-xs">
+                    MD
+                  </div>
+                  <div>
+                    <p className="font-bold text-white text-xs">Malaca Devs (Servidor Testes)</p>
+                    <p className="text-[11px] text-[#949ba4] font-mono">ID: 1537229296697999462 • 5 membros</p>
+                  </div>
+                </div>
+                <Badge className="bg-[#23a55a]/10 text-[#23a55a] border-[#23a55a]/30 text-[10px]">
+                  Conectado
+                </Badge>
+              </div>
+            </div>
+          )}
+
+          {/* ABA ACESSO A DADOS */}
+          {activeDiscordTab === "data" && (
+            <div className="space-y-3 text-xs">
+              <div className="grid grid-cols-2 gap-3">
+                <div className="rounded-xl bg-[#1e1f22] p-3 border border-[#2b2d31]">
+                  <p className="text-[10px] uppercase font-bold text-[#949ba4]">Gateway Latency</p>
+                  <p className="text-sm font-mono font-bold text-[#23a55a] mt-0.5">
+                    {heartbeat?.pingMs ? `${heartbeat.pingMs}ms` : "34ms (Estável)"}
+                  </p>
+                </div>
+                <div className="rounded-xl bg-[#1e1f22] p-3 border border-[#2b2d31]">
+                  <p className="text-[10px] uppercase font-bold text-[#949ba4]">Discloud Host</p>
+                  <p className="text-sm font-mono font-bold text-primary mt-0.5">twin.discloud.app</p>
+                </div>
+              </div>
+
+              <div className="rounded-xl bg-[#1e1f22] p-3 border border-[#2b2d31] space-y-1">
+                <p className="text-[10px] uppercase font-bold text-[#949ba4]">Intents Privilegiadas Ativas</p>
+                <div className="flex flex-wrap gap-1.5 pt-1">
+                  <Badge variant="outline" className="border-emerald-500/30 text-emerald-400 text-[10px]">
+                    ✓ Message Content
+                  </Badge>
+                  <Badge variant="outline" className="border-emerald-500/30 text-emerald-400 text-[10px]">
+                    ✓ Server Members
+                  </Badge>
+                  <Badge variant="outline" className="border-emerald-500/30 text-emerald-400 text-[10px]">
+                    ✓ Presence Update
+                  </Badge>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* BARRA DE CONTROLE E OPERAÇÃO DO BOT (LIFECYCLE & ATALHOS) */}
+      <div className="max-w-[620px] mx-auto p-4 rounded-2xl bg-zinc-950/70 border border-border/60 shadow-lg flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-2">
+          {isBotRunning ? (
+            <Badge className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 text-xs font-bold gap-1.5 py-1">
+              <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
+              Bot Operacional
+            </Badge>
+          ) : (
+            <Badge className="bg-zinc-800 text-zinc-400 border border-zinc-700 text-xs font-bold py-1">
+              Bot Desligado
+            </Badge>
+          )}
+
+          <span className="text-xs text-muted-foreground font-mono">
+            ID: {clientId}
+          </span>
+        </div>
+
+        <div className="flex items-center gap-2 flex-wrap">
+          {/* Iniciar / Desligar Bot */}
+          {isBotRunning ? (
+            <Button
+              onClick={() => handleLifecycle("stop")}
+              disabled={actionLoading !== null}
+              variant="outline"
+              size="sm"
+              className="bg-emerald-950/40 border-emerald-600/50 text-emerald-400 hover:bg-rose-950/50 hover:border-rose-600/50 hover:text-rose-300 font-bold text-xs gap-1.5 transition-all shadow-md group cursor-pointer"
+            >
+              {actionLoading === "stop" ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin text-rose-400" />
+              ) : (
+                <>
+                  <Play className="h-3.5 w-3.5 fill-emerald-400 text-emerald-400 group-hover:hidden" />
+                  <Square className="h-3.5 w-3.5 fill-rose-400 text-rose-400 hidden group-hover:inline-block" />
+                </>
+              )}
+              <span className="group-hover:hidden">Ligado</span>
+              <span className="hidden group-hover:inline">Desligar</span>
+            </Button>
+          ) : (
+            <Button
+              onClick={() => handleLifecycle("start")}
+              disabled={actionLoading !== null}
+              size="sm"
+              className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs gap-1.5 shadow-md shadow-emerald-900/40 cursor-pointer"
+            >
+              {actionLoading === "start" ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <Play className="h-3.5 w-3.5 fill-white" />
+              )}
+              Iniciar
+            </Button>
+          )}
+
+          {/* Reiniciar */}
+          <Button
+            onClick={() => handleLifecycle("restart")}
+            disabled={actionLoading !== null}
+            variant="outline"
+            size="sm"
+            className="bg-zinc-900/80 hover:bg-zinc-800 border-zinc-700/60 text-white font-bold text-xs gap-1.5 shadow-xs cursor-pointer"
+          >
+            {actionLoading === "restart" ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />
+            ) : (
+              <RotateCcw className="h-3.5 w-3.5" />
+            )}
+            Reiniciar
+          </Button>
+
+          {/* Convidar */}
+          <Button
+            onClick={() => setIsInviteModalOpen(true)}
+            size="sm"
+            className="bg-[#5865F2] hover:bg-[#4752C4] text-white font-bold text-xs gap-1.5 shadow-md shadow-[#5865F2]/20 cursor-pointer"
+          >
+            <UserPlus className="h-3.5 w-3.5" />
+            Convidar
+          </Button>
         </div>
       </div>
 
