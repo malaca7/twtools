@@ -35,6 +35,7 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PageHeader } from "@/components/ui-kit";
 import { useAuth } from "@/hooks/useAuth";
+import { useUrlTab } from "@/hooks/useUrlTab";
 import { DeveloperGuard } from "@/dev/guards/DeveloperGuard";
 import {
   getDevConfiguration,
@@ -73,6 +74,14 @@ function DevConfiguracaoContent() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Sincronização da aba ativa com a URL (?tab=bot-manage | webhooks | discord-logs | general)
+  const [activeTab, setActiveTab] = useUrlTab<
+    "bot-manage" | "webhooks" | "discord-logs" | "general"
+  >("bot-manage", {
+    paramName: "tab",
+    allowedTabs: ["bot-manage", "webhooks", "discord-logs", "general"],
+  });
 
   // Estados para Auditoria de Ações Dev
   const [auditModalOpen, setAuditModalOpen] = useState(false);
@@ -292,7 +301,7 @@ function DevConfiguracaoContent() {
           <p className="text-sm font-bold text-rose-400">{error}</p>
         </Card>
       ) : (
-        <Tabs defaultValue="bot-manage" className="space-y-6">
+        <Tabs value={activeTab} onValueChange={(val: any) => setActiveTab(val)} className="space-y-6">
           <TabsList className="grid w-full grid-cols-2 md:grid-cols-4 max-w-4xl bg-secondary/40 p-1 rounded-xl border border-border/60 gap-1">
             <TabsTrigger value="bot-manage" className="text-xs font-bold gap-2 py-2 data-[state=active]:bg-gradient-to-r data-[state=active]:from-indigo-600 data-[state=active]:to-purple-600 data-[state=active]:text-white">
               <Bot className="h-4 w-4" />

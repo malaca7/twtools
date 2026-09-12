@@ -73,6 +73,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useUrlTab } from "@/hooks/useUrlTab";
 import {
   Select,
   SelectContent,
@@ -187,8 +188,11 @@ function MetasPage() {
   const reviewGoalMutation = useReviewGoalSubmission();
   const deleteSubmissionMutation = useDeleteGoalSubmission();
 
-  // Navigation & Filter State
-  const [activeTab, setActiveTab] = useState<string>("minhas_metas");
+  // Navigation & Filter State sincronizado com a URL (?tab=minhas_metas | painel_validacao | membros | metas_cadastradas)
+  const [activeTab, setActiveTab] = useUrlTab<string>("minhas_metas", {
+    paramName: "tab",
+    allowedTabs: ["minhas_metas", "painel_validacao", "membros", "metas_cadastradas"],
+  });
   const [submissionFilter, setSubmissionFilter] = useState<string>("todos");
   const [memberSearch, setMemberSearch] = useState<string>("");
   const [roleFilter, setRoleFilter] = useState<string>("todos");

@@ -37,6 +37,7 @@ import {
 } from "@/components/ui/select";
 import { PageHeader, NoAccess, TableSkeleton, EmptyState, ProductThumbnail } from "@/components/ui-kit";
 import { useAuth } from "@/hooks/useAuth";
+import { useUrlTab } from "@/hooks/useUrlTab";
 import {
   useMovements,
   useProducts,
@@ -81,8 +82,11 @@ function MovimentacoesPage() {
   const { data: categories = [] } = useCategories();
   const { data: members = [] } = useMembers();
 
-  // App State: "entrada" | "saida" | "transferencia"
-  const [type, setType] = useState<"entrada" | "saida" | "transferencia">("saida");
+  // App State sincronizado com a URL (?tipo=entrada | saida | transferencia)
+  const [type, setType] = useUrlTab<"entrada" | "saida" | "transferencia">("saida", {
+    paramName: "tipo",
+    allowedTabs: ["entrada", "saida", "transferencia"],
+  });
   const [selectedBauId, setSelectedBauId] = useState<string>("");
   const [fromBauId, setFromBauId] = useState<string>("");
   const [toBauId, setToBauId] = useState<string>("");

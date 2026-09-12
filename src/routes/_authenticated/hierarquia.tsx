@@ -30,6 +30,7 @@ import { Label } from "@/components/ui/label";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { PageHeader, NoAccess } from "@/components/ui-kit";
 import { useAuth } from "@/hooks/useAuth";
+import { useUrlTab } from "@/hooks/useUrlTab";
 import { useMembers, useSales, useMovements, nameOf } from "@/hooks/useData";
 import {
   LEVELS,
@@ -143,7 +144,11 @@ function HierarquiaPage() {
   const { data: movements = [] } = useMovements();
 
   const [search, setSearch] = useState("");
-  const [viewMode, setViewMode] = useState<ViewMode>("tree");
+  // Sincronização do modo de visualização com a URL (?modo=tree | grid)
+  const [viewMode, setViewMode] = useUrlTab<ViewMode>("tree", {
+    paramName: "modo",
+    allowedTabs: ["tree", "grid"],
+  });
   const [selectedRankFilter, setSelectedRankFilter] = useState<string>("all");
   const [hideEmptyRanks, setHideEmptyRanks] = useState<boolean>(true);
 

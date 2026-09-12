@@ -34,6 +34,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { PageHeader, NoAccess, EmptyState } from "@/components/ui-kit";
 import { useAuth } from "@/hooks/useAuth";
+import { useUrlTab, useSyncedUrlParam } from "@/hooks/useUrlTab";
 import { useTickets } from "@/hooks/useTickets";
 import { NewTicketDialog } from "@/components/tickets/NewTicketDialog";
 import { TicketDetailView } from "@/components/tickets/TicketDetailView";
@@ -69,24 +70,15 @@ function TicketsPage() {
 
   const { data: tickets = [], isLoading, isFetching } = useTickets();
 
-  // State
-  const [activeTab, setActiveTab] = useState<"my" | "all">("all");
-  const [hasManuallySelectedTab, setHasManuallySelectedTab] = useState(false);
-  const [selectedTicketId, setSelectedTicketId] = useState<string | null>(null);
+  // State sincronizado com a URL (?tab=my | all e ?ticket=id)
+  const [activeTab, setActiveTab] = useUrlTab<"my" | "all">(canSeeAll ? "all" : "my", {
+    paramName: "tab",
+    allowedTabs: ["my", "all"],
+  });
+  const [ticketParam, setTicketParam] = useSyncedUrlParam("ticket", "");
+  const selectedTicketId = ticketParam || null;
+  const setSelectedTicketId = (id: string | null) => setTicketParam(id || "");
   const [isNewDialogOpen, setIsNewDialogOpen] = useState(false);
-
-  // Sincronização inteligente da aba inicial:
-  // Se o usuário tem permissão para ver todos os tickets (ou liderança/dev),
-  // e ainda não alternou manualmente para "Meus Chamados", manter em "all" para exibir os chamados existentes.
-  useEffect(() => {
-    if (!hasManuallySelectedTab) {
-      if (canSeeAll) {
-        setActiveTab("all");
-      } else {
-        setActiveTab("my");
-      }
-    }
-  }, [canSeeAll, hasManuallySelectedTab]);
 
   // Limpar seleção caso o ticket selecionado seja excluído em tempo real
   useEffect(() => {

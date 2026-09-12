@@ -122,6 +122,7 @@ export function DevBotManageCard() {
   const [isCropModalOpen, setIsCropModalOpen] = useState(false);
   const [cropTarget, setCropTarget] = useState<"avatar" | "banner">("avatar");
   const [cropFile, setCropFile] = useState<File | null>(null);
+  const [cropImageUrl, setCropImageUrl] = useState<string | null>(null);
   const [isCropSaving, setIsCropSaving] = useState(false);
 
   const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
@@ -292,6 +293,7 @@ export function DevBotManageCard() {
     }
 
     setCropFile(file);
+    setCropImageUrl(null);
     setCropTarget("banner");
     setIsCropModalOpen(true);
 
@@ -314,10 +316,29 @@ export function DevBotManageCard() {
     }
 
     setCropFile(file);
+    setCropImageUrl(null);
     setCropTarget("avatar");
     setIsCropModalOpen(true);
 
     if (avatarFileInputRef.current) avatarFileInputRef.current.value = "";
+  };
+
+  // Abrir modal de recorte para ajustar imagem atual já definida (banner ou avatar)
+  const handleOpenCropForExisting = (target: "avatar" | "banner") => {
+    const currentUrl =
+      target === "avatar"
+        ? (avatarInput || config.botAvatarUrl)
+        : (bannerUrlInput || config.botBannerUrl);
+
+    if (!currentUrl) {
+      toast.error(`Nenhuma imagem de ${target === "avatar" ? "avatar" : "banner"} foi definida ainda.`);
+      return;
+    }
+
+    setCropTarget(target);
+    setCropFile(null);
+    setCropImageUrl(currentUrl);
+    setIsCropModalOpen(true);
   };
 
   // Processar e salvar imagem recortada
@@ -467,18 +488,32 @@ export function DevBotManageCard() {
             backgroundImage: `linear-gradient(to bottom, rgba(0,0,0,0.2) 0%, rgba(10,10,12,0.85) 100%), url("${botBanner}")`,
           }}
         >
-          {/* Botão Alterar Banner */}
-          <button
-            type="button"
-            onClick={() => {
-              setBannerUrlInput(config.botBannerUrl || "");
-              setIsBannerModalOpen(true);
-            }}
-            className="absolute top-4 right-4 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-black/60 hover:bg-black/80 text-white/90 text-xs font-semibold backdrop-blur-md border border-white/15 shadow-lg transition-all hover:scale-105 active:scale-95"
-          >
-            <Edit2 className="h-3.5 w-3.5 text-zinc-300" />
-            <span>Alterar banner</span>
-          </button>
+          {/* Botões do Banner: Ajustar Atual + Alterar */}
+          <div className="absolute top-4 right-4 flex items-center gap-2">
+            {(bannerUrlInput || config.botBannerUrl) && (
+              <button
+                type="button"
+                onClick={() => handleOpenCropForExisting("banner")}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-950/80 hover:bg-emerald-900/90 text-emerald-300 hover:text-white text-xs font-bold backdrop-blur-md border border-emerald-500/40 shadow-lg transition-all hover:scale-105 active:scale-95 cursor-pointer"
+                title="Ajustar enquadramento, zoom e corte do banner atual"
+              >
+                <Crop className="h-3.5 w-3.5 text-emerald-400" />
+                <span>Ajustar banner atual</span>
+              </button>
+            )}
+
+            <button
+              type="button"
+              onClick={() => {
+                setBannerUrlInput(config.botBannerUrl || "");
+                setIsBannerModalOpen(true);
+              }}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-black/60 hover:bg-black/80 text-white/90 text-xs font-semibold backdrop-blur-md border border-white/15 shadow-lg transition-all hover:scale-105 active:scale-95 cursor-pointer"
+            >
+              <Edit2 className="h-3.5 w-3.5 text-zinc-300" />
+              <span>Alterar banner</span>
+            </button>
+          </div>
         </div>
 
         {/* DETALHES DO PERFIL SOBRE O BANNER */}
@@ -1063,10 +1098,22 @@ export function DevBotManageCard() {
               </p>
             </div>
 
-            {/* Preview do Banner */}
+            {/* Preview do Banner com Botão de Ajustar */}
             {bannerUrlInput && (
-              <div className="space-y-1.5">
-                <Label className="text-[0.7rem] text-muted-foreground font-semibold">Pré-visualização do Banner</Label>
+              <div className="space-y-2 p-3 rounded-xl bg-zinc-900/60 border border-zinc-800">
+                <div className="flex items-center justify-between">
+                  <Label className="text-[0.7rem] text-muted-foreground font-semibold">Pré-visualização do Banner</Label>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleOpenCropForExisting("banner")}
+                    className="h-7 text-xs font-bold gap-1.5 bg-emerald-950/60 border-emerald-500/40 text-emerald-400 hover:bg-emerald-900/80 hover:text-white transition-all"
+                  >
+                    <Crop className="h-3.5 w-3.5" />
+                    Ajustar / Recortar Este Banner
+                  </Button>
+                </div>
                 <div
                   className="w-full h-28 rounded-xl bg-cover bg-center border border-zinc-800 relative overflow-hidden shadow-inner"
                   style={{
@@ -1217,10 +1264,22 @@ export function DevBotManageCard() {
               </p>
             </div>
 
-            {/* Preview do Avatar com anel circular */}
+            {/* Preview do Avatar com anel circular e Botão de Ajustar */}
             {avatarInput && (
-              <div className="flex flex-col items-center gap-2 pt-2">
-                <span className="text-[0.68rem] text-muted-foreground font-semibold">Pré-visualização do Avatar</span>
+              <div className="flex flex-col items-center gap-2.5 pt-2 p-3 rounded-xl bg-zinc-900/50 border border-zinc-800">
+                <div className="flex items-center justify-between w-full">
+                  <span className="text-[0.68rem] text-muted-foreground font-semibold">Pré-visualização do Avatar</span>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleOpenCropForExisting("avatar")}
+                    className="h-7 text-xs font-bold gap-1.5 bg-emerald-950/60 border-emerald-500/40 text-emerald-400 hover:bg-emerald-900/80 hover:text-white transition-all"
+                  >
+                    <Crop className="h-3.5 w-3.5" />
+                    Ajustar / Recortar Foto Atual
+                  </Button>
+                </div>
                 <img
                   src={avatarInput}
                   alt="Preview Avatar"
@@ -1415,8 +1474,13 @@ export function DevBotManageCard() {
       {/* ========================================================================= */}
       <ImageCropModal
         isOpen={isCropModalOpen}
-        onClose={() => setIsCropModalOpen(false)}
+        onClose={() => {
+          setIsCropModalOpen(false);
+          setCropFile(null);
+          setCropImageUrl(null);
+        }}
         imageFile={cropFile}
+        imageUrl={cropImageUrl}
         cropShape={cropTarget === "avatar" ? "round" : "rect"}
         defaultAspectRatio={undefined}
         allowedRatios={

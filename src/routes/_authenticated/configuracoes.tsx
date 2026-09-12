@@ -82,6 +82,7 @@ import { playGamerSuccessSound, playGamerOnlineAlertSound } from "@/lib/sound-ef
 import { chatSound } from "@/lib/chatSound";
 import { PageHeader, NoAccess } from "@/components/ui-kit";
 import { useAuth } from "@/hooks/useAuth";
+import { useUrlTab } from "@/hooks/useUrlTab";
 import { cn } from "@/lib/utils";
 import {
   useMenuConfig,
@@ -2271,6 +2272,15 @@ function ConfiguracoesPage() {
 
   const canAccess = canManagePlatform || canManageMenu;
 
+  // Sincronização da aba ativa com a URL (?tab=plataforma | menu | notificacoes | aparencia)
+  const [activeTab, setActiveTab] = useUrlTab<"plataforma" | "menu" | "notificacoes" | "aparencia">(
+    "plataforma",
+    {
+      paramName: "tab",
+      allowedTabs: ["plataforma", "menu", "notificacoes", "aparencia"],
+    }
+  );
+
   if (!canAccess) return <NoAccess />;
 
   return (
@@ -2280,7 +2290,7 @@ function ConfiguracoesPage() {
         description="Painel completo de controle da plataforma, parâmetros operacionais e personalização do menu."
       />
 
-      <Tabs defaultValue="plataforma" className="space-y-6">
+      <Tabs value={activeTab} onValueChange={(val: any) => setActiveTab(val)} className="space-y-6">
         <TabsList className="bg-secondary/60 border border-border/50 p-1 rounded-xl flex-wrap h-auto gap-1">
           <TabsTrigger
             value="plataforma"

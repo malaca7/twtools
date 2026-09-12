@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo, useRef } from "react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
+import { useUrlTab } from "@/hooks/useUrlTab";
 import {
   Bot,
   Hash,
@@ -62,7 +63,10 @@ export function DevDiscordConfigCard() {
   const [initialConfig, setInitialConfig] = useState<DiscordBotConfig>(DEFAULT_DISCORD_CONFIG);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [subTab, setSubTab] = useState("channels");
+  const [subTab, setSubTab] = useUrlTab("channels", {
+    paramName: "subtab",
+    allowedTabs: ["channels", "server", "events", "customization", "diagnostics"],
+  });
 
   // Estados para Teste de Envio pelo Bot
   const [testCategory, setTestCategory] = useState<keyof DiscordLogChannels>("generalLogsChannelId");

@@ -3,6 +3,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { Trophy, Medal, Crown, TrendingUp, ShoppingCart, ArrowLeftRight, Calendar } from "lucide-react";
 import { PageHeader, NoAccess, TableSkeleton, EmptyState } from "@/components/ui-kit";
 import { useAuth } from "@/hooks/useAuth";
+import { useUrlTab } from "@/hooks/useUrlTab";
 import { useSales, useMovements, useMembers, nameOf } from "@/hooks/useData";
 import { currency, num } from "@/lib/format";
 import { getLevelLabel, levelBadgeClass } from "@/lib/permissions";
@@ -41,8 +42,15 @@ function RankingsPage() {
   const { data: movements = [], isLoading: loadingMovements } = useMovements();
   const { data: members = [], isLoading: loadingMembers } = useMembers();
 
-  const [period, setPeriod] = useState<"week" | "month" | "all">("all");
-  const [rankingType, setRankingType] = useState<"revenue" | "sales" | "movements">("revenue");
+  // Sincronização dos rankings com a URL (?tipo=revenue | sales | movements e ?periodo=week | month | all)
+  const [rankingType, setRankingType] = useUrlTab<"revenue" | "sales" | "movements">("revenue", {
+    paramName: "tipo",
+    allowedTabs: ["revenue", "sales", "movements"],
+  });
+  const [period, setPeriod] = useUrlTab<"week" | "month" | "all">("all", {
+    paramName: "periodo",
+    allowedTabs: ["week", "month", "all"],
+  });
 
   if (!canView) return <NoAccess />;
 

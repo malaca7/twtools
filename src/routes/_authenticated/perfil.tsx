@@ -13,6 +13,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { PageHeader, NoAccess } from "@/components/ui-kit";
 import { useAuth } from "@/hooks/useAuth";
+import { useUrlTab } from "@/hooks/useUrlTab";
 import { updateUserProfile } from "@/lib/app-api";
 import { errorMessage, formatPhone, formatSecondsToHoursAndMinutes } from "@/lib/format";
 import { getLevelLabel, levelBadgeClass } from "@/lib/permissions";
@@ -34,7 +35,10 @@ function PerfilPage() {
     return <NoAccess />;
   }
 
-  const [activeTab, setActiveTab] = useState<"dados" | "aparencia">("dados");
+  const [activeTab, setActiveTab] = useUrlTab<"dados" | "aparencia">("dados", {
+    paramName: "tab",
+    allowedTabs: ["dados", "aparencia"],
+  });
   const [nome, setNome] = useState("");
   const [nickname, setNickname] = useState("");
   const [telefone, setTelefone] = useState("");

@@ -26,7 +26,8 @@ import { cn } from "@/lib/utils";
 export interface ImageCropModalProps {
   isOpen: boolean;
   onClose: () => void;
-  imageFile: File | null;
+  imageFile?: File | null;
+  imageUrl?: string | null; // Suporte para ajustar imagem que já foi definida previamente
   cropShape?: "round" | "rect";
   defaultAspectRatio?: number; // width / height
   title?: string;
@@ -42,6 +43,7 @@ export function ImageCropModal({
   isOpen,
   onClose,
   imageFile,
+  imageUrl,
   cropShape = "rect",
   defaultAspectRatio,
   title = "Ajustar e Recortar Imagem",
@@ -54,6 +56,7 @@ export function ImageCropModal({
 }: ImageCropModalProps) {
   const [imageSrc, setImageSrc] = useState<string | null>(null);
   const [imageObj, setImageObj] = useState<HTMLImageElement | null>(null);
+  const [isLoadingImage, setIsLoadingImage] = useState(false);
 
   // Proporção original natural da imagem
   const [naturalAspectRatio, setNaturalAspectRatio] = useState<number>(1);
@@ -73,39 +76,94 @@ export function ImageCropModal({
 
   const containerRef = useRef<HTMLDivElement | null>(null);
 
-  // Inicializa imagem quando o arquivo muda e define a proporção AUTOMÁTICA da imagem
+  // Inicializa imagem quando o arquivo OU url muda e define a proporção AUTOMÁTICA da imagem
   useEffect(() => {
-    if (!imageFile) {
+    let isCancelled = false;
+    let createdObjectUrl: string | null = null;
+
+    if (!imageFile && !imageUrl) {
       setImageSrc(null);
       setImageObj(null);
       return;
     }
 
-    const objectUrl = URL.createObjectURL(imageFile);
-    setImageSrc(objectUrl);
+    setIsLoadingImage(true);
 
-    const img = new Image();
-    img.crossOrigin = "anonymous";
-    img.src = objectUrl;
-    img.onload = () => {
-      setImageObj(img);
-      const naturalRatio = img.naturalWidth / img.naturalHeight;
-      setNaturalAspectRatio(naturalRatio);
+    const setupImage = (src: string) => {
+      const img = new Image();
+      img.crossOrigin = "anonymous";
+      img.src = src;
 
-      // PROPORÇÃO AUTOMÁTICA: se não for forçado um default específico, adota a proporção natural da imagem
-      const initialRatio = defaultAspectRatio || naturalRatio;
-      setAspectRatio(initialRatio);
+      img.onload = () => {
+        if (isCancelled) return;
+        setImageObj(img);
+        const naturalRatio = img.naturalWidth / img.naturalHeight;
+        setNaturalAspectRatio(naturalRatio);
 
-      // Reset transformações
-      setZoom(1);
-      setRotation(0);
-      setPan({ x: 0, y: 0 });
+        const initialRatio = defaultAspectRatio || naturalRatio;
+        setAspectRatio(initialRatio);
+
+        setZoom(1);
+        setRotation(0);
+        setPan({ x: 0, y: 0 });
+        setIsLoadingImage(false);
+      };
+
+      img.onerror = () => {
+        if (isCancelled) return;
+        // Fallback: se falhar com crossOrigin anonymous, tenta carregar diretamente
+        const fallbackImg = new Image();
+        fallbackImg.src = src;
+        fallbackImg.onload = () => {
+          if (isCancelled) return;
+          setImageObj(fallbackImg);
+          const naturalRatio = fallbackImg.naturalWidth / fallbackImg.naturalHeight;
+          setNaturalAspectRatio(naturalRatio);
+          setAspectRatio(defaultAspectRatio || naturalRatio);
+          setZoom(1);
+          setRotation(0);
+          setPan({ x: 0, y: 0 });
+          setIsLoadingImage(false);
+        };
+        fallbackImg.onerror = () => {
+          if (isCancelled) return;
+          setIsLoadingImage(false);
+        };
+      };
     };
+
+    if (imageFile) {
+      createdObjectUrl = URL.createObjectURL(imageFile);
+      setImageSrc(createdObjectUrl);
+      setupImage(createdObjectUrl);
+    } else if (imageUrl) {
+      // Baixa via fetch blob para garantir acesso completo sem tainted canvas caso o servidor permita
+      fetch(imageUrl, { mode: "cors" })
+        .then((res) => {
+          if (!res.ok) throw new Error("Erro de rede");
+          return res.blob();
+        })
+        .then((blob) => {
+          if (isCancelled) return;
+          createdObjectUrl = URL.createObjectURL(blob);
+          setImageSrc(createdObjectUrl);
+          setupImage(createdObjectUrl);
+        })
+        .catch(() => {
+          // Se falhar o fetch CORS, carrega a URL diretamente
+          if (isCancelled) return;
+          setImageSrc(imageUrl);
+          setupImage(imageUrl);
+        });
+    }
 
     return () => {
-      URL.revokeObjectURL(objectUrl);
+      isCancelled = true;
+      if (createdObjectUrl) {
+        URL.revokeObjectURL(createdObjectUrl);
+      }
     };
-  }, [imageFile, defaultAspectRatio]);
+  }, [imageFile, imageUrl, defaultAspectRatio]);
 
   // Lista de proporções computadas (Automática em primeiro lugar)
   const computedRatios = useMemo(() => {
@@ -121,7 +179,6 @@ export function ImageCropModal({
 
     if (allowedRatios && allowedRatios.length > 0) {
       for (const r of allowedRatios) {
-        // Evita duplicata se a proporção natural for idêntica
         if (Math.abs(r.ratio - naturalAspectRatio) > 0.04) {
           list.push(r);
         }
@@ -135,7 +192,7 @@ export function ImageCropModal({
     return list;
   }, [imageObj, naturalAspectRatio, allowedRatios, cropShape]);
 
-  // Dimensões dinâmicas e compactas do Crop Box na tela (evita estourar altura e esconder botões)
+  // Dimensões dinâmicas e compactas do Crop Box na tela
   const CROP_BOX_MAX_WIDTH = 460;
   const CROP_BOX_MAX_HEIGHT = 180;
 
@@ -232,7 +289,7 @@ export function ImageCropModal({
 
   // Executar corte e exportar Canvas para File
   const handleConfirmCrop = async () => {
-    if (!imageObj || !imageFile) return;
+    if (!imageObj) return;
 
     try {
       const finalWidth = targetWidth || (cropShape === "round" ? 512 : 1280);
@@ -277,7 +334,9 @@ export function ImageCropModal({
       ctx.restore();
 
       // Exportar Canvas para Blob
-      const mimeType = imageFile.type.includes("png") ? "image/png" : "image/jpeg";
+      const isPng = (imageFile?.type || imageUrl || "").toLowerCase().includes("png");
+      const mimeType = isPng ? "image/png" : "image/jpeg";
+
       const blob = await new Promise<Blob | null>((resolve) => {
         canvas.toBlob((b) => resolve(b), mimeType, 0.95);
       });
@@ -286,10 +345,10 @@ export function ImageCropModal({
         throw new Error("Erro ao gerar arquivo recortado.");
       }
 
-      const croppedFileName =
-        imageFile.name.replace(/\.[^/.]+$/, "") +
-        "_cropped." +
-        (mimeType === "image/png" ? "png" : "jpg");
+      const baseName = imageFile?.name
+        ? imageFile.name.replace(/\.[^/.]+$/, "")
+        : "imagem_ajustada";
+      const croppedFileName = `${baseName}_cropped.${isPng ? "png" : "jpg"}`;
       const croppedFile = new File([blob], croppedFileName, { type: mimeType });
 
       await onCropSave(croppedFile);
@@ -317,7 +376,7 @@ export function ImageCropModal({
             <Button
               type="button"
               onClick={handleConfirmCrop}
-              disabled={isSaving || !imageObj}
+              disabled={isSaving || !imageObj || isLoadingImage}
               size="sm"
               className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs gap-1.5 h-8 px-3 rounded-lg shadow-sm"
             >
@@ -379,8 +438,16 @@ export function ImageCropModal({
             onWheel={handleWheel}
             className="relative w-full h-52 sm:h-56 rounded-xl bg-zinc-950 border border-zinc-800 overflow-hidden flex items-center justify-center cursor-grab active:cursor-grabbing select-none shadow-inner"
           >
+            {/* Loading state da imagem */}
+            {isLoadingImage && (
+              <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-zinc-950/80 z-20">
+                <Loader2 className="h-7 w-7 animate-spin text-emerald-400" />
+                <span className="text-xs font-bold text-zinc-300">Carregando imagem...</span>
+              </div>
+            )}
+
             {/* Imagem a ser manipulada */}
-            {imageSrc && (
+            {imageSrc && !isLoadingImage && (
               <img
                 src={imageSrc}
                 alt="Source Crop"
@@ -525,7 +592,7 @@ export function ImageCropModal({
           <Button
             type="button"
             onClick={handleConfirmCrop}
-            disabled={isSaving || !imageObj}
+            disabled={isSaving || !imageObj || isLoadingImage}
             className="bg-emerald-600 hover:bg-emerald-500 text-white text-xs sm:text-sm font-bold gap-2 px-5 py-2 h-9 rounded-lg shadow-lg shadow-emerald-950/60 transition-all hover:scale-[1.02]"
           >
             {isSaving ? (

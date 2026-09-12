@@ -65,6 +65,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PageHeader, NoAccess, EmptyState } from "@/components/ui-kit";
 import { useAuth } from "@/hooks/useAuth";
+import { useUrlTab } from "@/hooks/useUrlTab";
 import {
   useAbsences,
   useCreateAbsence,
@@ -236,8 +237,12 @@ function AusenciasPage() {
   const canViewStats = hasPermission("view_all_absences") || canManage;
   const isManagerView = canManage || canViewStats;
 
-  // View state: Non-managers default to their own records
-  const [activeTab, setActiveTab] = useState<string>(() => (isManagerView ? "todas" : "minhas"));
+  // View state sincronizado com a URL (?tab=todas | ativas | pendentes | minhas | aprovadas)
+  const defaultInitialTab = isManagerView ? "todas" : "minhas";
+  const [activeTab, setActiveTab] = useUrlTab<string>(defaultInitialTab, {
+    paramName: "tab",
+    allowedTabs: ["todas", "ativas", "pendentes", "minhas", "aprovadas"],
+  });
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [reasonFilter, setReasonFilter] = useState<string>("all");
