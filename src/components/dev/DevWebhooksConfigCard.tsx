@@ -54,6 +54,7 @@ import {
   testDiscordWebhookChannel,
   uploadWebhookAvatar,
   isValidDiscordId,
+  getWebhookShareableUrl,
   DEFAULT_WEBHOOKS_CONFIG,
   type DiscordWebhook,
   type DiscordWebhooksConfig,
@@ -278,6 +279,17 @@ export function DevWebhooksConfigCard() {
     const updated = config.webhooks.map((w) => (w.id === id ? { ...w, enabled } : w));
     setConfig({ ...config, webhooks: updated });
     toast.success(enabled ? "Webhook ativado!" : "Webhook pausado.");
+  };
+
+  // Copiar Link Compartilhável do Webhook
+  const handleCopyWebhookLink = (wh: DiscordWebhook) => {
+    const url = getWebhookShareableUrl(wh);
+    navigator.clipboard.writeText(url);
+    setCopiedId(wh.id);
+    toast.success(`Link do webhook "${wh.name}" copiado para a área de transferência!`);
+    setTimeout(() => {
+      setCopiedId(null);
+    }, 2500);
   };
 
   // Testar Envio
@@ -514,6 +526,56 @@ export function DevWebhooksConfigCard() {
                   </div>
                 </div>
 
+                {/* Link do Webhook para Compartilhar */}
+                <div className="space-y-1.5 p-2.5 rounded-xl bg-zinc-900/70 border border-zinc-800/80">
+                  <div className="flex items-center justify-between text-[0.65rem] font-semibold">
+                    <span className="text-muted-foreground flex items-center gap-1.5">
+                      <ExternalLink className="h-3 w-3 text-primary" />
+                      Link para Compartilhar:
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => handleCopyWebhookLink(wh)}
+                      className="text-primary hover:underline flex items-center gap-1 font-bold text-[0.65rem]"
+                    >
+                      {copiedId === wh.id ? (
+                        <>
+                          <Check className="h-3 w-3 text-emerald-400" />
+                          <span className="text-emerald-400">Copiado!</span>
+                        </>
+                      ) : (
+                        <>
+                          <Copy className="h-3 w-3" />
+                          <span>Copiar Link</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                  <div className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-zinc-950 border border-zinc-800/80 text-[0.68rem] font-mono text-zinc-300">
+                    <span className="truncate flex-1 select-all" title={getWebhookShareableUrl(wh)}>
+                      {getWebhookShareableUrl(wh)}
+                    </span>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => handleCopyWebhookLink(wh)}
+                      className="h-6 px-1.5 text-[0.65rem] font-bold text-muted-foreground hover:text-foreground"
+                      title="Copiar link do webhook"
+                    >
+                      {copiedId === wh.id ? <Check className="h-3 w-3 text-emerald-400" /> : <Copy className="h-3 w-3" />}
+                    </Button>
+                    <a
+                      href={getWebhookShareableUrl(wh)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="h-6 px-1.5 flex items-center justify-center text-muted-foreground hover:text-foreground rounded hover:bg-zinc-800"
+                      title="Abrir postador em nova aba"
+                    >
+                      <ExternalLink className="h-3 w-3" />
+                    </a>
+                  </div>
+                </div>
+
                 {/* Status do Último Envio / Teste */}
                 {wh.lastTriggeredAt && (
                   <div
@@ -553,6 +615,28 @@ export function DevWebhooksConfigCard() {
                   >
                     <MessageSquarePlus className="h-3.5 w-3.5" />
                     Postar Mensagem
+                  </Button>
+
+                  {/* Botão Copiar Link */}
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => handleCopyWebhookLink(wh)}
+                    disabled={!wh.enabled}
+                    className="bg-zinc-900 border-zinc-800 text-xs font-bold gap-1.5 h-8 hover:bg-zinc-800 text-zinc-300 hover:text-white"
+                    title="Copiar link deste webhook para compartilhar com outros membros"
+                  >
+                    {copiedId === wh.id ? (
+                      <>
+                        <Check className="h-3.5 w-3.5 text-emerald-400" />
+                        <span className="text-emerald-400">Copiado</span>
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="h-3.5 w-3.5 text-primary" />
+                        <span>Copiar Link</span>
+                      </>
+                    )}
                   </Button>
 
                   {/* Botão Testar */}
@@ -945,10 +1029,44 @@ export function DevWebhooksConfigCard() {
           </DialogHeader>
 
           {codeWebhook && (
-            <div className="space-y-3 py-2">
+            <div className="space-y-3.5 py-2">
+              {/* Link Compartilhável */}
+              <div className="p-3 rounded-xl bg-violet-950/20 border border-violet-500/30 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-[0.7rem] font-bold text-violet-300 uppercase tracking-wider flex items-center gap-1.5">
+                    <ExternalLink className="h-3.5 w-3.5 text-violet-400" />
+                    Link Público / Compartilhável
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => handleCopyWebhookLink(codeWebhook)}
+                    className="text-xs text-violet-400 hover:text-violet-300 flex items-center gap-1 font-bold"
+                  >
+                    {copiedId === codeWebhook.id ? <Check className="h-3 w-3 text-emerald-400" /> : <Copy className="h-3 w-3" />}
+                    {copiedId === codeWebhook.id ? "Copiado!" : "Copiar Link"}
+                  </button>
+                </div>
+                <div className="flex items-center gap-2 p-2 rounded-lg bg-zinc-950 border border-zinc-800 text-[0.75rem] font-mono text-zinc-300">
+                  <span className="truncate flex-1 select-all">{getWebhookShareableUrl(codeWebhook)}</span>
+                  <a
+                    href={getWebhookShareableUrl(codeWebhook)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="p-1 rounded text-muted-foreground hover:text-foreground hover:bg-zinc-800"
+                    title="Abrir no navegador"
+                  >
+                    <ExternalLink className="h-3.5 w-3.5" />
+                  </a>
+                </div>
+                <p className="text-[0.68rem] text-muted-foreground leading-relaxed">
+                  Envie este link para outros membros. Ao abrir no navegador, qualquer pessoa pode digitar e enviar comunicados para este canal.
+                </p>
+              </div>
+
+              {/* Dados do Canal */}
               <div className="p-3 rounded-xl bg-zinc-900 border border-zinc-800 space-y-1 text-xs font-mono">
                 <span className="text-muted-foreground block text-[0.68rem] font-bold uppercase font-sans">
-                  Dados do Canal:
+                  Identificadores Discord:
                 </span>
                 <p>
                   Servidor ID: <strong className="text-primary">{codeWebhook.guildId}</strong>
@@ -961,14 +1079,29 @@ export function DevWebhooksConfigCard() {
                 </p>
               </div>
 
+              {/* Exemplo cURL / API HTTP */}
               <div className="space-y-1">
-                <span className="text-xs font-bold text-muted-foreground">Exemplo de Chamada no Sistema (TypeScript):</span>
+                <span className="text-xs font-bold text-muted-foreground">Disparo via HTTP POST (cURL / FiveM / Scripts):</span>
+                <pre className="p-3 rounded-xl bg-zinc-900 border border-zinc-800 text-[0.7rem] font-mono text-zinc-300 overflow-x-auto">
+{`curl -X POST ${getWebhookShareableUrl(codeWebhook)} \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "title": "Aviso Oficial",
+    "description": "Mensagem enviada via script ou FiveM.",
+    "imageUrl": "https://i.ibb.co/.../imagem.png"
+  }'`}
+                </pre>
+              </div>
+
+              {/* Exemplo TypeScript */}
+              <div className="space-y-1">
+                <span className="text-xs font-bold text-muted-foreground">Exemplo no Sistema (TypeScript):</span>
                 <pre className="p-3 rounded-xl bg-zinc-900 border border-zinc-800 text-[0.7rem] font-mono text-zinc-300 overflow-x-auto">
 {`import { postMessageToWebhookChannel } from "@/services/webhookService";
 
 await postMessageToWebhookChannel(webhook, {
-  title: "Aviso de Venda",
-  description: "Nova venda registrada no sistema.",
+  title: "Aviso da Diretoria",
+  description: "Mensagem personalizada.",
   imageUrl: "https://.../print.png", // opcional
 });`}
                 </pre>

@@ -1306,18 +1306,292 @@ async function warmUpGuildMembers() {
   }
 }
 
-// Servidor HTTP básico para o Discloud (TYPE=site) e health checks
+/**
+ * Trata requisições HTTP para a rota pública de Webhook (/webhook/:target)
+ */
+async function handleWebhookHttpRequest(targetParam, req, res) {
+  if (!targetParam) {
+    res.writeHead(400, { "Content-Type": "application/json" });
+    return res.end(JSON.stringify({ success: false, error: "ID de webhook ou canal não informado na URL." }));
+  }
+
+  let channelId = targetParam;
+  let webhookName = "Twin Wheels Webhook";
+  let botUsername = "Twin Wheels RP";
+  let botAvatar = (discordConfig && discordConfig.botAvatarUrl) || "https://i.ibb.co/ymH1BQPQ/Uma124.png";
+  let embedColorHex = "#10B981";
+
+  // Se não for um ID snowflake numérico de 17-20 dígitos, busca nas configurações do banco
+  if (!/^\d{17,20}$/.test(targetParam)) {
+    try {
+      const { data } = await supabase
+        .from("role_permissions")
+        .select("permissions")
+        .eq("level", "system_discord_webhooks")
+        .maybeSingle();
+
+      if (data?.permissions?.webhooks && Array.isArray(data.permissions.webhooks)) {
+        const found = data.permissions.webhooks.find((w) => w.id === targetParam);
+        if (found && found.channelId) {
+          channelId = found.channelId;
+          webhookName = found.name || webhookName;
+          botUsername = found.username || botUsername;
+          botAvatar = found.avatarUrl || botAvatar;
+          embedColorHex = found.embedColor || embedColorHex;
+        }
+      }
+    } catch (e) {
+      console.warn("Erro ao buscar webhook no banco:", e.message);
+    }
+  }
+
+  if (!/^\d{17,20}$/.test(channelId)) {
+    res.writeHead(404, { "Content-Type": "application/json" });
+    return res.end(JSON.stringify({ success: false, error: `Webhook ou ID de Canal inválido: ${targetParam}` }));
+  }
+
+  // Se for GET, renderiza a página web para envio direto pelo navegador
+  if (req.method === "GET") {
+    const html = `<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Postador de Mensagens • Twin Wheels</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Plus Jakarta Sans', sans-serif; }
+    body { background: #09090b; color: #f4f4f5; min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px; }
+    .card { background: #121215; border: 1px solid #27272a; border-radius: 20px; width: 100%; max-width: 520px; padding: 32px; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.7); }
+    .header { display: flex; align-items: center; gap: 14px; margin-bottom: 24px; padding-bottom: 20px; border-bottom: 1px solid #27272a; }
+    .avatar { width: 48px; height: 48px; border-radius: 50%; object-fit: cover; border: 2px solid #3f3f46; }
+    .title { font-size: 18px; font-weight: 800; color: #fff; }
+    .subtitle { font-size: 12px; color: #a1a1aa; margin-top: 2px; }
+    .form-group { margin-bottom: 18px; }
+    label { display: block; font-size: 12px; font-weight: 700; color: #d4d4d8; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px; }
+    input, textarea { width: 100%; background: #18181b; border: 1px solid #27272a; border-radius: 10px; padding: 12px 14px; color: #fff; font-size: 14px; transition: border-color 0.2s; outline: none; }
+    input:focus, textarea:focus { border-color: #8b5cf6; box-shadow: 0 0 0 1px #8b5cf6; }
+    textarea { resize: vertical; min-height: 110px; }
+    .btn { width: 100%; background: linear-gradient(135deg, #8b5cf6, #7c3aed); color: #fff; border: none; border-radius: 10px; padding: 14px; font-size: 14px; font-weight: 800; cursor: pointer; transition: all 0.2s; margin-top: 8px; display: flex; align-items: center; justify-content: center; gap: 8px; }
+    .btn:hover { background: linear-gradient(135deg, #7c3aed, #6d28d9); transform: translateY(-1px); }
+    .btn:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+    .badge { display: inline-block; background: #27272a; color: #a1a1aa; font-size: 11px; padding: 4px 10px; border-radius: 6px; font-family: monospace; }
+    .alert { padding: 12px 16px; border-radius: 10px; font-size: 13px; font-weight: 600; margin-top: 16px; display: none; }
+    .alert-success { background: rgba(16, 185, 129, 0.15); border: 1px solid #10b981; color: #34d399; }
+    .alert-error { background: rgba(239, 68, 68, 0.15); border: 1px solid #ef4444; color: #f87171; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="header">
+      <img class="avatar" src="${botAvatar}" alt="Avatar">
+      <div>
+        <div class="title">${webhookName}</div>
+        <div class="subtitle">Emissor: <strong>${botUsername}</strong> • <span class="badge">Canal: ${channelId}</span></div>
+      </div>
+    </div>
+    <form id="webhookForm">
+      <div class="form-group">
+        <label>Título do Comunicado (Opcional)</label>
+        <input type="text" id="titleInput" placeholder="Ex: COMUNICADO IMPORTANTE">
+      </div>
+      <div class="form-group">
+        <label>Mensagem / Conteúdo *</label>
+        <textarea id="contentInput" required placeholder="Digite sua mensagem que será enviada para o canal..."></textarea>
+      </div>
+      <div class="form-group">
+        <label>URL da Imagem / Print (Opcional)</label>
+        <input type="url" id="imageInput" placeholder="https://exemplo.com/imagem.png">
+      </div>
+      <button type="submit" id="submitBtn" class="btn">🚀 Enviar para o Discord</button>
+      <div id="alertBox" class="alert"></div>
+    </form>
+  </div>
+  <script>
+    const form = document.getElementById('webhookForm');
+    const btn = document.getElementById('submitBtn');
+    const alertBox = document.getElementById('alertBox');
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const title = document.getElementById('titleInput').value.trim();
+      const description = document.getElementById('contentInput').value.trim();
+      const imageUrl = document.getElementById('imageInput').value.trim();
+
+      btn.disabled = true;
+      btn.innerText = 'Enviando...';
+      alertBox.style.display = 'none';
+
+      try {
+        const res = await fetch(window.location.href, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ title, description, imageUrl, content: description })
+        });
+        const data = await res.json();
+        if (res.ok && data.success) {
+          alertBox.className = 'alert alert-success';
+          alertBox.innerText = '✅ ' + (data.message || 'Mensagem enviada com sucesso para o Discord!');
+          alertBox.style.display = 'block';
+          form.reset();
+        } else {
+          throw new Error(data.error || 'Erro ao enviar mensagem');
+        }
+      } catch (err) {
+        alertBox.className = 'alert alert-error';
+        alertBox.innerText = '❌ ' + err.message;
+        alertBox.style.display = 'block';
+      } finally {
+        btn.disabled = false;
+        btn.innerText = '🚀 Enviar para o Discord';
+      }
+    });
+  </script>
+</body>
+</html>`;
+    res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+    return res.end(html);
+  }
+
+  // Se for POST: processa o envio
+  if (req.method === "POST") {
+    let rawBody = "";
+    req.on("data", (chunk) => {
+      rawBody += chunk;
+    });
+
+    req.on("end", async () => {
+      try {
+        let payload = {};
+        if (rawBody.trim()) {
+          try {
+            payload = JSON.parse(rawBody);
+          } catch {
+            const params = new URLSearchParams(rawBody);
+            payload = Object.fromEntries(params.entries());
+          }
+        }
+
+        const description = payload.description || payload.content || payload.message || "";
+        if (!description || !description.trim()) {
+          res.writeHead(400, { "Content-Type": "application/json" });
+          return res.end(JSON.stringify({ success: false, error: "O campo 'description', 'content' ou 'message' é obrigatório." }));
+        }
+
+        const title = payload.title || webhookName || "Comunicado Oficial";
+        const imageUrl = payload.imageUrl || payload.image_url || payload.image || undefined;
+        const color = payload.color || payload.embedColor || embedColorHex || "#10B981";
+        const sender = payload.username || payload.author || botUsername || "Twin Wheels RP";
+        const avatar = payload.avatarUrl || payload.avatar_url || botAvatar;
+
+        if (!client.isReady()) {
+          res.writeHead(503, { "Content-Type": "application/json" });
+          return res.end(JSON.stringify({ success: false, error: "Bot do Discord está offline ou reconectando. Tente novamente em alguns instantes." }));
+        }
+
+        const channel = await client.channels.fetch(channelId).catch((err) => {
+          console.warn(`[HTTP WEBHOOK] Erro ao buscar canal ${channelId}:`, err.message);
+          return null;
+        });
+
+        if (!channel || !channel.isTextBased()) {
+          res.writeHead(404, { "Content-Type": "application/json" });
+          return res.end(JSON.stringify({ success: false, error: `Canal Discord ${channelId} não encontrado ou o bot não tem permissão para acessá-lo.` }));
+        }
+
+        const embed = new EmbedBuilder()
+          .setTitle(title)
+          .setDescription(description.trim())
+          .setColor(hexToInt(color))
+          .setTimestamp()
+          .setFooter({
+            text: (discordConfig && discordConfig.footerText) || "Twin Wheels RP • Canal de Mensagens",
+            iconURL: (discordConfig && discordConfig.footerIconUrl) || avatar,
+          });
+
+        if (avatar) {
+          embed.setThumbnail(avatar);
+          embed.setAuthor({
+            name: sender,
+            iconURL: avatar,
+          });
+        }
+
+        if (imageUrl && typeof imageUrl === "string" && imageUrl.startsWith("http")) {
+          embed.setImage(imageUrl.trim());
+        }
+
+        if (payload.fields && Array.isArray(payload.fields)) {
+          for (const f of payload.fields) {
+            if (f && f.name && f.value) {
+              embed.addFields({ name: String(f.name), value: String(f.value), inline: !!f.inline });
+            }
+          }
+        }
+
+        const contentText = payload.mention ? String(payload.mention) : undefined;
+        const sentMsg = await channel.send({
+          content: contentText,
+          embeds: [embed],
+        });
+
+        console.log(`📡 [HTTP WEBHOOK] Mensagem postada com sucesso em #${channel.name} (${channelId}) (ID: ${sentMsg.id})`);
+
+        res.writeHead(200, { "Content-Type": "application/json" });
+        return res.end(
+          JSON.stringify({
+            success: true,
+            message: `Mensagem enviada com sucesso para o canal #${channel.name}!`,
+            messageId: sentMsg.id,
+            channelName: channel.name,
+            channelId,
+          })
+        );
+      } catch (err) {
+        console.error("[HTTP WEBHOOK ERRO]:", err);
+        res.writeHead(500, { "Content-Type": "application/json" });
+        return res.end(JSON.stringify({ success: false, error: err.message || "Erro interno ao enviar mensagem." }));
+      }
+    });
+    return;
+  }
+
+  res.writeHead(405, { "Content-Type": "application/json" });
+  res.end(JSON.stringify({ success: false, error: "Método HTTP não permitido." }));
+}
+
+// Servidor HTTP básico para o Discloud (TYPE=site), Webhooks públicos e health checks
 const server = http.createServer(async (req, res) => {
-  if (req.url === "/sync") {
+  // Configuração global de CORS para permitir chamadas de qualquer frontend ou script
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
+
+  if (req.method === "OPTIONS") {
+    res.writeHead(204);
+    return res.end();
+  }
+
+  const urlObj = new URL(req.url, `http://${req.headers.host || "localhost"}`);
+  const pathname = urlObj.pathname;
+
+  if (pathname === "/sync") {
     syncAllProfiles();
     res.writeHead(200, { "Content-Type": "application/json" });
     return res.end(JSON.stringify({ status: "sync_triggered", timestamp: new Date().toISOString() }));
   }
 
+  // Rota de Webhook pública: /webhook/:idOrChannelId
+  if (pathname.startsWith("/webhook/")) {
+    const targetParam = pathname.replace("/webhook/", "").trim();
+    return handleWebhookHttpRequest(targetParam, req, res);
+  }
+
   res.writeHead(200, { "Content-Type": "application/json" });
   res.end(
     JSON.stringify({
-      app: "Twin Wheels Bot - Direct Discord Logs",
+      app: "Twin Wheels Bot - Direct Discord Logs & Webhooks",
       status: "online",
       botUser: client.user ? client.user.tag : null,
       guilds: client.guilds.cache.size,

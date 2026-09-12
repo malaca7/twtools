@@ -83,6 +83,15 @@ export function isValidDiscordId(id?: string): boolean {
 }
 
 /**
+ * Retorna o link público e compartilhável do Webhook para envio de mensagens via Browser ou API
+ */
+export function getWebhookShareableUrl(webhook?: DiscordWebhook | null): string {
+  if (!webhook) return "https://twin.discloud.app/webhook";
+  const identifier = webhook.channelId || webhook.id;
+  return `https://twin.discloud.app/webhook/${identifier}`;
+}
+
+/**
  * Realiza o upload de imagem de avatar do bot para o Supabase Storage
  */
 export async function uploadWebhookAvatar(file: File): Promise<string> {
