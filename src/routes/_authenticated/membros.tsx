@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { toast } from "sonner";
 import {
   UserCheck,
@@ -494,17 +494,22 @@ function MembrosPage() {
                       return (
                         <TableRow key={m.user_id}>
                           <TableCell>
-                            <div className="flex items-center gap-3 min-w-[160px]">
-                              <Avatar className="h-9 w-9 border border-border">
+                            <Link
+                              to="/perfil/$handle"
+                              params={{ handle: `@${m.custom_url || m.discord_id || m.user_id}` }}
+                              className="flex items-center gap-3 min-w-[160px] group cursor-pointer"
+                              title={`Ver perfil público de ${m.nickname || m.nome}`}
+                            >
+                              <Avatar className="h-9 w-9 border border-border group-hover:border-primary/50 transition-colors">
                                 {avatarUrl && <AvatarImage src={avatarUrl} alt={m.nome} />}
-                                <AvatarFallback className="bg-secondary font-bold text-xs">
+                                <AvatarFallback className="bg-secondary font-bold text-xs group-hover:text-primary transition-colors">
                                   {initials}
                                 </AvatarFallback>
                               </Avatar>
 
                               <div>
                                 <div className="flex items-center gap-1.5">
-                                  <p className="font-bold text-xs text-foreground">
+                                  <p className="font-bold text-xs text-foreground group-hover:text-primary transition-colors">
                                     {m.nickname ? `${m.nickname}` : m.nome}
                                   </p>
                                   {targetIsDev && (
@@ -517,7 +522,7 @@ function MembrosPage() {
                                   <p className="text-[0.65rem] text-muted-foreground">{m.nome}</p>
                                 ) : null}
                               </div>
-                            </div>
+                            </Link>
                           </TableCell>
 
                           <TableCell className="text-xs">

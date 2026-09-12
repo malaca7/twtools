@@ -103,6 +103,7 @@ export async function getCurrentAuth(): Promise<AuthState> {
       discord_email: pAny.discord_email ?? null,
       is_developer: Boolean(pAny.is_developer),
       custom_theme: pAny.custom_theme || null,
+      custom_url: pAny.custom_url ?? pAny.custom_theme?.custom_url ?? null,
     } : null;
 
     if (profile && !profile.discord_avatar_url && session.user.user_metadata?.avatar_url) {
@@ -570,7 +571,7 @@ export async function updateUserPresence(status: UserPresenceStatus, incrementSe
 export async function getMembers(): Promise<Member[]> {
   const [profilesRes, rolesRes, presenceRes, signupReqsRes] = await Promise.all([
     (supabase.from("profiles" as any))
-      .select("user_id, nome, nickname, telefone, game_id, status, data_entrada, created_at, discord_id, discord_username, discord_avatar_url, avatar_url, discord_email, is_developer")
+      .select("user_id, nome, nickname, telefone, game_id, status, data_entrada, created_at, discord_id, discord_username, discord_avatar_url, avatar_url, discord_email, is_developer, custom_theme")
       .order("created_at", { ascending: true }),
     supabase
       .from("user_roles")
@@ -651,6 +652,8 @@ export async function getMembers(): Promise<Member[]> {
         avatar_url: d.avatar_url || d.discord_avatar_url || null,
         discord_email: d.discord_email,
         is_developer: Boolean(d.is_developer || roleNivel === "desenvolvedor" || d.discord_id === "917826984778797087"),
+        custom_theme: d.custom_theme || null,
+        custom_url: d.custom_url ?? d.custom_theme?.custom_url ?? null,
       };
     });
 }
@@ -694,14 +697,51 @@ export async function cancelSignupRequest(userId?: string): Promise<void> {
   } catch (err) {}
 }
 
-export async function updateUserProfile(payload: { nome: string; nickname?: string | null; telefone: string; game_id: string }): Promise<void> {
+export async function updateUserProfile(payload: {
+  nome: string;
+  nickname?: string | null;
+  telefone: string;
+  game_id: string;
+  custom_url?: string | null;
+}): Promise<void> {
   const { data: { session } } = await supabase.auth.getSession();
   if (!session?.user) throw new Error("Não autenticado");
 
   const { data: oldProfile } = await (supabase.from("profiles" as any))
-    .select("nome, nickname, telefone, game_id")
+    .select("nome, nickname, telefone, game_id, custom_theme")
     .eq("user_id", session.user.id)
     .maybeSingle();
+
+  let cleanCustomUrl: string | null | undefined = undefined;
+  if (payload.custom_url !== undefined) {
+    const raw = payload.custom_url ? payload.custom_url.trim().toLowerCase().replace(/^@/, "") : "";
+    if (raw) {
+      // Validate: 3 to 30 characters, alphanumeric, dot, dash, underscore
+      if (!/^[a-z0-9_.-]{3,30}$/.test(raw)) {
+        throw new Error("A URL personalizada deve conter de 3 a 30 caracteres (apenas letras, números, ponto, hífen e underline).");
+      }
+
+      // Check duplicate custom_url across other profiles
+      const { data: duplicates } = await (supabase.from("profiles" as any))
+        .select("user_id, custom_theme")
+        .filter("custom_theme->>custom_url", "eq", raw)
+        .neq("user_id", session.user.id)
+        .limit(1);
+
+      if (duplicates && duplicates.length > 0) {
+        throw new Error(`A URL personalizada "@${raw}" já está em uso por outro membro. Por favor, escolha outra.`);
+      }
+
+      cleanCustomUrl = raw;
+    } else {
+      cleanCustomUrl = null;
+    }
+  }
+
+  const existingTheme = (oldProfile as any)?.custom_theme || {};
+  const updatedTheme = cleanCustomUrl !== undefined
+    ? { ...existingTheme, custom_url: cleanCustomUrl }
+    : existingTheme;
 
   const { error } = await supabase
     .from("profiles")
@@ -710,6 +750,7 @@ export async function updateUserProfile(payload: { nome: string; nickname?: stri
       nickname: payload.nickname?.trim() || null,
       telefone: payload.telefone.trim(),
       game_id: payload.game_id.trim(),
+      custom_theme: updatedTheme,
       updated_at: new Date().toISOString(),
     } as any)
     .eq("user_id", session.user.id);
@@ -721,7 +762,25 @@ export async function updateUserProfile(payload: { nome: string; nickname?: stri
     nickname: payload.nickname?.trim() || null,
     telefone: payload.telefone.trim(),
     game_id: payload.game_id.trim(),
+    custom_url: cleanCustomUrl,
   }, oldProfile || undefined, session.user.id);
+}
+
+export async function getMemberBySlug(slug: string): Promise<Member | null> {
+  const clean = slug ? slug.trim().toLowerCase().replace(/^@/, "") : "";
+  if (!clean) return null;
+
+  const members = await getMembers();
+  return (
+    members.find(
+      (m) =>
+        (m.custom_url && m.custom_url.toLowerCase() === clean) ||
+        (m.discord_id && m.discord_id.toLowerCase() === clean) ||
+        (m.discord_username && m.discord_username.toLowerCase().replace(/#0$/, "") === clean) ||
+        (m.user_id && m.user_id.toLowerCase() === clean) ||
+        (m.game_id && m.game_id.toLowerCase() === clean)
+    ) || null
+  );
 }
 
 export async function updateUserTheme(theme: import("./app-types").UserThemeSettings): Promise<void> {

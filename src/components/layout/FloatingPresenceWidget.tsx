@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from "react";
+import { useNavigate } from "@tanstack/react-router";
 import {
   Users,
   X,
@@ -76,7 +77,7 @@ function CompactStatusDot({ status }: { status: UserPresenceStatus | undefined }
   );
 }
 
-/* ─── High Density Member Row with Direct Chat Action ─── */
+/* ─── High Density Member Row with Direct Profile & Chat Actions ─── */
 function CompactMemberRow({
   member,
   onStartChat,
@@ -86,25 +87,33 @@ function CompactMemberRow({
   onStartChat: (targetUserId: string) => void;
   isSelf: boolean;
 }) {
+  const navigate = useNavigate();
   const status = member.presence_status || "offline";
   const currentNivel = (member.nivel || "novato") as AppLevel;
   const avatarUrl = member.discord_avatar_url;
   const displayName = member.nickname || member.nome;
   const initials = displayName.slice(0, 2).toUpperCase();
+  const profileSlug = member.custom_url || member.discord_id || member.user_id;
 
   const ausenteText = formatAusenteDuration(member.presence_updated_at || member.updated_at || member.last_seen);
   const lastSeenFull = formatLastSeen(member.last_seen || member.presence_updated_at || member.updated_at);
   const lastSeenCompact = lastSeenFull.replace("Visto por último ", "");
 
+  const handleOpenProfile = () => {
+    navigate({
+      to: "/perfil/$handle",
+      params: { handle: `@${profileSlug}` },
+    });
+  };
+
   return (
     <div
-      onClick={() => !isSelf && onStartChat(member.user_id)}
+      onClick={handleOpenProfile}
       className={cn(
-        "flex items-center justify-between py-2 px-2.5 rounded-xl transition-all group text-xs border border-transparent select-none",
-        isSelf
-          ? "cursor-default opacity-85 bg-secondary/15"
-          : "hover:bg-secondary/70 hover:border-border/60 cursor-pointer hover:shadow-xs active:scale-[0.99]"
+        "flex items-center justify-between py-2 px-2.5 rounded-xl transition-all group text-xs border border-transparent select-none cursor-pointer hover:bg-secondary/70 hover:border-border/60 hover:shadow-xs active:scale-[0.99]",
+        isSelf && "bg-secondary/15"
       )}
+      title={`Ver perfil público de ${displayName} (/perfil/@${profileSlug})`}
     >
       <div className="flex items-center gap-2.5 min-w-0 flex-1">
         <div className="relative shrink-0">
@@ -163,8 +172,12 @@ function CompactMemberRow({
             type="button"
             variant="ghost"
             size="icon"
-            className="h-7 w-7 text-muted-foreground group-hover:text-primary group-hover:bg-primary/15 rounded-lg transition-all shrink-0"
-            title={`Conversar com ${displayName}`}
+            onClick={(e) => {
+              e.stopPropagation();
+              onStartChat(member.user_id);
+            }}
+            className="h-7 w-7 text-muted-foreground group-hover:text-primary group-hover:bg-primary/15 rounded-lg transition-all shrink-0 cursor-pointer"
+            title={`Conversar diretamente com ${displayName}`}
           >
             <MessageSquare className="h-3.5 w-3.5" />
           </Button>

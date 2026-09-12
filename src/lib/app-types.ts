@@ -56,7 +56,8 @@ export type Profile = {
   discord_avatar_url?: string | null;
   discord_email?: string | null;
   is_developer?: boolean;
-  custom_theme?: UserThemeSettings | null;
+  custom_theme?: (UserThemeSettings & { custom_url?: string | null }) | null;
+  custom_url?: string | null;
 };
 
 export type SignupRequestStatus = "pendente" | "aprovado" | "rejeitado";
@@ -175,7 +176,8 @@ export type Member = {
   discord_avatar_url?: string | null;
   discord_email?: string | null;
   is_developer?: boolean;
-  custom_theme?: UserThemeSettings | null;
+  custom_theme?: (UserThemeSettings & { custom_url?: string | null }) | null;
+  custom_url?: string | null;
 };
 
 export type Announcement = {

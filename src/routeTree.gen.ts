@@ -42,6 +42,7 @@ import { Route as AuthenticatedDevDesempenhoRouteImport } from './routes/_authen
 import { Route as AuthenticatedDevMenuLateralRouteImport } from './routes/_authenticated/dev.menu-lateral'
 import { Route as AuthenticatedDevPatchNotesRouteImport } from './routes/_authenticated/dev.patch-notes'
 import { Route as AuthenticatedDevPermissoesRouteImport } from './routes/_authenticated/dev.permissoes'
+import { Route as AuthenticatedPerfilHandleRouteImport } from './routes/_authenticated/perfil.$handle'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -215,6 +216,12 @@ const AuthenticatedDevPermissoesRoute =
     path: '/dev/permissoes',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedPerfilHandleRoute =
+  AuthenticatedPerfilHandleRouteImport.update({
+    id: '/$handle',
+    path: '/$handle',
+    getParentRoute: () => AuthenticatedPerfilRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -235,7 +242,7 @@ export interface FileRoutesByFullPath {
   '/membros': typeof AuthenticatedMembrosRoute
   '/metas': typeof AuthenticatedMetasRoute
   '/movimentacoes': typeof AuthenticatedMovimentacoesRoute
-  '/perfil': typeof AuthenticatedPerfilRoute
+  '/perfil': typeof AuthenticatedPerfilRouteWithChildren
   '/permissoes': typeof AuthenticatedPermissoesRoute
   '/produtos': typeof AuthenticatedProdutosRoute
   '/rankings': typeof AuthenticatedRankingsRoute
@@ -248,6 +255,7 @@ export interface FileRoutesByFullPath {
   '/dev/menu-lateral': typeof AuthenticatedDevMenuLateralRoute
   '/dev/patch-notes': typeof AuthenticatedDevPatchNotesRoute
   '/dev/permissoes': typeof AuthenticatedDevPermissoesRoute
+  '/perfil/$handle': typeof AuthenticatedPerfilHandleRoute
   '/dev/': typeof AuthenticatedDevIndexRoute
 }
 export interface FileRoutesByTo {
@@ -269,7 +277,7 @@ export interface FileRoutesByTo {
   '/membros': typeof AuthenticatedMembrosRoute
   '/metas': typeof AuthenticatedMetasRoute
   '/movimentacoes': typeof AuthenticatedMovimentacoesRoute
-  '/perfil': typeof AuthenticatedPerfilRoute
+  '/perfil': typeof AuthenticatedPerfilRouteWithChildren
   '/permissoes': typeof AuthenticatedPermissoesRoute
   '/produtos': typeof AuthenticatedProdutosRoute
   '/rankings': typeof AuthenticatedRankingsRoute
@@ -282,6 +290,7 @@ export interface FileRoutesByTo {
   '/dev/menu-lateral': typeof AuthenticatedDevMenuLateralRoute
   '/dev/patch-notes': typeof AuthenticatedDevPatchNotesRoute
   '/dev/permissoes': typeof AuthenticatedDevPermissoesRoute
+  '/perfil/$handle': typeof AuthenticatedPerfilHandleRoute
   '/dev': typeof AuthenticatedDevIndexRoute
 }
 export interface FileRoutesById {
@@ -305,7 +314,7 @@ export interface FileRoutesById {
   '/_authenticated/membros': typeof AuthenticatedMembrosRoute
   '/_authenticated/metas': typeof AuthenticatedMetasRoute
   '/_authenticated/movimentacoes': typeof AuthenticatedMovimentacoesRoute
-  '/_authenticated/perfil': typeof AuthenticatedPerfilRoute
+  '/_authenticated/perfil': typeof AuthenticatedPerfilRouteWithChildren
   '/_authenticated/permissoes': typeof AuthenticatedPermissoesRoute
   '/_authenticated/produtos': typeof AuthenticatedProdutosRoute
   '/_authenticated/rankings': typeof AuthenticatedRankingsRoute
@@ -318,6 +327,7 @@ export interface FileRoutesById {
   '/_authenticated/dev/menu-lateral': typeof AuthenticatedDevMenuLateralRoute
   '/_authenticated/dev/patch-notes': typeof AuthenticatedDevPatchNotesRoute
   '/_authenticated/dev/permissoes': typeof AuthenticatedDevPermissoesRoute
+  '/_authenticated/perfil/$handle': typeof AuthenticatedPerfilHandleRoute
   '/_authenticated/dev/': typeof AuthenticatedDevIndexRoute
 }
 export interface FileRouteTypes {
@@ -354,6 +364,7 @@ export interface FileRouteTypes {
     | '/dev/menu-lateral'
     | '/dev/patch-notes'
     | '/dev/permissoes'
+    | '/perfil/$handle'
     | '/dev/'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -388,6 +399,7 @@ export interface FileRouteTypes {
     | '/dev/menu-lateral'
     | '/dev/patch-notes'
     | '/dev/permissoes'
+    | '/perfil/$handle'
     | '/dev'
   id:
     | '__root__'
@@ -423,6 +435,7 @@ export interface FileRouteTypes {
     | '/_authenticated/dev/menu-lateral'
     | '/_authenticated/dev/patch-notes'
     | '/_authenticated/dev/permissoes'
+    | '/_authenticated/perfil/$handle'
     | '/_authenticated/dev/'
   fileRoutesById: FileRoutesById
 }
@@ -666,8 +679,26 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedDevPermissoesRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/perfil/$handle': {
+      id: '/_authenticated/perfil/$handle'
+      path: '/$handle'
+      fullPath: '/perfil/$handle'
+      preLoaderRoute: typeof AuthenticatedPerfilHandleRouteImport
+      parentRoute: typeof AuthenticatedPerfilRoute
+    }
   }
 }
+
+interface AuthenticatedPerfilRouteChildren {
+  AuthenticatedPerfilHandleRoute: typeof AuthenticatedPerfilHandleRoute
+}
+
+const AuthenticatedPerfilRouteChildren: AuthenticatedPerfilRouteChildren = {
+  AuthenticatedPerfilHandleRoute: AuthenticatedPerfilHandleRoute,
+}
+
+const AuthenticatedPerfilRouteWithChildren =
+  AuthenticatedPerfilRoute._addFileChildren(AuthenticatedPerfilRouteChildren)
 
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedAtualizacoesRoute: typeof AuthenticatedAtualizacoesRoute
@@ -687,7 +718,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedMembrosRoute: typeof AuthenticatedMembrosRoute
   AuthenticatedMetasRoute: typeof AuthenticatedMetasRoute
   AuthenticatedMovimentacoesRoute: typeof AuthenticatedMovimentacoesRoute
-  AuthenticatedPerfilRoute: typeof AuthenticatedPerfilRoute
+  AuthenticatedPerfilRoute: typeof AuthenticatedPerfilRouteWithChildren
   AuthenticatedPermissoesRoute: typeof AuthenticatedPermissoesRoute
   AuthenticatedProdutosRoute: typeof AuthenticatedProdutosRoute
   AuthenticatedRankingsRoute: typeof AuthenticatedRankingsRoute
@@ -719,7 +750,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedMembrosRoute: AuthenticatedMembrosRoute,
   AuthenticatedMetasRoute: AuthenticatedMetasRoute,
   AuthenticatedMovimentacoesRoute: AuthenticatedMovimentacoesRoute,
-  AuthenticatedPerfilRoute: AuthenticatedPerfilRoute,
+  AuthenticatedPerfilRoute: AuthenticatedPerfilRouteWithChildren,
   AuthenticatedPermissoesRoute: AuthenticatedPermissoesRoute,
   AuthenticatedProdutosRoute: AuthenticatedProdutosRoute,
   AuthenticatedRankingsRoute: AuthenticatedRankingsRoute,

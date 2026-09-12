@@ -1,8 +1,8 @@
 import { useState, useEffect } from "react";
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate, Link, Outlet, useChildMatches } from "@tanstack/react-router";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { User, Phone, IdCard, Lock, Save, Loader2, CheckCircle2, Palette, Sparkles, RefreshCw } from "lucide-react";
+import { User, Phone, IdCard, Lock, Save, Loader2, CheckCircle2, Palette, Sparkles, RefreshCw, Globe, Copy, Check, ExternalLink, AtSign } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -22,8 +22,16 @@ import { useMembers } from "@/hooks/useData";
 import { UserAppearanceSettings } from "@/components/profile/UserAppearanceSettings";
 
 export const Route = createFileRoute("/_authenticated/perfil")({
-  component: PerfilPage,
+  component: PerfilWrapper,
 });
+
+function PerfilWrapper() {
+  const childMatches = useChildMatches();
+  if (childMatches.length > 0) {
+    return <Outlet />;
+  }
+  return <PerfilPage />;
+}
 
 function PerfilPage() {
   const { profile, level, refresh, user, hasPermission } = useAuth();
@@ -43,6 +51,8 @@ function PerfilPage() {
   const [nickname, setNickname] = useState("");
   const [telefone, setTelefone] = useState("");
   const [gameId, setGameId] = useState("");
+  const [customUrl, setCustomUrl] = useState("");
+  const [copiedLink, setCopiedLink] = useState(false);
 
   useEffect(() => {
     if (profile) {
@@ -50,6 +60,7 @@ function PerfilPage() {
       setNickname(profile.nickname || "");
       setTelefone(formatPhone(profile.telefone || ""));
       setGameId(profile.game_id || "");
+      setCustomUrl(profile.custom_url || profile.custom_theme?.custom_url || "");
     }
   }, [profile]);
 
@@ -64,6 +75,7 @@ function PerfilPage() {
         nickname: nickname.trim() || null,
         telefone,
         game_id: gameId,
+        custom_url: customUrl.trim().toLowerCase().replace(/^@/, "") || null,
       });
     },
     onSuccess: async () => {
@@ -167,7 +179,29 @@ function PerfilPage() {
                   <p className="text-muted-foreground">
                     Telefone: <span className="font-bold text-foreground">{telefone || "N/A"}</span>
                   </p>
+                  <p className="text-muted-foreground truncate">
+                    Link Público:{" "}
+                    <span className="font-mono font-bold text-primary">
+                      /perfil/@{profile?.custom_url || profile?.discord_id || "..."}
+                    </span>
+                  </p>
                 </div>
+
+                <Link
+                  to="/perfil/$handle"
+                  params={{ handle: `@${profile?.custom_url || profile?.discord_id || user?.id}` }}
+                  className="w-full pt-2"
+                >
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="w-full text-xs font-bold border-primary/40 hover:bg-primary/10 text-primary gap-1.5 cursor-pointer rounded-xl"
+                  >
+                    <ExternalLink className="h-3.5 w-3.5" />
+                    <span>Ver Meu Perfil Público</span>
+                  </Button>
+                </Link>
               </CardContent>
             </Card>
 
@@ -252,6 +286,105 @@ function PerfilPage() {
                     )}
                     Salvar Alterações de Perfil
                   </Button>
+                </CardContent>
+              </Card>
+
+              {/* CUSTOM URL / PUBLIC PROFILE LINK CARD */}
+              <Card className="surface-card border-primary/25 bg-primary/5">
+                <CardHeader className="pb-3 border-b border-primary/20">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <CardTitle className="text-base font-semibold text-foreground flex items-center gap-2">
+                      <Globe className="h-4 w-4 text-primary" /> Link Público & URL Personalizada
+                    </CardTitle>
+                    {customUrl ? (
+                      <Badge variant="outline" className="border-emerald-500/40 text-emerald-400 bg-emerald-500/10 text-[10px] font-mono py-0.5">
+                        ✨ URL Personalizada Ativa
+                      </Badge>
+                    ) : (
+                      <Badge variant="outline" className="border-zinc-500/40 text-muted-foreground bg-zinc-500/10 text-[10px] font-mono py-0.5">
+                        Padrão (ID Discord)
+                      </Badge>
+                    )}
+                  </div>
+                  <CardDescription className="text-xs">
+                    Defina seu link exclusivo na plataforma (ex.: <span className="font-mono text-primary font-bold">/perfil/@{customUrl || "seu-nome"}</span>). Caso não defina, seu perfil público usará seu ID do Discord automaticamente.
+                  </CardDescription>
+                </CardHeader>
+
+                <CardContent className="pt-4 space-y-4">
+                  {/* PREVIEW DO LINK COM BOTÃO DE COPIAR E ABRIR */}
+                  <div className="rounded-xl border border-primary/30 bg-background/80 p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 shadow-sm">
+                    <div className="min-w-0 flex items-center gap-2">
+                      <AtSign className="h-4 w-4 text-primary shrink-0" />
+                      <div className="min-w-0">
+                        <p className="text-[10px] uppercase font-bold text-muted-foreground">Seu Link Público Oficial</p>
+                        <p className="font-mono font-bold text-xs text-foreground truncate">
+                          {typeof window !== "undefined" ? window.location.origin : ""}/perfil/@
+                          <span className="text-primary font-black">{customUrl || profile?.discord_id || "seu-id"}</span>
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2 shrink-0">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          const origin = typeof window !== "undefined" ? window.location.origin : "";
+                          const link = `${origin}/perfil/@${customUrl || profile?.discord_id || user?.id}`;
+                          navigator.clipboard.writeText(link);
+                          setCopiedLink(true);
+                          toast.success("Link do perfil público copiado!");
+                          setTimeout(() => setCopiedLink(false), 2000);
+                        }}
+                        className="h-8 px-2.5 text-xs border-primary/30 hover:bg-primary/20 text-primary gap-1.5 cursor-pointer rounded-lg"
+                      >
+                        {copiedLink ? <Check className="h-3.5 w-3.5 text-emerald-400" /> : <Copy className="h-3.5 w-3.5" />}
+                        <span>{copiedLink ? "Copiado!" : "Copiar Link"}</span>
+                      </Button>
+
+                      <Link
+                        to="/perfil/$handle"
+                        params={{ handle: `@${customUrl || profile?.discord_id || user?.id}` }}
+                      >
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 px-2.5 text-xs text-muted-foreground hover:text-foreground hover:bg-secondary gap-1.5 cursor-pointer rounded-lg"
+                        >
+                          <ExternalLink className="h-3.5 w-3.5" />
+                          <span>Abrir</span>
+                        </Button>
+                      </Link>
+                    </div>
+                  </div>
+
+                  {/* CAMPO DE DEFINIÇÃO DA URL */}
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-semibold">
+                      Identificador Personalizado (URL do Perfil)
+                    </Label>
+                    <div className="relative flex items-center">
+                      <div className="absolute left-3 flex items-center pointer-events-none text-muted-foreground text-xs font-mono font-bold">
+                        /perfil/@
+                      </div>
+                      <Input
+                        placeholder={profile?.discord_username ? profile.discord_username.replace(/#0$/, "") : "ex.: malaca"}
+                        value={customUrl}
+                        onChange={(e) => {
+                          const sanitized = e.target.value.toLowerCase().replace(/[^a-z0-9_.-]/g, "").slice(0, 30);
+                          setCustomUrl(sanitized);
+                        }}
+                        className="h-9 pl-20 text-xs font-mono font-bold"
+                        maxLength={30}
+                      />
+                    </div>
+                    <p className="text-[11px] text-muted-foreground">
+                      ℹ️ Letras minúsculas (a-z), números (0-9), ponto (.), hífen (-) ou underline (_). De 3 a 30 caracteres.
+                    </p>
+                  </div>
                 </CardContent>
               </Card>
 
