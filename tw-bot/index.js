@@ -1350,8 +1350,12 @@ async function handleWebhookHttpRequest(targetParam, req, res) {
     return res.end(JSON.stringify({ success: false, error: `Webhook ou ID de Canal inválido: ${targetParam}` }));
   }
 
-  // Se for GET, renderiza a página web para envio direto pelo navegador
+  // Se for GET, renderiza a página web para envio direto pelo navegador ou retorna JSON se solicitado
   if (req.method === "GET") {
+    if (urlObj.searchParams.get("format") === "json" || req.headers.accept?.includes("application/json")) {
+      return handleGetWebhookUrl(channelId, req, res);
+    }
+
     const html = `<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -1363,11 +1367,16 @@ async function handleWebhookHttpRequest(targetParam, req, res) {
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Plus Jakarta Sans', sans-serif; }
     body { background: #09090b; color: #f4f4f5; min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px; }
-    .card { background: #121215; border: 1px solid #27272a; border-radius: 20px; width: 100%; max-width: 520px; padding: 32px; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.7); }
-    .header { display: flex; align-items: center; gap: 14px; margin-bottom: 24px; padding-bottom: 20px; border-bottom: 1px solid #27272a; }
+    .card { background: #121215; border: 1px solid #27272a; border-radius: 20px; width: 100%; max-width: 540px; padding: 32px; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.7); }
+    .header { display: flex; align-items: center; gap: 14px; margin-bottom: 20px; padding-bottom: 20px; border-bottom: 1px solid #27272a; }
     .avatar { width: 48px; height: 48px; border-radius: 50%; object-fit: cover; border: 2px solid #3f3f46; }
     .title { font-size: 18px; font-weight: 800; color: #fff; }
     .subtitle { font-size: 12px; color: #a1a1aa; margin-top: 2px; }
+    .badge-bar { background: #18181b; border: 1px solid #27272a; border-radius: 12px; padding: 12px 14px; margin-bottom: 20px; display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: 12px; }
+    .badge-bar span { color: #a1a1aa; }
+    .badge-bar strong { color: #34d399; font-family: monospace; }
+    .badge-btn { background: #8b5cf6; color: #fff; text-decoration: none; padding: 6px 12px; border-radius: 8px; font-size: 11px; font-weight: 700; transition: opacity 0.2s; white-space: nowrap; }
+    .badge-btn:hover { opacity: 0.85; }
     .form-group { margin-bottom: 18px; }
     label { display: block; font-size: 12px; font-weight: 700; color: #d4d4d8; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px; }
     input, textarea { width: 100%; background: #18181b; border: 1px solid #27272a; border-radius: 10px; padding: 12px 14px; color: #fff; font-size: 14px; transition: border-color 0.2s; outline: none; }
@@ -1391,6 +1400,14 @@ async function handleWebhookHttpRequest(targetParam, req, res) {
         <div class="subtitle">Emissor: <strong>${botUsername}</strong> • <span class="badge">Canal: ${channelId}</span></div>
       </div>
     </div>
+
+    <div class="badge-bar">
+      <div>
+        <span>Compatível com:</span> <strong>Discohook & FiveM</strong>
+      </div>
+      <a class="badge-btn" href="/api/webhook-url/${channelId}" target="_blank">Obter URL Oficial Discord</a>
+    </div>
+
     <form id="webhookForm">
       <div class="form-group">
         <label>Título do Comunicado (Opcional)</label>
@@ -1473,10 +1490,19 @@ async function handleWebhookHttpRequest(targetParam, req, res) {
           }
         }
 
+        let embedsToSend = [];
+        if (payload.embeds && Array.isArray(payload.embeds) && payload.embeds.length > 0) {
+          try {
+            embedsToSend = payload.embeds.map((e) => EmbedBuilder.from(e));
+          } catch (embedErr) {
+            console.warn("[HTTP WEBHOOK] Erro ao instanciar embeds recebidos:", embedErr.message);
+          }
+        }
+
         const description = payload.description || payload.content || payload.message || "";
-        if (!description || !description.trim()) {
+        if (!description.trim() && embedsToSend.length === 0) {
           res.writeHead(400, { "Content-Type": "application/json" });
-          return res.end(JSON.stringify({ success: false, error: "O campo 'description', 'content' ou 'message' é obrigatório." }));
+          return res.end(JSON.stringify({ success: false, error: "O campo 'description', 'content', 'message' ou 'embeds' é obrigatório." }));
         }
 
         const title = payload.title || webhookName || "Comunicado Oficial";
@@ -1500,40 +1526,47 @@ async function handleWebhookHttpRequest(targetParam, req, res) {
           return res.end(JSON.stringify({ success: false, error: `Canal Discord ${channelId} não encontrado ou o bot não tem permissão para acessá-lo.` }));
         }
 
-        const embed = new EmbedBuilder()
-          .setTitle(title)
-          .setDescription(description.trim())
-          .setColor(hexToInt(color))
-          .setTimestamp()
-          .setFooter({
-            text: (discordConfig && discordConfig.footerText) || "Twin Wheels RP • Canal de Mensagens",
-            iconURL: (discordConfig && discordConfig.footerIconUrl) || avatar,
-          });
+        if (embedsToSend.length === 0) {
+          const embed = new EmbedBuilder()
+            .setTitle(title)
+            .setDescription(description.trim())
+            .setColor(hexToInt(color))
+            .setTimestamp()
+            .setFooter({
+              text: (discordConfig && discordConfig.footerText) || "Twin Wheels RP • Canal de Mensagens",
+              iconURL: (discordConfig && discordConfig.footerIconUrl) || avatar,
+            });
 
-        if (avatar) {
-          embed.setThumbnail(avatar);
-          embed.setAuthor({
-            name: sender,
-            iconURL: avatar,
-          });
-        }
+          if (avatar) {
+            embed.setThumbnail(avatar);
+            embed.setAuthor({
+              name: sender,
+              iconURL: avatar,
+            });
+          }
 
-        if (imageUrl && typeof imageUrl === "string" && imageUrl.startsWith("http")) {
-          embed.setImage(imageUrl.trim());
-        }
+          if (imageUrl && typeof imageUrl === "string" && imageUrl.startsWith("http")) {
+            embed.setImage(imageUrl.trim());
+          }
 
-        if (payload.fields && Array.isArray(payload.fields)) {
-          for (const f of payload.fields) {
-            if (f && f.name && f.value) {
-              embed.addFields({ name: String(f.name), value: String(f.value), inline: !!f.inline });
+          if (payload.fields && Array.isArray(payload.fields)) {
+            for (const f of payload.fields) {
+              if (f && f.name && f.value) {
+                embed.addFields({ name: String(f.name), value: String(f.value), inline: !!f.inline });
+              }
             }
           }
+
+          embedsToSend = [embed];
         }
 
-        const contentText = payload.mention ? String(payload.mention) : undefined;
+        const contentText = payload.mention
+          ? String(payload.mention)
+          : (payload.content && embedsToSend.length > 0 && payload.description ? String(payload.content) : undefined);
+
         const sentMsg = await channel.send({
           content: contentText,
-          embeds: [embed],
+          embeds: embedsToSend,
         });
 
         console.log(`📡 [HTTP WEBHOOK] Mensagem postada com sucesso em #${channel.name} (${channelId}) (ID: ${sentMsg.id})`);
@@ -1561,6 +1594,54 @@ async function handleWebhookHttpRequest(targetParam, req, res) {
   res.end(JSON.stringify({ success: false, error: "Método HTTP não permitido." }));
 }
 
+/**
+ * Obtém ou cria o Webhook oficial do Discord (compatível com Discohook, FiveM, etc.)
+ */
+async function handleGetWebhookUrl(channelId, req, res) {
+  res.setHeader("Content-Type", "application/json");
+  if (!/^\d{17,20}$/.test(channelId)) {
+    res.writeHead(400);
+    return res.end(JSON.stringify({ success: false, error: "ID de canal inválido." }));
+  }
+
+  try {
+    if (!client.isReady()) {
+      res.writeHead(503);
+      return res.end(JSON.stringify({ success: false, error: "Bot do Discord não está pronto. Tente novamente." }));
+    }
+
+    const channel = await client.channels.fetch(channelId).catch(() => null);
+    if (!channel || !channel.isTextBased()) {
+      res.writeHead(404);
+      return res.end(JSON.stringify({ success: false, error: `Canal ${channelId} não encontrado no Discord.` }));
+    }
+
+    const webhooks = await channel.fetchWebhooks();
+    let wh = webhooks.find((w) => w.owner?.id === client.user.id) || webhooks.first();
+    if (!wh) {
+      wh = await channel.createWebhook({
+        name: "Twin Wheels Webhook",
+        reason: "Webhook gerado automaticamente pelo painel TWTools",
+      });
+    }
+
+    res.writeHead(200);
+    return res.end(
+      JSON.stringify({
+        success: true,
+        channelId,
+        webhookUrl: wh.url,
+        webhookId: wh.id,
+        webhookName: wh.name,
+      })
+    );
+  } catch (err) {
+    console.error("[GET WEBHOOK URL ERRO]:", err);
+    res.writeHead(500);
+    return res.end(JSON.stringify({ success: false, error: err.message || "Erro interno ao obter webhook." }));
+  }
+}
+
 // Servidor HTTP básico para o Discloud (TYPE=site), Webhooks públicos e health checks
 const server = http.createServer(async (req, res) => {
   // Configuração global de CORS para permitir chamadas de qualquer frontend ou script
@@ -1580,6 +1661,12 @@ const server = http.createServer(async (req, res) => {
     syncAllProfiles();
     res.writeHead(200, { "Content-Type": "application/json" });
     return res.end(JSON.stringify({ status: "sync_triggered", timestamp: new Date().toISOString() }));
+  }
+
+  // Rota para obter URL oficial do Discord Webhook (compatível com Discohook): /api/webhook-url/:channelId
+  if (pathname.startsWith("/api/webhook-url/")) {
+    const targetChannelId = pathname.replace("/api/webhook-url/", "").trim();
+    return handleGetWebhookUrl(targetChannelId, req, res);
   }
 
   // Rota de Webhook pública: /webhook/:idOrChannelId

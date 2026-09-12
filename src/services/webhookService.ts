@@ -11,6 +11,7 @@ export interface DiscordWebhook {
   channelId: string; // ID do Canal Discord
   description?: string; // Descrição / Finalidade
   enabled: boolean;
+  webhookUrl?: string; // URL Oficial do Webhook Discord (https://discord.com/api/webhooks/...) aceita pelo Discohook
   username?: string; // Nome personalizado do bot ao enviar mensagens
   avatarUrl?: string; // URL da imagem enviada por upload direto
   embedColor?: string; // Cor do embed (HEX)
@@ -47,6 +48,7 @@ export const DEFAULT_WEBHOOKS_CONFIG: DiscordWebhooksConfig = {
       name: "Canal de Postagens Geral",
       guildId: "1537229296697999462",
       channelId: "1538375505953165312",
+      webhookUrl: "https://discord.com/api/webhooks/1548427834303971380/OTvHNGi-REvB-JuI-zQ8wSQqN25NpmnkeNPTWMNYvjohHlsQAHUc5ILNGl8p3bIy22Mn",
       description: "Canal integrado para envio de mensagens, comunicados e postagens",
       enabled: true,
       username: "Twin Wheels RP",
@@ -75,6 +77,14 @@ export function hexToInt(hex?: string): number {
 }
 
 /**
+ * Valida se uma URL é um link oficial de Webhook do Discord (compatível com Discohook)
+ */
+export function isDiscordWebhookUrl(url?: string): boolean {
+  if (!url || typeof url !== "string") return false;
+  return /^https:\/\/(?:ptb\.|canary\.)?discord(?:app)?\.com\/api\/webhooks\/\d+\/[\w-]+$/i.test(url.trim());
+}
+
+/**
  * Valida se uma string é um ID numérico snowflake legítimo do Discord (17 a 20 dígitos)
  */
 export function isValidDiscordId(id?: string): boolean {
@@ -83,12 +93,90 @@ export function isValidDiscordId(id?: string): boolean {
 }
 
 /**
- * Retorna o link público e compartilhável do Webhook para envio de mensagens via Browser ou API
+ * Retorna o link oficial do Webhook Discord compatível com Discohook, FiveM e bots
  */
 export function getWebhookShareableUrl(webhook?: DiscordWebhook | null): string {
+  if (!webhook) return "";
+  if (webhook.webhookUrl && isDiscordWebhookUrl(webhook.webhookUrl)) {
+    return webhook.webhookUrl.trim();
+  }
+  // Mapeamentos de canais conhecidos para resolução imediata
+  if (webhook.channelId === "1538375505953165312") {
+    return "https://discord.com/api/webhooks/1548427834303971380/OTvHNGi-REvB-JuI-zQ8wSQqN25NpmnkeNPTWMNYvjohHlsQAHUc5ILNGl8p3bIy22Mn";
+  }
+  if (webhook.channelId === "1535637509818548234") {
+    return "https://discord.com/api/webhooks/1548409284000485420/AoRhvOaaA-yNUdWHcV-TZUNx4gOLxWFddthfe3kfHKpycQ2SmyaUsQiSNTnagelHzlsR";
+  }
+  return `https://twin.discloud.app/webhook/${webhook.channelId || webhook.id}`;
+}
+
+/**
+ * Retorna a URL alternativa do Postador Web no navegador
+ */
+export function getWebPosterUrl(webhook?: DiscordWebhook | null): string {
   if (!webhook) return "https://twin.discloud.app/webhook";
-  const identifier = webhook.channelId || webhook.id;
-  return `https://twin.discloud.app/webhook/${identifier}`;
+  return `https://twin.discloud.app/webhook/${webhook.channelId || webhook.id}`;
+}
+
+/**
+ * Retorna o link para abrir diretamente no Discohook com a URL pré-preenchida
+ */
+export function getDiscohookUrl(webhook?: DiscordWebhook | null): string {
+  const url = getWebhookShareableUrl(webhook);
+  return `https://discohook.org/?url=${encodeURIComponent(url)}`;
+}
+
+/**
+ * Solicita ao Bot que obtenha ou crie um Webhook oficial do Discord para o canal especificado
+ */
+export async function fetchOrCreateDiscordChannelWebhook(
+  channelId: string,
+  webhookName?: string
+): Promise<{ success: boolean; webhookUrl?: string; error?: string }> {
+  if (!isValidDiscordId(channelId)) {
+    return { success: false, error: "ID de canal inválido." };
+  }
+
+  // Mapeamento instantâneo para canais já provisionados
+  if (channelId === "1538375505953165312") {
+    return {
+      success: true,
+      webhookUrl: "https://discord.com/api/webhooks/1548427834303971380/OTvHNGi-REvB-JuI-zQ8wSQqN25NpmnkeNPTWMNYvjohHlsQAHUc5ILNGl8p3bIy22Mn",
+    };
+  }
+  if (channelId === "1535637509818548234") {
+    return {
+      success: true,
+      webhookUrl: "https://discord.com/api/webhooks/1548409284000485420/AoRhvOaaA-yNUdWHcV-TZUNx4gOLxWFddthfe3kfHKpycQ2SmyaUsQiSNTnagelHzlsR",
+    };
+  }
+
+  // Tenta API direta do Discloud (bot gera ou obtém webhook oficial do canal)
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 8000);
+    const res = await fetch(`https://twin.discloud.app/api/webhook-url/${channelId}`, {
+      signal: controller.signal,
+    });
+    clearTimeout(timeoutId);
+
+    const data = await res.json().catch(() => null);
+    if (res.ok && data?.success && data?.webhookUrl) {
+      return { success: true, webhookUrl: data.webhookUrl };
+    }
+    if (data?.error) {
+      return { success: false, error: data.error };
+    }
+  } catch (err: any) {
+    return {
+      success: false,
+      error: err.name === "AbortError"
+        ? "Tempo limite esgotado ao contatar o bot no Discloud."
+        : "Não foi possível conectar ao bot no Discloud no momento.",
+    };
+  }
+
+  return { success: false, error: "Não foi possível obter o webhook oficial deste canal." };
 }
 
 /**

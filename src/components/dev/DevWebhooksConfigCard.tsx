@@ -55,6 +55,10 @@ import {
   uploadWebhookAvatar,
   isValidDiscordId,
   getWebhookShareableUrl,
+  getWebPosterUrl,
+  getDiscohookUrl,
+  isDiscordWebhookUrl,
+  fetchOrCreateDiscordChannelWebhook,
   DEFAULT_WEBHOOKS_CONFIG,
   type DiscordWebhook,
   type DiscordWebhooksConfig,
@@ -251,6 +255,7 @@ export function DevWebhooksConfigCard() {
       name: editingWebhook.name.trim(),
       guildId: editingWebhook.guildId.trim(),
       channelId: editingWebhook.channelId.trim(),
+      webhookUrl: editingWebhook.webhookUrl?.trim() || getWebhookShareableUrl(editingWebhook) || undefined,
       updatedAt: new Date().toISOString(),
     };
 
@@ -281,12 +286,25 @@ export function DevWebhooksConfigCard() {
     toast.success(enabled ? "Webhook ativado!" : "Webhook pausado.");
   };
 
-  // Copiar Link Compartilhável do Webhook
-  const handleCopyWebhookLink = (wh: DiscordWebhook) => {
-    const url = getWebhookShareableUrl(wh);
+  // Copiar Link Oficial do Webhook Discord (Compatível com Discohook & FiveM)
+  const handleCopyWebhookLink = async (wh: DiscordWebhook) => {
+    let url = getWebhookShareableUrl(wh);
+    if (!isDiscordWebhookUrl(url)) {
+      try {
+        const res = await fetchOrCreateDiscordChannelWebhook(wh.channelId, wh.name);
+        if (res.success && res.webhookUrl) {
+          url = res.webhookUrl;
+          setConfig((prev) => ({
+            ...prev,
+            webhooks: prev.webhooks.map((w) => (w.id === wh.id ? { ...w, webhookUrl: res.webhookUrl } : w)),
+          }));
+        }
+      } catch {}
+    }
+
     navigator.clipboard.writeText(url);
     setCopiedId(wh.id);
-    toast.success(`Link do webhook "${wh.name}" copiado para a área de transferência!`);
+    toast.success(`Link oficial do Discord copiado! 100% compatível com Discohook e FiveM.`);
     setTimeout(() => {
       setCopiedId(null);
     }, 2500);
@@ -526,22 +544,25 @@ export function DevWebhooksConfigCard() {
                   </div>
                 </div>
 
-                {/* Link do Webhook para Compartilhar */}
-                <div className="space-y-1.5 p-2.5 rounded-xl bg-zinc-900/70 border border-zinc-800/80">
-                  <div className="flex items-center justify-between text-[0.65rem] font-semibold">
-                    <span className="text-muted-foreground flex items-center gap-1.5">
-                      <ExternalLink className="h-3 w-3 text-primary" />
-                      Link para Compartilhar:
-                    </span>
+                {/* Link do Webhook para Compartilhar (Oficial Discord / Discohook) */}
+                <div className="space-y-2 p-3 rounded-xl bg-zinc-900/80 border border-zinc-800">
+                  <div className="flex items-center justify-between text-[0.68rem]">
+                    <div className="flex items-center gap-1.5 font-bold text-foreground">
+                      <Webhook className="h-3.5 w-3.5 text-emerald-400" />
+                      <span>Link do Webhook:</span>
+                      <Badge className="bg-emerald-500/10 text-emerald-400 border-emerald-500/20 text-[9px] px-1.5 py-0 font-medium">
+                        Discohook • Oficial
+                      </Badge>
+                    </div>
                     <button
                       type="button"
                       onClick={() => handleCopyWebhookLink(wh)}
-                      className="text-primary hover:underline flex items-center gap-1 font-bold text-[0.65rem]"
+                      className="text-emerald-400 hover:text-emerald-300 flex items-center gap-1 font-bold text-[0.68rem] transition-colors"
                     >
                       {copiedId === wh.id ? (
                         <>
                           <Check className="h-3 w-3 text-emerald-400" />
-                          <span className="text-emerald-400">Copiado!</span>
+                          <span>Copiado!</span>
                         </>
                       ) : (
                         <>
@@ -551,27 +572,43 @@ export function DevWebhooksConfigCard() {
                       )}
                     </button>
                   </div>
-                  <div className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-zinc-950 border border-zinc-800/80 text-[0.68rem] font-mono text-zinc-300">
-                    <span className="truncate flex-1 select-all" title={getWebhookShareableUrl(wh)}>
+
+                  <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-zinc-950 border border-zinc-800 text-[0.68rem] font-mono text-zinc-300">
+                    <span className="truncate flex-1 select-all font-mono" title={getWebhookShareableUrl(wh)}>
                       {getWebhookShareableUrl(wh)}
                     </span>
                     <Button
                       size="sm"
                       variant="ghost"
                       onClick={() => handleCopyWebhookLink(wh)}
-                      className="h-6 px-1.5 text-[0.65rem] font-bold text-muted-foreground hover:text-foreground"
-                      title="Copiar link do webhook"
+                      className="h-6 px-1.5 text-[0.65rem] font-bold text-muted-foreground hover:text-foreground hover:bg-zinc-800 shrink-0"
+                      title="Copiar link oficial do Discord"
                     >
                       {copiedId === wh.id ? <Check className="h-3 w-3 text-emerald-400" /> : <Copy className="h-3 w-3" />}
                     </Button>
                     <a
-                      href={getWebhookShareableUrl(wh)}
+                      href={getDiscohookUrl(wh)}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="h-6 px-1.5 flex items-center justify-center text-muted-foreground hover:text-foreground rounded hover:bg-zinc-800"
-                      title="Abrir postador em nova aba"
+                      className="h-6 px-2 text-[0.65rem] font-bold flex items-center gap-1 text-violet-400 hover:text-violet-300 hover:bg-violet-950/40 rounded border border-violet-500/20 shrink-0 transition-colors"
+                      title="Abrir no Discohook com este webhook pré-carregado"
                     >
                       <ExternalLink className="h-3 w-3" />
+                      Discohook
+                    </a>
+                  </div>
+
+                  <div className="flex items-center justify-between text-[0.62rem] text-muted-foreground pt-0.5">
+                    <span>100% aceito no Discohook, FiveM, bots e cURL.</span>
+                    <a
+                      href={getWebPosterUrl(wh)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-zinc-400 hover:text-white underline inline-flex items-center gap-1"
+                      title="Abrir formulário web simples sem precisar do Discohook"
+                    >
+                      Postador Web
+                      <ExternalLink className="h-2.5 w-2.5" />
                     </a>
                   </div>
                 </div>
@@ -776,6 +813,28 @@ export function DevWebhooksConfigCard() {
                     Clique com o botão direito no canal de texto e selecione &quot;Copiar ID do canal&quot;.
                   </p>
                 </div>
+              </div>
+
+              {/* URL Oficial do Webhook Discord (Opcional - gerada automaticamente se vazia) */}
+              <div className="space-y-1.5 p-3.5 rounded-xl bg-zinc-900/60 border border-zinc-800">
+                <div className="flex items-center justify-between">
+                  <Label className="text-xs font-bold flex items-center gap-1.5">
+                    <ExternalLink className="h-3.5 w-3.5 text-emerald-400" />
+                    URL Oficial do Webhook Discord (Opcional)
+                  </Label>
+                  <Badge className="bg-emerald-500/10 text-emerald-400 border-emerald-500/20 text-[9px] font-mono">
+                    Discohook / FiveM
+                  </Badge>
+                </div>
+                <Input
+                  value={editingWebhook.webhookUrl || ""}
+                  onChange={(e) => setEditingWebhook({ ...editingWebhook, webhookUrl: e.target.value })}
+                  placeholder="https://discord.com/api/webhooks/... (deixe vazio para gerar automaticamente)"
+                  className="bg-zinc-950 border-zinc-800 text-xs font-mono"
+                />
+                <p className="text-[0.65rem] text-muted-foreground">
+                  Se você já tiver a URL gerada do Discord, cole-a aqui. Se deixar vazio, o Bot obtém ou cria automaticamente para o canal.
+                </p>
               </div>
 
               {/* Personalização do Emissor: Nome e Upload de Avatar */}
