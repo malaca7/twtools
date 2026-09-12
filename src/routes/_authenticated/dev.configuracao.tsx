@@ -23,6 +23,7 @@ import {
   Play,
   Eye,
   ExternalLink,
+  Webhook,
 } from "lucide-react";
 import { reportAppError } from "@/lib/app-error-reporting";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -42,6 +43,7 @@ import {
 } from "@/services/devService";
 import { DevForcePurgeCard } from "@/components/dev/DevForcePurgeCard";
 import { DevDiscordConfigCard } from "@/components/dev/DevDiscordConfigCard";
+import { DevWebhooksConfigCard } from "@/components/dev/DevWebhooksConfigCard";
 import { DevAuditLogModal } from "@/components/dev/DevAuditLogModal";
 import { useAuditLogs } from "@/hooks/useData";
 import { logAuditAction } from "@/lib/app-api";
@@ -288,11 +290,15 @@ function DevConfiguracaoContent() {
           <p className="text-sm font-bold text-rose-400">{error}</p>
         </Card>
       ) : (
-        <Tabs defaultValue="discord" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-2 max-w-md bg-secondary/40 p-1 rounded-xl border border-border/60">
-            <TabsTrigger value="discord" className="text-xs font-bold gap-2 py-2 data-[state=active]:bg-gradient-to-r data-[state=active]:from-indigo-600 data-[state=active]:to-purple-600 data-[state=active]:text-white">
+        <Tabs defaultValue="webhooks" className="space-y-6">
+          <TabsList className="grid w-full grid-cols-3 max-w-2xl bg-secondary/40 p-1 rounded-xl border border-border/60">
+            <TabsTrigger value="webhooks" className="text-xs font-bold gap-2 py-2 data-[state=active]:bg-gradient-to-r data-[state=active]:from-indigo-600 data-[state=active]:to-purple-600 data-[state=active]:text-white">
+              <Webhook className="h-4 w-4" />
+              Webhooks Discord
+            </TabsTrigger>
+            <TabsTrigger value="discord" className="text-xs font-bold gap-2 py-2 data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-600 data-[state=active]:to-cyan-600 data-[state=active]:text-white">
               <Bot className="h-4 w-4" />
-              Discord & Bot de Logs
+              Bot & Integração
             </TabsTrigger>
             <TabsTrigger value="general" className="text-xs font-bold gap-2 py-2 data-[state=active]:bg-gradient-to-r data-[state=active]:from-rose-600 data-[state=active]:to-pink-600 data-[state=active]:text-white">
               <Settings className="h-4 w-4" />
@@ -300,7 +306,12 @@ function DevConfiguracaoContent() {
             </TabsTrigger>
           </TabsList>
 
-          {/* TAB 1: DISCORD & BOT DE LOGS */}
+          {/* TAB: WEBHOOKS DISCORD */}
+          <TabsContent value="webhooks" className="space-y-6 animate-in fade-in-50 duration-300">
+            <DevWebhooksConfigCard />
+          </TabsContent>
+
+          {/* TAB: BOT DISCORD & LOGS */}
           <TabsContent value="discord" className="space-y-6 animate-in fade-in-50 duration-300">
             <DevDiscordConfigCard />
           </TabsContent>
