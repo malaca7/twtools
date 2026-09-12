@@ -537,8 +537,25 @@ function parseAuditLogForDiscord(log) {
       fields = [
         { name: "📋 Título do Aviso", value: announcementTitle, inline: true },
         { name: "👤 Autor", value: actorMention, inline: true },
-        ...(data.content ? [{ name: "📄 Conteúdo", value: String(data.content).slice(0, 500), inline: false }] : []),
+        ...(data.content ? [{ name: "📄 Conteúdo", value: String(data.content).slice(0, 1000), inline: false }] : []),
       ];
+      break;
+    }
+
+    // 7.1 POSTAGEM DIRETA VIA WEBHOOK / CANAL
+    case "webhook_post_message": {
+      category = "announcements";
+      color = data.embed_color || discordConfig.embedColors.announcements || "#10B981";
+      title = data.title || "📢 Comunicado Twin Wheels";
+      description = data.description || (data.content ? String(data.content) : "Mensagem da equipe");
+      fields = [];
+      if (data.fields && Array.isArray(data.fields)) {
+        for (const f of data.fields) {
+          if (f && f.name && f.value) {
+            fields.push({ name: String(f.name), value: String(f.value), inline: !!f.inline });
+          }
+        }
+      }
       break;
     }
 
@@ -842,6 +859,11 @@ async function dispatchAuditLogToDiscord(log) {
       embed.addFields(parsed.fields);
     }
 
+    // Se houver URL de imagem anexa, anexa ao embed
+    if (log.new_data?.image_url && typeof log.new_data.image_url === "string" && log.new_data.image_url.startsWith("http")) {
+      embed.setImage(log.new_data.image_url);
+    }
+
     // Dispara diretamente através do Bot no canal especificado pelo ID
     if (client.isReady()) {
       try {
@@ -851,7 +873,11 @@ async function dispatchAuditLogToDiscord(log) {
         });
 
         if (channel && channel.isTextBased()) {
-          const sentMsg = await channel.send({ embeds: [embed] });
+          const mentionText = log.new_data?.mention || undefined;
+          const sentMsg = await channel.send({
+            content: mentionText,
+            embeds: [embed],
+          });
           console.log(`📡 [DISCORD BOT] Embed entregue no canal #${channel.name || targetChannelId} (${targetChannelId}) [${parsed.category}] (ID: ${sentMsg.id})`);
 
           if (testId) {

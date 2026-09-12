@@ -223,8 +223,16 @@ export interface PostMessagePayload {
   fields?: { name: string; value: string; inline?: boolean }[];
 }
 
+export interface WebhookDeliveryResult {
+  success: boolean;
+  message: string;
+  messageId?: string;
+  channelName?: string;
+}
+
 /**
  * Envia uma mensagem personalizada para o canal configurado no Webhook
+ * com confirmação real de entrega vinda diretamente do bot do Discord.
  */
 export async function postMessageToWebhookChannel(
   webhook: DiscordWebhook,
@@ -233,13 +241,13 @@ export async function postMessageToWebhookChannel(
   user?: AppUser | null,
   profile?: Profile | null,
   level?: AppLevel | null
-): Promise<{ success: boolean; message: string }> {
+): Promise<WebhookDeliveryResult> {
   assertDeveloperAccess(user, profile, level);
 
   if (!webhook.channelId || !isValidDiscordId(webhook.channelId)) {
     return {
       success: false,
-      message: "O ID do canal do servidor não é válido. Informe um ID de 17 a 20 dígitos.",
+      message: "O ID do canal do servidor não é válido. Informe um ID numérico de 17 a 20 dígitos.",
     };
   }
 
@@ -250,80 +258,156 @@ export async function postMessageToWebhookChannel(
     };
   }
 
-  const embedColorInt = hexToInt(webhook.embedColor || "#10B981");
+  const testId = `post_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+  const cleanDescription = messageData.description.trim();
+  const cleanTitle = messageData.title?.trim() || webhook.name || "Comunicado Oficial";
+  const contentMention = messageData.mention || webhook.mentionRoles || undefined;
+  const imageUrl = messageData.imageUrl?.trim() || undefined;
 
+  // Formata o conteúdo para renderizar link/preview da imagem anexa caso presente
+  let formattedContent = cleanDescription;
+  if (imageUrl) {
+    formattedContent = `${cleanDescription}\n\n🖼️ **Imagem Anexa:**\n${imageUrl}`;
+  }
+
+  // Prepara o payload para o disparador em tempo real do Bot
+  const botPayload = {
+    test_id: testId,
+    action: "create_announcement",
+    entity: "discord_channel_test",
+    entity_id: webhook.channelId,
+    user_id: user?.id || null,
+    created_at: new Date().toISOString(),
+    new_data: {
+      test_id: testId,
+      channel_id: webhook.channelId,
+      guild_id: webhook.guildId,
+      title: cleanTitle,
+      content: formattedContent,
+      description: cleanDescription,
+      image_url: imageUrl,
+      user_name: webhook.username || senderName,
+      user_nickname: webhook.username || senderName,
+      notes: formattedContent,
+      embed_color: webhook.embedColor || "#10B981",
+      fields: messageData.fields || [],
+      mention: contentMention,
+    },
+  };
+
+  // Prepara embed legado para canais alternativos
   const embedPayload: any = {
-    description: messageData.description.trim(),
-    color: embedColorInt,
+    title: cleanTitle,
+    description: cleanDescription,
+    color: hexToInt(webhook.embedColor || "#10B981"),
     footer: {
       text: webhook.footerText || "Twin Wheels RP",
     },
   };
-
-  if (messageData.title && messageData.title.trim()) {
-    embedPayload.title = messageData.title.trim();
+  if (imageUrl) {
+    embedPayload.image = { url: imageUrl };
   }
-
-  if (messageData.imageUrl && messageData.imageUrl.trim()) {
-    embedPayload.image = { url: messageData.imageUrl.trim() };
-  }
-
   if (webhook.showTimestamp !== false) {
     embedPayload.timestamp = true;
   }
-
   if (messageData.fields && messageData.fields.length > 0) {
     embedPayload.fields = messageData.fields;
   }
 
-  const contentMention = messageData.mention || webhook.mentionRoles || undefined;
+  return new Promise((resolve) => {
+    let hasResolved = false;
 
-  try {
-    // Envia o comando via Broadcast para o robô tw-bot despachar
+    // Timeout de segurança de 10 segundos
+    const timeoutTimer = setTimeout(() => {
+      if (!hasResolved) {
+        hasResolved = true;
+        resolve({
+          success: false,
+          message: `O Bot oficial não confirmou a entrega em 10 segundos. Verifique se o bot está online na Discloud e se possui permissão para ver e enviar mensagens no canal (${webhook.channelId}).`,
+        });
+      }
+    }, 10000);
+
+    // 1. Canal persistente de teste e comandos diretos do bot
+    const testChannel = supabase.channel("system-discord-test-channel");
+    testChannel
+      .on("broadcast", { event: "test_result" }, (msg: any) => {
+        if (msg?.payload?.test_id === testId && !hasResolved) {
+          hasResolved = true;
+          clearTimeout(timeoutTimer);
+
+          if (msg.payload.success) {
+            resolve({
+              success: true,
+              message: `Mensagem entregue com sucesso no canal #${msg.payload.channel_name || webhook.channelId}! (ID: ${msg.payload.message_id})`,
+              messageId: msg.payload.message_id,
+              channelName: msg.payload.channel_name,
+            });
+          } else {
+            resolve({
+              success: false,
+              message: `Falha no Discord: ${msg.payload.error_message || "O bot não conseguiu postar a mensagem neste canal."}`,
+            });
+          }
+        }
+      })
+      .subscribe(async (status) => {
+        if (status === "SUBSCRIBED") {
+          await testChannel.send({
+            type: "broadcast",
+            event: "trigger_test",
+            payload: botPayload,
+          });
+
+          // Fallback no banco para poller contínuo do bot
+          try {
+            await supabase.from("audit_logs").insert(botPayload as any);
+          } catch {}
+        }
+      });
+
+    // 2. Canal de webhook dispatch para retrocompatibilidade
     const dispatchChannel = supabase.channel("system-discord-webhook-dispatch");
-    await dispatchChannel.send({
-      type: "broadcast",
-      event: "dispatch_post",
-      payload: {
-        webhookId: webhook.id,
-        guildId: webhook.guildId,
-        channelId: webhook.channelId,
-        username: webhook.username || "Twin Wheels RP",
-        avatarUrl: webhook.avatarUrl,
-        content: contentMention,
-        embed: embedPayload,
-        sender: senderName,
-        timestamp: Date.now(),
-      },
+    dispatchChannel.subscribe(async (status) => {
+      if (status === "SUBSCRIBED") {
+        try {
+          await dispatchChannel.send({
+            type: "broadcast",
+            event: "dispatch_post",
+            payload: {
+              webhookId: webhook.id,
+              guildId: webhook.guildId,
+              channelId: webhook.channelId,
+              username: webhook.username || "Twin Wheels RP",
+              avatarUrl: webhook.avatarUrl,
+              content: contentMention,
+              embed: embedPayload,
+              sender: senderName,
+              timestamp: Date.now(),
+            },
+          });
+        } catch {}
+      }
     });
 
-    // Registra na auditoria
+    // Auditoria da ação
     try {
-      await logAuditAction("webhook_post_message", {
+      logAuditAction("webhook_post_message", {
         webhookId: webhook.id,
         webhookName: webhook.name,
         guildId: webhook.guildId,
         channelId: webhook.channelId,
-        title: messageData.title,
+        title: cleanTitle,
+        hasImage: !!imageUrl,
         sender: senderName,
         actor: profile?.nome || user?.email || "Desenvolvedor",
-      });
+      }).catch(() => {});
     } catch {}
-
-    return {
-      success: true,
-      message: `Mensagem enviada com sucesso para o canal (${webhook.channelId})!`,
-    };
-  } catch (err: any) {
-    return {
-      success: false,
-      message: `Falha ao transmitir mensagem: ${err?.message || err}`,
-    };
-  }
+  });
 }
 
 /**
- * Envia mensagem de teste para o canal do Webhook
+ * Envia mensagem de teste com confirmação real de recebimento pelo Discord
  */
 export async function testDiscordWebhookChannel(
   webhook: DiscordWebhook,
@@ -331,21 +415,86 @@ export async function testDiscordWebhookChannel(
   user?: AppUser | null,
   profile?: Profile | null,
   level?: AppLevel | null
-): Promise<{ success: boolean; message: string }> {
-  return postMessageToWebhookChannel(
-    webhook,
-    {
-      title: `🧪 Teste de Conexão: ${webhook.name}`,
-      description: `Esta é uma mensagem de teste enviada a partir do painel de gerenciamento de webhooks do **Twin Wheels RP**.\n\nSe você está visualizando esta mensagem, a integração com o Servidor e Canal está **100% funcional**!`,
-      fields: [
-        { name: "Servidor ID", value: `\`${webhook.guildId || "N/A"}\``, inline: true },
-        { name: "Canal ID", value: `\`${webhook.channelId}\``, inline: true },
-        { name: "Enviado por", value: senderName, inline: true },
-      ],
+): Promise<WebhookDeliveryResult> {
+  assertDeveloperAccess(user, profile, level);
+
+  if (!webhook.channelId || !isValidDiscordId(webhook.channelId)) {
+    return {
+      success: false,
+      message: "O ID do canal do servidor não é válido. Informe um ID numérico de 17 a 20 dígitos.",
+    };
+  }
+
+  const testId = `test_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+
+  const testPayload = {
+    test_id: testId,
+    action: "test_discord_log",
+    entity: "discord_channel_test",
+    entity_id: webhook.channelId,
+    user_id: user?.id || null,
+    created_at: new Date().toISOString(),
+    new_data: {
+      test_id: testId,
+      category_key: "webhook_test",
+      category_name: webhook.name || "Canal de Postagens",
+      channel_id: webhook.channelId,
+      guild_id: webhook.guildId,
+      user_name: webhook.username || senderName,
+      user_nickname: webhook.username || senderName,
+      notes: `Disparo de teste do webhook "${webhook.name}". ID Servidor: ${webhook.guildId || "N/A"} | ID Canal: ${webhook.channelId}. Conexão 100% confirmada!`,
     },
-    senderName,
-    user,
-    profile,
-    level
-  );
+  };
+
+  return new Promise((resolve) => {
+    let hasResolved = false;
+
+    const timeoutTimer = setTimeout(() => {
+      if (!hasResolved) {
+        hasResolved = true;
+        resolve({
+          success: false,
+          message: `O Bot oficial (tw-bot) não respondeu em 10 segundos. Certifique-se de que o bot está ligado na Discloud e tem permissão para visualizar e postar no canal (${webhook.channelId}).`,
+        });
+      }
+    }, 10000);
+
+    const testChannel = supabase.channel("system-discord-test-channel");
+
+    testChannel
+      .on("broadcast", { event: "test_result" }, (msg: any) => {
+        if (msg?.payload?.test_id === testId && !hasResolved) {
+          hasResolved = true;
+          clearTimeout(timeoutTimer);
+
+          if (msg.payload.success) {
+            resolve({
+              success: true,
+              message: `✅ Teste entregue com sucesso no canal #${msg.payload.channel_name || webhook.channelId}! (ID da Mensagem: ${msg.payload.message_id})`,
+              messageId: msg.payload.message_id,
+              channelName: msg.payload.channel_name,
+            });
+          } else {
+            resolve({
+              success: false,
+              message: `❌ Falha no Bot do Discord: ${msg.payload.error_message || "Erro ao postar mensagem no canal."}`,
+            });
+          }
+        }
+      })
+      .subscribe(async (status) => {
+        if (status === "SUBSCRIBED") {
+          await testChannel.send({
+            type: "broadcast",
+            event: "trigger_test",
+            payload: testPayload,
+          });
+
+          try {
+            await supabase.from("audit_logs").insert(testPayload as any);
+          } catch {}
+        }
+      });
+  });
 }
+

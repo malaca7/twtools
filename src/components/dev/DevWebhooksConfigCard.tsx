@@ -287,22 +287,23 @@ export function DevWebhooksConfigCard() {
       const res = await testDiscordWebhookChannel(wh, profile?.nome || user?.email || "Desenvolvedor", user, profile, level);
       if (res.success) {
         toast.success(res.message);
-        // Atualiza status local
-        setConfig((prev) => ({
-          ...prev,
-          webhooks: prev.webhooks.map((w) =>
-            w.id === wh.id
-              ? {
-                  ...w,
-                  lastTriggeredAt: new Date().toISOString(),
-                  lastStatus: "success",
-                }
-              : w
-          ),
-        }));
       } else {
         toast.error(res.message);
       }
+      // Atualiza status do webhook
+      setConfig((prev) => ({
+        ...prev,
+        webhooks: prev.webhooks.map((w) =>
+          w.id === wh.id
+            ? {
+                ...w,
+                lastTriggeredAt: new Date().toISOString(),
+                lastStatus: res.success ? "success" : "error",
+                lastErrorMessage: res.success ? undefined : res.message,
+              }
+            : w
+        ),
+      }));
     } catch (err: any) {
       toast.error("Falha no teste: " + (err?.message || err));
     } finally {
@@ -351,6 +352,21 @@ export function DevWebhooksConfigCard() {
       } else {
         toast.error(res.message);
       }
+
+      // Atualiza status do webhook
+      setConfig((prev) => ({
+        ...prev,
+        webhooks: prev.webhooks.map((w) =>
+          w.id === targetWebhookForPost.id
+            ? {
+                ...w,
+                lastTriggeredAt: new Date().toISOString(),
+                lastStatus: res.success ? "success" : "error",
+                lastErrorMessage: res.success ? undefined : res.message,
+              }
+            : w
+        ),
+      }));
     } catch (err: any) {
       toast.error("Erro ao enviar mensagem: " + (err?.message || err));
     } finally {
@@ -497,6 +513,32 @@ export function DevWebhooksConfigCard() {
                     <span className="text-foreground truncate block">{wh.channelId}</span>
                   </div>
                 </div>
+
+                {/* Status do Último Envio / Teste */}
+                {wh.lastTriggeredAt && (
+                  <div
+                    className={cn(
+                      "flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-[0.68rem] font-medium border",
+                      wh.lastStatus === "success"
+                        ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
+                        : "bg-red-500/10 text-red-400 border-red-500/20"
+                    )}
+                  >
+                    {wh.lastStatus === "success" ? (
+                      <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-emerald-400" />
+                    ) : (
+                      <XCircle className="h-3.5 w-3.5 shrink-0 text-red-400" />
+                    )}
+                    <span className="truncate flex-1">
+                      {wh.lastStatus === "success"
+                        ? "Entrega confirmada no Discord"
+                        : wh.lastErrorMessage || "Falha na entrega"}
+                    </span>
+                    <span className="text-[0.6rem] text-muted-foreground shrink-0 font-mono">
+                      {new Date(wh.lastTriggeredAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                    </span>
+                  </div>
+                )}
               </CardContent>
 
               <CardFooter className="pt-2 border-t border-border/40 flex items-center justify-between gap-2 flex-wrap">
