@@ -28,7 +28,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useAuth } from "@/hooks/useAuth";
 import { useMembers } from "@/hooks/useData";
-import { getLevelLabel, levelBadgeClass, type AppLevel } from "@/lib/permissions";
+import { LEVEL_LABEL, getLevelLabel, levelBadgeClass, type AppLevel } from "@/lib/permissions";
 import { formatPhone, formatSecondsToHoursAndMinutes } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { getOrCreatePrivateConversation } from "@/services/chatService";
