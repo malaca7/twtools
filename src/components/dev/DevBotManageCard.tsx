@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { toast } from "sonner";
 import {
   Bot,
@@ -32,6 +32,7 @@ import {
   Info,
   Clock,
   Zap,
+  Upload,
 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -66,6 +67,7 @@ import {
   generateBotInviteUrl,
   getDeveloperPortalUrl,
   subscribeToBotHeartbeat,
+  uploadBotImage,
   BANNER_PRESETS,
   type BotHeartbeatData,
   type DiscordUserValidationResult,
@@ -95,12 +97,16 @@ export function DevBotManageCard() {
   // Modais
   const [isBannerModalOpen, setIsBannerModalOpen] = useState(false);
   const [bannerUrlInput, setBannerUrlInput] = useState("");
+  const [isUploadingBanner, setIsUploadingBanner] = useState(false);
+  const bannerFileInputRef = useRef<HTMLInputElement | null>(null);
 
   const [isNameModalOpen, setIsNameModalOpen] = useState(false);
   const [nameInput, setNameInput] = useState("");
 
   const [isAvatarModalOpen, setIsAvatarModalOpen] = useState(false);
   const [avatarInput, setAvatarInput] = useState("");
+  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
+  const avatarFileInputRef = useRef<HTMLInputElement | null>(null);
 
   const [isStatusModalOpen, setIsStatusModalOpen] = useState(false);
   const [statusTextInput, setStatusTextInput] = useState("");
@@ -259,6 +265,62 @@ export function DevBotManageCard() {
       { botToken: tokenInput.trim() },
       "Token do bot salvo e sincronizado com segurança!"
     );
+  };
+
+  // Upload do Banner direto de arquivo
+  const handleBannerFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith("image/")) {
+      toast.error("Selecione um arquivo de imagem válido.");
+      return;
+    }
+
+    if (file.size > 8 * 1024 * 1024) {
+      toast.error("A imagem do banner deve ter no máximo 8MB.");
+      return;
+    }
+
+    setIsUploadingBanner(true);
+    try {
+      const publicUrl = await uploadBotImage(file, "banner");
+      setBannerUrlInput(publicUrl);
+      toast.success("Banner carregado com sucesso!");
+    } catch (err: any) {
+      toast.error(err.message || "Erro ao fazer upload do banner.");
+    } finally {
+      setIsUploadingBanner(false);
+      if (bannerFileInputRef.current) bannerFileInputRef.current.value = "";
+    }
+  };
+
+  // Upload do Avatar direto de arquivo
+  const handleAvatarFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith("image/")) {
+      toast.error("Selecione um arquivo de imagem válido.");
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("A imagem de avatar deve ter no máximo 5MB.");
+      return;
+    }
+
+    setIsUploadingAvatar(true);
+    try {
+      const publicUrl = await uploadBotImage(file, "avatar");
+      setAvatarInput(publicUrl);
+      toast.success("Avatar carregado com sucesso!");
+    } catch (err: any) {
+      toast.error(err.message || "Erro ao fazer upload do avatar.");
+    } finally {
+      setIsUploadingAvatar(false);
+      if (avatarFileInputRef.current) avatarFileInputRef.current.value = "";
+    }
   };
 
   // Salvar Banner
@@ -928,7 +990,7 @@ export function DevBotManageCard() {
       </Card>
 
       {/* ========================================================================= */}
-      {/* MODAL 1: ALTERAR BANNER */}
+      {/* MODAL 1: ALTERAR BANNER (UPLOAD DIRETO DE IMAGEM) */}
       {/* ========================================================================= */}
       <Dialog open={isBannerModalOpen} onOpenChange={setIsBannerModalOpen}>
         <DialogContent className="max-w-xl bg-zinc-950 border-zinc-800 text-foreground">
@@ -938,22 +1000,64 @@ export function DevBotManageCard() {
               Alterar Banner do Bot
             </DialogTitle>
             <DialogDescription className="text-xs text-muted-foreground">
-              Escolha um dos modelos temáticos gamer/cyberpunk ou informe a URL de uma imagem personalizada.
+              Faça upload de uma imagem do seu dispositivo para ser o banner de destaque do bot.
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4 py-2">
-            {/* Presets de Banner */}
-            <div className="space-y-2">
-              <Label className="text-xs font-bold">Modelos Predefinidos</Label>
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+            {/* Input oculto de arquivo */}
+            <input
+              type="file"
+              ref={bannerFileInputRef}
+              accept="image/*"
+              onChange={handleBannerFileUpload}
+              className="hidden"
+            />
+
+            {/* Área de Upload com clique */}
+            <div
+              onClick={() => bannerFileInputRef.current?.click()}
+              className="flex flex-col items-center justify-center p-6 rounded-xl border-2 border-dashed border-zinc-700 hover:border-primary/60 bg-zinc-900/50 hover:bg-zinc-900 cursor-pointer transition-all gap-2 text-center group"
+            >
+              <div className="p-3 rounded-full bg-zinc-800 text-primary group-hover:scale-110 transition-transform">
+                {isUploadingBanner ? (
+                  <Loader2 className="h-6 w-6 animate-spin" />
+                ) : (
+                  <Upload className="h-6 w-6" />
+                )}
+              </div>
+              <p className="text-xs font-bold text-foreground">
+                {isUploadingBanner ? "Fazendo upload do banner..." : "Clique para fazer upload da imagem do banner"}
+              </p>
+              <p className="text-[0.65rem] text-muted-foreground">
+                Selecione uma imagem do seu computador (PNG, JPG, WEBP - máx. 8MB)
+              </p>
+            </div>
+
+            {/* Preview do Banner */}
+            {bannerUrlInput && (
+              <div className="space-y-1.5">
+                <Label className="text-[0.7rem] text-muted-foreground font-semibold">Pré-visualização do Banner</Label>
+                <div
+                  className="w-full h-28 rounded-xl bg-cover bg-center border border-zinc-800 relative overflow-hidden shadow-inner"
+                  style={{
+                    backgroundImage: `linear-gradient(to bottom, rgba(0,0,0,0.1), rgba(0,0,0,0.7)), url("${bannerUrlInput}")`,
+                  }}
+                />
+              </div>
+            )}
+
+            {/* Presets de Banner Rápidos */}
+            <div className="space-y-2 pt-2 border-t border-zinc-800/60">
+              <Label className="text-xs font-bold text-muted-foreground">Ou escolha um modelo pronto:</Label>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                 {BANNER_PRESETS.map((preset) => (
                   <button
                     key={preset.name}
                     type="button"
                     onClick={() => setBannerUrlInput(preset.url)}
                     className={cn(
-                      "group relative h-20 rounded-lg overflow-hidden border transition-all text-left p-2 flex flex-col justify-end",
+                      "group relative h-16 rounded-lg overflow-hidden border transition-all text-left p-2 flex flex-col justify-end",
                       bannerUrlInput === preset.url
                         ? "border-primary ring-2 ring-primary/40"
                         : "border-zinc-800 hover:border-zinc-600"
@@ -964,23 +1068,12 @@ export function DevBotManageCard() {
                       backgroundPosition: "center",
                     }}
                   >
-                    <span className="text-[0.68rem] font-bold text-white drop-shadow-md truncate">
+                    <span className="text-[0.65rem] font-bold text-white drop-shadow-md truncate">
                       {preset.name}
                     </span>
                   </button>
                 ))}
               </div>
-            </div>
-
-            {/* Input URL Personalizada */}
-            <div className="space-y-1.5">
-              <Label className="text-xs font-bold">URL Customizada da Imagem</Label>
-              <Input
-                value={bannerUrlInput}
-                onChange={(e) => setBannerUrlInput(e.target.value)}
-                placeholder="https://i.imgur.com/... ou https://images.unsplash.com/..."
-                className="bg-zinc-900 border-zinc-800 text-xs font-mono"
-              />
             </div>
           </div>
 
@@ -996,6 +1089,7 @@ export function DevBotManageCard() {
             <Button
               type="button"
               onClick={handleSaveBanner}
+              disabled={isUploadingBanner || !bannerUrlInput}
               className="bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-bold"
             >
               Salvar Banner
@@ -1050,7 +1144,7 @@ export function DevBotManageCard() {
       </Dialog>
 
       {/* ========================================================================= */}
-      {/* MODAL 3: ALTERAR AVATAR DO BOT */}
+      {/* MODAL 3: ALTERAR AVATAR DO BOT (UPLOAD DIRETO DE IMAGEM) */}
       {/* ========================================================================= */}
       <Dialog open={isAvatarModalOpen} onOpenChange={setIsAvatarModalOpen}>
         <DialogContent className="max-w-md bg-zinc-950 border-zinc-800 text-foreground">
@@ -1060,24 +1154,48 @@ export function DevBotManageCard() {
               Alterar Avatar do Bot
             </DialogTitle>
             <DialogDescription className="text-xs text-muted-foreground">
-              Informe o link direto da imagem de avatar do bot (PNG ou JPG recomendado).
+              Faça upload de uma nova imagem do seu dispositivo para ser a foto de perfil do bot.
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-3 py-2">
-            <Label className="text-xs font-bold">URL da Imagem de Avatar</Label>
-            <Input
-              value={avatarInput}
-              onChange={(e) => setAvatarInput(e.target.value)}
-              placeholder="https://i.ibb.co/... ou https://cdn.discordapp.com/..."
-              className="bg-zinc-900 border-zinc-800 text-xs font-mono"
+          <div className="space-y-4 py-2">
+            {/* Input oculto de arquivo */}
+            <input
+              type="file"
+              ref={avatarFileInputRef}
+              accept="image/*"
+              onChange={handleAvatarFileUpload}
+              className="hidden"
             />
+
+            {/* Dropzone de Upload com clique */}
+            <div
+              onClick={() => avatarFileInputRef.current?.click()}
+              className="flex flex-col items-center justify-center p-6 rounded-xl border-2 border-dashed border-zinc-700 hover:border-primary/60 bg-zinc-900/50 hover:bg-zinc-900 cursor-pointer transition-all gap-2 text-center group"
+            >
+              <div className="p-3 rounded-full bg-zinc-800 text-primary group-hover:scale-110 transition-transform">
+                {isUploadingAvatar ? (
+                  <Loader2 className="h-6 w-6 animate-spin" />
+                ) : (
+                  <Upload className="h-6 w-6" />
+                )}
+              </div>
+              <p className="text-xs font-bold text-foreground">
+                {isUploadingAvatar ? "Fazendo upload do avatar..." : "Clique para fazer upload da foto de perfil"}
+              </p>
+              <p className="text-[0.65rem] text-muted-foreground">
+                Selecione uma imagem do seu computador (PNG, JPG, WEBP, GIF - máx. 5MB)
+              </p>
+            </div>
+
+            {/* Preview do Avatar com anel circular */}
             {avatarInput && (
-              <div className="flex justify-center pt-2">
+              <div className="flex flex-col items-center gap-2 pt-2">
+                <span className="text-[0.68rem] text-muted-foreground font-semibold">Pré-visualização do Avatar</span>
                 <img
                   src={avatarInput}
                   alt="Preview Avatar"
-                  className="h-20 w-20 rounded-full object-cover ring-2 ring-primary"
+                  className="h-24 w-24 rounded-full object-cover ring-4 ring-primary shadow-xl bg-zinc-900"
                   onError={(e) => {
                     (e.target as HTMLImageElement).src = "https://i.ibb.co/ymH1BQPQ/Uma124.png";
                   }}
@@ -1098,6 +1216,7 @@ export function DevBotManageCard() {
             <Button
               type="button"
               onClick={handleSaveAvatar}
+              disabled={isUploadingAvatar || !avatarInput}
               className="bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-bold"
             >
               Salvar Avatar

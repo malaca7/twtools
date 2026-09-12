@@ -254,3 +254,35 @@ export function subscribeToBotHeartbeat(onHeartbeat: (data: BotHeartbeatData) =>
     supabase.removeChannel(channel);
   };
 }
+
+/**
+ * Faz upload de imagem de avatar ou banner do bot para o Supabase Storage
+ */
+export async function uploadBotImage(file: File, type: "avatar" | "banner" = "avatar"): Promise<string> {
+  const ext = file.name.split(".").pop()?.toLowerCase() || "png";
+  const cleanExt = ["png", "jpg", "jpeg", "webp", "gif"].includes(ext) ? ext : "png";
+  const sanitized = file.name.replace(/[^a-zA-Z0-9.-]/g, "_").toLowerCase();
+  const fileName = `bot/${type}_${Date.now()}_${sanitized}`;
+
+  let uploadRes = await supabase.storage.from("products").upload(fileName, file, {
+    cacheControl: "31536000",
+    upsert: true,
+    contentType: file.type || `image/${cleanExt}`,
+  });
+
+  if (uploadRes.error) {
+    uploadRes = await supabase.storage.from("chat-attachments").upload(fileName, file, {
+      cacheControl: "31536000",
+      upsert: true,
+      contentType: file.type || `image/${cleanExt}`,
+    });
+    if (uploadRes.error) {
+      throw new Error(`Falha ao fazer upload da imagem: ${uploadRes.error.message}`);
+    }
+    const { data: pubData } = supabase.storage.from("chat-attachments").getPublicUrl(uploadRes.data.path);
+    return pubData.publicUrl;
+  }
+
+  const { data: pubData } = supabase.storage.from("products").getPublicUrl(uploadRes.data.path);
+  return pubData.publicUrl;
+}
