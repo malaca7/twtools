@@ -1491,11 +1491,23 @@ async function handleWebhookHttpRequest(targetParam, req, res) {
         }
 
         let embedsToSend = [];
-        if (payload.embeds && Array.isArray(payload.embeds) && payload.embeds.length > 0) {
-          try {
-            embedsToSend = payload.embeds.map((e) => EmbedBuilder.from(e));
-          } catch (embedErr) {
-            console.warn("[HTTP WEBHOOK] Erro ao instanciar embeds recebidos:", embedErr.message);
+        // Suporte tanto a embeds (array) quanto embed (objeto singular)
+        const incomingEmbeds = Array.isArray(payload.embeds)
+          ? payload.embeds
+          : (payload.embed && typeof payload.embed === "object" ? [payload.embed] : []);
+
+        if (incomingEmbeds.length > 0) {
+          for (const rawEmbed of incomingEmbeds) {
+            if (!rawEmbed || typeof rawEmbed !== "object") continue;
+            try {
+              const cleanEmbed = { ...rawEmbed };
+              if (cleanEmbed.color && typeof cleanEmbed.color === "string") {
+                cleanEmbed.color = hexToInt(cleanEmbed.color);
+              }
+              embedsToSend.push(EmbedBuilder.from(cleanEmbed));
+            } catch (embedErr) {
+              console.warn("[HTTP WEBHOOK] Erro ao instanciar embed recebido:", embedErr.message);
+            }
           }
         }
 
@@ -1669,9 +1681,9 @@ const server = http.createServer(async (req, res) => {
     return handleGetWebhookUrl(targetChannelId, req, res);
   }
 
-  // Rota de Webhook pública: /webhook/:idOrChannelId
-  if (pathname.startsWith("/webhook/")) {
-    const targetParam = pathname.replace("/webhook/", "").trim();
+  // Rota de Webhook pública: /webhook/:idOrChannelId ou /api/webhook/:idOrChannelId
+  if (pathname.startsWith("/webhook/") || pathname.startsWith("/api/webhook/")) {
+    const targetParam = pathname.replace(/^\/(?:api\/)?webhook\//, "").trim();
     return handleWebhookHttpRequest(targetParam, req, res);
   }
 

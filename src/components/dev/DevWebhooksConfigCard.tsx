@@ -1138,16 +1138,34 @@ export function DevWebhooksConfigCard() {
                 </p>
               </div>
 
-              {/* Exemplo cURL / API HTTP */}
+              {/* Exemplo cURL / API HTTP para Webhook Oficial (Discord / Discohook) */}
               <div className="space-y-1">
-                <span className="text-xs font-bold text-muted-foreground">Disparo via HTTP POST (cURL / FiveM / Scripts):</span>
+                <span className="text-xs font-bold text-muted-foreground">Disparo Oficial Discord (Discohook / FiveM / cURL):</span>
                 <pre className="p-3 rounded-xl bg-zinc-900 border border-zinc-800 text-[0.7rem] font-mono text-zinc-300 overflow-x-auto">
-{`curl -X POST ${getWebhookShareableUrl(codeWebhook)} \\
+{`curl -X POST "${getWebhookShareableUrl(codeWebhook)}" \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "content": "Comunicado Oficial",
+    "embeds": [
+      {
+        "title": "Aviso Oficial",
+        "description": "Mensagem formatada com link ou texto.",
+        "color": 1095937
+      }
+    ]
+  }'`}
+                </pre>
+              </div>
+
+              {/* Exemplo cURL Endpoint Simplificado TWTools */}
+              <div className="space-y-1">
+                <span className="text-xs font-bold text-muted-foreground">Disparo Simplificado TWTools (Postador / APIs):</span>
+                <pre className="p-3 rounded-xl bg-zinc-900 border border-zinc-800 text-[0.7rem] font-mono text-zinc-300 overflow-x-auto">
+{`curl -X POST "https://twin.discloud.app/webhook/${codeWebhook.channelId}" \\
   -H "Content-Type: application/json" \\
   -d '{
     "title": "Aviso Oficial",
-    "description": "Mensagem enviada via script ou FiveM.",
-    "imageUrl": "https://i.ibb.co/.../imagem.png"
+    "description": "Mensagem enviada de forma simplificada."
   }'`}
                 </pre>
               </div>
