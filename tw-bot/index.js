@@ -1321,27 +1321,44 @@ async function handleWebhookHttpRequest(targetParam, req, res) {
   let botAvatar = (discordConfig && discordConfig.botAvatarUrl) || "https://i.ibb.co/ymH1BQPQ/Uma124.png";
   let embedColorHex = "#10B981";
 
-  // Se não for um ID snowflake numérico de 17-20 dígitos, busca nas configurações do banco
-  if (!/^\d{17,20}$/.test(targetParam)) {
-    try {
-      const { data } = await supabase
-        .from("role_permissions")
-        .select("permissions")
-        .eq("level", "system_discord_webhooks")
-        .maybeSingle();
+  // Sempre busca nas configurações de webhooks do banco para obter metadados (nome, avatar, cor, canal)
+  try {
+    const { data } = await supabase
+      .from("role_permissions")
+      .select("permissions")
+      .eq("level", "system_discord_webhooks")
+      .maybeSingle();
 
-      if (data?.permissions?.webhooks && Array.isArray(data.permissions.webhooks)) {
-        const found = data.permissions.webhooks.find((w) => w.id === targetParam);
-        if (found && found.channelId) {
-          channelId = found.channelId;
-          webhookName = found.name || webhookName;
-          botUsername = found.username || botUsername;
-          botAvatar = found.avatarUrl || botAvatar;
-          embedColorHex = found.embedColor || embedColorHex;
-        }
+    if (data?.permissions?.webhooks && Array.isArray(data.permissions.webhooks)) {
+      const found = data.permissions.webhooks.find(
+        (w) =>
+          w.id === targetParam ||
+          w.channelId === targetParam ||
+          (w.webhookUrl && w.webhookUrl.includes(targetParam))
+      );
+      if (found && found.channelId) {
+        channelId = found.channelId;
+        webhookName = found.name || webhookName;
+        botUsername = found.username || botUsername;
+        botAvatar = found.avatarUrl || botAvatar;
+        embedColorHex = found.embedColor || embedColorHex;
       }
-    } catch (e) {
-      console.warn("Erro ao buscar webhook no banco:", e.message);
+    }
+  } catch (e) {
+    console.warn("Erro ao buscar webhook no banco:", e.message);
+  }
+
+  // Se channelId for ID snowflake de webhook (e não de canal), tenta resolver o canal correspondente via Discord API
+  if (client.isReady() && /^\d{17,20}$/.test(channelId)) {
+    const cachedChannel = client.channels.cache.get(channelId);
+    if (!cachedChannel) {
+      try {
+        const fetchedWh = await client.fetchWebhook(channelId).catch(() => null);
+        if (fetchedWh && fetchedWh.channelId) {
+          channelId = fetchedWh.channelId;
+          webhookName = fetchedWh.name || webhookName;
+        }
+      } catch {}
     }
   }
 
@@ -1538,47 +1555,59 @@ async function handleWebhookHttpRequest(targetParam, req, res) {
           return res.end(JSON.stringify({ success: false, error: `Canal Discord ${channelId} não encontrado ou o bot não tem permissão para acessá-lo.` }));
         }
 
-        if (embedsToSend.length === 0) {
-          const embed = new EmbedBuilder()
-            .setTitle(title)
-            .setDescription(description.trim())
-            .setColor(hexToInt(color))
-            .setTimestamp()
-            .setFooter({
-              text: (discordConfig && discordConfig.footerText) || "Twin Wheels RP • Canal de Mensagens",
-              iconURL: (discordConfig && discordConfig.footerIconUrl) || avatar,
-            });
-
-          if (avatar) {
-            embed.setThumbnail(avatar);
-            embed.setAuthor({
-              name: sender,
-              iconURL: avatar,
-            });
-          }
-
-          if (imageUrl && typeof imageUrl === "string" && imageUrl.startsWith("http")) {
-            embed.setImage(imageUrl.trim());
-          }
-
-          if (payload.fields && Array.isArray(payload.fields)) {
-            for (const f of payload.fields) {
-              if (f && f.name && f.value) {
-                embed.addFields({ name: String(f.name), value: String(f.value), inline: !!f.inline });
-              }
-            }
-          }
-
-          embedsToSend = [embed];
+        let contentText = undefined;
+        if (payload.mention && payload.content) {
+          contentText = `${String(payload.mention)}\n${String(payload.content)}`;
+        } else if (payload.mention) {
+          contentText = String(payload.mention);
+        } else if (payload.content) {
+          contentText = String(payload.content);
         }
 
-        const contentText = payload.mention
-          ? String(payload.mention)
-          : (payload.content && embedsToSend.length > 0 && payload.description ? String(payload.content) : undefined);
+        if (embedsToSend.length === 0) {
+          // Gera Embed se o chamador passou description, title, imageUrl, fields ou não passou content puro
+          if (payload.description || payload.title || imageUrl || (payload.fields && payload.fields.length > 0) || !payload.content) {
+            const embed = new EmbedBuilder()
+              .setTitle(title)
+              .setDescription(description.trim() || "\u200b")
+              .setColor(hexToInt(color))
+              .setTimestamp()
+              .setFooter({
+                text: (discordConfig && discordConfig.footerText) || "Twin Wheels RP • Canal de Mensagens",
+                iconURL: (discordConfig && discordConfig.footerIconUrl) || avatar,
+              });
+
+            if (avatar) {
+              embed.setThumbnail(avatar);
+              embed.setAuthor({
+                name: sender,
+                iconURL: avatar,
+              });
+            }
+
+            if (imageUrl && typeof imageUrl === "string" && imageUrl.startsWith("http")) {
+              embed.setImage(imageUrl.trim());
+            }
+
+            if (payload.fields && Array.isArray(payload.fields)) {
+              for (const f of payload.fields) {
+                if (f && f.name && f.value) {
+                  embed.addFields({ name: String(f.name), value: String(f.value), inline: !!f.inline });
+                }
+              }
+            }
+
+            embedsToSend = [embed];
+            // Se description for idêntica ao content, evita repetir o mesmo texto fora do embed
+            if (contentText === description.trim()) {
+              contentText = payload.mention ? String(payload.mention) : undefined;
+            }
+          }
+        }
 
         const sentMsg = await channel.send({
-          content: contentText,
-          embeds: embedsToSend,
+          content: contentText || undefined,
+          embeds: embedsToSend.length > 0 ? embedsToSend : undefined,
         });
 
         console.log(`📡 [HTTP WEBHOOK] Mensagem postada com sucesso em #${channel.name} (${channelId}) (ID: ${sentMsg.id})`);

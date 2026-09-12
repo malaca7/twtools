@@ -37,19 +37,70 @@ export interface DiscordWebhooksConfig {
 
 export const DEFAULT_WEBHOOKS_CONFIG: DiscordWebhooksConfig = {
   enabled: true,
-  defaultGuildId: "1537229296697999462",
+  defaultGuildId: "1535505650308620400",
   defaultUsername: "Twin Wheels RP",
   defaultAvatarUrl: "https://i.ibb.co/ymH1BQPQ/Uma124.png",
   defaultFooterText: "Twin Wheels RP • Canal de Mensagens",
   updatedAt: new Date().toISOString(),
   webhooks: [
     {
+      id: "webhook_tw_testedev",
+      name: "Canal Teste Dev (Twin Wheel)",
+      guildId: "1535505650308620400",
+      channelId: "1548413371194286314",
+      webhookUrl: "https://discord.com/api/webhooks/1548433124801904760/dhzOLP652m1UZfuQ3MwYViMl3Pk0byMgTP5D1x6rUzlPEXolXQuVtdmkS_n9z7O1rNY6",
+      description: "Canal oficial da facção Twin Wheel para testes e validações de dev",
+      enabled: true,
+      username: "Twin Wheels RP",
+      avatarUrl: "https://i.ibb.co/ymH1BQPQ/Uma124.png",
+      embedColor: "#10B981",
+      mentionRoles: "",
+      footerText: "Twin Wheels RP",
+      showTimestamp: true,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    },
+    {
+      id: "webhook_tw_batepapo",
+      name: "Bate-Papo Geral (Twin Wheel)",
+      guildId: "1535505650308620400",
+      channelId: "1535637119471587408",
+      webhookUrl: "https://discord.com/api/webhooks/1548436113092517948/q9QhwHYZC5UBOtaZgT2iqHM2vlH-UFT7c2lO_yZL9OEzTvXSq4qQVjxiRMdj9gyy1vVO",
+      description: "Canal principal de interação e comunicados da facção Twin Wheel",
+      enabled: true,
+      username: "Twin Wheels RP",
+      avatarUrl: "https://i.ibb.co/ymH1BQPQ/Uma124.png",
+      embedColor: "#8B5CF6",
+      mentionRoles: "",
+      footerText: "Twin Wheels RP",
+      showTimestamp: true,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    },
+    {
+      id: "webhook_tw_avisos",
+      name: "Avisos Oficiais (Twin Wheel)",
+      guildId: "1535505650308620400",
+      channelId: "1535505650920984628",
+      webhookUrl: "https://discord.com/api/webhooks/1548436161108774912/MNtUgj9lWo6h_RlJuDXpfwefbSe7d6_pEDSxqZLbDE9kS-UQ3xv5s0xREH-eFTGe9SfI",
+      description: "Canal de avisos importantes e comunicados da liderança",
+      enabled: true,
+      username: "Twin Wheels RP",
+      avatarUrl: "https://i.ibb.co/ymH1BQPQ/Uma124.png",
+      embedColor: "#EF4444",
+      mentionRoles: "",
+      footerText: "Twin Wheels RP",
+      showTimestamp: true,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    },
+    {
       id: "webhook_default_general",
-      name: "Canal de Postagens Geral",
+      name: "Canal Geral (Malaca Devs)",
       guildId: "1537229296697999462",
       channelId: "1538375505953165312",
       webhookUrl: "https://discord.com/api/webhooks/1548427834303971380/OTvHNGi-REvB-JuI-zQ8wSQqN25NpmnkeNPTWMNYvjohHlsQAHUc5ILNGl8p3bIy22Mn",
-      description: "Canal integrado para envio de mensagens, comunicados e postagens",
+      description: "Canal integrado para testes e postagens no servidor de desenvolvimento",
       enabled: true,
       username: "Twin Wheels RP",
       avatarUrl: "https://i.ibb.co/ymH1BQPQ/Uma124.png",
@@ -92,6 +143,20 @@ export function isValidDiscordId(id?: string): boolean {
   return /^\d{17,20}$/.test(id.trim());
 }
 
+// Mapeamentos conhecidos de canais para webhooks oficiais provisionados
+export const KNOWN_CHANNEL_WEBHOOKS: Record<string, string> = {
+  // Twin Wheel - testedev
+  "1548413371194286314": "https://discord.com/api/webhooks/1548433124801904760/dhzOLP652m1UZfuQ3MwYViMl3Pk0byMgTP5D1x6rUzlPEXolXQuVtdmkS_n9z7O1rNY6",
+  // Twin Wheel - bate-papo
+  "1535637119471587408": "https://discord.com/api/webhooks/1548436113092517948/q9QhwHYZC5UBOtaZgT2iqHM2vlH-UFT7c2lO_yZL9OEzTvXSq4qQVjxiRMdj9gyy1vVO",
+  // Twin Wheel - avisos
+  "1535505650920984628": "https://discord.com/api/webhooks/1548436161108774912/MNtUgj9lWo6h_RlJuDXpfwefbSe7d6_pEDSxqZLbDE9kS-UQ3xv5s0xREH-eFTGe9SfI",
+  // Twin Wheel - baus
+  "1535637509818548234": "https://discord.com/api/webhooks/1548409284000485420/AoRhvOaaA-yNUdWHcV-TZUNx4gOLxWFddthfe3kfHKpycQ2SmyaUsQiSNTnagelHzlsR",
+  // malaca developers - geral
+  "1538375505953165312": "https://discord.com/api/webhooks/1548427834303971380/OTvHNGi-REvB-JuI-zQ8wSQqN25NpmnkeNPTWMNYvjohHlsQAHUc5ILNGl8p3bIy22Mn",
+};
+
 /**
  * Retorna o link oficial do Webhook Discord compatível com Discohook, FiveM e bots
  */
@@ -100,12 +165,8 @@ export function getWebhookShareableUrl(webhook?: DiscordWebhook | null): string 
   if (webhook.webhookUrl && isDiscordWebhookUrl(webhook.webhookUrl)) {
     return webhook.webhookUrl.trim();
   }
-  // Mapeamentos de canais conhecidos para resolução imediata
-  if (webhook.channelId === "1538375505953165312") {
-    return "https://discord.com/api/webhooks/1548427834303971380/OTvHNGi-REvB-JuI-zQ8wSQqN25NpmnkeNPTWMNYvjohHlsQAHUc5ILNGl8p3bIy22Mn";
-  }
-  if (webhook.channelId === "1535637509818548234") {
-    return "https://discord.com/api/webhooks/1548409284000485420/AoRhvOaaA-yNUdWHcV-TZUNx4gOLxWFddthfe3kfHKpycQ2SmyaUsQiSNTnagelHzlsR";
+  if (webhook.channelId && KNOWN_CHANNEL_WEBHOOKS[webhook.channelId]) {
+    return KNOWN_CHANNEL_WEBHOOKS[webhook.channelId];
   }
   return `https://twin.discloud.app/webhook/${webhook.channelId || webhook.id}`;
 }
@@ -138,16 +199,10 @@ export async function fetchOrCreateDiscordChannelWebhook(
   }
 
   // Mapeamento instantâneo para canais já provisionados
-  if (channelId === "1538375505953165312") {
+  if (KNOWN_CHANNEL_WEBHOOKS[channelId]) {
     return {
       success: true,
-      webhookUrl: "https://discord.com/api/webhooks/1548427834303971380/OTvHNGi-REvB-JuI-zQ8wSQqN25NpmnkeNPTWMNYvjohHlsQAHUc5ILNGl8p3bIy22Mn",
-    };
-  }
-  if (channelId === "1535637509818548234") {
-    return {
-      success: true,
-      webhookUrl: "https://discord.com/api/webhooks/1548409284000485420/AoRhvOaaA-yNUdWHcV-TZUNx4gOLxWFddthfe3kfHKpycQ2SmyaUsQiSNTnagelHzlsR",
+      webhookUrl: KNOWN_CHANNEL_WEBHOOKS[channelId],
     };
   }
 
@@ -411,6 +466,96 @@ export async function postMessageToWebhookChannel(
     embedPayload.fields = messageData.fields;
   }
 
+  // 1. TENTA ENVIO DIRETO AO WEBHOOK DO DISCORD (Resposta em milissegundos)
+  const officialUrl = getWebhookShareableUrl(webhook);
+  if (officialUrl && isDiscordWebhookUrl(officialUrl)) {
+    try {
+      const discordPayload: any = {
+        username: webhook.username || webhook.name || "Twin Wheels RP",
+        avatar_url: webhook.avatarUrl || "https://i.ibb.co/ymH1BQPQ/Uma124.png",
+        content: contentMention || undefined,
+        embeds: [
+          {
+            title: cleanTitle,
+            description: cleanDescription,
+            color: hexToInt(webhook.embedColor || "#10B981"),
+            footer: {
+              text: webhook.footerText || "Twin Wheels RP",
+              icon_url: webhook.avatarUrl || "https://i.ibb.co/ymH1BQPQ/Uma124.png",
+            },
+            timestamp: webhook.showTimestamp !== false ? new Date().toISOString() : undefined,
+            image: imageUrl ? { url: imageUrl } : undefined,
+            fields: messageData.fields && messageData.fields.length > 0 ? messageData.fields : undefined,
+          },
+        ],
+      };
+
+      const res = await fetch(officialUrl + "?wait=true", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(discordPayload),
+      });
+
+      if (res.ok) {
+        const data = await res.json().catch(() => null);
+        try {
+          logAuditAction("webhook_post_message", {
+            webhookId: webhook.id,
+            webhookName: webhook.name,
+            guildId: webhook.guildId,
+            channelId: webhook.channelId,
+            title: cleanTitle,
+            hasImage: !!imageUrl,
+            sender: senderName,
+            actor: profile?.nome || user?.email || "Desenvolvedor",
+          }).catch(() => {});
+        } catch {}
+
+        return {
+          success: true,
+          message: `Mensagem entregue com sucesso no canal Discord! (ID: ${data?.id || "OK"})`,
+          messageId: data?.id,
+          channelName: data?.channel_id,
+        };
+      }
+    } catch (err) {
+      console.warn("Falha no envio direto ao webhook Discord, tentando fallback...", err);
+    }
+  }
+
+  // 2. TENTA ENVIO VIA ENDPOINT HTTP DO BOT DISCLOUD (twin.discloud.app/webhook/:channelId)
+  if (webhook.channelId && isValidDiscordId(webhook.channelId)) {
+    try {
+      const botRes = await fetch(`https://twin.discloud.app/webhook/${webhook.channelId}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: cleanTitle,
+          description: cleanDescription,
+          imageUrl,
+          mention: contentMention,
+          color: webhook.embedColor,
+          username: webhook.username || webhook.name,
+          avatarUrl: webhook.avatarUrl,
+        }),
+      });
+      if (botRes.ok) {
+        const botData = await botRes.json().catch(() => null);
+        if (botData?.success) {
+          return {
+            success: true,
+            message: botData.message || "Mensagem enviada com sucesso para o canal!",
+            messageId: botData.messageId,
+            channelName: botData.channelName,
+          };
+        }
+      }
+    } catch (err) {
+      console.warn("Falha no envio via Discloud HTTP, tentando fallback Realtime...", err);
+    }
+  }
+
+  // 3. FALLBACK VIA REALTIME BROADCAST DO BOT
   return new Promise((resolve) => {
     let hasResolved = false;
 
@@ -520,6 +665,47 @@ export async function testDiscordWebhookChannel(
       success: false,
       message: "O ID do canal do servidor não é válido. Informe um ID numérico de 17 a 20 dígitos.",
     };
+  }
+
+  // 1. TENTA TESTE DIRETO VIA DISCORD WEBHOOK NATIVO
+  const officialUrl = getWebhookShareableUrl(webhook);
+  if (officialUrl && isDiscordWebhookUrl(officialUrl)) {
+    try {
+      const discordPayload: any = {
+        username: webhook.username || webhook.name || "Twin Wheels RP",
+        avatar_url: webhook.avatarUrl || "https://i.ibb.co/ymH1BQPQ/Uma124.png",
+        embeds: [
+          {
+            title: `🧪 Teste de Conexão: #${webhook.name || webhook.channelId}`,
+            description: `Este é um disparo de teste enviado pelo **Painel TWTools** para validar a conexão do Webhook.\n\nServidor: \`${webhook.guildId}\` | Canal: \`${webhook.channelId}\``,
+            color: hexToInt(webhook.embedColor || "#10B981"),
+            footer: {
+              text: webhook.footerText || "Twin Wheels RP • Teste de Conexão",
+              icon_url: webhook.avatarUrl || "https://i.ibb.co/ymH1BQPQ/Uma124.png",
+            },
+            timestamp: new Date().toISOString(),
+          },
+        ],
+      };
+
+      const res = await fetch(officialUrl + "?wait=true", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(discordPayload),
+      });
+
+      if (res.ok) {
+        const data = await res.json().catch(() => null);
+        return {
+          success: true,
+          message: `✅ Teste entregue com sucesso no canal Discord! (ID da Mensagem: ${data?.id || "OK"})`,
+          messageId: data?.id,
+          channelName: data?.channel_id,
+        };
+      }
+    } catch (err) {
+      console.warn("Falha no envio direto do teste ao webhook Discord, tentando fallback...", err);
+    }
   }
 
   const testId = `test_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;

@@ -60,6 +60,7 @@ import {
   isDiscordWebhookUrl,
   fetchOrCreateDiscordChannelWebhook,
   DEFAULT_WEBHOOKS_CONFIG,
+  KNOWN_CHANNEL_WEBHOOKS,
   type DiscordWebhook,
   type DiscordWebhooksConfig,
   type PostMessagePayload,
@@ -77,6 +78,32 @@ const COLOR_PRESETS = [
   { name: "Ciano Brilhante", hex: "#06B6D4" },
 ];
 
+const SERVERS_PRESETS = [
+  {
+    id: "1535505650308620400",
+    name: "Twin Wheel",
+    label: "Twin Wheel (Facção GTA RP)",
+    tag: "Principal",
+    badgeColor: "bg-emerald-500/10 text-emerald-400 border-emerald-500/25",
+    channels: [
+      { id: "1548413371194286314", name: "⚙️│testedev", hint: "Testes de Dev" },
+      { id: "1535637119471587408", name: "📰│bate-papo", hint: "Bate-Papo da Facção" },
+      { id: "1535505650920984628", name: "📑│avisos", hint: "Avisos Oficiais" },
+      { id: "1535637509818548234", name: "📦│baus", hint: "Baús e Estoque" },
+    ],
+  },
+  {
+    id: "1537229296697999462",
+    name: "malaca developers",
+    label: "malaca developers (Ambiente Dev)",
+    tag: "Dev",
+    badgeColor: "bg-indigo-500/10 text-indigo-400 border-indigo-500/25",
+    channels: [
+      { id: "1538375505953165312", name: "📄・geral", hint: "Geral Servidor Dev" },
+    ],
+  },
+];
+
 export function DevWebhooksConfigCard() {
   const { user, profile, level } = useAuth();
 
@@ -84,6 +111,7 @@ export function DevWebhooksConfigCard() {
   const [initialConfig, setInitialConfig] = useState<DiscordWebhooksConfig>(DEFAULT_WEBHOOKS_CONFIG);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [savingInModal, setSavingInModal] = useState(false);
 
   // Modal de Criação / Edição
   const [isEditorOpen, setIsEditorOpen] = useState(false);
@@ -161,7 +189,7 @@ export function DevWebhooksConfigCard() {
     setEditingWebhook({
       id: newId,
       name: "",
-      guildId: config.defaultGuildId || "1537229296697999462",
+      guildId: config.defaultGuildId || "1535505650308620400",
       channelId: "",
       description: "",
       enabled: true,
@@ -231,59 +259,95 @@ export function DevWebhooksConfigCard() {
     }
   };
 
-  // Salvar no Modal
-  const handleSaveEditor = () => {
+  // Salvar no Modal com persistência direta e imediata no Supabase
+  const handleSaveEditor = async () => {
     if (!editingWebhook) return;
 
-    if (!editingWebhook.name.trim()) {
+    const trimmedName = editingWebhook.name.trim();
+    if (!trimmedName) {
       toast.error("Informe um nome para identificar este webhook.");
       return;
     }
 
-    if (!editingWebhook.guildId.trim() || !isValidDiscordId(editingWebhook.guildId)) {
+    const trimmedGuildId = editingWebhook.guildId.trim();
+    if (!trimmedGuildId || !isValidDiscordId(trimmedGuildId)) {
       toast.error("Informe um ID de Servidor Discord válido (17 a 20 dígitos).");
       return;
     }
 
-    if (!editingWebhook.channelId.trim() || !isValidDiscordId(editingWebhook.channelId)) {
+    const trimmedChannelId = editingWebhook.channelId.trim();
+    if (!trimmedChannelId || !isValidDiscordId(trimmedChannelId)) {
       toast.error("Informe um ID de Canal do Servidor válido (17 a 20 dígitos).");
       return;
     }
 
-    const updatedWebhook: DiscordWebhook = {
-      ...editingWebhook,
-      name: editingWebhook.name.trim(),
-      guildId: editingWebhook.guildId.trim(),
-      channelId: editingWebhook.channelId.trim(),
-      webhookUrl: editingWebhook.webhookUrl?.trim() || getWebhookShareableUrl(editingWebhook) || undefined,
-      updatedAt: new Date().toISOString(),
-    };
+    setSavingInModal(true);
+    try {
+      let resolvedWebhookUrl = editingWebhook.webhookUrl?.trim();
+      if (!resolvedWebhookUrl && KNOWN_CHANNEL_WEBHOOKS[trimmedChannelId]) {
+        resolvedWebhookUrl = KNOWN_CHANNEL_WEBHOOKS[trimmedChannelId];
+      }
 
-    let newWebhooks: DiscordWebhook[];
-    if (isNew) {
-      newWebhooks = [updatedWebhook, ...config.webhooks];
-    } else {
-      newWebhooks = config.webhooks.map((w) => (w.id === updatedWebhook.id ? updatedWebhook : w));
+      const updatedWebhook: DiscordWebhook = {
+        ...editingWebhook,
+        name: trimmedName,
+        guildId: trimmedGuildId,
+        channelId: trimmedChannelId,
+        username: editingWebhook.username?.trim() || trimmedName,
+        description: editingWebhook.description?.trim() || "",
+        avatarUrl: editingWebhook.avatarUrl?.trim() || config.defaultAvatarUrl || "https://i.ibb.co/ymH1BQPQ/Uma124.png",
+        webhookUrl: resolvedWebhookUrl || undefined,
+        updatedAt: new Date().toISOString(),
+      };
+
+      let newWebhooks: DiscordWebhook[];
+      if (isNew) {
+        newWebhooks = [updatedWebhook, ...config.webhooks];
+      } else {
+        newWebhooks = config.webhooks.map((w) => (w.id === updatedWebhook.id ? updatedWebhook : w));
+      }
+
+      const newConfig = { ...config, webhooks: newWebhooks };
+
+      // Persiste no Supabase imediatamente
+      await saveDiscordWebhooksConfig(newConfig, user, profile, level);
+      setConfig(newConfig);
+      setInitialConfig(JSON.parse(JSON.stringify(newConfig)));
+      setIsEditorOpen(false);
+      toast.success(isNew ? "Webhook criado e salvo com sucesso!" : "Webhook atualizado e salvo com sucesso!");
+    } catch (err: any) {
+      toast.error("Erro ao salvar webhook: " + (err?.message || err));
+    } finally {
+      setSavingInModal(false);
     }
-
-    const newConfig = { ...config, webhooks: newWebhooks };
-    setConfig(newConfig);
-    setIsEditorOpen(false);
-    toast.success(isNew ? "Webhook criado com sucesso!" : "Webhook atualizado com sucesso!");
   };
 
-  // Excluir Webhook
-  const handleDelete = (id: string) => {
+  // Excluir Webhook com persistência imediata
+  const handleDelete = async (id: string) => {
     const filtered = config.webhooks.filter((w) => w.id !== id);
-    setConfig({ ...config, webhooks: filtered });
-    toast.success("Webhook removido.");
+    const newConfig = { ...config, webhooks: filtered };
+    try {
+      await saveDiscordWebhooksConfig(newConfig, user, profile, level);
+      setConfig(newConfig);
+      setInitialConfig(JSON.parse(JSON.stringify(newConfig)));
+      toast.success("Webhook removido e salvo com sucesso.");
+    } catch (err: any) {
+      toast.error("Erro ao remover: " + (err?.message || err));
+    }
   };
 
-  // Alternar Ativo/Pausado
-  const handleToggle = (id: string, enabled: boolean) => {
+  // Alternar Ativo/Pausado com persistência imediata
+  const handleToggle = async (id: string, enabled: boolean) => {
     const updated = config.webhooks.map((w) => (w.id === id ? { ...w, enabled } : w));
-    setConfig({ ...config, webhooks: updated });
-    toast.success(enabled ? "Webhook ativado!" : "Webhook pausado.");
+    const newConfig = { ...config, webhooks: updated };
+    try {
+      await saveDiscordWebhooksConfig(newConfig, user, profile, level);
+      setConfig(newConfig);
+      setInitialConfig(JSON.parse(JSON.stringify(newConfig)));
+      toast.success(enabled ? "Webhook ativado!" : "Webhook pausado.");
+    } catch (err: any) {
+      toast.error("Erro ao alterar status: " + (err?.message || err));
+    }
   };
 
   // Copiar Link Oficial do Webhook Discord (Compatível com Discohook & FiveM)
@@ -498,13 +562,26 @@ export function DevWebhooksConfigCard() {
                       }}
                     />
                     <div className="min-w-0">
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 flex-wrap">
                         <CardTitle className="text-sm font-bold truncate text-foreground">{wh.name}</CardTitle>
                         <span
                           className="h-2.5 w-2.5 rounded-full shrink-0 shadow-sm"
                           style={{ backgroundColor: wh.embedColor || "#10B981" }}
                           title={`Cor do Embed: ${wh.embedColor}`}
                         />
+                        {wh.guildId === "1535505650308620400" ? (
+                          <Badge className="bg-emerald-500/10 text-emerald-400 border-emerald-500/25 text-[10px] px-1.5 py-0 font-bold gap-1">
+                            <Server className="h-3 w-3" /> Twin Wheel
+                          </Badge>
+                        ) : wh.guildId === "1537229296697999462" ? (
+                          <Badge className="bg-indigo-500/10 text-indigo-400 border-indigo-500/25 text-[10px] px-1.5 py-0 font-bold gap-1">
+                            <Terminal className="h-3 w-3" /> malaca devs
+                          </Badge>
+                        ) : (
+                          <Badge className="bg-zinc-800 text-zinc-300 border-zinc-700 text-[10px] px-1.5 py-0 font-mono gap-1">
+                            <Server className="h-3 w-3" /> {wh.guildId}
+                          </Badge>
+                        )}
                       </div>
                       <p className="text-[0.7rem] text-muted-foreground truncate">
                         Emissor: <strong className="text-foreground">{wh.username || "Twin Wheels RP"}</strong>
@@ -532,15 +609,33 @@ export function DevWebhooksConfigCard() {
                 <div className="grid grid-cols-2 gap-2 p-2.5 rounded-xl bg-zinc-900/80 border border-zinc-800 text-[0.7rem] font-mono">
                   <div>
                     <span className="text-[0.65rem] text-muted-foreground block font-sans font-semibold">
-                      ID Servidor:
+                      Servidor Discord:
                     </span>
-                    <span className="text-foreground truncate block">{wh.guildId}</span>
+                    <span className="text-foreground truncate block font-bold" title={wh.guildId}>
+                      {wh.guildId === "1535505650308620400"
+                        ? "Twin Wheel (Principal)"
+                        : wh.guildId === "1537229296697999462"
+                        ? "malaca developers (Dev)"
+                        : wh.guildId}
+                    </span>
                   </div>
                   <div>
                     <span className="text-[0.65rem] text-muted-foreground block font-sans font-semibold">
-                      ID Canal:
+                      Canal do Servidor:
                     </span>
-                    <span className="text-foreground truncate block">{wh.channelId}</span>
+                    <span className="text-foreground truncate block font-bold text-violet-300" title={wh.channelId}>
+                      {wh.channelId === "1548413371194286314"
+                        ? "#⚙️│testedev"
+                        : wh.channelId === "1535637119471587408"
+                        ? "#📰│bate-papo"
+                        : wh.channelId === "1535505650920984628"
+                        ? "#📑│avisos"
+                        : wh.channelId === "1535637509818548234"
+                        ? "#📦│baus"
+                        : wh.channelId === "1538375505953165312"
+                        ? "#📄・geral"
+                        : `#${wh.channelId}`}
+                    </span>
                   </div>
                 </div>
 
@@ -750,19 +845,32 @@ export function DevWebhooksConfigCard() {
           </DialogHeader>
 
           {editingWebhook && (
-            <div className="space-y-5 py-2">
+            <div className="space-y-4 py-2">
               {/* Nome do Webhook e Descrição */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                 <div className="space-y-1.5">
                   <Label className="text-xs font-bold">
                     Nome do Webhook <span className="text-rose-400">*</span>
                   </Label>
                   <Input
                     value={editingWebhook.name}
-                    onChange={(e) => setEditingWebhook({ ...editingWebhook, name: e.target.value })}
-                    placeholder="Ex: Canal de Postagens da Facção"
+                    onChange={(e) =>
+                      setEditingWebhook({
+                        ...editingWebhook,
+                        name: e.target.value,
+                        // Se username for igual ao nome anterior ou vazio, sincroniza automaticamente
+                        username:
+                          !editingWebhook.username || editingWebhook.username === editingWebhook.name
+                            ? e.target.value
+                            : editingWebhook.username,
+                      })
+                    }
+                    placeholder="Ex: Avisos Oficiais Twin Wheel"
                     className="bg-zinc-900 border-zinc-800 text-xs font-bold"
                   />
+                  <p className="text-[0.65rem] text-muted-foreground">
+                    Nome descritivo para identificar facilmente este webhook no painel.
+                  </p>
                 </div>
 
                 <div className="space-y-1.5">
@@ -770,49 +878,137 @@ export function DevWebhooksConfigCard() {
                   <Input
                     value={editingWebhook.description || ""}
                     onChange={(e) => setEditingWebhook({ ...editingWebhook, description: e.target.value })}
-                    placeholder="Ex: Utilizado para enviar avisos e informativos"
+                    placeholder="Ex: Canal para comunicados e informativos da liderança"
                     className="bg-zinc-900 border-zinc-800 text-xs"
+                  />
+                  <p className="text-[0.65rem] text-muted-foreground">
+                    Explicação sobre para que serve e onde é usado este webhook.
+                  </p>
+                </div>
+              </div>
+
+              {/* Escolha do Servidor Discord com Presets */}
+              <div className="space-y-2 p-3.5 rounded-xl bg-zinc-900/60 border border-zinc-800">
+                <div className="flex items-center justify-between">
+                  <Label className="text-xs font-bold flex items-center gap-1.5">
+                    <Server className="h-3.5 w-3.5 text-indigo-400" />
+                    Servidor Discord <span className="text-rose-400">*</span>
+                  </Label>
+                  <span className="text-[10px] text-muted-foreground font-mono">
+                    ID: {editingWebhook.guildId || "Nenhum"}
+                  </span>
+                </div>
+
+                {/* Botões Rápidos de Servidor */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {SERVERS_PRESETS.map((srv) => {
+                    const isSelected = editingWebhook.guildId === srv.id;
+                    return (
+                      <button
+                        key={srv.id}
+                        type="button"
+                        onClick={() => {
+                          setEditingWebhook((prev) => (prev ? { ...prev, guildId: srv.id } : null));
+                        }}
+                        className={cn(
+                          "p-2.5 rounded-lg border text-left transition-all flex items-center justify-between gap-2",
+                          isSelected
+                            ? "bg-primary/15 border-primary/60 shadow-sm"
+                            : "bg-zinc-950/60 border-zinc-800 hover:border-zinc-700"
+                        )}
+                      >
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-1.5 font-bold text-xs">
+                            <Server className={cn("h-3.5 w-3.5", isSelected ? "text-primary" : "text-muted-foreground")} />
+                            <span className={isSelected ? "text-primary" : "text-foreground"}>{srv.name}</span>
+                          </div>
+                          <span className="text-[10px] text-muted-foreground truncate block font-mono">{srv.id}</span>
+                        </div>
+                        <Badge className={cn("text-[9px] px-1.5 py-0 font-bold", srv.badgeColor)}>
+                          {srv.tag}
+                        </Badge>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* Input de ID de servidor caso queira customizado */}
+                <div className="pt-1">
+                  <Input
+                    value={editingWebhook.guildId}
+                    onChange={(e) => setEditingWebhook({ ...editingWebhook, guildId: e.target.value })}
+                    placeholder="ID do Servidor Discord (ex: 1535505650308620400)"
+                    className="bg-zinc-950 border-zinc-800 text-xs font-mono font-bold h-8"
                   />
                 </div>
               </div>
 
-              {/* ID do Servidor e ID do Canal */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 rounded-xl bg-zinc-900/60 border border-zinc-800">
-                <div className="space-y-1.5">
-                  <div className="flex items-center justify-between">
-                    <Label className="text-xs font-bold flex items-center gap-1.5">
-                      <Server className="h-3.5 w-3.5 text-indigo-400" />
-                      ID do Servidor Discord <span className="text-rose-400">*</span>
-                    </Label>
-                  </div>
-                  <Input
-                    value={editingWebhook.guildId}
-                    onChange={(e) => setEditingWebhook({ ...editingWebhook, guildId: e.target.value })}
-                    placeholder="Ex: 1537229296697999462"
-                    className="bg-zinc-950 border-zinc-800 text-xs font-mono font-bold"
-                  />
-                  <p className="text-[0.65rem] text-muted-foreground">
-                    Clique com o botão direito no seu servidor Discord e selecione &quot;Copiar ID do Servidor&quot;.
-                  </p>
+              {/* Canal do Servidor com chips dos canais conhecidos */}
+              <div className="space-y-2 p-3.5 rounded-xl bg-zinc-900/60 border border-zinc-800">
+                <div className="flex items-center justify-between">
+                  <Label className="text-xs font-bold flex items-center gap-1.5">
+                    <Hash className="h-3.5 w-3.5 text-blue-400" />
+                    ID do Canal do Servidor <span className="text-rose-400">*</span>
+                  </Label>
+                  <span className="text-[10px] text-muted-foreground">
+                    Canal onde as mensagens serão publicadas
+                  </span>
                 </div>
 
-                <div className="space-y-1.5">
-                  <div className="flex items-center justify-between">
-                    <Label className="text-xs font-bold flex items-center gap-1.5">
-                      <Hash className="h-3.5 w-3.5 text-blue-400" />
-                      ID do Canal do Servidor <span className="text-rose-400">*</span>
-                    </Label>
-                  </div>
-                  <Input
-                    value={editingWebhook.channelId}
-                    onChange={(e) => setEditingWebhook({ ...editingWebhook, channelId: e.target.value })}
-                    placeholder="Ex: 1538375505953165312"
-                    className="bg-zinc-950 border-zinc-800 text-xs font-mono font-bold"
-                  />
-                  <p className="text-[0.65rem] text-muted-foreground">
-                    Clique com o botão direito no canal de texto e selecione &quot;Copiar ID do canal&quot;.
-                  </p>
-                </div>
+                {/* Chips de canais sugeridos para o servidor selecionado */}
+                {(() => {
+                  const curPreset = SERVERS_PRESETS.find((s) => s.id === editingWebhook.guildId);
+                  if (!curPreset) return null;
+                  return (
+                    <div className="space-y-1">
+                      <span className="text-[0.65rem] font-semibold text-muted-foreground block">
+                        Canais Sugeridos no servidor {curPreset.name}:
+                      </span>
+                      <div className="flex flex-wrap gap-1.5">
+                        {curPreset.channels.map((ch) => {
+                          const isSel = editingWebhook.channelId === ch.id;
+                          return (
+                            <button
+                              key={ch.id}
+                              type="button"
+                              onClick={() => {
+                                setEditingWebhook((prev) => {
+                                  if (!prev) return null;
+                                  const newName = !prev.name || prev.name.startsWith("Canal") ? ch.name : prev.name;
+                                  return {
+                                    ...prev,
+                                    channelId: ch.id,
+                                    name: newName,
+                                    webhookUrl: KNOWN_CHANNEL_WEBHOOKS[ch.id] || prev.webhookUrl,
+                                  };
+                                });
+                              }}
+                              className={cn(
+                                "px-2.5 py-1 rounded-md text-[0.7rem] font-mono border transition-all flex items-center gap-1.5",
+                                isSel
+                                  ? "bg-violet-600 text-white border-violet-500 font-bold shadow-sm"
+                                  : "bg-zinc-950 border-zinc-800 text-zinc-300 hover:border-zinc-700 hover:text-white"
+                              )}
+                            >
+                              <Hash className="h-3 w-3" />
+                              <span>{ch.name}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                <Input
+                  value={editingWebhook.channelId}
+                  onChange={(e) => setEditingWebhook({ ...editingWebhook, channelId: e.target.value })}
+                  placeholder="Ex: 1548413371194286314"
+                  className="bg-zinc-950 border-zinc-800 text-xs font-mono font-bold h-8"
+                />
+                <p className="text-[0.65rem] text-muted-foreground">
+                  Copie o ID do canal no Discord com botão direito &gt; &quot;Copiar ID do canal&quot;, ou clique em um dos canais sugeridos acima.
+                </p>
               </div>
 
               {/* URL Oficial do Webhook Discord (Opcional - gerada automaticamente se vazia) */}
@@ -833,7 +1029,7 @@ export function DevWebhooksConfigCard() {
                   className="bg-zinc-950 border-zinc-800 text-xs font-mono"
                 />
                 <p className="text-[0.65rem] text-muted-foreground">
-                  Se você já tiver a URL gerada do Discord, cole-a aqui. Se deixar vazio, o Bot obtém ou cria automaticamente para o canal.
+                  Se você já tiver a URL gerada do Discord, cole-a aqui. Se deixar vazio, o sistema usa a URL oficial mapeada ou gera automaticamente.
                 </p>
               </div>
 
@@ -844,7 +1040,7 @@ export function DevWebhooksConfigCard() {
                   Personalização do Bot Emissor
                 </h4>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-3">
                   {/* Nome do Bot */}
                   <div className="space-y-1.5">
                     <Label className="text-xs font-bold">Nome do Bot ao Postar</Label>
@@ -856,42 +1052,82 @@ export function DevWebhooksConfigCard() {
                     />
                   </div>
 
-                  {/* Upload do Avatar */}
-                  <div className="space-y-1.5">
-                    <Label className="text-xs font-bold">Avatar do Bot (Upload de Imagem)</Label>
+                  {/* Upload do Avatar e URL Direta */}
+                  <div className="space-y-2 p-3.5 rounded-xl bg-zinc-950/80 border border-zinc-800">
+                    <Label className="text-xs font-bold flex items-center gap-1.5">
+                      <ImageIcon className="h-3.5 w-3.5 text-emerald-400" />
+                      Avatar do Bot (Upload de Imagem ou Link Direto)
+                    </Label>
+
                     <div className="flex items-center gap-3">
                       <img
                         src={editingWebhook.avatarUrl || "https://i.ibb.co/ymH1BQPQ/Uma124.png"}
                         alt="Avatar Preview"
-                        className="h-10 w-10 rounded-full object-cover ring-2 ring-zinc-700 bg-zinc-900 shrink-0"
+                        className="h-12 w-12 rounded-full object-cover ring-2 ring-primary/40 bg-zinc-900 shrink-0 shadow-md"
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).src = "https://i.ibb.co/ymH1BQPQ/Uma124.png";
+                        }}
                       />
-                      <input
-                        type="file"
-                        ref={avatarFileInputRef}
-                        accept="image/*"
-                        onChange={handleAvatarFileUpload}
-                        className="hidden"
+                      <div className="flex-1 space-y-1.5">
+                        <input
+                          type="file"
+                          ref={avatarFileInputRef}
+                          accept="image/*"
+                          onChange={handleAvatarFileUpload}
+                          className="hidden"
+                        />
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => avatarFileInputRef.current?.click()}
+                            disabled={isUploadingAvatar}
+                            className="bg-zinc-900 border-zinc-700 text-xs font-bold gap-1.5 h-8"
+                          >
+                            {isUploadingAvatar ? (
+                              <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />
+                            ) : (
+                              <Upload className="h-3.5 w-3.5 text-primary" />
+                            )}
+                            {isUploadingAvatar ? "Enviando Imagem..." : "Fazer Upload de Imagem"}
+                          </Button>
+
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() =>
+                              setEditingWebhook((prev) =>
+                                prev ? { ...prev, avatarUrl: "https://i.ibb.co/ymH1BQPQ/Uma124.png" } : null
+                              )
+                            }
+                            className="text-[0.65rem] text-muted-foreground hover:text-foreground h-8"
+                          >
+                            Restaurar Padrão TW
+                          </Button>
+                        </div>
+                        <p className="text-[0.65rem] text-muted-foreground">
+                          PNG, JPG, WebP ou GIF (máx. 5MB). Salvo automaticamente após o upload.
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="space-y-1 pt-1">
+                      <Label className="text-[0.7rem] text-muted-foreground font-semibold">
+                        Ou informe a URL direta da imagem:
+                      </Label>
+                      <Input
+                        value={editingWebhook.avatarUrl || ""}
+                        onChange={(e) => setEditingWebhook({ ...editingWebhook, avatarUrl: e.target.value })}
+                        placeholder="https://i.ibb.co/... ou link público de imagem"
+                        className="bg-zinc-900 border-zinc-800 text-xs font-mono h-8"
                       />
-                      <Button
-                        type="button"
-                        variant="outline"
-                        onClick={() => avatarFileInputRef.current?.click()}
-                        disabled={isUploadingAvatar}
-                        className="bg-zinc-950 border-zinc-800 text-xs font-bold gap-1.5 h-9"
-                      >
-                        {isUploadingAvatar ? (
-                          <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />
-                        ) : (
-                          <Upload className="h-3.5 w-3.5" />
-                        )}
-                        Fazer Upload da Imagem
-                      </Button>
                     </div>
                   </div>
                 </div>
 
                 {/* Cor do Embed e Rodapé */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
                   <div className="space-y-1.5">
                     <Label className="text-xs font-bold flex items-center gap-1.5">
                       <Palette className="h-3.5 w-3.5 text-primary" />
@@ -931,6 +1167,7 @@ export function DevWebhooksConfigCard() {
               type="button"
               variant="outline"
               onClick={() => setIsEditorOpen(false)}
+              disabled={savingInModal}
               className="bg-zinc-900 border-zinc-800 text-xs"
             >
               Cancelar
@@ -938,9 +1175,11 @@ export function DevWebhooksConfigCard() {
             <Button
               type="button"
               onClick={handleSaveEditor}
-              className="bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-bold"
+              disabled={savingInModal}
+              className="bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-bold gap-1.5 shadow-md"
             >
-              Salvar Webhook
+              {savingInModal ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
+              {savingInModal ? "Salvando Webhook..." : "Salvar Webhook"}
             </Button>
           </DialogFooter>
         </DialogContent>
