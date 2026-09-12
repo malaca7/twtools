@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Outlet, useChildMatches } from "@tanstack/react-router";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
@@ -53,8 +53,16 @@ import { dateTime, errorMessage, num } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/movimentacoes")({
-  component: MovimentacoesPage,
+  component: MovimentacoesWrapper,
 });
+
+function MovimentacoesWrapper() {
+  const childMatches = useChildMatches();
+  if (childMatches.length > 0) {
+    return <Outlet />;
+  }
+  return <MovimentacoesPage />;
+}
 
 type BatchItem = {
   productId: string;
@@ -63,7 +71,7 @@ type BatchItem = {
 
 const PRODUCTS_PER_PAGE = 18;
 
-function MovimentacoesPage() {
+export function MovimentacoesPage() {
   const { hasPermission } = useAuth();
   const queryClient = useQueryClient();
   const canViewPage = hasPermission("view_movements");

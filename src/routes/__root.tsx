@@ -18,12 +18,14 @@ function NotFoundComponent() {
   const pathname = typeof window !== "undefined" ? window.location.pathname : "";
 
   useEffect(() => {
+    const search = typeof window !== "undefined" ? window.location.search : "";
+    const hash = typeof window !== "undefined" ? window.location.hash : "";
     if (pathname.includes("/dev.desempenho")) {
-      window.location.replace("/dev/desempenho");
+      window.location.replace(pathname.replace("/dev.desempenho", "/dev/desempenho") + search + hash);
     } else if (pathname.includes("/dev.permissoes")) {
-      window.location.replace("/dev/permissoes");
+      window.location.replace(pathname.replace("/dev.permissoes", "/dev/permissoes") + search + hash);
     } else if (pathname.includes("/dev.configuracao")) {
-      window.location.replace("/dev/configuracao");
+      window.location.replace(pathname.replace("/dev.configuracao", "/dev/configuracao") + search + hash);
     }
   }, [pathname]);
 

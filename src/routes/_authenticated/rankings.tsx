@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Outlet, useChildMatches } from "@tanstack/react-router";
 import { Trophy, Medal, Crown, TrendingUp, ShoppingCart, ArrowLeftRight, Calendar } from "lucide-react";
 import { PageHeader, NoAccess, TableSkeleton, EmptyState } from "@/components/ui-kit";
 import { useAuth } from "@/hooks/useAuth";
@@ -21,8 +21,16 @@ import {
 } from "@/components/ui/table";
 
 export const Route = createFileRoute("/_authenticated/rankings")({
-  component: RankingsPage,
+  component: RankingsWrapper,
 });
+
+function RankingsWrapper() {
+  const childMatches = useChildMatches();
+  if (childMatches.length > 0) {
+    return <Outlet />;
+  }
+  return <RankingsPage />;
+}
 
 type RankedMember = {
   user_id: string;
@@ -34,7 +42,7 @@ type RankedMember = {
   movementsCount: number;
 };
 
-function RankingsPage() {
+export function RankingsPage() {
   const { hasPermission } = useAuth();
   const canView = hasPermission("view_rankings");
 

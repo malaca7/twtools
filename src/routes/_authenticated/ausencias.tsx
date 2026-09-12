@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Outlet, useChildMatches } from "@tanstack/react-router";
 import {
   CalendarOff,
   Plus,
@@ -78,8 +78,16 @@ import type { AbsenceReason, MemberAbsence } from "@/lib/app-types";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/ausencias")({
-  component: AusenciasPage,
+  component: AusenciasWrapper,
 });
+
+function AusenciasWrapper() {
+  const childMatches = useChildMatches();
+  if (childMatches.length > 0) {
+    return <Outlet />;
+  }
+  return <AusenciasPage />;
+}
 
 /* ─── Reason Metadata & Icons ─── */
 const REASON_CONFIG: Record<
@@ -217,7 +225,7 @@ function getAbsenceTimelineStatus(absence: MemberAbsence): {
   };
 }
 
-function AusenciasPage() {
+export function AusenciasPage() {
   const { user, profile, level, hasPermission } = useAuth();
   const { data: absences = [], isLoading, refetch } = useAbsences();
   const createMutation = useCreateAbsence();

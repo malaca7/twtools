@@ -1,20 +1,26 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 
 export interface UseUrlTabOptions<T extends string> {
-  /** Nome do parâmetro na URL (padrão: 'tab') */
+  /** Nome do parâmetro na URL para fallback ou query (padrão: 'tab') */
   paramName?: string;
-  /** Lista opcional de abas válidas para proteção de fallback */
+  /** Lista opcional de abas válidas para proteção de fallback e roteamento amigável */
   allowedTabs?: readonly T[] | T[];
   /** Se deve substituir a entrada atual no histórico (padrão: true) */
   replaceHistory?: boolean;
   /** Se deve sincronizar também com a hash (#aba) da URL */
   syncHash?: boolean;
+  /**
+   * Se true, utiliza URLs amigáveis baseadas em caminho (ex: /dev/configuracao/webhooks em vez de ?tab=webhooks).
+   * Padrão: true quando allowedTabs estiver presente.
+   */
+  usePath?: boolean;
 }
 
 /**
  * Hook universal de sincronização de abas, filtros e estados com a URL do navegador.
- * Garante URLs amigáveis e que ao recarregar a página (F5), o usuário permaneça
- * exatamente onde estava na plataforma.
+ * Garante URLs amigáveis no padrão de caminho (/dev/configuracao/webhooks) e mantém
+ * compatibilidade total com links legados (?tab=webhooks) e hash (#webhooks).
+ * Ao recarregar a página (F5), o usuário permanece exatamente onde estava na plataforma.
  */
 export function useUrlTab<T extends string>(
   defaultTab: T,
@@ -24,22 +30,35 @@ export function useUrlTab<T extends string>(
   const allowed = options?.allowedTabs;
   const replaceHistory = options?.replaceHistory !== false;
   const syncHash = options?.syncHash || false;
+  const usePath = options?.usePath !== undefined ? options.usePath : Boolean(allowed && allowed.length > 0);
 
-  // Função pura para ler o valor inicial da URL ou hash
+  // Função pura para ler o valor inicial da URL (path -> query -> hash -> default)
   const readTabFromUrl = useCallback((): T => {
     if (typeof window === "undefined") return defaultTab;
 
     try {
-      const urlParams = new URLSearchParams(window.location.search);
-      const val = urlParams.get(paramName);
+      // 1. Tenta extrair a aba diretamente do path amigável (/rota/aba)
+      if (usePath && allowed && allowed.length > 0) {
+        const pathname = window.location.pathname.replace(/\/+$/, "");
+        const segments = pathname.split("/").filter(Boolean);
+        const lastSegment = segments[segments.length - 1];
 
-      if (val) {
-        if (!allowed || (allowed as readonly string[]).includes(val)) {
-          return val as T;
+        if (lastSegment && (allowed as readonly string[]).includes(lastSegment)) {
+          return lastSegment as T;
         }
       }
 
-      // Hash fallback se habilitado (ex: #webhooks)
+      // 2. Fallback para Query Params (?tab=...)
+      const urlParams = new URLSearchParams(window.location.search);
+      const queryVal = urlParams.get(paramName);
+
+      if (queryVal) {
+        if (!allowed || (allowed as readonly string[]).includes(queryVal)) {
+          return queryVal as T;
+        }
+      }
+
+      // 3. Fallback para Hash (#aba)
       if (syncHash && window.location.hash) {
         const hashVal = window.location.hash.replace(/^#/, "");
         if (hashVal && (!allowed || (allowed as readonly string[]).includes(hashVal))) {
@@ -51,7 +70,7 @@ export function useUrlTab<T extends string>(
     }
 
     return defaultTab;
-  }, [defaultTab, paramName, allowed, syncHash]);
+  }, [defaultTab, paramName, allowed, syncHash, usePath]);
 
   const [activeTab, setActiveTabState] = useState<T>(readTabFromUrl);
   const activeTabRef = useRef<T>(activeTab);
@@ -70,24 +89,65 @@ export function useUrlTab<T extends string>(
       try {
         const url = new URL(window.location.href);
 
-        // Se for igual ao padrão e não quisermos poluir, podemos manter explícito para URL amigável
-        url.searchParams.set(paramName, newTab);
+        if (usePath && allowed && allowed.length > 0) {
+          const cleanPath = url.pathname.replace(/\/+$/, "");
+          const segments = cleanPath.split("/").filter(Boolean);
+          const lastSegment = segments[segments.length - 1];
+
+          let baseSegments = segments;
+          if (lastSegment && (allowed as readonly string[]).includes(lastSegment)) {
+            baseSegments = segments.slice(0, -1);
+          }
+
+          url.pathname = "/" + [...baseSegments, newTab].join("/");
+          // Limpa o parâmetro query para manter a URL limpa e amigável
+          url.searchParams.delete(paramName);
+        } else {
+          url.searchParams.set(paramName, newTab);
+        }
 
         if (syncHash) {
           url.hash = newTab;
         }
 
+        const newUrl = url.pathname + url.search + url.hash;
         if (replaceHistory) {
-          window.history.replaceState(window.history.state, "", url.toString());
+          window.history.replaceState(window.history.state, "", newUrl);
         } else {
-          window.history.pushState(window.history.state, "", url.toString());
+          window.history.pushState(window.history.state, "", newUrl);
         }
       } catch (err) {
-        console.warn("Falha ao sincronizar URL:", err);
+        console.warn("Falha ao sincronizar URL amigável:", err);
       }
     },
-    [paramName, replaceHistory, syncHash]
+    [paramName, replaceHistory, syncHash, usePath, allowed]
   );
+
+  // Migração automática de URLs legadas com query param (?tab=...) para URLs amigáveis no path (/rota/aba)
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (!usePath || !allowed || allowed.length === 0) return;
+
+    try {
+      const url = new URL(window.location.href);
+      const queryVal = url.searchParams.get(paramName);
+
+      if (queryVal && (allowed as readonly string[]).includes(queryVal)) {
+        const cleanPath = url.pathname.replace(/\/+$/, "");
+        const segments = cleanPath.split("/").filter(Boolean);
+        const lastSegment = segments[segments.length - 1];
+
+        let baseSegments = segments;
+        if (lastSegment && (allowed as readonly string[]).includes(lastSegment)) {
+          baseSegments = segments.slice(0, -1);
+        }
+
+        url.pathname = "/" + [...baseSegments, queryVal].join("/");
+        url.searchParams.delete(paramName);
+        window.history.replaceState(window.history.state, "", url.pathname + url.search + url.hash);
+      }
+    } catch {}
+  }, [paramName, allowed, usePath]);
 
   // Escuta os botões Voltar / Avançar do navegador
   useEffect(() => {
@@ -102,7 +162,11 @@ export function useUrlTab<T extends string>(
     };
 
     window.addEventListener("popstate", handlePopState);
-    return () => window.removeEventListener("popstate", handlePopState);
+    window.addEventListener("hashchange", handlePopState);
+    return () => {
+      window.removeEventListener("popstate", handlePopState);
+      window.removeEventListener("hashchange", handlePopState);
+    };
   }, [readTabFromUrl]);
 
   return [activeTab, setTab];
@@ -121,5 +185,6 @@ export function useSyncedUrlParam<T extends string>(
     paramName,
     allowedTabs: allowedValues,
     replaceHistory: true,
+    usePath: false, // Parâmetros auxiliares continuam como search params
   });
 }

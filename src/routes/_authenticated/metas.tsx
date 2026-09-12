@@ -1,5 +1,5 @@
 import { useState, useMemo, useRef, useEffect } from "react";
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Outlet, useChildMatches } from "@tanstack/react-router";
 import { toast } from "sonner";
 import {
   Target,
@@ -92,8 +92,16 @@ import {
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/metas")({
-  component: MetasPage,
+  component: MetasWrapper,
 });
+
+function MetasWrapper() {
+  const childMatches = useChildMatches();
+  if (childMatches.length > 0) {
+    return <Outlet />;
+  }
+  return <MetasPage />;
+}
 
 const GOAL_TYPE_META: Record<
   WeeklyGoalType,
@@ -167,7 +175,7 @@ function parseGoalAmount(
   return isNaN(numVal) ? 0 : numVal;
 }
 
-function MetasPage() {
+export function MetasPage() {
   const { user, profile, hasPermission } = useAuth();
   const currentUserId = user?.id;
   const currentLevel = (profile?.nivel || "novato") as AppLevel;

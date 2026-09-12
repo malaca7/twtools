@@ -1,5 +1,5 @@
 import { useState, useCallback, useMemo, useEffect, Component } from "react";
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Outlet, useChildMatches } from "@tanstack/react-router";
 import { toast } from "sonner";
 import {
   Settings,
@@ -97,8 +97,16 @@ import { usePlatformSettings, savePlatformSettings, DEFAULT_PLATFORM_SETTINGS, t
 import { UserAppearanceSettings } from "@/components/profile/UserAppearanceSettings";
 
 export const Route = createFileRoute("/_authenticated/configuracoes")({
-  component: ConfiguracoesPage,
+  component: ConfiguracoesWrapper,
 });
+
+function ConfiguracoesWrapper() {
+  const childMatches = useChildMatches();
+  if (childMatches.length > 0) {
+    return <Outlet />;
+  }
+  return <ConfiguracoesPage />;
+}
 
 /* ─── Icon map for menu items ─── */
 const ICON_MAP: Record<string, typeof LayoutDashboard> = {
@@ -2248,7 +2256,7 @@ class MenuTabErrorBoundary extends Component<{ children: React.ReactNode }, { ha
 }
 
 /* ─── Main settings page ─── */
-function ConfiguracoesPage() {
+export function ConfiguracoesPage() {
   const { level, hasPermission } = useAuth();
 
   // Allow editing for leaders, co-leaders, managers, officers, developers, or anyone with role/permission management permissions

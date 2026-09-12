@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, Outlet, useChildMatches } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
@@ -57,6 +57,10 @@ export const Route = createFileRoute("/_authenticated/dev/configuracao")({
 });
 
 function DevConfiguracaoPageWrapper() {
+  const childMatches = useChildMatches();
+  if (childMatches.length > 0) {
+    return <Outlet />;
+  }
   return (
     <DeveloperGuard>
       <DevConfiguracaoContent />
@@ -64,7 +68,7 @@ function DevConfiguracaoPageWrapper() {
   );
 }
 
-function DevConfiguracaoContent() {
+export function DevConfiguracaoContent() {
   const { user, profile, level } = useAuth();
   const queryClient = useQueryClient();
   const { data: allAuditLogs = [] } = useAuditLogs();

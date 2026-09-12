@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Outlet, useChildMatches } from "@tanstack/react-router";
 import {
   LifeBuoy,
   Plus,
@@ -56,10 +56,18 @@ import { LEVEL_LABEL, levelBadgeClass } from "@/lib/permissions";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/tickets")({
-  component: TicketsPage,
+  component: TicketsWrapper,
 });
 
-function TicketsPage() {
+function TicketsWrapper() {
+  const childMatches = useChildMatches();
+  if (childMatches.length > 0) {
+    return <Outlet />;
+  }
+  return <TicketsPage />;
+}
+
+export function TicketsPage() {
   const { user, profile, hasPermission } = useAuth();
   const isDevUser = Boolean(profile?.is_developer);
   const canView = hasPermission("view_tickets") || isDevUser;

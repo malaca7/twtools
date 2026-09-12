@@ -36,13 +36,21 @@ import { Route as AuthenticatedTicketsRouteImport } from './routes/_authenticate
 import { Route as AuthenticatedVendasRouteImport } from './routes/_authenticated/vendas'
 import { Route as AuthCallbackRouteImport } from './routes/auth.callback'
 import { Route as DevDiscordIdRouteImport } from './routes/dev.$discordId'
+import { Route as AuthenticatedAusenciasTabRouteImport } from './routes/_authenticated/ausencias.$tab'
+import { Route as AuthenticatedConfiguracoesTabRouteImport } from './routes/_authenticated/configuracoes.$tab'
 import { Route as AuthenticatedDevIndexRouteImport } from './routes/_authenticated/dev.index'
 import { Route as AuthenticatedDevConfiguracaoRouteImport } from './routes/_authenticated/dev.configuracao'
 import { Route as AuthenticatedDevDesempenhoRouteImport } from './routes/_authenticated/dev.desempenho'
 import { Route as AuthenticatedDevMenuLateralRouteImport } from './routes/_authenticated/dev.menu-lateral'
 import { Route as AuthenticatedDevPatchNotesRouteImport } from './routes/_authenticated/dev.patch-notes'
 import { Route as AuthenticatedDevPermissoesRouteImport } from './routes/_authenticated/dev.permissoes'
+import { Route as AuthenticatedHierarquiaTabRouteImport } from './routes/_authenticated/hierarquia.$tab'
+import { Route as AuthenticatedMetasTabRouteImport } from './routes/_authenticated/metas.$tab'
+import { Route as AuthenticatedMovimentacoesTabRouteImport } from './routes/_authenticated/movimentacoes.$tab'
 import { Route as AuthenticatedPerfilHandleRouteImport } from './routes/_authenticated/perfil.$handle'
+import { Route as AuthenticatedRankingsTabRouteImport } from './routes/_authenticated/rankings.$tab'
+import { Route as AuthenticatedTicketsTabRouteImport } from './routes/_authenticated/tickets.$tab'
+import { Route as AuthenticatedDevConfiguracaoTabRouteImport } from './routes/_authenticated/dev.configuracao.$tab'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -181,6 +189,18 @@ const DevDiscordIdRoute = DevDiscordIdRouteImport.update({
   path: '/dev/$discordId',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthenticatedAusenciasTabRoute =
+  AuthenticatedAusenciasTabRouteImport.update({
+    id: '/$tab',
+    path: '/$tab',
+    getParentRoute: () => AuthenticatedAusenciasRoute,
+  } as any)
+const AuthenticatedConfiguracoesTabRoute =
+  AuthenticatedConfiguracoesTabRouteImport.update({
+    id: '/$tab',
+    path: '/$tab',
+    getParentRoute: () => AuthenticatedConfiguracoesRoute,
+  } as any)
 const AuthenticatedDevIndexRoute = AuthenticatedDevIndexRouteImport.update({
   id: '/dev/',
   path: '/dev/',
@@ -216,119 +236,177 @@ const AuthenticatedDevPermissoesRoute =
     path: '/dev/permissoes',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedHierarquiaTabRoute =
+  AuthenticatedHierarquiaTabRouteImport.update({
+    id: '/$tab',
+    path: '/$tab',
+    getParentRoute: () => AuthenticatedHierarquiaRoute,
+  } as any)
+const AuthenticatedMetasTabRoute = AuthenticatedMetasTabRouteImport.update({
+  id: '/$tab',
+  path: '/$tab',
+  getParentRoute: () => AuthenticatedMetasRoute,
+} as any)
+const AuthenticatedMovimentacoesTabRoute =
+  AuthenticatedMovimentacoesTabRouteImport.update({
+    id: '/$tab',
+    path: '/$tab',
+    getParentRoute: () => AuthenticatedMovimentacoesRoute,
+  } as any)
 const AuthenticatedPerfilHandleRoute =
   AuthenticatedPerfilHandleRouteImport.update({
     id: '/$handle',
     path: '/$handle',
     getParentRoute: () => AuthenticatedPerfilRoute,
   } as any)
+const AuthenticatedRankingsTabRoute =
+  AuthenticatedRankingsTabRouteImport.update({
+    id: '/$tab',
+    path: '/$tab',
+    getParentRoute: () => AuthenticatedRankingsRoute,
+  } as any)
+const AuthenticatedTicketsTabRoute = AuthenticatedTicketsTabRouteImport.update({
+  id: '/$tab',
+  path: '/$tab',
+  getParentRoute: () => AuthenticatedTicketsRoute,
+} as any)
+const AuthenticatedDevConfiguracaoTabRoute =
+  AuthenticatedDevConfiguracaoTabRouteImport.update({
+    id: '/$tab',
+    path: '/$tab',
+    getParentRoute: () => AuthenticatedDevConfiguracaoRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/atualizacoes': typeof AuthenticatedAtualizacoesRoute
-  '/ausencias': typeof AuthenticatedAusenciasRoute
+  '/ausencias': typeof AuthenticatedAusenciasRouteWithChildren
   '/avisos': typeof AuthenticatedAvisosRoute
   '/baus': typeof AuthenticatedBausRoute
   '/cargos': typeof AuthenticatedCargosRoute
   '/categorias': typeof AuthenticatedCategoriasRoute
   '/chat': typeof AuthenticatedChatRoute
-  '/configuracoes': typeof AuthenticatedConfiguracoesRoute
+  '/configuracoes': typeof AuthenticatedConfiguracoesRouteWithChildren
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/desempenho': typeof AuthenticatedDesempenhoRoute
   '/estoque': typeof AuthenticatedEstoqueRoute
   '/fundo-caixa': typeof AuthenticatedFundoCaixaRoute
-  '/hierarquia': typeof AuthenticatedHierarquiaRoute
+  '/hierarquia': typeof AuthenticatedHierarquiaRouteWithChildren
   '/logs': typeof AuthenticatedLogsRoute
   '/membros': typeof AuthenticatedMembrosRoute
-  '/metas': typeof AuthenticatedMetasRoute
-  '/movimentacoes': typeof AuthenticatedMovimentacoesRoute
+  '/metas': typeof AuthenticatedMetasRouteWithChildren
+  '/movimentacoes': typeof AuthenticatedMovimentacoesRouteWithChildren
   '/perfil': typeof AuthenticatedPerfilRouteWithChildren
   '/permissoes': typeof AuthenticatedPermissoesRoute
   '/produtos': typeof AuthenticatedProdutosRoute
-  '/rankings': typeof AuthenticatedRankingsRoute
-  '/tickets': typeof AuthenticatedTicketsRoute
+  '/rankings': typeof AuthenticatedRankingsRouteWithChildren
+  '/tickets': typeof AuthenticatedTicketsRouteWithChildren
   '/vendas': typeof AuthenticatedVendasRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/dev/$discordId': typeof DevDiscordIdRoute
-  '/dev/configuracao': typeof AuthenticatedDevConfiguracaoRoute
+  '/ausencias/$tab': typeof AuthenticatedAusenciasTabRoute
+  '/configuracoes/$tab': typeof AuthenticatedConfiguracoesTabRoute
+  '/dev/configuracao': typeof AuthenticatedDevConfiguracaoRouteWithChildren
   '/dev/desempenho': typeof AuthenticatedDevDesempenhoRoute
   '/dev/menu-lateral': typeof AuthenticatedDevMenuLateralRoute
   '/dev/patch-notes': typeof AuthenticatedDevPatchNotesRoute
   '/dev/permissoes': typeof AuthenticatedDevPermissoesRoute
+  '/hierarquia/$tab': typeof AuthenticatedHierarquiaTabRoute
+  '/metas/$tab': typeof AuthenticatedMetasTabRoute
+  '/movimentacoes/$tab': typeof AuthenticatedMovimentacoesTabRoute
   '/perfil/$handle': typeof AuthenticatedPerfilHandleRoute
+  '/rankings/$tab': typeof AuthenticatedRankingsTabRoute
+  '/tickets/$tab': typeof AuthenticatedTicketsTabRoute
   '/dev/': typeof AuthenticatedDevIndexRoute
+  '/dev/configuracao/$tab': typeof AuthenticatedDevConfiguracaoTabRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/atualizacoes': typeof AuthenticatedAtualizacoesRoute
-  '/ausencias': typeof AuthenticatedAusenciasRoute
+  '/ausencias': typeof AuthenticatedAusenciasRouteWithChildren
   '/avisos': typeof AuthenticatedAvisosRoute
   '/baus': typeof AuthenticatedBausRoute
   '/cargos': typeof AuthenticatedCargosRoute
   '/categorias': typeof AuthenticatedCategoriasRoute
   '/chat': typeof AuthenticatedChatRoute
-  '/configuracoes': typeof AuthenticatedConfiguracoesRoute
+  '/configuracoes': typeof AuthenticatedConfiguracoesRouteWithChildren
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/desempenho': typeof AuthenticatedDesempenhoRoute
   '/estoque': typeof AuthenticatedEstoqueRoute
   '/fundo-caixa': typeof AuthenticatedFundoCaixaRoute
-  '/hierarquia': typeof AuthenticatedHierarquiaRoute
+  '/hierarquia': typeof AuthenticatedHierarquiaRouteWithChildren
   '/logs': typeof AuthenticatedLogsRoute
   '/membros': typeof AuthenticatedMembrosRoute
-  '/metas': typeof AuthenticatedMetasRoute
-  '/movimentacoes': typeof AuthenticatedMovimentacoesRoute
+  '/metas': typeof AuthenticatedMetasRouteWithChildren
+  '/movimentacoes': typeof AuthenticatedMovimentacoesRouteWithChildren
   '/perfil': typeof AuthenticatedPerfilRouteWithChildren
   '/permissoes': typeof AuthenticatedPermissoesRoute
   '/produtos': typeof AuthenticatedProdutosRoute
-  '/rankings': typeof AuthenticatedRankingsRoute
-  '/tickets': typeof AuthenticatedTicketsRoute
+  '/rankings': typeof AuthenticatedRankingsRouteWithChildren
+  '/tickets': typeof AuthenticatedTicketsRouteWithChildren
   '/vendas': typeof AuthenticatedVendasRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/dev/$discordId': typeof DevDiscordIdRoute
-  '/dev/configuracao': typeof AuthenticatedDevConfiguracaoRoute
+  '/ausencias/$tab': typeof AuthenticatedAusenciasTabRoute
+  '/configuracoes/$tab': typeof AuthenticatedConfiguracoesTabRoute
+  '/dev/configuracao': typeof AuthenticatedDevConfiguracaoRouteWithChildren
   '/dev/desempenho': typeof AuthenticatedDevDesempenhoRoute
   '/dev/menu-lateral': typeof AuthenticatedDevMenuLateralRoute
   '/dev/patch-notes': typeof AuthenticatedDevPatchNotesRoute
   '/dev/permissoes': typeof AuthenticatedDevPermissoesRoute
+  '/hierarquia/$tab': typeof AuthenticatedHierarquiaTabRoute
+  '/metas/$tab': typeof AuthenticatedMetasTabRoute
+  '/movimentacoes/$tab': typeof AuthenticatedMovimentacoesTabRoute
   '/perfil/$handle': typeof AuthenticatedPerfilHandleRoute
+  '/rankings/$tab': typeof AuthenticatedRankingsTabRoute
+  '/tickets/$tab': typeof AuthenticatedTicketsTabRoute
   '/dev': typeof AuthenticatedDevIndexRoute
+  '/dev/configuracao/$tab': typeof AuthenticatedDevConfiguracaoTabRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/_authenticated/atualizacoes': typeof AuthenticatedAtualizacoesRoute
-  '/_authenticated/ausencias': typeof AuthenticatedAusenciasRoute
+  '/_authenticated/ausencias': typeof AuthenticatedAusenciasRouteWithChildren
   '/_authenticated/avisos': typeof AuthenticatedAvisosRoute
   '/_authenticated/baus': typeof AuthenticatedBausRoute
   '/_authenticated/cargos': typeof AuthenticatedCargosRoute
   '/_authenticated/categorias': typeof AuthenticatedCategoriasRoute
   '/_authenticated/chat': typeof AuthenticatedChatRoute
-  '/_authenticated/configuracoes': typeof AuthenticatedConfiguracoesRoute
+  '/_authenticated/configuracoes': typeof AuthenticatedConfiguracoesRouteWithChildren
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/_authenticated/desempenho': typeof AuthenticatedDesempenhoRoute
   '/_authenticated/estoque': typeof AuthenticatedEstoqueRoute
   '/_authenticated/fundo-caixa': typeof AuthenticatedFundoCaixaRoute
-  '/_authenticated/hierarquia': typeof AuthenticatedHierarquiaRoute
+  '/_authenticated/hierarquia': typeof AuthenticatedHierarquiaRouteWithChildren
   '/_authenticated/logs': typeof AuthenticatedLogsRoute
   '/_authenticated/membros': typeof AuthenticatedMembrosRoute
-  '/_authenticated/metas': typeof AuthenticatedMetasRoute
-  '/_authenticated/movimentacoes': typeof AuthenticatedMovimentacoesRoute
+  '/_authenticated/metas': typeof AuthenticatedMetasRouteWithChildren
+  '/_authenticated/movimentacoes': typeof AuthenticatedMovimentacoesRouteWithChildren
   '/_authenticated/perfil': typeof AuthenticatedPerfilRouteWithChildren
   '/_authenticated/permissoes': typeof AuthenticatedPermissoesRoute
   '/_authenticated/produtos': typeof AuthenticatedProdutosRoute
-  '/_authenticated/rankings': typeof AuthenticatedRankingsRoute
-  '/_authenticated/tickets': typeof AuthenticatedTicketsRoute
+  '/_authenticated/rankings': typeof AuthenticatedRankingsRouteWithChildren
+  '/_authenticated/tickets': typeof AuthenticatedTicketsRouteWithChildren
   '/_authenticated/vendas': typeof AuthenticatedVendasRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/dev/$discordId': typeof DevDiscordIdRoute
-  '/_authenticated/dev/configuracao': typeof AuthenticatedDevConfiguracaoRoute
+  '/_authenticated/ausencias/$tab': typeof AuthenticatedAusenciasTabRoute
+  '/_authenticated/configuracoes/$tab': typeof AuthenticatedConfiguracoesTabRoute
+  '/_authenticated/dev/configuracao': typeof AuthenticatedDevConfiguracaoRouteWithChildren
   '/_authenticated/dev/desempenho': typeof AuthenticatedDevDesempenhoRoute
   '/_authenticated/dev/menu-lateral': typeof AuthenticatedDevMenuLateralRoute
   '/_authenticated/dev/patch-notes': typeof AuthenticatedDevPatchNotesRoute
   '/_authenticated/dev/permissoes': typeof AuthenticatedDevPermissoesRoute
+  '/_authenticated/hierarquia/$tab': typeof AuthenticatedHierarquiaTabRoute
+  '/_authenticated/metas/$tab': typeof AuthenticatedMetasTabRoute
+  '/_authenticated/movimentacoes/$tab': typeof AuthenticatedMovimentacoesTabRoute
   '/_authenticated/perfil/$handle': typeof AuthenticatedPerfilHandleRoute
+  '/_authenticated/rankings/$tab': typeof AuthenticatedRankingsTabRoute
+  '/_authenticated/tickets/$tab': typeof AuthenticatedTicketsTabRoute
   '/_authenticated/dev/': typeof AuthenticatedDevIndexRoute
+  '/_authenticated/dev/configuracao/$tab': typeof AuthenticatedDevConfiguracaoTabRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -359,13 +437,21 @@ export interface FileRouteTypes {
     | '/vendas'
     | '/auth/callback'
     | '/dev/$discordId'
+    | '/ausencias/$tab'
+    | '/configuracoes/$tab'
     | '/dev/configuracao'
     | '/dev/desempenho'
     | '/dev/menu-lateral'
     | '/dev/patch-notes'
     | '/dev/permissoes'
+    | '/hierarquia/$tab'
+    | '/metas/$tab'
+    | '/movimentacoes/$tab'
     | '/perfil/$handle'
+    | '/rankings/$tab'
+    | '/tickets/$tab'
     | '/dev/'
+    | '/dev/configuracao/$tab'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -394,13 +480,21 @@ export interface FileRouteTypes {
     | '/vendas'
     | '/auth/callback'
     | '/dev/$discordId'
+    | '/ausencias/$tab'
+    | '/configuracoes/$tab'
     | '/dev/configuracao'
     | '/dev/desempenho'
     | '/dev/menu-lateral'
     | '/dev/patch-notes'
     | '/dev/permissoes'
+    | '/hierarquia/$tab'
+    | '/metas/$tab'
+    | '/movimentacoes/$tab'
     | '/perfil/$handle'
+    | '/rankings/$tab'
+    | '/tickets/$tab'
     | '/dev'
+    | '/dev/configuracao/$tab'
   id:
     | '__root__'
     | '/'
@@ -430,13 +524,21 @@ export interface FileRouteTypes {
     | '/_authenticated/vendas'
     | '/auth/callback'
     | '/dev/$discordId'
+    | '/_authenticated/ausencias/$tab'
+    | '/_authenticated/configuracoes/$tab'
     | '/_authenticated/dev/configuracao'
     | '/_authenticated/dev/desempenho'
     | '/_authenticated/dev/menu-lateral'
     | '/_authenticated/dev/patch-notes'
     | '/_authenticated/dev/permissoes'
+    | '/_authenticated/hierarquia/$tab'
+    | '/_authenticated/metas/$tab'
+    | '/_authenticated/movimentacoes/$tab'
     | '/_authenticated/perfil/$handle'
+    | '/_authenticated/rankings/$tab'
+    | '/_authenticated/tickets/$tab'
     | '/_authenticated/dev/'
+    | '/_authenticated/dev/configuracao/$tab'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -637,6 +739,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DevDiscordIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_authenticated/ausencias/$tab': {
+      id: '/_authenticated/ausencias/$tab'
+      path: '/$tab'
+      fullPath: '/ausencias/$tab'
+      preLoaderRoute: typeof AuthenticatedAusenciasTabRouteImport
+      parentRoute: typeof AuthenticatedAusenciasRoute
+    }
+    '/_authenticated/configuracoes/$tab': {
+      id: '/_authenticated/configuracoes/$tab'
+      path: '/$tab'
+      fullPath: '/configuracoes/$tab'
+      preLoaderRoute: typeof AuthenticatedConfiguracoesTabRouteImport
+      parentRoute: typeof AuthenticatedConfiguracoesRoute
+    }
     '/_authenticated/dev/': {
       id: '/_authenticated/dev/'
       path: '/dev'
@@ -679,6 +795,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedDevPermissoesRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/hierarquia/$tab': {
+      id: '/_authenticated/hierarquia/$tab'
+      path: '/$tab'
+      fullPath: '/hierarquia/$tab'
+      preLoaderRoute: typeof AuthenticatedHierarquiaTabRouteImport
+      parentRoute: typeof AuthenticatedHierarquiaRoute
+    }
+    '/_authenticated/metas/$tab': {
+      id: '/_authenticated/metas/$tab'
+      path: '/$tab'
+      fullPath: '/metas/$tab'
+      preLoaderRoute: typeof AuthenticatedMetasTabRouteImport
+      parentRoute: typeof AuthenticatedMetasRoute
+    }
+    '/_authenticated/movimentacoes/$tab': {
+      id: '/_authenticated/movimentacoes/$tab'
+      path: '/$tab'
+      fullPath: '/movimentacoes/$tab'
+      preLoaderRoute: typeof AuthenticatedMovimentacoesTabRouteImport
+      parentRoute: typeof AuthenticatedMovimentacoesRoute
+    }
     '/_authenticated/perfil/$handle': {
       id: '/_authenticated/perfil/$handle'
       path: '/$handle'
@@ -686,8 +823,96 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedPerfilHandleRouteImport
       parentRoute: typeof AuthenticatedPerfilRoute
     }
+    '/_authenticated/rankings/$tab': {
+      id: '/_authenticated/rankings/$tab'
+      path: '/$tab'
+      fullPath: '/rankings/$tab'
+      preLoaderRoute: typeof AuthenticatedRankingsTabRouteImport
+      parentRoute: typeof AuthenticatedRankingsRoute
+    }
+    '/_authenticated/tickets/$tab': {
+      id: '/_authenticated/tickets/$tab'
+      path: '/$tab'
+      fullPath: '/tickets/$tab'
+      preLoaderRoute: typeof AuthenticatedTicketsTabRouteImport
+      parentRoute: typeof AuthenticatedTicketsRoute
+    }
+    '/_authenticated/dev/configuracao/$tab': {
+      id: '/_authenticated/dev/configuracao/$tab'
+      path: '/$tab'
+      fullPath: '/dev/configuracao/$tab'
+      preLoaderRoute: typeof AuthenticatedDevConfiguracaoTabRouteImport
+      parentRoute: typeof AuthenticatedDevConfiguracaoRoute
+    }
   }
 }
+
+interface AuthenticatedAusenciasRouteChildren {
+  AuthenticatedAusenciasTabRoute: typeof AuthenticatedAusenciasTabRoute
+}
+
+const AuthenticatedAusenciasRouteChildren: AuthenticatedAusenciasRouteChildren =
+  {
+    AuthenticatedAusenciasTabRoute: AuthenticatedAusenciasTabRoute,
+  }
+
+const AuthenticatedAusenciasRouteWithChildren =
+  AuthenticatedAusenciasRoute._addFileChildren(
+    AuthenticatedAusenciasRouteChildren,
+  )
+
+interface AuthenticatedConfiguracoesRouteChildren {
+  AuthenticatedConfiguracoesTabRoute: typeof AuthenticatedConfiguracoesTabRoute
+}
+
+const AuthenticatedConfiguracoesRouteChildren: AuthenticatedConfiguracoesRouteChildren =
+  {
+    AuthenticatedConfiguracoesTabRoute: AuthenticatedConfiguracoesTabRoute,
+  }
+
+const AuthenticatedConfiguracoesRouteWithChildren =
+  AuthenticatedConfiguracoesRoute._addFileChildren(
+    AuthenticatedConfiguracoesRouteChildren,
+  )
+
+interface AuthenticatedHierarquiaRouteChildren {
+  AuthenticatedHierarquiaTabRoute: typeof AuthenticatedHierarquiaTabRoute
+}
+
+const AuthenticatedHierarquiaRouteChildren: AuthenticatedHierarquiaRouteChildren =
+  {
+    AuthenticatedHierarquiaTabRoute: AuthenticatedHierarquiaTabRoute,
+  }
+
+const AuthenticatedHierarquiaRouteWithChildren =
+  AuthenticatedHierarquiaRoute._addFileChildren(
+    AuthenticatedHierarquiaRouteChildren,
+  )
+
+interface AuthenticatedMetasRouteChildren {
+  AuthenticatedMetasTabRoute: typeof AuthenticatedMetasTabRoute
+}
+
+const AuthenticatedMetasRouteChildren: AuthenticatedMetasRouteChildren = {
+  AuthenticatedMetasTabRoute: AuthenticatedMetasTabRoute,
+}
+
+const AuthenticatedMetasRouteWithChildren =
+  AuthenticatedMetasRoute._addFileChildren(AuthenticatedMetasRouteChildren)
+
+interface AuthenticatedMovimentacoesRouteChildren {
+  AuthenticatedMovimentacoesTabRoute: typeof AuthenticatedMovimentacoesTabRoute
+}
+
+const AuthenticatedMovimentacoesRouteChildren: AuthenticatedMovimentacoesRouteChildren =
+  {
+    AuthenticatedMovimentacoesTabRoute: AuthenticatedMovimentacoesTabRoute,
+  }
+
+const AuthenticatedMovimentacoesRouteWithChildren =
+  AuthenticatedMovimentacoesRoute._addFileChildren(
+    AuthenticatedMovimentacoesRouteChildren,
+  )
 
 interface AuthenticatedPerfilRouteChildren {
   AuthenticatedPerfilHandleRoute: typeof AuthenticatedPerfilHandleRoute
@@ -700,31 +925,69 @@ const AuthenticatedPerfilRouteChildren: AuthenticatedPerfilRouteChildren = {
 const AuthenticatedPerfilRouteWithChildren =
   AuthenticatedPerfilRoute._addFileChildren(AuthenticatedPerfilRouteChildren)
 
+interface AuthenticatedRankingsRouteChildren {
+  AuthenticatedRankingsTabRoute: typeof AuthenticatedRankingsTabRoute
+}
+
+const AuthenticatedRankingsRouteChildren: AuthenticatedRankingsRouteChildren = {
+  AuthenticatedRankingsTabRoute: AuthenticatedRankingsTabRoute,
+}
+
+const AuthenticatedRankingsRouteWithChildren =
+  AuthenticatedRankingsRoute._addFileChildren(
+    AuthenticatedRankingsRouteChildren,
+  )
+
+interface AuthenticatedTicketsRouteChildren {
+  AuthenticatedTicketsTabRoute: typeof AuthenticatedTicketsTabRoute
+}
+
+const AuthenticatedTicketsRouteChildren: AuthenticatedTicketsRouteChildren = {
+  AuthenticatedTicketsTabRoute: AuthenticatedTicketsTabRoute,
+}
+
+const AuthenticatedTicketsRouteWithChildren =
+  AuthenticatedTicketsRoute._addFileChildren(AuthenticatedTicketsRouteChildren)
+
+interface AuthenticatedDevConfiguracaoRouteChildren {
+  AuthenticatedDevConfiguracaoTabRoute: typeof AuthenticatedDevConfiguracaoTabRoute
+}
+
+const AuthenticatedDevConfiguracaoRouteChildren: AuthenticatedDevConfiguracaoRouteChildren =
+  {
+    AuthenticatedDevConfiguracaoTabRoute: AuthenticatedDevConfiguracaoTabRoute,
+  }
+
+const AuthenticatedDevConfiguracaoRouteWithChildren =
+  AuthenticatedDevConfiguracaoRoute._addFileChildren(
+    AuthenticatedDevConfiguracaoRouteChildren,
+  )
+
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedAtualizacoesRoute: typeof AuthenticatedAtualizacoesRoute
-  AuthenticatedAusenciasRoute: typeof AuthenticatedAusenciasRoute
+  AuthenticatedAusenciasRoute: typeof AuthenticatedAusenciasRouteWithChildren
   AuthenticatedAvisosRoute: typeof AuthenticatedAvisosRoute
   AuthenticatedBausRoute: typeof AuthenticatedBausRoute
   AuthenticatedCargosRoute: typeof AuthenticatedCargosRoute
   AuthenticatedCategoriasRoute: typeof AuthenticatedCategoriasRoute
   AuthenticatedChatRoute: typeof AuthenticatedChatRoute
-  AuthenticatedConfiguracoesRoute: typeof AuthenticatedConfiguracoesRoute
+  AuthenticatedConfiguracoesRoute: typeof AuthenticatedConfiguracoesRouteWithChildren
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
   AuthenticatedDesempenhoRoute: typeof AuthenticatedDesempenhoRoute
   AuthenticatedEstoqueRoute: typeof AuthenticatedEstoqueRoute
   AuthenticatedFundoCaixaRoute: typeof AuthenticatedFundoCaixaRoute
-  AuthenticatedHierarquiaRoute: typeof AuthenticatedHierarquiaRoute
+  AuthenticatedHierarquiaRoute: typeof AuthenticatedHierarquiaRouteWithChildren
   AuthenticatedLogsRoute: typeof AuthenticatedLogsRoute
   AuthenticatedMembrosRoute: typeof AuthenticatedMembrosRoute
-  AuthenticatedMetasRoute: typeof AuthenticatedMetasRoute
-  AuthenticatedMovimentacoesRoute: typeof AuthenticatedMovimentacoesRoute
+  AuthenticatedMetasRoute: typeof AuthenticatedMetasRouteWithChildren
+  AuthenticatedMovimentacoesRoute: typeof AuthenticatedMovimentacoesRouteWithChildren
   AuthenticatedPerfilRoute: typeof AuthenticatedPerfilRouteWithChildren
   AuthenticatedPermissoesRoute: typeof AuthenticatedPermissoesRoute
   AuthenticatedProdutosRoute: typeof AuthenticatedProdutosRoute
-  AuthenticatedRankingsRoute: typeof AuthenticatedRankingsRoute
-  AuthenticatedTicketsRoute: typeof AuthenticatedTicketsRoute
+  AuthenticatedRankingsRoute: typeof AuthenticatedRankingsRouteWithChildren
+  AuthenticatedTicketsRoute: typeof AuthenticatedTicketsRouteWithChildren
   AuthenticatedVendasRoute: typeof AuthenticatedVendasRoute
-  AuthenticatedDevConfiguracaoRoute: typeof AuthenticatedDevConfiguracaoRoute
+  AuthenticatedDevConfiguracaoRoute: typeof AuthenticatedDevConfiguracaoRouteWithChildren
   AuthenticatedDevDesempenhoRoute: typeof AuthenticatedDevDesempenhoRoute
   AuthenticatedDevMenuLateralRoute: typeof AuthenticatedDevMenuLateralRoute
   AuthenticatedDevPatchNotesRoute: typeof AuthenticatedDevPatchNotesRoute
@@ -734,29 +997,30 @@ interface AuthenticatedRouteRouteChildren {
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedAtualizacoesRoute: AuthenticatedAtualizacoesRoute,
-  AuthenticatedAusenciasRoute: AuthenticatedAusenciasRoute,
+  AuthenticatedAusenciasRoute: AuthenticatedAusenciasRouteWithChildren,
   AuthenticatedAvisosRoute: AuthenticatedAvisosRoute,
   AuthenticatedBausRoute: AuthenticatedBausRoute,
   AuthenticatedCargosRoute: AuthenticatedCargosRoute,
   AuthenticatedCategoriasRoute: AuthenticatedCategoriasRoute,
   AuthenticatedChatRoute: AuthenticatedChatRoute,
-  AuthenticatedConfiguracoesRoute: AuthenticatedConfiguracoesRoute,
+  AuthenticatedConfiguracoesRoute: AuthenticatedConfiguracoesRouteWithChildren,
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
   AuthenticatedDesempenhoRoute: AuthenticatedDesempenhoRoute,
   AuthenticatedEstoqueRoute: AuthenticatedEstoqueRoute,
   AuthenticatedFundoCaixaRoute: AuthenticatedFundoCaixaRoute,
-  AuthenticatedHierarquiaRoute: AuthenticatedHierarquiaRoute,
+  AuthenticatedHierarquiaRoute: AuthenticatedHierarquiaRouteWithChildren,
   AuthenticatedLogsRoute: AuthenticatedLogsRoute,
   AuthenticatedMembrosRoute: AuthenticatedMembrosRoute,
-  AuthenticatedMetasRoute: AuthenticatedMetasRoute,
-  AuthenticatedMovimentacoesRoute: AuthenticatedMovimentacoesRoute,
+  AuthenticatedMetasRoute: AuthenticatedMetasRouteWithChildren,
+  AuthenticatedMovimentacoesRoute: AuthenticatedMovimentacoesRouteWithChildren,
   AuthenticatedPerfilRoute: AuthenticatedPerfilRouteWithChildren,
   AuthenticatedPermissoesRoute: AuthenticatedPermissoesRoute,
   AuthenticatedProdutosRoute: AuthenticatedProdutosRoute,
-  AuthenticatedRankingsRoute: AuthenticatedRankingsRoute,
-  AuthenticatedTicketsRoute: AuthenticatedTicketsRoute,
+  AuthenticatedRankingsRoute: AuthenticatedRankingsRouteWithChildren,
+  AuthenticatedTicketsRoute: AuthenticatedTicketsRouteWithChildren,
   AuthenticatedVendasRoute: AuthenticatedVendasRoute,
-  AuthenticatedDevConfiguracaoRoute: AuthenticatedDevConfiguracaoRoute,
+  AuthenticatedDevConfiguracaoRoute:
+    AuthenticatedDevConfiguracaoRouteWithChildren,
   AuthenticatedDevDesempenhoRoute: AuthenticatedDevDesempenhoRoute,
   AuthenticatedDevMenuLateralRoute: AuthenticatedDevMenuLateralRoute,
   AuthenticatedDevPatchNotesRoute: AuthenticatedDevPatchNotesRoute,

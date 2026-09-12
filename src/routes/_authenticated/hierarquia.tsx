@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Outlet, useChildMatches } from "@tanstack/react-router";
 import {
   Workflow,
   Users,
@@ -43,8 +43,16 @@ import { cn } from "@/lib/utils";
 import { dateOnly } from "@/lib/format";
 
 export const Route = createFileRoute("/_authenticated/hierarquia")({
-  component: HierarquiaPage,
+  component: HierarquiaWrapper,
 });
+
+function HierarquiaWrapper() {
+  const childMatches = useChildMatches();
+  if (childMatches.length > 0) {
+    return <Outlet />;
+  }
+  return <HierarquiaPage />;
+}
 
 type ViewMode = "tree" | "grid";
 
@@ -137,7 +145,7 @@ const RANK_TIERS: RankTierConfig[] = [
   },
 ];
 
-function HierarquiaPage() {
+export function HierarquiaPage() {
   const { hasPermission } = useAuth();
   const { data: members = [], isLoading: loadingMembers } = useMembers();
   const { data: sales = [] } = useSales();
