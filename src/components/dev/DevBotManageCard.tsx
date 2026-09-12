@@ -1418,28 +1418,27 @@ export function DevBotManageCard() {
         onClose={() => setIsCropModalOpen(false)}
         imageFile={cropFile}
         cropShape={cropTarget === "avatar" ? "round" : "rect"}
-        defaultAspectRatio={cropTarget === "avatar" ? 1 : 16 / 9}
+        defaultAspectRatio={undefined}
         allowedRatios={
           cropTarget === "banner"
             ? [
-                { label: "16:9 Panorâmico", ratio: 16 / 9 },
                 { label: "2.5:1 Banner Discord", ratio: 2.5 },
+                { label: "16:9 Panorâmico", ratio: 16 / 9 },
                 { label: "3:1 Ultrawide", ratio: 3 },
               ]
             : undefined
         }
         title={
           cropTarget === "avatar"
-            ? "Ajustar Foto de Avatar do Bot (1:1)"
+            ? "Ajustar Foto de Avatar do Bot"
             : "Ajustar Imagem do Banner do Bot"
         }
         description={
           cropTarget === "avatar"
-            ? "Arraste para reposicionar e use o slider ou scroll para dar zoom na foto circular do bot."
-            : "Arraste para reposicionar e use o slider ou scroll para dar zoom e enquadrar o banner do bot."
+            ? "A proporção é automática ou 1:1 circular. Arraste e dê zoom para posicionar a foto do bot."
+            : "A proporção se ajusta automaticamente à sua imagem. Use o zoom e arraste para enquadrar perfeitamente."
         }
         targetWidth={cropTarget === "avatar" ? 512 : 1280}
-        targetHeight={cropTarget === "avatar" ? 512 : 720}
         onCropSave={handleCropSave}
         isSaving={isCropSaving}
       />
