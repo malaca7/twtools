@@ -76,6 +76,7 @@ import {
   type DiscordWebhooksConfig,
   type PostMessagePayload,
 } from "@/services/webhookService";
+import { DiscohookPostModal } from "./DiscohookPostModal";
 import { cn } from "@/lib/utils";
 
 const COLOR_PRESETS = [
@@ -197,16 +198,10 @@ export function DevWebhooksConfigCard({ isCeoView }: DevWebhooksConfigCardProps 
   const [isUploadingBanner, setIsUploadingBanner] = useState(false);
   const bannerFileInputRef = useRef<HTMLInputElement | null>(null);
 
-  // Modal de Postagem Manual de Mensagem
+  // Modal de Postagem Manual de Mensagem (Estilo Discohook)
   const [isPostModalOpen, setIsPostModalOpen] = useState(false);
   const [targetWebhookForPost, setTargetWebhookForPost] = useState<DiscordWebhook | null>(null);
-  const [postTitle, setPostTitle] = useState("");
-  const [postDescription, setPostDescription] = useState("");
-  const [postImageUrl, setPostImageUrl] = useState("");
-  const [postMention, setPostMention] = useState("");
   const [isPosting, setIsPosting] = useState(false);
-  const [isUploadingPostImage, setIsUploadingPostImage] = useState(false);
-  const postImageInputRef = useRef<HTMLInputElement | null>(null);
 
   // Modal de Código / Como Usar
   const [isCodeModalOpen, setIsCodeModalOpen] = useState(false);
@@ -403,23 +398,6 @@ export function DevWebhooksConfigCard({ isCeoView }: DevWebhooksConfigCardProps 
     }
   };
 
-  // Upload de Imagem para Postagem de Mensagem
-  const handlePostImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    setIsUploadingPostImage(true);
-    try {
-      const publicUrl = await uploadWebhookAvatar(file);
-      setPostImageUrl(publicUrl);
-      toast.success("Imagem da postagem anexada com sucesso!");
-    } catch (err: any) {
-      toast.error(err.message || "Erro ao fazer upload da imagem.");
-    } finally {
-      setIsUploadingPostImage(false);
-      if (postImageInputRef.current) postImageInputRef.current.value = "";
-    }
-  };
 
   // Salvar no Modal com persistência direta e imediata no Supabase
   const handleSaveEditor = async () => {
@@ -606,44 +584,33 @@ export function DevWebhooksConfigCard({ isCeoView }: DevWebhooksConfigCardProps 
     }
   };
 
-  // Abrir Modal de Postagem
+  // Abrir Modal de Postagem (Estilo Discohook com Preview ao Vivo)
   const handleOpenPostModal = (wh: DiscordWebhook) => {
     if (!canSendMessage) {
       toast.error("Você não possui permissão para disparar mensagens via webhook.");
       return;
     }
     setTargetWebhookForPost(wh);
-    setPostTitle(wh.defaultTitle || "");
-    setPostDescription(wh.defaultDescription || "");
-    setPostImageUrl(wh.imageUrl || "");
-    setPostMention(wh.mentionRoles || "");
     setIsPostModalOpen(true);
   };
 
   // Enviar Postagem
-  const handleSendPost = async () => {
-    if (!targetWebhookForPost) return;
+  const handleSendPost = async (
+    payload: PostMessagePayload,
+    targetWebhook: DiscordWebhook
+  ): Promise<boolean> => {
+    if (!targetWebhook) return false;
 
     if (!canSendMessage) {
       toast.error("Você não possui permissão para disparar mensagens via webhook.");
-      return;
-    }
-
-    if (!postDescription.trim()) {
-      toast.error("Digite o texto ou conteúdo da mensagem.");
-      return;
+      return false;
     }
 
     setIsPosting(true);
     try {
       const res = await postMessageToWebhookChannel(
-        targetWebhookForPost,
-        {
-          title: postTitle.trim() || undefined,
-          description: postDescription.trim(),
-          imageUrl: postImageUrl.trim() || undefined,
-          mention: postMention.trim() || undefined,
-        },
+        targetWebhook,
+        payload,
         profile?.nome || user?.email || "Usuário",
         user,
         profile,
@@ -652,7 +619,6 @@ export function DevWebhooksConfigCard({ isCeoView }: DevWebhooksConfigCardProps 
 
       if (res.success) {
         toast.success(res.message);
-        setIsPostModalOpen(false);
       } else {
         toast.error(res.message);
       }
@@ -661,7 +627,7 @@ export function DevWebhooksConfigCard({ isCeoView }: DevWebhooksConfigCardProps 
       setConfig((prev) => ({
         ...prev,
         webhooks: prev.webhooks.map((w) =>
-          w.id === targetWebhookForPost.id
+          w.id === targetWebhook.id
             ? {
                 ...w,
                 lastTriggeredAt: new Date().toISOString(),
@@ -671,8 +637,11 @@ export function DevWebhooksConfigCard({ isCeoView }: DevWebhooksConfigCardProps 
             : w
         ),
       }));
+
+      return res.success;
     } catch (err: any) {
       toast.error("Erro ao enviar mensagem: " + (err?.message || err));
+      return false;
     } finally {
       setIsPosting(false);
     }
@@ -719,6 +688,19 @@ export function DevWebhooksConfigCard({ isCeoView }: DevWebhooksConfigCardProps 
             >
               {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
               Salvar Alterações
+            </Button>
+          )}
+
+          {canSendMessage && config.webhooks.length > 0 && (
+            <Button
+              onClick={() => {
+                const firstEnabled = config.webhooks.find((w) => w.enabled) || config.webhooks[0];
+                if (firstEnabled) handleOpenPostModal(firstEnabled);
+              }}
+              className="bg-violet-600 hover:bg-violet-500 text-white font-bold text-xs gap-1.5 shadow-md shadow-violet-950/40"
+            >
+              <MessageSquarePlus className="h-3.5 w-3.5" />
+              Nova Postagem
             </Button>
           )}
 
@@ -987,16 +969,17 @@ export function DevWebhooksConfigCard({ isCeoView }: DevWebhooksConfigCardProps 
                 <CardFooter className="pt-2 border-t border-border/40 flex items-center justify-between gap-2 flex-wrap">
                   {/* Botões de Ação Direta */}
                   <div className="flex items-center gap-1.5 flex-wrap">
-                    {/* Botão Postar Mensagem */}
+                    {/* Botão Nova Postagem */}
                     {canSendMessage && (
                       <Button
                         size="sm"
                         onClick={() => handleOpenPostModal(wh)}
                         disabled={!wh.enabled}
                         className="bg-violet-600 hover:bg-violet-500 text-white font-bold text-xs gap-1.5 h-8 shadow-sm"
+                        title="Criar nova postagem com editor rico e preview em tempo real"
                       >
                         <MessageSquarePlus className="h-3.5 w-3.5" />
-                        Postar Mensagem
+                        Nova Postagem
                       </Button>
                     )}
 
@@ -1854,130 +1837,18 @@ export function DevWebhooksConfigCard({ isCeoView }: DevWebhooksConfigCardProps 
       </Dialog>
 
       {/* ========================================================================= */}
-      {/* MODAL: POSTAR MENSAGEM NO CANAL */}
+      {/* MODAL DISCOHOOK: NOVA POSTAGEM COM PREVIEW EM TEMPO REAL */}
       {/* ========================================================================= */}
-      <Dialog open={isPostModalOpen} onOpenChange={setIsPostModalOpen}>
-        <DialogContent className="max-w-xl bg-zinc-950 border-zinc-800 text-foreground">
-          <DialogHeader>
-            <DialogTitle className="text-base font-black flex items-center gap-2">
-              <MessageSquarePlus className="h-5 w-5 text-violet-400" />
-              Postar Mensagem no Canal Discord
-            </DialogTitle>
-            <DialogDescription className="text-xs text-muted-foreground">
-              Envie um comunicado, mensagem ou print formatado para o canal{" "}
-              <strong>ID: {targetWebhookForPost?.channelId}</strong>.
-            </DialogDescription>
-          </DialogHeader>
+      <DiscohookPostModal
+        open={isPostModalOpen}
+        onOpenChange={setIsPostModalOpen}
+        webhook={targetWebhookForPost}
+        allWebhooks={config.webhooks.filter((w) => w.enabled)}
+        onSelectWebhook={setTargetWebhookForPost}
+        onSend={handleSendPost}
+        isPosting={isPosting}
+      />
 
-          <div className="space-y-4 py-2">
-            {/* Título opcional */}
-            <div className="space-y-1.5">
-              <Label className="text-xs font-bold">Título da Mensagem (Opcional)</Label>
-              <Input
-                value={postTitle}
-                onChange={(e) => setPostTitle(e.target.value)}
-                placeholder="Ex: COMUNICADO IMPORTANTE DA DIRETORIA"
-                className="bg-zinc-900 border-zinc-800 text-xs font-bold"
-              />
-            </div>
-
-            {/* Conteúdo / Texto */}
-            <div className="space-y-1.5">
-              <Label className="text-xs font-bold">
-                Conteúdo da Mensagem <span className="text-rose-400">*</span>
-              </Label>
-              <Textarea
-                rows={4}
-                value={postDescription}
-                onChange={(e) => setPostDescription(e.target.value)}
-                placeholder="Digite a mensagem ou aviso que deseja enviar ao canal..."
-                className="bg-zinc-900 border-zinc-800 text-xs leading-relaxed"
-              />
-            </div>
-
-            {/* Upload de Imagem para a Postagem */}
-            <div className="space-y-1.5">
-              <Label className="text-xs font-bold">Imagem ou Print Anexo (Opcional)</Label>
-              <div className="flex items-center gap-2">
-                <Input
-                  value={postImageUrl}
-                  onChange={(e) => setPostImageUrl(e.target.value)}
-                  placeholder="URL da imagem ou faça o upload ao lado..."
-                  className="bg-zinc-900 border-zinc-800 text-xs font-mono"
-                />
-                <input
-                  type="file"
-                  ref={postImageInputRef}
-                  accept="image/*"
-                  onChange={handlePostImageUpload}
-                  className="hidden"
-                />
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => postImageInputRef.current?.click()}
-                  disabled={isUploadingPostImage}
-                  className="bg-zinc-900 border-zinc-800 text-xs font-bold gap-1.5 shrink-0"
-                >
-                  {isUploadingPostImage ? (
-                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                  ) : (
-                    <Upload className="h-3.5 w-3.5" />
-                  )}
-                  Upload
-                </Button>
-              </div>
-              {postImageUrl && (
-                <div className="relative pt-2">
-                  <img
-                    src={postImageUrl}
-                    alt="Preview anexo"
-                    className="max-h-36 rounded-lg border border-border object-cover"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setPostImageUrl("")}
-                    className="absolute top-3 right-2 bg-black/70 hover:bg-black text-rose-400 text-xs px-2 py-0.5 rounded"
-                  >
-                    Remover
-                  </button>
-                </div>
-              )}
-            </div>
-
-            {/* Menção opcional */}
-            <div className="space-y-1.5">
-              <Label className="text-xs font-bold">Menção Especial (Opcional)</Label>
-              <Input
-                value={postMention}
-                onChange={(e) => setPostMention(e.target.value)}
-                placeholder="Ex: @everyone, @here ou ID de cargo <@&...>"
-                className="bg-zinc-900 border-zinc-800 text-xs font-mono"
-              />
-            </div>
-          </div>
-
-          <DialogFooter className="gap-2 sm:gap-0">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setIsPostModalOpen(false)}
-              className="bg-zinc-900 border-zinc-800 text-xs"
-            >
-              Cancelar
-            </Button>
-            <Button
-              type="button"
-              onClick={handleSendPost}
-              disabled={isPosting || !postDescription.trim()}
-              className="bg-violet-600 hover:bg-violet-500 text-white text-xs font-bold gap-1.5 shadow-lg shadow-violet-950/40"
-            >
-              {isPosting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
-              Enviar ao Discord
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
 
       {/* ========================================================================= */}
       {/* MODAL: COMO USAR ESTE WEBHOOK / INSTRUÇÕES PARA DESENVOLVEDORES */}
