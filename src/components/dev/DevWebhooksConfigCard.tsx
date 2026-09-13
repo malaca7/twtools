@@ -657,27 +657,26 @@ export function DevWebhooksConfigCard() {
         </div>
 
         <div className="flex items-center gap-2.5 flex-wrap">
-          {hasChanges && (
+          {canSaveConfig && hasChanges && (
             <Button
               onClick={handleSaveAll}
-              disabled={saving || !canSaveConfig}
+              disabled={saving}
               className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs gap-1.5 shadow-lg shadow-emerald-950/40"
-              title={!canSaveConfig ? "Sem permissão para salvar configurações globais" : undefined}
             >
               {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
               Salvar Alterações
             </Button>
           )}
 
-          <Button
-            onClick={handleCreateNew}
-            disabled={!canCreateWebhook}
-            className="bg-primary hover:bg-primary/90 text-primary-foreground font-bold text-xs gap-1.5 shadow-md"
-            title={!canCreateWebhook ? "Sem permissão para criar novos webhooks" : undefined}
-          >
-            <Plus className="h-3.5 w-3.5" />
-            Novo Webhook
-          </Button>
+          {canCreateWebhook && (
+            <Button
+              onClick={handleCreateNew}
+              className="bg-primary hover:bg-primary/90 text-primary-foreground font-bold text-xs gap-1.5 shadow-md"
+            >
+              <Plus className="h-3.5 w-3.5" />
+              Novo Webhook
+            </Button>
+          )}
         </div>
       </div>
 
@@ -692,15 +691,12 @@ export function DevWebhooksConfigCard() {
             <p className="text-xs text-muted-foreground max-w-sm">
               Crie seu primeiro webhook informando apenas o ID do Servidor e o ID do Canal do Discord para postar mensagens.
             </p>
-            <Button
-              onClick={handleCreateNew}
-              disabled={!canCreateWebhook}
-              className="text-xs font-bold gap-1.5 mt-2"
-              title={!canCreateWebhook ? "Sem permissão para criar novos webhooks" : undefined}
-            >
-              <Plus className="h-3.5 w-3.5" />
-              Criar Primeiro Webhook
-            </Button>
+            {canCreateWebhook && (
+              <Button onClick={handleCreateNew} className="text-xs font-bold gap-1.5 mt-2">
+                <Plus className="h-3.5 w-3.5" />
+                Criar Primeiro Webhook
+              </Button>
+            )}
           </div>
         </Card>
       ) : (
@@ -768,12 +764,25 @@ export function DevWebhooksConfigCard() {
 
                   {/* Switch Ativo / Pausado */}
                   <div className="flex items-center gap-2 shrink-0">
-                    <Switch
-                      checked={wh.enabled}
-                      disabled={!canToggleActive}
-                      onCheckedChange={(val) => handleToggle(wh.id, val)}
-                      title={!canToggleActive ? "Sem permissão para ativar/pausar webhooks" : wh.enabled ? "Webhook Ativo" : "Webhook Pausado"}
-                    />
+                    {canToggleActive ? (
+                      <Switch
+                        checked={wh.enabled}
+                        onCheckedChange={(val) => handleToggle(wh.id, val)}
+                        title={wh.enabled ? "Webhook Ativo" : "Webhook Pausado"}
+                      />
+                    ) : (
+                      <Badge
+                        variant="outline"
+                        className={cn(
+                          "text-[9px] font-mono py-0 px-1.5",
+                          wh.enabled
+                            ? "border-emerald-500/30 text-emerald-400 bg-emerald-500/10"
+                            : "border-zinc-700 text-zinc-400"
+                        )}
+                      >
+                        {wh.enabled ? "Ativo" : "Pausado"}
+                      </Badge>
+                    )}
                   </div>
                 </div>
               </CardHeader>
@@ -832,44 +841,42 @@ export function DevWebhooksConfigCard() {
                         Discohook • Oficial
                       </Badge>
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => handleCopyWebhookLink(wh)}
-                      disabled={!canCopyUrl}
-                      className={cn(
-                        "text-emerald-400 hover:text-emerald-300 flex items-center gap-1 font-bold text-[0.68rem] transition-colors",
-                        !canCopyUrl && "opacity-50 cursor-not-allowed"
-                      )}
-                      title={!canCopyUrl ? "Sem permissão para copiar link" : undefined}
-                    >
-                      {copiedId === wh.id ? (
-                        <>
-                          <Check className="h-3 w-3 text-emerald-400" />
-                          <span>Copiado!</span>
-                        </>
-                      ) : (
-                        <>
-                          <Copy className="h-3 w-3" />
-                          <span>Copiar Link</span>
-                        </>
-                      )}
-                    </button>
+                    {canCopyUrl && (
+                      <button
+                        type="button"
+                        onClick={() => handleCopyWebhookLink(wh)}
+                        className="text-emerald-400 hover:text-emerald-300 flex items-center gap-1 font-bold text-[0.68rem] transition-colors"
+                      >
+                        {copiedId === wh.id ? (
+                          <>
+                            <Check className="h-3 w-3 text-emerald-400" />
+                            <span>Copiado!</span>
+                          </>
+                        ) : (
+                          <>
+                            <Copy className="h-3 w-3" />
+                            <span>Copiar Link</span>
+                          </>
+                        )}
+                      </button>
+                    )}
                   </div>
 
                   <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-zinc-950 border border-zinc-800 text-[0.68rem] font-mono text-zinc-300">
                     <span className="truncate flex-1 select-all font-mono" title={getWebhookShareableUrl(wh)}>
                       {getWebhookShareableUrl(wh)}
                     </span>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => handleCopyWebhookLink(wh)}
-                      disabled={!canCopyUrl}
-                      className="h-6 px-1.5 text-[0.65rem] font-bold text-muted-foreground hover:text-foreground hover:bg-zinc-800 shrink-0"
-                      title={!canCopyUrl ? "Sem permissão para copiar link" : "Copiar link oficial do Discord"}
-                    >
-                      {copiedId === wh.id ? <Check className="h-3 w-3 text-emerald-400" /> : <Copy className="h-3 w-3" />}
-                    </Button>
+                    {canCopyUrl && (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => handleCopyWebhookLink(wh)}
+                        className="h-6 px-1.5 text-[0.65rem] font-bold text-muted-foreground hover:text-foreground hover:bg-zinc-800 shrink-0"
+                        title="Copiar link oficial do Discord"
+                      >
+                        {copiedId === wh.id ? <Check className="h-3 w-3 text-emerald-400" /> : <Copy className="h-3 w-3" />}
+                      </Button>
+                    )}
                     <a
                       href={getDiscohookUrl(wh)}
                       target="_blank"
@@ -924,100 +931,111 @@ export function DevWebhooksConfigCard() {
                 )}
               </CardContent>
 
-              <CardFooter className="pt-2 border-t border-border/40 flex items-center justify-between gap-2 flex-wrap">
-                {/* Botões de Ação Direta */}
-                <div className="flex items-center gap-1.5">
-                  {/* Botão Postar Mensagem */}
-                  <Button
-                    size="sm"
-                    onClick={() => handleOpenPostModal(wh)}
-                    disabled={!wh.enabled || !canSendMessage}
-                    className="bg-violet-600 hover:bg-violet-500 text-white font-bold text-xs gap-1.5 h-8 shadow-sm"
-                    title={!canSendMessage ? "Sem permissão para postar mensagens" : undefined}
-                  >
-                    <MessageSquarePlus className="h-3.5 w-3.5" />
-                    Postar Mensagem
-                  </Button>
-
-                  {/* Botão Copiar Link */}
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => handleCopyWebhookLink(wh)}
-                    disabled={!wh.enabled || !canCopyUrl}
-                    className="bg-zinc-900 border-zinc-800 text-xs font-bold gap-1.5 h-8 hover:bg-zinc-800 text-zinc-300 hover:text-white"
-                    title={!canCopyUrl ? "Sem permissão para copiar link" : "Copiar link deste webhook para compartilhar com outros membros"}
-                  >
-                    {copiedId === wh.id ? (
-                      <>
-                        <Check className="h-3.5 w-3.5 text-emerald-400" />
-                        <span className="text-emerald-400">Copiado</span>
-                      </>
-                    ) : (
-                      <>
-                        <Copy className="h-3.5 w-3.5 text-primary" />
-                        <span>Copiar Link</span>
-                      </>
+              {(canSendMessage || canCopyUrl || canTestWebhook || canViewCode || canEditWebhook || canDeleteWebhook) && (
+                <CardFooter className="pt-2 border-t border-border/40 flex items-center justify-between gap-2 flex-wrap">
+                  {/* Botões de Ação Direta */}
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    {/* Botão Postar Mensagem */}
+                    {canSendMessage && (
+                      <Button
+                        size="sm"
+                        onClick={() => handleOpenPostModal(wh)}
+                        disabled={!wh.enabled}
+                        className="bg-violet-600 hover:bg-violet-500 text-white font-bold text-xs gap-1.5 h-8 shadow-sm"
+                      >
+                        <MessageSquarePlus className="h-3.5 w-3.5" />
+                        Postar Mensagem
+                      </Button>
                     )}
-                  </Button>
 
-                  {/* Botão Testar */}
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => handleTest(wh)}
-                    disabled={testingId === wh.id || !wh.enabled || !canTestWebhook}
-                    className="bg-zinc-900 border-zinc-800 text-xs font-bold gap-1.5 h-8 hover:bg-zinc-800"
-                    title={!canTestWebhook ? "Sem permissão para testar envio de webhooks" : undefined}
-                  >
-                    {testingId === wh.id ? (
-                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                    ) : (
-                      <Send className="h-3.5 w-3.5" />
+                    {/* Botão Copiar Link */}
+                    {canCopyUrl && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleCopyWebhookLink(wh)}
+                        disabled={!wh.enabled}
+                        className="bg-zinc-900 border-zinc-800 text-xs font-bold gap-1.5 h-8 hover:bg-zinc-800 text-zinc-300 hover:text-white"
+                        title="Copiar link deste webhook para compartilhar com outros membros"
+                      >
+                        {copiedId === wh.id ? (
+                          <>
+                            <Check className="h-3.5 w-3.5 text-emerald-400" />
+                            <span className="text-emerald-400">Copiado</span>
+                          </>
+                        ) : (
+                          <>
+                            <Copy className="h-3.5 w-3.5 text-primary" />
+                            <span>Copiar Link</span>
+                          </>
+                        )}
+                      </Button>
                     )}
-                    Testar
-                  </Button>
 
-                  {/* Botão Como Usar / API */}
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    disabled={!canViewCode}
-                    onClick={() => {
-                      setCodeWebhook(wh);
-                      setIsCodeModalOpen(true);
-                    }}
-                    className="text-xs text-muted-foreground hover:text-foreground h-8 px-2"
-                    title={!canViewCode ? "Sem permissão para visualizar códigos de integração" : "Ver instrução de uso / código"}
-                  >
-                    <Code2 className="h-3.5 w-3.5" />
-                  </Button>
-                </div>
+                    {/* Botão Testar */}
+                    {canTestWebhook && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleTest(wh)}
+                        disabled={testingId === wh.id || !wh.enabled}
+                        className="bg-zinc-900 border-zinc-800 text-xs font-bold gap-1.5 h-8 hover:bg-zinc-800"
+                      >
+                        {testingId === wh.id ? (
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        ) : (
+                          <Send className="h-3.5 w-3.5" />
+                        )}
+                        Testar
+                      </Button>
+                    )}
 
-                {/* Botões de Edição e Exclusão */}
-                <div className="flex items-center gap-1">
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    disabled={!canEditWebhook}
-                    onClick={() => handleEdit(wh)}
-                    className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground"
-                    title={!canEditWebhook ? "Sem permissão para editar webhook" : "Editar webhook"}
-                  >
-                    <Edit3 className="h-3.5 w-3.5" />
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    disabled={!canDeleteWebhook}
-                    onClick={() => handleDelete(wh.id)}
-                    className="h-8 w-8 p-0 text-muted-foreground hover:text-rose-400"
-                    title={!canDeleteWebhook ? "Sem permissão para excluir webhook" : "Excluir webhook"}
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </Button>
-                </div>
-              </CardFooter>
+                    {/* Botão Como Usar / API */}
+                    {canViewCode && (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => {
+                          setCodeWebhook(wh);
+                          setIsCodeModalOpen(true);
+                        }}
+                        className="text-xs text-muted-foreground hover:text-foreground h-8 px-2"
+                        title="Ver instrução de uso / código"
+                      >
+                        <Code2 className="h-3.5 w-3.5" />
+                      </Button>
+                    )}
+                  </div>
+
+                  {/* Botões de Edição e Exclusão */}
+                  {(canEditWebhook || canDeleteWebhook) && (
+                    <div className="flex items-center gap-1">
+                      {canEditWebhook && (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => handleEdit(wh)}
+                          className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground"
+                          title="Editar webhook"
+                        >
+                          <Edit3 className="h-3.5 w-3.5" />
+                        </Button>
+                      )}
+                      {canDeleteWebhook && (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => handleDelete(wh.id)}
+                          className="h-8 w-8 p-0 text-muted-foreground hover:text-rose-400"
+                          title="Excluir webhook"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      )}
+                    </div>
+                  )}
+                </CardFooter>
+              )}
             </Card>
           ))}
         </div>
@@ -1931,19 +1949,16 @@ export function DevWebhooksConfigCard() {
                     <ExternalLink className="h-3.5 w-3.5 text-violet-400" />
                     Link Público / Compartilhável
                   </span>
-                  <button
-                    type="button"
-                    onClick={() => handleCopyWebhookLink(codeWebhook)}
-                    disabled={!canCopyUrl}
-                    className={cn(
-                      "text-xs text-violet-400 hover:text-violet-300 flex items-center gap-1 font-bold",
-                      !canCopyUrl && "opacity-50 cursor-not-allowed"
+                    {canCopyUrl && (
+                      <button
+                        type="button"
+                        onClick={() => handleCopyWebhookLink(codeWebhook)}
+                        className="text-xs text-violet-400 hover:text-violet-300 flex items-center gap-1 font-bold"
+                      >
+                        {copiedId === codeWebhook.id ? <Check className="h-3 w-3 text-emerald-400" /> : <Copy className="h-3 w-3" />}
+                        {copiedId === codeWebhook.id ? "Copiado!" : "Copiar Link"}
+                      </button>
                     )}
-                    title={!canCopyUrl ? "Sem permissão para copiar link" : undefined}
-                  >
-                    {copiedId === codeWebhook.id ? <Check className="h-3 w-3 text-emerald-400" /> : <Copy className="h-3 w-3" />}
-                    {copiedId === codeWebhook.id ? "Copiado!" : "Copiar Link"}
-                  </button>
                 </div>
                 <div className="flex items-center gap-2 p-2 rounded-lg bg-zinc-950 border border-zinc-800 text-[0.75rem] font-mono text-zinc-300">
                   <span className="truncate flex-1 select-all">{getWebhookShareableUrl(codeWebhook)}</span>
