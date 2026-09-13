@@ -481,6 +481,7 @@ export const DEFAULT_CEO_PERMISSIONS: string[] = [
   "bot_change_presence",
   "bot_restart",
   "bot_power_toggle",
+  "bot_invite",
   "manage_ceo_webhooks",
   "view_ceo_financials",
   "view_dashboard",

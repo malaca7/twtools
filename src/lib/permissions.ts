@@ -109,6 +109,7 @@ export type Permission =
   | "bot_change_presence"
   | "bot_restart"
   | "bot_power_toggle"
+  | "bot_invite"
   | "bot_manage_token"
   | "bot_view_intents"
   | "bot_change_intents"
@@ -195,6 +196,7 @@ export const ALL_PERMISSIONS: Permission[] = [
   "bot_change_presence",
   "bot_restart",
   "bot_power_toggle",
+  "bot_invite",
   "bot_manage_token",
   "bot_view_intents",
   "bot_change_intents",
@@ -269,6 +271,7 @@ const OFFICER: Permission[] = [
   "bot_change_presence",
   "bot_restart",
   "bot_power_toggle",
+  "bot_invite",
   "bot_manage_token",
   "bot_view_intents",
   "bot_change_intents",

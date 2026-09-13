@@ -600,8 +600,8 @@ export function DevBotManageCard({ isCeoView: isCeoViewProp }: DevBotManageCardP
 
   // Salvar Mensagem de Status
   const handleSaveStatus = async () => {
-    if (!hasPermission("bot_change_presence")) {
-      toast.error("Você não possui permissão para mudar a presença/status do bot.");
+    if (!hasPermission("bot_change_status")) {
+      toast.error("Você não possui permissão para mudar o status do bot.");
       return;
     }
     await handleUpdateConfig(
@@ -766,7 +766,7 @@ export function DevBotManageCard({ isCeoView: isCeoViewProp }: DevBotManageCardP
                         <span>Alterar nome do bot</span>
                       </DropdownMenuItem>
                     )}
-                    {hasPermission("bot_change_presence") && (
+                    {hasPermission("bot_change_status") && (
                       <DropdownMenuItem
                         onClick={() => {
                           setStatusTextInput(config.botStatusText || "by malaca");
@@ -780,7 +780,7 @@ export function DevBotManageCard({ isCeoView: isCeoViewProp }: DevBotManageCardP
                         <span>Definir mensagem de status</span>
                       </DropdownMenuItem>
                     )}
-                    {(hasPermission("bot_change_name") || hasPermission("bot_change_presence")) && (
+                    {(hasPermission("bot_change_name") || hasPermission("bot_change_status")) && (
                       <DropdownMenuSeparator className="bg-[#2b2d31]" />
                     )}
                     <DropdownMenuItem
@@ -858,7 +858,7 @@ export function DevBotManageCard({ isCeoView: isCeoViewProp }: DevBotManageCardP
                   {/* Status Bubble (Pill format matching Discord: 'by malaca') */}
                   <div
                     onClick={() => {
-                      if (!hasPermission("bot_change_presence")) return;
+                      if (!hasPermission("bot_change_status")) return;
                       setStatusTextInput(config.botStatusText || "by malaca");
                       setActivityTypeInput(config.botActivityType || "Playing");
                       setStreamingUrlInput(config.botStreamingUrl || "");
@@ -866,12 +866,12 @@ export function DevBotManageCard({ isCeoView: isCeoViewProp }: DevBotManageCardP
                     }}
                     className={cn(
                       "mb-0.5 px-2.5 py-1 rounded-2xl bg-[#232428] border border-[#313338] text-white text-[11px] font-semibold shadow-md flex items-center gap-1.5 select-none shrink-0 transition-all",
-                      hasPermission("bot_change_presence")
+                      hasPermission("bot_change_status")
                         ? "hover:bg-[#2b2d31] cursor-pointer hover:scale-105 active:scale-95 group"
                         : "opacity-80 cursor-default"
                     )}
                     title={
-                      hasPermission("bot_change_presence")
+                      hasPermission("bot_change_status")
                         ? "Clique para editar a mensagem de status"
                         : "Status do bot"
                     }
@@ -879,7 +879,7 @@ export function DevBotManageCard({ isCeoView: isCeoViewProp }: DevBotManageCardP
                     <span className="truncate max-w-[100px] sm:max-w-[120px]">
                       {config.botStatusText || "by malaca"}
                     </span>
-                    {hasPermission("bot_change_presence") && (
+                    {hasPermission("bot_change_status") && (
                       <Edit2 className="h-2.5 w-2.5 text-zinc-400 group-hover:text-white transition-colors" />
                     )}
                   </div>
@@ -1276,9 +1276,16 @@ export function DevBotManageCard({ isCeoView: isCeoViewProp }: DevBotManageCardP
 
                   {/* Convidar */}
                   <Button
-                    onClick={() => setIsInviteModalOpen(true)}
+                    onClick={() => {
+                      if (!hasPermission("bot_invite")) {
+                        toast.error("Você não possui permissão para convidar o bot.");
+                        return;
+                      }
+                      setIsInviteModalOpen(true);
+                    }}
+                    disabled={!hasPermission("bot_invite")}
                     size="sm"
-                    className="bg-[#5865F2] hover:bg-[#4752C4] text-white font-bold text-xs gap-1.5 shadow-md shadow-[#5865F2]/20 cursor-pointer h-8"
+                    className="bg-[#5865F2] hover:bg-[#4752C4] text-white font-bold text-xs gap-1.5 shadow-md shadow-[#5865F2]/20 cursor-pointer h-8 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <UserPlus className="h-3.5 w-3.5" />
                     Convidar
@@ -1333,9 +1340,12 @@ export function DevBotManageCard({ isCeoView: isCeoViewProp }: DevBotManageCardP
               <CardFooter className="pt-0">
                 <Button
                   type="button"
-                  disabled={!hasPermission("bot_change_presence")}
+                  disabled={!hasPermission("bot_change_status")}
                   onClick={() => {
-                    if (!hasPermission("bot_change_presence")) return;
+                    if (!hasPermission("bot_change_status")) {
+                      toast.error("Você não possui permissão para alterar o status do bot.");
+                      return;
+                    }
                     setStatusTextInput(config.botStatusText || "by malaca");
                     setActivityTypeInput(config.botActivityType || "Playing");
                     setStreamingUrlInput(config.botStreamingUrl || "");
@@ -1364,17 +1374,17 @@ export function DevBotManageCard({ isCeoView: isCeoViewProp }: DevBotManageCardP
                   {/* On-line */}
                   <button
                     type="button"
-                    disabled={!hasPermission("bot_change_status") || saving}
+                    disabled={!hasPermission("bot_change_presence") || saving}
                     onClick={() => {
-                      if (!hasPermission("bot_change_status")) {
-                        toast.error("Você não possui permissão para alterar o status do bot.");
+                      if (!hasPermission("bot_change_presence")) {
+                        toast.error("Você não possui permissão para alterar a presença do bot.");
                         return;
                       }
                       handleUpdateConfig({ botStatus: "online" }, "Presença alterada para On-line!");
                     }}
                     className={cn(
                       "flex items-center gap-2 p-2 rounded-xl border text-xs font-bold transition-all text-left",
-                      !hasPermission("bot_change_status") && "cursor-not-allowed opacity-60",
+                      !hasPermission("bot_change_presence") && "cursor-not-allowed opacity-60",
                       currentPresence === "online"
                         ? "bg-zinc-900 border-emerald-500/80 text-foreground ring-1 ring-emerald-500/50 shadow-xs"
                         : "bg-zinc-900/40 border-zinc-800 text-muted-foreground hover:bg-zinc-900 hover:text-foreground"
@@ -1387,17 +1397,17 @@ export function DevBotManageCard({ isCeoView: isCeoViewProp }: DevBotManageCardP
                   {/* Parado */}
                   <button
                     type="button"
-                    disabled={!hasPermission("bot_change_status") || saving}
+                    disabled={!hasPermission("bot_change_presence") || saving}
                     onClick={() => {
-                      if (!hasPermission("bot_change_status")) {
-                        toast.error("Você não possui permissão para alterar o status do bot.");
+                      if (!hasPermission("bot_change_presence")) {
+                        toast.error("Você não possui permissão para alterar a presença do bot.");
                         return;
                       }
                       handleUpdateConfig({ botStatus: "idle" }, "Presença alterada para Parado!");
                     }}
                     className={cn(
                       "flex items-center gap-2 p-2 rounded-xl border text-xs font-bold transition-all text-left",
-                      !hasPermission("bot_change_status") && "cursor-not-allowed opacity-60",
+                      !hasPermission("bot_change_presence") && "cursor-not-allowed opacity-60",
                       currentPresence === "idle"
                         ? "bg-zinc-900 border-amber-500/80 text-foreground ring-1 ring-amber-500/50 shadow-xs"
                         : "bg-zinc-900/40 border-zinc-800 text-muted-foreground hover:bg-zinc-900 hover:text-foreground"
@@ -1410,17 +1420,17 @@ export function DevBotManageCard({ isCeoView: isCeoViewProp }: DevBotManageCardP
                   {/* Não incomodar */}
                   <button
                     type="button"
-                    disabled={!hasPermission("bot_change_status") || saving}
+                    disabled={!hasPermission("bot_change_presence") || saving}
                     onClick={() => {
-                      if (!hasPermission("bot_change_status")) {
-                        toast.error("Você não possui permissão para alterar o status do bot.");
+                      if (!hasPermission("bot_change_presence")) {
+                        toast.error("Você não possui permissão para alterar a presença do bot.");
                         return;
                       }
                       handleUpdateConfig({ botStatus: "dnd" }, "Presença alterada para Não incomodar!");
                     }}
                     className={cn(
                       "flex items-center gap-2 p-2 rounded-xl border text-xs font-bold transition-all text-left",
-                      !hasPermission("bot_change_status") && "cursor-not-allowed opacity-60",
+                      !hasPermission("bot_change_presence") && "cursor-not-allowed opacity-60",
                       currentPresence === "dnd"
                         ? "bg-zinc-900 border-rose-500/80 text-foreground ring-1 ring-rose-500/50 shadow-xs"
                         : "bg-zinc-900/40 border-zinc-800 text-muted-foreground hover:bg-zinc-900 hover:text-foreground"
@@ -1433,17 +1443,17 @@ export function DevBotManageCard({ isCeoView: isCeoViewProp }: DevBotManageCardP
                   {/* Invisível */}
                   <button
                     type="button"
-                    disabled={!hasPermission("bot_change_status") || saving}
+                    disabled={!hasPermission("bot_change_presence") || saving}
                     onClick={() => {
-                      if (!hasPermission("bot_change_status")) {
-                        toast.error("Você não possui permissão para alterar o status do bot.");
+                      if (!hasPermission("bot_change_presence")) {
+                        toast.error("Você não possui permissão para alterar a presença do bot.");
                         return;
                       }
                       handleUpdateConfig({ botStatus: "invisible" }, "Presença alterada para Invisível!");
                     }}
                     className={cn(
                       "flex items-center gap-2 p-2 rounded-xl border text-xs font-bold transition-all text-left",
-                      !hasPermission("bot_change_status") && "cursor-not-allowed opacity-60",
+                      !hasPermission("bot_change_presence") && "cursor-not-allowed opacity-60",
                       currentPresence === "invisible"
                         ? "bg-zinc-900 border-zinc-500/80 text-foreground ring-1 ring-zinc-500/50 shadow-xs"
                         : "bg-zinc-900/40 border-zinc-800 text-muted-foreground hover:bg-zinc-900 hover:text-foreground"
@@ -2092,7 +2102,7 @@ export function DevBotManageCard({ isCeoView: isCeoViewProp }: DevBotManageCardP
             <div className="space-y-1.5">
               <Label className="text-xs font-bold">Tipo de Atividade</Label>
               <Select
-                disabled={!hasPermission("bot_change_presence")}
+                disabled={!hasPermission("bot_change_status")}
                 value={activityTypeInput}
                 onValueChange={(val: any) => setActivityTypeInput(val)}
               >
@@ -2119,7 +2129,7 @@ export function DevBotManageCard({ isCeoView: isCeoViewProp }: DevBotManageCardP
             <div className="space-y-1.5">
               <Label className="text-xs font-bold">Texto de Status</Label>
               <Input
-                disabled={!hasPermission("bot_change_presence")}
+                disabled={!hasPermission("bot_change_status")}
                 value={statusTextInput}
                 onChange={(e) => setStatusTextInput(e.target.value)}
                 placeholder="Ex: Twin Wheels • Logs em Tempo Real"
@@ -2135,7 +2145,7 @@ export function DevBotManageCard({ isCeoView: isCeoViewProp }: DevBotManageCardP
               <div className="space-y-1.5">
                 <Label className="text-xs font-bold">URL da Transmissão (Twitch / YouTube)</Label>
                 <Input
-                  disabled={!hasPermission("bot_change_presence")}
+                  disabled={!hasPermission("bot_change_status")}
                   value={streamingUrlInput}
                   onChange={(e) => setStreamingUrlInput(e.target.value)}
                   placeholder="https://www.twitch.tv/..."
@@ -2157,7 +2167,7 @@ export function DevBotManageCard({ isCeoView: isCeoViewProp }: DevBotManageCardP
             <Button
               type="button"
               onClick={handleSaveStatus}
-              disabled={!hasPermission("bot_change_presence")}
+              disabled={!hasPermission("bot_change_status")}
               className="bg-rose-700 hover:bg-rose-600 text-white text-xs font-bold shadow-lg shadow-rose-950/40 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Salvar Status
@@ -2208,22 +2218,26 @@ export function DevBotManageCard({ isCeoView: isCeoViewProp }: DevBotManageCardP
             <Button
               type="button"
               variant="outline"
+              disabled={!hasPermission("bot_invite")}
               onClick={() => {
+                if (!hasPermission("bot_invite")) return;
                 navigator.clipboard.writeText(generateBotInviteUrl(clientId, customPermissions));
                 toast.success("Link de convite copiado!");
               }}
-              className="bg-zinc-900 border-zinc-800 text-xs font-bold gap-1.5"
+              className="bg-zinc-900 border-zinc-800 text-xs font-bold gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <Copy className="h-3.5 w-3.5" />
               Copiar Link
             </Button>
             <Button
               type="button"
+              disabled={!hasPermission("bot_invite")}
               onClick={() => {
+                if (!hasPermission("bot_invite")) return;
                 window.open(generateBotInviteUrl(clientId, customPermissions), "_blank");
                 setIsInviteModalOpen(false);
               }}
-              className="bg-[#5865F2] hover:bg-[#4752C4] text-white text-xs font-bold gap-1.5"
+              className="bg-[#5865F2] hover:bg-[#4752C4] text-white text-xs font-bold gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <ExternalLink className="h-3.5 w-3.5" />
               Abrir no Navegador

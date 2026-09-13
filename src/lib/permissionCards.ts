@@ -741,10 +741,16 @@ export const PAGE_CARDS: PageCardConfig[] = [
         badge: "Acesso Base",
       },
       {
+        key: "bot_change_presence",
+        label: "Mudar Presença do Bot",
+        description: "Permite alterar a presença operacional do bot (On-line, Parado, Não Incomodar, Invisível).",
+        badge: "Presença",
+      },
+      {
         key: "bot_change_status",
         label: "Mudar Status do Bot",
-        description: "Permite alterar o status operacional do bot (Online, Ausente, Não Perturbe, Invisível).",
-        badge: "Status",
+        description: "Permite definir a mensagem de status e o tipo de atividade exibidos no perfil do bot.",
+        badge: "Status & Atividade",
       },
       {
         key: "bot_change_name",
@@ -765,12 +771,6 @@ export const PAGE_CARDS: PageCardConfig[] = [
         badge: "Visual / Banner",
       },
       {
-        key: "bot_change_presence",
-        label: "Mudar Presença do Bot",
-        description: "Permite alterar o tipo de atividade (Jogando, Transmitindo, Ouvindo, etc.) e a mensagem de status.",
-        badge: "Presença & Atividade",
-      },
-      {
         key: "bot_restart",
         label: "Reiniciar Bot",
         description: "Permite emitir o comando para reiniciar a aplicação do bot.",
@@ -781,6 +781,12 @@ export const PAGE_CARDS: PageCardConfig[] = [
         label: "Ligar / Desligar Bot",
         description: "Permite iniciar ou parar a instância do bot.",
         badge: "Ciclo de Vida",
+      },
+      {
+        key: "bot_invite",
+        label: "Convidar Bot",
+        description: "Permite abrir as opções de convite, gerar link OAuth2 e adicionar o bot ao servidor Discord.",
+        badge: "Convite / OAuth2",
       },
     ],
   },
