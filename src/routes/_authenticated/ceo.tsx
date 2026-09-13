@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, Outlet, useChildMatches, useLocation, useNavigate } from "@tanstack/react-router";
 import {
   Crown,
   LayoutDashboard,
@@ -26,7 +26,7 @@ import {
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { PageHeader } from "@/components/ui-kit";
 import { useAuth } from "@/hooks/useAuth";
 import { useMembers, useSales, useCashMovements } from "@/hooks/useData";
@@ -47,6 +47,10 @@ export const Route = createFileRoute("/_authenticated/ceo")({
 });
 
 function CeoPageWrapper() {
+  const childMatches = useChildMatches();
+  if (childMatches.length > 0) {
+    return <Outlet />;
+  }
   return (
     <CeoGuard>
       <CeoPageContent />
@@ -58,6 +62,8 @@ export type CeoTab = "dashboard" | "bot" | "webhooks" | "financas";
 export const VALID_CEO_TABS: readonly CeoTab[] = ["dashboard", "bot", "webhooks", "financas"] as const;
 
 export function CeoPageContent({ initialTab }: { initialTab?: string } = {}) {
+  const location = useLocation();
+  const navigate = useNavigate();
   const { user, profile, level, isDevUser, isCeoUser, hasPermission } = useAuth();
   const { data: members = [], isLoading: loadingMembers } = useMembers();
   const { data: sales = [], isLoading: loadingSales } = useSales();
@@ -88,56 +94,33 @@ export function CeoPageContent({ initialTab }: { initialTab?: string } = {}) {
     };
   }, [user, profile, level]);
 
-  // Leitura robusta da aba inicial vinda de prop, URL path (/ceo/bot) ou search (?tab=bot)
-  const readInitialTab = useCallback((): CeoTab => {
+  // Resolução 100% reativa da aba atual a partir de rota, params ou query
+  const activeTab = useMemo<CeoTab>(() => {
     if (initialTab && (VALID_CEO_TABS as readonly string[]).includes(initialTab)) {
       return initialTab as CeoTab;
     }
-    if (typeof window !== "undefined") {
-      const parts = window.location.pathname.split("/").filter(Boolean);
-      const lastPart = parts[parts.length - 1];
-      if ((VALID_CEO_TABS as readonly string[]).includes(lastPart)) {
-        return lastPart as CeoTab;
-      }
-      const q = new URLSearchParams(window.location.search).get("tab");
-      if (q && (VALID_CEO_TABS as readonly string[]).includes(q)) {
-        return q as CeoTab;
-      }
+    const pathParts = location.pathname.split("/").filter(Boolean);
+    const lastPart = pathParts[pathParts.length - 1];
+    if ((VALID_CEO_TABS as readonly string[]).includes(lastPart)) {
+      return lastPart as CeoTab;
+    }
+    const q = (location.search as any)?.tab;
+    if (q && (VALID_CEO_TABS as readonly string[]).includes(q)) {
+      return q as CeoTab;
     }
     return "dashboard";
-  }, [initialTab]);
+  }, [initialTab, location.pathname, location.search]);
 
-  const [activeTab, setActiveTabState] = useState<CeoTab>(readInitialTab);
-
-  // Sincroniza se a prop initialTab mudar (ex: navegação de rotas pelo router)
-  useEffect(() => {
-    if (initialTab && (VALID_CEO_TABS as readonly string[]).includes(initialTab)) {
-      setActiveTabState(initialTab as CeoTab);
-    }
-  }, [initialTab]);
-
-  // Listener para histórico do navegador (botão voltar/avançar)
-  useEffect(() => {
-    const handlePopState = () => {
-      setActiveTabState(readInitialTab());
-    };
-    window.addEventListener("popstate", handlePopState);
-    return () => window.removeEventListener("popstate", handlePopState);
-  }, [readInitialTab]);
-
-  // Troca de aba com atualização segura da URL
-  const setTab = useCallback((newTab: CeoTab) => {
-    setActiveTabState(newTab);
-    if (typeof window !== "undefined") {
-      const currentUrl = new URL(window.location.href);
-      if (currentUrl.pathname.startsWith("/ceo")) {
-        window.history.replaceState(null, "", `/ceo/${newTab}`);
-      } else {
-        currentUrl.searchParams.set("tab", newTab);
-        window.history.replaceState(null, "", currentUrl.toString());
-      }
-    }
-  }, []);
+  // Troca de aba com navegação reativa do TanStack Router
+  const setTab = useCallback(
+    (newTab: CeoTab) => {
+      navigate({
+        to: "/ceo/$tab",
+        params: { tab: newTab },
+      });
+    },
+    [navigate]
+  );
 
   // Métricas do Painel Executivo
   const totalSalesRevenue = useMemo(() => {
@@ -263,63 +246,8 @@ export function CeoPageContent({ initialTab }: { initialTab?: string } = {}) {
         </CardContent>
       </Card>
 
-      {/* TABS NAVEGÁVEIS DO PAINEL CEO (Visível em todas as telas com destaque executivo) */}
+      {/* CONTEÚDO DAS PÁGINAS DO PAINEL CEO (Acesso exclusivo pelo menu lateral) */}
       <Tabs value={activeTab} onValueChange={(val: any) => setTab(val)} className="space-y-6">
-        <TabsList className="flex bg-secondary/30 border border-amber-500/30 p-1.5 rounded-2xl flex-wrap h-auto gap-2 shadow-md shadow-black/20 backdrop-blur-md">
-          <TabsTrigger
-            value="dashboard"
-            className="text-xs font-bold gap-2 py-2.5 px-4 rounded-xl transition-all data-[state=active]:bg-gradient-to-r data-[state=active]:from-amber-600 data-[state=active]:to-yellow-500 data-[state=active]:text-black data-[state=active]:shadow-md data-[state=active]:shadow-amber-500/20"
-          >
-            <LayoutDashboard className="h-4 w-4" />
-            Visão Geral & Métricas
-          </TabsTrigger>
-
-          {canManageBot ? (
-            <TabsTrigger
-              value="bot"
-              className="text-xs font-bold gap-2 py-2.5 px-4 rounded-xl transition-all data-[state=active]:bg-gradient-to-r data-[state=active]:from-indigo-600 data-[state=active]:to-purple-600 data-[state=active]:text-white data-[state=active]:shadow-md data-[state=active]:shadow-indigo-500/20"
-            >
-              <Bot className="h-4 w-4" />
-              Gerenciar Bot
-              <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse ml-1" />
-            </TabsTrigger>
-          ) : (
-            <div className="flex items-center gap-1.5 px-3 py-2 text-xs text-muted-foreground opacity-50 cursor-not-allowed bg-secondary/20 rounded-xl border border-border/40">
-              <Lock className="h-3 w-3" />
-              Bot (Restrito)
-            </div>
-          )}
-
-          {canUseWebhooks ? (
-            <TabsTrigger
-              value="webhooks"
-              className="text-xs font-bold gap-2 py-2.5 px-4 rounded-xl transition-all data-[state=active]:bg-gradient-to-r data-[state=active]:from-violet-600 data-[state=active]:to-pink-600 data-[state=active]:text-white data-[state=active]:shadow-md data-[state=active]:shadow-violet-500/20"
-            >
-              <Webhook className="h-4 w-4" />
-              WebHook Discord
-            </TabsTrigger>
-          ) : (
-            <div className="flex items-center gap-1.5 px-3 py-2 text-xs text-muted-foreground opacity-50 cursor-not-allowed bg-secondary/20 rounded-xl border border-border/40">
-              <Lock className="h-3 w-3" />
-              Webhooks (Restrito)
-            </div>
-          )}
-
-          {canViewFinancials ? (
-            <TabsTrigger
-              value="financas"
-              className="text-xs font-bold gap-2 py-2.5 px-4 rounded-xl transition-all data-[state=active]:bg-gradient-to-r data-[state=active]:from-emerald-600 data-[state=active]:to-teal-600 data-[state=active]:text-white data-[state=active]:shadow-md data-[state=active]:shadow-emerald-500/20"
-            >
-              <Landmark className="h-4 w-4" />
-              Fundo de Caixa & Finanças
-            </TabsTrigger>
-          ) : (
-            <div className="flex items-center gap-1.5 px-3 py-2 text-xs text-muted-foreground opacity-50 cursor-not-allowed bg-secondary/20 rounded-xl border border-border/40">
-              <Lock className="h-3 w-3" />
-              Finanças (Restrito)
-            </div>
-          )}
-        </TabsList>
 
         {/* =====================================================================
             ABA 1: VISÃO GERAL & MÉTRICAS

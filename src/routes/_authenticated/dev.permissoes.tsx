@@ -167,13 +167,19 @@ function DevPermissoesContent() {
   }, [user?.id, level]);
 
   // Agrupa os cards de páginas dinamicamente seguindo a ordem do menu
-  const groupedPageCards = useMemo(() => {
+  const getGroupedPageCards = useCallback((tab: "dev" | "ceo") => {
     const validConfigItems = menuConfig?.items?.filter((c) => Boolean(c && (c.id || c.url))) || [];
     const configMap = new Map(validConfigItems.map((c) => [c.id || c.url, c]));
 
-    const categoryOrder = menuConfig?.categories?.length
+    const baseCategories = menuConfig?.categories?.length
       ? menuConfig.categories
       : ["Operação", "Gestão", "Administração"];
+
+    // Na aba da Tag CEO, a categoria "CEO" e as permissões do Painel CEO ficam no topo absoluto
+    const categoryOrder =
+      tab === "ceo"
+        ? ["CEO", ...baseCategories.filter((c) => c !== "CEO")]
+        : [...baseCategories.filter((c) => c !== "CEO"), "CEO"];
 
     const customized = PAGE_CARDS.map((card) => {
       const cfg = configMap.get(card.id);
@@ -211,6 +217,8 @@ function DevPermissoesContent() {
 
     return groups;
   }, [menuConfig]);
+
+  const groupedPageCards = useMemo(() => getGroupedPageCards(activeTab), [getGroupedPageCards, activeTab]);
 
   // Sincronização e autosave da Tag Dev
   const autoSaveDevTagPermissions = useCallback(

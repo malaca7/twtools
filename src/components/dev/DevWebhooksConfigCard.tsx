@@ -113,7 +113,18 @@ const SERVERS_PRESETS = [
 ];
 
 export function DevWebhooksConfigCard() {
-  const { user, profile, level } = useAuth();
+  const { user, profile, level, isDevUser, hasPermission } = useAuth();
+
+  // Permissões granulares para cada opção/função da página de Webhooks
+  const canSendMessage = isDevUser || hasPermission("webhook_send_message");
+  const canTestWebhook = isDevUser || hasPermission("webhook_test");
+  const canCreateWebhook = isDevUser || hasPermission("webhook_create");
+  const canEditWebhook = isDevUser || hasPermission("webhook_edit");
+  const canDeleteWebhook = isDevUser || hasPermission("webhook_delete");
+  const canToggleActive = isDevUser || hasPermission("webhook_toggle_active");
+  const canCopyUrl = isDevUser || hasPermission("webhook_copy_url");
+  const canViewCode = isDevUser || hasPermission("webhook_view_code");
+  const canSaveConfig = isDevUser || hasPermission("webhook_save_config");
 
   const [config, setConfig] = useState<DiscordWebhooksConfig>(DEFAULT_WEBHOOKS_CONFIG);
   const [initialConfig, setInitialConfig] = useState<DiscordWebhooksConfig>(DEFAULT_WEBHOOKS_CONFIG);
@@ -183,6 +194,10 @@ export function DevWebhooksConfigCard() {
 
   // Salvar tudo
   const handleSaveAll = async () => {
+    if (!canSaveConfig) {
+      toast.error("Você não possui permissão para salvar configurações globais de webhooks.");
+      return;
+    }
     setSaving(true);
     try {
       await saveDiscordWebhooksConfig(config, user, profile, level);
@@ -197,6 +212,10 @@ export function DevWebhooksConfigCard() {
 
   // Abrir Modal para Novo Webhook
   const handleCreateNew = () => {
+    if (!canCreateWebhook) {
+      toast.error("Você não possui permissão para criar novos webhooks.");
+      return;
+    }
     const newId = `webhook_${Date.now()}`;
     setEditingWebhook({
       id: newId,
@@ -230,6 +249,10 @@ export function DevWebhooksConfigCard() {
 
   // Abrir Modal de Edição
   const handleEdit = (wh: DiscordWebhook) => {
+    if (!canEditWebhook) {
+      toast.error("Você não possui permissão para editar webhooks.");
+      return;
+    }
     setEditingWebhook({
       ...wh,
       defaultTitle: wh.defaultTitle !== undefined ? wh.defaultTitle : "💻 Teste Desenvolvedor",
@@ -348,6 +371,15 @@ export function DevWebhooksConfigCard() {
   const handleSaveEditor = async () => {
     if (!editingWebhook) return;
 
+    if (isNew && !canCreateWebhook) {
+      toast.error("Você não possui permissão para criar webhooks.");
+      return;
+    }
+    if (!isNew && !canEditWebhook) {
+      toast.error("Você não possui permissão para editar webhooks.");
+      return;
+    }
+
     const trimmedName = editingWebhook.name.trim();
     if (!trimmedName) {
       toast.error("Informe um nome para identificar este webhook.");
@@ -423,6 +455,10 @@ export function DevWebhooksConfigCard() {
 
   // Excluir Webhook com persistência imediata
   const handleDelete = async (id: string) => {
+    if (!canDeleteWebhook) {
+      toast.error("Você não possui permissão para excluir webhooks.");
+      return;
+    }
     const filtered = config.webhooks.filter((w) => w.id !== id);
     const newConfig = { ...config, webhooks: filtered };
     try {
@@ -437,6 +473,10 @@ export function DevWebhooksConfigCard() {
 
   // Alternar Ativo/Pausado com persistência imediata
   const handleToggle = async (id: string, enabled: boolean) => {
+    if (!canToggleActive) {
+      toast.error("Você não possui permissão para ativar ou pausar webhooks.");
+      return;
+    }
     const updated = config.webhooks.map((w) => (w.id === id ? { ...w, enabled } : w));
     const newConfig = { ...config, webhooks: updated };
     try {
@@ -451,6 +491,10 @@ export function DevWebhooksConfigCard() {
 
   // Copiar Link Oficial do Webhook Discord (Compatível com Discohook & FiveM)
   const handleCopyWebhookLink = async (wh: DiscordWebhook) => {
+    if (!canCopyUrl) {
+      toast.error("Você não possui permissão para copiar links de webhooks.");
+      return;
+    }
     let url = getWebhookShareableUrl(wh);
     if (!isDiscordWebhookUrl(url)) {
       try {
@@ -475,6 +519,10 @@ export function DevWebhooksConfigCard() {
 
   // Testar Envio
   const handleTest = async (wh: DiscordWebhook) => {
+    if (!canTestWebhook) {
+      toast.error("Você não possui permissão para testar envio de webhooks.");
+      return;
+    }
     setTestingId(wh.id);
     try {
       const res = await testDiscordWebhookChannel(wh, profile?.nome || user?.email || "Desenvolvedor", user, profile, level);
@@ -506,6 +554,10 @@ export function DevWebhooksConfigCard() {
 
   // Abrir Modal de Postagem
   const handleOpenPostModal = (wh: DiscordWebhook) => {
+    if (!canSendMessage) {
+      toast.error("Você não possui permissão para disparar mensagens via webhook.");
+      return;
+    }
     setTargetWebhookForPost(wh);
     setPostTitle(wh.defaultTitle || "");
     setPostDescription(wh.defaultDescription || "");
@@ -517,6 +569,11 @@ export function DevWebhooksConfigCard() {
   // Enviar Postagem
   const handleSendPost = async () => {
     if (!targetWebhookForPost) return;
+
+    if (!canSendMessage) {
+      toast.error("Você não possui permissão para disparar mensagens via webhook.");
+      return;
+    }
 
     if (!postDescription.trim()) {
       toast.error("Digite o texto ou conteúdo da mensagem.");
@@ -603,8 +660,9 @@ export function DevWebhooksConfigCard() {
           {hasChanges && (
             <Button
               onClick={handleSaveAll}
-              disabled={saving}
+              disabled={saving || !canSaveConfig}
               className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs gap-1.5 shadow-lg shadow-emerald-950/40"
+              title={!canSaveConfig ? "Sem permissão para salvar configurações globais" : undefined}
             >
               {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
               Salvar Alterações
@@ -613,7 +671,9 @@ export function DevWebhooksConfigCard() {
 
           <Button
             onClick={handleCreateNew}
+            disabled={!canCreateWebhook}
             className="bg-primary hover:bg-primary/90 text-primary-foreground font-bold text-xs gap-1.5 shadow-md"
+            title={!canCreateWebhook ? "Sem permissão para criar novos webhooks" : undefined}
           >
             <Plus className="h-3.5 w-3.5" />
             Novo Webhook
@@ -632,7 +692,12 @@ export function DevWebhooksConfigCard() {
             <p className="text-xs text-muted-foreground max-w-sm">
               Crie seu primeiro webhook informando apenas o ID do Servidor e o ID do Canal do Discord para postar mensagens.
             </p>
-            <Button onClick={handleCreateNew} className="text-xs font-bold gap-1.5 mt-2">
+            <Button
+              onClick={handleCreateNew}
+              disabled={!canCreateWebhook}
+              className="text-xs font-bold gap-1.5 mt-2"
+              title={!canCreateWebhook ? "Sem permissão para criar novos webhooks" : undefined}
+            >
               <Plus className="h-3.5 w-3.5" />
               Criar Primeiro Webhook
             </Button>
@@ -705,8 +770,9 @@ export function DevWebhooksConfigCard() {
                   <div className="flex items-center gap-2 shrink-0">
                     <Switch
                       checked={wh.enabled}
+                      disabled={!canToggleActive}
                       onCheckedChange={(val) => handleToggle(wh.id, val)}
-                      title={wh.enabled ? "Webhook Ativo" : "Webhook Pausado"}
+                      title={!canToggleActive ? "Sem permissão para ativar/pausar webhooks" : wh.enabled ? "Webhook Ativo" : "Webhook Pausado"}
                     />
                   </div>
                 </div>
@@ -769,7 +835,12 @@ export function DevWebhooksConfigCard() {
                     <button
                       type="button"
                       onClick={() => handleCopyWebhookLink(wh)}
-                      className="text-emerald-400 hover:text-emerald-300 flex items-center gap-1 font-bold text-[0.68rem] transition-colors"
+                      disabled={!canCopyUrl}
+                      className={cn(
+                        "text-emerald-400 hover:text-emerald-300 flex items-center gap-1 font-bold text-[0.68rem] transition-colors",
+                        !canCopyUrl && "opacity-50 cursor-not-allowed"
+                      )}
+                      title={!canCopyUrl ? "Sem permissão para copiar link" : undefined}
                     >
                       {copiedId === wh.id ? (
                         <>
@@ -793,8 +864,9 @@ export function DevWebhooksConfigCard() {
                       size="sm"
                       variant="ghost"
                       onClick={() => handleCopyWebhookLink(wh)}
+                      disabled={!canCopyUrl}
                       className="h-6 px-1.5 text-[0.65rem] font-bold text-muted-foreground hover:text-foreground hover:bg-zinc-800 shrink-0"
-                      title="Copiar link oficial do Discord"
+                      title={!canCopyUrl ? "Sem permissão para copiar link" : "Copiar link oficial do Discord"}
                     >
                       {copiedId === wh.id ? <Check className="h-3 w-3 text-emerald-400" /> : <Copy className="h-3 w-3" />}
                     </Button>
@@ -859,8 +931,9 @@ export function DevWebhooksConfigCard() {
                   <Button
                     size="sm"
                     onClick={() => handleOpenPostModal(wh)}
-                    disabled={!wh.enabled}
+                    disabled={!wh.enabled || !canSendMessage}
                     className="bg-violet-600 hover:bg-violet-500 text-white font-bold text-xs gap-1.5 h-8 shadow-sm"
+                    title={!canSendMessage ? "Sem permissão para postar mensagens" : undefined}
                   >
                     <MessageSquarePlus className="h-3.5 w-3.5" />
                     Postar Mensagem
@@ -871,9 +944,9 @@ export function DevWebhooksConfigCard() {
                     size="sm"
                     variant="outline"
                     onClick={() => handleCopyWebhookLink(wh)}
-                    disabled={!wh.enabled}
+                    disabled={!wh.enabled || !canCopyUrl}
                     className="bg-zinc-900 border-zinc-800 text-xs font-bold gap-1.5 h-8 hover:bg-zinc-800 text-zinc-300 hover:text-white"
-                    title="Copiar link deste webhook para compartilhar com outros membros"
+                    title={!canCopyUrl ? "Sem permissão para copiar link" : "Copiar link deste webhook para compartilhar com outros membros"}
                   >
                     {copiedId === wh.id ? (
                       <>
@@ -893,8 +966,9 @@ export function DevWebhooksConfigCard() {
                     size="sm"
                     variant="outline"
                     onClick={() => handleTest(wh)}
-                    disabled={testingId === wh.id || !wh.enabled}
+                    disabled={testingId === wh.id || !wh.enabled || !canTestWebhook}
                     className="bg-zinc-900 border-zinc-800 text-xs font-bold gap-1.5 h-8 hover:bg-zinc-800"
+                    title={!canTestWebhook ? "Sem permissão para testar envio de webhooks" : undefined}
                   >
                     {testingId === wh.id ? (
                       <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -908,12 +982,13 @@ export function DevWebhooksConfigCard() {
                   <Button
                     size="sm"
                     variant="ghost"
+                    disabled={!canViewCode}
                     onClick={() => {
                       setCodeWebhook(wh);
                       setIsCodeModalOpen(true);
                     }}
                     className="text-xs text-muted-foreground hover:text-foreground h-8 px-2"
-                    title="Ver instrução de uso / código"
+                    title={!canViewCode ? "Sem permissão para visualizar códigos de integração" : "Ver instrução de uso / código"}
                   >
                     <Code2 className="h-3.5 w-3.5" />
                   </Button>
@@ -924,18 +999,20 @@ export function DevWebhooksConfigCard() {
                   <Button
                     size="sm"
                     variant="ghost"
+                    disabled={!canEditWebhook}
                     onClick={() => handleEdit(wh)}
                     className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground"
-                    title="Editar webhook"
+                    title={!canEditWebhook ? "Sem permissão para editar webhook" : "Editar webhook"}
                   >
                     <Edit3 className="h-3.5 w-3.5" />
                   </Button>
                   <Button
                     size="sm"
                     variant="ghost"
+                    disabled={!canDeleteWebhook}
                     onClick={() => handleDelete(wh.id)}
                     className="h-8 w-8 p-0 text-muted-foreground hover:text-rose-400"
-                    title="Excluir webhook"
+                    title={!canDeleteWebhook ? "Sem permissão para excluir webhook" : "Excluir webhook"}
                   >
                     <Trash2 className="h-3.5 w-3.5" />
                   </Button>
@@ -1857,7 +1934,12 @@ export function DevWebhooksConfigCard() {
                   <button
                     type="button"
                     onClick={() => handleCopyWebhookLink(codeWebhook)}
-                    className="text-xs text-violet-400 hover:text-violet-300 flex items-center gap-1 font-bold"
+                    disabled={!canCopyUrl}
+                    className={cn(
+                      "text-xs text-violet-400 hover:text-violet-300 flex items-center gap-1 font-bold",
+                      !canCopyUrl && "opacity-50 cursor-not-allowed"
+                    )}
+                    title={!canCopyUrl ? "Sem permissão para copiar link" : undefined}
                   >
                     {copiedId === codeWebhook.id ? <Check className="h-3 w-3 text-emerald-400" /> : <Copy className="h-3 w-3" />}
                     {copiedId === codeWebhook.id ? "Copiado!" : "Copiar Link"}

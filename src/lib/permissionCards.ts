@@ -23,6 +23,7 @@ import {
   Bell,
   Crown,
   Bot,
+  Webhook,
 } from "lucide-react";
 import type { Permission } from "@/lib/permissions";
 
@@ -787,6 +788,78 @@ export const PAGE_CARDS: PageCardConfig[] = [
         label: "Convidar Bot",
         description: "Permite abrir as opções de convite, gerar link OAuth2 e adicionar o bot ao servidor Discord.",
         badge: "Convite / OAuth2",
+      },
+    ],
+  },
+  {
+    id: "ceo-webhooks",
+    title: "WebHook Discord & Transmissões",
+    route: "/ceo/webhooks",
+    icon: Webhook,
+    description: "Gerenciamento de canais de webhooks, envio de transmissões ricas (embeds), testes, edição e integração com Discord.",
+    color: "border-violet-500/40 bg-violet-500/5 text-violet-400",
+    defaultCat: "CEO",
+    defaultOrder: 2,
+    permissions: [
+      {
+        key: "manage_ceo_webhooks",
+        label: "Acesso Geral à Página WebHook Discord (/ceo/webhooks)",
+        description: "Permite acessar a rota /ceo/webhooks e visualizar a listagem de canais e webhooks configurados.",
+        badge: "Acesso Base",
+      },
+      {
+        key: "webhook_send_message",
+        label: "Disparar Mensagens & Anúncios Embed",
+        description: "Permite abrir o modal de transmissão e enviar mensagens ricas com imagem, menções e formatação embed para os canais do Discord.",
+        badge: "Disparo de Mensagens",
+      },
+      {
+        key: "webhook_test",
+        label: "Testar Envio no Canal do Discord",
+        description: "Permite executar o teste rápido de conexão enviando uma notificação de verificação ao webhook.",
+        badge: "Teste de Conexão",
+      },
+      {
+        key: "webhook_create",
+        label: "Criar / Adicionar Novos Webhooks",
+        description: "Permite cadastrar novos canais de webhook, configurar URLs do Discord, avatar e presets de servidor.",
+        badge: "Criação",
+      },
+      {
+        key: "webhook_edit",
+        label: "Editar Configurações de Webhooks",
+        description: "Permite alterar nome, apelido, avatar, thumbnail, banner e canal de webhooks existentes.",
+        badge: "Edição",
+      },
+      {
+        key: "webhook_delete",
+        label: "Excluir Webhooks do Sistema",
+        description: "Permite remover permanentemente webhooks e canais cadastrados da lista.",
+        badge: "Exclusão",
+      },
+      {
+        key: "webhook_toggle_active",
+        label: "Ativar / Pausar Webhook",
+        description: "Permite alternar o status operacional do webhook (ativado ou em pausa).",
+        badge: "Status Operacional",
+      },
+      {
+        key: "webhook_copy_url",
+        label: "Copiar Link Oficial do Webhook",
+        description: "Permite copiar a URL oficial do webhook compatível com Discohook, FiveM e scripts externos.",
+        badge: "Compartilhamento",
+      },
+      {
+        key: "webhook_view_code",
+        label: "Visualizar Códigos de Integração",
+        description: "Permite abrir o modal 'Como Usar' e inspecionar os snippets de integração em cURL, JavaScript e Python.",
+        badge: "Integração / Dev",
+      },
+      {
+        key: "webhook_save_config",
+        label: "Salvar Configurações Globais",
+        description: "Permite salvar alterações globais da lista de webhooks e persistir no banco de dados.",
+        badge: "Persistência",
       },
     ],
   },

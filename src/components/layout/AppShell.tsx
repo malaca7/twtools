@@ -133,10 +133,10 @@ const DEV_MODULE_NAV_ITEMS: MasterNavItem[] = [
 ];
 
 const CEO_MODULE_NAV_ITEMS: MasterNavItem[] = [
-  { id: "ceo-dashboard", title: "Visão Geral & Métricas", url: "/ceo?tab=dashboard", icon: LayoutDashboard, defaultCat: "CEO", defaultOrder: 0 },
-  { id: "ceo-bot", title: "Gerenciar Bot", url: "/ceo?tab=bot", icon: Bot, defaultCat: "CEO", defaultOrder: 1 },
-  { id: "ceo-webhooks", title: "WebHook Discord", url: "/ceo?tab=webhooks", icon: Webhook, defaultCat: "CEO", defaultOrder: 2 },
-  { id: "ceo-financas", title: "Fundo de Caixa & Finanças", url: "/ceo?tab=financas", icon: Landmark, defaultCat: "CEO", defaultOrder: 3 },
+  { id: "ceo-dashboard", title: "Visão Geral & Métricas", url: "/ceo/dashboard", icon: LayoutDashboard, defaultCat: "CEO", defaultOrder: 0 },
+  { id: "ceo-bot", title: "Gerenciar Bot", url: "/ceo/bot", icon: Bot, defaultCat: "CEO", defaultOrder: 1 },
+  { id: "ceo-webhooks", title: "WebHook Discord", url: "/ceo/webhooks", icon: Webhook, defaultCat: "CEO", defaultOrder: 2 },
+  { id: "ceo-financas", title: "Fundo de Caixa & Finanças", url: "/ceo/financas", icon: Landmark, defaultCat: "CEO", defaultOrder: 3 },
 ];
 
 function DynamicSidebarNavigation() {

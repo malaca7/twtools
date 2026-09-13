@@ -115,6 +115,15 @@ export type Permission =
   | "bot_change_intents"
   | "bot_manage_discloud_config"
   | "manage_ceo_webhooks"
+  | "webhook_send_message"
+  | "webhook_test"
+  | "webhook_create"
+  | "webhook_edit"
+  | "webhook_delete"
+  | "webhook_toggle_active"
+  | "webhook_copy_url"
+  | "webhook_view_code"
+  | "webhook_save_config"
   | "view_ceo_financials"
   // Legacy aliases for backward compatibility
   | "view_financials"
@@ -202,6 +211,15 @@ export const ALL_PERMISSIONS: Permission[] = [
   "bot_change_intents",
   "bot_manage_discloud_config",
   "manage_ceo_webhooks",
+  "webhook_send_message",
+  "webhook_test",
+  "webhook_create",
+  "webhook_edit",
+  "webhook_delete",
+  "webhook_toggle_active",
+  "webhook_copy_url",
+  "webhook_view_code",
+  "webhook_save_config",
   "view_ceo_financials",
   "view_financials",
   "manage_members",
