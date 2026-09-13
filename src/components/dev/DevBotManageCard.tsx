@@ -38,6 +38,7 @@ import {
   MoreHorizontal,
   Plus,
   X,
+  Trash2,
 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -99,7 +100,7 @@ function DiscordIconSvg({ className }: { className?: string }) {
 }
 
 export function DevBotManageCard() {
-  const { user, profile, level } = useAuth();
+  const { user, profile, level, hasPermission } = useAuth();
 
   const [config, setConfig] = useState<DiscordBotConfig>(DEFAULT_DISCORD_CONFIG);
   const [initialConfig, setInitialConfig] = useState<DiscordBotConfig>(DEFAULT_DISCORD_CONFIG);
@@ -296,6 +297,14 @@ export function DevBotManageCard() {
 
   // Ciclo de vida: Iniciar, Desligar ou Reiniciar
   const handleLifecycle = async (action: "start" | "stop" | "restart") => {
+    if (action === "restart" && !hasPermission("bot_restart")) {
+      toast.error("Você não possui permissão para reiniciar o bot.");
+      return;
+    }
+    if ((action === "start" || action === "stop") && !hasPermission("bot_power_toggle")) {
+      toast.error("Você não possui permissão para ligar/desligar o bot.");
+      return;
+    }
     setActionLoading(action);
     try {
       const res = await sendBotLifecycleCommand(action, config, user, profile, level);
@@ -324,6 +333,10 @@ export function DevBotManageCard() {
 
   // Colar token da área de transferência
   const handlePasteToken = async () => {
+    if (!hasPermission("bot_manage_token")) {
+      toast.error("Você não possui permissão para alterar as configurações do token.");
+      return;
+    }
     try {
       const text = await navigator.clipboard.readText();
       if (text) {
@@ -337,6 +350,10 @@ export function DevBotManageCard() {
 
   // Testar e Validar Token contra API oficial do Discord
   const handleValidateToken = async () => {
+    if (!hasPermission("bot_manage_token")) {
+      toast.error("Você não possui permissão para testar ou gerenciar o token.");
+      return;
+    }
     if (!tokenInput || tokenInput.trim().length < 20) {
       toast.error("Insira um token do Discord válido.");
       return;
@@ -364,6 +381,10 @@ export function DevBotManageCard() {
 
   // Salvar novo token
   const handleSaveToken = async () => {
+    if (!hasPermission("bot_manage_token")) {
+      toast.error("Você não possui permissão para salvar o token do bot.");
+      return;
+    }
     if (!tokenInput) return;
     await handleUpdateConfig(
       { botToken: tokenInput.trim() },
@@ -371,8 +392,50 @@ export function DevBotManageCard() {
     );
   };
 
+  // Remover credenciais e configurações de token do bot
+  const handleRemoveToken = async () => {
+    if (!hasPermission("bot_manage_token")) {
+      toast.error("Você não possui permissão para remover as configurações do token.");
+      return;
+    }
+    if (
+      !confirm(
+        "Tem certeza que deseja remover as configurações e credenciais do token do bot? Isso desativará o bot até que um novo token seja configurado."
+      )
+    ) {
+      return;
+    }
+    setTokenInput("");
+    setTokenValidation(null);
+    await handleUpdateConfig({ botToken: "" }, "Configurações de token removidas com sucesso!");
+  };
+
+  // Remover configurações de integração com a Discloud
+  const handleRemoveDiscloudConfig = async () => {
+    if (!hasPermission("bot_manage_discloud_config")) {
+      toast.error("Você não possui permissão para remover as configurações da Discloud.");
+      return;
+    }
+    if (
+      !confirm(
+        "Tem certeza que deseja remover as configurações da Discloud (App ID e API Token)?"
+      )
+    ) {
+      return;
+    }
+    setConfig((prev) => ({ ...prev, discloudAppId: "", discloudApiToken: "" }));
+    await handleUpdateConfig(
+      { discloudAppId: "", discloudApiToken: "" },
+      "Configurações da Discloud removidas com sucesso!"
+    );
+  };
+
   // Upload do Banner direto de arquivo abrindo o modal de recorte e zoom
   const handleBannerFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!hasPermission("bot_change_banner")) {
+      toast.error("Você não possui permissão para mudar o banner do bot.");
+      return;
+    }
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -396,6 +459,10 @@ export function DevBotManageCard() {
 
   // Upload do Avatar direto de arquivo abrindo o modal de recorte e zoom
   const handleAvatarFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!hasPermission("bot_change_avatar")) {
+      toast.error("Você não possui permissão para mudar o avatar do bot.");
+      return;
+    }
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -419,6 +486,14 @@ export function DevBotManageCard() {
 
   // Abrir modal de recorte para ajustar imagem atual já definida (banner ou avatar)
   const handleOpenCropForExisting = (target: "avatar" | "banner") => {
+    if (target === "avatar" && !hasPermission("bot_change_avatar")) {
+      toast.error("Você não possui permissão para mudar o avatar do bot.");
+      return;
+    }
+    if (target === "banner" && !hasPermission("bot_change_banner")) {
+      toast.error("Você não possui permissão para mudar o banner do bot.");
+      return;
+    }
     const currentUrl =
       target === "avatar"
         ? (avatarInput || config.botAvatarUrl)
@@ -437,6 +512,14 @@ export function DevBotManageCard() {
 
   // Processar e salvar imagem recortada
   const handleCropSave = async (croppedFile: File) => {
+    if (cropTarget === "avatar" && !hasPermission("bot_change_avatar")) {
+      toast.error("Você não possui permissão para mudar o avatar do bot.");
+      return;
+    }
+    if (cropTarget === "banner" && !hasPermission("bot_change_banner")) {
+      toast.error("Você não possui permissão para mudar o banner do bot.");
+      return;
+    }
     setIsCropSaving(true);
     try {
       if (cropTarget === "avatar") {
@@ -466,6 +549,10 @@ export function DevBotManageCard() {
 
   // Salvar Banner
   const handleSaveBanner = async () => {
+    if (!hasPermission("bot_change_banner")) {
+      toast.error("Você não possui permissão para mudar o banner do bot.");
+      return;
+    }
     if (!bannerUrlInput) return;
     await handleUpdateConfig(
       { botBannerUrl: bannerUrlInput.trim() },
@@ -476,6 +563,10 @@ export function DevBotManageCard() {
 
   // Salvar Nome
   const handleSaveName = async () => {
+    if (!hasPermission("bot_change_name")) {
+      toast.error("Você não possui permissão para mudar o nome do bot.");
+      return;
+    }
     if (!nameInput.trim()) return;
     await handleUpdateConfig(
       { botName: nameInput.trim() },
@@ -486,6 +577,10 @@ export function DevBotManageCard() {
 
   // Salvar Avatar
   const handleSaveAvatar = async () => {
+    if (!hasPermission("bot_change_avatar")) {
+      toast.error("Você não possui permissão para mudar o avatar do bot.");
+      return;
+    }
     if (!avatarInput.trim()) return;
     await handleUpdateConfig(
       { botAvatarUrl: avatarInput.trim() },
@@ -496,6 +591,10 @@ export function DevBotManageCard() {
 
   // Salvar Mensagem de Status
   const handleSaveStatus = async () => {
+    if (!hasPermission("bot_change_presence")) {
+      toast.error("Você não possui permissão para mudar a presença/status do bot.");
+      return;
+    }
     await handleUpdateConfig(
       {
         botStatusText: statusTextInput.trim() || "Feito com Twin Wheels",
@@ -602,65 +701,79 @@ export function DevBotManageCard() {
                     </button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" className="w-56 bg-[#111214] border-[#2b2d31] text-zinc-200">
-                    <DropdownMenuItem
-                      onClick={() => handleOpenCropForExisting("banner")}
-                      className="text-xs hover:bg-[#232428] hover:text-white cursor-pointer gap-2"
-                    >
-                      <Crop className="h-3.5 w-3.5 text-emerald-400" />
-                      <span>Ajustar / Recortar banner atual</span>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      onClick={() => {
-                        setBannerUrlInput(config.botBannerUrl || "");
-                        setIsBannerModalOpen(true);
-                      }}
-                      className="text-xs hover:bg-[#232428] hover:text-white cursor-pointer gap-2"
-                    >
-                      <Edit2 className="h-3.5 w-3.5 text-primary" />
-                      <span>Alterar imagem do banner</span>
-                    </DropdownMenuItem>
-                    <DropdownMenuSeparator className="bg-[#2b2d31]" />
-                    <DropdownMenuItem
-                      onClick={() => handleOpenCropForExisting("avatar")}
-                      className="text-xs hover:bg-[#232428] hover:text-white cursor-pointer gap-2"
-                    >
-                      <Crop className="h-3.5 w-3.5 text-emerald-400" />
-                      <span>Ajustar foto de avatar atual</span>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      onClick={() => {
-                        setAvatarInput(config.botAvatarUrl || "");
-                        setIsAvatarModalOpen(true);
-                      }}
-                      className="text-xs hover:bg-[#232428] hover:text-white cursor-pointer gap-2"
-                    >
-                      <Edit2 className="h-3.5 w-3.5 text-primary" />
-                      <span>Alterar foto de avatar</span>
-                    </DropdownMenuItem>
-                    <DropdownMenuSeparator className="bg-[#2b2d31]" />
-                    <DropdownMenuItem
-                      onClick={() => {
-                        setNameInput(botName);
-                        setIsNameModalOpen(true);
-                      }}
-                      className="text-xs hover:bg-[#232428] hover:text-white cursor-pointer gap-2"
-                    >
-                      <Edit2 className="h-3.5 w-3.5 text-purple-400" />
-                      <span>Alterar nome do bot</span>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      onClick={() => {
-                        setStatusTextInput(config.botStatusText || "by malaca");
-                        setActivityTypeInput(config.botActivityType || "Playing");
-                        setStreamingUrlInput(config.botStreamingUrl || "");
-                        setIsStatusModalOpen(true);
-                      }}
-                      className="text-xs hover:bg-[#232428] hover:text-white cursor-pointer gap-2"
-                    >
-                      <MessageSquare className="h-3.5 w-3.5 text-rose-400" />
-                      <span>Definir mensagem de status</span>
-                    </DropdownMenuItem>
-                    <DropdownMenuSeparator className="bg-[#2b2d31]" />
+                    {hasPermission("bot_change_banner") && (
+                      <>
+                        <DropdownMenuItem
+                          onClick={() => handleOpenCropForExisting("banner")}
+                          className="text-xs hover:bg-[#232428] hover:text-white cursor-pointer gap-2"
+                        >
+                          <Crop className="h-3.5 w-3.5 text-emerald-400" />
+                          <span>Ajustar / Recortar banner atual</span>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={() => {
+                            setBannerUrlInput(config.botBannerUrl || "");
+                            setIsBannerModalOpen(true);
+                          }}
+                          className="text-xs hover:bg-[#232428] hover:text-white cursor-pointer gap-2"
+                        >
+                          <Edit2 className="h-3.5 w-3.5 text-primary" />
+                          <span>Alterar imagem do banner</span>
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator className="bg-[#2b2d31]" />
+                      </>
+                    )}
+                    {hasPermission("bot_change_avatar") && (
+                      <>
+                        <DropdownMenuItem
+                          onClick={() => handleOpenCropForExisting("avatar")}
+                          className="text-xs hover:bg-[#232428] hover:text-white cursor-pointer gap-2"
+                        >
+                          <Crop className="h-3.5 w-3.5 text-emerald-400" />
+                          <span>Ajustar foto de avatar atual</span>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={() => {
+                            setAvatarInput(config.botAvatarUrl || "");
+                            setIsAvatarModalOpen(true);
+                          }}
+                          className="text-xs hover:bg-[#232428] hover:text-white cursor-pointer gap-2"
+                        >
+                          <Edit2 className="h-3.5 w-3.5 text-primary" />
+                          <span>Alterar foto de avatar</span>
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator className="bg-[#2b2d31]" />
+                      </>
+                    )}
+                    {hasPermission("bot_change_name") && (
+                      <DropdownMenuItem
+                        onClick={() => {
+                          setNameInput(botName);
+                          setIsNameModalOpen(true);
+                        }}
+                        className="text-xs hover:bg-[#232428] hover:text-white cursor-pointer gap-2"
+                      >
+                        <Edit2 className="h-3.5 w-3.5 text-purple-400" />
+                        <span>Alterar nome do bot</span>
+                      </DropdownMenuItem>
+                    )}
+                    {hasPermission("bot_change_presence") && (
+                      <DropdownMenuItem
+                        onClick={() => {
+                          setStatusTextInput(config.botStatusText || "by malaca");
+                          setActivityTypeInput(config.botActivityType || "Playing");
+                          setStreamingUrlInput(config.botStreamingUrl || "");
+                          setIsStatusModalOpen(true);
+                        }}
+                        className="text-xs hover:bg-[#232428] hover:text-white cursor-pointer gap-2"
+                      >
+                        <MessageSquare className="h-3.5 w-3.5 text-rose-400" />
+                        <span>Definir mensagem de status</span>
+                      </DropdownMenuItem>
+                    )}
+                    {(hasPermission("bot_change_name") || hasPermission("bot_change_presence")) && (
+                      <DropdownMenuSeparator className="bg-[#2b2d31]" />
+                    )}
                     <DropdownMenuItem
                       onClick={handleCopyId}
                       className="text-xs hover:bg-[#232428] hover:text-white cursor-pointer gap-2"
@@ -692,9 +805,19 @@ export function DevBotManageCard() {
                 <div className="flex items-end gap-2">
                   {/* Circular Avatar com Ring Discord */}
                   <div
-                    className="relative group cursor-pointer shrink-0"
-                    onClick={() => setIsAvatarModalOpen(true)}
-                    title="Clique para alterar ou recortar avatar"
+                    className={cn(
+                      "relative group shrink-0",
+                      hasPermission("bot_change_avatar") ? "cursor-pointer" : "cursor-default"
+                    )}
+                    onClick={() => {
+                      if (!hasPermission("bot_change_avatar")) return;
+                      setIsAvatarModalOpen(true);
+                    }}
+                    title={
+                      hasPermission("bot_change_avatar")
+                        ? "Clique para alterar ou recortar avatar"
+                        : botName
+                    }
                   >
                     <img
                       src={botAvatar}
@@ -716,26 +839,40 @@ export function DevBotManageCard() {
                       title={`Status: ${currentPresence}`}
                     />
                     {/* Hover overlay */}
-                    <div className="absolute inset-0 rounded-full bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity ring-6 ring-[#111214]">
-                      <Edit2 className="h-4 w-4 text-white" />
-                    </div>
+                    {hasPermission("bot_change_avatar") && (
+                      <div className="absolute inset-0 rounded-full bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity ring-6 ring-[#111214]">
+                        <Edit2 className="h-4 w-4 text-white" />
+                      </div>
+                    )}
                   </div>
 
                   {/* Status Bubble (Pill format matching Discord: 'by malaca') */}
                   <div
                     onClick={() => {
+                      if (!hasPermission("bot_change_presence")) return;
                       setStatusTextInput(config.botStatusText || "by malaca");
                       setActivityTypeInput(config.botActivityType || "Playing");
                       setStreamingUrlInput(config.botStreamingUrl || "");
                       setIsStatusModalOpen(true);
                     }}
-                    className="mb-0.5 px-2.5 py-1 rounded-2xl bg-[#232428] hover:bg-[#2b2d31] border border-[#313338] text-white text-[11px] font-semibold shadow-md flex items-center gap-1.5 cursor-pointer transition-all hover:scale-105 active:scale-95 group select-none shrink-0"
-                    title="Clique para editar a mensagem de status"
+                    className={cn(
+                      "mb-0.5 px-2.5 py-1 rounded-2xl bg-[#232428] border border-[#313338] text-white text-[11px] font-semibold shadow-md flex items-center gap-1.5 select-none shrink-0 transition-all",
+                      hasPermission("bot_change_presence")
+                        ? "hover:bg-[#2b2d31] cursor-pointer hover:scale-105 active:scale-95 group"
+                        : "opacity-80 cursor-default"
+                    )}
+                    title={
+                      hasPermission("bot_change_presence")
+                        ? "Clique para editar a mensagem de status"
+                        : "Status do bot"
+                    }
                   >
                     <span className="truncate max-w-[100px] sm:max-w-[120px]">
                       {config.botStatusText || "by malaca"}
                     </span>
-                    <Edit2 className="h-2.5 w-2.5 text-zinc-400 group-hover:text-white transition-colors" />
+                    {hasPermission("bot_change_presence") && (
+                      <Edit2 className="h-2.5 w-2.5 text-zinc-400 group-hover:text-white transition-colors" />
+                    )}
                   </div>
                 </div>
 
@@ -769,17 +906,19 @@ export function DevBotManageCard() {
                 <div className="flex items-center gap-2">
                   <h1 className="text-xl sm:text-2xl font-black text-white tracking-tight flex items-center gap-1.5">
                     {botName}
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setNameInput(botName);
-                        setIsNameModalOpen(true);
-                      }}
-                      className="text-zinc-500 hover:text-white transition-colors"
-                      title="Editar nome"
-                    >
-                      <Edit2 className="h-3 w-3" />
-                    </button>
+                    {hasPermission("bot_change_name") && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setNameInput(botName);
+                          setIsNameModalOpen(true);
+                        }}
+                        className="text-zinc-500 hover:text-white transition-colors"
+                        title="Editar nome"
+                      >
+                        <Edit2 className="h-3 w-3" />
+                      </button>
+                    )}
                   </h1>
 
                   {/* APP BADGE */}
@@ -1078,10 +1217,10 @@ export function DevBotManageCard() {
                   {isBotRunning ? (
                     <Button
                       onClick={() => handleLifecycle("stop")}
-                      disabled={actionLoading !== null}
+                      disabled={actionLoading !== null || !hasPermission("bot_power_toggle")}
                       variant="outline"
                       size="sm"
-                      className="bg-emerald-950/40 border-emerald-600/50 text-emerald-400 hover:bg-rose-950/50 hover:border-rose-600/50 hover:text-rose-300 font-bold text-xs gap-1.5 transition-all shadow-md group cursor-pointer h-8"
+                      className="bg-emerald-950/40 border-emerald-600/50 text-emerald-400 hover:bg-rose-950/50 hover:border-rose-600/50 hover:text-rose-300 font-bold text-xs gap-1.5 transition-all shadow-md group cursor-pointer h-8 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       {actionLoading === "stop" ? (
                         <Loader2 className="h-3.5 w-3.5 animate-spin text-rose-400" />
@@ -1097,9 +1236,9 @@ export function DevBotManageCard() {
                   ) : (
                     <Button
                       onClick={() => handleLifecycle("start")}
-                      disabled={actionLoading !== null}
+                      disabled={actionLoading !== null || !hasPermission("bot_power_toggle")}
                       size="sm"
-                      className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs gap-1.5 shadow-md shadow-emerald-900/40 cursor-pointer h-8"
+                      className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs gap-1.5 shadow-md shadow-emerald-900/40 cursor-pointer h-8 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       {actionLoading === "start" ? (
                         <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -1113,10 +1252,10 @@ export function DevBotManageCard() {
                   {/* Reiniciar */}
                   <Button
                     onClick={() => handleLifecycle("restart")}
-                    disabled={actionLoading !== null}
+                    disabled={actionLoading !== null || !hasPermission("bot_restart")}
                     variant="outline"
                     size="sm"
-                    className="bg-zinc-900/80 hover:bg-zinc-800 border-zinc-700/60 text-white font-bold text-xs gap-1.5 shadow-xs cursor-pointer h-8"
+                    className="bg-zinc-900/80 hover:bg-zinc-800 border-zinc-700/60 text-white font-bold text-xs gap-1.5 shadow-xs cursor-pointer h-8 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {actionLoading === "restart" ? (
                       <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />
@@ -1185,13 +1324,15 @@ export function DevBotManageCard() {
               <CardFooter className="pt-0">
                 <Button
                   type="button"
+                  disabled={!hasPermission("bot_change_presence")}
                   onClick={() => {
+                    if (!hasPermission("bot_change_presence")) return;
                     setStatusTextInput(config.botStatusText || "by malaca");
                     setActivityTypeInput(config.botActivityType || "Playing");
                     setStreamingUrlInput(config.botStreamingUrl || "");
                     setIsStatusModalOpen(true);
                   }}
-                  className="w-full bg-rose-700 hover:bg-rose-600 text-white font-bold text-xs shadow-md shadow-rose-950/40 h-8"
+                  className="w-full bg-rose-700 hover:bg-rose-600 text-white font-bold text-xs shadow-md shadow-rose-950/40 h-8 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Definir mensagem de status
                 </Button>
@@ -1214,9 +1355,17 @@ export function DevBotManageCard() {
                   {/* On-line */}
                   <button
                     type="button"
-                    onClick={() => handleUpdateConfig({ botStatus: "online" }, "Presença alterada para On-line!")}
+                    disabled={!hasPermission("bot_change_status") || saving}
+                    onClick={() => {
+                      if (!hasPermission("bot_change_status")) {
+                        toast.error("Você não possui permissão para alterar o status do bot.");
+                        return;
+                      }
+                      handleUpdateConfig({ botStatus: "online" }, "Presença alterada para On-line!");
+                    }}
                     className={cn(
                       "flex items-center gap-2 p-2 rounded-xl border text-xs font-bold transition-all text-left",
+                      !hasPermission("bot_change_status") && "cursor-not-allowed opacity-60",
                       currentPresence === "online"
                         ? "bg-zinc-900 border-emerald-500/80 text-foreground ring-1 ring-emerald-500/50 shadow-xs"
                         : "bg-zinc-900/40 border-zinc-800 text-muted-foreground hover:bg-zinc-900 hover:text-foreground"
@@ -1229,9 +1378,17 @@ export function DevBotManageCard() {
                   {/* Parado */}
                   <button
                     type="button"
-                    onClick={() => handleUpdateConfig({ botStatus: "idle" }, "Presença alterada para Parado!")}
+                    disabled={!hasPermission("bot_change_status") || saving}
+                    onClick={() => {
+                      if (!hasPermission("bot_change_status")) {
+                        toast.error("Você não possui permissão para alterar o status do bot.");
+                        return;
+                      }
+                      handleUpdateConfig({ botStatus: "idle" }, "Presença alterada para Parado!");
+                    }}
                     className={cn(
                       "flex items-center gap-2 p-2 rounded-xl border text-xs font-bold transition-all text-left",
+                      !hasPermission("bot_change_status") && "cursor-not-allowed opacity-60",
                       currentPresence === "idle"
                         ? "bg-zinc-900 border-amber-500/80 text-foreground ring-1 ring-amber-500/50 shadow-xs"
                         : "bg-zinc-900/40 border-zinc-800 text-muted-foreground hover:bg-zinc-900 hover:text-foreground"
@@ -1244,9 +1401,17 @@ export function DevBotManageCard() {
                   {/* Não incomodar */}
                   <button
                     type="button"
-                    onClick={() => handleUpdateConfig({ botStatus: "dnd" }, "Presença alterada para Não incomodar!")}
+                    disabled={!hasPermission("bot_change_status") || saving}
+                    onClick={() => {
+                      if (!hasPermission("bot_change_status")) {
+                        toast.error("Você não possui permissão para alterar o status do bot.");
+                        return;
+                      }
+                      handleUpdateConfig({ botStatus: "dnd" }, "Presença alterada para Não incomodar!");
+                    }}
                     className={cn(
                       "flex items-center gap-2 p-2 rounded-xl border text-xs font-bold transition-all text-left",
+                      !hasPermission("bot_change_status") && "cursor-not-allowed opacity-60",
                       currentPresence === "dnd"
                         ? "bg-zinc-900 border-rose-500/80 text-foreground ring-1 ring-rose-500/50 shadow-xs"
                         : "bg-zinc-900/40 border-zinc-800 text-muted-foreground hover:bg-zinc-900 hover:text-foreground"
@@ -1259,9 +1424,17 @@ export function DevBotManageCard() {
                   {/* Invisível */}
                   <button
                     type="button"
-                    onClick={() => handleUpdateConfig({ botStatus: "invisible" }, "Presença alterada para Invisível!")}
+                    disabled={!hasPermission("bot_change_status") || saving}
+                    onClick={() => {
+                      if (!hasPermission("bot_change_status")) {
+                        toast.error("Você não possui permissão para alterar o status do bot.");
+                        return;
+                      }
+                      handleUpdateConfig({ botStatus: "invisible" }, "Presença alterada para Invisível!");
+                    }}
                     className={cn(
                       "flex items-center gap-2 p-2 rounded-xl border text-xs font-bold transition-all text-left",
+                      !hasPermission("bot_change_status") && "cursor-not-allowed opacity-60",
                       currentPresence === "invisible"
                         ? "bg-zinc-900 border-zinc-500/80 text-foreground ring-1 ring-zinc-500/50 shadow-xs"
                         : "bg-zinc-900/40 border-zinc-800 text-muted-foreground hover:bg-zinc-900 hover:text-foreground"
@@ -1304,15 +1477,17 @@ export function DevBotManageCard() {
                 <div className="relative flex-1">
                   <Input
                     type={showToken ? "text" : "password"}
+                    disabled={!hasPermission("bot_manage_token")}
                     value={tokenInput}
                     onChange={(e) => setTokenInput(e.target.value)}
                     placeholder="••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••"
-                    className="bg-zinc-900/90 border-zinc-800 font-mono text-xs pr-10 focus-visible:ring-amber-500/50 h-8"
+                    className="bg-zinc-900/90 border-zinc-800 font-mono text-xs pr-10 focus-visible:ring-amber-500/50 h-8 disabled:opacity-50 disabled:cursor-not-allowed"
                   />
                   <button
                     type="button"
+                    disabled={!hasPermission("bot_manage_token")}
                     onClick={() => setShowToken(!showToken)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
                     title={showToken ? "Ocultar token" : "Exibir token"}
                   >
                     {showToken ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
@@ -1325,7 +1500,8 @@ export function DevBotManageCard() {
                   variant="outline"
                   size="sm"
                   onClick={handlePasteToken}
-                  className="bg-zinc-900 border-zinc-800 text-xs font-bold gap-1.5 shrink-0 h-8"
+                  disabled={!hasPermission("bot_manage_token")}
+                  className="bg-zinc-900 border-zinc-800 text-xs font-bold gap-1.5 shrink-0 h-8 disabled:opacity-50 disabled:cursor-not-allowed"
                   title="Colar do clipboard"
                 >
                   <ClipboardPaste className="h-3.5 w-3.5" />
@@ -1338,8 +1514,8 @@ export function DevBotManageCard() {
                   variant="outline"
                   size="sm"
                   onClick={handleValidateToken}
-                  disabled={isValidatingToken || !tokenInput}
-                  className="bg-zinc-900 border-zinc-800 hover:bg-zinc-800 text-xs font-bold gap-1.5 shrink-0 h-8"
+                  disabled={isValidatingToken || !tokenInput || !hasPermission("bot_manage_token")}
+                  className="bg-zinc-900 border-zinc-800 hover:bg-zinc-800 text-xs font-bold gap-1.5 shrink-0 h-8 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {isValidatingToken ? (
                     <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />
@@ -1354,11 +1530,25 @@ export function DevBotManageCard() {
                   type="button"
                   size="sm"
                   onClick={handleSaveToken}
-                  disabled={saving || tokenInput === config.botToken}
-                  className="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold gap-1.5 shrink-0 h-8"
+                  disabled={saving || tokenInput === config.botToken || !hasPermission("bot_manage_token")}
+                  className="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold gap-1.5 shrink-0 h-8 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
                   Salvar
+                </Button>
+
+                {/* Botão Remover Configurações do Token */}
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={handleRemoveToken}
+                  disabled={saving || (!config.botToken && !tokenInput) || !hasPermission("bot_manage_token")}
+                  className="bg-rose-950/40 hover:bg-rose-900/60 border-rose-800/40 hover:border-rose-600/60 text-rose-300 text-xs font-bold gap-1.5 shrink-0 h-8 disabled:opacity-50 disabled:cursor-not-allowed"
+                  title="Remover configurações do token do bot"
+                >
+                  <Trash2 className="h-3.5 w-3.5 text-rose-400" />
+                  Remover
                 </Button>
               </div>
 
@@ -1394,99 +1584,126 @@ export function DevBotManageCard() {
         </div>
       </div>
 
-      {/* 4. SEÇÃO: OPÇÕES DE INTENÇÃO PRIVILEGIADA (IMAGEM 2) */}
-      <div className="space-y-4">
-        <div className="space-y-1">
-          <span className="text-[0.7rem] font-bold tracking-widest text-muted-foreground/80 uppercase">
-            CONFIGURAÇÕES
-          </span>
-          <h2 className="text-2xl font-black tracking-tight text-foreground">
-            Opções de intenção privilegiada
-          </h2>
+      {/* 4. SEÇÃO: OPÇÕES DE INTENÇÃO PRIVILEGIADA */}
+      {hasPermission("bot_view_intents") ? (
+        <div className="space-y-4">
+          <div className="space-y-1">
+            <span className="text-[0.7rem] font-bold tracking-widest text-muted-foreground/80 uppercase">
+              CONFIGURAÇÕES
+            </span>
+            <h2 className="text-2xl font-black tracking-tight text-foreground">
+              Opções de intenção privilegiada
+            </h2>
+          </div>
+
+          {/* 3 CARDS LADO A LADO */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+            {/* CARD 1: Intenção de presença */}
+            <Card className="surface-card border-border/60 bg-zinc-950/60 p-5 flex flex-col justify-between space-y-4">
+              <div className="space-y-2">
+                <h4 className="text-sm font-extrabold text-foreground">Intenção de presença</h4>
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                  GUILD_PRESENCES. Sempre ativar, nunca ativar ou deixar o sistema decidir automaticamente.
+                </p>
+              </div>
+              <Select
+                disabled={!hasPermission("bot_change_intents") || saving}
+                value={config.intentPresences || "always"}
+                onValueChange={(val: "always" | "never" | "auto") => {
+                  if (!hasPermission("bot_change_intents")) {
+                    toast.error("Você não possui permissão para mudar opções de intenção privilegiada.");
+                    return;
+                  }
+                  handleUpdateConfig({ intentPresences: val }, "Intenção de presença atualizada!");
+                }}
+              >
+                <SelectTrigger className="w-full bg-zinc-900 border-zinc-800 text-xs font-bold text-foreground disabled:opacity-50 disabled:cursor-not-allowed">
+                  <SelectValue placeholder="Selecione" />
+                </SelectTrigger>
+                <SelectContent className="bg-zinc-900 border-zinc-800 text-xs">
+                  <SelectItem value="always">Ativar sempre</SelectItem>
+                  <SelectItem value="never">Desativar</SelectItem>
+                  <SelectItem value="auto">Decidir automaticamente</SelectItem>
+                </SelectContent>
+              </Select>
+            </Card>
+
+            {/* CARD 2: Intenção dos membros do servidor */}
+            <Card className="surface-card border-border/60 bg-zinc-950/60 p-5 flex flex-col justify-between space-y-4">
+              <div className="space-y-2">
+                <h4 className="text-sm font-extrabold text-foreground">
+                  Intenção dos membros do servidor
+                </h4>
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                  MEMBROS DA GUILDA. Sempre habilitar, nunca habilitar ou deixar o sistema decidir automaticamente.
+                </p>
+              </div>
+              <Select
+                disabled={!hasPermission("bot_change_intents") || saving}
+                value={config.intentGuildMembers || "always"}
+                onValueChange={(val: "always" | "never" | "auto") => {
+                  if (!hasPermission("bot_change_intents")) {
+                    toast.error("Você não possui permissão para mudar opções de intenção privilegiada.");
+                    return;
+                  }
+                  handleUpdateConfig({ intentGuildMembers: val }, "Intenção de membros atualizada!");
+                }}
+              >
+                <SelectTrigger className="w-full bg-zinc-900 border-zinc-800 text-xs font-bold text-foreground disabled:opacity-50 disabled:cursor-not-allowed">
+                  <SelectValue placeholder="Selecione" />
+                </SelectTrigger>
+                <SelectContent className="bg-zinc-900 border-zinc-800 text-xs">
+                  <SelectItem value="always">Ativar sempre</SelectItem>
+                  <SelectItem value="never">Desativar</SelectItem>
+                  <SelectItem value="auto">Decidir automaticamente</SelectItem>
+                </SelectContent>
+              </Select>
+            </Card>
+
+            {/* CARD 3: Intenção do conteúdo da mensagem */}
+            <Card className="surface-card border-border/60 bg-zinc-950/60 p-5 flex flex-col justify-between space-y-4">
+              <div className="space-y-2">
+                <h4 className="text-sm font-extrabold text-foreground">
+                  Intenção do conteúdo da mensagem
+                </h4>
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                  CONTEÚDO DA MENSAGEM. Sempre ativar, nunca ativar ou deixar o sistema decidir automaticamente.
+                </p>
+              </div>
+              <Select
+                disabled={!hasPermission("bot_change_intents") || saving}
+                value={config.intentMessageContent || "always"}
+                onValueChange={(val: "always" | "never" | "auto") => {
+                  if (!hasPermission("bot_change_intents")) {
+                    toast.error("Você não possui permissão para mudar opções de intenção privilegiada.");
+                    return;
+                  }
+                  handleUpdateConfig({ intentMessageContent: val }, "Intenção de conteúdo de mensagem atualizada!");
+                }}
+              >
+                <SelectTrigger className="w-full bg-zinc-900 border-zinc-800 text-xs font-bold text-foreground disabled:opacity-50 disabled:cursor-not-allowed">
+                  <SelectValue placeholder="Selecione" />
+                </SelectTrigger>
+                <SelectContent className="bg-zinc-900 border-zinc-800 text-xs">
+                  <SelectItem value="always">Ativar sempre</SelectItem>
+                  <SelectItem value="never">Desativar</SelectItem>
+                  <SelectItem value="auto">Decidir automaticamente</SelectItem>
+                </SelectContent>
+              </Select>
+            </Card>
+          </div>
         </div>
-
-        {/* 3 CARDS LADO A LADO */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-          {/* CARD 1: Intenção de presença */}
-          <Card className="surface-card border-border/60 bg-zinc-950/60 p-5 flex flex-col justify-between space-y-4">
-            <div className="space-y-2">
-              <h4 className="text-sm font-extrabold text-foreground">Intenção de presença</h4>
-              <p className="text-xs text-muted-foreground leading-relaxed">
-                GUILD_PRESENCES. Sempre ativar, nunca ativar ou deixar o sistema decidir automaticamente.
-              </p>
-            </div>
-            <Select
-              value={config.intentPresences || "always"}
-              onValueChange={(val: "always" | "never" | "auto") =>
-                handleUpdateConfig({ intentPresences: val }, "Intenção de presença atualizada!")
-              }
-            >
-              <SelectTrigger className="w-full bg-zinc-900 border-zinc-800 text-xs font-bold text-foreground">
-                <SelectValue placeholder="Selecione" />
-              </SelectTrigger>
-              <SelectContent className="bg-zinc-900 border-zinc-800 text-xs">
-                <SelectItem value="always">Ativar sempre</SelectItem>
-                <SelectItem value="never">Desativar</SelectItem>
-                <SelectItem value="auto">Decidir automaticamente</SelectItem>
-              </SelectContent>
-            </Select>
-          </Card>
-
-          {/* CARD 2: Intenção dos membros do servidor */}
-          <Card className="surface-card border-border/60 bg-zinc-950/60 p-5 flex flex-col justify-between space-y-4">
-            <div className="space-y-2">
-              <h4 className="text-sm font-extrabold text-foreground">
-                Intenção dos membros do servidor
-              </h4>
-              <p className="text-xs text-muted-foreground leading-relaxed">
-                MEMBROS DA GUILDA. Sempre habilitar, nunca habilitar ou deixar o sistema decidir automaticamente.
-              </p>
-            </div>
-            <Select
-              value={config.intentGuildMembers || "always"}
-              onValueChange={(val: "always" | "never" | "auto") =>
-                handleUpdateConfig({ intentGuildMembers: val }, "Intenção de membros atualizada!")
-              }
-            >
-              <SelectTrigger className="w-full bg-zinc-900 border-zinc-800 text-xs font-bold text-foreground">
-                <SelectValue placeholder="Selecione" />
-              </SelectTrigger>
-              <SelectContent className="bg-zinc-900 border-zinc-800 text-xs">
-                <SelectItem value="always">Ativar sempre</SelectItem>
-                <SelectItem value="never">Desativar</SelectItem>
-                <SelectItem value="auto">Decidir automaticamente</SelectItem>
-              </SelectContent>
-            </Select>
-          </Card>
-
-          {/* CARD 3: Intenção do conteúdo da mensagem */}
-          <Card className="surface-card border-border/60 bg-zinc-950/60 p-5 flex flex-col justify-between space-y-4">
-            <div className="space-y-2">
-              <h4 className="text-sm font-extrabold text-foreground">
-                Intenção do conteúdo da mensagem
-              </h4>
-              <p className="text-xs text-muted-foreground leading-relaxed">
-                CONTEÚDO DA MENSAGEM. Sempre ativar, nunca ativar ou deixar o sistema decidir automaticamente.
-              </p>
-            </div>
-            <Select
-              value={config.intentMessageContent || "always"}
-              onValueChange={(val: "always" | "never" | "auto") =>
-                handleUpdateConfig({ intentMessageContent: val }, "Intenção de conteúdo de mensagem atualizada!")
-              }
-            >
-              <SelectTrigger className="w-full bg-zinc-900 border-zinc-800 text-xs font-bold text-foreground">
-                <SelectValue placeholder="Selecione" />
-              </SelectTrigger>
-              <SelectContent className="bg-zinc-900 border-zinc-800 text-xs">
-                <SelectItem value="always">Ativar sempre</SelectItem>
-                <SelectItem value="never">Desativar</SelectItem>
-                <SelectItem value="auto">Decidir automaticamente</SelectItem>
-              </SelectContent>
-            </Select>
-          </Card>
-        </div>
-      </div>
+      ) : (
+        <Card className="surface-card border-border/40 bg-zinc-950/20 p-4 border-dashed text-center">
+          <div className="flex flex-col items-center justify-center gap-1.5 text-muted-foreground py-3">
+            <ShieldCheck className="h-5 w-5 text-muted-foreground/50" />
+            <p className="text-xs font-semibold">Opções de intenção privilegiada ocultas</p>
+            <p className="text-[0.7rem] text-muted-foreground/70">
+              Você não possui a permissão &quot;Visualizar opções de intenção privilegiada&quot; para consultar ou alterar estas configurações.
+            </p>
+          </div>
+        </Card>
+      )}
 
       {/* 5. DIAGNÓSTICOS DE CONEXÃO & INTEGRAÇÃO DISCLOUD */}
       <Card className="surface-card border-border/60 bg-zinc-950/40 p-5 space-y-4">
@@ -1522,23 +1739,43 @@ export function DevBotManageCard() {
           <div>
             <Label className="text-[0.7rem] text-muted-foreground font-semibold">Discloud App ID</Label>
             <Input
+              disabled={!hasPermission("bot_manage_discloud_config")}
               value={config.discloudAppId || "twin"}
               onChange={(e) => setConfig((prev) => ({ ...prev, discloudAppId: e.target.value }))}
               onBlur={() => handleUpdateConfig({ discloudAppId: config.discloudAppId || "twin" })}
-              className="bg-zinc-900 border-zinc-800 text-xs font-mono h-8 mt-1"
+              className="bg-zinc-900 border-zinc-800 text-xs font-mono h-8 mt-1 disabled:opacity-50 disabled:cursor-not-allowed"
             />
           </div>
           <div className="sm:col-span-2">
-            <Label className="text-[0.7rem] text-muted-foreground font-semibold">
-              Discloud API Token (Opcional para controle direto na nuvem)
-            </Label>
+            <div className="flex items-center justify-between">
+              <Label className="text-[0.7rem] text-muted-foreground font-semibold">
+                Discloud API Token (Opcional para controle direto na nuvem)
+              </Label>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={handleRemoveDiscloudConfig}
+                disabled={
+                  saving ||
+                  (!config.discloudAppId && !config.discloudApiToken) ||
+                  !hasPermission("bot_manage_discloud_config")
+                }
+                className="h-6 text-[0.68rem] text-rose-400 hover:text-rose-300 hover:bg-rose-950/40 gap-1 px-2 font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+                title="Remover credenciais salvas do Discloud"
+              >
+                <Trash2 className="h-3 w-3" />
+                Remover Configurações do Discloud
+              </Button>
+            </div>
             <Input
               type="password"
+              disabled={!hasPermission("bot_manage_discloud_config")}
               placeholder="Cole seu token da Discloud aqui para comandos via API de nuvem..."
               value={config.discloudApiToken || ""}
               onChange={(e) => setConfig((prev) => ({ ...prev, discloudApiToken: e.target.value }))}
               onBlur={() => handleUpdateConfig({ discloudApiToken: config.discloudApiToken || "" }, "Token Discloud salvo!")}
-              className="bg-zinc-900 border-zinc-800 text-xs font-mono h-8 mt-1"
+              className="bg-zinc-900 border-zinc-800 text-xs font-mono h-8 mt-1 disabled:opacity-50 disabled:cursor-not-allowed"
             />
           </div>
         </div>
@@ -1622,9 +1859,14 @@ export function DevBotManageCard() {
                   <button
                     key={preset.name}
                     type="button"
-                    onClick={() => setBannerUrlInput(preset.url)}
+                    disabled={!hasPermission("bot_change_banner")}
+                    onClick={() => {
+                      if (!hasPermission("bot_change_banner")) return;
+                      setBannerUrlInput(preset.url);
+                    }}
                     className={cn(
                       "group relative h-16 rounded-lg overflow-hidden border transition-all text-left p-2 flex flex-col justify-end",
+                      !hasPermission("bot_change_banner") && "opacity-50 cursor-not-allowed",
                       bannerUrlInput === preset.url
                         ? "border-primary ring-2 ring-primary/40"
                         : "border-zinc-800 hover:border-zinc-600"
@@ -1656,8 +1898,8 @@ export function DevBotManageCard() {
             <Button
               type="button"
               onClick={handleSaveBanner}
-              disabled={isUploadingBanner || !bannerUrlInput}
-              className="bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-bold"
+              disabled={isUploadingBanner || !bannerUrlInput || !hasPermission("bot_change_banner")}
+              className="bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-bold disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Salvar Banner
             </Button>
@@ -1683,10 +1925,11 @@ export function DevBotManageCard() {
           <div className="space-y-3 py-2">
             <Label className="text-xs font-bold">Nome do Bot</Label>
             <Input
+              disabled={!hasPermission("bot_change_name")}
               value={nameInput}
               onChange={(e) => setNameInput(e.target.value)}
               placeholder="Ex: Roda Dupla"
-              className="bg-zinc-900 border-zinc-800 text-sm font-bold"
+              className="bg-zinc-900 border-zinc-800 text-sm font-bold disabled:opacity-50 disabled:cursor-not-allowed"
             />
           </div>
 
@@ -1702,7 +1945,8 @@ export function DevBotManageCard() {
             <Button
               type="button"
               onClick={handleSaveName}
-              className="bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-bold"
+              disabled={!hasPermission("bot_change_name") || !nameInput.trim()}
+              className="bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-bold disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Salvar Nome
             </Button>
@@ -1737,8 +1981,16 @@ export function DevBotManageCard() {
 
             {/* Dropzone de Upload com clique */}
             <div
-              onClick={() => avatarFileInputRef.current?.click()}
-              className="flex flex-col items-center justify-center p-6 rounded-xl border-2 border-dashed border-zinc-700 hover:border-primary/60 bg-zinc-900/50 hover:bg-zinc-900 cursor-pointer transition-all gap-2 text-center group"
+              onClick={() => {
+                if (!hasPermission("bot_change_avatar")) return;
+                avatarFileInputRef.current?.click();
+              }}
+              className={cn(
+                "flex flex-col items-center justify-center p-6 rounded-xl border-2 border-dashed border-zinc-700 bg-zinc-900/50 transition-all gap-2 text-center group",
+                hasPermission("bot_change_avatar")
+                  ? "hover:border-primary/60 hover:bg-zinc-900 cursor-pointer"
+                  : "opacity-50 cursor-not-allowed"
+              )}
             >
               <div className="p-3 rounded-full bg-zinc-800 text-primary group-hover:scale-110 transition-transform">
                 {isUploadingAvatar ? (
@@ -1764,8 +2016,9 @@ export function DevBotManageCard() {
                     type="button"
                     variant="outline"
                     size="sm"
+                    disabled={!hasPermission("bot_change_avatar")}
                     onClick={() => handleOpenCropForExisting("avatar")}
-                    className="h-7 text-xs font-bold gap-1.5 bg-emerald-950/60 border-emerald-500/40 text-emerald-400 hover:bg-emerald-900/80 hover:text-white transition-all"
+                    className="h-7 text-xs font-bold gap-1.5 bg-emerald-950/60 border-emerald-500/40 text-emerald-400 hover:bg-emerald-900/80 hover:text-white transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <Crop className="h-3.5 w-3.5" />
                     Ajustar / Recortar Foto Atual
@@ -1795,8 +2048,8 @@ export function DevBotManageCard() {
             <Button
               type="button"
               onClick={handleSaveAvatar}
-              disabled={isUploadingAvatar || !avatarInput}
-              className="bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-bold"
+              disabled={isUploadingAvatar || !avatarInput || !hasPermission("bot_change_avatar")}
+              className="bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-bold disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Salvar Avatar
             </Button>
@@ -1824,10 +2077,11 @@ export function DevBotManageCard() {
             <div className="space-y-1.5">
               <Label className="text-xs font-bold">Tipo de Atividade</Label>
               <Select
+                disabled={!hasPermission("bot_change_presence")}
                 value={activityTypeInput}
                 onValueChange={(val: any) => setActivityTypeInput(val)}
               >
-                <SelectTrigger className="bg-zinc-900 border-zinc-800 text-xs font-bold">
+                <SelectTrigger className="bg-zinc-900 border-zinc-800 text-xs font-bold disabled:opacity-50 disabled:cursor-not-allowed">
                   <SelectValue placeholder="Selecione a atividade" />
                 </SelectTrigger>
                 <SelectContent className="bg-zinc-900 border-zinc-800 text-xs">
@@ -1850,10 +2104,11 @@ export function DevBotManageCard() {
             <div className="space-y-1.5">
               <Label className="text-xs font-bold">Texto de Status</Label>
               <Input
+                disabled={!hasPermission("bot_change_presence")}
                 value={statusTextInput}
                 onChange={(e) => setStatusTextInput(e.target.value)}
                 placeholder="Ex: Twin Wheels • Logs em Tempo Real"
-                className="bg-zinc-900 border-zinc-800 text-xs font-bold"
+                className="bg-zinc-900 border-zinc-800 text-xs font-bold disabled:opacity-50 disabled:cursor-not-allowed"
               />
               <p className="text-[0.65rem] text-muted-foreground">
                 Exibido ao lado do tipo de atividade no perfil do bot.
@@ -1865,10 +2120,11 @@ export function DevBotManageCard() {
               <div className="space-y-1.5">
                 <Label className="text-xs font-bold">URL da Transmissão (Twitch / YouTube)</Label>
                 <Input
+                  disabled={!hasPermission("bot_change_presence")}
                   value={streamingUrlInput}
                   onChange={(e) => setStreamingUrlInput(e.target.value)}
                   placeholder="https://www.twitch.tv/..."
-                  className="bg-zinc-900 border-zinc-800 text-xs font-mono"
+                  className="bg-zinc-900 border-zinc-800 text-xs font-mono disabled:opacity-50 disabled:cursor-not-allowed"
                 />
               </div>
             )}
@@ -1886,7 +2142,8 @@ export function DevBotManageCard() {
             <Button
               type="button"
               onClick={handleSaveStatus}
-              className="bg-rose-700 hover:bg-rose-600 text-white text-xs font-bold shadow-lg shadow-rose-950/40"
+              disabled={!hasPermission("bot_change_presence")}
+              className="bg-rose-700 hover:bg-rose-600 text-white text-xs font-bold shadow-lg shadow-rose-950/40 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Salvar Status
             </Button>

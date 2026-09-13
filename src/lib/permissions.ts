@@ -99,9 +99,20 @@ export type Permission =
   | "view_notifications"
   | "send_notifications"
   | "manage_notifications"
-  // Permissões do Painel Executivo CEO
+  // Permissões do Painel Executivo CEO & Gerenciamento de Bot
   | "view_ceo"
   | "manage_ceo_bot"
+  | "bot_change_status"
+  | "bot_change_name"
+  | "bot_change_avatar"
+  | "bot_change_banner"
+  | "bot_change_presence"
+  | "bot_restart"
+  | "bot_power_toggle"
+  | "bot_manage_token"
+  | "bot_view_intents"
+  | "bot_change_intents"
+  | "bot_manage_discloud_config"
   | "manage_ceo_webhooks"
   | "view_ceo_financials"
   // Legacy aliases for backward compatibility
@@ -177,6 +188,17 @@ export const ALL_PERMISSIONS: Permission[] = [
   "view_profile",
   "view_ceo",
   "manage_ceo_bot",
+  "bot_change_status",
+  "bot_change_name",
+  "bot_change_avatar",
+  "bot_change_banner",
+  "bot_change_presence",
+  "bot_restart",
+  "bot_power_toggle",
+  "bot_manage_token",
+  "bot_view_intents",
+  "bot_change_intents",
+  "bot_manage_discloud_config",
   "manage_ceo_webhooks",
   "view_ceo_financials",
   "view_financials",
@@ -240,6 +262,17 @@ const OFFICER: Permission[] = [
   "view_profile",
   "view_ceo",
   "manage_ceo_bot",
+  "bot_change_status",
+  "bot_change_name",
+  "bot_change_avatar",
+  "bot_change_banner",
+  "bot_change_presence",
+  "bot_restart",
+  "bot_power_toggle",
+  "bot_manage_token",
+  "bot_view_intents",
+  "bot_change_intents",
+  "bot_manage_discloud_config",
   "manage_ceo_webhooks",
   "view_ceo_financials",
 ];
