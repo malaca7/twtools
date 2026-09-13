@@ -40,9 +40,11 @@ import {
   LifeBuoy,
   Crown,
   ExternalLink,
+  Bot,
+  Webhook,
 } from "lucide-react";
 import { resolveMenuIcon } from "@/lib/menuIcons";
-import { isUserDeveloper } from "@/services/devService";
+import { isUserDeveloper, DEFAULT_CEO_CONFIG, type CeoConfiguration } from "@/services/devService";
 import {
   Sidebar,
   SidebarContent,
@@ -60,6 +62,7 @@ import {
 import { Brand } from "@/components/Brand";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -125,13 +128,51 @@ const DEV_MODULE_NAV_ITEMS: MasterNavItem[] = [
   { id: "dev-menu-lateral", title: "Menu Lateral Dev", url: "/dev/menu-lateral", icon: Sliders, defaultCat: "Ferramentas Dev", defaultOrder: 5 },
 ];
 
+const CEO_MODULE_NAV_ITEMS: MasterNavItem[] = [
+  { id: "ceo-dashboard", title: "Visão Geral & Métricas", url: "/ceo?tab=dashboard", icon: LayoutDashboard, defaultCat: "CEO", defaultOrder: 0 },
+  { id: "ceo-bot", title: "Gerenciar Bot", url: "/ceo?tab=bot", icon: Bot, defaultCat: "CEO", defaultOrder: 1 },
+  { id: "ceo-webhooks", title: "WebHook Discord", url: "/ceo?tab=webhooks", icon: Webhook, defaultCat: "CEO", defaultOrder: 2 },
+  { id: "ceo-financas", title: "Fundo de Caixa & Finanças", url: "/ceo?tab=financas", icon: Landmark, defaultCat: "CEO", defaultOrder: 3 },
+];
+
 function DynamicSidebarNavigation() {
-  const pathname = useRouterState({ select: (r) => r.location.pathname });
-  const { hasPermission, user, profile, level, isDevMode, setPanelMode, isCeoUser } = useAuth();
+  const routerState = useRouterState();
+  const pathname = routerState.location.pathname;
+  const { hasPermission, user, profile, level, isDevMode, isCeoMode, setPanelMode, isCeoUser } = useAuth();
   const { config: menuConfig } = useMenuConfig();
   const { config: devMenuConfig } = useDevMenuConfig();
   const { isMobile, setOpenMobile } = useSidebar();
   const storageKey = "tw_sidebar_open_cat_v2";
+
+  const ceoConfig = useMemo<CeoConfiguration>(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const local = localStorage.getItem("tw_ceo_config_v1");
+        if (local) return { ...DEFAULT_CEO_CONFIG, ...JSON.parse(local) };
+      } catch {}
+    }
+    return DEFAULT_CEO_CONFIG;
+  }, []);
+
+  const isItemActive = useCallback(
+    (targetUrl: string) => {
+      if (targetUrl.includes("?")) {
+        const [path, query] = targetUrl.split("?");
+        if (pathname !== path) return false;
+        const params = new URLSearchParams(query);
+        const expectedTab = params.get("tab");
+        const currentTab =
+          (routerState.location.search as any)?.tab ||
+          (typeof window !== "undefined"
+            ? new URLSearchParams(window.location.search).get("tab")
+            : null) ||
+          "dashboard";
+        return expectedTab === currentTab;
+      }
+      return pathname === targetUrl;
+    },
+    [pathname, routerState.location.search]
+  );
 
   const [openCategory, setOpenCategory] = useState<string | null>(() => {
     try {
@@ -161,14 +202,16 @@ function DynamicSidebarNavigation() {
 
   const isDevUser = isUserDeveloper(user, profile, level);
 
-  // Se o usuário acessar uma rota /dev diretamente, ativa o modo dev apenas se for Dev verificado
+  // Sincroniza o modo de painel com base na rota acessada
   useEffect(() => {
     if (isDevUser && pathname.startsWith("/dev") && !isDevMode) {
       setPanelMode("dev");
-    } else if (!isDevUser && isDevMode) {
+    } else if ((isCeoUser || isDevUser) && pathname.startsWith("/ceo") && !isCeoMode) {
+      setPanelMode("ceo");
+    } else if (!isDevUser && !isCeoUser && (isDevMode || isCeoMode)) {
       setPanelMode("member");
     }
-  }, [pathname, isDevUser, isDevMode, setPanelMode]);
+  }, [pathname, isDevUser, isCeoUser, isDevMode, isCeoMode, setPanelMode]);
 
   const grouped = useMemo(() => {
     // 1. Configuração do menu da plataforma (Membros / Geral)
@@ -211,6 +254,20 @@ function DynamicSidebarNavigation() {
       }));
 
     const allPlatformItems: MasterNavItem[] = [...customizedMaster, ...customNavItems];
+
+    // Itens da Categoria CEO (para quem tem Tag CEO ou Tag Dev)
+    const visibleCeo = (isCeoUser || isDevUser)
+      ? CEO_MODULE_NAV_ITEMS.filter((item) => {
+          if (isDevUser) return true;
+          if (item.id === "ceo-bot" && ceoConfig.allowManageBot === false) return false;
+          if (item.id === "ceo-webhooks" && ceoConfig.allowWebhooks === false) return false;
+          if (item.id === "ceo-financas" && ceoConfig.allowFinancials === false) return false;
+          return true;
+        })
+      : [];
+
+    const ceoGroups: { category: string; items: typeof visibleCeo }[] =
+      visibleCeo.length > 0 ? [{ category: "CEO", items: visibleCeo }] : [];
 
     if (isDevUser && isDevMode) {
       // MODO DEV TOOLS:
@@ -283,10 +340,10 @@ function DynamicSidebarNavigation() {
         }
       });
 
-      return [...devGroups, ...platformGroups];
+      return [...devGroups, ...ceoGroups, ...platformGroups];
     }
 
-    // MODO NORMAL (MEMBRO): Exibe estritamente as permissões e menus atribuídos ao cargo
+    // MODO NORMAL (MEMBRO) / CEO:
     const visible = allPlatformItems.filter(
       (item) => item.visible && (!item.perm || hasPermission(item.perm))
     );
@@ -317,19 +374,14 @@ function DynamicSidebarNavigation() {
       }
     });
 
-    return groups;
-  }, [isDevMode, menuConfig, devMenuConfig, hasPermission]);
+    return [...ceoGroups, ...groups];
+  }, [isDevMode, isDevUser, isCeoUser, menuConfig, devMenuConfig, ceoConfig, hasPermission]);
 
   useEffect(() => {
     if (!grouped.length) return;
-    const activeGroup = grouped.find((g) => g.items.some((i) => i.url === pathname));
+    const activeGroup = grouped.find((g) => g.items.some((i) => isItemActive(i.url)));
     if (activeGroup) {
-      setOpenCategory((prev) => {
-        if (!prev || !grouped.some((g) => g.category === prev)) {
-          return activeGroup.category;
-        }
-        return prev;
-      });
+      setOpenCategory(activeGroup.category);
     } else {
       setOpenCategory((prev) => {
         if (!prev || !grouped.some((g) => g.category === prev)) {
@@ -338,109 +390,93 @@ function DynamicSidebarNavigation() {
         return prev;
       });
     }
-  }, [pathname, grouped]);
+  }, [pathname, isItemActive, grouped]);
 
   return (
     <>
-      {/* Botão de Acesso VIP ao Painel CEO */}
-      {(isCeoUser || isDevUser) && (
-        <div className="px-2 pt-1 pb-1">
-          <Link
-            to="/ceo"
-            onClick={() => {
-              if (isMobile) setOpenMobile(false);
-            }}
-            className={cn(
-              "flex items-center justify-between w-full transition-all text-xs font-black p-2.5 rounded-xl border group/btn cursor-pointer shadow-xs",
-              pathname.startsWith("/ceo")
-                ? "border-amber-400/80 bg-gradient-to-r from-amber-500/25 to-amber-500/10 text-amber-200 ring-2 ring-amber-500/50 shadow-md shadow-amber-500/10"
-                : "border-amber-500/40 bg-gradient-to-r from-amber-500/15 via-amber-500/10 to-transparent hover:bg-amber-500/20 text-amber-300 hover:text-amber-200 ring-1 ring-amber-500/30"
-            )}
-          >
-            <div className="flex items-center gap-2.5">
-              <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-amber-500 text-black shadow-xs font-black">
-                <Crown className="h-4 w-4 text-black" />
-              </div>
-              <div className="text-left">
-                <span className="block font-black text-amber-300 leading-tight text-xs flex items-center gap-1.5">
-                  Painel CEO
-                </span>
-                <span className="text-[10px] text-amber-400/80 font-medium">Diretoria Executiva VIP</span>
-              </div>
-            </div>
-            <Badge
-              variant="outline"
-              className="text-[9px] font-mono px-1.5 py-0 border-amber-400/60 bg-amber-500/30 text-amber-200 font-black shadow-none"
-            >
-              VIP OURO
-            </Badge>
-          </Link>
-        </div>
-      )}
-
-      {isDevUser && (
-        <div className="px-2 pt-1 pb-2 space-y-1.5 border-b border-border/80 mb-2">
-          {isDevMode ? (
-            <div className="space-y-1.5">
-              <Link
-                to="/dashboard"
-                onClick={() => {
-                  setPanelMode("member");
-                  if (isMobile) setOpenMobile(false);
-                }}
-                className="flex items-center justify-between w-full transition-all text-xs font-black p-2.5 rounded-xl border border-primary/50 bg-primary/15 hover:bg-primary/25 text-foreground hover:text-primary shadow-md group/btn cursor-pointer ring-1 ring-primary/40"
-              >
-                <div className="flex items-center gap-2.5">
-                  <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-xs">
-                    <ArrowLeft className="h-4 w-4 group-hover/btn:-translate-x-0.5 transition-transform" />
-                  </div>
-                  <div className="text-left">
-                    <span className="block font-black text-foreground leading-tight text-xs">Painel Membro</span>
-                    <span className="text-[10px] text-muted-foreground font-medium">Voltar ao modo membro</span>
-                  </div>
-                </div>
-                <Badge
-                  variant="outline"
-                  className="text-[9px] font-mono px-1.5 py-0 border-primary/40 bg-primary/20 text-primary font-black shadow-none"
+      {/* Barra Compacta de Alternância entre Painéis (Membro, Dev, CEO) */}
+      {(isDevUser || isCeoUser) && (
+        <div className="px-2 pt-1 pb-2 border-b border-border/80 mb-2">
+          <div className="flex items-center justify-between p-1 bg-secondary/40 border border-border/70 rounded-xl gap-1 shadow-xs">
+            {/* Botão Painel Membro */}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Link
+                  to="/dashboard"
+                  onClick={() => {
+                    setPanelMode("member");
+                    if (isMobile) setOpenMobile(false);
+                  }}
+                  className={cn(
+                    "flex-1 flex items-center justify-center h-8 rounded-lg transition-all duration-150 cursor-pointer relative",
+                    !pathname.startsWith("/dev") && !pathname.startsWith("/ceo")
+                      ? "bg-primary text-primary-foreground shadow-xs ring-1 ring-primary/40 font-bold"
+                      : "text-muted-foreground hover:text-foreground hover:bg-secondary/60"
+                  )}
+                  aria-label="Painel Membro"
                 >
-                  VOLTAR
-                </Badge>
-              </Link>
+                  <Users className="h-4 w-4" />
+                </Link>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" className="text-[11px] font-bold">
+                Painel Membro
+              </TooltipContent>
+            </Tooltip>
 
-              <div className="flex items-center justify-between px-2.5 py-1 rounded-lg border border-rose-500/30 bg-rose-500/10 text-rose-400 font-mono text-[9.5px] font-bold shadow-xs">
-                <span className="flex items-center gap-1.5">
-                  <Terminal className="h-3.5 w-3.5 animate-pulse" />
-                  MODO DEV TOOLS ATIVO
-                </span>
-                <span className="text-[9px] text-rose-300/80">ACESSO TOTAL</span>
-              </div>
-            </div>
-          ) : (
-            <Link
-              to="/dev"
-              onClick={() => {
-                setPanelMode("dev");
-                if (isMobile) setOpenMobile(false);
-              }}
-              className="flex items-center justify-between w-full transition-all text-xs font-black p-2.5 rounded-xl border border-rose-500/50 bg-rose-500/15 hover:bg-rose-500/25 text-rose-300 hover:text-rose-200 shadow-md group/btn cursor-pointer ring-1 ring-rose-500/40"
-            >
-              <div className="flex items-center gap-2.5">
-                <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-rose-600 text-white shadow-xs animate-pulse">
-                  <Terminal className="h-4 w-4" />
-                </div>
-                <div className="text-left">
-                  <span className="block font-black text-rose-300 leading-tight text-xs">Dev Tools</span>
-                  <span className="text-[10px] text-rose-400/80 font-medium">Painel do Desenvolvedor</span>
-                </div>
-              </div>
-              <Badge
-                variant="outline"
-                className="text-[9px] font-mono px-1.5 py-0 border-rose-500/50 bg-rose-500/30 text-rose-200 font-black shadow-none"
-              >
-                DEV TAG
-              </Badge>
-            </Link>
-          )}
+            {/* Botão Painel CEO */}
+            {(isCeoUser || isDevUser) && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Link
+                    to="/ceo"
+                    onClick={() => {
+                      setPanelMode("ceo");
+                      if (isMobile) setOpenMobile(false);
+                    }}
+                    className={cn(
+                      "flex-1 flex items-center justify-center h-8 rounded-lg transition-all duration-150 cursor-pointer relative",
+                      pathname.startsWith("/ceo")
+                        ? "bg-gradient-to-r from-amber-500 to-yellow-500 text-black shadow-xs ring-1 ring-amber-400 font-bold"
+                        : "text-amber-400/80 hover:text-amber-300 hover:bg-amber-500/15"
+                    )}
+                    aria-label="Painel CEO"
+                  >
+                    <Crown className="h-4 w-4" />
+                  </Link>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="text-[11px] font-bold text-amber-300">
+                  Painel CEO (VIP Ouro)
+                </TooltipContent>
+              </Tooltip>
+            )}
+
+            {/* Botão Painel Dev */}
+            {isDevUser && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Link
+                    to="/dev"
+                    onClick={() => {
+                      setPanelMode("dev");
+                      if (isMobile) setOpenMobile(false);
+                    }}
+                    className={cn(
+                      "flex-1 flex items-center justify-center h-8 rounded-lg transition-all duration-150 cursor-pointer relative",
+                      pathname.startsWith("/dev")
+                        ? "bg-rose-600 text-white shadow-xs ring-1 ring-rose-400 font-bold"
+                        : "text-rose-400/80 hover:text-rose-300 hover:bg-rose-500/15"
+                    )}
+                    aria-label="Painel Dev Tools"
+                  >
+                    <Terminal className="h-4 w-4" />
+                  </Link>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="text-[11px] font-bold text-rose-300">
+                  Painel Dev (Dev Tools)
+                </TooltipContent>
+              </Tooltip>
+            )}
+          </div>
         </div>
       )}
 
@@ -455,8 +491,14 @@ function DynamicSidebarNavigation() {
                 onClick={() => toggleCategory(category)}
                 className="flex items-center justify-between w-full text-[0.65rem] uppercase tracking-[0.2em] text-sidebar-foreground/70 hover:text-sidebar-foreground font-bold px-2 py-1 rounded transition-colors group/label cursor-pointer"
               >
-                <span className={cn(category === "Ferramentas Dev" && "text-rose-400 font-black flex items-center gap-1.5")}>
+                <span
+                  className={cn(
+                    category === "Ferramentas Dev" && "text-rose-400 font-black flex items-center gap-1.5",
+                    category === "CEO" && "text-amber-400 font-black flex items-center gap-1.5"
+                  )}
+                >
                   {category === "Ferramentas Dev" && <Terminal className="h-3 w-3" />}
+                  {category === "CEO" && <Crown className="h-3.5 w-3.5 text-amber-400" />}
                   {category}
                 </span>
                 <ChevronDown
@@ -472,10 +514,19 @@ function DynamicSidebarNavigation() {
               <SidebarGroupContent className="animate-in fade-in-50 duration-200">
                 <SidebarMenu>
                   {items.map((item) => {
-                    const active = pathname === item.url;
+                    const active = isItemActive(item.url);
                     const isDevItem = item.url.startsWith("/dev");
+                    const isCeoItem = item.url.startsWith("/ceo");
                     const isExternal = item.url.startsWith("http://") || item.url.startsWith("https://");
                     const ItemIcon = item.icon || resolveMenuIcon(undefined, item.url);
+
+                    let linkTarget: any = item.url;
+                    let linkSearch: any = undefined;
+                    if (item.url.includes("?")) {
+                      const [p, q] = item.url.split("?");
+                      linkTarget = p;
+                      linkSearch = Object.fromEntries(new URLSearchParams(q));
+                    }
 
                     return (
                       <SidebarMenuItem key={item.id || item.url}>
@@ -496,16 +547,28 @@ function DynamicSidebarNavigation() {
                             </a>
                           ) : (
                             <Link
-                              to={item.url}
+                              to={linkTarget}
+                              search={linkSearch}
                               onClick={() => {
                                 if (isMobile) setOpenMobile(false);
                               }}
                               className={cn(
                                 "flex items-center gap-3 transition-colors",
-                                active && (isDevItem ? "font-black text-rose-400 bg-rose-500/10 border border-rose-500/30 rounded-lg" : "font-medium text-primary")
+                                active &&
+                                  (isDevItem
+                                    ? "font-black text-rose-400 bg-rose-500/10 border border-rose-500/30 rounded-lg"
+                                    : isCeoItem
+                                    ? "font-black text-amber-300 bg-amber-500/15 border border-amber-500/40 rounded-lg"
+                                    : "font-medium text-primary")
                               )}
                             >
-                              <ItemIcon className={cn("h-4 w-4 shrink-0", isDevItem && "text-rose-400")} />
+                              <ItemIcon
+                                className={cn(
+                                  "h-4 w-4 shrink-0",
+                                  isDevItem && "text-rose-400",
+                                  isCeoItem && "text-amber-400"
+                                )}
+                              />
                               <span className="truncate">{item.title}</span>
                             </Link>
                           )}

@@ -197,9 +197,9 @@ function CeoPageContent() {
         </CardContent>
       </Card>
 
-      {/* TABS NAVEGÁVEIS DO PAINEL CEO */}
+      {/* TABS NAVEGÁVEIS DO PAINEL CEO (Visível em telas mobile/tablet quando o menu lateral está recolhido) */}
       <Tabs value={activeTab} onValueChange={(val: any) => setTab(val)} className="space-y-6">
-        <TabsList className="bg-secondary/40 border border-border/60 p-1 rounded-2xl flex flex-wrap h-auto gap-1">
+        <TabsList className="flex lg:hidden bg-secondary/40 border border-border/60 p-1 rounded-2xl flex-wrap h-auto gap-1">
           <TabsTrigger
             value="dashboard"
             className="text-xs font-bold gap-2 py-2 px-4 data-[state=active]:bg-gradient-to-r data-[state=active]:from-amber-600 data-[state=active]:to-yellow-500 data-[state=active]:text-black"

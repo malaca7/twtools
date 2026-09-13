@@ -16,12 +16,12 @@ type AuthContextValue = {
   level: AppLevel | null;
   signupRequestStatus: SignupRequestStatus | null;
   approvedAccess: boolean;
-  loading: boolean;
   isDevMode: boolean;
   isDevUser: boolean;
+  isCeoMode: boolean;
   isCeoUser: boolean;
-  panelMode: "member" | "dev";
-  setPanelMode: (mode: "member" | "dev") => void;
+  panelMode: "member" | "dev" | "ceo";
+  setPanelMode: (mode: "member" | "dev" | "ceo") => void;
   refresh: () => Promise<void>;
   signOut: () => Promise<void>;
   hasPermission: (permission: Permission) => boolean;
@@ -35,9 +35,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [level, setLevel] = useState<AppLevel | null>(null);
   const [signupRequestStatus, setSignupRequestStatus] = useState<SignupRequestStatus | null>(null);
   const [loading, setLoading] = useState(true);
-  const [panelMode, setPanelModeState] = useState<"member" | "dev">(() => {
+  const [panelMode, setPanelModeState] = useState<"member" | "dev" | "ceo">(() => {
     if (typeof window === "undefined") return "member";
-    return (localStorage.getItem("tw_panel_mode") as "member" | "dev") || "member";
+    return (localStorage.getItem("tw_panel_mode") as "member" | "dev" | "ceo") || "member";
   });
   const { data: customRolePermissions } = useRolePermissions();
 
@@ -250,7 +250,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           (window.location.pathname.startsWith("/dev") || window.location.hash.includes("/dev"))))
   );
 
-  const setPanelMode = useCallback((mode: "member" | "dev") => {
+  const isCeoMode = Boolean(
+    (isCeoUser || isDevUser) &&
+      (panelMode === "ceo" ||
+        (typeof window !== "undefined" &&
+          (window.location.pathname.startsWith("/ceo") || window.location.hash.includes("/ceo"))))
+  );
+
+  const setPanelMode = useCallback((mode: "member" | "dev" | "ceo") => {
     setPanelModeState(mode);
     try {
       localStorage.setItem("tw_panel_mode", mode);
@@ -315,6 +322,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       loading,
       isDevMode,
       isDevUser,
+      isCeoMode,
       isCeoUser,
       panelMode,
       setPanelMode,
@@ -330,6 +338,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       loading,
       isDevMode,
       isDevUser,
+      isCeoMode,
       isCeoUser,
       panelMode,
       setPanelMode,
