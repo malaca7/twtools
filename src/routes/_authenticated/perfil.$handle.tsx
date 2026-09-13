@@ -290,6 +290,12 @@ function PublicProfilePage() {
                   DEV
                 </Badge>
               )}
+
+              {Boolean(member.is_ceo || member.custom_theme?.is_ceo) && (
+                <Badge className="text-[10px] font-bold border-amber-500/40 text-amber-300 bg-amber-500/20 shadow-xs shadow-amber-500/20">
+                  👑 CEO
+                </Badge>
+              )}
             </div>
 
             {member.nickname && (
@@ -350,10 +356,15 @@ function PublicProfilePage() {
             <div className="grid grid-cols-2 gap-3">
               <div className="rounded-xl border border-border/60 bg-secondary/20 p-3">
                 <p className="text-[10px] uppercase font-bold text-muted-foreground">Cargo na Facção</p>
-                <div className="mt-1">
+                <div className="mt-1 flex items-center gap-1.5 flex-wrap">
                   <Badge variant="outline" className={cn("text-[10px] uppercase font-mono font-bold px-2 py-0.5", levelBadgeClass(currentNivel))}>
                     {LEVEL_LABEL[currentNivel] || currentNivel}
                   </Badge>
+                  {Boolean(member.is_ceo || member.custom_theme?.is_ceo) && (
+                    <Badge className="text-[10px] font-bold border-amber-500/40 text-amber-300 bg-amber-500/20 shadow-xs shadow-amber-500/20">
+                      👑 CEO
+                    </Badge>
+                  )}
                 </div>
               </div>
 

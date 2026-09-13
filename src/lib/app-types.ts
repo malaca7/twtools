@@ -56,7 +56,8 @@ export type Profile = {
   discord_avatar_url?: string | null;
   discord_email?: string | null;
   is_developer?: boolean;
-  custom_theme?: (UserThemeSettings & { custom_url?: string | null }) | null;
+  is_ceo?: boolean;
+  custom_theme?: (UserThemeSettings & { custom_url?: string | null; is_ceo?: boolean }) | null;
   custom_url?: string | null;
 };
 
@@ -176,7 +177,8 @@ export type Member = {
   discord_avatar_url?: string | null;
   discord_email?: string | null;
   is_developer?: boolean;
-  custom_theme?: (UserThemeSettings & { custom_url?: string | null }) | null;
+  is_ceo?: boolean;
+  custom_theme?: (UserThemeSettings & { custom_url?: string | null; is_ceo?: boolean }) | null;
   custom_url?: string | null;
 };
 

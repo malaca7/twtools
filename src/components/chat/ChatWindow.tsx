@@ -497,6 +497,11 @@ export function ChatWindow({
                     DEV
                   </Badge>
                 )}
+                {!isGroup && Boolean(liveMember?.is_ceo || liveMember?.custom_theme?.is_ceo) && (
+                  <Badge className="text-[8.5px] font-mono px-1.5 py-0 border-amber-500/40 text-amber-300 bg-amber-500/20 font-bold shrink-0">
+                    👑 CEO
+                  </Badge>
+                )}
               </div>
 
               <div className="flex items-center gap-1.5 text-[11px] text-[#8696a0] leading-none font-sans truncate">

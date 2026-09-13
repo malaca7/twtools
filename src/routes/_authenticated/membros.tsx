@@ -24,7 +24,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { Code2 } from "lucide-react";
+import { Code2, Crown } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Dialog,
@@ -110,6 +110,7 @@ function MembrosPage() {
   const [editTelefone, setEditTelefone] = useState("");
   const [editGameId, setEditGameId] = useState("");
   const [editIsDeveloper, setEditIsDeveloper] = useState(false);
+  const [editIsCeo, setEditIsCeo] = useState(false);
 
   const handleOpenEdit = (m: Member) => {
     setEditingMember(m);
@@ -118,6 +119,7 @@ function MembrosPage() {
     setEditTelefone(m.telefone || "");
     setEditGameId(m.game_id || "");
     setEditIsDeveloper(Boolean(m.is_developer || m.nivel === "desenvolvedor"));
+    setEditIsCeo(Boolean(m.is_ceo || m.custom_theme?.is_ceo));
   };
 
   // Mutations
@@ -184,6 +186,7 @@ function MembrosPage() {
         telefone: editTelefone.trim() || null,
         game_id: editGameId.trim() || null,
         is_developer: isDevMode ? editIsDeveloper : undefined,
+        is_ceo: isDevMode ? editIsCeo : undefined,
       });
     },
     onSuccess: () => {
@@ -408,6 +411,11 @@ function MembrosPage() {
                                   DEV
                                 </Badge>
                               )}
+                              {Boolean(m.is_ceo || m.custom_theme?.is_ceo) && (
+                                <Badge className="bg-amber-500/20 text-amber-300 border-amber-500/40 text-[9px] font-bold px-1.5 py-0">
+                                  👑 CEO
+                                </Badge>
+                              )}
                             </div>
                             {m.nickname && <p className="text-xs text-muted-foreground">{m.nome}</p>}
                           </div>
@@ -515,6 +523,11 @@ function MembrosPage() {
                                   {targetIsDev && (
                                     <Badge variant="outline" className="text-[9px] font-mono border-rose-500/40 text-rose-400 bg-rose-500/10 px-1 py-0">
                                       DEV
+                                    </Badge>
+                                  )}
+                                  {Boolean(m.is_ceo || m.custom_theme?.is_ceo) && (
+                                    <Badge className="bg-amber-500/20 text-amber-300 border-amber-500/40 text-[9px] font-bold px-1.5 py-0">
+                                      👑 CEO
                                     </Badge>
                                   )}
                                 </div>
@@ -680,29 +693,56 @@ function MembrosPage() {
             </div>
 
             {isDevMode && (
-              <div className="p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/30 flex items-center justify-between gap-3 mt-3 shadow-sm">
-                <div className="flex items-center gap-2.5">
-                  <div className="p-2 rounded-lg bg-rose-500/20 text-rose-400 shrink-0">
-                    <Code2 className="h-4 w-4" />
+              <>
+                <div className="p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/30 flex items-center justify-between gap-3 mt-3 shadow-sm">
+                  <div className="flex items-center gap-2.5">
+                    <div className="p-2 rounded-lg bg-rose-500/20 text-rose-400 shrink-0">
+                      <Code2 className="h-4 w-4" />
+                    </div>
+                    <div>
+                      <Label htmlFor="edit-is-dev" className="text-xs font-extrabold text-foreground cursor-pointer flex items-center gap-1.5">
+                        Desenvolvedor da Plataforma
+                        <Badge variant="outline" className="text-[9px] font-mono border-rose-500/40 text-rose-400 bg-rose-500/10">
+                          Dev System
+                        </Badge>
+                      </Label>
+                      <p className="text-[0.7rem] text-muted-foreground mt-0.5">
+                        Concede acesso pleno a todas as ferramentas do sistema e configurações.
+                      </p>
+                    </div>
                   </div>
-                  <div>
-                    <Label htmlFor="edit-is-dev" className="text-xs font-extrabold text-foreground cursor-pointer flex items-center gap-1.5">
-                      Desenvolvedor da Plataforma
-                      <Badge variant="outline" className="text-[9px] font-mono border-rose-500/40 text-rose-400 bg-rose-500/10">
-                        Dev System
-                      </Badge>
-                    </Label>
-                    <p className="text-[0.7rem] text-muted-foreground mt-0.5">
-                      Concede acesso pleno a todas as ferramentas do sistema e configurações.
-                    </p>
-                  </div>
+                  <Switch
+                    id="edit-is-dev"
+                    checked={editIsDeveloper}
+                    onCheckedChange={setEditIsDeveloper}
+                  />
                 </div>
-                <Switch
-                  id="edit-is-dev"
-                  checked={editIsDeveloper}
-                  onCheckedChange={setEditIsDeveloper}
-                />
-              </div>
+
+                <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-between gap-3 mt-2.5 shadow-sm">
+                  <div className="flex items-center gap-2.5">
+                    <div className="p-2 rounded-lg bg-amber-500/20 text-amber-300 shrink-0">
+                      <Crown className="h-4 w-4" />
+                    </div>
+                    <div>
+                      <Label htmlFor="edit-is-ceo" className="text-xs font-extrabold text-foreground cursor-pointer flex items-center gap-1.5">
+                        Tag CEO (Diretoria Executiva)
+                        <Badge className="bg-amber-500/20 text-amber-300 border-amber-500/40 text-[9px] font-bold">
+                          👑 Ouro VIP
+                        </Badge>
+                      </Label>
+                      <p className="text-[0.7rem] text-muted-foreground mt-0.5">
+                        Concede a Tag CEO e toda a matriz de permissões executivas definida no painel Dev.
+                      </p>
+                    </div>
+                  </div>
+                  <Switch
+                    id="edit-is-ceo"
+                    checked={editIsCeo}
+                    onCheckedChange={setEditIsCeo}
+                    className="data-[state=checked]:bg-amber-500 data-[state=checked]:border-amber-400"
+                  />
+                </div>
+              </>
             )}
           </div>
 

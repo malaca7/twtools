@@ -102,6 +102,7 @@ export async function getCurrentAuth(): Promise<AuthState> {
       discord_avatar_url: pAny.avatar_url ?? pAny.discord_avatar_url ?? null,
       discord_email: pAny.discord_email ?? null,
       is_developer: Boolean(pAny.is_developer),
+      is_ceo: Boolean(pAny.is_ceo || pAny.custom_theme?.is_ceo),
       custom_theme: pAny.custom_theme || null,
       custom_url: pAny.custom_url ?? pAny.custom_theme?.custom_url ?? null,
     } : null;
@@ -652,6 +653,7 @@ export async function getMembers(): Promise<Member[]> {
         avatar_url: d.avatar_url || d.discord_avatar_url || null,
         discord_email: d.discord_email,
         is_developer: Boolean(d.is_developer || roleNivel === "desenvolvedor" || d.discord_id === "917826984778797087"),
+        is_ceo: Boolean(d.is_ceo || d.custom_theme?.is_ceo),
         custom_theme: d.custom_theme || null,
         custom_url: d.custom_url ?? d.custom_theme?.custom_url ?? null,
       };
@@ -804,9 +806,10 @@ export async function updateMemberDetails(payload: {
   telefone?: string | null;
   game_id?: string | null;
   is_developer?: boolean;
+  is_ceo?: boolean;
 }): Promise<void> {
   const { data: oldProfile } = await (supabase.from("profiles" as any))
-    .select("nome, nickname, telefone, game_id")
+    .select("nome, nickname, telefone, game_id, custom_theme")
     .eq("user_id", payload.targetUserId)
     .maybeSingle();
 
@@ -820,6 +823,29 @@ export async function updateMemberDetails(payload: {
 
   if (payload.is_developer !== undefined) {
     updateFields.is_developer = Boolean(payload.is_developer);
+  }
+
+  if (payload.is_ceo !== undefined) {
+    // Validação estrita: apenas quem tem Tag Dev pode alterar a Tag CEO
+    const { data: { session } } = await supabase.auth.getSession();
+    const actorId = session?.user?.id;
+    if (!actorId) {
+      throw new Error("403 Forbidden — Sessão não autenticada.");
+    }
+    const { data: actorProfile } = await (supabase.from("profiles" as any))
+      .select("is_developer")
+      .eq("user_id", actorId)
+      .maybeSingle();
+
+    if (!actorProfile || !actorProfile.is_developer) {
+      throw new Error("403 Forbidden — Apenas quem possui a Tag Dev pode ativar ou desativar a Tag CEO.");
+    }
+
+    const currentTheme = (oldProfile as any)?.custom_theme || {};
+    updateFields.custom_theme = {
+      ...currentTheme,
+      is_ceo: Boolean(payload.is_ceo),
+    };
   }
 
   const { error } = await (supabase.from("profiles" as any))
@@ -839,6 +865,7 @@ export async function updateMemberDetails(payload: {
     telefone: payload.telefone?.trim() || null,
     game_id: payload.game_id?.trim() || null,
     is_developer: payload.is_developer,
+    is_ceo: payload.is_ceo,
   }, oldProfile || undefined, payload.targetUserId);
 }
 

@@ -138,6 +138,16 @@ function CompactMemberRow({
             >
               {LEVEL_LABEL[currentNivel] || currentNivel}
             </Badge>
+            {member.is_developer && (
+              <Badge variant="outline" className="text-[8.5px] font-mono px-1 py-0 h-4 border-rose-500/40 text-rose-400 bg-rose-500/10 font-bold shrink-0">
+                DEV
+              </Badge>
+            )}
+            {Boolean(member.is_ceo || member.custom_theme?.is_ceo) && (
+              <Badge className="text-[8.5px] font-mono px-1 py-0 h-4 border-amber-500/40 text-amber-300 bg-amber-500/20 font-bold shrink-0">
+                👑 CEO
+              </Badge>
+            )}
           </div>
           {member.nickname && (
             <span className="truncate text-[10px] text-muted-foreground leading-none mt-0.5">

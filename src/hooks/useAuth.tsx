@@ -5,7 +5,7 @@ import { getCurrentAuth, logoutFromApp } from "@/lib/app-api";
 import type { AppUser, AuthState, Profile, SignupRequestStatus } from "@/lib/app-types";
 import { can, LEVEL_LABEL, type AppLevel, type Permission } from "@/lib/permissions";
 import { useRolePermissions } from "@/hooks/useData";
-import { isUserDeveloper, DEV_DISCORD_IDS, isDevBypassActive, DEV_CONFIG_EVENT } from "@/services/devService";
+import { isUserDeveloper, DEV_DISCORD_IDS, isDevBypassActive, DEV_CONFIG_EVENT, isUserCeo } from "@/services/devService";
 
 type Session = { user: AppUser } | null;
 
@@ -18,6 +18,8 @@ type AuthContextValue = {
   approvedAccess: boolean;
   loading: boolean;
   isDevMode: boolean;
+  isDevUser: boolean;
+  isCeoUser: boolean;
   panelMode: "member" | "dev";
   setPanelMode: (mode: "member" | "dev") => void;
   refresh: () => Promise<void>;
@@ -239,6 +241,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     level
   );
 
+  const isCeoUser = isUserCeo(profile);
+
   const isDevMode = Boolean(
     isDevUser &&
       (panelMode === "dev" ||
@@ -279,11 +283,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return true;
       }
 
-      // 2. Se o Bypass estiver DESATIVADO (ou se não for desenvolvedor):
-      // Avalia rigorosamente as permissões reais atribuídas ao cargo do membro na matriz de permissões
+      // 2. Avaliação Aditiva da Tag CEO: se o usuário possui a Tag CEO ativa,
+      // ele herda automaticamente a matriz de permissões atribuída à Tag CEO
+      if (isCeoUser) {
+        const ceoPerms = (customRolePermissions as any)?.ceo;
+        if (Array.isArray(ceoPerms) && ceoPerms.includes(permission)) {
+          return true;
+        }
+      }
+
+      // 3. Avalia rigorosamente as permissões reais atribuídas ao cargo do membro na matriz de permissões
       return can(level, permission, customRolePermissions);
     },
-    [level, isDevUser, customRolePermissions, devConfigTick]
+    [level, isDevUser, isCeoUser, customRolePermissions, devConfigTick]
   );
 
   const value = useMemo<AuthContextValue>(
@@ -302,6 +314,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       ),
       loading,
       isDevMode,
+      isDevUser,
+      isCeoUser,
       panelMode,
       setPanelMode,
       refresh,
@@ -315,6 +329,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       signupRequestStatus,
       loading,
       isDevMode,
+      isDevUser,
+      isCeoUser,
       panelMode,
       setPanelMode,
       refresh,

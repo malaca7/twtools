@@ -432,3 +432,337 @@ export async function fetchLastForceCachePurge(): Promise<ForceCachePurgeRecord 
   }
   return null;
 }
+
+/* ==========================================================================
+   GESTÃO DA TAG CEO (DIRETORIA EXECUTIVA / VIP OURO)
+   Acesso e atribuição ESTRITAMENTE restritos a portadores da Tag Dev
+   ========================================================================== */
+
+export const CEO_PERMS_KEY = "tw_ceo_tag_permissions_v1";
+export const CEO_CONFIG_KEY = "tw_ceo_config_v1";
+
+export interface CeoConfiguration {
+  enabled: boolean;
+  badgeLabel: string;
+  badgeColor: string;
+  description: string;
+  executiveBypassLevel: boolean;
+  activeCeoUserIds: string[];
+  updatedAt?: string;
+}
+
+export const DEFAULT_CEO_CONFIG: CeoConfiguration = {
+  enabled: true,
+  badgeLabel: "CEO",
+  badgeColor: "gold",
+  description: "Diretoria Executiva da facção Twin Wheels. Gestão operacional avançada e liderança de negócios.",
+  executiveBypassLevel: false,
+  activeCeoUserIds: [],
+};
+
+export const DEFAULT_CEO_PERMISSIONS: string[] = [
+  "view_dashboard",
+  "view_cash_fund",
+  "manage_cash_fund",
+  "view_stock",
+  "view_movements",
+  "create_movement",
+  "reverse_movement",
+  "view_baus",
+  "manage_baus",
+  "view_all_movements",
+  "view_sales",
+  "create_sale",
+  "reverse_sale",
+  "view_products",
+  "manage_products",
+  "view_categories",
+  "manage_categories",
+  "view_members",
+  "view_sensitive_data",
+  "approve_requests",
+  "promote_members",
+  "edit_members",
+  "view_consolidated_financials",
+  "manage_roles",
+  "manage_announcements",
+  "view_rankings",
+  "view_performance",
+  "inspect_member_performance",
+  "view_goals",
+  "manage_goals",
+  "view_hierarchy",
+  "view_audit",
+  "view_profile",
+  "view_financials",
+  "manage_members",
+  "view_all_sales",
+  "view_chat",
+  "create_chat_group",
+  "manage_chat_groups",
+  "view_absences",
+  "manage_absences",
+  "view_all_absences",
+  "view_patch_notes",
+  "view_tickets",
+  "create_ticket",
+  "view_all_tickets",
+  "manage_tickets",
+  "view_notifications",
+  "send_notifications",
+  "manage_notifications",
+];
+
+/**
+ * Helper síncrono para verificar se o usuário ou membro possui a Tag CEO ativa
+ */
+export function isUserCeo(
+  profile?: Profile | null | undefined,
+  member?: any
+): boolean {
+  if (profile?.is_ceo || profile?.custom_theme?.is_ceo) return true;
+  if (member?.is_ceo || member?.custom_theme?.is_ceo) return true;
+  return false;
+}
+
+/**
+ * Carrega a lista de permissões da Tag CEO persistidas no Supabase / LocalStorage
+ */
+export async function getCeoTagPermissions(
+  user?: AppUser | null,
+  profile?: Profile | null,
+  level?: AppLevel | null
+): Promise<string[]> {
+  // Leitura aberta para avaliação de permissões em tempo de execução
+  try {
+    const { data, error } = await supabase
+      .from("role_permissions")
+      .select("permissions")
+      .eq("level", "ceo")
+      .maybeSingle();
+
+    if (!error && data && Array.isArray(data.permissions) && data.permissions.length > 0) {
+      const perms = data.permissions.map(String);
+      if (typeof window !== "undefined") {
+        localStorage.setItem(CEO_PERMS_KEY, JSON.stringify(perms));
+      }
+      return perms;
+    }
+  } catch (err) {
+    console.warn("Falha ao buscar permissões da Tag CEO no Supabase:", err);
+  }
+
+  if (typeof window !== "undefined") {
+    try {
+      const local = localStorage.getItem(CEO_PERMS_KEY);
+      if (local) {
+        const parsed = JSON.parse(local);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed;
+        }
+      }
+    } catch {}
+  }
+
+  return DEFAULT_CEO_PERMISSIONS;
+}
+
+/**
+ * Salva a matriz de permissões da Tag CEO (Apenas Desenvolvedores)
+ */
+export async function saveCeoTagPermissions(
+  permissions: string[],
+  user?: AppUser | null,
+  profile?: Profile | null,
+  level?: AppLevel | null
+): Promise<void> {
+  assertDeveloperAccess(user, profile, level);
+
+  try {
+    if (typeof window !== "undefined") {
+      localStorage.setItem(CEO_PERMS_KEY, JSON.stringify(permissions));
+    }
+
+    const { error } = await supabase.from("role_permissions").upsert(
+      {
+        level: "ceo",
+        nivel: "ceo",
+        permissions: permissions as any,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "level" }
+    );
+
+    if (error) {
+      console.warn("Falha ao salvar permissões da Tag CEO em role_permissions:", error);
+    }
+  } catch (err) {
+    console.error("Erro ao salvar permissões da Tag CEO:", err);
+    throw err;
+  }
+}
+
+/**
+ * Carrega a configuração geral da Tag CEO
+ */
+export async function getCeoConfiguration(
+  user?: AppUser | null,
+  profile?: Profile | null,
+  level?: AppLevel | null
+): Promise<CeoConfiguration> {
+  try {
+    const { data, error } = await supabase
+      .from("role_permissions")
+      .select("permissions")
+      .eq("level", "system_ceo_config")
+      .maybeSingle();
+
+    if (!error && data && data.permissions && typeof data.permissions === "object") {
+      const merged = { ...DEFAULT_CEO_CONFIG, ...(data.permissions as any) };
+      if (typeof window !== "undefined") {
+        localStorage.setItem(CEO_CONFIG_KEY, JSON.stringify(merged));
+      }
+      return merged;
+    }
+  } catch (err) {
+    console.warn("Falha ao ler configuração da Tag CEO no Supabase:", err);
+  }
+
+  if (typeof window !== "undefined") {
+    try {
+      const local = localStorage.getItem(CEO_CONFIG_KEY);
+      if (local) {
+        return { ...DEFAULT_CEO_CONFIG, ...JSON.parse(local) };
+      }
+    } catch {}
+  }
+
+  return DEFAULT_CEO_CONFIG;
+}
+
+/**
+ * Salva a configuração da Tag CEO (Apenas Desenvolvedores)
+ */
+export async function saveCeoConfiguration(
+  config: CeoConfiguration,
+  user?: AppUser | null,
+  profile?: Profile | null,
+  level?: AppLevel | null
+): Promise<void> {
+  assertDeveloperAccess(user, profile, level);
+
+  try {
+    if (typeof window !== "undefined") {
+      localStorage.setItem(CEO_CONFIG_KEY, JSON.stringify(config));
+    }
+
+    const { error } = await supabase.from("role_permissions").upsert(
+      {
+        level: "system_ceo_config",
+        nivel: "system_ceo_config",
+        permissions: config as any,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "level" }
+    );
+
+    if (error) {
+      console.warn("Falha ao salvar system_ceo_config no Supabase:", error);
+    }
+  } catch (err) {
+    console.error("Erro ao salvar configuração da Tag CEO:", err);
+    throw err;
+  }
+}
+
+/**
+ * Ativa ou desativa a Tag CEO para um membro da facção.
+ * REGRA ESTRITA: Apenas quem possui a Tag Dev (is_developer === true) pode executar!
+ */
+export async function toggleMemberCeoTag(
+  targetUserId: string,
+  enable: boolean,
+  user?: AppUser | null,
+  profile?: Profile | null,
+  level?: AppLevel | null
+): Promise<{ success: boolean; is_ceo: boolean }> {
+  assertDeveloperAccess(user, profile, level);
+
+  if (!targetUserId) {
+    throw new Error("ID do usuário alvo inválido.");
+  }
+
+  // 1. Busca o perfil atual do membro
+  const { data: targetProfile, error: fetchErr } = await (supabase.from("profiles" as any))
+    .select("user_id, nome, nickname, custom_theme")
+    .eq("user_id", targetUserId)
+    .maybeSingle();
+
+  if (fetchErr) {
+    throw new Error(`Falha ao buscar perfil do membro: ${fetchErr.message}`);
+  }
+
+  const existingTheme = (targetProfile as any)?.custom_theme || {};
+  const updatedTheme = {
+    ...existingTheme,
+    is_ceo: enable,
+  };
+
+  // 2. Atualiza no perfil do membro (profiles.custom_theme)
+  const { error: updateErr } = await (supabase.from("profiles" as any))
+    .update({
+      custom_theme: updatedTheme,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("user_id", targetUserId);
+
+  if (updateErr) {
+    throw new Error(`Falha ao atualizar status de CEO: ${updateErr.message}`);
+  }
+
+  // 3. Atualiza a lista de IDs de CEO na configuração central
+  try {
+    const currentConfig = await getCeoConfiguration(user, profile, level);
+    const activeSet = new Set(currentConfig.activeCeoUserIds || []);
+    if (enable) {
+      activeSet.add(targetUserId);
+    } else {
+      activeSet.delete(targetUserId);
+    }
+    await saveCeoConfiguration(
+      {
+        ...currentConfig,
+        activeCeoUserIds: Array.from(activeSet),
+        updatedAt: new Date().toISOString(),
+      },
+      user,
+      profile,
+      level
+    );
+  } catch (err) {
+    console.warn("Falha ao sincronizar activeCeoUserIds:", err);
+  }
+
+  // 4. Registra no log de auditoria
+  try {
+    const { logAuditAction } = await import("@/lib/app-api");
+    const targetName = (targetProfile as any)?.nickname || (targetProfile as any)?.nome || targetUserId;
+    const actorName = profile?.nickname || profile?.nome || "Desenvolvedor";
+
+    await logAuditAction(
+      enable ? "conceder_tag_ceo" : "revogar_tag_ceo",
+      "membros",
+      {
+        alvo_user_id: targetUserId,
+        alvo_nome: targetName,
+        executado_por: actorName,
+        novo_status: enable ? "CEO Ativado" : "CEO Desativado",
+        timestamp: new Date().toISOString(),
+      }
+    );
+  } catch (auditErr) {
+    console.warn("Falha ao registrar auditoria de CEO:", auditErr);
+  }
+
+  return { success: true, is_ceo: enable };
+}
