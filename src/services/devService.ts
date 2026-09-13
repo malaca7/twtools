@@ -180,6 +180,8 @@ export const DEV_DISCORD_IDS: string[] = [
   "722320491767136346", // Developers / malaca7k
 ];
 
+export const DEVELOPER_DISCORD_IDS = DEV_DISCORD_IDS;
+
 /**
  * Validação rigorosa de autorização para o Módulo Dev.
  * Retorna true se o usuário possui a tag/permissão de desenvolvedor.
@@ -199,7 +201,7 @@ export function isUserDeveloper(
 
   // 3. Discord ID reconhecido na lista de desenvolvedores (malaca7k, etc.)
   const discordId = (profile as any)?.discord_id || (user as any)?.user_metadata?.provider_id || (user as any)?.id;
-  if (discordId && DEVELOPER_DISCORD_IDS.includes(discordId)) return true;
+  if (discordId && DEV_DISCORD_IDS.includes(discordId)) return true;
 
   // 4. Role ou cargo com termo desenvolvedor
   const roleName = String((profile as any)?.cargo || (profile as any)?.role || (profile as any)?.role_id || "").toLowerCase();

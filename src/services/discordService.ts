@@ -1,5 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 import type { AppUser, Profile } from "@/lib/app-types";
+import type { AppLevel } from "@/lib/permissions";
 import { assertDeveloperAccess, isUserDeveloper, isUserCeo } from "@/services/devService";
 
 export interface DiscordLogChannels {
