@@ -1,7 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 import type { AppUser, Profile } from "@/lib/app-types";
-import type { AppLevel } from "@/lib/permissions";
-import { assertDeveloperAccess } from "@/services/devService";
+import { assertDeveloperAccess, isUserDeveloper, isUserCeo } from "@/services/devService";
 
 export interface DiscordLogChannels {
   generalLogsChannelId?: string;
@@ -203,23 +202,92 @@ export async function getDiscordBotConfig(): Promise<DiscordBotConfig> {
 /**
  * Salva a configuração do Discord no Supabase e no Cache Local
  */
+/**
+ * Validação de autorização para gerenciar as configurações do Bot Discord.
+ * Permite acesso para desenvolvedores, liderança 01, tag CEO ou usuários com permissões do módulo de bot.
+ */
+export function canManageDiscordBot(
+  user?: AppUser | null,
+  profile?: Profile | null,
+  level?: any | null
+): boolean {
+  if (isUserDeveloper(user, profile, level) || level === "desenvolvedor" || level === "01") {
+    return true;
+  }
+  if (isUserCeo(profile)) {
+    return true;
+  }
+  // Permissões granulares
+  const perms: string[] = (profile as any)?.permissions || [];
+  if (
+    perms.includes("manage_ceo_bot") ||
+    perms.includes("bot_change_status") ||
+    perms.includes("bot_change_presence") ||
+    perms.includes("bot_change_name") ||
+    perms.includes("bot_change_avatar") ||
+    perms.includes("bot_change_banner") ||
+    perms.includes("bot_restart") ||
+    perms.includes("bot_power_toggle") ||
+    perms.includes("bot_invite")
+  ) {
+    return true;
+  }
+  if (typeof window !== "undefined") {
+    const isCeoPath = window.location.pathname.includes("/ceo") || window.location.hash.includes("/ceo");
+    if (isCeoPath && (level === "02" || level === "gerente" || isUserCeo(profile))) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * Salva a configuração do Discord no Supabase e no Cache Local
+ */
 export async function saveDiscordBotConfig(
   config: DiscordBotConfig,
   user?: AppUser | null,
   profile?: Profile | null,
-  level?: AppLevel | null
+  level?: any | null
 ): Promise<void> {
-  assertDeveloperAccess(user, profile, level);
+  const isDev = isUserDeveloper(user, profile, level) || level === "desenvolvedor" || level === "01";
+  const canManage = isDev || canManageDiscordBot(user, profile, level);
+
+  if (!canManage) {
+    const error: any = new Error("403 Forbidden — Acesso Negado ao Gerenciamento do Bot. Permissão necessária.");
+    error.status = 403;
+    error.statusCode = 403;
+    throw error;
+  }
 
   try {
-    localStorage.setItem(DISCORD_CONFIG_STORAGE_KEY, JSON.stringify(config));
+    let finalConfig = { ...config };
+    // Se a alteração não veio de um desenvolvedor pleno (ex: alteração feita via Painel CEO),
+    // preservamos os campos críticos de infraestrutura (Token, Intents, Discloud) para evitar apagamentos acidentais.
+    if (!isDev) {
+      try {
+        const existing = await getDiscordBotConfig();
+        finalConfig = {
+          ...existing,
+          ...config,
+          botToken: config.botToken || existing.botToken,
+          discloudApiToken: config.discloudApiToken || existing.discloudApiToken,
+          discloudAppId: config.discloudAppId || existing.discloudAppId,
+          intentPresences: config.intentPresences !== undefined ? config.intentPresences : existing.intentPresences,
+          intentGuildMembers: config.intentGuildMembers !== undefined ? config.intentGuildMembers : existing.intentGuildMembers,
+          intentMessageContent: config.intentMessageContent !== undefined ? config.intentMessageContent : existing.intentMessageContent,
+        };
+      } catch {}
+    }
+
+    localStorage.setItem(DISCORD_CONFIG_STORAGE_KEY, JSON.stringify(finalConfig));
 
     // Salva no banco de dados Supabase na tabela role_permissions
     const { error } = await supabase.from("role_permissions").upsert(
       {
         level: DISCORD_CONFIG_LEVEL,
         nivel: DISCORD_CONFIG_LEVEL,
-        permissions: config as any,
+        permissions: finalConfig as any,
         updated_at: new Date().toISOString(),
       },
       { onConflict: "level" }
@@ -234,7 +302,7 @@ export async function saveDiscordBotConfig(
     await channel.send({
       type: "broadcast",
       event: "discord_config_updated",
-      payload: config,
+      payload: finalConfig,
     });
   } catch (err: any) {
     console.error("Erro ao salvar configuração do Discord:", err);
