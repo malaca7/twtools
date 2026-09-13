@@ -161,7 +161,7 @@ function DevBotPageContent() {
     toast.success(enabled ? "Bot ativado no servidor!" : "Bot pausado.");
   };
 
-  const handleOpenBuilderWithTab = (tab: "commands" | "events" | "timers" | "variables" | "simulator" = "commands") => {
+  const handleOpenBuilderWithTab = (tab: "commands" | "events" | "timers" | "variables" | "simulator" | "studio" = "studio") => {
     setBuilderTab(tab);
     setActiveTab("builder");
   };
@@ -178,8 +178,8 @@ function DevBotPageContent() {
     <div className="space-y-6 pb-12">
       {/* Top Header */}
       <PageHeader
-        title="Construtor & Gerenciador de Bot"
-        description="Plataforma de criação e orquestração de comandos, eventos e automações para Discord GTA RP inspirada no BotGhost"
+        title="Studio & Construtor de Bot"
+        description="Plataforma de criação e orquestração de comandos, eventos e automações visuais com Studio no estilo N8N e BotGhost"
       >
         <div className="flex items-center gap-3">
           {activeBot && (
@@ -190,6 +190,16 @@ function DevBotPageContent() {
                 {activeBot.prefix}
               </Badge>
             </div>
+          )}
+
+          {activeBot && (
+            <Button
+              onClick={() => handleOpenBuilderWithTab("studio")}
+              className="bg-emerald-600/15 border border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/25 text-xs h-9 gap-1.5"
+            >
+              <Sparkles className="h-4 w-4" />
+              Abrir Studio Flow
+            </Button>
           )}
 
           <Button
@@ -230,8 +240,8 @@ function DevBotPageContent() {
               value="builder"
               className="data-[state=active]:bg-emerald-500/20 data-[state=active]:text-emerald-400 text-xs gap-2 py-2 px-3.5 rounded-lg transition-all"
             >
-              <Sliders className="h-4 w-4" />
-              Bot Builder
+              <Sparkles className="h-4 w-4 text-emerald-400" />
+              Bot Studio & Builder
               {activeBot && (
                 <Badge variant="outline" className="ml-1 text-[10px] border-zinc-700 font-mono">
                   {(activeBot.commands?.length || 0) + (activeBot.events?.length || 0) + (activeBot.timers?.length || 0)}
