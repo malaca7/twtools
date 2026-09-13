@@ -1,6 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 import type { AppUser, Profile } from "@/lib/app-types";
-import type { AppLevel } from "@/lib/permissions";
+import type { AppLevel, Permission } from "@/lib/permissions";
 
 export interface DevPermissionResource {
   id: string;
@@ -209,6 +209,28 @@ export function assertDeveloperAccess(
     error.statusCode = 403;
     throw error;
   }
+}
+
+/**
+ * Validação backend/API que permite acesso para Desenvolvedores OU para membros com a Tag CEO
+ * (verificando opcionalmente a permissão granular da Tag CEO).
+ */
+export function assertDeveloperOrCeoAccess(
+  user?: AppUser | null,
+  profile?: Profile | null,
+  level?: AppLevel | null,
+  permission?: Permission
+): void {
+  if (isUserDeveloper(user, profile, level)) return;
+  if (isUserCeo(profile)) {
+    if (!permission) return;
+    const ceoPerms = getCeoTagPermissionsSync();
+    if (ceoPerms.includes(permission)) return;
+  }
+  const error: any = new Error("403 Forbidden — Acesso Negado. Permissão de Desenvolvedor ou Tag CEO necessária.");
+  error.status = 403;
+  error.statusCode = 403;
+  throw error;
 }
 
 /**

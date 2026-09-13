@@ -100,6 +100,7 @@ const ALL_SYSTEM_MODULES = [
     category: "Módulo Exclusivo Dev (Tag Desenvolvedor)",
     description: "Recursos avançados de engenharia, diagnóstico, inspeção e controle da tag dev.",
     items: [
+      { title: "Bot (Construtor & Automações)", url: "/dev/bot", icon: Bot, desc: "Criação visual de comandos, eventos, timers e automações de bot no estilo BotGhost", color: "text-emerald-400" },
       { title: "Patch Notes & Atualizações Dev", url: "/dev/patch-notes", icon: Sparkles, desc: "Publicação de notas de versão, changelog técnico e envio de imagens para a administração", color: "text-emerald-400" },
       { title: "Gerenciar Bot Discord", url: "/dev/configuracao/bot-manage", icon: Bot, desc: "Perfil oficial do bot, presença, tokens, invite e reinicialização na nuvem", color: "text-indigo-400" },
       { title: "Webhooks do Discord", url: "/dev/configuracao/webhooks", icon: Webhook, desc: "Gestão, provisionamento automático e testes de canais e webhooks", color: "text-purple-400" },

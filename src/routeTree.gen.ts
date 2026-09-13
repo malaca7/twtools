@@ -41,6 +41,7 @@ import { Route as AuthenticatedAusenciasTabRouteImport } from './routes/_authent
 import { Route as AuthenticatedCeoTabRouteImport } from './routes/_authenticated/ceo.$tab'
 import { Route as AuthenticatedConfiguracoesTabRouteImport } from './routes/_authenticated/configuracoes.$tab'
 import { Route as AuthenticatedDevIndexRouteImport } from './routes/_authenticated/dev.index'
+import { Route as AuthenticatedDevBotRouteImport } from './routes/_authenticated/dev.bot'
 import { Route as AuthenticatedDevConfiguracaoRouteImport } from './routes/_authenticated/dev.configuracao'
 import { Route as AuthenticatedDevDesempenhoRouteImport } from './routes/_authenticated/dev.desempenho'
 import { Route as AuthenticatedDevMenuLateralRouteImport } from './routes/_authenticated/dev.menu-lateral'
@@ -220,6 +221,11 @@ const AuthenticatedDevIndexRoute = AuthenticatedDevIndexRouteImport.update({
   path: '/dev/',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedDevBotRoute = AuthenticatedDevBotRouteImport.update({
+  id: '/dev/bot',
+  path: '/dev/bot',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedDevConfiguracaoRoute =
   AuthenticatedDevConfiguracaoRouteImport.update({
     id: '/dev/configuracao',
@@ -334,6 +340,7 @@ export interface FileRoutesByFullPath {
   '/ausencias/$tab': typeof AuthenticatedAusenciasTabRoute
   '/ceo/$tab': typeof AuthenticatedCeoTabRoute
   '/configuracoes/$tab': typeof AuthenticatedConfiguracoesTabRoute
+  '/dev/bot': typeof AuthenticatedDevBotRoute
   '/dev/configuracao': typeof AuthenticatedDevConfiguracaoRouteWithChildren
   '/dev/desempenho': typeof AuthenticatedDevDesempenhoRoute
   '/dev/menu-lateral': typeof AuthenticatedDevMenuLateralRoute
@@ -381,6 +388,7 @@ export interface FileRoutesByTo {
   '/ausencias/$tab': typeof AuthenticatedAusenciasTabRoute
   '/ceo/$tab': typeof AuthenticatedCeoTabRoute
   '/configuracoes/$tab': typeof AuthenticatedConfiguracoesTabRoute
+  '/dev/bot': typeof AuthenticatedDevBotRoute
   '/dev/configuracao': typeof AuthenticatedDevConfiguracaoRouteWithChildren
   '/dev/desempenho': typeof AuthenticatedDevDesempenhoRoute
   '/dev/menu-lateral': typeof AuthenticatedDevMenuLateralRoute
@@ -430,6 +438,7 @@ export interface FileRoutesById {
   '/_authenticated/ausencias/$tab': typeof AuthenticatedAusenciasTabRoute
   '/_authenticated/ceo/$tab': typeof AuthenticatedCeoTabRoute
   '/_authenticated/configuracoes/$tab': typeof AuthenticatedConfiguracoesTabRoute
+  '/_authenticated/dev/bot': typeof AuthenticatedDevBotRoute
   '/_authenticated/dev/configuracao': typeof AuthenticatedDevConfiguracaoRouteWithChildren
   '/_authenticated/dev/desempenho': typeof AuthenticatedDevDesempenhoRoute
   '/_authenticated/dev/menu-lateral': typeof AuthenticatedDevMenuLateralRoute
@@ -479,6 +488,7 @@ export interface FileRouteTypes {
     | '/ausencias/$tab'
     | '/ceo/$tab'
     | '/configuracoes/$tab'
+    | '/dev/bot'
     | '/dev/configuracao'
     | '/dev/desempenho'
     | '/dev/menu-lateral'
@@ -526,6 +536,7 @@ export interface FileRouteTypes {
     | '/ausencias/$tab'
     | '/ceo/$tab'
     | '/configuracoes/$tab'
+    | '/dev/bot'
     | '/dev/configuracao'
     | '/dev/desempenho'
     | '/dev/menu-lateral'
@@ -574,6 +585,7 @@ export interface FileRouteTypes {
     | '/_authenticated/ausencias/$tab'
     | '/_authenticated/ceo/$tab'
     | '/_authenticated/configuracoes/$tab'
+    | '/_authenticated/dev/bot'
     | '/_authenticated/dev/configuracao'
     | '/_authenticated/dev/desempenho'
     | '/_authenticated/dev/menu-lateral'
@@ -822,6 +834,13 @@ declare module '@tanstack/react-router' {
       path: '/dev'
       fullPath: '/dev/'
       preLoaderRoute: typeof AuthenticatedDevIndexRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/dev/bot': {
+      id: '/_authenticated/dev/bot'
+      path: '/dev/bot'
+      fullPath: '/dev/bot'
+      preLoaderRoute: typeof AuthenticatedDevBotRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/dev/configuracao': {
@@ -1081,6 +1100,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedRankingsRoute: typeof AuthenticatedRankingsRouteWithChildren
   AuthenticatedTicketsRoute: typeof AuthenticatedTicketsRouteWithChildren
   AuthenticatedVendasRoute: typeof AuthenticatedVendasRoute
+  AuthenticatedDevBotRoute: typeof AuthenticatedDevBotRoute
   AuthenticatedDevConfiguracaoRoute: typeof AuthenticatedDevConfiguracaoRouteWithChildren
   AuthenticatedDevDesempenhoRoute: typeof AuthenticatedDevDesempenhoRoute
   AuthenticatedDevMenuLateralRoute: typeof AuthenticatedDevMenuLateralRoute
@@ -1114,6 +1134,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedRankingsRoute: AuthenticatedRankingsRouteWithChildren,
   AuthenticatedTicketsRoute: AuthenticatedTicketsRouteWithChildren,
   AuthenticatedVendasRoute: AuthenticatedVendasRoute,
+  AuthenticatedDevBotRoute: AuthenticatedDevBotRoute,
   AuthenticatedDevConfiguracaoRoute:
     AuthenticatedDevConfiguracaoRouteWithChildren,
   AuthenticatedDevDesempenhoRoute: AuthenticatedDevDesempenhoRoute,
@@ -1135,13 +1156,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}

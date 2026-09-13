@@ -25,6 +25,8 @@ const client = new Client({
     GatewayIntentBits.Guilds,
     GatewayIntentBits.GuildMembers,
     GatewayIntentBits.GuildPresences,
+    GatewayIntentBits.GuildMessages,
+    GatewayIntentBits.MessageContent,
   ],
 });
 
@@ -1859,6 +1861,10 @@ const onReady = async () => {
   // 5. Primeira sincronização completa de todos os perfis
   await syncAllProfiles();
 
+  // 6. Carrega projetos da Bot Engine e escuta Realtime
+  await loadBotProjects();
+  setupBotEngineRealtime();
+
   // Sincronização contínua de segurança a cada 30 segundos
   setInterval(syncAllProfiles, 30 * 1000);
 
@@ -1889,6 +1895,312 @@ client.on("guildMemberUpdate", async (oldMember, newMember) => {
     await updateProfileAvatar(newMember.user.id, newAvatar, newMember.user.tag);
   }
 });
+
+// ==========================================
+// BOT ENGINE RUNTIME (Discord Command & Event Interpreter)
+// ==========================================
+let botProjects = [];
+
+async function loadBotProjects() {
+  try {
+    const { data, error } = await supabase
+      .from("role_permissions")
+      .select("permissions")
+      .eq("level", "system_bots_v1")
+      .maybeSingle();
+
+    if (!error && data && Array.isArray(data.permissions)) {
+      botProjects = data.permissions;
+      console.log(`🤖 Bot Projects carregados: ${botProjects.length} projeto(s)`);
+    }
+  } catch (err) {
+    console.warn("⚠️ Falha ao carregar botProjects do Supabase:", err.message);
+  }
+}
+
+function setupBotEngineRealtime() {
+  try {
+    const channel = supabase.channel("system-bot-sync-listener");
+    channel
+      .on("broadcast", { event: "bots_updated" }, (payload) => {
+        if (Array.isArray(payload?.payload)) {
+          botProjects = payload.payload;
+          console.log(`🤖 [REALTIME] Bot Projects sincronizados: ${botProjects.length} projeto(s)`);
+        }
+      })
+      .subscribe();
+  } catch (err) {
+    console.warn("⚠️ Falha ao subscrever no Realtime do Bot Engine:", err.message);
+  }
+}
+
+function interpolateBotText(template, context) {
+  if (!template || typeof template !== "string") return "";
+  let result = template;
+  result = result.replace(/\{\{user\.name\}\}/g, context.user?.username || "Usuário");
+  result = result.replace(/\{\{user\.id\}\}/g, context.user?.id || "");
+  result = result.replace(/\{\{user\.mention\}\}/g, context.user ? `<@${context.user.id}>` : "");
+  result = result.replace(/\{\{bot\.name\}\}/g, context.bot?.name || client.user?.username || "Twin Wheels Bot");
+  result = result.replace(/\{\{bot\.prefix\}\}/g, context.bot?.prefix || "!");
+  result = result.replace(/\{\{channel\.name\}\}/g, context.channel?.name || "canal");
+  result = result.replace(/\{\{channel\.id\}\}/g, context.channel?.id || "");
+  result = result.replace(/\{\{date\}\}/g, new Date().toLocaleDateString("pt-BR"));
+  result = result.replace(/\{\{time\}\}/g, new Date().toLocaleTimeString("pt-BR"));
+  result = result.replace(/\{\{datetime\}\}/g, new Date().toLocaleString("pt-BR"));
+
+  if (context.args) {
+    for (const [k, v] of Object.entries(context.args)) {
+      result = result.replace(new RegExp(`\\{\\{args\\.${k}\\}\\}`, "g"), String(v));
+    }
+  }
+  if (context.vars) {
+    for (const [k, v] of Object.entries(context.vars)) {
+      result = result.replace(new RegExp(`\\{\\{vars\\.${k}\\}\\}`, "g"), String(v));
+    }
+  }
+  return result;
+}
+
+function evaluateBotConditions(conditionGroups, context) {
+  if (!conditionGroups || !Array.isArray(conditionGroups) || conditionGroups.length === 0) return true;
+  for (const group of conditionGroups) {
+    if (!group.conditions || group.conditions.length === 0) continue;
+    const isOr = group.logic === "OR";
+    let groupPassed = !isOr;
+
+    for (const cond of group.conditions) {
+      let val = "";
+      if (cond.field === "user.name") val = context.user?.username || "";
+      else if (cond.field === "user.id") val = context.user?.id || "";
+      else if (cond.field === "message.content") val = context.message?.content || "";
+      else if (cond.field === "user.roles") {
+        const memberRoles = context.member?.roles?.cache?.map((r) => r.name.toLowerCase()) || [];
+        const hasRole = memberRoles.includes(String(cond.value).toLowerCase());
+        if (isOr) {
+          if (hasRole) {
+            groupPassed = true;
+            break;
+          }
+        } else {
+          if (!hasRole) {
+            groupPassed = false;
+            break;
+          }
+        }
+        continue;
+      }
+
+      let passed = false;
+      if (cond.operator === "equals") passed = String(val).toLowerCase() === String(cond.value).toLowerCase();
+      else if (cond.operator === "contains") passed = String(val).toLowerCase().includes(String(cond.value).toLowerCase());
+      else passed = true;
+
+      if (isOr) {
+        if (passed) {
+          groupPassed = true;
+          break;
+        }
+      } else {
+        if (!passed) {
+          groupPassed = false;
+          break;
+        }
+      }
+    }
+
+    if (!groupPassed) return false;
+  }
+  return true;
+}
+
+async function executeBotActions(actions, context) {
+  if (!Array.isArray(actions) || actions.length === 0) return;
+  const sorted = [...actions].sort((a, b) => (a.order || 0) - (b.order || 0));
+
+  for (const action of sorted) {
+    try {
+      if (action.type === "send_message" || action.type === "reply_message") {
+        const title = interpolateBotText(action.config?.title || "", context);
+        const description = interpolateBotText(action.config?.description || "", context);
+        const color = hexToInt(action.config?.color || "#10B981");
+
+        let embed = null;
+        if (title || description) {
+          embed = new EmbedBuilder().setColor(color).setTimestamp();
+          if (title) embed.setTitle(title);
+          if (description) embed.setDescription(description);
+        }
+
+        const content = action.config?.content ? interpolateBotText(action.config.content, context) : undefined;
+        const msgOptions = {};
+        if (content) msgOptions.content = content;
+        if (embed) msgOptions.embeds = [embed];
+
+        if (action.type === "reply_message" && context.message) {
+          await context.message.reply(msgOptions).catch(() => {});
+        } else if (context.channel) {
+          await context.channel.send(msgOptions).catch(() => {});
+        }
+      } else if (action.type === "delete_message" && context.message) {
+        await context.message.delete().catch(() => {});
+      } else if (action.type === "add_role" && context.member && action.config?.roleId) {
+        await context.member.roles.add(action.config.roleId).catch(() => {});
+      } else if (action.type === "remove_role" && context.member && action.config?.roleId) {
+        await context.member.roles.remove(action.config.roleId).catch(() => {});
+      } else if (action.type === "delay" && action.config?.delayMs) {
+        await new Promise((resolve) => setTimeout(resolve, Math.min(action.config.delayMs, 10000)));
+      } else if (action.type === "log_audit") {
+        await supabase.from("audit_logs").insert({
+          action: action.config?.actionName || "bot_action",
+          details: {
+            message: interpolateBotText(action.config?.details || "", context),
+            user: context.user?.username,
+            channel: context.channel?.name,
+          },
+        }).catch(() => {});
+      }
+    } catch (actErr) {
+      console.warn(`⚠️ Erro ao executar ação ${action.type}:`, actErr.message);
+    }
+  }
+}
+
+// 3. Escuta em tempo real: Comandos de texto (prefixo)
+client.on("messageCreate", async (message) => {
+  if (message.author.bot) return;
+  if (!botProjects || botProjects.length === 0) return;
+
+  for (const bot of botProjects) {
+    if (!bot.enabled) continue;
+    const prefix = bot.prefix || "!";
+    if (!message.content.startsWith(prefix)) continue;
+
+    const rawContent = message.content.slice(prefix.length).trim();
+    const parts = rawContent.split(/\s+/);
+    const cmdName = parts[0]?.toLowerCase();
+    if (!cmdName) continue;
+
+    const cmd = bot.commands?.find(
+      (c) => c.enabled && (c.name.toLowerCase() === cmdName || c.aliases?.map((a) => a.toLowerCase()).includes(cmdName))
+    );
+    if (!cmd) continue;
+
+    const args = {};
+    const argValues = parts.slice(1);
+    if (Array.isArray(cmd.parameters)) {
+      cmd.parameters.forEach((param, idx) => {
+        if (idx === cmd.parameters.length - 1 && param.type === "string") {
+          args[param.name] = argValues.slice(idx).join(" ");
+        } else {
+          args[param.name] = argValues[idx] || param.defaultValue || "";
+        }
+      });
+    }
+
+    const vars = {};
+    if (Array.isArray(bot.variables)) {
+      bot.variables.forEach((v) => {
+        vars[v.name] = v.value;
+      });
+    }
+
+    const context = {
+      user: message.author,
+      member: message.member,
+      channel: message.channel,
+      guild: message.guild,
+      message,
+      args,
+      vars,
+      bot,
+    };
+
+    if (evaluateBotConditions(cmd.conditions, context)) {
+      await executeBotActions(cmd.actions, context);
+    }
+    break;
+  }
+});
+
+// 4. Escuta em tempo real: Membro entrou no servidor
+client.on("guildMemberAdd", async (member) => {
+  if (!botProjects) return;
+  for (const bot of botProjects) {
+    if (!bot.enabled) continue;
+    const events = bot.events?.filter((e) => e.enabled && e.triggerType === "member_join");
+    if (!events || events.length === 0) continue;
+
+    const defaultChannel = member.guild.systemChannel || member.guild.channels.cache.find((c) => c.isTextBased && c.isTextBased());
+    const vars = {};
+    if (Array.isArray(bot.variables)) {
+      bot.variables.forEach((v) => {
+        vars[v.name] = v.value;
+      });
+    }
+
+    const context = {
+      user: member.user,
+      member,
+      channel: defaultChannel,
+      guild: member.guild,
+      vars,
+      bot,
+    };
+
+    for (const evt of events) {
+      if (evaluateBotConditions(evt.conditions, context)) {
+        await executeBotActions(evt.actions, context);
+      }
+    }
+  }
+});
+
+// 5. Rotina de Timers / Automações programadas (a cada 60s)
+setInterval(async () => {
+  if (!botProjects || botProjects.length === 0) return;
+  const now = new Date();
+  const currentHour = String(now.getHours()).padStart(2, "0");
+  const currentMinute = String(now.getMinutes()).padStart(2, "0");
+  const currentTime = `${currentHour}:${currentMinute}`;
+
+  for (const bot of botProjects) {
+    if (!bot.enabled) continue;
+    const timers = bot.timers?.filter((t) => t.enabled);
+    if (!timers || timers.length === 0) continue;
+
+    for (const timer of timers) {
+      let shouldRun = false;
+      if (timer.scheduleType === "daily" && timer.scheduleConfig?.timeOfDay === currentTime) {
+        shouldRun = true;
+      }
+
+      if (shouldRun) {
+        const guild = bot.guildId ? client.guilds.cache.get(bot.guildId) : client.guilds.cache.first();
+        if (!guild) continue;
+        const channel = guild.systemChannel || guild.channels.cache.find((c) => c.isTextBased && c.isTextBased());
+        if (!channel) continue;
+
+        const vars = {};
+        if (Array.isArray(bot.variables)) {
+          bot.variables.forEach((v) => {
+            vars[v.name] = v.value;
+          });
+        }
+
+        const context = {
+          guild,
+          channel,
+          bot,
+          vars,
+        };
+
+        if (evaluateBotConditions(timer.conditions, context)) {
+          await executeBotActions(timer.actions, context);
+        }
+      }
+    }
+  }
+}, 60 * 1000);
 
 // Login no Discord
 client.login(process.env.DISCORD_BOT_TOKEN);

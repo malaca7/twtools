@@ -1,7 +1,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import type { AppUser, Profile } from "@/lib/app-types";
 import type { AppLevel } from "@/lib/permissions";
-import { assertDeveloperAccess } from "@/services/devService";
+import { assertDeveloperAccess, assertDeveloperOrCeoAccess } from "@/services/devService";
 import { logAuditAction } from "@/lib/app-api";
 
 export interface DiscordWebhook {
@@ -348,7 +348,7 @@ export async function saveDiscordWebhooksConfig(
   profile?: Profile | null,
   level?: AppLevel | null
 ): Promise<void> {
-  assertDeveloperAccess(user, profile, level);
+  assertDeveloperOrCeoAccess(user, profile, level, "webhook_save_config");
 
   const cleanConfig: DiscordWebhooksConfig = {
     ...config,
@@ -415,7 +415,7 @@ export async function postMessageToWebhookChannel(
   profile?: Profile | null,
   level?: AppLevel | null
 ): Promise<WebhookDeliveryResult> {
-  assertDeveloperAccess(user, profile, level);
+  assertDeveloperOrCeoAccess(user, profile, level, "webhook_send_message");
 
   if (!webhook.channelId || !isValidDiscordId(webhook.channelId)) {
     return {
@@ -723,7 +723,7 @@ export async function testDiscordWebhookChannel(
   profile?: Profile | null,
   level?: AppLevel | null
 ): Promise<WebhookDeliveryResult> {
-  assertDeveloperAccess(user, profile, level);
+  assertDeveloperOrCeoAccess(user, profile, level, "webhook_test");
 
   if (!webhook.channelId || !isValidDiscordId(webhook.channelId)) {
     return {

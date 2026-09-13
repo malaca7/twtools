@@ -125,11 +125,12 @@ const MASTER_NAV_ITEMS: MasterNavItem[] = [
 
 const DEV_MODULE_NAV_ITEMS: MasterNavItem[] = [
   { id: "dev-hub", title: "Painel Dev Geral", url: "/dev", icon: Terminal, defaultCat: "Ferramentas Dev", defaultOrder: 0 },
-  { id: "dev-patch-notes", title: "Patch Notes & Releases", url: "/dev/patch-notes", icon: Sparkles, defaultCat: "Ferramentas Dev", defaultOrder: 1 },
-  { id: "dev-desempenho", title: "Gestão Desempenho", url: "/dev/desempenho", icon: TrendingUp, defaultCat: "Ferramentas Dev", defaultOrder: 2 },
-  { id: "dev-permissoes", title: "Permissões Tag Dev", url: "/dev/permissoes", icon: KeyRound, defaultCat: "Ferramentas Dev", defaultOrder: 3 },
-  { id: "dev-configuracao", title: "Configurações Dev", url: "/dev/configuracao", icon: Code2, defaultCat: "Ferramentas Dev", defaultOrder: 4 },
-  { id: "dev-menu-lateral", title: "Menu Lateral Dev", url: "/dev/menu-lateral", icon: Sliders, defaultCat: "Ferramentas Dev", defaultOrder: 5 },
+  { id: "dev-bot", title: "Bot", url: "/dev/bot", icon: Bot, defaultCat: "Ferramentas Dev", defaultOrder: 1 },
+  { id: "dev-patch-notes", title: "Patch Notes & Releases", url: "/dev/patch-notes", icon: Sparkles, defaultCat: "Ferramentas Dev", defaultOrder: 2 },
+  { id: "dev-desempenho", title: "Gestão Desempenho", url: "/dev/desempenho", icon: TrendingUp, defaultCat: "Ferramentas Dev", defaultOrder: 3 },
+  { id: "dev-permissoes", title: "Permissões Tag Dev", url: "/dev/permissoes", icon: KeyRound, defaultCat: "Ferramentas Dev", defaultOrder: 4 },
+  { id: "dev-configuracao", title: "Configurações Dev", url: "/dev/configuracao", icon: Code2, defaultCat: "Ferramentas Dev", defaultOrder: 5 },
+  { id: "dev-menu-lateral", title: "Menu Lateral Dev", url: "/dev/menu-lateral", icon: Sliders, defaultCat: "Ferramentas Dev", defaultOrder: 6 },
 ];
 
 const CEO_MODULE_NAV_ITEMS: MasterNavItem[] = [
