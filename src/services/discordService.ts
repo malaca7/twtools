@@ -212,7 +212,7 @@ export function canManageDiscordBot(
   profile?: Profile | null,
   level?: any | null
 ): boolean {
-  if (isUserDeveloper(user, profile, level) || level === "desenvolvedor" || level === "01") {
+  if (isUserDeveloper(user, profile, level)) {
     return true;
   }
   if (isUserCeo(profile)) {
@@ -232,12 +232,6 @@ export function canManageDiscordBot(
     perms.includes("bot_invite")
   ) {
     return true;
-  }
-  if (typeof window !== "undefined") {
-    const isCeoPath = window.location.pathname.includes("/ceo") || window.location.hash.includes("/ceo");
-    if (isCeoPath && (level === "02" || level === "gerente" || isUserCeo(profile))) {
-      return true;
-    }
   }
   return false;
 }

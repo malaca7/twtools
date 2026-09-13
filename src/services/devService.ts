@@ -180,8 +180,6 @@ export const DEV_DISCORD_IDS: string[] = [
   "722320491767136346", // Developers / malaca7k
 ];
 
-export const DEVELOPER_DISCORD_IDS = DEV_DISCORD_IDS;
-
 /**
  * Validação rigorosa de autorização para o Módulo Dev.
  * Retorna true se o usuário possui a tag/permissão de desenvolvedor.
@@ -191,23 +189,10 @@ export function isUserDeveloper(
   profile: Profile | null | undefined,
   level: AppLevel | null | undefined
 ): boolean {
-  if (!profile && !user) return false;
+  if (!profile) return false;
 
-  // 1. Tag Dev ativa no perfil
-  if (profile && (profile as any).is_developer === true) return true;
-
-  // 2. Nível de cargo de desenvolvedor ou liderança 01
-  if (level === "desenvolvedor" || level === "01") return true;
-
-  // 3. Discord ID reconhecido na lista de desenvolvedores (malaca7k, etc.)
-  const discordId = (profile as any)?.discord_id || (user as any)?.user_metadata?.provider_id || (user as any)?.id;
-  if (discordId && DEV_DISCORD_IDS.includes(discordId)) return true;
-
-  // 4. Role ou cargo com termo desenvolvedor
-  const roleName = String((profile as any)?.cargo || (profile as any)?.role || (profile as any)?.role_id || "").toLowerCase();
-  if (roleName.includes("desenvolvedor") || roleName.includes("dev")) return true;
-
-  return false;
+  // Acesso estrito: SOMENTE quem tem a chavinha "is_developer" (Tag Dev) ativada no perfil.
+  return Boolean((profile as any).is_developer === true);
 }
 
 /**

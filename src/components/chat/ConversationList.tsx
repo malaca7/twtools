@@ -240,7 +240,30 @@ export function ConversationList({
     }
   };
 
-  const safeConversations = Array.isArray(conversations) ? conversations : [];
+  const safeConversations = React.useMemo(() => {
+    if (!Array.isArray(conversations)) return [];
+    const seenDirect = new Set<string>();
+    const result: ChatConversation[] = [];
+
+    for (const c of conversations) {
+      if (!c) continue;
+      if (c.type === "group") {
+        result.push(c);
+        continue;
+      }
+      const otherId = c.other_participant?.user_id;
+      if (!otherId) {
+        result.push(c);
+        continue;
+      }
+      if (seenDirect.has(otherId)) {
+        continue;
+      }
+      seenDirect.add(otherId);
+      result.push(c);
+    }
+    return result;
+  }, [conversations]);
   const safeUserFolders = Array.isArray(userFolders) ? userFolders : [];
 
   // Filtragem

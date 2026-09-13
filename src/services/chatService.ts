@@ -88,6 +88,110 @@ export async function fetchChatMembersMap(force = false): Promise<Map<string, Me
   return membersMap;
 }
 
+// Lock em memória para evitar criação de conversas privadas simultâneas em cliques rápidos
+const _creatingPrivateLocks = new Set<string>();
+
+/**
+ * Deduplica conversas privadas (mantendo apenas 1 por contato com a mensagem mais recente)
+ * e enriquece conversas que estiverem sem last_message buscando a mensagem mais recente em chat_messages.
+ */
+async function processAndDeduplicateConversations(
+  convs: ChatConversation[],
+  currentUserId: string
+): Promise<ChatConversation[]> {
+  if (!Array.isArray(convs) || convs.length === 0) return [];
+
+  // 1. Agrupamento e deduplicação de conversas privadas por interlocutor
+  const privateByTarget = new Map<string, ChatConversation>();
+  const groups: ChatConversation[] = [];
+
+  for (const c of convs) {
+    if (!c) continue;
+    if (c.type === "group") {
+      groups.push(c);
+      continue;
+    }
+
+    // Identifica o outro participante
+    let otherUserId = c.other_participant?.user_id;
+    if (!otherUserId && Array.isArray(c.participants)) {
+      const otherPart = c.participants.find((p) => p.user_id !== currentUserId);
+      otherUserId = otherPart?.user_id;
+    }
+
+    if (!otherUserId) {
+      groups.push(c);
+      continue;
+    }
+
+    const existing = privateByTarget.get(otherUserId);
+    if (!existing) {
+      privateByTarget.set(otherUserId, c);
+    } else {
+      // Já existe uma conversa privada com este contato na lista.
+      // Mantém a que tiver a mensagem mais recente ou dados mais consistentes
+      const timeA = new Date(existing.last_message_at || existing.created_at || 0).getTime();
+      const timeB = new Date(c.last_message_at || c.created_at || 0).getTime();
+      const hasMsgA = Boolean(existing.last_message && existing.last_message !== "null");
+      const hasMsgB = Boolean(c.last_message && c.last_message !== "null");
+
+      if ((!hasMsgA && hasMsgB) || (hasMsgB && timeB > timeA) || (!hasMsgA && !hasMsgB && timeB > timeA)) {
+        privateByTarget.set(otherUserId, c);
+      }
+    }
+  }
+
+  const merged = [...groups, ...Array.from(privateByTarget.values())];
+
+  // 2. Enriquecimento de last_message caso esteja nulo, vazio ou "null"
+  const missingMsgConvIds = merged
+    .filter((c) => !c.last_message || c.last_message === "null" || c.last_message.trim() === "")
+    .map((c) => c.id);
+
+  if (missingMsgConvIds.length > 0) {
+    try {
+      const { data: latestMessages } = await supabase
+        .from("chat_messages" as any)
+        .select("conversation_id, content, message_type, attachment_name, created_at, sender_id")
+        .in("conversation_id", missingMsgConvIds)
+        .order("created_at", { ascending: false });
+
+      if (Array.isArray(latestMessages) && latestMessages.length > 0) {
+        const latestByConv = new Map<string, any>();
+        for (const msg of latestMessages) {
+          if (!latestByConv.has(msg.conversation_id)) {
+            latestByConv.set(msg.conversation_id, msg);
+          }
+        }
+
+        for (const c of merged) {
+          if (latestByConv.has(c.id)) {
+            const m = latestByConv.get(c.id);
+            let preview = m.content?.trim();
+            if (!preview) {
+              if (m.message_type === "audio") preview = "🎤 Mensagem de voz";
+              else if (m.message_type === "image") preview = "📷 Foto";
+              else if (m.message_type === "video") preview = "🎥 Vídeo";
+              else if (m.message_type === "document") preview = `📄 ${m.attachment_name || "Documento"}`;
+              else preview = m.attachment_name || "Anexo";
+            }
+            c.last_message = preview;
+            c.last_message_at = m.created_at || c.last_message_at;
+            c.last_message_sender_id = m.sender_id || c.last_message_sender_id;
+          }
+        }
+      }
+    } catch (err) {
+      console.warn("Erro ao enriquecer última mensagem das conversas:", err);
+    }
+  }
+
+  // Ordena por last_message_at decrescente (mais recentes no topo)
+  return merged.sort(
+    (a, b) => new Date(b.last_message_at || b.created_at || 0).getTime() - new Date(a.last_message_at || a.created_at || 0).getTime()
+  );
+}
+
 /**
  * Busca todas as conversas do usuário autenticado (privadas e grupos) via RPC ultra-rápida.
  */
@@ -101,7 +205,7 @@ export async function fetchUserConversations(currentUserId: string): Promise<Cha
     });
 
     if (!error && Array.isArray(data)) {
-      return data as ChatConversation[];
+      return await processAndDeduplicateConversations(data as ChatConversation[], currentUserId);
     }
   } catch (rpcErr) {
     console.warn("Fallback de conversas por RPC:", rpcErr);
@@ -159,7 +263,7 @@ export async function fetchUserConversations(currentUserId: string): Promise<Cha
       partsByConv.set(p.conversation_id, list);
     });
 
-    return (convsRes.data || []).map((c: any) => {
+    const mappedConvs = (convsRes.data || []).map((c: any) => {
       const parts = partsByConv.get(c.id) || [];
       let otherParticipant: Member | null = null;
       if (c.type === "private") {
@@ -188,6 +292,8 @@ export async function fetchUserConversations(currentUserId: string): Promise<Cha
         my_role: (c.created_by === currentUserId || myRoleMap.get(c.id) === "admin") ? "admin" : (myRoleMap.get(c.id) || "member"),
       };
     });
+
+    return await processAndDeduplicateConversations(mappedConvs, currentUserId);
   } catch (err) {
     console.error("Erro no fallback de conversas:", err);
     return [];
@@ -203,6 +309,17 @@ export async function getOrCreatePrivateConversation(
 ): Promise<ChatConversation> {
   if (currentUserId === targetUserId) {
     throw new Error("Você não pode iniciar uma conversa consigo mesmo.");
+  }
+
+  // Chave canônica para o par de usuários
+  const pairKey = [currentUserId, targetUserId].sort().join("___");
+
+  // Se já houver uma criação em andamento para este par, aguarda brevemente para evitar duplicação concorrente
+  if (_creatingPrivateLocks.has(pairKey)) {
+    await new Promise((resolve) => setTimeout(resolve, 400));
+    const convs = await fetchUserConversations(currentUserId);
+    const found = convs.find((c) => c.type === "private" && c.other_participant?.user_id === targetUserId);
+    if (found) return found;
   }
 
   // 1. Procura se já existe uma conversa privada entre esses dois membros
@@ -221,41 +338,51 @@ export async function getOrCreatePrivateConversation(
 
     if (targetConvs && targetConvs.length > 0) {
       const commonConvIds = targetConvs.map((p: any) => p.conversation_id);
-      const { data: existingPrivate } = await supabase
+      const { data: existingPrivates } = await supabase
         .from("chat_conversations" as any)
         .select("*")
         .in("id", commonConvIds)
         .eq("type", "private")
-        .maybeSingle();
+        .order("last_message_at", { ascending: false });
 
-      if (existingPrivate) {
+      if (existingPrivates && existingPrivates.length > 0) {
         const convs = await fetchUserConversations(currentUserId);
-        const found = convs.find((c) => c.id === existingPrivate.id);
+        const found =
+          convs.find((c) => c.id === existingPrivates[0].id) ||
+          convs.find((c) => c.type === "private" && c.other_participant?.user_id === targetUserId);
         if (found) return found;
       }
     }
   }
 
-  // 2. Se não encontrou, cria uma nova conversa privada
-  const { data: newConv, error: convError } = await supabase
-    .from("chat_conversations" as any)
-    .insert({
-      type: "private",
-      created_by: currentUserId,
-    })
-    .select()
-    .single();
+  // 2. Se não encontrou nenhuma conversa existente, cria protegendo contra concorrência
+  _creatingPrivateLocks.add(pairKey);
+  try {
+    const { data: newConv, error: convError } = await supabase
+      .from("chat_conversations" as any)
+      .insert({
+        type: "private",
+        created_by: currentUserId,
+      })
+      .select()
+      .single();
 
-  if (convError || !newConv) throw convError || new Error("Erro ao criar conversa privada.");
+    if (convError || !newConv) throw convError || new Error("Erro ao criar conversa privada.");
 
-  // 3. Insere ambos os participantes
-  await supabase.from("chat_participants" as any).insert([
-    { conversation_id: newConv.id, user_id: currentUserId, role: "admin" },
-    { conversation_id: newConv.id, user_id: targetUserId, role: "member" },
-  ]);
+    // 3. Insere ambos os participantes
+    await supabase.from("chat_participants" as any).insert([
+      { conversation_id: newConv.id, user_id: currentUserId, role: "admin" },
+      { conversation_id: newConv.id, user_id: targetUserId, role: "member" },
+    ]);
 
-  const convs = await fetchUserConversations(currentUserId);
-  return convs.find((c) => c.id === newConv.id)!;
+    const convs = await fetchUserConversations(currentUserId);
+    const created =
+      convs.find((c) => c.id === newConv.id) ||
+      convs.find((c) => c.type === "private" && c.other_participant?.user_id === targetUserId);
+    return created!;
+  } finally {
+    _creatingPrivateLocks.delete(pairKey);
+  }
 }
 
 /**
@@ -523,28 +650,56 @@ export async function sendChatMessage(
     effectiveSenderId = sessionData?.session?.user?.id;
   }
 
-  // Inserção direta via Supabase REST Client (< 80ms)
-  const { data: inserted, error: insertError } = await supabase
-    .from("chat_messages" as any)
-    .insert({
-      conversation_id: conversationId,
-      sender_id: effectiveSenderId,
-      content: content.trim(),
-      message_type: options?.messageType || "text",
-      reply_to_id: options?.replyToId || null,
-      attachment_url: options?.attachmentUrl || null,
-      attachment_name: options?.attachmentName || null,
-      attachment_type: options?.attachmentType || null,
-      attachment_size: options?.attachmentSize || null,
-      mentions: options?.mentions || [],
-      is_forwarded: Boolean(options?.isForwarded),
-      forwarded_from_name: options?.forwardedFromName || null,
-      status: "sent",
-    })
-    .select()
-    .single();
+  let inserted: any = null;
 
-  if (insertError || !inserted) throw insertError || new Error("Falha ao gravar mensagem.");
+  // 1. Tenta envio com atualização atômica de conversa e last_message via RPC
+  try {
+    const { data: rpcMsg, error: rpcErr } = await (supabase.rpc as any)("rpc_send_chat_message", {
+      p_conversation_id: conversationId,
+      p_content: content.trim(),
+      p_user_id: effectiveSenderId,
+      p_message_type: options?.messageType || "text",
+      p_reply_to_id: options?.replyToId || null,
+      p_attachment_url: options?.attachmentUrl || null,
+      p_attachment_name: options?.attachmentName || null,
+      p_attachment_type: options?.attachmentType || null,
+      p_attachment_size: options?.attachmentSize || null,
+      p_mentions: options?.mentions || [],
+      p_is_forwarded: Boolean(options?.isForwarded),
+      p_forwarded_from_name: options?.forwardedFromName || null,
+    });
+    if (!rpcErr && rpcMsg) {
+      inserted = rpcMsg;
+    }
+  } catch (rpcErr) {
+    console.warn("RPC send_chat_message falhou, utilizando fallback direto:", rpcErr);
+  }
+
+  // 2. Fallback direto via REST caso a RPC não tenha respondido
+  if (!inserted) {
+    const { data: directMsg, error: insertError } = await supabase
+      .from("chat_messages" as any)
+      .insert({
+        conversation_id: conversationId,
+        sender_id: effectiveSenderId,
+        content: content.trim(),
+        message_type: options?.messageType || "text",
+        reply_to_id: options?.replyToId || null,
+        attachment_url: options?.attachmentUrl || null,
+        attachment_name: options?.attachmentName || null,
+        attachment_type: options?.attachmentType || null,
+        attachment_size: options?.attachmentSize || null,
+        mentions: options?.mentions || [],
+        is_forwarded: Boolean(options?.isForwarded),
+        forwarded_from_name: options?.forwardedFromName || null,
+        status: "sent",
+      })
+      .select()
+      .single();
+
+    if (insertError || !directMsg) throw insertError || new Error("Falha ao gravar mensagem.");
+    inserted = directMsg;
+  }
 
   let previewText = content.trim();
   if (!previewText) {
