@@ -99,7 +99,16 @@ function DiscordIconSvg({ className }: { className?: string }) {
   );
 }
 
-export function DevBotManageCard() {
+export interface DevBotManageCardProps {
+  isCeoView?: boolean;
+}
+
+export function DevBotManageCard({ isCeoView: isCeoViewProp }: DevBotManageCardProps = {}) {
+  const isCeoView =
+    isCeoViewProp !== undefined
+      ? isCeoViewProp
+      : typeof window !== "undefined" && window.location.pathname.includes("/ceo");
+
   const { user, profile, level, hasPermission } = useAuth();
 
   const [config, setConfig] = useState<DiscordBotConfig>(DEFAULT_DISCORD_CONFIG);
@@ -1448,338 +1457,344 @@ export function DevBotManageCard() {
             </Card>
           </div>
 
-          {/* 3. CARD: TOKEN DE ACESSO */}
-          <Card className="surface-card border-border/60 bg-zinc-950/60">
-            <CardHeader className="pb-2.5">
-              <div className="flex items-center gap-2">
-                <KeyRound className="h-4 w-4 text-amber-400" />
-                <span className="text-[0.68rem] font-bold tracking-widest text-muted-foreground uppercase">
-                  TOKEN DE ACESSO
-                </span>
-              </div>
-              <CardDescription className="text-xs text-muted-foreground">
-                O token do bot obtido no{" "}
-                <a
-                  href={getDeveloperPortalUrl(clientId)}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="text-primary hover:underline font-medium"
-                >
-                  Developer Portal
-                </a>
-                . Sempre mantido em sigilo:
-              </CardDescription>
-            </CardHeader>
-
-            <CardContent className="space-y-3">
-              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
-                {/* Input Mascarado / Visível */}
-                <div className="relative flex-1">
-                  <Input
-                    type={showToken ? "text" : "password"}
-                    disabled={!hasPermission("bot_manage_token")}
-                    value={tokenInput}
-                    onChange={(e) => setTokenInput(e.target.value)}
-                    placeholder="••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••"
-                    className="bg-zinc-900/90 border-zinc-800 font-mono text-xs pr-10 focus-visible:ring-amber-500/50 h-8 disabled:opacity-50 disabled:cursor-not-allowed"
-                  />
-                  <button
-                    type="button"
-                    disabled={!hasPermission("bot_manage_token")}
-                    onClick={() => setShowToken(!showToken)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
-                    title={showToken ? "Ocultar token" : "Exibir token"}
+          {/* 3. CARD: TOKEN DE ACESSO (Oculto no Painel CEO) */}
+          {!isCeoView && (
+            <Card className="surface-card border-border/60 bg-zinc-950/60">
+              <CardHeader className="pb-2.5">
+                <div className="flex items-center gap-2">
+                  <KeyRound className="h-4 w-4 text-amber-400" />
+                  <span className="text-[0.68rem] font-bold tracking-widest text-muted-foreground uppercase">
+                    TOKEN DE ACESSO
+                  </span>
+                </div>
+                <CardDescription className="text-xs text-muted-foreground">
+                  O token do bot obtido no{" "}
+                  <a
+                    href={getDeveloperPortalUrl(clientId)}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-primary hover:underline font-medium"
                   >
-                    {showToken ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
-                  </button>
-                </div>
+                    Developer Portal
+                  </a>
+                  . Sempre mantido em sigilo:
+                </CardDescription>
+              </CardHeader>
 
-                {/* Botão Colar */}
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={handlePasteToken}
-                  disabled={!hasPermission("bot_manage_token")}
-                  className="bg-zinc-900 border-zinc-800 text-xs font-bold gap-1.5 shrink-0 h-8 disabled:opacity-50 disabled:cursor-not-allowed"
-                  title="Colar do clipboard"
-                >
-                  <ClipboardPaste className="h-3.5 w-3.5" />
-                  Colar
-                </Button>
-
-                {/* Botão Testar na API do Discord */}
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={handleValidateToken}
-                  disabled={isValidatingToken || !tokenInput || !hasPermission("bot_manage_token")}
-                  className="bg-zinc-900 border-zinc-800 hover:bg-zinc-800 text-xs font-bold gap-1.5 shrink-0 h-8 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {isValidatingToken ? (
-                    <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />
-                  ) : (
-                    <ShieldCheck className="h-3.5 w-3.5 text-primary" />
-                  )}
-                  Testar
-                </Button>
-
-                {/* Botão Salvar Substituição */}
-                <Button
-                  type="button"
-                  size="sm"
-                  onClick={handleSaveToken}
-                  disabled={saving || tokenInput === config.botToken || !hasPermission("bot_manage_token")}
-                  className="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold gap-1.5 shrink-0 h-8 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
-                  Salvar
-                </Button>
-
-                {/* Botão Remover Configurações do Token */}
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={handleRemoveToken}
-                  disabled={saving || (!config.botToken && !tokenInput) || !hasPermission("bot_manage_token")}
-                  className="bg-rose-950/40 hover:bg-rose-900/60 border-rose-800/40 hover:border-rose-600/60 text-rose-300 text-xs font-bold gap-1.5 shrink-0 h-8 disabled:opacity-50 disabled:cursor-not-allowed"
-                  title="Remover configurações do token do bot"
-                >
-                  <Trash2 className="h-3.5 w-3.5 text-rose-400" />
-                  Remover
-                </Button>
-              </div>
-
-              {/* Feedback da Validação do Token */}
-              {tokenValidation && (
-                <div
-                  className={cn(
-                    "p-2.5 rounded-xl border text-xs flex items-center gap-2.5 animate-in fade-in-50",
-                    tokenValidation.valid
-                      ? "bg-emerald-950/30 border-emerald-600/40 text-emerald-300"
-                      : "bg-rose-950/30 border-rose-600/40 text-rose-300"
-                  )}
-                >
-                  {tokenValidation.valid ? (
-                    <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0" />
-                  ) : (
-                    <AlertCircle className="h-4 w-4 text-rose-400 shrink-0" />
-                  )}
-                  <div>
-                    {tokenValidation.valid ? (
-                      <p>
-                        Token verificado com sucesso! Bot: <strong>{tokenValidation.user?.username}</strong> (ID:{" "}
-                        {tokenValidation.user?.id})
-                      </p>
-                    ) : (
-                      <p>{tokenValidation.error}</p>
-                    )}
+              <CardContent className="space-y-3">
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                  {/* Input Mascarado / Visível */}
+                  <div className="relative flex-1">
+                    <Input
+                      type={showToken ? "text" : "password"}
+                      disabled={!hasPermission("bot_manage_token")}
+                      value={tokenInput}
+                      onChange={(e) => setTokenInput(e.target.value)}
+                      placeholder="••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••"
+                      className="bg-zinc-900/90 border-zinc-800 font-mono text-xs pr-10 focus-visible:ring-amber-500/50 h-8 disabled:opacity-50 disabled:cursor-not-allowed"
+                    />
+                    <button
+                      type="button"
+                      disabled={!hasPermission("bot_manage_token")}
+                      onClick={() => setShowToken(!showToken)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
+                      title={showToken ? "Ocultar token" : "Exibir token"}
+                    >
+                      {showToken ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                    </button>
                   </div>
+
+                  {/* Botão Colar */}
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={handlePasteToken}
+                    disabled={!hasPermission("bot_manage_token")}
+                    className="bg-zinc-900 border-zinc-800 text-xs font-bold gap-1.5 shrink-0 h-8 disabled:opacity-50 disabled:cursor-not-allowed"
+                    title="Colar do clipboard"
+                  >
+                    <ClipboardPaste className="h-3.5 w-3.5" />
+                    Colar
+                  </Button>
+
+                  {/* Botão Testar na API do Discord */}
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={handleValidateToken}
+                    disabled={isValidatingToken || !tokenInput || !hasPermission("bot_manage_token")}
+                    className="bg-zinc-900 border-zinc-800 hover:bg-zinc-800 text-xs font-bold gap-1.5 shrink-0 h-8 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {isValidatingToken ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />
+                    ) : (
+                      <ShieldCheck className="h-3.5 w-3.5 text-primary" />
+                    )}
+                    Testar
+                  </Button>
+
+                  {/* Botão Salvar Substituição */}
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={handleSaveToken}
+                    disabled={saving || tokenInput === config.botToken || !hasPermission("bot_manage_token")}
+                    className="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold gap-1.5 shrink-0 h-8 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
+                    Salvar
+                  </Button>
+
+                  {/* Botão Remover Configurações do Token */}
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={handleRemoveToken}
+                    disabled={saving || (!config.botToken && !tokenInput) || !hasPermission("bot_manage_token")}
+                    className="bg-rose-950/40 hover:bg-rose-900/60 border-rose-800/40 hover:border-rose-600/60 text-rose-300 text-xs font-bold gap-1.5 shrink-0 h-8 disabled:opacity-50 disabled:cursor-not-allowed"
+                    title="Remover configurações do token do bot"
+                  >
+                    <Trash2 className="h-3.5 w-3.5 text-rose-400" />
+                    Remover
+                  </Button>
                 </div>
-              )}
-            </CardContent>
-          </Card>
+
+                {/* Feedback da Validação do Token */}
+                {tokenValidation && (
+                  <div
+                    className={cn(
+                      "p-2.5 rounded-xl border text-xs flex items-center gap-2.5 animate-in fade-in-50",
+                      tokenValidation.valid
+                        ? "bg-emerald-950/30 border-emerald-600/40 text-emerald-300"
+                        : "bg-rose-950/30 border-rose-600/40 text-rose-300"
+                    )}
+                  >
+                    {tokenValidation.valid ? (
+                      <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0" />
+                    ) : (
+                      <AlertCircle className="h-4 w-4 text-rose-400 shrink-0" />
+                    )}
+                    <div>
+                      {tokenValidation.valid ? (
+                        <p>
+                          Token verificado com sucesso! Bot: <strong>{tokenValidation.user?.username}</strong> (ID:{" "}
+                          {tokenValidation.user?.id})
+                        </p>
+                      ) : (
+                        <p>{tokenValidation.error}</p>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
         </div>
       </div>
 
-      {/* 4. SEÇÃO: OPÇÕES DE INTENÇÃO PRIVILEGIADA */}
-      {hasPermission("bot_view_intents") ? (
-        <div className="space-y-4">
-          <div className="space-y-1">
-            <span className="text-[0.7rem] font-bold tracking-widest text-muted-foreground/80 uppercase">
-              CONFIGURAÇÕES
-            </span>
-            <h2 className="text-2xl font-black tracking-tight text-foreground">
-              Opções de intenção privilegiada
-            </h2>
+      {/* 4. SEÇÃO: OPÇÕES DE INTENÇÃO PRIVILEGIADA (Oculto no Painel CEO) */}
+      {!isCeoView && (
+        hasPermission("bot_view_intents") ? (
+          <div className="space-y-4">
+            <div className="space-y-1">
+              <span className="text-[0.7rem] font-bold tracking-widest text-muted-foreground/80 uppercase">
+                CONFIGURAÇÕES
+              </span>
+              <h2 className="text-2xl font-black tracking-tight text-foreground">
+                Opções de intenção privilegiada
+              </h2>
+            </div>
+
+            {/* 3 CARDS LADO A LADO */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+              {/* CARD 1: Intenção de presença */}
+              <Card className="surface-card border-border/60 bg-zinc-950/60 p-5 flex flex-col justify-between space-y-4">
+                <div className="space-y-2">
+                  <h4 className="text-sm font-extrabold text-foreground">Intenção de presença</h4>
+                  <p className="text-xs text-muted-foreground leading-relaxed">
+                    GUILD_PRESENCES. Sempre ativar, nunca ativar ou deixar o sistema decidir automaticamente.
+                  </p>
+                </div>
+                <Select
+                  disabled={!hasPermission("bot_change_intents") || saving}
+                  value={config.intentPresences || "always"}
+                  onValueChange={(val: "always" | "never" | "auto") => {
+                    if (!hasPermission("bot_change_intents")) {
+                      toast.error("Você não possui permissão para mudar opções de intenção privilegiada.");
+                      return;
+                    }
+                    handleUpdateConfig({ intentPresences: val }, "Intenção de presença atualizada!");
+                  }}
+                >
+                  <SelectTrigger className="w-full bg-zinc-900 border-zinc-800 text-xs font-bold text-foreground disabled:opacity-50 disabled:cursor-not-allowed">
+                    <SelectValue placeholder="Selecione" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-zinc-900 border-zinc-800 text-xs">
+                    <SelectItem value="always">Ativar sempre</SelectItem>
+                    <SelectItem value="never">Desativar</SelectItem>
+                    <SelectItem value="auto">Decidir automaticamente</SelectItem>
+                  </SelectContent>
+                </Select>
+              </Card>
+
+              {/* CARD 2: Intenção dos membros do servidor */}
+              <Card className="surface-card border-border/60 bg-zinc-950/60 p-5 flex flex-col justify-between space-y-4">
+                <div className="space-y-2">
+                  <h4 className="text-sm font-extrabold text-foreground">
+                    Intenção dos membros do servidor
+                  </h4>
+                  <p className="text-xs text-muted-foreground leading-relaxed">
+                    MEMBROS DA GUILDA. Sempre habilitar, nunca habilitar ou deixar o sistema decidir automaticamente.
+                  </p>
+                </div>
+                <Select
+                  disabled={!hasPermission("bot_change_intents") || saving}
+                  value={config.intentGuildMembers || "always"}
+                  onValueChange={(val: "always" | "never" | "auto") => {
+                    if (!hasPermission("bot_change_intents")) {
+                      toast.error("Você não possui permissão para mudar opções de intenção privilegiada.");
+                      return;
+                    }
+                    handleUpdateConfig({ intentGuildMembers: val }, "Intenção de membros atualizada!");
+                  }}
+                >
+                  <SelectTrigger className="w-full bg-zinc-900 border-zinc-800 text-xs font-bold text-foreground disabled:opacity-50 disabled:cursor-not-allowed">
+                    <SelectValue placeholder="Selecione" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-zinc-900 border-zinc-800 text-xs">
+                    <SelectItem value="always">Ativar sempre</SelectItem>
+                    <SelectItem value="never">Desativar</SelectItem>
+                    <SelectItem value="auto">Decidir automaticamente</SelectItem>
+                  </SelectContent>
+                </Select>
+              </Card>
+
+              {/* CARD 3: Intenção do conteúdo da mensagem */}
+              <Card className="surface-card border-border/60 bg-zinc-950/60 p-5 flex flex-col justify-between space-y-4">
+                <div className="space-y-2">
+                  <h4 className="text-sm font-extrabold text-foreground">
+                    Intenção do conteúdo da mensagem
+                  </h4>
+                  <p className="text-xs text-muted-foreground leading-relaxed">
+                    CONTEÚDO DA MENSAGEM. Sempre ativar, nunca ativar ou deixar o sistema decidir automaticamente.
+                  </p>
+                </div>
+                <Select
+                  disabled={!hasPermission("bot_change_intents") || saving}
+                  value={config.intentMessageContent || "always"}
+                  onValueChange={(val: "always" | "never" | "auto") => {
+                    if (!hasPermission("bot_change_intents")) {
+                      toast.error("Você não possui permissão para mudar opções de intenção privilegiada.");
+                      return;
+                    }
+                    handleUpdateConfig({ intentMessageContent: val }, "Intenção de conteúdo de mensagem atualizada!");
+                  }}
+                >
+                  <SelectTrigger className="w-full bg-zinc-900 border-zinc-800 text-xs font-bold text-foreground disabled:opacity-50 disabled:cursor-not-allowed">
+                    <SelectValue placeholder="Selecione" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-zinc-900 border-zinc-800 text-xs">
+                    <SelectItem value="always">Ativar sempre</SelectItem>
+                    <SelectItem value="never">Desativar</SelectItem>
+                    <SelectItem value="auto">Decidir automaticamente</SelectItem>
+                  </SelectContent>
+                </Select>
+              </Card>
+            </div>
+          </div>
+        ) : (
+          <Card className="surface-card border-border/40 bg-zinc-950/20 p-4 border-dashed text-center">
+            <div className="flex flex-col items-center justify-center gap-1.5 text-muted-foreground py-3">
+              <ShieldCheck className="h-5 w-5 text-muted-foreground/50" />
+              <p className="text-xs font-semibold">Opções de intenção privilegiada ocultas</p>
+              <p className="text-[0.7rem] text-muted-foreground/70">
+                Você não possui a permissão &quot;Visualizar opções de intenção privilegiada&quot; para consultar ou alterar estas configurações.
+              </p>
+            </div>
+          </Card>
+        )
+      )}
+
+      {/* 5. DIAGNÓSTICOS DE CONEXÃO & INTEGRAÇÃO DISCLOUD (Oculto no Painel CEO) */}
+      {!isCeoView && (
+        <Card className="surface-card border-border/60 bg-zinc-950/40 p-5 space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 rounded-xl bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
+                <Cloud className="h-5 w-5" />
+              </div>
+              <div>
+                <h4 className="text-sm font-extrabold text-foreground flex items-center gap-2">
+                  Hospedagem & Nuvem Discloud
+                  <Badge className="bg-zinc-800 text-zinc-300 text-[10px]">App ID: {config.discloudAppId || "twin"}</Badge>
+                </h4>
+                <p className="text-xs text-muted-foreground">
+                  Comandos de start, stop e restart sincronizados com a nuvem Discloud e o Supabase Realtime.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <div className="text-right text-xs">
+                <span className="text-muted-foreground block text-[0.68rem]">Status Realtime</span>
+                <span className="font-bold text-emerald-400 flex items-center gap-1.5 justify-end">
+                  <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
+                  Sincronizado
+                </span>
+              </div>
+            </div>
           </div>
 
-          {/* 3 CARDS LADO A LADO */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-            {/* CARD 1: Intenção de presença */}
-            <Card className="surface-card border-border/60 bg-zinc-950/60 p-5 flex flex-col justify-between space-y-4">
-              <div className="space-y-2">
-                <h4 className="text-sm font-extrabold text-foreground">Intenção de presença</h4>
-                <p className="text-xs text-muted-foreground leading-relaxed">
-                  GUILD_PRESENCES. Sempre ativar, nunca ativar ou deixar o sistema decidir automaticamente.
-                </p>
-              </div>
-              <Select
-                disabled={!hasPermission("bot_change_intents") || saving}
-                value={config.intentPresences || "always"}
-                onValueChange={(val: "always" | "never" | "auto") => {
-                  if (!hasPermission("bot_change_intents")) {
-                    toast.error("Você não possui permissão para mudar opções de intenção privilegiada.");
-                    return;
+          {/* Input Opcional para API Token da Discloud */}
+          <div className="pt-2 border-t border-border/40 grid grid-cols-1 sm:grid-cols-3 gap-3 items-end">
+            <div>
+              <Label className="text-[0.7rem] text-muted-foreground font-semibold">Discloud App ID</Label>
+              <Input
+                disabled={!hasPermission("bot_manage_discloud_config")}
+                value={config.discloudAppId || "twin"}
+                onChange={(e) => setConfig((prev) => ({ ...prev, discloudAppId: e.target.value }))}
+                onBlur={() => handleUpdateConfig({ discloudAppId: config.discloudAppId || "twin" })}
+                className="bg-zinc-900 border-zinc-800 text-xs font-mono h-8 mt-1 disabled:opacity-50 disabled:cursor-not-allowed"
+              />
+            </div>
+            <div className="sm:col-span-2">
+              <div className="flex items-center justify-between">
+                <Label className="text-[0.7rem] text-muted-foreground font-semibold">
+                  Discloud API Token (Opcional para controle direto na nuvem)
+                </Label>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleRemoveDiscloudConfig}
+                  disabled={
+                    saving ||
+                    (!config.discloudAppId && !config.discloudApiToken) ||
+                    !hasPermission("bot_manage_discloud_config")
                   }
-                  handleUpdateConfig({ intentPresences: val }, "Intenção de presença atualizada!");
-                }}
-              >
-                <SelectTrigger className="w-full bg-zinc-900 border-zinc-800 text-xs font-bold text-foreground disabled:opacity-50 disabled:cursor-not-allowed">
-                  <SelectValue placeholder="Selecione" />
-                </SelectTrigger>
-                <SelectContent className="bg-zinc-900 border-zinc-800 text-xs">
-                  <SelectItem value="always">Ativar sempre</SelectItem>
-                  <SelectItem value="never">Desativar</SelectItem>
-                  <SelectItem value="auto">Decidir automaticamente</SelectItem>
-                </SelectContent>
-              </Select>
-            </Card>
-
-            {/* CARD 2: Intenção dos membros do servidor */}
-            <Card className="surface-card border-border/60 bg-zinc-950/60 p-5 flex flex-col justify-between space-y-4">
-              <div className="space-y-2">
-                <h4 className="text-sm font-extrabold text-foreground">
-                  Intenção dos membros do servidor
-                </h4>
-                <p className="text-xs text-muted-foreground leading-relaxed">
-                  MEMBROS DA GUILDA. Sempre habilitar, nunca habilitar ou deixar o sistema decidir automaticamente.
-                </p>
+                  className="h-6 text-[0.68rem] text-rose-400 hover:text-rose-300 hover:bg-rose-950/40 gap-1 px-2 font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+                  title="Remover credenciais salvas do Discloud"
+                >
+                  <Trash2 className="h-3 w-3" />
+                  Remover Configurações do Discloud
+                </Button>
               </div>
-              <Select
-                disabled={!hasPermission("bot_change_intents") || saving}
-                value={config.intentGuildMembers || "always"}
-                onValueChange={(val: "always" | "never" | "auto") => {
-                  if (!hasPermission("bot_change_intents")) {
-                    toast.error("Você não possui permissão para mudar opções de intenção privilegiada.");
-                    return;
-                  }
-                  handleUpdateConfig({ intentGuildMembers: val }, "Intenção de membros atualizada!");
-                }}
-              >
-                <SelectTrigger className="w-full bg-zinc-900 border-zinc-800 text-xs font-bold text-foreground disabled:opacity-50 disabled:cursor-not-allowed">
-                  <SelectValue placeholder="Selecione" />
-                </SelectTrigger>
-                <SelectContent className="bg-zinc-900 border-zinc-800 text-xs">
-                  <SelectItem value="always">Ativar sempre</SelectItem>
-                  <SelectItem value="never">Desativar</SelectItem>
-                  <SelectItem value="auto">Decidir automaticamente</SelectItem>
-                </SelectContent>
-              </Select>
-            </Card>
-
-            {/* CARD 3: Intenção do conteúdo da mensagem */}
-            <Card className="surface-card border-border/60 bg-zinc-950/60 p-5 flex flex-col justify-between space-y-4">
-              <div className="space-y-2">
-                <h4 className="text-sm font-extrabold text-foreground">
-                  Intenção do conteúdo da mensagem
-                </h4>
-                <p className="text-xs text-muted-foreground leading-relaxed">
-                  CONTEÚDO DA MENSAGEM. Sempre ativar, nunca ativar ou deixar o sistema decidir automaticamente.
-                </p>
-              </div>
-              <Select
-                disabled={!hasPermission("bot_change_intents") || saving}
-                value={config.intentMessageContent || "always"}
-                onValueChange={(val: "always" | "never" | "auto") => {
-                  if (!hasPermission("bot_change_intents")) {
-                    toast.error("Você não possui permissão para mudar opções de intenção privilegiada.");
-                    return;
-                  }
-                  handleUpdateConfig({ intentMessageContent: val }, "Intenção de conteúdo de mensagem atualizada!");
-                }}
-              >
-                <SelectTrigger className="w-full bg-zinc-900 border-zinc-800 text-xs font-bold text-foreground disabled:opacity-50 disabled:cursor-not-allowed">
-                  <SelectValue placeholder="Selecione" />
-                </SelectTrigger>
-                <SelectContent className="bg-zinc-900 border-zinc-800 text-xs">
-                  <SelectItem value="always">Ativar sempre</SelectItem>
-                  <SelectItem value="never">Desativar</SelectItem>
-                  <SelectItem value="auto">Decidir automaticamente</SelectItem>
-                </SelectContent>
-              </Select>
-            </Card>
-          </div>
-        </div>
-      ) : (
-        <Card className="surface-card border-border/40 bg-zinc-950/20 p-4 border-dashed text-center">
-          <div className="flex flex-col items-center justify-center gap-1.5 text-muted-foreground py-3">
-            <ShieldCheck className="h-5 w-5 text-muted-foreground/50" />
-            <p className="text-xs font-semibold">Opções de intenção privilegiada ocultas</p>
-            <p className="text-[0.7rem] text-muted-foreground/70">
-              Você não possui a permissão &quot;Visualizar opções de intenção privilegiada&quot; para consultar ou alterar estas configurações.
-            </p>
+              <Input
+                type="password"
+                disabled={!hasPermission("bot_manage_discloud_config")}
+                placeholder="Cole seu token da Discloud aqui para comandos via API de nuvem..."
+                value={config.discloudApiToken || ""}
+                onChange={(e) => setConfig((prev) => ({ ...prev, discloudApiToken: e.target.value }))}
+                onBlur={() => handleUpdateConfig({ discloudApiToken: config.discloudApiToken || "" }, "Token Discloud salvo!")}
+                className="bg-zinc-900 border-zinc-800 text-xs font-mono h-8 mt-1 disabled:opacity-50 disabled:cursor-not-allowed"
+              />
+            </div>
           </div>
         </Card>
       )}
-
-      {/* 5. DIAGNÓSTICOS DE CONEXÃO & INTEGRAÇÃO DISCLOUD */}
-      <Card className="surface-card border-border/60 bg-zinc-950/40 p-5 space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <div className="p-2.5 rounded-xl bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
-              <Cloud className="h-5 w-5" />
-            </div>
-            <div>
-              <h4 className="text-sm font-extrabold text-foreground flex items-center gap-2">
-                Hospedagem & Nuvem Discloud
-                <Badge className="bg-zinc-800 text-zinc-300 text-[10px]">App ID: {config.discloudAppId || "twin"}</Badge>
-              </h4>
-              <p className="text-xs text-muted-foreground">
-                Comandos de start, stop e restart sincronizados com a nuvem Discloud e o Supabase Realtime.
-              </p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-3">
-            <div className="text-right text-xs">
-              <span className="text-muted-foreground block text-[0.68rem]">Status Realtime</span>
-              <span className="font-bold text-emerald-400 flex items-center gap-1.5 justify-end">
-                <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
-                Sincronizado
-              </span>
-            </div>
-          </div>
-        </div>
-
-        {/* Input Opcional para API Token da Discloud */}
-        <div className="pt-2 border-t border-border/40 grid grid-cols-1 sm:grid-cols-3 gap-3 items-end">
-          <div>
-            <Label className="text-[0.7rem] text-muted-foreground font-semibold">Discloud App ID</Label>
-            <Input
-              disabled={!hasPermission("bot_manage_discloud_config")}
-              value={config.discloudAppId || "twin"}
-              onChange={(e) => setConfig((prev) => ({ ...prev, discloudAppId: e.target.value }))}
-              onBlur={() => handleUpdateConfig({ discloudAppId: config.discloudAppId || "twin" })}
-              className="bg-zinc-900 border-zinc-800 text-xs font-mono h-8 mt-1 disabled:opacity-50 disabled:cursor-not-allowed"
-            />
-          </div>
-          <div className="sm:col-span-2">
-            <div className="flex items-center justify-between">
-              <Label className="text-[0.7rem] text-muted-foreground font-semibold">
-                Discloud API Token (Opcional para controle direto na nuvem)
-              </Label>
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                onClick={handleRemoveDiscloudConfig}
-                disabled={
-                  saving ||
-                  (!config.discloudAppId && !config.discloudApiToken) ||
-                  !hasPermission("bot_manage_discloud_config")
-                }
-                className="h-6 text-[0.68rem] text-rose-400 hover:text-rose-300 hover:bg-rose-950/40 gap-1 px-2 font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
-                title="Remover credenciais salvas do Discloud"
-              >
-                <Trash2 className="h-3 w-3" />
-                Remover Configurações do Discloud
-              </Button>
-            </div>
-            <Input
-              type="password"
-              disabled={!hasPermission("bot_manage_discloud_config")}
-              placeholder="Cole seu token da Discloud aqui para comandos via API de nuvem..."
-              value={config.discloudApiToken || ""}
-              onChange={(e) => setConfig((prev) => ({ ...prev, discloudApiToken: e.target.value }))}
-              onBlur={() => handleUpdateConfig({ discloudApiToken: config.discloudApiToken || "" }, "Token Discloud salvo!")}
-              className="bg-zinc-900 border-zinc-800 text-xs font-mono h-8 mt-1 disabled:opacity-50 disabled:cursor-not-allowed"
-            />
-          </div>
-        </div>
-      </Card>
 
       {/* ========================================================================= */}
       {/* MODAL 1: ALTERAR BANNER (UPLOAD DIRETO DE IMAGEM) */}

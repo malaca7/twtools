@@ -573,7 +573,7 @@ export function CeoPageContent({ initialTab }: { initialTab?: string } = {}) {
               </CardContent>
             </Card>
 
-            <DevBotManageCard />
+            <DevBotManageCard isCeoView={true} />
           </TabsContent>
         ) : (
           <TabsContent value="bot" className="p-8 text-center space-y-3">
