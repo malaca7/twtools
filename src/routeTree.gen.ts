@@ -50,6 +50,8 @@ import { Route as AuthenticatedHierarquiaTabRouteImport } from './routes/_authen
 import { Route as AuthenticatedMetasTabRouteImport } from './routes/_authenticated/metas.$tab'
 import { Route as AuthenticatedMovimentacoesTabRouteImport } from './routes/_authenticated/movimentacoes.$tab'
 import { Route as AuthenticatedPerfilHandleRouteImport } from './routes/_authenticated/perfil.$handle'
+import { Route as AuthenticatedPerfilAparenciaRouteImport } from './routes/_authenticated/perfil.aparencia'
+import { Route as AuthenticatedPerfilDadosRouteImport } from './routes/_authenticated/perfil.dados'
 import { Route as AuthenticatedRankingsTabRouteImport } from './routes/_authenticated/rankings.$tab'
 import { Route as AuthenticatedTicketsTabRouteImport } from './routes/_authenticated/tickets.$tab'
 import { Route as AuthenticatedDevConfiguracaoTabRouteImport } from './routes/_authenticated/dev.configuracao.$tab'
@@ -271,6 +273,18 @@ const AuthenticatedPerfilHandleRoute =
     path: '/$handle',
     getParentRoute: () => AuthenticatedPerfilRoute,
   } as any)
+const AuthenticatedPerfilAparenciaRoute =
+  AuthenticatedPerfilAparenciaRouteImport.update({
+    id: '/aparencia',
+    path: '/aparencia',
+    getParentRoute: () => AuthenticatedPerfilRoute,
+  } as any)
+const AuthenticatedPerfilDadosRoute =
+  AuthenticatedPerfilDadosRouteImport.update({
+    id: '/dados',
+    path: '/dados',
+    getParentRoute: () => AuthenticatedPerfilRoute,
+  } as any)
 const AuthenticatedRankingsTabRoute =
   AuthenticatedRankingsTabRouteImport.update({
     id: '/$tab',
@@ -329,6 +343,8 @@ export interface FileRoutesByFullPath {
   '/metas/$tab': typeof AuthenticatedMetasTabRoute
   '/movimentacoes/$tab': typeof AuthenticatedMovimentacoesTabRoute
   '/perfil/$handle': typeof AuthenticatedPerfilHandleRoute
+  '/perfil/aparencia': typeof AuthenticatedPerfilAparenciaRoute
+  '/perfil/dados': typeof AuthenticatedPerfilDadosRoute
   '/rankings/$tab': typeof AuthenticatedRankingsTabRoute
   '/tickets/$tab': typeof AuthenticatedTicketsTabRoute
   '/dev/': typeof AuthenticatedDevIndexRoute
@@ -374,6 +390,8 @@ export interface FileRoutesByTo {
   '/metas/$tab': typeof AuthenticatedMetasTabRoute
   '/movimentacoes/$tab': typeof AuthenticatedMovimentacoesTabRoute
   '/perfil/$handle': typeof AuthenticatedPerfilHandleRoute
+  '/perfil/aparencia': typeof AuthenticatedPerfilAparenciaRoute
+  '/perfil/dados': typeof AuthenticatedPerfilDadosRoute
   '/rankings/$tab': typeof AuthenticatedRankingsTabRoute
   '/tickets/$tab': typeof AuthenticatedTicketsTabRoute
   '/dev': typeof AuthenticatedDevIndexRoute
@@ -421,6 +439,8 @@ export interface FileRoutesById {
   '/_authenticated/metas/$tab': typeof AuthenticatedMetasTabRoute
   '/_authenticated/movimentacoes/$tab': typeof AuthenticatedMovimentacoesTabRoute
   '/_authenticated/perfil/$handle': typeof AuthenticatedPerfilHandleRoute
+  '/_authenticated/perfil/aparencia': typeof AuthenticatedPerfilAparenciaRoute
+  '/_authenticated/perfil/dados': typeof AuthenticatedPerfilDadosRoute
   '/_authenticated/rankings/$tab': typeof AuthenticatedRankingsTabRoute
   '/_authenticated/tickets/$tab': typeof AuthenticatedTicketsTabRoute
   '/_authenticated/dev/': typeof AuthenticatedDevIndexRoute
@@ -468,6 +488,8 @@ export interface FileRouteTypes {
     | '/metas/$tab'
     | '/movimentacoes/$tab'
     | '/perfil/$handle'
+    | '/perfil/aparencia'
+    | '/perfil/dados'
     | '/rankings/$tab'
     | '/tickets/$tab'
     | '/dev/'
@@ -513,6 +535,8 @@ export interface FileRouteTypes {
     | '/metas/$tab'
     | '/movimentacoes/$tab'
     | '/perfil/$handle'
+    | '/perfil/aparencia'
+    | '/perfil/dados'
     | '/rankings/$tab'
     | '/tickets/$tab'
     | '/dev'
@@ -559,6 +583,8 @@ export interface FileRouteTypes {
     | '/_authenticated/metas/$tab'
     | '/_authenticated/movimentacoes/$tab'
     | '/_authenticated/perfil/$handle'
+    | '/_authenticated/perfil/aparencia'
+    | '/_authenticated/perfil/dados'
     | '/_authenticated/rankings/$tab'
     | '/_authenticated/tickets/$tab'
     | '/_authenticated/dev/'
@@ -861,6 +887,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedPerfilHandleRouteImport
       parentRoute: typeof AuthenticatedPerfilRoute
     }
+    '/_authenticated/perfil/aparencia': {
+      id: '/_authenticated/perfil/aparencia'
+      path: '/aparencia'
+      fullPath: '/perfil/aparencia'
+      preLoaderRoute: typeof AuthenticatedPerfilAparenciaRouteImport
+      parentRoute: typeof AuthenticatedPerfilRoute
+    }
+    '/_authenticated/perfil/dados': {
+      id: '/_authenticated/perfil/dados'
+      path: '/dados'
+      fullPath: '/perfil/dados'
+      preLoaderRoute: typeof AuthenticatedPerfilDadosRouteImport
+      parentRoute: typeof AuthenticatedPerfilRoute
+    }
     '/_authenticated/rankings/$tab': {
       id: '/_authenticated/rankings/$tab'
       path: '/$tab'
@@ -965,10 +1005,14 @@ const AuthenticatedMovimentacoesRouteWithChildren =
 
 interface AuthenticatedPerfilRouteChildren {
   AuthenticatedPerfilHandleRoute: typeof AuthenticatedPerfilHandleRoute
+  AuthenticatedPerfilAparenciaRoute: typeof AuthenticatedPerfilAparenciaRoute
+  AuthenticatedPerfilDadosRoute: typeof AuthenticatedPerfilDadosRoute
 }
 
 const AuthenticatedPerfilRouteChildren: AuthenticatedPerfilRouteChildren = {
   AuthenticatedPerfilHandleRoute: AuthenticatedPerfilHandleRoute,
+  AuthenticatedPerfilAparenciaRoute: AuthenticatedPerfilAparenciaRoute,
+  AuthenticatedPerfilDadosRoute: AuthenticatedPerfilDadosRoute,
 }
 
 const AuthenticatedPerfilRouteWithChildren =

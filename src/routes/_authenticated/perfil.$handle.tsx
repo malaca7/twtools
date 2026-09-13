@@ -32,6 +32,7 @@ import { LEVEL_LABEL, getLevelLabel, levelBadgeClass, type AppLevel } from "@/li
 import { formatPhone, formatSecondsToHoursAndMinutes } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { getOrCreatePrivateConversation } from "@/services/chatService";
+import { PerfilPage } from "./perfil";
 
 export const Route = createFileRoute("/_authenticated/perfil/$handle")({
   component: PublicProfilePage,
@@ -49,6 +50,11 @@ function PublicProfilePage() {
 
   // Normaliza o handle recebido (remove @ e coloca em minúsculas)
   const cleanHandle = (handle || "").trim().toLowerCase().replace(/^@/, "");
+
+  // Se o identificador for uma das abas do perfil próprio, renderiza diretamente o PerfilPage
+  if (cleanHandle === "aparencia" || cleanHandle === "dados") {
+    return <PerfilPage initialTab={cleanHandle} />;
+  }
 
   // Localiza o membro pelo custom_url, discord_id, discord_username, user_id ou game_id
   const member = members.find((m) => {

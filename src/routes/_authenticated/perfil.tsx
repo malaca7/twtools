@@ -33,7 +33,7 @@ function PerfilWrapper() {
   return <PerfilPage />;
 }
 
-function PerfilPage() {
+export function PerfilPage({ initialTab }: { initialTab?: "dados" | "aparencia" } = {}) {
   const { profile, level, refresh, user, hasPermission } = useAuth();
   const { data: members = [] } = useMembers();
   const myMember = members.find((m) => m.user_id === user?.id);
@@ -43,10 +43,40 @@ function PerfilPage() {
     return <NoAccess />;
   }
 
-  const [activeTab, setActiveTab] = useUrlTab<"dados" | "aparencia">("dados", {
-    paramName: "tab",
-    allowedTabs: ["dados", "aparencia"],
-  });
+  const readInitialTab = (): "dados" | "aparencia" => {
+    if (initialTab && (initialTab === "dados" || initialTab === "aparencia")) {
+      return initialTab;
+    }
+    if (typeof window !== "undefined") {
+      const parts = window.location.pathname.split("/").filter(Boolean);
+      const last = parts[parts.length - 1];
+      if (last === "aparencia" || last === "dados") return last;
+      const q = new URLSearchParams(window.location.search).get("tab");
+      if (q === "aparencia" || q === "dados") return q;
+    }
+    return "dados";
+  };
+
+  const [activeTab, setActiveTabState] = useState<"dados" | "aparencia">(readInitialTab);
+
+  useEffect(() => {
+    if (initialTab && (initialTab === "dados" || initialTab === "aparencia")) {
+      setActiveTabState(initialTab);
+    }
+  }, [initialTab]);
+
+  const setActiveTab = (newTab: "dados" | "aparencia") => {
+    setActiveTabState(newTab);
+    if (typeof window !== "undefined") {
+      const url = new URL(window.location.href);
+      if (url.pathname.startsWith("/perfil")) {
+        window.history.replaceState(null, "", `/perfil/${newTab}`);
+      } else {
+        url.searchParams.set("tab", newTab);
+        window.history.replaceState(null, "", url.toString());
+      }
+    }
+  };
   const [nome, setNome] = useState("");
   const [nickname, setNickname] = useState("");
   const [telefone, setTelefone] = useState("");
