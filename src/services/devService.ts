@@ -598,6 +598,26 @@ export async function getCeoTagPermissions(
   return DEFAULT_CEO_PERMISSIONS;
 }
 
+export const CEO_CONFIG_EVENT = "tw_ceo_config_updated";
+
+/**
+ * Obtém síncronamente as permissões da Tag CEO persistidas em localStorage ou default
+ */
+export function getCeoTagPermissionsSync(): string[] {
+  if (typeof window !== "undefined") {
+    try {
+      const local = localStorage.getItem(CEO_PERMS_KEY);
+      if (local) {
+        const parsed = JSON.parse(local);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed;
+        }
+      }
+    } catch {}
+  }
+  return DEFAULT_CEO_PERMISSIONS;
+}
+
 /**
  * Salva a matriz de permissões da Tag CEO (Apenas Desenvolvedores)
  */
@@ -612,6 +632,8 @@ export async function saveCeoTagPermissions(
   try {
     if (typeof window !== "undefined") {
       localStorage.setItem(CEO_PERMS_KEY, JSON.stringify(permissions));
+      window.dispatchEvent(new CustomEvent(CEO_CONFIG_EVENT, { detail: permissions }));
+      window.dispatchEvent(new Event("storage"));
     }
 
     const { error } = await supabase.from("role_permissions").upsert(
@@ -685,6 +707,8 @@ export async function saveCeoConfiguration(
   try {
     if (typeof window !== "undefined") {
       localStorage.setItem(CEO_CONFIG_KEY, JSON.stringify(config));
+      window.dispatchEvent(new CustomEvent(CEO_CONFIG_EVENT, { detail: config }));
+      window.dispatchEvent(new Event("storage"));
     }
 
     const { error } = await supabase.from("role_permissions").upsert(

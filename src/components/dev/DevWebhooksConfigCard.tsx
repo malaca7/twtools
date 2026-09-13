@@ -52,6 +52,13 @@ import {
 } from "@/components/ui/dialog";
 import { useAuth } from "@/hooks/useAuth";
 import {
+  CEO_CONFIG_EVENT,
+  DEV_CONFIG_EVENT,
+  getCeoTagPermissionsSync,
+  getCeoTagPermissions,
+} from "@/services/devService";
+import type { Permission } from "@/lib/permissions";
+import {
   getDiscordWebhooksConfig,
   saveDiscordWebhooksConfig,
   postMessageToWebhookChannel,
@@ -112,19 +119,66 @@ const SERVERS_PRESETS = [
   },
 ];
 
-export function DevWebhooksConfigCard() {
-  const { user, profile, level, isDevUser, hasPermission } = useAuth();
+interface DevWebhooksConfigCardProps {
+  isCeoView?: boolean;
+}
+
+export function DevWebhooksConfigCard({ isCeoView }: DevWebhooksConfigCardProps = {}) {
+  const { user, profile, level, isDevUser, isCeoMode, hasPermission } = useAuth();
+
+  const isCeoPanel = Boolean(
+    isCeoView ||
+      isCeoMode ||
+      (typeof window !== "undefined" &&
+        (window.location.pathname.startsWith("/ceo") || window.location.hash.includes("/ceo")))
+  );
+
+  const [ceoPermTick, setCeoPermTick] = useState(0);
+
+  useEffect(() => {
+    const handleUpdate = () => {
+      setCeoPermTick((prev) => prev + 1);
+    };
+    window.addEventListener(DEV_CONFIG_EVENT, handleUpdate);
+    window.addEventListener(CEO_CONFIG_EVENT, handleUpdate);
+    window.addEventListener("storage", handleUpdate);
+    return () => {
+      window.removeEventListener(DEV_CONFIG_EVENT, handleUpdate);
+      window.removeEventListener(CEO_CONFIG_EVENT, handleUpdate);
+      window.removeEventListener("storage", handleUpdate);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (isCeoPanel) {
+      getCeoTagPermissions(user, profile, level).then(() => {
+        setCeoPermTick((prev) => prev + 1);
+      });
+    }
+  }, [isCeoPanel, user, profile, level]);
+
+  const ceoPerms = useMemo(() => {
+    return getCeoTagPermissionsSync();
+  }, [ceoPermTick]);
+
+  const checkPerm = (perm: Permission): boolean => {
+    if (isCeoPanel) {
+      return ceoPerms.includes(perm);
+    }
+    return isDevUser || hasPermission(perm);
+  };
 
   // Permissões granulares para cada opção/função da página de Webhooks
-  const canSendMessage = isDevUser || hasPermission("webhook_send_message");
-  const canTestWebhook = isDevUser || hasPermission("webhook_test");
-  const canCreateWebhook = isDevUser || hasPermission("webhook_create");
-  const canEditWebhook = isDevUser || hasPermission("webhook_edit");
-  const canDeleteWebhook = isDevUser || hasPermission("webhook_delete");
-  const canToggleActive = isDevUser || hasPermission("webhook_toggle_active");
-  const canCopyUrl = isDevUser || hasPermission("webhook_copy_url");
-  const canViewCode = isDevUser || hasPermission("webhook_view_code");
-  const canSaveConfig = isDevUser || hasPermission("webhook_save_config");
+  // No painel CEO, as permissões que o CEO não tiver nem são mostradas na página
+  const canSendMessage = checkPerm("webhook_send_message");
+  const canTestWebhook = checkPerm("webhook_test");
+  const canCreateWebhook = checkPerm("webhook_create");
+  const canEditWebhook = checkPerm("webhook_edit");
+  const canDeleteWebhook = checkPerm("webhook_delete");
+  const canToggleActive = checkPerm("webhook_toggle_active");
+  const canCopyUrl = checkPerm("webhook_copy_url");
+  const canViewCode = checkPerm("webhook_view_code");
+  const canSaveConfig = checkPerm("webhook_save_config");
 
   const [config, setConfig] = useState<DiscordWebhooksConfig>(DEFAULT_WEBHOOKS_CONFIG);
   const [initialConfig, setInitialConfig] = useState<DiscordWebhooksConfig>(DEFAULT_WEBHOOKS_CONFIG);
@@ -832,16 +886,16 @@ export function DevWebhooksConfigCard() {
                 </div>
 
                 {/* Link do Webhook para Compartilhar (Oficial Discord / Discohook) */}
-                <div className="space-y-2 p-3 rounded-xl bg-zinc-900/80 border border-zinc-800">
-                  <div className="flex items-center justify-between text-[0.68rem]">
-                    <div className="flex items-center gap-1.5 font-bold text-foreground">
-                      <Webhook className="h-3.5 w-3.5 text-emerald-400" />
-                      <span>Link do Webhook:</span>
-                      <Badge className="bg-emerald-500/10 text-emerald-400 border-emerald-500/20 text-[9px] px-1.5 py-0 font-medium">
-                        Discohook • Oficial
-                      </Badge>
-                    </div>
-                    {canCopyUrl && (
+                {canCopyUrl && (
+                  <div className="space-y-2 p-3 rounded-xl bg-zinc-900/80 border border-zinc-800">
+                    <div className="flex items-center justify-between text-[0.68rem]">
+                      <div className="flex items-center gap-1.5 font-bold text-foreground">
+                        <Webhook className="h-3.5 w-3.5 text-emerald-400" />
+                        <span>Link do Webhook:</span>
+                        <Badge className="bg-emerald-500/10 text-emerald-400 border-emerald-500/20 text-[9px] px-1.5 py-0 font-medium">
+                          Discohook • Oficial
+                        </Badge>
+                      </div>
                       <button
                         type="button"
                         onClick={() => handleCopyWebhookLink(wh)}
@@ -859,14 +913,12 @@ export function DevWebhooksConfigCard() {
                           </>
                         )}
                       </button>
-                    )}
-                  </div>
+                    </div>
 
-                  <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-zinc-950 border border-zinc-800 text-[0.68rem] font-mono text-zinc-300">
-                    <span className="truncate flex-1 select-all font-mono" title={getWebhookShareableUrl(wh)}>
-                      {getWebhookShareableUrl(wh)}
-                    </span>
-                    {canCopyUrl && (
+                    <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-zinc-950 border border-zinc-800 text-[0.68rem] font-mono text-zinc-300">
+                      <span className="truncate flex-1 select-all font-mono" title={getWebhookShareableUrl(wh)}>
+                        {getWebhookShareableUrl(wh)}
+                      </span>
                       <Button
                         size="sm"
                         variant="ghost"
@@ -876,33 +928,33 @@ export function DevWebhooksConfigCard() {
                       >
                         {copiedId === wh.id ? <Check className="h-3 w-3 text-emerald-400" /> : <Copy className="h-3 w-3" />}
                       </Button>
-                    )}
-                    <a
-                      href={getDiscohookUrl(wh)}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="h-6 px-2 text-[0.65rem] font-bold flex items-center gap-1 text-violet-400 hover:text-violet-300 hover:bg-violet-950/40 rounded border border-violet-500/20 shrink-0 transition-colors"
-                      title="Abrir no Discohook com este webhook pré-carregado"
-                    >
-                      <ExternalLink className="h-3 w-3" />
-                      Discohook
-                    </a>
-                  </div>
+                      <a
+                        href={getDiscohookUrl(wh)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="h-6 px-2 text-[0.65rem] font-bold flex items-center gap-1 text-violet-400 hover:text-violet-300 hover:bg-violet-950/40 rounded border border-violet-500/20 shrink-0 transition-colors"
+                        title="Abrir no Discohook com este webhook pré-carregado"
+                      >
+                        <ExternalLink className="h-3 w-3" />
+                        Discohook
+                      </a>
+                    </div>
 
-                  <div className="flex items-center justify-between text-[0.62rem] text-muted-foreground pt-0.5">
-                    <span>100% aceito no Discohook, FiveM, bots e cURL.</span>
-                    <a
-                      href={getWebPosterUrl(wh)}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-zinc-400 hover:text-white underline inline-flex items-center gap-1"
-                      title="Abrir formulário web simples sem precisar do Discohook"
-                    >
-                      Postador Web
-                      <ExternalLink className="h-2.5 w-2.5" />
-                    </a>
+                    <div className="flex items-center justify-between text-[0.62rem] text-muted-foreground pt-0.5">
+                      <span>100% aceito no Discohook, FiveM, bots e cURL.</span>
+                      <a
+                        href={getWebPosterUrl(wh)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-zinc-400 hover:text-white underline inline-flex items-center gap-1"
+                        title="Abrir formulário web simples sem precisar do Discohook"
+                      >
+                        Postador Web
+                        <ExternalLink className="h-2.5 w-2.5" />
+                      </a>
+                    </div>
                   </div>
-                </div>
+                )}
 
                 {/* Status do Último Envio / Teste */}
                 {wh.lastTriggeredAt && (
@@ -1225,23 +1277,25 @@ export function DevWebhooksConfigCard() {
                   </div>
 
                   {/* URL Oficial do Webhook Discord */}
-                  <div className="space-y-1 pt-1 border-t border-zinc-800/80">
-                    <div className="flex items-center justify-between">
-                      <Label className="text-xs font-bold flex items-center gap-1.5">
-                        <ExternalLink className="h-3.5 w-3.5 text-emerald-400" />
-                        URL Oficial do Webhook (Discohook / FiveM)
-                      </Label>
-                      <Badge className="bg-emerald-500/10 text-emerald-400 border-emerald-500/20 text-[9px] font-mono">
-                        Oficial Discord
-                      </Badge>
+                  {canCopyUrl && (
+                    <div className="space-y-1 pt-1 border-t border-zinc-800/80">
+                      <div className="flex items-center justify-between">
+                        <Label className="text-xs font-bold flex items-center gap-1.5">
+                          <ExternalLink className="h-3.5 w-3.5 text-emerald-400" />
+                          URL Oficial do Webhook (Discohook / FiveM)
+                        </Label>
+                        <Badge className="bg-emerald-500/10 text-emerald-400 border-emerald-500/20 text-[9px] font-mono">
+                          Oficial Discord
+                        </Badge>
+                      </div>
+                      <Input
+                        value={editingWebhook.webhookUrl || ""}
+                        onChange={(e) => setEditingWebhook({ ...editingWebhook, webhookUrl: e.target.value })}
+                        placeholder="https://discord.com/api/webhooks/... (preenchida automaticamente se vazia)"
+                        className="bg-zinc-950 border-zinc-800 text-xs font-mono"
+                      />
                     </div>
-                    <Input
-                      value={editingWebhook.webhookUrl || ""}
-                      onChange={(e) => setEditingWebhook({ ...editingWebhook, webhookUrl: e.target.value })}
-                      placeholder="https://discord.com/api/webhooks/... (preenchida automaticamente se vazia)"
-                      className="bg-zinc-950 border-zinc-800 text-xs font-mono"
-                    />
-                  </div>
+                  )}
                 </div>
 
                 {/* 3. Identidade do Bot Emissor */}
@@ -1943,39 +1997,39 @@ export function DevWebhooksConfigCard() {
           {codeWebhook && (
             <div className="space-y-3.5 py-2">
               {/* Link Compartilhável */}
-              <div className="p-3 rounded-xl bg-violet-950/20 border border-violet-500/30 space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-[0.7rem] font-bold text-violet-300 uppercase tracking-wider flex items-center gap-1.5">
-                    <ExternalLink className="h-3.5 w-3.5 text-violet-400" />
-                    Link Público / Compartilhável
-                  </span>
-                    {canCopyUrl && (
-                      <button
-                        type="button"
-                        onClick={() => handleCopyWebhookLink(codeWebhook)}
-                        className="text-xs text-violet-400 hover:text-violet-300 flex items-center gap-1 font-bold"
-                      >
-                        {copiedId === codeWebhook.id ? <Check className="h-3 w-3 text-emerald-400" /> : <Copy className="h-3 w-3" />}
-                        {copiedId === codeWebhook.id ? "Copiado!" : "Copiar Link"}
-                      </button>
-                    )}
+              {canCopyUrl && (
+                <div className="p-3 rounded-xl bg-violet-950/20 border border-violet-500/30 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[0.7rem] font-bold text-violet-300 uppercase tracking-wider flex items-center gap-1.5">
+                      <ExternalLink className="h-3.5 w-3.5 text-violet-400" />
+                      Link Público / Compartilhável
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => handleCopyWebhookLink(codeWebhook)}
+                      className="text-xs text-violet-400 hover:text-violet-300 flex items-center gap-1 font-bold"
+                    >
+                      {copiedId === codeWebhook.id ? <Check className="h-3 w-3 text-emerald-400" /> : <Copy className="h-3 w-3" />}
+                      {copiedId === codeWebhook.id ? "Copiado!" : "Copiar Link"}
+                    </button>
+                  </div>
+                  <div className="flex items-center gap-2 p-2 rounded-lg bg-zinc-950 border border-zinc-800 text-[0.75rem] font-mono text-zinc-300">
+                    <span className="truncate flex-1 select-all">{getWebhookShareableUrl(codeWebhook)}</span>
+                    <a
+                      href={getWebhookShareableUrl(codeWebhook)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="p-1 rounded text-muted-foreground hover:text-foreground hover:bg-zinc-800"
+                      title="Abrir no navegador"
+                    >
+                      <ExternalLink className="h-3.5 w-3.5" />
+                    </a>
+                  </div>
+                  <p className="text-[0.68rem] text-muted-foreground leading-relaxed">
+                    Envie este link para outros membros. Ao abrir no navegador, qualquer pessoa pode digitar e enviar comunicados para este canal.
+                  </p>
                 </div>
-                <div className="flex items-center gap-2 p-2 rounded-lg bg-zinc-950 border border-zinc-800 text-[0.75rem] font-mono text-zinc-300">
-                  <span className="truncate flex-1 select-all">{getWebhookShareableUrl(codeWebhook)}</span>
-                  <a
-                    href={getWebhookShareableUrl(codeWebhook)}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="p-1 rounded text-muted-foreground hover:text-foreground hover:bg-zinc-800"
-                    title="Abrir no navegador"
-                  >
-                    <ExternalLink className="h-3.5 w-3.5" />
-                  </a>
-                </div>
-                <p className="text-[0.68rem] text-muted-foreground leading-relaxed">
-                  Envie este link para outros membros. Ao abrir no navegador, qualquer pessoa pode digitar e enviar comunicados para este canal.
-                </p>
-              </div>
+              )}
 
               {/* Dados do Canal */}
               <div className="p-3 rounded-xl bg-zinc-900 border border-zinc-800 space-y-1 text-xs font-mono">

@@ -543,7 +543,7 @@ export function CeoPageContent({ initialTab }: { initialTab?: string } = {}) {
               </CardContent>
             </Card>
 
-            <DevWebhooksConfigCard />
+            <DevWebhooksConfigCard isCeoView={true} />
           </TabsContent>
         ) : (
           <TabsContent value="webhooks" className="p-8 text-center space-y-3">

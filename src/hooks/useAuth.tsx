@@ -6,7 +6,7 @@ import { getCurrentAuth, logoutFromApp } from "@/lib/app-api";
 import type { AppUser, AuthState, Profile, SignupRequestStatus } from "@/lib/app-types";
 import { can, LEVEL_LABEL, type AppLevel, type Permission } from "@/lib/permissions";
 import { useRolePermissions } from "@/hooks/useData";
-import { isUserDeveloper, DEV_DISCORD_IDS, isDevBypassActive, DEV_CONFIG_EVENT, isUserCeo } from "@/services/devService";
+import { isUserDeveloper, DEV_DISCORD_IDS, isDevBypassActive, DEV_CONFIG_EVENT, CEO_CONFIG_EVENT, getCeoTagPermissionsSync, isUserCeo } from "@/services/devService";
 
 type Session = { user: AppUser } | null;
 
@@ -295,40 +295,50 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [devConfigTick, setDevConfigTick] = useState(0);
 
   useEffect(() => {
-    const handleDevConfigUpdate = () => {
+    const handleConfigUpdate = () => {
       setDevConfigTick((prev) => prev + 1);
     };
-    window.addEventListener(DEV_CONFIG_EVENT, handleDevConfigUpdate);
-    window.addEventListener("storage", handleDevConfigUpdate);
+    window.addEventListener(DEV_CONFIG_EVENT, handleConfigUpdate);
+    window.addEventListener(CEO_CONFIG_EVENT, handleConfigUpdate);
+    window.addEventListener("storage", handleConfigUpdate);
     return () => {
-      window.removeEventListener(DEV_CONFIG_EVENT, handleDevConfigUpdate);
-      window.removeEventListener("storage", handleDevConfigUpdate);
+      window.removeEventListener(DEV_CONFIG_EVENT, handleConfigUpdate);
+      window.removeEventListener(CEO_CONFIG_EVENT, handleConfigUpdate);
+      window.removeEventListener("storage", handleConfigUpdate);
     };
   }, []);
 
   const hasPermission = useCallback(
     (permission: Permission) => {
       const bypassActive = isDevBypassActive();
+      const inCeoPanel =
+        panelMode === "ceo" ||
+        (typeof window !== "undefined" &&
+          (window.location.pathname.startsWith("/ceo") || window.location.hash.includes("/ceo")));
 
       // 1. Se o Bypass de Autorização Dev estiver ATIVO e for um usuário desenvolvedor verificado:
-      // Concede acesso supremo irrestrito a todas as páginas e ações
-      if (isDevUser && bypassActive) {
+      // Concede acesso supremo irrestrito a todas as páginas e ações, EXCETO quando estiver operando no painel CEO
+      if (isDevUser && bypassActive && !inCeoPanel) {
         return true;
       }
 
-      // 2. Avaliação Aditiva da Tag CEO: se o usuário possui a Tag CEO ativa,
-      // ele herda automaticamente a matriz de permissões atribuída à Tag CEO
-      if (isCeoUser) {
-        const ceoPerms = (customRolePermissions as any)?.ceo;
-        if (Array.isArray(ceoPerms) && ceoPerms.includes(permission)) {
-          return true;
+      // 2. Avaliação da Tag CEO: se estiver no painel CEO ou possuir a Tag CEO ativa
+      if (inCeoPanel || isCeoUser) {
+        const ceoPerms = getCeoTagPermissionsSync();
+        if (Array.isArray(ceoPerms)) {
+          if (inCeoPanel) {
+            return ceoPerms.includes(permission);
+          }
+          if (ceoPerms.includes(permission)) {
+            return true;
+          }
         }
       }
 
       // 3. Avalia rigorosamente as permissões reais atribuídas ao cargo do membro na matriz de permissões
       return can(level, permission, customRolePermissions);
     },
-    [level, isDevUser, isCeoUser, customRolePermissions, devConfigTick]
+    [level, isDevUser, isCeoUser, customRolePermissions, devConfigTick, panelMode]
   );
 
   const value = useMemo<AuthContextValue>(
