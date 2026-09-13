@@ -1,4 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { getCurrentAuth, logoutFromApp } from "@/lib/app-api";
@@ -30,6 +31,7 @@ type AuthContextValue = {
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
+  const queryClient = useQueryClient();
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [level, setLevel] = useState<AppLevel | null>(null);
@@ -54,10 +56,34 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
     prevLevelRef.current = next.level;
 
-    setSession(next.user ? { user: next.user } : null);
-    setProfile(next.profile);
-    setLevel(next.level);
-    setSignupRequestStatus(next.signupRequestStatus);
+    setSession((prev) => {
+      if (!next.user && !prev) return null;
+      if (next.user && prev?.user && next.user.id === prev.user.id && next.user.email === prev.user.email) {
+        return prev;
+      }
+      return next.user ? { user: next.user } : null;
+    });
+
+    setProfile((prev) => {
+      if (!next.profile && !prev) return null;
+      if (!next.profile || !prev) return next.profile;
+      if (
+        prev.id === next.profile.id &&
+        prev.nome === next.profile.nome &&
+        prev.nickname === next.profile.nickname &&
+        prev.status === next.profile.status &&
+        prev.avatar_url === next.profile.avatar_url &&
+        prev.is_developer === next.profile.is_developer &&
+        prev.is_ceo === next.profile.is_ceo &&
+        prev.custom_url === next.profile.custom_url
+      ) {
+        return prev;
+      }
+      return next.profile;
+    });
+
+    setLevel((prev) => (prev === next.level ? prev : next.level));
+    setSignupRequestStatus((prev) => (prev === next.signupRequestStatus ? prev : next.signupRequestStatus));
   }, []);
 
   const loadAuth = useCallback(async () => {
@@ -162,7 +188,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           table: "role_permissions",
         },
         async () => {
-          await loadAuth();
+          void queryClient.invalidateQueries({ queryKey: ["role_permissions"] });
         }
       )
       .subscribe();
@@ -170,7 +196,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => {
       void supabase.removeChannel(channel);
     };
-  }, [loadAuth, session?.user?.id]);
+  }, [loadAuth, queryClient, session?.user?.id]);
 
   const refresh = useCallback(async () => {
     await loadAuth();

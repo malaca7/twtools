@@ -71,6 +71,10 @@ function DevPermissoesContent() {
   // Aba ativa: Tag Dev vs Tag CEO
   const [activeTab, setActiveTab] = useState<"dev" | "ceo">("dev");
 
+  // Refs para evitar recarregamento repetido e piscadas da tela
+  const devInitialLoadedRef = useRef(false);
+  const ceoInitialLoadedRef = useRef(false);
+
   // Estado das Permissões da Tag Dev
   const [activeDevPermissions, setActiveDevPermissions] = useState<Permission[]>(ALL_PERMISSIONS);
   const [isDevSyncing, setIsDevSyncing] = useState(false);
@@ -93,10 +97,12 @@ function DevPermissoesContent() {
   const [filterCeoOnly, setFilterCeoOnly] = useState<"all" | "ceo_only">("all");
   const [togglingMemberId, setTogglingMemberId] = useState<string | null>(null);
 
-  // 1. Carrega as permissões da Tag Dev ao inicializar
+  // 1. Carrega as permissões da Tag Dev ao inicializar sem resetar o layout
   useEffect(() => {
     let isMounted = true;
-    setLoadingDev(true);
+    if (!devInitialLoadedRef.current) {
+      setLoadingDev(true);
+    }
 
     getDevPermissions(user, profile, level)
       .then((data) => {
@@ -110,6 +116,7 @@ function DevPermissoesContent() {
             }
           });
           setActiveDevPermissions(keys.length > 0 ? keys : ALL_PERMISSIONS);
+          devInitialLoadedRef.current = true;
         }
       })
       .catch(() => {
@@ -122,12 +129,14 @@ function DevPermissoesContent() {
     return () => {
       isMounted = false;
     };
-  }, [user, profile, level]);
+  }, [user?.id, level]);
 
   // 2. Carrega as permissões e configuração da Tag CEO
   useEffect(() => {
     let isMounted = true;
-    setLoadingCeo(true);
+    if (!ceoInitialLoadedRef.current) {
+      setLoadingCeo(true);
+    }
 
     Promise.all([
       getCeoTagPermissions(user, profile, level),
@@ -142,6 +151,7 @@ function DevPermissoesContent() {
           if (config) {
             setCeoConfig(config);
           }
+          ceoInitialLoadedRef.current = true;
         }
       })
       .catch((err) => {
@@ -154,7 +164,7 @@ function DevPermissoesContent() {
     return () => {
       isMounted = false;
     };
-  }, [user, profile, level]);
+  }, [user?.id, level]);
 
   // Agrupa os cards de páginas dinamicamente seguindo a ordem do menu
   const groupedPageCards = useMemo(() => {
@@ -233,7 +243,6 @@ function DevPermissoesContent() {
       try {
         await saveCeoTagPermissions(nextPerms, user, profile, level);
         void queryClient.invalidateQueries({ queryKey: ["role_permissions"] });
-        void queryClient.invalidateQueries({ queryKey: ["auth_session"] });
       } catch (err) {
         toast.error("Falha ao sincronizar permissões da Tag CEO.");
       } finally {
@@ -256,7 +265,6 @@ function DevPermissoesContent() {
       try {
         await saveCeoConfiguration(updated, user, profile, level);
         void queryClient.invalidateQueries({ queryKey: ["role_permissions"] });
-        void queryClient.invalidateQueries({ queryKey: ["auth_session"] });
         toast.success("Configuração do Painel CEO atualizada com sucesso! 👑");
       } catch (err: any) {
         toast.error(err?.message || "Falha ao salvar configuração do Painel CEO.");
@@ -826,29 +834,35 @@ function DevPermissoesContent() {
                               return (
                                 <div
                                   key={perm.key}
+                                  role="checkbox"
+                                  aria-checked={isChecked}
+                                  tabIndex={0}
                                   onClick={() => toggleDevPermission(perm.key)}
+                                  onKeyDown={(e) => {
+                                    if (e.key === " " || e.key === "Enter") {
+                                      e.preventDefault();
+                                      toggleDevPermission(perm.key);
+                                    }
+                                  }}
                                   className={cn(
-                                    "flex items-start gap-3 p-2.5 rounded-xl border transition-all cursor-pointer select-none",
+                                    "flex items-start gap-3 p-2.5 rounded-xl border transition-all duration-150 cursor-pointer select-none outline-none focus-visible:ring-2 focus-visible:ring-rose-500/50 hover:scale-[1.008] active:scale-[0.99]",
                                     isChecked
-                                      ? "bg-rose-500/5 border-rose-500/30 text-foreground"
-                                      : "bg-secondary/20 border-border/40 hover:bg-secondary/40 text-muted-foreground"
+                                      ? "bg-rose-500/10 border-rose-500/50 shadow-sm shadow-rose-500/15 text-foreground"
+                                      : "bg-secondary/20 border-border/40 hover:bg-secondary/40 hover:border-rose-500/30 text-muted-foreground"
                                   )}
                                 >
                                   <Checkbox
                                     id={`dev-${perm.key}`}
                                     checked={isChecked}
-                                    onCheckedChange={() => toggleDevPermission(perm.key)}
-                                    className="mt-0.5 rounded border-rose-500/40 data-[state=checked]:bg-rose-500 data-[state=checked]:border-rose-500"
+                                    tabIndex={-1}
+                                    className="mt-0.5 pointer-events-none rounded border-rose-500/40 data-[state=checked]:bg-rose-500 data-[state=checked]:border-rose-500"
                                   />
 
                                   <div className="space-y-0.5 flex-1 min-w-0">
                                     <div className="flex items-center gap-2">
-                                      <label
-                                        htmlFor={`dev-${perm.key}`}
-                                        className="text-xs font-bold text-foreground cursor-pointer block truncate"
-                                      >
+                                      <span className="text-xs font-bold text-foreground block truncate">
                                         {perm.label}
-                                      </label>
+                                      </span>
                                       {perm.badge && (
                                         <Badge
                                           variant="outline"
@@ -857,6 +871,17 @@ function DevPermissoesContent() {
                                           {perm.badge}
                                         </Badge>
                                       )}
+                                      <Badge
+                                        variant={isChecked ? "default" : "outline"}
+                                        className={cn(
+                                          "ml-auto text-[9px] font-mono py-0 px-1.5 shrink-0 transition-colors",
+                                          isChecked
+                                            ? "bg-rose-500/20 text-rose-300 border-rose-500/40"
+                                            : "text-muted-foreground/60 border-border/40"
+                                        )}
+                                      >
+                                        {isChecked ? "Ativo" : "Inativo"}
+                                      </Badge>
                                     </div>
                                     <p className="text-[0.68rem] text-muted-foreground leading-snug">
                                       {perm.description}
@@ -1110,11 +1135,20 @@ function DevPermissoesContent() {
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
                 {/* Switch 1: Gerenciar Bot */}
                 <div
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => handleUpdateCeoConfig({ allowManageBot: !(ceoConfig.allowManageBot !== false) })}
+                  onKeyDown={(e) => {
+                    if (e.key === " " || e.key === "Enter") {
+                      e.preventDefault();
+                      handleUpdateCeoConfig({ allowManageBot: !(ceoConfig.allowManageBot !== false) });
+                    }
+                  }}
                   className={cn(
-                    "flex flex-col justify-between p-3.5 rounded-xl border transition-all",
+                    "flex flex-col justify-between p-3.5 rounded-xl border transition-all duration-150 cursor-pointer select-none outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/50 hover:scale-[1.008] active:scale-[0.99]",
                     ceoConfig.allowManageBot !== false
-                      ? "bg-indigo-500/10 border-indigo-500/40 shadow-xs"
-                      : "bg-secondary/20 border-border/40 opacity-75"
+                      ? "bg-indigo-500/10 border-indigo-500/50 shadow-sm shadow-indigo-500/15"
+                      : "bg-secondary/20 border-border/40 hover:bg-secondary/40 hover:border-indigo-500/30 opacity-75"
                   )}
                 >
                   <div className="space-y-2">
@@ -1128,8 +1162,8 @@ function DevPermissoesContent() {
                       <Switch
                         id="ceo-cfg-bot"
                         checked={ceoConfig.allowManageBot !== false}
-                        onCheckedChange={(checked) => handleUpdateCeoConfig({ allowManageBot: checked })}
-                        className="data-[state=checked]:bg-indigo-500 data-[state=checked]:border-indigo-400"
+                        tabIndex={-1}
+                        className="pointer-events-none data-[state=checked]:bg-indigo-500 data-[state=checked]:border-indigo-400"
                       />
                     </div>
                     <p className="text-[0.7rem] text-muted-foreground leading-relaxed">
@@ -1146,11 +1180,20 @@ function DevPermissoesContent() {
 
                 {/* Switch 2: WebHook Discord */}
                 <div
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => handleUpdateCeoConfig({ allowWebhooks: !(ceoConfig.allowWebhooks !== false) })}
+                  onKeyDown={(e) => {
+                    if (e.key === " " || e.key === "Enter") {
+                      e.preventDefault();
+                      handleUpdateCeoConfig({ allowWebhooks: !(ceoConfig.allowWebhooks !== false) });
+                    }
+                  }}
                   className={cn(
-                    "flex flex-col justify-between p-3.5 rounded-xl border transition-all",
+                    "flex flex-col justify-between p-3.5 rounded-xl border transition-all duration-150 cursor-pointer select-none outline-none focus-visible:ring-2 focus-visible:ring-violet-500/50 hover:scale-[1.008] active:scale-[0.99]",
                     ceoConfig.allowWebhooks !== false
-                      ? "bg-violet-500/10 border-violet-500/40 shadow-xs"
-                      : "bg-secondary/20 border-border/40 opacity-75"
+                      ? "bg-violet-500/10 border-violet-500/50 shadow-sm shadow-violet-500/15"
+                      : "bg-secondary/20 border-border/40 hover:bg-secondary/40 hover:border-violet-500/30 opacity-75"
                   )}
                 >
                   <div className="space-y-2">
@@ -1164,8 +1207,8 @@ function DevPermissoesContent() {
                       <Switch
                         id="ceo-cfg-webhooks"
                         checked={ceoConfig.allowWebhooks !== false}
-                        onCheckedChange={(checked) => handleUpdateCeoConfig({ allowWebhooks: checked })}
-                        className="data-[state=checked]:bg-violet-500 data-[state=checked]:border-violet-400"
+                        tabIndex={-1}
+                        className="pointer-events-none data-[state=checked]:bg-violet-500 data-[state=checked]:border-violet-400"
                       />
                     </div>
                     <p className="text-[0.7rem] text-muted-foreground leading-relaxed">
@@ -1182,11 +1225,20 @@ function DevPermissoesContent() {
 
                 {/* Switch 3: Fundo de Caixa & Finanças */}
                 <div
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => handleUpdateCeoConfig({ allowFinancials: !(ceoConfig.allowFinancials !== false) })}
+                  onKeyDown={(e) => {
+                    if (e.key === " " || e.key === "Enter") {
+                      e.preventDefault();
+                      handleUpdateCeoConfig({ allowFinancials: !(ceoConfig.allowFinancials !== false) });
+                    }
+                  }}
                   className={cn(
-                    "flex flex-col justify-between p-3.5 rounded-xl border transition-all",
+                    "flex flex-col justify-between p-3.5 rounded-xl border transition-all duration-150 cursor-pointer select-none outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/50 hover:scale-[1.008] active:scale-[0.99]",
                     ceoConfig.allowFinancials !== false
-                      ? "bg-emerald-500/10 border-emerald-500/40 shadow-xs"
-                      : "bg-secondary/20 border-border/40 opacity-75"
+                      ? "bg-emerald-500/10 border-emerald-500/50 shadow-sm shadow-emerald-500/15"
+                      : "bg-secondary/20 border-border/40 hover:bg-secondary/40 hover:border-emerald-500/30 opacity-75"
                   )}
                 >
                   <div className="space-y-2">
@@ -1200,8 +1252,8 @@ function DevPermissoesContent() {
                       <Switch
                         id="ceo-cfg-financials"
                         checked={ceoConfig.allowFinancials !== false}
-                        onCheckedChange={(checked) => handleUpdateCeoConfig({ allowFinancials: checked })}
-                        className="data-[state=checked]:bg-emerald-500 data-[state=checked]:border-emerald-400"
+                        tabIndex={-1}
+                        className="pointer-events-none data-[state=checked]:bg-emerald-500 data-[state=checked]:border-emerald-400"
                       />
                     </div>
                     <p className="text-[0.7rem] text-muted-foreground leading-relaxed">
@@ -1218,11 +1270,20 @@ function DevPermissoesContent() {
 
                 {/* Switch 4: Ações Rápidas & Comunicados */}
                 <div
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => handleUpdateCeoConfig({ allowAnnouncements: !(ceoConfig.allowAnnouncements !== false) })}
+                  onKeyDown={(e) => {
+                    if (e.key === " " || e.key === "Enter") {
+                      e.preventDefault();
+                      handleUpdateCeoConfig({ allowAnnouncements: !(ceoConfig.allowAnnouncements !== false) });
+                    }
+                  }}
                   className={cn(
-                    "flex flex-col justify-between p-3.5 rounded-xl border transition-all",
+                    "flex flex-col justify-between p-3.5 rounded-xl border transition-all duration-150 cursor-pointer select-none outline-none focus-visible:ring-2 focus-visible:ring-amber-500/50 hover:scale-[1.008] active:scale-[0.99]",
                     ceoConfig.allowAnnouncements !== false
-                      ? "bg-amber-500/10 border-amber-500/40 shadow-xs"
-                      : "bg-secondary/20 border-border/40 opacity-75"
+                      ? "bg-amber-500/10 border-amber-500/50 shadow-sm shadow-amber-500/15"
+                      : "bg-secondary/20 border-border/40 hover:bg-secondary/40 hover:border-amber-500/30 opacity-75"
                   )}
                 >
                   <div className="space-y-2">
@@ -1236,8 +1297,8 @@ function DevPermissoesContent() {
                       <Switch
                         id="ceo-cfg-announcements"
                         checked={ceoConfig.allowAnnouncements !== false}
-                        onCheckedChange={(checked) => handleUpdateCeoConfig({ allowAnnouncements: checked })}
-                        className="data-[state=checked]:bg-amber-500 data-[state=checked]:border-amber-400"
+                        tabIndex={-1}
+                        className="pointer-events-none data-[state=checked]:bg-amber-500 data-[state=checked]:border-amber-400"
                       />
                     </div>
                     <p className="text-[0.7rem] text-muted-foreground leading-relaxed">
@@ -1254,11 +1315,20 @@ function DevPermissoesContent() {
 
                 {/* Switch 5: Exibição de Saldo Real */}
                 <div
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => handleUpdateCeoConfig({ showRealBalance: !(ceoConfig.showRealBalance !== false) })}
+                  onKeyDown={(e) => {
+                    if (e.key === " " || e.key === "Enter") {
+                      e.preventDefault();
+                      handleUpdateCeoConfig({ showRealBalance: !(ceoConfig.showRealBalance !== false) });
+                    }
+                  }}
                   className={cn(
-                    "flex flex-col justify-between p-3.5 rounded-xl border transition-all",
+                    "flex flex-col justify-between p-3.5 rounded-xl border transition-all duration-150 cursor-pointer select-none outline-none focus-visible:ring-2 focus-visible:ring-teal-500/50 hover:scale-[1.008] active:scale-[0.99]",
                     ceoConfig.showRealBalance !== false
-                      ? "bg-teal-500/10 border-teal-500/40 shadow-xs"
-                      : "bg-secondary/20 border-border/40 opacity-75"
+                      ? "bg-teal-500/10 border-teal-500/50 shadow-sm shadow-teal-500/15"
+                      : "bg-secondary/20 border-border/40 hover:bg-secondary/40 hover:border-teal-500/30 opacity-75"
                   )}
                 >
                   <div className="space-y-2">
@@ -1272,8 +1342,8 @@ function DevPermissoesContent() {
                       <Switch
                         id="ceo-cfg-balance"
                         checked={ceoConfig.showRealBalance !== false}
-                        onCheckedChange={(checked) => handleUpdateCeoConfig({ showRealBalance: checked })}
-                        className="data-[state=checked]:bg-teal-500 data-[state=checked]:border-teal-400"
+                        tabIndex={-1}
+                        className="pointer-events-none data-[state=checked]:bg-teal-500 data-[state=checked]:border-teal-400"
                       />
                     </div>
                     <p className="text-[0.7rem] text-muted-foreground leading-relaxed">
@@ -1427,29 +1497,35 @@ function DevPermissoesContent() {
                               return (
                                 <div
                                   key={perm.key}
+                                  role="checkbox"
+                                  aria-checked={isChecked}
+                                  tabIndex={0}
                                   onClick={() => toggleCeoPermission(perm.key)}
+                                  onKeyDown={(e) => {
+                                    if (e.key === " " || e.key === "Enter") {
+                                      e.preventDefault();
+                                      toggleCeoPermission(perm.key);
+                                    }
+                                  }}
                                   className={cn(
-                                    "flex items-start gap-3 p-2.5 rounded-xl border transition-all cursor-pointer select-none",
+                                    "flex items-start gap-3 p-2.5 rounded-xl border transition-all duration-150 cursor-pointer select-none outline-none focus-visible:ring-2 focus-visible:ring-amber-500/50 hover:scale-[1.008] active:scale-[0.99]",
                                     isChecked
-                                      ? "bg-amber-500/10 border-amber-500/40 text-foreground"
-                                      : "bg-secondary/20 border-border/40 hover:bg-secondary/40 text-muted-foreground"
+                                      ? "bg-amber-500/10 border-amber-500/50 shadow-sm shadow-amber-500/15 text-foreground"
+                                      : "bg-secondary/20 border-border/40 hover:bg-secondary/40 hover:border-amber-500/30 text-muted-foreground"
                                   )}
                                 >
                                   <Checkbox
                                     id={`ceo-${perm.key}`}
                                     checked={isChecked}
-                                    onCheckedChange={() => toggleCeoPermission(perm.key)}
-                                    className="mt-0.5 rounded border-amber-500/40 data-[state=checked]:bg-amber-500 data-[state=checked]:border-amber-500 data-[state=checked]:text-black"
+                                    tabIndex={-1}
+                                    className="mt-0.5 pointer-events-none rounded border-amber-500/40 data-[state=checked]:bg-amber-500 data-[state=checked]:border-amber-500 data-[state=checked]:text-black"
                                   />
 
                                   <div className="space-y-0.5 flex-1 min-w-0">
                                     <div className="flex items-center gap-2">
-                                      <label
-                                        htmlFor={`ceo-${perm.key}`}
-                                        className="text-xs font-bold text-foreground cursor-pointer block truncate"
-                                      >
+                                      <span className="text-xs font-bold text-foreground block truncate">
                                         {perm.label}
-                                      </label>
+                                      </span>
                                       {perm.badge && (
                                         <Badge
                                           variant="outline"
@@ -1458,6 +1534,17 @@ function DevPermissoesContent() {
                                           {perm.badge}
                                         </Badge>
                                       )}
+                                      <Badge
+                                        variant={isChecked ? "default" : "outline"}
+                                        className={cn(
+                                          "ml-auto text-[9px] font-mono py-0 px-1.5 shrink-0 transition-colors",
+                                          isChecked
+                                            ? "bg-amber-500/20 text-amber-300 border-amber-500/40"
+                                            : "text-muted-foreground/60 border-border/40"
+                                        )}
+                                      >
+                                        {isChecked ? "Ativo" : "Inativo"}
+                                      </Badge>
                                     </div>
                                     <p className="text-[0.68rem] text-muted-foreground leading-snug">
                                       {perm.description}

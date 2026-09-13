@@ -68,6 +68,8 @@ function PermissoesPage() {
   const [isSyncing, setIsSyncing] = useState(false);
   const [showFloatingBar, setShowFloatingBar] = useState(false);
   const roleCardRef = useRef<HTMLDivElement>(null);
+  const isSavingRef = useRef(false);
+  const prevLevelRef = useRef<AppLevel>(selectedLevel);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -86,10 +88,16 @@ function PermissoesPage() {
   }, []);
 
   useEffect(() => {
-    if (dbPermissions && dbPermissions[selectedLevel]) {
-      setActivePermissions(dbPermissions[selectedLevel]);
-    } else {
-      setActivePermissions(PERMISSIONS[selectedLevel] || []);
+    const levelChanged = prevLevelRef.current !== selectedLevel;
+    prevLevelRef.current = selectedLevel;
+
+    // Só sincroniza a partir do dbPermissions se o cargo mudou ou se não estamos no meio de um salvamento
+    if (levelChanged || !isSavingRef.current) {
+      if (dbPermissions && dbPermissions[selectedLevel]) {
+        setActivePermissions(dbPermissions[selectedLevel]);
+      } else {
+        setActivePermissions(PERMISSIONS[selectedLevel] || []);
+      }
     }
   }, [dbPermissions, selectedLevel]);
 
@@ -145,13 +153,21 @@ function PermissoesPage() {
     async (targetLevel: AppLevel, nextPerms: Permission[]) => {
       if (!canAccess) return;
       setIsSyncing(true);
+      isSavingRef.current = true;
       try {
         await saveRolePermissions(targetLevel, nextPerms);
-        void queryClient.invalidateQueries({ queryKey: ["role_permissions"] });
+        // Atualiza diretamente o cache TanStack sem refetch destrutivo
+        queryClient.setQueryData<Record<AppLevel, Permission[]>>(["role_permissions"], (old) => ({
+          ...(old || {}),
+          [targetLevel]: nextPerms,
+        } as Record<AppLevel, Permission[]>));
       } catch (err) {
         toast.error(errorMessage(err, "Falha ao sincronizar permissões."));
       } finally {
         setIsSyncing(false);
+        setTimeout(() => {
+          isSavingRef.current = false;
+        }, 800);
       }
     },
     [canAccess, queryClient]
@@ -333,23 +349,33 @@ function PermissoesPage() {
                           return (
                             <div
                               key={`${pageCard.id}-${perm.key}`}
-                              className={cn(
-                                "p-2.5 rounded-lg border transition-all flex items-start gap-3 cursor-pointer select-none",
-                                isChecked
-                                  ? "border-primary/40 bg-primary/5 shadow-sm"
-                                  : "border-border/50 bg-background/40 hover:bg-secondary/20"
-                              )}
+                              role="checkbox"
+                              aria-checked={isChecked}
+                              tabIndex={0}
                               onClick={() => togglePermission(perm.key)}
+                              onKeyDown={(e) => {
+                                if (e.key === " " || e.key === "Enter") {
+                                  e.preventDefault();
+                                  togglePermission(perm.key);
+                                }
+                              }}
+                              className={cn(
+                                "p-2.5 rounded-xl border transition-all duration-150 flex items-start gap-3 cursor-pointer select-none outline-none focus-visible:ring-2 focus-visible:ring-primary/50 hover:scale-[1.008] active:scale-[0.99]",
+                                isChecked
+                                  ? "border-primary/50 bg-primary/10 shadow-sm shadow-primary/15 text-foreground"
+                                  : "border-border/50 bg-background/40 hover:bg-secondary/30 hover:border-primary/30 text-muted-foreground"
+                              )}
                             >
                               <Checkbox
                                 id={`perm-${pageCard.id}-${perm.key}`}
                                 checked={isChecked}
-                                className="mt-0.5 pointer-events-none"
+                                tabIndex={-1}
+                                className="mt-0.5 pointer-events-none rounded data-[state=checked]:bg-primary data-[state=checked]:border-primary"
                               />
 
-                              <div className="space-y-0.5 flex-1">
+                              <div className="space-y-0.5 flex-1 min-w-0">
                                 <div className="flex items-center gap-2">
-                                  <span className="font-bold text-xs text-foreground">
+                                  <span className="font-bold text-xs text-foreground block truncate">
                                     {perm.label}
                                   </span>
 
@@ -358,6 +384,18 @@ function PermissoesPage() {
                                       {perm.badge}
                                     </Badge>
                                   )}
+
+                                  <Badge
+                                    variant={isChecked ? "default" : "outline"}
+                                    className={cn(
+                                      "ml-auto text-[9px] font-mono py-0 px-1.5 shrink-0 transition-colors",
+                                      isChecked
+                                        ? "bg-primary/20 text-primary-foreground border-primary/40"
+                                        : "text-muted-foreground/60 border-border/40"
+                                    )}
+                                  >
+                                    {isChecked ? "Ativo" : "Inativo"}
+                                  </Badge>
                                 </div>
 
                                 <p className="text-[0.7rem] text-muted-foreground leading-snug">
@@ -365,7 +403,7 @@ function PermissoesPage() {
                                 </p>
 
                                 {perm.importantNote && (
-                                  <div className="mt-1.5 p-1.5 rounded bg-amber-500/10 border border-amber-500/30 text-[0.65rem] text-amber-400 flex items-start gap-1">
+                                  <div className="mt-1.5 p-1.5 rounded-lg bg-amber-500/10 border border-amber-500/30 text-[0.65rem] text-amber-400 flex items-start gap-1">
                                     <HelpCircle className="h-3 w-3 shrink-0 mt-0.5 text-amber-400" />
                                     <span>{perm.importantNote}</span>
                                   </div>
