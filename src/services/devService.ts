@@ -766,3 +766,66 @@ export async function toggleMemberCeoTag(
 
   return { success: true, is_ceo: enable };
 }
+
+/**
+ * Ativa ou desativa a Tag Dev para um membro da facção.
+ * REGRA ESTRITA: Apenas quem possui a Tag Dev (is_developer === true) pode executar!
+ */
+export async function toggleMemberDevTag(
+  targetUserId: string,
+  enable: boolean,
+  user?: AppUser | null,
+  profile?: Profile | null,
+  level?: AppLevel | null
+): Promise<{ success: boolean; is_developer: boolean }> {
+  assertDeveloperAccess(user, profile, level);
+
+  if (!targetUserId) {
+    throw new Error("ID do usuário alvo inválido.");
+  }
+
+  // 1. Busca o perfil atual do membro
+  const { data: targetProfile, error: fetchErr } = await (supabase.from("profiles" as any))
+    .select("user_id, nome, nickname, is_developer")
+    .eq("user_id", targetUserId)
+    .maybeSingle();
+
+  if (fetchErr) {
+    throw new Error(`Falha ao buscar perfil do membro: ${fetchErr.message}`);
+  }
+
+  // 2. Atualiza no perfil do membro (profiles.is_developer)
+  const { error: updateErr } = await (supabase.from("profiles" as any))
+    .update({
+      is_developer: enable,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("user_id", targetUserId);
+
+  if (updateErr) {
+    throw new Error(`Falha ao atualizar status de Desenvolvedor: ${updateErr.message}`);
+  }
+
+  // 3. Registra no log de auditoria
+  try {
+    const { logAuditAction } = await import("@/lib/app-api");
+    const targetName = (targetProfile as any)?.nickname || (targetProfile as any)?.nome || targetUserId;
+    const actorName = profile?.nickname || profile?.nome || "Desenvolvedor";
+
+    await logAuditAction(
+      enable ? "conceder_tag_dev" : "revogar_tag_dev",
+      "membros",
+      {
+        alvo_user_id: targetUserId,
+        alvo_nome: targetName,
+        executado_por: actorName,
+        novo_status: enable ? "Dev Ativado" : "Dev Desativado",
+        timestamp: new Date().toISOString(),
+      }
+    );
+  } catch (auditErr) {
+    console.warn("Falha ao registrar auditoria de Dev:", auditErr);
+  }
+
+  return { success: true, is_developer: enable };
+}

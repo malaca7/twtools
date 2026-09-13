@@ -73,7 +73,7 @@ export async function fetchChatMembersMap(force = false): Promise<Map<string, Me
         discord_username: d.discord_username || null,
         discord_avatar_url: d.avatar_url || d.discord_avatar_url || null,
         discord_email: d.discord_email || null,
-        is_developer: Boolean(d.is_developer || roleNivel === "desenvolvedor" || d.discord_id === "917826984778797087"),
+        is_developer: Boolean(d.is_developer || roleNivel === "desenvolvedor"),
         is_ceo: Boolean(d.is_ceo || d.custom_theme?.is_ceo),
       };
       membersMap.set(d.user_id, memberObj);

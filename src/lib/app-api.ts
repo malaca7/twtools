@@ -652,7 +652,7 @@ export async function getMembers(): Promise<Member[]> {
         discord_avatar_url: d.avatar_url || d.discord_avatar_url || null,
         avatar_url: d.avatar_url || d.discord_avatar_url || null,
         discord_email: d.discord_email,
-        is_developer: Boolean(d.is_developer || roleNivel === "desenvolvedor" || d.discord_id === "917826984778797087"),
+        is_developer: Boolean(d.is_developer || roleNivel === "desenvolvedor"),
         is_ceo: Boolean(d.is_ceo || d.custom_theme?.is_ceo),
         custom_theme: d.custom_theme || null,
         custom_url: d.custom_url ?? d.custom_theme?.custom_url ?? null,
