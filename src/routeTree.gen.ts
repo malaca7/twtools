@@ -38,6 +38,7 @@ import { Route as AuthenticatedVendasRouteImport } from './routes/_authenticated
 import { Route as AuthCallbackRouteImport } from './routes/auth.callback'
 import { Route as DevDiscordIdRouteImport } from './routes/dev.$discordId'
 import { Route as AuthenticatedAusenciasTabRouteImport } from './routes/_authenticated/ausencias.$tab'
+import { Route as AuthenticatedCeoTabRouteImport } from './routes/_authenticated/ceo.$tab'
 import { Route as AuthenticatedConfiguracoesTabRouteImport } from './routes/_authenticated/configuracoes.$tab'
 import { Route as AuthenticatedDevIndexRouteImport } from './routes/_authenticated/dev.index'
 import { Route as AuthenticatedDevConfiguracaoRouteImport } from './routes/_authenticated/dev.configuracao'
@@ -201,6 +202,11 @@ const AuthenticatedAusenciasTabRoute =
     path: '/$tab',
     getParentRoute: () => AuthenticatedAusenciasRoute,
   } as any)
+const AuthenticatedCeoTabRoute = AuthenticatedCeoTabRouteImport.update({
+  id: '/$tab',
+  path: '/$tab',
+  getParentRoute: () => AuthenticatedCeoRoute,
+} as any)
 const AuthenticatedConfiguracoesTabRoute =
   AuthenticatedConfiguracoesTabRouteImport.update({
     id: '/$tab',
@@ -291,7 +297,7 @@ export interface FileRoutesByFullPath {
   '/baus': typeof AuthenticatedBausRoute
   '/cargos': typeof AuthenticatedCargosRoute
   '/categorias': typeof AuthenticatedCategoriasRoute
-  '/ceo': typeof AuthenticatedCeoRoute
+  '/ceo': typeof AuthenticatedCeoRouteWithChildren
   '/chat': typeof AuthenticatedChatRoute
   '/configuracoes': typeof AuthenticatedConfiguracoesRouteWithChildren
   '/dashboard': typeof AuthenticatedDashboardRoute
@@ -312,6 +318,7 @@ export interface FileRoutesByFullPath {
   '/auth/callback': typeof AuthCallbackRoute
   '/dev/$discordId': typeof DevDiscordIdRoute
   '/ausencias/$tab': typeof AuthenticatedAusenciasTabRoute
+  '/ceo/$tab': typeof AuthenticatedCeoTabRoute
   '/configuracoes/$tab': typeof AuthenticatedConfiguracoesTabRoute
   '/dev/configuracao': typeof AuthenticatedDevConfiguracaoRouteWithChildren
   '/dev/desempenho': typeof AuthenticatedDevDesempenhoRoute
@@ -335,7 +342,7 @@ export interface FileRoutesByTo {
   '/baus': typeof AuthenticatedBausRoute
   '/cargos': typeof AuthenticatedCargosRoute
   '/categorias': typeof AuthenticatedCategoriasRoute
-  '/ceo': typeof AuthenticatedCeoRoute
+  '/ceo': typeof AuthenticatedCeoRouteWithChildren
   '/chat': typeof AuthenticatedChatRoute
   '/configuracoes': typeof AuthenticatedConfiguracoesRouteWithChildren
   '/dashboard': typeof AuthenticatedDashboardRoute
@@ -356,6 +363,7 @@ export interface FileRoutesByTo {
   '/auth/callback': typeof AuthCallbackRoute
   '/dev/$discordId': typeof DevDiscordIdRoute
   '/ausencias/$tab': typeof AuthenticatedAusenciasTabRoute
+  '/ceo/$tab': typeof AuthenticatedCeoTabRoute
   '/configuracoes/$tab': typeof AuthenticatedConfiguracoesTabRoute
   '/dev/configuracao': typeof AuthenticatedDevConfiguracaoRouteWithChildren
   '/dev/desempenho': typeof AuthenticatedDevDesempenhoRoute
@@ -381,7 +389,7 @@ export interface FileRoutesById {
   '/_authenticated/baus': typeof AuthenticatedBausRoute
   '/_authenticated/cargos': typeof AuthenticatedCargosRoute
   '/_authenticated/categorias': typeof AuthenticatedCategoriasRoute
-  '/_authenticated/ceo': typeof AuthenticatedCeoRoute
+  '/_authenticated/ceo': typeof AuthenticatedCeoRouteWithChildren
   '/_authenticated/chat': typeof AuthenticatedChatRoute
   '/_authenticated/configuracoes': typeof AuthenticatedConfiguracoesRouteWithChildren
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
@@ -402,6 +410,7 @@ export interface FileRoutesById {
   '/auth/callback': typeof AuthCallbackRoute
   '/dev/$discordId': typeof DevDiscordIdRoute
   '/_authenticated/ausencias/$tab': typeof AuthenticatedAusenciasTabRoute
+  '/_authenticated/ceo/$tab': typeof AuthenticatedCeoTabRoute
   '/_authenticated/configuracoes/$tab': typeof AuthenticatedConfiguracoesTabRoute
   '/_authenticated/dev/configuracao': typeof AuthenticatedDevConfiguracaoRouteWithChildren
   '/_authenticated/dev/desempenho': typeof AuthenticatedDevDesempenhoRoute
@@ -448,6 +457,7 @@ export interface FileRouteTypes {
     | '/auth/callback'
     | '/dev/$discordId'
     | '/ausencias/$tab'
+    | '/ceo/$tab'
     | '/configuracoes/$tab'
     | '/dev/configuracao'
     | '/dev/desempenho'
@@ -492,6 +502,7 @@ export interface FileRouteTypes {
     | '/auth/callback'
     | '/dev/$discordId'
     | '/ausencias/$tab'
+    | '/ceo/$tab'
     | '/configuracoes/$tab'
     | '/dev/configuracao'
     | '/dev/desempenho'
@@ -537,6 +548,7 @@ export interface FileRouteTypes {
     | '/auth/callback'
     | '/dev/$discordId'
     | '/_authenticated/ausencias/$tab'
+    | '/_authenticated/ceo/$tab'
     | '/_authenticated/configuracoes/$tab'
     | '/_authenticated/dev/configuracao'
     | '/_authenticated/dev/desempenho'
@@ -765,6 +777,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAusenciasTabRouteImport
       parentRoute: typeof AuthenticatedAusenciasRoute
     }
+    '/_authenticated/ceo/$tab': {
+      id: '/_authenticated/ceo/$tab'
+      path: '/$tab'
+      fullPath: '/ceo/$tab'
+      preLoaderRoute: typeof AuthenticatedCeoTabRouteImport
+      parentRoute: typeof AuthenticatedCeoRoute
+    }
     '/_authenticated/configuracoes/$tab': {
       id: '/_authenticated/configuracoes/$tab'
       path: '/$tab'
@@ -880,6 +899,17 @@ const AuthenticatedAusenciasRouteWithChildren =
     AuthenticatedAusenciasRouteChildren,
   )
 
+interface AuthenticatedCeoRouteChildren {
+  AuthenticatedCeoTabRoute: typeof AuthenticatedCeoTabRoute
+}
+
+const AuthenticatedCeoRouteChildren: AuthenticatedCeoRouteChildren = {
+  AuthenticatedCeoTabRoute: AuthenticatedCeoTabRoute,
+}
+
+const AuthenticatedCeoRouteWithChildren =
+  AuthenticatedCeoRoute._addFileChildren(AuthenticatedCeoRouteChildren)
+
 interface AuthenticatedConfiguracoesRouteChildren {
   AuthenticatedConfiguracoesTabRoute: typeof AuthenticatedConfiguracoesTabRoute
 }
@@ -989,7 +1019,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedBausRoute: typeof AuthenticatedBausRoute
   AuthenticatedCargosRoute: typeof AuthenticatedCargosRoute
   AuthenticatedCategoriasRoute: typeof AuthenticatedCategoriasRoute
-  AuthenticatedCeoRoute: typeof AuthenticatedCeoRoute
+  AuthenticatedCeoRoute: typeof AuthenticatedCeoRouteWithChildren
   AuthenticatedChatRoute: typeof AuthenticatedChatRoute
   AuthenticatedConfiguracoesRoute: typeof AuthenticatedConfiguracoesRouteWithChildren
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
@@ -1022,7 +1052,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedBausRoute: AuthenticatedBausRoute,
   AuthenticatedCargosRoute: AuthenticatedCargosRoute,
   AuthenticatedCategoriasRoute: AuthenticatedCategoriasRoute,
-  AuthenticatedCeoRoute: AuthenticatedCeoRoute,
+  AuthenticatedCeoRoute: AuthenticatedCeoRouteWithChildren,
   AuthenticatedChatRoute: AuthenticatedChatRoute,
   AuthenticatedConfiguracoesRoute: AuthenticatedConfiguracoesRouteWithChildren,
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,

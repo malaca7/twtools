@@ -80,6 +80,10 @@ import { useOnlineTimer } from "@/hooks/useOnlineTimer";
 import { useMembers } from "@/hooks/useData";
 import { useMenuConfig } from "@/hooks/useMenuConfig";
 import { useDevMenuConfig } from "@/hooks/useDevMenuConfig";
+import {
+  useCeoMenuConfig,
+  DEFAULT_CEO_MENU_ITEMS,
+} from "@/hooks/useCeoMenuConfig";
 import { LEVEL_LABEL, levelBadgeClass, type Permission } from "@/lib/permissions";
 import { cn } from "@/lib/utils";
 import { FloatingPresenceWidget } from "./FloatingPresenceWidget";
@@ -141,6 +145,7 @@ function DynamicSidebarNavigation() {
   const { hasPermission, user, profile, level, isDevMode, isCeoMode, setPanelMode, isCeoUser } = useAuth();
   const { config: menuConfig } = useMenuConfig();
   const { config: devMenuConfig } = useDevMenuConfig();
+  const { config: ceoMenuConfig } = useCeoMenuConfig();
   const { isMobile, setOpenMobile } = useSidebar();
   const storageKey = "tw_sidebar_open_cat_v2";
 
@@ -158,7 +163,6 @@ function DynamicSidebarNavigation() {
     (targetUrl: string) => {
       if (targetUrl.includes("?")) {
         const [path, query] = targetUrl.split("?");
-        if (pathname !== path) return false;
         const params = new URLSearchParams(query);
         const expectedTab = params.get("tab");
         const currentTab =
@@ -166,8 +170,26 @@ function DynamicSidebarNavigation() {
           (typeof window !== "undefined"
             ? new URLSearchParams(window.location.search).get("tab")
             : null) ||
+          pathname.split("/").filter(Boolean).pop() ||
           "dashboard";
-        return expectedTab === currentTab;
+
+        if (pathname === path || pathname.startsWith(path + "/")) {
+          return expectedTab === currentTab;
+        }
+        return false;
+      }
+      if (targetUrl.startsWith("/ceo/")) {
+        const expectedTab = targetUrl.split("/").pop();
+        const currentTab =
+          (routerState.location.search as any)?.tab ||
+          (typeof window !== "undefined"
+            ? new URLSearchParams(window.location.search).get("tab")
+            : null) ||
+          pathname.split("/").filter(Boolean).pop() ||
+          "dashboard";
+
+        if (pathname === "/ceo" && expectedTab === "dashboard") return true;
+        if (pathname.startsWith("/ceo")) return expectedTab === currentTab;
       }
       return pathname === targetUrl;
     },
@@ -255,19 +277,63 @@ function DynamicSidebarNavigation() {
 
     const allPlatformItems: MasterNavItem[] = [...customizedMaster, ...customNavItems];
 
-    // Itens da Categoria CEO (para quem tem Tag CEO ou Tag Dev)
+    // Itens da Categoria CEO (dinâmico com base em useCeoMenuConfig e permissões)
+    const ceoValidItems = ceoMenuConfig?.items?.filter((c) => Boolean(c && (c.id || c.url))) || [];
+    const ceoConfigMap = new Map(ceoValidItems.map((c) => [c.id || c.url, c]));
+    const ceoCategoryOrder = ceoMenuConfig?.categories?.length
+      ? ceoMenuConfig.categories
+      : ["CEO"];
+
+    const customizedCeo: MasterNavItem[] = DEFAULT_CEO_MENU_ITEMS.map((item, defaultIdx) => {
+      const cfg = ceoConfigMap.get(item.id) || ceoConfigMap.get(item.url);
+      return {
+        id: item.id,
+        title: cfg?.title || item.title,
+        url: cfg?.url || item.url,
+        icon: (cfg?.iconName ? resolveMenuIcon(cfg.iconName, item.url) : resolveMenuIcon(item.iconName, item.url)) as typeof LayoutDashboard,
+        visible: cfg ? cfg.visible !== false : item.visible !== false,
+        defaultCat: item.category || "CEO",
+        category: cfg?.category || item.category || "CEO",
+        defaultOrder: item.order ?? defaultIdx,
+        order: typeof cfg?.order === "number" ? cfg.order : item.order ?? defaultIdx,
+      };
+    });
+
     const visibleCeo = (isCeoUser || isDevUser)
-      ? CEO_MODULE_NAV_ITEMS.filter((item) => {
+      ? customizedCeo.filter((item) => {
+          if (!item.visible) return false;
           if (isDevUser) return true;
-          if (item.id === "ceo-bot" && ceoConfig.allowManageBot === false) return false;
-          if (item.id === "ceo-webhooks" && ceoConfig.allowWebhooks === false) return false;
-          if (item.id === "ceo-financas" && ceoConfig.allowFinancials === false) return false;
+          if (item.id === "ceo-dashboard" && !hasPermission("view_ceo")) return false;
+          if (item.id === "ceo-bot" && (!hasPermission("manage_ceo_bot") || ceoConfig.allowManageBot === false)) return false;
+          if (item.id === "ceo-webhooks" && (!hasPermission("manage_ceo_webhooks") || ceoConfig.allowWebhooks === false)) return false;
+          if (item.id === "ceo-financas" && (!hasPermission("view_ceo_financials") || ceoConfig.allowFinancials === false)) return false;
           return true;
         })
       : [];
 
-    const ceoGroups: { category: string; items: typeof visibleCeo }[] =
-      visibleCeo.length > 0 ? [{ category: "CEO", items: visibleCeo }] : [];
+    const ceoGroups: { category: string; items: typeof visibleCeo }[] = [];
+    ceoCategoryOrder.forEach((cat) => {
+      const catItems = visibleCeo
+        .filter((i) => (i.category || "CEO") === cat)
+        .sort((a, b) => a.order - b.order);
+      if (catItems.length > 0) {
+        ceoGroups.push({ category: cat, items: catItems });
+      }
+    });
+
+    const knownCeoCats = new Set(ceoCategoryOrder);
+    visibleCeo.forEach((item) => {
+      const cat = item.category || "CEO";
+      if (!knownCeoCats.has(cat)) {
+        knownCeoCats.add(cat);
+        const catItems = visibleCeo
+          .filter((i) => (i.category || "CEO") === cat)
+          .sort((a, b) => a.order - b.order);
+        if (catItems.length > 0) {
+          ceoGroups.push({ category: cat, items: catItems });
+        }
+      }
+    });
 
     if (isDevUser && isDevMode) {
       // MODO DEV TOOLS:
@@ -375,7 +441,7 @@ function DynamicSidebarNavigation() {
     });
 
     return [...ceoGroups, ...groups];
-  }, [isDevMode, isDevUser, isCeoUser, menuConfig, devMenuConfig, ceoConfig, hasPermission]);
+  }, [isDevMode, isDevUser, isCeoUser, menuConfig, devMenuConfig, ceoMenuConfig, ceoConfig, hasPermission]);
 
   useEffect(() => {
     if (!grouped.length) return;

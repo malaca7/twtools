@@ -45,6 +45,10 @@ import {
   Shield,
   Terminal,
   TrendingUp,
+  Crown,
+  Bot,
+  Webhook,
+  Wallet,
   type LucideIcon,
 } from "lucide-react";
 
@@ -101,6 +105,10 @@ export const AVAILABLE_MENU_ICONS: MenuIconDef[] = [
   { name: "Bell", label: "Alertas", icon: Bell },
   { name: "Shield", label: "Proteção / Blindagem", icon: Shield },
   { name: "Terminal", label: "Terminal / Dev", icon: Terminal },
+  { name: "Crown", label: "CEO / Diretoria", icon: Crown },
+  { name: "Bot", label: "Bot Discord", icon: Bot },
+  { name: "Webhook", label: "Webhooks Discord", icon: Webhook },
+  { name: "Wallet", label: "Carteira / Caixa", icon: Wallet },
 ];
 
 export const CANONICAL_URL_ICONS: Record<string, LucideIcon> = {
@@ -131,6 +139,11 @@ export const CANONICAL_URL_ICONS: Record<string, LucideIcon> = {
   "/dev/configuracao": Sliders,
   "/dev/menu-lateral": Sliders,
   "/dev/patch-notes": Sparkles,
+  "/ceo": Crown,
+  "/ceo/dashboard": LayoutDashboard,
+  "/ceo/bot": Bot,
+  "/ceo/webhooks": Webhook,
+  "/ceo/financas": Landmark,
 };
 
 const ICON_BY_NAME: Record<string, LucideIcon> = AVAILABLE_MENU_ICONS.reduce(

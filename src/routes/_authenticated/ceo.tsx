@@ -54,8 +54,11 @@ function CeoPageWrapper() {
   );
 }
 
-function CeoPageContent() {
-  const { user, profile, level, isDevUser, isCeoUser } = useAuth();
+export type CeoTab = "dashboard" | "bot" | "webhooks" | "financas";
+export const VALID_CEO_TABS: readonly CeoTab[] = ["dashboard", "bot", "webhooks", "financas"] as const;
+
+export function CeoPageContent({ initialTab }: { initialTab?: string } = {}) {
+  const { user, profile, level, isDevUser, isCeoUser, hasPermission } = useAuth();
   const { data: members = [], isLoading: loadingMembers } = useMembers();
   const { data: sales = [], isLoading: loadingSales } = useSales();
   const { data: cashMovements = [], isLoading: loadingCash } = useCashMovements();
@@ -63,6 +66,9 @@ function CeoPageContent() {
   // Configuração da Tag CEO definida no Painel Dev
   const [ceoConfig, setCeoConfig] = useState<CeoConfiguration>(DEFAULT_CEO_CONFIG);
   const [loadingConfig, setLoadingConfig] = useState(true);
+
+  // Filtro de movimentações de finanças
+  const [financeFilter, setFinanceFilter] = useState<"all" | "entrada" | "saida">("all");
 
   useEffect(() => {
     let isMounted = true;
@@ -82,12 +88,56 @@ function CeoPageContent() {
     };
   }, [user, profile, level]);
 
-  // Abas do Painel CEO com sincronização de URL
-  const { activeTab, setTab } = useUrlTab<"dashboard" | "bot" | "webhooks" | "financas">({
-    paramName: "tab",
-    defaultTab: "dashboard",
-    allowedTabs: ["dashboard", "bot", "webhooks", "financas"],
-  });
+  // Leitura robusta da aba inicial vinda de prop, URL path (/ceo/bot) ou search (?tab=bot)
+  const readInitialTab = useCallback((): CeoTab => {
+    if (initialTab && (VALID_CEO_TABS as readonly string[]).includes(initialTab)) {
+      return initialTab as CeoTab;
+    }
+    if (typeof window !== "undefined") {
+      const parts = window.location.pathname.split("/").filter(Boolean);
+      const lastPart = parts[parts.length - 1];
+      if ((VALID_CEO_TABS as readonly string[]).includes(lastPart)) {
+        return lastPart as CeoTab;
+      }
+      const q = new URLSearchParams(window.location.search).get("tab");
+      if (q && (VALID_CEO_TABS as readonly string[]).includes(q)) {
+        return q as CeoTab;
+      }
+    }
+    return "dashboard";
+  }, [initialTab]);
+
+  const [activeTab, setActiveTabState] = useState<CeoTab>(readInitialTab);
+
+  // Sincroniza se a prop initialTab mudar (ex: navegação de rotas pelo router)
+  useEffect(() => {
+    if (initialTab && (VALID_CEO_TABS as readonly string[]).includes(initialTab)) {
+      setActiveTabState(initialTab as CeoTab);
+    }
+  }, [initialTab]);
+
+  // Listener para histórico do navegador (botão voltar/avançar)
+  useEffect(() => {
+    const handlePopState = () => {
+      setActiveTabState(readInitialTab());
+    };
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, [readInitialTab]);
+
+  // Troca de aba com atualização segura da URL
+  const setTab = useCallback((newTab: CeoTab) => {
+    setActiveTabState(newTab);
+    if (typeof window !== "undefined") {
+      const currentUrl = new URL(window.location.href);
+      if (currentUrl.pathname.startsWith("/ceo")) {
+        window.history.replaceState(null, "", `/ceo/${newTab}`);
+      } else {
+        currentUrl.searchParams.set("tab", newTab);
+        window.history.replaceState(null, "", currentUrl.toString());
+      }
+    }
+  }, []);
 
   // Métricas do Painel Executivo
   const totalSalesRevenue = useMemo(() => {
@@ -98,8 +148,19 @@ function CeoPageContent() {
 
   const cashBalance = useMemo(() => {
     if (!cashMovements.length) return 0;
-    // O primeiro registro da lista é a movimentação mais recente com o saldo resultante
     return Number(cashMovements[0]?.resulting_balance || 0);
+  }, [cashMovements]);
+
+  const totalEntradas = useMemo(() => {
+    return cashMovements
+      .filter((m) => m.type === "entrada")
+      .reduce((acc, m) => acc + Number(m.amount || 0), 0);
+  }, [cashMovements]);
+
+  const totalSaidas = useMemo(() => {
+    return cashMovements
+      .filter((m) => m.type === "saida")
+      .reduce((acc, m) => acc + Number(m.amount || 0), 0);
   }, [cashMovements]);
 
   const activeMembersCount = useMemo(() => {
@@ -110,10 +171,15 @@ function CeoPageContent() {
     return members.filter((m) => m.presence_status === "online").length;
   }, [members]);
 
-  // Permissões de módulos no Painel CEO (desenvolvedores sempre têm bypass)
-  const canManageBot = isDevUser || ceoConfig.allowManageBot !== false;
-  const canUseWebhooks = isDevUser || ceoConfig.allowWebhooks !== false;
-  const canViewFinancials = isDevUser || ceoConfig.allowFinancials !== false;
+  // Permissões granulares de módulos do Painel CEO (integradas com /dev/permissoes)
+  const canManageBot = isDevUser || (hasPermission("manage_ceo_bot") && ceoConfig.allowManageBot !== false);
+  const canUseWebhooks = isDevUser || (hasPermission("manage_ceo_webhooks") && ceoConfig.allowWebhooks !== false);
+  const canViewFinancials = isDevUser || (hasPermission("view_ceo_financials") && ceoConfig.allowFinancials !== false);
+
+  const filteredMovements = useMemo(() => {
+    if (financeFilter === "all") return cashMovements;
+    return cashMovements.filter((m) => m.type === financeFilter);
+  }, [cashMovements, financeFilter]);
 
   return (
     <div className="mx-auto max-w-7xl space-y-6 pb-14 animate-in fade-in-50 duration-300">
@@ -197,12 +263,12 @@ function CeoPageContent() {
         </CardContent>
       </Card>
 
-      {/* TABS NAVEGÁVEIS DO PAINEL CEO (Visível em telas mobile/tablet quando o menu lateral está recolhido) */}
+      {/* TABS NAVEGÁVEIS DO PAINEL CEO (Visível em todas as telas com destaque executivo) */}
       <Tabs value={activeTab} onValueChange={(val: any) => setTab(val)} className="space-y-6">
-        <TabsList className="flex lg:hidden bg-secondary/40 border border-border/60 p-1 rounded-2xl flex-wrap h-auto gap-1">
+        <TabsList className="flex bg-secondary/30 border border-amber-500/30 p-1.5 rounded-2xl flex-wrap h-auto gap-2 shadow-md shadow-black/20 backdrop-blur-md">
           <TabsTrigger
             value="dashboard"
-            className="text-xs font-bold gap-2 py-2 px-4 data-[state=active]:bg-gradient-to-r data-[state=active]:from-amber-600 data-[state=active]:to-yellow-500 data-[state=active]:text-black"
+            className="text-xs font-bold gap-2 py-2.5 px-4 rounded-xl transition-all data-[state=active]:bg-gradient-to-r data-[state=active]:from-amber-600 data-[state=active]:to-yellow-500 data-[state=active]:text-black data-[state=active]:shadow-md data-[state=active]:shadow-amber-500/20"
           >
             <LayoutDashboard className="h-4 w-4" />
             Visão Geral & Métricas
@@ -211,45 +277,46 @@ function CeoPageContent() {
           {canManageBot ? (
             <TabsTrigger
               value="bot"
-              className="text-xs font-bold gap-2 py-2 px-4 data-[state=active]:bg-gradient-to-r data-[state=active]:from-indigo-600 data-[state=active]:to-purple-600 data-[state=active]:text-white"
+              className="text-xs font-bold gap-2 py-2.5 px-4 rounded-xl transition-all data-[state=active]:bg-gradient-to-r data-[state=active]:from-indigo-600 data-[state=active]:to-purple-600 data-[state=active]:text-white data-[state=active]:shadow-md data-[state=active]:shadow-indigo-500/20"
             >
               <Bot className="h-4 w-4" />
               Gerenciar Bot
+              <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse ml-1" />
             </TabsTrigger>
           ) : (
-            <div className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-muted-foreground opacity-50 cursor-not-allowed">
+            <div className="flex items-center gap-1.5 px-3 py-2 text-xs text-muted-foreground opacity-50 cursor-not-allowed bg-secondary/20 rounded-xl border border-border/40">
               <Lock className="h-3 w-3" />
-              Gerenciar Bot (Desativado pelo Dev)
+              Bot (Restrito)
             </div>
           )}
 
           {canUseWebhooks ? (
             <TabsTrigger
               value="webhooks"
-              className="text-xs font-bold gap-2 py-2 px-4 data-[state=active]:bg-gradient-to-r data-[state=active]:from-violet-600 data-[state=active]:to-pink-600 data-[state=active]:text-white"
+              className="text-xs font-bold gap-2 py-2.5 px-4 rounded-xl transition-all data-[state=active]:bg-gradient-to-r data-[state=active]:from-violet-600 data-[state=active]:to-pink-600 data-[state=active]:text-white data-[state=active]:shadow-md data-[state=active]:shadow-violet-500/20"
             >
               <Webhook className="h-4 w-4" />
               WebHook Discord
             </TabsTrigger>
           ) : (
-            <div className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-muted-foreground opacity-50 cursor-not-allowed">
+            <div className="flex items-center gap-1.5 px-3 py-2 text-xs text-muted-foreground opacity-50 cursor-not-allowed bg-secondary/20 rounded-xl border border-border/40">
               <Lock className="h-3 w-3" />
-              Webhooks (Desativado pelo Dev)
+              Webhooks (Restrito)
             </div>
           )}
 
           {canViewFinancials ? (
             <TabsTrigger
               value="financas"
-              className="text-xs font-bold gap-2 py-2 px-4 data-[state=active]:bg-gradient-to-r data-[state=active]:from-emerald-600 data-[state=active]:to-teal-600 data-[state=active]:text-white"
+              className="text-xs font-bold gap-2 py-2.5 px-4 rounded-xl transition-all data-[state=active]:bg-gradient-to-r data-[state=active]:from-emerald-600 data-[state=active]:to-teal-600 data-[state=active]:text-white data-[state=active]:shadow-md data-[state=active]:shadow-emerald-500/20"
             >
               <Landmark className="h-4 w-4" />
               Fundo de Caixa & Finanças
             </TabsTrigger>
           ) : (
-            <div className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-muted-foreground opacity-50 cursor-not-allowed">
+            <div className="flex items-center gap-1.5 px-3 py-2 text-xs text-muted-foreground opacity-50 cursor-not-allowed bg-secondary/20 rounded-xl border border-border/40">
               <Lock className="h-3 w-3" />
-              Finanças (Desativado pelo Dev)
+              Finanças (Restrito)
             </div>
           )}
         </TabsList>
@@ -479,29 +546,183 @@ function CeoPageContent() {
         {/* =====================================================================
             ABA 2: GERENCIAR BOT DISCORD
             ===================================================================== */}
-        {canManageBot && (
+        {canManageBot ? (
           <TabsContent value="bot" className="space-y-6 animate-in fade-in-50 duration-200">
+            <Card className="surface-card border-indigo-500/30 bg-gradient-to-r from-indigo-500/10 via-transparent to-transparent">
+              <CardContent className="p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div className="flex items-center gap-3">
+                  <div className="p-3 rounded-2xl bg-indigo-500/20 text-indigo-300 border border-indigo-500/40 shadow-sm shadow-indigo-500/20">
+                    <Bot className="h-6 w-6" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-black text-foreground flex items-center gap-2">
+                      Gestão & Automação do Bot Discord
+                      <Badge className="bg-emerald-500/20 text-emerald-300 border-emerald-500/40 text-[10px] font-bold">
+                        Twin Wheels Bot
+                      </Badge>
+                    </h3>
+                    <p className="text-xs text-muted-foreground">
+                      Supervisione o status da aplicação no Discloud, reinicie serviços e personalize mensagens e atividades em tempo real.
+                    </p>
+                  </div>
+                </div>
+
+                <Badge variant="outline" className="text-xs font-mono border-indigo-500/40 text-indigo-300 bg-indigo-500/10 self-start sm:self-auto py-1 px-3">
+                  ID: twin (Discloud)
+                </Badge>
+              </CardContent>
+            </Card>
+
             <DevBotManageCard />
+          </TabsContent>
+        ) : (
+          <TabsContent value="bot" className="p-8 text-center space-y-3">
+            <AlertCircle className="h-10 w-10 text-muted-foreground mx-auto" />
+            <h4 className="text-sm font-bold text-foreground">Acesso ao Módulo de Bot Restrito</h4>
+            <p className="text-xs text-muted-foreground max-w-md mx-auto">
+              O módulo de gerenciamento do bot está restrito para a sua conta ou desativado nas configurações do Painel Dev.
+            </p>
           </TabsContent>
         )}
 
         {/* =====================================================================
             ABA 3: WEBHOOK DISCORD
             ===================================================================== */}
-        {canUseWebhooks && (
+        {canUseWebhooks ? (
           <TabsContent value="webhooks" className="space-y-6 animate-in fade-in-50 duration-200">
+            <Card className="surface-card border-violet-500/30 bg-gradient-to-r from-violet-500/10 via-pink-500/5 to-transparent">
+              <CardContent className="p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div className="flex items-center gap-3">
+                  <div className="p-3 rounded-2xl bg-violet-500/20 text-violet-300 border border-violet-500/40 shadow-sm shadow-violet-500/20">
+                    <Webhook className="h-6 w-6" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-black text-foreground flex items-center gap-2">
+                      Transmissão Executiva & Webhooks Discord
+                      <Badge className="bg-pink-500/20 text-pink-300 border-pink-500/40 text-[10px] font-bold">
+                        Embeds Ricos
+                      </Badge>
+                    </h3>
+                    <p className="text-xs text-muted-foreground">
+                      Dispare avisos estratégicos, comunicados de facção e sincronize registros diretamente nos canais de texto do Discord.
+                    </p>
+                  </div>
+                </div>
+
+                <Badge variant="outline" className="text-xs font-mono border-violet-500/40 text-violet-300 bg-violet-500/10 self-start sm:self-auto py-1 px-3">
+                  Live Discord API
+                </Badge>
+              </CardContent>
+            </Card>
+
             <DevWebhooksConfigCard />
+          </TabsContent>
+        ) : (
+          <TabsContent value="webhooks" className="p-8 text-center space-y-3">
+            <AlertCircle className="h-10 w-10 text-muted-foreground mx-auto" />
+            <h4 className="text-sm font-bold text-foreground">Acesso ao Módulo de Webhooks Restrito</h4>
+            <p className="text-xs text-muted-foreground max-w-md mx-auto">
+              O envio e gerenciamento de Webhooks do Discord está desativado para a sua conta ou restrito no Painel Dev.
+            </p>
           </TabsContent>
         )}
 
         {/* =====================================================================
             ABA 4: FUNDO DE CAIXA & FINANÇAS
             ===================================================================== */}
-        {canViewFinancials && (
+        {canViewFinancials ? (
           <TabsContent value="financas" className="space-y-6 animate-in fade-in-50 duration-200">
+            {/* CARDS DE RESUMO FINANCEIRO EXECUTIVO */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              <Card className="surface-card border-emerald-500/30">
+                <CardHeader className="pb-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
+                      Saldo Reservado
+                    </span>
+                    <div className="p-2 rounded-xl bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+                      <Wallet className="h-4 w-4" />
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-black text-emerald-400">
+                    {ceoConfig.showRealBalance || isDevUser ? currency(cashBalance) : "••••••••"}
+                  </div>
+                  <p className="text-[0.7rem] text-muted-foreground mt-1">
+                    Fundo de reserva disponível
+                  </p>
+                </CardContent>
+              </Card>
+
+              <Card className="surface-card border-emerald-500/30">
+                <CardHeader className="pb-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
+                      Total de Entradas
+                    </span>
+                    <div className="p-2 rounded-xl bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+                      <TrendingUp className="h-4 w-4" />
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-black text-emerald-400">
+                    +{currency(totalEntradas)}
+                  </div>
+                  <p className="text-[0.7rem] text-muted-foreground mt-1">
+                    Depósitos e aportes acumulados
+                  </p>
+                </CardContent>
+              </Card>
+
+              <Card className="surface-card border-rose-500/30">
+                <CardHeader className="pb-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
+                      Total de Retiradas
+                    </span>
+                    <div className="p-2 rounded-xl bg-rose-500/15 text-rose-400 border border-rose-500/30">
+                      <DollarSign className="h-4 w-4" />
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-black text-rose-400">
+                    -{currency(totalSaidas)}
+                  </div>
+                  <p className="text-[0.7rem] text-muted-foreground mt-1">
+                    Saques e pagamentos realizados
+                  </p>
+                </CardContent>
+              </Card>
+
+              <Card className="surface-card border-amber-500/30">
+                <CardHeader className="pb-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
+                      Receita de Vendas
+                    </span>
+                    <div className="p-2 rounded-xl bg-amber-500/15 text-amber-300 border border-amber-500/30">
+                      <Crown className="h-4 w-4" />
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-black text-amber-300">
+                    {currency(totalSalesRevenue)}
+                  </div>
+                  <p className="text-[0.7rem] text-muted-foreground mt-1">
+                    Faturamento comercial bruto
+                  </p>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* EXTRATO EXECUTIVO COM FILTRO */}
             <Card className="surface-card border-border/80">
               <CardHeader className="pb-3 border-b border-border/60">
-                <div className="flex items-center justify-between">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                   <div className="flex items-center gap-3">
                     <div className="p-2.5 rounded-2xl bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
                       <Landmark className="h-5 w-5" />
@@ -511,16 +732,49 @@ function CeoPageContent() {
                         Extrato do Fundo de Caixa Executivo
                       </CardTitle>
                       <CardDescription className="text-xs">
-                        Acompanhe os depósitos, saques e saldo reservado da facção.
+                        Auditagem completa de movimentações financeiras, depósitos e retiradas.
                       </CardDescription>
                     </div>
                   </div>
 
-                  <Button asChild size="sm" className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs h-8">
-                    <Link to="/fundo-caixa">
-                      Abrir Fundo de Caixa Completo <ArrowUpRight className="h-3.5 w-3.5 ml-1" />
-                    </Link>
-                  </Button>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {/* Filtros por tipo de movimentação */}
+                    <div className="flex items-center bg-secondary/50 border border-border/60 p-1 rounded-xl gap-1">
+                      <Button
+                        type="button"
+                        variant={financeFilter === "all" ? "secondary" : "ghost"}
+                        size="sm"
+                        onClick={() => setFinanceFilter("all")}
+                        className="text-xs h-7 px-2.5 font-bold"
+                      >
+                        Todas ({cashMovements.length})
+                      </Button>
+                      <Button
+                        type="button"
+                        variant={financeFilter === "entrada" ? "secondary" : "ghost"}
+                        size="sm"
+                        onClick={() => setFinanceFilter("entrada")}
+                        className="text-xs h-7 px-2.5 font-bold text-emerald-400"
+                      >
+                        Entradas (+)
+                      </Button>
+                      <Button
+                        type="button"
+                        variant={financeFilter === "saida" ? "secondary" : "ghost"}
+                        size="sm"
+                        onClick={() => setFinanceFilter("saida")}
+                        className="text-xs h-7 px-2.5 font-bold text-rose-400"
+                      >
+                        Saídas (-)
+                      </Button>
+                    </div>
+
+                    <Button asChild size="sm" className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs h-8">
+                      <Link to="/fundo-caixa">
+                        Abrir Fundo de Caixa <ArrowUpRight className="h-3.5 w-3.5 ml-1" />
+                      </Link>
+                    </Button>
+                  </div>
                 </div>
               </CardHeader>
 
@@ -529,13 +783,13 @@ function CeoPageContent() {
                   <div className="p-8 text-center text-xs text-muted-foreground">
                     Carregando movimentações de caixa...
                   </div>
-                ) : cashMovements.length === 0 ? (
+                ) : filteredMovements.length === 0 ? (
                   <div className="p-8 text-center text-xs text-muted-foreground">
-                    Nenhuma movimentação de caixa registrada.
+                    Nenhuma movimentação encontrada para o filtro selecionado.
                   </div>
                 ) : (
                   <div className="divide-y divide-border/40">
-                    {cashMovements.slice(0, 8).map((mov) => {
+                    {filteredMovements.slice(0, 20).map((mov) => {
                       const isEntrada = mov.type === "entrada";
 
                       return (
@@ -582,8 +836,17 @@ function CeoPageContent() {
               </CardContent>
             </Card>
           </TabsContent>
+        ) : (
+          <TabsContent value="financas" className="p-8 text-center space-y-3">
+            <AlertCircle className="h-10 w-10 text-muted-foreground mx-auto" />
+            <h4 className="text-sm font-bold text-foreground">Acesso ao Módulo Financeiro Restrito</h4>
+            <p className="text-xs text-muted-foreground max-w-md mx-auto">
+              A auditoria e visualização do fundo de caixa executivo está restrita para sua conta ou desativada no Painel Dev.
+            </p>
+          </TabsContent>
         )}
       </Tabs>
+
     </div>
   );
 }

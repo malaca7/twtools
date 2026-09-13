@@ -21,6 +21,7 @@ import {
   Sparkles,
   LifeBuoy,
   Bell,
+  Crown,
 } from "lucide-react";
 import type { Permission } from "@/lib/permissions";
 
@@ -683,6 +684,42 @@ export const PAGE_CARDS: PageCardConfig[] = [
         description: "Permite gerenciar a central, excluir alertas globais e supervisionar a fila de notificações da facção.",
         badge: "Gerência / Moderação",
         importantNote: "Concede controle sobre comunicados e notificações enviadas a toda a organização.",
+      },
+    ],
+  },
+  {
+    id: "ceo",
+    title: "Painel Executivo CEO",
+    route: "/ceo",
+    icon: Crown,
+    description: "Central de comando executivo da liderança: métricas operacionais, automações do Bot Discloud, WebHooks e saúde financeira.",
+    color: "border-amber-500/40 bg-amber-500/5 text-amber-400",
+    defaultCat: "CEO",
+    defaultOrder: 0,
+    permissions: [
+      {
+        key: "view_ceo",
+        label: "Acessar Painel Executivo CEO (/ceo)",
+        description: "Permite acessar a rota /ceo e visualizar os indicadores executivos, métricas de faturamento e membros ativos.",
+        badge: "Acesso Geral CEO",
+      },
+      {
+        key: "manage_ceo_bot",
+        label: "Gerenciar Bot Discloud (/ceo/bot)",
+        description: "Permite monitorar instâncias do bot, uso de CPU/RAM, servidores mútuos e reiniciar a aplicação.",
+        badge: "Bot Discord",
+      },
+      {
+        key: "manage_ceo_webhooks",
+        label: "WebHook Discord & Transmissões (/ceo/webhooks)",
+        description: "Permite gerenciar canais de webhook, testar integrações e disparar anúncios ricos diretamente no Discord.",
+        badge: "Webhooks",
+      },
+      {
+        key: "view_ceo_financials",
+        label: "Fundo de Caixa & Finanças (/ceo/financas)",
+        description: "Permite auditar o extrato consolidado de movimentações financeiras, entradas, saídas e balanço global.",
+        badge: "Finanças Executivas",
       },
     ],
   },

@@ -472,6 +472,10 @@ export const DEFAULT_CEO_CONFIG: CeoConfiguration = {
 };
 
 export const DEFAULT_CEO_PERMISSIONS: string[] = [
+  "view_ceo",
+  "manage_ceo_bot",
+  "manage_ceo_webhooks",
+  "view_ceo_financials",
   "view_dashboard",
   "view_cash_fund",
   "manage_cash_fund",

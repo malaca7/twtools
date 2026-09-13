@@ -99,6 +99,11 @@ export type Permission =
   | "view_notifications"
   | "send_notifications"
   | "manage_notifications"
+  // Permissões do Painel Executivo CEO
+  | "view_ceo"
+  | "manage_ceo_bot"
+  | "manage_ceo_webhooks"
+  | "view_ceo_financials"
   // Legacy aliases for backward compatibility
   | "view_financials"
   | "manage_members"
@@ -170,6 +175,10 @@ export const ALL_PERMISSIONS: Permission[] = [
   "send_notifications",
   "manage_notifications",
   "view_profile",
+  "view_ceo",
+  "manage_ceo_bot",
+  "manage_ceo_webhooks",
+  "view_ceo_financials",
   "view_financials",
   "manage_members",
   "view_all_sales",
@@ -229,6 +238,10 @@ const OFFICER: Permission[] = [
   "send_notifications",
   "manage_notifications",
   "view_profile",
+  "view_ceo",
+  "manage_ceo_bot",
+  "manage_ceo_webhooks",
+  "view_ceo_financials",
 ];
 
 const MANAGER: Permission[] = [
