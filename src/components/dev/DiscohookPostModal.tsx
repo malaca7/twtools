@@ -148,7 +148,7 @@ export function DiscohookPostModal({
     titleUrl: base?.titleUrl || "",
     description: base?.description || "",
     color: base?.color || activeWebhook?.embedColor || "#10B981",
-    useCodeblock: base?.useCodeblock ?? (activeWebhook?.useCodeblockField ?? false),
+    useCodeblock: false,
     authorName: base?.authorName || activeWebhook?.authorName || "",
     authorUrl: base?.authorUrl || activeWebhook?.authorUrl || "",
     authorIconUrl: base?.authorIconUrl || activeWebhook?.authorIconUrl || "",
@@ -167,12 +167,12 @@ export function DiscohookPostModal({
       setAvatarUrl(activeWebhook.avatarUrl || "https://i.ibb.co/ymH1BQPQ/Uma124.png");
       setContent(activeWebhook.mentionRoles || "");
 
-      // Cria o embed inicial com os padrões do webhook
+      // Cria o embed inicial com os padrões do webhook (texto normal, sem codeblock)
       const initialEmbed: DiscohookEmbedItem = createDefaultEmbed({
         title: activeWebhook.defaultTitle || "💻 Teste Desenvolvedor",
         description: activeWebhook.defaultDescription || "by malaca",
         color: activeWebhook.embedColor || "#10B981",
-        useCodeblock: activeWebhook.useCodeblockField ?? false,
+        useCodeblock: false,
       });
 
       setEmbeds([initialEmbed]);
@@ -400,7 +400,7 @@ export function DiscohookPostModal({
       title: activeWebhook.defaultTitle || "💻 Teste Desenvolvedor",
       description: activeWebhook.defaultDescription || "by malaca",
       color: activeWebhook.embedColor || "#10B981",
-      useCodeblock: activeWebhook.useCodeblockField ?? false,
+      useCodeblock: false,
     });
     setEmbeds([defaultEmb]);
     setActiveEmbedIndex(0);
@@ -444,7 +444,7 @@ export function DiscohookPostModal({
       titleUrl: emb.titleUrl.trim() || undefined,
       description: emb.description.trim() || undefined,
       color: emb.color,
-      useCodeblock: emb.useCodeblock,
+      useCodeblock: false,
       authorName: emb.authorName.trim() || undefined,
       authorUrl: emb.authorUrl.trim() || undefined,
       authorIconUrl: emb.authorIconUrl.trim() || undefined,
@@ -813,37 +813,26 @@ export function DiscohookPostModal({
                         </div>
                       </div>
 
-                      {/* Descrição */}
+                      {/* Corpo do Embed */}
                       <div className="space-y-1.5 p-3 rounded-xl bg-zinc-900/40 border border-zinc-800/80">
                         <div className="flex items-center justify-between">
                           <Label className="text-xs font-bold">
-                            Descrição Principal (Suporta Markdown do Discord)
+                            Corpo
                           </Label>
                           <span className="text-[10px] text-muted-foreground font-mono">
-                            {currentEmbed.description.length}/4096
+                            {currentEmbed.description.length}/4096 carac.
                           </span>
                         </div>
                         <Textarea
-                          rows={4}
+                          rows={5}
                           value={currentEmbed.description}
                           onChange={(e) => updateCurrentEmbed({ description: e.target.value })}
-                          placeholder="Texto do embed. Suporta **negrito**, *itálico*, __sublinhado__, ||spoiler||, -# subtexto, etc..."
+                          placeholder="Digite o texto do corpo do embed. Suporta **negrito**, *itálico*, __sublinhado__, ||spoiler||, -# subtexto, links, etc..."
                           className="bg-zinc-950 border-zinc-800 text-xs leading-relaxed font-sans"
                         />
-
-                        {/* Switch Codeblock Monospace */}
-                        <div className="flex items-center justify-between pt-1.5">
-                          <div className="flex items-center gap-1.5">
-                            <Code2 className="h-3.5 w-3.5 text-violet-400" />
-                            <span className="text-xs font-medium text-zinc-300">
-                              Destacar descrição em bloco de código escuro (Codeblock)
-                            </span>
-                          </div>
-                          <Switch
-                            checked={currentEmbed.useCodeblock}
-                            onCheckedChange={(val) => updateCurrentEmbed({ useCodeblock: val })}
-                          />
-                        </div>
+                        <p className="text-[11px] text-muted-foreground">
+                          Texto normal formatado com suporte a todo o Markdown do Discord.
+                        </p>
                       </div>
 
                       {/* Cor da Barra Lateral */}
@@ -1393,17 +1382,12 @@ export function DiscohookPostModal({
                                 </div>
                               )}
 
-                              {/* Description with Discord Markdown */}
-                              {emb.description.trim() &&
-                                (emb.useCodeblock ? (
-                                  <div className="bg-[#1e1f22] rounded-md p-2.5 border border-[#111214] font-mono text-xs text-[#dbdee1] shadow-inner break-words whitespace-pre-wrap">
-                                    {emb.description}
-                                  </div>
-                                ) : (
-                                  <div className="pt-0.5">
-                                    <DiscordMarkdown text={emb.description} />
-                                  </div>
-                                ))}
+                              {/* Corpo do Embed com Discord Markdown Normal */}
+                              {emb.description.trim() && (
+                                <div className="pt-0.5">
+                                  <DiscordMarkdown text={emb.description} />
+                                </div>
+                              )}
                             </div>
 
                             {/* Thumbnail */}
