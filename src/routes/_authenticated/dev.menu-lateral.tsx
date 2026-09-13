@@ -697,6 +697,7 @@ function DevToolsMenuEditor() {
                               <Select
                                 value={item.category}
                                 onValueChange={(val) => updateItem(item.id, { category: val })}
+                                className="w-32 shrink-0"
                               >
                                 <SelectTrigger className="h-7 w-32 text-[10px] font-bold border-border/60 bg-secondary/40 shrink-0">
                                   <SelectValue />
@@ -823,21 +824,22 @@ function CeoMenuLateralEditor() {
       if (config && Array.isArray(config.items) && config.items.length > 0) {
         const savedMap = new Map<string, CeoMenuItemConfig>();
         config.items.forEach((item) => {
-          if (item && typeof item === "object" && item.id) {
-            savedMap.set(item.id, item);
+          if (item && typeof item === "object") {
+            if (item.id) savedMap.set(item.id, item);
+            if (item.url) savedMap.set(item.url, item);
           }
         });
 
         const merged = DEFAULT_CEO_MENU_ITEMS.map((def, defaultIdx) => {
-          const saved = savedMap.get(def.id);
+          const saved = savedMap.get(def.id) || savedMap.get(def.url);
           if (!saved) return def;
           return {
             id: def.id,
-            title: saved.title || def.title,
-            url: saved.url || def.url,
+            title: (saved.title && typeof saved.title === "string" && saved.title.trim().length > 0) ? saved.title.trim() : def.title,
+            url: (saved.url && typeof saved.url === "string" && saved.url.trim().length > 1 && saved.url !== "/") ? saved.url.trim() : def.url,
             iconName: saved.iconName || def.iconName,
             visible: typeof saved.visible === "boolean" ? saved.visible : def.visible,
-            category: saved.category || def.category,
+            category: (saved.category && typeof saved.category === "string" && saved.category.trim().length > 0) ? saved.category.trim() : def.category,
             order: typeof saved.order === "number" ? saved.order : defaultIdx,
           };
         });
@@ -858,21 +860,22 @@ function CeoMenuLateralEditor() {
     if (config?.items && Array.isArray(config.items) && config.items.length > 0) {
       const savedMap = new Map<string, CeoMenuItemConfig>();
       config.items.forEach((item) => {
-        if (item && typeof item === "object" && item.id) {
-          savedMap.set(item.id, item);
+        if (item && typeof item === "object") {
+          if (item.id) savedMap.set(item.id, item);
+          if (item.url) savedMap.set(item.url, item);
         }
       });
 
       const merged = DEFAULT_CEO_MENU_ITEMS.map((def, defaultIdx) => {
-        const saved = savedMap.get(def.id);
+        const saved = savedMap.get(def.id) || savedMap.get(def.url);
         if (!saved) return def;
         return {
           id: def.id,
-          title: saved.title || def.title,
-          url: saved.url || def.url,
+          title: (saved.title && typeof saved.title === "string" && saved.title.trim().length > 0) ? saved.title.trim() : def.title,
+          url: (saved.url && typeof saved.url === "string" && saved.url.trim().length > 1 && saved.url !== "/") ? saved.url.trim() : def.url,
           iconName: saved.iconName || def.iconName,
           visible: typeof saved.visible === "boolean" ? saved.visible : def.visible,
-          category: saved.category || def.category,
+          category: (saved.category && typeof saved.category === "string" && saved.category.trim().length > 0) ? saved.category.trim() : def.category,
           order: typeof saved.order === "number" ? saved.order : defaultIdx,
         };
       });
@@ -1354,10 +1357,10 @@ function CeoMenuLateralEditor() {
                             onDragLeave={handleItemDragLeave}
                             onDrop={(e) => handleItemDrop(e, item.id)}
                             className={cn(
-                              "flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 rounded-xl border transition-all duration-200 cursor-grab active:cursor-grabbing",
+                              "flex flex-col md:flex-row md:items-center justify-between gap-3 p-3 rounded-xl border transition-all duration-200 cursor-grab active:cursor-grabbing",
                               item.visible
-                                ? "bg-card/40 border-border/60 shadow-sm hover:border-amber-500/40"
-                                : "bg-secondary/20 border-border/30 opacity-50",
+                                ? "bg-card/60 border-border/70 shadow-xs hover:border-amber-500/50 hover:bg-card/80"
+                                : "bg-secondary/20 border-border/30 opacity-60",
                               isDragging && "opacity-30 scale-95 border-dashed border-amber-500",
                               isDragOver && "border-amber-500 bg-amber-500/10 shadow-lg scale-[1.01]"
                             )}
@@ -1391,8 +1394,12 @@ function CeoMenuLateralEditor() {
                               <Select
                                 value={item.iconName || "LayoutDashboard"}
                                 onValueChange={(iconVal) => updateItem(item.id, { iconName: iconVal })}
+                                className="w-auto shrink-0"
                               >
-                                <SelectTrigger className="h-9 w-9 p-0 border-amber-500/30 bg-amber-500/10 text-amber-300 flex items-center justify-center rounded-xl shrink-0">
+                                <SelectTrigger
+                                  className="h-10 w-10 p-0 border-amber-500/40 bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 flex items-center justify-center rounded-xl shrink-0 transition-colors shadow-xs [&>svg]:hidden"
+                                  title="Alterar ícone do item"
+                                >
                                   <ItemIcon className="h-4 w-4" />
                                 </SelectTrigger>
                                 <SelectContent className="max-h-60">
@@ -1410,52 +1417,70 @@ function CeoMenuLateralEditor() {
                                 </SelectContent>
                               </Select>
 
-                              {/* Title Input & URL */}
-                              <div className="min-w-0 flex-1 space-y-1">
-                                <Input
-                                  value={item.title}
-                                  onChange={(e) => updateItem(item.id, { title: e.target.value })}
-                                  className="h-7 text-xs font-bold bg-background/80 border-border/60"
-                                  placeholder="Nome exibido no menu..."
-                                />
-                                <p className="text-[0.65rem] text-muted-foreground font-mono truncate px-1">
-                                  {item.url}
-                                </p>
+                              {/* Title Input & URL Info */}
+                              <div className="min-w-0 flex-1 space-y-1.5">
+                                <div className="flex items-center gap-2">
+                                  <Input
+                                    value={item.title || ""}
+                                    onChange={(e) => updateItem(item.id, { title: e.target.value })}
+                                    className="h-8 text-xs font-bold bg-background/90 border-border/70 hover:border-amber-500/40 focus:border-amber-500 transition-colors rounded-lg shadow-2xs"
+                                    placeholder="Nome exibido no menu..."
+                                  />
+                                </div>
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <div className="flex items-center gap-1.5 text-[0.68rem] text-muted-foreground font-mono bg-secondary/60 border border-border/60 px-2 py-0.5 rounded-md truncate max-w-xs">
+                                    <span className="text-amber-400 font-bold">ROTA:</span>
+                                    <span className="text-foreground font-semibold">{item.url}</span>
+                                  </div>
+                                  <Badge variant="outline" className="text-[9px] font-mono border-border/60 text-muted-foreground py-0">
+                                    ID: {item.id}
+                                  </Badge>
+                                </div>
                               </div>
                             </div>
 
                             {/* Right Group: Category + Visibility */}
-                            <div className="flex items-center gap-3 shrink-0 pl-2 self-end sm:self-auto">
+                            <div className="flex items-center gap-3 shrink-0 self-end md:self-auto pt-2 md:pt-0 border-t md:border-t-0 border-border/30 w-full md:w-auto justify-between md:justify-end">
                               {/* Category Select */}
-                              <Select
-                                value={item.category}
-                                onValueChange={(val) => updateItem(item.id, { category: val })}
-                              >
-                                <SelectTrigger className="h-7 w-28 text-[10px] font-bold border-border/60 bg-secondary/40 shrink-0">
-                                  <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {categories.map((c) => (
-                                    <SelectItem key={c} value={c} className="text-xs font-medium">
-                                      {c}
-                                    </SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-[10px] text-muted-foreground font-medium hidden lg:inline">Cat:</span>
+                                <Select
+                                  value={item.category || "CEO"}
+                                  onValueChange={(val) => updateItem(item.id, { category: val })}
+                                  className="w-32 shrink-0"
+                                >
+                                  <SelectTrigger className="h-8 w-32 text-xs font-bold border-border/70 bg-secondary/40 rounded-lg shrink-0">
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {categories.map((c) => (
+                                      <SelectItem key={c} value={c} className="text-xs font-medium">
+                                        {c}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              </div>
 
-                              <Separator orientation="vertical" className="h-6" />
+                              <Separator orientation="vertical" className="h-6 hidden md:block" />
 
                               {/* Visibility Switch */}
-                              <div className="flex items-center gap-1.5 shrink-0">
+                              <div className="flex items-center gap-2 shrink-0 bg-secondary/30 px-2.5 py-1 rounded-lg border border-border/50">
                                 {item.visible ? (
-                                  <Eye className="h-3.5 w-3.5 text-emerald-400" />
+                                  <div className="flex items-center gap-1 text-emerald-400 text-xs font-bold">
+                                    <Eye className="h-3.5 w-3.5 text-emerald-400" />
+                                    <span className="text-[10px]">Visível</span>
+                                  </div>
                                 ) : (
-                                  <EyeOff className="h-3.5 w-3.5 text-muted-foreground" />
+                                  <div className="flex items-center gap-1 text-muted-foreground text-xs font-medium">
+                                    <EyeOff className="h-3.5 w-3.5 text-muted-foreground" />
+                                    <span className="text-[10px]">Oculto</span>
+                                  </div>
                                 )}
                                 <Switch
                                   checked={item.visible}
                                   onCheckedChange={(checked) => updateItem(item.id, { visible: checked })}
-                                  className="data-[state=checked]:bg-emerald-500"
+                                  className="data-[state=checked]:bg-emerald-500 scale-90"
                                 />
                               </div>
                             </div>

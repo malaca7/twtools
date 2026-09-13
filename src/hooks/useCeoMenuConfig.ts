@@ -44,13 +44,58 @@ function subscribe(callback: () => void) {
   return () => listeners.delete(callback);
 }
 
+export function sanitizeCeoConfig(parsed: any): CeoMenuConfig {
+  const categories =
+    Array.isArray(parsed?.categories) && parsed.categories.length > 0
+      ? parsed.categories
+      : [...DEFAULT_CEO_CATEGORIES];
+
+  const defaultMap = new Map(DEFAULT_CEO_MENU_ITEMS.map((d) => [d.id, d]));
+
+  const rawItems = Array.isArray(parsed?.items) ? parsed.items : [];
+  const savedMap = new Map<string, CeoMenuItemConfig>();
+  rawItems.forEach((i: any) => {
+    if (i && typeof i === "object" && i.id) {
+      savedMap.set(i.id, i);
+    }
+  });
+
+  const merged = DEFAULT_CEO_MENU_ITEMS.map((def, defaultIdx) => {
+    const saved = savedMap.get(def.id);
+    if (!saved) return def;
+    return {
+      id: def.id,
+      title:
+        saved.title && typeof saved.title === "string" && saved.title.trim().length > 0
+          ? saved.title.trim()
+          : def.title,
+      url:
+        saved.url && typeof saved.url === "string" && saved.url.trim().length > 1 && saved.url !== "/"
+          ? saved.url.trim()
+          : def.url,
+      iconName: saved.iconName || def.iconName,
+      visible: typeof saved.visible === "boolean" ? saved.visible : def.visible,
+      category:
+        saved.category && typeof saved.category === "string" && saved.category.trim().length > 0
+          ? saved.category.trim()
+          : def.category,
+      order: typeof saved.order === "number" ? saved.order : defaultIdx,
+    };
+  });
+
+  return {
+    categories,
+    items: merged.sort((a, b) => (a.order ?? 0) - (b.order ?? 0)),
+  };
+}
+
 export function getCeoMenuConfig(): CeoMenuConfig | null {
   try {
     const raw = typeof window !== "undefined" ? localStorage.getItem(STORAGE_KEY) : null;
     if (!raw || raw === "{}" || raw === "null" || raw === "undefined") return null;
     const parsed = JSON.parse(raw);
     if (parsed && typeof parsed === "object" && Array.isArray(parsed.items)) {
-      return parsed as CeoMenuConfig;
+      return sanitizeCeoConfig(parsed);
     }
     return null;
   } catch {
@@ -126,8 +171,8 @@ export function useCeoMenuConfig() {
     try {
       if (raw && raw !== "{}" && raw !== "null") {
         const parsed = JSON.parse(raw);
-        if (parsed && typeof parsed === "object" && Array.isArray(parsed.items)) {
-          return parsed as CeoMenuConfig;
+        if (parsed && typeof parsed === "object") {
+          return sanitizeCeoConfig(parsed);
         }
       }
     } catch {}

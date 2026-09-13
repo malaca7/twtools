@@ -27,6 +27,7 @@ interface SelectProps {
   defaultValue?: string;
   onValueChange?: (value: string) => void;
   children?: React.ReactNode;
+  className?: string;
 }
 
 function findSelectItemLabel(children: React.ReactNode, targetValue: string): React.ReactNode {
@@ -58,6 +59,7 @@ export const Select: React.FC<SelectProps> = ({
   defaultValue = "",
   onValueChange,
   children,
+  className,
 }) => {
   const [uncontrolledOpen, setUncontrolledOpen] = React.useState(defaultValue);
   const [open, setOpen] = React.useState(false);
@@ -86,7 +88,7 @@ export const Select: React.FC<SelectProps> = ({
         selectChildren: children,
       }}
     >
-      <div className="relative inline-block w-full">{children}</div>
+      <div className={cn("relative inline-block", className ?? "w-full")}>{children}</div>
     </SelectContext.Provider>
   );
 };
