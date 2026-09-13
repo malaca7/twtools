@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import {
   Terminal,
@@ -30,11 +30,27 @@ import { BotSimulatorTester } from "./BotSimulatorTester";
 
 interface BotBuilderProps {
   bot: BotProject;
-  onUpdateBot: (updated: BotProject) => void;
+  onUpdateBot?: (updated: BotProject) => void;
+  onSaveBot?: (updated: BotProject) => void;
+  initialTab?: "commands" | "events" | "timers" | "variables" | "simulator";
 }
 
-export function BotBuilder({ bot, onUpdateBot }: BotBuilderProps) {
-  const [activeBuilderTab, setActiveBuilderTab] = useState<string>("commands");
+export function BotBuilder({ bot, onUpdateBot, onSaveBot, initialTab }: BotBuilderProps) {
+  const [activeBuilderTab, setActiveBuilderTab] = useState<string>(initialTab || "commands");
+
+  useEffect(() => {
+    if (initialTab) {
+      setActiveBuilderTab(initialTab);
+    }
+  }, [initialTab]);
+
+  const handleUpdate = (updated: BotProject) => {
+    if (typeof onUpdateBot === "function") {
+      onUpdateBot(updated);
+    } else if (typeof onSaveBot === "function") {
+      onSaveBot(updated);
+    }
+  };
 
   // Modais de Criação / Edição
   const [editingCommand, setEditingCommand] = useState<BotCommand | null>(null);
@@ -87,16 +103,16 @@ export function BotBuilder({ bot, onUpdateBot }: BotBuilderProps) {
       updatedCommands = [...bot.commands, cmd];
       toast.success(`Comando "${bot.prefix}${cmd.name}" criado!`);
     }
-    onUpdateBot({ ...bot, commands: updatedCommands });
+    handleUpdate({ ...bot, commands: updatedCommands });
   };
 
   const handleDeleteCommand = (cmdId: string) => {
-    onUpdateBot({ ...bot, commands: bot.commands.filter((c) => c.id !== cmdId) });
+    handleUpdate({ ...bot, commands: bot.commands.filter((c) => c.id !== cmdId) });
     toast.success("Comando removido.");
   };
 
   const handleToggleCommand = (cmdId: string, enabled: boolean) => {
-    onUpdateBot({
+    handleUpdate({
       ...bot,
       commands: bot.commands.map((c) => (c.id === cmdId ? { ...c, enabled } : c)),
     });
@@ -143,16 +159,16 @@ export function BotBuilder({ bot, onUpdateBot }: BotBuilderProps) {
       updatedEvents = [...bot.events, evt];
       toast.success(`Evento "${evt.name}" criado!`);
     }
-    onUpdateBot({ ...bot, events: updatedEvents });
+    handleUpdate({ ...bot, events: updatedEvents });
   };
 
   const handleDeleteEvent = (evtId: string) => {
-    onUpdateBot({ ...bot, events: bot.events.filter((e) => e.id !== evtId) });
+    handleUpdate({ ...bot, events: bot.events.filter((e) => e.id !== evtId) });
     toast.success("Evento removido.");
   };
 
   const handleToggleEvent = (evtId: string, enabled: boolean) => {
-    onUpdateBot({
+    handleUpdate({
       ...bot,
       events: bot.events.map((e) => (e.id === evtId ? { ...e, enabled } : e)),
     });
@@ -205,16 +221,16 @@ export function BotBuilder({ bot, onUpdateBot }: BotBuilderProps) {
       updatedTimers = [...bot.timers, tim];
       toast.success(`Timer "${tim.name}" criado!`);
     }
-    onUpdateBot({ ...bot, timers: updatedTimers });
+    handleUpdate({ ...bot, timers: updatedTimers });
   };
 
   const handleDeleteTimer = (timId: string) => {
-    onUpdateBot({ ...bot, timers: bot.timers.filter((t) => t.id !== timId) });
+    handleUpdate({ ...bot, timers: bot.timers.filter((t) => t.id !== timId) });
     toast.success("Timer removido.");
   };
 
   const handleToggleTimer = (timId: string, enabled: boolean) => {
-    onUpdateBot({
+    handleUpdate({
       ...bot,
       timers: bot.timers.map((t) => (t.id === timId ? { ...t, enabled } : t)),
     });
@@ -566,7 +582,7 @@ export function BotBuilder({ bot, onUpdateBot }: BotBuilderProps) {
           <VariableManager
             variables={bot.variables}
             botId={bot.id}
-            onChange={(updatedVars) => onUpdateBot({ ...bot, variables: updatedVars })}
+            onChange={(updatedVars) => handleUpdate({ ...bot, variables: updatedVars })}
           />
         </TabsContent>
 

@@ -135,6 +135,8 @@ export const CANONICAL_URL_ICONS: Record<string, LucideIcon> = {
   "/perfil": User,
   "/configuracoes": Wrench,
   "/dev": Terminal,
+  "/dev/bot": Bot,
+  "/dev.bot": Bot,
   "/dev/permissoes": KeyRound,
   "/dev/configuracao": Sliders,
   "/dev/menu-lateral": Sliders,

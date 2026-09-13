@@ -119,7 +119,7 @@ export const BotDashboard: React.FC<BotDashboardProps> = ({
 
           <div className="flex flex-wrap items-center gap-3">
             <Button
-              onClick={() => onOpenBuilder("simulator")}
+              onClick={() => onOpenBuilder?.("simulator")}
               variant="outline"
               className="border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 hover:text-emerald-300 gap-2 h-10 px-4"
             >
@@ -127,7 +127,7 @@ export const BotDashboard: React.FC<BotDashboardProps> = ({
               Simulador Sandbox
             </Button>
             <Button
-              onClick={onCreateBot}
+              onClick={() => onCreateBot?.()}
               className="bg-emerald-600 hover:bg-emerald-500 text-white font-medium gap-2 h-10 px-4 shadow-lg shadow-emerald-950"
             >
               <Plus className="h-4 w-4" />
@@ -167,7 +167,7 @@ export const BotDashboard: React.FC<BotDashboardProps> = ({
               <span className="text-xs text-zinc-500">ações</span>
             </div>
             <button
-              onClick={() => onOpenBuilder("commands")}
+              onClick={() => onOpenBuilder?.("commands")}
               className="mt-2 flex items-center gap-1 text-[11px] text-blue-400 hover:text-blue-300 hover:underline text-left"
             >
               Configurar no builder <ChevronRight className="h-3 w-3" />
@@ -186,7 +186,7 @@ export const BotDashboard: React.FC<BotDashboardProps> = ({
               <span className="text-xs text-zinc-500">gatilhos</span>
             </div>
             <button
-              onClick={() => onOpenBuilder("events")}
+              onClick={() => onOpenBuilder?.("events")}
               className="mt-2 flex items-center gap-1 text-[11px] text-amber-400 hover:text-amber-300 hover:underline text-left"
             >
               Ver automações <ChevronRight className="h-3 w-3" />
@@ -205,7 +205,7 @@ export const BotDashboard: React.FC<BotDashboardProps> = ({
               <span className="text-xs text-zinc-500">agendados</span>
             </div>
             <button
-              onClick={() => onOpenBuilder("timers")}
+              onClick={() => onOpenBuilder?.("timers")}
               className="mt-2 flex items-center gap-1 text-[11px] text-cyan-400 hover:text-cyan-300 hover:underline text-left"
             >
               Agendamentos <ChevronRight className="h-3 w-3" />
@@ -268,7 +268,7 @@ export const BotDashboard: React.FC<BotDashboardProps> = ({
                     <span className="text-xs text-zinc-400">Habilitado</span>
                     <Switch
                       checked={activeBot.enabled}
-                      onCheckedChange={(val) => onToggleBotStatus(activeBot.id, val)}
+                      onCheckedChange={(val) => onToggleBotStatus?.(activeBot.id, val)}
                     />
                   </div>
                   <Badge
@@ -322,7 +322,7 @@ export const BotDashboard: React.FC<BotDashboardProps> = ({
 
                   <div className="flex flex-wrap sm:flex-col items-end gap-2 w-full sm:w-auto">
                     <Button
-                      onClick={() => onOpenBuilder("commands")}
+                      onClick={() => onOpenBuilder?.("commands")}
                       className="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-500 text-white text-xs h-9 gap-1.5 shadow-md"
                     >
                       <Sliders className="h-3.5 w-3.5" />
@@ -334,7 +334,7 @@ export const BotDashboard: React.FC<BotDashboardProps> = ({
                 {/* Sub-modules navigation */}
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                   <button
-                    onClick={() => onOpenBuilder("commands")}
+                    onClick={() => onOpenBuilder?.("commands")}
                     className="flex flex-col items-start p-3.5 rounded-xl border border-zinc-800/80 bg-zinc-900/30 hover:bg-zinc-900/70 hover:border-blue-500/40 transition-all text-left group"
                   >
                     <div className="flex items-center justify-between w-full text-blue-400 mb-2">
@@ -346,7 +346,7 @@ export const BotDashboard: React.FC<BotDashboardProps> = ({
                   </button>
 
                   <button
-                    onClick={() => onOpenBuilder("events")}
+                    onClick={() => onOpenBuilder?.("events")}
                     className="flex flex-col items-start p-3.5 rounded-xl border border-zinc-800/80 bg-zinc-900/30 hover:bg-zinc-900/70 hover:border-amber-500/40 transition-all text-left group"
                   >
                     <div className="flex items-center justify-between w-full text-amber-400 mb-2">
@@ -358,7 +358,7 @@ export const BotDashboard: React.FC<BotDashboardProps> = ({
                   </button>
 
                   <button
-                    onClick={() => onOpenBuilder("timers")}
+                    onClick={() => onOpenBuilder?.("timers")}
                     className="flex flex-col items-start p-3.5 rounded-xl border border-zinc-800/80 bg-zinc-900/30 hover:bg-zinc-900/70 hover:border-cyan-500/40 transition-all text-left group"
                   >
                     <div className="flex items-center justify-between w-full text-cyan-400 mb-2">
@@ -370,7 +370,7 @@ export const BotDashboard: React.FC<BotDashboardProps> = ({
                   </button>
 
                   <button
-                    onClick={() => onOpenBuilder("variables")}
+                    onClick={() => onOpenBuilder?.("variables")}
                     className="flex flex-col items-start p-3.5 rounded-xl border border-zinc-800/80 bg-zinc-900/30 hover:bg-zinc-900/70 hover:border-emerald-500/40 transition-all text-left group"
                   >
                     <div className="flex items-center justify-between w-full text-emerald-400 mb-2">
@@ -408,7 +408,7 @@ export const BotDashboard: React.FC<BotDashboardProps> = ({
 
           <CardContent className="p-6 space-y-3">
             <button
-              onClick={() => onOpenBuilder("commands")}
+              onClick={() => onOpenBuilder?.("commands")}
               className="w-full flex items-center justify-between p-3 rounded-xl border border-zinc-800/80 bg-zinc-900/40 hover:bg-zinc-800/60 hover:border-blue-500/40 transition-all text-left group"
             >
               <div className="flex items-center gap-3">
@@ -424,7 +424,7 @@ export const BotDashboard: React.FC<BotDashboardProps> = ({
             </button>
 
             <button
-              onClick={() => onOpenBuilder("events")}
+              onClick={() => onOpenBuilder?.("events")}
               className="w-full flex items-center justify-between p-3 rounded-xl border border-zinc-800/80 bg-zinc-900/40 hover:bg-zinc-800/60 hover:border-amber-500/40 transition-all text-left group"
             >
               <div className="flex items-center gap-3">
@@ -440,7 +440,7 @@ export const BotDashboard: React.FC<BotDashboardProps> = ({
             </button>
 
             <button
-              onClick={() => onOpenBuilder("timers")}
+              onClick={() => onOpenBuilder?.("timers")}
               className="w-full flex items-center justify-between p-3 rounded-xl border border-zinc-800/80 bg-zinc-900/40 hover:bg-zinc-800/60 hover:border-cyan-500/40 transition-all text-left group"
             >
               <div className="flex items-center gap-3">
@@ -456,7 +456,7 @@ export const BotDashboard: React.FC<BotDashboardProps> = ({
             </button>
 
             <button
-              onClick={() => onOpenBuilder("simulator")}
+              onClick={() => onOpenBuilder?.("simulator")}
               className="w-full flex items-center justify-between p-3 rounded-xl border border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/20 transition-all text-left group"
             >
               <div className="flex items-center gap-3">
@@ -551,7 +551,7 @@ export const BotDashboard: React.FC<BotDashboardProps> = ({
                 Dispare comandos no simulador ou no Discord para ver o rastreamento em tempo real.
               </p>
               <Button
-                onClick={() => onOpenBuilder("simulator")}
+                onClick={() => onOpenBuilder?.("simulator")}
                 variant="outline"
                 size="sm"
                 className="mt-4 border-zinc-800 text-emerald-400 text-xs gap-1.5"

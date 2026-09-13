@@ -292,6 +292,7 @@ function DevBotPageContent() {
           {activeBot ? (
             <BotBuilder
               bot={activeBot}
+              onUpdateBot={handleSaveBot}
               onSaveBot={handleSaveBot}
               initialTab={builderTab as any}
             />

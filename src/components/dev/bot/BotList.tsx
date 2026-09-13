@@ -70,7 +70,7 @@ export const BotList: React.FC<BotListProps> = ({
 
   const handleDeleteConfirm = () => {
     if (botToDelete) {
-      onDeleteBot(botToDelete.id);
+      onDeleteBot?.(botToDelete.id);
       setBotToDelete(null);
     }
   };
@@ -90,7 +90,7 @@ export const BotList: React.FC<BotListProps> = ({
         </div>
 
         <Button
-          onClick={onCreateBot}
+          onClick={() => onCreateBot?.()}
           className="bg-emerald-600 hover:bg-emerald-500 text-white text-xs h-9 gap-1.5 shadow-lg shadow-emerald-950/60"
         >
           <Plus className="h-4 w-4" />
@@ -190,21 +190,21 @@ export const BotList: React.FC<BotListProps> = ({
                       <DropdownMenuContent align="end" className="w-44 border-zinc-800 bg-zinc-950 text-white">
                         <DropdownMenuItem
                           onClick={() => {
-                            onSelectBot(bot);
-                            onOpenBuilder(bot);
+                            onSelectBot?.(bot);
+                            onOpenBuilder?.(bot);
                           }}
                           className="text-xs cursor-pointer gap-2"
                         >
                           <Sliders className="h-3.5 w-3.5 text-blue-400" /> Abrir Construtor
                         </DropdownMenuItem>
                         <DropdownMenuItem
-                          onClick={() => onEditBot(bot)}
+                          onClick={() => onEditBot?.(bot)}
                           className="text-xs cursor-pointer gap-2"
                         >
                           <Edit2 className="h-3.5 w-3.5 text-zinc-400" /> Configurações
                         </DropdownMenuItem>
                         <DropdownMenuItem
-                          onClick={() => onDuplicateBot(bot)}
+                          onClick={() => onDuplicateBot?.(bot)}
                           className="text-xs cursor-pointer gap-2"
                         >
                           <Copy className="h-3.5 w-3.5 text-emerald-400" /> Duplicar Bot
@@ -261,7 +261,7 @@ export const BotList: React.FC<BotListProps> = ({
                         <span className="text-[10px] text-zinc-400">{bot.enabled ? "Ativo" : "Pausado"}</span>
                         <Switch
                           checked={bot.enabled}
-                          onCheckedChange={(checked) => onToggleStatus(bot.id, checked)}
+                          onCheckedChange={(checked) => onToggleStatus?.(bot.id, checked)}
                           className="scale-75 origin-right"
                         />
                       </div>
@@ -272,7 +272,7 @@ export const BotList: React.FC<BotListProps> = ({
                 <CardFooter className="p-4 pt-2 border-t border-zinc-800/60 bg-zinc-900/20 flex items-center justify-between gap-2">
                   <Button
                     onClick={() => {
-                      onSelectBot(bot);
+                      onSelectBot?.(bot);
                       toast.success(`Bot "${bot.name}" selecionado como ativo.`);
                     }}
                     variant={isSelected ? "secondary" : "ghost"}
@@ -284,8 +284,8 @@ export const BotList: React.FC<BotListProps> = ({
 
                   <Button
                     onClick={() => {
-                      onSelectBot(bot);
-                      onOpenBuilder(bot);
+                      onSelectBot?.(bot);
+                      onOpenBuilder?.(bot);
                     }}
                     size="sm"
                     className="bg-emerald-600 hover:bg-emerald-500 text-white text-xs h-8 gap-1.5 shadow"

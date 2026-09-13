@@ -94,6 +94,10 @@ export function notifyDevException(error: unknown) {
           ? String((error as any).message)
           : String(error);
 
+      if (error instanceof Error && error.stack) {
+        originalConsoleError("[DEV RUNTIME EXCEPTION]", error.stack);
+      }
+
       toast.error("⚠️ [Dev] Alerta de Exceção", {
         description: msg ? msg.slice(0, 160) : "Exceção não tratada capturada pelo runtime da aplicação.",
         duration: 6000,
