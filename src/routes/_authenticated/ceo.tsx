@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import {
   Crown,
