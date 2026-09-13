@@ -388,14 +388,34 @@ export async function saveDiscordWebhooksConfig(
   }
 }
 
-export interface PostMessagePayload {
-  content?: string;
-  username?: string;
-  avatarUrl?: string;
+export interface DiscordEmbedData {
   title?: string;
   titleUrl?: string;
   description?: string;
   color?: string;
+  useCodeblock?: boolean;
+  authorName?: string;
+  authorIconUrl?: string;
+  authorUrl?: string;
+  thumbnailUrl?: string;
+  imageUrl?: string;
+  footerText?: string;
+  footerIconUrl?: string;
+  showTimestamp?: boolean;
+  fields?: { name: string; value: string; inline?: boolean }[];
+}
+
+export interface PostMessagePayload {
+  content?: string;
+  username?: string;
+  avatarUrl?: string;
+  embeds?: DiscordEmbedData[];
+  // Backwards compatibility for single embed:
+  title?: string;
+  titleUrl?: string;
+  description?: string;
+  color?: string;
+  useCodeblock?: boolean;
   authorName?: string;
   authorIconUrl?: string;
   authorUrl?: string;
@@ -417,7 +437,7 @@ export interface WebhookDeliveryResult {
 
 /**
  * Envia uma mensagem personalizada para o canal configurado no Webhook
- * com suporte completo a embeds ricos estilo Discohook e entrega em tempo real.
+ * com suporte completo a múltiplos embeds ricos estilo Discohook e entrega em tempo real.
  */
 export async function postMessageToWebhookChannel(
   webhook: DiscordWebhook,
@@ -436,58 +456,88 @@ export async function postMessageToWebhookChannel(
     };
   }
 
-  const hasContent = Boolean(
-    (messageData.content && messageData.content.trim()) ||
-    (messageData.description && messageData.description.trim()) ||
-    (messageData.title && messageData.title.trim()) ||
-    (messageData.imageUrl && messageData.imageUrl.trim()) ||
-    (messageData.fields && messageData.fields.length > 0)
-  );
+  // Normaliza múltiplos embeds ou compatibilidade com campos soltos de embed único
+  const rawEmbeds: DiscordEmbedData[] =
+    messageData.embeds && messageData.embeds.length > 0
+      ? messageData.embeds
+      : messageData.title ||
+        messageData.description ||
+        messageData.imageUrl ||
+        messageData.thumbnailUrl ||
+        messageData.authorName ||
+        (messageData.fields && messageData.fields.length > 0)
+      ? [
+          {
+            title: messageData.title,
+            titleUrl: messageData.titleUrl,
+            description: messageData.description,
+            color: messageData.color,
+            useCodeblock: messageData.useCodeblock,
+            authorName: messageData.authorName,
+            authorIconUrl: messageData.authorIconUrl,
+            authorUrl: messageData.authorUrl,
+            thumbnailUrl: messageData.thumbnailUrl,
+            imageUrl: messageData.imageUrl,
+            footerText: messageData.footerText,
+            footerIconUrl: messageData.footerIconUrl,
+            showTimestamp: messageData.showTimestamp,
+            fields: messageData.fields,
+          },
+        ]
+      : [];
 
-  if (!hasContent) {
+  const cleanContent = messageData.content?.trim() || messageData.mention?.trim() || undefined;
+
+  const hasAnyContent = Boolean(cleanContent || rawEmbeds.length > 0);
+
+  if (!hasAnyContent) {
     return {
       success: false,
-      message: "Informe ao menos o conteúdo da mensagem, título, descrição ou uma imagem.",
+      message: "Informe ao menos o texto da mensagem ou configure pelo menos um embed.",
     };
   }
 
   const testId = `post_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
-  const cleanContent = messageData.content?.trim() || messageData.mention?.trim() || undefined;
-  const cleanDescription = messageData.description?.trim() || "";
-  const cleanTitle = messageData.title?.trim() || "";
-  const embedColor = messageData.color || webhook.embedColor || "#10B981";
   const botUsername = messageData.username?.trim() || webhook.username || webhook.name || "Twin Wheels RP";
   const botAvatar = messageData.avatarUrl?.trim() || webhook.avatarUrl || "https://i.ibb.co/ymH1BQPQ/Uma124.png";
-  const authorName = messageData.authorName?.trim() || webhook.authorName || undefined;
-  const authorIconUrl = messageData.authorIconUrl?.trim() || webhook.authorIconUrl || undefined;
-  const authorUrl = messageData.authorUrl?.trim() || webhook.authorUrl || undefined;
-  const thumbnailUrl = messageData.thumbnailUrl?.trim() || webhook.thumbnailUrl || undefined;
-  const imageUrl = messageData.imageUrl?.trim() || webhook.imageUrl || undefined;
-  const footerText = messageData.footerText?.trim() || webhook.footerText || "Twin Wheels RP";
-  const footerIconUrl = messageData.footerIconUrl?.trim() || webhook.footerIconUrl || undefined;
-  const showTimestamp = messageData.showTimestamp !== undefined ? messageData.showTimestamp : (webhook.showTimestamp !== false);
-  const embedFields = [...(messageData.fields || [])];
 
-  const hasEmbed = Boolean(
-    cleanTitle ||
-    cleanDescription ||
-    imageUrl ||
-    thumbnailUrl ||
-    authorName ||
-    embedFields.length > 0
-  );
+  // Formata a lista de embeds para o padrão da API do Discord (máximo 10)
+  const discordEmbedsPayload = rawEmbeds.slice(0, 10).map((emb) => {
+    const embColor = emb.color || webhook.embedColor || "#10B981";
+    let desc = emb.description?.trim();
+    const embFields = [...(emb.fields || [])];
 
-  // Formata o conteúdo para o bot caso o webhook tenha codeblock
-  let formattedContent = cleanDescription || cleanContent || "";
-  if (webhook.useCodeblockField && cleanDescription) {
-    embedFields.unshift({
-      name: "\u200b",
-      value: `\`\`\`${webhook.codeblockLanguage || ""}\n${cleanDescription}\n\`\`\``,
-      inline: false,
-    });
-  }
+    if (emb.useCodeblock && desc) {
+      desc = `\`\`\`${webhook.codeblockLanguage || ""}\n${desc}\n\`\`\``;
+    }
+
+    return {
+      title: emb.title?.trim() || undefined,
+      url: emb.titleUrl?.trim() || undefined,
+      description: desc || undefined,
+      color: hexToInt(embColor),
+      author: emb.authorName?.trim()
+        ? {
+            name: emb.authorName.trim(),
+            icon_url: emb.authorIconUrl?.trim() || undefined,
+            url: emb.authorUrl?.trim() || undefined,
+          }
+        : undefined,
+      thumbnail: emb.thumbnailUrl?.trim() ? { url: emb.thumbnailUrl.trim() } : undefined,
+      image: emb.imageUrl?.trim() ? { url: emb.imageUrl.trim() } : undefined,
+      footer: emb.footerText?.trim()
+        ? {
+            text: emb.footerText.trim(),
+            icon_url: emb.footerIconUrl?.trim() || undefined,
+          }
+        : undefined,
+      timestamp: emb.showTimestamp !== false ? new Date().toISOString() : undefined,
+      fields: embFields.length > 0 ? embFields : undefined,
+    };
+  });
 
   // Prepara o payload para o disparador em tempo real do Bot
+  const firstEmb = rawEmbeds[0] || {};
   const botPayload = {
     test_id: testId,
     action: "create_announcement",
@@ -499,16 +549,17 @@ export async function postMessageToWebhookChannel(
       test_id: testId,
       channel_id: webhook.channelId,
       guild_id: webhook.guildId,
-      title: cleanTitle || "Comunicado Oficial",
-      content: cleanContent || formattedContent,
-      description: cleanDescription,
-      image_url: imageUrl,
+      title: firstEmb.title || "Comunicado Oficial",
+      content: cleanContent || firstEmb.description,
+      description: firstEmb.description,
+      image_url: firstEmb.imageUrl,
       user_name: botUsername,
       user_nickname: botUsername,
-      notes: formattedContent,
-      embed_color: embedColor,
-      fields: embedFields,
+      notes: cleanContent || firstEmb.description,
+      embed_color: firstEmb.color || webhook.embedColor || "#10B981",
+      fields: firstEmb.fields || [],
       mention: cleanContent,
+      embeds: discordEmbedsPayload,
     },
   };
 
@@ -520,27 +571,7 @@ export async function postMessageToWebhookChannel(
         username: botUsername,
         avatar_url: botAvatar,
         content: cleanContent || undefined,
-        embeds: hasEmbed ? [
-          {
-            title: cleanTitle || undefined,
-            url: messageData.titleUrl?.trim() || undefined,
-            description: cleanDescription || undefined,
-            color: hexToInt(embedColor),
-            author: authorName ? {
-              name: authorName,
-              icon_url: authorIconUrl,
-              url: authorUrl,
-            } : undefined,
-            thumbnail: thumbnailUrl ? { url: thumbnailUrl } : undefined,
-            image: imageUrl ? { url: imageUrl } : undefined,
-            footer: footerText ? {
-              text: footerText,
-              icon_url: footerIconUrl,
-            } : undefined,
-            timestamp: showTimestamp ? new Date().toISOString() : undefined,
-            fields: embedFields.length > 0 ? embedFields : undefined,
-          }
-        ] : undefined,
+        embeds: discordEmbedsPayload.length > 0 ? discordEmbedsPayload : undefined,
       };
 
       const res = await fetch(officialUrl + "?wait=true", {
@@ -557,8 +588,8 @@ export async function postMessageToWebhookChannel(
             webhookName: webhook.name,
             guildId: webhook.guildId,
             channelId: webhook.channelId,
-            title: cleanTitle,
-            hasImage: !!imageUrl,
+            title: firstEmb.title || "Postagem Webhook",
+            hasImage: !!firstEmb.imageUrl,
             sender: senderName,
             actor: profile?.nome || user?.email || "Desenvolvedor",
           }).catch(() => {});
@@ -583,13 +614,14 @@ export async function postMessageToWebhookChannel(
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          title: cleanTitle,
-          description: cleanDescription,
-          imageUrl,
-          mention: contentMention,
-          color: webhook.embedColor,
-          username: webhook.username || webhook.name,
-          avatarUrl: webhook.avatarUrl,
+          title: firstEmb.title || "Comunicado Oficial",
+          description: firstEmb.description || cleanContent || "",
+          imageUrl: firstEmb.imageUrl,
+          mention: cleanContent,
+          color: firstEmb.color || webhook.embedColor,
+          username: botUsername,
+          avatarUrl: botAvatar,
+          embeds: discordEmbedsPayload,
         }),
       });
       if (botRes.ok) {
