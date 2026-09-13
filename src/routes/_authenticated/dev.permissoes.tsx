@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
@@ -11,6 +11,13 @@ import {
   Users,
   ShieldAlert,
   Sparkles,
+  Bot,
+  Webhook,
+  Landmark,
+  Megaphone,
+  Wallet,
+  Sliders,
+  ExternalLink,
 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -234,6 +241,30 @@ function DevPermissoesContent() {
       }
     },
     [user, profile, level, queryClient]
+  );
+
+  // Atualiza e sincroniza as configurações de módulos do Painel CEO
+  const handleUpdateCeoConfig = useCallback(
+    async (partial: Partial<CeoConfiguration>) => {
+      const updated: CeoConfiguration = {
+        ...ceoConfig,
+        ...partial,
+        updatedAt: new Date().toISOString(),
+      };
+      setCeoConfig(updated);
+      setIsCeoSyncing(true);
+      try {
+        await saveCeoConfiguration(updated, user, profile, level);
+        void queryClient.invalidateQueries({ queryKey: ["role_permissions"] });
+        void queryClient.invalidateQueries({ queryKey: ["auth_session"] });
+        toast.success("Configuração do Painel CEO atualizada com sucesso! 👑");
+      } catch (err: any) {
+        toast.error(err?.message || "Falha ao salvar configuração do Painel CEO.");
+      } finally {
+        setIsCeoSyncing(false);
+      }
+    },
+    [ceoConfig, user, profile, level, queryClient]
   );
 
   // Handlers para Tag Dev
@@ -1037,7 +1068,230 @@ function DevPermissoesContent() {
             </CardContent>
           </Card>
 
-          {/* SEÇÃO 2 (CEO): BARRA DE CONTROLES RÁPIDOS DA MATRIZ DA TAG CEO */}
+          {/* SEÇÃO 2 (CEO): MÓDULOS E RECURSOS DO PAINEL CEO */}
+          <Card className="surface-card border-amber-500/40 bg-gradient-to-b from-amber-500/[0.04] to-transparent shadow-sm">
+            <CardHeader className="pb-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div className="flex items-center gap-3.5">
+                  <div className="p-3 rounded-2xl bg-amber-500/20 text-amber-300 border border-amber-500/40 shadow-xs shrink-0">
+                    <Sliders className="h-6 w-6" />
+                  </div>
+                  <div>
+                    <CardTitle className="text-base font-black text-foreground flex items-center gap-2">
+                      Módulos & Recursos do Painel CEO (/ceo)
+                      <Badge className="bg-amber-500/20 text-amber-300 border-amber-500/40 text-[10px] font-bold">
+                        Configuração Executiva
+                      </Badge>
+                    </CardTitle>
+                    <CardDescription className="text-xs mt-1">
+                      Controle quais funcionalidades avançadas e módulos os membros com a Tag CEO podem acessar no Painel Executivo.
+                      Apenas Desenvolvedores têm permissão para ativar ou desativar esses recursos.
+                    </CardDescription>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 shrink-0">
+                  <Button
+                    asChild
+                    variant="outline"
+                    size="sm"
+                    className="text-xs h-8 font-bold border-amber-500/40 text-amber-300 hover:bg-amber-500/10 gap-1.5"
+                  >
+                    <Link to="/ceo" target="_blank">
+                      <ExternalLink className="h-3.5 w-3.5" />
+                      Visualizar Painel CEO
+                    </Link>
+                  </Button>
+                </div>
+              </div>
+            </CardHeader>
+
+            <CardContent className="space-y-4 pt-0">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
+                {/* Switch 1: Gerenciar Bot */}
+                <div
+                  className={cn(
+                    "flex flex-col justify-between p-3.5 rounded-xl border transition-all",
+                    ceoConfig.allowManageBot !== false
+                      ? "bg-indigo-500/10 border-indigo-500/40 shadow-xs"
+                      : "bg-secondary/20 border-border/40 opacity-75"
+                  )}
+                >
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <div className="p-2 rounded-lg bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
+                          <Bot className="h-4 w-4" />
+                        </div>
+                        <span className="text-xs font-black text-foreground">Gerenciar Bot Discloud</span>
+                      </div>
+                      <Switch
+                        id="ceo-cfg-bot"
+                        checked={ceoConfig.allowManageBot !== false}
+                        onCheckedChange={(checked) => handleUpdateCeoConfig({ allowManageBot: checked })}
+                        className="data-[state=checked]:bg-indigo-500 data-[state=checked]:border-indigo-400"
+                      />
+                    </div>
+                    <p className="text-[0.7rem] text-muted-foreground leading-relaxed">
+                      Permite ao CEO monitorar status da instância no Discloud, visualizar servidores mútuos e reiniciar o bot em contingências.
+                    </p>
+                  </div>
+                  <div className="mt-3 pt-2 border-t border-border/40 flex items-center justify-between text-[0.68rem]">
+                    <span className="text-muted-foreground font-mono">Aba: /ceo?tab=bot</span>
+                    <Badge variant="outline" className={cn("text-[9px] font-bold py-0", ceoConfig.allowManageBot !== false ? "text-indigo-400 border-indigo-500/40" : "text-muted-foreground")}>
+                      {ceoConfig.allowManageBot !== false ? "Ativado" : "Desativado"}
+                    </Badge>
+                  </div>
+                </div>
+
+                {/* Switch 2: WebHook Discord */}
+                <div
+                  className={cn(
+                    "flex flex-col justify-between p-3.5 rounded-xl border transition-all",
+                    ceoConfig.allowWebhooks !== false
+                      ? "bg-violet-500/10 border-violet-500/40 shadow-xs"
+                      : "bg-secondary/20 border-border/40 opacity-75"
+                  )}
+                >
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <div className="p-2 rounded-lg bg-violet-500/20 text-violet-300 border border-violet-500/30">
+                          <Webhook className="h-4 w-4" />
+                        </div>
+                        <span className="text-xs font-black text-foreground">WebHook Discord</span>
+                      </div>
+                      <Switch
+                        id="ceo-cfg-webhooks"
+                        checked={ceoConfig.allowWebhooks !== false}
+                        onCheckedChange={(checked) => handleUpdateCeoConfig({ allowWebhooks: checked })}
+                        className="data-[state=checked]:bg-violet-500 data-[state=checked]:border-violet-400"
+                      />
+                    </div>
+                    <p className="text-[0.7rem] text-muted-foreground leading-relaxed">
+                      Permite ao CEO gerenciar canais de webhook, testar integrações e disparar anúncios ricos e comunicados diretamente pelo Discord.
+                    </p>
+                  </div>
+                  <div className="mt-3 pt-2 border-t border-border/40 flex items-center justify-between text-[0.68rem]">
+                    <span className="text-muted-foreground font-mono">Aba: /ceo?tab=webhooks</span>
+                    <Badge variant="outline" className={cn("text-[9px] font-bold py-0", ceoConfig.allowWebhooks !== false ? "text-violet-400 border-violet-500/40" : "text-muted-foreground")}>
+                      {ceoConfig.allowWebhooks !== false ? "Ativado" : "Desativado"}
+                    </Badge>
+                  </div>
+                </div>
+
+                {/* Switch 3: Fundo de Caixa & Finanças */}
+                <div
+                  className={cn(
+                    "flex flex-col justify-between p-3.5 rounded-xl border transition-all",
+                    ceoConfig.allowFinancials !== false
+                      ? "bg-emerald-500/10 border-emerald-500/40 shadow-xs"
+                      : "bg-secondary/20 border-border/40 opacity-75"
+                  )}
+                >
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <div className="p-2 rounded-lg bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                          <Landmark className="h-4 w-4" />
+                        </div>
+                        <span className="text-xs font-black text-foreground">Fundo de Caixa & Finanças</span>
+                      </div>
+                      <Switch
+                        id="ceo-cfg-financials"
+                        checked={ceoConfig.allowFinancials !== false}
+                        onCheckedChange={(checked) => handleUpdateCeoConfig({ allowFinancials: checked })}
+                        className="data-[state=checked]:bg-emerald-500 data-[state=checked]:border-emerald-400"
+                      />
+                    </div>
+                    <p className="text-[0.7rem] text-muted-foreground leading-relaxed">
+                      Permite ao CEO auditar o extrato consolidado de movimentações financeiras, entradas, saídas e o saldo global da facção.
+                    </p>
+                  </div>
+                  <div className="mt-3 pt-2 border-t border-border/40 flex items-center justify-between text-[0.68rem]">
+                    <span className="text-muted-foreground font-mono">Aba: /ceo?tab=financas</span>
+                    <Badge variant="outline" className={cn("text-[9px] font-bold py-0", ceoConfig.allowFinancials !== false ? "text-emerald-400 border-emerald-500/40" : "text-muted-foreground")}>
+                      {ceoConfig.allowFinancials !== false ? "Ativado" : "Desativado"}
+                    </Badge>
+                  </div>
+                </div>
+
+                {/* Switch 4: Ações Rápidas & Comunicados */}
+                <div
+                  className={cn(
+                    "flex flex-col justify-between p-3.5 rounded-xl border transition-all",
+                    ceoConfig.allowAnnouncements !== false
+                      ? "bg-amber-500/10 border-amber-500/40 shadow-xs"
+                      : "bg-secondary/20 border-border/40 opacity-75"
+                  )}
+                >
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <div className="p-2 rounded-lg bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                          <Megaphone className="h-4 w-4" />
+                        </div>
+                        <span className="text-xs font-black text-foreground">Ações Rápidas Executivas</span>
+                      </div>
+                      <Switch
+                        id="ceo-cfg-announcements"
+                        checked={ceoConfig.allowAnnouncements !== false}
+                        onCheckedChange={(checked) => handleUpdateCeoConfig({ allowAnnouncements: checked })}
+                        className="data-[state=checked]:bg-amber-500 data-[state=checked]:border-amber-400"
+                      />
+                    </div>
+                    <p className="text-[0.7rem] text-muted-foreground leading-relaxed">
+                      Habilita os botões de atalho no dashboard do CEO para disparo de anúncios rápidos e alertas prioritários à facção.
+                    </p>
+                  </div>
+                  <div className="mt-3 pt-2 border-t border-border/40 flex items-center justify-between text-[0.68rem]">
+                    <span className="text-muted-foreground font-mono">Dashboard Executivo</span>
+                    <Badge variant="outline" className={cn("text-[9px] font-bold py-0", ceoConfig.allowAnnouncements !== false ? "text-amber-400 border-amber-500/40" : "text-muted-foreground")}>
+                      {ceoConfig.allowAnnouncements !== false ? "Ativado" : "Desativado"}
+                    </Badge>
+                  </div>
+                </div>
+
+                {/* Switch 5: Exibição de Saldo Real */}
+                <div
+                  className={cn(
+                    "flex flex-col justify-between p-3.5 rounded-xl border transition-all",
+                    ceoConfig.showRealBalance !== false
+                      ? "bg-teal-500/10 border-teal-500/40 shadow-xs"
+                      : "bg-secondary/20 border-border/40 opacity-75"
+                  )}
+                >
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <div className="p-2 rounded-lg bg-teal-500/20 text-teal-300 border border-teal-500/30">
+                          <Wallet className="h-4 w-4" />
+                        </div>
+                        <span className="text-xs font-black text-foreground">Exibir Saldo Real</span>
+                      </div>
+                      <Switch
+                        id="ceo-cfg-balance"
+                        checked={ceoConfig.showRealBalance !== false}
+                        onCheckedChange={(checked) => handleUpdateCeoConfig({ showRealBalance: checked })}
+                        className="data-[state=checked]:bg-teal-500 data-[state=checked]:border-teal-400"
+                      />
+                    </div>
+                    <p className="text-[0.7rem] text-muted-foreground leading-relaxed">
+                      Quando ativado, exibe o saldo exato em Reais (R$) no card do Fundo de Caixa. Se desativado, oculta por privacidade (••••••).
+                    </p>
+                  </div>
+                  <div className="mt-3 pt-2 border-t border-border/40 flex items-center justify-between text-[0.68rem]">
+                    <span className="text-muted-foreground font-mono">Privacidade de Saldo</span>
+                    <Badge variant="outline" className={cn("text-[9px] font-bold py-0", ceoConfig.showRealBalance !== false ? "text-teal-400 border-teal-500/40" : "text-muted-foreground")}>
+                      {ceoConfig.showRealBalance !== false ? "Visível" : "Oculto"}
+                    </Badge>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* SEÇÃO 3 (CEO): BARRA DE CONTROLES RÁPIDOS DA MATRIZ DA TAG CEO */}
           <Card className="surface-card p-4 border-amber-500/30">
             <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
               <div className="flex items-center gap-3">

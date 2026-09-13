@@ -448,6 +448,12 @@ export interface CeoConfiguration {
   description: string;
   executiveBypassLevel: boolean;
   activeCeoUserIds: string[];
+  // Módulos do Painel CEO configurados pelos Desenvolvedores
+  allowManageBot: boolean;
+  allowWebhooks: boolean;
+  allowFinancials: boolean;
+  allowAnnouncements: boolean;
+  showRealBalance: boolean;
   updatedAt?: string;
 }
 
@@ -458,6 +464,11 @@ export const DEFAULT_CEO_CONFIG: CeoConfiguration = {
   description: "Diretoria Executiva da facção Twin Wheels. Gestão operacional avançada e liderança de negócios.",
   executiveBypassLevel: false,
   activeCeoUserIds: [],
+  allowManageBot: true,
+  allowWebhooks: true,
+  allowFinancials: true,
+  allowAnnouncements: true,
+  showRealBalance: true,
 };
 
 export const DEFAULT_CEO_PERMISSIONS: string[] = [

@@ -38,6 +38,7 @@ import {
   CalendarOff,
   Sparkles,
   LifeBuoy,
+  Crown,
   ExternalLink,
 } from "lucide-react";
 import { resolveMenuIcon } from "@/lib/menuIcons";
@@ -126,7 +127,7 @@ const DEV_MODULE_NAV_ITEMS: MasterNavItem[] = [
 
 function DynamicSidebarNavigation() {
   const pathname = useRouterState({ select: (r) => r.location.pathname });
-  const { hasPermission, user, profile, level, isDevMode, setPanelMode } = useAuth();
+  const { hasPermission, user, profile, level, isDevMode, setPanelMode, isCeoUser } = useAuth();
   const { config: menuConfig } = useMenuConfig();
   const { config: devMenuConfig } = useDevMenuConfig();
   const { isMobile, setOpenMobile } = useSidebar();
@@ -341,6 +342,42 @@ function DynamicSidebarNavigation() {
 
   return (
     <>
+      {/* Botão de Acesso VIP ao Painel CEO */}
+      {(isCeoUser || isDevUser) && (
+        <div className="px-2 pt-1 pb-1">
+          <Link
+            to="/ceo"
+            onClick={() => {
+              if (isMobile) setOpenMobile(false);
+            }}
+            className={cn(
+              "flex items-center justify-between w-full transition-all text-xs font-black p-2.5 rounded-xl border group/btn cursor-pointer shadow-xs",
+              pathname.startsWith("/ceo")
+                ? "border-amber-400/80 bg-gradient-to-r from-amber-500/25 to-amber-500/10 text-amber-200 ring-2 ring-amber-500/50 shadow-md shadow-amber-500/10"
+                : "border-amber-500/40 bg-gradient-to-r from-amber-500/15 via-amber-500/10 to-transparent hover:bg-amber-500/20 text-amber-300 hover:text-amber-200 ring-1 ring-amber-500/30"
+            )}
+          >
+            <div className="flex items-center gap-2.5">
+              <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-amber-500 text-black shadow-xs font-black">
+                <Crown className="h-4 w-4 text-black" />
+              </div>
+              <div className="text-left">
+                <span className="block font-black text-amber-300 leading-tight text-xs flex items-center gap-1.5">
+                  Painel CEO
+                </span>
+                <span className="text-[10px] text-amber-400/80 font-medium">Diretoria Executiva VIP</span>
+              </div>
+            </div>
+            <Badge
+              variant="outline"
+              className="text-[9px] font-mono px-1.5 py-0 border-amber-400/60 bg-amber-500/30 text-amber-200 font-black shadow-none"
+            >
+              VIP OURO
+            </Badge>
+          </Link>
+        </div>
+      )}
+
       {isDevUser && (
         <div className="px-2 pt-1 pb-2 space-y-1.5 border-b border-border/80 mb-2">
           {isDevMode ? (
@@ -487,7 +524,7 @@ function DynamicSidebarNavigation() {
 }
 
 export function AppShell({ children }: { children: ReactNode }) {
-  const { profile, level, signOut, user } = useAuth();
+  const { profile, level, signOut, user, isCeoUser, isDevUser } = useAuth();
   const navigate = useNavigate();
   const pathname = useRouterState({ select: (r) => r.location.pathname });
 
@@ -637,6 +674,15 @@ export function AppShell({ children }: { children: ReactNode }) {
                   <DropdownMenuItem onClick={() => navigate({ to: "/perfil" })} className="cursor-pointer">
                     <User className="mr-2 h-4 w-4 text-primary" /> Meu Perfil
                   </DropdownMenuItem>
+
+                  {(isCeoUser || isDevUser) && (
+                    <DropdownMenuItem
+                      onClick={() => navigate({ to: "/ceo" })}
+                      className="cursor-pointer text-amber-300 focus:text-amber-200 focus:bg-amber-500/10 font-bold"
+                    >
+                      <Crown className="mr-2 h-4 w-4 text-amber-400" /> Painel CEO
+                    </DropdownMenuItem>
+                  )}
 
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={handleSignOut} className="text-destructive font-medium cursor-pointer">
