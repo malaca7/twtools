@@ -212,14 +212,14 @@ export function PerfilPage({ initialTab }: { initialTab?: "dados" | "aparencia" 
                   <p className="text-muted-foreground truncate">
                     Link Público:{" "}
                     <span className="font-mono font-bold text-primary">
-                      /perfil/@{profile?.custom_url || profile?.discord_id || "..."}
+                      /perfil/{String(profile?.custom_url || profile?.discord_id || "...").replace(/^@/, "")}
                     </span>
                   </p>
                 </div>
 
                 <Link
                   to="/perfil/$handle"
-                  params={{ handle: `@${profile?.custom_url || profile?.discord_id || user?.id}` }}
+                  params={{ handle: String(profile?.custom_url || profile?.discord_id || user?.id || "").replace(/^@/, "") }}
                   className="w-full pt-2"
                 >
                   <Button
@@ -337,7 +337,7 @@ export function PerfilPage({ initialTab }: { initialTab?: "dados" | "aparencia" 
                     )}
                   </div>
                   <CardDescription className="text-xs">
-                    Defina seu link exclusivo na plataforma (ex.: <span className="font-mono text-primary font-bold">/perfil/@{customUrl || "seu-nome"}</span>). Caso não defina, seu perfil público usará seu ID do Discord automaticamente.
+                    Defina seu link exclusivo na plataforma (ex.: <span className="font-mono text-primary font-bold">/perfil/{customUrl || "seu-nome"}</span>). Caso não defina, seu perfil público usará seu ID do Discord automaticamente.
                   </CardDescription>
                 </CardHeader>
 
@@ -349,8 +349,8 @@ export function PerfilPage({ initialTab }: { initialTab?: "dados" | "aparencia" 
                       <div className="min-w-0">
                         <p className="text-[10px] uppercase font-bold text-muted-foreground">Seu Link Público Oficial</p>
                         <p className="font-mono font-bold text-xs text-foreground truncate">
-                          {typeof window !== "undefined" ? window.location.origin : ""}/perfil/@
-                          <span className="text-primary font-black">{customUrl || profile?.discord_id || "seu-id"}</span>
+                          {typeof window !== "undefined" ? window.location.origin : ""}/perfil/
+                          <span className="text-primary font-black">{String(customUrl || profile?.discord_id || "seu-id").replace(/^@/, "")}</span>
                         </p>
                       </div>
                     </div>
@@ -362,7 +362,8 @@ export function PerfilPage({ initialTab }: { initialTab?: "dados" | "aparencia" 
                         size="sm"
                         onClick={() => {
                           const origin = typeof window !== "undefined" ? window.location.origin : "";
-                          const link = `${origin}/perfil/@${customUrl || profile?.discord_id || user?.id}`;
+                          const cleanSlug = String(customUrl || profile?.discord_id || user?.id || "").replace(/^@/, "");
+                          const link = `${origin}/perfil/${cleanSlug}`;
                           navigator.clipboard.writeText(link);
                           setCopiedLink(true);
                           toast.success("Link do perfil público copiado!");
@@ -376,7 +377,7 @@ export function PerfilPage({ initialTab }: { initialTab?: "dados" | "aparencia" 
 
                       <Link
                         to="/perfil/$handle"
-                        params={{ handle: `@${customUrl || profile?.discord_id || user?.id}` }}
+                        params={{ handle: String(customUrl || profile?.discord_id || user?.id || "").replace(/^@/, "") }}
                       >
                         <Button
                           type="button"
@@ -398,7 +399,7 @@ export function PerfilPage({ initialTab }: { initialTab?: "dados" | "aparencia" 
                     </Label>
                     <div className="relative flex items-center">
                       <div className="absolute left-3 flex items-center pointer-events-none text-muted-foreground text-xs font-mono font-bold">
-                        /perfil/@
+                        /perfil/
                       </div>
                       <Input
                         placeholder={profile?.discord_username ? profile.discord_username.replace(/#0$/, "") : "ex.: malaca"}
@@ -407,7 +408,7 @@ export function PerfilPage({ initialTab }: { initialTab?: "dados" | "aparencia" 
                           const sanitized = e.target.value.toLowerCase().replace(/[^a-z0-9_.-]/g, "").slice(0, 30);
                           setCustomUrl(sanitized);
                         }}
-                        className="h-9 pl-20 text-xs font-mono font-bold"
+                        className="h-9 pl-16 text-xs font-mono font-bold"
                         maxLength={30}
                       />
                     </div>

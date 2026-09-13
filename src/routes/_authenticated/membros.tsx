@@ -504,7 +504,7 @@ function MembrosPage() {
                           <TableCell>
                             <Link
                               to="/perfil/$handle"
-                              params={{ handle: `@${m.custom_url || m.discord_id || m.user_id}` }}
+                              params={{ handle: String(m.custom_url || m.discord_id || m.user_id).replace(/^@/, "") }}
                               className="flex items-center gap-3 min-w-[160px] group cursor-pointer"
                               title={`Ver perfil público de ${m.nickname || m.nome}`}
                             >

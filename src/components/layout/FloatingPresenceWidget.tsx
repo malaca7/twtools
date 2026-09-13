@@ -102,7 +102,7 @@ function CompactMemberRow({
   const handleOpenProfile = () => {
     navigate({
       to: "/perfil/$handle",
-      params: { handle: `@${profileSlug}` },
+      params: { handle: String(profileSlug).replace(/^@/, "") },
     });
   };
 
@@ -113,7 +113,7 @@ function CompactMemberRow({
         "flex items-center justify-between py-2 px-2.5 rounded-xl transition-all group text-xs border border-transparent select-none cursor-pointer hover:bg-secondary/70 hover:border-border/60 hover:shadow-xs active:scale-[0.99]",
         isSelf && "bg-secondary/15"
       )}
-      title={`Ver perfil público de ${displayName} (/perfil/@${profileSlug})`}
+      title={`Ver perfil público de ${displayName} (/perfil/${String(profileSlug).replace(/^@/, "")})`}
     >
       <div className="flex items-center gap-2.5 min-w-0 flex-1">
         <div className="relative shrink-0">

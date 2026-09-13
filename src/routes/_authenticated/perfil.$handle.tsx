@@ -48,8 +48,15 @@ function PublicProfilePage() {
   const [copiedDiscordId, setCopiedDiscordId] = useState(false);
   const [startingChat, setStartingChat] = useState(false);
 
-  // Normaliza o handle recebido (remove @ e coloca em minúsculas)
-  const cleanHandle = (handle || "").trim().toLowerCase().replace(/^@/, "");
+  // Normaliza o handle recebido (decodifica, remove @ ou %40 e coloca em minúsculas)
+  const rawHandle = (() => {
+    try {
+      return decodeURIComponent(handle || "");
+    } catch {
+      return handle || "";
+    }
+  })();
+  const cleanHandle = rawHandle.trim().toLowerCase().replace(/^(@|%40)/i, "");
 
   // Se o identificador for uma das abas do perfil próprio, renderiza diretamente o PerfilPage
   if (cleanHandle === "aparencia" || cleanHandle === "dados") {
@@ -82,7 +89,8 @@ function PublicProfilePage() {
 
   const handleCopyLink = () => {
     const origin = typeof window !== "undefined" ? window.location.origin : "";
-    const link = `${origin}/perfil/@${activeSlug}`;
+    const cleanSlug = String(activeSlug || "").replace(/^(@|%40)/i, "");
+    const link = `${origin}/perfil/${cleanSlug}`;
     navigator.clipboard.writeText(link);
     setCopiedLink(true);
     toast.success("Link do perfil público copiado!");
@@ -314,8 +322,8 @@ function PublicProfilePage() {
             <div className="flex flex-wrap items-center gap-2 pt-1">
               <div className="flex items-center gap-1 text-xs font-mono bg-secondary/80 border border-border/70 px-2.5 py-1 rounded-lg">
                 <Globe className="h-3 w-3 text-primary" />
-                <span className="text-muted-foreground font-normal">twtools.app/perfil/@</span>
-                <span className="font-bold text-primary">{activeSlug}</span>
+                <span className="text-muted-foreground font-normal">twin.malaca.com.br/perfil/</span>
+                <span className="font-bold text-primary">{String(activeSlug || "").replace(/^(@|%40)/i, "")}</span>
               </div>
 
               {member.custom_url ? (
