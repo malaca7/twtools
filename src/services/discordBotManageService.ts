@@ -225,7 +225,7 @@ export async function sendBotLifecycleCommand(
 
   // 4. Registra log de auditoria
   try {
-    await logAuditAction(`bot_${action}`, {
+    await logAuditAction(`bot_${action}`, "discord_bot", {
       action,
       botName: updatedConfig.botName || "Roda Dupla",
       botId: updatedConfig.clientId || "1536184283197079622",

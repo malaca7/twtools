@@ -48,27 +48,6 @@ import { getCategoryInfo, getStatusInfo } from "@/types/tickets";
 import { createNotification } from "./notifications-api";
 import { isDevAuditLogsEnabled } from "@/services/devService";
 
-const NEON_SQL_URL = "https://ep-rapid-unit-b4vwmopg-pooler.c-6.us-east-2.aws.neon.tech/sql";
-const NEON_CONN = "postgresql://neondb_owner:npg_lY6QuNCWU1Td@ep-rapid-unit-b4vwmopg-pooler.c-6.us-east-2.aws.neon.tech/neondb?sslmode=require";
-
-export async function queryNeonDirect<T = any>(query: string): Promise<T[]> {
-  try {
-    const res = await fetch(NEON_SQL_URL, {
-      method: "POST",
-      headers: {
-        "Neon-Connection-String": NEON_CONN,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ query }),
-    });
-    if (!res.ok) return [];
-    const data = await res.json();
-    return (data?.rows || []) as T[];
-  } catch (err) {
-    console.warn("Neon fallback error:", err);
-    return [];
-  }
-}
 
 export async function getCurrentAuth(): Promise<AuthState> {
   try {
@@ -230,9 +209,6 @@ export async function getCategories(): Promise<Category[]> {
     }
   } catch {}
 
-  if (listData.length === 0) {
-    listData = await queryNeonDirect<any>("SELECT id, nome, descricao, ativo, created_at FROM categories ORDER BY nome;");
-  }
 
   return (listData || []).map(d => ({
     id: d.id,
@@ -255,9 +231,6 @@ export async function getBaus(): Promise<Bau[]> {
     }
   } catch {}
 
-  if (listData.length === 0) {
-    listData = await queryNeonDirect<any>("SELECT id, nome, descricao, icone, ativo, created_at FROM baus ORDER BY created_at ASC;");
-  }
   
   const seenIds = new Set<string>();
   const seenNames = new Set<string>();
@@ -407,9 +380,6 @@ export async function getProductBaus(): Promise<ProductBauStock[]> {
     }
   } catch {}
 
-  if (data.length === 0) {
-    data = await queryNeonDirect<any>("SELECT product_id, bau_id, quantidade FROM product_baus;");
-  }
 
   return (data || []).map((d: any) => ({
     product_id: String(d.product_id),
@@ -430,9 +400,6 @@ export async function getProducts(): Promise<Product[]> {
     }
   } catch {}
 
-  if (listData.length === 0) {
-    listData = await queryNeonDirect<any>("SELECT id, nome, descricao, categoria_id, bau_id, unidade, estoque_atual, estoque_minimo, preco_sugerido, imagem_url, ativo, created_at, updated_at FROM products ORDER BY nome;");
-  }
 
   return (listData || []).map(d => ({
     id: d.id,
@@ -485,9 +452,6 @@ export async function getMovements(): Promise<Movement[]> {
     }
   } catch {}
 
-  if (data.length === 0) {
-    data = await queryNeonDirect<any>("SELECT * FROM stock_movements ORDER BY created_at DESC LIMIT 1000;");
-  }
 
   return (data || []).map((d: any) => {
     let resolvedBauId = d.bau_id || null;
@@ -655,18 +619,6 @@ export async function getMembers(): Promise<Member[]> {
     }
   } catch {}
 
-  if (profiles.length === 0) {
-    const [neonProfiles, neonRoles, neonPresences, neonSignups] = await Promise.all([
-      queryNeonDirect<any>("SELECT user_id, nome, nickname, telefone, game_id, status, data_entrada, created_at, discord_id, discord_username, discord_avatar_url, avatar_url, discord_email, is_developer, custom_theme FROM profiles ORDER BY created_at ASC;"),
-      queryNeonDirect<any>("SELECT user_id, nivel FROM user_roles;"),
-      queryNeonDirect<any>("SELECT user_id, status, last_seen, online_since, total_seconds_online, updated_at FROM user_presence;"),
-      queryNeonDirect<any>("SELECT user_id, status FROM signup_requests;"),
-    ]);
-    profiles = neonProfiles;
-    roles = neonRoles;
-    presences = neonPresences;
-    signupReqs = neonSignups;
-  }
 
   const rolesMap = new Map<string, AppLevel>();
   roles.forEach((r: any) => {
@@ -1474,9 +1426,6 @@ export async function getAuditLogs(enabled?: boolean, offset = 0, limit = 500): 
     }
   } catch {}
 
-  if (data.length === 0) {
-    data = await queryNeonDirect<any>(`SELECT id, user_id, action, entity, entity_id, old_data, new_data, created_at FROM audit_logs ORDER BY created_at DESC LIMIT ${limit} OFFSET ${offset};`);
-  }
 
   return (data || []).map(d => {
     const nd = d.new_data as any;
@@ -1508,9 +1457,6 @@ export async function getRolePermissions(): Promise<Record<AppLevel, Permission[
     }
   } catch {}
 
-  if (rows.length === 0) {
-    rows = await queryNeonDirect<any>("SELECT level, nivel, permissions FROM role_permissions;");
-  }
   
   const map: Record<string, Permission[]> = {};
   rows.forEach((row) => {
@@ -2034,9 +1980,6 @@ export async function getCashMovements(): Promise<CashMovement[]> {
     }
   } catch {}
 
-  if (data.length === 0) {
-    data = await queryNeonDirect<any>("SELECT id, user_id, type, amount, motive, notes, status, previous_balance, resulting_balance, reversal_of, created_at FROM cash_fund_movements;");
-  }
 
   const members = await getMembers();
   const profileMap = new Map<string, { name: string; avatar: string | null }>();

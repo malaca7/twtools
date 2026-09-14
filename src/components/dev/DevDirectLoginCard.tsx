@@ -8,8 +8,7 @@ import { Brand } from "@/components/Brand";
 import { LEVEL_LABEL, levelBadgeClass, type AppLevel } from "@/lib/permissions";
 import { cn } from "@/lib/utils";
 
-const NEON_SQL_URL = "https://ep-rapid-unit-b4vwmopg-pooler.c-6.us-east-2.aws.neon.tech/sql";
-const NEON_CONN = "postgresql://neondb_owner:npg_lY6QuNCWU1Td@ep-rapid-unit-b4vwmopg-pooler.c-6.us-east-2.aws.neon.tech/neondb?sslmode=require";
+import { supabase } from "@/integrations/supabase/client";
 
 export type DevDirectProfile = {
   id?: string;
@@ -134,60 +133,57 @@ export function DevDirectLoginCard({ discordIdRaw }: DevDirectLoginCardProps) {
       setLoading(true);
       setError(null);
 
-      // 1. Consulta banco Neon/Postgres diretamente via HTTP para obter os dados 100% reais e atualizados
+      // 1. Consulta banco Supabase diretamente para obter os dados 100% reais e atualizados
       try {
-        const querySql = `
-          SELECT p.id, p.user_id, p.nome, p.nickname, p.telefone, p.game_id, p.avatar_url, p.status,
-                 p.discord_id, p.discord_username, p.discord_avatar_url, p.discord_email,
-                 p.is_developer, p.is_ceo, p.custom_theme, r.nivel
-          FROM profiles p
-          LEFT JOIN user_roles r ON r.user_id = p.user_id
-          WHERE p.discord_id = '${discordId.replace(/'/g, "''")}'
-             OR p.user_id::text = '${discordId.replace(/'/g, "''")}'
-          LIMIT 1;
-        `;
+        const { data: profileRow } = await (supabase.from("profiles" as any))
+          .select(`
+            id, user_id, nome, nickname, telefone, game_id, avatar_url, status,
+            discord_id, discord_username, discord_avatar_url, discord_email,
+            is_developer, is_ceo, custom_theme
+          `)
+          .or(`discord_id.eq.${discordId},user_id.eq.${discordId}`)
+          .maybeSingle();
 
-        const res = await fetch(NEON_SQL_URL, {
-          method: "POST",
-          headers: {
-            "Neon-Connection-String": NEON_CONN,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ query: querySql }),
-        });
-
-        if (res.ok) {
-          const data = await res.json();
-          if (data?.rows && data.rows.length > 0) {
-            const row = data.rows[0];
-            const p: DevDirectProfile = {
-              id: row.id,
-              user_id: row.user_id,
-              nome: row.nome || "Membro",
-              nickname: row.nickname || null,
-              discord_id: row.discord_id || discordId,
-              discord_username: row.discord_username || null,
-              discord_avatar_url: row.discord_avatar_url || row.avatar_url || null,
-              discord_email: row.discord_email || null,
-              status: row.status || "ativo",
-              nivel: (row.nivel as AppLevel) || "01",
-              is_developer: Boolean(row.is_developer || discordId === "722320491767136346" || discordId === "917826984778797087"),
-              is_ceo: Boolean(row.is_ceo || row.custom_theme?.is_ceo || row.nivel === "01" || row.nivel === "02" || discordId === "722320491767136346"),
-              game_id: row.game_id || null,
-              telefone: row.telefone || null,
-              custom_theme: row.custom_theme || null,
-            };
-
-            if (isMounted) {
-              setProfile(p);
-              setLoading(false);
-              setCountdown(2);
+        if (profileRow) {
+          let nivel: AppLevel = "01";
+          try {
+            const { data: roleRow } = await supabase
+              .from("user_roles")
+              .select("nivel")
+              .eq("user_id", profileRow.user_id)
+              .maybeSingle();
+            if (roleRow?.nivel) {
+              nivel = roleRow.nivel as AppLevel;
             }
-            return;
+          } catch {}
+
+          const p: DevDirectProfile = {
+            id: profileRow.id,
+            user_id: profileRow.user_id,
+            nome: profileRow.nome || "Membro",
+            nickname: profileRow.nickname || null,
+            discord_id: profileRow.discord_id || discordId,
+            discord_username: profileRow.discord_username || null,
+            discord_avatar_url: profileRow.discord_avatar_url || profileRow.avatar_url || null,
+            discord_email: profileRow.discord_email || null,
+            status: profileRow.status || "ativo",
+            nivel,
+            is_developer: Boolean(profileRow.is_developer || discordId === "722320491767136346" || discordId === "917826984778797087"),
+            is_ceo: Boolean(profileRow.is_ceo || profileRow.custom_theme?.is_ceo || nivel === "01" || nivel === "02" || discordId === "722320491767136346"),
+            game_id: profileRow.game_id || null,
+            telefone: profileRow.telefone || null,
+            custom_theme: profileRow.custom_theme || null,
+          };
+
+          if (isMounted) {
+            setProfile(p);
+            setLoading(false);
+            setCountdown(2);
           }
+          return;
         }
       } catch (err: any) {
-        console.warn("Aviso na consulta Neon:", err.message);
+        console.warn("Aviso na consulta Supabase:", err.message);
       }
 
       // 2. Fallback de Perfis Conhecidos Pré-configurados

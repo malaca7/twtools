@@ -29,9 +29,9 @@ if (process.env.DATABASE_URL) {
       ssl: { rejectUnauthorized: false },
       max: 10,
     });
-    console.log("🐘 [NEON] Pool de conexões PostgreSQL Neon inicializado com sucesso!");
+    console.log("🐘 [POSTGRES] Pool de conexões PostgreSQL Supabase inicializado com sucesso!");
   } catch (poolErr) {
-    console.warn("⚠️ Falha ao inicializar pool Neon:", poolErr.message);
+    console.warn("⚠️ Falha ao inicializar pool PostgreSQL:", poolErr.message);
   }
 }
 
@@ -210,7 +210,7 @@ async function refreshAuxiliaryCaches() {
     if (neonPool) {
       const [profilesRes, productsRes, bausRes] = await Promise.all([
         neonPool.query("SELECT id, user_id, nome, nickname, discord_id, discord_avatar_url, avatar_url, discord_username FROM profiles"),
-        neonPool.query("SELECT id, nome, categoria, preco_sugerido, preco_venda FROM products"),
+        neonPool.query("SELECT id, nome, categoria_id, preco_sugerido FROM products"),
         neonPool.query("SELECT id, nome FROM baus"),
       ]);
 
@@ -240,7 +240,7 @@ async function refreshAuxiliaryCaches() {
 
     const [profilesRes, productsRes, bausRes] = await Promise.all([
       supabase.from("profiles").select("id, user_id, nome, nickname, discord_id, discord_avatar_url, avatar_url, discord_username"),
-      supabase.from("products").select("id, nome, categoria, preco_sugerido, preco_venda"),
+      supabase.from("products").select("id, nome, categoria_id, preco_sugerido"),
       supabase.from("baus").select("id, nome"),
     ]);
 

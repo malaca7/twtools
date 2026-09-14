@@ -583,7 +583,7 @@ export async function postMessageToWebhookChannel(
       if (res.ok) {
         const data = await res.json().catch(() => null);
         try {
-          logAuditAction("webhook_post_message", {
+          logAuditAction("webhook_post_message", "webhooks", {
             webhookId: webhook.id,
             webhookName: webhook.name,
             guildId: webhook.guildId,
@@ -707,8 +707,8 @@ export async function postMessageToWebhookChannel(
               channelId: webhook.channelId,
               username: webhook.username || "Twin Wheels RP",
               avatarUrl: webhook.avatarUrl,
-              content: contentMention,
-              embed: embedPayload,
+              content: cleanContent,
+              embed: discordEmbedsPayload[0],
               sender: senderName,
               timestamp: Date.now(),
             },
@@ -719,13 +719,13 @@ export async function postMessageToWebhookChannel(
 
     // Auditoria da ação
     try {
-      logAuditAction("webhook_post_message", {
+      logAuditAction("webhook_post_message", "webhooks", {
         webhookId: webhook.id,
         webhookName: webhook.name,
         guildId: webhook.guildId,
         channelId: webhook.channelId,
-        title: cleanTitle,
-        hasImage: !!imageUrl,
+        title: firstEmb.title || "Postagem Webhook",
+        hasImage: !!firstEmb.imageUrl,
         sender: senderName,
         actor: profile?.nome || user?.email || "Desenvolvedor",
       }).catch(() => {});
