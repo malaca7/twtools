@@ -495,6 +495,8 @@ export const DEFAULT_CEO_CONFIG: CeoConfiguration = {
 export const DEFAULT_CEO_PERMISSIONS: string[] = [
   "view_ceo",
   "manage_ceo_bot",
+  "bot_send_message",
+  "bot_add_app",
   "bot_change_status",
   "bot_change_name",
   "bot_change_avatar",

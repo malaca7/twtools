@@ -742,6 +742,18 @@ export const PAGE_CARDS: PageCardConfig[] = [
         badge: "Acesso Base",
       },
       {
+        key: "bot_send_message",
+        label: "Enviar Mensagem",
+        description: "Permite visualizar e utilizar a opção/botão de enviar mensagem pelo bot no Discord.",
+        badge: "Mensagem / Chat",
+      },
+      {
+        key: "bot_add_app",
+        label: "Adicionar App",
+        description: "Permite visualizar e utilizar o botão '+ Adicionar app' para gerar o link OAuth2 e convidar o bot para o servidor Discord.",
+        badge: "Adicionar App",
+      },
+      {
         key: "bot_change_presence",
         label: "Mudar Presença do Bot",
         description: "Permite alterar a presença operacional do bot (On-line, Parado, Não Incomodar, Invisível).",
@@ -782,12 +794,6 @@ export const PAGE_CARDS: PageCardConfig[] = [
         label: "Ligar / Desligar Bot",
         description: "Permite iniciar ou parar a instância do bot.",
         badge: "Ciclo de Vida",
-      },
-      {
-        key: "bot_invite",
-        label: "Convidar Bot",
-        description: "Permite abrir as opções de convite, gerar link OAuth2 e adicionar o bot ao servidor Discord.",
-        badge: "Convite / OAuth2",
       },
     ],
   },

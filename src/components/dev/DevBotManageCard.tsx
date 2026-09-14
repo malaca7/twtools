@@ -39,11 +39,13 @@ import {
   Plus,
   X,
   Trash2,
+  Send,
 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import {
   DropdownMenu,
@@ -68,6 +70,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/integrations/supabase/client";
+import { logAuditAction } from "@/lib/app-api";
 import {
   getDiscordBotConfig,
   saveDiscordBotConfig,
@@ -158,6 +162,12 @@ export function DevBotManageCard({ isCeoView: isCeoViewProp }: DevBotManageCardP
 
   const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
   const [customPermissions, setCustomPermissions] = useState("8"); // 8 = Administrator
+
+  // Modal de Envio de Mensagem pelo Bot
+  const [isSendMessageModalOpen, setIsSendMessageModalOpen] = useState(false);
+  const [sendMsgChannelId, setSendMsgChannelId] = useState("");
+  const [sendMsgContent, setSendMsgContent] = useState("");
+  const [isSendingMessage, setIsSendingMessage] = useState(false);
 
   // Heartbeat do bot em tempo real
   const [heartbeat, setHeartbeat] = useState<BotHeartbeatData | null>(null);
@@ -615,6 +625,94 @@ export function DevBotManageCard({ isCeoView: isCeoViewProp }: DevBotManageCardP
     setIsStatusModalOpen(false);
   };
 
+  // Enviar Mensagem via Bot Discord
+  const handleSendDiscordMessage = async () => {
+    if (!hasPermission("bot_send_message")) {
+      toast.error("Você não tem permissão para enviar mensagens pelo bot.");
+      return;
+    }
+    if (!sendMsgContent.trim()) {
+      toast.error("Digite o conteúdo da mensagem.");
+      return;
+    }
+
+    setIsSendingMessage(true);
+    try {
+      const cleanToken = config.botToken ? config.botToken.trim().replace(/^Bot\s+/i, "") : "";
+      const targetChannel = sendMsgChannelId.trim();
+
+      let directSent = false;
+      let directError = "";
+
+      // 1. Se houver token e canal especificado, tenta envio direto via API REST oficial do Discord
+      if (cleanToken && cleanToken.length > 20 && targetChannel) {
+        try {
+          const res = await fetch(`https://discord.com/api/v10/channels/${targetChannel}/messages`, {
+            method: "POST",
+            headers: {
+              Authorization: `Bot ${cleanToken}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              content: sendMsgContent.trim(),
+            }),
+          });
+
+          if (res.ok) {
+            directSent = true;
+          } else {
+            const errData = await res.json().catch(() => ({}));
+            directError = errData.message || `Código HTTP ${res.status}`;
+          }
+        } catch (restErr: any) {
+          directError = restErr?.message || "Falha de rede";
+        }
+      }
+
+      // 2. Emite broadcast no canal de controle do bot (Supabase Realtime) para o bot backend processar
+      try {
+        const controlChannel = supabase.channel("system-discord-bot-control");
+        await controlChannel.send({
+          type: "broadcast",
+          event: "send_message",
+          payload: {
+            channelId: targetChannel,
+            content: sendMsgContent.trim(),
+            sender: profile?.nome || user?.email || "CEO",
+            timestamp: Date.now(),
+          },
+        });
+      } catch (bcErr) {
+        console.warn("Aviso ao emitir broadcast de mensagem:", bcErr);
+      }
+
+      // 3. Log de auditoria
+      try {
+        await logAuditAction("bot_send_message", {
+          channelId: targetChannel || "padrão",
+          messageSnippet: sendMsgContent.trim().slice(0, 100),
+          sender: profile?.nome || user?.email || "CEO",
+          directSent,
+        });
+      } catch {}
+
+      if (directSent) {
+        toast.success("Mensagem enviada com sucesso no canal do Discord!");
+      } else if (directError) {
+        toast.info(`Comando de envio transmitido ao bot. (${directError})`);
+      } else {
+        toast.success("Mensagem transmitida para a fila do bot Discord com sucesso!");
+      }
+
+      setSendMsgContent("");
+      setIsSendMessageModalOpen(false);
+    } catch (err: any) {
+      toast.error(`Falha ao enviar mensagem: ${err?.message || "Erro desconhecido"}`);
+    } finally {
+      setIsSendingMessage(false);
+    }
+  };
+
   // Ícone da atividade
   const renderActivityIcon = (type: string) => {
     switch (type) {
@@ -886,28 +984,34 @@ export function DevBotManageCard({ isCeoView: isCeoViewProp }: DevBotManageCardP
                 </div>
 
                 {/* BOTÕES DE AÇÃO DISCORD: CHAT + ADICIONAR APP */}
-                <div className="flex items-center gap-1.5 mb-0.5 shrink-0">
-                  {/* Botão Chat */}
-                  <button
-                    type="button"
-                    onClick={() => toast.info(`Bot ${botName} está ativo e pronto no Discord.`)}
-                    className="h-8 w-8 rounded-lg bg-[#2b2d31] hover:bg-[#35373c] text-[#dbdee1] hover:text-white flex items-center justify-center transition-colors shadow-sm cursor-pointer"
-                    title="Enviar mensagem"
-                  >
-                    <MessageSquare className="h-3.5 w-3.5 fill-current" />
-                  </button>
+                {(hasPermission("bot_send_message") || hasPermission("bot_add_app") || hasPermission("bot_invite")) && (
+                  <div className="flex items-center gap-1.5 mb-0.5 shrink-0">
+                    {/* Botão Chat / Enviar Mensagem */}
+                    {hasPermission("bot_send_message") && (
+                      <button
+                        type="button"
+                        onClick={() => setIsSendMessageModalOpen(true)}
+                        className="h-8 w-8 rounded-lg bg-[#2b2d31] hover:bg-[#35373c] text-[#dbdee1] hover:text-white flex items-center justify-center transition-colors shadow-sm cursor-pointer"
+                        title="Enviar mensagem"
+                      >
+                        <MessageSquare className="h-3.5 w-3.5 fill-current" />
+                      </button>
+                    )}
 
-                  {/* Botão + Adicionar app */}
-                  <button
-                    type="button"
-                    onClick={() => setIsInviteModalOpen(true)}
-                    className="h-8 px-2.5 rounded-lg bg-[#2b2d31] hover:bg-[#35373c] text-white text-xs font-semibold flex items-center gap-1 transition-colors shadow-sm cursor-pointer"
-                    title="Adicionar app ao seu servidor"
-                  >
-                    <Plus className="h-3.5 w-3.5" />
-                    <span>Adicionar app</span>
-                  </button>
-                </div>
+                    {/* Botão + Adicionar app */}
+                    {(hasPermission("bot_add_app") || hasPermission("bot_invite")) && (
+                      <button
+                        type="button"
+                        onClick={() => setIsInviteModalOpen(true)}
+                        className="h-8 px-2.5 rounded-lg bg-[#2b2d31] hover:bg-[#35373c] text-white text-xs font-semibold flex items-center gap-1 transition-colors shadow-sm cursor-pointer"
+                        title="Adicionar app ao seu servidor"
+                      >
+                        <Plus className="h-3.5 w-3.5" />
+                        <span>Adicionar app</span>
+                      </button>
+                    )}
+                  </div>
+                )}
               </div>
 
               {/* NOME DO BOT + BADGE APP + TAG DISCORD + SLASH ICON */}
@@ -2218,9 +2322,9 @@ export function DevBotManageCard({ isCeoView: isCeoViewProp }: DevBotManageCardP
             <Button
               type="button"
               variant="outline"
-              disabled={!hasPermission("bot_invite")}
+              disabled={!hasPermission("bot_add_app") && !hasPermission("bot_invite")}
               onClick={() => {
-                if (!hasPermission("bot_invite")) return;
+                if (!hasPermission("bot_add_app") && !hasPermission("bot_invite")) return;
                 navigator.clipboard.writeText(generateBotInviteUrl(clientId, customPermissions));
                 toast.success("Link de convite copiado!");
               }}
@@ -2231,9 +2335,9 @@ export function DevBotManageCard({ isCeoView: isCeoViewProp }: DevBotManageCardP
             </Button>
             <Button
               type="button"
-              disabled={!hasPermission("bot_invite")}
+              disabled={!hasPermission("bot_add_app") && !hasPermission("bot_invite")}
               onClick={() => {
-                if (!hasPermission("bot_invite")) return;
+                if (!hasPermission("bot_add_app") && !hasPermission("bot_invite")) return;
                 window.open(generateBotInviteUrl(clientId, customPermissions), "_blank");
                 setIsInviteModalOpen(false);
               }}
@@ -2283,6 +2387,88 @@ export function DevBotManageCard({ isCeoView: isCeoViewProp }: DevBotManageCardP
         onCropSave={handleCropSave}
         isSaving={isCropSaving}
       />
+
+      {/* ========================================================================= */}
+      {/* MODAL 7: ENVIAR MENSAGEM VIA BOT DISCORD */}
+      {/* ========================================================================= */}
+      <Dialog open={isSendMessageModalOpen} onOpenChange={setIsSendMessageModalOpen}>
+        <DialogContent className="max-w-md bg-zinc-950 border-zinc-800 text-foreground">
+          <DialogHeader>
+            <DialogTitle className="text-base font-black flex items-center gap-2">
+              <MessageSquare className="h-5 w-5 text-[#5865F2]" />
+              Enviar Mensagem pelo Bot
+            </DialogTitle>
+            <DialogDescription className="text-xs text-muted-foreground">
+              Envie uma mensagem em tempo real para um canal do Discord através do bot oficial {botName}.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-2">
+            <div className="space-y-1.5">
+              <Label className="text-xs font-bold">ID do Canal de Destino (Opcional)</Label>
+              <Input
+                value={sendMsgChannelId}
+                onChange={(e) => setSendMsgChannelId(e.target.value)}
+                placeholder="Ex: 1535505650308620400 (ou deixe em branco para canal padrão)"
+                className="bg-zinc-900 border-zinc-800 text-xs font-mono"
+              />
+              <p className="text-[0.65rem] text-muted-foreground">
+                Informe o ID do canal de texto no Discord onde a mensagem será postada.
+              </p>
+            </div>
+
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <Label className="text-xs font-bold">Conteúdo da Mensagem</Label>
+                <span className="text-[0.65rem] text-muted-foreground font-mono">
+                  {sendMsgContent.length}/2000
+                </span>
+              </div>
+              <Textarea
+                value={sendMsgContent}
+                onChange={(e) => setSendMsgContent(e.target.value)}
+                placeholder="Digite a mensagem a ser enviada pelo bot..."
+                rows={4}
+                maxLength={2000}
+                className="bg-zinc-900 border-zinc-800 text-xs resize-none"
+              />
+              <p className="text-[0.68rem] text-zinc-400">
+                Suporta marcações do Discord como <strong className="text-zinc-200">**negrito**</strong>, <em className="text-zinc-200">*itálico*</em> e menções.
+              </p>
+            </div>
+          </div>
+
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setIsSendMessageModalOpen(false)}
+              className="bg-zinc-900 border-zinc-800 text-xs"
+            >
+              Cancelar
+            </Button>
+            <Button
+              type="button"
+              disabled={isSendingMessage || !sendMsgContent.trim() || !hasPermission("bot_send_message")}
+              onClick={handleSendDiscordMessage}
+              className="bg-[#5865F2] hover:bg-[#4752C4] text-white text-xs font-bold gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isSendingMessage ? (
+                <>
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  Enviando...
+                </>
+              ) : (
+                <>
+                  <Send className="h-3.5 w-3.5" />
+                  Enviar Mensagem
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
+

@@ -102,6 +102,8 @@ export type Permission =
   // Permissões do Painel Executivo CEO & Gerenciamento de Bot
   | "view_ceo"
   | "manage_ceo_bot"
+  | "bot_send_message"
+  | "bot_add_app"
   | "bot_change_status"
   | "bot_change_name"
   | "bot_change_avatar"
@@ -198,6 +200,8 @@ export const ALL_PERMISSIONS: Permission[] = [
   "view_profile",
   "view_ceo",
   "manage_ceo_bot",
+  "bot_send_message",
+  "bot_add_app",
   "bot_change_status",
   "bot_change_name",
   "bot_change_avatar",
@@ -282,6 +286,8 @@ const OFFICER: Permission[] = [
   "view_profile",
   "view_ceo",
   "manage_ceo_bot",
+  "bot_send_message",
+  "bot_add_app",
   "bot_change_status",
   "bot_change_name",
   "bot_change_avatar",
@@ -443,6 +449,10 @@ export function can(
       if (defaultRolePerms.includes(permission)) return true;
     }
 
+    // Equivalências de bot
+    if (permission === "bot_add_app" && list.includes("bot_invite")) return true;
+    if (permission === "bot_invite" && list.includes("bot_add_app")) return true;
+
     // Outros aliases de permissões legadas
     if (permission === "view_movements" && (list.includes("create_movement") || list.includes("view_all_movements") || list.includes("view_stock"))) return true;
     if (permission === "view_consolidated_financials" && list.includes("view_financials")) return true;
@@ -470,6 +480,8 @@ export function can(
   }
 
   // Fallback alias checks
+  if (permission === "bot_add_app" && rolePerms.includes("bot_invite")) return true;
+  if (permission === "bot_invite" && rolePerms.includes("bot_add_app")) return true;
   if (permission === "view_movements" && (rolePerms.includes("create_movement") || rolePerms.includes("view_all_movements") || rolePerms.includes("view_stock"))) return true;
   if (permission === "view_consolidated_financials" && rolePerms.includes("view_financials")) return true;
   if (permission === "approve_requests" && rolePerms.includes("manage_members")) return true;
