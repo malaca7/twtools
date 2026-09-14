@@ -698,12 +698,13 @@ export async function getMembers(): Promise<Member[]> {
     presenceMap.set(p.user_id, item);
   });
 
-  return (profilesRes.data || [])
+  return profiles
     .filter((d: any) => {
       // User must not be pending and must have an assigned role or approved status
       if (pendingSet.has(d.user_id)) return false;
       const hasRole = rolesMap.has(d.user_id);
-      return hasRole || d.status === "aprovado";
+      const isApproved = d.status === "ativo" || d.status === "aprovado";
+      return hasRole || isApproved;
     })
     .map((d: any) => {
       const roleNivel = rolesMap.get(d.user_id) || "novato";
