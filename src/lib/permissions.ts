@@ -193,7 +193,6 @@ export const ALL_PERMISSIONS: Permission[] = [
   "view_tickets",
   "create_ticket",
   "manage_tickets",
-  "view_all_tickets",
   "view_notifications",
   "send_notifications",
   "manage_notifications",
@@ -225,12 +224,39 @@ export const ALL_PERMISSIONS: Permission[] = [
   "webhook_view_code",
   "webhook_save_config",
   "view_ceo_financials",
-  "view_financials",
-  "manage_members",
-  "view_all_sales",
 ];
 
-const ADMIN: Permission[] = ALL_PERMISSIONS;
+export const CEO_PERMISSIONS: Permission[] = [
+  "view_ceo",
+  "manage_ceo_bot",
+  "bot_send_message",
+  "bot_add_app",
+  "bot_change_status",
+  "bot_change_name",
+  "bot_change_avatar",
+  "bot_change_banner",
+  "bot_change_presence",
+  "bot_restart",
+  "bot_power_toggle",
+  "bot_invite",
+  "bot_manage_token",
+  "bot_view_intents",
+  "bot_change_intents",
+  "bot_manage_discloud_config",
+  "manage_ceo_webhooks",
+  "webhook_send_message",
+  "webhook_test",
+  "webhook_create",
+  "webhook_edit",
+  "webhook_delete",
+  "webhook_toggle_active",
+  "webhook_copy_url",
+  "webhook_view_code",
+  "webhook_save_config",
+  "view_ceo_financials",
+];
+
+const ADMIN: Permission[] = ALL_PERMISSIONS.filter((p) => !CEO_PERMISSIONS.includes(p));
 
 const OFFICER: Permission[] = [
   "view_dashboard",
@@ -284,24 +310,6 @@ const OFFICER: Permission[] = [
   "send_notifications",
   "manage_notifications",
   "view_profile",
-  "view_ceo",
-  "manage_ceo_bot",
-  "bot_send_message",
-  "bot_add_app",
-  "bot_change_status",
-  "bot_change_name",
-  "bot_change_avatar",
-  "bot_change_banner",
-  "bot_change_presence",
-  "bot_restart",
-  "bot_power_toggle",
-  "bot_invite",
-  "bot_manage_token",
-  "bot_view_intents",
-  "bot_change_intents",
-  "bot_manage_discloud_config",
-  "manage_ceo_webhooks",
-  "view_ceo_financials",
 ];
 
 const MANAGER: Permission[] = [

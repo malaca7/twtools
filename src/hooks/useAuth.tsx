@@ -87,11 +87,58 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const loadAuth = useCallback(async () => {
+    // 1. DEV SIMULATOR: Prioritize simulation stored in sessionStorage (if active from Dev Hub)
+    if (typeof window !== "undefined") {
+      const simRaw = sessionStorage.getItem("tw_dev_impersonate");
+      if (simRaw) {
+        try {
+          const sim = JSON.parse(simRaw);
+          const simState: AuthState = {
+            user: { id: sim.user_id || "dev-sim", email: sim.discord_email || null },
+            profile: {
+              id: sim.id || sim.user_id,
+              user_id: sim.user_id,
+              nome: sim.nome || "Membro",
+              nickname: sim.nickname || null,
+              telefone: sim.telefone || null,
+              game_id: sim.game_id || null,
+              avatar_url: sim.discord_avatar_url || sim.avatar_url || null,
+              status: sim.status || "ativo",
+              data_entrada: sim.data_entrada || "2026-09-04",
+              discord_id: sim.discord_id || null,
+              discord_username: sim.discord_username || null,
+              discord_avatar_url: sim.discord_avatar_url || null,
+              discord_email: sim.discord_email || null,
+              is_developer: Boolean(sim.is_developer === true),
+              is_ceo: Boolean(sim.is_ceo === true),
+              custom_theme: sim.custom_theme || null,
+            } as any,
+            level: sim.nivel || "novato",
+            signupRequestStatus: null,
+            approvedAccess: true,
+          };
+
+          if (sim.custom_theme && typeof document !== "undefined") {
+            try {
+              const th = sim.custom_theme;
+              if (th.themeStyle) document.documentElement.setAttribute("data-theme-style", th.themeStyle);
+              if (th.cardStyle) document.documentElement.setAttribute("data-card-style", th.cardStyle);
+              if (th.bgPattern) document.documentElement.setAttribute("data-bg-pattern", th.bgPattern);
+              if (th.fontFamily) document.documentElement.setAttribute("data-font-family", th.fontFamily);
+            } catch {}
+          }
+
+          applyState(simState);
+          return;
+        } catch {}
+      }
+    }
+
     const next = await getCurrentAuth();
 
-    // DEV FALLBACK: If no real session, check for dev impersonation in sessionStorage or localStorage
+    // 2. DEV DIRECT LOGIN FALLBACK: If no real Supabase session, check localStorage
     if (!next.user && typeof window !== "undefined") {
-      const devRaw = sessionStorage.getItem("tw_dev_impersonate") || localStorage.getItem("tw_dev_impersonate");
+      const devRaw = localStorage.getItem("tw_dev_impersonate");
       if (devRaw) {
         try {
           const dev = JSON.parse(devRaw);
@@ -111,8 +158,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               discord_username: dev.discord_username || null,
               discord_avatar_url: dev.discord_avatar_url || null,
               discord_email: dev.discord_email || null,
-              is_developer: Boolean(dev.is_developer),
-              is_ceo: Boolean(dev.is_ceo),
+              is_developer: Boolean(dev.is_developer === true),
+              is_ceo: Boolean(dev.is_ceo === true),
               custom_theme: dev.custom_theme || null,
             } as any,
             level: dev.nivel || "novato",
@@ -120,7 +167,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             approvedAccess: true,
           };
 
-          // Aplica custom_theme automaticamente se existir
           if (dev.custom_theme && typeof document !== "undefined") {
             try {
               const th = dev.custom_theme;
@@ -325,6 +371,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
+  // Garante que membros comuns sem Tag Dev ou Tag CEO nunca fiquem travados em panelMode dev ou ceo
+  useEffect(() => {
+    if (!loading && !isDevUser && !isCeoUser && panelMode !== "member") {
+      setPanelModeState("member");
+      if (typeof window !== "undefined") {
+        try {
+          localStorage.setItem("tw_panel_mode", "member");
+          sessionStorage.setItem("tw_panel_mode", "member");
+        } catch {}
+      }
+    }
+  }, [loading, isDevUser, isCeoUser, panelMode]);
+
   const hasPermission = useCallback(
     (permission: Permission) => {
       const bypassActive = isDevBypassActive();
@@ -339,16 +398,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return true;
       }
 
-      // 2. Avaliação da Tag CEO: se estiver no painel CEO ou possuir a Tag CEO ativa
-      if (inCeoPanel || isCeoUser) {
+      // 2. Avaliação da Tag CEO: APENAS se o usuário possuir comprovadamente a Tag CEO (isCeoUser)
+      // ou se for um desenvolvedor inspecionando o painel CEO
+      if (isCeoUser || (isDevUser && inCeoPanel)) {
         const ceoPerms = getCeoTagPermissionsSync();
-        if (Array.isArray(ceoPerms)) {
-          if (inCeoPanel) {
-            return ceoPerms.includes(permission);
-          }
-          if (ceoPerms.includes(permission)) {
-            return true;
-          }
+        if (Array.isArray(ceoPerms) && ceoPerms.includes(permission)) {
+          return true;
         }
       }
 

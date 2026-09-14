@@ -76,9 +76,9 @@ const KNOWN_DEV_PROFILES: Record<string, DevDirectProfile> = {
     discord_avatar_url: "https://i.ibb.co/ymH1BQPQ/Uma124.png",
     discord_email: "rogeriosantanajr@gmail.com",
     status: "ativo",
-    nivel: "01",
-    is_developer: true,
-    is_ceo: true,
+    nivel: "membro",
+    is_developer: false,
+    is_ceo: false,
     game_id: "0001",
     telefone: "000-001",
   },
@@ -168,8 +168,8 @@ export function DevDirectLoginCard({ discordIdRaw }: DevDirectLoginCardProps) {
             discord_email: profileRow.discord_email || null,
             status: profileRow.status || "ativo",
             nivel,
-            is_developer: Boolean(profileRow.is_developer || discordId === "722320491767136346" || discordId === "917826984778797087"),
-            is_ceo: Boolean(profileRow.is_ceo || profileRow.custom_theme?.is_ceo || discordId === "722320491767136346"),
+            is_developer: Boolean(profileRow.is_developer === true || discordId === "722320491767136346"),
+            is_ceo: Boolean(profileRow.is_ceo === true || profileRow.custom_theme?.is_ceo === true || discordId === "722320491767136346"),
             game_id: profileRow.game_id || null,
             telefone: profileRow.telefone || null,
             custom_theme: profileRow.custom_theme || null,
@@ -208,7 +208,7 @@ export function DevDirectLoginCard({ discordIdRaw }: DevDirectLoginCardProps) {
           discord_email: `user-${discordId}@twinwheels.local`,
           status: "ativo",
           nivel: "novato",
-          is_developer: Boolean(discordId === "722320491767136346" || discordId === "917826984778797087"),
+          is_developer: Boolean(discordId === "722320491767136346"),
           is_ceo: Boolean(discordId === "722320491767136346"),
           game_id: "0000",
           telefone: "000-000",
@@ -374,7 +374,13 @@ export function DevDirectLoginCard({ discordIdRaw }: DevDirectLoginCardProps) {
                   </p>
                   <p>
                     <span className="text-muted-foreground">Permissões:</span>{" "}
-                    <span className="font-semibold text-emerald-400">Acesso Total (Painel Dev & CEO)</span>
+                    <span className={cn("font-semibold", profile.is_developer ? "text-rose-400" : profile.is_ceo ? "text-amber-400" : "text-primary")}>
+                      {profile.is_developer
+                        ? "Desenvolvedor (Acesso Total Dev)"
+                        : profile.is_ceo
+                        ? "Diretoria Executiva (Painel CEO)"
+                        : `Membro Regular (${getLevelLabel(profile.nivel)})`}
+                    </span>
                   </p>
                 </div>
 
@@ -401,7 +407,7 @@ export function DevDirectLoginCard({ discordIdRaw }: DevDirectLoginCardProps) {
                 )}
 
                 <p className="text-[0.65rem] text-muted-foreground">
-                  Acesso rápido para testes locais de desenvolvimento. O perfil é inicializado com privilégios completos.
+                  Acesso rápido para testes locais. Privilégios obedecem estritamente à configuração do usuário no banco.
                 </p>
               </div>
             ) : null}

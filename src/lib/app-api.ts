@@ -129,8 +129,8 @@ export async function getCurrentAuth(): Promise<AuthState> {
     };
 
     const pAny = profileRow as any;
-    const isDev = Boolean(pAny?.is_developer || discordId === "722320491767136346" || discordId === "917826984778797087");
-    const isCeo = Boolean(pAny?.is_ceo || pAny?.custom_theme?.is_ceo || discordId === "722320491767136346");
+    const isDev = Boolean(pAny?.is_developer === true || discordId === "722320491767136346");
+    const isCeo = Boolean(pAny?.is_ceo === true || pAny?.custom_theme?.is_ceo === true || discordId === "722320491767136346");
 
     const profile: Profile | null = profileRow ? {
       id: pAny.id,
@@ -902,6 +902,20 @@ export async function updateMemberDetails(payload: {
   };
 
   if (payload.is_developer !== undefined) {
+    const { data: { session } } = await supabase.auth.getSession();
+    const actorId = session?.user?.id;
+    if (!actorId) {
+      throw new Error("403 Forbidden — Sessão não autenticada.");
+    }
+    const { data: actorProfile } = await (supabase.from("profiles" as any))
+      .select("is_developer")
+      .eq("user_id", actorId)
+      .maybeSingle();
+
+    if (!actorProfile || !actorProfile.is_developer) {
+      throw new Error("403 Forbidden — Apenas quem possui a Tag Dev pode ativar ou desativar a Tag Desenvolvedor.");
+    }
+
     updateFields.is_developer = Boolean(payload.is_developer);
   }
 
@@ -922,6 +936,7 @@ export async function updateMemberDetails(payload: {
     }
 
     const currentTheme = (oldProfile as any)?.custom_theme || {};
+    updateFields.is_ceo = Boolean(payload.is_ceo);
     updateFields.custom_theme = {
       ...currentTheme,
       is_ceo: Boolean(payload.is_ceo),

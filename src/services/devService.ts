@@ -176,8 +176,7 @@ export async function saveAdminTagPermissions(
 }
 
 export const DEV_DISCORD_IDS: string[] = [
-  "917826984778797087", // Malaca
-  "722320491767136346", // Developers / malaca7k
+  "722320491767136346", // Malaca (Fundador & Dev)
 ];
 
 /**
@@ -189,10 +188,10 @@ export function isUserDeveloper(
   profile: Profile | null | undefined,
   level: AppLevel | null | undefined
 ): boolean {
-  if (!profile) return false;
+  if (!profile && !level) return false;
 
-  // Acesso estrito: SOMENTE quem tem a chavinha "is_developer" (Tag Dev) ativada no perfil.
-  return Boolean((profile as any).is_developer === true);
+  // Acesso estrito: SOMENTE quem tem a chavinha "is_developer" (Tag Dev) ativada no perfil ou cargo "desenvolvedor"
+  return Boolean((profile as any)?.is_developer === true || level === "desenvolvedor");
 }
 
 /**
@@ -575,8 +574,8 @@ export function isUserCeo(
   profile?: Profile | null | undefined,
   member?: any
 ): boolean {
-  if (profile?.is_ceo || profile?.custom_theme?.is_ceo) return true;
-  if (member?.is_ceo || member?.custom_theme?.is_ceo) return true;
+  if (profile?.is_ceo === true || profile?.custom_theme?.is_ceo === true) return true;
+  if (member?.is_ceo === true || member?.custom_theme?.is_ceo === true) return true;
   return false;
 }
 
