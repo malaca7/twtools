@@ -71,7 +71,7 @@ function AuthCallbackPage() {
         await refresh();
 
         toast.success("Autenticação via Discord realizada com sucesso!");
-        navigate({ to: "/", replace: true });
+        navigate({ to: "/dashboard", replace: true });
       } catch (err: any) {
         console.error("Auth callback error:", err);
         const msg = err.message || "Não foi possível concluir a autenticação.";

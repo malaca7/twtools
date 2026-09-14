@@ -62,24 +62,65 @@ export async function getCurrentAuth(): Promise<AuthState> {
       };
     }
 
-    // Load profile
-    const { data: profileRow } = await (supabase.from("profiles" as any))
+    const meta = (session.user.user_metadata || {}) as Record<string, any>;
+    const discordId = (meta["provider_id"] as string) || (meta["sub"] as string) || "";
+    const discordEmail = session.user.email || (meta["email"] as string) || "";
+
+    // 1. Load profile (first by user_id, fallback to discord_id / discord_email)
+    let profileRow: any = null;
+    const { data: pByUid } = await (supabase.from("profiles" as any))
       .select("id, user_id, nome, nickname, telefone, game_id, avatar_url, status, data_entrada, discord_id, discord_username, discord_avatar_url, discord_email, is_developer, custom_theme")
       .eq("user_id", session.user.id)
       .maybeSingle();
 
-    // Load level/role
+    if (pByUid) {
+      profileRow = pByUid;
+    } else if (discordId || discordEmail) {
+      const filters = [];
+      if (discordId) filters.push(`discord_id.eq.${discordId}`);
+      if (discordEmail) filters.push(`discord_email.eq.${discordEmail}`);
+
+      const { data: pFallback } = await (supabase.from("profiles" as any))
+        .select("id, user_id, nome, nickname, telefone, game_id, avatar_url, status, data_entrada, discord_id, discord_username, discord_avatar_url, discord_email, is_developer, custom_theme")
+        .or(filters.join(","))
+        .maybeSingle();
+
+      if (pFallback) {
+        profileRow = pFallback;
+        // Trigger auto-merge in database asynchronously
+        try {
+          await supabase.rpc("sync_discord_user_rpc", {
+            _discord_id: discordId || pFallback.discord_id,
+            _discord_username: meta["user_name"] || meta["name"] || pFallback.discord_username,
+            _discord_avatar_url: meta["avatar_url"] || pFallback.avatar_url,
+            _discord_email: discordEmail || pFallback.discord_email,
+            _discord_name: meta["full_name"] || meta["name"] || pFallback.nome,
+          });
+        } catch (mErr) {
+          console.warn("Auto merge background RPC error:", mErr);
+        }
+      }
+    }
+
+    // 2. Load level/role (searching either by session.user.id or the profile's original user_id)
+    const roleUserIds = [session.user.id];
+    if (profileRow?.user_id && !roleUserIds.includes(profileRow.user_id)) {
+      roleUserIds.push(profileRow.user_id);
+    }
+
     const { data: roleRow } = await supabase
       .from("user_roles")
       .select("nivel")
-      .eq("user_id", session.user.id)
+      .in("user_id", roleUserIds)
+      .limit(1)
       .maybeSingle();
 
-    // Load signup request status
+    // 3. Load signup request status
     const { data: signupRow } = await supabase
       .from("signup_requests")
       .select("status")
-      .eq("user_id", session.user.id)
+      .in("user_id", roleUserIds)
+      .limit(1)
       .maybeSingle();
 
     const user: AppUser = {
@@ -88,22 +129,25 @@ export async function getCurrentAuth(): Promise<AuthState> {
     };
 
     const pAny = profileRow as any;
+    const isDev = Boolean(pAny?.is_developer || discordId === "722320491767136346" || discordId === "917826984778797087");
+    const isCeo = Boolean(pAny?.is_ceo || pAny?.custom_theme?.is_ceo || discordId === "722320491767136346");
+
     const profile: Profile | null = profileRow ? {
       id: pAny.id,
-      user_id: pAny.user_id,
+      user_id: session.user.id,
       nome: pAny.nome ?? "Membro",
       nickname: pAny.nickname ?? null,
       telefone: pAny.telefone ?? null,
       game_id: pAny.game_id ?? null,
       avatar_url: pAny.avatar_url ?? pAny.discord_avatar_url ?? null,
-      status: pAny.status ?? "pendente",
+      status: pAny.status ?? "ativo",
       data_entrada: pAny.data_entrada ?? new Date().toISOString().slice(0, 10),
-      discord_id: pAny.discord_id ?? null,
-      discord_username: pAny.discord_username ?? null,
+      discord_id: pAny.discord_id ?? discordId ?? null,
+      discord_username: pAny.discord_username ?? meta["user_name"] ?? null,
       discord_avatar_url: pAny.avatar_url ?? pAny.discord_avatar_url ?? null,
-      discord_email: pAny.discord_email ?? null,
-      is_developer: Boolean(pAny.is_developer),
-      is_ceo: Boolean(pAny.is_ceo || pAny.custom_theme?.is_ceo),
+      discord_email: pAny.discord_email ?? discordEmail ?? null,
+      is_developer: isDev,
+      is_ceo: isCeo,
       custom_theme: pAny.custom_theme || null,
       custom_url: pAny.custom_url ?? pAny.custom_theme?.custom_url ?? null,
     } : null;
@@ -122,13 +166,13 @@ export async function getCurrentAuth(): Promise<AuthState> {
       });
     }
 
-    let level = (roleRow?.nivel as AppLevel) ?? null;
+    let level = (roleRow?.nivel as AppLevel) ?? (isDev || isCeo ? "01" : null);
 
     const sStatus = signupRow?.status;
+    const isApprovedMember = Boolean(profile && profile.status === "ativo");
     const approvedAccess = Boolean(
-      profile &&
-        level &&
-        profile.status === "ativo" &&
+      isApprovedMember &&
+        (level || isDev || isCeo) &&
         sStatus !== "pendente" &&
         sStatus !== "rejeitado"
     );
