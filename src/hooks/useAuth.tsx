@@ -211,7 +211,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // Real-time synchronization for role changes and permissions updates
   useEffect(() => {
-    const currentUserId = state.user?.id || session?.user?.id;
+    const currentUserId = profile?.user_id || session?.user?.id;
     if (!currentUserId) return;
 
     const channel = supabase
@@ -262,7 +262,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => {
       void supabase.removeChannel(channel);
     };
-  }, [loadAuth, queryClient, state.user?.id, session?.user?.id]);
+  }, [loadAuth, queryClient, profile?.user_id, session?.user?.id]);
 
   const refresh = useCallback(async () => {
     await loadAuth();
