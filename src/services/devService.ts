@@ -787,9 +787,10 @@ export async function toggleMemberCeoTag(
     is_ceo: enable,
   };
 
-  // 2. Atualiza no perfil do membro (profiles.custom_theme)
+  // 2. Atualiza no perfil do membro (profiles.is_ceo e profiles.custom_theme)
   const { error: updateErr } = await (supabase.from("profiles" as any))
     .update({
+      is_ceo: enable,
       custom_theme: updatedTheme,
       updated_at: new Date().toISOString(),
     })

@@ -364,6 +364,152 @@ html[data-theme="toxic_violet"] {
   --shadow-elegant: 0 18px 45px -22px oklch(0.80 0.24 135 / 50%);
 }
 
+/* Malaca DrkOLed Theme (Absolute OLED Black & Low-Glare Night Minimal) */
+html[data-theme="malaca_drkoled"] {
+  --background: #000000;
+  --foreground: #b4b4b8;
+
+  --card: #080808;
+  --card-foreground: #b4b4b8;
+  --popover: #0d0d0d;
+  --popover-foreground: #b4b4b8;
+
+  --primary: #242428;
+  --primary-foreground: #c8c8cc;
+
+  --secondary: #121212;
+  --secondary-foreground: #9a9aa0;
+
+  --muted: #0d0d0d;
+  --muted-foreground: #6b6b73;
+
+  --accent: #17171a;
+  --accent-foreground: #c8c8cc;
+
+  --destructive: #421b1b;
+  --destructive-foreground: #d49595;
+
+  --border: #181818;
+  --input: #121212;
+  --ring: #2c2c32;
+
+  --sidebar: #000000;
+  --sidebar-foreground: #9a9aa0;
+  --sidebar-primary: #1f1f23;
+  --sidebar-primary-foreground: #c8c8cc;
+  --sidebar-accent: #0e0e0e;
+  --sidebar-accent-foreground: #c8c8cc;
+  --sidebar-border: #141414;
+  --sidebar-ring: #26262a;
+
+  --gradient-brand: linear-gradient(100deg, #1c1c20, #27272c);
+  --gradient-surface: linear-gradient(180deg, #080808, #050505);
+  --shadow-elegant: none;
+  --shadow-card: none;
+  --glow-color: transparent;
+}
+
+/* Malaca DrkOLed targeted OLED pitch-black & low-glare overrides */
+html[data-theme="malaca_drkoled"] body {
+  background-color: #000000 !important;
+  background-image: none !important;
+  color: #b4b4b8 !important;
+}
+
+html[data-theme="malaca_drkoled"] .surface-card {
+  background-color: #080808 !important;
+  background-image: none !important;
+  border-color: #181818 !important;
+  box-shadow: none !important;
+}
+
+html[data-theme="malaca_drkoled"] aside,
+html[data-theme="malaca_drkoled"] [data-sidebar],
+html[data-theme="malaca_drkoled"] .sidebar-container {
+  background-color: #000000 !important;
+  border-color: #141414 !important;
+}
+
+html[data-theme="malaca_drkoled"] [role="dialog"],
+html[data-theme="malaca_drkoled"] [role="alertdialog"],
+html[data-theme="malaca_drkoled"] [role="menu"],
+html[data-theme="malaca_drkoled"] [role="listbox"],
+html[data-theme="malaca_drkoled"] [data-radix-popper-content-wrapper] > div,
+html[data-theme="malaca_drkoled"] [data-radix-dropdown-menu-content],
+html[data-theme="malaca_drkoled"] [data-radix-select-content],
+html[data-theme="malaca_drkoled"] .popover-content {
+  background-color: #0d0d0d !important;
+  border-color: #1a1a1a !important;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.95) !important;
+}
+
+html[data-theme="malaca_drkoled"] input,
+html[data-theme="malaca_drkoled"] textarea,
+html[data-theme="malaca_drkoled"] select {
+  background-color: #0a0a0a !important;
+  border-color: #1c1c1c !important;
+  color: #b4b4b8 !important;
+}
+
+html[data-theme="malaca_drkoled"] input:focus,
+html[data-theme="malaca_drkoled"] textarea:focus,
+html[data-theme="malaca_drkoled"] select:focus {
+  border-color: #323238 !important;
+  box-shadow: 0 0 0 1px #323238 !important;
+}
+
+html[data-theme="malaca_drkoled"] table th {
+  background-color: #090909 !important;
+  color: #82828a !important;
+  border-bottom: 1px solid #161616 !important;
+}
+
+html[data-theme="malaca_drkoled"] table td {
+  border-bottom: 1px solid #131313 !important;
+  color: #a6a6ac !important;
+}
+
+html[data-theme="malaca_drkoled"] table tr:hover td {
+  background-color: #0c0c0c !important;
+}
+
+html[data-theme="malaca_drkoled"] .text-gradient-brand {
+  background-image: none !important;
+  -webkit-text-fill-color: #c8c8cc !important;
+  color: #c8c8cc !important;
+}
+
+html[data-theme="malaca_drkoled"] .glow-primary,
+html[data-theme="malaca_drkoled"] .glow-accent,
+html[data-theme="malaca_drkoled"] .shadow-glow,
+html[data-theme="malaca_drkoled"] .member-card-online {
+  box-shadow: none !important;
+  text-shadow: none !important;
+}
+
+html[data-theme="malaca_drkoled"] ::selection {
+  background: #27272c !important;
+  color: #e4e4e7 !important;
+}
+
+html[data-theme="malaca_drkoled"] ::-webkit-scrollbar {
+  width: 6px !important;
+  height: 6px !important;
+}
+
+html[data-theme="malaca_drkoled"] ::-webkit-scrollbar-track {
+  background: #000000 !important;
+}
+
+html[data-theme="malaca_drkoled"] ::-webkit-scrollbar-thumb {
+  background: #1c1c1f !important;
+  border-radius: 9999px !important;
+}
+
+html[data-theme="malaca_drkoled"] ::-webkit-scrollbar-thumb:hover {
+  background: #2a2a2f !important;
+}
+
 /* Stealth OLED Black Theme */
 html[data-theme="stealth_black"] {
   --background: oklch(0.06 0.001 0);

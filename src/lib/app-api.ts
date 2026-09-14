@@ -69,7 +69,7 @@ export async function getCurrentAuth(): Promise<AuthState> {
     // 1. Load profile (first by user_id, fallback to discord_id / discord_email)
     let profileRow: any = null;
     const { data: pByUid } = await (supabase.from("profiles" as any))
-      .select("id, user_id, nome, nickname, telefone, game_id, avatar_url, status, data_entrada, discord_id, discord_username, discord_avatar_url, discord_email, is_developer, custom_theme")
+      .select("id, user_id, nome, nickname, telefone, game_id, avatar_url, status, data_entrada, discord_id, discord_username, discord_avatar_url, discord_email, is_developer, is_ceo, custom_theme")
       .eq("user_id", session.user.id)
       .maybeSingle();
 
@@ -81,7 +81,7 @@ export async function getCurrentAuth(): Promise<AuthState> {
       if (discordEmail) filters.push(`discord_email.eq.${discordEmail}`);
 
       const { data: pFallback } = await (supabase.from("profiles" as any))
-        .select("id, user_id, nome, nickname, telefone, game_id, avatar_url, status, data_entrada, discord_id, discord_username, discord_avatar_url, discord_email, is_developer, custom_theme")
+        .select("id, user_id, nome, nickname, telefone, game_id, avatar_url, status, data_entrada, discord_id, discord_username, discord_avatar_url, discord_email, is_developer, is_ceo, custom_theme")
         .or(filters.join(","))
         .maybeSingle();
 
@@ -644,7 +644,7 @@ export async function getMembers(): Promise<Member[]> {
   try {
     const [profilesRes, rolesRes, presenceRes, signupReqsRes] = await Promise.all([
       (supabase.from("profiles" as any))
-        .select("user_id, nome, nickname, telefone, game_id, status, data_entrada, created_at, discord_id, discord_username, discord_avatar_url, avatar_url, discord_email, is_developer, custom_theme")
+        .select("user_id, nome, nickname, telefone, game_id, status, data_entrada, created_at, discord_id, discord_username, discord_avatar_url, avatar_url, discord_email, is_developer, is_ceo, custom_theme")
         .order("created_at", { ascending: true }),
       supabase
         .from("user_roles")

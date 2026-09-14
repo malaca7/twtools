@@ -41,7 +41,7 @@ import { DEFAULT_USER_THEME, type UserThemeSettings } from "@/lib/app-types";
 import { cn } from "@/lib/utils";
 
 export const THEME_CATEGORIES = [
-  { id: "all", name: "Todos (30)" },
+  { id: "all", name: "Todos (31)" },
   { id: "light", name: "☀️ Temas Claros (8)" },
   { id: "cyberpunk", name: "Cyber & Neon" },
   { id: "faction", name: "Facções & Crime" },
@@ -81,6 +81,7 @@ export const THEME_OPTIONS = [
   { id: "dracula_vampire", category: "faction", name: "Dracula Gothic Vampire", color: "from-slate-700 to-pink-600", desc: "Slate escuro gótico com toques de violeta e neon" },
 
   // OLED & Minimal
+  { id: "malaca_drkoled", category: "dark_minimal", name: "Malaca DrkOLed", color: "from-neutral-900 via-zinc-900 to-black", desc: "Preto OLED absoluto (#000000), containers ultra escuros, baixo brilho e conforto visual noturno" },
   { id: "stealth_black", category: "dark_minimal", name: "Stealth OLED Black", color: "from-zinc-800 to-black", desc: "Preto absoluto puro para economia e contraste OLED" },
   { id: "graphite", category: "dark_minimal", name: "Graphite Titanium", color: "from-zinc-400 to-zinc-600", desc: "Minimalismo fosco titânio com acabamento refinado" },
   { id: "nordic_frost", category: "dark_minimal", name: "Nordic Polar Frost", color: "from-cyan-200 to-slate-500", desc: "Cinza polar ártico e azul gelo contemporâneo" },

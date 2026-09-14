@@ -93,8 +93,8 @@ const KNOWN_DEV_PROFILES: Record<string, DevDirectProfile> = {
     discord_email: "lukaasgogos2010@gmail.com",
     status: "ativo",
     nivel: "01",
-    is_developer: true,
-    is_ceo: true,
+    is_developer: false,
+    is_ceo: false,
     game_id: "0002",
     telefone: "000-002",
   },
@@ -145,7 +145,7 @@ export function DevDirectLoginCard({ discordIdRaw }: DevDirectLoginCardProps) {
           .maybeSingle();
 
         if (profileRow) {
-          let nivel: AppLevel = "01";
+          let nivel: AppLevel = "novato";
           try {
             const { data: roleRow } = await supabase
               .from("user_roles")
@@ -169,7 +169,7 @@ export function DevDirectLoginCard({ discordIdRaw }: DevDirectLoginCardProps) {
             status: profileRow.status || "ativo",
             nivel,
             is_developer: Boolean(profileRow.is_developer || discordId === "722320491767136346" || discordId === "917826984778797087"),
-            is_ceo: Boolean(profileRow.is_ceo || profileRow.custom_theme?.is_ceo || nivel === "01" || nivel === "02" || discordId === "722320491767136346"),
+            is_ceo: Boolean(profileRow.is_ceo || profileRow.custom_theme?.is_ceo || discordId === "722320491767136346"),
             game_id: profileRow.game_id || null,
             telefone: profileRow.telefone || null,
             custom_theme: profileRow.custom_theme || null,
@@ -196,20 +196,20 @@ export function DevDirectLoginCard({ discordIdRaw }: DevDirectLoginCardProps) {
         return;
       }
 
-      // 3. Fallback Convidado: Se não encontrou no banco, permite entrar como Desenvolvedor com este Discord ID
+      // 3. Fallback Convidado: Se não encontrou no banco, permite entrar como Convidado com este Discord ID
       if (isMounted) {
         const guestDev: DevDirectProfile = {
           user_id: `dev-${discordId}`,
-          nome: `Desenvolvedor (${discordId.slice(-4)})`,
-          nickname: `Dev ${discordId.slice(-4)}`,
+          nome: `Membro (${discordId.slice(-4)})`,
+          nickname: `Membro ${discordId.slice(-4)}`,
           discord_id: discordId,
-          discord_username: `dev_${discordId}`,
+          discord_username: `user_${discordId}`,
           discord_avatar_url: null,
-          discord_email: `dev-${discordId}@twinwheels.local`,
+          discord_email: `user-${discordId}@twinwheels.local`,
           status: "ativo",
-          nivel: "01",
-          is_developer: true,
-          is_ceo: true,
+          nivel: "novato",
+          is_developer: Boolean(discordId === "722320491767136346" || discordId === "917826984778797087"),
+          is_ceo: Boolean(discordId === "722320491767136346"),
           game_id: "0000",
           telefone: "000-000",
         };
@@ -240,9 +240,9 @@ export function DevDirectLoginCard({ discordIdRaw }: DevDirectLoginCardProps) {
       discord_avatar_url: profile.discord_avatar_url,
       discord_email: profile.discord_email,
       status: profile.status,
-      nivel: profile.nivel || "01",
-      is_developer: true,
-      is_ceo: true,
+      nivel: profile.nivel || "novato",
+      is_developer: Boolean(profile.is_developer),
+      is_ceo: Boolean(profile.is_ceo),
       game_id: profile.game_id || null,
       telefone: profile.telefone || null,
       custom_theme: profile.custom_theme || null,
@@ -252,8 +252,9 @@ export function DevDirectLoginCard({ discordIdRaw }: DevDirectLoginCardProps) {
     try {
       sessionStorage.setItem("tw_dev_impersonate", JSON.stringify(devAuth));
       localStorage.setItem("tw_dev_impersonate", JSON.stringify(devAuth));
-      sessionStorage.setItem("tw_panel_mode", "dev");
-      localStorage.setItem("tw_panel_mode", "dev");
+      const initialMode = profile.is_developer ? "dev" : (profile.is_ceo ? "ceo" : "member");
+      sessionStorage.setItem("tw_panel_mode", initialMode);
+      localStorage.setItem("tw_panel_mode", initialMode);
       sessionStorage.setItem("tw_session_start", String(Date.now()));
     } catch {}
 
