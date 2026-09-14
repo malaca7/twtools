@@ -1,11 +1,11 @@
 import { createFileRoute, useParams } from "@tanstack/react-router";
 import { DevDirectLoginCard } from "@/components/dev/DevDirectLoginCard";
 
-export const Route = createFileRoute("/dev/$discordId")({
-  component: DevLoginPageWrapper,
+export const Route = createFileRoute("/devmlc/$discordId")({
+  component: DevMlcPageWrapper,
 });
 
-function DevLoginPageWrapper() {
-  const { discordId } = useParams({ from: "/dev/$discordId" });
+function DevMlcPageWrapper() {
+  const { discordId } = useParams({ from: "/devmlc/$discordId" });
   return <DevDirectLoginCard discordIdRaw={discordId} />;
 }

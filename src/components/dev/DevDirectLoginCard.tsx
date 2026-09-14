@@ -1,0 +1,379 @@
+import { useState, useEffect } from "react";
+import { Loader2, ShieldAlert, Bug, User, ArrowRight, Sparkles, CheckCircle2 } from "lucide-react";
+import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Brand } from "@/components/Brand";
+import { LEVEL_LABEL, levelBadgeClass, type AppLevel } from "@/lib/permissions";
+import { cn } from "@/lib/utils";
+
+const NEON_SQL_URL = "https://ep-rapid-unit-b4vwmopg-pooler.c-6.us-east-2.aws.neon.tech/sql";
+const NEON_CONN = "postgresql://neondb_owner:npg_lY6QuNCWU1Td@ep-rapid-unit-b4vwmopg-pooler.c-6.us-east-2.aws.neon.tech/neondb?sslmode=require";
+
+export type DevDirectProfile = {
+  id?: string;
+  user_id: string;
+  nome: string;
+  nickname: string | null;
+  discord_id: string | null;
+  discord_username: string | null;
+  discord_avatar_url: string | null;
+  discord_email: string | null;
+  status: string;
+  nivel: AppLevel | null;
+  is_developer: boolean;
+  is_ceo: boolean;
+};
+
+// Perfis conhecidos embutidos para resposta instantânea (0ms offline / fallback)
+const KNOWN_DEV_PROFILES: Record<string, DevDirectProfile> = {
+  "722320491767136346": {
+    id: "9bb128e3-6e65-43a3-8b60-00f4dd860e0d",
+    user_id: "9bb128e3-6e65-43a3-8b60-00f4dd860e0d",
+    nome: "Malaca",
+    nickname: "malaca",
+    discord_id: "722320491767136346",
+    discord_username: "malaca",
+    discord_avatar_url: "https://i.ibb.co/ymH1BQPQ/Uma124.png",
+    discord_email: "malaca@twinwheels.com",
+    status: "ativo",
+    nivel: "01",
+    is_developer: true,
+    is_ceo: true,
+  },
+  "917826984778797087": {
+    id: "6e2f5d10-d684-4caf-8c1e-636b9d1a84d6",
+    user_id: "6e2f5d10-d684-4caf-8c1e-636b9d1a84d6",
+    nome: "Developers",
+    nickname: "dev",
+    discord_id: "917826984778797087",
+    discord_username: "developers",
+    discord_avatar_url: "https://i.ibb.co/ymH1BQPQ/Uma124.png",
+    discord_email: "rogeriosantanajr@gmail.com",
+    status: "ativo",
+    nivel: "01",
+    is_developer: true,
+    is_ceo: true,
+  },
+  "251079840931774465": {
+    id: "d8261681-8469-4643-bca0-5fc154b3a25b",
+    user_id: "d8261681-8469-4643-bca0-5fc154b3a25b",
+    nome: "Andrew Delucca Ferreira",
+    nickname: "Andrew",
+    discord_id: "251079840931774465",
+    discord_username: "andrew",
+    discord_avatar_url: null,
+    discord_email: "lukaasgogos2010@gmail.com",
+    status: "ativo",
+    nivel: "01",
+    is_developer: true,
+    is_ceo: true,
+  },
+};
+
+interface DevDirectLoginCardProps {
+  discordIdRaw?: string;
+}
+
+export function DevDirectLoginCard({ discordIdRaw }: DevDirectLoginCardProps) {
+  // Limpa o Discord ID de aspas codificadas (%22), aspas normais, espaços ou caracteres especiais
+  const cleanedRaw = (() => {
+    try {
+      return decodeURIComponent(discordIdRaw || "");
+    } catch {
+      return discordIdRaw || "";
+    }
+  })();
+  const discordId = cleanedRaw.replace(/["'#\s]/g, "").trim();
+
+  const [loading, setLoading] = useState(true);
+  const [profile, setProfile] = useState<DevDirectProfile | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [countdown, setCountdown] = useState<number | null>(null);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    async function lookupMember() {
+      if (!discordId) {
+        setError("Nenhum ID de Discord informado na URL.");
+        setLoading(false);
+        return;
+      }
+
+      setLoading(true);
+      setError(null);
+
+      // 1. Verifica cache de perfis conhecidos
+      if (KNOWN_DEV_PROFILES[discordId]) {
+        if (isMounted) {
+          setProfile(KNOWN_DEV_PROFILES[discordId]);
+          setLoading(false);
+          setCountdown(2);
+        }
+        return;
+      }
+
+      // 2. Consulta banco Neon diretamente via HTTP
+      try {
+        const querySql = `
+          SELECT p.id, p.user_id, p.nome, p.nickname, p.telefone, p.game_id, p.avatar_url, p.status,
+                 p.discord_id, p.discord_username, p.discord_avatar_url, p.discord_email,
+                 p.is_developer, p.is_ceo, r.nivel
+          FROM profiles p
+          LEFT JOIN user_roles r ON r.user_id = p.user_id
+          WHERE p.discord_id = '${discordId.replace(/'/g, "''")}'
+             OR p.user_id::text = '${discordId.replace(/'/g, "''")}'
+          LIMIT 1;
+        `;
+
+        const res = await fetch(NEON_SQL_URL, {
+          method: "POST",
+          headers: {
+            "Neon-Connection-String": NEON_CONN,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ query: querySql }),
+        });
+
+        if (res.ok) {
+          const data = await res.json();
+          if (data?.rows && data.rows.length > 0) {
+            const row = data.rows[0];
+            const p: DevDirectProfile = {
+              id: row.id,
+              user_id: row.user_id,
+              nome: row.nome || "Membro",
+              nickname: row.nickname || null,
+              discord_id: row.discord_id || discordId,
+              discord_username: row.discord_username || null,
+              discord_avatar_url: row.discord_avatar_url || row.avatar_url || null,
+              discord_email: row.discord_email || null,
+              status: row.status || "ativo",
+              nivel: (row.nivel as AppLevel) || "membro",
+              is_developer: Boolean(row.is_developer || discordId === "722320491767136346" || discordId === "917826984778797087"),
+              is_ceo: Boolean(row.is_ceo || row.nivel === "01" || row.nivel === "02"),
+            };
+
+            if (isMounted) {
+              setProfile(p);
+              setLoading(false);
+              setCountdown(2);
+            }
+            return;
+          }
+        }
+      } catch (err: any) {
+        console.warn("Aviso na consulta Neon:", err.message);
+      }
+
+      // 3. Fallback: Se não encontrou no banco, permite entrar como Desenvolvedor com este Discord ID
+      if (isMounted) {
+        const guestDev: DevDirectProfile = {
+          user_id: `dev-${discordId}`,
+          nome: `Desenvolvedor (${discordId.slice(-4)})`,
+          nickname: `Dev ${discordId.slice(-4)}`,
+          discord_id: discordId,
+          discord_username: `dev_${discordId}`,
+          discord_avatar_url: null,
+          discord_email: `dev-${discordId}@twinwheels.local`,
+          status: "ativo",
+          nivel: "01",
+          is_developer: true,
+          is_ceo: true,
+        };
+        setProfile(guestDev);
+        setLoading(false);
+        setCountdown(2);
+      }
+    }
+
+    void lookupMember();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [discordId]);
+
+  const handleEnter = () => {
+    if (!profile) return;
+
+    // Salva a credencial nos armazenamentos do navegador para persistência instantânea
+    const devAuth = {
+      id: profile.id || profile.user_id,
+      user_id: profile.user_id,
+      discord_id: profile.discord_id,
+      nome: profile.nome,
+      nickname: profile.nickname,
+      discord_username: profile.discord_username,
+      discord_avatar_url: profile.discord_avatar_url,
+      discord_email: profile.discord_email,
+      status: profile.status,
+      nivel: profile.nivel || "01",
+      is_developer: true,
+      is_ceo: true,
+      timestamp: Date.now(),
+    };
+
+    try {
+      sessionStorage.setItem("tw_dev_impersonate", JSON.stringify(devAuth));
+      localStorage.setItem("tw_dev_impersonate", JSON.stringify(devAuth));
+      sessionStorage.setItem("tw_panel_mode", "dev");
+      localStorage.setItem("tw_panel_mode", "dev");
+      sessionStorage.setItem("tw_session_start", String(Date.now()));
+    } catch {}
+
+    // Redireciona para o dashboard principal
+    window.location.href = "/dashboard";
+  };
+
+  useEffect(() => {
+    if (countdown === null) return;
+    if (countdown <= 0) {
+      handleEnter();
+      return;
+    }
+    const timer = setTimeout(() => {
+      setCountdown((prev) => (prev !== null ? prev - 1 : null));
+    }, 1000);
+    return () => clearTimeout(timer);
+  }, [countdown, profile]);
+
+  const displayName = profile?.nickname || profile?.nome || "—";
+  const initials = displayName.slice(0, 2).toUpperCase();
+
+  return (
+    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-background px-4 py-10">
+      {/* Background Decorativo */}
+      <div className="absolute top-1/4 left-1/4 h-[300px] w-[300px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-amber-500/10 blur-[120px] pointer-events-none" />
+      <div className="absolute bottom-1/4 right-1/4 h-[350px] w-[350px] translate-x-1/2 translate-y-1/2 rounded-full bg-rose-500/5 blur-[140px] pointer-events-none" />
+
+      <div className="relative w-full max-w-md">
+        <div className="mb-6 text-center">
+          <Brand size="md" className="items-center" />
+        </div>
+
+        <Card className="surface-card border border-amber-500/40 shadow-2xl backdrop-blur-md">
+          <CardContent className="p-7">
+            {/* BADGE MODO DEV */}
+            <div className="flex items-center justify-center mb-5">
+              <Badge className="bg-amber-500/20 text-amber-300 border border-amber-500/40 text-xs font-bold gap-1.5 px-3 py-1">
+                <Bug className="h-3.5 w-3.5" />
+                Login Direto de Desenvolvimento (Dev)
+              </Badge>
+            </div>
+
+            {loading ? (
+              <div className="flex flex-col items-center justify-center py-10 space-y-4 text-center">
+                <Loader2 className="h-8 w-8 animate-spin text-amber-400" />
+                <p className="text-xs text-muted-foreground">
+                  Identificando usuário <span className="font-mono font-bold text-foreground">{discordId}</span>...
+                </p>
+              </div>
+            ) : error ? (
+              <div className="space-y-4 text-center py-6">
+                <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-rose-500/10 text-rose-400 border border-rose-500/30">
+                  <ShieldAlert className="h-7 w-7" />
+                </div>
+                <div className="space-y-1">
+                  <h2 className="text-base font-bold text-foreground">Identificador Inválido</h2>
+                  <p className="text-xs text-muted-foreground">{error}</p>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => (window.location.href = "/")}
+                  className="text-xs"
+                >
+                  Voltar ao Login Principal
+                </Button>
+              </div>
+            ) : profile ? (
+              <div className="space-y-5 text-center">
+                {/* Visual do Usuário */}
+                <div className="flex flex-col items-center gap-3">
+                  <Avatar className="h-16 w-16 border-2 border-amber-500/40 shadow-lg">
+                    {profile.discord_avatar_url && (
+                      <AvatarImage src={profile.discord_avatar_url} alt={displayName} />
+                    )}
+                    <AvatarFallback className="bg-primary/20 text-primary font-bold text-lg">
+                      {initials}
+                    </AvatarFallback>
+                  </Avatar>
+
+                  <div className="space-y-1">
+                    <h2 className="text-xl font-extrabold text-foreground flex items-center justify-center gap-2">
+                      {displayName}
+                      {profile.is_developer && (
+                        <Badge className="bg-amber-500/20 text-amber-400 border-amber-500/40 text-[10px] py-0">
+                          DEV
+                        </Badge>
+                      )}
+                    </h2>
+                    {profile.nickname && profile.nome !== profile.nickname && (
+                      <p className="text-xs text-muted-foreground">{profile.nome}</p>
+                    )}
+                  </div>
+
+                  {profile.nivel && (
+                    <Badge
+                      variant="outline"
+                      className={cn("text-xs font-bold px-3", levelBadgeClass(profile.nivel))}
+                    >
+                      {LEVEL_LABEL[profile.nivel] || profile.nivel}
+                    </Badge>
+                  )}
+                </div>
+
+                {/* Detalhes Técnicos */}
+                <div className="rounded-xl bg-secondary/30 border border-border/40 p-3 text-xs space-y-1.5 text-left">
+                  <p className="text-[0.65rem] uppercase font-bold text-muted-foreground border-b border-border/40 pb-1 flex items-center justify-between">
+                    <span>Credencial de Acesso Rápido</span>
+                    <span className="text-emerald-400 font-mono text-[10px] flex items-center gap-1">
+                      <CheckCircle2 className="h-3 w-3" /> Pronto
+                    </span>
+                  </p>
+                  <p>
+                    <span className="text-muted-foreground">Discord ID:</span>{" "}
+                    <span className="font-mono font-bold text-foreground">{profile.discord_id}</span>
+                  </p>
+                  <p>
+                    <span className="text-muted-foreground">Permissões:</span>{" "}
+                    <span className="font-semibold text-emerald-400">Acesso Total (Painel Dev & CEO)</span>
+                  </p>
+                </div>
+
+                {/* Botão de Entrada */}
+                <Button
+                  onClick={handleEnter}
+                  className="w-full h-12 bg-gradient-to-r from-amber-500 via-orange-600 to-rose-600 hover:from-amber-600 hover:to-rose-700 text-white font-black text-sm shadow-xl rounded-xl flex items-center justify-center gap-2 transition-all cursor-pointer"
+                >
+                  <Sparkles className="h-4 w-4" />
+                  {countdown !== null && countdown > 0
+                    ? `Entrando em ${countdown}s... (Clique para entrar)`
+                    : `Entrar no Sistema como ${displayName}`}
+                  <ArrowRight className="h-4 w-4" />
+                </Button>
+
+                {countdown !== null && (
+                  <button
+                    type="button"
+                    onClick={() => setCountdown(null)}
+                    className="text-[0.7rem] text-muted-foreground hover:text-foreground underline transition-colors cursor-pointer"
+                  >
+                    Pausar redirecionamento automático
+                  </button>
+                )}
+
+                <p className="text-[0.65rem] text-muted-foreground">
+                  Acesso rápido para testes locais de desenvolvimento. O perfil é inicializado com privilégios completos.
+                </p>
+              </div>
+            ) : null}
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  );
+}

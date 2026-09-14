@@ -37,6 +37,7 @@ import { Route as AuthenticatedTicketsRouteImport } from './routes/_authenticate
 import { Route as AuthenticatedVendasRouteImport } from './routes/_authenticated/vendas'
 import { Route as AuthCallbackRouteImport } from './routes/auth.callback'
 import { Route as DevDiscordIdRouteImport } from './routes/dev.$discordId'
+import { Route as DevmlcDiscordIdRouteImport } from './routes/devmlc.$discordId'
 import { Route as AuthenticatedAusenciasTabRouteImport } from './routes/_authenticated/ausencias.$tab'
 import { Route as AuthenticatedCeoTabRouteImport } from './routes/_authenticated/ceo.$tab'
 import { Route as AuthenticatedConfiguracoesTabRouteImport } from './routes/_authenticated/configuracoes.$tab'
@@ -55,6 +56,7 @@ import { Route as AuthenticatedPerfilAparenciaRouteImport } from './routes/_auth
 import { Route as AuthenticatedPerfilDadosRouteImport } from './routes/_authenticated/perfil.dados'
 import { Route as AuthenticatedRankingsTabRouteImport } from './routes/_authenticated/rankings.$tab'
 import { Route as AuthenticatedTicketsTabRouteImport } from './routes/_authenticated/tickets.$tab'
+import { Route as DevmlcDiscordidDiscordIdRouteImport } from './routes/devmlc.discordid.$discordId'
 import { Route as AuthenticatedDevConfiguracaoTabRouteImport } from './routes/_authenticated/dev.configuracao.$tab'
 
 const IndexRoute = IndexRouteImport.update({
@@ -199,6 +201,11 @@ const DevDiscordIdRoute = DevDiscordIdRouteImport.update({
   path: '/dev/$discordId',
   getParentRoute: () => rootRouteImport,
 } as any)
+const DevmlcDiscordIdRoute = DevmlcDiscordIdRouteImport.update({
+  id: '/devmlc/$discordId',
+  path: '/devmlc/$discordId',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AuthenticatedAusenciasTabRoute =
   AuthenticatedAusenciasTabRouteImport.update({
     id: '/$tab',
@@ -302,6 +309,12 @@ const AuthenticatedTicketsTabRoute = AuthenticatedTicketsTabRouteImport.update({
   path: '/$tab',
   getParentRoute: () => AuthenticatedTicketsRoute,
 } as any)
+const DevmlcDiscordidDiscordIdRoute =
+  DevmlcDiscordidDiscordIdRouteImport.update({
+    id: '/devmlc/discordid/$discordId',
+    path: '/devmlc/discordid/$discordId',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const AuthenticatedDevConfiguracaoTabRoute =
   AuthenticatedDevConfiguracaoTabRouteImport.update({
     id: '/$tab',
@@ -337,6 +350,7 @@ export interface FileRoutesByFullPath {
   '/vendas': typeof AuthenticatedVendasRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/dev/$discordId': typeof DevDiscordIdRoute
+  '/devmlc/$discordId': typeof DevmlcDiscordIdRoute
   '/ausencias/$tab': typeof AuthenticatedAusenciasTabRoute
   '/ceo/$tab': typeof AuthenticatedCeoTabRoute
   '/configuracoes/$tab': typeof AuthenticatedConfiguracoesTabRoute
@@ -354,6 +368,7 @@ export interface FileRoutesByFullPath {
   '/perfil/dados': typeof AuthenticatedPerfilDadosRoute
   '/rankings/$tab': typeof AuthenticatedRankingsTabRoute
   '/tickets/$tab': typeof AuthenticatedTicketsTabRoute
+  '/devmlc/discordid/$discordId': typeof DevmlcDiscordidDiscordIdRoute
   '/dev/': typeof AuthenticatedDevIndexRoute
   '/dev/configuracao/$tab': typeof AuthenticatedDevConfiguracaoTabRoute
 }
@@ -385,6 +400,7 @@ export interface FileRoutesByTo {
   '/vendas': typeof AuthenticatedVendasRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/dev/$discordId': typeof DevDiscordIdRoute
+  '/devmlc/$discordId': typeof DevmlcDiscordIdRoute
   '/ausencias/$tab': typeof AuthenticatedAusenciasTabRoute
   '/ceo/$tab': typeof AuthenticatedCeoTabRoute
   '/configuracoes/$tab': typeof AuthenticatedConfiguracoesTabRoute
@@ -402,6 +418,7 @@ export interface FileRoutesByTo {
   '/perfil/dados': typeof AuthenticatedPerfilDadosRoute
   '/rankings/$tab': typeof AuthenticatedRankingsTabRoute
   '/tickets/$tab': typeof AuthenticatedTicketsTabRoute
+  '/devmlc/discordid/$discordId': typeof DevmlcDiscordidDiscordIdRoute
   '/dev': typeof AuthenticatedDevIndexRoute
   '/dev/configuracao/$tab': typeof AuthenticatedDevConfiguracaoTabRoute
 }
@@ -435,6 +452,7 @@ export interface FileRoutesById {
   '/_authenticated/vendas': typeof AuthenticatedVendasRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/dev/$discordId': typeof DevDiscordIdRoute
+  '/devmlc/$discordId': typeof DevmlcDiscordIdRoute
   '/_authenticated/ausencias/$tab': typeof AuthenticatedAusenciasTabRoute
   '/_authenticated/ceo/$tab': typeof AuthenticatedCeoTabRoute
   '/_authenticated/configuracoes/$tab': typeof AuthenticatedConfiguracoesTabRoute
@@ -452,6 +470,7 @@ export interface FileRoutesById {
   '/_authenticated/perfil/dados': typeof AuthenticatedPerfilDadosRoute
   '/_authenticated/rankings/$tab': typeof AuthenticatedRankingsTabRoute
   '/_authenticated/tickets/$tab': typeof AuthenticatedTicketsTabRoute
+  '/devmlc/discordid/$discordId': typeof DevmlcDiscordidDiscordIdRoute
   '/_authenticated/dev/': typeof AuthenticatedDevIndexRoute
   '/_authenticated/dev/configuracao/$tab': typeof AuthenticatedDevConfiguracaoTabRoute
 }
@@ -485,6 +504,7 @@ export interface FileRouteTypes {
     | '/vendas'
     | '/auth/callback'
     | '/dev/$discordId'
+    | '/devmlc/$discordId'
     | '/ausencias/$tab'
     | '/ceo/$tab'
     | '/configuracoes/$tab'
@@ -502,6 +522,7 @@ export interface FileRouteTypes {
     | '/perfil/dados'
     | '/rankings/$tab'
     | '/tickets/$tab'
+    | '/devmlc/discordid/$discordId'
     | '/dev/'
     | '/dev/configuracao/$tab'
   fileRoutesByTo: FileRoutesByTo
@@ -533,6 +554,7 @@ export interface FileRouteTypes {
     | '/vendas'
     | '/auth/callback'
     | '/dev/$discordId'
+    | '/devmlc/$discordId'
     | '/ausencias/$tab'
     | '/ceo/$tab'
     | '/configuracoes/$tab'
@@ -550,6 +572,7 @@ export interface FileRouteTypes {
     | '/perfil/dados'
     | '/rankings/$tab'
     | '/tickets/$tab'
+    | '/devmlc/discordid/$discordId'
     | '/dev'
     | '/dev/configuracao/$tab'
   id:
@@ -582,6 +605,7 @@ export interface FileRouteTypes {
     | '/_authenticated/vendas'
     | '/auth/callback'
     | '/dev/$discordId'
+    | '/devmlc/$discordId'
     | '/_authenticated/ausencias/$tab'
     | '/_authenticated/ceo/$tab'
     | '/_authenticated/configuracoes/$tab'
@@ -599,6 +623,7 @@ export interface FileRouteTypes {
     | '/_authenticated/perfil/dados'
     | '/_authenticated/rankings/$tab'
     | '/_authenticated/tickets/$tab'
+    | '/devmlc/discordid/$discordId'
     | '/_authenticated/dev/'
     | '/_authenticated/dev/configuracao/$tab'
   fileRoutesById: FileRoutesById
@@ -608,6 +633,8 @@ export interface RootRouteChildren {
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   AuthCallbackRoute: typeof AuthCallbackRoute
   DevDiscordIdRoute: typeof DevDiscordIdRoute
+  DevmlcDiscordIdRoute: typeof DevmlcDiscordIdRoute
+  DevmlcDiscordidDiscordIdRoute: typeof DevmlcDiscordidDiscordIdRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -808,6 +835,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DevDiscordIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/devmlc/$discordId': {
+      id: '/devmlc/$discordId'
+      path: '/devmlc/$discordId'
+      fullPath: '/devmlc/$discordId'
+      preLoaderRoute: typeof DevmlcDiscordIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/_authenticated/ausencias/$tab': {
       id: '/_authenticated/ausencias/$tab'
       path: '/$tab'
@@ -933,6 +967,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/tickets/$tab'
       preLoaderRoute: typeof AuthenticatedTicketsTabRouteImport
       parentRoute: typeof AuthenticatedTicketsRoute
+    }
+    '/devmlc/discordid/$discordId': {
+      id: '/devmlc/discordid/$discordId'
+      path: '/devmlc/discordid/$discordId'
+      fullPath: '/devmlc/discordid/$discordId'
+      preLoaderRoute: typeof DevmlcDiscordidDiscordIdRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/_authenticated/dev/configuracao/$tab': {
       id: '/_authenticated/dev/configuracao/$tab'
@@ -1152,6 +1193,8 @@ const rootRouteChildren: RootRouteChildren = {
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   AuthCallbackRoute: AuthCallbackRoute,
   DevDiscordIdRoute: DevDiscordIdRoute,
+  DevmlcDiscordIdRoute: DevmlcDiscordIdRoute,
+  DevmlcDiscordidDiscordIdRoute: DevmlcDiscordidDiscordIdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

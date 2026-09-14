@@ -89,9 +89,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const loadAuth = useCallback(async () => {
     const next = await getCurrentAuth();
 
-    // DEV FALLBACK: If no real session, check for dev impersonation in sessionStorage
+    // DEV FALLBACK: If no real session, check for dev impersonation in sessionStorage or localStorage
     if (!next.user && typeof window !== "undefined") {
-      const devRaw = sessionStorage.getItem("tw_dev_impersonate");
+      const devRaw = sessionStorage.getItem("tw_dev_impersonate") || localStorage.getItem("tw_dev_impersonate");
       if (devRaw) {
         try {
           const dev = JSON.parse(devRaw);
@@ -214,6 +214,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     sessionStorage.removeItem("tw_session_start");
     sessionStorage.removeItem("tw_login_logged");
     sessionStorage.removeItem("tw_dev_impersonate");
+    localStorage.removeItem("tw_dev_impersonate");
+    localStorage.removeItem("tw_panel_mode");
 
     try {
       const { logAuditAction, updateUserPresence } = await import("@/lib/app-api");
