@@ -51,12 +51,40 @@ function AuthCallbackPage() {
           await new Promise((r) => setTimeout(r, 200));
         }
 
+        // Se não encontrado via Supabase, verifica sessão ativa no Neon Auth
+        if (!session) {
+          try {
+            const neonRes = await fetch("https://ep-rapid-unit-b4vwmopg.neonauth.c-6.us-east-2.aws.neon.tech/neondb/auth/get-session", {
+              credentials: "include",
+            });
+            if (neonRes.ok) {
+              const neonData = await neonRes.json().catch(() => null);
+              if (neonData?.user) {
+                session = {
+                  access_token: neonData.session?.token || "neon_token",
+                  user: {
+                    id: neonData.user.id,
+                    email: neonData.user.email,
+                    user_metadata: {
+                      avatar_url: neonData.user.image,
+                      full_name: neonData.user.name,
+                    },
+                  },
+                };
+                sessionStorage.setItem("tw_neon_session", JSON.stringify(session));
+              }
+            }
+          } catch {}
+        }
+
         if (!session) {
           throw new Error("Sessão não encontrada. Tente fazer login novamente.");
         }
 
         // Sync with the backend RPC
-        await syncDiscordUser({ data: { token: session.access_token } });
+        if (session.access_token !== "neon_token") {
+          await syncDiscordUser({ data: { token: session.access_token } }).catch(() => {});
+        }
         
         // Mark session logged to prevent duplicate log in useAuth
         sessionStorage.setItem("tw_login_logged", String(Date.now()));

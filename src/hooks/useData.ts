@@ -86,7 +86,7 @@ export function useMembers() {
   return useQuery({
     queryKey: ["members"],
     queryFn: async (): Promise<Member[]> => getMembers(),
-    refetchInterval: 4000,
+    refetchInterval: 30000,
   });
 }
 
@@ -121,7 +121,7 @@ export function usePendingSignupRequests(enabled = true) {
     enabled,
     queryKey: ["pending_signup_requests"],
     queryFn: async (): Promise<PendingSignupRequest[]> => getPendingSignupRequests(enabled),
-    refetchInterval: 4000,
+    refetchInterval: 30000,
   });
 }
 
@@ -137,7 +137,7 @@ export function useAuditLogs(enabled = true) {
     enabled,
     queryKey: ["audit_logs"],
     queryFn: async (): Promise<AuditLog[]> => getAuditLogs(),
-    refetchInterval: 5000,
+    refetchInterval: 30000,
   });
 }
 

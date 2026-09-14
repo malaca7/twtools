@@ -19,6 +19,22 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
+// Initialize Neon PostgreSQL Pool if DATABASE_URL is set
+const { Pool } = require("pg");
+let neonPool = null;
+if (process.env.DATABASE_URL) {
+  try {
+    neonPool = new Pool({
+      connectionString: process.env.DATABASE_URL,
+      ssl: { rejectUnauthorized: false },
+      max: 10,
+    });
+    console.log("🐘 [NEON] Pool de conexões PostgreSQL Neon inicializado com sucesso!");
+  } catch (poolErr) {
+    console.warn("⚠️ Falha ao inicializar pool Neon:", poolErr.message);
+  }
+}
+
 // Initialize Discord Client with all required intents
 const client = new Client({
   intents: [
@@ -191,6 +207,37 @@ function updateBotPresence() {
  */
 async function refreshAuxiliaryCaches() {
   try {
+    if (neonPool) {
+      const [profilesRes, productsRes, bausRes] = await Promise.all([
+        neonPool.query("SELECT id, user_id, nome, nickname, discord_id, discord_avatar_url, avatar_url, discord_username FROM profiles"),
+        neonPool.query("SELECT id, nome, categoria, preco_sugerido, preco_venda FROM products"),
+        neonPool.query("SELECT id, nome FROM baus"),
+      ]);
+
+      if (profilesRes.rows) {
+        membersCache.clear();
+        for (const m of profilesRes.rows) {
+          if (m.user_id) membersCache.set(m.user_id, m);
+          if (m.id) membersCache.set(m.id, m);
+        }
+      }
+
+      if (productsRes.rows) {
+        productsCache.clear();
+        for (const p of productsRes.rows) {
+          productsCache.set(p.id, p);
+        }
+      }
+
+      if (bausRes.rows) {
+        bausCache.clear();
+        for (const b of bausRes.rows) {
+          bausCache.set(b.id, b);
+        }
+      }
+      return;
+    }
+
     const [profilesRes, productsRes, bausRes] = await Promise.all([
       supabase.from("profiles").select("id, user_id, nome, nickname, discord_id, discord_avatar_url, avatar_url, discord_username"),
       supabase.from("products").select("id, nome, categoria, preco_sugerido, preco_venda"),
@@ -954,16 +1001,26 @@ async function dispatchAuditLogToDiscord(log) {
 async function pollUnprocessedAuditLogs() {
   if (!discordConfig.enabled) return;
   try {
-    const { data, error } = await supabase
-      .from("audit_logs")
-      .select("*")
-      .gte("created_at", lastAuditLogPollTimestamp)
-      .order("created_at", { ascending: true })
-      .limit(50);
+    let logs = [];
+    if (neonPool) {
+      const res = await neonPool.query(
+        "SELECT * FROM audit_logs WHERE created_at >= $1 ORDER BY created_at ASC LIMIT 50",
+        [lastAuditLogPollTimestamp]
+      );
+      logs = res.rows || [];
+    } else {
+      const { data, error } = await supabase
+        .from("audit_logs")
+        .select("*")
+        .gte("created_at", lastAuditLogPollTimestamp)
+        .order("created_at", { ascending: true })
+        .limit(50);
+      if (!error && data) logs = data;
+    }
 
-    if (error || !data || data.length === 0) return;
+    if (logs.length === 0) return;
 
-    for (const log of data) {
+    for (const log of logs) {
       if (log.created_at && log.created_at > lastAuditLogPollTimestamp) {
         lastAuditLogPollTimestamp = log.created_at;
       }
@@ -1251,8 +1308,8 @@ function setupRealtimeListeners() {
       console.log(`📡 [WEBHOOK DISPATCH STATUS] status: ${status}`);
     });
 
-  // 8. Polling Engine de segurança executado a cada 3 segundos
-  setInterval(pollUnprocessedAuditLogs, 3000);
+  // 8. Polling Engine de segurança executado a cada 15 segundos (otimizado contra limite de banco)
+  setInterval(pollUnprocessedAuditLogs, 15000);
 }
 
 /**

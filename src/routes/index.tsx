@@ -132,6 +132,8 @@ function AuthPage() {
     };
   }, [session?.user?.id, isPendingApproval, refresh, navigate]);
 
+  const NEON_AUTH_URL = "https://ep-rapid-unit-b4vwmopg.neonauth.c-6.us-east-2.aws.neon.tech/neondb/auth";
+
   const handleDiscordLogin = async () => {
     setLoading(true);
     try {
@@ -145,6 +147,29 @@ function AuthPage() {
 
       const redirectTarget = `${cleanOrigin}/auth/callback`;
 
+      // 1. Tenta autenticação direta via Neon Auth (Better Auth)
+      try {
+        const neonRes = await fetch(`${NEON_AUTH_URL}/sign-in/social`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            provider: "discord",
+            callbackURL: redirectTarget,
+          }),
+        });
+        const neonData = await neonRes.json().catch(() => ({}));
+        if (neonData?.url) {
+          window.location.href = neonData.url;
+          return;
+        }
+        if (neonData?.error && !neonData.error.includes("not supported")) {
+          throw new Error(neonData.message || neonData.error);
+        }
+      } catch (neonErr: any) {
+        console.warn("Aviso Neon Auth:", neonErr.message);
+      }
+
+      // 2. Fallback via OAuth provider padrão
       const { error } = await supabase.auth.signInWithOAuth({
         provider: "discord",
         options: {
