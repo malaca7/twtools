@@ -504,6 +504,7 @@ export const DEFAULT_CEO_PERMISSIONS: string[] = [
   "bot_restart",
   "bot_power_toggle",
   "bot_invite",
+  "bot_manage_roles",
   "manage_ceo_webhooks",
   "webhook_send_message",
   "webhook_test",

@@ -40,6 +40,11 @@ import {
   X,
   Trash2,
   Send,
+  Palette,
+  Layers,
+  Tag,
+  ArrowUp,
+  ArrowDown,
 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -184,9 +189,12 @@ export function DevBotManageCard({ isCeoView: isCeoViewProp }: DevBotManageCardP
   });
   const [isEditingNote, setIsEditingNote] = useState(false);
   const [botRoles, setBotRoles] = useState<{ id: string; name: string; color: string }[]>([
-    { id: "1", name: "TW | Bot", color: "#f2f3f5" },
-    { id: "2", name: "『 🤖 』 Bots", color: "#a855f7" },
+    { id: "1", name: "『 🤖 』 Bots", color: "#5865f2" },
+    { id: "2", name: "TW | Bot", color: "#f2f3f5" },
   ]);
+  const [isRoleModalOpen, setIsRoleModalOpen] = useState(false);
+  const [newRoleName, setNewRoleName] = useState("");
+  const [newRoleColor, setNewRoleColor] = useState("#5865f2");
 
   // Lista de servidores em que o bot está ativo
   const [guilds, setGuilds] = useState<BotGuildInfo[]>(() => {
@@ -236,6 +244,10 @@ export function DevBotManageCard({ isCeoView: isCeoViewProp }: DevBotManageCardP
           setActivityTypeInput(data.botActivityType || "Playing");
           setStreamingUrlInput(data.botStreamingUrl || "");
 
+          if (data.botRoles && Array.isArray(data.botRoles) && data.botRoles.length > 0) {
+            setBotRoles(data.botRoles);
+          }
+
           // Busca lista de servidores reais que o bot está
           fetchBotGuilds(data.botToken).then((list) => {
             if (isMounted && list && list.length > 0) {
@@ -270,6 +282,35 @@ export function DevBotManageCard({ isCeoView: isCeoViewProp }: DevBotManageCardP
       unsubscribe();
     };
   }, []);
+
+  // Gerenciamento de Cargos Visuais com Persistência
+  const handleAddRole = async () => {
+    if (!hasPermission("bot_manage_roles")) {
+      toast.error("Você não possui permissão para gerenciar os cargos do bot.");
+      return;
+    }
+    if (!newRoleName.trim()) return;
+    const newRole = {
+      id: Date.now().toString(),
+      name: newRoleName.trim(),
+      color: newRoleColor || "#5865f2",
+    };
+    const updated = [...botRoles, newRole];
+    setBotRoles(updated);
+    setIsRoleModalOpen(false);
+    setNewRoleName("");
+    await handleUpdateConfig({ botRoles: updated }, "Cargo adicionado ao bot!");
+  };
+
+  const handleRemoveRole = async (roleId: string) => {
+    if (!hasPermission("bot_manage_roles")) {
+      toast.error("Você não possui permissão para gerenciar os cargos do bot.");
+      return;
+    }
+    const updated = botRoles.filter((r) => r.id !== roleId);
+    setBotRoles(updated);
+    await handleUpdateConfig({ botRoles: updated }, "Cargo removido do bot!");
+  };
 
   // Atualizar servidores manualmente
   const handleRefreshGuilds = async () => {
@@ -1102,29 +1143,32 @@ export function DevBotManageCard({ isCeoView: isCeoViewProp }: DevBotManageCardP
                         >
                           <span className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: role.color }} />
                           <span>{role.name}</span>
-                          <button
-                            type="button"
-                            onClick={() => setBotRoles(botRoles.filter((r) => r.id !== role.id))}
-                            className="opacity-0 group-hover:opacity-100 hover:text-white transition-opacity ml-0.5 text-zinc-400 cursor-pointer"
-                            title="Remover cargo"
-                          >
-                            <X className="h-3 w-3" />
-                          </button>
+                          {hasPermission("bot_manage_roles") && (
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveRole(role.id)}
+                              className="opacity-0 group-hover:opacity-100 hover:text-white transition-opacity ml-0.5 text-zinc-400 cursor-pointer"
+                              title="Remover cargo"
+                            >
+                              <X className="h-3 w-3" />
+                            </button>
+                          )}
                         </div>
                       ))}
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const newRole = prompt("Nome do novo cargo:");
-                          if (newRole?.trim()) {
-                            setBotRoles([...botRoles, { id: Date.now().toString(), name: newRole.trim(), color: "#3b82f6" }]);
-                          }
-                        }}
-                        className="h-6 w-6 rounded-md bg-[#2b2d31] hover:bg-[#35373c] text-[#949ba4] hover:text-white flex items-center justify-center transition-colors cursor-pointer text-xs font-bold"
-                        title="Adicionar cargo"
-                      >
-                        +
-                      </button>
+                      {hasPermission("bot_manage_roles") && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setNewRoleName("");
+                            setNewRoleColor("#5865f2");
+                            setIsRoleModalOpen(true);
+                          }}
+                          className="h-6 w-6 rounded-md bg-[#2b2d31] hover:bg-[#35373c] text-[#949ba4] hover:text-white flex items-center justify-center transition-colors cursor-pointer text-xs font-bold"
+                          title="Adicionar cargo"
+                        >
+                          +
+                        </button>
+                      )}
                     </div>
                   </div>
 
@@ -2464,6 +2508,82 @@ export function DevBotManageCard({ isCeoView: isCeoViewProp }: DevBotManageCardP
                   Enviar Mensagem
                 </>
               )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* MODAL ADICIONAR CARGO DO BOT */}
+      <Dialog open={isRoleModalOpen} onOpenChange={setIsRoleModalOpen}>
+        <DialogContent className="sm:max-w-md bg-zinc-950 border-zinc-800 text-white">
+          <DialogHeader>
+            <DialogTitle className="text-base font-bold flex items-center gap-2">
+              <Sparkles className="h-4 w-4 text-[#5865F2]" />
+              Novo Cargo do Bot
+            </DialogTitle>
+            <DialogDescription className="text-xs text-zinc-400">
+              Adicione um novo cargo para ser exibido no perfil do bot no Discord.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-2">
+            <div className="space-y-1.5">
+              <Label className="text-xs font-bold">Nome do Cargo</Label>
+              <Input
+                value={newRoleName}
+                onChange={(e) => setNewRoleName(e.target.value)}
+                placeholder="Ex: Twin Bot, Moderação, Verificado..."
+                className="bg-zinc-900 border-zinc-800 text-xs"
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    handleAddRole();
+                  }
+                }}
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="text-xs font-bold">Cor do Cargo</Label>
+              <div className="flex items-center gap-3">
+                <input
+                  type="color"
+                  value={newRoleColor}
+                  onChange={(e) => setNewRoleColor(e.target.value)}
+                  className="h-9 w-12 rounded cursor-pointer bg-transparent border border-zinc-700 p-0.5"
+                />
+                <Input
+                  value={newRoleColor}
+                  onChange={(e) => setNewRoleColor(e.target.value)}
+                  placeholder="#5865f2"
+                  className="bg-zinc-900 border-zinc-800 text-xs font-mono w-28"
+                />
+                <div
+                  className="inline-flex items-center gap-1.5 px-3 py-1 rounded-md bg-[#2b2d31] text-[#dbdee1] text-xs font-medium"
+                >
+                  <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: newRoleColor }} />
+                  <span>{newRoleName || "Prévia"}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setIsRoleModalOpen(false)}
+              className="bg-zinc-900 border-zinc-800 text-xs"
+            >
+              Cancelar
+            </Button>
+            <Button
+              type="button"
+              disabled={!newRoleName.trim() || !hasPermission("bot_manage_roles")}
+              onClick={handleAddRole}
+              className="bg-[#5865F2] hover:bg-[#4752C4] text-white text-xs font-bold gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Adicionar Cargo
             </Button>
           </DialogFooter>
         </DialogContent>

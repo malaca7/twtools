@@ -784,6 +784,12 @@ export const PAGE_CARDS: PageCardConfig[] = [
         badge: "Visual / Banner",
       },
       {
+        key: "bot_manage_roles",
+        label: "Adicionar e Gerenciar Cargos do Bot",
+        description: "Permite adicionar novos cargos visuais, escolher cores personalizadas, editar e remover cargos atribuídos ao perfil do bot.",
+        badge: "Cargos / Perfil",
+      },
+      {
         key: "bot_restart",
         label: "Reiniciar Bot",
         description: "Permite emitir o comando para reiniciar a aplicação do bot.",

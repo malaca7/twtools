@@ -69,6 +69,7 @@ export interface DiscordBotConfig {
   footerIconUrl?: string;
   botAvatarUrl?: string;
   serverIconUrl?: string;
+  botRoles?: { id: string; name: string; color: string }[];
 }
 
 export const DEFAULT_DISCORD_CONFIG: DiscordBotConfig = {
@@ -93,6 +94,10 @@ export const DEFAULT_DISCORD_CONFIG: DiscordBotConfig = {
   footerText: "Twin Wheels RP • Sistema Integrado de Logs",
   footerIconUrl: "https://i.ibb.co/ymH1BQPQ/Uma124.png",
   serverIconUrl: "",
+  botRoles: [
+    { id: "1", name: "『 🤖 』 Bots", color: "#5865f2" },
+    { id: "2", name: "TW | Bot", color: "#f2f3f5" },
+  ],
   logChannels: {
     generalLogsChannelId: "1538375505953165312",
     stockMovementsChannelId: "",
@@ -229,7 +234,9 @@ export function canManageDiscordBot(
     perms.includes("bot_change_banner") ||
     perms.includes("bot_restart") ||
     perms.includes("bot_power_toggle") ||
-    perms.includes("bot_invite")
+    perms.includes("bot_invite") ||
+    perms.includes("bot_manage_roles") ||
+    perms.includes("bot_send_message")
   ) {
     return true;
   }
@@ -245,7 +252,7 @@ export async function saveDiscordBotConfig(
   profile?: Profile | null,
   level?: any | null
 ): Promise<void> {
-  const isDev = isUserDeveloper(user, profile, level) || level === "desenvolvedor" || level === "01";
+  const isDev = isUserDeveloper(user, profile, level) || level === "desenvolvedor";
   const canManage = isDev || canManageDiscordBot(user, profile, level);
 
   if (!canManage) {
