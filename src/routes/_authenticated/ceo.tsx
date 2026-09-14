@@ -129,22 +129,25 @@ export function CeoPageContent({ initialTab }: { initialTab?: string } = {}) {
       .reduce((acc, curr) => acc + Number(curr.total_price || 0), 0);
   }, [sales]);
 
-  const cashBalance = useMemo(() => {
-    if (!cashMovements.length) return 0;
-    return Number(cashMovements[0]?.resulting_balance || 0);
+  const activeCashMovements = useMemo(() => {
+    return cashMovements.filter((m) => m.status !== "estornado");
   }, [cashMovements]);
 
   const totalEntradas = useMemo(() => {
-    return cashMovements
+    return activeCashMovements
       .filter((m) => m.type === "entrada")
       .reduce((acc, m) => acc + Number(m.amount || 0), 0);
-  }, [cashMovements]);
+  }, [activeCashMovements]);
 
   const totalSaidas = useMemo(() => {
-    return cashMovements
+    return activeCashMovements
       .filter((m) => m.type === "saida")
       .reduce((acc, m) => acc + Number(m.amount || 0), 0);
-  }, [cashMovements]);
+  }, [activeCashMovements]);
+
+  const cashBalance = useMemo(() => {
+    return Math.round((totalEntradas - totalSaidas) * 100) / 100;
+  }, [totalEntradas, totalSaidas]);
 
   const activeMembersCount = useMemo(() => {
     return members.filter((m) => m.status === "ativo").length;
@@ -735,7 +738,7 @@ export function CeoPageContent({ initialTab }: { initialTab?: string } = {}) {
                             </div>
                             <div>
                               <p className="text-xs font-bold text-foreground">
-                                {mov.reason || (isEntrada ? "Depósito no Caixa" : "Retirada do Caixa")}
+                                {(mov as any).reason || mov.motive || (isEntrada ? "Depósito no Caixa" : "Retirada do Caixa")}
                               </p>
                               <p className="text-[0.7rem] text-muted-foreground">
                                 {dateTime(mov.created_at)}
@@ -753,7 +756,7 @@ export function CeoPageContent({ initialTab }: { initialTab?: string } = {}) {
                               {isEntrada ? "+" : "-"}{currency(mov.amount)}
                             </span>
                             <span className="text-[10px] text-muted-foreground font-mono">
-                              Saldo: {currency(mov.resulting_balance)}
+                              Saldo: {mov.status === "estornado" ? <span className="text-rose-400 italic">(Anulado)</span> : currency(mov.resulting_balance)}
                             </span>
                           </div>
                         </div>

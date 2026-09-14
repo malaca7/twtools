@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -179,15 +179,40 @@ function FundoCaixaPage() {
     return matchesRange && matchesType && matchesSearch;
   });
 
-  // Calculate Metrics strictly considering active (non-estornado) movements
-  const activeMovements = movements.filter((m) => m.status !== "estornado");
-  const totalEntradas = activeMovements
-    .filter((m) => m.type === "entrada")
-    .reduce((acc, m) => acc + Number(m.amount), 0);
-  const totalSaidas = activeMovements
-    .filter((m) => m.type === "saida")
-    .reduce((acc, m) => acc + Number(m.amount), 0);
-  const currentBalance = totalEntradas - totalSaidas;
+  // Calculate Running Balance and Metrics strictly considering active (non-estornado) movements
+  const { balanceMap, currentBalance, totalEntradas, totalSaidas } = useMemo(() => {
+    const sortedAsc = [...movements].sort((a, b) => {
+      const diff = new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+      if (diff !== 0) return diff;
+      return String(a.id).localeCompare(String(b.id));
+    });
+
+    let runningBalance = 0;
+    let entradas = 0;
+    let saidas = 0;
+    const bMap = new Map<string, number>();
+
+    for (const m of sortedAsc) {
+      if (m.status !== "estornado") {
+        const amt = Math.round((Number(m.amount) || 0) * 100) / 100;
+        if (m.type === "entrada") {
+          entradas = Math.round((entradas + amt) * 100) / 100;
+          runningBalance = Math.round((runningBalance + amt) * 100) / 100;
+        } else {
+          saidas = Math.round((saidas + amt) * 100) / 100;
+          runningBalance = Math.round((runningBalance - amt) * 100) / 100;
+        }
+        bMap.set(m.id, runningBalance);
+      }
+    }
+
+    return {
+      balanceMap: bMap,
+      currentBalance: Math.round((entradas - saidas) * 100) / 100,
+      totalEntradas: entradas,
+      totalSaidas: saidas,
+    };
+  }, [movements]);
 
   return (
     <div className="mx-auto max-w-7xl space-y-6">
@@ -389,7 +414,7 @@ function FundoCaixaPage() {
 
                       <div className="flex items-center justify-between pt-2 border-t border-border/40 text-xs">
                         <span className="text-[0.65rem] text-muted-foreground">
-                          Saldo: <strong className="text-foreground font-mono">{isEstornado ? "(Anulado)" : currency(m.resulting_balance)}</strong>
+                          Saldo: <strong className="text-foreground font-mono">{isEstornado ? "(Anulado)" : currency(balanceMap.get(m.id) ?? m.resulting_balance)}</strong>
                         </span>
 
                         <div className="flex items-center gap-1">
@@ -496,7 +521,7 @@ function FundoCaixaPage() {
                             {isEstornado ? (
                               <span className="text-rose-400 font-normal italic text-[11px]">(Anulado)</span>
                             ) : (
-                              currency(m.resulting_balance)
+                              currency(balanceMap.get(m.id) ?? m.resulting_balance)
                             )}
                           </TableCell>
 
