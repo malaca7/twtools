@@ -211,9 +211,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // Real-time synchronization for role changes and permissions updates
   useEffect(() => {
-    if (!session?.user?.id) return;
-
-    const currentUserId = session.user.id;
+    const currentUserId = state.user?.id || session?.user?.id;
+    if (!currentUserId) return;
 
     const channel = supabase
       .channel(`realtime-user-auth-${currentUserId}`)
@@ -227,6 +226,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         },
         async () => {
           await loadAuth();
+          void queryClient.invalidateQueries({ queryKey: ["auth"], refetchType: "all" });
+          void queryClient.invalidateQueries({ queryKey: ["auth_session"], refetchType: "all" });
+          void queryClient.invalidateQueries({ queryKey: ["members"], refetchType: "all" });
         }
       )
       .on(
@@ -239,6 +241,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         },
         async () => {
           await loadAuth();
+          void queryClient.invalidateQueries({ queryKey: ["auth"], refetchType: "all" });
+          void queryClient.invalidateQueries({ queryKey: ["auth_session"], refetchType: "all" });
+          void queryClient.invalidateQueries({ queryKey: ["members"], refetchType: "all" });
         }
       )
       .on(
@@ -249,7 +254,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           table: "role_permissions",
         },
         async () => {
-          void queryClient.invalidateQueries({ queryKey: ["role_permissions"] });
+          void queryClient.invalidateQueries({ queryKey: ["role_permissions"], refetchType: "all" });
         }
       )
       .subscribe();
@@ -257,7 +262,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => {
       void supabase.removeChannel(channel);
     };
-  }, [loadAuth, queryClient, session?.user?.id]);
+  }, [loadAuth, queryClient, state.user?.id, session?.user?.id]);
 
   const refresh = useCallback(async () => {
     await loadAuth();

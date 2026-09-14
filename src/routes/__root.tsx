@@ -184,12 +184,20 @@ function AppearanceSync() {
   return null;
 }
 
+import { useRealtimeSync } from "@/hooks/useRealtimeSync";
+
+function GlobalRealtimeSync() {
+  useRealtimeSync();
+  return null;
+}
+
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
 
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
+        <GlobalRealtimeSync />
         <DocumentTitleSync />
         <AppearanceSync />
         {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}

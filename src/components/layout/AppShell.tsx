@@ -74,7 +74,6 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useAuth } from "@/hooks/useAuth";
 import { usePlatformSettings } from "@/hooks/usePlatformSettings";
-import { useRealtimeSync } from "@/hooks/useRealtimeSync";
 import { usePresence } from "@/hooks/usePresence";
 import { useOnlineTimer } from "@/hooks/useOnlineTimer";
 import { useMembers } from "@/hooks/useData";
@@ -657,9 +656,6 @@ export function AppShell({ children }: { children: ReactNode }) {
   const { profile, level, signOut, user, isCeoUser, isDevUser } = useAuth();
   const navigate = useNavigate();
   const pathname = useRouterState({ select: (r) => r.location.pathname });
-
-  // Enable Realtime sync across all modules
-  useRealtimeSync();
 
   // Active user status / presence management
   const { status, isAbsenceMode, resumeSession } = usePresence(user?.id);
