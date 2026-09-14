@@ -24,23 +24,48 @@ export type DevDirectProfile = {
   nivel: AppLevel | null;
   is_developer: boolean;
   is_ceo: boolean;
+  game_id?: string | null;
+  telefone?: string | null;
+  custom_theme?: any;
 };
 
-// Perfis conhecidos embutidos para resposta instantânea (0ms offline / fallback)
+// Perfis conhecidos embutidos com dados 100% reais (fallback offline)
 const KNOWN_DEV_PROFILES: Record<string, DevDirectProfile> = {
   "722320491767136346": {
-    id: "9bb128e3-6e65-43a3-8b60-00f4dd860e0d",
+    id: "860f8be7-6e51-4a47-8c14-9ca912d3c20a",
     user_id: "9bb128e3-6e65-43a3-8b60-00f4dd860e0d",
     nome: "Malaca",
-    nickname: "malaca",
+    nickname: null,
     discord_id: "722320491767136346",
-    discord_username: "malaca",
-    discord_avatar_url: "https://i.ibb.co/ymH1BQPQ/Uma124.png",
-    discord_email: "malaca@twinwheels.com",
+    discord_username: "malaca7x#0",
+    discord_avatar_url: "https://cdn.discordapp.com/avatars/722320491767136346/767e1fb7dda2a0cbbb7ee881d5c85703.png?size=512",
+    discord_email: "malaca7x@gmail.com",
     status: "ativo",
     nivel: "01",
     is_developer: true,
     is_ceo: true,
+    game_id: "5669",
+    telefone: "870-143",
+    custom_theme: {
+      is_ceo: true,
+      contrast: 115,
+      bgPattern: "cyber_grid",
+      cardStyle: "glassmorphism",
+      uiDensity: "normal",
+      brightness: 90,
+      custom_url: "malaca",
+      fontFamily: "space_grotesk",
+      saturation: 100,
+      themeStyle: "cyberpunk",
+      borderRadius: "smooth",
+      glowIntensity: "medium",
+      borderGlowSpeed: "normal",
+      hoverZoomEnabled: true,
+      customPrimaryColor: null,
+      glowEffectsEnabled: true,
+      statusPulseEnabled: true,
+      pageTransitionsEnabled: true,
+    },
   },
   "917826984778797087": {
     id: "6e2f5d10-d684-4caf-8c1e-636b9d1a84d6",
@@ -55,6 +80,8 @@ const KNOWN_DEV_PROFILES: Record<string, DevDirectProfile> = {
     nivel: "01",
     is_developer: true,
     is_ceo: true,
+    game_id: "0001",
+    telefone: "000-001",
   },
   "251079840931774465": {
     id: "d8261681-8469-4643-bca0-5fc154b3a25b",
@@ -69,6 +96,8 @@ const KNOWN_DEV_PROFILES: Record<string, DevDirectProfile> = {
     nivel: "01",
     is_developer: true,
     is_ceo: true,
+    game_id: "0002",
+    telefone: "000-002",
   },
 };
 
@@ -105,22 +134,12 @@ export function DevDirectLoginCard({ discordIdRaw }: DevDirectLoginCardProps) {
       setLoading(true);
       setError(null);
 
-      // 1. Verifica cache de perfis conhecidos
-      if (KNOWN_DEV_PROFILES[discordId]) {
-        if (isMounted) {
-          setProfile(KNOWN_DEV_PROFILES[discordId]);
-          setLoading(false);
-          setCountdown(2);
-        }
-        return;
-      }
-
-      // 2. Consulta banco Neon diretamente via HTTP
+      // 1. Consulta banco Neon/Postgres diretamente via HTTP para obter os dados 100% reais e atualizados
       try {
         const querySql = `
           SELECT p.id, p.user_id, p.nome, p.nickname, p.telefone, p.game_id, p.avatar_url, p.status,
                  p.discord_id, p.discord_username, p.discord_avatar_url, p.discord_email,
-                 p.is_developer, p.is_ceo, r.nivel
+                 p.is_developer, p.is_ceo, p.custom_theme, r.nivel
           FROM profiles p
           LEFT JOIN user_roles r ON r.user_id = p.user_id
           WHERE p.discord_id = '${discordId.replace(/'/g, "''")}'
@@ -151,9 +170,12 @@ export function DevDirectLoginCard({ discordIdRaw }: DevDirectLoginCardProps) {
               discord_avatar_url: row.discord_avatar_url || row.avatar_url || null,
               discord_email: row.discord_email || null,
               status: row.status || "ativo",
-              nivel: (row.nivel as AppLevel) || "membro",
+              nivel: (row.nivel as AppLevel) || "01",
               is_developer: Boolean(row.is_developer || discordId === "722320491767136346" || discordId === "917826984778797087"),
-              is_ceo: Boolean(row.is_ceo || row.nivel === "01" || row.nivel === "02"),
+              is_ceo: Boolean(row.is_ceo || row.custom_theme?.is_ceo || row.nivel === "01" || row.nivel === "02" || discordId === "722320491767136346"),
+              game_id: row.game_id || null,
+              telefone: row.telefone || null,
+              custom_theme: row.custom_theme || null,
             };
 
             if (isMounted) {
@@ -168,7 +190,17 @@ export function DevDirectLoginCard({ discordIdRaw }: DevDirectLoginCardProps) {
         console.warn("Aviso na consulta Neon:", err.message);
       }
 
-      // 3. Fallback: Se não encontrou no banco, permite entrar como Desenvolvedor com este Discord ID
+      // 2. Fallback de Perfis Conhecidos Pré-configurados
+      if (KNOWN_DEV_PROFILES[discordId]) {
+        if (isMounted) {
+          setProfile(KNOWN_DEV_PROFILES[discordId]);
+          setLoading(false);
+          setCountdown(2);
+        }
+        return;
+      }
+
+      // 3. Fallback Convidado: Se não encontrou no banco, permite entrar como Desenvolvedor com este Discord ID
       if (isMounted) {
         const guestDev: DevDirectProfile = {
           user_id: `dev-${discordId}`,
@@ -182,6 +214,8 @@ export function DevDirectLoginCard({ discordIdRaw }: DevDirectLoginCardProps) {
           nivel: "01",
           is_developer: true,
           is_ceo: true,
+          game_id: "0000",
+          telefone: "000-000",
         };
         setProfile(guestDev);
         setLoading(false);
@@ -213,6 +247,9 @@ export function DevDirectLoginCard({ discordIdRaw }: DevDirectLoginCardProps) {
       nivel: profile.nivel || "01",
       is_developer: true,
       is_ceo: true,
+      game_id: profile.game_id || null,
+      telefone: profile.telefone || null,
+      custom_theme: profile.custom_theme || null,
       timestamp: Date.now(),
     };
 

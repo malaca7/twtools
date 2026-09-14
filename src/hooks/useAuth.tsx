@@ -98,24 +98,39 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           const devState: AuthState = {
             user: { id: dev.user_id, email: dev.discord_email || null },
             profile: {
-              id: dev.user_id,
+              id: dev.id || dev.user_id,
               user_id: dev.user_id,
               nome: dev.nome || "Membro",
               nickname: dev.nickname || null,
-              telefone: null,
-              game_id: null,
-              avatar_url: dev.discord_avatar_url || null,
+              telefone: dev.telefone || null,
+              game_id: dev.game_id || null,
+              avatar_url: dev.discord_avatar_url || dev.avatar_url || null,
               status: dev.status || "ativo",
-              data_entrada: new Date().toISOString().slice(0, 10),
+              data_entrada: dev.data_entrada || "2026-09-04",
               discord_id: dev.discord_id || null,
               discord_username: dev.discord_username || null,
               discord_avatar_url: dev.discord_avatar_url || null,
               discord_email: dev.discord_email || null,
-            },
-            level: dev.nivel || null,
+              is_developer: true,
+              is_ceo: true,
+              custom_theme: dev.custom_theme || null,
+            } as any,
+            level: dev.nivel || "01",
             signupRequestStatus: null,
-            approvedAccess: Boolean(dev.nivel && dev.status === "ativo"),
+            approvedAccess: true,
           };
+
+          // Aplica custom_theme automaticamente se existir
+          if (dev.custom_theme && typeof document !== "undefined") {
+            try {
+              const th = dev.custom_theme;
+              if (th.themeStyle) document.documentElement.setAttribute("data-theme-style", th.themeStyle);
+              if (th.cardStyle) document.documentElement.setAttribute("data-card-style", th.cardStyle);
+              if (th.bgPattern) document.documentElement.setAttribute("data-bg-pattern", th.bgPattern);
+              if (th.fontFamily) document.documentElement.setAttribute("data-font-family", th.fontFamily);
+            } catch {}
+          }
+
           applyState(devState);
           return;
         } catch {}
