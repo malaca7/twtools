@@ -38,8 +38,8 @@ export const Route = createFileRoute("/_authenticated/atualizacoes")({
 function AtualizacoesPage() {
   const { user, profile, level, hasPermission } = useAuth();
   const isDev = isUserDeveloper(user, profile, level);
-  const canView = hasPermission("view_patch_notes") || isDev || level === "desenvolvedor" || level === "01" || level === "02";
-  const canManage = isDev || hasPermission("manage_patch_notes") || level === "desenvolvedor" || level === "01";
+  const canView = hasPermission("view_patch_notes");
+  const canManage = hasPermission("manage_patch_notes");
 
   const [patchNotes, setPatchNotes] = useState<DevPatchNote[]>([]);
   const [loading, setLoading] = useState(true);

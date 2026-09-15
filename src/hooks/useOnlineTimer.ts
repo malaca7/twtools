@@ -1,15 +1,19 @@
 import { useState, useEffect } from "react";
 
 function getStartTimestamp(onlineSinceISO?: string | null): number {
+  const now = Date.now();
   if (onlineSinceISO) {
     const parsed = new Date(onlineSinceISO).getTime();
-    if (!isNaN(parsed) && parsed > 0) {
-      return parsed;
+    if (!isNaN(parsed) && parsed > 0 && parsed <= now) {
+      // Rejeita timestamps corrompidos ou com mais de 3 dias sem reinício
+      if (now - parsed < 86400000 * 3) {
+        return parsed;
+      }
     }
   }
   let sessionStart = typeof window !== "undefined" ? Number(sessionStorage.getItem("tw_session_start")) : 0;
-  if (!sessionStart || isNaN(sessionStart)) {
-    sessionStart = Date.now();
+  if (!sessionStart || isNaN(sessionStart) || sessionStart > now) {
+    sessionStart = now;
     if (typeof window !== "undefined") {
       sessionStorage.setItem("tw_session_start", String(sessionStart));
     }
@@ -20,17 +24,13 @@ function getStartTimestamp(onlineSinceISO?: string | null): number {
 export function useOnlineTimer(onlineSinceISO?: string | null) {
   const [seconds, setSeconds] = useState<number>(() => {
     const start = getStartTimestamp(onlineSinceISO);
-    let elapsed = Math.max(0, Math.floor((Date.now() - start) / 1000));
-    return elapsed > 86400 ? elapsed % 86400 : elapsed;
+    return Math.max(0, Math.floor((Date.now() - start) / 1000));
   });
 
   useEffect(() => {
     const update = () => {
       const start = getStartTimestamp(onlineSinceISO);
-      let elapsed = Math.max(0, Math.floor((Date.now() - start) / 1000));
-      if (elapsed > 86400) {
-        elapsed = elapsed % 86400;
-      }
+      const elapsed = Math.max(0, Math.floor((Date.now() - start) / 1000));
       setSeconds(elapsed);
     };
 

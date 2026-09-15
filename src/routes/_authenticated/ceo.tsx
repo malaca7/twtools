@@ -158,9 +158,9 @@ export function CeoPageContent({ initialTab }: { initialTab?: string } = {}) {
   }, [members]);
 
   // Permissões granulares de módulos do Painel CEO (integradas com /dev/permissoes)
-  const canManageBot = isDevUser || (hasPermission("manage_ceo_bot") && ceoConfig.allowManageBot !== false);
-  const canUseWebhooks = isDevUser || (hasPermission("manage_ceo_webhooks") && ceoConfig.allowWebhooks !== false);
-  const canViewFinancials = isDevUser || (hasPermission("view_ceo_financials") && ceoConfig.allowFinancials !== false);
+  const canManageBot = hasPermission("manage_ceo_bot") && ceoConfig.allowManageBot !== false;
+  const canUseWebhooks = hasPermission("manage_ceo_webhooks") && ceoConfig.allowWebhooks !== false;
+  const canViewFinancials = hasPermission("view_ceo_financials") && ceoConfig.allowFinancials !== false;
 
   const filteredMovements = useMemo(() => {
     if (financeFilter === "all") return cashMovements;

@@ -109,13 +109,12 @@ function DevPermissoesContent() {
         if (isMounted && Array.isArray(data)) {
           const keys: Permission[] = [];
           data.forEach((item: any) => {
-            if (typeof item === "string" && ALL_PERMISSIONS.includes(item as Permission)) {
-              keys.push(item as Permission);
-            } else if (item.id && ALL_PERMISSIONS.includes(item.id as Permission)) {
-              if (item.visualizar) keys.push(item.id as Permission);
+            const val = typeof item === "string" ? item : item.id;
+            if (val && ALL_PERMISSIONS.includes(val as Permission)) {
+              keys.push(val as Permission);
             }
           });
-          setActiveDevPermissions(keys.length > 0 ? keys : ALL_PERMISSIONS);
+          setActiveDevPermissions(keys);
           devInitialLoadedRef.current = true;
         }
       })
@@ -225,23 +224,15 @@ function DevPermissoesContent() {
     async (nextPerms: Permission[]) => {
       setIsDevSyncing(true);
       try {
-        const formattedData = nextPerms.map((key) => ({
-          id: key,
-          name: key,
-          description: "",
-          visualizar: true,
-          criar: true,
-          editar: true,
-          excluir: true,
-        }));
-        await saveDevPermissions(formattedData, user, profile, level);
+        await saveDevPermissions(nextPerms, user, profile, level);
+        void queryClient.invalidateQueries({ queryKey: ["role_permissions"] });
       } catch (err) {
         toast.error("Falha ao sincronizar permissões da Tag Dev.");
       } finally {
         setIsDevSyncing(false);
       }
     },
-    [user, profile, level]
+    [user, profile, level, queryClient]
   );
 
   // Sincronização e autosave da Tag CEO

@@ -6,7 +6,7 @@ import { getCurrentAuth, logoutFromApp } from "@/lib/app-api";
 import type { AppUser, AuthState, Profile, SignupRequestStatus } from "@/lib/app-types";
 import { can, LEVEL_LABEL, type AppLevel, type Permission } from "@/lib/permissions";
 import { useRolePermissions } from "@/hooks/useData";
-import { isUserDeveloper, DEV_DISCORD_IDS, isDevBypassActive, DEV_CONFIG_EVENT, CEO_CONFIG_EVENT, getCeoTagPermissionsSync, isUserCeo } from "@/services/devService";
+import { isUserDeveloper, DEV_DISCORD_IDS, isDevBypassActive, DEV_CONFIG_EVENT, CEO_CONFIG_EVENT, getCeoTagPermissionsSync, getDevTagPermissionsSync, isUserCeo } from "@/services/devService";
 
 type Session = { user: AppUser } | null;
 
@@ -308,7 +308,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           duration_formatted: durationFormatted || "1min",
           reason: "logout_usuario",
         });
-        await updateUserPresence("offline", 0);
+        await updateUserPresence("offline", 0, targetUserId);
       }
     } catch (err) {
       console.error("Erro ao registrar logs de saída:", err);
@@ -397,22 +397,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         (typeof window !== "undefined" &&
           (window.location.pathname.startsWith("/ceo") || window.location.hash.includes("/ceo")));
 
-      // 1. Se o Bypass de Autorização Dev estiver ATIVO e for um usuário desenvolvedor verificado:
+      // 1. Se o Bypass de Autorização Dev estiver explicitamente ATIVADO pelo desenvolvedor nas configurações:
       // Concede acesso supremo irrestrito a todas as páginas e ações, EXCETO quando estiver operando no painel CEO
       if (isDevUser && bypassActive && !inCeoPanel) {
         return true;
       }
 
-      // 2. Avaliação da Tag CEO: APENAS se o usuário possuir comprovadamente a Tag CEO (isCeoUser)
-      // ou se for um desenvolvedor inspecionando o painel CEO
+      // 2. Avaliação do Painel CEO ou da Tag CEO:
+      // Lê prioritariamente da matriz sincronizada do Supabase em tempo real (customRolePermissions.ceo)
       if (isCeoUser || (isDevUser && inCeoPanel)) {
-        const ceoPerms = getCeoTagPermissionsSync();
-        if (Array.isArray(ceoPerms) && ceoPerms.includes(permission)) {
-          return true;
+        const ceoPerms = customRolePermissions?.["ceo"] ?? getCeoTagPermissionsSync();
+        if (Array.isArray(ceoPerms)) {
+          if (ceoPerms.includes(permission)) return true;
+          // Se estiver operando no painel CEO e a permissão estiver desmarcada na Tag CEO, nega o acesso
+          if (inCeoPanel) return false;
         }
       }
 
-      // 3. Avalia rigorosamente as permissões reais atribuídas ao cargo do membro na matriz de permissões
+      // 3. Se o usuário possuir a Tag Dev (ou cargo desenvolvedor):
+      // Avalia a matriz de permissões configurada para a Tag Dev / Desenvolvedor
+      if (isDevUser && !inCeoPanel) {
+        const devPerms = customRolePermissions?.["desenvolvedor"] ?? getDevTagPermissionsSync();
+        if (Array.isArray(devPerms) && devPerms.length > 0) {
+          return devPerms.includes(permission);
+        }
+      }
+
+      // 4. Avalia as permissões reais atribuídas ao cargo do membro na matriz de permissões
       return can(level, permission, customRolePermissions);
     },
     [level, isDevUser, isCeoUser, customRolePermissions, devConfigTick, panelMode]

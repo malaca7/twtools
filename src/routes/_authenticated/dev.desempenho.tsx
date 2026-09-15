@@ -55,8 +55,8 @@ type SortOption = "revenue" | "score" | "sales" | "ticket" | "movements";
 export function GestaoDesempenhoPage() {
   const { user, profile, level, hasPermission } = useAuth();
   const isDev = isUserDeveloper(user, profile, level);
-  const canView = hasPermission("manage_performance") || isDev;
-  const canInspect = hasPermission("inspect_member_performance") || hasPermission("manage_performance") || isDev;
+  const canView = hasPermission("manage_performance");
+  const canInspect = hasPermission("inspect_member_performance") || hasPermission("manage_performance");
 
   const { data: sales = [], isLoading: loadingSales } = useSales();
   const { data: movements = [], isLoading: loadingMovements } = useMovements();

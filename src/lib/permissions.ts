@@ -431,9 +431,6 @@ export function can(
 ): boolean {
   if (!userLevel) return false;
 
-  // Cargo desenvolvedor possui acesso irrestrito por padrão
-  if (userLevel === "desenvolvedor") return true;
-
   // Custom role override check (se permissões customizadas foram salvas no banco para este cargo)
   if (customRoleMap && customRoleMap[userLevel]) {
     const list = customRoleMap[userLevel];

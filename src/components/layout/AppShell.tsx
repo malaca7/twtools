@@ -302,7 +302,6 @@ function DynamicSidebarNavigation() {
     const visibleCeo = (isCeoUser || isDevUser)
       ? customizedCeo.filter((item) => {
           if (!item.visible) return false;
-          if (isDevUser) return true;
           if (item.id === "ceo-dashboard" && !hasPermission("view_ceo")) return false;
           if (item.id === "ceo-bot" && (!hasPermission("manage_ceo_bot") || ceoConfig.allowManageBot === false)) return false;
           if (item.id === "ceo-webhooks" && (!hasPermission("manage_ceo_webhooks") || ceoConfig.allowWebhooks === false)) return false;
@@ -380,8 +379,10 @@ function DynamicSidebarNavigation() {
         }
       });
 
-      // B) Agrupa itens da plataforma com base em menuConfig (em modo dev, exibe todos os itens visíveis com bypass)
-      const visibleMaster = allPlatformItems.filter((item) => item.visible);
+      // B) Agrupa itens da plataforma com base em menuConfig (em modo dev, respeita as permissões do Dev)
+      const visibleMaster = allPlatformItems.filter(
+        (item) => item.visible && (!item.perm || hasPermission(item.perm))
+      );
       const platformGroups: { category: string; items: typeof visibleMaster }[] = [];
 
       categoryOrder.forEach((cat) => {

@@ -69,12 +69,11 @@ function TicketsWrapper() {
 
 export function TicketsPage() {
   const { user, profile, hasPermission } = useAuth();
-  const isDevUser = Boolean(profile?.is_developer);
-  const canView = hasPermission("view_tickets") || isDevUser;
-  const canCreate = hasPermission("create_ticket") || isDevUser;
-  const canManage = hasPermission("manage_tickets") || isDevUser;
-  const canViewAll = hasPermission("view_all_tickets") || isDevUser;
-  const canSeeAll = canViewAll || canManage || isDevUser;
+  const canView = hasPermission("view_tickets");
+  const canCreate = hasPermission("create_ticket");
+  const canManage = hasPermission("manage_tickets");
+  const canViewAll = hasPermission("view_all_tickets");
+  const canSeeAll = canViewAll || canManage;
 
   const { data: tickets = [], isLoading, isFetching } = useTickets();
 

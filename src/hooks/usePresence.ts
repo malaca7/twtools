@@ -73,7 +73,7 @@ export function usePresence(userId?: string | null) {
       reason: "retorno_ausencia",
     });
 
-    updateUserPresence("online", 0)
+    updateUserPresence("online", 0, userId)
       .then(() => {
         void queryClient.invalidateQueries({ queryKey: ["members"] });
         void queryClient.invalidateQueries({ queryKey: ["user_presence"] });
@@ -91,9 +91,8 @@ export function usePresence(userId?: string | null) {
     }
 
     // Send initial online heartbeat immediately
-    updateUserPresence("online", 0)
+    updateUserPresence("online", 0, userId)
       .then(() => {
-        void queryClient.invalidateQueries({ queryKey: ["members"] });
         void queryClient.invalidateQueries({ queryKey: ["user_presence"] });
       })
       .catch(() => {});
@@ -130,7 +129,7 @@ export function usePresence(userId?: string | null) {
               void queryClient.invalidateQueries({ queryKey: ["audit_logs"] });
             });
           }
-          updateUserPresence("online", 0)
+          updateUserPresence("online", 0, userId)
             .then(() => {
               void queryClient.invalidateQueries({ queryKey: ["members"] });
               void queryClient.invalidateQueries({ queryKey: ["audit_logs"] });
@@ -177,11 +176,13 @@ export function usePresence(userId?: string | null) {
           statusRef.current = "online";
           setCurrentStatus("online");
           setIsAbsenceMode(false);
+          void queryClient.invalidateQueries({ queryKey: ["members"] });
         }
-        updateUserPresence("online", 15)
+        updateUserPresence("online", 15, userId)
           .then(() => {
-            void queryClient.invalidateQueries({ queryKey: ["members"] });
+            void queryClient.invalidateQueries({ queryKey: ["user_presence"] });
           })
+          .catch(() => {});
       }
     }, heartbeatMs);
 

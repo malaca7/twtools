@@ -166,7 +166,7 @@ export function DevWebhooksConfigCard({ isCeoView }: DevWebhooksConfigCardProps 
     if (isCeoPanel) {
       return ceoPerms.includes(perm);
     }
-    return isDevUser || hasPermission(perm);
+    return hasPermission(perm);
   };
 
   // Permissões granulares para cada opção/função da página de Webhooks

@@ -582,57 +582,68 @@ export async function getUserPresences(): Promise<UserPresence[]> {
   }));
 }
 
-export async function updateUserPresence(status: UserPresenceStatus, incrementSeconds = 60): Promise<void> {
+export async function updateUserPresence(status: UserPresenceStatus, incrementSeconds = 15, customUserId?: string): Promise<void> {
   const { data: { session } } = await supabase.auth.getSession();
-  if (!session?.user) return;
+  const userId = customUserId || session?.user?.id;
+  if (!userId) return;
 
-  const userId = session.user.id;
   const nowISO = new Date().toISOString();
 
-  // 1. Trigger RPC if available for incrementing online seconds
+  // 1. Invoca a RPC segura no Supabase para atualizar a presença e incrementar tempo atomicamente
+  let rpcSuccess = false;
   try {
-    await supabase.rpc("heartbeat_user_presence" as any, {
+    const { error: rpcErr } = await supabase.rpc("heartbeat_user_presence" as any, {
       _status: status,
       _increment_seconds: incrementSeconds,
+      _user_id: userId,
     });
-  } catch (e) {}
-
-  // 2. Always upsert user_presence table to guarantee status ("online" | "ausente" | "offline") is updated in DB
-  const { data: existing } = await (supabase.from("user_presence" as any))
-    .select("status, online_since, total_seconds_online")
-    .eq("user_id", userId)
-    .maybeSingle();
-
-  let onlineSince = (existing as any)?.online_since;
-  let totalSecs = Number((existing as any)?.total_seconds_online || 0);
-
-  if (status === "online") {
-    if (!onlineSince || (existing as any)?.status === "offline") {
-      onlineSince = nowISO;
+    if (!rpcErr) {
+      rpcSuccess = true;
     }
-    if (incrementSeconds > 0) {
-      totalSecs += incrementSeconds;
-    }
-  } else if (status === "ausente") {
-    // Retain online_since timestamp while away if needed
-    if (!onlineSince) onlineSince = nowISO;
-  } else {
-    onlineSince = null;
+  } catch (e) {
+    rpcSuccess = false;
   }
 
-  const { error: upsertErr } = await (supabase.from("user_presence" as any))
-    .upsert(
-      {
-        user_id: userId,
-        status,
-        last_seen: nowISO,
-        online_since: onlineSince,
-        total_seconds_online: totalSecs,
-        updated_at: nowISO,
-      },
-      { onConflict: "user_id" }
-    );
-  if (upsertErr) console.error("Error updating user presence:", upsertErr);
+  // 2. Fallback direto caso a RPC falhe
+  if (!rpcSuccess) {
+    const { data: existing } = await (supabase.from("user_presence" as any))
+      .select("status, online_since, total_seconds_online, last_seen")
+      .eq("user_id", userId)
+      .maybeSingle();
+
+    let onlineSince = (existing as any)?.online_since;
+    let totalSecs = Number((existing as any)?.total_seconds_online || 0);
+    const lastSeenMs = (existing as any)?.last_seen ? new Date((existing as any).last_seen).getTime() : 0;
+    const diffSecs = lastSeenMs > 0 ? (Date.now() - lastSeenMs) / 1000 : 99999;
+
+    if (status === "online") {
+      // Se estava offline ou o último heartbeat foi há mais de 2 minutos, reinicia o início da sessão (online_since)
+      if (!onlineSince || (existing as any)?.status === "offline" || diffSecs > 120) {
+        onlineSince = nowISO;
+      }
+      if (incrementSeconds > 0) {
+        totalSecs += incrementSeconds;
+      }
+    } else if (status === "ausente") {
+      if (!onlineSince || diffSecs > 120) onlineSince = nowISO;
+    } else {
+      onlineSince = null;
+    }
+
+    const { error: upsertErr } = await (supabase.from("user_presence" as any))
+      .upsert(
+        {
+          user_id: userId,
+          status,
+          last_seen: nowISO,
+          online_since: onlineSince,
+          total_seconds_online: totalSecs,
+          updated_at: nowISO,
+        },
+        { onConflict: "user_id" }
+      );
+    if (upsertErr) console.error("Error updating user presence:", upsertErr);
+  }
 }
 
 export async function getMembers(): Promise<Member[]> {
@@ -694,7 +705,12 @@ export async function getMembers(): Promise<Member[]> {
       total_seconds: secs,
       total_hours: Math.round((secs / 3600) * 10) / 10,
     };
-    if (p.online_since && computedStatus === "online") item.online_since = String(p.online_since);
+    if (p.online_since && (computedStatus === "online" || computedStatus === "ausente")) {
+      const osMs = new Date(p.online_since).getTime();
+      if (!isNaN(osMs) && (nowMs - osMs) < 86400000 * 3) {
+        item.online_since = String(p.online_since);
+      }
+    }
     presenceMap.set(p.user_id, item);
   });
 

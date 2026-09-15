@@ -67,7 +67,7 @@ export const DEFAULT_DEV_PERMISSIONS: DevPermissionResource[] = [
 ];
 
 export const DEFAULT_DEV_CONFIG: DevConfiguration = {
-  developerBypassMode: true,
+  developerBypassMode: false,
   devAuditLogs: true,
   devSystemNotifications: true,
 };
@@ -233,48 +233,104 @@ export function assertDeveloperOrCeoAccess(
 }
 
 /**
- * Carrega a matriz de permissões do Módulo Dev.
+ * Carrega a matriz de permissões do Módulo Dev da tabela role_permissions ou cache local.
  */
 export async function getDevPermissions(
   user?: AppUser | null,
   profile?: Profile | null,
   level?: AppLevel | null
-): Promise<DevPermissionResource[]> {
+): Promise<any[]> {
   assertDeveloperAccess(user, profile, level);
 
   try {
-    const local = localStorage.getItem(DEV_PERMS_KEY);
-    if (local) {
-      const parsed = JSON.parse(local);
-      if (Array.isArray(parsed) && parsed.length > 0) {
-        return parsed;
+    const { data, error } = await supabase
+      .from("role_permissions")
+      .select("permissions")
+      .eq("level", "desenvolvedor")
+      .maybeSingle();
+
+    if (!error && data && Array.isArray(data.permissions)) {
+      const perms = data.permissions.map(String);
+      if (typeof window !== "undefined") {
+        localStorage.setItem(DEV_PERMS_KEY, JSON.stringify(perms));
       }
+      return perms;
     }
   } catch (err) {
-    console.warn("Falha ao ler permissões Dev do armazenamento local:", err);
+    console.warn("Falha ao buscar permissões Dev no Supabase:", err);
+  }
+
+  if (typeof window !== "undefined") {
+    try {
+      const local = localStorage.getItem(DEV_PERMS_KEY);
+      if (local) {
+        const parsed = JSON.parse(local);
+        if (Array.isArray(parsed)) {
+          return parsed;
+        }
+      }
+    } catch {}
   }
 
   return DEFAULT_DEV_PERMISSIONS;
 }
 
 /**
- * Salva a matriz de permissões do Módulo Dev.
+ * Obtém síncronamente as permissões da Tag Dev persistidas em localStorage
+ */
+export function getDevTagPermissionsSync(): string[] {
+  if (typeof window !== "undefined") {
+    try {
+      const local = localStorage.getItem(DEV_PERMS_KEY);
+      if (local) {
+        const parsed = JSON.parse(local);
+        if (Array.isArray(parsed)) {
+          return parsed.map((item: any) => (typeof item === "string" ? item : item.id || item.name));
+        }
+      }
+    } catch {}
+  }
+  return [];
+}
+
+/**
+ * Salva a matriz de permissões do Módulo Dev em role_permissions (desenvolvedor) e localStorage.
  */
 export async function saveDevPermissions(
-  permissions: DevPermissionResource[],
+  permissions: any[],
   user?: AppUser | null,
   profile?: Profile | null,
   level?: AppLevel | null
 ): Promise<void> {
   assertDeveloperAccess(user, profile, level);
 
-  // Simula latência de rede profissional para feedback visual de carregamento
-  await new Promise((resolve) => setTimeout(resolve, 600));
+  const permStrings: string[] = permissions.map((p: any) =>
+    typeof p === "string" ? p : p.id || p.name
+  );
 
   try {
-    localStorage.setItem(DEV_PERMS_KEY, JSON.stringify(permissions));
+    if (typeof window !== "undefined") {
+      localStorage.setItem(DEV_PERMS_KEY, JSON.stringify(permStrings));
+      window.dispatchEvent(new CustomEvent(DEV_CONFIG_EVENT, { detail: permStrings }));
+      window.dispatchEvent(new Event("storage"));
+    }
 
-    // Opcional: Persistir no Supabase platform_settings se disponível
+    // Persiste no Supabase em role_permissions sob o level 'desenvolvedor'
+    const { error: roleErr } = await supabase.from("role_permissions").upsert(
+      {
+        level: "desenvolvedor",
+        nivel: "desenvolvedor",
+        permissions: permStrings as any,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "level" }
+    );
+
+    if (roleErr) {
+      console.warn("Falha ao salvar permissões do Dev em role_permissions:", roleErr);
+    }
+
+    // Também atualiza platform_settings como fallback
     await (supabase.from as any)("platform_settings").upsert({
       key: "dev_permissions",
       value: JSON.stringify(permissions),
@@ -596,7 +652,7 @@ export async function getCeoTagPermissions(
       .eq("level", "ceo")
       .maybeSingle();
 
-    if (!error && data && Array.isArray(data.permissions) && data.permissions.length > 0) {
+    if (!error && data && Array.isArray(data.permissions)) {
       const perms = data.permissions.map(String);
       if (typeof window !== "undefined") {
         localStorage.setItem(CEO_PERMS_KEY, JSON.stringify(perms));
@@ -612,7 +668,7 @@ export async function getCeoTagPermissions(
       const local = localStorage.getItem(CEO_PERMS_KEY);
       if (local) {
         const parsed = JSON.parse(local);
-        if (Array.isArray(parsed) && parsed.length > 0) {
+        if (Array.isArray(parsed)) {
           return parsed;
         }
       }
@@ -633,7 +689,7 @@ export function getCeoTagPermissionsSync(): string[] {
       const local = localStorage.getItem(CEO_PERMS_KEY);
       if (local) {
         const parsed = JSON.parse(local);
-        if (Array.isArray(parsed) && parsed.length > 0) {
+        if (Array.isArray(parsed)) {
           return parsed;
         }
       }

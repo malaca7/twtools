@@ -88,8 +88,7 @@ interface TicketDetailViewProps {
 
 export function TicketDetailView({ ticket, onClose, canManage }: TicketDetailViewProps) {
   const { user, profile } = useAuth();
-  const isDevUser = Boolean(profile?.is_developer);
-  const effectiveCanManage = canManage || isDevUser;
+  const effectiveCanManage = canManage;
   const { data: members = [] } = useMembers();
 
   // Mutations
