@@ -396,30 +396,37 @@ function MembrosPage() {
                   return (
                     <div key={m.user_id} className="p-4 rounded-xl border border-border/80 bg-card text-card-foreground shadow-sm space-y-3">
                       <div className="flex items-center justify-between gap-2">
-                        <div className="flex items-center gap-3">
-                          <Avatar className="h-10 w-10 border border-border">
+                        <Link
+                          to="/perfil/$handle"
+                          params={{ handle: String(m.custom_url || m.discord_id || m.user_id).replace(/^@/, "") }}
+                          className="flex items-center gap-3 group cursor-pointer min-w-0"
+                          title={`Ver perfil público de ${m.nickname || m.nome}`}
+                        >
+                          <Avatar className="h-10 w-10 border border-border group-hover:border-primary/50 transition-colors shrink-0">
                             {avatarUrl && <AvatarImage src={avatarUrl} alt={m.nome} />}
-                            <AvatarFallback className="bg-secondary font-bold text-xs">
+                            <AvatarFallback className="bg-secondary font-bold text-xs group-hover:text-primary transition-colors">
                               {initials}
                             </AvatarFallback>
                           </Avatar>
-                          <div>
-                            <div className="flex items-center gap-1.5">
-                              <p className="font-bold text-sm text-foreground">{m.nickname || m.nome}</p>
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <p className="font-bold text-sm text-foreground group-hover:text-primary transition-colors truncate">
+                                {m.nickname || m.nome}
+                              </p>
                               {targetIsDev && (
-                                <Badge variant="outline" className="text-[9px] font-mono border-rose-500/40 text-rose-400 bg-rose-500/10 px-1 py-0">
+                                <Badge variant="outline" className="text-[9px] font-mono border-rose-500/40 text-rose-400 bg-rose-500/10 px-1 py-0 shrink-0">
                                   DEV
                                 </Badge>
                               )}
                               {Boolean(m.is_ceo || m.custom_theme?.is_ceo) && (
-                                <Badge className="bg-amber-500/20 text-amber-300 border-amber-500/40 text-[9px] font-bold px-1.5 py-0">
+                                <Badge className="bg-amber-500/20 text-amber-300 border-amber-500/40 text-[9px] font-bold px-1.5 py-0 shrink-0">
                                   👑 CEO
                                 </Badge>
                               )}
                             </div>
-                            {m.nickname && <p className="text-xs text-muted-foreground">{m.nome}</p>}
+                            {m.nickname && <p className="text-xs text-muted-foreground truncate">{m.nome}</p>}
                           </div>
-                        </div>
+                        </Link>
 
                         {canChangeThisTargetRole ? (
                           <select

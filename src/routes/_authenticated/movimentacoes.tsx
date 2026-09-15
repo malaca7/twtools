@@ -499,22 +499,22 @@ export function MovimentacoesPage() {
       {/* PAINEL INTERATIVO ESTILO APP */}
       {canMove && (
         <Card className="surface-card border-primary/30 shadow-2xl overflow-hidden">
-          {/* BOTÕES GRANDES DE TIPO (ENTRADA VS SAÍDA VS TRANSFERÊNCIA) */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 p-2 bg-secondary/40 border-b border-border/60 gap-2">
+          {/* BOTÕES DE TIPO ESTILO SEGMENTED CONTROL (ENTRADA VS SAÍDA VS TRANSFERÊNCIA) */}
+          <div className="grid grid-cols-3 p-1.5 sm:p-2 bg-secondary/40 border-b border-border/60 gap-1.5 sm:gap-2">
             <button
               type="button"
               onClick={() => { setType("entrada"); setQueue([]); }}
               className={cn(
-                "flex items-center justify-center gap-2.5 py-4 px-3 rounded-xl font-bold text-xs sm:text-sm transition-all duration-200 shadow-md",
+                "flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2.5 py-2.5 sm:py-3.5 px-2 sm:px-3 rounded-xl font-bold text-xs sm:text-sm transition-all duration-200 shadow-md cursor-pointer active:scale-95",
                 type === "entrada"
                   ? "bg-emerald-600 text-white shadow-emerald-600/25 ring-2 ring-emerald-400"
                   : "bg-background/60 text-muted-foreground hover:text-foreground hover:bg-secondary/60"
               )}
             >
-              <ArrowDownCircle className="h-5 w-5" />
-              <div className="text-left">
-                <p className="font-extrabold text-xs sm:text-sm leading-tight">ENTRADA (+)</p>
-                <p className="text-[0.65rem] opacity-80 font-normal">Adicionar novos itens no baú</p>
+              <ArrowDownCircle className="h-4 w-4 sm:h-5 sm:w-5 shrink-0" />
+              <div className="text-center sm:text-left">
+                <p className="font-extrabold text-[11px] sm:text-sm leading-tight">ENTRADA (+)</p>
+                <p className="text-[0.65rem] opacity-80 font-normal hidden sm:block">Adicionar novos itens no baú</p>
               </div>
             </button>
 
@@ -522,16 +522,16 @@ export function MovimentacoesPage() {
               type="button"
               onClick={() => { setType("saida"); setQueue([]); }}
               className={cn(
-                "flex items-center justify-center gap-2.5 py-4 px-3 rounded-xl font-bold text-xs sm:text-sm transition-all duration-200 shadow-md",
+                "flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2.5 py-2.5 sm:py-3.5 px-2 sm:px-3 rounded-xl font-bold text-xs sm:text-sm transition-all duration-200 shadow-md cursor-pointer active:scale-95",
                 type === "saida"
                   ? "bg-rose-600 text-white shadow-rose-600/25 ring-2 ring-rose-400"
                   : "bg-background/60 text-muted-foreground hover:text-foreground hover:bg-secondary/60"
               )}
             >
-              <ArrowUpCircle className="h-5 w-5" />
-              <div className="text-left">
-                <p className="font-extrabold text-xs sm:text-sm leading-tight">SAÍDA (-)</p>
-                <p className="text-[0.65rem] opacity-80 font-normal">Retirar itens do baú</p>
+              <ArrowUpCircle className="h-4 w-4 sm:h-5 sm:w-5 shrink-0" />
+              <div className="text-center sm:text-left">
+                <p className="font-extrabold text-[11px] sm:text-sm leading-tight">SAÍDA (-)</p>
+                <p className="text-[0.65rem] opacity-80 font-normal hidden sm:block">Retirar itens do baú</p>
               </div>
             </button>
 
@@ -539,16 +539,16 @@ export function MovimentacoesPage() {
               type="button"
               onClick={() => { setType("transferencia"); setQueue([]); }}
               className={cn(
-                "flex items-center justify-center gap-2.5 py-4 px-3 rounded-xl font-bold text-xs sm:text-sm transition-all duration-200 shadow-md",
+                "flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2.5 py-2.5 sm:py-3.5 px-2 sm:px-3 rounded-xl font-bold text-xs sm:text-sm transition-all duration-200 shadow-md cursor-pointer active:scale-95",
                 type === "transferencia"
                   ? "bg-sky-600 text-white shadow-sky-600/25 ring-2 ring-sky-400"
                   : "bg-background/60 text-muted-foreground hover:text-foreground hover:bg-secondary/60"
               )}
             >
-              <ArrowRightLeft className="h-5 w-5" />
-              <div className="text-left">
-                <p className="font-extrabold text-xs sm:text-sm leading-tight">TRANSFERÊNCIA (⇄)</p>
-                <p className="text-[0.65rem] opacity-80 font-normal">Mover itens entre dois baús</p>
+              <ArrowRightLeft className="h-4 w-4 sm:h-5 sm:w-5 shrink-0" />
+              <div className="text-center sm:text-left">
+                <p className="font-extrabold text-[11px] sm:text-sm leading-tight">TRANSF. (⇄)</p>
+                <p className="text-[0.65rem] opacity-80 font-normal hidden sm:block">Mover itens entre dois baús</p>
               </div>
             </button>
           </div>
@@ -649,11 +649,11 @@ export function MovimentacoesPage() {
 
             {/* FILTRO DE CATEGORIAS POR BOTÕES CHIP */}
             <div className="space-y-2 pt-2 border-t border-border/50">
-              <div className="flex items-center justify-between">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                 <Label className="text-xs font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
                   <Tags className="h-4 w-4 text-primary" /> {canViewBaus ? (type === "transferencia" ? "3" : "2") : "1"}. Filtrar por Categoria
                 </Label>
-                <div className="relative w-44 sm:w-56">
+                <div className="relative w-full sm:w-56">
                   <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
                   <Input
                     placeholder="Buscar produto pelo nome..."

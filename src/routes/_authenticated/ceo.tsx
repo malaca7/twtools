@@ -26,7 +26,7 @@ import {
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Tabs, TabsContent } from "@/components/ui/tabs";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PageHeader } from "@/components/ui-kit";
 import { useAuth } from "@/hooks/useAuth";
 import { useMembers, useSales, useCashMovements } from "@/hooks/useData";
@@ -249,8 +249,43 @@ export function CeoPageContent({ initialTab }: { initialTab?: string } = {}) {
         </CardContent>
       </Card>
 
-      {/* CONTEÚDO DAS PÁGINAS DO PAINEL CEO (Acesso exclusivo pelo menu lateral) */}
+      {/* NAVEGAÇÃO DE ABAS EXECUTIVAS CEO (Rápida troca por toque no mobile e desktop) */}
       <Tabs value={activeTab} onValueChange={(val: any) => setTab(val)} className="space-y-6">
+        <div className="overflow-x-auto pb-1 scrollbar-none -mx-1 px-1">
+          <TabsList className="bg-secondary/60 border border-amber-500/30 p-1 rounded-2xl inline-flex w-full sm:w-auto min-w-max gap-1">
+            <TabsTrigger
+              value="dashboard"
+              className="gap-2 text-xs font-bold px-3.5 py-2 rounded-xl data-[state=active]:bg-amber-500/20 data-[state=active]:text-amber-300 data-[state=active]:border-amber-500/40 cursor-pointer"
+            >
+              <LayoutDashboard className="h-4 w-4 text-amber-400" />
+              <span>Visão Geral</span>
+            </TabsTrigger>
+
+            <TabsTrigger
+              value="bot"
+              className="gap-2 text-xs font-bold px-3.5 py-2 rounded-xl data-[state=active]:bg-amber-500/20 data-[state=active]:text-amber-300 data-[state=active]:border-amber-500/40 cursor-pointer"
+            >
+              <Bot className="h-4 w-4 text-amber-400" />
+              <span>Gerenciar Bot</span>
+            </TabsTrigger>
+
+            <TabsTrigger
+              value="webhooks"
+              className="gap-2 text-xs font-bold px-3.5 py-2 rounded-xl data-[state=active]:bg-amber-500/20 data-[state=active]:text-amber-300 data-[state=active]:border-amber-500/40 cursor-pointer"
+            >
+              <Webhook className="h-4 w-4 text-amber-400" />
+              <span>Webhooks Discord</span>
+            </TabsTrigger>
+
+            <TabsTrigger
+              value="financas"
+              className="gap-2 text-xs font-bold px-3.5 py-2 rounded-xl data-[state=active]:bg-amber-500/20 data-[state=active]:text-amber-300 data-[state=active]:border-amber-500/40 cursor-pointer"
+            >
+              <Landmark className="h-4 w-4 text-amber-400" />
+              <span>Finanças</span>
+            </TabsTrigger>
+          </TabsList>
+        </div>
 
         {/* =====================================================================
             ABA 1: VISÃO GERAL & MÉTRICAS

@@ -1938,3 +1938,47 @@ html, body {
 .wa-wave-bar {
   animation: wa-wave 1s ease-in-out infinite;
 }
+
+/* ─── NATIVE MOBILE APP UTILITIES & SAFE AREA INSETS ─── */
+.pb-safe {
+  padding-bottom: max(0.75rem, env(safe-area-inset-bottom, 0px));
+}
+
+.pt-safe {
+  padding-top: max(0.75rem, env(safe-area-inset-top, 0px));
+}
+
+.mb-safe {
+  margin-bottom: max(0.75rem, env(safe-area-inset-bottom, 0px));
+}
+
+/* Eliminar atraso de clique e flashes azuis/cinzas padrão em mobile */
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
+button, a, input, select, textarea {
+  touch-action: manipulation;
+}
+
+/* Rolagem horizontal suave por toque (sem barra visível) */
+.no-scrollbar::-webkit-scrollbar,
+.scrollbar-none::-webkit-scrollbar {
+  display: none !important;
+}
+
+.no-scrollbar,
+.scrollbar-none {
+  -ms-overflow-style: none !important;
+  scrollbar-width: none !important;
+}
+
+.mobile-touch-scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scroll-behavior: smooth;
+  scrollbar-width: none;
+}
+.mobile-touch-scroll::-webkit-scrollbar {
+  display: none;
+}

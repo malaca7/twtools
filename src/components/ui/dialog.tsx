@@ -158,7 +158,7 @@ const DialogContentInner = React.forwardRef<
         aria-modal="true"
         onClick={(e) => e.stopPropagation()}
         className={cn(
-          "fixed left-[50%] top-[50%] z-[9999] grid w-[calc(100%-2rem)] max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 border border-border/80 bg-card text-card-foreground shadow-2xl rounded-2xl p-5 sm:p-6 opacity-100 scale-100 pointer-events-auto transition-all duration-150 max-h-[90vh] overflow-y-auto overflow-x-hidden ring-1 ring-border/50",
+          "fixed left-[50%] top-[50%] z-[9999] grid w-[calc(100%-1.25rem)] sm:w-[calc(100%-2rem)] max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 border border-border/80 bg-card text-card-foreground shadow-2xl rounded-2xl sm:rounded-3xl p-4 sm:p-6 opacity-100 scale-100 pointer-events-auto transition-all duration-150 max-h-[85dvh] overflow-y-auto overflow-x-hidden overscroll-contain ring-1 ring-border/50 scrollbar-none",
           className,
         )}
         {...props}
@@ -170,7 +170,7 @@ const DialogContentInner = React.forwardRef<
             e.stopPropagation();
             setOpen(false);
           }}
-          className="absolute right-4 top-4 rounded-lg p-1.5 opacity-70 hover:opacity-100 hover:bg-secondary transition-all cursor-pointer text-muted-foreground hover:text-foreground z-10"
+          className="absolute right-3 top-3 sm:right-4 sm:top-4 rounded-xl p-2 opacity-70 hover:opacity-100 hover:bg-secondary transition-all cursor-pointer text-muted-foreground hover:text-foreground z-10 active:scale-90"
         >
           <X className="h-4 w-4" />
           <span className="sr-only">Close</span>

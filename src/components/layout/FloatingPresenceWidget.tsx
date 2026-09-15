@@ -311,11 +311,29 @@ export function FloatingPresenceWidget() {
       }
     };
 
+    const handleToggleChat = () => {
+      setIsOpen((prev) => !prev);
+    };
+
+    const handleOpenChat = () => {
+      setIsOpen(true);
+    };
+
+    const handleCloseChat = () => {
+      setIsOpen(false);
+    };
+
     window.addEventListener("tw_chat_new_message", handleNewMessageAlert);
     window.addEventListener("tw_chat_open_conversation", handleOpenConversation);
+    window.addEventListener("tw_chat_toggle", handleToggleChat);
+    window.addEventListener("tw_chat_open", handleOpenChat);
+    window.addEventListener("tw_chat_close", handleCloseChat);
     return () => {
       window.removeEventListener("tw_chat_new_message", handleNewMessageAlert);
       window.removeEventListener("tw_chat_open_conversation", handleOpenConversation);
+      window.removeEventListener("tw_chat_toggle", handleToggleChat);
+      window.removeEventListener("tw_chat_open", handleOpenChat);
+      window.removeEventListener("tw_chat_close", handleCloseChat);
       if (alertTimeoutRef.current) clearTimeout(alertTimeoutRef.current);
     };
   }, [conversations]);
@@ -484,14 +502,14 @@ export function FloatingPresenceWidget() {
         </div>
       )}
 
-      {/* CONTAINER DO BALÃO FLUTUANTE */}
-      <div ref={panelRef} className="fixed bottom-3 right-3 sm:bottom-6 sm:right-6 z-50">
-        {/* FLOATING ACTION BUTTON — BALÃO FLUTUANTE DE CHAT 💬 */}
+      {/* CONTAINER DO BALÃO FLUTUANTE (Oculto no mobile pois o Chat é acessado nativamente pela barra inferior) */}
+      <div ref={panelRef} className="fixed bottom-6 right-6 z-50">
+        {/* FLOATING ACTION BUTTON — BALÃO FLUTUANTE DE CHAT 💬 (Desktop / Tablet) */}
         <button
           type="button"
           onClick={handleToggleOpen}
           className={cn(
-            "relative flex items-center gap-2 px-3.5 py-2.5 sm:px-4 sm:py-3 rounded-full border shadow-2xl backdrop-blur-xl transition-all duration-300 cursor-pointer active:scale-95 group select-none",
+            "hidden md:flex relative items-center gap-2 px-3.5 py-2.5 sm:px-4 sm:py-3 rounded-full border shadow-2xl backdrop-blur-xl transition-all duration-300 cursor-pointer active:scale-95 group select-none",
             isOpen
               ? "border-primary bg-primary text-primary-foreground shadow-primary/40 ring-4 ring-primary/30"
               : "border-primary/50 bg-card/95 text-foreground hover:bg-secondary hover:border-primary/80 shadow-xl",
@@ -550,9 +568,9 @@ export function FloatingPresenceWidget() {
           />
         </button>
 
-        {/* FLOATING HIGH-DENSITY CHAT & PRESENCE POPUP (ALINHADO E SEM CORTES) */}
+        {/* FLOATING HIGH-DENSITY CHAT & PRESENCE POPUP (ALINHADO E SEM CORTES, EM FORMATO GAVETA NO MOBILE) */}
         {isOpen && (
-          <div className="fixed inset-x-2 bottom-[68px] top-14 sm:inset-auto sm:bottom-[78px] sm:right-6 sm:top-auto sm:w-[440px] sm:max-w-[calc(100vw-2.5rem)] sm:h-[620px] sm:max-h-[calc(100vh-100px)] rounded-3xl border border-border/80 bg-card/95 backdrop-blur-2xl shadow-2xl overflow-hidden animate-in fade-in-50 slide-in-from-bottom-3 duration-200 flex flex-col z-[999]">
+          <div className="fixed inset-x-0 bottom-0 top-0 sm:inset-auto sm:bottom-[78px] sm:right-6 sm:top-auto sm:w-[440px] sm:max-w-[calc(100vw-2.5rem)] sm:h-[620px] sm:max-h-[calc(100vh-100px)] rounded-t-3xl sm:rounded-3xl border-t sm:border border-border/80 bg-card/98 backdrop-blur-2xl shadow-2xl overflow-hidden animate-in fade-in-50 slide-in-from-bottom-4 duration-200 flex flex-col z-[999]">
             {/* SE UMA CONVERSA ESTIVER ABERTA, EXIBE A JANELA DE CHAT */}
             {activeConversation ? (
               <ChatWindow

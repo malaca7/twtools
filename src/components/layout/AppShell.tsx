@@ -86,6 +86,7 @@ import {
 import { LEVEL_LABEL, levelBadgeClass, type Permission } from "@/lib/permissions";
 import { cn } from "@/lib/utils";
 import { FloatingPresenceWidget } from "./FloatingPresenceWidget";
+import { MobileBottomNav } from "./MobileBottomNav";
 import { ForceCachePurgeListener } from "@/components/dev/ForceCachePurgeListener";
 import { NotificationCenter } from "@/components/notifications/NotificationCenter";
 
@@ -704,7 +705,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             <div className="flex items-center gap-2 sm:gap-3 min-w-0">
               <SidebarTrigger />
               <div className="flex items-center gap-2 min-w-0">
-                <span className="text-gradient-brand font-display font-extrabold text-sm sm:text-base tracking-[0.14em] uppercase truncate drop-shadow-xs">
+                <span className="text-gradient-brand font-display font-extrabold text-xs sm:text-base tracking-[0.12em] uppercase truncate drop-shadow-xs max-w-[130px] sm:max-w-none">
                   {settings.factionName || "Twin Wheels"}
                 </span>
                 {settings.slogan && (
@@ -716,10 +717,10 @@ export function AppShell({ children }: { children: ReactNode }) {
             </div>
 
             {/* TOP HEADER: LIVE REALTIME ONLINE TIMER + ONLINE/AUSENTE MEMBERS BADGE + USER AVATAR */}
-            <div className="flex items-center gap-2 sm:gap-2.5 shrink-0">
-              {/* LIVE ONLINE TIMER BADGE */}
+            <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
+              {/* LIVE ONLINE TIMER BADGE (Em telas < sm fica oculto do topo para evitar poluição visual; visível no dropdown do perfil) */}
               <div
-                className="flex items-center gap-1.5 px-2 py-1 sm:px-3 sm:py-1.5 rounded-full border border-emerald-500/40 bg-emerald-500/10 text-emerald-400 font-mono text-[10.5px] sm:text-xs font-bold shadow-sm"
+                className="hidden sm:flex items-center gap-1.5 px-2 py-1 sm:px-3 sm:py-1.5 rounded-full border border-emerald-500/40 bg-emerald-500/10 text-emerald-400 font-mono text-[10.5px] sm:text-xs font-bold shadow-sm"
                 title="Sua sessão online ativa em tempo real nesta plataforma"
               >
                 <span className="relative flex h-2 w-2">
@@ -730,13 +731,13 @@ export function AppShell({ children }: { children: ReactNode }) {
                 <span className="truncate">{formattedHuman}</span>
               </div>
 
-              {/* ONLINE & AUSENTES MEMBERS BADGE */}
+              {/* ONLINE & AUSENTES MEMBERS BADGE (Compacto para nunca quebrar ou empurrar o cabeçalho no mobile) */}
               <div
-                className="flex items-center gap-2 px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-full border border-border/70 bg-card/80 backdrop-blur-md text-xs font-mono font-bold shadow-sm"
+                className="flex items-center gap-1.5 sm:gap-2 px-2 py-1 sm:px-3 sm:py-1.5 rounded-full border border-border/70 bg-card/80 backdrop-blur-md text-[11px] sm:text-xs font-mono font-bold shadow-sm"
                 title={`${onlineMembersCount} membro(s) online e ${ausenteMembersCount} ausente(s)`}
               >
                 {/* Online */}
-                <div className="flex items-center gap-1.5 text-emerald-400">
+                <div className="flex items-center gap-1 sm:gap-1.5 text-emerald-400">
                   <span className="h-2 w-2 rounded-full bg-emerald-500 shadow-xs" />
                   <span>{onlineMembersCount}</span>
                   <span className="text-[10px] font-sans font-semibold text-muted-foreground hidden sm:inline">online</span>
@@ -745,7 +746,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                 <span className="h-3 w-px bg-border/80" />
 
                 {/* Ausentes */}
-                <div className="flex items-center gap-1.5 text-amber-400">
+                <div className="flex items-center gap-1 sm:gap-1.5 text-amber-400">
                   <span className="h-2 w-2 rounded-full bg-amber-500 shadow-xs" />
                   <span>{ausenteMembersCount}</span>
                   <span className="text-[10px] font-sans font-semibold text-muted-foreground hidden sm:inline">
@@ -820,7 +821,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             </div>
           </header>
 
-          <main className="flex-1 px-2.5 py-4 sm:px-6 lg:px-8 pb-8 flex flex-col justify-between">
+          <main className="flex-1 px-2.5 py-4 sm:px-6 lg:px-8 pb-24 md:pb-8 flex flex-col justify-between">
             <div className="w-full max-w-7xl mx-auto">{children}</div>
 
             {/* RODAPÉ DISCRETO COM CRÉDITOS DO DESENVOLVEDOR (BY MALACA - DISCORD: MALACA7) */}
@@ -849,6 +850,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
       {/* BOTÃO E CARD FLUTUANTE DE STATUS DE MEMBROS (PRESENCE WIDGET) */}
       <FloatingPresenceWidget />
+      <MobileBottomNav />
       <ForceCachePurgeListener />
 
       {/* POPUP COMPACTO DE AUSÊNCIA POR INATIVIDADE */}

@@ -2299,36 +2299,38 @@ export function ConfiguracoesPage() {
       />
 
       <Tabs value={activeTab} onValueChange={(val: any) => setActiveTab(val)} className="space-y-6">
-        <TabsList className="bg-secondary/60 border border-border/50 p-1 rounded-xl flex-wrap h-auto gap-1">
-          <TabsTrigger
-            value="plataforma"
-            className="gap-1.5 text-xs font-bold data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:border-primary/30 rounded-lg px-4 py-2"
-          >
-            <Monitor className="h-3.5 w-3.5" />
-            Plataforma
-          </TabsTrigger>
-          <TabsTrigger
-            value="menu"
-            className="gap-1.5 text-xs font-bold data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:border-primary/30 rounded-lg px-4 py-2"
-          >
-            <Menu className="h-3.5 w-3.5" />
-            Menu Lateral
-          </TabsTrigger>
-          <TabsTrigger
-            value="notificacoes"
-            className="gap-1.5 text-xs font-bold data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:border-primary/30 rounded-lg px-4 py-2"
-          >
-            <Bell className="h-3.5 w-3.5" />
-            Notificações
-          </TabsTrigger>
-          <TabsTrigger
-            value="aparencia"
-            className="gap-1.5 text-xs font-bold data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:border-primary/30 rounded-lg px-4 py-2"
-          >
-            <Palette className="h-3.5 w-3.5" />
-            Aparência
-          </TabsTrigger>
-        </TabsList>
+        <div className="overflow-x-auto pb-1 scrollbar-none -mx-1 px-1">
+          <TabsList className="bg-secondary/60 border border-border/50 p-1 rounded-xl inline-flex w-full sm:w-auto min-w-max gap-1">
+            <TabsTrigger
+              value="plataforma"
+              className="gap-1.5 text-xs font-bold data-[state=active]:bg-primary/15 data-[state=active]:text-primary data-[state=active]:border-primary/30 rounded-lg px-4 py-2"
+            >
+              <Monitor className="h-3.5 w-3.5" />
+              Plataforma
+            </TabsTrigger>
+            <TabsTrigger
+              value="menu"
+              className="gap-1.5 text-xs font-bold data-[state=active]:bg-primary/15 data-[state=active]:text-primary data-[state=active]:border-primary/30 rounded-lg px-4 py-2"
+            >
+              <Menu className="h-3.5 w-3.5" />
+              Menu Lateral
+            </TabsTrigger>
+            <TabsTrigger
+              value="notificacoes"
+              className="gap-1.5 text-xs font-bold data-[state=active]:bg-primary/15 data-[state=active]:text-primary data-[state=active]:border-primary/30 rounded-lg px-4 py-2"
+            >
+              <Bell className="h-3.5 w-3.5" />
+              Notificações
+            </TabsTrigger>
+            <TabsTrigger
+              value="aparencia"
+              className="gap-1.5 text-xs font-bold data-[state=active]:bg-primary/15 data-[state=active]:text-primary data-[state=active]:border-primary/30 rounded-lg px-4 py-2"
+            >
+              <Palette className="h-3.5 w-3.5" />
+              Aparência
+            </TabsTrigger>
+          </TabsList>
+        </div>
 
         <TabsContent value="plataforma">
           <PlatformTab canEdit={canManagePlatform} />

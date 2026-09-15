@@ -359,7 +359,7 @@ function FundoCaixaPage() {
           ) : (
             <>
               {/* MOBILE CARD VIEW (Visão em cards para celulares — sem rolagem lateral) */}
-              <div className="space-y-3 md:hidden">
+              <div className="space-y-3 p-3 md:hidden">
                 {filtered.map((m) => {
                   const isEntrada = m.type === "entrada";
                   const isEstornado = m.status === "estornado";
