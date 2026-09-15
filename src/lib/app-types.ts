@@ -1,3 +1,6 @@
+import type { AppLevel } from "./permissions";
+export type { AppLevel };
+
 export type UserThemeSettings = {
   themeStyle: string;
   cardStyle: string;

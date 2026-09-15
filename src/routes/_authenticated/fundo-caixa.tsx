@@ -180,7 +180,7 @@ function FundoCaixaPage() {
   });
 
   // Calculate Running Balance and Metrics strictly considering active (non-estornado) movements
-  const { balanceMap, currentBalance, totalEntradas, totalSaidas } = useMemo(() => {
+  const { balanceMap, currentBalance, totalEntradas, totalSaidas, activeMovements } = useMemo(() => {
     const sortedAsc = [...movements].sort((a, b) => {
       const diff = new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
       if (diff !== 0) return diff;
@@ -191,9 +191,11 @@ function FundoCaixaPage() {
     let entradas = 0;
     let saidas = 0;
     const bMap = new Map<string, number>();
+    const active: CashMovement[] = [];
 
     for (const m of sortedAsc) {
       if (m.status !== "estornado") {
+        active.push(m);
         const amt = Math.round((Number(m.amount) || 0) * 100) / 100;
         if (m.type === "entrada") {
           entradas = Math.round((entradas + amt) * 100) / 100;
@@ -211,6 +213,7 @@ function FundoCaixaPage() {
       currentBalance: Math.round((entradas - saidas) * 100) / 100,
       totalEntradas: entradas,
       totalSaidas: saidas,
+      activeMovements: active,
     };
   }, [movements]);
 

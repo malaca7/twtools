@@ -36,6 +36,15 @@ import { useSales, useMovements, useMembers, useGoals } from "@/hooks/useData";
 import { currency, num, dateTime } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { DeveloperGuard } from "@/dev/guards/DeveloperGuard";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
+import { Input } from "@/components/ui/input";
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
+import { Progress } from "@/components/ui/progress";
+import { isUserDeveloper } from "@/services/devService";
+import { getLevelLabel, levelBadgeClass } from "@/lib/permissions";
 
 export const Route = createFileRoute("/_authenticated/dev/desempenho")({
   component: GestaoDesempenhoPageWrapper,

@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Brand } from "@/components/Brand";
-import { LEVEL_LABEL, levelBadgeClass, type AppLevel } from "@/lib/permissions";
+import { LEVEL_LABEL, levelBadgeClass, getLevelLabel, type AppLevel } from "@/lib/permissions";
 import { cn } from "@/lib/utils";
 
 import { supabase } from "@/integrations/supabase/client";

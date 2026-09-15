@@ -77,7 +77,7 @@ import {
 import { useAuth } from "@/hooks/useAuth";
 import { useMembers } from "@/hooks/useData";
 import { dateTime, formatTimeOnly } from "@/lib/format";
-import { LEVEL_LABEL, levelBadgeClass } from "@/lib/permissions";
+import { LEVEL_LABEL, levelBadgeClass, type AppLevel } from "@/lib/permissions";
 import { uploadTicketAttachment } from "@/lib/app-api";
 
 interface TicketDetailViewProps {
