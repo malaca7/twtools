@@ -458,7 +458,7 @@ export async function fetchMessages(
   let effectiveUserId = userId || null;
   if (!effectiveUserId && typeof window !== "undefined") {
     try {
-      const rawSession = localStorage.getItem("sb-adgdivossyzpwofouhrh-auth-token");
+      const rawSession = localStorage.getItem("sb-efwqhqevfxlschyhbiao-auth-token") || localStorage.getItem("sb-adgdivossyzpwofouhrh-auth-token");
       if (rawSession) {
         const parsed = JSON.parse(rawSession);
         effectiveUserId = parsed?.user?.id || null;
