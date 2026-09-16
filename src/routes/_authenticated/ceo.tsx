@@ -172,7 +172,7 @@ export function CeoPageContent({ initialTab }: { initialTab?: string } = {}) {
 
   return (
     <div className="mx-auto max-w-7xl space-y-6 pb-14 animate-in fade-in-50 duration-300">
-      {/* HEADER EXECUTIVO VIP OURO */}
+      {/* HEADER EXECUTIVO CEO */}
       <PageHeader
         title="Painel Executivo — Tag CEO"
         description="Centro de comando da diretoria da Twin Wheels. Gerenciamento do bot, webhooks do Discord, fundo de caixa e operações estratégicas."
@@ -180,7 +180,7 @@ export function CeoPageContent({ initialTab }: { initialTab?: string } = {}) {
           <div className="flex items-center gap-2">
             <Badge className="bg-amber-500/20 text-amber-300 border-amber-500/40 text-xs py-1.5 px-3 font-black gap-1.5 shadow-sm shadow-amber-500/10">
               <Crown className="h-3.5 w-3.5 text-amber-400" />
-              Diretoria Executiva VIP
+              Diretoria Executiva
             </Badge>
 
             {isDevUser && (
@@ -200,7 +200,7 @@ export function CeoPageContent({ initialTab }: { initialTab?: string } = {}) {
         }
       />
 
-      {/* BANNER VIP EXECUTIVO */}
+      {/* BANNER EXECUTIVO CEO */}
       <Card className="surface-card border-amber-500/30 bg-gradient-to-r from-amber-500/15 via-amber-500/5 to-transparent relative overflow-hidden">
         <div className="absolute right-0 top-0 translate-x-8 -translate-y-8 opacity-10 pointer-events-none">
           <Crown className="h-64 w-64 text-amber-400" />

@@ -510,7 +510,7 @@ export async function fetchLastForceCachePurge(): Promise<ForceCachePurgeRecord 
 }
 
 /* ==========================================================================
-   GESTÃO DA TAG CEO (DIRETORIA EXECUTIVA / VIP OURO)
+   GESTÃO DA TAG CEO (DIRETORIA EXECUTIVA)
    Acesso e atribuição ESTRITAMENTE restritos a portadores da Tag Dev
    ========================================================================== */
 

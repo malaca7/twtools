@@ -99,6 +99,14 @@ export type Permission =
   | "view_notifications"
   | "send_notifications"
   | "manage_notifications"
+  // Permissões do Painel Desenvolvedor (/dev)
+  | "view_dev_hub"
+  | "manage_dev_bot"
+  | "manage_dev_patch_notes"
+  | "manage_dev_performance"
+  | "manage_dev_permissions"
+  | "manage_dev_config"
+  | "manage_dev_menu"
   // Permissões do Painel Executivo CEO & Gerenciamento de Bot
   | "view_ceo"
   | "manage_ceo_bot"
@@ -194,10 +202,20 @@ export const ALL_PERMISSIONS: Permission[] = [
   "view_tickets",
   "create_ticket",
   "manage_tickets",
+  "view_all_tickets",
   "view_notifications",
   "send_notifications",
   "manage_notifications",
   "view_profile",
+  // Dev Panel Permissions
+  "view_dev_hub",
+  "manage_dev_bot",
+  "manage_dev_patch_notes",
+  "manage_dev_performance",
+  "manage_dev_permissions",
+  "manage_dev_config",
+  "manage_dev_menu",
+  // CEO Panel Permissions
   "view_ceo",
   "manage_ceo_bot",
   "bot_send_message",
@@ -226,6 +244,16 @@ export const ALL_PERMISSIONS: Permission[] = [
   "webhook_view_code",
   "webhook_save_config",
   "view_ceo_financials",
+];
+
+export const DEV_PANEL_PERMISSIONS: Permission[] = [
+  "view_dev_hub",
+  "manage_dev_bot",
+  "manage_dev_patch_notes",
+  "manage_dev_performance",
+  "manage_dev_permissions",
+  "manage_dev_config",
+  "manage_dev_menu",
 ];
 
 export const CEO_PERMISSIONS: Permission[] = [
@@ -259,7 +287,9 @@ export const CEO_PERMISSIONS: Permission[] = [
   "view_ceo_financials",
 ];
 
-const ADMIN: Permission[] = ALL_PERMISSIONS.filter((p) => !CEO_PERMISSIONS.includes(p));
+const ADMIN: Permission[] = ALL_PERMISSIONS.filter(
+  (p) => !CEO_PERMISSIONS.includes(p) && !DEV_PANEL_PERMISSIONS.includes(p)
+);
 
 const OFFICER: Permission[] = [
   "view_dashboard",
@@ -415,7 +445,7 @@ const NOVATO: Permission[] = [
 ];
 
 export const PERMISSIONS: Record<AppLevel, Permission[]> = {
-  desenvolvedor: ADMIN,
+  desenvolvedor: ALL_PERMISSIONS,
   "01": ADMIN,
   "02": OFFICER,
   gerente: MANAGER,
@@ -430,6 +460,7 @@ export function can(
   customRoleMap?: Record<string, Permission[]>
 ): boolean {
   if (!userLevel) return false;
+  if (userLevel === "desenvolvedor") return true;
 
   // Custom role override check (se permissões customizadas foram salvas no banco para este cargo)
   if (customRoleMap && customRoleMap[userLevel]) {

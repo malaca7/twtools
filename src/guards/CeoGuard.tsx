@@ -36,7 +36,7 @@ export function CeoGuard({ children }: CeoGuardProps) {
             </div>
             <div className="space-y-1">
               <Badge variant="outline" className="text-[10px] font-mono border-amber-500/40 text-amber-300 bg-amber-500/10 font-bold">
-                DIRETORIA EXECUTIVA · 403 VIP
+                DIRETORIA EXECUTIVA · 403
               </Badge>
               <CardTitle className="text-lg font-black text-foreground">
                 Painel Restrito à Diretoria (Tag CEO)

@@ -734,7 +734,7 @@ export function MembrosPage() {
                       <Label htmlFor="edit-is-ceo" className="text-xs font-extrabold text-foreground cursor-pointer flex items-center gap-1.5">
                         Tag CEO (Diretoria Executiva)
                         <Badge className="bg-amber-500/20 text-amber-300 border-amber-500/40 text-[9px] font-bold">
-                          👑 Ouro VIP
+                          👑 CEO
                         </Badge>
                       </Label>
                       <p className="text-[0.7rem] text-muted-foreground mt-0.5">

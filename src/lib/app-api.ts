@@ -801,6 +801,7 @@ export async function updateUserProfile(payload: {
   telefone: string;
   game_id: string;
   custom_url?: string | null;
+  public_profile_enabled?: boolean;
 }): Promise<void> {
   const { data: { session } } = await supabase.auth.getSession();
   if (!session?.user) throw new Error("Não autenticado");
@@ -837,9 +838,11 @@ export async function updateUserProfile(payload: {
   }
 
   const existingTheme = (oldProfile as any)?.custom_theme || {};
-  const updatedTheme = cleanCustomUrl !== undefined
-    ? { ...existingTheme, custom_url: cleanCustomUrl }
-    : existingTheme;
+  const updatedTheme = {
+    ...existingTheme,
+    ...(cleanCustomUrl !== undefined ? { custom_url: cleanCustomUrl } : {}),
+    ...(payload.public_profile_enabled !== undefined ? { public_profile_enabled: payload.public_profile_enabled } : {}),
+  };
 
   const { error } = await supabase
     .from("profiles")

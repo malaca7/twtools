@@ -6,6 +6,7 @@ import { User, Phone, IdCard, Lock, Save, Loader2, CheckCircle2, Palette, Sparkl
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -82,6 +83,7 @@ export function PerfilPage({ initialTab }: { initialTab?: "dados" | "aparencia" 
   const [telefone, setTelefone] = useState("");
   const [gameId, setGameId] = useState("");
   const [customUrl, setCustomUrl] = useState("");
+  const [publicProfileEnabled, setPublicProfileEnabled] = useState(true);
   const [copiedLink, setCopiedLink] = useState(false);
 
   useEffect(() => {
@@ -91,6 +93,7 @@ export function PerfilPage({ initialTab }: { initialTab?: "dados" | "aparencia" 
       setTelefone(formatPhone(profile.telefone || ""));
       setGameId(profile.game_id || "");
       setCustomUrl(profile.custom_url || profile.custom_theme?.custom_url || "");
+      setPublicProfileEnabled(profile.custom_theme?.public_profile_enabled !== false);
     }
   }, [profile]);
 
@@ -106,6 +109,7 @@ export function PerfilPage({ initialTab }: { initialTab?: "dados" | "aparencia" 
         telefone,
         game_id: gameId,
         custom_url: customUrl.trim().toLowerCase().replace(/^@/, "") || null,
+        public_profile_enabled: publicProfileEnabled,
       });
     },
     onSuccess: async () => {
@@ -415,6 +419,44 @@ export function PerfilPage({ initialTab }: { initialTab?: "dados" | "aparencia" 
                     <p className="text-[11px] text-muted-foreground">
                       ℹ️ Letras minúsculas (a-z), números (0-9), ponto (.), hífen (-) ou underline (_). De 3 a 30 caracteres.
                     </p>
+                  </div>
+
+                  {/* TOGGLE DE VISIBILIDADE PÚBLICA */}
+                  <div className="flex items-center justify-between p-3.5 rounded-xl border border-primary/20 bg-background/80 shadow-xs">
+                    <div className="space-y-0.5 pr-2">
+                      <Label htmlFor="public-profile-toggle" className="text-xs font-bold text-foreground flex items-center gap-1.5 cursor-pointer">
+                        <Globe className="h-3.5 w-3.5 text-primary" />
+                        Visibilidade Pública do Perfil
+                        <Badge variant="outline" className={cn("text-[9px] font-mono py-0 px-1.5", publicProfileEnabled ? "border-emerald-500/40 text-emerald-400 bg-emerald-500/10" : "border-zinc-500/40 text-muted-foreground bg-zinc-500/10")}>
+                          {publicProfileEnabled ? "Ativado (Público)" : "Desativado (Privado)"}
+                        </Badge>
+                      </Label>
+                      <p className="text-[11px] text-muted-foreground">
+                        Permite que qualquer pessoa com o link oficial visualize seu perfil sem precisar fazer login no painel da facção.
+                      </p>
+                    </div>
+                    <Switch
+                      id="public-profile-toggle"
+                      checked={publicProfileEnabled}
+                      onCheckedChange={(checked) => {
+                        setPublicProfileEnabled(checked);
+                        // Persiste de imediato quando o switch for alternado
+                        updateUserProfile({
+                          nome: nome || profile?.nome || "",
+                          nickname: nickname || profile?.nickname || null,
+                          telefone: telefone || profile?.telefone || "",
+                          game_id: gameId || profile?.game_id || "",
+                          custom_url: customUrl || profile?.custom_theme?.custom_url || null,
+                          public_profile_enabled: checked,
+                        }).then(() => {
+                          toast.success(checked ? "Perfil público ativado com sucesso!" : "Perfil alterado para modo privado.");
+                          refresh();
+                          queryClient.invalidateQueries({ queryKey: ["members"] });
+                        }).catch((err) => {
+                          toast.error(errorMessage(err));
+                        });
+                      }}
+                    />
                   </div>
                 </CardContent>
               </Card>

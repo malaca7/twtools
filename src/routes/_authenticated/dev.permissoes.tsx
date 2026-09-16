@@ -173,22 +173,27 @@ function DevPermissoesContent() {
     const baseCategories = menuConfig?.categories?.length
       ? menuConfig.categories
       : ["Operação", "Gestão", "Administração"];
-
-    // Na aba da Tag CEO, a categoria "CEO" e as permissões do Painel CEO ficam no topo absoluto
+    // Na aba da Tag Dev, colocamos as Ferramentas Dev e o Painel CEO no topo absoluto!
+    // Na aba da Tag CEO, colocamos "CEO" no topo e filtramos as ferramentas exclusivas de Dev.
     const categoryOrder =
       tab === "ceo"
-        ? ["CEO", ...baseCategories.filter((c) => c !== "CEO")]
-        : [...baseCategories.filter((c) => c !== "CEO"), "CEO"];
+        ? ["CEO", ...baseCategories.filter((c) => c !== "CEO" && c !== "Ferramentas Dev")]
+        : ["Ferramentas Dev", "CEO", ...baseCategories.filter((c) => c !== "Ferramentas Dev" && c !== "CEO")];
 
-    const customized = PAGE_CARDS.map((card) => {
-      const cfg = configMap.get(card.id);
-      return {
-        ...card,
-        title: cfg?.title || card.title,
-        category: cfg?.category || card.defaultCat,
-        order: typeof cfg?.order === "number" ? cfg.order : card.defaultOrder,
-      };
-    });
+    const customized = PAGE_CARDS
+      .filter((card) => {
+        if (tab === "ceo" && card.defaultCat === "Ferramentas Dev") return false;
+        return true;
+      })
+      .map((card) => {
+        const cfg = configMap.get(card.id);
+        return {
+          ...card,
+          title: cfg?.title || card.title,
+          category: cfg?.category || card.defaultCat,
+          order: typeof cfg?.order === "number" ? cfg.order : card.defaultOrder,
+        };
+      });
 
     const groups: { category: string; cards: typeof customized }[] = [];
 
@@ -514,7 +519,7 @@ function DevPermissoesContent() {
               variant="outline"
               className="text-[9px] font-mono border-amber-500/40 text-amber-300 bg-amber-500/10 py-0 px-1.5 ml-1"
             >
-              VIP Ouro ({activeCeosCount})
+              Tag CEO ({activeCeosCount})
             </Badge>
           </button>
         </div>
@@ -902,7 +907,7 @@ function DevPermissoesContent() {
       )}
 
       {/* =========================================================================
-          ABA 2: TAG CEO (DIRETORIA EXECUTIVA / VIP OURO)
+          ABA 2: TAG CEO (DIRETORIA EXECUTIVA)
           ========================================================================= */}
       {activeTab === "ceo" && (
         <div className="space-y-6 animate-in fade-in-50 duration-200">
@@ -916,13 +921,13 @@ function DevPermissoesContent() {
                   </div>
                   <div>
                     <CardTitle className="text-base font-black text-foreground flex items-center gap-2">
-                      Tag CEO — Diretoria Executiva VIP
+                      Tag CEO — Diretoria Executiva
                       <Badge className="bg-amber-500/20 text-amber-300 border-amber-500/40 text-[10px] font-bold">
-                        👑 Ouro VIP
+                        👑 Diretoria CEO
                       </Badge>
                     </CardTitle>
                     <CardDescription className="text-xs mt-1">
-                      A Tag CEO concede distinção VIP com emblema dourado em perfis, chat e lista de membros.
+                      A Tag CEO concede distinção executiva com emblema dourado em perfis, chat e lista de membros.
                       Toda a matriz de permissões abaixo se soma ao cargo do membro, e <strong>apenas Desenvolvedores com a Tag Dev têm o poder de atribuir ou revogar a Tag CEO</strong>.
                     </CardDescription>
                   </div>

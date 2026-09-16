@@ -21,6 +21,7 @@ import {
   Calendar,
   Layers,
   ChevronRight,
+  LogIn,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -44,7 +45,7 @@ export function PublicProfilePage({ handleOverride }: { handleOverride?: string 
   const handle = handleOverride || rawParams?.handle || rawParams?.tab || "";
   const navigate = useNavigate();
   const { user, profile: myProfile, hasPermission } = useAuth();
-  if (!hasPermission("view_profile")) return <NoAccess />;
+  if (user && !hasPermission("view_profile")) return <NoAccess />;
   const { data: members = [], isLoading } = useMembers();
 
   const [copiedLink, setCopiedLink] = useState(false);
@@ -83,6 +84,7 @@ export function PublicProfilePage({ handleOverride }: { handleOverride?: string 
   });
 
   const isSelf = Boolean(member && user && member.user_id === user.id);
+  const isPublicProfileEnabled = member?.custom_theme?.public_profile_enabled !== false;
   const status = member?.presence_status || "offline";
   const currentNivel = (member?.nivel || "novato") as AppLevel;
   const avatarUrl = member?.discord_avatar_url || member?.avatar_url;
@@ -145,24 +147,67 @@ export function PublicProfilePage({ handleOverride }: { handleOverride?: string 
           </p>
         </div>
         <div className="flex items-center justify-center gap-3 pt-2">
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() => navigate({ to: "/membros" })}
-            className="text-xs font-bold gap-1.5 rounded-xl cursor-pointer"
-          >
-            <ArrowLeft className="h-3.5 w-3.5" />
-            <span>Ver Todos os Membros</span>
-          </Button>
-          <Button
-            type="button"
-            size="sm"
-            onClick={() => navigate({ to: "/dashboard" })}
-            className="text-xs font-bold gap-1.5 rounded-xl bg-gradient-brand text-primary-foreground cursor-pointer"
-          >
-            <span>Ir para Dashboard</span>
-          </Button>
+          {user ? (
+            <>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => navigate({ to: "/membros" })}
+                className="text-xs font-bold gap-1.5 rounded-xl cursor-pointer"
+              >
+                <ArrowLeft className="h-3.5 w-3.5" />
+                <span>Ver Todos os Membros</span>
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                onClick={() => navigate({ to: "/dashboard" })}
+                className="text-xs font-bold gap-1.5 rounded-xl bg-gradient-brand text-primary-foreground cursor-pointer"
+              >
+                <span>Ir para Dashboard</span>
+              </Button>
+            </>
+          ) : (
+            <Link to="/">
+              <Button
+                type="button"
+                size="sm"
+                className="text-xs font-bold gap-1.5 rounded-xl bg-gradient-brand text-primary-foreground cursor-pointer"
+              >
+                <ArrowLeft className="h-3.5 w-3.5" />
+                <span>Ir para Início / Login</span>
+              </Button>
+            </Link>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // Se o perfil estiver em modo privado e o visitante não estiver logado
+  if (!isPublicProfileEnabled && !user) {
+    return (
+      <div className="mx-auto max-w-md py-16 text-center space-y-5 animate-in fade-in-50 duration-200">
+        <div className="mx-auto h-20 w-20 rounded-3xl bg-secondary/80 border border-border/80 flex items-center justify-center shadow-xl">
+          <Shield className="h-10 w-10 text-muted-foreground" />
+        </div>
+        <div className="space-y-2">
+          <Badge variant="outline" className="text-[10px] font-mono border-zinc-500/40 text-muted-foreground bg-zinc-500/10 font-bold">
+            🔒 Perfil Privado
+          </Badge>
+          <h2 className="text-xl font-black text-foreground">Este perfil está em modo privado</h2>
+          <p className="text-xs text-muted-foreground max-w-sm mx-auto leading-relaxed">
+            O integrante <span className="font-bold text-foreground">{displayName}</span> optou por restringir a visualização deste perfil apenas para membros autenticados no painel da facção.
+          </p>
+        </div>
+        <div className="pt-2">
+          <Link to="/">
+            <Button size="sm" className="text-xs font-bold gap-1.5 rounded-xl bg-gradient-brand text-primary-foreground shadow-sm">
+              <LogIn className="h-3.5 w-3.5" />
+              <span>Fazer Login para Visualizar</span>
+            </Button>
+          </Link>
         </div>
       </div>
     );
@@ -176,7 +221,13 @@ export function PublicProfilePage({ handleOverride }: { handleOverride?: string 
           type="button"
           variant="ghost"
           size="sm"
-          onClick={() => window.history.back()}
+          onClick={() => {
+            if (window.history.length > 1) {
+              window.history.back();
+            } else {
+              navigate({ to: "/" });
+            }
+          }}
           className="h-8 px-2.5 text-xs text-muted-foreground hover:text-foreground hover:bg-secondary rounded-xl gap-1.5 cursor-pointer"
         >
           <ArrowLeft className="h-3.5 w-3.5" />
@@ -184,9 +235,15 @@ export function PublicProfilePage({ handleOverride }: { handleOverride?: string 
         </Button>
 
         <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground font-mono">
-          <Link to="/membros" className="hover:text-primary transition-colors">
-            Membros
-          </Link>
+          {user ? (
+            <Link to="/membros" className="hover:text-primary transition-colors">
+              Membros
+            </Link>
+          ) : (
+            <Link to="/" className="hover:text-primary transition-colors">
+              Twin Wheels
+            </Link>
+          )}
           <ChevronRight className="h-3 w-3" />
           <span className="text-foreground font-bold truncate max-w-[150px]">@{activeSlug}</span>
         </div>
@@ -280,7 +337,7 @@ export function PublicProfilePage({ handleOverride }: { handleOverride?: string 
                     <span>Editar Meu Perfil</span>
                   </Button>
                 </Link>
-              ) : (
+              ) : user ? (
                 <Button
                   type="button"
                   size="sm"
@@ -291,6 +348,17 @@ export function PublicProfilePage({ handleOverride }: { handleOverride?: string 
                   <MessageSquare className="h-3.5 w-3.5" />
                   <span>Enviar Mensagem</span>
                 </Button>
+              ) : (
+                <Link to="/">
+                  <Button
+                    type="button"
+                    size="sm"
+                    className="h-9 px-4 text-xs font-bold bg-gradient-brand text-primary-foreground hover:opacity-90 rounded-xl gap-1.5 cursor-pointer shadow-md"
+                  >
+                    <LogIn className="h-3.5 w-3.5" />
+                    <span>Acessar Painel / Entrar</span>
+                  </Button>
+                </Link>
               )}
             </div>
           </div>

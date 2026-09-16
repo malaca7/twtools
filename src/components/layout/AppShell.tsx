@@ -611,7 +611,7 @@ function DynamicSidebarNavigation() {
                   </Link>
                 </TooltipTrigger>
                 <TooltipContent side="bottom" className="text-[11px] font-bold text-amber-300">
-                  Painel CEO (VIP Ouro)
+                  Painel CEO
                 </TooltipContent>
               </Tooltip>
             )}
