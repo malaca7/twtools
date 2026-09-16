@@ -29,7 +29,7 @@ export const Route = createFileRoute("/_authenticated/avisos")({
   component: AvisosPage,
 });
 
-function AvisosPage() {
+export function AvisosPage() {
   const { hasPermission } = useAuth();
   const canSend = hasPermission("manage_announcements");
   const { data: announcements = [], isLoading } = useAnnouncements();

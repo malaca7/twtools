@@ -234,14 +234,8 @@ export function AusenciasPage() {
   const deleteMutation = useDeleteAbsence();
 
   // Permissions check
-  const isLeaderOrAdmin =
-    level === "desenvolvedor" ||
-    level === "01" ||
-    level === "02" ||
-    level === "gerente";
-
-  const canView = hasPermission("view_absences") || isLeaderOrAdmin;
-  const canManage = hasPermission("manage_absences") || isLeaderOrAdmin;
+  const canView = hasPermission("view_absences");
+  const canManage = hasPermission("manage_absences");
   const canViewStats = hasPermission("view_all_absences") || canManage;
   const isManagerView = canManage || canViewStats;
 

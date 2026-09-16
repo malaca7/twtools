@@ -119,9 +119,37 @@ const MASTER_NAV_ITEMS: MasterNavItem[] = [
   { id: "permissoes", title: "Permissões", url: "/permissoes", icon: Settings, perm: "manage_permissions", defaultCat: "Administração", defaultOrder: 15 },
   { id: "logs", title: "Logs", url: "/logs", icon: ScrollText, perm: "view_audit", defaultCat: "Administração", defaultOrder: 16 },
   { id: "atualizacoes", title: "Atualizações", url: "/atualizacoes", icon: Sparkles, perm: "view_patch_notes", defaultCat: "Administração", defaultOrder: 17 },
-  { id: "perfil", title: "Meu Perfil", url: "/perfil", icon: User, defaultCat: "Gestão", defaultOrder: 18 },
+  { id: "perfil", title: "Meu Perfil", url: "/perfil", icon: User, perm: "view_profile", defaultCat: "Gestão", defaultOrder: 18 },
   { id: "configuracoes", title: "Configurações", url: "/configuracoes", icon: Wrench, perm: "manage_platform_settings", defaultCat: "Administração", defaultOrder: 19 },
 ];
+
+const URL_TO_PERMISSION_MAP: Record<string, Permission> = {
+  "/dashboard": "view_dashboard",
+  "/movimentacoes": "view_movements",
+  "/vendas": "view_sales",
+  "/chat": "view_chat",
+  "/tickets": "view_tickets",
+  "/estoque": "view_stock",
+  "/baus": "view_stock",
+  "/categorias": "view_stock",
+  "/produtos": "view_stock",
+  "/membros": "view_members",
+  "/hierarquia": "view_hierarchy",
+  "/fundo-caixa": "view_cash_fund",
+  "/ausencias": "view_absences",
+  "/rankings": "view_rankings",
+  "/desempenho": "view_performance",
+  "/meu-desempenho": "view_performance",
+  "/metas": "view_goals",
+  "/avisos": "manage_announcements",
+  "/cargos": "manage_roles",
+  "/permissoes": "manage_permissions",
+  "/permissoes-gerais": "manage_permissions",
+  "/logs": "view_audit",
+  "/atualizacoes": "view_patch_notes",
+  "/perfil": "view_profile",
+  "/configuracoes": "manage_platform_settings",
+};
 
 const DEV_MODULE_NAV_ITEMS: MasterNavItem[] = [
   { id: "dev-hub", title: "Painel Dev Geral", url: "/dev", icon: Terminal, defaultCat: "Ferramentas Dev", defaultOrder: 0 },
@@ -134,7 +162,7 @@ const DEV_MODULE_NAV_ITEMS: MasterNavItem[] = [
 ];
 
 const CEO_MODULE_NAV_ITEMS: MasterNavItem[] = [
-  { id: "ceo-dashboard", title: "Visão Geral & Métricas", url: "/ceo/dashboard", icon: LayoutDashboard, defaultCat: "CEO", defaultOrder: 0 },
+  { id: "ceo-executivo", title: "Visão Executiva & Métricas", url: "/ceo/executivo", icon: LayoutDashboard, defaultCat: "CEO", defaultOrder: 0 },
   { id: "ceo-bot", title: "Gerenciar Bot", url: "/ceo/bot", icon: Bot, defaultCat: "CEO", defaultOrder: 1 },
   { id: "ceo-webhooks", title: "WebHook Discord", url: "/ceo/webhooks", icon: Webhook, defaultCat: "CEO", defaultOrder: 2 },
   { id: "ceo-financas", title: "Fundo de Caixa & Finanças", url: "/ceo/financas", icon: Landmark, defaultCat: "CEO", defaultOrder: 3 },
@@ -179,20 +207,11 @@ function DynamicSidebarNavigation() {
         }
         return false;
       }
-      if (targetUrl.startsWith("/ceo/")) {
-        const expectedTab = targetUrl.split("/").pop();
-        const currentTab =
-          (routerState.location.search as any)?.tab ||
-          (typeof window !== "undefined"
-            ? new URLSearchParams(window.location.search).get("tab")
-            : null) ||
-          pathname.split("/").filter(Boolean).pop() ||
-          "dashboard";
-
-        if (pathname === "/ceo" && expectedTab === "dashboard") return true;
-        if (pathname.startsWith("/ceo")) return expectedTab === currentTab;
-      }
-      return pathname === targetUrl;
+      if (targetUrl === "/dev" && (pathname === "/dev" || pathname === "/dev/")) return true;
+      if (targetUrl === "/ceo" && (pathname === "/ceo" || pathname === "/ceo/")) return true;
+      if (pathname === targetUrl) return true;
+      if (targetUrl !== "/dev" && targetUrl !== "/ceo" && targetUrl !== "/" && pathname.startsWith(targetUrl + "/")) return true;
+      return false;
     },
     [pathname, routerState.location.search]
   );
@@ -262,19 +281,23 @@ function DynamicSidebarNavigation() {
     const masterIds = new Set(MASTER_NAV_ITEMS.map((m) => m.id));
     const customNavItems: MasterNavItem[] = validConfigItems
       .filter((c) => !masterIds.has(c.id))
-      .map((c, idx) => ({
-        id: c.id,
-        title: c.title,
-        url: c.url,
-        icon: resolveMenuIcon(c.iconName, c.url) as typeof LayoutDashboard,
-        perm: undefined,
-        defaultCat: c.category || categoryOrder[0] || "Gestão",
-        category: c.category || categoryOrder[0] || "Gestão",
-        defaultOrder: typeof c.order === "number" ? c.order : 100 + idx,
-        order: typeof c.order === "number" ? c.order : 100 + idx,
-        visible: c.visible !== false,
-        isCustom: true,
-      }));
+      .map((c, idx) => {
+        const cleanPath = (c.url || "").split("?")[0].toLowerCase();
+        const autoPerm = URL_TO_PERMISSION_MAP[cleanPath];
+        return {
+          id: c.id,
+          title: c.title,
+          url: c.url,
+          icon: resolveMenuIcon(c.iconName, c.url) as typeof LayoutDashboard,
+          perm: autoPerm,
+          defaultCat: c.category || categoryOrder[0] || "Gestão",
+          category: c.category || categoryOrder[0] || "Gestão",
+          defaultOrder: typeof c.order === "number" ? c.order : 100 + idx,
+          order: typeof c.order === "number" ? c.order : 100 + idx,
+          visible: c.visible !== false,
+          isCustom: true,
+        };
+      });
 
     const allPlatformItems: MasterNavItem[] = [...customizedMaster, ...customNavItems];
 
@@ -335,9 +358,11 @@ function DynamicSidebarNavigation() {
       }
     });
 
+    // =========================================================================
+    // MODO 1: DESENVOLVEDOR (Apenas membros com tag Dev em modo Dev)
+    // =========================================================================
     if (isDevUser && isDevMode) {
-      // MODO DEV TOOLS:
-      // A) Agrupa itens de ferramentas Dev com base em devMenuConfig
+      // A) Agrupa ferramentas exclusivas de Dev
       const devValidItems = devMenuConfig?.items?.filter((c) => Boolean(c && (c.id || c.url))) || [];
       const devConfigMap = new Map(devValidItems.map((c) => [c.id || c.url, c]));
       const devCategoryOrder = devMenuConfig?.categories?.length
@@ -380,10 +405,24 @@ function DynamicSidebarNavigation() {
         }
       });
 
-      // B) Agrupa itens da plataforma com base em menuConfig (em modo dev, respeita as permissões do Dev)
-      const visibleMaster = allPlatformItems.filter(
-        (item) => item.visible && (!item.perm || hasPermission(item.perm))
-      );
+      // B) Agrupa menus da plataforma com URLs prefixadas como /dev/* (apenas o que o Dev tem permissão)
+      const visibleMaster = allPlatformItems
+        .filter((item) => item.visible && (!item.perm || hasPermission(item.perm)))
+        .map((item) => {
+          let devUrl = item.url;
+          if (item.id === "desempenho") {
+            devUrl = "/dev/meu-desempenho";
+          } else if (item.id === "permissoes") {
+            devUrl = "/dev/permissoes-gerais";
+          } else if (devUrl.startsWith("/") && !devUrl.startsWith("/dev")) {
+            devUrl = `/dev${devUrl}`;
+          }
+          return {
+            ...item,
+            url: devUrl,
+          };
+        });
+
       const platformGroups: { category: string; items: typeof visibleMaster }[] = [];
 
       categoryOrder.forEach((cat) => {
@@ -408,42 +447,101 @@ function DynamicSidebarNavigation() {
         }
       });
 
-      return [...devGroups, ...ceoGroups, ...platformGroups];
+      // Isolamento estrito: No modo Dev, aparecem APENAS menus dev e da plataforma dev
+      return [...devGroups, ...platformGroups];
     }
 
-    // MODO NORMAL (MEMBRO) / CEO:
-    const visible = allPlatformItems.filter(
-      (item) => item.visible && (!item.perm || hasPermission(item.perm))
-    );
+    // =========================================================================
+    // MODO 2: CEO (Apenas membros com tag CEO em modo CEO)
+    // =========================================================================
+    if ((isCeoUser || isDevUser) && isCeoMode) {
+      // A) Ferramentas CEO (ceoGroups)
+      // B) Agrupa menus da plataforma com URLs prefixadas como /ceo/* (apenas o que o CEO tem permissão)
+      const visibleCeoMaster = allPlatformItems
+        .filter((item) => item.visible && (!item.perm || hasPermission(item.perm)))
+        .map((item) => {
+          let ceoUrl = item.url;
+          if (ceoUrl.startsWith("/") && !ceoUrl.startsWith("/ceo")) {
+            ceoUrl = `/ceo${ceoUrl}`;
+          }
+          return {
+            ...item,
+            url: ceoUrl,
+          };
+        });
 
-    // Group items into categories matching categoryOrder
-    const groups: { category: string; items: typeof visible }[] = [];
+      const ceoPlatformGroups: { category: string; items: typeof visibleCeoMaster }[] = [];
+
+      categoryOrder.forEach((cat) => {
+        const catItems = visibleCeoMaster
+          .filter((i) => i.category === cat)
+          .sort((a, b) => a.order - b.order);
+        if (catItems.length > 0) {
+          ceoPlatformGroups.push({ category: cat, items: catItems });
+        }
+      });
+
+      const knownCeoPlatformCats = new Set(categoryOrder);
+      visibleCeoMaster.forEach((item) => {
+        if (!knownCeoPlatformCats.has(item.category)) {
+          knownCeoPlatformCats.add(item.category);
+          const catItems = visibleCeoMaster
+            .filter((i) => i.category === item.category)
+            .sort((a, b) => a.order - b.order);
+          if (catItems.length > 0) {
+            ceoPlatformGroups.push({ category: item.category, items: catItems });
+          }
+        }
+      });
+
+      // Isolamento estrito: No modo CEO, aparecem APENAS menus CEO e da plataforma ceo
+      return [...ceoGroups, ...ceoPlatformGroups];
+    }
+
+    // =========================================================================
+    // MODO 3: MEMBRO REGULAR (Sem menus Dev e sem menus CEO)
+    // Regra: Apenas menus que o cargo do membro tem permissão!
+    // =========================================================================
+    const visibleMember = allPlatformItems.filter((item) => {
+      // 1. Nunca exibir links de dev ou de ceo no painel membro
+      if (item.url.startsWith("/dev") || item.url.startsWith("/ceo")) return false;
+      // 2. Se foi desmarcado/ocultado na configuração do menu
+      if (!item.visible) return false;
+      // 3. Verifica estritamente a permissão exigida pelo cargo do membro
+      const cleanPath = item.url.split("?")[0].toLowerCase();
+      const requiredPerm = item.perm || URL_TO_PERMISSION_MAP[cleanPath];
+      if (requiredPerm && !hasPermission(requiredPerm)) {
+        return false;
+      }
+      return true;
+    });
+
+    const memberGroups: { category: string; items: typeof visibleMember }[] = [];
 
     categoryOrder.forEach((cat) => {
-      const catItems = visible
+      const catItems = visibleMember
         .filter((i) => i.category === cat)
         .sort((a, b) => a.order - b.order);
       if (catItems.length > 0) {
-        groups.push({ category: cat, items: catItems });
+        memberGroups.push({ category: cat, items: catItems });
       }
     });
 
-    // Catch any items with categories not in categoryOrder
-    const knownCats = new Set(categoryOrder);
-    visible.forEach((item) => {
-      if (!knownCats.has(item.category)) {
-        knownCats.add(item.category);
-        const catItems = visible
+    const knownMemberCats = new Set(categoryOrder);
+    visibleMember.forEach((item) => {
+      if (!knownMemberCats.has(item.category)) {
+        knownMemberCats.add(item.category);
+        const catItems = visibleMember
           .filter((i) => i.category === item.category)
           .sort((a, b) => a.order - b.order);
         if (catItems.length > 0) {
-          groups.push({ category: item.category, items: catItems });
+          memberGroups.push({ category: item.category, items: catItems });
         }
       }
     });
 
-    return [...ceoGroups, ...groups];
-  }, [isDevMode, isDevUser, isCeoUser, menuConfig, devMenuConfig, ceoMenuConfig, ceoConfig, hasPermission]);
+    return memberGroups;
+  }, [isDevMode, isCeoMode, isDevUser, isCeoUser, menuConfig, devMenuConfig, ceoMenuConfig, ceoConfig, hasPermission]);
 
   useEffect(() => {
     if (!grouped.length) return;
@@ -496,7 +594,7 @@ function DynamicSidebarNavigation() {
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Link
-                    to="/ceo"
+                    to="/ceo/dashboard"
                     onClick={() => {
                       setPanelMode("ceo");
                       if (isMobile) setOpenMobile(false);
@@ -523,7 +621,7 @@ function DynamicSidebarNavigation() {
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Link
-                    to="/dev"
+                    to="/dev/dashboard"
                     onClick={() => {
                       setPanelMode("dev");
                       if (isMobile) setOpenMobile(false);
@@ -799,16 +897,36 @@ export function AppShell({ children }: { children: ReactNode }) {
                   </DropdownMenuLabel>
                   <DropdownMenuSeparator />
 
-                  <DropdownMenuItem onClick={() => navigate({ to: "/perfil" })} className="cursor-pointer">
+                  <DropdownMenuItem
+                    onClick={() => {
+                      if (pathname.startsWith("/dev")) {
+                        navigate({ to: "/dev/perfil" });
+                      } else if (pathname.startsWith("/ceo")) {
+                        navigate({ to: "/ceo/perfil" });
+                      } else {
+                        navigate({ to: "/perfil" });
+                      }
+                    }}
+                    className="cursor-pointer"
+                  >
                     <User className="mr-2 h-4 w-4 text-primary" /> Meu Perfil
                   </DropdownMenuItem>
 
                   {(isCeoUser || isDevUser) && (
                     <DropdownMenuItem
-                      onClick={() => navigate({ to: "/ceo" })}
+                      onClick={() => navigate({ to: "/ceo/dashboard" })}
                       className="cursor-pointer text-amber-300 focus:text-amber-200 focus:bg-amber-500/10 font-bold"
                     >
                       <Crown className="mr-2 h-4 w-4 text-amber-400" /> Painel CEO
+                    </DropdownMenuItem>
+                  )}
+
+                  {isDevUser && (
+                    <DropdownMenuItem
+                      onClick={() => navigate({ to: "/dev/dashboard" })}
+                      className="cursor-pointer text-rose-400 focus:text-rose-300 focus:bg-rose-500/10 font-bold"
+                    >
+                      <Terminal className="mr-2 h-4 w-4 text-rose-400" /> Painel Dev
                     </DropdownMenuItem>
                   )}
 

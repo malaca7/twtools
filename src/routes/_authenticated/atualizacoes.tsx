@@ -35,7 +35,7 @@ export const Route = createFileRoute("/_authenticated/atualizacoes")({
   component: AtualizacoesPage,
 });
 
-function AtualizacoesPage() {
+export function AtualizacoesPage() {
   const { user, profile, level, hasPermission } = useAuth();
   const isDev = isUserDeveloper(user, profile, level);
   const canView = hasPermission("view_patch_notes");

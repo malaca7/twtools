@@ -160,7 +160,7 @@ export function HierarquiaPage() {
   const [selectedRankFilter, setSelectedRankFilter] = useState<string>("all");
   const [hideEmptyRanks, setHideEmptyRanks] = useState<boolean>(true);
 
-  const canView = hasPermission("view_hierarchy") || hasPermission("view_members");
+  const canView = hasPermission("view_hierarchy");
 
   // Calculate member stats (sales & movements count per user)
   const memberStatsMap = useMemo(() => {

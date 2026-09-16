@@ -1,6 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { CeoGuard } from "@/guards/CeoGuard";
-import { CeoPageContent } from "./ceo";
+import { PlatformPageDispatcher } from "@/components/routing/PlatformPageDispatcher";
 
 export const Route = createFileRoute("/_authenticated/ceo/$tab")({
   component: CeoTabRoute,
@@ -8,9 +7,5 @@ export const Route = createFileRoute("/_authenticated/ceo/$tab")({
 
 function CeoTabRoute() {
   const { tab } = Route.useParams();
-  return (
-    <CeoGuard>
-      <CeoPageContent initialTab={tab} />
-    </CeoGuard>
-  );
+  return <PlatformPageDispatcher page={tab} mode="ceo" />;
 }

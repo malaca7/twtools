@@ -59,6 +59,7 @@ export function useNotifications() {
       // Se recebemos os dados de uma nova notificação através do evento em tempo real
       if (detail && detail.id && detail.title && detail.created_at) {
         const notif = detail as AppNotification;
+        if (notif.type === "chat") return;
         const isTarget = notif.user_id === "all" || notif.user_id === user.id;
         const isRoleTarget = !notif.target_roles || !level || notif.target_roles.includes(level);
         const isNotSender = notif.sender_id !== user.id;

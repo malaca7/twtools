@@ -66,7 +66,7 @@ export const Route = createFileRoute("/_authenticated/fundo-caixa")({
   component: FundoCaixaPage,
 });
 
-function FundoCaixaPage() {
+export function FundoCaixaPage() {
   const { hasPermission } = useAuth();
   const queryClient = useQueryClient();
 

@@ -396,34 +396,43 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         panelMode === "ceo" ||
         (typeof window !== "undefined" &&
           (window.location.pathname.startsWith("/ceo") || window.location.hash.includes("/ceo")));
+      const inDevPanel =
+        panelMode === "dev" ||
+        (typeof window !== "undefined" &&
+          (window.location.pathname.startsWith("/dev") || window.location.hash.includes("/dev")));
+      const inMemberPanel = !inCeoPanel && !inDevPanel;
 
-      // 1. Se o Bypass de Autorização Dev estiver explicitamente ATIVADO pelo desenvolvedor nas configurações:
-      // Concede acesso supremo irrestrito a todas as páginas e ações, EXCETO quando estiver operando no painel CEO
-      if (isDevUser && bypassActive && !inCeoPanel) {
-        return true;
+      // 1. Quando estiver operando no PAINEL MEMBRO:
+      // Apenas permissões que o cargo (level) do membro possui na matriz de permissões!
+      // Nenhum bypass ou herança Dev/CEO se aplica ao painel do membro.
+      if (inMemberPanel) {
+        return can(level, permission, customRolePermissions);
       }
 
-      // 2. Avaliação do Painel CEO ou da Tag CEO:
-      // Lê prioritariamente da matriz sincronizada do Supabase em tempo real (customRolePermissions.ceo)
-      if (isCeoUser || (isDevUser && inCeoPanel)) {
-        const ceoPerms = customRolePermissions?.["ceo"] ?? getCeoTagPermissionsSync();
-        if (Array.isArray(ceoPerms)) {
-          if (ceoPerms.includes(permission)) return true;
-          // Se estiver operando no painel CEO e a permissão estiver desmarcada na Tag CEO, nega o acesso
-          if (inCeoPanel) return false;
+      // 2. Quando estiver operando no PAINEL DEV (ou rota /dev):
+      if (inDevPanel) {
+        // Se o Bypass de Autorização Dev estiver explicitamente ATIVADO pelo desenvolvedor nas configurações:
+        if (isDevUser && bypassActive) {
+          return true;
         }
-      }
-
-      // 3. Se o usuário possuir a Tag Dev (ou cargo desenvolvedor):
-      // Avalia a matriz de permissões configurada para a Tag Dev / Desenvolvedor
-      if (isDevUser && !inCeoPanel) {
+        // Avalia a matriz de permissões configurada para a Tag Dev / Desenvolvedor
         const devPerms = customRolePermissions?.["desenvolvedor"] ?? getDevTagPermissionsSync();
         if (Array.isArray(devPerms) && devPerms.length > 0) {
           return devPerms.includes(permission);
         }
+        return can(level, permission, customRolePermissions);
       }
 
-      // 4. Avalia as permissões reais atribuídas ao cargo do membro na matriz de permissões
+      // 3. Quando estiver operando no PAINEL CEO (ou rota /ceo):
+      if (inCeoPanel) {
+        const ceoPerms = customRolePermissions?.["ceo"] ?? getCeoTagPermissionsSync();
+        if (Array.isArray(ceoPerms)) {
+          return ceoPerms.includes(permission);
+        }
+        return can(level, permission, customRolePermissions);
+      }
+
+      // Fallback padrão: avalia o cargo do membro
       return can(level, permission, customRolePermissions);
     },
     [level, isDevUser, isCeoUser, customRolePermissions, devConfigTick, panelMode]

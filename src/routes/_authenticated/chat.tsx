@@ -30,14 +30,12 @@ export const Route = createFileRoute("/_authenticated/chat")({
   component: ChatPage,
 });
 
-function ChatPage() {
-  const { user, profile } = useAuth();
+export function ChatPage() {
+  const { user, profile, hasPermission } = useAuth();
   const currentUserId = user?.id;
-  const currentLevel = (profile?.nivel || "novato") as AppLevel;
-  const { data: customPermissions } = useRolePermissions();
 
-  const canViewChat = can(currentLevel, "view_chat", customPermissions);
-  const canCreateGroup = can(currentLevel, "create_chat_group", customPermissions);
+  const canViewChat = hasPermission("view_chat");
+  const canCreateGroup = hasPermission("create_chat_group");
 
   const [activeConversation, setActiveConversation] = useState<ChatConversation | null>(null);
   const [createGroupOpen, setCreateGroupOpen] = useState(false);

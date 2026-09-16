@@ -9,6 +9,9 @@ import {
   Users,
   User,
   Menu,
+  Trophy,
+  Target,
+  Megaphone,
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useConversations } from "@/hooks/useChat";
@@ -20,9 +23,27 @@ export function MobileBottomNav() {
   const routerState = useRouterState();
   const pathname = routerState.location.pathname;
 
-  const { isDevUser, isDevMode, isCeoUser, hasPermission } = useAuth();
+  const { isDevUser, isDevMode, isCeoUser, isCeoMode, hasPermission } = useAuth();
   const { toggleSidebar } = useSidebar();
   const { totalUnreadCount } = useConversations();
+
+  const homeUrl = useMemo(() => {
+    if (isDevUser && isDevMode) return "/dev/dashboard";
+    if (isCeoUser && isCeoMode) return "/ceo/dashboard";
+    if (hasPermission("view_dashboard")) return "/dashboard";
+    if (hasPermission("view_movements")) return "/movimentacoes";
+    if (hasPermission("view_stock")) return "/estoque";
+    return "/perfil";
+  }, [isDevUser, isDevMode, isCeoUser, isCeoMode, hasPermission]);
+
+  const opsUrl = useMemo(() => {
+    if (isDevUser && isDevMode) return "/dev/movimentacoes";
+    if (isCeoUser && isCeoMode) return "/ceo/movimentacoes";
+    if (hasPermission("view_movements")) return "/movimentacoes";
+    if (hasPermission("view_stock")) return "/estoque";
+    if (hasPermission("view_sales")) return "/vendas";
+    return "/dashboard";
+  }, [isDevUser, isDevMode, isCeoUser, isCeoMode, hasPermission]);
 
   // Tab 4 contextual setup (Dev > CEO > Membros > Perfil)
   const managementTab = useMemo(() => {
@@ -31,17 +52,17 @@ export function MobileBottomNav() {
         label: "Dev",
         url: "/dev",
         icon: Terminal,
-        isActive: pathname.startsWith("/dev"),
+        isActive: pathname.startsWith("/dev") && !pathname.startsWith("/dev/dashboard") && !pathname.startsWith("/dev/movimentacoes") && !pathname.startsWith("/dev/chat"),
         colorClass: "text-rose-400",
         activeBgClass: "bg-rose-500/15 border-rose-500/30 text-rose-300",
       };
     }
-    if (isCeoUser) {
+    if ((isCeoUser || isDevUser) && isCeoMode) {
       return {
         label: "CEO",
-        url: "/ceo",
+        url: "/ceo/executivo",
         icon: Crown,
-        isActive: pathname.startsWith("/ceo"),
+        isActive: pathname.startsWith("/ceo") && !pathname.startsWith("/ceo/dashboard") && !pathname.startsWith("/ceo/movimentacoes") && !pathname.startsWith("/ceo/chat"),
         colorClass: "text-amber-400",
         activeBgClass: "bg-amber-500/15 border-amber-500/30 text-amber-300",
       };
@@ -64,19 +85,76 @@ export function MobileBottomNav() {
       colorClass: "text-primary",
       activeBgClass: "bg-primary/15 border-primary/30 text-primary",
     };
-  }, [isDevUser, isDevMode, isCeoUser, hasPermission, pathname]);
+  }, [isDevUser, isDevMode, isCeoUser, isCeoMode, hasPermission, pathname]);
 
-  const isHomeActive = pathname === "/dashboard" || pathname === "/";
+  const isHomeActive = pathname === "/dashboard" || pathname === "/" || pathname === "/dev/dashboard" || pathname === "/ceo/dashboard";
   const isOperationsActive =
     pathname.startsWith("/movimentacoes") ||
     pathname.startsWith("/vendas") ||
-    pathname.startsWith("/estoque");
-  const isChatRoute = pathname.startsWith("/chat");
+    pathname.startsWith("/estoque") ||
+    pathname.startsWith("/dev/movimentacoes") ||
+    pathname.startsWith("/dev/vendas") ||
+    pathname.startsWith("/dev/estoque") ||
+    pathname.startsWith("/ceo/movimentacoes") ||
+    pathname.startsWith("/ceo/vendas") ||
+    pathname.startsWith("/ceo/estoque");
+  const isChatRoute = pathname.startsWith("/chat") || pathname.startsWith("/dev/chat") || pathname.startsWith("/ceo/chat");
 
   const handleChatClick = () => {
-    // Dispara evento para o widget de chat abrir em gaveta nativa
     window.dispatchEvent(new CustomEvent("tw_chat_toggle"));
   };
+
+  const middleTab = useMemo(() => {
+    if (hasPermission("view_chat")) {
+      const MiddleIcon = MessageSquare;
+      return {
+        label: "Chat",
+        icon: MiddleIcon,
+        iconColor: "text-emerald-400",
+        indicatorColor: "bg-emerald-400",
+        isActive: isChatRoute,
+        unread: totalUnreadCount,
+        onClick: handleChatClick,
+      };
+    }
+    if (hasPermission("view_rankings")) {
+      const url = isDevMode ? "/dev/rankings" : isCeoMode ? "/ceo/rankings" : "/rankings";
+      const MiddleIcon = Trophy;
+      return {
+        label: "Rankings",
+        icon: MiddleIcon,
+        iconColor: "text-amber-400",
+        indicatorColor: "bg-amber-400",
+        isActive: pathname.startsWith("/rankings") || pathname.startsWith("/dev/rankings") || pathname.startsWith("/ceo/rankings"),
+        unread: 0,
+        onClick: () => navigate({ to: url as any }),
+      };
+    }
+    if (hasPermission("view_goals")) {
+      const url = isDevMode ? "/dev/metas" : isCeoMode ? "/ceo/metas" : "/metas";
+      const MiddleIcon = Target;
+      return {
+        label: "Metas",
+        icon: MiddleIcon,
+        iconColor: "text-sky-400",
+        indicatorColor: "bg-sky-400",
+        isActive: pathname.startsWith("/metas") || pathname.startsWith("/dev/metas") || pathname.startsWith("/ceo/metas"),
+        unread: 0,
+        onClick: () => navigate({ to: url as any }),
+      };
+    }
+    const url = isDevMode ? "/dev/perfil" : isCeoMode ? "/ceo/perfil" : "/perfil";
+    const MiddleIcon = User;
+    return {
+      label: "Perfil",
+      icon: MiddleIcon,
+      iconColor: "text-primary",
+      indicatorColor: "bg-primary",
+      isActive: pathname.startsWith("/perfil"),
+      unread: 0,
+      onClick: () => navigate({ to: url as any }),
+    };
+  }, [hasPermission, isChatRoute, totalUnreadCount, isDevMode, isCeoMode, pathname, navigate]);
 
   return (
     <nav
@@ -87,7 +165,7 @@ export function MobileBottomNav() {
         {/* 1. INÍCIO */}
         <button
           type="button"
-          onClick={() => navigate({ to: "/dashboard" })}
+          onClick={() => navigate({ to: homeUrl as any })}
           className={cn(
             "flex flex-1 flex-col items-center justify-center py-1 rounded-xl transition-all cursor-pointer active:scale-90 group",
             isHomeActive
@@ -112,7 +190,7 @@ export function MobileBottomNav() {
         {/* 2. OPERAÇÕES */}
         <button
           type="button"
-          onClick={() => navigate({ to: "/movimentacoes" })}
+          onClick={() => navigate({ to: opsUrl as any })}
           className={cn(
             "flex flex-1 flex-col items-center justify-center py-1 rounded-xl transition-all cursor-pointer active:scale-90 group",
             isOperationsActive
@@ -134,13 +212,13 @@ export function MobileBottomNav() {
           )}
         </button>
 
-        {/* 3. CHAT (COM BADGE DE NÃO LIDAS) */}
+        {/* 3. ABA CENTRAL DINÂMICA (CHAT OU METAS OU RANKINGS) */}
         <button
           type="button"
-          onClick={handleChatClick}
+          onClick={middleTab.onClick}
           className={cn(
             "flex flex-1 flex-col items-center justify-center py-1 rounded-xl transition-all cursor-pointer active:scale-90 group relative",
-            isChatRoute
+            middleTab.isActive
               ? "text-primary font-black"
               : "text-muted-foreground hover:text-foreground"
           )}
@@ -148,19 +226,19 @@ export function MobileBottomNav() {
           <div
             className={cn(
               "p-1 rounded-xl transition-all relative",
-              isChatRoute && "bg-primary/15 shadow-xs"
+              middleTab.isActive && "bg-primary/15 shadow-xs"
             )}
           >
-            <MessageSquare className="h-5 w-5 transition-transform group-hover:scale-110 text-emerald-400" />
-            {totalUnreadCount > 0 && (
+            <middleTab.icon className={cn("h-5 w-5 transition-transform group-hover:scale-110", middleTab.iconColor)} />
+            {middleTab.unread > 0 && (
               <span className="absolute -top-1 -right-1 flex h-4 min-w-[16px] px-1 items-center justify-center rounded-full bg-rose-600 text-white font-mono text-[9px] font-black animate-pulse shadow-xs">
-                {totalUnreadCount > 99 ? "99+" : totalUnreadCount}
+                {middleTab.unread > 99 ? "99+" : middleTab.unread}
               </span>
             )}
           </div>
-          <span className="text-[10px] font-bold tracking-tight mt-0.5">Chat</span>
-          {isChatRoute && (
-            <span className="h-1 w-1 rounded-full bg-emerald-400 mt-0.5" />
+          <span className="text-[10px] font-bold tracking-tight mt-0.5">{middleTab.label}</span>
+          {middleTab.isActive && (
+            <span className={cn("h-1 w-1 rounded-full mt-0.5", middleTab.indicatorColor)} />
           )}
         </button>
 

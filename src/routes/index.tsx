@@ -52,6 +52,9 @@ function AuthPage() {
     signupRequestStatus,
     loading: authLoading,
     approvedAccess,
+    isDevUser,
+    isCeoUser,
+    hasPermission,
     signOut,
     refresh,
   } = useAuth();
@@ -69,9 +72,25 @@ function AuthPage() {
 
   useEffect(() => {
     if (!authLoading && approvedAccess) {
-      void navigate({ to: "/dashboard", replace: true });
+      if (isDevUser) {
+        void navigate({ to: "/dev/dashboard", replace: true });
+      } else if (isCeoUser) {
+        void navigate({ to: "/ceo/dashboard", replace: true });
+      } else {
+        if (hasPermission("view_dashboard")) {
+          void navigate({ to: "/dashboard", replace: true });
+        } else if (hasPermission("view_movements")) {
+          void navigate({ to: "/movimentacoes", replace: true });
+        } else if (hasPermission("view_stock")) {
+          void navigate({ to: "/estoque", replace: true });
+        } else if (hasPermission("view_sales")) {
+          void navigate({ to: "/vendas", replace: true });
+        } else {
+          void navigate({ to: "/perfil", replace: true });
+        }
+      }
     }
-  }, [authLoading, approvedAccess, navigate]);
+  }, [authLoading, approvedAccess, isDevUser, isCeoUser, hasPermission, navigate]);
 
   // AUTOMATIC REDIRECT AS SOON AS LEADERSHIP APPROVES REGISTRATION
   useEffect(() => {

@@ -221,6 +221,11 @@ export async function getNotifications(
   if (!userId) return [];
 
   const filtered = all.filter((n) => {
+    // 0. Não exibir notificações de chat na central de notificações do painel
+    if (n.type === "chat") {
+      return false;
+    }
+
     // 1. Se o usuário excluiu/dispensou a notificação, não exibir
     if (Array.isArray(n.deleted_by) && n.deleted_by.includes(userId)) {
       return false;
@@ -248,6 +253,19 @@ export async function getNotifications(
  * Cria e envia uma nova notificação em tempo real
  */
 export async function createNotification(payload: CreateNotificationPayload): Promise<AppNotification> {
+  // Notificações de chat não são registradas no painel geral de notificações
+  if (payload.type === "chat") {
+    return {
+      id: `chat_ignore_${Date.now()}`,
+      title: payload.title,
+      message: payload.message,
+      type: "chat",
+      category: "info",
+      user_id: payload.user_id || "all",
+      created_at: new Date().toISOString(),
+    };
+  }
+
   const all = await fetchAllRawNotifications();
 
   const now = new Date().toISOString();

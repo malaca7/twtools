@@ -77,7 +77,7 @@ export const Route = createFileRoute("/_authenticated/estoque")({
   component: EstoquePage,
 });
 
-function EstoquePage() {
+export function EstoquePage() {
   const { hasPermission } = useAuth();
   const queryClient = useQueryClient();
 

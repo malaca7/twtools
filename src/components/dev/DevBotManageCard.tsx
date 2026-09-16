@@ -120,6 +120,12 @@ export function DevBotManageCard({ isCeoView: isCeoViewProp }: DevBotManageCardP
 
   const { user, profile, level, hasPermission } = useAuth();
 
+  const canEditProfile =
+    hasPermission("bot_change_banner") ||
+    hasPermission("bot_change_avatar") ||
+    hasPermission("bot_change_name") ||
+    hasPermission("bot_change_status");
+
   const [config, setConfig] = useState<DiscordBotConfig>(DEFAULT_DISCORD_CONFIG);
   const [initialConfig, setInitialConfig] = useState<DiscordBotConfig>(DEFAULT_DISCORD_CONFIG);
   const [loading, setLoading] = useState(true);
@@ -837,112 +843,116 @@ export function DevBotManageCard({ isCeoView: isCeoViewProp }: DevBotManageCardP
               }}
             >
               {/* Top-Right Discord 3 Dots Menu (...) */}
-              <div className="absolute top-2.5 right-2.5 flex items-center gap-1.5 z-10">
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <button
-                      type="button"
-                      className="h-7 w-7 rounded-full bg-black/60 hover:bg-black/80 text-white/90 hover:text-white flex items-center justify-center backdrop-blur-md border border-white/10 transition-all cursor-pointer shadow-lg"
-                      title="Opções do perfil"
-                    >
-                      <MoreHorizontal className="h-3.5 w-3.5" />
-                    </button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-56 bg-[#111214] border-[#2b2d31] text-zinc-200">
-                    {hasPermission("bot_change_banner") && (
-                      <>
-                        <DropdownMenuItem
-                          onClick={() => handleOpenCropForExisting("banner")}
-                          className="text-xs hover:bg-[#232428] hover:text-white cursor-pointer gap-2"
-                        >
-                          <Crop className="h-3.5 w-3.5 text-emerald-400" />
-                          <span>Ajustar / Recortar banner atual</span>
-                        </DropdownMenuItem>
+              {(!isCeoView || canEditProfile) && (
+                <div className="absolute top-2.5 right-2.5 flex items-center gap-1.5 z-10">
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <button
+                        type="button"
+                        className="h-7 w-7 rounded-full bg-black/60 hover:bg-black/80 text-white/90 hover:text-white flex items-center justify-center backdrop-blur-md border border-white/10 transition-all cursor-pointer shadow-lg"
+                        title="Opções do perfil"
+                      >
+                        <MoreHorizontal className="h-3.5 w-3.5" />
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-56 bg-[#111214] border-[#2b2d31] text-zinc-200">
+                      {hasPermission("bot_change_banner") && (
+                        <>
+                          <DropdownMenuItem
+                            onClick={() => handleOpenCropForExisting("banner")}
+                            className="text-xs hover:bg-[#232428] hover:text-white cursor-pointer gap-2"
+                          >
+                            <Crop className="h-3.5 w-3.5 text-emerald-400" />
+                            <span>Ajustar / Recortar banner atual</span>
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={() => {
+                              setBannerUrlInput(config.botBannerUrl || "");
+                              setIsBannerModalOpen(true);
+                            }}
+                            className="text-xs hover:bg-[#232428] hover:text-white cursor-pointer gap-2"
+                          >
+                            <Edit2 className="h-3.5 w-3.5 text-primary" />
+                            <span>Alterar imagem do banner</span>
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator className="bg-[#2b2d31]" />
+                        </>
+                      )}
+                      {hasPermission("bot_change_avatar") && (
+                        <>
+                          <DropdownMenuItem
+                            onClick={() => handleOpenCropForExisting("avatar")}
+                            className="text-xs hover:bg-[#232428] hover:text-white cursor-pointer gap-2"
+                          >
+                            <Crop className="h-3.5 w-3.5 text-emerald-400" />
+                            <span>Ajustar foto de avatar atual</span>
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={() => {
+                              setAvatarInput(config.botAvatarUrl || "");
+                              setIsAvatarModalOpen(true);
+                            }}
+                            className="text-xs hover:bg-[#232428] hover:text-white cursor-pointer gap-2"
+                          >
+                            <Edit2 className="h-3.5 w-3.5 text-primary" />
+                            <span>Alterar foto de avatar</span>
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator className="bg-[#2b2d31]" />
+                        </>
+                      )}
+                      {hasPermission("bot_change_name") && (
                         <DropdownMenuItem
                           onClick={() => {
-                            setBannerUrlInput(config.botBannerUrl || "");
-                            setIsBannerModalOpen(true);
+                            setNameInput(botName);
+                            setIsNameModalOpen(true);
                           }}
                           className="text-xs hover:bg-[#232428] hover:text-white cursor-pointer gap-2"
                         >
-                          <Edit2 className="h-3.5 w-3.5 text-primary" />
-                          <span>Alterar imagem do banner</span>
+                          <Edit2 className="h-3.5 w-3.5 text-purple-400" />
+                          <span>Alterar nome do bot</span>
                         </DropdownMenuItem>
-                        <DropdownMenuSeparator className="bg-[#2b2d31]" />
-                      </>
-                    )}
-                    {hasPermission("bot_change_avatar") && (
-                      <>
-                        <DropdownMenuItem
-                          onClick={() => handleOpenCropForExisting("avatar")}
-                          className="text-xs hover:bg-[#232428] hover:text-white cursor-pointer gap-2"
-                        >
-                          <Crop className="h-3.5 w-3.5 text-emerald-400" />
-                          <span>Ajustar foto de avatar atual</span>
-                        </DropdownMenuItem>
+                      )}
+                      {hasPermission("bot_change_status") && (
                         <DropdownMenuItem
                           onClick={() => {
-                            setAvatarInput(config.botAvatarUrl || "");
-                            setIsAvatarModalOpen(true);
+                            setStatusTextInput(config.botStatusText || "by malaca");
+                            setActivityTypeInput(config.botActivityType || "Playing");
+                            setStreamingUrlInput(config.botStreamingUrl || "");
+                            setIsStatusModalOpen(true);
                           }}
                           className="text-xs hover:bg-[#232428] hover:text-white cursor-pointer gap-2"
                         >
-                          <Edit2 className="h-3.5 w-3.5 text-primary" />
-                          <span>Alterar foto de avatar</span>
+                          <MessageSquare className="h-3.5 w-3.5 text-rose-400" />
+                          <span>Definir mensagem de status</span>
                         </DropdownMenuItem>
+                      )}
+                      {(hasPermission("bot_change_name") || hasPermission("bot_change_status")) && (
                         <DropdownMenuSeparator className="bg-[#2b2d31]" />
-                      </>
-                    )}
-                    {hasPermission("bot_change_name") && (
+                      )}
                       <DropdownMenuItem
-                        onClick={() => {
-                          setNameInput(botName);
-                          setIsNameModalOpen(true);
-                        }}
+                        onClick={handleCopyId}
                         className="text-xs hover:bg-[#232428] hover:text-white cursor-pointer gap-2"
                       >
-                        <Edit2 className="h-3.5 w-3.5 text-purple-400" />
-                        <span>Alterar nome do bot</span>
+                        {copiedId ? <Check className="h-3.5 w-3.5 text-emerald-400" /> : <Copy className="h-3.5 w-3.5" />}
+                        <span>Copiar ID do usuário</span>
                       </DropdownMenuItem>
-                    )}
-                    {hasPermission("bot_change_status") && (
-                      <DropdownMenuItem
-                        onClick={() => {
-                          setStatusTextInput(config.botStatusText || "by malaca");
-                          setActivityTypeInput(config.botActivityType || "Playing");
-                          setStreamingUrlInput(config.botStreamingUrl || "");
-                          setIsStatusModalOpen(true);
-                        }}
-                        className="text-xs hover:bg-[#232428] hover:text-white cursor-pointer gap-2"
-                      >
-                        <MessageSquare className="h-3.5 w-3.5 text-rose-400" />
-                        <span>Definir mensagem de status</span>
-                      </DropdownMenuItem>
-                    )}
-                    {(hasPermission("bot_change_name") || hasPermission("bot_change_status")) && (
-                      <DropdownMenuSeparator className="bg-[#2b2d31]" />
-                    )}
-                    <DropdownMenuItem
-                      onClick={handleCopyId}
-                      className="text-xs hover:bg-[#232428] hover:text-white cursor-pointer gap-2"
-                    >
-                      {copiedId ? <Check className="h-3.5 w-3.5 text-emerald-400" /> : <Copy className="h-3.5 w-3.5" />}
-                      <span>Copiar ID do usuário</span>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem asChild>
-                      <a
-                        href={getDeveloperPortalUrl(clientId)}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="text-xs hover:bg-[#232428] hover:text-white cursor-pointer gap-2 flex items-center"
-                      >
-                        <ExternalLink className="h-3.5 w-3.5 text-indigo-400" />
-                        <span>Portal de Desenvolvedores</span>
-                      </a>
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </div>
+                      {!isCeoView && (
+                        <DropdownMenuItem asChild>
+                          <a
+                            href={getDeveloperPortalUrl(clientId)}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="text-xs hover:bg-[#232428] hover:text-white cursor-pointer gap-2 flex items-center"
+                          >
+                            <ExternalLink className="h-3.5 w-3.5 text-indigo-400" />
+                            <span>Portal de Desenvolvedores</span>
+                          </a>
+                        </DropdownMenuItem>
+                      )}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+              )}
             </div>
 
             {/* CORPO DO PERFIL DISCORD */}
@@ -1371,249 +1381,238 @@ export function DevBotManageCard({ isCeoView: isCeoViewProp }: DevBotManageCardP
 
                 <div className="flex items-center gap-2 flex-wrap">
                   {/* Iniciar / Desligar Bot */}
-                  {isBotRunning ? (
-                    <Button
-                      onClick={() => handleLifecycle("stop")}
-                      disabled={actionLoading !== null || !hasPermission("bot_power_toggle")}
-                      variant="outline"
-                      size="sm"
-                      className="bg-emerald-950/40 border-emerald-600/50 text-emerald-400 hover:bg-rose-950/50 hover:border-rose-600/50 hover:text-rose-300 font-bold text-xs gap-1.5 transition-all shadow-md group cursor-pointer h-8 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      {actionLoading === "stop" ? (
-                        <Loader2 className="h-3.5 w-3.5 animate-spin text-rose-400" />
-                      ) : (
-                        <>
-                          <Play className="h-3.5 w-3.5 fill-emerald-400 text-emerald-400 group-hover:hidden" />
-                          <Square className="h-3.5 w-3.5 fill-rose-400 text-rose-400 hidden group-hover:inline-block" />
-                        </>
-                      )}
-                      <span className="group-hover:hidden">Ligado</span>
-                      <span className="hidden group-hover:inline">Desligar</span>
-                    </Button>
-                  ) : (
-                    <Button
-                      onClick={() => handleLifecycle("start")}
-                      disabled={actionLoading !== null || !hasPermission("bot_power_toggle")}
-                      size="sm"
-                      className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs gap-1.5 shadow-md shadow-emerald-900/40 cursor-pointer h-8 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      {actionLoading === "start" ? (
-                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                      ) : (
-                        <Play className="h-3.5 w-3.5 fill-white" />
-                      )}
-                      Iniciar
-                    </Button>
+                  {hasPermission("bot_power_toggle") && (
+                    isBotRunning ? (
+                      <Button
+                        onClick={() => handleLifecycle("stop")}
+                        disabled={actionLoading !== null}
+                        variant="outline"
+                        size="sm"
+                        className="bg-emerald-950/40 border-emerald-600/50 text-emerald-400 hover:bg-rose-950/50 hover:border-rose-600/50 hover:text-rose-300 font-bold text-xs gap-1.5 transition-all shadow-md group cursor-pointer h-8 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {actionLoading === "stop" ? (
+                          <Loader2 className="h-3.5 w-3.5 animate-spin text-rose-400" />
+                        ) : (
+                          <>
+                            <Play className="h-3.5 w-3.5 fill-emerald-400 text-emerald-400 group-hover:hidden" />
+                            <Square className="h-3.5 w-3.5 fill-rose-400 text-rose-400 hidden group-hover:inline-block" />
+                          </>
+                        )}
+                        <span className="group-hover:hidden">Ligado</span>
+                        <span className="hidden group-hover:inline">Desligar</span>
+                      </Button>
+                    ) : (
+                      <Button
+                        onClick={() => handleLifecycle("start")}
+                        disabled={actionLoading !== null}
+                        size="sm"
+                        className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs gap-1.5 shadow-md shadow-emerald-900/40 cursor-pointer h-8 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {actionLoading === "start" ? (
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        ) : (
+                          <Play className="h-3.5 w-3.5 fill-white" />
+                        )}
+                        Iniciar
+                      </Button>
+                    )
                   )}
 
                   {/* Reiniciar */}
-                  <Button
-                    onClick={() => handleLifecycle("restart")}
-                    disabled={actionLoading !== null || !hasPermission("bot_restart")}
-                    variant="outline"
-                    size="sm"
-                    className="bg-zinc-900/80 hover:bg-zinc-800 border-zinc-700/60 text-white font-bold text-xs gap-1.5 shadow-xs cursor-pointer h-8 disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    {actionLoading === "restart" ? (
-                      <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />
-                    ) : (
-                      <RotateCcw className="h-3.5 w-3.5" />
-                    )}
-                    Reiniciar
-                  </Button>
+                  {hasPermission("bot_restart") && (
+                    <Button
+                      onClick={() => handleLifecycle("restart")}
+                      disabled={actionLoading !== null}
+                      variant="outline"
+                      size="sm"
+                      className="bg-zinc-900/80 hover:bg-zinc-800 border-zinc-700/60 text-white font-bold text-xs gap-1.5 shadow-xs cursor-pointer h-8 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {actionLoading === "restart" ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />
+                      ) : (
+                        <RotateCcw className="h-3.5 w-3.5" />
+                      )}
+                      Reiniciar
+                    </Button>
+                  )}
 
                   {/* Convidar */}
-                  <Button
-                    onClick={() => {
-                      if (!hasPermission("bot_invite")) {
-                        toast.error("Você não possui permissão para convidar o bot.");
-                        return;
-                      }
-                      setIsInviteModalOpen(true);
-                    }}
-                    disabled={!hasPermission("bot_invite")}
-                    size="sm"
-                    className="bg-[#5865F2] hover:bg-[#4752C4] text-white font-bold text-xs gap-1.5 shadow-md shadow-[#5865F2]/20 cursor-pointer h-8 disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    <UserPlus className="h-3.5 w-3.5" />
-                    Convidar
-                  </Button>
+                  {(hasPermission("bot_invite") || hasPermission("bot_add_app")) && (
+                    <Button
+                      onClick={() => setIsInviteModalOpen(true)}
+                      size="sm"
+                      className="bg-[#5865F2] hover:bg-[#4752C4] text-white font-bold text-xs gap-1.5 shadow-md shadow-[#5865F2]/20 cursor-pointer h-8"
+                    >
+                      <UserPlus className="h-3.5 w-3.5" />
+                      Convidar
+                    </Button>
+                  )}
 
                   {/* Portal Dev */}
-                  <Button
-                    asChild
-                    variant="ghost"
-                    size="sm"
-                    className="h-8 text-xs text-muted-foreground hover:text-white gap-1"
-                  >
-                    <a href={getDeveloperPortalUrl(clientId)} target="_blank" rel="noreferrer">
-                      <ExternalLink className="h-3.5 w-3.5" />
-                      <span className="hidden xl:inline">Portal Dev</span>
-                    </a>
-                  </Button>
+                  {!isCeoView && (
+                    <Button
+                      asChild
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 text-xs text-muted-foreground hover:text-white gap-1"
+                    >
+                      <a href={getDeveloperPortalUrl(clientId)} target="_blank" rel="noreferrer">
+                        <ExternalLink className="h-3.5 w-3.5" />
+                        <span className="hidden xl:inline">Portal Dev</span>
+                      </a>
+                    </Button>
+                  )}
                 </div>
               </div>
             </CardHeader>
           </Card>
 
           {/* 2. SUB-CARDS: MENSAGEM DE STATUS & PRESENÇA */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* CARD ESQUERDO: MENSAGEM DE STATUS */}
-            <Card className="surface-card border-border/60 bg-zinc-950/60 flex flex-col justify-between">
-              <CardHeader className="pb-2.5">
-                <span className="text-[0.68rem] font-bold tracking-widest text-muted-foreground uppercase">
-                  MENSAGEM DE STATUS
-                </span>
-                <CardDescription className="text-xs text-muted-foreground">
-                  Personalize o texto e atividade exibidos no perfil.
-                </CardDescription>
-              </CardHeader>
-
-              <CardContent className="space-y-3 pb-3">
-                <div className="flex items-center gap-3 p-3 rounded-xl bg-zinc-900/90 border border-zinc-800/80">
-                  <div className="p-2 rounded-xl bg-rose-950/60 text-rose-400 border border-rose-900/40 shrink-0">
-                    {renderActivityIcon(config.botActivityType || "Playing")}
-                  </div>
-                  <div className="space-y-0.5 min-w-0 flex-1">
-                    <span className="text-[0.65rem] font-black tracking-wider text-muted-foreground/80 block">
-                      {getActivityLabel(config.botActivityType || "Playing")}
+          {(hasPermission("bot_change_status") || hasPermission("bot_change_presence")) && (
+            <div
+              className={cn(
+                "grid gap-4",
+                hasPermission("bot_change_status") && hasPermission("bot_change_presence")
+                  ? "grid-cols-1 md:grid-cols-2"
+                  : "grid-cols-1"
+              )}
+            >
+              {/* CARD ESQUERDO: MENSAGEM DE STATUS */}
+              {hasPermission("bot_change_status") && (
+                <Card className="surface-card border-border/60 bg-zinc-950/60 flex flex-col justify-between">
+                  <CardHeader className="pb-2.5">
+                    <span className="text-[0.68rem] font-bold tracking-widest text-muted-foreground uppercase">
+                      MENSAGEM DE STATUS
                     </span>
-                    <p className="text-xs font-bold text-foreground truncate">
-                      {config.botStatusText || "by malaca"}
-                    </p>
-                  </div>
-                </div>
-              </CardContent>
+                    <CardDescription className="text-xs text-muted-foreground">
+                      Personalize o texto e atividade exibidos no perfil.
+                    </CardDescription>
+                  </CardHeader>
 
-              <CardFooter className="pt-0">
-                <Button
-                  type="button"
-                  disabled={!hasPermission("bot_change_status")}
-                  onClick={() => {
-                    if (!hasPermission("bot_change_status")) {
-                      toast.error("Você não possui permissão para alterar o status do bot.");
-                      return;
-                    }
-                    setStatusTextInput(config.botStatusText || "by malaca");
-                    setActivityTypeInput(config.botActivityType || "Playing");
-                    setStreamingUrlInput(config.botStreamingUrl || "");
-                    setIsStatusModalOpen(true);
-                  }}
-                  className="w-full bg-rose-700 hover:bg-rose-600 text-white font-bold text-xs shadow-md shadow-rose-950/40 h-8 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  Definir mensagem de status
-                </Button>
-              </CardFooter>
-            </Card>
+                  <CardContent className="space-y-3 pb-3">
+                    <div className="flex items-center gap-3 p-3 rounded-xl bg-zinc-900/90 border border-zinc-800/80">
+                      <div className="p-2 rounded-xl bg-rose-950/60 text-rose-400 border border-rose-900/40 shrink-0">
+                        {renderActivityIcon(config.botActivityType || "Playing")}
+                      </div>
+                      <div className="space-y-0.5 min-w-0 flex-1">
+                        <span className="text-[0.65rem] font-black tracking-wider text-muted-foreground/80 block">
+                          {getActivityLabel(config.botActivityType || "Playing")}
+                        </span>
+                        <p className="text-xs font-bold text-foreground truncate">
+                          {config.botStatusText || "by malaca"}
+                        </p>
+                      </div>
+                    </div>
+                  </CardContent>
 
-            {/* CARD DIREITO: PRESENÇA */}
-            <Card className="surface-card border-border/60 bg-zinc-950/60 flex flex-col justify-between">
-              <CardHeader className="pb-2.5">
-                <span className="text-[0.68rem] font-bold tracking-widest text-muted-foreground uppercase">
-                  PRESENÇA
-                </span>
-                <CardDescription className="text-xs text-muted-foreground leading-relaxed">
-                  Como seu bot aparece no servidor Discord.
-                </CardDescription>
-              </CardHeader>
+                  <CardFooter className="pt-0">
+                    <Button
+                      type="button"
+                      onClick={() => {
+                        setStatusTextInput(config.botStatusText || "by malaca");
+                        setActivityTypeInput(config.botActivityType || "Playing");
+                        setStreamingUrlInput(config.botStreamingUrl || "");
+                        setIsStatusModalOpen(true);
+                      }}
+                      className="w-full bg-rose-700 hover:bg-rose-600 text-white font-bold text-xs shadow-md shadow-rose-950/40 h-8 cursor-pointer"
+                    >
+                      Definir mensagem de status
+                    </Button>
+                  </CardFooter>
+                </Card>
+              )}
 
-              <CardContent className="pb-3">
-                <div className="grid grid-cols-2 gap-2">
-                  {/* On-line */}
-                  <button
-                    type="button"
-                    disabled={!hasPermission("bot_change_presence") || saving}
-                    onClick={() => {
-                      if (!hasPermission("bot_change_presence")) {
-                        toast.error("Você não possui permissão para alterar a presença do bot.");
-                        return;
-                      }
-                      handleUpdateConfig({ botStatus: "online" }, "Presença alterada para On-line!");
-                    }}
-                    className={cn(
-                      "flex items-center gap-2 p-2 rounded-xl border text-xs font-bold transition-all text-left",
-                      !hasPermission("bot_change_presence") && "cursor-not-allowed opacity-60",
-                      currentPresence === "online"
-                        ? "bg-zinc-900 border-emerald-500/80 text-foreground ring-1 ring-emerald-500/50 shadow-xs"
-                        : "bg-zinc-900/40 border-zinc-800 text-muted-foreground hover:bg-zinc-900 hover:text-foreground"
-                    )}
-                  >
-                    <div className="h-2 w-2 rounded-full bg-emerald-500 shadow-sm shrink-0" />
-                    <span>On-line</span>
-                  </button>
+              {/* CARD DIREITO: PRESENÇA */}
+              {hasPermission("bot_change_presence") && (
+                <Card className="surface-card border-border/60 bg-zinc-950/60 flex flex-col justify-between">
+                  <CardHeader className="pb-2.5">
+                    <span className="text-[0.68rem] font-bold tracking-widest text-muted-foreground uppercase">
+                      PRESENÇA
+                    </span>
+                    <CardDescription className="text-xs text-muted-foreground leading-relaxed">
+                      Como seu bot aparece no servidor Discord.
+                    </CardDescription>
+                  </CardHeader>
 
-                  {/* Parado */}
-                  <button
-                    type="button"
-                    disabled={!hasPermission("bot_change_presence") || saving}
-                    onClick={() => {
-                      if (!hasPermission("bot_change_presence")) {
-                        toast.error("Você não possui permissão para alterar a presença do bot.");
-                        return;
-                      }
-                      handleUpdateConfig({ botStatus: "idle" }, "Presença alterada para Parado!");
-                    }}
-                    className={cn(
-                      "flex items-center gap-2 p-2 rounded-xl border text-xs font-bold transition-all text-left",
-                      !hasPermission("bot_change_presence") && "cursor-not-allowed opacity-60",
-                      currentPresence === "idle"
-                        ? "bg-zinc-900 border-amber-500/80 text-foreground ring-1 ring-amber-500/50 shadow-xs"
-                        : "bg-zinc-900/40 border-zinc-800 text-muted-foreground hover:bg-zinc-900 hover:text-foreground"
-                    )}
-                  >
-                    <div className="h-2 w-2 rounded-full bg-amber-400 shadow-sm shrink-0" />
-                    <span>Parado</span>
-                  </button>
+                  <CardContent className="pb-3">
+                    <div className="grid grid-cols-2 gap-2">
+                      {/* On-line */}
+                      <button
+                        type="button"
+                        disabled={saving}
+                        onClick={() => {
+                          handleUpdateConfig({ botStatus: "online" }, "Presença alterada para On-line!");
+                        }}
+                        className={cn(
+                          "flex items-center gap-2 p-2 rounded-xl border text-xs font-bold transition-all text-left cursor-pointer",
+                          currentPresence === "online"
+                            ? "bg-zinc-900 border-emerald-500/80 text-foreground ring-1 ring-emerald-500/50 shadow-xs"
+                            : "bg-zinc-900/40 border-zinc-800 text-muted-foreground hover:bg-zinc-900 hover:text-foreground"
+                        )}
+                      >
+                        <div className="h-2 w-2 rounded-full bg-emerald-500 shadow-sm shrink-0" />
+                        <span>On-line</span>
+                      </button>
 
-                  {/* Não incomodar */}
-                  <button
-                    type="button"
-                    disabled={!hasPermission("bot_change_presence") || saving}
-                    onClick={() => {
-                      if (!hasPermission("bot_change_presence")) {
-                        toast.error("Você não possui permissão para alterar a presença do bot.");
-                        return;
-                      }
-                      handleUpdateConfig({ botStatus: "dnd" }, "Presença alterada para Não incomodar!");
-                    }}
-                    className={cn(
-                      "flex items-center gap-2 p-2 rounded-xl border text-xs font-bold transition-all text-left",
-                      !hasPermission("bot_change_presence") && "cursor-not-allowed opacity-60",
-                      currentPresence === "dnd"
-                        ? "bg-zinc-900 border-rose-500/80 text-foreground ring-1 ring-rose-500/50 shadow-xs"
-                        : "bg-zinc-900/40 border-zinc-800 text-muted-foreground hover:bg-zinc-900 hover:text-foreground"
-                    )}
-                  >
-                    <div className="h-2 w-2 rounded-full bg-rose-500 shadow-sm shrink-0" />
-                    <span>Ocupado</span>
-                  </button>
+                      {/* Parado */}
+                      <button
+                        type="button"
+                        disabled={saving}
+                        onClick={() => {
+                          handleUpdateConfig({ botStatus: "idle" }, "Presença alterada para Parado!");
+                        }}
+                        className={cn(
+                          "flex items-center gap-2 p-2 rounded-xl border text-xs font-bold transition-all text-left cursor-pointer",
+                          currentPresence === "idle"
+                            ? "bg-zinc-900 border-amber-500/80 text-foreground ring-1 ring-amber-500/50 shadow-xs"
+                            : "bg-zinc-900/40 border-zinc-800 text-muted-foreground hover:bg-zinc-900 hover:text-foreground"
+                        )}
+                      >
+                        <div className="h-2 w-2 rounded-full bg-amber-400 shadow-sm shrink-0" />
+                        <span>Parado</span>
+                      </button>
 
-                  {/* Invisível */}
-                  <button
-                    type="button"
-                    disabled={!hasPermission("bot_change_presence") || saving}
-                    onClick={() => {
-                      if (!hasPermission("bot_change_presence")) {
-                        toast.error("Você não possui permissão para alterar a presença do bot.");
-                        return;
-                      }
-                      handleUpdateConfig({ botStatus: "invisible" }, "Presença alterada para Invisível!");
-                    }}
-                    className={cn(
-                      "flex items-center gap-2 p-2 rounded-xl border text-xs font-bold transition-all text-left",
-                      !hasPermission("bot_change_presence") && "cursor-not-allowed opacity-60",
-                      currentPresence === "invisible"
-                        ? "bg-zinc-900 border-zinc-500/80 text-foreground ring-1 ring-zinc-500/50 shadow-xs"
-                        : "bg-zinc-900/40 border-zinc-800 text-muted-foreground hover:bg-zinc-900 hover:text-foreground"
-                    )}
-                  >
-                    <div className="h-2 w-2 rounded-full bg-zinc-500 shadow-sm shrink-0" />
-                    <span>Invisível</span>
-                  </button>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
+                      {/* Não incomodar */}
+                      <button
+                        type="button"
+                        disabled={saving}
+                        onClick={() => {
+                          handleUpdateConfig({ botStatus: "dnd" }, "Presença alterada para Não incomodar!");
+                        }}
+                        className={cn(
+                          "flex items-center gap-2 p-2 rounded-xl border text-xs font-bold transition-all text-left cursor-pointer",
+                          currentPresence === "dnd"
+                            ? "bg-zinc-900 border-rose-500/80 text-foreground ring-1 ring-rose-500/50 shadow-xs"
+                            : "bg-zinc-900/40 border-zinc-800 text-muted-foreground hover:bg-zinc-900 hover:text-foreground"
+                        )}
+                      >
+                        <div className="h-2 w-2 rounded-full bg-rose-500 shadow-sm shrink-0" />
+                        <span>Ocupado</span>
+                      </button>
+
+                      {/* Invisível */}
+                      <button
+                        type="button"
+                        disabled={saving}
+                        onClick={() => {
+                          handleUpdateConfig({ botStatus: "invisible" }, "Presença alterada para Invisível!");
+                        }}
+                        className={cn(
+                          "flex items-center gap-2 p-2 rounded-xl border text-xs font-bold transition-all text-left cursor-pointer",
+                          currentPresence === "invisible"
+                            ? "bg-zinc-900 border-zinc-500/80 text-foreground ring-1 ring-zinc-500/50 shadow-xs"
+                            : "bg-zinc-900/40 border-zinc-800 text-muted-foreground hover:bg-zinc-900 hover:text-foreground"
+                        )}
+                      >
+                        <div className="h-2 w-2 rounded-full bg-zinc-500 shadow-sm shrink-0" />
+                        <span>Invisível</span>
+                      </button>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+            </div>
+          )}
 
           {/* 3. CARD: TOKEN DE ACESSO (Oculto no Painel CEO) */}
           {!isCeoView && (

@@ -407,7 +407,7 @@ const PAGE_SIZE = 50;
    PÁGINA PRINCIPAL DE LOGS
    ========================================================================== */
 
-function LogsPage() {
+export function LogsPage() {
   const { hasPermission } = useAuth();
   const canView = hasPermission("view_audit");
 

@@ -61,7 +61,7 @@ export const Route = createFileRoute("/_authenticated/membros")({
   component: MembrosPage,
 });
 
-function MembrosPage() {
+export function MembrosPage() {
   const { hasPermission, level: currentUserLevel, profile: currentProfile, user, refresh, isDevMode } = useAuth();
   const queryClient = useQueryClient();
 

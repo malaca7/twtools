@@ -24,7 +24,7 @@ import {
 import { InsigniaGrid } from "@/components/performance/InsigniaGrid";
 import { calculateMemberInsignias } from "@/lib/insignias";
 import { goalProgress, GOAL_STATUS_LABEL, GOAL_TYPE_LABEL } from "@/lib/metrics";
-import { PageHeader, TableSkeleton, EmptyState } from "@/components/ui-kit";
+import { PageHeader, TableSkeleton, EmptyState, NoAccess } from "@/components/ui-kit";
 import { useAuth } from "@/hooks/useAuth";
 import { useSales, useMovements, useMembers, useGoals } from "@/hooks/useData";
 import { currency, num, dateTime } from "@/lib/format";
@@ -52,7 +52,8 @@ export const Route = createFileRoute("/_authenticated/desempenho")({
 type TimeFilter = "all" | "today" | "7days" | "month" | "last_month";
 
 export function MeuDesempenhoPage() {
-  const { user, profile, level } = useAuth();
+  const { user, profile, level, hasPermission } = useAuth();
+  if (!hasPermission("view_performance")) return <NoAccess />;
 
   const { data: sales = [], isLoading: loadingSales } = useSales();
   const { data: movements = [], isLoading: loadingMovements } = useMovements();

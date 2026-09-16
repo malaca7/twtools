@@ -70,7 +70,7 @@ export const MODULE_DEFINITIONS: {
   { key: "gestao_cargos", label: "Gerenciamento de Cargos", description: "Criação, reordenação e matriz de permissões dos cargos", icon: ShieldCheck },
 ];
 
-function CargosPage() {
+export function CargosPage() {
   const { level: currentUserLevel, hasPermission } = useAuth();
   const queryClient = useQueryClient();
 

@@ -49,7 +49,7 @@ export const Route = createFileRoute("/_authenticated/vendas")({
   component: VendasPage,
 });
 
-function VendasPage() {
+export function VendasPage() {
   const { hasPermission } = useAuth();
   const queryClient = useQueryClient();
   const canView = hasPermission("view_sales");

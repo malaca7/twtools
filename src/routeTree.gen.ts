@@ -42,6 +42,7 @@ import { Route as AuthenticatedAusenciasTabRouteImport } from './routes/_authent
 import { Route as AuthenticatedCeoTabRouteImport } from './routes/_authenticated/ceo.$tab'
 import { Route as AuthenticatedConfiguracoesTabRouteImport } from './routes/_authenticated/configuracoes.$tab'
 import { Route as AuthenticatedDevIndexRouteImport } from './routes/_authenticated/dev.index'
+import { Route as AuthenticatedDevPageRouteImport } from './routes/_authenticated/dev.$page'
 import { Route as AuthenticatedDevBotRouteImport } from './routes/_authenticated/dev.bot'
 import { Route as AuthenticatedDevConfiguracaoRouteImport } from './routes/_authenticated/dev.configuracao'
 import { Route as AuthenticatedDevDesempenhoRouteImport } from './routes/_authenticated/dev.desempenho'
@@ -57,6 +58,8 @@ import { Route as AuthenticatedPerfilDadosRouteImport } from './routes/_authenti
 import { Route as AuthenticatedRankingsTabRouteImport } from './routes/_authenticated/rankings.$tab'
 import { Route as AuthenticatedTicketsTabRouteImport } from './routes/_authenticated/tickets.$tab'
 import { Route as DevmlcDiscordidDiscordIdRouteImport } from './routes/devmlc.discordid.$discordId'
+import { Route as AuthenticatedCeoTabSubtabRouteImport } from './routes/_authenticated/ceo.$tab.$subtab'
+import { Route as AuthenticatedDevPageTabRouteImport } from './routes/_authenticated/dev.$page.$tab'
 import { Route as AuthenticatedDevConfiguracaoTabRouteImport } from './routes/_authenticated/dev.configuracao.$tab'
 
 const IndexRoute = IndexRouteImport.update({
@@ -228,6 +231,11 @@ const AuthenticatedDevIndexRoute = AuthenticatedDevIndexRouteImport.update({
   path: '/dev/',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedDevPageRoute = AuthenticatedDevPageRouteImport.update({
+  id: '/dev/$page',
+  path: '/dev/$page',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedDevBotRoute = AuthenticatedDevBotRouteImport.update({
   id: '/dev/bot',
   path: '/dev/bot',
@@ -315,6 +323,17 @@ const DevmlcDiscordidDiscordIdRoute =
     path: '/devmlc/discordid/$discordId',
     getParentRoute: () => rootRouteImport,
   } as any)
+const AuthenticatedCeoTabSubtabRoute =
+  AuthenticatedCeoTabSubtabRouteImport.update({
+    id: '/$subtab',
+    path: '/$subtab',
+    getParentRoute: () => AuthenticatedCeoTabRoute,
+  } as any)
+const AuthenticatedDevPageTabRoute = AuthenticatedDevPageTabRouteImport.update({
+  id: '/$tab',
+  path: '/$tab',
+  getParentRoute: () => AuthenticatedDevPageRoute,
+} as any)
 const AuthenticatedDevConfiguracaoTabRoute =
   AuthenticatedDevConfiguracaoTabRouteImport.update({
     id: '/$tab',
@@ -352,8 +371,9 @@ export interface FileRoutesByFullPath {
   '/dev/$discordId': typeof DevDiscordIdRoute
   '/devmlc/$discordId': typeof DevmlcDiscordIdRoute
   '/ausencias/$tab': typeof AuthenticatedAusenciasTabRoute
-  '/ceo/$tab': typeof AuthenticatedCeoTabRoute
+  '/ceo/$tab': typeof AuthenticatedCeoTabRouteWithChildren
   '/configuracoes/$tab': typeof AuthenticatedConfiguracoesTabRoute
+  '/dev/$page': typeof AuthenticatedDevPageRouteWithChildren
   '/dev/bot': typeof AuthenticatedDevBotRoute
   '/dev/configuracao': typeof AuthenticatedDevConfiguracaoRouteWithChildren
   '/dev/desempenho': typeof AuthenticatedDevDesempenhoRoute
@@ -370,6 +390,8 @@ export interface FileRoutesByFullPath {
   '/tickets/$tab': typeof AuthenticatedTicketsTabRoute
   '/devmlc/discordid/$discordId': typeof DevmlcDiscordidDiscordIdRoute
   '/dev/': typeof AuthenticatedDevIndexRoute
+  '/ceo/$tab/$subtab': typeof AuthenticatedCeoTabSubtabRoute
+  '/dev/$page/$tab': typeof AuthenticatedDevPageTabRoute
   '/dev/configuracao/$tab': typeof AuthenticatedDevConfiguracaoTabRoute
 }
 export interface FileRoutesByTo {
@@ -402,8 +424,9 @@ export interface FileRoutesByTo {
   '/dev/$discordId': typeof DevDiscordIdRoute
   '/devmlc/$discordId': typeof DevmlcDiscordIdRoute
   '/ausencias/$tab': typeof AuthenticatedAusenciasTabRoute
-  '/ceo/$tab': typeof AuthenticatedCeoTabRoute
+  '/ceo/$tab': typeof AuthenticatedCeoTabRouteWithChildren
   '/configuracoes/$tab': typeof AuthenticatedConfiguracoesTabRoute
+  '/dev/$page': typeof AuthenticatedDevPageRouteWithChildren
   '/dev/bot': typeof AuthenticatedDevBotRoute
   '/dev/configuracao': typeof AuthenticatedDevConfiguracaoRouteWithChildren
   '/dev/desempenho': typeof AuthenticatedDevDesempenhoRoute
@@ -420,6 +443,8 @@ export interface FileRoutesByTo {
   '/tickets/$tab': typeof AuthenticatedTicketsTabRoute
   '/devmlc/discordid/$discordId': typeof DevmlcDiscordidDiscordIdRoute
   '/dev': typeof AuthenticatedDevIndexRoute
+  '/ceo/$tab/$subtab': typeof AuthenticatedCeoTabSubtabRoute
+  '/dev/$page/$tab': typeof AuthenticatedDevPageTabRoute
   '/dev/configuracao/$tab': typeof AuthenticatedDevConfiguracaoTabRoute
 }
 export interface FileRoutesById {
@@ -454,8 +479,9 @@ export interface FileRoutesById {
   '/dev/$discordId': typeof DevDiscordIdRoute
   '/devmlc/$discordId': typeof DevmlcDiscordIdRoute
   '/_authenticated/ausencias/$tab': typeof AuthenticatedAusenciasTabRoute
-  '/_authenticated/ceo/$tab': typeof AuthenticatedCeoTabRoute
+  '/_authenticated/ceo/$tab': typeof AuthenticatedCeoTabRouteWithChildren
   '/_authenticated/configuracoes/$tab': typeof AuthenticatedConfiguracoesTabRoute
+  '/_authenticated/dev/$page': typeof AuthenticatedDevPageRouteWithChildren
   '/_authenticated/dev/bot': typeof AuthenticatedDevBotRoute
   '/_authenticated/dev/configuracao': typeof AuthenticatedDevConfiguracaoRouteWithChildren
   '/_authenticated/dev/desempenho': typeof AuthenticatedDevDesempenhoRoute
@@ -472,6 +498,8 @@ export interface FileRoutesById {
   '/_authenticated/tickets/$tab': typeof AuthenticatedTicketsTabRoute
   '/devmlc/discordid/$discordId': typeof DevmlcDiscordidDiscordIdRoute
   '/_authenticated/dev/': typeof AuthenticatedDevIndexRoute
+  '/_authenticated/ceo/$tab/$subtab': typeof AuthenticatedCeoTabSubtabRoute
+  '/_authenticated/dev/$page/$tab': typeof AuthenticatedDevPageTabRoute
   '/_authenticated/dev/configuracao/$tab': typeof AuthenticatedDevConfiguracaoTabRoute
 }
 export interface FileRouteTypes {
@@ -508,6 +536,7 @@ export interface FileRouteTypes {
     | '/ausencias/$tab'
     | '/ceo/$tab'
     | '/configuracoes/$tab'
+    | '/dev/$page'
     | '/dev/bot'
     | '/dev/configuracao'
     | '/dev/desempenho'
@@ -524,6 +553,8 @@ export interface FileRouteTypes {
     | '/tickets/$tab'
     | '/devmlc/discordid/$discordId'
     | '/dev/'
+    | '/ceo/$tab/$subtab'
+    | '/dev/$page/$tab'
     | '/dev/configuracao/$tab'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -558,6 +589,7 @@ export interface FileRouteTypes {
     | '/ausencias/$tab'
     | '/ceo/$tab'
     | '/configuracoes/$tab'
+    | '/dev/$page'
     | '/dev/bot'
     | '/dev/configuracao'
     | '/dev/desempenho'
@@ -574,6 +606,8 @@ export interface FileRouteTypes {
     | '/tickets/$tab'
     | '/devmlc/discordid/$discordId'
     | '/dev'
+    | '/ceo/$tab/$subtab'
+    | '/dev/$page/$tab'
     | '/dev/configuracao/$tab'
   id:
     | '__root__'
@@ -609,6 +643,7 @@ export interface FileRouteTypes {
     | '/_authenticated/ausencias/$tab'
     | '/_authenticated/ceo/$tab'
     | '/_authenticated/configuracoes/$tab'
+    | '/_authenticated/dev/$page'
     | '/_authenticated/dev/bot'
     | '/_authenticated/dev/configuracao'
     | '/_authenticated/dev/desempenho'
@@ -625,6 +660,8 @@ export interface FileRouteTypes {
     | '/_authenticated/tickets/$tab'
     | '/devmlc/discordid/$discordId'
     | '/_authenticated/dev/'
+    | '/_authenticated/ceo/$tab/$subtab'
+    | '/_authenticated/dev/$page/$tab'
     | '/_authenticated/dev/configuracao/$tab'
   fileRoutesById: FileRoutesById
 }
@@ -870,6 +907,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedDevIndexRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/dev/$page': {
+      id: '/_authenticated/dev/$page'
+      path: '/dev/$page'
+      fullPath: '/dev/$page'
+      preLoaderRoute: typeof AuthenticatedDevPageRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/dev/bot': {
       id: '/_authenticated/dev/bot'
       path: '/dev/bot'
@@ -975,6 +1019,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DevmlcDiscordidDiscordIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_authenticated/ceo/$tab/$subtab': {
+      id: '/_authenticated/ceo/$tab/$subtab'
+      path: '/$subtab'
+      fullPath: '/ceo/$tab/$subtab'
+      preLoaderRoute: typeof AuthenticatedCeoTabSubtabRouteImport
+      parentRoute: typeof AuthenticatedCeoTabRoute
+    }
+    '/_authenticated/dev/$page/$tab': {
+      id: '/_authenticated/dev/$page/$tab'
+      path: '/$tab'
+      fullPath: '/dev/$page/$tab'
+      preLoaderRoute: typeof AuthenticatedDevPageTabRouteImport
+      parentRoute: typeof AuthenticatedDevPageRoute
+    }
     '/_authenticated/dev/configuracao/$tab': {
       id: '/_authenticated/dev/configuracao/$tab'
       path: '/$tab'
@@ -999,12 +1057,23 @@ const AuthenticatedAusenciasRouteWithChildren =
     AuthenticatedAusenciasRouteChildren,
   )
 
+interface AuthenticatedCeoTabRouteChildren {
+  AuthenticatedCeoTabSubtabRoute: typeof AuthenticatedCeoTabSubtabRoute
+}
+
+const AuthenticatedCeoTabRouteChildren: AuthenticatedCeoTabRouteChildren = {
+  AuthenticatedCeoTabSubtabRoute: AuthenticatedCeoTabSubtabRoute,
+}
+
+const AuthenticatedCeoTabRouteWithChildren =
+  AuthenticatedCeoTabRoute._addFileChildren(AuthenticatedCeoTabRouteChildren)
+
 interface AuthenticatedCeoRouteChildren {
-  AuthenticatedCeoTabRoute: typeof AuthenticatedCeoTabRoute
+  AuthenticatedCeoTabRoute: typeof AuthenticatedCeoTabRouteWithChildren
 }
 
 const AuthenticatedCeoRouteChildren: AuthenticatedCeoRouteChildren = {
-  AuthenticatedCeoTabRoute: AuthenticatedCeoTabRoute,
+  AuthenticatedCeoTabRoute: AuthenticatedCeoTabRouteWithChildren,
 }
 
 const AuthenticatedCeoRouteWithChildren =
@@ -1102,6 +1171,17 @@ const AuthenticatedTicketsRouteChildren: AuthenticatedTicketsRouteChildren = {
 const AuthenticatedTicketsRouteWithChildren =
   AuthenticatedTicketsRoute._addFileChildren(AuthenticatedTicketsRouteChildren)
 
+interface AuthenticatedDevPageRouteChildren {
+  AuthenticatedDevPageTabRoute: typeof AuthenticatedDevPageTabRoute
+}
+
+const AuthenticatedDevPageRouteChildren: AuthenticatedDevPageRouteChildren = {
+  AuthenticatedDevPageTabRoute: AuthenticatedDevPageTabRoute,
+}
+
+const AuthenticatedDevPageRouteWithChildren =
+  AuthenticatedDevPageRoute._addFileChildren(AuthenticatedDevPageRouteChildren)
+
 interface AuthenticatedDevConfiguracaoRouteChildren {
   AuthenticatedDevConfiguracaoTabRoute: typeof AuthenticatedDevConfiguracaoTabRoute
 }
@@ -1141,6 +1221,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedRankingsRoute: typeof AuthenticatedRankingsRouteWithChildren
   AuthenticatedTicketsRoute: typeof AuthenticatedTicketsRouteWithChildren
   AuthenticatedVendasRoute: typeof AuthenticatedVendasRoute
+  AuthenticatedDevPageRoute: typeof AuthenticatedDevPageRouteWithChildren
   AuthenticatedDevBotRoute: typeof AuthenticatedDevBotRoute
   AuthenticatedDevConfiguracaoRoute: typeof AuthenticatedDevConfiguracaoRouteWithChildren
   AuthenticatedDevDesempenhoRoute: typeof AuthenticatedDevDesempenhoRoute
@@ -1175,6 +1256,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedRankingsRoute: AuthenticatedRankingsRouteWithChildren,
   AuthenticatedTicketsRoute: AuthenticatedTicketsRouteWithChildren,
   AuthenticatedVendasRoute: AuthenticatedVendasRoute,
+  AuthenticatedDevPageRoute: AuthenticatedDevPageRouteWithChildren,
   AuthenticatedDevBotRoute: AuthenticatedDevBotRoute,
   AuthenticatedDevConfiguracaoRoute:
     AuthenticatedDevConfiguracaoRouteWithChildren,

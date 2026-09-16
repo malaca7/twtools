@@ -53,7 +53,7 @@ export const Route = createFileRoute("/_authenticated/permissoes")({
   component: PermissoesPage,
 });
 
-function PermissoesPage() {
+export function PermissoesPage() {
   const { hasPermission } = useAuth();
   const queryClient = useQueryClient();
   const { data: dbPermissions } = useRolePermissions();

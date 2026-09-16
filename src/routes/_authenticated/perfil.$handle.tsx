@@ -32,16 +32,19 @@ import { LEVEL_LABEL, getLevelLabel, levelBadgeClass, type AppLevel } from "@/li
 import { formatPhone, formatSecondsToHoursAndMinutes } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { getOrCreatePrivateConversation } from "@/services/chatService";
+import { NoAccess } from "@/components/ui-kit";
 import { PerfilPage } from "./perfil";
 
 export const Route = createFileRoute("/_authenticated/perfil/$handle")({
   component: PublicProfilePage,
 });
 
-function PublicProfilePage() {
-  const { handle } = useParams({ from: "/_authenticated/perfil/$handle" });
+export function PublicProfilePage({ handleOverride }: { handleOverride?: string } = {}) {
+  const rawParams = useParams({ strict: false }) as any;
+  const handle = handleOverride || rawParams?.handle || rawParams?.tab || "";
   const navigate = useNavigate();
-  const { user, profile: myProfile } = useAuth();
+  const { user, profile: myProfile, hasPermission } = useAuth();
+  if (!hasPermission("view_profile")) return <NoAccess />;
   const { data: members = [], isLoading } = useMembers();
 
   const [copiedLink, setCopiedLink] = useState(false);
