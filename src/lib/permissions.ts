@@ -481,9 +481,9 @@ export function can(
       return true;
     }
 
-    // Fallback gracioso: se o cargo foi salvo no banco antes do módulo de tickets existir
+    // Fallback gracioso: se o cargo foi salvo no banco antes do módulo de tickets existir (aplica-se SOMENTE a tickets)
     const hasAnySavedTicketPerm = list.some((p) => typeof p === "string" && p.includes("ticket"));
-    if (!hasAnySavedTicketPerm) {
+    if (!hasAnySavedTicketPerm && permission.includes("ticket")) {
       const defaultRolePerms = PERMISSIONS[userLevel] || [];
       if (defaultRolePerms.includes(permission)) return true;
     }
@@ -492,12 +492,23 @@ export function can(
     if (permission === "bot_add_app" && list.includes("bot_invite")) return true;
     if (permission === "bot_invite" && list.includes("bot_add_app")) return true;
 
-    // Outros aliases de permissões legadas
-    if (permission === "view_movements" && (list.includes("create_movement") || list.includes("view_all_movements") || list.includes("view_stock"))) return true;
+    // Sub-ações legítimas: Ações de gestão/modificação implicam acesso de visualização ao respectivo módulo
+    if (permission === "view_stock" && (list.includes("manage_products") || list.includes("manage_categories") || list.includes("manage_baus"))) return true;
+    if (permission === "view_products" && list.includes("manage_products")) return true;
+    if (permission === "view_categories" && list.includes("manage_categories")) return true;
+    if (permission === "view_baus" && list.includes("manage_baus")) return true;
+    if (permission === "view_movements" && (list.includes("create_movement") || list.includes("reverse_movement") || list.includes("delete_movement"))) return true;
+    if (permission === "view_sales" && (list.includes("create_sale") || list.includes("reverse_sale") || list.includes("delete_sale"))) return true;
+    if (permission === "view_cash_fund" && (list.includes("manage_cash_fund") || list.includes("reverse_cash_fund") || list.includes("delete_cash_movement"))) return true;
+    if (permission === "view_absences" && (list.includes("request_absence") || list.includes("manage_absences") || list.includes("view_all_absences"))) return true;
+    if (permission === "view_all_absences" && list.includes("manage_absences")) return true;
+    if (permission === "view_goals" && list.includes("manage_goals")) return true;
+    if (permission === "view_hierarchy" && (list.includes("manage_hierarchy") || list.includes("manage_roles"))) return true;
+    if (permission === "view_members" && (list.includes("edit_members") || list.includes("delete_members") || list.includes("promote_members") || list.includes("change_roles") || list.includes("approve_requests"))) return true;
+    if (permission === "view_chat" && (list.includes("create_chat_group") || list.includes("manage_chat_groups"))) return true;
     if (permission === "view_consolidated_financials" && list.includes("view_financials")) return true;
     if (permission === "approve_requests" && list.includes("manage_members")) return true;
-    if (permission === "view_all_movements" && list.includes("view_stock")) return true;
-    if (permission === "view_all_sales" && list.includes("view_sales")) return true;
+
     return false;
   }
 
@@ -521,11 +532,21 @@ export function can(
   // Fallback alias checks
   if (permission === "bot_add_app" && rolePerms.includes("bot_invite")) return true;
   if (permission === "bot_invite" && rolePerms.includes("bot_add_app")) return true;
-  if (permission === "view_movements" && (rolePerms.includes("create_movement") || rolePerms.includes("view_all_movements") || rolePerms.includes("view_stock"))) return true;
+  if (permission === "view_stock" && (rolePerms.includes("manage_products") || rolePerms.includes("manage_categories") || rolePerms.includes("manage_baus"))) return true;
+  if (permission === "view_products" && rolePerms.includes("manage_products")) return true;
+  if (permission === "view_categories" && rolePerms.includes("manage_categories")) return true;
+  if (permission === "view_baus" && rolePerms.includes("manage_baus")) return true;
+  if (permission === "view_movements" && (rolePerms.includes("create_movement") || rolePerms.includes("reverse_movement") || rolePerms.includes("delete_movement"))) return true;
+  if (permission === "view_sales" && (rolePerms.includes("create_sale") || rolePerms.includes("reverse_sale") || rolePerms.includes("delete_sale"))) return true;
+  if (permission === "view_cash_fund" && (rolePerms.includes("manage_cash_fund") || rolePerms.includes("reverse_cash_fund") || rolePerms.includes("delete_cash_movement"))) return true;
+  if (permission === "view_absences" && (rolePerms.includes("request_absence") || rolePerms.includes("manage_absences") || rolePerms.includes("view_all_absences"))) return true;
+  if (permission === "view_all_absences" && rolePerms.includes("manage_absences")) return true;
+  if (permission === "view_goals" && rolePerms.includes("manage_goals")) return true;
+  if (permission === "view_hierarchy" && (rolePerms.includes("manage_hierarchy") || rolePerms.includes("manage_roles"))) return true;
+  if (permission === "view_members" && (rolePerms.includes("edit_members") || rolePerms.includes("delete_members") || rolePerms.includes("promote_members") || rolePerms.includes("change_roles") || rolePerms.includes("approve_requests"))) return true;
+  if (permission === "view_chat" && (rolePerms.includes("create_chat_group") || rolePerms.includes("manage_chat_groups"))) return true;
   if (permission === "view_consolidated_financials" && rolePerms.includes("view_financials")) return true;
   if (permission === "approve_requests" && rolePerms.includes("manage_members")) return true;
-  if (permission === "view_all_movements" && rolePerms.includes("view_stock")) return true;
-  if (permission === "view_all_sales" && rolePerms.includes("view_sales")) return true;
 
   return false;
 }

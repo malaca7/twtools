@@ -42,7 +42,8 @@ export function MobileBottomNav() {
     if (hasPermission("view_movements")) return "/movimentacoes";
     if (hasPermission("view_stock")) return "/estoque";
     if (hasPermission("view_sales")) return "/vendas";
-    return "/dashboard";
+    if (hasPermission("view_dashboard")) return "/dashboard";
+    return "/perfil";
   }, [isDevUser, isDevMode, isCeoUser, isCeoMode, hasPermission]);
 
   // Tab 4 contextual setup (Dev > CEO > Membros > Perfil)

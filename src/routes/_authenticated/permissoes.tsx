@@ -101,6 +101,19 @@ export function PermissoesPage() {
     }
   }, [dbPermissions, selectedLevel]);
 
+  // Cards exclusivos da plataforma de membros (excluindo ferramentas técnicas de Dev e CEO)
+  const platformPageCards = useMemo(() => {
+    return PAGE_CARDS.filter((card) => card.defaultCat !== "Ferramentas Dev" && card.defaultCat !== "CEO");
+  }, []);
+
+  const allPlatformPermissions = useMemo(() => {
+    return Array.from(new Set(platformPageCards.flatMap((c) => c.permissions.map((p) => p.key))));
+  }, [platformPageCards]);
+
+  const readOnlyPlatformPermissions = useMemo(() => {
+    return READ_ONLY_PERMISSIONS.filter((p) => allPlatformPermissions.includes(p));
+  }, [allPlatformPermissions]);
+
   // Dynamically group & order PAGE_CARDS according to the exact menu configuration
   const groupedPageCards = useMemo(() => {
     const validConfigItems = menuConfig?.items?.filter((c) => Boolean(c && (c.id || c.url))) || [];
@@ -110,7 +123,7 @@ export function PermissoesPage() {
       ? menuConfig.categories
       : ["Operação", "Gestão", "Administração"];
 
-    const customized = PAGE_CARDS.map((card) => {
+    const customized = platformPageCards.map((card) => {
       const cfg = configMap.get(card.id);
       return {
         ...card,
@@ -146,7 +159,7 @@ export function PermissoesPage() {
     });
 
     return groups;
-  }, [menuConfig]);
+  }, [menuConfig, platformPageCards]);
 
   // Real-time automatic save function without requiring a manual save button
   const autoSavePermissions = useCallback(
@@ -185,14 +198,27 @@ export function PermissoesPage() {
     void autoSavePermissions(selectedLevel, next);
   };
 
+  const toggleCardPermissions = (card: PageCardConfig) => {
+    const cardPermKeys = card.permissions.map((p) => p.key);
+    const allCardActive = cardPermKeys.every((k) => activePermissions.includes(k));
+    let next: Permission[];
+    if (allCardActive) {
+      next = activePermissions.filter((k) => !cardPermKeys.includes(k));
+    } else {
+      next = Array.from(new Set([...activePermissions, ...cardPermKeys]));
+    }
+    setActivePermissions(next);
+    void autoSavePermissions(selectedLevel, next);
+  };
+
   const setAllPermissions = () => {
-    setActivePermissions([...ALL_PERMISSIONS]);
-    void autoSavePermissions(selectedLevel, [...ALL_PERMISSIONS]);
+    setActivePermissions([...allPlatformPermissions]);
+    void autoSavePermissions(selectedLevel, [...allPlatformPermissions]);
   };
 
   const setReadOnlyPermissions = () => {
-    setActivePermissions([...READ_ONLY_PERMISSIONS]);
-    void autoSavePermissions(selectedLevel, [...READ_ONLY_PERMISSIONS]);
+    setActivePermissions([...readOnlyPlatformPermissions]);
+    void autoSavePermissions(selectedLevel, [...readOnlyPlatformPermissions]);
   };
 
   const clearAllPermissions = () => {
@@ -339,6 +365,23 @@ export function PermissoesPage() {
                               </CardDescription>
                             </div>
                           </div>
+
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => toggleCardPermissions(pageCard)}
+                            className={cn(
+                              "h-7 text-[10px] font-bold px-2 rounded-lg border transition-all shrink-0 cursor-pointer",
+                              pageCard.permissions.every((p) => activePermissions.includes(p.key))
+                                ? "border-rose-500/30 text-rose-400 hover:bg-rose-500/10 hover:text-rose-300"
+                                : "border-primary/30 text-primary hover:bg-primary/10"
+                            )}
+                          >
+                            {pageCard.permissions.every((p) => activePermissions.includes(p.key))
+                              ? "Desmarcar Módulo"
+                              : "Marcar Módulo"}
+                          </Button>
                         </div>
                       </CardHeader>
 

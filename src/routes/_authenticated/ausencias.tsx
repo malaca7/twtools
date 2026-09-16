@@ -235,6 +235,7 @@ export function AusenciasPage() {
 
   // Permissions check
   const canView = hasPermission("view_absences");
+  const canRequest = hasPermission("request_absence");
   const canManage = hasPermission("manage_absences");
   const canViewStats = hasPermission("view_all_absences") || canManage;
   const isManagerView = canManage || canViewStats;
@@ -505,14 +506,16 @@ export function AusenciasPage() {
             Atualizar
           </Button>
 
-          <Button
-            onClick={() => setIsCreateOpen(true)}
-            size="sm"
-            className="h-9 text-xs font-bold gap-1.5 bg-gradient-brand text-primary-foreground shadow-md hover:opacity-90 transition-all cursor-pointer"
-          >
-            <Plus className="h-4 w-4" />
-            Informar Ausência
-          </Button>
+          {canRequest && (
+            <Button
+              onClick={() => setIsCreateOpen(true)}
+              size="sm"
+              className="h-9 text-xs font-bold gap-1.5 bg-gradient-brand text-primary-foreground shadow-md hover:opacity-90 transition-all cursor-pointer"
+            >
+              <Plus className="h-4 w-4" />
+              Informar Ausência
+            </Button>
+          )}
         </div>
       </div>
 
@@ -894,14 +897,16 @@ export function AusenciasPage() {
                   : "Quando precisar se ausentar da facção por viagem, férias ou outros motivos, clique no botão abaixo para informar o período."}
               </p>
             </div>
-            <Button
-              size="sm"
-              onClick={() => setIsCreateOpen(true)}
-              className="text-xs font-bold gap-1.5 bg-gradient-brand text-primary-foreground cursor-pointer"
-            >
-              <Plus className="h-3.5 w-3.5" />
-              Informar Nova Ausência
-            </Button>
+            {canRequest && (
+              <Button
+                size="sm"
+                onClick={() => setIsCreateOpen(true)}
+                className="text-xs font-bold gap-1.5 bg-gradient-brand text-primary-foreground cursor-pointer"
+              >
+                <Plus className="h-3.5 w-3.5" />
+                Informar Nova Ausência
+              </Button>
+            )}
           </Card>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">

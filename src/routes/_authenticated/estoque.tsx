@@ -82,6 +82,8 @@ export function EstoquePage() {
   const queryClient = useQueryClient();
 
   const canView = hasPermission("view_stock");
+  const canViewBaus = hasPermission("view_baus");
+  const canViewMovements = hasPermission("view_movements");
   const canManageProducts = hasPermission("manage_products");
   const canManageBaus = hasPermission("manage_baus");
   const canManageCategories = hasPermission("manage_categories");
@@ -364,33 +366,35 @@ export function EstoquePage() {
         description="Painel unificado de gestão de saldos por baú, cadastros de produtos, categorias e baús do grupo."
         actions={
           <div className="flex flex-wrap items-center gap-2">
-            <Link to="/movimentacoes">
-              <Button variant="outline" size="sm" className="h-9 text-xs rounded-xl font-bold">
-                <History className="mr-1.5 h-4 w-4" /> Movimentações
-              </Button>
-            </Link>
+            {canViewMovements && (
+              <Link to="/movimentacoes">
+                <Button variant="outline" size="sm" className="h-9 text-xs rounded-xl font-bold">
+                  <History className="mr-1.5 h-4 w-4" /> Movimentações
+                </Button>
+              </Link>
+            )}
 
             {canManageBaus ? <BauManagerModal /> : null}
 
-            {(canManageProducts) && (
-              <>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setCategoryModalOpen(true)}
-                  className="h-9 text-xs rounded-xl font-bold"
-                >
-                  <Tags className="mr-1.5 h-4 w-4 text-sky-400" /> Categorias
-                </Button>
+            {canManageCategories && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCategoryModalOpen(true)}
+                className="h-9 text-xs rounded-xl font-bold"
+              >
+                <Tags className="mr-1.5 h-4 w-4 text-sky-400" /> Categorias
+              </Button>
+            )}
 
-                <Button
-                  size="sm"
-                  onClick={() => handleOpenProductModal()}
-                  className="h-9 text-xs bg-gradient-brand text-primary-foreground hover:opacity-90 font-bold rounded-xl shadow-md"
-                >
-                  <Plus className="mr-1.5 h-4 w-4" /> Novo Produto
-                </Button>
-              </>
+            {canManageProducts && (
+              <Button
+                size="sm"
+                onClick={() => handleOpenProductModal()}
+                className="h-9 text-xs bg-gradient-brand text-primary-foreground hover:opacity-90 font-bold rounded-xl shadow-md"
+              >
+                <Plus className="mr-1.5 h-4 w-4" /> Novo Produto
+              </Button>
             )}
 
             {hasPermission("create_movement") ? (
@@ -486,63 +490,65 @@ export function EstoquePage() {
       </div>
 
       {/* SELETOR DE BAÚS OPERACIONAIS */}
-      <div className="space-y-2">
-        <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
-          Filtrar Saldo por Baú:
-        </p>
-        <div className="flex overflow-x-auto pb-2 scrollbar-none flex-nowrap sm:flex-wrap gap-2">
-          <Button
-            type="button"
-            variant={selectedBauId === "all" ? "default" : "outline"}
-            size="sm"
-            onClick={() => setSelectedBauId("all")}
-            className={cn(
-              "h-9 px-3.5 text-xs font-bold rounded-xl transition-all shadow-sm flex items-center gap-2 shrink-0",
-              selectedBauId === "all"
-                ? "bg-primary text-primary-foreground shadow-primary/20"
-                : "border-border/80 bg-card/40 hover:bg-secondary"
-            )}
-          >
-            <Boxes className="h-4 w-4" />
-            <span>Todos os Baús (Estoque Geral)</span>
-          </Button>
+      {canViewBaus && (
+        <div className="space-y-2">
+          <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
+            Filtrar Saldo por Baú:
+          </p>
+          <div className="flex overflow-x-auto pb-2 scrollbar-none flex-nowrap sm:flex-wrap gap-2">
+            <Button
+              type="button"
+              variant={selectedBauId === "all" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setSelectedBauId("all")}
+              className={cn(
+                "h-9 px-3.5 text-xs font-bold rounded-xl transition-all shadow-sm flex items-center gap-2 shrink-0",
+                selectedBauId === "all"
+                  ? "bg-primary text-primary-foreground shadow-primary/20"
+                  : "border-border/80 bg-card/40 hover:bg-secondary"
+              )}
+            >
+              <Boxes className="h-4 w-4" />
+              <span>Todos os Baús (Estoque Geral)</span>
+            </Button>
 
-          {baus.map((b) => {
-            const isSelected = selectedBauId === b.id;
-            const chestItemsCount = products.filter(
-              (p) => getProductStock(p.id, b.id) > 0
-            ).length;
+            {baus.map((b) => {
+              const isSelected = selectedBauId === b.id;
+              const chestItemsCount = products.filter(
+                (p) => getProductStock(p.id, b.id) > 0
+              ).length;
 
-            return (
-              <Button
-                key={b.id}
-                type="button"
-                variant={isSelected ? "default" : "outline"}
-                size="sm"
-                onClick={() => setSelectedBauId(b.id)}
-                className={cn(
-                  "h-9 px-3.5 text-xs font-bold rounded-xl transition-all shadow-sm flex items-center gap-2 shrink-0",
-                  isSelected
-                    ? "bg-emerald-600 text-white shadow-emerald-950/20"
-                    : "border-border/80 bg-card/40 hover:bg-secondary"
-                )}
-              >
-                <Box className="h-4 w-4" />
-                <span>{b.nome}</span>
-                <Badge
-                  variant="secondary"
+              return (
+                <Button
+                  key={b.id}
+                  type="button"
+                  variant={isSelected ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setSelectedBauId(b.id)}
                   className={cn(
-                    "text-[10px] px-1.5 py-0 rounded-md font-mono",
-                    isSelected ? "bg-white/20 text-white" : "bg-secondary text-muted-foreground"
+                    "h-9 px-3.5 text-xs font-bold rounded-xl transition-all shadow-sm flex items-center gap-2 shrink-0",
+                    isSelected
+                      ? "bg-emerald-600 text-white shadow-emerald-950/20"
+                      : "border-border/80 bg-card/40 hover:bg-secondary"
                   )}
                 >
-                  {chestItemsCount} itens
-                </Badge>
-              </Button>
-            );
-          })}
+                  <Box className="h-4 w-4" />
+                  <span>{b.nome}</span>
+                  <Badge
+                    variant="secondary"
+                    className={cn(
+                      "text-[10px] px-1.5 py-0 rounded-md font-mono",
+                      isSelected ? "bg-white/20 text-white" : "bg-secondary text-muted-foreground"
+                    )}
+                  >
+                    {chestItemsCount} itens
+                  </Badge>
+                </Button>
+              );
+            })}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* QUADRO DE PRODUTOS E ESTOQUE */}
       <Card className="surface-card border-border/80 shadow-lg">
