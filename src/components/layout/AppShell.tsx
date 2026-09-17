@@ -43,6 +43,7 @@ import {
   Bot,
   Webhook,
   Radio,
+  FolderTree,
 } from "lucide-react";
 import { resolveMenuIcon } from "@/lib/menuIcons";
 import {
