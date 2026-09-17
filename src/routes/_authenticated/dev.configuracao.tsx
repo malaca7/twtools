@@ -43,6 +43,7 @@ import { PageHeader } from "@/components/ui-kit";
 import { useAuth } from "@/hooks/useAuth";
 import { useUrlTab } from "@/hooks/useUrlTab";
 import { DeveloperGuard } from "@/dev/guards/DeveloperGuard";
+import { cn } from "@/lib/utils";
 import {
   getDevConfiguration,
   saveDevConfiguration,
