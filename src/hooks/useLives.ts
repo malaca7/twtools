@@ -15,6 +15,7 @@ import {
   saveStreamSystemConfig,
   fetchStreamIntegrationLogs,
   simulateLiveEvent,
+  startQuickStreamSession,
   endStreamSession,
   purgeStreamHistory,
 } from "@/services/liveStreamService";
@@ -25,6 +26,7 @@ import type {
   StreamSystemConfig,
   StreamIntegrationLog,
   LinkStreamAccountPayload,
+  StreamPlatform,
 } from "@/types/lives";
 
 export function useMemberStreamAccounts() {
@@ -256,6 +258,34 @@ export function usePurgeStreamHistory() {
       void queryClient.invalidateQueries({ queryKey: ["stream_sessions"] });
       void queryClient.invalidateQueries({ queryKey: ["stream_integration_logs"] });
       toast.success("Histórico de lives e logs limpos com sucesso.");
+    },
+  });
+}
+
+export function useStartQuickStreamSession() {
+  const queryClient = useQueryClient();
+  const { user } = useAuth();
+
+  return useMutation({
+    mutationFn: (payload: {
+      platform: StreamPlatform;
+      channel_name: string;
+      streamer_name: string;
+      title: string;
+      category?: string;
+      stream_url?: string;
+      stream_account_id?: string;
+      thumbnail_url?: string;
+    }) => startQuickStreamSession(payload, user?.id),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["stream_sessions"] });
+      void queryClient.invalidateQueries({ queryKey: ["stream_integration_logs"] });
+      toast.success("Transmissão ao vivo iniciada com sucesso! 🔴", {
+        description: "Alerta em tempo real disparado para todos os membros online.",
+      });
+    },
+    onError: (err: any) => {
+      toast.error("Falha ao iniciar live: " + (err?.message || "Erro desconhecido"));
     },
   });
 }

@@ -18,7 +18,7 @@ let pollingTimer = null;
 const streamStateCache = new Map();
 
 /**
- * Utilitário HTTP/HTTPS nativo sem dependências externas
+ * Utilitário HTTP/HTTPS nativo sem dependências externas (JSON)
  */
 function fetchJson(url, options = {}) {
   return new Promise((resolve, reject) => {
@@ -28,7 +28,7 @@ function fetchJson(url, options = {}) {
     const reqOptions = {
       method: options.method || "GET",
       headers: {
-        "User-Agent": "TwinWheelsBot/1.0 (LiveDetectionEngine)",
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
         Accept: "application/json",
         ...(options.headers || {}),
       },
@@ -66,6 +66,60 @@ function fetchJson(url, options = {}) {
 }
 
 /**
+ * Utilitário HTTP/HTTPS com suporte a redirecionamentos (HTML / Text)
+ */
+function fetchText(url, options = {}, redirects = 0) {
+  return new Promise((resolve) => {
+    if (redirects > 5) {
+      return resolve({ ok: false, error: "Too many redirects" });
+    }
+    try {
+      const urlObj = new URL(url);
+      const client = urlObj.protocol === "https:" ? https : http;
+
+      const reqOptions = {
+        method: options.method || "GET",
+        headers: {
+          "User-Agent":
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+          Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+          "Accept-Language": "pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7",
+          ...(options.headers || {}),
+        },
+        timeout: options.timeout || 10000,
+      };
+
+      const req = client.request(urlObj, reqOptions, (res) => {
+        if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
+          const nextUrl = new URL(res.headers.location, url).toString();
+          return resolve(fetchText(nextUrl, options, redirects + 1));
+        }
+
+        let data = "";
+        res.on("data", (chunk) => (data += chunk));
+        res.on("end", () => {
+          resolve({
+            ok: res.statusCode >= 200 && res.statusCode < 400,
+            status: res.statusCode,
+            html: data,
+          });
+        });
+      });
+
+      req.on("error", (err) => resolve({ ok: false, error: err.message }));
+      req.on("timeout", () => {
+        req.destroy();
+        resolve({ ok: false, error: "Request timeout" });
+      });
+
+      req.end();
+    } catch (e) {
+      resolve({ ok: false, error: e.message });
+    }
+  });
+}
+
+/**
  * Obtém ou renova token App Access da Twitch via Client Credentials
  */
 async function getTwitchAccessToken(clientId, clientSecret) {
@@ -98,7 +152,7 @@ async function getTwitchAccessToken(clientId, clientSecret) {
 }
 
 /**
- * Verificador de Live da Twitch
+ * Verificador de Live da Twitch (Zero-Config Automático + Suporte a API Privada)
  */
 async function checkTwitchLive(channelName, config) {
   const cleanLogin = channelName.replace(/^@/, "").toLowerCase().trim();
@@ -144,7 +198,7 @@ async function checkTwitchLive(channelName, config) {
     }
   }
 
-  // 2. Fallback público via GQL Twitch
+  // 2. MODO AUTOMÁTICO (Zero-Config): Fallback público via GQL Twitch
   try {
     const gqlUrl = "https://gql.twitch.tv/gql";
     const gqlBody = JSON.stringify({
@@ -154,7 +208,7 @@ async function checkTwitchLive(channelName, config) {
     const res = await fetchJson(gqlUrl, {
       method: "POST",
       headers: {
-        "Client-ID": "kimne78kx3ncx6brgo4mv6wki5h1ko", // Public Web Client ID
+        "Client-ID": "kimne78kx3ncx6brgo4mv6wki5h1ko", // Client ID público da Twitch Web
         "Content-Type": "application/json",
       },
       body: gqlBody,
@@ -175,11 +229,30 @@ async function checkTwitchLive(channelName, config) {
     }
   } catch {}
 
+  // 3. Fallback Web Scanner público
+  try {
+    const res = await fetchText(`https://www.twitch.tv/${cleanLogin}`);
+    if (res.ok && res.html) {
+      if (res.html.includes('"isLiveBroadcast":true') || res.html.includes('"isLive":true')) {
+        return {
+          isLive: true,
+          title: `Live na Twitch • ${cleanLogin}`,
+          category: "Grand Theft Auto V",
+          thumbnailUrl: `https://static-cdn.jtvnw.net/previews-ttv/live_user_${cleanLogin}-1280x720.jpg`,
+          viewerCount: 0,
+          startedAt: new Date().toISOString(),
+          streamUrl: `https://twitch.tv/${cleanLogin}`,
+          externalStreamId: `twitch_${cleanLogin}`,
+        };
+      }
+    }
+  } catch {}
+
   return { isLive: false };
 }
 
 /**
- * Verificador de Live do Kick
+ * Verificador de Live do Kick (Zero-Config Automático)
  */
 async function checkKickLive(channelName) {
   const cleanSlug = channelName.replace(/^@/, "").toLowerCase().trim();
@@ -234,12 +307,13 @@ async function checkKickLive(channelName) {
 }
 
 /**
- * Verificador de Live do YouTube
+ * Verificador de Live do YouTube (Zero-Config Automático + Suporte a API Key)
  */
 async function checkYouTubeLive(channelInput, config) {
   const clean = channelInput.trim();
   const apiKey = config?.apiKey;
 
+  // 1. Se API Key informada e canal for ID com UC, usa a Google Data API v3
   if (apiKey && clean.startsWith("UC")) {
     try {
       const url = `https://www.googleapis.com/youtube/v3/search?part=snippet&channelId=${encodeURIComponent(
@@ -269,14 +343,71 @@ async function checkYouTubeLive(channelInput, config) {
     } catch {}
   }
 
+  // 2. MODO AUTOMÁTICO (Zero-Config): Detecção pública direta via página /live ou handle sem precisar de chave API
+  try {
+    const handleUrl = clean.startsWith("UC")
+      ? `https://www.youtube.com/channel/${clean}/live`
+      : `https://www.youtube.com/${clean.startsWith("@") ? clean : `@${clean}`}/live`;
+
+    const res = await fetchText(handleUrl);
+    if (res.ok && res.html) {
+      const isLive = res.html.includes('"isLive":true') || res.html.includes('"status":"LIVE"');
+      if (isLive) {
+        const matchCanonical = res.html.match(/<link rel="canonical" href="https:\/\/www\.youtube\.com\/watch\?v=([a-zA-Z0-9_-]+)"/);
+        const matchTitle = res.html.match(/<meta name="title" content="([^"]+)"/);
+        const matchThumb = res.html.match(/<meta property="og:image" content="([^"]+)"/);
+        const videoId = matchCanonical ? matchCanonical[1] : `yt_${Date.now()}`;
+
+        return {
+          isLive: true,
+          title: matchTitle ? matchTitle[1].replace(/ - YouTube$/, "") : "Live no YouTube",
+          category: "Grand Theft Auto V",
+          thumbnailUrl: matchThumb ? matchThumb[1] : `https://i.ytimg.com/vi/${videoId}/maxresdefault.jpg`,
+          viewerCount: 0,
+          startedAt: new Date().toISOString(),
+          streamUrl: `https://youtube.com/watch?v=${videoId}`,
+          externalStreamId: videoId,
+        };
+      }
+    }
+  } catch (err) {
+    console.warn(`[YOUTUBE PUBLIC DETECT] Erro ao consultar ${clean}:`, err.message);
+  }
+
   return { isLive: false };
 }
 
 /**
- * Verificador de Live do TikTok
+ * Verificador de Live do TikTok (Zero-Config Automático)
  */
 async function checkTikTokLive(channelName) {
   const cleanHandle = channelName.replace(/^@/, "").trim();
+
+  try {
+    const url = `https://www.tiktok.com/@${cleanHandle}/live`;
+    const res = await fetchText(url);
+    if (res.ok && res.html) {
+      const isLive = res.html.includes('"liveRoom"') && (res.html.includes('"status":2') || res.html.includes('"liveUrl"'));
+      if (isLive) {
+        const matchTitle = res.html.match(/"title":"([^"]+)"/) || res.html.match(/<meta property="og:title" content="([^"]+)"/);
+        const matchThumb = res.html.match(/<meta property="og:image" content="([^"]+)"/);
+
+        return {
+          isLive: true,
+          title: matchTitle ? matchTitle[1] : `Live no TikTok de @${cleanHandle}`,
+          category: "Grand Theft Auto V",
+          thumbnailUrl: matchThumb ? matchThumb[1] : null,
+          viewerCount: 0,
+          startedAt: new Date().toISOString(),
+          streamUrl: `https://tiktok.com/@${cleanHandle}/live`,
+          externalStreamId: `tiktok_${cleanHandle}_${Date.now()}`,
+        };
+      }
+    }
+  } catch (err) {
+    console.warn(`[TIKTOK PUBLIC DETECT] Erro ao consultar @${cleanHandle}:`, err.message);
+  }
+
   return { isLive: false };
 }
 

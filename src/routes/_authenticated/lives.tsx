@@ -16,13 +16,30 @@ import {
   Eye,
   CheckCircle2,
   AlertCircle,
+  Loader2,
 } from "lucide-react";
 import { PageHeader, NoAccess } from "@/components/ui-kit";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import {
   STREAM_PLATFORMS,
@@ -34,6 +51,7 @@ import {
   useStreamSessions,
   useMemberStreamAccounts,
   useEndStreamSession,
+  useStartQuickStreamSession,
 } from "@/hooks/useLives";
 import { LiveCard } from "@/components/lives/LiveCard";
 import { LinkStreamAccountModal } from "@/components/lives/LinkStreamAccountModal";
@@ -62,6 +80,7 @@ export function LivesPage() {
   const { data: allSessions = [], isLoading: isLoadingSessions, refetch: refetchSessions, isRefetching } = useStreamSessions();
   const { data: allAccounts = [], isLoading: isLoadingAccounts, refetch: refetchAccounts } = useMemberStreamAccounts();
   const endLiveMutation = useEndStreamSession();
+  const startQuickMutation = useStartQuickStreamSession();
 
   // Estados de Interface
   const [activeTab, setActiveTab] = useState<"online" | "history" | "streamers">("online");
@@ -70,10 +89,48 @@ export function LivesPage() {
   const [linkModalOpen, setLinkModalOpen] = useState(false);
   const [playerModalSession, setPlayerModalSession] = useState<StreamSession | null>(null);
 
+  // Transmissão Rápida / Entrar Ao Vivo
+  const [quickLiveOpen, setQuickLiveOpen] = useState(false);
+  const [quickPlatform, setQuickPlatform] = useState<StreamPlatform>("twitch");
+  const [quickChannel, setQuickChannel] = useState("");
+  const [quickTitle, setQuickTitle] = useState("");
+  const [quickCategory, setQuickCategory] = useState("Grand Theft Auto V");
+
   // Filtra sessões ativas e histórico
   const activeSessions = useMemo(() => {
     return allSessions.filter((s) => s.is_live);
   }, [allSessions]);
+
+  // Live ativa do membro atual e contas vinculadas
+  const myActiveSession = useMemo(() => {
+    return allSessions.find((s) => s.user_id === user?.id && s.is_live);
+  }, [allSessions, user?.id]);
+
+  const myLinkedAccounts = useMemo(() => {
+    return allAccounts.filter((a) => a.user_id === user?.id);
+  }, [allAccounts, user?.id]);
+
+  const handleStartQuickLive = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!quickChannel.trim()) return;
+
+    const cleanChannel = quickChannel.trim().replace(/^@/, "");
+    const linkedAcc = myLinkedAccounts.find(
+      (a) => a.platform === quickPlatform && a.channel_name.toLowerCase() === cleanChannel.toLowerCase()
+    );
+
+    await startQuickMutation.mutateAsync({
+      platform: quickPlatform,
+      channel_name: cleanChannel,
+      streamer_name: user?.name || user?.email?.split("@")[0] || "Membro",
+      title: quickTitle.trim() || `Transmissão de ${user?.name || "Membro"} • Twin Wheels GTA RP`,
+      category: quickCategory.trim() || "Grand Theft Auto V",
+      stream_account_id: linkedAcc?.id,
+    });
+
+    setQuickLiveOpen(false);
+    setQuickTitle("");
+  };
 
   const pastSessions = useMemo(() => {
     return allSessions.filter((s) => !s.is_live);
@@ -174,7 +231,37 @@ export function LivesPage() {
           description="Acompanhe os membros da Twin Wheels ao vivo em diversas plataformas de streaming com detecção automática e alertas instantâneos."
         />
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          {myActiveSession ? (
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={() => endLiveMutation.mutate(myActiveSession.id)}
+              disabled={endLiveMutation.isPending}
+              className="h-9 text-xs font-extrabold gap-1.5 shadow-md shadow-rose-950/40"
+            >
+              <Radio className="h-4 w-4 animate-pulse text-white" />
+              {endLiveMutation.isPending ? "Encerrando..." : "Encerrar Minha Live"}
+            </Button>
+          ) : (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                const defaultAcc = myLinkedAccounts[0];
+                if (defaultAcc) {
+                  setQuickPlatform(defaultAcc.platform);
+                  setQuickChannel(defaultAcc.channel_name);
+                }
+                setQuickLiveOpen(true);
+              }}
+              className="h-9 text-xs font-bold gap-1.5 border-rose-500/40 text-rose-400 hover:bg-rose-500/10 hover:text-rose-300 shadow-xs"
+            >
+              <Radio className="h-3.5 w-3.5 text-rose-500" />
+              Entrar Ao Vivo
+            </Button>
+          )}
+
           <Button
             variant="outline"
             size="sm"
@@ -195,6 +282,19 @@ export function LivesPage() {
             Vincular Minha Live
           </Button>
         </div>
+      </div>
+
+      {/* STATUS DE MONITORAMENTO AUTOMÁTICO */}
+      <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/25 text-xs text-emerald-300">
+        <div className="flex items-center gap-2 font-medium">
+          <Sparkles className="h-4 w-4 text-emerald-400 shrink-0" />
+          <span>
+            <strong className="text-emerald-300 font-bold">Detecção 100% Automática e Autônoma:</strong> Suporte nativo à Twitch, Kick, YouTube e TikTok sem exigir credenciais privadas. Vincule seu canal ou inicie transmissões instantaneamente!
+          </span>
+        </div>
+        <Badge variant="outline" className="bg-emerald-500/20 text-emerald-300 border-emerald-500/40 text-[10px] font-mono font-bold shrink-0">
+          Zero Config APIs
+        </Badge>
       </div>
 
       {/* BANNER DE STATUS AO VIVO */}
@@ -504,6 +604,155 @@ export function LivesPage() {
         open={linkModalOpen}
         onOpenChange={setLinkModalOpen}
       />
+
+      {/* MODAL DE ENTRAR AO VIVO RÁPIDO */}
+      <Dialog open={quickLiveOpen} onOpenChange={setQuickLiveOpen}>
+        <DialogContent className="sm:max-w-md p-0 overflow-hidden border-border/80 bg-card/95 backdrop-blur-2xl rounded-2xl">
+          <div className="p-6 pb-4 border-b border-border/60 bg-muted/20">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 rounded-xl bg-rose-500/10 text-rose-400 border border-rose-500/20 shadow-xs">
+                <Radio className="h-5 w-5 animate-pulse" />
+              </div>
+              <div>
+                <DialogTitle className="text-base font-black text-foreground flex items-center gap-2">
+                  Entrar Ao Vivo Agora
+                  <Badge variant="outline" className="text-[10px] font-mono border-rose-500/40 text-rose-400">
+                    Ao Vivo
+                  </Badge>
+                </DialogTitle>
+                <DialogDescription className="text-xs text-muted-foreground mt-0.5">
+                  Publique sua transmissão instantaneamente e notifique toda a facção.
+                </DialogDescription>
+              </div>
+            </div>
+          </div>
+
+          <form onSubmit={handleStartQuickLive} className="p-6 space-y-4">
+            {/* PLATAFORMA */}
+            <div className="space-y-1.5">
+              <Label className="text-xs font-bold text-foreground">Plataforma de Streaming</Label>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                {(Object.keys(STREAM_PLATFORMS) as StreamPlatform[]).map((pKey) => {
+                  const p = STREAM_PLATFORMS[pKey];
+                  const isSelected = quickPlatform === pKey;
+
+                  return (
+                    <button
+                      key={pKey}
+                      type="button"
+                      onClick={() => {
+                        setQuickPlatform(pKey);
+                        const matched = myLinkedAccounts.find((a) => a.platform === pKey);
+                        if (matched) {
+                          setQuickChannel(matched.channel_name);
+                        }
+                      }}
+                      className={cn(
+                        "flex flex-col items-center justify-center p-2.5 rounded-xl border text-center transition-all cursor-pointer gap-1",
+                        isSelected
+                          ? "bg-secondary/80 border-primary ring-1 ring-primary/40 shadow-xs text-foreground font-bold"
+                          : "bg-secondary/20 border-border/60 hover:bg-secondary/40 text-muted-foreground"
+                      )}
+                    >
+                      <span
+                        className="h-2 w-2 rounded-full"
+                        style={{ backgroundColor: p.brandHex }}
+                      />
+                      <span className="text-[11px] font-bold">{p.name}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* SELEÇÃO OU INPUT DO CANAL */}
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <Label className="text-xs font-bold text-foreground">Nome do Canal / Usuário</Label>
+                {myLinkedAccounts.some((a) => a.platform === quickPlatform) && (
+                  <span className="text-[10px] text-muted-foreground">Selecione canal salvo:</span>
+                )}
+              </div>
+
+              {myLinkedAccounts.filter((a) => a.platform === quickPlatform).length > 0 && (
+                <div className="flex flex-wrap gap-1.5 mb-1.5">
+                  {myLinkedAccounts
+                    .filter((a) => a.platform === quickPlatform)
+                    .map((acc) => (
+                      <button
+                        key={acc.id}
+                        type="button"
+                        onClick={() => setQuickChannel(acc.channel_name)}
+                        className={cn(
+                          "px-2 py-0.5 rounded-md text-[11px] font-mono border cursor-pointer transition-colors",
+                          quickChannel === acc.channel_name
+                            ? "bg-primary/20 text-primary border-primary/40 font-bold"
+                            : "bg-secondary/40 text-muted-foreground border-border hover:text-foreground"
+                        )}
+                      >
+                        @{acc.channel_name}
+                      </button>
+                    ))}
+                </div>
+              )}
+
+              <Input
+                value={quickChannel}
+                onChange={(e) => setQuickChannel(e.target.value)}
+                placeholder={STREAM_PLATFORMS[quickPlatform].placeholder}
+                className="h-9 text-xs bg-background/80 border-border/80"
+                required
+              />
+            </div>
+
+            {/* TÍTULO DA TRANSMISSÃO */}
+            <div className="space-y-1.5">
+              <Label className="text-xs font-bold text-foreground">Título da Live</Label>
+              <Input
+                value={quickTitle}
+                onChange={(e) => setQuickTitle(e.target.value)}
+                placeholder="Ex: Patrulha Noturna • Twin Wheels RP"
+                className="h-9 text-xs bg-background/80 border-border/80"
+              />
+            </div>
+
+            {/* CATEGORIA */}
+            <div className="space-y-1.5">
+              <Label className="text-xs font-bold text-foreground">Jogo / Categoria</Label>
+              <Input
+                value={quickCategory}
+                onChange={(e) => setQuickCategory(e.target.value)}
+                placeholder="Grand Theft Auto V"
+                className="h-9 text-xs bg-background/80 border-border/80"
+              />
+            </div>
+
+            <DialogFooter className="pt-2 sm:justify-end gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setQuickLiveOpen(false)}
+                className="text-xs font-bold"
+              >
+                Cancelar
+              </Button>
+              <Button
+                type="submit"
+                disabled={startQuickMutation.isPending || !quickChannel.trim()}
+                className="text-xs font-extrabold gap-2 bg-gradient-brand text-primary-foreground shadow-md hover:opacity-95"
+              >
+                {startQuickMutation.isPending ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Radio className="h-4 w-4 text-white animate-pulse" />
+                )}
+                {startQuickMutation.isPending ? "Publicando Live..." : "Entrar Ao Vivo"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
 
       {/* MODAL DE PLAYER EMBUTIDO */}
       <LiveStreamPlayerModal

@@ -453,9 +453,92 @@ export async function endStreamSession(sessionId: string): Promise<void> {
 }
 
 /**
+ * Inicia uma live rápida diretamente pelo usuário/streamer na plataforma
+ */
+export async function startQuickStreamSession(
+  payload: {
+    platform: StreamPlatform;
+    channel_name: string;
+    streamer_name: string;
+    title: string;
+    category?: string;
+    stream_url?: string;
+    stream_account_id?: string;
+    thumbnail_url?: string;
+  },
+  currentUserId?: string
+): Promise<StreamSession> {
+  const now = new Date().toISOString();
+  const sessionUrl =
+    payload.stream_url ||
+    (payload.platform === "twitch"
+      ? `https://twitch.tv/${payload.channel_name}`
+      : payload.platform === "kick"
+      ? `https://kick.com/${payload.channel_name}`
+      : payload.platform === "youtube"
+      ? `https://youtube.com/${payload.channel_name}`
+      : `https://tiktok.com/@${payload.channel_name}/live`);
+
+  const insertData = {
+    user_id: currentUserId || null,
+    stream_account_id: payload.stream_account_id || null,
+    platform: payload.platform,
+    channel_name: payload.channel_name,
+    streamer_name: payload.streamer_name,
+    title: payload.title.trim() || `Transmissão de ${payload.streamer_name} • Twin Wheels RP`,
+    category: payload.category || "Grand Theft Auto V",
+    stream_url: sessionUrl,
+    thumbnail_url:
+      payload.thumbnail_url ||
+      (payload.platform === "twitch"
+        ? `https://static-cdn.jtvnw.net/previews-ttv/live_user_${payload.channel_name}-1280x720.jpg`
+        : "https://images.unsplash.com/photo-1542751371-adc38448a05e?w=800&auto=format&fit=crop&q=60"),
+    external_stream_id: `quick_${Date.now()}`,
+    is_live: true,
+    started_at: now,
+    last_checked_at: now,
+    viewer_count: 1,
+    peak_viewers: 1,
+    notification_sent: true,
+    notified_at: now,
+  };
+
+  const { data, error } = await supabase
+    .from("stream_sessions")
+    .insert(insertData)
+    .select()
+    .single();
+
+  if (error) {
+    throw new Error("Falha ao iniciar transmissão rápida: " + error.message);
+  }
+
+  // Notificação em tempo real
+  await createNotification({
+    title: `${payload.streamer_name} está Ao Vivo! 🔴`,
+    message: `Transmitindo "${insertData.title}" na ${STREAM_PLATFORMS[payload.platform].name}!`,
+    type: "live",
+    category: "alert",
+    link: `/lives`,
+    metadata: {
+      platform: payload.platform,
+      streamer_name: payload.streamer_name,
+      channel_name: payload.channel_name,
+      title: insertData.title,
+      category: insertData.category,
+      stream_url: sessionUrl,
+      thumbnail_url: insertData.thumbnail_url,
+    },
+  });
+
+  return data as StreamSession;
+}
+
+/**
  * Limpa todo o histórico de logs e sessões de teste
  */
 export async function purgeStreamHistory(): Promise<void> {
   await supabase.from("stream_sessions").delete().neq("id", "00000000-0000-0000-0000-000000000000");
   await supabase.from("stream_integration_logs").delete().neq("id", "00000000-0000-0000-0000-000000000000");
 }
+
