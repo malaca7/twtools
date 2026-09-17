@@ -100,10 +100,8 @@ function CompactMemberRow({
   const lastSeenCompact = lastSeenFull.replace("Visto por último ", "");
 
   const handleOpenProfile = () => {
-    navigate({
-      to: "/perfil/$handle",
-      params: { handle: String(profileSlug).replace(/^@/, "") },
-    });
+    const cleanSlug = String(profileSlug).replace(/^@/, "");
+    window.open(`/perfil/${cleanSlug}`, "_blank");
   };
 
   return (

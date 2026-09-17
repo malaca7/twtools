@@ -57,7 +57,19 @@ import {
   ExternalLink,
   Globe,
   Bookmark,
+  Radio,
+  Tv,
+  Power,
+  Loader2,
 } from "lucide-react";
+import {
+  useUserStreamPreferences,
+  useMemberStreamAccounts,
+  useToggleStreamAccountActive,
+  useUnlinkStreamAccount,
+} from "@/hooks/useLives";
+import { STREAM_PLATFORMS, type StreamPlatform } from "@/types/lives";
+import { LinkStreamAccountModal } from "@/components/lives/LinkStreamAccountModal";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -95,6 +107,7 @@ import {
 } from "@/hooks/useMenuConfig";
 import { usePlatformSettings, savePlatformSettings, DEFAULT_PLATFORM_SETTINGS, type PlatformSettings } from "@/hooks/usePlatformSettings";
 import { UserAppearanceSettings } from "@/components/profile/UserAppearanceSettings";
+import { PublicProfileCustomizer } from "@/components/profile/PublicProfileCustomizer";
 
 export const Route = createFileRoute("/_authenticated/configuracoes")({
   component: ConfiguracoesWrapper,
@@ -113,6 +126,7 @@ const ICON_MAP: Record<string, typeof LayoutDashboard> = {
   "/dashboard": LayoutDashboard,
   "/movimentacoes": ArrowLeftRight,
   "/vendas": ShoppingCart,
+  "/lives": Radio,
   "/chat": MessageSquare,
   "/tickets": LifeBuoy,
   "/estoque": Boxes,
@@ -2213,6 +2227,285 @@ function AppearanceTab({ canEdit }: { canEdit: boolean }) {
     </div>
   );
 }
+
+/* ─── Lives Tab Component ─── */
+function LivesTab() {
+  const { user } = useAuth();
+  const { preferences, updatePreferences, isUpdating } = useUserStreamPreferences();
+  const { data: allAccounts = [], isLoading: isLoadingAccounts } = useMemberStreamAccounts();
+  const toggleMutation = useToggleStreamAccountActive();
+  const unlinkMutation = useUnlinkStreamAccount();
+
+  const [formData, setFormData] = useState({
+    notifications_enabled: true,
+    sound_enabled: true,
+    notify_platforms: ["twitch", "kick", "youtube", "tiktok"] as StreamPlatform[],
+  });
+  const [hasChanges, setHasChanges] = useState(false);
+  const [linkModalOpen, setLinkModalOpen] = useState(false);
+
+  useEffect(() => {
+    if (preferences) {
+      setFormData({
+        notifications_enabled: preferences.notifications_enabled !== false,
+        sound_enabled: preferences.sound_enabled !== false,
+        notify_platforms: preferences.notify_platforms || ["twitch", "kick", "youtube", "tiktok"],
+      });
+      setHasChanges(false);
+    }
+  }, [preferences]);
+
+  const handleTogglePlatform = (platform: StreamPlatform) => {
+    setFormData((prev) => {
+      const exists = prev.notify_platforms.includes(platform);
+      const next = exists
+        ? prev.notify_platforms.filter((p) => p !== platform)
+        : [...prev.notify_platforms, platform];
+      const updated = { ...prev, notify_platforms: next };
+      setHasChanges(true);
+      return updated;
+    });
+  };
+
+  const handleSavePreferences = () => {
+    if (!user?.id) return;
+    updatePreferences({
+      user_id: user.id,
+      ...formData,
+    });
+    setHasChanges(false);
+  };
+
+  const myAccounts = allAccounts.filter((acc) => acc.user_id === user?.id);
+
+  return (
+    <div className="space-y-6 animate-in fade-in-50 duration-300">
+      {/* Actions Bar */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-xl bg-card border border-border/60 shadow-sm">
+        <div>
+          <h3 className="text-sm font-extrabold text-foreground flex items-center gap-2">
+            Preferências de Transmissões & Alertas de Lives
+            <Badge variant="outline" className="text-[10px] font-mono border-rose-500/30 text-rose-400">
+              Ao Vivo
+            </Badge>
+          </h3>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            Personalize quais plataformas e membros dispararão alertas em tempo real na sua tela.
+          </p>
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          <Button
+            size="sm"
+            onClick={handleSavePreferences}
+            disabled={!hasChanges || isUpdating}
+            className="h-8 text-xs gap-1.5 bg-gradient-brand text-primary-foreground font-bold"
+          >
+            {isUpdating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
+            Salvar Preferências
+          </Button>
+        </div>
+      </div>
+
+      {/* Preferências de Alertas */}
+      <Card className="surface-card">
+        <CardHeader className="pb-3 border-b border-border/60">
+          <div className="flex items-center gap-2">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-rose-500/10 border border-rose-500/30 text-rose-400">
+              <Radio className="h-4 w-4" />
+            </div>
+            <div>
+              <CardTitle className="text-sm font-bold">Alertas & Notificações de Lives</CardTitle>
+              <CardDescription className="text-[0.7rem]">
+                Controle os disparos em primeiro plano e efeitos sonoros
+              </CardDescription>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="p-4 space-y-4">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="flex items-center justify-between p-3 rounded-xl bg-secondary/30 border border-border/40">
+              <div className="space-y-0.5">
+                <p className="text-xs font-bold text-foreground">Receber Alertas de Membro Ao Vivo</p>
+                <p className="text-[0.7rem] text-muted-foreground">Exibe toast e badge no topo do painel</p>
+              </div>
+              <Switch
+                checked={formData.notifications_enabled}
+                onCheckedChange={(checked) => {
+                  setFormData((prev) => ({ ...prev, notifications_enabled: checked }));
+                  setHasChanges(true);
+                }}
+              />
+            </div>
+
+            <div className="flex items-center justify-between p-3 rounded-xl bg-secondary/30 border border-border/40">
+              <div className="space-y-0.5">
+                <p className="text-xs font-bold text-foreground">Efeito Sonoro ao Iniciar Live</p>
+                <p className="text-[0.7rem] text-muted-foreground">Toca o sinal sonoro imediato</p>
+              </div>
+              <Switch
+                checked={formData.sound_enabled}
+                onCheckedChange={(checked) => {
+                  setFormData((prev) => ({ ...prev, sound_enabled: checked }));
+                  setHasChanges(true);
+                }}
+              />
+            </div>
+          </div>
+
+          <div className="space-y-2 pt-2 border-t border-border/40">
+            <Label className="text-xs font-bold text-foreground">
+              Receber Notificações das Seguintes Plataformas:
+            </Label>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+              {(Object.keys(STREAM_PLATFORMS) as StreamPlatform[]).map((pKey) => {
+                const p = STREAM_PLATFORMS[pKey];
+                const isEnabled = formData.notify_platforms.includes(pKey);
+
+                return (
+                  <div
+                    key={pKey}
+                    onClick={() => handleTogglePlatform(pKey)}
+                    className={cn(
+                      "flex items-center justify-between p-3 rounded-xl border cursor-pointer transition-all",
+                      isEnabled
+                        ? "bg-secondary/60 border-primary/40 shadow-xs"
+                        : "bg-secondary/15 border-border/40 opacity-60 hover:opacity-100"
+                    )}
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className="h-2 w-2 rounded-full" style={{ backgroundColor: p.brandHex }} />
+                      <span className="text-xs font-bold text-foreground">{p.name}</span>
+                    </div>
+                    <Switch
+                      checked={isEnabled}
+                      onCheckedChange={() => handleTogglePlatform(pKey)}
+                      onClick={(e) => e.stopPropagation()}
+                    />
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Meus Canais de Streaming */}
+      <Card className="surface-card">
+        <CardHeader className="pb-3 border-b border-border/60">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 border border-primary/30 text-primary">
+                <Tv className="h-4 w-4" />
+              </div>
+              <div>
+                <CardTitle className="text-sm font-bold">Meus Canais de Transmissão Vinculados</CardTitle>
+                <CardDescription className="text-[0.7rem]">
+                  Canais que a plataforma monitora para avisar a facção quando você iniciar live
+                </CardDescription>
+              </div>
+            </div>
+
+            <Button
+              size="sm"
+              onClick={() => setLinkModalOpen(true)}
+              className="h-8 text-xs font-bold gap-1.5 bg-gradient-brand text-primary-foreground shadow-xs"
+            >
+              <Plus className="h-3.5 w-3.5" />
+              Vincular Canal
+            </Button>
+          </div>
+        </CardHeader>
+
+        <CardContent className="p-4">
+          {isLoadingAccounts ? (
+            <div className="flex items-center justify-center p-6 text-muted-foreground">
+              <Loader2 className="h-5 w-5 animate-spin" />
+            </div>
+          ) : myAccounts.length === 0 ? (
+            <div className="py-8 text-center space-y-2 rounded-xl border border-dashed border-border/60 bg-muted/10">
+              <p className="text-xs font-semibold text-foreground">Você ainda não vinculou nenhum canal de live</p>
+              <p className="text-[11px] text-muted-foreground max-w-sm mx-auto">
+                Conecte sua conta da Twitch, Kick, YouTube ou TikTok para que seus companheiros de facção saibam sempre que você estiver transmitindo.
+              </p>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setLinkModalOpen(true)}
+                className="text-xs font-bold gap-1 mt-2"
+              >
+                <Plus className="h-3 w-3" />
+                Vincular Meu Canal Agora
+              </Button>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {myAccounts.map((acc) => {
+                const pMeta = STREAM_PLATFORMS[acc.platform] || STREAM_PLATFORMS.twitch;
+
+                return (
+                  <div
+                    key={acc.id}
+                    className={cn(
+                      "flex items-center justify-between p-3 rounded-xl border transition-all text-xs",
+                      acc.is_active ? "bg-secondary/30 border-border/80" : "bg-muted/20 border-border/30 opacity-60"
+                    )}
+                  >
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <Badge
+                        variant="outline"
+                        className={cn("text-[9px] font-mono font-bold uppercase py-0", pMeta.badgeBg, pMeta.badgeColor, pMeta.borderColor)}
+                      >
+                        {pMeta.name}
+                      </Badge>
+                      <div className="min-w-0">
+                        <p className="font-bold text-foreground truncate">@{acc.channel_name}</p>
+                        <a
+                          href={acc.channel_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-[10px] text-muted-foreground hover:text-primary transition-colors flex items-center gap-1 font-mono truncate"
+                        >
+                          {acc.channel_url} <ExternalLink className="h-2.5 w-2.5 shrink-0" />
+                        </a>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-1 shrink-0 ml-2">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className={cn(
+                          "h-7 w-7 rounded-lg",
+                          acc.is_active ? "text-emerald-400 hover:text-amber-400" : "text-muted-foreground hover:text-emerald-400"
+                        )}
+                        onClick={() => toggleMutation.mutate({ accountId: acc.id, isActive: !acc.is_active })}
+                        title={acc.is_active ? "Pausar verificação automática" : "Ativar verificação automática"}
+                      >
+                        <Power className="h-3.5 w-3.5" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7 text-muted-foreground hover:text-destructive rounded-lg"
+                        onClick={() => unlinkMutation.mutate(acc.id)}
+                        title="Remover canal vinculado"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <LinkStreamAccountModal open={linkModalOpen} onOpenChange={setLinkModalOpen} />
+    </div>
+  );
+}
+
 class MenuTabErrorBoundary extends Component<{ children: React.ReactNode }, { hasError: boolean, errorMsg: string }> {
   override state = { hasError: false, errorMsg: "" };
 
@@ -2280,12 +2573,12 @@ export function ConfiguracoesPage() {
 
   const canAccess = canManagePlatform || canManageMenu;
 
-  // Sincronização da aba ativa com a URL (?tab=plataforma | menu | notificacoes | aparencia)
-  const [activeTab, setActiveTab] = useUrlTab<"plataforma" | "menu" | "notificacoes" | "aparencia">(
+  // Sincronização da aba ativa com a URL (?tab=plataforma | menu | notificacoes | lives | aparencia | perfil)
+  const [activeTab, setActiveTab] = useUrlTab<"plataforma" | "menu" | "notificacoes" | "lives" | "aparencia" | "perfil">(
     "plataforma",
     {
       paramName: "tab",
-      allowedTabs: ["plataforma", "menu", "notificacoes", "aparencia"],
+      allowedTabs: ["plataforma", "menu", "notificacoes", "lives", "aparencia", "perfil"],
     }
   );
 
@@ -2323,6 +2616,20 @@ export function ConfiguracoesPage() {
               Notificações
             </TabsTrigger>
             <TabsTrigger
+              value="lives"
+              className="gap-1.5 text-xs font-bold data-[state=active]:bg-primary/15 data-[state=active]:text-primary data-[state=active]:border-primary/30 rounded-lg px-4 py-2"
+            >
+              <Radio className="h-3.5 w-3.5 text-rose-400" />
+              Lives & Alertas
+            </TabsTrigger>
+            <TabsTrigger
+              value="perfil"
+              className="gap-1.5 text-xs font-bold data-[state=active]:bg-primary/15 data-[state=active]:text-primary data-[state=active]:border-primary/30 rounded-lg px-4 py-2"
+            >
+              <Globe className="h-3.5 w-3.5 text-emerald-400" />
+              Perfil Público
+            </TabsTrigger>
+            <TabsTrigger
               value="aparencia"
               className="gap-1.5 text-xs font-bold data-[state=active]:bg-primary/15 data-[state=active]:text-primary data-[state=active]:border-primary/30 rounded-lg px-4 py-2"
             >
@@ -2344,6 +2651,14 @@ export function ConfiguracoesPage() {
 
         <TabsContent value="notificacoes">
           <NotificationsTab canEdit={canManagePlatform} />
+        </TabsContent>
+
+        <TabsContent value="lives">
+          <LivesTab />
+        </TabsContent>
+
+        <TabsContent value="perfil">
+          <PublicProfileCustomizer />
         </TabsContent>
 
         <TabsContent value="aparencia">

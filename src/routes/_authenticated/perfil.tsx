@@ -21,6 +21,7 @@ import { getLevelLabel, levelBadgeClass } from "@/lib/permissions";
 import { cn } from "@/lib/utils";
 import { useMembers } from "@/hooks/useData";
 import { UserAppearanceSettings } from "@/components/profile/UserAppearanceSettings";
+import { PublicProfileCustomizer } from "@/components/profile/PublicProfileCustomizer";
 
 export const Route = createFileRoute("/_authenticated/perfil")({
   component: PerfilWrapper,
@@ -44,29 +45,29 @@ export function PerfilPage({ initialTab }: { initialTab?: "dados" | "aparencia" 
     return <NoAccess />;
   }
 
-  const readInitialTab = (): "dados" | "aparencia" => {
-    if (initialTab && (initialTab === "dados" || initialTab === "aparencia")) {
+  const readInitialTab = (): "dados" | "publico" | "aparencia" => {
+    if (initialTab && (initialTab === "dados" || initialTab === "publico" || initialTab === "aparencia")) {
       return initialTab;
     }
     if (typeof window !== "undefined") {
       const parts = window.location.pathname.split("/").filter(Boolean);
       const last = parts[parts.length - 1];
-      if (last === "aparencia" || last === "dados") return last;
+      if (last === "aparencia" || last === "dados" || last === "publico") return last as any;
       const q = new URLSearchParams(window.location.search).get("tab");
-      if (q === "aparencia" || q === "dados") return q;
+      if (q === "aparencia" || q === "dados" || q === "publico") return q as any;
     }
     return "dados";
   };
 
-  const [activeTab, setActiveTabState] = useState<"dados" | "aparencia">(readInitialTab);
+  const [activeTab, setActiveTabState] = useState<"dados" | "publico" | "aparencia">(readInitialTab);
 
   useEffect(() => {
-    if (initialTab && (initialTab === "dados" || initialTab === "aparencia")) {
+    if (initialTab && (initialTab === "dados" || initialTab === "publico" || initialTab === "aparencia")) {
       setActiveTabState(initialTab);
     }
   }, [initialTab]);
 
-  const setActiveTab = (newTab: "dados" | "aparencia") => {
+  const setActiveTab = (newTab: "dados" | "publico" | "aparencia") => {
     setActiveTabState(newTab);
     if (typeof window !== "undefined") {
       const url = new URL(window.location.href);
@@ -160,17 +161,21 @@ export function PerfilPage({ initialTab }: { initialTab?: "dados" | "aparencia" 
       />
 
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)} className="w-full space-y-6">
-        <TabsList className="grid w-full grid-cols-2 max-w-md h-10 p-1 bg-secondary/60 rounded-xl border border-border/60">
+        <TabsList className="grid w-full grid-cols-3 max-w-xl h-10 p-1 bg-secondary/60 rounded-xl border border-border/60">
           <TabsTrigger value="dados" className="text-xs font-bold gap-2 rounded-lg cursor-pointer">
             <User className="h-4 w-4 text-primary" />
-            <span>Dados do Jogador</span>
+            <span>Dados Básicos</span>
+          </TabsTrigger>
+          <TabsTrigger value="publico" className="text-xs font-bold gap-2 rounded-lg cursor-pointer">
+            <Globe className="h-4 w-4 text-emerald-400" />
+            <span>Perfil Público</span>
+            <Badge variant="outline" className="text-[9px] font-mono px-1 py-0 border-emerald-500/40 text-emerald-300 bg-emerald-500/20 font-black">
+              FEED ✨
+            </Badge>
           </TabsTrigger>
           <TabsTrigger value="aparencia" className="text-xs font-bold gap-2 rounded-lg cursor-pointer">
             <Palette className="h-4 w-4 text-purple-400" />
-            <span>Minha Aparência & Tema</span>
-            <Badge variant="outline" className="text-[9px] font-mono px-1 py-0 border-purple-500/40 text-purple-300 bg-purple-500/20 font-black">
-              NOVO ✨
-            </Badge>
+            <span>Tema & Estilo</span>
           </TabsTrigger>
         </TabsList>
 
@@ -221,21 +226,19 @@ export function PerfilPage({ initialTab }: { initialTab?: "dados" | "aparencia" 
                   </p>
                 </div>
 
-                <Link
-                  to="/perfil/$handle"
-                  params={{ handle: String(profile?.custom_url || profile?.discord_id || user?.id || "").replace(/^@/, "") }}
-                  className="w-full pt-2"
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    const slug = String(profile?.custom_url || profile?.discord_username?.replace(/#0$/, "") || user?.id || "").replace(/^@/, "");
+                    window.open(`/perfil/${slug}`, "_blank");
+                  }}
+                  className="w-full text-xs font-bold border-primary/40 hover:bg-primary/10 text-primary gap-1.5 cursor-pointer rounded-xl"
                 >
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="w-full text-xs font-bold border-primary/40 hover:bg-primary/10 text-primary gap-1.5 cursor-pointer rounded-xl"
-                  >
-                    <ExternalLink className="h-3.5 w-3.5" />
-                    <span>Ver Meu Perfil Público</span>
-                  </Button>
-                </Link>
+                  <ExternalLink className="h-3.5 w-3.5" />
+                  <span>Ver Meu Perfil (Nova Aba)</span>
+                </Button>
               </CardContent>
             </Card>
 
@@ -517,7 +520,12 @@ export function PerfilPage({ initialTab }: { initialTab?: "dados" | "aparencia" 
           </div>
         </TabsContent>
 
-        {/* TAB 2: MINHA APARÊNCIA & TEMA INDIVIDUAL */}
+        {/* TAB 2: PERSONALIZAÇÃO DO PERFIL PÚBLICO & FEED */}
+        <TabsContent value="publico" className="space-y-6 animate-in fade-in-50 duration-200">
+          <PublicProfileCustomizer />
+        </TabsContent>
+
+        {/* TAB 3: MINHA APARÊNCIA & TEMA INDIVIDUAL */}
         <TabsContent value="aparencia" className="space-y-6 animate-in fade-in-50 duration-200">
           <UserAppearanceSettings />
         </TabsContent>

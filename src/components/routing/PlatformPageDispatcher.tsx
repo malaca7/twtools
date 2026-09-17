@@ -11,6 +11,7 @@ import { DashboardPage } from "@/routes/_authenticated/dashboard";
 import { MovimentacoesPage } from "@/routes/_authenticated/movimentacoes";
 import { VendasPage } from "@/routes/_authenticated/vendas";
 import { ChatPage } from "@/routes/_authenticated/chat";
+import { LivesPage } from "@/routes/_authenticated/lives";
 import { TicketsPage } from "@/routes/_authenticated/tickets";
 import { EstoquePage } from "@/routes/_authenticated/estoque";
 import { MembrosPage } from "@/routes/_authenticated/membros";
@@ -41,6 +42,7 @@ const PAGE_PERMISSION_MAP: Record<string, Permission | null> = {
   dashboard: "view_dashboard",
   movimentacoes: "view_movements",
   vendas: "view_sales",
+  lives: "view_lives",
   chat: "view_chat",
   tickets: "view_tickets",
   estoque: "view_stock",
@@ -104,6 +106,8 @@ function InnerPageResolver({ page, tab, mode }: { page: string; tab?: string; mo
       return <MovimentacoesPage />;
     case "vendas":
       return <VendasPage />;
+    case "lives":
+      return <LivesPage />;
     case "chat":
       return <ChatPage />;
     case "tickets":

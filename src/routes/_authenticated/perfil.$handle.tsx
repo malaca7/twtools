@@ -1,16 +1,14 @@
 import { useState } from "react";
 import { createFileRoute, useNavigate, useParams, Link } from "@tanstack/react-router";
+import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
   User,
-  Phone,
-  IdCard,
   MessageSquare,
   Copy,
   Check,
   ArrowLeft,
   Shield,
-  Clock,
   Sparkles,
   Share2,
   Globe,
@@ -19,9 +17,10 @@ import {
   Moon,
   Radio,
   Calendar,
-  Layers,
   ChevronRight,
   LogIn,
+  Quote,
+  Flame,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -29,12 +28,16 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useAuth } from "@/hooks/useAuth";
 import { useMembers } from "@/hooks/useData";
-import { LEVEL_LABEL, getLevelLabel, levelBadgeClass, type AppLevel } from "@/lib/permissions";
-import { formatPhone, formatSecondsToHoursAndMinutes } from "@/lib/format";
+import { LEVEL_LABEL, levelBadgeClass, type AppLevel } from "@/lib/permissions";
 import { cn } from "@/lib/utils";
 import { getOrCreatePrivateConversation } from "@/services/chatService";
 import { NoAccess } from "@/components/ui-kit";
 import { PerfilPage } from "./perfil";
+import { supabase } from "@/integrations/supabase/client";
+import { ProfileFollowButton } from "@/components/profile/ProfileFollowButton";
+import { ProfileFeed } from "@/components/profile/ProfileFeed";
+import { BANNER_PRESETS, type SocialLinks } from "@/types/profileFeed";
+import { STREAM_PLATFORMS } from "@/types/lives";
 
 export const Route = createFileRoute("/_authenticated/perfil/$handle")({
   component: PublicProfilePage,
@@ -49,7 +52,6 @@ export function PublicProfilePage({ handleOverride }: { handleOverride?: string 
   const { data: members = [], isLoading } = useMembers();
 
   const [copiedLink, setCopiedLink] = useState(false);
-  const [copiedDiscordId, setCopiedDiscordId] = useState(false);
   const [startingChat, setStartingChat] = useState(false);
 
   // Normaliza o handle recebido (decodifica, remove @ ou %40 e coloca em minúsculas)
@@ -63,8 +65,8 @@ export function PublicProfilePage({ handleOverride }: { handleOverride?: string 
   const cleanHandle = rawHandle.trim().toLowerCase().replace(/^(@|%40)/i, "");
 
   // Se o identificador for uma das abas do perfil próprio, renderiza diretamente o PerfilPage
-  if (cleanHandle === "aparencia" || cleanHandle === "dados") {
-    return <PerfilPage initialTab={cleanHandle} />;
+  if (cleanHandle === "aparencia" || cleanHandle === "dados" || cleanHandle === "publico") {
+    return <PerfilPage initialTab={cleanHandle as any} />;
   }
 
   // Localiza o membro pelo custom_url, discord_id, discord_username, user_id ou game_id
@@ -83,6 +85,26 @@ export function PublicProfilePage({ handleOverride }: { handleOverride?: string 
     );
   });
 
+  // Consulta dados detalhados atualizados do perfil (banner, bio, custom_status, social_links, contas de live)
+  const { data: fullProfile } = useQuery({
+    queryKey: ["public-profile-details", member?.user_id],
+    queryFn: async () => {
+      if (!member?.user_id) return null;
+      const { data, error } = await (supabase.from("profiles" as any))
+        .select("*, member_stream_accounts(*)")
+        .eq("user_id", member.user_id)
+        .maybeSingle();
+
+      if (error) {
+        console.warn("Falha ao carregar detalhes adicionais do perfil:", error.message);
+        return null;
+      }
+      return data;
+    },
+    enabled: Boolean(member?.user_id),
+    staleTime: 1000 * 30,
+  });
+
   const isSelf = Boolean(member && user && member.user_id === user.id);
   const isPublicProfileEnabled = member?.custom_theme?.public_profile_enabled !== false;
   const status = member?.presence_status || "offline";
@@ -90,7 +112,18 @@ export function PublicProfilePage({ handleOverride }: { handleOverride?: string 
   const avatarUrl = member?.discord_avatar_url || member?.avatar_url;
   const displayName = member?.nickname || member?.nome || "Membro";
   const initials = displayName.slice(0, 2).toUpperCase();
-  const activeSlug = member?.custom_url || member?.discord_id || member?.user_id;
+  const activeSlug = member?.custom_url || member?.discord_username?.replace(/#0$/, "") || member?.user_id;
+
+  // Banner, bio, status e links sociais mesclando colunas e custom_theme
+  const bannerValue = (fullProfile?.banner_url || member?.custom_theme?.banner_url || "tw_classic") as string;
+  const bio = (fullProfile?.bio || member?.custom_theme?.bio || "") as string;
+  const customStatus = (fullProfile?.custom_status || member?.custom_theme?.custom_status || "") as string;
+  const socialLinks: SocialLinks = (fullProfile?.social_links || member?.custom_theme?.social_links || {}) as SocialLinks;
+  const streamAccounts = (fullProfile?.member_stream_accounts || []) as any[];
+
+  // Identifica se é preset ou imagem externa
+  const isPresetBanner = !bannerValue.startsWith("http://") && !bannerValue.startsWith("https://");
+  const matchedPreset = BANNER_PRESETS.find((p) => p.id === bannerValue) || BANNER_PRESETS[0];
 
   const handleCopyLink = () => {
     const origin = typeof window !== "undefined" ? window.location.origin : "";
@@ -100,14 +133,6 @@ export function PublicProfilePage({ handleOverride }: { handleOverride?: string 
     setCopiedLink(true);
     toast.success("Link do perfil público copiado!");
     setTimeout(() => setCopiedLink(false), 2000);
-  };
-
-  const handleCopyDiscordId = () => {
-    if (!member?.discord_id) return;
-    navigator.clipboard.writeText(member.discord_id);
-    setCopiedDiscordId(true);
-    toast.success("ID do Discord copiado!");
-    setTimeout(() => setCopiedDiscordId(false), 2000);
   };
 
   const handleStartChat = async () => {
@@ -126,7 +151,7 @@ export function PublicProfilePage({ handleOverride }: { handleOverride?: string 
 
   if (isLoading) {
     return (
-      <div className="mx-auto max-w-4xl py-12 flex flex-col items-center justify-center space-y-4">
+      <div className="mx-auto max-w-4xl py-16 flex flex-col items-center justify-center space-y-4">
         <div className="h-10 w-10 animate-spin rounded-full border-2 border-primary border-t-transparent" />
         <p className="text-xs text-muted-foreground font-medium">Carregando perfil público...</p>
       </div>
@@ -148,26 +173,17 @@ export function PublicProfilePage({ handleOverride }: { handleOverride?: string 
         </div>
         <div className="flex items-center justify-center gap-3 pt-2">
           {user ? (
-            <>
+            <Link to="/membros">
               <Button
                 type="button"
                 variant="outline"
                 size="sm"
-                onClick={() => navigate({ to: "/membros" })}
                 className="text-xs font-bold gap-1.5 rounded-xl cursor-pointer"
               >
                 <ArrowLeft className="h-3.5 w-3.5" />
                 <span>Ver Todos os Membros</span>
               </Button>
-              <Button
-                type="button"
-                size="sm"
-                onClick={() => navigate({ to: "/dashboard" })}
-                className="text-xs font-bold gap-1.5 rounded-xl bg-gradient-brand text-primary-foreground cursor-pointer"
-              >
-                <span>Ir para Dashboard</span>
-              </Button>
-            </>
+            </Link>
           ) : (
             <Link to="/">
               <Button
@@ -185,7 +201,7 @@ export function PublicProfilePage({ handleOverride }: { handleOverride?: string 
     );
   }
 
-  // Se o perfil estiver em modo privado e o visitante não estiver logado
+  // Se o perfil estiver em modo privado e o visitante não estiver autenticado
   if (!isPublicProfileEnabled && !user) {
     return (
       <div className="mx-auto max-w-md py-16 text-center space-y-5 animate-in fade-in-50 duration-200">
@@ -214,8 +230,8 @@ export function PublicProfilePage({ handleOverride }: { handleOverride?: string 
   }
 
   return (
-    <div className="mx-auto max-w-4xl space-y-6 pb-12 animate-in fade-in-50 duration-200">
-      {/* BOTÃO VOLTAR E BREADCRUMBS */}
+    <div className="mx-auto max-w-4xl space-y-6 pb-16 animate-in fade-in-50 duration-200">
+      {/* BOTÃO VOLTAR / BREADCRUMBS */}
       <div className="flex items-center justify-between gap-2 text-xs">
         <Button
           type="button"
@@ -225,7 +241,7 @@ export function PublicProfilePage({ handleOverride }: { handleOverride?: string 
             if (window.history.length > 1) {
               window.history.back();
             } else {
-              navigate({ to: "/" });
+              window.close();
             }
           }}
           className="h-8 px-2.5 text-xs text-muted-foreground hover:text-foreground hover:bg-secondary rounded-xl gap-1.5 cursor-pointer"
@@ -235,42 +251,52 @@ export function PublicProfilePage({ handleOverride }: { handleOverride?: string 
         </Button>
 
         <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground font-mono">
-          {user ? (
-            <Link to="/membros" className="hover:text-primary transition-colors">
-              Membros
-            </Link>
-          ) : (
-            <Link to="/" className="hover:text-primary transition-colors">
-              Twin Wheels
-            </Link>
-          )}
+          <Link to="/" className="hover:text-primary transition-colors">
+            Twin Wheels
+          </Link>
           <ChevronRight className="h-3 w-3" />
           <span className="text-foreground font-bold truncate max-w-[150px]">@{activeSlug}</span>
         </div>
       </div>
 
-      {/* BANNER & HERO CARD DO PERFIL */}
+      {/* HERO CARD COM BANNER PERSONALIZADO */}
       <div className="relative rounded-3xl border border-border/80 bg-card overflow-hidden shadow-xl">
-        {/* BANNER SUPERIOR ESTILIZADO */}
-        <div className="h-36 sm:h-44 w-full bg-gradient-to-r from-emerald-950/80 via-zinc-900 to-indigo-950/80 relative overflow-hidden">
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_30%,rgba(16,185,129,0.18),transparent_60%)]" />
-          <div className="absolute inset-0 bg-[linear-gradient(to_right,rgba(0,0,0,0.6),transparent,rgba(0,0,0,0.7))]" />
+        {/* BANNER SUPERIOR (PRESET OU IMAGEM CUSTOMIZADA) */}
+        <div className="h-44 sm:h-56 w-full relative overflow-hidden bg-black">
+          {isPresetBanner ? (
+            <div className={cn("w-full h-full bg-gradient-to-r relative", matchedPreset.gradient)}>
+              <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_30%,rgba(255,255,255,0.06),transparent_60%)]" />
+              <div className="absolute inset-0 bg-[linear-gradient(to_top,rgba(0,0,0,0.8)_0%,transparent_70%)]" />
+            </div>
+          ) : (
+            <div className="w-full h-full relative">
+              <img
+                src={bannerValue}
+                alt="Banner do Perfil"
+                className="w-full h-full object-cover"
+                onError={(e) => {
+                  (e.target as HTMLElement).style.display = "none";
+                }}
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent" />
+            </div>
+          )}
 
           {/* WATERMARK TWIN WHEELS */}
-          <div className="absolute right-4 bottom-2 text-right select-none pointer-events-none opacity-25">
-            <span className="font-black text-2xl sm:text-3xl tracking-tighter text-foreground font-mono">
+          <div className="absolute right-4 bottom-3 text-right select-none pointer-events-none opacity-20">
+            <span className="font-black text-2xl sm:text-4xl tracking-tighter text-white font-mono">
               TWIN WHEELS
             </span>
           </div>
 
-          {/* BADGE É VOCÊ OU CARGO NO BANNER */}
+          {/* BADGES NO BANNER */}
           <div className="absolute top-3 right-3 flex items-center gap-2">
-            {isSelf ? (
+            {isSelf && (
               <Badge className="bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 text-xs font-bold gap-1.5 backdrop-blur-md">
                 <Sparkles className="h-3 w-3" />
                 <span>Seu Perfil Público</span>
               </Badge>
-            ) : null}
+            )}
 
             <Badge variant="outline" className={cn("text-xs uppercase font-mono font-black backdrop-blur-md", levelBadgeClass(currentNivel))}>
               {LEVEL_LABEL[currentNivel] || currentNivel}
@@ -281,7 +307,7 @@ export function PublicProfilePage({ handleOverride }: { handleOverride?: string 
         {/* INFORMAÇÕES PRINCIPAIS & AVATAR */}
         <div className="px-5 sm:px-8 pb-6 pt-0 relative">
           <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 -mt-16 sm:-mt-20 mb-4">
-            {/* AVATAR COM STATUS RING */}
+            {/* AVATAR COM ANEL DE STATUS */}
             <div className="relative inline-block self-start">
               <Avatar className="h-28 w-28 sm:h-32 sm:w-32 rounded-3xl border-4 border-card shadow-2xl bg-secondary ring-2 ring-border/80">
                 {avatarUrl && <AvatarImage src={avatarUrl} alt={displayName} className="object-cover" />}
@@ -290,7 +316,7 @@ export function PublicProfilePage({ handleOverride }: { handleOverride?: string 
                 </AvatarFallback>
               </Avatar>
 
-              {/* STATUS INDICATOR */}
+              {/* STATUS DE PRESENÇA */}
               <div
                 className={cn(
                   "absolute -bottom-1 -right-1 h-6 w-6 rounded-xl border-3 border-card flex items-center justify-center shadow-md",
@@ -312,7 +338,7 @@ export function PublicProfilePage({ handleOverride }: { handleOverride?: string 
               </div>
             </div>
 
-            {/* BOTÕES DE AÇÃO RÁPIDA */}
+            {/* BOTÕES DE AÇÃO DO VISITANTE */}
             <div className="flex flex-wrap items-center gap-2">
               <Button
                 type="button"
@@ -320,7 +346,7 @@ export function PublicProfilePage({ handleOverride }: { handleOverride?: string 
                 size="sm"
                 onClick={handleCopyLink}
                 className="h-9 px-3 text-xs font-bold border-border/80 hover:bg-secondary rounded-xl gap-1.5 cursor-pointer"
-                title="Copiar URL pública do perfil"
+                title="Copiar link público do perfil"
               >
                 {copiedLink ? <Check className="h-3.5 w-3.5 text-emerald-400" /> : <Share2 className="h-3.5 w-3.5" />}
                 <span>{copiedLink ? "Link Copiado!" : "Compartilhar"}</span>
@@ -334,7 +360,7 @@ export function PublicProfilePage({ handleOverride }: { handleOverride?: string 
                     className="h-9 px-4 text-xs font-bold bg-gradient-brand text-primary-foreground hover:opacity-90 rounded-xl gap-1.5 cursor-pointer shadow-md"
                   >
                     <Edit3 className="h-3.5 w-3.5" />
-                    <span>Editar Meu Perfil</span>
+                    <span>Personalizar Perfil</span>
                   </Button>
                 </Link>
               ) : user ? (
@@ -346,7 +372,7 @@ export function PublicProfilePage({ handleOverride }: { handleOverride?: string 
                   className="h-9 px-4 text-xs font-bold bg-gradient-brand text-primary-foreground hover:opacity-90 rounded-xl gap-1.5 cursor-pointer shadow-md"
                 >
                   <MessageSquare className="h-3.5 w-3.5" />
-                  <span>Enviar Mensagem</span>
+                  <span>Mensagem</span>
                 </Button>
               ) : (
                 <Link to="/">
@@ -356,15 +382,15 @@ export function PublicProfilePage({ handleOverride }: { handleOverride?: string 
                     className="h-9 px-4 text-xs font-bold bg-gradient-brand text-primary-foreground hover:opacity-90 rounded-xl gap-1.5 cursor-pointer shadow-md"
                   >
                     <LogIn className="h-3.5 w-3.5" />
-                    <span>Acessar Painel / Entrar</span>
+                    <span>Entrar no Painel</span>
                   </Button>
                 </Link>
               )}
             </div>
           </div>
 
-          {/* NOMES E IDENTIFICAÇÃO */}
-          <div className="space-y-1">
+          {/* NOMES E TAGLINE */}
+          <div className="space-y-1.5">
             <div className="flex flex-wrap items-center gap-2.5">
               <h1 className="text-2xl sm:text-3xl font-black text-foreground tracking-tight">
                 {displayName}
@@ -383,186 +409,173 @@ export function PublicProfilePage({ handleOverride }: { handleOverride?: string 
               )}
             </div>
 
-            {member.nickname && (
-              <p className="text-xs text-muted-foreground font-medium">
-                Nome em jogo: <span className="text-foreground font-semibold">{member.nome}</span>
+            {/* FRASE DE STATUS PERSONALIZADA */}
+            {customStatus && (
+              <p className="text-xs text-primary font-medium italic flex items-center gap-1.5">
+                <span>“{customStatus}”</span>
               </p>
             )}
 
-            {/* URL OFICIAL BADGE */}
-            <div className="flex flex-wrap items-center gap-2 pt-1">
-              <div className="flex items-center gap-1 text-xs font-mono bg-secondary/80 border border-border/70 px-2.5 py-1 rounded-lg">
+            {/* IDENTIFICADOR PÚBLICO E DATA DE ENTRADA */}
+            <div className="flex flex-wrap items-center gap-3 pt-1 text-xs text-muted-foreground">
+              <div className="flex items-center gap-1 font-mono bg-secondary/60 border border-border/60 px-2.5 py-0.5 rounded-lg text-[11px]">
                 <Globe className="h-3 w-3 text-primary" />
-                <span className="text-muted-foreground font-normal">twin.malaca.com.br/perfil/</span>
-                <span className="font-bold text-primary">{String(activeSlug || "").replace(/^(@|%40)/i, "")}</span>
+                <span>@{String(activeSlug || "").replace(/^(@|%40)/i, "")}</span>
               </div>
 
-              {member.custom_url ? (
-                <Badge variant="outline" className="border-emerald-500/30 text-emerald-400 bg-emerald-500/10 text-[10px] font-mono py-0.5">
-                  ✨ URL Personalizada
-                </Badge>
-              ) : (
-                <Badge variant="outline" className="border-zinc-500/30 text-muted-foreground bg-zinc-500/5 text-[10px] font-mono py-0.5">
-                  ID Discord Padrão
-                </Badge>
+              {member.data_entrada && (
+                <div className="flex items-center gap-1.5 text-[11px]">
+                  <Calendar className="h-3 w-3 text-muted-foreground" />
+                  <span>Membro desde {new Date(member.data_entrada).toLocaleDateString("pt-BR")}</span>
+                </div>
               )}
+            </div>
+
+            {/* SISTEMA DE SEGUIR & NOTIFICAÇÕES */}
+            <div className="pt-3 border-t border-border/50 mt-3">
+              <ProfileFollowButton
+                targetUserId={member.user_id}
+                targetName={displayName}
+                isSelf={isSelf}
+              />
             </div>
           </div>
         </div>
       </div>
 
-      {/* GRID DE CARDS COM INFORMAÇÕES DETALHADAS */}
-      <div className="grid gap-6 md:grid-cols-2">
-        {/* CARD 1: DADOS EM JOGO (GTA RP) */}
-        <Card className="surface-card">
+      {/* GRID DE INFORMAÇÕES PÚBLICAS DO MEMBRO (SEM DADOS RESTRITOS) */}
+      <div className="grid gap-6 md:grid-cols-3">
+        {/* CARD 1 & 2: SOBRE MIM / BIO (OCUPA 2 COLUNAS SE HOUVER BIO) */}
+        <Card className={cn("surface-card", bio ? "md:col-span-2" : "md:col-span-3")}>
           <CardHeader className="pb-3 border-b border-border/50">
-            <CardTitle className="text-base font-semibold text-foreground flex items-center gap-2">
-              <IdCard className="h-4 w-4 text-primary" /> Dados do Personagem (GTA RP)
+            <CardTitle className="text-sm font-semibold text-foreground flex items-center gap-2">
+              <Quote className="h-4 w-4 text-primary" /> Sobre Mim
             </CardTitle>
           </CardHeader>
-
-          <CardContent className="pt-4 space-y-3.5 text-xs">
-            <div className="grid grid-cols-2 gap-3">
-              <div className="rounded-xl border border-border/60 bg-secondary/20 p-3">
-                <p className="text-[10px] uppercase font-bold text-muted-foreground">ID / Passaporte</p>
-                <p className="font-mono font-bold text-base text-foreground mt-0.5">
-                  {member.game_id || "N/A"}
-                </p>
-              </div>
-
-              <div className="rounded-xl border border-border/60 bg-secondary/20 p-3">
-                <p className="text-[10px] uppercase font-bold text-muted-foreground">Telefone em Jogo</p>
-                <p className="font-mono font-bold text-base text-foreground mt-0.5">
-                  {formatPhone(member.telefone || "") || "N/A"}
-                </p>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <div className="rounded-xl border border-border/60 bg-secondary/20 p-3">
-                <p className="text-[10px] uppercase font-bold text-muted-foreground">Cargo na Facção</p>
-                <div className="mt-1 flex items-center gap-1.5 flex-wrap">
-                  <Badge variant="outline" className={cn("text-[10px] uppercase font-mono font-bold px-2 py-0.5", levelBadgeClass(currentNivel))}>
-                    {LEVEL_LABEL[currentNivel] || currentNivel}
-                  </Badge>
-                  {Boolean(member.is_ceo || member.custom_theme?.is_ceo) && (
-                    <Badge className="text-[10px] font-bold border-amber-500/40 text-amber-300 bg-amber-500/20 shadow-xs shadow-amber-500/20">
-                      👑 CEO
-                    </Badge>
-                  )}
-                </div>
-              </div>
-
-              <div className="rounded-xl border border-border/60 bg-secondary/20 p-3">
-                <p className="text-[10px] uppercase font-bold text-muted-foreground">Status do Membro</p>
-                <div className="mt-1">
-                  <Badge variant="outline" className="border-emerald-500/30 bg-emerald-500/10 text-emerald-400 text-[10px] font-bold">
-                    Ativo na Facção
-                  </Badge>
-                </div>
-              </div>
-            </div>
-
-            <div className="rounded-xl border border-primary/20 bg-primary/5 p-3 flex items-center justify-between gap-2">
-              <div className="flex items-center gap-2">
-                <Clock className="h-4 w-4 text-primary" />
-                <div>
-                  <p className="text-[10px] uppercase font-bold text-muted-foreground">Tempo na Plataforma</p>
-                  <p className="font-mono font-bold text-sm text-primary">
-                    {formatSecondsToHoursAndMinutes(member.total_seconds_online || 0)}
-                  </p>
-                </div>
-              </div>
-
-              {member.data_entrada && (
-                <div className="text-right">
-                  <p className="text-[10px] uppercase font-bold text-muted-foreground">Membro Desde</p>
-                  <p className="font-mono font-bold text-xs text-foreground">
-                    {new Date(member.data_entrada).toLocaleDateString("pt-BR")}
-                  </p>
-                </div>
-              )}
-            </div>
+          <CardContent className="pt-4 text-xs leading-relaxed text-foreground/80">
+            {bio ? (
+              <p className="whitespace-pre-wrap">{bio}</p>
+            ) : (
+              <p className="text-muted-foreground italic">
+                {isSelf
+                  ? "Você ainda não adicionou uma biografia. Clique em 'Personalizar Perfil' para contar mais sobre você!"
+                  : "Este membro ainda não adicionou uma descrição ao seu perfil público."}
+              </p>
+            )}
           </CardContent>
         </Card>
 
-        {/* CARD 2: CONTA DO DISCORD VINCULADA */}
-        <Card className="surface-card border-indigo-500/20 bg-indigo-500/5">
-          <CardHeader className="pb-3 border-b border-indigo-500/20">
-            <CardTitle className="text-base font-semibold text-indigo-400 flex items-center gap-2">
-              <Shield className="h-4 w-4 text-indigo-400" /> Integração Discord
+        {/* CARD 3: REDES SOCIAIS & TRANSMISSÕES */}
+        <Card className="surface-card">
+          <CardHeader className="pb-3 border-b border-border/50">
+            <CardTitle className="text-sm font-semibold text-foreground flex items-center gap-2">
+              <Radio className="h-4 w-4 text-rose-400" /> Redes & Transmissões
             </CardTitle>
           </CardHeader>
-
-          <CardContent className="pt-4 space-y-3.5 text-xs">
-            <div className="rounded-xl border border-indigo-500/25 bg-background/60 p-3 flex items-center justify-between gap-2">
-              <div className="min-w-0">
-                <p className="text-[10px] uppercase font-bold text-muted-foreground">Tag / Nome no Discord</p>
-                <p className="font-mono font-bold text-sm text-foreground mt-0.5 truncate">
-                  {member.discord_username ? `@${member.discord_username}` : "Não vinculado"}
-                </p>
+          <CardContent className="pt-4 space-y-2.5 text-xs">
+            {/* CANAIS DE STREAMING VINCULADOS */}
+            {streamAccounts.length > 0 ? (
+              <div className="space-y-1.5 pb-2">
+                <p className="text-[10px] uppercase font-bold text-muted-foreground">Canais de Live</p>
+                {streamAccounts.map((acc: any) => {
+                  const pMeta = STREAM_PLATFORMS[acc.platform as keyof typeof STREAM_PLATFORMS] || STREAM_PLATFORMS.twitch;
+                  return (
+                    <a
+                      key={acc.id}
+                      href={acc.channel_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center justify-between p-2 rounded-xl border border-border/70 bg-secondary/30 hover:bg-secondary transition-colors"
+                    >
+                      <div className="flex items-center gap-2 min-w-0">
+                        <Badge
+                          variant="outline"
+                          className={cn("text-[9px] font-mono uppercase font-bold py-0", pMeta.badgeBg, pMeta.badgeColor, pMeta.borderColor)}
+                        >
+                          {pMeta.name}
+                        </Badge>
+                        <span className="font-bold text-[11px] truncate">@{acc.channel_name}</span>
+                      </div>
+                      <ExternalLink className="h-3 w-3 text-muted-foreground shrink-0" />
+                    </a>
+                  );
+                })}
               </div>
+            ) : null}
 
-              {member.discord_username && (
-                <Badge variant="outline" className="border-indigo-500/30 text-indigo-300 bg-indigo-500/10 text-[10px] font-mono shrink-0">
-                  Verificado
-                </Badge>
-              )}
-            </div>
-
-            <div className="rounded-xl border border-indigo-500/25 bg-background/60 p-3 flex items-center justify-between gap-2">
-              <div className="min-w-0">
-                <p className="text-[10px] uppercase font-bold text-muted-foreground">ID do Discord</p>
-                <p className="font-mono font-bold text-xs text-foreground mt-0.5 truncate">
-                  {member.discord_id || "Não vinculado"}
-                </p>
-              </div>
-
-              {member.discord_id && (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={handleCopyDiscordId}
-                  className="h-7 px-2 text-[11px] text-indigo-300 hover:text-white hover:bg-indigo-500/20 rounded-lg gap-1 shrink-0 cursor-pointer"
-                  title="Copiar ID do Discord"
-                >
-                  {copiedDiscordId ? <Check className="h-3 w-3 text-emerald-400" /> : <Copy className="h-3 w-3" />}
-                  <span>{copiedDiscordId ? "Copiado" : "Copiar ID"}</span>
-                </Button>
-              )}
-            </div>
-
-            {/* STATUS DE PRESENÇA EM TEMPO REAL */}
-            <div className="rounded-xl border border-border/60 bg-secondary/30 p-3 flex items-center justify-between gap-2">
-              <div className="flex items-center gap-2">
-                <div
-                  className={cn(
-                    "h-3 w-3 rounded-full shrink-0",
-                    status === "online"
-                      ? "bg-emerald-500 animate-pulse shadow-sm shadow-emerald-500/50"
-                      : status === "ausente"
-                      ? "bg-amber-500 shadow-sm shadow-amber-500/50"
-                      : "bg-zinc-500"
+            {/* LINKS DE REDES SOCIAIS */}
+            <div className="space-y-1.5">
+              <p className="text-[10px] uppercase font-bold text-muted-foreground">Redes Sociais</p>
+              {Object.keys(socialLinks).some((k) => Boolean((socialLinks as any)[k])) ? (
+                <div className="flex flex-wrap gap-1.5">
+                  {socialLinks.instagram && (
+                    <a
+                      href={`https://instagram.com/${socialLinks.instagram.replace(/^@/, "")}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border border-border/70 bg-secondary/40 hover:bg-secondary text-[11px] font-bold text-foreground transition-colors"
+                    >
+                      <span>📸 Instagram</span>
+                    </a>
                   )}
-                />
-                <div>
-                  <p className="text-[10px] uppercase font-bold text-muted-foreground">Presença no Sistema</p>
-                  <p className="font-bold text-xs capitalize text-foreground">
-                    {status === "online" ? "Online Agora" : status === "ausente" ? "Ausente / AFK" : "Offline"}
-                  </p>
+                  {socialLinks.twitter && (
+                    <a
+                      href={`https://x.com/${socialLinks.twitter.replace(/^@/, "")}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border border-border/70 bg-secondary/40 hover:bg-secondary text-[11px] font-bold text-foreground transition-colors"
+                    >
+                      <span>🐦 X / Twitter</span>
+                    </a>
+                  )}
+                  {socialLinks.tiktok && (
+                    <a
+                      href={`https://tiktok.com/@${socialLinks.tiktok.replace(/^@/, "")}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border border-border/70 bg-secondary/40 hover:bg-secondary text-[11px] font-bold text-foreground transition-colors"
+                    >
+                      <span>🎵 TikTok</span>
+                    </a>
+                  )}
+                  {socialLinks.twitch && (
+                    <a
+                      href={`https://twitch.tv/${socialLinks.twitch.replace(/^@/, "")}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border border-purple-500/30 bg-purple-500/10 text-purple-300 text-[11px] font-bold transition-colors"
+                    >
+                      <span>🟣 Twitch</span>
+                    </a>
+                  )}
+                  {socialLinks.youtube && (
+                    <a
+                      href={socialLinks.youtube.startsWith("http") ? socialLinks.youtube : `https://youtube.com/@${socialLinks.youtube.replace(/^@/, "")}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border border-red-500/30 bg-red-500/10 text-red-400 text-[11px] font-bold transition-colors"
+                    >
+                      <span>🔴 YouTube</span>
+                    </a>
+                  )}
                 </div>
-              </div>
-
-              {status === "online" && (
-                <Badge variant="outline" className="border-emerald-500/30 text-emerald-400 bg-emerald-500/10 text-[10px] font-mono">
-                  🟢 Ativo
-                </Badge>
+              ) : (
+                <p className="text-muted-foreground text-[11px] italic">
+                  Nenhuma rede social configurada.
+                </p>
               )}
             </div>
           </CardContent>
         </Card>
       </div>
+
+      {/* FEED DE PUBLICAÇÕES DO MEMBRO */}
+      <ProfileFeed
+        authorId={member.user_id}
+        authorName={displayName}
+        authorAvatar={avatarUrl}
+        isSelf={isSelf}
+      />
     </div>
   );
 }

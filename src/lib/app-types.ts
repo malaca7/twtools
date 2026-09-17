@@ -273,6 +273,7 @@ export type SystemModule =
   | "baus"
   | "movimentacoes"
   | "vendas"
+  | "lives"
   | "membros"
   | "desempenho"
   | "auditoria"

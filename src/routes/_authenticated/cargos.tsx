@@ -23,6 +23,7 @@ import {
   Trophy,
   ScrollText,
   Lock,
+  Radio,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -64,6 +65,7 @@ export const MODULE_DEFINITIONS: {
   { key: "baus", label: "Baús Operacionais", description: "Locais físicos e depósitos de armazenamento", icon: Boxes },
   { key: "movimentacoes", label: "Movimentações de Estoque", description: "Entradas e saídas operacionais do inventário", icon: ArrowLeftRight },
   { key: "vendas", label: "Vendas & Faturamento", description: "Registro e acompanhamento de vendas efetuadas", icon: ShoppingCart },
+  { key: "lives", label: "Transmissões & Lives", description: "Central de transmissões ao vivo, detecção automática e canais de streamers", icon: Radio },
   { key: "membros", label: "Gestão de Membros", description: "Aprovação de cadastros, vínculos do Discord e gestão de cargos", icon: Users },
   { key: "desempenho", label: "Rankings & Metas", description: "Pódio de movimentadores, vendedores e metas operacionais", icon: Trophy },
   { key: "auditoria", label: "Histórico de Auditoria", description: "Logs transparentes em linguagem natural de todas as ações", icon: ScrollText },
@@ -93,6 +95,7 @@ export function CargosPage() {
     baus: "view",
     movimentacoes: "view",
     vendas: "view",
+    lives: "view",
     membros: "none",
     desempenho: "view",
     auditoria: "none",
@@ -127,6 +130,7 @@ export function CargosPage() {
         baus: role.module_permissions?.baus || "none",
         movimentacoes: role.module_permissions?.movimentacoes || "none",
         vendas: role.module_permissions?.vendas || "none",
+        lives: role.module_permissions?.lives || "view",
         membros: role.module_permissions?.membros || "none",
         desempenho: role.module_permissions?.desempenho || "none",
         auditoria: role.module_permissions?.auditoria || "none",
@@ -146,6 +150,7 @@ export function CargosPage() {
         baus: "view",
         movimentacoes: "view",
         vendas: "view",
+        lives: "view",
         membros: "none",
         desempenho: "view",
         auditoria: "none",

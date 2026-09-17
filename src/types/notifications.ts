@@ -9,7 +9,8 @@ export type NotificationType =
   | "sale"
   | "system"
   | "announcement"
-  | "signup";
+  | "signup"
+  | "live";
 
 export type NotificationCategory = "info" | "success" | "warning" | "error" | "alert";
 
@@ -118,6 +119,14 @@ export function getNotificationTypeInfo(type: NotificationType): NotificationTyp
         badgeBg: "bg-blue-500/10",
         badgeColor: "text-blue-400",
         borderColor: "border-blue-500/30",
+      };
+    case "live":
+      return {
+        label: "Ao Vivo",
+        iconName: "Radio",
+        badgeBg: "bg-rose-500/15",
+        badgeColor: "text-rose-400 font-extrabold",
+        borderColor: "border-rose-500/40",
       };
     case "system":
     default:

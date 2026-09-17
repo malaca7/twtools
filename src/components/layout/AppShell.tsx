@@ -42,9 +42,22 @@ import {
   ExternalLink,
   Bot,
   Webhook,
+  Radio,
 } from "lucide-react";
 import { resolveMenuIcon } from "@/lib/menuIcons";
-import { isUserDeveloper, DEFAULT_CEO_CONFIG, type CeoConfiguration } from "@/services/devService";
+import {
+  isUserDeveloper,
+  DEFAULT_CEO_CONFIG,
+  type CeoConfiguration,
+  getDevThemeColorSync,
+  getCeoThemeColorSync,
+  DEV_CONFIG_EVENT,
+} from "@/services/devService";
+import {
+  type PanelColor,
+  getPanelColorStyle,
+  resolveCategoryIcon,
+} from "@/lib/panelTheme";
 import {
   Sidebar,
   SidebarContent,
@@ -104,29 +117,31 @@ const MASTER_NAV_ITEMS: MasterNavItem[] = [
   { id: "dashboard", title: "Dashboard", url: "/dashboard", icon: LayoutDashboard, perm: "view_dashboard", defaultCat: "Operação", defaultOrder: 0 },
   { id: "movimentacoes", title: "Movimentações", url: "/movimentacoes", icon: ArrowLeftRight, perm: "view_movements", defaultCat: "Operação", defaultOrder: 1 },
   { id: "vendas", title: "Vendas", url: "/vendas", icon: ShoppingCart, perm: "view_sales", defaultCat: "Operação", defaultOrder: 2 },
-  { id: "chat", title: "Chat", url: "/chat", icon: MessageSquare, perm: "view_chat", defaultCat: "Operação", defaultOrder: 3 },
-  { id: "tickets", title: "Tickets / Ouvidoria", url: "/tickets", icon: LifeBuoy, perm: "view_tickets", defaultCat: "Operação", defaultOrder: 4 },
-  { id: "estoque", title: "Controle de Estoque", url: "/estoque", icon: Boxes, perm: "view_stock", defaultCat: "Gestão", defaultOrder: 5 },
-  { id: "membros", title: "Membros", url: "/membros", icon: Users, perm: "view_members", defaultCat: "Gestão", defaultOrder: 6 },
-  { id: "hierarquia", title: "Hierarquia", url: "/hierarquia", icon: Workflow, perm: "view_hierarchy", defaultCat: "Gestão", defaultOrder: 7 },
-  { id: "fundo-caixa", title: "Fundo de Caixa", url: "/fundo-caixa", icon: Landmark, perm: "view_cash_fund", defaultCat: "Gestão", defaultOrder: 8 },
-  { id: "ausencias", title: "Ausências", url: "/ausencias", icon: CalendarOff, perm: "view_absences", defaultCat: "Gestão", defaultOrder: 9 },
-  { id: "rankings", title: "Rankings", url: "/rankings", icon: Trophy, perm: "view_rankings", defaultCat: "Gestão", defaultOrder: 10 },
-  { id: "desempenho", title: "Meu Desempenho", url: "/desempenho", icon: User, perm: "view_performance", defaultCat: "Gestão", defaultOrder: 11 },
-  { id: "metas", title: "Metas", url: "/metas", icon: Target, perm: "view_goals", defaultCat: "Gestão", defaultOrder: 12 },
-  { id: "avisos", title: "Enviar Avisos", url: "/avisos", icon: Megaphone, perm: "manage_announcements", defaultCat: "Gestão", defaultOrder: 13 },
-  { id: "cargos", title: "Gerenciamento de Cargos", url: "/cargos", icon: ShieldCheck, perm: "manage_roles", defaultCat: "Administração", defaultOrder: 14 },
-  { id: "permissoes", title: "Permissões", url: "/permissoes", icon: Settings, perm: "manage_permissions", defaultCat: "Administração", defaultOrder: 15 },
-  { id: "logs", title: "Logs", url: "/logs", icon: ScrollText, perm: "view_audit", defaultCat: "Administração", defaultOrder: 16 },
-  { id: "atualizacoes", title: "Atualizações", url: "/atualizacoes", icon: Sparkles, perm: "view_patch_notes", defaultCat: "Administração", defaultOrder: 17 },
-  { id: "perfil", title: "Meu Perfil", url: "/perfil", icon: User, perm: "view_profile", defaultCat: "Gestão", defaultOrder: 18 },
-  { id: "configuracoes", title: "Configurações", url: "/configuracoes", icon: Wrench, perm: "manage_platform_settings", defaultCat: "Administração", defaultOrder: 19 },
+  { id: "lives", title: "Lives", url: "/lives", icon: Radio, perm: "view_lives", defaultCat: "Operação", defaultOrder: 3 },
+  { id: "chat", title: "Chat", url: "/chat", icon: MessageSquare, perm: "view_chat", defaultCat: "Operação", defaultOrder: 4 },
+  { id: "tickets", title: "Tickets / Ouvidoria", url: "/tickets", icon: LifeBuoy, perm: "view_tickets", defaultCat: "Operação", defaultOrder: 5 },
+  { id: "estoque", title: "Controle de Estoque", url: "/estoque", icon: Boxes, perm: "view_stock", defaultCat: "Gestão", defaultOrder: 6 },
+  { id: "membros", title: "Membros", url: "/membros", icon: Users, perm: "view_members", defaultCat: "Gestão", defaultOrder: 7 },
+  { id: "hierarquia", title: "Hierarquia", url: "/hierarquia", icon: Workflow, perm: "view_hierarchy", defaultCat: "Gestão", defaultOrder: 8 },
+  { id: "fundo-caixa", title: "Fundo de Caixa", url: "/fundo-caixa", icon: Landmark, perm: "view_cash_fund", defaultCat: "Gestão", defaultOrder: 9 },
+  { id: "ausencias", title: "Ausências", url: "/ausencias", icon: CalendarOff, perm: "view_absences", defaultCat: "Gestão", defaultOrder: 10 },
+  { id: "rankings", title: "Rankings", url: "/rankings", icon: Trophy, perm: "view_rankings", defaultCat: "Gestão", defaultOrder: 11 },
+  { id: "desempenho", title: "Meu Desempenho", url: "/desempenho", icon: User, perm: "view_performance", defaultCat: "Gestão", defaultOrder: 12 },
+  { id: "metas", title: "Metas", url: "/metas", icon: Target, perm: "view_goals", defaultCat: "Gestão", defaultOrder: 13 },
+  { id: "avisos", title: "Enviar Avisos", url: "/avisos", icon: Megaphone, perm: "manage_announcements", defaultCat: "Gestão", defaultOrder: 14 },
+  { id: "cargos", title: "Gerenciamento de Cargos", url: "/cargos", icon: ShieldCheck, perm: "manage_roles", defaultCat: "Administração", defaultOrder: 15 },
+  { id: "permissoes", title: "Permissões", url: "/permissoes", icon: Settings, perm: "manage_permissions", defaultCat: "Administração", defaultOrder: 16 },
+  { id: "logs", title: "Logs", url: "/logs", icon: ScrollText, perm: "view_audit", defaultCat: "Administração", defaultOrder: 17 },
+  { id: "atualizacoes", title: "Atualizações", url: "/atualizacoes", icon: Sparkles, perm: "view_patch_notes", defaultCat: "Administração", defaultOrder: 18 },
+  { id: "perfil", title: "Meu Perfil", url: "/perfil", icon: User, perm: "view_profile", defaultCat: "Gestão", defaultOrder: 19 },
+  { id: "configuracoes", title: "Configurações", url: "/configuracoes", icon: Wrench, perm: "manage_platform_settings", defaultCat: "Administração", defaultOrder: 20 },
 ];
 
 const URL_TO_PERMISSION_MAP: Record<string, Permission> = {
   "/dashboard": "view_dashboard",
   "/movimentacoes": "view_movements",
   "/vendas": "view_sales",
+  "/lives": "view_lives",
   "/chat": "view_chat",
   "/tickets": "view_tickets",
   "/estoque": "view_stock",
@@ -187,6 +202,23 @@ function DynamicSidebarNavigation() {
     }
     return DEFAULT_CEO_CONFIG;
   }, []);
+
+  const [devTheme, setDevTheme] = useState<PanelColor>(() => getDevThemeColorSync());
+  const [ceoTheme, setCeoTheme] = useState<PanelColor>(() => getCeoThemeColorSync());
+
+  useEffect(() => {
+    const handleConfigChange = (e: any) => {
+      if (e?.detail) {
+        if (e.detail.devThemeColor) setDevTheme(e.detail.devThemeColor);
+        if (e.detail.ceoThemeColor) setCeoTheme(e.detail.ceoThemeColor);
+      }
+    };
+    window.addEventListener(DEV_CONFIG_EVENT, handleConfigChange);
+    return () => window.removeEventListener(DEV_CONFIG_EVENT, handleConfigChange);
+  }, []);
+
+  const devStyle = useMemo(() => getPanelColorStyle(devTheme, "rose"), [devTheme]);
+  const ceoStyle = useMemo(() => getPanelColorStyle(ceoTheme, "amber"), [ceoTheme]);
 
   const isItemActive = useCallback(
     (targetUrl: string) => {
@@ -602,15 +634,15 @@ function DynamicSidebarNavigation() {
                     className={cn(
                       "flex-1 flex items-center justify-center h-8 rounded-lg transition-all duration-150 cursor-pointer relative",
                       pathname.startsWith("/ceo")
-                        ? "bg-gradient-to-r from-amber-500 to-yellow-500 text-black shadow-xs ring-1 ring-amber-400 font-bold"
-                        : "text-amber-400/80 hover:text-amber-300 hover:bg-amber-500/15"
+                        ? cn(ceoStyle.bgSolidClass, "shadow-xs ring-1", ceoStyle.ringClass, "font-bold")
+                        : cn(ceoStyle.textMutedClass, "hover:bg-secondary/60")
                     )}
                     aria-label="Painel CEO"
                   >
                     <Crown className="h-4 w-4" />
                   </Link>
                 </TooltipTrigger>
-                <TooltipContent side="bottom" className="text-[11px] font-bold text-amber-300">
+                <TooltipContent side="bottom" className={cn("text-[11px] font-bold", ceoStyle.textClass)}>
                   Painel CEO
                 </TooltipContent>
               </Tooltip>
@@ -629,15 +661,15 @@ function DynamicSidebarNavigation() {
                     className={cn(
                       "flex-1 flex items-center justify-center h-8 rounded-lg transition-all duration-150 cursor-pointer relative",
                       pathname.startsWith("/dev")
-                        ? "bg-rose-600 text-white shadow-xs ring-1 ring-rose-400 font-bold"
-                        : "text-rose-400/80 hover:text-rose-300 hover:bg-rose-500/15"
+                        ? cn(devStyle.bgSolidClass, "shadow-xs ring-1", devStyle.ringClass, "font-bold")
+                        : cn(devStyle.textMutedClass, "hover:bg-secondary/60")
                     )}
                     aria-label="Painel Dev Tools"
                   >
                     <Terminal className="h-4 w-4" />
                   </Link>
                 </TooltipTrigger>
-                <TooltipContent side="bottom" className="text-[11px] font-bold text-rose-300">
+                <TooltipContent side="bottom" className={cn("text-[11px] font-bold", devStyle.textClass)}>
                   Painel Dev (Dev Tools)
                 </TooltipContent>
               </Tooltip>
@@ -648,6 +680,17 @@ function DynamicSidebarNavigation() {
 
       {grouped.map(({ category, items }) => {
         const isOpen = openCategory === category;
+        const isDevGroup = isDevMode && isDevUser;
+        const isCeoGroup = isCeoMode || (!isDevGroup && (category === "CEO" || ceoMenuConfig?.categories?.includes(category)));
+
+        const activeStyle = isDevGroup ? devStyle : isCeoGroup ? ceoStyle : null;
+        const defaultFallbackIcon = isDevGroup ? Terminal : isCeoGroup ? Crown : FolderTree;
+        const savedIconName = isDevGroup
+          ? devMenuConfig?.categoryIcons?.[category]
+          : isCeoGroup
+          ? ceoMenuConfig?.categoryIcons?.[category]
+          : null;
+        const CatIcon = resolveCategoryIcon(savedIconName, defaultFallbackIcon);
 
         return (
           <SidebarGroup key={category} className="py-1">
@@ -659,12 +702,11 @@ function DynamicSidebarNavigation() {
               >
                 <span
                   className={cn(
-                    category === "Ferramentas Dev" && "text-rose-400 font-black flex items-center gap-1.5",
-                    category === "CEO" && "text-amber-400 font-black flex items-center gap-1.5"
+                    "font-black flex items-center gap-1.5",
+                    activeStyle ? activeStyle.textClass : "text-sidebar-foreground"
                   )}
                 >
-                  {category === "Ferramentas Dev" && <Terminal className="h-3 w-3" />}
-                  {category === "CEO" && <Crown className="h-3.5 w-3.5 text-amber-400" />}
+                  <CatIcon className="h-3.5 w-3.5 shrink-0" />
                   {category}
                 </span>
                 <ChevronDown
@@ -681,8 +723,6 @@ function DynamicSidebarNavigation() {
                 <SidebarMenu>
                   {items.map((item) => {
                     const active = isItemActive(item.url);
-                    const isDevItem = item.url.startsWith("/dev");
-                    const isCeoItem = item.url.startsWith("/ceo");
                     const isExternal = item.url.startsWith("http://") || item.url.startsWith("https://");
                     const ItemIcon = item.icon || resolveMenuIcon(undefined, item.url);
 
@@ -705,9 +745,19 @@ function DynamicSidebarNavigation() {
                               onClick={() => {
                                 if (isMobile) setOpenMobile(false);
                               }}
-                              className="flex items-center gap-3 transition-colors hover:text-primary text-sidebar-foreground"
+                              className={cn(
+                                "flex items-center gap-3 transition-colors",
+                                activeStyle
+                                  ? cn("hover:" + activeStyle.textClass, "text-sidebar-foreground")
+                                  : "hover:text-primary text-sidebar-foreground"
+                              )}
                             >
-                              <ItemIcon className="h-4 w-4 shrink-0" />
+                              <ItemIcon
+                                className={cn(
+                                  "h-4 w-4 shrink-0",
+                                  activeStyle ? activeStyle.textClass : undefined
+                                )}
+                              />
                               <span className="truncate">{item.title}</span>
                               <ExternalLink className="h-3 w-3 ml-auto opacity-50 shrink-0" />
                             </a>
@@ -720,22 +770,24 @@ function DynamicSidebarNavigation() {
                               }}
                               className={cn(
                                 "flex items-center gap-3 transition-colors",
+                                activeStyle
+                                  ? cn("hover:" + activeStyle.textClass, "group/menuitem")
+                                  : "hover:text-primary text-sidebar-foreground",
                                 active &&
-                                  (isDevItem
-                                    ? "font-black text-rose-400 bg-rose-500/10 border border-rose-500/30 rounded-lg"
-                                    : isCeoItem
-                                    ? "font-black text-amber-300 bg-amber-500/15 border border-amber-500/40 rounded-lg"
+                                  (activeStyle
+                                    ? activeStyle.activeItemClass
                                     : "font-medium text-primary")
                               )}
                             >
                               <ItemIcon
                                 className={cn(
-                                  "h-4 w-4 shrink-0",
-                                  isDevItem && "text-rose-400",
-                                  isCeoItem && "text-amber-400"
+                                  "h-4 w-4 shrink-0 transition-colors",
+                                  activeStyle
+                                    ? (active ? activeStyle.textClass : cn(activeStyle.textMutedClass, "group-hover/menuitem:" + activeStyle.textClass))
+                                    : undefined
                                 )}
                               />
-                              <span className="truncate">{item.title}</span>
+                              <span className={cn("truncate", activeStyle && active && activeStyle.textClass)}>{item.title}</span>
                             </Link>
                           )}
                         </SidebarMenuButton>

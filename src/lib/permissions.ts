@@ -99,6 +99,14 @@ export type Permission =
   | "view_notifications"
   | "send_notifications"
   | "manage_notifications"
+  | "view_lives"
+  | "manage_lives"
+  | "link_stream_account"
+  | "manage_stream_accounts"
+  | "force_end_live_session"
+  | "simulate_live_stream"
+  | "configure_stream_api"
+  | "view_stream_logs"
   // Permissões do Painel Desenvolvedor (/dev)
   | "view_dev_hub"
   | "manage_dev_bot"
@@ -206,6 +214,14 @@ export const ALL_PERMISSIONS: Permission[] = [
   "view_notifications",
   "send_notifications",
   "manage_notifications",
+  "view_lives",
+  "manage_lives",
+  "link_stream_account",
+  "manage_stream_accounts",
+  "force_end_live_session",
+  "simulate_live_stream",
+  "configure_stream_api",
+  "view_stream_logs",
   "view_profile",
   // Dev Panel Permissions
   "view_dev_hub",
@@ -342,6 +358,12 @@ const OFFICER: Permission[] = [
   "view_notifications",
   "send_notifications",
   "manage_notifications",
+  "view_lives",
+  "manage_lives",
+  "link_stream_account",
+  "manage_stream_accounts",
+  "force_end_live_session",
+  "view_stream_logs",
   "view_profile",
 ];
 
@@ -394,6 +416,11 @@ const MANAGER: Permission[] = [
   "view_notifications",
   "send_notifications",
   "manage_notifications",
+  "view_lives",
+  "manage_lives",
+  "link_stream_account",
+  "force_end_live_session",
+  "view_stream_logs",
   "view_profile",
 ];
 
@@ -419,6 +446,8 @@ const MEMBER: Permission[] = [
   "view_tickets",
   "create_ticket",
   "view_notifications",
+  "view_lives",
+  "link_stream_account",
   "view_profile",
 ];
 
@@ -441,6 +470,8 @@ const NOVATO: Permission[] = [
   "view_tickets",
   "create_ticket",
   "view_notifications",
+  "view_lives",
+  "link_stream_account",
   "view_profile",
 ];
 
@@ -488,6 +519,28 @@ export function can(
       if (defaultRolePerms.includes(permission)) return true;
     }
 
+    // Equivalências e herança do sistema de lives
+    if (list.includes("manage_lives")) {
+      if (
+        permission === "view_lives" ||
+        permission === "link_stream_account" ||
+        permission === "manage_stream_accounts" ||
+        permission === "force_end_live_session" ||
+        permission === "simulate_live_stream" ||
+        permission === "view_stream_logs"
+      ) {
+        return true;
+      }
+    }
+    if (list.includes("configure_stream_api") && permission === "view_lives") return true;
+
+    // Fallback gracioso: se o cargo foi salvo no banco antes do módulo de lives existir
+    const hasAnySavedLivePerm = list.some((p) => typeof p === "string" && (p.includes("live") || p.includes("stream")));
+    if (!hasAnySavedLivePerm && (permission.includes("live") || permission.includes("stream"))) {
+      const defaultRolePerms = PERMISSIONS[userLevel] || [];
+      if (defaultRolePerms.includes(permission)) return true;
+    }
+
     // Equivalências de bot
     if (permission === "bot_add_app" && list.includes("bot_invite")) return true;
     if (permission === "bot_invite" && list.includes("bot_add_app")) return true;
@@ -528,6 +581,21 @@ export function can(
   if (rolePerms.includes("view_all_tickets") && permission === "view_tickets") {
     return true;
   }
+
+  // Herança e equivalências padrão de lives
+  if (rolePerms.includes("manage_lives")) {
+    if (
+      permission === "view_lives" ||
+      permission === "link_stream_account" ||
+      permission === "manage_stream_accounts" ||
+      permission === "force_end_live_session" ||
+      permission === "simulate_live_stream" ||
+      permission === "view_stream_logs"
+    ) {
+      return true;
+    }
+  }
+  if (rolePerms.includes("configure_stream_api") && permission === "view_lives") return true;
 
   // Fallback alias checks
   if (permission === "bot_add_app" && rolePerms.includes("bot_invite")) return true;

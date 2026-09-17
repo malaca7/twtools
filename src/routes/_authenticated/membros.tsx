@@ -399,8 +399,10 @@ export function MembrosPage() {
                         <Link
                           to="/perfil/$handle"
                           params={{ handle: String(m.custom_url || m.discord_id || m.user_id).replace(/^@/, "") }}
+                          target="_blank"
+                          rel="noopener noreferrer"
                           className="flex items-center gap-3 group cursor-pointer min-w-0"
-                          title={`Ver perfil público de ${m.nickname || m.nome}`}
+                          title={`Ver perfil público de ${m.nickname || m.nome} em nova aba`}
                         >
                           <Avatar className="h-10 w-10 border border-border group-hover:border-primary/50 transition-colors shrink-0">
                             {avatarUrl && <AvatarImage src={avatarUrl} alt={m.nome} />}
@@ -512,8 +514,10 @@ export function MembrosPage() {
                             <Link
                               to="/perfil/$handle"
                               params={{ handle: String(m.custom_url || m.discord_id || m.user_id).replace(/^@/, "") }}
+                              target="_blank"
+                              rel="noopener noreferrer"
                               className="flex items-center gap-3 min-w-[160px] group cursor-pointer"
-                              title={`Ver perfil público de ${m.nickname || m.nome}`}
+                              title={`Ver perfil público de ${m.nickname || m.nome} em nova aba`}
                             >
                               <Avatar className="h-9 w-9 border border-border group-hover:border-primary/50 transition-colors">
                                 {avatarUrl && <AvatarImage src={avatarUrl} alt={m.nome} />}

@@ -25,6 +25,7 @@ import { Route as AuthenticatedDesempenhoRouteImport } from './routes/_authentic
 import { Route as AuthenticatedEstoqueRouteImport } from './routes/_authenticated/estoque'
 import { Route as AuthenticatedFundoCaixaRouteImport } from './routes/_authenticated/fundo-caixa'
 import { Route as AuthenticatedHierarquiaRouteImport } from './routes/_authenticated/hierarquia'
+import { Route as AuthenticatedLivesRouteImport } from './routes/_authenticated/lives'
 import { Route as AuthenticatedLogsRouteImport } from './routes/_authenticated/logs'
 import { Route as AuthenticatedMembrosRouteImport } from './routes/_authenticated/membros'
 import { Route as AuthenticatedMetasRouteImport } from './routes/_authenticated/metas'
@@ -50,6 +51,7 @@ import { Route as AuthenticatedDevMenuLateralRouteImport } from './routes/_authe
 import { Route as AuthenticatedDevPatchNotesRouteImport } from './routes/_authenticated/dev.patch-notes'
 import { Route as AuthenticatedDevPermissoesRouteImport } from './routes/_authenticated/dev.permissoes'
 import { Route as AuthenticatedHierarquiaTabRouteImport } from './routes/_authenticated/hierarquia.$tab'
+import { Route as AuthenticatedLivesTabRouteImport } from './routes/_authenticated/lives.$tab'
 import { Route as AuthenticatedMetasTabRouteImport } from './routes/_authenticated/metas.$tab'
 import { Route as AuthenticatedMovimentacoesTabRouteImport } from './routes/_authenticated/movimentacoes.$tab'
 import { Route as AuthenticatedPerfilHandleRouteImport } from './routes/_authenticated/perfil.$handle'
@@ -141,6 +143,11 @@ const AuthenticatedFundoCaixaRoute = AuthenticatedFundoCaixaRouteImport.update({
 const AuthenticatedHierarquiaRoute = AuthenticatedHierarquiaRouteImport.update({
   id: '/hierarquia',
   path: '/hierarquia',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedLivesRoute = AuthenticatedLivesRouteImport.update({
+  id: '/lives',
+  path: '/lives',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedLogsRoute = AuthenticatedLogsRouteImport.update({
@@ -277,6 +284,11 @@ const AuthenticatedHierarquiaTabRoute =
     path: '/$tab',
     getParentRoute: () => AuthenticatedHierarquiaRoute,
   } as any)
+const AuthenticatedLivesTabRoute = AuthenticatedLivesTabRouteImport.update({
+  id: '/$tab',
+  path: '/$tab',
+  getParentRoute: () => AuthenticatedLivesRoute,
+} as any)
 const AuthenticatedMetasTabRoute = AuthenticatedMetasTabRouteImport.update({
   id: '/$tab',
   path: '/$tab',
@@ -357,6 +369,7 @@ export interface FileRoutesByFullPath {
   '/estoque': typeof AuthenticatedEstoqueRoute
   '/fundo-caixa': typeof AuthenticatedFundoCaixaRoute
   '/hierarquia': typeof AuthenticatedHierarquiaRouteWithChildren
+  '/lives': typeof AuthenticatedLivesRouteWithChildren
   '/logs': typeof AuthenticatedLogsRoute
   '/membros': typeof AuthenticatedMembrosRoute
   '/metas': typeof AuthenticatedMetasRouteWithChildren
@@ -381,6 +394,7 @@ export interface FileRoutesByFullPath {
   '/dev/patch-notes': typeof AuthenticatedDevPatchNotesRoute
   '/dev/permissoes': typeof AuthenticatedDevPermissoesRoute
   '/hierarquia/$tab': typeof AuthenticatedHierarquiaTabRoute
+  '/lives/$tab': typeof AuthenticatedLivesTabRoute
   '/metas/$tab': typeof AuthenticatedMetasTabRoute
   '/movimentacoes/$tab': typeof AuthenticatedMovimentacoesTabRoute
   '/perfil/$handle': typeof AuthenticatedPerfilHandleRoute
@@ -410,6 +424,7 @@ export interface FileRoutesByTo {
   '/estoque': typeof AuthenticatedEstoqueRoute
   '/fundo-caixa': typeof AuthenticatedFundoCaixaRoute
   '/hierarquia': typeof AuthenticatedHierarquiaRouteWithChildren
+  '/lives': typeof AuthenticatedLivesRouteWithChildren
   '/logs': typeof AuthenticatedLogsRoute
   '/membros': typeof AuthenticatedMembrosRoute
   '/metas': typeof AuthenticatedMetasRouteWithChildren
@@ -434,6 +449,7 @@ export interface FileRoutesByTo {
   '/dev/patch-notes': typeof AuthenticatedDevPatchNotesRoute
   '/dev/permissoes': typeof AuthenticatedDevPermissoesRoute
   '/hierarquia/$tab': typeof AuthenticatedHierarquiaTabRoute
+  '/lives/$tab': typeof AuthenticatedLivesTabRoute
   '/metas/$tab': typeof AuthenticatedMetasTabRoute
   '/movimentacoes/$tab': typeof AuthenticatedMovimentacoesTabRoute
   '/perfil/$handle': typeof AuthenticatedPerfilHandleRoute
@@ -465,6 +481,7 @@ export interface FileRoutesById {
   '/_authenticated/estoque': typeof AuthenticatedEstoqueRoute
   '/_authenticated/fundo-caixa': typeof AuthenticatedFundoCaixaRoute
   '/_authenticated/hierarquia': typeof AuthenticatedHierarquiaRouteWithChildren
+  '/_authenticated/lives': typeof AuthenticatedLivesRouteWithChildren
   '/_authenticated/logs': typeof AuthenticatedLogsRoute
   '/_authenticated/membros': typeof AuthenticatedMembrosRoute
   '/_authenticated/metas': typeof AuthenticatedMetasRouteWithChildren
@@ -489,6 +506,7 @@ export interface FileRoutesById {
   '/_authenticated/dev/patch-notes': typeof AuthenticatedDevPatchNotesRoute
   '/_authenticated/dev/permissoes': typeof AuthenticatedDevPermissoesRoute
   '/_authenticated/hierarquia/$tab': typeof AuthenticatedHierarquiaTabRoute
+  '/_authenticated/lives/$tab': typeof AuthenticatedLivesTabRoute
   '/_authenticated/metas/$tab': typeof AuthenticatedMetasTabRoute
   '/_authenticated/movimentacoes/$tab': typeof AuthenticatedMovimentacoesTabRoute
   '/_authenticated/perfil/$handle': typeof AuthenticatedPerfilHandleRoute
@@ -520,6 +538,7 @@ export interface FileRouteTypes {
     | '/estoque'
     | '/fundo-caixa'
     | '/hierarquia'
+    | '/lives'
     | '/logs'
     | '/membros'
     | '/metas'
@@ -544,6 +563,7 @@ export interface FileRouteTypes {
     | '/dev/patch-notes'
     | '/dev/permissoes'
     | '/hierarquia/$tab'
+    | '/lives/$tab'
     | '/metas/$tab'
     | '/movimentacoes/$tab'
     | '/perfil/$handle'
@@ -573,6 +593,7 @@ export interface FileRouteTypes {
     | '/estoque'
     | '/fundo-caixa'
     | '/hierarquia'
+    | '/lives'
     | '/logs'
     | '/membros'
     | '/metas'
@@ -597,6 +618,7 @@ export interface FileRouteTypes {
     | '/dev/patch-notes'
     | '/dev/permissoes'
     | '/hierarquia/$tab'
+    | '/lives/$tab'
     | '/metas/$tab'
     | '/movimentacoes/$tab'
     | '/perfil/$handle'
@@ -627,6 +649,7 @@ export interface FileRouteTypes {
     | '/_authenticated/estoque'
     | '/_authenticated/fundo-caixa'
     | '/_authenticated/hierarquia'
+    | '/_authenticated/lives'
     | '/_authenticated/logs'
     | '/_authenticated/membros'
     | '/_authenticated/metas'
@@ -651,6 +674,7 @@ export interface FileRouteTypes {
     | '/_authenticated/dev/patch-notes'
     | '/_authenticated/dev/permissoes'
     | '/_authenticated/hierarquia/$tab'
+    | '/_authenticated/lives/$tab'
     | '/_authenticated/metas/$tab'
     | '/_authenticated/movimentacoes/$tab'
     | '/_authenticated/perfil/$handle'
@@ -786,6 +810,13 @@ declare module '@tanstack/react-router' {
       path: '/hierarquia'
       fullPath: '/hierarquia'
       preLoaderRoute: typeof AuthenticatedHierarquiaRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/lives': {
+      id: '/_authenticated/lives'
+      path: '/lives'
+      fullPath: '/lives'
+      preLoaderRoute: typeof AuthenticatedLivesRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/logs': {
@@ -963,6 +994,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedHierarquiaTabRouteImport
       parentRoute: typeof AuthenticatedHierarquiaRoute
     }
+    '/_authenticated/lives/$tab': {
+      id: '/_authenticated/lives/$tab'
+      path: '/$tab'
+      fullPath: '/lives/$tab'
+      preLoaderRoute: typeof AuthenticatedLivesTabRouteImport
+      parentRoute: typeof AuthenticatedLivesRoute
+    }
     '/_authenticated/metas/$tab': {
       id: '/_authenticated/metas/$tab'
       path: '/$tab'
@@ -1107,6 +1145,17 @@ const AuthenticatedHierarquiaRouteWithChildren =
     AuthenticatedHierarquiaRouteChildren,
   )
 
+interface AuthenticatedLivesRouteChildren {
+  AuthenticatedLivesTabRoute: typeof AuthenticatedLivesTabRoute
+}
+
+const AuthenticatedLivesRouteChildren: AuthenticatedLivesRouteChildren = {
+  AuthenticatedLivesTabRoute: AuthenticatedLivesTabRoute,
+}
+
+const AuthenticatedLivesRouteWithChildren =
+  AuthenticatedLivesRoute._addFileChildren(AuthenticatedLivesRouteChildren)
+
 interface AuthenticatedMetasRouteChildren {
   AuthenticatedMetasTabRoute: typeof AuthenticatedMetasTabRoute
 }
@@ -1211,6 +1260,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedEstoqueRoute: typeof AuthenticatedEstoqueRoute
   AuthenticatedFundoCaixaRoute: typeof AuthenticatedFundoCaixaRoute
   AuthenticatedHierarquiaRoute: typeof AuthenticatedHierarquiaRouteWithChildren
+  AuthenticatedLivesRoute: typeof AuthenticatedLivesRouteWithChildren
   AuthenticatedLogsRoute: typeof AuthenticatedLogsRoute
   AuthenticatedMembrosRoute: typeof AuthenticatedMembrosRoute
   AuthenticatedMetasRoute: typeof AuthenticatedMetasRouteWithChildren
@@ -1246,6 +1296,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedEstoqueRoute: AuthenticatedEstoqueRoute,
   AuthenticatedFundoCaixaRoute: AuthenticatedFundoCaixaRoute,
   AuthenticatedHierarquiaRoute: AuthenticatedHierarquiaRouteWithChildren,
+  AuthenticatedLivesRoute: AuthenticatedLivesRouteWithChildren,
   AuthenticatedLogsRoute: AuthenticatedLogsRoute,
   AuthenticatedMembrosRoute: AuthenticatedMembrosRoute,
   AuthenticatedMetasRoute: AuthenticatedMetasRouteWithChildren,

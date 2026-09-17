@@ -802,12 +802,16 @@ export async function updateUserProfile(payload: {
   game_id: string;
   custom_url?: string | null;
   public_profile_enabled?: boolean;
+  banner_url?: string | null;
+  bio?: string | null;
+  custom_status?: string | null;
+  social_links?: any;
 }): Promise<void> {
   const { data: { session } } = await supabase.auth.getSession();
   if (!session?.user) throw new Error("Não autenticado");
 
   const { data: oldProfile } = await (supabase.from("profiles" as any))
-    .select("nome, nickname, telefone, game_id, custom_theme")
+    .select("nome, nickname, telefone, game_id, custom_theme, banner_url, bio, custom_status, social_links")
     .eq("user_id", session.user.id)
     .maybeSingle();
 
@@ -842,18 +846,29 @@ export async function updateUserProfile(payload: {
     ...existingTheme,
     ...(cleanCustomUrl !== undefined ? { custom_url: cleanCustomUrl } : {}),
     ...(payload.public_profile_enabled !== undefined ? { public_profile_enabled: payload.public_profile_enabled } : {}),
+    ...(payload.banner_url !== undefined ? { banner_url: payload.banner_url } : {}),
+    ...(payload.bio !== undefined ? { bio: payload.bio } : {}),
+    ...(payload.custom_status !== undefined ? { custom_status: payload.custom_status } : {}),
+    ...(payload.social_links !== undefined ? { social_links: payload.social_links } : {}),
   };
+
+  const updateFields: Record<string, any> = {
+    nome: payload.nome.trim(),
+    nickname: payload.nickname?.trim() || null,
+    telefone: payload.telefone.trim(),
+    game_id: payload.game_id.trim(),
+    custom_theme: updatedTheme,
+    updated_at: new Date().toISOString(),
+  };
+
+  if (payload.banner_url !== undefined) updateFields.banner_url = payload.banner_url;
+  if (payload.bio !== undefined) updateFields.bio = payload.bio;
+  if (payload.custom_status !== undefined) updateFields.custom_status = payload.custom_status;
+  if (payload.social_links !== undefined) updateFields.social_links = payload.social_links;
 
   const { error } = await supabase
     .from("profiles")
-    .update({
-      nome: payload.nome.trim(),
-      nickname: payload.nickname?.trim() || null,
-      telefone: payload.telefone.trim(),
-      game_id: payload.game_id.trim(),
-      custom_theme: updatedTheme,
-      updated_at: new Date().toISOString(),
-    } as any)
+    .update(updateFields as any)
     .eq("user_id", session.user.id);
 
   if (error) throw error;
@@ -864,6 +879,9 @@ export async function updateUserProfile(payload: {
     telefone: payload.telefone.trim(),
     game_id: payload.game_id.trim(),
     custom_url: cleanCustomUrl,
+    banner_url: payload.banner_url,
+    bio: payload.bio,
+    custom_status: payload.custom_status,
   }, oldProfile || undefined, session.user.id);
 }
 

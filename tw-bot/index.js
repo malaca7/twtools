@@ -2,6 +2,7 @@ require("dotenv").config();
 const { Client, GatewayIntentBits, EmbedBuilder, ActivityType, Events } = require("discord.js");
 const { createClient } = require("@supabase/supabase-js");
 const http = require("http");
+const { initLiveStreamEngine, getLiveStreamEngine } = require("./liveStreamEngine");
 
 // Validate environment variables
 if (!process.env.DISCORD_BOT_TOKEN) {
@@ -1866,6 +1867,14 @@ const server = http.createServer(async (req, res) => {
     return res.end(JSON.stringify({ status: "sync_triggered", timestamp: new Date().toISOString() }));
   }
 
+  // Rota para disparar verificação imediata de lives: /api/lives/check-now ou /api/lives/sync
+  if (pathname === "/api/lives/check-now" || pathname === "/api/lives/sync") {
+    const engine = getLiveStreamEngine();
+    if (engine) engine.checkNow();
+    res.writeHead(200, { "Content-Type": "application/json" });
+    return res.end(JSON.stringify({ status: "live_check_triggered", timestamp: new Date().toISOString() }));
+  }
+
   // Rota para obter URL oficial do Discord Webhook (compatível com Discohook): /api/webhook-url/:channelId
   if (pathname.startsWith("/api/webhook-url/")) {
     const targetChannelId = pathname.replace("/api/webhook-url/", "").trim();
@@ -1921,6 +1930,9 @@ const onReady = async () => {
   // 6. Carrega projetos da Bot Engine e escuta Realtime
   await loadBotProjects();
   setupBotEngineRealtime();
+
+  // 7. Inicializa o Motor de Transmissões ao Vivo (Twitch, Kick, YouTube, TikTok)
+  initLiveStreamEngine(supabase, client);
 
   // Sincronização contínua de segurança a cada 30 segundos
   setInterval(syncAllProfiles, 30 * 1000);

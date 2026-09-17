@@ -444,6 +444,17 @@ export function CeoPageContent({ initialTab }: { initialTab?: string } = {}) {
                     Gerenciamento Geral de Membros
                   </Link>
                 </Button>
+
+                <Button
+                  asChild
+                  variant="outline"
+                  className="w-full justify-start text-xs font-bold h-11 border-rose-500/30 hover:border-rose-500/60 hover:bg-rose-500/10 text-rose-300"
+                >
+                  <Link to="/lives">
+                    <Radio className="h-4 w-4 mr-2 text-rose-400" />
+                    Central de Lives & Streamers
+                  </Link>
+                </Button>
               </CardContent>
             </Card>
 

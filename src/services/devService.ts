@@ -1,6 +1,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import type { AppUser, Profile } from "@/lib/app-types";
 import type { AppLevel, Permission } from "@/lib/permissions";
+import type { PanelColor } from "@/lib/panelTheme";
 
 export interface DevPermissionResource {
   id: string;
@@ -64,12 +65,23 @@ export const DEFAULT_DEV_PERMISSIONS: DevPermissionResource[] = [
     editar: true,
     excluir: true,
   },
+  {
+    id: "lives_transmissoes",
+    name: "Lives & Transmissões em Tempo Real",
+    description: "Detecção automática de streams, vinculação de contas, encerramento forçado e alertas",
+    visualizar: true,
+    criar: true,
+    editar: true,
+    excluir: true,
+  },
 ];
 
 export const DEFAULT_DEV_CONFIG: DevConfiguration = {
   developerBypassMode: false,
   devAuditLogs: true,
   devSystemNotifications: true,
+  devThemeColor: "rose",
+  ceoThemeColor: "amber",
 };
 
 const DEV_PERMS_KEY = "tw_dev_module_permissions_v1";
@@ -120,6 +132,15 @@ export const DEFAULT_ADMIN_TAG_PERMISSIONS: DevPermissionResource[] = [
     visualizar: true,
     criar: true,
     editar: false,
+    excluir: false,
+  },
+  {
+    id: "lives_transmissoes",
+    name: "Lives & Transmissões em Tempo Real",
+    description: "Detecção automática de streams, vinculação de contas, encerramento forçado e alertas",
+    visualizar: true,
+    criar: true,
+    editar: true,
     excluir: false,
   },
 ];
@@ -360,6 +381,14 @@ export function getDevConfigurationSync(): DevConfiguration {
   return DEFAULT_DEV_CONFIG;
 }
 
+export function getDevThemeColorSync(): PanelColor {
+  return getDevConfigurationSync().devThemeColor || "rose";
+}
+
+export function getCeoThemeColorSync(): PanelColor {
+  return getDevConfigurationSync().ceoThemeColor || "amber";
+}
+
 /**
  * Retorna se o Bypass de Autorização Dev está ativado.
  */
@@ -530,6 +559,7 @@ export interface CeoConfiguration {
   allowFinancials: boolean;
   allowAnnouncements: boolean;
   showRealBalance: boolean;
+  themeColor?: PanelColor;
   updatedAt?: string;
 }
 
@@ -537,6 +567,7 @@ export const DEFAULT_CEO_CONFIG: CeoConfiguration = {
   enabled: true,
   badgeLabel: "CEO",
   badgeColor: "gold",
+  themeColor: "amber",
   description: "Diretoria Executiva da facção Twin Wheels. Gestão operacional avançada e liderança de negócios.",
   executiveBypassLevel: false,
   activeCeoUserIds: [],
@@ -622,6 +653,14 @@ export const DEFAULT_CEO_PERMISSIONS: string[] = [
   "view_notifications",
   "send_notifications",
   "manage_notifications",
+  "view_lives",
+  "link_stream_account",
+  "manage_stream_accounts",
+  "force_end_live_session",
+  "simulate_live_stream",
+  "configure_stream_api",
+  "view_stream_logs",
+  "manage_lives",
 ];
 
 /**

@@ -62,6 +62,17 @@ import {
   type CeoMenuItemConfig,
 } from "@/hooks/useCeoMenuConfig";
 import { resolveMenuIcon, AVAILABLE_MENU_ICONS } from "@/lib/menuIcons";
+import {
+  type PanelColor,
+  getPanelColorStyle,
+  resolveCategoryIcon,
+} from "@/lib/panelTheme";
+import {
+  getDevThemeColorSync,
+  getCeoThemeColorSync,
+  DEV_CONFIG_EVENT,
+} from "@/services/devService";
+import { CategoryIconPickerModal } from "@/components/dev/CategoryIconPickerModal";
 
 export const Route = createFileRoute("/_authenticated/dev/menu-lateral")({
   component: DevMenuLateralPageWrapper,
@@ -87,6 +98,17 @@ const DEV_ICON_MAP: Record<string, typeof Terminal> = {
 function DevToolsMenuEditor() {
   const { config, save, reset } = useDevMenuConfig();
 
+  // Dynamic Theme state
+  const [devTheme, setDevTheme] = useState<PanelColor>(() => getDevThemeColorSync());
+  useEffect(() => {
+    const handleConfig = (e: any) => {
+      if (e?.detail?.devThemeColor) setDevTheme(e.detail.devThemeColor);
+    };
+    window.addEventListener(DEV_CONFIG_EVENT, handleConfig);
+    return () => window.removeEventListener(DEV_CONFIG_EVENT, handleConfig);
+  }, []);
+  const devStyle = useMemo(() => getPanelColorStyle(devTheme, "rose"), [devTheme]);
+
   // Categories state
   const [categories, setCategories] = useState<string[]>(() => {
     if (config?.categories && Array.isArray(config.categories) && config.categories.length > 0) {
@@ -94,6 +116,14 @@ function DevToolsMenuEditor() {
     }
     return [...DEFAULT_DEV_CATEGORIES];
   });
+
+  // Category Icons state
+  const [categoryIcons, setCategoryIcons] = useState<Record<string, string>>(() => {
+    return config?.categoryIcons || {};
+  });
+  const [selectedNewCatIcon, setSelectedNewCatIcon] = useState<string>("Terminal");
+  const [iconPickerOpen, setIconPickerOpen] = useState(false);
+  const [pickingForCat, setPickingForCat] = useState<string | null>(null);
 
   const [newCatName, setNewCatName] = useState("");
   const [editingCatIndex, setEditingCatIndex] = useState<number | null>(null);
@@ -136,6 +166,9 @@ function DevToolsMenuEditor() {
     if (config?.categories && Array.isArray(config.categories) && config.categories.length > 0) {
       setCategories(config.categories);
     }
+    if (config?.categoryIcons) {
+      setCategoryIcons(config.categoryIcons);
+    }
     if (config?.items && Array.isArray(config.items) && config.items.length > 0) {
       const savedMap = new Map<string, DevMenuItemConfig>();
       config.items.forEach((item) => {
@@ -167,15 +200,27 @@ function DevToolsMenuEditor() {
 
   // Helper to persist state to Supabase + LocalStorage
   const persist = useCallback(
-    (newCats: string[], newItems: DevMenuItemConfig[]) => {
-      // Re-index orders sequentially
+    (newCats: string[], newItems: DevMenuItemConfig[], newIcons?: Record<string, string>) => {
       const cleanedItems = newItems.map((it, idx) => ({ ...it, order: idx }));
+      const currentIcons = newIcons ?? categoryIcons;
       setCategories(newCats);
       setItems(cleanedItems);
-      save({ categories: newCats, items: cleanedItems });
+      setCategoryIcons(currentIcons);
+      save({ categories: newCats, items: cleanedItems, categoryIcons: currentIcons });
     },
-    [save]
+    [save, categoryIcons]
   );
+
+  /* ─── Category Icon Picker Handler ─── */
+  const handleSelectIcon = (iconName: string) => {
+    if (pickingForCat === null) {
+      setSelectedNewCatIcon(iconName);
+    } else {
+      const nextIcons = { ...categoryIcons, [pickingForCat]: iconName };
+      persist(categories, items, nextIcons);
+      toast.success(`Ícone da categoria "${pickingForCat}" alterado!`);
+    }
+  };
 
   /* ─── Category Handlers ─── */
   const handleAddCategory = () => {
@@ -186,8 +231,9 @@ function DevToolsMenuEditor() {
       return;
     }
     const nextCats = [...categories, cat];
+    const nextIcons = { ...categoryIcons, [cat]: selectedNewCatIcon };
     setNewCatName("");
-    persist(nextCats, items);
+    persist(nextCats, items, nextIcons);
     toast.success(`Categoria Dev "${cat}" criada com sucesso!`);
   };
 
@@ -212,9 +258,14 @@ function DevToolsMenuEditor() {
     nextCats[index] = newName;
 
     const nextItems = items.map((i) => (i.category === oldName ? { ...i, category: newName } : i));
+    const nextIcons = { ...categoryIcons };
+    if (nextIcons[oldName]) {
+      nextIcons[newName] = nextIcons[oldName];
+      delete nextIcons[oldName];
+    }
 
     setEditingCatIndex(null);
-    persist(nextCats, nextItems);
+    persist(nextCats, nextItems, nextIcons);
     toast.success(`Categoria alterada para "${newName}"!`);
   };
 
@@ -228,8 +279,10 @@ function DevToolsMenuEditor() {
     const fallbackCat = nextCats[0] || "Ferramentas Dev";
 
     const nextItems = items.map((i) => (i.category === catToDelete ? { ...i, category: fallbackCat } : i));
+    const nextIcons = { ...categoryIcons };
+    delete nextIcons[catToDelete];
 
-    persist(nextCats, nextItems);
+    persist(nextCats, nextItems, nextIcons);
     toast.success(`Categoria "${catToDelete}" removida! Itens movidos para "${fallbackCat}".`);
   };
 
@@ -307,7 +360,6 @@ function DevToolsMenuEditor() {
       const otherItem = catItems[targetIndexInCat];
       if (!otherItem) return;
 
-      // Swap positions of currentItem and otherItem in the items array
       const nextItems = [...items];
       const idxA = nextItems.findIndex((i) => i.id === currentItem.id);
       const idxB = nextItems.findIndex((i) => i.id === otherItem.id);
@@ -321,6 +373,7 @@ function DevToolsMenuEditor() {
   const handleReset = useCallback(() => {
     setCategories([...DEFAULT_DEV_CATEGORIES]);
     setItems([...DEFAULT_DEV_MENU_ITEMS]);
+    setCategoryIcons({});
     reset();
     toast.success("Menu Dev restaurado para o padrão!");
   }, [reset]);
@@ -362,7 +415,6 @@ function DevToolsMenuEditor() {
     const nextItems = items.filter((i) => i.id !== draggedItemId);
     const targetIdx = nextItems.findIndex((i) => i.id === targetId);
 
-    // Update dragged item's category to match the target's category
     const updatedDraggedItem = {
       ...draggedItem,
       category: targetItem.category || "Ferramentas Dev",
@@ -391,19 +443,29 @@ function DevToolsMenuEditor() {
 
   return (
     <div className="space-y-6 pb-12 animate-in fade-in-50 duration-300">
+      {/* Modal de Escolha de Ícone para Categoria */}
+      <CategoryIconPickerModal
+        open={iconPickerOpen}
+        onOpenChange={setIconPickerOpen}
+        selectedIcon={pickingForCat ? (categoryIcons[pickingForCat] || "Terminal") : selectedNewCatIcon}
+        onSelectIcon={handleSelectIcon}
+        panelColor={devTheme}
+        title={pickingForCat ? `Ícone da Categoria: ${pickingForCat}` : "Escolher Ícone da Nova Categoria Dev"}
+      />
+
       {/* Page Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <PageHeader
           title="Dev Tools → Menu Lateral"
-          description="Personalize a ordem, categorias, nomes e visibilidade dos menus exclusivos da barra de ferramentas do Desenvolvedor."
+          description="Personalize a ordem, categorias, ícones e visibilidade dos menus exclusivos da barra de ferramentas do Desenvolvedor."
         >
           <div className="flex flex-wrap items-center gap-2">
             <Badge
               variant="outline"
-              className="border-rose-500/50 bg-rose-500/10 text-rose-400 font-mono font-bold text-xs px-2.5 py-1 flex items-center gap-1.5 shadow-sm"
+              className={cn("font-mono font-bold text-xs px-2.5 py-1 flex items-center gap-1.5 shadow-sm", devStyle.badgeClass)}
             >
-              <Terminal className="h-3.5 w-3.5 text-rose-400 animate-pulse" />
-              CONFIGURAÇÃO DEV
+              <Terminal className="h-3.5 w-3.5 animate-pulse" />
+              CONFIGURAÇÃO DEV · {devStyle.label.split(" ")[0]}
             </Badge>
           </div>
         </PageHeader>
@@ -425,21 +487,21 @@ function DevToolsMenuEditor() {
       </div>
 
       {/* Category Management Section */}
-      <Card className="surface-card border-rose-500/30">
+      <Card className={cn("surface-card", devStyle.borderClass)}>
         <CardHeader className="pb-3 border-b border-border/60">
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-2">
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-rose-500/10 border border-rose-500/30 text-rose-400">
+              <div className={cn("flex h-8 w-8 items-center justify-center rounded-lg border", devStyle.bgSubtleClass, devStyle.borderClass, devStyle.textClass)}>
                 <Tag className="h-4 w-4" />
               </div>
               <div>
-                <CardTitle className="text-sm font-bold text-rose-300">Categorias da Barra Dev</CardTitle>
+                <CardTitle className={cn("text-sm font-bold", devStyle.textClass)}>Categorias da Barra Dev</CardTitle>
                 <CardDescription className="text-[0.7rem]">
-                  Crie, edite, apague e arraste os cards para alterar a ordem das categorias do menu dev
+                  Crie, edite, defina ícones personalizados e arraste os cards para reorganizar o menu dev
                 </CardDescription>
               </div>
             </div>
-            <Badge variant="outline" className="text-[10px] font-mono gap-1 border-rose-500/40 text-rose-300">
+            <Badge variant="outline" className={cn("text-[10px] font-mono gap-1", devStyle.badgeClass)}>
               <Move className="h-3 w-3" /> Drag & Drop Ativo ({categories.length})
             </Badge>
           </div>
@@ -451,6 +513,7 @@ function DevToolsMenuEditor() {
               const itemCount = items.filter((i) => (i.category || "Ferramentas Dev") === cat).length;
               const isDraggingCat = draggedCatIdx === idx;
               const isOverCat = dragOverCatIdx === idx;
+              const CatIcon = resolveCategoryIcon(categoryIcons[cat], Terminal);
 
               return (
                 <div
@@ -462,9 +525,9 @@ function DevToolsMenuEditor() {
                   onDrop={(e) => handleCatDrop(e, idx)}
                   className={cn(
                     "flex items-center justify-between gap-2 p-2.5 rounded-xl bg-secondary/30 border border-border/50 transition-all",
-                    !isEditing && "cursor-grab active:cursor-grabbing hover:border-rose-500/40",
-                    isDraggingCat && "opacity-30 scale-95 border-dashed border-rose-500",
-                    isOverCat && "border-rose-500 bg-rose-500/10 shadow-lg scale-[1.01]"
+                    !isEditing && cn("cursor-grab active:cursor-grabbing", devStyle.borderHoverClass),
+                    isDraggingCat && cn("opacity-30 scale-95 border-dashed", devStyle.borderClass),
+                    isOverCat && cn(devStyle.borderClass, devStyle.bgSubtleClass, "shadow-lg scale-[1.01]")
                   )}
                 >
                   {isEditing ? (
@@ -496,7 +559,26 @@ function DevToolsMenuEditor() {
                   ) : (
                     <>
                       <div className="flex items-center gap-2 min-w-0 flex-1">
-                        <GripVertical className="h-4 w-4 text-muted-foreground/60 hover:text-rose-400 cursor-grab shrink-0" />
+                        <GripVertical className="h-4 w-4 text-muted-foreground/60 hover:text-foreground cursor-grab shrink-0" />
+                        
+                        {/* Category Icon Picker Button */}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setPickingForCat(cat);
+                            setIconPickerOpen(true);
+                          }}
+                          className={cn(
+                            "h-7 w-7 rounded-lg flex items-center justify-center border shrink-0 transition-all hover:scale-110 shadow-2xs",
+                            devStyle.bgSubtleClass,
+                            devStyle.borderClass,
+                            devStyle.textClass
+                          )}
+                          title="Clique para alterar o ícone desta categoria"
+                        >
+                          <CatIcon className="h-3.5 w-3.5" />
+                        </button>
+
                         <Badge variant="secondary" className="text-[9px] font-mono shrink-0">
                           #{idx + 1}
                         </Badge>
@@ -528,7 +610,7 @@ function DevToolsMenuEditor() {
                         <button
                           type="button"
                           onClick={() => handleStartEditCategory(idx)}
-                          className="h-6 w-6 flex items-center justify-center rounded text-muted-foreground hover:text-rose-400 disabled:opacity-20"
+                          className={cn("h-6 w-6 flex items-center justify-center rounded text-muted-foreground disabled:opacity-20", "hover:" + devStyle.textClass)}
                           title="Editar nome da categoria"
                         >
                           <Edit3 className="h-3.5 w-3.5" />
@@ -550,19 +632,38 @@ function DevToolsMenuEditor() {
           </div>
 
           {/* Add Category Form */}
-          <div className="flex items-center gap-2 pt-2 border-t border-border/40">
+          <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-border/40">
+            {/* New Category Icon Selector */}
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setPickingForCat(null);
+                setIconPickerOpen(true);
+              }}
+              className={cn("h-9 gap-1.5 px-3 text-xs font-bold border-border/60", devStyle.bgSubtleClass, devStyle.textClass)}
+              title="Escolher ícone para a nova categoria"
+            >
+              {(() => {
+                const Ico = resolveCategoryIcon(selectedNewCatIcon, Terminal);
+                return <Ico className="h-4 w-4" />;
+              })()}
+              <span className="hidden sm:inline">Ícone: {selectedNewCatIcon}</span>
+            </Button>
+
             <Input
               value={newCatName}
               onChange={(e) => setNewCatName(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && handleAddCategory()}
               placeholder="Nome da nova categoria Dev..."
-              className="h-9 text-xs bg-secondary/50 border-border/60 max-w-sm"
+              className="h-9 text-xs bg-secondary/50 border-border/60 max-w-sm flex-1"
             />
             <Button
               size="sm"
               onClick={handleAddCategory}
               disabled={!newCatName.trim()}
-              className="h-9 text-xs gap-1.5 bg-rose-600 hover:bg-rose-700 text-white font-bold"
+              className={cn("h-9 text-xs gap-1.5 font-bold shadow-sm", devStyle.bgSolidClass)}
             >
               <Plus className="h-3.5 w-3.5" />
               Criar Categoria Dev
@@ -577,7 +678,7 @@ function DevToolsMenuEditor() {
         <div className="xl:col-span-2 space-y-4">
           <div className="flex items-center justify-between gap-2 p-3 rounded-xl bg-card border border-border/60">
             <div className="flex items-center gap-2">
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-rose-500/10 border border-rose-500/30 text-rose-400">
+              <div className={cn("flex h-8 w-8 items-center justify-center rounded-lg border", devStyle.bgSubtleClass, devStyle.borderClass, devStyle.textClass)}>
                 <Menu className="h-4 w-4" />
               </div>
               <div>
@@ -587,7 +688,7 @@ function DevToolsMenuEditor() {
                 </p>
               </div>
             </div>
-            <Badge variant="outline" className="text-[10px] gap-1 border-rose-500/40 text-rose-300">
+            <Badge variant="outline" className={cn("text-[10px] gap-1", devStyle.badgeClass)}>
               <Move className="h-3 w-3" /> Arraste para Reordenar
             </Badge>
           </div>
@@ -596,18 +697,19 @@ function DevToolsMenuEditor() {
             const catItems = items
               .filter((i) => (i.category || "Ferramentas Dev") === cat)
               .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+            const CatIcon = resolveCategoryIcon(categoryIcons[cat], Terminal);
 
             return (
               <Card key={cat} className="surface-card border-border/60">
                 <CardHeader className="pb-2 pt-3 px-4 border-b border-border/40 bg-secondary/20">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                      <FolderTree className="h-4 w-4 text-rose-400" />
+                      <CatIcon className={cn("h-4 w-4", devStyle.textClass)} />
                       <CardTitle className="text-xs font-bold text-foreground">
-                        Categoria Dev: <span className="text-rose-400 font-extrabold">{cat}</span>
+                        Categoria Dev: <span className={cn("font-extrabold", devStyle.textClass)}>{cat}</span>
                       </CardTitle>
                     </div>
-                    <Badge variant="outline" className="text-[10px] font-mono border-rose-500/40 text-rose-300 bg-rose-500/5">
+                    <Badge variant="outline" className={cn("text-[10px] font-mono", devStyle.badgeClass)}>
                       {catItems.length} {catItems.length === 1 ? "item" : "itens"}
                     </Badge>
                   </div>
@@ -637,10 +739,10 @@ function DevToolsMenuEditor() {
                             className={cn(
                               "flex items-center justify-between gap-3 p-3 rounded-xl border transition-all duration-200 cursor-grab active:cursor-grabbing",
                               item.visible
-                                ? "bg-card/40 border-border/60 shadow-sm hover:border-rose-500/40"
+                                ? cn("bg-card/40 border-border/60 shadow-sm", devStyle.borderHoverClass)
                                 : "bg-secondary/20 border-border/30 opacity-50",
-                              isDragging && "opacity-30 scale-95 border-dashed border-rose-500",
-                              isDragOver && "border-rose-500 bg-rose-500/10 shadow-lg scale-[1.01]"
+                              isDragging && cn("opacity-30 scale-95 border-dashed", devStyle.borderClass),
+                              isDragOver && cn(devStyle.borderClass, devStyle.bgSubtleClass, "shadow-lg scale-[1.01]")
                             )}
                           >
                             {/* Left Group: Controls + Icon + Title */}
@@ -656,7 +758,7 @@ function DevToolsMenuEditor() {
                                 >
                                   <ChevronUp className="h-3 w-3" />
                                 </button>
-                                <GripVertical className="h-4 w-4 text-muted-foreground/60 hover:text-rose-400 cursor-grab" />
+                                <GripVertical className={cn("h-4 w-4 text-muted-foreground/60 cursor-grab", "hover:" + devStyle.textClass)} />
                                 <button
                                   type="button"
                                   onClick={() => moveItemWithinCategory(item.id, "down")}
@@ -673,7 +775,7 @@ function DevToolsMenuEditor() {
                                 className={cn(
                                   "flex h-9 w-9 items-center justify-center rounded-xl border shrink-0 transition-colors shadow-sm",
                                   item.visible
-                                    ? "bg-rose-500/10 border-rose-500/30 text-rose-400"
+                                    ? cn(devStyle.bgSubtleClass, devStyle.borderClass, devStyle.textClass)
                                     : "bg-secondary/50 border-border/40 text-muted-foreground"
                                 )}
                               >
@@ -740,28 +842,30 @@ function DevToolsMenuEditor() {
 
         {/* Live Preview of Dev Sidebar */}
         <div className="space-y-3">
-          <Card className="surface-card sticky top-20 border-rose-500/30">
+          <Card className={cn("surface-card sticky top-20", devStyle.borderClass)}>
             <CardHeader className="pb-3 border-b border-border/60">
               <div className="flex items-center gap-2">
-                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-rose-500/10 border border-rose-500/30 text-rose-400">
+                <div className={cn("flex h-8 w-8 items-center justify-center rounded-lg border", devStyle.bgSubtleClass, devStyle.borderClass, devStyle.textClass)}>
                   <Monitor className="h-4 w-4" />
                 </div>
                 <div>
-                  <CardTitle className="text-sm font-bold text-rose-300">Preview do Menu Dev</CardTitle>
+                  <CardTitle className={cn("text-sm font-bold", devStyle.textClass)}>Preview do Menu Dev</CardTitle>
                   <CardDescription className="text-[0.7rem]">Visualização em tempo real</CardDescription>
                 </div>
               </div>
             </CardHeader>
             <CardContent className="p-3">
-              <div className="rounded-xl bg-sidebar border border-sidebar-border p-3 space-y-3">
+              <div className="rounded-xl bg-sidebar border border-sidebar-border p-3 space-y-3 shadow-inner">
                 {categories.map((cat) => {
                   const catItems = grouped[cat] || [];
                   const visibleItems = catItems.filter((i) => i.visible);
                   if (visibleItems.length === 0) return null;
+                  const CatIcon = resolveCategoryIcon(categoryIcons[cat], Terminal);
+
                   return (
                     <div key={cat}>
-                      <p className="text-[0.6rem] uppercase tracking-[0.2em] text-rose-400 font-bold mb-1.5 px-1 flex items-center gap-1">
-                        <Terminal className="h-2.5 w-2.5" />
+                      <p className={cn("text-[0.6rem] uppercase tracking-[0.2em] font-bold mb-1.5 px-1 flex items-center gap-1.5", devStyle.textClass)}>
+                        <CatIcon className="h-3 w-3" />
                         {cat}
                       </p>
                       <div className="space-y-0.5">
@@ -771,9 +875,14 @@ function DevToolsMenuEditor() {
                           return (
                             <div
                               key={item.id}
-                              className="flex items-center gap-2 px-2 py-1.5 rounded-md text-xs text-rose-300 hover:bg-rose-500/10 transition-colors"
+                              className={cn(
+                                "flex items-center gap-2 px-2 py-1.5 rounded-md text-xs transition-colors",
+                                devStyle.textMutedClass,
+                                "hover:" + devStyle.bgSubtleClass,
+                                "hover:" + devStyle.textClass
+                              )}
                             >
-                              <Icon className="h-3.5 w-3.5 shrink-0 text-rose-400" />
+                              <Icon className={cn("h-3.5 w-3.5 shrink-0", devStyle.textClass)} />
                               <span className="truncate font-medium">{title}</span>
                             </div>
                           );
@@ -806,6 +915,17 @@ const CEO_DEFAULT_ICONS: Record<string, typeof Crown> = {
 function CeoMenuLateralEditor() {
   const { config, save, reset } = useCeoMenuConfig();
 
+  // Dynamic Theme state
+  const [ceoTheme, setCeoTheme] = useState<PanelColor>(() => getCeoThemeColorSync());
+  useEffect(() => {
+    const handleConfig = (e: any) => {
+      if (e?.detail?.ceoThemeColor) setCeoTheme(e.detail.ceoThemeColor);
+    };
+    window.addEventListener(DEV_CONFIG_EVENT, handleConfig);
+    return () => window.removeEventListener(DEV_CONFIG_EVENT, handleConfig);
+  }, []);
+  const ceoStyle = useMemo(() => getPanelColorStyle(ceoTheme, "amber"), [ceoTheme]);
+
   // Categories state
   const [categories, setCategories] = useState<string[]>(() => {
     if (config?.categories && Array.isArray(config.categories) && config.categories.length > 0) {
@@ -813,6 +933,14 @@ function CeoMenuLateralEditor() {
     }
     return [...DEFAULT_CEO_CATEGORIES];
   });
+
+  // Category Icons state
+  const [categoryIcons, setCategoryIcons] = useState<Record<string, string>>(() => {
+    return config?.categoryIcons || {};
+  });
+  const [selectedNewCatIcon, setSelectedNewCatIcon] = useState<string>("Crown");
+  const [iconPickerOpen, setIconPickerOpen] = useState(false);
+  const [pickingForCat, setPickingForCat] = useState<string | null>(null);
 
   const [newCatName, setNewCatName] = useState("");
   const [editingCatIndex, setEditingCatIndex] = useState<number | null>(null);
@@ -857,6 +985,9 @@ function CeoMenuLateralEditor() {
     if (config?.categories && Array.isArray(config.categories) && config.categories.length > 0) {
       setCategories(config.categories);
     }
+    if (config?.categoryIcons) {
+      setCategoryIcons(config.categoryIcons);
+    }
     if (config?.items && Array.isArray(config.items) && config.items.length > 0) {
       const savedMap = new Map<string, CeoMenuItemConfig>();
       config.items.forEach((item) => {
@@ -890,14 +1021,27 @@ function CeoMenuLateralEditor() {
 
   // Helper to persist state to Supabase + LocalStorage
   const persist = useCallback(
-    (newCats: string[], newItems: CeoMenuItemConfig[]) => {
+    (newCats: string[], newItems: CeoMenuItemConfig[], newIcons?: Record<string, string>) => {
       const cleanedItems = newItems.map((it, idx) => ({ ...it, order: idx }));
+      const currentIcons = newIcons ?? categoryIcons;
       setCategories(newCats);
       setItems(cleanedItems);
-      save({ categories: newCats, items: cleanedItems });
+      setCategoryIcons(currentIcons);
+      save({ categories: newCats, items: cleanedItems, categoryIcons: currentIcons });
     },
-    [save]
+    [save, categoryIcons]
   );
+
+  /* ─── Category Icon Picker Handler ─── */
+  const handleSelectIcon = (iconName: string) => {
+    if (pickingForCat === null) {
+      setSelectedNewCatIcon(iconName);
+    } else {
+      const nextIcons = { ...categoryIcons, [pickingForCat]: iconName };
+      persist(categories, items, nextIcons);
+      toast.success(`Ícone da categoria "${pickingForCat}" alterado! 👑`);
+    }
+  };
 
   /* ─── Category Handlers ─── */
   const handleAddCategory = () => {
@@ -908,8 +1052,9 @@ function CeoMenuLateralEditor() {
       return;
     }
     const nextCats = [...categories, cat];
+    const nextIcons = { ...categoryIcons, [cat]: selectedNewCatIcon };
     setNewCatName("");
-    persist(nextCats, items);
+    persist(nextCats, items, nextIcons);
     toast.success(`Categoria CEO "${cat}" criada com sucesso! 👑`);
   };
 
@@ -934,9 +1079,14 @@ function CeoMenuLateralEditor() {
     nextCats[index] = newName;
 
     const nextItems = items.map((i) => (i.category === oldName ? { ...i, category: newName } : i));
+    const nextIcons = { ...categoryIcons };
+    if (nextIcons[oldName]) {
+      nextIcons[newName] = nextIcons[oldName];
+      delete nextIcons[oldName];
+    }
 
     setEditingCatIndex(null);
-    persist(nextCats, nextItems);
+    persist(nextCats, nextItems, nextIcons);
     toast.success(`Categoria CEO alterada para "${newName}"! 👑`);
   };
 
@@ -950,8 +1100,10 @@ function CeoMenuLateralEditor() {
     const fallbackCat = nextCats[0] || "CEO";
 
     const nextItems = items.map((i) => (i.category === catToDelete ? { ...i, category: fallbackCat } : i));
+    const nextIcons = { ...categoryIcons };
+    delete nextIcons[catToDelete];
 
-    persist(nextCats, nextItems);
+    persist(nextCats, nextItems, nextIcons);
     toast.success(`Categoria "${catToDelete}" removida! Itens movidos para "${fallbackCat}".`);
   };
 
@@ -1041,6 +1193,7 @@ function CeoMenuLateralEditor() {
       await reset();
       setCategories([...DEFAULT_CEO_CATEGORIES]);
       setItems([...DEFAULT_CEO_MENU_ITEMS]);
+      setCategoryIcons({});
       toast.success("Menu lateral do CEO restaurado para os padrões originais! 👑");
     }
   };
@@ -1107,15 +1260,25 @@ function CeoMenuLateralEditor() {
 
   return (
     <div className="space-y-6">
+      {/* Modal de Escolha de Ícone para Categoria CEO */}
+      <CategoryIconPickerModal
+        open={iconPickerOpen}
+        onOpenChange={setIconPickerOpen}
+        selectedIcon={pickingForCat ? (categoryIcons[pickingForCat] || "Crown") : selectedNewCatIcon}
+        onSelectIcon={handleSelectIcon}
+        panelColor={ceoTheme}
+        title={pickingForCat ? `Ícone da Categoria CEO: ${pickingForCat}` : "Escolher Ícone da Nova Categoria CEO"}
+      />
+
       {/* Top Action Bar */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h3 className="text-base font-black text-foreground flex items-center gap-2">
-            <Crown className="h-5 w-5 text-amber-400" />
-            Configuração do Menu Lateral — Tag CEO
+            <Crown className={cn("h-5 w-5", ceoStyle.textClass)} />
+            Configuração do Menu Lateral — Painel CEO
           </h3>
           <p className="text-xs text-muted-foreground">
-            Personalize a ordem, títulos, categorias e visibilidade dos menus exclusivos da diretoria executiva.
+            Personalize a ordem, títulos, categorias, ícones e visibilidade dos menus exclusivos da diretoria executiva.
           </p>
         </div>
 
@@ -1136,35 +1299,35 @@ function CeoMenuLateralEditor() {
               persist(categories, items);
               toast.success("Configuração do Menu Lateral do CEO salva no Supabase! 👑");
             }}
-            className="h-9 text-xs gap-1.5 font-bold bg-amber-600 hover:bg-amber-500 text-black shadow-sm"
+            className={cn("h-9 text-xs gap-1.5 font-bold shadow-sm", ceoStyle.bgSolidClass)}
           >
             <Save className="h-3.5 w-3.5" />
             Salvar Menu CEO
           </Button>
 
-          <Badge className="bg-amber-500/15 text-amber-300 border-amber-500/30 text-xs gap-1 py-1 px-3">
+          <Badge className={cn("text-xs gap-1 py-1 px-3", ceoStyle.badgeClass)}>
             <CheckCircle2 className="h-3.5 w-3.5" />
-            Supabase Live
+            Supabase Live · {ceoStyle.label.split(" ")[0]}
           </Badge>
         </div>
       </div>
 
       {/* Category Management Section */}
-      <Card className="surface-card border-amber-500/30">
+      <Card className={cn("surface-card", ceoStyle.borderClass)}>
         <CardHeader className="pb-3 border-b border-border/60">
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-2">
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-500/15 border border-amber-500/30 text-amber-400">
+              <div className={cn("flex h-8 w-8 items-center justify-center rounded-lg border", ceoStyle.bgSubtleClass, ceoStyle.borderClass, ceoStyle.textClass)}>
                 <Tag className="h-4 w-4" />
               </div>
               <div>
-                <CardTitle className="text-sm font-bold text-amber-300">Categorias do Menu CEO</CardTitle>
+                <CardTitle className={cn("text-sm font-bold", ceoStyle.textClass)}>Categorias do Menu CEO</CardTitle>
                 <CardDescription className="text-[0.7rem]">
-                  Crie, renomeie e arraste os cards para reorganizar as seções do painel executivo
+                  Crie, renomeie, defina ícones e arraste os cards para reorganizar as seções do painel executivo
                 </CardDescription>
               </div>
             </div>
-            <Badge variant="outline" className="text-[10px] font-mono gap-1 border-amber-500/40 text-amber-300">
+            <Badge variant="outline" className={cn("text-[10px] font-mono gap-1", ceoStyle.badgeClass)}>
               <Move className="h-3 w-3" /> Drag & Drop Ativo ({categories.length})
             </Badge>
           </div>
@@ -1177,6 +1340,7 @@ function CeoMenuLateralEditor() {
               const itemCount = items.filter((i) => (i.category || "CEO") === cat).length;
               const isDraggingCat = draggedCatIdx === idx;
               const isOverCat = dragOverCatIdx === idx;
+              const CatIcon = resolveCategoryIcon(categoryIcons[cat], Crown);
 
               return (
                 <div
@@ -1188,9 +1352,9 @@ function CeoMenuLateralEditor() {
                   onDrop={(e) => handleCatDrop(e, idx)}
                   className={cn(
                     "flex items-center justify-between gap-2 p-2.5 rounded-xl bg-secondary/30 border border-border/50 transition-all",
-                    !isEditing && "cursor-grab active:cursor-grabbing hover:border-amber-500/40",
-                    isDraggingCat && "opacity-30 scale-95 border-dashed border-amber-500",
-                    isOverCat && "border-amber-500 bg-amber-500/10 shadow-lg scale-[1.01]"
+                    !isEditing && cn("cursor-grab active:cursor-grabbing", ceoStyle.borderHoverClass),
+                    isDraggingCat && cn("opacity-30 scale-95 border-dashed", ceoStyle.borderClass),
+                    isOverCat && cn(ceoStyle.borderClass, ceoStyle.bgSubtleClass, "shadow-lg scale-[1.01]")
                   )}
                 >
                   {isEditing ? (
@@ -1223,6 +1387,25 @@ function CeoMenuLateralEditor() {
                     <>
                       <div className="flex items-center gap-2 min-w-0 flex-1">
                         <GripVertical className="h-3.5 w-3.5 text-muted-foreground/60 shrink-0" />
+                        
+                        {/* Category Icon Button */}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setPickingForCat(cat);
+                            setIconPickerOpen(true);
+                          }}
+                          className={cn(
+                            "h-7 w-7 rounded-lg flex items-center justify-center border shrink-0 transition-all hover:scale-110 shadow-2xs",
+                            ceoStyle.bgSubtleClass,
+                            ceoStyle.borderClass,
+                            ceoStyle.textClass
+                          )}
+                          title="Clique para alterar o ícone desta categoria CEO"
+                        >
+                          <CatIcon className="h-3.5 w-3.5" />
+                        </button>
+
                         <span className="text-xs font-black text-foreground truncate">{cat}</span>
                         <Badge variant="secondary" className="text-[9px] px-1 py-0 font-mono text-muted-foreground">
                           {itemCount}
@@ -1251,7 +1434,7 @@ function CeoMenuLateralEditor() {
                         <button
                           type="button"
                           onClick={() => handleStartEditCategory(idx)}
-                          className="h-6 w-6 flex items-center justify-center rounded text-muted-foreground hover:text-amber-400 disabled:opacity-20"
+                          className={cn("h-6 w-6 flex items-center justify-center rounded text-muted-foreground disabled:opacity-20", "hover:" + ceoStyle.textClass)}
                           title="Editar nome da categoria"
                         >
                           <Edit3 className="h-3.5 w-3.5" />
@@ -1273,19 +1456,38 @@ function CeoMenuLateralEditor() {
           </div>
 
           {/* Add Category Form */}
-          <div className="flex items-center gap-2 pt-2 border-t border-border/40">
+          <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-border/40">
+            {/* New Category Icon Selector */}
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setPickingForCat(null);
+                setIconPickerOpen(true);
+              }}
+              className={cn("h-9 gap-1.5 px-3 text-xs font-bold border-border/60", ceoStyle.bgSubtleClass, ceoStyle.textClass)}
+              title="Escolher ícone para a nova categoria CEO"
+            >
+              {(() => {
+                const Ico = resolveCategoryIcon(selectedNewCatIcon, Crown);
+                return <Ico className="h-4 w-4" />;
+              })()}
+              <span className="hidden sm:inline">Ícone: {selectedNewCatIcon}</span>
+            </Button>
+
             <Input
               value={newCatName}
               onChange={(e) => setNewCatName(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && handleAddCategory()}
               placeholder="Nome da nova categoria CEO (ex: Estratégico, Auditoria)..."
-              className="h-9 text-xs bg-secondary/50 border-border/60 max-w-sm"
+              className="h-9 text-xs bg-secondary/50 border-border/60 max-w-sm flex-1"
             />
             <Button
               size="sm"
               onClick={handleAddCategory}
               disabled={!newCatName.trim()}
-              className="h-9 text-xs gap-1.5 bg-amber-600 hover:bg-amber-500 text-black font-bold"
+              className={cn("h-9 text-xs gap-1.5 font-bold shadow-sm", ceoStyle.bgSolidClass)}
             >
               <Plus className="h-3.5 w-3.5" />
               Criar Categoria CEO
@@ -1300,7 +1502,7 @@ function CeoMenuLateralEditor() {
         <div className="xl:col-span-2 space-y-4">
           <div className="flex items-center justify-between gap-2 p-3 rounded-xl bg-card border border-border/60">
             <div className="flex items-center gap-2">
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-500/15 border border-amber-500/30 text-amber-400">
+              <div className={cn("flex h-8 w-8 items-center justify-center rounded-lg border", ceoStyle.bgSubtleClass, ceoStyle.borderClass, ceoStyle.textClass)}>
                 <Menu className="h-4 w-4" />
               </div>
               <div>
@@ -1310,7 +1512,7 @@ function CeoMenuLateralEditor() {
                 </p>
               </div>
             </div>
-            <Badge variant="outline" className="text-[10px] gap-1 border-amber-500/40 text-amber-300">
+            <Badge variant="outline" className={cn("text-[10px] gap-1", ceoStyle.badgeClass)}>
               <Move className="h-3 w-3" /> Arraste para Reordenar
             </Badge>
           </div>
@@ -1319,18 +1521,19 @@ function CeoMenuLateralEditor() {
             const catItems = items
               .filter((i) => (i.category || "CEO") === cat)
               .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+            const CatIcon = resolveCategoryIcon(categoryIcons[cat], Crown);
 
             return (
               <Card key={cat} className="surface-card border-border/60">
                 <CardHeader className="pb-2 pt-3 px-4 border-b border-border/40 bg-secondary/20">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                      <FolderTree className="h-4 w-4 text-amber-400" />
+                      <CatIcon className={cn("h-4 w-4", ceoStyle.textClass)} />
                       <CardTitle className="text-xs font-bold text-foreground">
-                        Categoria CEO: <span className="text-amber-400 font-extrabold">{cat}</span>
+                        Categoria CEO: <span className={cn("font-extrabold", ceoStyle.textClass)}>{cat}</span>
                       </CardTitle>
                     </div>
-                    <Badge variant="outline" className="text-[10px] font-mono border-amber-500/40 text-amber-300 bg-amber-500/5">
+                    <Badge variant="outline" className={cn("text-[10px] font-mono", ceoStyle.badgeClass)}>
                       {catItems.length} {catItems.length === 1 ? "item" : "itens"}
                     </Badge>
                   </div>
@@ -1359,10 +1562,10 @@ function CeoMenuLateralEditor() {
                             className={cn(
                               "flex flex-col md:flex-row md:items-center justify-between gap-3 p-3 rounded-xl border transition-all duration-200 cursor-grab active:cursor-grabbing",
                               item.visible
-                                ? "bg-card/60 border-border/70 shadow-xs hover:border-amber-500/50 hover:bg-card/80"
+                                ? cn("bg-card/60 border-border/70 shadow-xs hover:bg-card/80", ceoStyle.borderHoverClass)
                                 : "bg-secondary/20 border-border/30 opacity-60",
-                              isDragging && "opacity-30 scale-95 border-dashed border-amber-500",
-                              isDragOver && "border-amber-500 bg-amber-500/10 shadow-lg scale-[1.01]"
+                              isDragging && cn("opacity-30 scale-95 border-dashed", ceoStyle.borderClass),
+                              isDragOver && cn(ceoStyle.borderClass, ceoStyle.bgSubtleClass, "shadow-lg scale-[1.01]")
                             )}
                           >
                             {/* Left Group: Controls + Icon + Title Input */}
@@ -1378,7 +1581,7 @@ function CeoMenuLateralEditor() {
                                 >
                                   <ChevronUp className="h-3 w-3" />
                                 </button>
-                                <GripVertical className="h-4 w-4 text-muted-foreground/60 hover:text-amber-400 cursor-grab" />
+                                <GripVertical className={cn("h-4 w-4 text-muted-foreground/60 cursor-grab", "hover:" + ceoStyle.textClass)} />
                                 <button
                                   type="button"
                                   onClick={() => moveItemWithinCategory(item.id, "down")}
@@ -1397,7 +1600,12 @@ function CeoMenuLateralEditor() {
                                 className="w-auto shrink-0"
                               >
                                 <SelectTrigger
-                                  className="h-10 w-10 p-0 border-amber-500/40 bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 flex items-center justify-center rounded-xl shrink-0 transition-colors shadow-xs [&>svg]:hidden"
+                                  className={cn(
+                                    "h-10 w-10 p-0 flex items-center justify-center rounded-xl shrink-0 transition-colors shadow-xs [&>svg]:hidden border",
+                                    ceoStyle.borderClass,
+                                    ceoStyle.bgSubtleClass,
+                                    ceoStyle.textClass
+                                  )}
                                   title="Alterar ícone do item"
                                 >
                                   <ItemIcon className="h-4 w-4" />
@@ -1408,7 +1616,7 @@ function CeoMenuLateralEditor() {
                                     return (
                                       <SelectItem key={ico.name} value={ico.name} className="text-xs">
                                         <div className="flex items-center gap-2">
-                                          <IcoComp className="h-3.5 w-3.5 text-amber-400" />
+                                          <IcoComp className={cn("h-3.5 w-3.5", ceoStyle.textClass)} />
                                           <span>{ico.label}</span>
                                         </div>
                                       </SelectItem>
@@ -1423,13 +1631,13 @@ function CeoMenuLateralEditor() {
                                   <Input
                                     value={item.title || ""}
                                     onChange={(e) => updateItem(item.id, { title: e.target.value })}
-                                    className="h-8 text-xs font-bold bg-background/90 border-border/70 hover:border-amber-500/40 focus:border-amber-500 transition-colors rounded-lg shadow-2xs"
+                                    className="h-8 text-xs font-bold bg-background/90 border-border/70 focus:border-primary transition-colors rounded-lg shadow-2xs"
                                     placeholder="Nome exibido no menu..."
                                   />
                                 </div>
                                 <div className="flex items-center gap-2 flex-wrap">
                                   <div className="flex items-center gap-1.5 text-[0.68rem] text-muted-foreground font-mono bg-secondary/60 border border-border/60 px-2 py-0.5 rounded-md truncate max-w-xs">
-                                    <span className="text-amber-400 font-bold">ROTA:</span>
+                                    <span className={cn("font-bold", ceoStyle.textClass)}>ROTA:</span>
                                     <span className="text-foreground font-semibold">{item.url}</span>
                                   </div>
                                   <Badge variant="outline" className="text-[9px] font-mono border-border/60 text-muted-foreground py-0">
@@ -1497,35 +1705,36 @@ function CeoMenuLateralEditor() {
 
         {/* Live Preview of CEO Sidebar */}
         <div className="space-y-3">
-          <Card className="surface-card sticky top-20 border-amber-500/30">
+          <Card className={cn("surface-card sticky top-20", ceoStyle.borderClass)}>
             <CardHeader className="pb-3 border-b border-border/60">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-500/15 border border-amber-500/30 text-amber-400">
+                  <div className={cn("flex h-8 w-8 items-center justify-center rounded-lg border", ceoStyle.bgSubtleClass, ceoStyle.borderClass, ceoStyle.textClass)}>
                     <Monitor className="h-4 w-4" />
                   </div>
                   <div>
-                    <CardTitle className="text-sm font-bold text-amber-300">Preview do Menu CEO</CardTitle>
+                    <CardTitle className={cn("text-sm font-bold", ceoStyle.textClass)}>Preview do Menu CEO</CardTitle>
                     <CardDescription className="text-[0.7rem]">Visualização em tempo real</CardDescription>
                   </div>
                 </div>
-                <Badge className="bg-amber-500/20 text-amber-200 border-amber-500/40 text-[9px] font-bold uppercase">
+                <Badge className={cn("text-[9px] font-bold uppercase", ceoStyle.badgeClass)}>
                   👑 Diretoria
                 </Badge>
               </div>
             </CardHeader>
 
             <CardContent className="p-3">
-              <div className="rounded-xl bg-sidebar border border-amber-500/20 p-3 space-y-3 shadow-inner">
+              <div className={cn("rounded-xl bg-sidebar border p-3 space-y-3 shadow-inner", ceoStyle.borderSubtleClass)}>
                 {categories.map((cat) => {
                   const catItems = grouped[cat] || [];
                   const visibleItems = catItems.filter((i) => i.visible);
                   if (visibleItems.length === 0) return null;
+                  const CatIcon = resolveCategoryIcon(categoryIcons[cat], Crown);
 
                   return (
                     <div key={cat}>
-                      <p className="text-[0.6rem] uppercase tracking-[0.2em] text-amber-400 font-black mb-1.5 px-1 flex items-center gap-1">
-                        <Crown className="h-2.5 w-2.5 text-amber-400" />
+                      <p className={cn("text-[0.6rem] uppercase tracking-[0.2em] font-black mb-1.5 px-1 flex items-center gap-1.5", ceoStyle.textClass)}>
+                        <CatIcon className="h-3 w-3" />
                         {cat}
                       </p>
                       <div className="space-y-0.5">
@@ -1535,9 +1744,14 @@ function CeoMenuLateralEditor() {
                           return (
                             <div
                               key={item.id}
-                              className="flex items-center gap-2 px-2 py-1.5 rounded-md text-xs text-amber-200/90 hover:bg-amber-500/10 transition-colors"
+                              className={cn(
+                                "flex items-center gap-2 px-2 py-1.5 rounded-md text-xs transition-colors",
+                                ceoStyle.textMutedClass,
+                                "hover:" + ceoStyle.bgSubtleClass,
+                                "hover:" + ceoStyle.textClass
+                              )}
                             >
-                              <Icon className="h-3.5 w-3.5 shrink-0 text-amber-400" />
+                              <Icon className={cn("h-3.5 w-3.5 shrink-0", ceoStyle.textClass)} />
                               <span className="truncate font-medium">{title}</span>
                             </div>
                           );
@@ -1562,6 +1776,23 @@ function CeoMenuLateralEditor() {
 function DevMenuLateralContent() {
   const [activeTab, setActiveTab] = useState<"dev" | "ceo">("dev");
 
+  const [devTheme, setDevTheme] = useState<PanelColor>(() => getDevThemeColorSync());
+  const [ceoTheme, setCeoTheme] = useState<PanelColor>(() => getCeoThemeColorSync());
+
+  useEffect(() => {
+    const handleConfig = (e: any) => {
+      if (e?.detail) {
+        if (e.detail.devThemeColor) setDevTheme(e.detail.devThemeColor);
+        if (e.detail.ceoThemeColor) setCeoTheme(e.detail.ceoThemeColor);
+      }
+    };
+    window.addEventListener(DEV_CONFIG_EVENT, handleConfig);
+    return () => window.removeEventListener(DEV_CONFIG_EVENT, handleConfig);
+  }, []);
+
+  const devStyle = useMemo(() => getPanelColorStyle(devTheme, "rose"), [devTheme]);
+  const ceoStyle = useMemo(() => getPanelColorStyle(ceoTheme, "amber"), [ceoTheme]);
+
   return (
     <div className="space-y-6 pb-12 animate-in fade-in-50 duration-300">
       {/* HEADER DA PÁGINA COM SELETOR DE ABAS DEV / CEO */}
@@ -1572,9 +1803,9 @@ function DevMenuLateralContent() {
           <div className="flex items-center gap-2">
             <Badge
               variant="outline"
-              className="border-rose-500/50 bg-rose-500/10 text-rose-400 font-mono font-bold text-xs px-2.5 py-1 flex items-center gap-1.5 shadow-sm"
+              className={cn("font-mono font-bold text-xs px-2.5 py-1 flex items-center gap-1.5 shadow-sm", devStyle.badgeClass)}
             >
-              <Terminal className="h-3.5 w-3.5 text-rose-400 animate-pulse" />
+              <Terminal className="h-3.5 w-3.5 animate-pulse" />
               Navigation Architecture
             </Badge>
           </div>
@@ -1585,19 +1816,28 @@ function DevMenuLateralContent() {
         <TabsList className="flex bg-secondary/30 border border-border/60 p-1.5 rounded-2xl flex-wrap h-auto gap-2 shadow-sm">
           <TabsTrigger
             value="dev"
-            className="text-xs font-bold gap-2 py-2.5 px-4 rounded-xl data-[state=active]:bg-gradient-to-r data-[state=active]:from-rose-600 data-[state=active]:to-pink-600 data-[state=active]:text-white data-[state=active]:shadow-md"
+            className={cn(
+              "text-xs font-bold gap-2 py-2.5 px-4 rounded-xl transition-all cursor-pointer",
+              activeTab === "dev" ? cn(devStyle.bgSolidClass, "shadow-md") : "hover:bg-secondary/50 text-muted-foreground"
+            )}
           >
             <Terminal className="h-4 w-4" />
             Menu Dev Tools
+            <Badge className={cn("text-[9px] py-0 px-1.5 font-extrabold border ml-1", activeTab === "dev" ? "bg-white/20 text-white border-white/30" : devStyle.badgeClass)}>
+              Dev
+            </Badge>
           </TabsTrigger>
 
           <TabsTrigger
             value="ceo"
-            className="text-xs font-bold gap-2 py-2.5 px-4 rounded-xl data-[state=active]:bg-gradient-to-r data-[state=active]:from-amber-600 data-[state=active]:to-yellow-500 data-[state=active]:text-black data-[state=active]:shadow-md"
+            className={cn(
+              "text-xs font-bold gap-2 py-2.5 px-4 rounded-xl transition-all cursor-pointer",
+              activeTab === "ceo" ? cn(ceoStyle.bgSolidClass, "shadow-md") : "hover:bg-secondary/50 text-muted-foreground"
+            )}
           >
             <Crown className="h-4 w-4" />
             Menu Painel CEO
-            <Badge className="bg-amber-400/20 text-amber-300 border-amber-400/40 text-[9px] py-0 px-1.5 font-extrabold">
+            <Badge className={cn("text-[9px] py-0 px-1.5 font-extrabold border ml-1", activeTab === "ceo" ? "bg-black/20 text-black border-black/30" : ceoStyle.badgeClass)}>
               Diretoria
             </Badge>
           </TabsTrigger>

@@ -13,6 +13,7 @@ export type CeoMenuItemConfig = {
 
 export type CeoMenuConfig = {
   categories?: string[];
+  categoryIcons?: Record<string, string>;
   items: CeoMenuItemConfig[];
 };
 
@@ -83,8 +84,14 @@ export function sanitizeCeoConfig(parsed: any): CeoMenuConfig {
     };
   });
 
+  const categoryIcons =
+    parsed?.categoryIcons && typeof parsed.categoryIcons === "object"
+      ? parsed.categoryIcons
+      : {};
+
   return {
     categories,
+    categoryIcons,
     items: merged.sort((a, b) => (a.order ?? 0) - (b.order ?? 0)),
   };
 }

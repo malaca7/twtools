@@ -25,6 +25,7 @@ import {
   Bot,
   Webhook,
   Code2,
+  Radio,
 } from "lucide-react";
 import type { Permission } from "@/lib/permissions";
 
@@ -76,6 +77,8 @@ export const READ_ONLY_PERMISSIONS: Permission[] = [
   "view_tickets",
   "view_all_tickets",
   "view_notifications",
+  "view_lives",
+  "view_stream_logs",
 ];
 
 export const PAGE_CARDS: PageCardConfig[] = [
@@ -202,6 +205,67 @@ export const PAGE_CARDS: PageCardConfig[] = [
         label: "Apagar Registros de Vendas",
         description: "Permite apagar definitivamente um lançamento de venda do sistema.",
         badge: "Ação Crítica",
+      },
+    ],
+  },
+  {
+    id: "lives",
+    title: "Transmissões & Lives",
+    route: "/lives",
+    icon: Radio,
+    description: "Central de transmissões ao vivo da facção, detecção automática de streamers, vinculação de contas e notificações em tempo real.",
+    color: "border-rose-500/40 bg-rose-500/5 text-rose-400",
+    defaultCat: "Operação",
+    defaultOrder: 3,
+    permissions: [
+      {
+        key: "view_lives",
+        label: "Visualizar Lives e Transmissões (/lives)",
+        description: "Permite acessar a página /lives, assistir streamers e receber alertas em tempo real.",
+        badge: "Acesso à Rota",
+      },
+      {
+        key: "link_stream_account",
+        label: "Vincular Contas de Transmissão",
+        description: "Permite ao membro conectar e desconectar seus próprios canais de streaming (Twitch, Kick, YouTube, TikTok).",
+        badge: "Vinculação",
+      },
+      {
+        key: "manage_stream_accounts",
+        label: "Gerenciar Contas de Streamers",
+        description: "Permite à gerência/liderança gerenciar ou desvincular canais de outros membros da organização.",
+        badge: "Moderação",
+      },
+      {
+        key: "force_end_live_session",
+        label: "Encerrar Sessões de Live Manualmente",
+        description: "Permite forçar o encerramento do status online de lives ativas na plataforma.",
+        badge: "Operacional",
+      },
+      {
+        key: "simulate_live_stream",
+        label: "Simular Lives & Testar Notificações",
+        description: "Permite disparar testes de simulação de abertura e encerramento de live para validar notificações sonoras e push.",
+        badge: "Testes / Dev",
+      },
+      {
+        key: "configure_stream_api",
+        label: "Configurar Credenciais de APIs & Webhooks",
+        description: "Permite configurar Client IDs, Secrets e tokens de conexão com Twitch, Kick, YouTube e TikTok.",
+        badge: "Configuração API",
+        importantNote: "Acesso a chaves confidenciais e credenciais de provedores de streaming.",
+      },
+      {
+        key: "view_stream_logs",
+        label: "Visualizar Histórico de Eventos & Logs de Stream",
+        description: "Permite auditar o log detalhado de checagens periódicas, webhooks recebidos e alertas de início de live.",
+        badge: "Logs / Auditoria",
+      },
+      {
+        key: "manage_lives",
+        label: "Gerenciamento Total do Módulo de Lives",
+        description: "Concede autoridade completa sobre todas as ferramentas, contas de membros, webhooks e configurações de transmissão.",
+        badge: "Super Gestão",
       },
     ],
   },

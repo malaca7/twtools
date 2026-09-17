@@ -22,6 +22,7 @@ import {
   ShieldAlert,
   ShieldCheck,
   ArrowRight,
+  Radio,
 } from "lucide-react";
 import { useManagementPendingActions } from "@/hooks/useManagementPendingActions";
 import {
@@ -69,6 +70,8 @@ function renderTypeIcon(type: NotificationType, className: string = "h-4 w-4") {
       return <Megaphone className={className} />;
     case "signup":
       return <UserPlus className={className} />;
+    case "live":
+      return <Radio className={cn(className, "text-rose-400 animate-pulse")} />;
     case "system":
     default:
       return <Bell className={className} />;

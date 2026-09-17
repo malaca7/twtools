@@ -12,6 +12,7 @@ export type DevMenuItemConfig = {
 
 export type DevMenuConfig = {
   categories?: string[];
+  categoryIcons?: Record<string, string>;
   items: DevMenuItemConfig[];
 };
 

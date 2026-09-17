@@ -24,8 +24,13 @@ import {
   Eye,
   ExternalLink,
   Webhook,
-  Hash,
+  Radio,
+  Palette,
+  Crown,
+  Check,
 } from "lucide-react";
+import { PANEL_COLOR_STYLES, type PanelColor, getPanelColorStyle } from "@/lib/panelTheme";
+import { DevLivesConfigCard } from "@/components/dev/DevLivesConfigCard";
 import { reportAppError } from "@/lib/app-error-reporting";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -79,12 +84,12 @@ export function DevConfiguracaoContent() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Sincronização da aba ativa com a URL (?tab=bot-manage | webhooks | discord-logs | general)
+  // Sincronização da aba ativa com a URL (?tab=bot-manage | webhooks | discord-logs | lives | general)
   const [activeTab, setActiveTab] = useUrlTab<
-    "bot-manage" | "webhooks" | "discord-logs" | "general"
+    "bot-manage" | "webhooks" | "discord-logs" | "lives" | "general"
   >("bot-manage", {
     paramName: "tab",
-    allowedTabs: ["bot-manage", "webhooks", "discord-logs", "general"],
+    allowedTabs: ["bot-manage", "webhooks", "discord-logs", "lives", "general"],
   });
 
   // Estados para Auditoria de Ações Dev
@@ -306,7 +311,7 @@ export function DevConfiguracaoContent() {
         </Card>
       ) : (
         <Tabs value={activeTab} onValueChange={(val: any) => setActiveTab(val)} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-2 md:grid-cols-4 max-w-4xl bg-secondary/40 p-1 rounded-xl border border-border/60 gap-1">
+          <TabsList className="grid w-full grid-cols-2 sm:grid-cols-3 md:grid-cols-5 max-w-5xl bg-secondary/40 p-1 rounded-xl border border-border/60 gap-1">
             <TabsTrigger value="bot-manage" className="text-xs font-bold gap-2 py-2 data-[state=active]:bg-gradient-to-r data-[state=active]:from-indigo-600 data-[state=active]:to-purple-600 data-[state=active]:text-white">
               <Bot className="h-4 w-4" />
               Gerenciar Bot
@@ -319,7 +324,11 @@ export function DevConfiguracaoContent() {
               <Hash className="h-4 w-4" />
               Canais & Logs
             </TabsTrigger>
-            <TabsTrigger value="general" className="text-xs font-bold gap-2 py-2 data-[state=active]:bg-gradient-to-r data-[state=active]:from-rose-600 data-[state=active]:to-pink-600 data-[state=active]:text-white">
+            <TabsTrigger value="lives" className="text-xs font-bold gap-2 py-2 data-[state=active]:bg-gradient-to-r data-[state=active]:from-rose-600 data-[state=active]:to-red-600 data-[state=active]:text-white">
+              <Radio className="h-4 w-4" />
+              Integração Lives
+            </TabsTrigger>
+            <TabsTrigger value="general" className="text-xs font-bold gap-2 py-2 data-[state=active]:bg-gradient-to-r data-[state=active]:from-zinc-700 data-[state=active]:to-zinc-800 data-[state=active]:text-white">
               <Settings className="h-4 w-4" />
               Ajustes Gerais Dev
             </TabsTrigger>
@@ -340,10 +349,174 @@ export function DevConfiguracaoContent() {
             <DevDiscordConfigCard />
           </TabsContent>
 
+          {/* TAB 4: INTEGRAÇÃO LIVES */}
+          <TabsContent value="lives" className="space-y-6 animate-in fade-in-50 duration-300">
+            <DevLivesConfigCard />
+          </TabsContent>
+
           {/* TAB 4: AJUSTES GERAIS DEV */}
           <TabsContent value="general" className="space-y-6 animate-in fade-in-50 duration-300">
             {/* Card de Limpeza Forçada de Cache em Tempo Real */}
             <DevForcePurgeCard />
+
+            {/* Card de Cores Padrão dos Painéis Dev & CEO */}
+            <Card className="surface-card border transition-all duration-300">
+              <CardHeader className="pb-3 border-b border-border/60">
+                <div className="flex items-center justify-between gap-3 flex-wrap">
+                  <div className="flex items-center gap-2.5">
+                    <div className="p-2 rounded-lg bg-primary/10 text-primary border border-primary/20">
+                      <Palette className="h-4 w-4" />
+                    </div>
+                    <div>
+                      <CardTitle className="text-sm font-extrabold text-foreground">
+                        Cores Padrão dos Painéis Dev & CEO
+                      </CardTitle>
+                      <CardDescription className="text-xs">
+                        Configure a cor temática oficial dos menus, categorias e ícones de cada painel.
+                      </CardDescription>
+                    </div>
+                  </div>
+                  <Badge variant="outline" className="text-[10px] font-mono border-primary/40 text-primary">
+                    Identidade Visual
+                  </Badge>
+                </div>
+              </CardHeader>
+              <CardContent className="p-5 space-y-6">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  {/* Seletor 1: Cor do Painel Dev */}
+                  <div className="space-y-4 p-4 rounded-xl bg-secondary/20 border border-border/60">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <Terminal className="h-4 w-4 text-rose-400" />
+                        <span className="text-xs font-black uppercase tracking-wider text-foreground">
+                          Cor Padrão do Painel Dev
+                        </span>
+                      </div>
+                      <Badge className={getPanelColorStyle(config.devThemeColor, "rose").badgeClass}>
+                        {getPanelColorStyle(config.devThemeColor, "rose").label}
+                      </Badge>
+                    </div>
+                    <p className="text-[0.7rem] text-muted-foreground">
+                      Define a cor padrão aplicada a todas as categorias, ícones e itens do menu lateral em modo Desenvolvedor.
+                    </p>
+
+                    {/* Paleta de Cores Dev */}
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                      {(Object.keys(PANEL_COLOR_STYLES) as PanelColor[]).map((cKey) => {
+                        const style = PANEL_COLOR_STYLES[cKey];
+                        const isSelected = (config.devThemeColor || "rose") === cKey;
+
+                        return (
+                          <button
+                            key={`dev-color-${cKey}`}
+                            type="button"
+                            onClick={() => {
+                              setConfig((prev) => ({ ...prev, devThemeColor: cKey }));
+                            }}
+                            className={cn(
+                              "flex items-center gap-2 p-2 rounded-xl border text-left text-xs font-bold transition-all cursor-pointer",
+                              isSelected
+                                ? cn(style.borderClass, style.bgSubtleClass, "ring-2", style.ringClass, "shadow-sm")
+                                : "border-border/60 bg-secondary/30 hover:bg-secondary/60 text-muted-foreground hover:text-foreground"
+                            )}
+                          >
+                            <span
+                              className="h-3.5 w-3.5 rounded-full shrink-0 shadow-xs border border-white/20"
+                              style={{ backgroundColor: style.hex }}
+                            />
+                            <span className="truncate text-[11px]">{style.label.split(" ")[0]}</span>
+                            {isSelected && <Check className="h-3 w-3 ml-auto shrink-0" />}
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    {/* Preview Rápido Dev */}
+                    <div className={cn("p-3 rounded-xl border text-xs space-y-2", getPanelColorStyle(config.devThemeColor, "rose").borderSubtleClass, getPanelColorStyle(config.devThemeColor, "rose").bgSubtleClass)}>
+                      <div className="flex items-center justify-between text-[11px]">
+                        <span className={cn("font-bold flex items-center gap-1.5", getPanelColorStyle(config.devThemeColor, "rose").textClass)}>
+                          <Terminal className="h-3.5 w-3.5" />
+                          Prévia da Categoria Dev
+                        </span>
+                        <Badge className={getPanelColorStyle(config.devThemeColor, "rose").badgeClass}>
+                          Dev Active
+                        </Badge>
+                      </div>
+                      <div className={cn("px-3 py-1.5 rounded-lg flex items-center gap-2 text-[11px]", getPanelColorStyle(config.devThemeColor, "rose").activeItemClass)}>
+                        <Code2 className="h-3.5 w-3.5 shrink-0" />
+                        <span>Item Ativo de Menu Dev</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Seletor 2: Cor do Painel CEO */}
+                  <div className="space-y-4 p-4 rounded-xl bg-secondary/20 border border-border/60">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <Crown className="h-4 w-4 text-amber-400" />
+                        <span className="text-xs font-black uppercase tracking-wider text-foreground">
+                          Cor Padrão do Painel CEO
+                        </span>
+                      </div>
+                      <Badge className={getPanelColorStyle(config.ceoThemeColor, "amber").badgeClass}>
+                        {getPanelColorStyle(config.ceoThemeColor, "amber").label}
+                      </Badge>
+                    </div>
+                    <p className="text-[0.7rem] text-muted-foreground">
+                      Define a cor padrão aplicada a todas as categorias, ícones e itens do menu lateral em modo Executivo CEO.
+                    </p>
+
+                    {/* Paleta de Cores CEO */}
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                      {(Object.keys(PANEL_COLOR_STYLES) as PanelColor[]).map((cKey) => {
+                        const style = PANEL_COLOR_STYLES[cKey];
+                        const isSelected = (config.ceoThemeColor || "amber") === cKey;
+
+                        return (
+                          <button
+                            key={`ceo-color-${cKey}`}
+                            type="button"
+                            onClick={() => {
+                              setConfig((prev) => ({ ...prev, ceoThemeColor: cKey }));
+                            }}
+                            className={cn(
+                              "flex items-center gap-2 p-2 rounded-xl border text-left text-xs font-bold transition-all cursor-pointer",
+                              isSelected
+                                ? cn(style.borderClass, style.bgSubtleClass, "ring-2", style.ringClass, "shadow-sm")
+                                : "border-border/60 bg-secondary/30 hover:bg-secondary/60 text-muted-foreground hover:text-foreground"
+                            )}
+                          >
+                            <span
+                              className="h-3.5 w-3.5 rounded-full shrink-0 shadow-xs border border-white/20"
+                              style={{ backgroundColor: style.hex }}
+                            />
+                            <span className="truncate text-[11px]">{style.label.split(" ")[0]}</span>
+                            {isSelected && <Check className="h-3 w-3 ml-auto shrink-0" />}
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    {/* Preview Rápido CEO */}
+                    <div className={cn("p-3 rounded-xl border text-xs space-y-2", getPanelColorStyle(config.ceoThemeColor, "amber").borderSubtleClass, getPanelColorStyle(config.ceoThemeColor, "amber").bgSubtleClass)}>
+                      <div className="flex items-center justify-between text-[11px]">
+                        <span className={cn("font-bold flex items-center gap-1.5", getPanelColorStyle(config.ceoThemeColor, "amber").textClass)}>
+                          <Crown className="h-3.5 w-3.5" />
+                          Prévia da Categoria CEO
+                        </span>
+                        <Badge className={getPanelColorStyle(config.ceoThemeColor, "amber").badgeClass}>
+                          CEO Active
+                        </Badge>
+                      </div>
+                      <div className={cn("px-3 py-1.5 rounded-lg flex items-center gap-2 text-[11px]", getPanelColorStyle(config.ceoThemeColor, "amber").activeItemClass)}>
+                        <Crown className="h-3.5 w-3.5 shrink-0" />
+                        <span>Item Ativo de Menu CEO</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
               {/* Option 1: Developer Bypass */}
