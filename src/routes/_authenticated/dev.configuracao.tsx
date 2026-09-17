@@ -28,6 +28,7 @@ import {
   Palette,
   Crown,
   Check,
+  Hash,
 } from "lucide-react";
 import { PANEL_COLOR_STYLES, type PanelColor, getPanelColorStyle } from "@/lib/panelTheme";
 import { DevLivesConfigCard } from "@/components/dev/DevLivesConfigCard";
