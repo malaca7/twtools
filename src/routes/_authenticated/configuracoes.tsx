@@ -2626,8 +2626,8 @@ export function ConfiguracoesPage() {
               value="perfil"
               className="gap-1.5 text-xs font-bold data-[state=active]:bg-primary/15 data-[state=active]:text-primary data-[state=active]:border-primary/30 rounded-lg px-4 py-2"
             >
-              <Globe className="h-3.5 w-3.5 text-emerald-400" />
-              Perfil Público
+              <User className="h-3.5 w-3.5 text-primary" />
+              Meu Perfil
             </TabsTrigger>
             <TabsTrigger
               value="aparencia"

@@ -122,7 +122,7 @@ export function PublicProfilePage({ handleOverride }: { handleOverride?: string 
   const streamAccounts = (fullProfile?.member_stream_accounts || []) as any[];
 
   // Identifica se é preset ou imagem externa
-  const isPresetBanner = !bannerValue.startsWith("http://") && !bannerValue.startsWith("https://");
+  const isPresetBanner = !bannerValue.startsWith("http://") && !bannerValue.startsWith("https://") && !bannerValue.startsWith("data:image");
   const matchedPreset = BANNER_PRESETS.find((p) => p.id === bannerValue) || BANNER_PRESETS[0];
 
   const handleCopyLink = () => {

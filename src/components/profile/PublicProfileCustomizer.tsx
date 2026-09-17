@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
@@ -15,6 +15,8 @@ import {
   Check,
   Eye,
   CheckCircle2,
+  Upload,
+  Trash2,
 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -24,10 +26,11 @@ import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { BANNER_PRESETS, type SocialLinks } from "@/types/profileFeed";
+import { type SocialLinks } from "@/types/profileFeed";
 import { updateUserProfile } from "@/lib/app-api";
 import { errorMessage } from "@/lib/format";
 import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 
 export function PublicProfileCustomizer() {
@@ -35,9 +38,10 @@ export function PublicProfileCustomizer() {
   const queryClient = useQueryClient();
 
   // Estados dos campos de personalização
-  const [bannerType, setBannerType] = useState<"preset" | "url">("preset");
-  const [selectedPreset, setSelectedPreset] = useState("tw_classic");
-  const [customBannerUrl, setCustomBannerUrl] = useState("");
+  const [bannerUrl, setBannerUrl] = useState("");
+  const [isUploadingBanner, setIsUploadingBanner] = useState(false);
+  const bannerInputRef = useRef<HTMLInputElement>(null);
+
   const [bio, setBio] = useState("");
   const [customStatus, setCustomStatus] = useState("");
   const [customUrl, setCustomUrl] = useState("");
@@ -53,15 +57,11 @@ export function PublicProfileCustomizer() {
 
   useEffect(() => {
     if (profile) {
-      const banner = (profile as any).banner_url || profile.custom_theme?.banner_url || "tw_classic";
-      if (banner.startsWith("http://") || banner.startsWith("https://")) {
-        setBannerType("url");
-        setCustomBannerUrl(banner);
-        setSelectedPreset("tw_classic");
+      const banner = (profile as any).banner_url || profile.custom_theme?.banner_url || "";
+      if (banner && (banner.startsWith("http://") || banner.startsWith("https://") || banner.startsWith("data:image"))) {
+        setBannerUrl(banner);
       } else {
-        setBannerType("preset");
-        setSelectedPreset(banner || "tw_classic");
-        setCustomBannerUrl("");
+        setBannerUrl("");
       }
 
       setBio((profile as any).bio || profile.custom_theme?.bio || "");
@@ -78,7 +78,77 @@ export function PublicProfileCustomizer() {
     }
   }, [profile]);
 
-  const activeBanner = bannerType === "url" && customBannerUrl.trim() ? customBannerUrl.trim() : selectedPreset;
+  const handleBannerFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith("image/")) {
+      toast.error("Por favor, selecione um arquivo de imagem válido (PNG, JPG, WEBP, GIF).");
+      return;
+    }
+
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error("A imagem do banner deve ter no máximo 10MB.");
+      return;
+    }
+
+    setIsUploadingBanner(true);
+    const toastId = toast.loading("Fazendo upload da imagem do banner...");
+
+    try {
+      const ext = file.name.split(".").pop()?.toLowerCase() || "png";
+      const cleanExt = ["png", "jpg", "jpeg", "webp", "gif"].includes(ext) ? ext : "png";
+      const fileName = `banner_${user?.id || "user"}_${Date.now()}.${cleanExt}`;
+
+      let finalUrl = "";
+
+      // 1. Tenta bucket 'products'
+      const { data: prodData, error: prodErr } = await supabase.storage
+        .from("products")
+        .upload(fileName, file, {
+          cacheControl: "31536000",
+          upsert: true,
+          contentType: file.type || `image/${cleanExt}`,
+        });
+
+      if (!prodErr && prodData) {
+        const { data: pubData } = supabase.storage.from("products").getPublicUrl(prodData.path);
+        finalUrl = pubData.publicUrl;
+      } else {
+        // 2. Fallback para bucket 'chat-attachments'
+        const { data: chatData, error: chatErr } = await supabase.storage
+          .from("chat-attachments")
+          .upload(fileName, file, {
+            cacheControl: "31536000",
+            upsert: true,
+            contentType: file.type || `image/${cleanExt}`,
+          });
+
+        if (!chatErr && chatData) {
+          const { data: pubData } = supabase.storage.from("chat-attachments").getPublicUrl(chatData.path);
+          finalUrl = pubData.publicUrl;
+        } else {
+          // 3. Fallback para Base64 Data URL
+          finalUrl = await new Promise<string>((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result as string);
+            reader.onerror = () => reject(new Error("Falha ao ler o arquivo selecionado"));
+            reader.readAsDataURL(file);
+          });
+        }
+      }
+
+      setBannerUrl(finalUrl);
+      toast.success("Banner carregado com sucesso! Clique em Salvar para aplicar.", { id: toastId });
+    } catch (err: any) {
+      toast.error(err.message || "Falha ao fazer upload da imagem do banner", { id: toastId });
+    } finally {
+      setIsUploadingBanner(false);
+      if (bannerInputRef.current) {
+        bannerInputRef.current.value = "";
+      }
+    }
+  };
 
   const saveMutation = useMutation({
     mutationFn: async () => {
@@ -97,7 +167,7 @@ export function PublicProfileCustomizer() {
         game_id: profile?.game_id || "",
         custom_url: customUrl.trim().toLowerCase().replace(/^@/, "") || null,
         public_profile_enabled: publicProfileEnabled,
-        banner_url: activeBanner,
+        banner_url: bannerUrl || null,
         bio: bio.trim() || null,
         custom_status: customStatus.trim() || null,
         social_links: socialLinks,
@@ -132,8 +202,6 @@ export function PublicProfileCustomizer() {
     toast.success("Link do perfil copiado!");
     setTimeout(() => setCopiedLink(false), 2000);
   };
-
-  const currentPresetObj = BANNER_PRESETS.find((p) => p.id === selectedPreset) || BANNER_PRESETS[0];
 
   return (
     <div className="space-y-6">
@@ -194,15 +262,10 @@ export function PublicProfileCustomizer() {
         <CardContent className="p-0">
           {/* BANNER PREVIEW */}
           <div className="h-32 sm:h-36 w-full relative overflow-hidden bg-black">
-            {bannerType === "preset" ? (
-              <div className={cn("w-full h-full bg-gradient-to-r relative", currentPresetObj.gradient)}>
-                <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_30%,rgba(255,255,255,0.06),transparent_60%)]" />
-                <div className="absolute inset-0 bg-[linear-gradient(to_top,rgba(0,0,0,0.8)_0%,transparent_70%)]" />
-              </div>
-            ) : (
+            {bannerUrl ? (
               <div className="w-full h-full relative">
                 <img
-                  src={customBannerUrl || "/banner-default.jpg"}
+                  src={bannerUrl}
                   alt="Banner Preview"
                   className="w-full h-full object-cover"
                   onError={(e) => {
@@ -210,6 +273,11 @@ export function PublicProfileCustomizer() {
                   }}
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent" />
+              </div>
+            ) : (
+              <div className="w-full h-full bg-gradient-to-r from-emerald-950 via-zinc-950 to-neutral-950 relative flex items-center justify-center">
+                <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_30%,rgba(255,255,255,0.06),transparent_60%)]" />
+                <div className="absolute inset-0 bg-[linear-gradient(to_top,rgba(0,0,0,0.8)_0%,transparent_70%)]" />
               </div>
             )}
             <div className="absolute right-4 bottom-2 text-right select-none opacity-20 pointer-events-none">
@@ -256,76 +324,93 @@ export function PublicProfileCustomizer() {
       <div className="grid gap-6 md:grid-cols-2">
         {/* COLUNA 1: BANNER, STATUS E IDENTIFICADOR */}
         <div className="space-y-6">
-          {/* BANNER SELECTION */}
+          {/* BANNER SELECTION COM UPLOAD */}
           <Card className="surface-card">
             <CardHeader className="pb-3">
               <CardTitle className="text-sm font-semibold flex items-center gap-2">
                 <ImageIcon className="h-4 w-4 text-primary" />
-                Banner do Perfil
+                Alterar Banner do Perfil
               </CardTitle>
               <CardDescription className="text-xs">
-                Escolha um tema visual exclusivo ou insira uma imagem personalizada.
+                Faça upload de uma imagem personalizada para o banner do seu perfil público.
               </CardDescription>
             </CardHeader>
 
             <CardContent className="space-y-4">
-              <div className="flex items-center gap-2 p-1 rounded-xl bg-secondary/50 border border-border/60">
-                <Button
-                  type="button"
-                  variant={bannerType === "preset" ? "default" : "ghost"}
-                  size="sm"
-                  onClick={() => setBannerType("preset")}
-                  className="flex-1 text-xs font-bold rounded-lg h-7 cursor-pointer"
-                >
-                  Galeria de Estilos (8)
-                </Button>
-                <Button
-                  type="button"
-                  variant={bannerType === "url" ? "default" : "ghost"}
-                  size="sm"
-                  onClick={() => setBannerType("url")}
-                  className="flex-1 text-xs font-bold rounded-lg h-7 cursor-pointer"
-                >
-                  URL Personalizada
-                </Button>
-              </div>
+              <input
+                ref={bannerInputRef}
+                type="file"
+                accept="image/png,image/jpeg,image/webp,image/gif"
+                className="hidden"
+                onChange={handleBannerFileChange}
+                disabled={isUploadingBanner}
+              />
 
-              {bannerType === "preset" ? (
-                <div className="grid grid-cols-2 gap-2 max-h-56 overflow-y-auto pr-1">
-                  {BANNER_PRESETS.map((p) => {
-                    const isSelected = selectedPreset === p.id;
-                    return (
-                      <button
-                        key={p.id}
+              {bannerUrl ? (
+                <div className="space-y-3">
+                  <div className="relative rounded-xl overflow-hidden border border-border/80 h-32 w-full bg-black shadow-inner">
+                    <img
+                      src={bannerUrl}
+                      alt="Banner Preview"
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        (e.target as HTMLElement).style.display = "none";
+                      }}
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/20" />
+                    <div className="absolute bottom-2 left-3 right-3 flex items-center justify-between">
+                      <Badge variant="outline" className="bg-background/80 text-[10px] font-mono border-emerald-500/40 text-emerald-400 backdrop-blur-xs">
+                        <CheckCircle2 className="h-3 w-3 mr-1" /> Imagem Ativa
+                      </Badge>
+                      <Button
                         type="button"
-                        onClick={() => setSelectedPreset(p.id)}
-                        className={cn(
-                          "relative p-2.5 rounded-xl border text-left transition-all overflow-hidden cursor-pointer",
-                          isSelected
-                            ? "border-primary ring-2 ring-primary/30 shadow-md"
-                            : "border-border/60 hover:border-border"
-                        )}
+                        variant="destructive"
+                        size="sm"
+                        onClick={() => setBannerUrl("")}
+                        className="h-7 px-2.5 text-xs rounded-lg gap-1 shadow-sm cursor-pointer"
                       >
-                        <div className={cn("h-10 w-full rounded-lg bg-gradient-to-r mb-2", p.gradient)} />
-                        <div className="flex items-center justify-between gap-1">
-                          <span className="font-bold text-[11px] text-foreground truncate">{p.name}</span>
-                          {isSelected && <CheckCircle2 className="h-3.5 w-3.5 text-primary shrink-0" />}
-                        </div>
-                      </button>
-                    );
-                  })}
+                        <Trash2 className="h-3 w-3" />
+                        <span>Remover</span>
+                      </Button>
+                    </div>
+                  </div>
+
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => bannerInputRef.current?.click()}
+                    disabled={isUploadingBanner}
+                    className="w-full text-xs font-bold gap-1.5 rounded-xl border-primary/30 hover:bg-primary/10 text-primary cursor-pointer"
+                  >
+                    {isUploadingBanner ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <Upload className="h-3.5 w-3.5" />
+                    )}
+                    <span>Trocar Imagem do Banner</span>
+                  </Button>
                 </div>
               ) : (
-                <div className="space-y-2">
-                  <Label className="text-xs">Link Direto da Imagem do Banner</Label>
-                  <Input
-                    placeholder="https://exemplo.com/meu-banner.png ou .jpg"
-                    value={customBannerUrl}
-                    onChange={(e) => setCustomBannerUrl(e.target.value)}
-                    className="text-xs font-mono"
-                  />
-                  <p className="text-[11px] text-muted-foreground">
-                    Recomendado: imagem panorâmica de proporção 16:9 ou 3:1 (mínimo 1200x400px).
+                <div
+                  onClick={() => bannerInputRef.current?.click()}
+                  className={cn(
+                    "border-2 border-dashed border-border/80 hover:border-primary/60 hover:bg-primary/5 rounded-2xl p-6 flex flex-col items-center justify-center text-center cursor-pointer transition-all group",
+                    isUploadingBanner && "opacity-60 pointer-events-none"
+                  )}
+                >
+                  <div className="h-12 w-12 rounded-2xl bg-primary/10 text-primary flex items-center justify-center mb-3 group-hover:scale-105 transition-transform">
+                    {isUploadingBanner ? (
+                      <Loader2 className="h-6 w-6 animate-spin" />
+                    ) : (
+                      <Upload className="h-6 w-6" />
+                    )}
+                  </div>
+                  <p className="text-xs font-bold text-foreground">
+                    {isUploadingBanner ? "Enviando imagem do banner..." : "Clique para fazer upload da imagem do banner"}
+                  </p>
+                  <p className="text-[11px] text-muted-foreground mt-1 max-w-xs">
+                    Formatos: PNG, JPG, WEBP ou GIF (máx. 10MB). Proporção panorâmica recomendada: 16:9 ou 3:1.
                   </p>
                 </div>
               )}
