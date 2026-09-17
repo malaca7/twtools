@@ -99,3 +99,35 @@ ALTER TABLE public.stream_sessions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.member_stream_preferences ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.stream_system_config ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.stream_integration_logs ENABLE ROW LEVEL SECURITY;
+
+-- Políticas stream_system_config
+DROP POLICY IF EXISTS "stream_system_config_select_policy" ON public.stream_system_config;
+DROP POLICY IF EXISTS "stream_system_config_all_auth_policy" ON public.stream_system_config;
+
+CREATE POLICY "stream_system_config_select_policy" ON public.stream_system_config
+  FOR SELECT TO public
+  USING (true);
+
+CREATE POLICY "stream_system_config_all_auth_policy" ON public.stream_system_config
+  FOR ALL TO authenticated
+  USING (true)
+  WITH CHECK (true);
+
+-- Políticas stream_integration_logs
+DROP POLICY IF EXISTS "stream_integration_logs_select_policy" ON public.stream_integration_logs;
+DROP POLICY IF EXISTS "stream_integration_logs_all_auth_policy" ON public.stream_integration_logs;
+
+CREATE POLICY "stream_integration_logs_select_policy" ON public.stream_integration_logs
+  FOR SELECT TO public
+  USING (true);
+
+CREATE POLICY "stream_integration_logs_all_auth_policy" ON public.stream_integration_logs
+  FOR ALL TO authenticated
+  USING (true)
+  WITH CHECK (true);
+
+GRANT ALL ON public.stream_system_config TO authenticated, service_role;
+GRANT ALL ON public.stream_integration_logs TO authenticated, service_role;
+GRANT SELECT ON public.stream_system_config TO anon;
+GRANT SELECT ON public.stream_integration_logs TO anon;
+

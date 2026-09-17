@@ -307,14 +307,31 @@ export async function saveStreamSystemConfig(
 
   if (userId) payload.updated_by = userId;
 
-  const { data, error } = await supabase
-    .from("stream_system_config")
-    .upsert(payload, { onConflict: "id" })
-    .select()
-    .single();
+  let resultData: any = null;
 
-  if (error) {
-    throw new Error(error.message || "Falha ao salvar configurações de lives.");
+  // Tenta update primeiro (pois o registro id=1 é padrão no banco)
+  const { data: updatedData, error: updateError } = await supabase
+    .from("stream_system_config")
+    .update(payload)
+    .eq("id", 1)
+    .select()
+    .maybeSingle();
+
+  if (!updateError && updatedData) {
+    resultData = updatedData;
+  } else {
+    // Fallback para upsert caso o registro ainda não exista
+    const { data: upsertData, error: upsertError } = await supabase
+      .from("stream_system_config")
+      .upsert(payload, { onConflict: "id" })
+      .select()
+      .single();
+
+    if (upsertError) {
+      console.error("Erro ao salvar stream_system_config:", upsertError);
+      throw new Error(upsertError.message || "Falha ao salvar configurações de lives.");
+    }
+    resultData = upsertData;
   }
 
   // Também replica em role_permissions (level = 'system_streams_config') para redundância
@@ -330,7 +347,7 @@ export async function saveStreamSystemConfig(
     );
   } catch {}
 
-  return data as StreamSystemConfig;
+  return resultData as StreamSystemConfig;
 }
 
 /**
