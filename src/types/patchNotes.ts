@@ -9,6 +9,7 @@ export type PatchNoteCategory =
 export interface PatchNoteImage {
   id: string;
   url: string;
+  original_url?: string;
   name: string;
   size?: number;
   caption?: string;

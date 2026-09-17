@@ -42,6 +42,7 @@ import {
   Sliders,
   Star,
   Bell,
+  BellRing,
   Shield,
   Terminal,
   TrendingUp,
@@ -103,6 +104,7 @@ export const AVAILABLE_MENU_ICONS: MenuIconDef[] = [
   { name: "Sliders", label: "Painel / Controles", icon: Sliders },
   { name: "Star", label: "Destaque / Favoritos", icon: Star },
   { name: "Bell", label: "Alertas", icon: Bell },
+  { name: "BellRing", label: "Notificações", icon: BellRing },
   { name: "Shield", label: "Proteção / Blindagem", icon: Shield },
   { name: "Terminal", label: "Terminal / Dev", icon: Terminal },
   { name: "Crown", label: "CEO / Diretoria", icon: Crown },
@@ -134,6 +136,7 @@ export const CANONICAL_URL_ICONS: Record<string, LucideIcon> = {
   "/atualizacoes": Sparkles,
   "/perfil": User,
   "/configuracoes": Wrench,
+  "/notificacoes": Bell,
   "/dev": Terminal,
   "/dev/bot": Bot,
   "/dev.bot": Bot,
@@ -141,11 +144,13 @@ export const CANONICAL_URL_ICONS: Record<string, LucideIcon> = {
   "/dev/configuracao": Sliders,
   "/dev/menu-lateral": Sliders,
   "/dev/patch-notes": Sparkles,
+  "/dev/notificacoes": BellRing,
   "/ceo": Crown,
   "/ceo/dashboard": LayoutDashboard,
   "/ceo/bot": Bot,
   "/ceo/webhooks": Webhook,
   "/ceo/financas": Landmark,
+  "/ceo/notificacoes": BellRing,
 };
 
 const ICON_BY_NAME: Record<string, LucideIcon> = AVAILABLE_MENU_ICONS.reduce(

@@ -10,6 +10,7 @@ import {
   Eye,
   Edit3,
   Check,
+  Sliders,
 } from "lucide-react";
 import {
   Dialog,
@@ -33,6 +34,7 @@ import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PatchNoteCard } from "./PatchNoteCard";
 import { uploadPatchNoteImage } from "@/services/patchNotesService";
+import { UniversalImageAdjusterModal } from "@/components/ui/UniversalImageAdjusterModal";
 import { toast } from "sonner";
 import type {
   DevPatchNote,
@@ -66,6 +68,10 @@ export function PatchNoteEditorDialog({
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Image Studio State
+  const [adjustingImage, setAdjustingImage] = useState<PatchNoteImage | null>(null);
+  const [isAdjusterOpen, setIsAdjusterOpen] = useState(false);
 
   useEffect(() => {
     if (editingNote) {
@@ -143,6 +149,29 @@ export function PatchNoteEditorDialog({
 
   const handleRemoveImage = (id: string) => {
     setImages((prev) => prev.filter((img) => img.id !== id));
+  };
+
+  const handleOpenImageAdjuster = (img: PatchNoteImage) => {
+    setAdjustingImage(img);
+    setIsAdjusterOpen(true);
+  };
+
+  const handleSaveAdjustedImage = (_croppedBlob: Blob, croppedDataUrl: string, originalDataUrl?: string) => {
+    if (!adjustingImage) return;
+    setImages((prev) =>
+      prev.map((img) =>
+        img.id === adjustingImage.id
+          ? {
+              ...img,
+              url: croppedDataUrl,
+              original_url: originalDataUrl || img.original_url || adjustingImage.url,
+            }
+          : img
+      )
+    );
+    setIsAdjusterOpen(false);
+    setAdjustingImage(null);
+    toast.success("Imagem atualizada com os novos enquadramentos!");
   };
 
   const handleUpdateImageCaption = (id: string, caption: string) => {
@@ -438,15 +467,27 @@ export function PatchNoteEditorDialog({
                             className="h-6 text-[10px] bg-black/30 border-white/10 rounded-md text-[#d1d7db] px-1.5"
                           />
                         </div>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleRemoveImage(img.id)}
-                          className="h-7 w-7 text-[#8696a0] hover:text-rose-400 hover:bg-white/10 rounded-lg shrink-0 cursor-pointer"
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </Button>
+                        <div className="flex items-center gap-1">
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            title="Ajustar Imagem no Estúdio Pro"
+                            onClick={() => handleOpenImageAdjuster(img)}
+                            className="h-7 w-7 text-[#8696a0] hover:text-[#00a884] hover:bg-white/10 rounded-lg shrink-0 cursor-pointer"
+                          >
+                            <Sliders className="h-3.5 w-3.5" />
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleRemoveImage(img.id)}
+                            className="h-7 w-7 text-[#8696a0] hover:text-rose-400 hover:bg-white/10 rounded-lg shrink-0 cursor-pointer"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -509,6 +550,22 @@ export function PatchNoteEditorDialog({
           </Button>
         </DialogFooter>
       </DialogContent>
+
+      {/* MODAL ESTÚDIO PRO DE AJUSTE DE IMAGEM */}
+      {isAdjusterOpen && adjustingImage && (
+        <UniversalImageAdjusterModal
+          isOpen={isAdjusterOpen}
+          imageSrc={adjustingImage.original_url || adjustingImage.url}
+          title={`Estúdio Pro — ${adjustingImage.name || "Ajuste de Imagem"}`}
+          description="Ajuste zoom, enquadramento, rotação, espelhamento e filtros de imagem para patch notes."
+          aspectRatioPreset="16:9"
+          onClose={() => {
+            setIsAdjusterOpen(false);
+            setAdjustingImage(null);
+          }}
+          onSave={handleSaveAdjustedImage}
+        />
+      )}
     </Dialog>
   );
 }

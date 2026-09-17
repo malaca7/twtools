@@ -37,7 +37,9 @@ import {
   Award,
   RotateCcw,
   Edit3,
+  Sliders,
 } from "lucide-react";
+import { UniversalImageAdjusterModal } from "@/components/ui/UniversalImageAdjusterModal";
 import { PageHeader, NoAccess, TableSkeleton, EmptyState } from "@/components/ui-kit";
 import { useAuth } from "@/hooks/useAuth";
 import { useMembers, nameOf } from "@/hooks/useData";
@@ -245,6 +247,9 @@ export function MetasPage() {
   const [deliverAmount, setDeliverAmount] = useState<string>("");
   const [receiverId, setReceiverId] = useState<string>("");
   const [deliverProofUrl, setDeliverProofUrl] = useState<string>("");
+  const [originalProofSrc, setOriginalProofSrc] = useState<string | null>(null);
+  const [proofAdjusterOpen, setProofAdjusterOpen] = useState(false);
+  const [pendingProofSrc, setPendingProofSrc] = useState<string | null>(null);
   const [deliverNotes, setDeliverNotes] = useState<string>("");
   const [deliverDate, setDeliverDate] = useState(() => new Date().toISOString().slice(0, 16));
   const [isDraggingFile, setIsDraggingFile] = useState(false);
@@ -282,6 +287,7 @@ export function MetasPage() {
     }
     setDeliverAmount("");
     setDeliverProofUrl("");
+    setOriginalProofSrc(null);
     setDeliverNotes("");
     setReceiverId("");
     setDeliverModalOpen(true);
@@ -305,17 +311,38 @@ export function MetasPage() {
       toast.error("Por favor, selecione um arquivo de imagem válido (PNG, JPG, WEBP).");
       return;
     }
-    if (file.size > 10 * 1024 * 1024) {
-      toast.error("A imagem deve ter no máximo 10MB.");
+    if (file.size > 15 * 1024 * 1024) {
+      toast.error("A imagem deve ter no máximo 15MB.");
       return;
     }
     const reader = new FileReader();
     reader.onload = (e) => {
       const result = e.target?.result as string;
-      setDeliverProofUrl(result);
-      toast.success("Print do comprovante anexado!");
+      setPendingProofSrc(result);
+      setOriginalProofSrc(result);
+      setProofAdjusterOpen(true);
     };
     reader.readAsDataURL(file);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  };
+
+  const handleSaveAdjustedProof = (_croppedBlob: Blob, croppedDataUrl: string, originalDataUrl?: string) => {
+    setDeliverProofUrl(croppedDataUrl);
+    if (originalDataUrl) {
+      setOriginalProofSrc(originalDataUrl);
+    }
+    setProofAdjusterOpen(false);
+    setPendingProofSrc(null);
+    toast.success("Comprovante ajustado no estúdio com sucesso!");
+  };
+
+  const handleReAdjustProof = () => {
+    const source = originalProofSrc || deliverProofUrl;
+    if (!source) return;
+    setPendingProofSrc(source);
+    setProofAdjusterOpen(true);
   };
 
   const handlePaste = (e: React.ClipboardEvent) => {
@@ -1916,17 +1943,32 @@ export function MetasPage() {
                   </div>
                   <div className="flex items-center justify-between text-xs pt-1">
                     <span className="text-emerald-400 font-bold flex items-center gap-1">
-                      <CheckCircle2 className="h-3.5 w-3.5" /> Print Anexado com Sucesso
+                      <CheckCircle2 className="h-3.5 w-3.5" /> Print Anexado
                     </span>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      type="button"
-                      onClick={() => setDeliverProofUrl("")}
-                      className="h-7 text-xs text-destructive hover:bg-destructive/10"
-                    >
-                      Remover Print
-                    </Button>
+                    <div className="flex items-center gap-1.5">
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        type="button"
+                        onClick={handleReAdjustProof}
+                        className="h-7 px-2.5 text-xs font-bold gap-1 bg-secondary text-foreground hover:bg-secondary/80 cursor-pointer"
+                      >
+                        <Sliders className="h-3 w-3 text-primary" />
+                        <span>Ajustar Foto</span>
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        type="button"
+                        onClick={() => {
+                          setDeliverProofUrl("");
+                          setOriginalProofSrc(null);
+                        }}
+                        className="h-7 text-xs text-destructive hover:bg-destructive/10 cursor-pointer"
+                      >
+                        Remover
+                      </Button>
+                    </div>
                   </div>
                 </div>
               ) : (
@@ -2421,6 +2463,22 @@ export function MetasPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* ESTÚDIO PRO DE AJUSTE DE COMPROVANTE */}
+      {proofAdjusterOpen && pendingProofSrc && (
+        <UniversalImageAdjusterModal
+          isOpen={proofAdjusterOpen}
+          imageSrc={pendingProofSrc}
+          title="Estúdio Pro — Ajuste e Enquadramento do Comprovante"
+          description="Ajuste o zoom no valor/F8, corte as bordas, ajuste o brilho/contraste para melhor leitura da liderança."
+          aspectRatioPreset="auto"
+          onClose={() => {
+            setProofAdjusterOpen(false);
+            setPendingProofSrc(null);
+          }}
+          onSave={handleSaveAdjustedProof}
+        />
+      )}
     </div>
   );
 }

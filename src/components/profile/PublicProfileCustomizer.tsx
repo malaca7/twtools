@@ -17,6 +17,7 @@ import {
   CheckCircle2,
   Upload,
   Trash2,
+  Sliders,
 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -26,6 +27,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { UniversalImageAdjusterModal } from "@/components/ui/UniversalImageAdjusterModal";
 import { type SocialLinks } from "@/types/profileFeed";
 import { updateUserProfile } from "@/lib/app-api";
 import { errorMessage } from "@/lib/format";
@@ -39,7 +41,10 @@ export function PublicProfileCustomizer() {
 
   // Estados dos campos de personalização
   const [bannerUrl, setBannerUrl] = useState("");
+  const [originalBannerUrl, setOriginalBannerUrl] = useState("");
   const [isUploadingBanner, setIsUploadingBanner] = useState(false);
+  const [bannerAdjusterOpen, setBannerAdjusterOpen] = useState(false);
+  const [pendingBannerSrc, setPendingBannerSrc] = useState<string | null>(null);
   const bannerInputRef = useRef<HTMLInputElement>(null);
 
   const [bio, setBio] = useState("");
@@ -64,6 +69,9 @@ export function PublicProfileCustomizer() {
         setBannerUrl("");
       }
 
+      const origBanner = profile.custom_theme?.original_banner_url || (profile as any).original_banner_url || banner || "";
+      setOriginalBannerUrl(origBanner);
+
       setBio((profile as any).bio || profile.custom_theme?.bio || "");
       setCustomStatus((profile as any).custom_status || profile.custom_theme?.custom_status || "");
       setCustomUrl(profile.custom_url || profile.custom_theme?.custom_url || "");
@@ -78,7 +86,7 @@ export function PublicProfileCustomizer() {
     }
   }, [profile]);
 
-  const handleBannerFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleBannerFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -87,66 +95,79 @@ export function PublicProfileCustomizer() {
       return;
     }
 
-    if (file.size > 10 * 1024 * 1024) {
-      toast.error("A imagem do banner deve ter no máximo 10MB.");
+    if (file.size > 15 * 1024 * 1024) {
+      toast.error("A imagem do banner deve ter no máximo 15MB.");
       return;
     }
 
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = reader.result as string;
+      setPendingBannerSrc(result);
+      setOriginalBannerUrl(result);
+      setBannerAdjusterOpen(true);
+    };
+    reader.readAsDataURL(file);
+
+    if (bannerInputRef.current) {
+      bannerInputRef.current.value = "";
+    }
+  };
+
+  const handleReAdjustBanner = () => {
+    const source = originalBannerUrl || bannerUrl;
+    if (!source) return;
+    setPendingBannerSrc(source);
+    setBannerAdjusterOpen(true);
+  };
+
+  const handleSaveAdjustedBanner = async (croppedBlob: Blob, croppedDataUrl: string, originalDataUrl?: string) => {
     setIsUploadingBanner(true);
-    const toastId = toast.loading("Fazendo upload da imagem do banner...");
+    const toastId = toast.loading("Salvando e otimizando banner no estúdio...");
 
     try {
-      const ext = file.name.split(".").pop()?.toLowerCase() || "png";
-      const cleanExt = ["png", "jpg", "jpeg", "webp", "gif"].includes(ext) ? ext : "png";
-      const fileName = `banner_${user?.id || "user"}_${Date.now()}.${cleanExt}`;
+      const fileName = `banner_${user?.id || "user"}_${Date.now()}.png`;
+      let finalCroppedUrl = croppedDataUrl;
 
-      let finalUrl = "";
-
-      // 1. Tenta bucket 'products'
+      // 1. Tenta upload no bucket 'products'
       const { data: prodData, error: prodErr } = await supabase.storage
         .from("products")
-        .upload(fileName, file, {
+        .upload(fileName, croppedBlob, {
           cacheControl: "31536000",
           upsert: true,
-          contentType: file.type || `image/${cleanExt}`,
+          contentType: "image/png",
         });
 
       if (!prodErr && prodData) {
         const { data: pubData } = supabase.storage.from("products").getPublicUrl(prodData.path);
-        finalUrl = pubData.publicUrl;
+        finalCroppedUrl = pubData.publicUrl;
       } else {
-        // 2. Fallback para bucket 'chat-attachments'
+        // Fallback chat-attachments
         const { data: chatData, error: chatErr } = await supabase.storage
           .from("chat-attachments")
-          .upload(fileName, file, {
+          .upload(fileName, croppedBlob, {
             cacheControl: "31536000",
             upsert: true,
-            contentType: file.type || `image/${cleanExt}`,
+            contentType: "image/png",
           });
 
         if (!chatErr && chatData) {
           const { data: pubData } = supabase.storage.from("chat-attachments").getPublicUrl(chatData.path);
-          finalUrl = pubData.publicUrl;
-        } else {
-          // 3. Fallback para Base64 Data URL
-          finalUrl = await new Promise<string>((resolve, reject) => {
-            const reader = new FileReader();
-            reader.onload = () => resolve(reader.result as string);
-            reader.onerror = () => reject(new Error("Falha ao ler o arquivo selecionado"));
-            reader.readAsDataURL(file);
-          });
+          finalCroppedUrl = pubData.publicUrl;
         }
       }
 
-      setBannerUrl(finalUrl);
-      toast.success("Banner carregado com sucesso! Clique em Salvar para aplicar.", { id: toastId });
+      setBannerUrl(finalCroppedUrl);
+      if (originalDataUrl) {
+        setOriginalBannerUrl(originalDataUrl);
+      }
+      toast.success("Banner ajustado com sucesso! Clique em Salvar para aplicar.", { id: toastId });
     } catch (err: any) {
-      toast.error(err.message || "Falha ao fazer upload da imagem do banner", { id: toastId });
+      toast.error(err.message || "Falha ao salvar banner", { id: toastId });
     } finally {
       setIsUploadingBanner(false);
-      if (bannerInputRef.current) {
-        bannerInputRef.current.value = "";
-      }
+      setBannerAdjusterOpen(false);
+      setPendingBannerSrc(null);
     }
   };
 
@@ -168,6 +189,7 @@ export function PublicProfileCustomizer() {
         custom_url: customUrl.trim().toLowerCase().replace(/^@/, "") || null,
         public_profile_enabled: publicProfileEnabled,
         banner_url: bannerUrl || null,
+        original_banner_url: originalBannerUrl || bannerUrl || null,
         bio: bio.trim() || null,
         custom_status: customStatus.trim() || null,
         social_links: socialLinks,
@@ -190,13 +212,13 @@ export function PublicProfileCustomizer() {
 
   const handleOpenPublicProfile = () => {
     const cleanSlug = String(activeSlug || "").replace(/^@/, "");
-    window.open(`/perfil/${cleanSlug}`, "_blank");
+    window.open(`/@${cleanSlug}`, "_blank");
   };
 
   const handleCopyLink = () => {
     const origin = typeof window !== "undefined" ? window.location.origin : "";
     const cleanSlug = String(activeSlug || "").replace(/^@/, "");
-    const link = `${origin}/perfil/${cleanSlug}`;
+    const link = `${origin}/@${cleanSlug}`;
     navigator.clipboard.writeText(link);
     setCopiedLink(true);
     toast.success("Link do perfil copiado!");
@@ -362,34 +384,62 @@ export function PublicProfileCustomizer() {
                       <Badge variant="outline" className="bg-background/80 text-[10px] font-mono border-emerald-500/40 text-emerald-400 backdrop-blur-xs">
                         <CheckCircle2 className="h-3 w-3 mr-1" /> Imagem Ativa
                       </Badge>
-                      <Button
-                        type="button"
-                        variant="destructive"
-                        size="sm"
-                        onClick={() => setBannerUrl("")}
-                        className="h-7 px-2.5 text-xs rounded-lg gap-1 shadow-sm cursor-pointer"
-                      >
-                        <Trash2 className="h-3 w-3" />
-                        <span>Remover</span>
-                      </Button>
+                      <div className="flex items-center gap-1.5">
+                        <Button
+                          type="button"
+                          variant="secondary"
+                          size="sm"
+                          onClick={handleReAdjustBanner}
+                          className="h-7 px-2.5 text-xs rounded-lg gap-1 shadow-sm cursor-pointer bg-black/60 hover:bg-black/80 text-white border border-white/20"
+                        >
+                          <Sliders className="h-3 w-3 text-primary" />
+                          <span>Ajustar Foto</span>
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="destructive"
+                          size="sm"
+                          onClick={() => {
+                            setBannerUrl("");
+                            setOriginalBannerUrl("");
+                          }}
+                          className="h-7 px-2.5 text-xs rounded-lg gap-1 shadow-sm cursor-pointer"
+                        >
+                          <Trash2 className="h-3 w-3" />
+                          <span>Remover</span>
+                        </Button>
+                      </div>
                     </div>
                   </div>
 
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => bannerInputRef.current?.click()}
-                    disabled={isUploadingBanner}
-                    className="w-full text-xs font-bold gap-1.5 rounded-xl border-primary/30 hover:bg-primary/10 text-primary cursor-pointer"
-                  >
-                    {isUploadingBanner ? (
-                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                    ) : (
-                      <Upload className="h-3.5 w-3.5" />
-                    )}
-                    <span>Trocar Imagem do Banner</span>
-                  </Button>
+                  <div className="grid grid-cols-2 gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={handleReAdjustBanner}
+                      disabled={isUploadingBanner}
+                      className="text-xs font-bold gap-1.5 rounded-xl border-primary/40 hover:bg-primary/10 text-primary cursor-pointer"
+                    >
+                      <Sliders className="h-3.5 w-3.5" />
+                      <span>Reajustar no Estúdio</span>
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => bannerInputRef.current?.click()}
+                      disabled={isUploadingBanner}
+                      className="text-xs font-bold gap-1.5 rounded-xl border border-border cursor-pointer"
+                    >
+                      {isUploadingBanner ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <Upload className="h-3.5 w-3.5" />
+                      )}
+                      <span>Trocar Imagem</span>
+                    </Button>
+                  </div>
                 </div>
               ) : (
                 <div
@@ -606,6 +656,22 @@ export function PublicProfileCustomizer() {
           <span>Salvar Alterações do Perfil Público</span>
         </Button>
       </div>
+
+      {/* ESTÚDIO PRO DE AJUSTE DE BANNER */}
+      {bannerAdjusterOpen && pendingBannerSrc && (
+        <UniversalImageAdjusterModal
+          isOpen={bannerAdjusterOpen}
+          imageSrc={pendingBannerSrc}
+          title="Estúdio Pro — Ajuste de Imagem do Banner"
+          description="Use os controles de zoom, arrasto, rotação, espelhamento e filtros para deixar seu banner impecável."
+          aspectRatioPreset="3:1"
+          onClose={() => {
+            setBannerAdjusterOpen(false);
+            setPendingBannerSrc(null);
+          }}
+          onSave={handleSaveAdjustedBanner}
+        />
+      )}
     </div>
   );
 }

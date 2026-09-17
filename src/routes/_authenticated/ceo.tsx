@@ -22,6 +22,7 @@ import {
   Activity,
   Calendar,
   AlertCircle,
+  BellRing,
 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -34,6 +35,7 @@ import { useUrlTab } from "@/hooks/useUrlTab";
 import { CeoGuard } from "@/guards/CeoGuard";
 import { DevBotManageCard } from "@/components/dev/DevBotManageCard";
 import { DevWebhooksConfigCard } from "@/components/dev/DevWebhooksConfigCard";
+import { CeoNotificationsManager } from "@/components/notifications/CeoNotificationsManager";
 import {
   getCeoConfiguration,
   type CeoConfiguration,

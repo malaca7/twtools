@@ -69,8 +69,34 @@ export function useStreamSessions(options?: { isLiveOnly?: boolean; limit?: numb
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "stream_sessions" },
-        () => {
+        (changePayload: any) => {
           void queryClient.invalidateQueries({ queryKey: ["stream_sessions"] });
+
+          // Se a sessão entrou ao vivo (is_live virou true)
+          const newRow = changePayload?.new;
+          const oldRow = changePayload?.old;
+          if (newRow && newRow.is_live && (!oldRow || !oldRow.is_live)) {
+            try {
+              import("@/lib/sound-effects").then(({ playNotificationChimeSound }) => {
+                playNotificationChimeSound(70);
+              });
+            } catch {}
+
+            const streamer = newRow.streamer_name || "Membro";
+            const platformName = newRow.platform ? newRow.platform.toUpperCase() : "Live";
+            toast(`🔴 ${streamer} está Ao Vivo agora!`, {
+              description: `${newRow.title || "Transmitindo ao vivo"} na ${platformName}`,
+              action: {
+                label: "Assistir",
+                onClick: () => {
+                  if (newRow.stream_url) {
+                    window.open(newRow.stream_url, "_blank");
+                  }
+                },
+              },
+              duration: 10000,
+            });
+          }
         }
       )
       .subscribe();
@@ -289,3 +315,34 @@ export function useStartQuickStreamSession() {
     },
   });
 }
+
+/**
+ * Hook para monitoramento automático de lives em background no frontend
+ */
+export function useAutoLiveStreamPoller(intervalMs: number = 45000) {
+  const queryClient = useQueryClient();
+
+  useEffect(() => {
+    import("@/services/liveStreamService").then(({ runAutoLiveStreamCheckCycle }) => {
+      // Primeira checagem 3 segundos após montar
+      const initialTimer = setTimeout(() => {
+        void runAutoLiveStreamCheckCycle().then(() => {
+          void queryClient.invalidateQueries({ queryKey: ["stream_sessions"] });
+        });
+      }, 3000);
+
+      // Intervalo periódico contínuo
+      const interval = setInterval(() => {
+        void runAutoLiveStreamCheckCycle().then(() => {
+          void queryClient.invalidateQueries({ queryKey: ["stream_sessions"] });
+        });
+      }, intervalMs);
+
+      return () => {
+        clearTimeout(initialTimer);
+        clearInterval(interval);
+      };
+    });
+  }, [queryClient, intervalMs]);
+}
+

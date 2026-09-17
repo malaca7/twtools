@@ -14,24 +14,13 @@ function AuthenticatedLayout() {
   const { user, approvedAccess, loading } = useAuth();
   const location = useLocation();
 
-  // Verifica se o visitante está acessando um perfil público (/perfil/:handle)
+  // Verifica se o visitante está acessando um perfil público (/perfil/:handle ou similar)
   const isPublicProfilePath = (() => {
     const p = (location.pathname || "").toLowerCase().trim();
     return p.startsWith("/perfil/") && p !== "/perfil/dados" && p !== "/perfil/aparencia" && p !== "/perfil/publico";
   })();
 
-  if (loading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-background p-4">
-        <div className="flex flex-col items-center gap-3 text-center">
-          <Loader2 className="h-10 w-10 animate-spin text-primary" />
-          <p className="text-xs text-muted-foreground font-medium">Carregando painel Twin Wheels...</p>
-        </div>
-      </div>
-    );
-  }
-
-  // Se for perfil público (/perfil/:handle), SEMPRE renderiza como página standalone independente do AppShell
+  // Se for perfil público (/perfil/:handle), SEMPRE renderiza como página standalone independente do AppShell e sem bloquear no loading
   if (isPublicProfilePath) {
     return (
       <div className="min-h-screen bg-background text-foreground flex flex-col selection:bg-primary/20 selection:text-primary">
@@ -64,14 +53,14 @@ function AuthenticatedLayout() {
 
               {user ? (
                 <Link to="/dashboard">
-                  <Button size="sm" className="h-8 px-3 text-xs font-bold gap-1.5 rounded-xl bg-gradient-brand text-primary-foreground shadow-sm hover:opacity-90">
+                  <Button size="sm" className="h-8 px-3 text-xs font-bold gap-1.5 rounded-xl bg-gradient-brand text-primary-foreground shadow-sm hover:opacity-90 cursor-pointer">
                     <LayoutDashboard className="h-3.5 w-3.5" />
                     <span>Painel da Facção</span>
                   </Button>
                 </Link>
               ) : (
                 <Link to="/">
-                  <Button size="sm" className="h-8 px-3 text-xs font-bold gap-1.5 rounded-xl bg-gradient-brand text-primary-foreground shadow-sm hover:opacity-90">
+                  <Button size="sm" className="h-8 px-3 text-xs font-bold gap-1.5 rounded-xl bg-gradient-brand text-primary-foreground shadow-sm hover:opacity-90 cursor-pointer">
                     <LogIn className="h-3.5 w-3.5" />
                     <span>Acessar Painel / Entrar</span>
                   </Button>
@@ -90,6 +79,17 @@ function AuthenticatedLayout() {
             Twin Wheels © {new Date().getFullYear()} · Sistema de Gestão e Operações GTA RP
           </p>
         </footer>
+      </div>
+    );
+  }
+
+  if (loading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background p-4">
+        <div className="flex flex-col items-center gap-3 text-center">
+          <Loader2 className="h-10 w-10 animate-spin text-primary" />
+          <p className="text-xs text-muted-foreground font-medium">Carregando painel Twin Wheels...</p>
+        </div>
       </div>
     );
   }

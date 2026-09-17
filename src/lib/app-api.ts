@@ -802,7 +802,10 @@ export async function updateUserProfile(payload: {
   game_id: string;
   custom_url?: string | null;
   public_profile_enabled?: boolean;
+  avatar_url?: string | null;
+  original_avatar_url?: string | null;
   banner_url?: string | null;
+  original_banner_url?: string | null;
   bio?: string | null;
   custom_status?: string | null;
   social_links?: any;
@@ -847,6 +850,8 @@ export async function updateUserProfile(payload: {
     ...(cleanCustomUrl !== undefined ? { custom_url: cleanCustomUrl } : {}),
     ...(payload.public_profile_enabled !== undefined ? { public_profile_enabled: payload.public_profile_enabled } : {}),
     ...(payload.banner_url !== undefined ? { banner_url: payload.banner_url } : {}),
+    ...(payload.original_banner_url !== undefined ? { original_banner_url: payload.original_banner_url } : {}),
+    ...(payload.original_avatar_url !== undefined ? { original_avatar_url: payload.original_avatar_url } : {}),
     ...(payload.bio !== undefined ? { bio: payload.bio } : {}),
     ...(payload.custom_status !== undefined ? { custom_status: payload.custom_status } : {}),
     ...(payload.social_links !== undefined ? { social_links: payload.social_links } : {}),
@@ -861,6 +866,11 @@ export async function updateUserProfile(payload: {
     updated_at: new Date().toISOString(),
   };
 
+  if (cleanCustomUrl !== undefined) updateFields.custom_url = cleanCustomUrl;
+  if ((payload as any).avatar_url !== undefined) {
+    updateFields.avatar_url = (payload as any).avatar_url;
+    updateFields.discord_avatar_url = (payload as any).avatar_url;
+  }
   if (payload.banner_url !== undefined) updateFields.banner_url = payload.banner_url;
   if (payload.bio !== undefined) updateFields.bio = payload.bio;
   if (payload.custom_status !== undefined) updateFields.custom_status = payload.custom_status;

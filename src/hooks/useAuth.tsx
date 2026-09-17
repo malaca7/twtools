@@ -17,6 +17,7 @@ type AuthContextValue = {
   level: AppLevel | null;
   signupRequestStatus: SignupRequestStatus | null;
   approvedAccess: boolean;
+  loading: boolean;
   isDevMode: boolean;
   isDevUser: boolean;
   isCeoMode: boolean;
@@ -206,7 +207,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [applyState]);
 
   useEffect(() => {
-    void loadAuth().finally(() => setLoading(false));
+    let active = true;
+    const timer = setTimeout(() => {
+      if (active) setLoading(false);
+    }, 2500);
+
+    void loadAuth().finally(() => {
+      if (active) {
+        clearTimeout(timer);
+        setLoading(false);
+      }
+    });
+
+    return () => {
+      active = false;
+      clearTimeout(timer);
+    };
   }, [loadAuth]);
 
   // Real-time synchronization for role changes and permissions updates

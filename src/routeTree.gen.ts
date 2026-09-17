@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as HandleRouteImport } from './routes/$handle'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as AuthenticatedAtualizacoesRouteImport } from './routes/_authenticated/atualizacoes'
 import { Route as AuthenticatedAusenciasRouteImport } from './routes/_authenticated/ausencias'
@@ -30,6 +31,7 @@ import { Route as AuthenticatedLogsRouteImport } from './routes/_authenticated/l
 import { Route as AuthenticatedMembrosRouteImport } from './routes/_authenticated/membros'
 import { Route as AuthenticatedMetasRouteImport } from './routes/_authenticated/metas'
 import { Route as AuthenticatedMovimentacoesRouteImport } from './routes/_authenticated/movimentacoes'
+import { Route as AuthenticatedNotificacoesRouteImport } from './routes/_authenticated/notificacoes'
 import { Route as AuthenticatedPerfilRouteImport } from './routes/_authenticated/perfil'
 import { Route as AuthenticatedPermissoesRouteImport } from './routes/_authenticated/permissoes'
 import { Route as AuthenticatedProdutosRouteImport } from './routes/_authenticated/produtos'
@@ -41,6 +43,7 @@ import { Route as DevDiscordIdRouteImport } from './routes/dev.$discordId'
 import { Route as DevmlcDiscordIdRouteImport } from './routes/devmlc.$discordId'
 import { Route as AuthenticatedAusenciasTabRouteImport } from './routes/_authenticated/ausencias.$tab'
 import { Route as AuthenticatedCeoTabRouteImport } from './routes/_authenticated/ceo.$tab'
+import { Route as AuthenticatedCeoNotificacoesRouteImport } from './routes/_authenticated/ceo.notificacoes'
 import { Route as AuthenticatedConfiguracoesTabRouteImport } from './routes/_authenticated/configuracoes.$tab'
 import { Route as AuthenticatedDevIndexRouteImport } from './routes/_authenticated/dev.index'
 import { Route as AuthenticatedDevPageRouteImport } from './routes/_authenticated/dev.$page'
@@ -48,6 +51,7 @@ import { Route as AuthenticatedDevBotRouteImport } from './routes/_authenticated
 import { Route as AuthenticatedDevConfiguracaoRouteImport } from './routes/_authenticated/dev.configuracao'
 import { Route as AuthenticatedDevDesempenhoRouteImport } from './routes/_authenticated/dev.desempenho'
 import { Route as AuthenticatedDevMenuLateralRouteImport } from './routes/_authenticated/dev.menu-lateral'
+import { Route as AuthenticatedDevNotificacoesRouteImport } from './routes/_authenticated/dev.notificacoes'
 import { Route as AuthenticatedDevPatchNotesRouteImport } from './routes/_authenticated/dev.patch-notes'
 import { Route as AuthenticatedDevPermissoesRouteImport } from './routes/_authenticated/dev.permissoes'
 import { Route as AuthenticatedHierarquiaTabRouteImport } from './routes/_authenticated/hierarquia.$tab'
@@ -67,6 +71,11 @@ import { Route as AuthenticatedDevConfiguracaoTabRouteImport } from './routes/_a
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const HandleRoute = HandleRouteImport.update({
+  id: '/$handle',
+  path: '/$handle',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
@@ -171,6 +180,12 @@ const AuthenticatedMovimentacoesRoute =
     path: '/movimentacoes',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedNotificacoesRoute =
+  AuthenticatedNotificacoesRouteImport.update({
+    id: '/notificacoes',
+    path: '/notificacoes',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedPerfilRoute = AuthenticatedPerfilRouteImport.update({
   id: '/perfil',
   path: '/perfil',
@@ -227,6 +242,12 @@ const AuthenticatedCeoTabRoute = AuthenticatedCeoTabRouteImport.update({
   path: '/$tab',
   getParentRoute: () => AuthenticatedCeoRoute,
 } as any)
+const AuthenticatedCeoNotificacoesRoute =
+  AuthenticatedCeoNotificacoesRouteImport.update({
+    id: '/notificacoes',
+    path: '/notificacoes',
+    getParentRoute: () => AuthenticatedCeoRoute,
+  } as any)
 const AuthenticatedConfiguracoesTabRoute =
   AuthenticatedConfiguracoesTabRouteImport.update({
     id: '/$tab',
@@ -264,6 +285,12 @@ const AuthenticatedDevMenuLateralRoute =
   AuthenticatedDevMenuLateralRouteImport.update({
     id: '/dev/menu-lateral',
     path: '/dev/menu-lateral',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedDevNotificacoesRoute =
+  AuthenticatedDevNotificacoesRouteImport.update({
+    id: '/dev/notificacoes',
+    path: '/dev/notificacoes',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
 const AuthenticatedDevPatchNotesRoute =
@@ -355,6 +382,7 @@ const AuthenticatedDevConfiguracaoTabRoute =
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/$handle': typeof HandleRoute
   '/atualizacoes': typeof AuthenticatedAtualizacoesRoute
   '/ausencias': typeof AuthenticatedAusenciasRouteWithChildren
   '/avisos': typeof AuthenticatedAvisosRoute
@@ -374,6 +402,7 @@ export interface FileRoutesByFullPath {
   '/membros': typeof AuthenticatedMembrosRoute
   '/metas': typeof AuthenticatedMetasRouteWithChildren
   '/movimentacoes': typeof AuthenticatedMovimentacoesRouteWithChildren
+  '/notificacoes': typeof AuthenticatedNotificacoesRoute
   '/perfil': typeof AuthenticatedPerfilRouteWithChildren
   '/permissoes': typeof AuthenticatedPermissoesRoute
   '/produtos': typeof AuthenticatedProdutosRoute
@@ -385,12 +414,14 @@ export interface FileRoutesByFullPath {
   '/devmlc/$discordId': typeof DevmlcDiscordIdRoute
   '/ausencias/$tab': typeof AuthenticatedAusenciasTabRoute
   '/ceo/$tab': typeof AuthenticatedCeoTabRouteWithChildren
+  '/ceo/notificacoes': typeof AuthenticatedCeoNotificacoesRoute
   '/configuracoes/$tab': typeof AuthenticatedConfiguracoesTabRoute
   '/dev/$page': typeof AuthenticatedDevPageRouteWithChildren
   '/dev/bot': typeof AuthenticatedDevBotRoute
   '/dev/configuracao': typeof AuthenticatedDevConfiguracaoRouteWithChildren
   '/dev/desempenho': typeof AuthenticatedDevDesempenhoRoute
   '/dev/menu-lateral': typeof AuthenticatedDevMenuLateralRoute
+  '/dev/notificacoes': typeof AuthenticatedDevNotificacoesRoute
   '/dev/patch-notes': typeof AuthenticatedDevPatchNotesRoute
   '/dev/permissoes': typeof AuthenticatedDevPermissoesRoute
   '/hierarquia/$tab': typeof AuthenticatedHierarquiaTabRoute
@@ -410,6 +441,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/$handle': typeof HandleRoute
   '/atualizacoes': typeof AuthenticatedAtualizacoesRoute
   '/ausencias': typeof AuthenticatedAusenciasRouteWithChildren
   '/avisos': typeof AuthenticatedAvisosRoute
@@ -429,6 +461,7 @@ export interface FileRoutesByTo {
   '/membros': typeof AuthenticatedMembrosRoute
   '/metas': typeof AuthenticatedMetasRouteWithChildren
   '/movimentacoes': typeof AuthenticatedMovimentacoesRouteWithChildren
+  '/notificacoes': typeof AuthenticatedNotificacoesRoute
   '/perfil': typeof AuthenticatedPerfilRouteWithChildren
   '/permissoes': typeof AuthenticatedPermissoesRoute
   '/produtos': typeof AuthenticatedProdutosRoute
@@ -440,12 +473,14 @@ export interface FileRoutesByTo {
   '/devmlc/$discordId': typeof DevmlcDiscordIdRoute
   '/ausencias/$tab': typeof AuthenticatedAusenciasTabRoute
   '/ceo/$tab': typeof AuthenticatedCeoTabRouteWithChildren
+  '/ceo/notificacoes': typeof AuthenticatedCeoNotificacoesRoute
   '/configuracoes/$tab': typeof AuthenticatedConfiguracoesTabRoute
   '/dev/$page': typeof AuthenticatedDevPageRouteWithChildren
   '/dev/bot': typeof AuthenticatedDevBotRoute
   '/dev/configuracao': typeof AuthenticatedDevConfiguracaoRouteWithChildren
   '/dev/desempenho': typeof AuthenticatedDevDesempenhoRoute
   '/dev/menu-lateral': typeof AuthenticatedDevMenuLateralRoute
+  '/dev/notificacoes': typeof AuthenticatedDevNotificacoesRoute
   '/dev/patch-notes': typeof AuthenticatedDevPatchNotesRoute
   '/dev/permissoes': typeof AuthenticatedDevPermissoesRoute
   '/hierarquia/$tab': typeof AuthenticatedHierarquiaTabRoute
@@ -467,6 +502,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
+  '/$handle': typeof HandleRoute
   '/_authenticated/atualizacoes': typeof AuthenticatedAtualizacoesRoute
   '/_authenticated/ausencias': typeof AuthenticatedAusenciasRouteWithChildren
   '/_authenticated/avisos': typeof AuthenticatedAvisosRoute
@@ -486,6 +522,7 @@ export interface FileRoutesById {
   '/_authenticated/membros': typeof AuthenticatedMembrosRoute
   '/_authenticated/metas': typeof AuthenticatedMetasRouteWithChildren
   '/_authenticated/movimentacoes': typeof AuthenticatedMovimentacoesRouteWithChildren
+  '/_authenticated/notificacoes': typeof AuthenticatedNotificacoesRoute
   '/_authenticated/perfil': typeof AuthenticatedPerfilRouteWithChildren
   '/_authenticated/permissoes': typeof AuthenticatedPermissoesRoute
   '/_authenticated/produtos': typeof AuthenticatedProdutosRoute
@@ -497,12 +534,14 @@ export interface FileRoutesById {
   '/devmlc/$discordId': typeof DevmlcDiscordIdRoute
   '/_authenticated/ausencias/$tab': typeof AuthenticatedAusenciasTabRoute
   '/_authenticated/ceo/$tab': typeof AuthenticatedCeoTabRouteWithChildren
+  '/_authenticated/ceo/notificacoes': typeof AuthenticatedCeoNotificacoesRoute
   '/_authenticated/configuracoes/$tab': typeof AuthenticatedConfiguracoesTabRoute
   '/_authenticated/dev/$page': typeof AuthenticatedDevPageRouteWithChildren
   '/_authenticated/dev/bot': typeof AuthenticatedDevBotRoute
   '/_authenticated/dev/configuracao': typeof AuthenticatedDevConfiguracaoRouteWithChildren
   '/_authenticated/dev/desempenho': typeof AuthenticatedDevDesempenhoRoute
   '/_authenticated/dev/menu-lateral': typeof AuthenticatedDevMenuLateralRoute
+  '/_authenticated/dev/notificacoes': typeof AuthenticatedDevNotificacoesRoute
   '/_authenticated/dev/patch-notes': typeof AuthenticatedDevPatchNotesRoute
   '/_authenticated/dev/permissoes': typeof AuthenticatedDevPermissoesRoute
   '/_authenticated/hierarquia/$tab': typeof AuthenticatedHierarquiaTabRoute
@@ -524,6 +563,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/$handle'
     | '/atualizacoes'
     | '/ausencias'
     | '/avisos'
@@ -543,6 +583,7 @@ export interface FileRouteTypes {
     | '/membros'
     | '/metas'
     | '/movimentacoes'
+    | '/notificacoes'
     | '/perfil'
     | '/permissoes'
     | '/produtos'
@@ -554,12 +595,14 @@ export interface FileRouteTypes {
     | '/devmlc/$discordId'
     | '/ausencias/$tab'
     | '/ceo/$tab'
+    | '/ceo/notificacoes'
     | '/configuracoes/$tab'
     | '/dev/$page'
     | '/dev/bot'
     | '/dev/configuracao'
     | '/dev/desempenho'
     | '/dev/menu-lateral'
+    | '/dev/notificacoes'
     | '/dev/patch-notes'
     | '/dev/permissoes'
     | '/hierarquia/$tab'
@@ -579,6 +622,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/$handle'
     | '/atualizacoes'
     | '/ausencias'
     | '/avisos'
@@ -598,6 +642,7 @@ export interface FileRouteTypes {
     | '/membros'
     | '/metas'
     | '/movimentacoes'
+    | '/notificacoes'
     | '/perfil'
     | '/permissoes'
     | '/produtos'
@@ -609,12 +654,14 @@ export interface FileRouteTypes {
     | '/devmlc/$discordId'
     | '/ausencias/$tab'
     | '/ceo/$tab'
+    | '/ceo/notificacoes'
     | '/configuracoes/$tab'
     | '/dev/$page'
     | '/dev/bot'
     | '/dev/configuracao'
     | '/dev/desempenho'
     | '/dev/menu-lateral'
+    | '/dev/notificacoes'
     | '/dev/patch-notes'
     | '/dev/permissoes'
     | '/hierarquia/$tab'
@@ -635,6 +682,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/_authenticated'
+    | '/$handle'
     | '/_authenticated/atualizacoes'
     | '/_authenticated/ausencias'
     | '/_authenticated/avisos'
@@ -654,6 +702,7 @@ export interface FileRouteTypes {
     | '/_authenticated/membros'
     | '/_authenticated/metas'
     | '/_authenticated/movimentacoes'
+    | '/_authenticated/notificacoes'
     | '/_authenticated/perfil'
     | '/_authenticated/permissoes'
     | '/_authenticated/produtos'
@@ -665,12 +714,14 @@ export interface FileRouteTypes {
     | '/devmlc/$discordId'
     | '/_authenticated/ausencias/$tab'
     | '/_authenticated/ceo/$tab'
+    | '/_authenticated/ceo/notificacoes'
     | '/_authenticated/configuracoes/$tab'
     | '/_authenticated/dev/$page'
     | '/_authenticated/dev/bot'
     | '/_authenticated/dev/configuracao'
     | '/_authenticated/dev/desempenho'
     | '/_authenticated/dev/menu-lateral'
+    | '/_authenticated/dev/notificacoes'
     | '/_authenticated/dev/patch-notes'
     | '/_authenticated/dev/permissoes'
     | '/_authenticated/hierarquia/$tab'
@@ -692,6 +743,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
+  HandleRoute: typeof HandleRoute
   AuthCallbackRoute: typeof AuthCallbackRoute
   DevDiscordIdRoute: typeof DevDiscordIdRoute
   DevmlcDiscordIdRoute: typeof DevmlcDiscordIdRoute
@@ -705,6 +757,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/$handle': {
+      id: '/$handle'
+      path: '/$handle'
+      fullPath: '/$handle'
+      preLoaderRoute: typeof HandleRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_authenticated': {
@@ -847,6 +906,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedMovimentacoesRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/notificacoes': {
+      id: '/_authenticated/notificacoes'
+      path: '/notificacoes'
+      fullPath: '/notificacoes'
+      preLoaderRoute: typeof AuthenticatedNotificacoesRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/perfil': {
       id: '/_authenticated/perfil'
       path: '/perfil'
@@ -924,6 +990,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedCeoTabRouteImport
       parentRoute: typeof AuthenticatedCeoRoute
     }
+    '/_authenticated/ceo/notificacoes': {
+      id: '/_authenticated/ceo/notificacoes'
+      path: '/notificacoes'
+      fullPath: '/ceo/notificacoes'
+      preLoaderRoute: typeof AuthenticatedCeoNotificacoesRouteImport
+      parentRoute: typeof AuthenticatedCeoRoute
+    }
     '/_authenticated/configuracoes/$tab': {
       id: '/_authenticated/configuracoes/$tab'
       path: '/$tab'
@@ -971,6 +1044,13 @@ declare module '@tanstack/react-router' {
       path: '/dev/menu-lateral'
       fullPath: '/dev/menu-lateral'
       preLoaderRoute: typeof AuthenticatedDevMenuLateralRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/dev/notificacoes': {
+      id: '/_authenticated/dev/notificacoes'
+      path: '/dev/notificacoes'
+      fullPath: '/dev/notificacoes'
+      preLoaderRoute: typeof AuthenticatedDevNotificacoesRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/dev/patch-notes': {
@@ -1108,10 +1188,12 @@ const AuthenticatedCeoTabRouteWithChildren =
 
 interface AuthenticatedCeoRouteChildren {
   AuthenticatedCeoTabRoute: typeof AuthenticatedCeoTabRouteWithChildren
+  AuthenticatedCeoNotificacoesRoute: typeof AuthenticatedCeoNotificacoesRoute
 }
 
 const AuthenticatedCeoRouteChildren: AuthenticatedCeoRouteChildren = {
   AuthenticatedCeoTabRoute: AuthenticatedCeoTabRouteWithChildren,
+  AuthenticatedCeoNotificacoesRoute: AuthenticatedCeoNotificacoesRoute,
 }
 
 const AuthenticatedCeoRouteWithChildren =
@@ -1265,6 +1347,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedMembrosRoute: typeof AuthenticatedMembrosRoute
   AuthenticatedMetasRoute: typeof AuthenticatedMetasRouteWithChildren
   AuthenticatedMovimentacoesRoute: typeof AuthenticatedMovimentacoesRouteWithChildren
+  AuthenticatedNotificacoesRoute: typeof AuthenticatedNotificacoesRoute
   AuthenticatedPerfilRoute: typeof AuthenticatedPerfilRouteWithChildren
   AuthenticatedPermissoesRoute: typeof AuthenticatedPermissoesRoute
   AuthenticatedProdutosRoute: typeof AuthenticatedProdutosRoute
@@ -1276,6 +1359,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedDevConfiguracaoRoute: typeof AuthenticatedDevConfiguracaoRouteWithChildren
   AuthenticatedDevDesempenhoRoute: typeof AuthenticatedDevDesempenhoRoute
   AuthenticatedDevMenuLateralRoute: typeof AuthenticatedDevMenuLateralRoute
+  AuthenticatedDevNotificacoesRoute: typeof AuthenticatedDevNotificacoesRoute
   AuthenticatedDevPatchNotesRoute: typeof AuthenticatedDevPatchNotesRoute
   AuthenticatedDevPermissoesRoute: typeof AuthenticatedDevPermissoesRoute
   AuthenticatedDevIndexRoute: typeof AuthenticatedDevIndexRoute
@@ -1301,6 +1385,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedMembrosRoute: AuthenticatedMembrosRoute,
   AuthenticatedMetasRoute: AuthenticatedMetasRouteWithChildren,
   AuthenticatedMovimentacoesRoute: AuthenticatedMovimentacoesRouteWithChildren,
+  AuthenticatedNotificacoesRoute: AuthenticatedNotificacoesRoute,
   AuthenticatedPerfilRoute: AuthenticatedPerfilRouteWithChildren,
   AuthenticatedPermissoesRoute: AuthenticatedPermissoesRoute,
   AuthenticatedProdutosRoute: AuthenticatedProdutosRoute,
@@ -1313,6 +1398,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
     AuthenticatedDevConfiguracaoRouteWithChildren,
   AuthenticatedDevDesempenhoRoute: AuthenticatedDevDesempenhoRoute,
   AuthenticatedDevMenuLateralRoute: AuthenticatedDevMenuLateralRoute,
+  AuthenticatedDevNotificacoesRoute: AuthenticatedDevNotificacoesRoute,
   AuthenticatedDevPatchNotesRoute: AuthenticatedDevPatchNotesRoute,
   AuthenticatedDevPermissoesRoute: AuthenticatedDevPermissoesRoute,
   AuthenticatedDevIndexRoute: AuthenticatedDevIndexRoute,
@@ -1324,6 +1410,7 @@ const AuthenticatedRouteRouteWithChildren =
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
+  HandleRoute: HandleRoute,
   AuthCallbackRoute: AuthCallbackRoute,
   DevDiscordIdRoute: DevDiscordIdRoute,
   DevmlcDiscordIdRoute: DevmlcDiscordIdRoute,

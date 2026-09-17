@@ -1,6 +1,7 @@
 export type AppLevel = "desenvolvedor" | "01" | "02" | "gerente" | "motoqueiro" | "membro" | "novato";
 
 export const LEVELS: AppLevel[] = ["01", "02", "gerente", "motoqueiro", "membro", "novato"];
+export const ALL_LEVELS: AppLevel[] = LEVELS;
 
 export const LEVEL_LABEL: Record<AppLevel, string> = {
   desenvolvedor: "Desenvolvedor",
@@ -99,6 +100,20 @@ export type Permission =
   | "view_notifications"
   | "send_notifications"
   | "manage_notifications"
+  | "configure_notifications_sound"
+  // Permissões da Central de Notificações CEO
+  | "view_ceo_notifications"
+  | "create_ceo_notification"
+  | "edit_ceo_notification"
+  | "delete_ceo_notification"
+  | "toggle_ceo_notification_active"
+  // Permissões da Central de Notificações Dev
+  | "view_dev_notifications"
+  | "manage_dev_notification_rules"
+  | "create_dev_notification"
+  | "edit_dev_notification"
+  | "delete_dev_notification"
+  | "simulate_dev_notification"
   | "view_lives"
   | "manage_lives"
   | "link_stream_account"
@@ -214,6 +229,20 @@ export const ALL_PERMISSIONS: Permission[] = [
   "view_notifications",
   "send_notifications",
   "manage_notifications",
+  "configure_notifications_sound",
+  // Permissões da Central de Notificações CEO
+  "view_ceo_notifications",
+  "create_ceo_notification",
+  "edit_ceo_notification",
+  "delete_ceo_notification",
+  "toggle_ceo_notification_active",
+  // Permissões da Central de Notificações Dev
+  "view_dev_notifications",
+  "manage_dev_notification_rules",
+  "create_dev_notification",
+  "edit_dev_notification",
+  "delete_dev_notification",
+  "simulate_dev_notification",
   "view_lives",
   "manage_lives",
   "link_stream_account",
@@ -270,11 +299,22 @@ export const DEV_PANEL_PERMISSIONS: Permission[] = [
   "manage_dev_permissions",
   "manage_dev_config",
   "manage_dev_menu",
+  "view_dev_notifications",
+  "manage_dev_notification_rules",
+  "create_dev_notification",
+  "edit_dev_notification",
+  "delete_dev_notification",
+  "simulate_dev_notification",
 ];
 
 export const CEO_PERMISSIONS: Permission[] = [
   "view_ceo",
   "manage_ceo_bot",
+  "view_ceo_notifications",
+  "create_ceo_notification",
+  "edit_ceo_notification",
+  "delete_ceo_notification",
+  "toggle_ceo_notification_active",
   "bot_send_message",
   "bot_add_app",
   "bot_change_status",
@@ -358,6 +398,7 @@ const OFFICER: Permission[] = [
   "view_notifications",
   "send_notifications",
   "manage_notifications",
+  "configure_notifications_sound",
   "view_lives",
   "manage_lives",
   "link_stream_account",
@@ -416,6 +457,7 @@ const MANAGER: Permission[] = [
   "view_notifications",
   "send_notifications",
   "manage_notifications",
+  "configure_notifications_sound",
   "view_lives",
   "manage_lives",
   "link_stream_account",
@@ -446,6 +488,7 @@ const MEMBER: Permission[] = [
   "view_tickets",
   "create_ticket",
   "view_notifications",
+  "configure_notifications_sound",
   "view_lives",
   "link_stream_account",
   "view_profile",
@@ -596,6 +639,16 @@ export function can(
     }
   }
   if (rolePerms.includes("configure_stream_api") && permission === "view_lives") return true;
+
+  // Herança e equivalências de notificações
+  if (rolePerms.includes("manage_notifications") && permission === "view_notifications") return true;
+  if (rolePerms.includes("send_notifications") && permission === "view_notifications") return true;
+  if (rolePerms.includes("view_dev_notifications") && permission === "view_notifications") return true;
+  if (rolePerms.includes("view_ceo_notifications") && permission === "view_notifications") return true;
+  if (rolePerms.includes("manage_dev_notification_rules") && permission === "view_dev_notifications") return true;
+  if (rolePerms.includes("create_ceo_notification") && permission === "view_ceo_notifications") return true;
+  if (rolePerms.includes("edit_ceo_notification") && permission === "view_ceo_notifications") return true;
+  if (rolePerms.includes("create_dev_notification") && permission === "view_dev_notifications") return true;
 
   // Fallback alias checks
   if (permission === "bot_add_app" && rolePerms.includes("bot_invite")) return true;

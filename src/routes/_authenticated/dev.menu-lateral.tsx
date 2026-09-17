@@ -37,6 +37,7 @@ import {
   Activity,
   DollarSign,
   Palette,
+  BellRing,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -93,6 +94,7 @@ const DEV_ICON_MAP: Record<string, typeof Terminal> = {
   "/dev/permissoes": KeyRound,
   "/dev/configuracao": Code2,
   "/dev/menu-lateral": Sliders,
+  "/dev/notificacoes": BellRing,
 };
 
 function DevToolsMenuEditor() {

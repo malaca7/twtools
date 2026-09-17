@@ -16,7 +16,10 @@ import {
   X,
   User,
   Clock,
+  Upload,
 } from "lucide-react";
+import { UniversalImageAdjusterModal } from "@/components/ui/UniversalImageAdjusterModal";
+import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -104,7 +107,7 @@ function PostContentRenderer({ content }: { content: string }) {
       parts.push(
         <a
           key={match.index}
-          href={`/perfil/${cleanMention}`}
+          href={`/@${cleanMention}`}
           target="_blank"
           rel="noopener noreferrer"
           className="inline-flex items-center gap-0.5 px-1.5 py-0.2 rounded-md bg-primary/15 text-primary hover:bg-primary/25 font-bold transition-colors"
@@ -146,6 +149,12 @@ export function ProfileFeed({ authorId, authorName, authorAvatar, isSelf }: Prof
   const [content, setContent] = useState("");
   const [mediaUrl, setMediaUrl] = useState("");
   const [showMediaInput, setShowMediaInput] = useState(false);
+
+  // Studio de imagem
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [isStudioOpen, setIsStudioOpen] = useState(false);
+  const [studioFile, setStudioFile] = useState<File | null>(null);
+  const [studioOriginalUrl, setStudioOriginalUrl] = useState<string | null>(null);
 
   // Autocomplete de @menções
   const [mentionQuery, setMentionQuery] = useState<string | null>(null);
@@ -308,47 +317,149 @@ export function ProfileFeed({ authorId, authorName, authorAvatar, isSelf }: Prof
             </div>
 
             {/* INPUT DE IMAGEM ANEXA */}
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/png,image/jpeg,image/webp,image/gif"
+              className="hidden"
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (f) {
+                  setStudioFile(f);
+                  setStudioOriginalUrl(null);
+                  setIsStudioOpen(true);
+                  if (fileInputRef.current) fileInputRef.current.value = "";
+                }
+              }}
+            />
+
+            {/* MODAL STUDIO UNIVERSAL DE IMAGEM */}
+            <UniversalImageAdjusterModal
+              isOpen={isStudioOpen}
+              onClose={() => setIsStudioOpen(false)}
+              imageFile={studioFile}
+              imageUrl={mediaUrl}
+              originalImageUrl={studioOriginalUrl || mediaUrl}
+              cropShape="rect"
+              title="Studio: Ajustar Imagem da Publicação"
+              description="Recorte, gire ou aplique filtros na foto antes de publicar no feed."
+              onCropSave={async (croppedFile, origSource) => {
+                const toastId = toast.loading("Enviando foto ajustada...");
+                try {
+                  const ext = croppedFile.name.split(".").pop()?.toLowerCase() || "png";
+                  const fileName = `feed_${user?.id || "user"}_${Date.now()}.${ext}`;
+                  const { data, error } = await supabase.storage
+                    .from("chat-attachments")
+                    .upload(fileName, croppedFile, {
+                      cacheControl: "31536000",
+                      upsert: true,
+                      contentType: croppedFile.type || "image/png",
+                    });
+
+                  if (!error && data) {
+                    const pub = supabase.storage.from("chat-attachments").getPublicUrl(data.path);
+                    setMediaUrl(pub.data.publicUrl);
+                  } else {
+                    const b64 = await new Promise<string>((res) => {
+                      const r = new FileReader();
+                      r.onload = () => res(r.result as string);
+                      r.readAsDataURL(croppedFile);
+                    });
+                    setMediaUrl(b64);
+                  }
+
+                  if (typeof origSource === "string") {
+                    setStudioOriginalUrl(origSource);
+                  }
+
+                  setIsStudioOpen(false);
+                  toast.success("Foto ajustada com sucesso!", { id: toastId });
+                } catch (err: any) {
+                  toast.error("Erro ao enviar imagem ajustada", { id: toastId });
+                }
+              }}
+            />
+
             {showMediaInput && (
-              <div className="flex items-center gap-2 p-2 rounded-xl border border-border/60 bg-secondary/30 text-xs">
-                <ImageIcon className="h-4 w-4 text-primary shrink-0" />
-                <Input
-                  value={mediaUrl}
-                  onChange={(e) => setMediaUrl(e.target.value)}
-                  placeholder="URL direta da imagem (ex.: https://i.imgur.com/... ou link de imagem/GIF)"
-                  className="h-8 text-xs font-mono"
-                />
-                {mediaUrl && (
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 p-2.5 rounded-xl border border-border/60 bg-secondary/30 text-xs">
+                <div className="flex items-center gap-2 flex-1 min-w-0">
+                  <ImageIcon className="h-4 w-4 text-primary shrink-0" />
+                  <Input
+                    value={mediaUrl}
+                    onChange={(e) => setMediaUrl(e.target.value)}
+                    placeholder="Cole o link da imagem ou clique em 'Upload e Ajustar'..."
+                    className="h-8 text-xs font-mono flex-1"
+                  />
+                </div>
+
+                <div className="flex items-center gap-1.5 shrink-0">
                   <Button
                     type="button"
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => setMediaUrl("")}
-                    className="h-7 w-7 rounded-lg text-muted-foreground hover:text-destructive"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="h-8 text-xs font-bold gap-1 rounded-lg border-primary/30 text-primary hover:bg-primary/10 cursor-pointer"
                   >
-                    <X className="h-3.5 w-3.5" />
+                    <Upload className="h-3.5 w-3.5" />
+                    <span>Upload & Studio</span>
                   </Button>
-                )}
+
+                  {mediaUrl && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => {
+                        setMediaUrl("");
+                        setStudioOriginalUrl(null);
+                      }}
+                      className="h-8 w-8 rounded-lg text-muted-foreground hover:text-destructive cursor-pointer"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </Button>
+                  )}
+                </div>
               </div>
             )}
 
-            {/* PRÉVIA DA IMAGEM ANEXADA */}
+            {/* PRÉVIA DA IMAGEM ANEXADA COM BOTÃO DE REAJUSTAR */}
             {mediaUrl && (
-              <div className="relative rounded-xl overflow-hidden border border-border/70 max-h-48 w-full bg-black/40">
+              <div className="relative rounded-2xl overflow-hidden border border-border/70 max-h-56 w-full bg-black/60 shadow-md group">
                 <img
                   src={mediaUrl}
                   alt="Anexo da publicação"
-                  className="w-full h-auto max-h-48 object-contain"
+                  className="w-full h-auto max-h-56 object-contain"
                   onError={() => toast.error("URL de imagem inválida ou inacessível.")}
                 />
-                <Button
-                  type="button"
-                  variant="destructive"
-                  size="icon"
-                  onClick={() => setMediaUrl("")}
-                  className="absolute top-2 right-2 h-6 w-6 rounded-md shadow-md"
-                >
-                  <X className="h-3 w-3" />
-                </Button>
+                <div className="absolute top-2 right-2 flex items-center gap-1.5">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      setStudioFile(null);
+                      setIsStudioOpen(true);
+                    }}
+                    className="h-7 px-2.5 text-xs font-bold gap-1 bg-black/80 hover:bg-black text-emerald-400 border-emerald-500/40 rounded-lg backdrop-blur-xs cursor-pointer"
+                    title="Reajustar imagem no Studio"
+                  >
+                    <Sparkles className="h-3 w-3" />
+                    <span>Reajustar</span>
+                  </Button>
+
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    size="icon"
+                    onClick={() => {
+                      setMediaUrl("");
+                      setStudioOriginalUrl(null);
+                    }}
+                    className="h-7 w-7 rounded-lg shadow-md cursor-pointer"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
               </div>
             )}
 
@@ -362,12 +473,24 @@ export function ProfileFeed({ authorId, authorName, authorAvatar, isSelf }: Prof
                   onClick={() => setShowMediaInput(!showMediaInput)}
                   className={cn(
                     "h-8 px-2.5 text-xs rounded-xl gap-1.5 cursor-pointer",
-                    showMediaInput ? "border-primary/40 text-primary bg-primary/10" : "text-muted-foreground"
+                    showMediaInput || mediaUrl ? "border-primary/40 text-primary bg-primary/10 font-bold" : "text-muted-foreground"
                   )}
                   title="Anexar imagem ou GIF"
                 >
                   <ImageIcon className="h-3.5 w-3.5" />
-                  <span className="hidden sm:inline">Imagem</span>
+                  <span>{mediaUrl ? "Imagem Anexada" : "Anexar Imagem"}</span>
+                </Button>
+
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="h-8 px-2.5 text-xs rounded-xl gap-1 text-muted-foreground hover:text-foreground cursor-pointer"
+                  title="Fazer upload de arquivo e abrir o Studio Pro"
+                >
+                  <Upload className="h-3.5 w-3.5 text-primary" />
+                  <span className="hidden sm:inline">Studio Pro</span>
                 </Button>
 
                 <span className="text-[11px] text-muted-foreground font-mono ml-2">

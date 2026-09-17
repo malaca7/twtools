@@ -1,9 +1,15 @@
 import { supabase } from "@/integrations/supabase/client";
 import type { AppLevel } from "@/lib/permissions";
-import type { AppNotification, CreateNotificationPayload } from "@/types/notifications";
+import {
+  type AppNotification,
+  type CreateNotificationPayload,
+  type NotificationTypeRules,
+  DEFAULT_NOTIFICATION_RULES,
+} from "@/types/notifications";
 
 const NOTIFICATIONS_STORAGE_KEY = "tw_notifications_v1";
 const NOTIFICATIONS_DB_LEVEL = "system_notifications_data";
+const NOTIFICATIONS_RULES_DB_LEVEL = "system_notification_rules";
 const MAX_NOTIFICATIONS_HISTORY = 250;
 
 let notificationsBroadcastChannel: any = null;
@@ -51,7 +57,7 @@ export function getNotificationsRealtimeChannel() {
       }
     );
 
-    // 3. Escutar alterações em role_permissions para level = 'system_notifications_data'
+    // 3. Escutar alterações em role_permissions para level = 'system_notifications_data' ou 'system_notification_rules'
     notificationsBroadcastChannel.on(
       "postgres_changes",
       {
@@ -61,9 +67,14 @@ export function getNotificationsRealtimeChannel() {
       },
       (payload: any) => {
         const row = payload.new || payload.old;
-        if (row?.level === NOTIFICATIONS_DB_LEVEL || !row?.level) {
+        if (
+          row?.level === NOTIFICATIONS_DB_LEVEL ||
+          row?.level === NOTIFICATIONS_RULES_DB_LEVEL ||
+          !row?.level
+        ) {
           if (typeof window !== "undefined") {
             window.dispatchEvent(new CustomEvent("tw_notifications_updated"));
+            window.dispatchEvent(new CustomEvent("tw_notification_rules_updated"));
           }
         }
       }
@@ -155,9 +166,9 @@ function setLocalNotifications(notifications: AppNotification[], emitEvent: bool
 }
 
 /**
- * Busca a lista de todas as notificações gravadas no banco de dados
+ * Busca a lista de todas as notificações gravadas no banco de dados (crua)
  */
-async function fetchAllRawNotifications(): Promise<AppNotification[]> {
+export async function fetchAllRawNotifications(): Promise<AppNotification[]> {
   try {
     const { data, error } = await supabase
       .from("role_permissions")
@@ -181,10 +192,8 @@ async function fetchAllRawNotifications(): Promise<AppNotification[]> {
 /**
  * Salva a lista completa no banco via save_role_permissions RPC (SECURITY DEFINER) ou upsert
  */
-async function persistRawNotifications(notifications: AppNotification[]): Promise<void> {
-  // Limita histórico a MAX_NOTIFICATIONS_HISTORY itens mais recentes
+export async function persistRawNotifications(notifications: AppNotification[]): Promise<void> {
   const capped = notifications.slice(0, MAX_NOTIFICATIONS_HISTORY);
-
   setLocalNotifications(capped, false);
 
   try {
@@ -221,10 +230,10 @@ export async function getNotifications(
   if (!userId) return [];
 
   const filtered = all.filter((n) => {
-    // 0. Não exibir notificações de chat na central de notificações do painel
-    if (n.type === "chat") {
-      return false;
-    }
+    if (n.type === "chat") return false;
+
+    // Se estiver explicitamente pausada/inativa, não entrega a membros normais
+    if (n.is_active === false) return false;
 
     // 1. Se o usuário excluiu/dispensou a notificação, não exibir
     if (Array.isArray(n.deleted_by) && n.deleted_by.includes(userId)) {
@@ -245,7 +254,6 @@ export async function getNotifications(
     return true;
   });
 
-  // Ordenar decrescente por data de criação
   return filtered.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 }
 
@@ -253,7 +261,6 @@ export async function getNotifications(
  * Cria e envia uma nova notificação em tempo real
  */
 export async function createNotification(payload: CreateNotificationPayload): Promise<AppNotification> {
-  // Notificações de chat não são registradas no painel geral de notificações
   if (payload.type === "chat") {
     return {
       id: `chat_ignore_${Date.now()}`,
@@ -263,11 +270,13 @@ export async function createNotification(payload: CreateNotificationPayload): Pr
       category: "info",
       user_id: payload.user_id || "all",
       created_at: new Date().toISOString(),
+      read_by: [],
+      deleted_by: [],
+      is_active: true,
     };
   }
 
   const all = await fetchAllRawNotifications();
-
   const now = new Date().toISOString();
   const newNotification: AppNotification = {
     id: `notif_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
@@ -285,16 +294,13 @@ export async function createNotification(payload: CreateNotificationPayload): Pr
     created_at: now,
     read_by: [],
     deleted_by: [],
+    is_active: payload.is_active !== undefined ? payload.is_active : true,
   };
 
   const updatedList = [newNotification, ...all.filter((n) => n.id !== newNotification.id)];
-
   await persistRawNotifications(updatedList);
-
-  // Notificar canais em tempo real com os dados da nova notificação
   broadcastNotificationsRealtimeUpdate(newNotification);
 
-  // Registro leve em audit_logs para rastreabilidade e gatilho WAL
   try {
     const { data: { session } } = await supabase.auth.getSession();
     await supabase.from("audit_logs").insert({
@@ -313,6 +319,87 @@ export async function createNotification(payload: CreateNotificationPayload): Pr
   } catch {}
 
   return newNotification;
+}
+
+/**
+ * Atualiza campos de uma notificação existente (usado nos painéis CEO e DEV)
+ */
+export async function updateAdminNotification(
+  id: string,
+  updates: Partial<AppNotification>
+): Promise<AppNotification> {
+  const all = await fetchAllRawNotifications();
+  let updatedNotif: AppNotification | null = null;
+
+  const updatedList = all.map((n) => {
+    if (n.id === id) {
+      updatedNotif = {
+        ...n,
+        ...updates,
+      };
+      return updatedNotif;
+    }
+    return n;
+  });
+
+  if (!updatedNotif) {
+    throw new Error("Notificação não encontrada para atualização.");
+  }
+
+  await persistRawNotifications(updatedList);
+  broadcastNotificationsRealtimeUpdate({ action: "admin_update", notification: updatedNotif });
+  return updatedNotif;
+}
+
+/**
+ * Alterna status ativo/pausado de uma notificação (usado nos painéis CEO e DEV)
+ */
+export async function toggleAdminNotificationActive(
+  id: string,
+  isActive: boolean
+): Promise<AppNotification> {
+  return updateAdminNotification(id, { is_active: isActive });
+}
+
+/**
+ * Exclui definitivamente uma notificação de toda a plataforma (usado nos painéis CEO e DEV)
+ */
+export async function deleteAdminNotification(id: string): Promise<void> {
+  const all = await fetchAllRawNotifications();
+  const filtered = all.filter((n) => n.id !== id);
+  await persistRawNotifications(filtered);
+  broadcastNotificationsRealtimeUpdate({ action: "admin_delete", id });
+}
+
+/**
+ * Limpa notificações em massa (Purge - exclusivo Painel DEV)
+ */
+export async function purgeAdminNotifications(filter?: {
+  type?: string;
+  category?: string;
+  olderThanDays?: number;
+}): Promise<number> {
+  const all = await fetchAllRawNotifications();
+  let remaining = all;
+
+  if (filter?.type && filter.type !== "all") {
+    remaining = remaining.filter((n) => n.type !== filter.type);
+  }
+  if (filter?.category && filter.category !== "all") {
+    remaining = remaining.filter((n) => n.category !== filter.category);
+  }
+  if (filter?.olderThanDays && filter.olderThanDays > 0) {
+    const cutoff = Date.now() - filter.olderThanDays * 86400000;
+    remaining = remaining.filter((n) => new Date(n.created_at).getTime() > cutoff);
+  }
+  if (!filter || Object.keys(filter).length === 0) {
+    remaining = [];
+  }
+
+  const removedCount = all.length - remaining.length;
+  await persistRawNotifications(remaining);
+  broadcastNotificationsRealtimeUpdate({ action: "admin_purge", removedCount });
+  return removedCount;
 }
 
 /**
@@ -353,7 +440,6 @@ export async function markAllNotificationsAsRead(
 
   let modified = false;
   const updatedList = all.map((n) => {
-    // Verificar se a notificação é visível para o usuário
     if (Array.isArray(n.deleted_by) && n.deleted_by.includes(userId)) return n;
     const isRecipient = n.user_id === "all" || n.user_id === userId;
     if (!isRecipient) return n;
@@ -428,6 +514,66 @@ export async function clearAllNotifications(userId: string, userLevel?: AppLevel
     await persistRawNotifications(updatedList);
     broadcastNotificationsRealtimeUpdate({ action: "clear_all", userId });
   }
+}
+
+/**
+ * Busca a matriz de regras de tipos de notificação por Cargo e Tag (exclusivo Dev)
+ */
+export async function fetchNotificationTypeRules(): Promise<NotificationTypeRules> {
+  try {
+    const { data } = await supabase
+      .from("role_permissions")
+      .select("permissions")
+      .eq("level", NOTIFICATIONS_RULES_DB_LEVEL)
+      .maybeSingle();
+
+    if (data && data.permissions && typeof data.permissions === "object") {
+      const p = data.permissions as any;
+      if (p.roles && p.tags) {
+        return p as NotificationTypeRules;
+      }
+    }
+  } catch (err) {
+    console.warn("Erro ao carregar regras de tipos de notificação:", err);
+  }
+  return DEFAULT_NOTIFICATION_RULES;
+}
+
+/**
+ * Salva a matriz de regras de tipos de notificação por Cargo e Tag (exclusivo Dev)
+ */
+export async function saveNotificationTypeRules(
+  rules: NotificationTypeRules,
+  updatedBy?: string
+): Promise<void> {
+  const payload = {
+    ...rules,
+    updated_at: new Date().toISOString(),
+    updated_by: updatedBy,
+  };
+
+  try {
+    await supabase.rpc("save_role_permissions", {
+      _level: NOTIFICATIONS_RULES_DB_LEVEL,
+      _permissions: payload,
+    });
+  } catch {}
+
+  try {
+    await supabase.from("role_permissions").upsert(
+      {
+        level: NOTIFICATIONS_RULES_DB_LEVEL,
+        nivel: NOTIFICATIONS_RULES_DB_LEVEL,
+        permissions: payload as any,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "level" }
+    );
+  } catch (err) {
+    console.warn("Falha ao salvar regras de tipos de notificação:", err);
+  }
+
+  broadcastNotificationsRealtimeUpdate({ action: "rules_updated" });
 }
 
 /**

@@ -52,6 +52,7 @@ import {
   useMemberStreamAccounts,
   useEndStreamSession,
   useStartQuickStreamSession,
+  useAutoLiveStreamPoller,
 } from "@/hooks/useLives";
 import { LiveCard } from "@/components/lives/LiveCard";
 import { LinkStreamAccountModal } from "@/components/lives/LinkStreamAccountModal";
@@ -82,11 +83,15 @@ export function LivesPage() {
   const endLiveMutation = useEndStreamSession();
   const startQuickMutation = useStartQuickStreamSession();
 
+  // Ativa o poller autônomo de detecção de lives em background
+  useAutoLiveStreamPoller(45000);
+
   // Estados de Interface
   const [activeTab, setActiveTab] = useState<"online" | "history" | "streamers">("online");
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedPlatformFilter, setSelectedPlatformFilter] = useState<"all" | StreamPlatform>("all");
   const [linkModalOpen, setLinkModalOpen] = useState(false);
+  const [selectedLinkPlatform, setSelectedLinkPlatform] = useState<StreamPlatform | null>(null);
   const [playerModalSession, setPlayerModalSession] = useState<StreamSession | null>(null);
 
   // Transmissão Rápida / Entrar Ao Vivo
@@ -289,12 +294,66 @@ export function LivesPage() {
         <div className="flex items-center gap-2 font-medium">
           <Sparkles className="h-4 w-4 text-emerald-400 shrink-0" />
           <span>
-            <strong className="text-emerald-300 font-bold">Detecção 100% Automática e Autônoma:</strong> Suporte nativo à Twitch, Kick, YouTube e TikTok sem exigir credenciais privadas. Vincule seu canal ou inicie transmissões instantaneamente!
+            <strong className="text-emerald-300 font-bold">Detecção 100% Automática e Autônoma:</strong> Suporte nativo à Twitch, Kick, YouTube e TikTok sem exigir credenciais privadas. Suas transmissões são notificadas instantaneamente!
           </span>
         </div>
         <Badge variant="outline" className="bg-emerald-500/20 text-emerald-300 border-emerald-500/40 text-[10px] font-mono font-bold shrink-0">
-          Zero Config APIs
+          Auto Online Monitor
         </Badge>
+      </div>
+
+      {/* VINCULAR 1-CLICK POPUP POR PLATAFORMA */}
+      <div className="p-4 rounded-2xl bg-card/70 border border-border/70 backdrop-blur-md shadow-xs space-y-3">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <Radio className="h-4 w-4 text-primary" />
+            <h4 className="text-xs font-black uppercase tracking-wider text-foreground">
+              Vincular Canal Diretamente (Login Nativo em Popup)
+            </h4>
+          </div>
+          <span className="text-[11px] text-muted-foreground">
+            Clique na plataforma desejada para autenticar e conectar seu canal
+          </span>
+        </div>
+
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+          {(Object.keys(STREAM_PLATFORMS) as StreamPlatform[]).map((pKey) => {
+            const p = STREAM_PLATFORMS[pKey];
+            const isLinked = myLinkedAccounts.some((a) => a.platform === pKey && a.is_active);
+
+            return (
+              <button
+                key={pKey}
+                type="button"
+                onClick={() => {
+                  setSelectedLinkPlatform(pKey);
+                  setLinkModalOpen(true);
+                }}
+                className={cn(
+                  "flex items-center justify-between p-3 rounded-xl border text-left transition-all duration-200 group cursor-pointer hover:scale-[1.02] shadow-xs",
+                  isLinked
+                    ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-300 ring-1 ring-emerald-500/20"
+                    : "bg-secondary/40 border-border/60 hover:border-primary/50 text-foreground"
+                )}
+              >
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <span
+                    className="h-3 w-3 rounded-full shrink-0 shadow-xs"
+                    style={{ backgroundColor: p.brandHex }}
+                  />
+                  <div className="min-w-0">
+                    <span className="text-xs font-bold block truncate">{p.name}</span>
+                    <span className="text-[10px] text-muted-foreground block truncate">
+                      {isLinked ? "Conectado" : "Login Popup"}
+                    </span>
+                  </div>
+                </div>
+
+                <ExternalLink className="h-3.5 w-3.5 text-muted-foreground group-hover:text-primary shrink-0 opacity-70" />
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       {/* BANNER DE STATUS AO VIVO */}
@@ -602,7 +661,11 @@ export function LivesPage() {
       {/* MODAL DE VINCULAÇÃO */}
       <LinkStreamAccountModal
         open={linkModalOpen}
-        onOpenChange={setLinkModalOpen}
+        onOpenChange={(open) => {
+          setLinkModalOpen(open);
+          if (!open) setSelectedLinkPlatform(null);
+        }}
+        initialPlatform={selectedLinkPlatform}
       />
 
       {/* MODAL DE ENTRAR AO VIVO RÁPIDO */}

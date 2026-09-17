@@ -26,6 +26,7 @@ export const DEFAULT_DEV_MENU_ITEMS: DevMenuItemConfig[] = [
   { id: "dev-permissoes", title: "Permissões Tag Dev", url: "/dev/permissoes", visible: true, category: "Ferramentas Dev", order: 4 },
   { id: "dev-configuracao", title: "Configurações Dev", url: "/dev/configuracao", visible: true, category: "Ferramentas Dev", order: 5 },
   { id: "dev-menu-lateral", title: "Menu Lateral Dev", url: "/dev/menu-lateral", visible: true, category: "Ferramentas Dev", order: 6 },
+  { id: "dev-notificacoes", title: "Central de Notificações", url: "/dev/notificacoes", visible: true, category: "Ferramentas Dev", order: 7 },
 ];
 
 const STORAGE_KEY = "tw_dev_menu_config";

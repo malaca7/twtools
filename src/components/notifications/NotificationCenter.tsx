@@ -23,6 +23,7 @@ import {
   ShieldCheck,
   ArrowRight,
   Radio,
+  Settings2,
 } from "lucide-react";
 import { useManagementPendingActions } from "@/hooks/useManagementPendingActions";
 import {
@@ -33,7 +34,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { useAuth } from "@/hooks/useAuth";
 import {
@@ -41,11 +42,9 @@ import {
   useMarkNotificationAsRead,
   useMarkAllNotificationsAsRead,
   useDeleteNotification,
-  useClearAllNotifications,
 } from "@/hooks/useNotifications";
 import {
   getNotificationTypeInfo,
-  getCategoryBadge,
   formatRelativeTime,
   type AppNotification,
   type NotificationType,
@@ -82,10 +81,9 @@ export function NotificationCenter() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<"all" | "unread" | "management">("all");
+  const [activeTab, setActiveTab] = useState<"unread" | "management">("unread");
 
   const {
-    notifications,
     unreadNotifications,
     unreadCount,
     hasUnread,
@@ -97,31 +95,15 @@ export function NotificationCenter() {
   const {
     isManager,
     totalPendingCount,
-    hasPendingActions,
     allActionItems,
   } = useManagementPendingActions();
 
   const markAsReadMutation = useMarkNotificationAsRead();
   const markAllMutation = useMarkAllNotificationsAsRead();
   const deleteMutation = useDeleteNotification();
-  const clearAllMutation = useClearAllNotifications();
 
-  const managementNotifications = useMemo(() => {
-    return notifications.filter((n) => {
-      if (n.type === "ticket" || n.type === "absence" || n.type === "signup" || n.type === "goal") {
-        return true;
-      }
-      if (
-        n.target_roles &&
-        n.target_roles.some((r) => r === "01" || r === "02" || r === "gerente" || r === "desenvolvedor")
-      ) {
-        return true;
-      }
-      return false;
-    });
-  }, [notifications]);
-
-  const displayList = activeTab === "unread" ? unreadNotifications : notifications;
+  // No popup de notificações, NÃO mostrar notificações lidas (apenas unread)
+  const displayList = unreadNotifications;
 
   const handleNotificationClick = (notif: AppNotification) => {
     if (user?.id && (!notif.read_by || !notif.read_by.includes(user.id))) {
@@ -150,8 +132,8 @@ export function NotificationCenter() {
           )}
           title={
             showBadge
-              ? `${unreadCount} nova(s) notificação(ões)${hasManagementPending ? ` • ${totalPendingCount} ação(ões) de gestão pendente(s)` : ""}`
-              : "Central de Notificações"
+              ? `${unreadCount} notificação(ões) pendente(s)${hasManagementPending ? ` • ${totalPendingCount} pendência(s) de gestão` : ""}`
+              : "Notificações"
           }
         >
           {showBadge ? (
@@ -160,7 +142,7 @@ export function NotificationCenter() {
             <Bell className="h-5 w-5 text-muted-foreground transition-colors hover:text-foreground" />
           )}
 
-          {/* Indicador pulsante e badge de não lidas / ações de gestão */}
+          {/* Indicador de não lidas */}
           {showBadge && (
             <span className="absolute -top-0.5 -right-0.5 flex h-5 min-w-5 items-center justify-center">
               <span
@@ -193,22 +175,22 @@ export function NotificationCenter() {
         <div className="flex items-center justify-between p-4 pb-3 border-b border-border/60 bg-muted/20">
           <div className="flex items-center gap-2.5">
             <div className="p-2 rounded-xl bg-primary/10 text-primary border border-primary/20">
-              <Bell className="h-4 w-4" />
+              <BellRing className="h-4 w-4" />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h3 className="text-sm font-bold text-foreground">Notificações</h3>
+                <h3 className="text-sm font-bold text-foreground">Novas Notificações</h3>
                 {hasUnread ? (
                   <Badge variant="secondary" className="px-1.5 py-0 text-[10px] font-mono font-bold bg-primary/15 text-primary border-primary/20">
                     {unreadCount} nova{unreadCount === 1 ? "" : "s"}
                   </Badge>
-                ) : hasManagementPending ? (
-                  <Badge variant="secondary" className="px-1.5 py-0 text-[10px] font-mono font-bold bg-amber-500/15 text-amber-400 border-amber-500/30">
-                    {totalPendingCount} pendência{totalPendingCount === 1 ? "" : "s"}
+                ) : (
+                  <Badge variant="outline" className="px-1.5 py-0 text-[10px] font-medium text-muted-foreground">
+                    0 pendentes
                   </Badge>
-                ) : null}
+                )}
               </div>
-              <p className="text-[11px] text-muted-foreground">Sincronizadas em tempo real</p>
+              <p className="text-[11px] text-muted-foreground">Apenas notificações não lidas</p>
             </div>
           </div>
 
@@ -247,33 +229,22 @@ export function NotificationCenter() {
           </div>
         </div>
 
-        {/* ABAS: TODAS / NÃO LIDAS / GESTÃO */}
-        <div className="px-4 pt-2.5 pb-2 bg-muted/10 border-b border-border/40">
-          <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)}>
-            <TabsList
-              className={cn(
-                "grid h-8 w-full bg-background/80 border border-border/60 p-0.5 rounded-xl",
-                isManager ? "grid-cols-3" : "grid-cols-2"
-              )}
-            >
-              <TabsTrigger
-                value="all"
-                className="text-xs font-semibold rounded-lg data-[state=active]:bg-card data-[state=active]:text-foreground data-[state=active]:shadow-xs"
-              >
-                Todas ({notifications.length})
-              </TabsTrigger>
-              <TabsTrigger
-                value="unread"
-                className="text-xs font-semibold rounded-lg data-[state=active]:bg-card data-[state=active]:text-foreground data-[state=active]:shadow-xs flex items-center gap-1.5"
-              >
-                Não Lidas
-                {unreadCount > 0 && (
-                  <span className="px-1.5 py-0.2 rounded-full bg-primary text-primary-foreground text-[10px] font-mono font-bold">
-                    {unreadCount}
-                  </span>
-                )}
-              </TabsTrigger>
-              {isManager && (
+        {/* ABAS SE FOR GESTOR: NÃO LIDAS / GESTÃO */}
+        {isManager && (
+          <div className="px-4 pt-2 pb-1.5 bg-muted/10 border-b border-border/40">
+            <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)}>
+              <TabsList className="grid h-8 w-full grid-cols-2 bg-background/80 border border-border/60 p-0.5 rounded-xl">
+                <TabsTrigger
+                  value="unread"
+                  className="text-xs font-semibold rounded-lg data-[state=active]:bg-card data-[state=active]:text-foreground data-[state=active]:shadow-xs flex items-center gap-1.5"
+                >
+                  Não Lidas
+                  {unreadCount > 0 && (
+                    <span className="px-1.5 py-0.2 rounded-full bg-primary text-primary-foreground text-[10px] font-mono font-bold">
+                      {unreadCount}
+                    </span>
+                  )}
+                </TabsTrigger>
                 <TabsTrigger
                   value="management"
                   className="text-xs font-semibold rounded-lg data-[state=active]:bg-card data-[state=active]:text-foreground data-[state=active]:shadow-xs flex items-center gap-1.5"
@@ -285,23 +256,22 @@ export function NotificationCenter() {
                     </span>
                   )}
                 </TabsTrigger>
-              )}
-            </TabsList>
-          </Tabs>
-        </div>
+              </TabsList>
+            </Tabs>
+          </div>
+        )}
 
-        {/* CONTEÚDO PRINCIPAL: LISTA OU PAINEL DE GESTÃO */}
-        <ScrollArea className="h-[360px] sm:h-[420px]">
-          {activeTab === "management" ? (
+        {/* CONTEÚDO PRINCIPAL (EXCLUSIVAMENTE NÃO LIDAS NO POPUP) */}
+        <ScrollArea className="h-[340px] sm:h-[380px]">
+          {activeTab === "management" && isManager ? (
             <div className="p-3 space-y-2.5">
-              {/* BANNER STATUS DE GESTÃO */}
               {totalPendingCount > 0 ? (
                 <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-start gap-2.5 text-xs text-amber-200">
                   <ShieldAlert className="h-4 w-4 text-amber-400 shrink-0 mt-0.5" />
                   <div className="space-y-0.5">
                     <p className="font-bold text-foreground">Ações de Gestão Pendentes</p>
                     <p className="text-[11px] text-muted-foreground">
-                      {totalPendingCount} demanda(s) operacional(is) aguardando atendimento ou validação pela liderança.
+                      {totalPendingCount} demanda(s) operacional(is) aguardando atendimento.
                     </p>
                   </div>
                 </div>
@@ -309,15 +279,14 @@ export function NotificationCenter() {
                 <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/25 flex items-start gap-2.5 text-xs text-emerald-200">
                   <ShieldCheck className="h-4 w-4 text-emerald-400 shrink-0 mt-0.5" />
                   <div className="space-y-0.5">
-                    <p className="font-bold text-foreground">Painel de Gestão em Dia</p>
+                    <p className="font-bold text-foreground">Gestão em Dia</p>
                     <p className="text-[11px] text-muted-foreground">
-                      Nenhuma pendência operacional em aberto no momento. Todos os chamados, cadastros e licenças estão processados.
+                      Nenhuma pendência operacional em aberto no momento.
                     </p>
                   </div>
                 </div>
               )}
 
-              {/* CARDS DE AÇÕES PENDENTES */}
               <div className="space-y-2">
                 {allActionItems.map((item) => {
                   const hasCount = item.count > 0;
@@ -359,7 +328,7 @@ export function NotificationCenter() {
                             )}
                           </div>
                           <p className="text-[10px] text-muted-foreground truncate">
-                            {hasCount ? item.description : "Nenhuma pendência em aberto"}
+                            {hasCount ? item.description : "Nenhuma pendência"}
                           </p>
                         </div>
                       </div>
@@ -386,62 +355,6 @@ export function NotificationCenter() {
                   );
                 })}
               </div>
-
-              {/* HISTÓRICO DE NOTIFICAÇÕES DE GESTÃO */}
-              {managementNotifications.length > 0 && (
-                <div className="mt-4 pt-3 border-t border-border/40 space-y-2">
-                  <div className="flex items-center justify-between px-1">
-                    <h4 className="text-[10px] uppercase tracking-wider font-extrabold text-muted-foreground">
-                      Últimos Avisos para a Liderança
-                    </h4>
-                    <span className="text-[10px] font-mono text-muted-foreground">
-                      {managementNotifications.length} recente(s)
-                    </span>
-                  </div>
-
-                  <div className="divide-y divide-border/30 space-y-1">
-                    {managementNotifications.slice(0, 5).map((notif) => {
-                      const isRead = Boolean(user?.id && notif.read_by?.includes(user.id));
-                      const typeInfo = getNotificationTypeInfo(notif.type);
-
-                      return (
-                        <div
-                          key={notif.id}
-                          onClick={() => handleNotificationClick(notif)}
-                          className={cn(
-                            "flex items-start gap-2.5 p-2 rounded-lg transition-colors cursor-pointer text-left",
-                            isRead ? "hover:bg-muted/30" : "bg-primary/5 hover:bg-primary/10"
-                          )}
-                        >
-                          <div
-                            className={cn(
-                              "p-1.5 rounded-md border shrink-0 mt-0.5",
-                              typeInfo.badgeBg,
-                              typeInfo.badgeColor,
-                              typeInfo.borderColor
-                            )}
-                          >
-                            {renderTypeIcon(notif.type, "h-3.5 w-3.5")}
-                          </div>
-                          <div className="min-w-0 flex-1">
-                            <div className="flex items-center justify-between gap-1">
-                              <p className="text-xs font-bold text-foreground truncate">
-                                {notif.title}
-                              </p>
-                              <span className="text-[9px] font-mono text-muted-foreground shrink-0">
-                                {formatRelativeTime(notif.created_at)}
-                              </span>
-                            </div>
-                            <p className="text-[11px] text-muted-foreground line-clamp-1">
-                              {notif.message}
-                            </p>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
             </div>
           ) : isLoading ? (
             <div className="flex flex-col items-center justify-center h-48 text-muted-foreground space-y-2">
@@ -451,40 +364,38 @@ export function NotificationCenter() {
           ) : displayList.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-64 text-center px-6 space-y-3">
               <div className="p-3.5 rounded-2xl bg-muted/50 border border-border/60 text-muted-foreground/60 shadow-inner">
-                {activeTab === "unread" ? (
-                  <Sparkles className="h-8 w-8 text-primary/70" />
-                ) : (
-                  <Inbox className="h-8 w-8" />
-                )}
+                <Sparkles className="h-8 w-8 text-primary/70" />
               </div>
               <div className="space-y-1">
-                <p className="text-sm font-bold text-foreground">
-                  {activeTab === "unread" ? "Tudo em dia!" : "Nenhuma notificação"}
-                </p>
-                <p className="text-xs text-muted-foreground max-w-[240px]">
-                  {activeTab === "unread"
-                    ? "Você não possui nenhuma notificação pendente para ler."
-                    : "Você receberá atualizações de chamados, metas, movimentações e comunicados aqui."}
+                <p className="text-sm font-bold text-foreground">Tudo em dia!</p>
+                <p className="text-xs text-muted-foreground max-w-[250px]">
+                  Você não possui notificações não lidas. Acesse a Central Completa para ver o histórico de avisos já lidos.
                 </p>
               </div>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="text-xs font-bold gap-1.5 rounded-xl border-border/80"
+                onClick={() => {
+                  setOpen(false);
+                  navigate({ to: "/notificacoes" as any });
+                }}
+              >
+                Ver Notificações Anteriores
+                <ArrowRight className="h-3 w-3" />
+              </Button>
             </div>
           ) : (
             <div className="divide-y divide-border/30 p-2 space-y-1">
               {displayList.map((notif) => {
-                const isRead = Boolean(user?.id && notif.read_by?.includes(user.id));
                 const typeInfo = getNotificationTypeInfo(notif.type);
-                const categoryBadge = getCategoryBadge(notif.category);
 
                 return (
                   <div
                     key={notif.id}
                     onClick={() => handleNotificationClick(notif)}
-                    className={cn(
-                      "group relative flex items-start gap-3 p-3 rounded-xl transition-all duration-150 cursor-pointer text-left border",
-                      isRead
-                        ? "bg-transparent hover:bg-muted/40 border-transparent"
-                        : "bg-primary/5 hover:bg-primary/10 border-primary/20 shadow-xs"
-                    )}
+                    className="group relative flex items-start gap-3 p-3 rounded-xl transition-all duration-150 cursor-pointer text-left border bg-primary/5 hover:bg-primary/10 border-primary/20 shadow-xs"
                   >
                     {/* ÍCONE / AVATAR */}
                     <div className="relative shrink-0 mt-0.5">
@@ -508,13 +419,11 @@ export function NotificationCenter() {
                         </div>
                       )}
 
-                      {/* Dot de Não Lida */}
-                      {!isRead && (
-                        <span className="absolute -top-1 -left-1 flex h-2.5 w-2.5">
-                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75" />
-                          <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-primary" />
-                        </span>
-                      )}
+                      {/* Dot pulsante de Não Lida */}
+                      <span className="absolute -top-1 -left-1 flex h-2.5 w-2.5">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75" />
+                        <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-primary" />
+                      </span>
                     </div>
 
                     {/* CONTEÚDO */}
@@ -531,17 +440,7 @@ export function NotificationCenter() {
                           >
                             {typeInfo.label}
                           </span>
-                          {notif.user_id !== "all" && (
-                            <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.2 rounded bg-amber-500/15 text-amber-400 border border-amber-500/30 shrink-0">
-                              Direto
-                            </span>
-                          )}
-                          <p
-                            className={cn(
-                              "text-xs truncate",
-                              isRead ? "font-semibold text-foreground/90" : "font-bold text-foreground"
-                            )}
-                          >
+                          <p className="text-xs font-bold text-foreground truncate">
                             {notif.title}
                           </p>
                         </div>
@@ -554,11 +453,10 @@ export function NotificationCenter() {
                         {notif.message}
                       </p>
 
-                      {/* METADADOS / REMETENTE */}
                       <div className="flex items-center justify-between pt-0.5 text-[10px] text-muted-foreground/80">
                         {notif.sender_name && (
                           <span className="truncate max-w-[160px]">
-                            Por: <span className="font-medium text-foreground/80">{notif.sender_name}</span>
+                            De: <span className="font-medium text-foreground/80">{notif.sender_name}</span>
                           </span>
                         )}
                         {notif.link && (
@@ -569,23 +467,21 @@ export function NotificationCenter() {
                       </div>
                     </div>
 
-                    {/* BOTÕES DE AÇÃO RÁPIDA (HOVER) */}
+                    {/* AÇÃO RÁPIDA (MARCAR LIDA / EXCLUIR) */}
                     <div className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1 absolute right-2 top-2 bg-card/90 backdrop-blur-md p-1 rounded-lg border border-border/80 shadow-md">
-                      {!isRead ? (
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          className="h-6 w-6 text-muted-foreground hover:text-emerald-400 rounded-md"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            if (user?.id) markAsReadMutation.mutate(notif.id);
-                          }}
-                          title="Marcar como lida"
-                        >
-                          <Check className="h-3.5 w-3.5" />
-                        </Button>
-                      ) : null}
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-6 w-6 text-muted-foreground hover:text-emerald-400 rounded-md"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (user?.id) markAsReadMutation.mutate(notif.id);
+                        }}
+                        title="Marcar como lida"
+                      >
+                        <Check className="h-3.5 w-3.5" />
+                      </Button>
 
                       <Button
                         type="button"
@@ -596,7 +492,7 @@ export function NotificationCenter() {
                           e.stopPropagation();
                           if (user?.id) deleteMutation.mutate(notif.id);
                         }}
-                        title="Excluir notificação"
+                        title="Excluir"
                       >
                         <Trash2 className="h-3.5 w-3.5" />
                       </Button>
@@ -608,25 +504,37 @@ export function NotificationCenter() {
           )}
         </ScrollArea>
 
-        {/* RODAPÉ */}
-        {notifications.length > 0 && (
-          <div className="p-3 border-t border-border/50 bg-muted/20 flex items-center justify-between">
-            <span className="text-[11px] text-muted-foreground">
-              Total: {notifications.length} notificação{notifications.length === 1 ? "" : "ões"}
-            </span>
+        {/* RODAPÉ DO POPUP: BOTÃO PARA IR PARA A CENTRAL COMPLETA /todas notificações */}
+        <div className="p-3 border-t border-border/50 bg-muted/20 flex items-center justify-between gap-2">
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="text-xs font-bold text-primary hover:text-primary/90 gap-1.5 px-2 hover:bg-primary/10 rounded-xl"
+            onClick={() => {
+              setOpen(false);
+              navigate({ to: "/notificacoes" as any });
+            }}
+          >
+            <Settings2 className="h-3.5 w-3.5" />
+            Central Completa & Preferências
+            <ArrowRight className="h-3 w-3" />
+          </Button>
+
+          {hasUnread && (
             <Button
               type="button"
-              variant="ghost"
+              variant="outline"
               size="sm"
-              className="h-7 text-xs text-muted-foreground hover:text-destructive font-medium gap-1 px-2"
-              onClick={() => clearAllMutation.mutate()}
-              disabled={clearAllMutation.isPending}
+              className="h-7 text-xs font-medium text-muted-foreground hover:text-foreground gap-1 px-2.5 rounded-lg border-border/70"
+              onClick={() => markAllMutation.mutate()}
+              disabled={markAllMutation.isPending}
             >
-              <Trash2 className="h-3 w-3" />
-              Limpar todas
+              <CheckCheck className="h-3.5 w-3.5" />
+              Lidas
             </Button>
-          </div>
-        )}
+          )}
+        </div>
       </PopoverContent>
     </Popover>
   );

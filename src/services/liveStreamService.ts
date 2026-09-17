@@ -559,3 +559,143 @@ export async function purgeStreamHistory(): Promise<void> {
   await supabase.from("stream_integration_logs").delete().neq("id", "00000000-0000-0000-0000-000000000000");
 }
 
+/**
+ * Consulta o status online público de um canal (Zero-Config)
+ */
+export async function checkChannelOnlineStatus(
+  platform: StreamPlatform,
+  channelName: string
+): Promise<{ isLive: boolean; title?: string; category?: string; thumbnailUrl?: string; viewerCount?: number; streamUrl?: string }> {
+  const clean = channelName.trim().replace(/^@/, "").toLowerCase();
+  
+  if (platform === "kick") {
+    try {
+      const res = await fetch(`https://kick.com/api/v2/channels/${encodeURIComponent(clean)}/livestream`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data?.data?.is_live || data?.data?.session_title) {
+          return {
+            isLive: true,
+            title: data.data.session_title || `Live no Kick • ${clean}`,
+            category: data.data.category?.name || "Grand Theft Auto V",
+            thumbnailUrl: data.data.thumbnail?.url,
+            viewerCount: data.data.viewers || data.data.viewer_count || 1,
+            streamUrl: `https://kick.com/${clean}`,
+          };
+        }
+      }
+    } catch {}
+  }
+
+  if (platform === "twitch") {
+    try {
+      const gqlRes = await fetch("https://gql.twitch.tv/gql", {
+        method: "POST",
+        headers: {
+          "Client-ID": "kimne78kx3ncx6brgo4mv6wki5h1ko",
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          query: `query { user(login: "${clean}") { stream { id title viewersCount game { name } createdAt } } }`,
+        }),
+      });
+      if (gqlRes.ok) {
+        const gqlData = await gqlRes.json();
+        const stream = gqlData?.data?.user?.stream;
+        if (stream) {
+          return {
+            isLive: true,
+            title: stream.title || `Live na Twitch • ${clean}`,
+            category: stream.game?.name || "Grand Theft Auto V",
+            thumbnailUrl: `https://static-cdn.jtvnw.net/previews-ttv/live_user_${clean}-1280x720.jpg`,
+            viewerCount: stream.viewersCount || 1,
+            streamUrl: `https://twitch.tv/${clean}`,
+          };
+        }
+      }
+    } catch {}
+  }
+
+  return { isLive: false };
+}
+
+let isAutoChecking = false;
+
+/**
+ * Ciclo de verificação autônoma de lives no frontend
+ */
+export async function runAutoLiveStreamCheckCycle(): Promise<void> {
+  if (isAutoChecking) return;
+  isAutoChecking = true;
+
+  try {
+    const { data: accounts, error: accErr } = await supabase
+      .from("member_stream_accounts")
+      .select("*")
+      .eq("is_active", true);
+
+    if (accErr || !accounts || accounts.length === 0) {
+      isAutoChecking = false;
+      return;
+    }
+
+    const { data: activeSessions = [] } = await supabase
+      .from("stream_sessions")
+      .select("id, stream_account_id, is_live")
+      .eq("is_live", true);
+
+    const activeAccountMap = new Map((activeSessions || []).map((s) => [s.stream_account_id, s]));
+
+    for (const acc of accounts) {
+      try {
+        const status = await checkChannelOnlineStatus(acc.platform, acc.channel_name);
+        const existingLive = activeAccountMap.get(acc.id);
+
+        if (status.isLive && !existingLive) {
+          // Nova live detectada automaticamente!
+          const now = new Date().toISOString();
+          const sessionPayload = {
+            stream_account_id: acc.id,
+            user_id: acc.user_id,
+            platform: acc.platform,
+            channel_name: acc.channel_name,
+            streamer_name: acc.display_name || acc.channel_name,
+            title: status.title || `Live de ${acc.channel_name} • Twin Wheels RP`,
+            category: status.category || "Grand Theft Auto V",
+            thumbnailUrl: status.thumbnailUrl,
+            stream_url: status.streamUrl || acc.channel_url,
+            is_live: true,
+            started_at: now,
+            last_checked_at: now,
+            viewer_count: status.viewerCount || 1,
+            peak_viewers: status.viewerCount || 1,
+            notification_sent: true,
+            notified_at: now,
+          };
+
+          await supabase.from("stream_sessions").insert(sessionPayload);
+
+          // Dispara notificação in-app em tempo real
+          await createNotification({
+            title: `${acc.display_name || acc.channel_name} está Ao Vivo! 🔴`,
+            message: `Transmitindo "${sessionPayload.title}" na ${STREAM_PLATFORMS[acc.platform].name}!`,
+            type: "live",
+            category: "alert",
+            link: "/lives",
+            metadata: sessionPayload,
+          });
+        } else if (!status.isLive && existingLive) {
+          // Live encerrou
+          await supabase
+            .from("stream_sessions")
+            .update({ is_live: false, ended_at: new Date().toISOString() })
+            .eq("id", existingLive.id);
+        }
+      } catch {}
+    }
+  } catch {} finally {
+    isAutoChecking = false;
+  }
+}
+
+

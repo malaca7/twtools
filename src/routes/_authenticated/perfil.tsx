@@ -23,6 +23,8 @@ import {
   Image as ImageIcon,
   Quote,
   Radio,
+  Sliders,
+  Camera,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
@@ -43,6 +45,7 @@ import { cn } from "@/lib/utils";
 import { useMembers } from "@/hooks/useData";
 import { type SocialLinks } from "@/types/profileFeed";
 import { UserAppearanceSettings } from "@/components/profile/UserAppearanceSettings";
+import { UniversalImageAdjusterModal } from "@/components/ui/UniversalImageAdjusterModal";
 
 export const Route = createFileRoute("/_authenticated/perfil")({
   component: PerfilWrapper,
@@ -54,6 +57,47 @@ function PerfilWrapper() {
     return <Outlet />;
   }
   return <PerfilPage />;
+}
+
+// Upload helper para buckets do Supabase com fallback seguro
+async function uploadImageFile(file: File, prefix: string, userId: string): Promise<string> {
+  const ext = file.name.split(".").pop()?.toLowerCase() || "png";
+  const cleanExt = ["png", "jpg", "jpeg", "webp", "gif"].includes(ext) ? ext : "png";
+  const fileName = `${prefix}_${userId}_${Date.now()}.${cleanExt}`;
+
+  // 1. Tenta bucket 'products'
+  const { data: prodData, error: prodErr } = await supabase.storage
+    .from("products")
+    .upload(fileName, file, {
+      cacheControl: "31536000",
+      upsert: true,
+      contentType: file.type || `image/${cleanExt}`,
+    });
+
+  if (!prodErr && prodData) {
+    return supabase.storage.from("products").getPublicUrl(prodData.path).data.publicUrl;
+  }
+
+  // 2. Fallback para bucket 'chat-attachments'
+  const { data: chatData, error: chatErr } = await supabase.storage
+    .from("chat-attachments")
+    .upload(fileName, file, {
+      cacheControl: "31536000",
+      upsert: true,
+      contentType: file.type || `image/${cleanExt}`,
+    });
+
+  if (!chatErr && chatData) {
+    return supabase.storage.from("chat-attachments").getPublicUrl(chatData.path).data.publicUrl;
+  }
+
+  // 3. Fallback para Base64 Data URL
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = () => reject(new Error("Falha ao ler o arquivo selecionado"));
+    reader.readAsDataURL(file);
+  });
 }
 
 export function PerfilPage({ initialTab }: { initialTab?: "perfil" | "dados" | "publico" | "aparencia" } = {}) {
@@ -109,9 +153,14 @@ export function PerfilPage({ initialTab }: { initialTab?: "perfil" | "dados" | "
   const [telefone, setTelefone] = useState("");
   const [gameId, setGameId] = useState("");
 
-  // Perfil Público & Visual
+  // Foto / Avatar Customizado
+  const [customAvatarUrl, setCustomAvatarUrl] = useState("");
+  const [originalAvatarUrl, setOriginalAvatarUrl] = useState("");
+  const avatarInputRef = useRef<HTMLInputElement>(null);
+
+  // Perfil Público & Banner
   const [bannerUrl, setBannerUrl] = useState("");
-  const [isUploadingBanner, setIsUploadingBanner] = useState(false);
+  const [originalBannerUrl, setOriginalBannerUrl] = useState("");
   const bannerInputRef = useRef<HTMLInputElement>(null);
 
   const [bio, setBio] = useState("");
@@ -127,6 +176,30 @@ export function PerfilPage({ initialTab }: { initialTab?: "perfil" | "dados" | "
   const [twitch, setTwitch] = useState("");
   const [youtube, setYoutube] = useState("");
 
+  // Estado do Studio Universal de Ajuste de Imagem
+  const [adjusterConfig, setAdjusterConfig] = useState<{
+    isOpen: boolean;
+    type: "banner" | "avatar";
+    file: File | null;
+    url: string | null;
+    originalUrl: string | null;
+    cropShape: "round" | "rect";
+    defaultAspectRatio?: number;
+    title: string;
+    description: string;
+  }>({
+    isOpen: false,
+    type: "banner",
+    file: null,
+    url: null,
+    originalUrl: null,
+    cropShape: "rect",
+    defaultAspectRatio: 16 / 9,
+    title: "Studio: Ajustar Imagem",
+    description: "Enquadre e ajuste com máxima precisão antes de salvar.",
+  });
+  const [isSavingAdjustedImage, setIsSavingAdjustedImage] = useState(false);
+
   useEffect(() => {
     if (profile) {
       setNome(profile.nome || "");
@@ -140,6 +213,14 @@ export function PerfilPage({ initialTab }: { initialTab?: "perfil" | "dados" | "
       } else {
         setBannerUrl("");
       }
+
+      const origB = profile.custom_theme?.original_banner_url || "";
+      setOriginalBannerUrl(origB);
+
+      const av = profile.avatar_url || profile.discord_avatar_url || "";
+      setCustomAvatarUrl(av);
+      const origAv = profile.custom_theme?.original_avatar_url || "";
+      setOriginalAvatarUrl(origAv);
 
       setBio((profile as any).bio || profile.custom_theme?.bio || "");
       setCustomStatus((profile as any).custom_status || profile.custom_theme?.custom_status || "");
@@ -155,7 +236,8 @@ export function PerfilPage({ initialTab }: { initialTab?: "perfil" | "dados" | "
     }
   }, [profile]);
 
-  const handleBannerFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Dispara o Studio ao selecionar novo arquivo de Banner
+  const handleBannerFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -163,67 +245,131 @@ export function PerfilPage({ initialTab }: { initialTab?: "perfil" | "dados" | "
       toast.error("Por favor, selecione um arquivo de imagem válido (PNG, JPG, WEBP, GIF).");
       return;
     }
-
-    if (file.size > 10 * 1024 * 1024) {
-      toast.error("A imagem do banner deve ter no máximo 10MB.");
+    if (file.size > 15 * 1024 * 1024) {
+      toast.error("A imagem selecionada deve ter no máximo 15MB.");
       return;
     }
 
-    setIsUploadingBanner(true);
-    const toastId = toast.loading("Fazendo upload da imagem do banner...");
+    setAdjusterConfig({
+      isOpen: true,
+      type: "banner",
+      file,
+      url: null,
+      originalUrl: null,
+      cropShape: "rect",
+      defaultAspectRatio: 16 / 9,
+      title: "Studio Pro: Ajustar Banner do Perfil",
+      description: "Ajuste o enquadramento panorâmico, rotação e filtros de cor para o seu perfil.",
+    });
+
+    if (bannerInputRef.current) bannerInputRef.current.value = "";
+  };
+
+  // Reajustar o Banner atual a partir da imagem original preservada
+  const handleReadjustCurrentBanner = () => {
+    if (!bannerUrl) return;
+    setAdjusterConfig({
+      isOpen: true,
+      type: "banner",
+      file: null,
+      url: bannerUrl,
+      originalUrl: originalBannerUrl || bannerUrl,
+      cropShape: "rect",
+      defaultAspectRatio: 16 / 9,
+      title: "Studio Pro: Reajustar Banner do Perfil",
+      description: "Reajustando sobre a imagem original com qualidade total preservada.",
+    });
+  };
+
+  // Dispara o Studio ao selecionar novo arquivo de Avatar
+  const handleAvatarFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith("image/")) {
+      toast.error("Por favor, selecione um arquivo de imagem válido (PNG, JPG, WEBP, GIF).");
+      return;
+    }
+    if (file.size > 15 * 1024 * 1024) {
+      toast.error("A foto selecionada deve ter no máximo 15MB.");
+      return;
+    }
+
+    setAdjusterConfig({
+      isOpen: true,
+      type: "avatar",
+      file,
+      url: null,
+      originalUrl: null,
+      cropShape: "round",
+      defaultAspectRatio: 1,
+      title: "Studio Pro: Ajustar Foto de Perfil",
+      description: "Enquadre sua foto com o círculo do avatar, aplique zoom e filtros.",
+    });
+
+    if (avatarInputRef.current) avatarInputRef.current.value = "";
+  };
+
+  // Reajustar o Avatar atual
+  const handleReadjustCurrentAvatar = () => {
+    const activeAv = customAvatarUrl || profile?.avatar_url || profile?.discord_avatar_url;
+    if (!activeAv) return;
+    setAdjusterConfig({
+      isOpen: true,
+      type: "avatar",
+      file: null,
+      url: activeAv,
+      originalUrl: originalAvatarUrl || activeAv,
+      cropShape: "round",
+      defaultAspectRatio: 1,
+      title: "Studio Pro: Reajustar Foto de Perfil",
+      description: "Reajustando sobre a foto original em alta resolução.",
+    });
+  };
+
+  // Callback de salvamento do Studio Universal
+  const handleSaveAdjustedImage = async (croppedFile: File, originalSource?: File | string) => {
+    setIsSavingAdjustedImage(true);
+    const toastId = toast.loading("Processando e salvando imagem com qualidade máxima...");
 
     try {
-      const ext = file.name.split(".").pop()?.toLowerCase() || "png";
-      const cleanExt = ["png", "jpg", "jpeg", "webp", "gif"].includes(ext) ? ext : "png";
-      const fileName = `banner_${user?.id || "user"}_${Date.now()}.${cleanExt}`;
+      const uid = user?.id || "user";
+      const croppedUrl = await uploadImageFile(croppedFile, adjusterConfig.type === "banner" ? "banner_crop" : "avatar_crop", uid);
 
-      let finalUrl = "";
+      let origUrl = typeof originalSource === "string" ? originalSource : "";
+      if (originalSource instanceof File) {
+        origUrl = await uploadImageFile(originalSource, adjusterConfig.type === "banner" ? "banner_orig" : "avatar_orig", uid);
+      }
 
-      // 1. Tenta bucket 'products'
-      const { data: prodData, error: prodErr } = await supabase.storage
-        .from("products")
-        .upload(fileName, file, {
-          cacheControl: "31536000",
-          upsert: true,
-          contentType: file.type || `image/${cleanExt}`,
-        });
-
-      if (!prodErr && prodData) {
-        const { data: pubData } = supabase.storage.from("products").getPublicUrl(prodData.path);
-        finalUrl = pubData.publicUrl;
+      if (adjusterConfig.type === "banner") {
+        setBannerUrl(croppedUrl);
+        if (origUrl) setOriginalBannerUrl(origUrl);
+        toast.success("Banner ajustado com sucesso! Clique em Salvar para fixar as alterações.", { id: toastId });
       } else {
-        // 2. Fallback para bucket 'chat-attachments'
-        const { data: chatData, error: chatErr } = await supabase.storage
-          .from("chat-attachments")
-          .upload(fileName, file, {
-            cacheControl: "31536000",
-            upsert: true,
-            contentType: file.type || `image/${cleanExt}`,
-          });
-
-        if (!chatErr && chatData) {
-          const { data: pubData } = supabase.storage.from("chat-attachments").getPublicUrl(chatData.path);
-          finalUrl = pubData.publicUrl;
-        } else {
-          // 3. Fallback para Base64 Data URL
-          finalUrl = await new Promise<string>((resolve, reject) => {
-            const reader = new FileReader();
-            reader.onload = () => resolve(reader.result as string);
-            reader.onerror = () => reject(new Error("Falha ao ler o arquivo selecionado"));
-            reader.readAsDataURL(file);
-          });
-        }
+        setCustomAvatarUrl(croppedUrl);
+        if (origUrl) setOriginalAvatarUrl(origUrl);
+        // Atualiza imediatamente o perfil com a nova foto
+        await updateUserProfile({
+          nome: nome || profile?.nome || "Membro",
+          telefone: telefone || profile?.telefone || "000-000",
+          game_id: gameId || profile?.game_id || "0",
+          avatar_url: croppedUrl,
+          custom_theme: {
+            ...(profile?.custom_theme || {}),
+            original_avatar_url: origUrl || originalAvatarUrl || croppedUrl,
+          },
+        } as any);
+        await refresh();
+        void queryClient.invalidateQueries({ queryKey: ["auth"] });
+        void queryClient.invalidateQueries({ queryKey: ["members"] });
+        toast.success("Foto de perfil atualizada com sucesso!", { id: toastId });
       }
 
-      setBannerUrl(finalUrl);
-      toast.success("Banner carregado com sucesso! Clique em Salvar para aplicar.", { id: toastId });
+      setAdjusterConfig((prev) => ({ ...prev, isOpen: false }));
     } catch (err: any) {
-      toast.error(err.message || "Falha ao fazer upload da imagem do banner", { id: toastId });
+      toast.error(err.message || "Erro ao salvar a imagem ajustada.", { id: toastId });
     } finally {
-      setIsUploadingBanner(false);
-      if (bannerInputRef.current) {
-        bannerInputRef.current.value = "";
-      }
+      setIsSavingAdjustedImage(false);
     }
   };
 
@@ -249,10 +395,16 @@ export function PerfilPage({ initialTab }: { initialTab?: "perfil" | "dados" | "
         custom_url: customUrl.trim().toLowerCase().replace(/^@/, "") || null,
         public_profile_enabled: publicProfileEnabled,
         banner_url: bannerUrl || null,
+        avatar_url: customAvatarUrl || null,
         bio: bio.trim() || null,
         custom_status: customStatus.trim() || null,
         social_links: socialLinks,
-      });
+        custom_theme: {
+          ...(profile?.custom_theme || {}),
+          original_banner_url: originalBannerUrl || bannerUrl || null,
+          original_avatar_url: originalAvatarUrl || customAvatarUrl || null,
+        },
+      } as any);
     },
     onSuccess: async () => {
       toast.success("Perfil atualizado com sucesso!");
@@ -260,6 +412,7 @@ export function PerfilPage({ initialTab }: { initialTab?: "perfil" | "dados" | "
       void queryClient.invalidateQueries({ queryKey: ["auth"] });
       void queryClient.invalidateQueries({ queryKey: ["members"] });
       void queryClient.invalidateQueries({ queryKey: ["public-profile-details"] });
+      void queryClient.invalidateQueries({ queryKey: ["public-member-direct"] });
     },
     onError: (err) => toast.error(errorMessage(err)),
   });
@@ -284,18 +437,18 @@ export function PerfilPage({ initialTab }: { initialTab?: "perfil" | "dados" | "
     }
   };
 
-  const discordAvatar = profile?.avatar_url || profile?.discord_avatar_url;
-  const initials = (nickname || nome || "P").slice(0, 2).toUpperCase();
   const currentSlug = String(customUrl || profile?.discord_username?.replace(/#0$/, "") || user?.id || "").replace(/^@/, "");
+  const activeAvatar = customAvatarUrl || profile?.avatar_url || profile?.discord_avatar_url;
+  const initials = (nickname || nome || "P").slice(0, 2).toUpperCase();
 
   const handleOpenPublicProfile = () => {
     const origin = typeof window !== "undefined" ? window.location.origin : "";
-    window.open(`${origin}/perfil/${currentSlug}`, "_blank");
+    window.open(`${origin}/@${currentSlug}`, "_blank");
   };
 
   const handleCopyLink = () => {
     const origin = typeof window !== "undefined" ? window.location.origin : "";
-    const link = `${origin}/perfil/${currentSlug}`;
+    const link = `${origin}/@${currentSlug}`;
     navigator.clipboard.writeText(link);
     setCopiedLink(true);
     toast.success("Link do perfil público copiado!");
@@ -306,7 +459,7 @@ export function PerfilPage({ initialTab }: { initialTab?: "perfil" | "dados" | "
     <div className="mx-auto max-w-4xl space-y-6 pb-12">
       <PageHeader
         title="Meu Perfil"
-        description="Gerencie seus dados em jogo, personalize seu banner público e visualize suas informações vinculadas."
+        description="Gerencie seus dados em jogo, personalize seu banner público e utilize o Studio Universal para ajustar suas fotos."
         actions={
           level ? (
             <Badge variant="outline" className={cn("text-xs", levelBadgeClass(level))}>
@@ -314,6 +467,21 @@ export function PerfilPage({ initialTab }: { initialTab?: "perfil" | "dados" | "
             </Badge>
           ) : null
         }
+      />
+
+      {/* MODAL UNIVERSAL PRO DE AJUSTE DE IMAGEM */}
+      <UniversalImageAdjusterModal
+        isOpen={adjusterConfig.isOpen}
+        onClose={() => setAdjusterConfig((prev) => ({ ...prev, isOpen: false }))}
+        imageFile={adjusterConfig.file}
+        imageUrl={adjusterConfig.url}
+        originalImageUrl={adjusterConfig.originalUrl}
+        cropShape={adjusterConfig.cropShape}
+        defaultAspectRatio={adjusterConfig.defaultAspectRatio}
+        title={adjusterConfig.title}
+        description={adjusterConfig.description}
+        onCropSave={handleSaveAdjustedImage}
+        isSaving={isSavingAdjustedImage}
       />
 
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)} className="w-full space-y-6">
@@ -331,15 +499,36 @@ export function PerfilPage({ initialTab }: { initialTab?: "perfil" | "dados" | "
         {/* ABA UNIFICADA: MEU PERFIL */}
         <TabsContent value="perfil" className="space-y-6 animate-in fade-in-50 duration-200">
           <div className="grid gap-6 md:grid-cols-3">
-            {/* COLUNA ESQUERDA: RESUMO DO USUÁRIO & ATALHOS */}
+            {/* COLUNA ESQUERDA: RESUMO DO USUÁRIO & FOTO COM STUDIO */}
             <Card className="surface-card md:col-span-1 h-fit">
               <CardContent className="p-6 flex flex-col items-center text-center space-y-4">
-                <Avatar className="h-24 w-24 border-2 border-primary shadow-md">
-                  <AvatarImage src={discordAvatar || undefined} alt={nome} />
-                  <AvatarFallback className="bg-primary/20 text-primary font-bold text-xl">
-                    {initials}
-                  </AvatarFallback>
-                </Avatar>
+                <input
+                  ref={avatarInputRef}
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp,image/gif"
+                  className="hidden"
+                  onChange={handleAvatarFileSelect}
+                />
+
+                {/* AVATAR COM BOTÃO DE AJUSTAR SOBREPOSTO */}
+                <div className="relative group">
+                  <Avatar className="h-28 w-28 border-3 border-primary shadow-xl ring-2 ring-border/80">
+                    <AvatarImage src={activeAvatar || undefined} alt={nome} className="object-cover" />
+                    <AvatarFallback className="bg-primary/20 text-primary font-bold text-2xl">
+                      {initials}
+                    </AvatarFallback>
+                  </Avatar>
+
+                  <button
+                    type="button"
+                    onClick={() => avatarInputRef.current?.click()}
+                    className="absolute inset-0 rounded-full bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-1 text-white cursor-pointer backdrop-blur-xs"
+                    title="Trocar Foto e Ajustar no Studio"
+                  >
+                    <Camera className="h-5 w-5 text-emerald-400" />
+                    <span className="text-[10px] font-bold">Ajustar Foto</span>
+                  </button>
+                </div>
 
                 <div>
                   <h3 className="text-lg font-bold text-foreground">
@@ -368,40 +557,70 @@ export function PerfilPage({ initialTab }: { initialTab?: "perfil" | "dados" | "
                     Telefone: <span className="font-bold text-foreground">{telefone || "N/A"}</span>
                   </p>
                   <p className="text-muted-foreground truncate">
-                    Link Público:{" "}
+                    Link Direto:{" "}
                     <span className="font-mono font-bold text-primary">
-                      /perfil/{currentSlug}
+                      /@{currentSlug}
                     </span>
                   </p>
                 </div>
 
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={handleOpenPublicProfile}
-                  className="w-full text-xs font-bold border-primary/40 hover:bg-primary/10 text-primary gap-1.5 cursor-pointer rounded-xl"
-                  title="Abrir perfil público em nova aba"
-                >
-                  <ExternalLink className="h-3.5 w-3.5" />
-                  <span>Ver Perfil (Nova Aba)</span>
-                </Button>
+                <div className="w-full space-y-2 pt-1">
+                  <div className="grid grid-cols-2 gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => avatarInputRef.current?.click()}
+                      className="text-xs font-bold gap-1 rounded-xl border-border/80 hover:bg-secondary cursor-pointer h-8 px-2"
+                      title="Fazer upload de nova foto e ajustar no studio"
+                    >
+                      <Upload className="h-3.5 w-3.5 text-primary" />
+                      <span>Nova Foto</span>
+                    </Button>
 
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={handleManualSyncAvatar}
-                  disabled={isSyncingAvatar}
-                  className="w-full text-xs text-muted-foreground hover:text-foreground gap-1.5 cursor-pointer rounded-xl"
-                >
-                  {isSyncingAvatar ? (
-                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                  ) : (
-                    <RefreshCw className="h-3.5 w-3.5" />
-                  )}
-                  <span>Sincronizar com Discord</span>
-                </Button>
+                    {activeAvatar && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={handleReadjustCurrentAvatar}
+                        className="text-xs font-bold gap-1 rounded-xl border-border/80 hover:bg-secondary cursor-pointer h-8 px-2 text-emerald-400"
+                        title="Reajustar a foto atual usando a imagem original"
+                      >
+                        <Sliders className="h-3.5 w-3.5" />
+                        <span>Reajustar</span>
+                      </Button>
+                    )}
+                  </div>
+
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={handleOpenPublicProfile}
+                    className="w-full text-xs font-bold border-primary/40 hover:bg-primary/10 text-primary gap-1.5 cursor-pointer rounded-xl h-9"
+                    title="Abrir perfil público em nova aba"
+                  >
+                    <ExternalLink className="h-3.5 w-3.5" />
+                    <span>Ver Perfil Público</span>
+                  </Button>
+
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleManualSyncAvatar}
+                    disabled={isSyncingAvatar}
+                    className="w-full text-xs text-muted-foreground hover:text-foreground gap-1.5 cursor-pointer rounded-xl h-8"
+                  >
+                    {isSyncingAvatar ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <RefreshCw className="h-3.5 w-3.5" />
+                    )}
+                    <span>Sincronizar com Discord</span>
+                  </Button>
+                </div>
               </CardContent>
             </Card>
 
@@ -475,14 +694,19 @@ export function PerfilPage({ initialTab }: { initialTab?: "perfil" | "dados" | "
                 </CardContent>
               </Card>
 
-              {/* CARD 2: BANNER DO PERFIL (UPLOAD DIRETO DE IMAGEM) */}
+              {/* CARD 2: BANNER DO PERFIL COM STUDIO PRO DE AJUSTE */}
               <Card className="surface-card">
                 <CardHeader className="pb-3 border-b border-border/50">
-                  <CardTitle className="text-base font-semibold text-foreground flex items-center gap-2">
-                    <ImageIcon className="h-4 w-4 text-primary" /> Alterar Banner do Perfil
-                  </CardTitle>
+                  <div className="flex items-center justify-between gap-2">
+                    <CardTitle className="text-base font-semibold text-foreground flex items-center gap-2">
+                      <ImageIcon className="h-4 w-4 text-primary" /> Banner do Perfil Público
+                    </CardTitle>
+                    <Badge variant="outline" className="text-[10px] font-mono border-emerald-500/40 text-emerald-400 bg-emerald-500/10">
+                      Studio Pro Integrado
+                    </Badge>
+                  </div>
                   <CardDescription className="text-xs">
-                    Faça o upload de uma imagem personalizada para o banner do seu perfil público.
+                    Faça o upload de uma imagem e ajuste o enquadramento no Studio antes de salvar.
                   </CardDescription>
                 </CardHeader>
 
@@ -492,8 +716,7 @@ export function PerfilPage({ initialTab }: { initialTab?: "perfil" | "dados" | "
                     type="file"
                     accept="image/png,image/jpeg,image/webp,image/gif"
                     className="hidden"
-                    onChange={handleBannerFileChange}
-                    disabled={isUploadingBanner}
+                    onChange={handleBannerFileSelect}
                   />
 
                   {bannerUrl ? (
@@ -512,55 +735,72 @@ export function PerfilPage({ initialTab }: { initialTab?: "perfil" | "dados" | "
                           <Badge variant="outline" className="bg-background/85 text-[10px] font-mono border-emerald-500/40 text-emerald-400 backdrop-blur-xs">
                             <CheckCircle2 className="h-3 w-3 mr-1" /> Banner Ativo
                           </Badge>
-                          <Button
-                            type="button"
-                            variant="destructive"
-                            size="sm"
-                            onClick={() => setBannerUrl("")}
-                            className="h-7 px-2.5 text-xs rounded-lg gap-1 shadow-xs cursor-pointer"
-                          >
-                            <Trash2 className="h-3 w-3" />
-                            <span>Remover</span>
-                          </Button>
+                          <div className="flex items-center gap-1.5">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={handleReadjustCurrentBanner}
+                              className="h-7 px-2.5 text-xs rounded-lg gap-1 bg-background/80 hover:bg-background border-emerald-500/40 text-emerald-400 shadow-xs cursor-pointer"
+                              title="Reajustar enquadramento e filtros a partir da imagem original"
+                            >
+                              <Sliders className="h-3 w-3" />
+                              <span>Reajustar</span>
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="destructive"
+                              size="sm"
+                              onClick={() => {
+                                setBannerUrl("");
+                                setOriginalBannerUrl("");
+                              }}
+                              className="h-7 px-2.5 text-xs rounded-lg gap-1 shadow-xs cursor-pointer"
+                            >
+                              <Trash2 className="h-3 w-3" />
+                              <span>Remover</span>
+                            </Button>
+                          </div>
                         </div>
                       </div>
 
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => bannerInputRef.current?.click()}
-                        disabled={isUploadingBanner}
-                        className="w-full text-xs font-bold gap-1.5 rounded-xl border-primary/30 hover:bg-primary/10 text-primary cursor-pointer h-9"
-                      >
-                        {isUploadingBanner ? (
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                        ) : (
+                      <div className="grid grid-cols-2 gap-2">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => bannerInputRef.current?.click()}
+                          className="w-full text-xs font-bold gap-1.5 rounded-xl border-primary/30 hover:bg-primary/10 text-primary cursor-pointer h-9"
+                        >
                           <Upload className="h-4 w-4" />
-                        )}
-                        <span>Trocar Imagem do Banner</span>
-                      </Button>
+                          <span>Trocar Imagem</span>
+                        </Button>
+
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={handleReadjustCurrentBanner}
+                          className="w-full text-xs font-bold gap-1.5 rounded-xl border-emerald-500/40 hover:bg-emerald-500/10 text-emerald-400 cursor-pointer h-9"
+                        >
+                          <Sliders className="h-4 w-4" />
+                          <span>Abrir Studio de Ajuste</span>
+                        </Button>
+                      </div>
                     </div>
                   ) : (
                     <div
                       onClick={() => bannerInputRef.current?.click()}
-                      className={cn(
-                        "border-2 border-dashed border-border/80 hover:border-primary/60 hover:bg-primary/5 rounded-2xl p-7 flex flex-col items-center justify-center text-center cursor-pointer transition-all group",
-                        isUploadingBanner && "opacity-60 pointer-events-none"
-                      )}
+                      className="border-2 border-dashed border-border/80 hover:border-primary/60 hover:bg-primary/5 rounded-2xl p-7 flex flex-col items-center justify-center text-center cursor-pointer transition-all group"
                     >
                       <div className="h-12 w-12 rounded-2xl bg-primary/10 text-primary flex items-center justify-center mb-3 group-hover:scale-105 transition-transform">
-                        {isUploadingBanner ? (
-                          <Loader2 className="h-6 w-6 animate-spin" />
-                        ) : (
-                          <Upload className="h-6 w-6" />
-                        )}
+                        <Upload className="h-6 w-6" />
                       </div>
                       <p className="text-xs font-bold text-foreground">
-                        {isUploadingBanner ? "Enviando imagem do banner..." : "Clique para fazer upload da imagem do banner"}
+                        Clique para escolher imagem e abrir o Studio Pro
                       </p>
                       <p className="text-[11px] text-muted-foreground mt-1 max-w-xs">
-                        PNG, JPG, WEBP ou GIF (máx. 10MB). Proporção panorâmica recomendada: 16:9 ou 3:1.
+                        PNG, JPG, WEBP ou GIF (máx. 15MB). Ajuste proporções, zoom e cores antes de salvar.
                       </p>
                     </div>
                   )}
@@ -615,11 +855,11 @@ export function PerfilPage({ initialTab }: { initialTab?: "perfil" | "dados" | "
                 <CardHeader className="pb-3 border-b border-primary/20">
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <CardTitle className="text-base font-semibold text-foreground flex items-center gap-2">
-                      <Globe className="h-4 w-4 text-primary" /> Link Público & URL Personalizada
+                      <Globe className="h-4 w-4 text-primary" /> Links Diretos & URL Personalizada
                     </CardTitle>
                     {customUrl ? (
                       <Badge variant="outline" className="border-emerald-500/40 text-emerald-400 bg-emerald-500/10 text-[10px] font-mono py-0.5">
-                        ✨ URL Personalizada Ativa
+                        ✨ URL Direta Ativa
                       </Badge>
                     ) : (
                       <Badge variant="outline" className="border-zinc-500/40 text-muted-foreground bg-zinc-500/10 text-[10px] font-mono py-0.5">
@@ -628,7 +868,7 @@ export function PerfilPage({ initialTab }: { initialTab?: "perfil" | "dados" | "
                     )}
                   </div>
                   <CardDescription className="text-xs">
-                    Defina seu link exclusivo na plataforma (ex.: <span className="font-mono text-primary font-bold">/perfil/{customUrl || "seu-nome"}</span>).
+                    Defina seu link exclusivo na plataforma (ex.: <span className="font-mono text-primary font-bold">/@{customUrl || "seu-nome"}</span> ou <span className="font-mono text-primary font-bold">/{customUrl || "seu-nome"}</span>).
                   </CardDescription>
                 </CardHeader>
 
@@ -638,9 +878,9 @@ export function PerfilPage({ initialTab }: { initialTab?: "perfil" | "dados" | "
                     <div className="min-w-0 flex items-center gap-2">
                       <AtSign className="h-4 w-4 text-primary shrink-0" />
                       <div className="min-w-0">
-                        <p className="text-[10px] uppercase font-bold text-muted-foreground">Seu Link Público Oficial</p>
+                        <p className="text-[10px] uppercase font-bold text-muted-foreground">Seu Link Direto Oficial</p>
                         <p className="font-mono font-bold text-xs text-foreground truncate">
-                          {typeof window !== "undefined" ? window.location.origin : ""}/perfil/
+                          {typeof window !== "undefined" ? window.location.origin : ""}/@
                           <span className="text-primary font-black">{currentSlug}</span>
                         </p>
                       </div>
@@ -679,7 +919,7 @@ export function PerfilPage({ initialTab }: { initialTab?: "perfil" | "dados" | "
                     </Label>
                     <div className="relative flex items-center">
                       <div className="absolute left-3 flex items-center pointer-events-none text-muted-foreground text-xs font-mono font-bold">
-                        /perfil/
+                        /@
                       </div>
                       <Input
                         placeholder={profile?.discord_username ? profile.discord_username.replace(/#0$/, "") : "ex.: malaca"}
@@ -688,12 +928,12 @@ export function PerfilPage({ initialTab }: { initialTab?: "perfil" | "dados" | "
                           const sanitized = e.target.value.toLowerCase().replace(/[^a-z0-9_.-]/g, "").slice(0, 30);
                           setCustomUrl(sanitized);
                         }}
-                        className="h-9 pl-16 text-xs font-mono font-bold"
+                        className="h-9 pl-9 text-xs font-mono font-bold"
                         maxLength={30}
                       />
                     </div>
                     <p className="text-[11px] text-muted-foreground">
-                      ℹ️ De 3 a 30 caracteres (apenas letras, números, ponto, hífen ou underline).
+                      ℹ️ Disponível tanto em <span className="font-mono text-foreground font-bold">/@{customUrl || "nome"}</span> quanto em <span className="font-mono text-foreground font-bold">/{customUrl || "nome"}</span> e <span className="font-mono text-foreground font-bold">/perfil/{customUrl || "nome"}</span>.
                     </p>
                   </div>
 

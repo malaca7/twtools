@@ -12,6 +12,19 @@ export type NotificationType =
   | "signup"
   | "live";
 
+export const ALL_NOTIFICATION_TYPES: NotificationType[] = [
+  "live",
+  "announcement",
+  "ticket",
+  "goal",
+  "movement",
+  "sale",
+  "signup",
+  "system",
+  "absence",
+  "chat",
+];
+
 export type NotificationCategory = "info" | "success" | "warning" | "error" | "alert";
 
 export interface AppNotification {
@@ -30,6 +43,7 @@ export interface AppNotification {
   created_at: string;
   read_by: string[]; // Array de user_ids que marcaram como lida
   deleted_by: string[]; // Array de user_ids que excluíram/dispensaram a notificação
+  is_active?: boolean; // Se true (ou undefined), ativa para broadcast; se false, pausada
 }
 
 export interface CreateNotificationPayload {
@@ -44,7 +58,31 @@ export interface CreateNotificationPayload {
   sender_id?: string;
   sender_name?: string;
   sender_avatar?: string | null;
+  is_active?: boolean;
 }
+
+export interface NotificationTypeRules {
+  roles: Record<string, NotificationType[]>;
+  tags: Record<string, NotificationType[]>;
+  updated_at?: string;
+  updated_by?: string;
+}
+
+export const DEFAULT_NOTIFICATION_RULES: NotificationTypeRules = {
+  roles: {
+    "01": [...ALL_NOTIFICATION_TYPES],
+    "02": [...ALL_NOTIFICATION_TYPES],
+    gerente: [...ALL_NOTIFICATION_TYPES],
+    motoqueiro: ["live", "announcement", "goal", "movement", "sale", "system"],
+    membro: ["live", "announcement", "goal", "movement", "sale", "system"],
+    novato: ["live", "announcement", "goal", "system"],
+  },
+  tags: {
+    tag_dev: [...ALL_NOTIFICATION_TYPES],
+    tag_ceo: [...ALL_NOTIFICATION_TYPES],
+  },
+  updated_at: new Date().toISOString(),
+};
 
 export interface NotificationTypeInfo {
   label: string;
@@ -52,6 +90,7 @@ export interface NotificationTypeInfo {
   badgeBg: string;
   badgeColor: string;
   borderColor: string;
+  description?: string;
 }
 
 export function getNotificationTypeInfo(type: NotificationType): NotificationTypeInfo {
@@ -63,6 +102,7 @@ export function getNotificationTypeInfo(type: NotificationType): NotificationTyp
         badgeBg: "bg-indigo-500/10",
         badgeColor: "text-indigo-400",
         borderColor: "border-indigo-500/30",
+        description: "Chamados e atendimentos internos da facção",
       };
     case "chat":
       return {
@@ -71,6 +111,7 @@ export function getNotificationTypeInfo(type: NotificationType): NotificationTyp
         badgeBg: "bg-cyan-500/10",
         badgeColor: "text-cyan-400",
         borderColor: "border-cyan-500/30",
+        description: "Mensagens diretas e canais de bate-papo",
       };
     case "absence":
       return {
@@ -79,6 +120,7 @@ export function getNotificationTypeInfo(type: NotificationType): NotificationTyp
         badgeBg: "bg-purple-500/10",
         badgeColor: "text-purple-400",
         borderColor: "border-purple-500/30",
+        description: "Solicitações e aprovações de ausência",
       };
     case "goal":
       return {
@@ -87,6 +129,7 @@ export function getNotificationTypeInfo(type: NotificationType): NotificationTyp
         badgeBg: "bg-emerald-500/10",
         badgeColor: "text-emerald-400",
         borderColor: "border-emerald-500/30",
+        description: "Metas de arrecadação, pontuação e tarefas",
       };
     case "movement":
       return {
@@ -95,6 +138,7 @@ export function getNotificationTypeInfo(type: NotificationType): NotificationTyp
         badgeBg: "bg-amber-500/10",
         badgeColor: "text-amber-400",
         borderColor: "border-amber-500/30",
+        description: "Depósitos e retiradas no estoque/baú",
       };
     case "sale":
       return {
@@ -103,6 +147,7 @@ export function getNotificationTypeInfo(type: NotificationType): NotificationTyp
         badgeBg: "bg-emerald-500/10",
         badgeColor: "text-emerald-400",
         borderColor: "border-emerald-500/30",
+        description: "Vendas realizadas e comissões geradas",
       };
     case "announcement":
       return {
@@ -111,6 +156,7 @@ export function getNotificationTypeInfo(type: NotificationType): NotificationTyp
         badgeBg: "bg-rose-500/10",
         badgeColor: "text-rose-400",
         borderColor: "border-rose-500/30",
+        description: "Comunicados e diretrizes da liderança",
       };
     case "signup":
       return {
@@ -119,6 +165,7 @@ export function getNotificationTypeInfo(type: NotificationType): NotificationTyp
         badgeBg: "bg-blue-500/10",
         badgeColor: "text-blue-400",
         borderColor: "border-blue-500/30",
+        description: "Novos registros e admissões de membros",
       };
     case "live":
       return {
@@ -127,6 +174,7 @@ export function getNotificationTypeInfo(type: NotificationType): NotificationTyp
         badgeBg: "bg-rose-500/15",
         badgeColor: "text-rose-400 font-extrabold",
         borderColor: "border-rose-500/40",
+        description: "Transmissões e lives de streamers da facção",
       };
     case "system":
     default:
@@ -136,6 +184,7 @@ export function getNotificationTypeInfo(type: NotificationType): NotificationTyp
         badgeBg: "bg-slate-500/10",
         badgeColor: "text-slate-400",
         borderColor: "border-slate-500/30",
+        description: "Alertas gerais de infraestrutura e plataforma",
       };
   }
 }
@@ -147,24 +196,36 @@ export function getCategoryBadge(category: NotificationCategory) {
         label: "Sucesso",
         color: "text-emerald-400 bg-emerald-500/10 border-emerald-500/30",
         dotColor: "bg-emerald-400",
+        bg: "bg-emerald-500/10",
+        text: "text-emerald-400",
+        border: "border-emerald-500/30",
       };
     case "warning":
       return {
         label: "Atenção",
         color: "text-amber-400 bg-amber-500/10 border-amber-500/30",
         dotColor: "bg-amber-400",
+        bg: "bg-amber-500/10",
+        text: "text-amber-400",
+        border: "border-amber-500/30",
       };
     case "error":
       return {
         label: "Urgente",
         color: "text-rose-400 bg-rose-500/10 border-rose-500/30",
         dotColor: "bg-rose-400",
+        bg: "bg-rose-500/10",
+        text: "text-rose-400",
+        border: "border-rose-500/30",
       };
     case "alert":
       return {
         label: "Alerta",
         color: "text-orange-400 bg-orange-500/10 border-orange-500/30",
         dotColor: "bg-orange-400",
+        bg: "bg-orange-500/10",
+        text: "text-orange-400",
+        border: "border-orange-500/30",
       };
     case "info":
     default:
@@ -172,6 +233,9 @@ export function getCategoryBadge(category: NotificationCategory) {
         label: "Info",
         color: "text-sky-400 bg-sky-500/10 border-sky-500/30",
         dotColor: "bg-sky-400",
+        bg: "bg-sky-500/10",
+        text: "text-sky-400",
+        border: "border-sky-500/30",
       };
   }
 }

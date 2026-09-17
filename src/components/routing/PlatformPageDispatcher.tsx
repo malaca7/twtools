@@ -27,9 +27,12 @@ import { PermissoesPage } from "@/routes/_authenticated/permissoes";
 import { LogsPage } from "@/routes/_authenticated/logs";
 import { AtualizacoesPage } from "@/routes/_authenticated/atualizacoes";
 import { PerfilPage } from "@/routes/_authenticated/perfil";
-import { PublicProfilePage } from "@/routes/_authenticated/perfil.$handle";
+import { PublicProfilePage } from "@/components/profile/PublicProfilePage";
 import { ConfiguracoesPage } from "@/routes/_authenticated/configuracoes";
 import { CeoPageContent } from "@/routes/_authenticated/ceo";
+import { MemberNotificationsPage } from "@/routes/_authenticated/notificacoes";
+import { CeoNotificationsPage } from "@/routes/_authenticated/ceo.notificacoes";
+import { DevNotificationsPage } from "@/routes/_authenticated/dev.notificacoes";
 
 export interface PlatformPageDispatcherProps {
   page: string;
@@ -65,12 +68,17 @@ const PAGE_PERMISSION_MAP: Record<string, Permission | null> = {
   atualizacoes: "view_patch_notes",
   perfil: "view_profile",
   configuracoes: "manage_platform_settings",
+  notificacoes: "view_notifications",
 
   // Módulos CEO
   executivo: "view_ceo",
   bot: "manage_ceo_bot",
   webhooks: "manage_ceo_webhooks",
   financas: "view_ceo_financials",
+  "ceo-notificacoes": "view_ceo_notifications",
+
+  // Módulos DEV
+  "dev-notificacoes": "view_dev_notifications",
 };
 
 function InnerPageResolver({ page, tab, mode }: { page: string; tab?: string; mode: "dev" | "ceo" | "member" }) {
@@ -79,7 +87,7 @@ function InnerPageResolver({ page, tab, mode }: { page: string; tab?: string; mo
 
   // CEO Specific modules
   if (mode === "ceo") {
-    if (normalizedPage === "executivo") {
+    if (normalizedPage === "executivo" || normalizedPage === "dashboard") {
       return <CeoPageContent initialTab="dashboard" />;
     }
     if (normalizedPage === "bot") {
@@ -90,6 +98,16 @@ function InnerPageResolver({ page, tab, mode }: { page: string; tab?: string; mo
     }
     if (normalizedPage === "financas") {
       return <CeoPageContent initialTab="financas" />;
+    }
+    if (normalizedPage === "notificacoes" || normalizedPage === "ceo-notificacoes") {
+      return <CeoNotificationsPage />;
+    }
+  }
+
+  // DEV Specific modules
+  if (mode === "dev") {
+    if (normalizedPage === "notificacoes" || normalizedPage === "dev-notificacoes") {
+      return <DevNotificationsPage />;
     }
   }
 
@@ -145,6 +163,8 @@ function InnerPageResolver({ page, tab, mode }: { page: string; tab?: string; mo
       return <AtualizacoesPage />;
     case "configuracoes":
       return <ConfiguracoesPage />;
+    case "notificacoes":
+      return <MemberNotificationsPage />;
     case "perfil":
       if (!tab || tab === "dados" || tab === "aparencia") {
         return <PerfilPage initialTab={tab as "dados" | "aparencia" | undefined} />;
