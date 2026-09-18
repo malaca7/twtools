@@ -65,6 +65,27 @@ export const DEFAULT_WEBHOOKS_CONFIG: DiscordWebhooksConfig = {
   updatedAt: new Date().toISOString(),
   webhooks: [
     {
+      id: "webhook_1789248648283",
+      name: "TW | Logs de Baú QG",
+      guildId: "1535505650308620400",
+      channelId: "1535637509818548234",
+      webhookUrl: "https://discord.com/api/webhooks/1548409284000485420/AoRhvOaaA-yNUdWHcV-TZUNx4gOLxWFddthfe3kfHKpycQ2SmyaUsQiSNTnagelHzlsR",
+      description: "Logs de Baú QG",
+      enabled: true,
+      username: "Twin Wheels",
+      avatarUrl: "https://adgdivossyzpwofouhrh.supabase.co/storage/v1/object/public/products/webhooks/avatar_1789248677469_twin_wheell.png",
+      embedColor: "#008FFD",
+      footerText: "Twin Wheels • Logs de Baú QG",
+      thumbnailUrl: "https://adgdivossyzpwofouhrh.supabase.co/storage/v1/object/public/products/webhooks/avatar_1789248796551_twin_wheell.png",
+      showTimestamp: true,
+      mentionRoles: "@everyone",
+      defaultTitle: "💻 Teste Desenvolvedor",
+      defaultDescription: "by malaca",
+      useCodeblockField: true,
+      createdAt: "2026-09-12T21:30:48.283Z",
+      updatedAt: new Date().toISOString(),
+    },
+    {
       id: "webhook_tw_testedev",
       name: "Canal Teste Dev (Twin Wheel)",
       guildId: "1535505650308620400",
@@ -302,16 +323,28 @@ export async function getDiscordWebhooksConfig(): Promise<DiscordWebhooksConfig>
 
     if (!error && data?.permissions && typeof data.permissions === "object") {
       const dbConfig = data.permissions as unknown as Partial<DiscordWebhooksConfig>;
+      const existingWebhooks = Array.isArray(dbConfig.webhooks)
+        ? dbConfig.webhooks.map((w) => ({
+            ...w,
+            guildId: w.guildId || DEFAULT_WEBHOOKS_CONFIG.defaultGuildId,
+            channelId: w.channelId || "",
+          }))
+        : [...DEFAULT_WEBHOOKS_CONFIG.webhooks];
+
+      // Garante que o webhook oficial de Baú e outros essenciais nunca sejam perdidos
+      DEFAULT_WEBHOOKS_CONFIG.webhooks.forEach((defW) => {
+        const found = existingWebhooks.some(
+          (ew) => ew.id === defW.id || (ew.webhookUrl && ew.webhookUrl === defW.webhookUrl)
+        );
+        if (!found) {
+          existingWebhooks.unshift(defW);
+        }
+      });
+
       const merged: DiscordWebhooksConfig = {
         ...DEFAULT_WEBHOOKS_CONFIG,
         ...dbConfig,
-        webhooks: Array.isArray(dbConfig.webhooks)
-          ? dbConfig.webhooks.map((w) => ({
-              ...w,
-              guildId: w.guildId || DEFAULT_WEBHOOKS_CONFIG.defaultGuildId,
-              channelId: w.channelId || "",
-            }))
-          : DEFAULT_WEBHOOKS_CONFIG.webhooks,
+        webhooks: existingWebhooks,
       };
 
       try {
@@ -328,10 +361,20 @@ export async function getDiscordWebhooksConfig(): Promise<DiscordWebhooksConfig>
     const local = localStorage.getItem(WEBHOOKS_STORAGE_KEY);
     if (local) {
       const parsed = JSON.parse(local);
+      const parsedWebhooks = Array.isArray(parsed.webhooks) ? parsed.webhooks : [...DEFAULT_WEBHOOKS_CONFIG.webhooks];
+      DEFAULT_WEBHOOKS_CONFIG.webhooks.forEach((defW) => {
+        const found = parsedWebhooks.some(
+          (ew: any) => ew.id === defW.id || (ew.webhookUrl && ew.webhookUrl === defW.webhookUrl)
+        );
+        if (!found) {
+          parsedWebhooks.unshift(defW);
+        }
+      });
+
       return {
         ...DEFAULT_WEBHOOKS_CONFIG,
         ...parsed,
-        webhooks: Array.isArray(parsed.webhooks) ? parsed.webhooks : DEFAULT_WEBHOOKS_CONFIG.webhooks,
+        webhooks: parsedWebhooks,
       };
     }
   } catch {}

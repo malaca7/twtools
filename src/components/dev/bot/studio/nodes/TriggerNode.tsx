@@ -94,6 +94,17 @@ export const TriggerNode = memo(({ data, selected }: NodeProps<any>) => {
             {nodeData.triggerType}
           </Badge>
         )}
+
+        {nodeData.conditions && nodeData.conditions.length > 0 && (
+          <div className="flex items-center gap-1 pt-0.5">
+            <Badge
+              variant="outline"
+              className="text-[9px] font-mono bg-violet-500/15 text-violet-300 border-violet-500/30 px-1.5 py-0"
+            >
+              {nodeData.conditions.length} {nodeData.conditions.length === 1 ? "regra condicional" : "regras condicionais"}
+            </Badge>
+          </div>
+        )}
       </div>
 
       {/* Output Handle */}

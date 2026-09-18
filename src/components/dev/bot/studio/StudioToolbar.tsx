@@ -13,6 +13,7 @@ import {
   Clock,
   Eye,
   Settings,
+  Split,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
@@ -32,6 +33,10 @@ interface StudioToolbarProps {
   onTogglePalette: () => void;
   isPaletteOpen: boolean;
   onAutoLayout?: () => void;
+  onOpenParameters?: () => void;
+  parametersCount?: number;
+  onOpenConditions?: () => void;
+  conditionsCount?: number;
 }
 
 export function StudioToolbar({
@@ -48,6 +53,10 @@ export function StudioToolbar({
   onTogglePalette,
   isPaletteOpen,
   onAutoLayout,
+  onOpenParameters,
+  parametersCount = 0,
+  onOpenConditions,
+  conditionsCount = 0,
 }: StudioToolbarProps) {
   return (
     <header className="h-16 px-4 bg-zinc-950/95 border-b border-zinc-800 flex items-center justify-between gap-4 z-30 shadow-md backdrop-blur-md">
@@ -138,6 +147,44 @@ export function StudioToolbar({
           <Layers className="h-4 w-4 text-emerald-400" />
           Blocos & Ações
         </Button>
+
+        {/* Botão de Parâmetros / Argumentos no Studio */}
+        {isCommand && onOpenParameters && (
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={onOpenParameters}
+            className="h-9 text-xs font-bold gap-1.5 border-zinc-800 bg-zinc-900/70 hover:bg-zinc-850 text-zinc-300 hover:text-white rounded-xl shadow-sm"
+          >
+            <Sliders className="h-3.5 w-3.5 text-emerald-400" />
+            Argumentos
+            <Badge
+              variant="outline"
+              className="text-[10px] font-mono py-0 text-emerald-400 border-emerald-500/30 bg-emerald-500/10 ml-0.5"
+            >
+              {parametersCount}
+            </Badge>
+          </Button>
+        )}
+
+        {/* Botão de Condições & Regras SE / ENTÃO no Studio */}
+        {onOpenConditions && (
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={onOpenConditions}
+            className="h-9 text-xs font-bold gap-1.5 border-zinc-800 bg-zinc-900/70 hover:bg-zinc-850 text-zinc-300 hover:text-white rounded-xl shadow-sm"
+          >
+            <Split className="h-3.5 w-3.5 text-violet-400" />
+            Condições SE/ENTÃO
+            <Badge
+              variant="outline"
+              className="text-[10px] font-mono py-0 text-violet-400 border-violet-500/30 bg-violet-500/10 ml-0.5"
+            >
+              {conditionsCount}
+            </Badge>
+          </Button>
+        )}
 
         {onAutoLayout && (
           <Button

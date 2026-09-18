@@ -20,6 +20,7 @@ export interface FlowNodeData extends Record<string, unknown> {
   isCondition?: boolean;
   config?: Record<string, any>;
   parameters?: CommandParameter[];
+  conditions?: ConditionGroup[];
   prefix?: string;
   commandName?: string;
   enabled?: boolean;
@@ -50,6 +51,7 @@ export function commandToFlow(
       prefix: command.prefix || botPrefix,
       commandName: command.name,
       parameters: command.parameters || [],
+      conditions: command.conditions || [],
       enabled: command.enabled,
     },
   });
@@ -164,6 +166,7 @@ export function eventToFlow(
       isTrigger: true,
       category: "trigger",
       triggerType: event.triggerType,
+      conditions: event.conditions || [],
       enabled: event.enabled,
     },
   });

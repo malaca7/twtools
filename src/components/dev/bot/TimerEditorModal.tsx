@@ -15,7 +15,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Clock, Calendar } from "lucide-react";
 import type { BotTimer, ScheduleType } from "@/services/botEngine/types";
 import { ActionSequenceList } from "./ActionSequenceList";
-import { ConditionGroupEditor } from "./ConditionGroupEditor";
 
 interface TimerEditorModalProps {
   open: boolean;
@@ -211,12 +210,6 @@ export function TimerEditorModal({ open, onOpenChange, timer, onSave }: TimerEdi
               </div>
             )}
           </div>
-
-          {/* Condições */}
-          <ConditionGroupEditor
-            groups={formData.conditions || []}
-            onChange={(groups) => setFormData({ ...formData, conditions: groups })}
-          />
 
           {/* Sequência de Ações */}
           <ActionSequenceList

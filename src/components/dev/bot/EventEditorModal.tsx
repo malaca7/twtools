@@ -15,7 +15,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Zap, ShieldCheck } from "lucide-react";
 import type { BotEvent, EventTriggerType } from "@/services/botEngine/types";
 import { ActionSequenceList } from "./ActionSequenceList";
-import { ConditionGroupEditor } from "./ConditionGroupEditor";
 
 interface EventEditorModalProps {
   open: boolean;
@@ -124,12 +123,6 @@ export function EventEditorModal({ open, onOpenChange, event, onSave }: EventEdi
               />
             </div>
           </div>
-
-          {/* Condições & Filtros */}
-          <ConditionGroupEditor
-            groups={formData.conditions || []}
-            onChange={(groups) => setFormData({ ...formData, conditions: groups })}
-          />
 
           {/* Sequência de Ações */}
           <ActionSequenceList

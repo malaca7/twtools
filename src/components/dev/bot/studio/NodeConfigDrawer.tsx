@@ -24,6 +24,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ConditionGroupEditor } from "../ConditionGroupEditor";
+import { CommandParametersEditor } from "../CommandParametersEditor";
 import { AVAILABLE_PLACEHOLDERS } from "@/services/botEngine/parser";
 import type { FlowNodeData } from "./flowUtils";
 import type { Node } from "@xyflow/react";
@@ -111,7 +112,7 @@ export function NodeConfigDrawer({
         {/* 1. CONFIGURAÇÃO DE GATILHO (TRIGGER) */}
         {/* ========================================================================= */}
         {isTrigger && (
-          <div className="space-y-4">
+          <div className="space-y-5">
             {data.commandName !== undefined ? (
               <>
                 <div className="space-y-1.5">
@@ -143,6 +144,16 @@ export function NodeConfigDrawer({
                     placeholder="Descrição do que este comando executa..."
                     rows={2}
                     className="bg-zinc-900 border-zinc-800 text-xs resize-none"
+                  />
+                </div>
+
+                {/* Parâmetros / Argumentos do Comando no Studio */}
+                <div className="pt-3 border-t border-zinc-800/80">
+                  <CommandParametersEditor
+                    parameters={data.parameters || []}
+                    onChange={(newParams) => onUpdateNodeData(id, { parameters: newParams })}
+                    commandPrefix={data.prefix || "!"}
+                    commandName={data.commandName || "comando"}
                   />
                 </div>
               </>
@@ -185,6 +196,14 @@ export function NodeConfigDrawer({
                 </div>
               </>
             )}
+
+            {/* Condições & Regras de Execução (SE / ENTÃO) */}
+            <div className="pt-4 border-t border-zinc-800/80">
+              <ConditionGroupEditor
+                groups={data.conditions || []}
+                onChange={(newGroups) => onUpdateNodeData(id, { conditions: newGroups })}
+              />
+            </div>
           </div>
         )}
 

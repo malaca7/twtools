@@ -24,6 +24,18 @@ import { ConditionNode } from "./nodes/ConditionNode";
 import { NodePaletteSidebar } from "./NodePaletteSidebar";
 import { NodeConfigDrawer } from "./NodeConfigDrawer";
 import { StudioToolbar } from "./StudioToolbar";
+import { Sliders, Split } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { CommandParametersEditor } from "../CommandParametersEditor";
+import { ConditionGroupEditor } from "../ConditionGroupEditor";
 
 import {
   commandToFlow,
@@ -33,7 +45,7 @@ import {
   getActionDefaultLabel,
 } from "./flowUtils";
 
-import type { BotCommand, BotEvent, ActionType } from "@/services/botEngine/types";
+import type { BotCommand, BotEvent, ActionType, CommandParameter, ConditionGroup } from "@/services/botEngine/types";
 
 const nodeTypes = {
   triggerNode: TriggerNode,
@@ -98,6 +110,8 @@ function BotStudioInner({
             category: "trigger",
             prefix: botPrefix,
             commandName: "novo",
+            parameters: [],
+            conditions: [],
             enabled: true,
           },
         },
@@ -113,12 +127,28 @@ function BotStudioInner({
   const [isPaletteOpen, setIsPaletteOpen] = useState(true);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [isTesting, setIsTesting] = useState(false);
+  const [isParametersModalOpen, setIsParametersModalOpen] = useState(false);
+  const [isConditionsModalOpen, setIsConditionsModalOpen] = useState(false);
 
   // Nó selecionado atual
   const selectedNode = useMemo(
     () => nodes.find((n) => n.id === selectedNodeId) || null,
     [nodes, selectedNodeId]
   );
+
+  const triggerNode = useMemo(() => nodes.find((n) => n.data.isTrigger) || null, [nodes]);
+  const currentParameters = useMemo(() => triggerNode?.data.parameters || [], [triggerNode]);
+  const currentConditions = useMemo(() => triggerNode?.data.conditions || [], [triggerNode]);
+
+  const handleUpdateTriggerParameters = (newParams: CommandParameter[]) => {
+    if (!triggerNode) return;
+    handleUpdateNodeData(triggerNode.id, { parameters: newParams });
+  };
+
+  const handleUpdateTriggerConditions = (newConditions: ConditionGroup[]) => {
+    if (!triggerNode) return;
+    handleUpdateNodeData(triggerNode.id, { conditions: newConditions });
+  };
 
   // Conexão entre nós (arestas)
   const onConnect = useCallback(
@@ -354,7 +384,7 @@ function BotStudioInner({
         description: cmdDescription,
         enabled,
         parameters,
-        conditions: initialCommand?.conditions || [],
+        conditions: triggerNode?.data.conditions || initialCommand?.conditions || [],
         actions,
         createdAt: initialCommand?.createdAt || new Date().toISOString(),
         updatedAt: new Date().toISOString(),
@@ -377,7 +407,7 @@ function BotStudioInner({
         triggerType,
         description: evtDesc,
         enabled,
-        conditions: initialEvent?.conditions || [],
+        conditions: triggerNode?.data.conditions || initialEvent?.conditions || [],
         actions,
         createdAt: initialEvent?.createdAt || new Date().toISOString(),
         updatedAt: new Date().toISOString(),
@@ -447,7 +477,6 @@ function BotStudioInner({
     }, 4000);
   };
 
-  const triggerNode = nodes.find((n) => n.data.isTrigger);
   const studioTitle =
     mode === "command"
       ? `${triggerNode?.data.prefix || botPrefix}${triggerNode?.data.commandName || initialCommand?.name || "novo_comando"}`
@@ -470,6 +499,10 @@ function BotStudioInner({
         onTogglePalette={() => setIsPaletteOpen((prev) => !prev)}
         isPaletteOpen={isPaletteOpen}
         onAutoLayout={handleAutoLayout}
+        onOpenParameters={() => setIsParametersModalOpen(true)}
+        parametersCount={currentParameters.length}
+        onOpenConditions={() => setIsConditionsModalOpen(true)}
+        conditionsCount={currentConditions.length}
       />
 
       {/* Main Studio Body (Palette + Canvas + Config Drawer) */}
@@ -546,6 +579,70 @@ function BotStudioInner({
           />
         )}
       </div>
+
+      {/* Modal Dedicado de Parâmetros / Argumentos no Studio */}
+      <Dialog open={isParametersModalOpen} onOpenChange={setIsParametersModalOpen}>
+        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto bg-zinc-950 border-zinc-800 text-zinc-100">
+          <DialogHeader>
+            <DialogTitle className="text-base font-bold flex items-center gap-2">
+              <Sliders className="h-4 w-4 text-emerald-400" />
+              Parâmetros / Argumentos do Comando ({triggerNode?.data.commandName || initialCommand?.name || "comando"})
+            </DialogTitle>
+            <DialogDescription className="text-xs text-zinc-400">
+              Configure os parâmetros e argumentos esperados na chamada deste comando no Discord.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="py-2">
+            <CommandParametersEditor
+              parameters={currentParameters}
+              onChange={handleUpdateTriggerParameters}
+              commandPrefix={triggerNode?.data.prefix || botPrefix}
+              commandName={triggerNode?.data.commandName || initialCommand?.name || "comando"}
+            />
+          </div>
+
+          <DialogFooter>
+            <Button
+              onClick={() => setIsParametersModalOpen(false)}
+              className="text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl"
+            >
+              Concluído
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal Dedicado de Condições & Regras (SE / ENTÃO) no Studio */}
+      <Dialog open={isConditionsModalOpen} onOpenChange={setIsConditionsModalOpen}>
+        <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto bg-zinc-950 border-zinc-800 text-zinc-100">
+          <DialogHeader>
+            <DialogTitle className="text-base font-bold flex items-center gap-2">
+              <Split className="h-4 w-4 text-violet-400" />
+              Condições & Regras de Execução (SE / ENTÃO)
+            </DialogTitle>
+            <DialogDescription className="text-xs text-zinc-400">
+              Defina as regras e permissões para a execução desta automação no Discord.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="py-2">
+            <ConditionGroupEditor
+              groups={currentConditions}
+              onChange={handleUpdateTriggerConditions}
+            />
+          </div>
+
+          <DialogFooter>
+            <Button
+              onClick={() => setIsConditionsModalOpen(false)}
+              className="text-xs font-bold bg-violet-600 hover:bg-violet-500 text-white rounded-xl"
+            >
+              Concluído
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
