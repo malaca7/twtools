@@ -99,6 +99,7 @@ import {
 } from "@/hooks/useCeoMenuConfig";
 import { LEVEL_LABEL, levelBadgeClass, type Permission } from "@/lib/permissions";
 import { cn } from "@/lib/utils";
+import { FloatingOnlineMembersWidget } from "./FloatingPresenceWidget";
 import { MobileBottomNav } from "./MobileBottomNav";
 import { ForceCachePurgeListener } from "@/components/dev/ForceCachePurgeListener";
 import { NotificationCenter } from "@/components/notifications/NotificationCenter";
@@ -1016,6 +1017,8 @@ export function AppShell({ children }: { children: ReactNode }) {
         </div>
       </div>
 
+      {/* BALÃO FLUTUANTE DE MEMBROS ONLINE */}
+      <FloatingOnlineMembersWidget />
       <MobileBottomNav />
       <ForceCachePurgeListener />
 
