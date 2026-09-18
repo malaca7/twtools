@@ -1009,18 +1009,20 @@ function DiscordIntegrationTab() {
                 placeholder="Texto Discord (ex: 'Micro Uzi')"
                 value={newAliasKey}
                 onChange={(e) => setNewAliasKey(e.target.value)}
-                className="text-xs"
+                className="text-xs flex-1 min-w-[120px]"
               />
-              <Select value={newAliasTargetProduct} onValueChange={setNewAliasTargetProduct}>
-                <SelectTrigger className="text-xs w-48">
+              <Select value={newAliasTargetProduct} onValueChange={setNewAliasTargetProduct} className="w-56 shrink-0">
+                <SelectTrigger className="text-xs w-full">
                   <SelectValue placeholder="Produto..." />
                 </SelectTrigger>
                 <SelectContent className="max-h-60">
-                  {products.filter((p) => p.ativo).map((p) => (
-                    <SelectItem key={p.id} value={p.nome}>
-                      {p.nome}
-                    </SelectItem>
-                  ))}
+                  {products
+                    .filter((p) => p.ativo && p.nome && p.nome.trim() !== "." && p.nome.trim() !== "")
+                    .map((p) => (
+                      <SelectItem key={p.id} value={p.nome}>
+                        {p.nome}
+                      </SelectItem>
+                    ))}
                 </SelectContent>
               </Select>
               <Button size="sm" onClick={handleAddItemMapping} className="shrink-0">
@@ -1078,18 +1080,20 @@ function DiscordIntegrationTab() {
                 placeholder="Texto Discord (ex: 'QG')"
                 value={newBauAliasKey}
                 onChange={(e) => setNewBauAliasKey(e.target.value)}
-                className="text-xs"
+                className="text-xs flex-1 min-w-[120px]"
               />
-              <Select value={newBauAliasTarget} onValueChange={setNewBauAliasTarget}>
-                <SelectTrigger className="text-xs w-48">
+              <Select value={newBauAliasTarget} onValueChange={setNewBauAliasTarget} className="w-56 shrink-0">
+                <SelectTrigger className="text-xs w-full">
                   <SelectValue placeholder="Baú Alvo..." />
                 </SelectTrigger>
-                <SelectContent>
-                  {baus.filter((b) => b.ativo).map((b) => (
-                    <SelectItem key={b.id} value={b.nome}>
-                      {b.nome}
-                    </SelectItem>
-                  ))}
+                <SelectContent className="max-h-60">
+                  {baus
+                    .filter((b) => b.ativo && b.nome && b.nome.trim() !== "")
+                    .map((b) => (
+                      <SelectItem key={b.id} value={b.nome}>
+                        {b.nome}
+                      </SelectItem>
+                    ))}
                 </SelectContent>
               </Select>
               <Button size="sm" onClick={handleAddBauMapping} className="shrink-0">
