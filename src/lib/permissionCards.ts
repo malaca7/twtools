@@ -968,7 +968,7 @@ export const PAGE_CARDS: PageCardConfig[] = [
     icon: Code2,
     description: "Central principal de ferramentas do sistema: monitoramento do servidor, status de APIs e atalhos rápidos de desenvolvimento.",
     color: "border-rose-500/40 bg-rose-500/5 text-rose-400",
-    defaultCat: "Ferramentas Dev",
+    defaultCat: "DEV",
     defaultOrder: 0,
     permissions: [
       {
@@ -986,7 +986,7 @@ export const PAGE_CARDS: PageCardConfig[] = [
     icon: Bot,
     description: "Terminal avançado do bot: controle de processos em tempo real, consumo de memória, console de logs e integração Discloud.",
     color: "border-indigo-500/40 bg-indigo-500/5 text-indigo-400",
-    defaultCat: "Ferramentas Dev",
+    defaultCat: "DEV",
     defaultOrder: 1,
     permissions: [
       {
@@ -1010,7 +1010,7 @@ export const PAGE_CARDS: PageCardConfig[] = [
     icon: ScrollText,
     description: "Editor de releases do sistema: criação, formatação e publicação de notas de versão para todos os integrantes.",
     color: "border-amber-500/40 bg-amber-500/5 text-amber-400",
-    defaultCat: "Ferramentas Dev",
+    defaultCat: "DEV",
     defaultOrder: 2,
     permissions: [
       {
@@ -1034,7 +1034,7 @@ export const PAGE_CARDS: PageCardConfig[] = [
     icon: TrendingUp,
     description: "Painel de métricas de saúde: latência do Supabase, medição de renderização da interface e limpeza forçada de caches.",
     color: "border-emerald-500/40 bg-emerald-500/5 text-emerald-400",
-    defaultCat: "Ferramentas Dev",
+    defaultCat: "DEV",
     defaultOrder: 3,
     permissions: [
       {
@@ -1059,7 +1059,7 @@ export const PAGE_CARDS: PageCardConfig[] = [
     icon: ShieldCheck,
     description: "Matriz global de controle de acesso: configuração de privilégios das Tags Desenvolvedor e CEO, e atribuição de membros.",
     color: "border-rose-500/40 bg-rose-500/5 text-rose-400",
-    defaultCat: "Ferramentas Dev",
+    defaultCat: "DEV",
     defaultOrder: 4,
     permissions: [
       {
@@ -1083,7 +1083,7 @@ export const PAGE_CARDS: PageCardConfig[] = [
     icon: Settings,
     description: "Ajustes de baixo nível da plataforma: flags de ambiente, bypass de autorização, parâmetros de auditoria e banco de dados.",
     color: "border-sky-500/40 bg-sky-500/5 text-sky-400",
-    defaultCat: "Ferramentas Dev",
+    defaultCat: "DEV",
     defaultOrder: 5,
     permissions: [
       {
@@ -1107,7 +1107,7 @@ export const PAGE_CARDS: PageCardConfig[] = [
     icon: Wrench,
     description: "Gerenciador da barra de navegação: reordenação de rotas, definição de ícones, criação de categorias e controle de exibição.",
     color: "border-purple-500/40 bg-purple-500/5 text-purple-400",
-    defaultCat: "Ferramentas Dev",
+    defaultCat: "DEV",
     defaultOrder: 6,
     permissions: [
       {
@@ -1173,7 +1173,7 @@ export const PAGE_CARDS: PageCardConfig[] = [
     icon: BellRing,
     description: "Gestão técnica de telemetria, simulador em tempo real e matriz de regras de permissão de notificações por cargo e tag.",
     color: "border-rose-500/40 bg-rose-500/5 text-rose-400",
-    defaultCat: "Ferramentas Dev",
+    defaultCat: "DEV",
     defaultOrder: 7,
     permissions: [
       {

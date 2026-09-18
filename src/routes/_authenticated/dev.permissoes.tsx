@@ -173,24 +173,26 @@ function DevPermissoesContent() {
     const baseCategories = menuConfig?.categories?.length
       ? menuConfig.categories
       : ["Operação", "Gestão", "Administração"];
-    // Na aba da Tag Dev, colocamos as Ferramentas Dev e o Painel CEO no topo absoluto!
+    // Na aba da Tag Dev, colocamos as ferramentas DEV e o Painel CEO no topo absoluto!
     // Na aba da Tag CEO, colocamos "CEO" no topo e filtramos as ferramentas exclusivas de Dev.
     const categoryOrder =
       tab === "ceo"
-        ? ["CEO", ...baseCategories.filter((c) => c !== "CEO" && c !== "Ferramentas Dev")]
-        : ["Ferramentas Dev", "CEO", ...baseCategories.filter((c) => c !== "Ferramentas Dev" && c !== "CEO")];
+        ? ["CEO", ...baseCategories.filter((c) => c !== "CEO" && c !== "DEV" && c !== "Ferramentas Dev")]
+        : ["DEV", "CEO", ...baseCategories.filter((c) => c !== "DEV" && c !== "Ferramentas Dev" && c !== "CEO")];
 
     const customized = PAGE_CARDS
       .filter((card) => {
-        if (tab === "ceo" && card.defaultCat === "Ferramentas Dev") return false;
+        if (tab === "ceo" && (card.defaultCat === "DEV" || card.defaultCat === "Ferramentas Dev")) return false;
         return true;
       })
       .map((card) => {
         const cfg = configMap.get(card.id);
+        let cat = cfg?.category || card.defaultCat;
+        if (cat === "Ferramentas Dev") cat = "DEV";
         return {
           ...card,
           title: cfg?.title || card.title,
-          category: cfg?.category || card.defaultCat,
+          category: cat,
           order: typeof cfg?.order === "number" ? cfg.order : card.defaultOrder,
         };
       });

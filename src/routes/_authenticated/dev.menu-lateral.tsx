@@ -278,7 +278,7 @@ function DevToolsMenuEditor() {
     }
 
     const nextCats = categories.filter((c) => c !== catToDelete);
-    const fallbackCat = nextCats[0] || "Ferramentas Dev";
+    const fallbackCat = nextCats[0] || "DEV";
 
     const nextItems = items.map((i) => (i.category === catToDelete ? { ...i, category: fallbackCat } : i));
     const nextIcons = { ...categoryIcons };
@@ -351,8 +351,8 @@ function DevToolsMenuEditor() {
       const currentItem = items.find((i) => i.id === id);
       if (!currentItem) return;
 
-      const cat = currentItem.category || "Ferramentas Dev";
-      const catItems = items.filter((i) => (i.category || "Ferramentas Dev") === cat);
+      const cat = currentItem.category || "DEV";
+      const catItems = items.filter((i) => (i.category || "DEV") === cat);
       const indexInCat = catItems.findIndex((i) => i.id === id);
       if (indexInCat < 0) return;
 
@@ -419,7 +419,7 @@ function DevToolsMenuEditor() {
 
     const updatedDraggedItem = {
       ...draggedItem,
-      category: targetItem.category || "Ferramentas Dev",
+      category: targetItem.category || "DEV",
     };
 
     nextItems.splice(targetIdx, 0, updatedDraggedItem);
@@ -434,10 +434,10 @@ function DevToolsMenuEditor() {
   const grouped = useMemo(() => {
     const groups: Record<string, DevMenuItemConfig[]> = {};
     categories.forEach((cat) => {
-      groups[cat] = items.filter((item) => (item.category || "Ferramentas Dev") === cat);
+      groups[cat] = items.filter((item) => (item.category || "DEV") === cat);
     });
     items.forEach((item) => {
-      const cat = item.category || "Ferramentas Dev";
+      const cat = item.category || "DEV";
       if (!groups[cat]) groups[cat] = [item];
     });
     return groups;
@@ -512,7 +512,7 @@ function DevToolsMenuEditor() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
             {categories.map((cat, idx) => {
               const isEditing = editingCatIndex === idx;
-              const itemCount = items.filter((i) => (i.category || "Ferramentas Dev") === cat).length;
+              const itemCount = items.filter((i) => (i.category || "DEV") === cat).length;
               const isDraggingCat = draggedCatIdx === idx;
               const isOverCat = dragOverCatIdx === idx;
               const CatIcon = resolveCategoryIcon(categoryIcons[cat], Terminal);
@@ -697,7 +697,7 @@ function DevToolsMenuEditor() {
 
           {categories.map((cat) => {
             const catItems = items
-              .filter((i) => (i.category || "Ferramentas Dev") === cat)
+              .filter((i) => (i.category || "DEV") === cat)
               .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
             const CatIcon = resolveCategoryIcon(categoryIcons[cat], Terminal);
 

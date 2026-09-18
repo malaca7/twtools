@@ -16,17 +16,17 @@ export type DevMenuConfig = {
   items: DevMenuItemConfig[];
 };
 
-export const DEFAULT_DEV_CATEGORIES = ["Ferramentas Dev"];
+export const DEFAULT_DEV_CATEGORIES = ["DEV"];
 
 export const DEFAULT_DEV_MENU_ITEMS: DevMenuItemConfig[] = [
-  { id: "dev-hub", title: "Painel Dev Geral", url: "/dev", visible: true, category: "Ferramentas Dev", order: 0 },
-  { id: "dev-bot", title: "Bot", url: "/dev/bot", visible: true, category: "Ferramentas Dev", order: 1 },
-  { id: "dev-patch-notes", title: "Patch Notes & Releases", url: "/dev/patch-notes", visible: true, category: "Ferramentas Dev", order: 2 },
-  { id: "dev-desempenho", title: "Gestão Desempenho", url: "/dev/desempenho", visible: true, category: "Ferramentas Dev", order: 3 },
-  { id: "dev-permissoes", title: "Permissões Tag Dev", url: "/dev/permissoes", visible: true, category: "Ferramentas Dev", order: 4 },
-  { id: "dev-configuracao", title: "Configurações Dev", url: "/dev/configuracao", visible: true, category: "Ferramentas Dev", order: 5 },
-  { id: "dev-menu-lateral", title: "Menu Lateral Dev", url: "/dev/menu-lateral", visible: true, category: "Ferramentas Dev", order: 6 },
-  { id: "dev-notificacoes", title: "Central de Notificações", url: "/dev/notificacoes", visible: true, category: "Ferramentas Dev", order: 7 },
+  { id: "dev-hub", title: "Painel Dev Geral", url: "/dev", visible: true, category: "DEV", order: 0 },
+  { id: "dev-bot", title: "Bot", url: "/dev/bot", visible: true, category: "DEV", order: 1 },
+  { id: "dev-patch-notes", title: "Patch Notes & Releases", url: "/dev/patch-notes", visible: true, category: "DEV", order: 2 },
+  { id: "dev-desempenho", title: "Gestão Desempenho", url: "/dev/desempenho", visible: true, category: "DEV", order: 3 },
+  { id: "dev-permissoes", title: "Permissões Tag Dev", url: "/dev/permissoes", visible: true, category: "DEV", order: 4 },
+  { id: "dev-configuracao", title: "Configurações Dev", url: "/dev/configuracao", visible: true, category: "DEV", order: 5 },
+  { id: "dev-menu-lateral", title: "Menu Lateral Dev", url: "/dev/menu-lateral", visible: true, category: "DEV", order: 6 },
+  { id: "dev-notificacoes", title: "Central de Notificações", url: "/dev/notificacoes", visible: true, category: "DEV", order: 7 },
 ];
 
 const STORAGE_KEY = "tw_dev_menu_config";
@@ -48,13 +48,55 @@ function subscribe(callback: () => void) {
   return () => listeners.delete(callback);
 }
 
+export function normalizeDevMenuConfig(cfg: DevMenuConfig): DevMenuConfig {
+  // Migra qualquer categoria legada "Ferramentas Dev" para "DEV"
+  let cats = cfg.categories && Array.isArray(cfg.categories) && cfg.categories.length > 0
+    ? cfg.categories.map((c) => (c.toLowerCase() === "ferramentas dev" || c.toLowerCase() === "ferramenta dev" ? "DEV" : c))
+    : ["DEV"];
+
+  // Deduplica categorias
+  cats = Array.from(new Set(cats));
+  if (!cats.includes("DEV")) {
+    cats.unshift("DEV");
+  }
+
+  const items = (cfg.items || []).map((item) => {
+    if (!item.category || item.category.toLowerCase() === "ferramentas dev" || item.category.toLowerCase() === "ferramenta dev") {
+      return { ...item, category: "DEV" };
+    }
+    return item;
+  });
+
+  // Garante que dev-notificacoes esteja presente
+  if (!items.some((i) => i.id === "dev-notificacoes" || i.url === "/dev/notificacoes")) {
+    items.push({
+      id: "dev-notificacoes",
+      title: "Central de Notificações",
+      url: "/dev/notificacoes",
+      visible: true,
+      category: "DEV",
+      order: items.length,
+    });
+  }
+
+  return {
+    ...cfg,
+    categories: cats,
+    items,
+  };
+}
+
 export function getDevMenuConfig(): DevMenuConfig | null {
   try {
     const raw = typeof window !== "undefined" ? localStorage.getItem(STORAGE_KEY) : null;
     if (!raw || raw === "{}" || raw === "null" || raw === "undefined") return null;
     const parsed = JSON.parse(raw);
     if (parsed && typeof parsed === "object" && Array.isArray(parsed.items)) {
-      return parsed as DevMenuConfig;
+      const normalized = normalizeDevMenuConfig(parsed as DevMenuConfig);
+      if (raw !== JSON.stringify(normalized) && typeof window !== "undefined") {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(normalized));
+      }
+      return normalized;
     }
     return null;
   } catch {
@@ -77,9 +119,10 @@ export async function fetchRemoteDevMenuConfig(): Promise<DevMenuConfig | null> 
     if (data && data.permissions && typeof data.permissions === "object") {
       const cfg = data.permissions as any;
       if (Array.isArray(cfg.items)) {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(cfg));
+        const normalized = normalizeDevMenuConfig(cfg as DevMenuConfig);
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(normalized));
         emitDevChange();
-        return cfg as DevMenuConfig;
+        return normalized;
       }
     }
   } catch (err) {

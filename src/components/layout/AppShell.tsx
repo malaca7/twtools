@@ -169,14 +169,14 @@ const URL_TO_PERMISSION_MAP: Record<string, Permission> = {
 };
 
 const DEV_MODULE_NAV_ITEMS: MasterNavItem[] = [
-  { id: "dev-hub", title: "Painel Dev Geral", url: "/dev", icon: Terminal, defaultCat: "Ferramentas Dev", defaultOrder: 0 },
-  { id: "dev-bot", title: "Bot", url: "/dev/bot", icon: Bot, defaultCat: "Ferramentas Dev", defaultOrder: 1 },
-  { id: "dev-patch-notes", title: "Patch Notes & Releases", url: "/dev/patch-notes", icon: Sparkles, defaultCat: "Ferramentas Dev", defaultOrder: 2 },
-  { id: "dev-desempenho", title: "Gestão Desempenho", url: "/dev/desempenho", icon: TrendingUp, defaultCat: "Ferramentas Dev", defaultOrder: 3 },
-  { id: "dev-permissoes", title: "Permissões Tag Dev", url: "/dev/permissoes", icon: KeyRound, defaultCat: "Ferramentas Dev", defaultOrder: 4 },
-  { id: "dev-configuracao", title: "Configurações Dev", url: "/dev/configuracao", icon: Code2, defaultCat: "Ferramentas Dev", defaultOrder: 5 },
-  { id: "dev-menu-lateral", title: "Menu Lateral Dev", url: "/dev/menu-lateral", icon: Sliders, defaultCat: "Ferramentas Dev", defaultOrder: 6 },
-  { id: "dev-notificacoes", title: "Central de Notificações", url: "/dev/notificacoes", icon: BellRing, defaultCat: "Ferramentas Dev", defaultOrder: 7 },
+  { id: "dev-hub", title: "Painel Dev Geral", url: "/dev", icon: Terminal, defaultCat: "DEV", defaultOrder: 0 },
+  { id: "dev-bot", title: "Bot", url: "/dev/bot", icon: Bot, defaultCat: "DEV", defaultOrder: 1 },
+  { id: "dev-patch-notes", title: "Patch Notes & Releases", url: "/dev/patch-notes", icon: Sparkles, defaultCat: "DEV", defaultOrder: 2 },
+  { id: "dev-desempenho", title: "Gestão Desempenho", url: "/dev/desempenho", icon: TrendingUp, defaultCat: "DEV", defaultOrder: 3 },
+  { id: "dev-permissoes", title: "Permissões Tag Dev", url: "/dev/permissoes", icon: KeyRound, defaultCat: "DEV", defaultOrder: 4 },
+  { id: "dev-configuracao", title: "Configurações Dev", url: "/dev/configuracao", icon: Code2, defaultCat: "DEV", defaultOrder: 5 },
+  { id: "dev-menu-lateral", title: "Menu Lateral Dev", url: "/dev/menu-lateral", icon: Sliders, defaultCat: "DEV", defaultOrder: 6 },
+  { id: "dev-notificacoes", title: "Central de Notificações", url: "/dev/notificacoes", icon: BellRing, defaultCat: "DEV", defaultOrder: 7 },
 ];
 
 const CEO_MODULE_NAV_ITEMS: MasterNavItem[] = [
@@ -402,17 +402,31 @@ function DynamicSidebarNavigation() {
       // A) Agrupa ferramentas exclusivas de Dev
       const devValidItems = devMenuConfig?.items?.filter((c) => Boolean(c && (c.id || c.url))) || [];
       const devConfigMap = new Map(devValidItems.map((c) => [c.id || c.url, c]));
-      const devCategoryOrder = devMenuConfig?.categories?.length
+      const rawDevCats = devMenuConfig?.categories?.length
         ? devMenuConfig.categories
-        : ["Ferramentas Dev"];
+        : ["DEV"];
+      const devCategoryOrder = Array.from(
+        new Set(
+          rawDevCats.map((c) =>
+            c.toLowerCase() === "ferramentas dev" || c.toLowerCase() === "ferramenta dev" ? "DEV" : c
+          )
+        )
+      );
+      if (!devCategoryOrder.includes("DEV")) {
+        devCategoryOrder.unshift("DEV");
+      }
 
       const customizedDev = DEV_MODULE_NAV_ITEMS.map((item, defaultIdx) => {
         const cfg = devConfigMap.get(item.id) || devConfigMap.get(item.url);
+        let cat = cfg?.category || item.defaultCat;
+        if (!cat || cat.toLowerCase() === "ferramentas dev" || cat.toLowerCase() === "ferramenta dev") {
+          cat = "DEV";
+        }
         return {
           ...item,
           title: cfg?.title || item.title,
           visible: cfg ? cfg.visible !== false : true,
-          category: cfg?.category || item.defaultCat,
+          category: cat,
           order: typeof cfg?.order === "number" ? cfg.order : item.defaultOrder ?? defaultIdx,
         };
       });
@@ -602,8 +616,8 @@ function DynamicSidebarNavigation() {
 
         // Isolamento estrito: devStyle e ícone Dev APENAS em categorias de Dev
         const isDevCategory = devMenuConfig?.categories?.length
-          ? devMenuConfig.categories.includes(category)
-          : (category === "Ferramentas Dev" || category === "Dev");
+          ? devMenuConfig.categories.includes(category) || category === "DEV" || category === "Ferramentas Dev" || category === "Dev"
+          : (category === "DEV" || category === "Ferramentas Dev" || category === "Dev");
 
         // Isolamento estrito: ceoStyle e ícone CEO APENAS em categorias de CEO
         const isCeoCategory = !isDevCategory && (
