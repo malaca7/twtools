@@ -128,6 +128,7 @@ const ICON_MAP: Record<string, typeof LayoutDashboard> = {
   "/vendas": ShoppingCart,
   "/lives": Radio,
   "/tickets": LifeBuoy,
+  "/controledeestoque": Boxes,
   "/estoque": Boxes,
   "/membros": Users,
   "/hierarquia": Workflow,

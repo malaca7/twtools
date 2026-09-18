@@ -77,7 +77,7 @@ const ALL_SYSTEM_MODULES = [
     category: "Gestão & Membros",
     description: "Administração do inventário, controle de membros e estrutura hierárquica.",
     items: [
-      { title: "Controle de Estoque", url: "/estoque", icon: Boxes, desc: "Catálogo de produtos, imagens, saldo por baú e categorias", color: "text-blue-400" },
+      { title: "Controle de Estoque", url: "/controledeestoque", icon: Boxes, desc: "Catálogo de produtos, imagens, saldo por baú e categorias", color: "text-blue-400" },
       { title: "Membros da Facção", url: "/membros", icon: Users, desc: "Lista de membros, aprovação de cadastros e atribuição de cargos", color: "text-cyan-400" },
       { title: "Hierarquia", url: "/hierarquia", icon: Workflow, desc: "Organograma visual da liderança e cargos da facção", color: "text-purple-400" },
       { title: "Rankings", url: "/rankings", icon: Trophy, desc: "Ranking de produtividade, vendas e presença dos membros", color: "text-yellow-400" },

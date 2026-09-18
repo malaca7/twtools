@@ -277,7 +277,7 @@ export const PAGE_CARDS: PageCardConfig[] = [
   {
     id: "estoque",
     title: "Estoque Geral e Depósitos",
-    route: "/estoque",
+    route: "/controledeestoque",
     icon: Boxes,
     description: "Visão geral, controle de insumos e gerenciamento de baús armazenados nos depósitos.",
     color: "border-sky-500/40 bg-sky-500/5 text-sky-400",

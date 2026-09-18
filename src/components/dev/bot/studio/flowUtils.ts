@@ -40,17 +40,18 @@ export function commandToFlow(
   const edges: Edge[] = [];
 
   const triggerId = "trigger_node";
+  const cleanName = (command.name || "comando").toLowerCase().replace(/^[!/]/, "");
   nodes.push({
     id: triggerId,
     type: "triggerNode",
     position: { x: 60, y: 220 },
     data: {
-      label: `Comando: ${command.prefix || botPrefix}${command.name || "novo_comando"}`,
-      sublabel: command.description || "Gatilho de comando via chat do Discord",
+      label: `Slash Command: /${cleanName}`,
+      sublabel: command.description || "Gatilho Slash Command oficial do Discord (/)",
       isTrigger: true,
       category: "trigger",
-      prefix: command.prefix || botPrefix,
-      commandName: command.name,
+      prefix: "/",
+      commandName: cleanName,
       guildId: command.guildId || "all",
       parameters: command.parameters || [],
       conditions: command.conditions || [],

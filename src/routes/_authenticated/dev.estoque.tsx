@@ -1490,13 +1490,19 @@ function DiscordIntegrationTab() {
                   <SelectValue placeholder="Produto..." />
                 </SelectTrigger>
                 <SelectContent className="max-h-60">
-                  {products
-                    .filter((p) => p.ativo && p.nome && p.nome.trim() !== "." && p.nome.trim() !== "")
-                    .map((p) => (
-                      <SelectItem key={p.id} value={p.nome}>
-                        {p.nome}
-                      </SelectItem>
-                    ))}
+                  {products.filter((p) => p.ativo !== false && p.nome && p.nome.trim() !== "." && p.nome.trim() !== "").length === 0 ? (
+                    <div className="p-3 text-center text-xs text-muted-foreground">
+                      Nenhum produto cadastrado
+                    </div>
+                  ) : (
+                    products
+                      .filter((p) => p.ativo !== false && p.nome && p.nome.trim() !== "." && p.nome.trim() !== "")
+                      .map((p) => (
+                        <SelectItem key={p.id} value={p.nome}>
+                          {p.nome}
+                        </SelectItem>
+                      ))
+                  )}
                 </SelectContent>
               </Select>
               <Button size="sm" onClick={() => void handleAddItemMapping()} className="shrink-0">

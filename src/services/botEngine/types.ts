@@ -99,7 +99,8 @@ export interface BotCommand {
   enabled: boolean;
   requiredRoles?: string[];
   requiredPermissions?: string[];
-  channelIds?: string[];
+  isSlash?: boolean; // Slash Command oficial do Discord (/comando)
+  ephemeral?: boolean; // Resposta visível apenas para quem executou o comando
   parameters: CommandParameter[];
   conditions: ConditionGroup[];
   actions: BotAction[];

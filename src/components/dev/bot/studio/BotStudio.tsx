@@ -385,19 +385,25 @@ function BotStudioInner({
     const targetGuildId = triggerNode?.data.guildId || initialCommand?.guildId || initialEvent?.guildId || selectedGuildId || "all";
 
     if (mode === "command") {
-      const cmdName =
+      const rawName =
         triggerNode?.data.commandName ||
         initialCommand?.name ||
         "comando_" + Math.random().toString(36).slice(2, 6);
-      const cmdPrefix = triggerNode?.data.prefix || initialCommand?.prefix || botPrefix;
-      const cmdDescription = triggerNode?.data.sublabel || initialCommand?.description || "";
+      const cleanName = String(rawName)
+        .toLowerCase()
+        .trim()
+        .replace(/^[!/]/, "")
+        .replace(/[^a-z0-9_-]/g, "_")
+        .slice(0, 32);
+      const cmdDescription = (triggerNode?.data.sublabel || initialCommand?.description || `Comando /${cleanName} da Twin Wheels`).slice(0, 100);
       const parameters = triggerNode?.data.parameters || initialCommand?.parameters || [];
 
       const updatedCommand: BotCommand = {
         id: initialCommand?.id || `cmd_${Date.now()}`,
         botId: initialCommand?.botId || "bot_default",
-        name: cmdName,
-        prefix: cmdPrefix,
+        name: cleanName,
+        prefix: "/",
+        isSlash: true,
         description: cmdDescription,
         guildId: targetGuildId,
         enabled,
@@ -411,7 +417,7 @@ function BotStudioInner({
       if (onSaveCommand) {
         onSaveCommand(updatedCommand);
       }
-      toast.success(`Comando "${cmdPrefix}${cmdName}" salvo com sucesso via Studio!`);
+      toast.success(`Slash Command "/${cleanName}" salvo com sucesso via Studio!`);
     } else {
       const triggerType = triggerNode?.data.triggerType || initialEvent?.triggerType || "message_create";
       const evtName =

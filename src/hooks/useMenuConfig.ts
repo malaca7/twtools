@@ -50,7 +50,7 @@ export const DEFAULT_MENU_ITEMS: MenuItemConfig[] = [
   { id: "lives", title: "Lives & Transmissões", url: "/lives", visible: true, category: "Operação", order: 3, iconName: "Radio" },
   { id: "notificacoes", title: "Notificações", url: "/notificacoes", visible: true, category: "Operação", order: 4, iconName: "Bell" },
   { id: "tickets", title: "Tickets / Ouvidoria", url: "/tickets", visible: true, category: "Operação", order: 5 },
-  { id: "estoque", title: "Controle de Estoque", url: "/estoque", visible: true, category: "Gestão", order: 6 },
+  { id: "estoque", title: "Controle de Estoque", url: "/controledeestoque", visible: true, category: "Gestão", order: 6 },
   { id: "gestao-estoque", title: "Gestão de Estoque", url: "/gestao-estoque", visible: true, category: "Gestão", order: 7, iconName: "PackageCheck" },
   { id: "membros", title: "Membros", url: "/membros", visible: true, category: "Gestão", order: 8 },
   { id: "hierarquia", title: "Hierarquia", url: "/hierarquia", visible: true, category: "Gestão", order: 8 },
@@ -131,10 +131,15 @@ export function syncMenuConfig(raw: Partial<MenuConfig> | null | undefined): Men
           ? saved.title.trim()
           : defaultMatch?.title || saved.id;
 
-      const url =
+      let url =
         typeof saved.url === "string" && saved.url.trim()
           ? saved.url.trim()
           : defaultMatch?.url || `/${saved.id}`;
+
+      // Migração automática da rota legada /estoque para /controledeestoque
+      if (saved.id === "estoque" && (url === "/estoque" || !url)) {
+        url = "/controledeestoque";
+      }
 
       let category =
         typeof saved.category === "string" && saved.category.trim()

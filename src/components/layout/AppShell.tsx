@@ -124,7 +124,7 @@ const MASTER_NAV_ITEMS: MasterNavItem[] = [
   { id: "vendas", title: "Vendas", url: "/vendas", icon: ShoppingCart, perm: "view_sales", defaultCat: "Operação", defaultOrder: 2 },
   { id: "lives", title: "Lives", url: "/lives", icon: Radio, perm: "view_lives", defaultCat: "Operação", defaultOrder: 3 },
   { id: "tickets", title: "Tickets / Ouvidoria", url: "/tickets", icon: LifeBuoy, perm: "view_tickets", defaultCat: "Operação", defaultOrder: 4 },
-  { id: "estoque", title: "Controle de Estoque", url: "/estoque", icon: Boxes, perm: "view_stock", defaultCat: "Gestão", defaultOrder: 5 },
+  { id: "estoque", title: "Controle de Estoque", url: "/controledeestoque", icon: Boxes, perm: "view_stock", defaultCat: "Gestão", defaultOrder: 5 },
   { id: "gestao-estoque", title: "Gestão de Estoque", url: "/gestao-estoque", icon: PackageCheck, perm: "view_stock_management", defaultCat: "Gestão", defaultOrder: 6 },
   { id: "membros", title: "Membros", url: "/membros", icon: Users, perm: "view_members", defaultCat: "Gestão", defaultOrder: 7 },
   { id: "hierarquia", title: "Hierarquia", url: "/hierarquia", icon: Workflow, perm: "view_hierarchy", defaultCat: "Gestão", defaultOrder: 7 },
@@ -147,6 +147,7 @@ const URL_TO_PERMISSION_MAP: Record<string, Permission> = {
   "/vendas": "view_sales",
   "/lives": "view_lives",
   "/tickets": "view_tickets",
+  "/controledeestoque": "view_stock",
   "/estoque": "view_stock",
   "/gestao-estoque": "view_stock_management",
   "/baus": "view_stock",
@@ -509,6 +510,8 @@ function DynamicSidebarNavigation() {
             devUrl = "/dev/meu-desempenho";
           } else if (item.id === "permissoes") {
             devUrl = "/dev/permissoes-gerais";
+          } else if (item.id === "estoque" || item.url === "/controledeestoque" || item.url === "/estoque") {
+            devUrl = "/dev/controledeestoque";
           } else if (devUrl.startsWith("/") && !devUrl.startsWith("/dev")) {
             devUrl = `/dev${devUrl}`;
           }

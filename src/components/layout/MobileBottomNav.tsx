@@ -29,7 +29,7 @@ export function MobileBottomNav() {
     if (isCeoUser && isCeoMode) return "/ceo/dashboard";
     if (hasPermission("view_dashboard")) return "/dashboard";
     if (hasPermission("view_movements")) return "/movimentacoes";
-    if (hasPermission("view_stock")) return "/estoque";
+    if (hasPermission("view_stock")) return "/controledeestoque";
     return "/perfil";
   }, [isDevUser, isDevMode, isCeoUser, isCeoMode, hasPermission]);
 
@@ -37,7 +37,7 @@ export function MobileBottomNav() {
     if (isDevUser && isDevMode) return "/dev/movimentacoes";
     if (isCeoUser && isCeoMode) return "/ceo/movimentacoes";
     if (hasPermission("view_movements")) return "/movimentacoes";
-    if (hasPermission("view_stock")) return "/estoque";
+    if (hasPermission("view_stock")) return "/controledeestoque";
     if (hasPermission("view_sales")) return "/vendas";
     if (hasPermission("view_dashboard")) return "/dashboard";
     return "/perfil";
@@ -89,12 +89,15 @@ export function MobileBottomNav() {
   const isOperationsActive =
     pathname.startsWith("/movimentacoes") ||
     pathname.startsWith("/vendas") ||
+    pathname.startsWith("/controledeestoque") ||
     pathname.startsWith("/estoque") ||
     pathname.startsWith("/dev/movimentacoes") ||
     pathname.startsWith("/dev/vendas") ||
+    pathname.startsWith("/dev/controledeestoque") ||
     pathname.startsWith("/dev/estoque") ||
     pathname.startsWith("/ceo/movimentacoes") ||
     pathname.startsWith("/ceo/vendas") ||
+    pathname.startsWith("/ceo/controledeestoque") ||
     pathname.startsWith("/ceo/estoque");
 
   const middleTab = useMemo(() => {

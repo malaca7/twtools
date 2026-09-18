@@ -21,6 +21,7 @@ import { Route as AuthenticatedCategoriasRouteImport } from './routes/_authentic
 import { Route as AuthenticatedCeoRouteImport } from './routes/_authenticated/ceo'
 import { Route as AuthenticatedChatRouteImport } from './routes/_authenticated/chat'
 import { Route as AuthenticatedConfiguracoesRouteImport } from './routes/_authenticated/configuracoes'
+import { Route as AuthenticatedControledeestoqueRouteImport } from './routes/_authenticated/controledeestoque'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedDesempenhoRouteImport } from './routes/_authenticated/desempenho'
 import { Route as AuthenticatedEstoqueRouteImport } from './routes/_authenticated/estoque'
@@ -131,6 +132,12 @@ const AuthenticatedConfiguracoesRoute =
   AuthenticatedConfiguracoesRouteImport.update({
     id: '/configuracoes',
     path: '/configuracoes',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedControledeestoqueRoute =
+  AuthenticatedControledeestoqueRouteImport.update({
+    id: '/controledeestoque',
+    path: '/controledeestoque',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
 const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
@@ -418,6 +425,7 @@ export interface FileRoutesByFullPath {
   '/ceo': typeof AuthenticatedCeoRouteWithChildren
   '/chat': typeof AuthenticatedChatRoute
   '/configuracoes': typeof AuthenticatedConfiguracoesRouteWithChildren
+  '/controledeestoque': typeof AuthenticatedControledeestoqueRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/desempenho': typeof AuthenticatedDesempenhoRoute
   '/estoque': typeof AuthenticatedEstoqueRoute
@@ -481,6 +489,7 @@ export interface FileRoutesByTo {
   '/ceo': typeof AuthenticatedCeoRouteWithChildren
   '/chat': typeof AuthenticatedChatRoute
   '/configuracoes': typeof AuthenticatedConfiguracoesRouteWithChildren
+  '/controledeestoque': typeof AuthenticatedControledeestoqueRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/desempenho': typeof AuthenticatedDesempenhoRoute
   '/estoque': typeof AuthenticatedEstoqueRoute
@@ -546,6 +555,7 @@ export interface FileRoutesById {
   '/_authenticated/ceo': typeof AuthenticatedCeoRouteWithChildren
   '/_authenticated/chat': typeof AuthenticatedChatRoute
   '/_authenticated/configuracoes': typeof AuthenticatedConfiguracoesRouteWithChildren
+  '/_authenticated/controledeestoque': typeof AuthenticatedControledeestoqueRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/_authenticated/desempenho': typeof AuthenticatedDesempenhoRoute
   '/_authenticated/estoque': typeof AuthenticatedEstoqueRoute
@@ -611,6 +621,7 @@ export interface FileRouteTypes {
     | '/ceo'
     | '/chat'
     | '/configuracoes'
+    | '/controledeestoque'
     | '/dashboard'
     | '/desempenho'
     | '/estoque'
@@ -674,6 +685,7 @@ export interface FileRouteTypes {
     | '/ceo'
     | '/chat'
     | '/configuracoes'
+    | '/controledeestoque'
     | '/dashboard'
     | '/desempenho'
     | '/estoque'
@@ -738,6 +750,7 @@ export interface FileRouteTypes {
     | '/_authenticated/ceo'
     | '/_authenticated/chat'
     | '/_authenticated/configuracoes'
+    | '/_authenticated/controledeestoque'
     | '/_authenticated/dashboard'
     | '/_authenticated/desempenho'
     | '/_authenticated/estoque'
@@ -884,6 +897,13 @@ declare module '@tanstack/react-router' {
       path: '/configuracoes'
       fullPath: '/configuracoes'
       preLoaderRoute: typeof AuthenticatedConfiguracoesRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/controledeestoque': {
+      id: '/_authenticated/controledeestoque'
+      path: '/controledeestoque'
+      fullPath: '/controledeestoque'
+      preLoaderRoute: typeof AuthenticatedControledeestoqueRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/dashboard': {
@@ -1440,6 +1460,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedCeoRoute: typeof AuthenticatedCeoRouteWithChildren
   AuthenticatedChatRoute: typeof AuthenticatedChatRoute
   AuthenticatedConfiguracoesRoute: typeof AuthenticatedConfiguracoesRouteWithChildren
+  AuthenticatedControledeestoqueRoute: typeof AuthenticatedControledeestoqueRoute
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
   AuthenticatedDesempenhoRoute: typeof AuthenticatedDesempenhoRoute
   AuthenticatedEstoqueRoute: typeof AuthenticatedEstoqueRoute
@@ -1480,6 +1501,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedCeoRoute: AuthenticatedCeoRouteWithChildren,
   AuthenticatedChatRoute: AuthenticatedChatRoute,
   AuthenticatedConfiguracoesRoute: AuthenticatedConfiguracoesRouteWithChildren,
+  AuthenticatedControledeestoqueRoute: AuthenticatedControledeestoqueRoute,
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
   AuthenticatedDesempenhoRoute: AuthenticatedDesempenhoRoute,
   AuthenticatedEstoqueRoute: AuthenticatedEstoqueRoute,

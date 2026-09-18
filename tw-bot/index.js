@@ -1911,6 +1911,19 @@ const server = http.createServer(async (req, res) => {
     return handleWebhookHttpRequest(targetParam, req, res);
   }
 
+  // Rota para forçar sincronização de Slash Commands do Bot Studio
+  if (pathname === "/api/sync-slash-commands" || pathname === "/sync-slash-commands") {
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+    if (req.method === "OPTIONS") {
+      res.writeHead(200);
+      return res.end();
+    }
+    loadBotProjects().then(() => syncSlashCommands()).catch(() => {});
+    res.writeHead(200, { "Content-Type": "application/json" });
+    return res.end(JSON.stringify({ success: true, message: "Slash Commands sincronizados com sucesso no Discord!" }));
+  }
+
   res.writeHead(200, { "Content-Type": "application/json" });
   res.end(
     JSON.stringify({
@@ -1993,6 +2006,109 @@ client.on("guildMemberUpdate", async (oldMember, newMember) => {
 // BOT ENGINE RUNTIME (Discord Command & Event Interpreter)
 // ==========================================
 let botProjects = [];
+let isSyncingSlashCommands = false;
+
+/**
+ * Registra e sincroniza comandos do Bot Studio como Discord Slash Commands (/comando)
+ * Registra globalmente e também nos servidores (Guilds) conectados para disponibilidade imediata sem atraso de cache.
+ */
+async function syncSlashCommands() {
+  if (isSyncingSlashCommands) return;
+  if (!client.application) {
+    return;
+  }
+  isSyncingSlashCommands = true;
+
+  try {
+    const globalCommands = [];
+    const guildCommandsMap = new Map();
+
+    for (const bot of (botProjects || [])) {
+      if (!bot.enabled) continue;
+      for (const cmd of (bot.commands || [])) {
+        if (!cmd.enabled) continue;
+
+        // Discord slash command name: /^[a-z0-9_-]{1,32}$/
+        const cleanName = (cmd.name || "")
+          .toLowerCase()
+          .trim()
+          .replace(/^[!/]/, "")
+          .replace(/[^a-z0-9_-]/g, "_")
+          .slice(0, 32);
+
+        if (!cleanName || cleanName.length < 1) continue;
+
+        const description = (cmd.description?.trim() || `Comando /${cleanName} da facção Twin Wheels`).slice(0, 100);
+
+        const options = [];
+        if (Array.isArray(cmd.parameters) && cmd.parameters.length > 0) {
+          for (const param of cmd.parameters) {
+            const paramName = (param.name || "arg")
+              .toLowerCase()
+              .trim()
+              .replace(/[^a-z0-9_-]/g, "_")
+              .slice(0, 32);
+
+            if (!paramName) continue;
+
+            // ApplicationCommandOptionType:
+            // 3: String, 4: Integer, 5: Boolean, 6: User, 7: Channel, 8: Role, 10: Number
+            let optType = 3;
+            if (param.type === "number") optType = 10;
+            else if (param.type === "integer") optType = 4;
+            else if (param.type === "boolean") optType = 5;
+            else if (param.type === "user") optType = 6;
+            else if (param.type === "channel") optType = 7;
+            else if (param.type === "role") optType = 8;
+
+            options.push({
+              name: paramName,
+              description: (param.description?.trim() || `Parâmetro ${paramName}`).slice(0, 100),
+              type: optType,
+              required: Boolean(param.required),
+            });
+          }
+        }
+
+        const cmdData = {
+          name: cleanName,
+          description,
+          options,
+        };
+
+        const targetGuild = cmd.guildId || bot.guildId;
+        if (targetGuild && targetGuild !== "all") {
+          if (!guildCommandsMap.has(targetGuild)) guildCommandsMap.set(targetGuild, []);
+          guildCommandsMap.get(targetGuild).push(cmdData);
+        } else {
+          globalCommands.push(cmdData);
+        }
+      }
+    }
+
+    // 1. Registra comandos globais
+    await client.application.commands.set(globalCommands).catch((err) => {
+      console.warn("⚠️ [SLASH COMMANDS] Falha ao registrar comandos globais:", err.message);
+    });
+
+    // 2. Registra nos servidores conectados para ativação instantânea na interface do Discord
+    for (const [guildId, guild] of client.guilds.cache.entries()) {
+      const specific = guildCommandsMap.get(guildId) || [];
+      const combined = [...globalCommands, ...specific];
+      const unique = Array.from(new Map(combined.map((c) => [c.name, c])).values());
+
+      await guild.commands.set(unique).then(() => {
+        console.log(`⚡ [SLASH COMMANDS] ${unique.length} Slash Command(s) ativo(s) no servidor "${guild.name}"!`);
+      }).catch((gErr) => {
+        console.warn(`⚠️ [SLASH COMMANDS] Falha ao registrar no servidor ${guild.name}:`, gErr.message);
+      });
+    }
+  } catch (err) {
+    console.error("❌ [SLASH COMMANDS] Erro ao sincronizar Slash Commands:", err.message);
+  } finally {
+    isSyncingSlashCommands = false;
+  }
+}
 
 async function loadBotProjects() {
   try {
@@ -2005,6 +2121,7 @@ async function loadBotProjects() {
     if (!error && data && Array.isArray(data.permissions)) {
       botProjects = data.permissions;
       console.log(`🤖 Bot Projects sincronizados: ${botProjects.length} projeto(s)`);
+      await syncSlashCommands();
     }
   } catch (err) {
     console.warn("⚠️ Falha ao carregar botProjects do Supabase:", err.message);
@@ -2016,20 +2133,22 @@ function setupBotEngineRealtime() {
     // 1. Escuta broadcasts nos dois canais para garantir compatibilidade
     const channel1 = supabase.channel("system-bot-sync");
     channel1
-      .on("broadcast", { event: "bots_updated" }, (payload) => {
+      .on("broadcast", { event: "bots_updated" }, async (payload) => {
         if (Array.isArray(payload?.payload)) {
           botProjects = payload.payload;
           console.log(`🤖 [REALTIME sync] Bot Projects atualizados via broadcast: ${botProjects.length} projeto(s)`);
+          await syncSlashCommands();
         }
       })
       .subscribe();
 
     const channel2 = supabase.channel("system-bot-sync-listener");
     channel2
-      .on("broadcast", { event: "bots_updated" }, (payload) => {
+      .on("broadcast", { event: "bots_updated" }, async (payload) => {
         if (Array.isArray(payload?.payload)) {
           botProjects = payload.payload;
           console.log(`🤖 [REALTIME listener] Bot Projects atualizados via broadcast: ${botProjects.length} projeto(s)`);
+          await syncSlashCommands();
         }
       })
       .subscribe();
@@ -2181,7 +2300,23 @@ async function executeBotActions(actions, context) {
           }
         }
 
-        if (action.type === "reply_message" && context.message) {
+        // Se a ação for disparada por um Slash Command (interaction) no canal atual
+        if (context.interaction && (!action.config?.channelId || action.config.channelId === context.channel?.id)) {
+          if (context.interaction.deferred && !context.interaction.replied) {
+            await context.interaction.editReply(msgOptions).catch(async (e) => {
+              console.warn("⚠️ Falha ao editar resposta de interaction:", e.message);
+              if (targetChannel) await targetChannel.send(msgOptions).catch(() => {});
+            });
+            context.interaction.replied = true;
+          } else {
+            await context.interaction.followUp({
+              ...msgOptions,
+              ephemeral: Boolean(action.config?.ephemeral || context.command?.ephemeral),
+            }).catch(async () => {
+              if (targetChannel) await targetChannel.send(msgOptions).catch(() => {});
+            });
+          }
+        } else if (action.type === "reply_message" && context.message) {
           await context.message.reply(msgOptions).catch(async () => {
             if (targetChannel) await targetChannel.send(msgOptions).catch(() => {});
           });
@@ -2332,6 +2467,167 @@ client.on("messageCreate", async (message) => {
         }
       }
     }
+  }
+});
+
+// 3.1. Escuta em tempo real: Discord Slash Commands (interactionCreate)
+client.on(Events?.InteractionCreate || "interactionCreate", async (interaction) => {
+  try {
+    if (!interaction.isChatInputCommand || !interaction.isChatInputCommand()) return;
+
+    const { commandName } = interaction;
+    console.log(`⚡ [SLASH COMMAND RECEBIDO] /${commandName} acionado por ${interaction.user.tag} (${interaction.user.id}) no canal #${interaction.channel?.name || "DM"}`);
+
+    let matchedCmd = null;
+    let matchedBot = null;
+
+    for (const bot of (botProjects || [])) {
+      if (!bot.enabled) continue;
+      for (const cmd of (bot.commands || [])) {
+        if (!cmd.enabled) continue;
+        const cleanName = (cmd.name || "")
+          .toLowerCase()
+          .trim()
+          .replace(/^[!/]/, "")
+          .replace(/[^a-z0-9_-]/g, "_")
+          .slice(0, 32);
+
+        if (cleanName === commandName) {
+          matchedCmd = cmd;
+          matchedBot = bot;
+          break;
+        }
+      }
+      if (matchedCmd) break;
+    }
+
+    if (!matchedCmd) {
+      return interaction.reply({
+        content: `❌ O comando \`/${commandName}\` não está ativo ou foi removido do painel Twin Wheels.`,
+        ephemeral: true,
+      }).catch(() => {});
+    }
+
+    // Validação de servidor (Guild ID)
+    const targetGuild = matchedCmd.guildId || matchedBot.guildId;
+    if (targetGuild && targetGuild !== "all" && interaction.guildId !== targetGuild) {
+      return interaction.reply({
+        content: "🔒 Este comando não está autorizado para execução neste servidor Discord.",
+        ephemeral: true,
+      }).catch(() => {});
+    }
+
+    // Validação de cargos necessários
+    if (Array.isArray(matchedCmd.requiredRoles) && matchedCmd.requiredRoles.length > 0) {
+      const memberRoles = interaction.member?.roles?.cache?.map((r) => r.name.toLowerCase()) || [];
+      const hasReqRole = matchedCmd.requiredRoles.some((r) => memberRoles.includes(r.toLowerCase()));
+      if (!hasReqRole) {
+        return interaction.reply({
+          content: "🔒 Você não possui o cargo necessário no servidor para executar este comando.",
+          ephemeral: true,
+        }).catch(() => {});
+      }
+    }
+
+    // Coleta todos os parâmetros / opções passados
+    const args = {
+      all: "",
+    };
+
+    if (interaction.options && interaction.options.data) {
+      const allVals = [];
+      for (const opt of interaction.options.data) {
+        args[opt.name] = opt.value;
+        allVals.push(String(opt.value ?? ""));
+
+        if (opt.user) {
+          args[`${opt.name}_user`] = opt.user.username;
+          args[`${opt.name}_id`] = opt.user.id;
+          args[`${opt.name}_mention`] = `<@${opt.user.id}>`;
+          args["user_mention"] = `<@${opt.user.id}>`;
+          args["user_id"] = opt.user.id;
+        }
+        if (opt.channel) {
+          args[`${opt.name}_channel`] = opt.channel.name;
+          args[`${opt.name}_id`] = opt.channel.id;
+          args[`${opt.name}_mention`] = `<#${opt.channel.id}>`;
+        }
+        if (opt.role) {
+          args[`${opt.name}_role`] = opt.role.name;
+          args[`${opt.name}_id`] = opt.role.id;
+          args[`${opt.name}_mention`] = `<@&${opt.role.id}>`;
+        }
+      }
+      args.all = allVals.join(" ");
+    }
+
+    // Monta variáveis do bot
+    const vars = {};
+    if (Array.isArray(matchedBot.variables)) {
+      matchedBot.variables.forEach((v) => {
+        vars[v.name] = v.value;
+      });
+    }
+
+    const context = {
+      user: interaction.user,
+      member: interaction.member,
+      channel: interaction.channel,
+      guild: interaction.guild,
+      interaction,
+      command: matchedCmd,
+      args,
+      vars,
+      bot: matchedBot,
+    };
+
+    // Valida condições
+    if (!evaluateBotConditions(matchedCmd.conditions, context)) {
+      return interaction.reply({
+        content: "⚠️ As condições configuradas para a execução deste comando não foram atendidas.",
+        ephemeral: true,
+      }).catch(() => {});
+    }
+
+    // Defer reply para evitar erro de 3 segundos no Discord
+    const isEphemeral = Boolean(matchedCmd.ephemeral);
+    await interaction.deferReply({ ephemeral: isEphemeral }).catch(() => {});
+
+    // Executa as ações configuradas
+    await executeBotActions(matchedCmd.actions, context);
+
+    // Se a interação ainda não foi respondida por nenhuma ação, finaliza com confirmação
+    if (!interaction.replied) {
+      await interaction.editReply({
+        content: `✅ Comando \`/${commandName}\` executado com sucesso!`,
+      }).catch(() => {});
+    }
+
+    // Atualiza estatísticas do bot
+    matchedBot.stats = matchedBot.stats || {};
+    matchedBot.stats.totalExecutions = (matchedBot.stats.totalExecutions || 0) + 1;
+    matchedBot.stats.lastExecutedAt = new Date().toISOString();
+
+    console.log(`✅ [SLASH COMMAND FINALIZADO] /${commandName} executado para ${interaction.user.tag}`);
+
+    // Dispara evento 'command_ran' se configurado no bot
+    const ranEvents = matchedBot.events?.filter((e) => e.enabled && e.triggerType === "command_ran");
+    if (ranEvents && ranEvents.length > 0) {
+      for (const evt of ranEvents) {
+        if (evaluateBotConditions(evt.conditions, context)) {
+          await executeBotActions(evt.actions, context).catch(() => {});
+        }
+      }
+    }
+  } catch (err) {
+    console.error("❌ Erro no processamento de Slash Command:", err);
+    try {
+      if (interaction.deferred && !interaction.replied) {
+        await interaction.editReply({ content: "❌ Ocorreu um erro ao processar o comando no servidor." }).catch(() => {});
+      } else if (!interaction.replied) {
+        await interaction.reply({ content: "❌ Ocorreu um erro ao processar o comando no servidor.", ephemeral: true }).catch(() => {});
+      }
+    } catch {}
   }
 });
 

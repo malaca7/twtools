@@ -129,7 +129,7 @@ export function useManagementPendingActions() {
           criticalStockCount === 1
             ? "1 produto com saldo abaixo da margem mínima"
             : `${criticalStockCount} produtos com saldo abaixo da margem mínima`,
-        link: "/estoque",
+        link: "/controledeestoque",
         actionLabel: "Repor Estoque",
         icon: Package,
         color: "rose",

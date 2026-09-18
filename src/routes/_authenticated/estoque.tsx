@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, Navigate } from "@tanstack/react-router";
 import { useQueryClient, useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
@@ -73,7 +73,7 @@ import { Product, Category } from "@/lib/app-types";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/estoque")({
-  component: EstoquePage,
+  component: () => <Navigate to="/controledeestoque" replace />,
 });
 
 export function EstoquePage() {

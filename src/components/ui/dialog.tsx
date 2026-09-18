@@ -96,7 +96,7 @@ interface DialogPortalProps {
 const DialogPortal: React.FC<DialogPortalProps> = ({ children }) => {
   const { open } = useDialogContext();
   if (!open || typeof document === "undefined") return null;
-  return createPortal(<>{children}</>, document.body);
+  return <>{children}</>;
 };
 DialogPortal.displayName = "DialogPortal";
 
@@ -124,7 +124,7 @@ const DialogOverlay = React.forwardRef<
         }
       }}
       className={cn(
-        "fixed inset-0 z-[9998] bg-black/80 backdrop-blur-md transition-opacity duration-150 cursor-pointer pointer-events-auto",
+        "fixed inset-0 z-[10050] bg-black/80 backdrop-blur-md transition-opacity duration-200 cursor-pointer pointer-events-auto animate-in fade-in-0",
         className,
       )}
       {...props}
@@ -135,10 +135,21 @@ DialogOverlay.displayName = "DialogOverlay";
 
 const DialogContentInner = React.forwardRef<
   HTMLDivElement,
-  React.HTMLAttributes<HTMLDivElement>
->(({ className, children, ...props }, ref) => {
-  const { setOpen } = useDialogContext();
+  React.HTMLAttributes<HTMLDivElement> & { hideClose?: boolean }
+>(({ className, children, hideClose = false, ...props }, ref) => {
+  const { open, setOpen } = useDialogContext();
 
+  // Trava o scroll do body enquanto o modal estiver aberto
+  React.useEffect(() => {
+    if (!open || typeof document === "undefined") return;
+    const originalOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = originalOverflow;
+    };
+  }, [open]);
+
+  // Fechamento com tecla ESC
   React.useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
@@ -156,25 +167,28 @@ const DialogContentInner = React.forwardRef<
         ref={ref}
         role="dialog"
         aria-modal="true"
+        onMouseDown={(e) => e.stopPropagation()}
         onClick={(e) => e.stopPropagation()}
         className={cn(
-          "fixed left-[50%] top-[50%] z-[9999] grid w-[calc(100%-1.25rem)] sm:w-[calc(100%-2rem)] max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 border border-border/80 bg-card text-card-foreground shadow-2xl rounded-2xl sm:rounded-3xl p-4 sm:p-6 opacity-100 scale-100 pointer-events-auto transition-all duration-150 max-h-[85dvh] overflow-y-auto overflow-x-hidden overscroll-contain ring-1 ring-border/50 scrollbar-none",
+          "fixed left-[50%] top-[50%] z-[10051] grid w-[calc(100%-1.25rem)] sm:w-[calc(100%-2rem)] max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 border border-border/80 bg-card text-card-foreground shadow-2xl rounded-2xl sm:rounded-3xl p-4 sm:p-6 opacity-100 scale-100 pointer-events-auto transition-all duration-150 max-h-[90dvh] overflow-y-auto overflow-x-hidden overscroll-contain ring-1 ring-border/50 scrollbar-none animate-in fade-in-0 zoom-in-95",
           className,
         )}
         {...props}
       >
         {children}
-        <button
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation();
-            setOpen(false);
-          }}
-          className="absolute right-3 top-3 sm:right-4 sm:top-4 rounded-xl p-2 opacity-70 hover:opacity-100 hover:bg-secondary transition-all cursor-pointer text-muted-foreground hover:text-foreground z-10 active:scale-90"
-        >
-          <X className="h-4 w-4" />
-          <span className="sr-only">Close</span>
-        </button>
+        {!hideClose && (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              setOpen(false);
+            }}
+            className="absolute right-3 top-3 sm:right-4 sm:top-4 rounded-xl p-2 opacity-70 hover:opacity-100 hover:bg-secondary transition-all cursor-pointer text-muted-foreground hover:text-foreground z-10 active:scale-90"
+          >
+            <X className="h-4 w-4" />
+            <span className="sr-only">Fechar</span>
+          </button>
+        )}
       </div>
     </>
   );
@@ -183,7 +197,7 @@ DialogContentInner.displayName = "DialogContentInner";
 
 const DialogContent = React.forwardRef<
   HTMLDivElement,
-  React.HTMLAttributes<HTMLDivElement>
+  React.HTMLAttributes<HTMLDivElement> & { hideClose?: boolean }
 >((props, ref) => {
   const { open } = useDialogContext();
 

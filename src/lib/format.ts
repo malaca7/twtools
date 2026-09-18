@@ -789,6 +789,7 @@ export function humanizeAuditLog(
     case "page_view": {
       const PAGE_LABELS: Record<string, string> = {
         "/dashboard": "Dashboard",
+        "/controledeestoque": "Controle de Estoque",
         "/estoque": "Estoque",
         "/movimentacoes": "Movimentações",
         "/vendas": "Vendas",

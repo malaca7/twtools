@@ -42,7 +42,7 @@ function findSelectItemLabel(children: React.ReactNode, targetValue: string): Re
     if (!React.isValidElement(child)) return;
 
     const props = child.props as Record<string, any>;
-    if (props && props["value"] === targetValue) {
+    if (props && String(props["value"]) === String(targetValue)) {
       found = props["children"];
       return;
     }
@@ -87,7 +87,7 @@ export const Select: React.FC<SelectProps> = ({
   return (
     <SelectContext.Provider
       value={{
-        value: value || "",
+        value: value !== undefined ? String(value) : "",
         onValueChange: handleValueChange,
         open,
         setOpen,
@@ -101,13 +101,19 @@ export const Select: React.FC<SelectProps> = ({
   );
 };
 
-export const SelectGroup: React.FC<{ children?: React.ReactNode }> = ({ children }) => (
-  <div className="py-1">{children}</div>
-);
+export const SelectGroup: React.FC<{ children?: React.ReactNode; className?: string }> = ({
+  children,
+  className,
+}) => <div className={cn("py-1", className)}>{children}</div>;
 
-export const SelectValue: React.FC<{ placeholder?: string }> = ({ placeholder }) => {
+export const SelectValue: React.FC<{ placeholder?: string; children?: React.ReactNode }> = ({
+  placeholder,
+  children,
+}) => {
   const { value, selectChildren } = useSelectContext();
-  const label = value ? findSelectItemLabel(selectChildren, value) : null;
+  if (children) return <>{children}</>;
+
+  const label = value !== undefined && value !== "" ? findSelectItemLabel(selectChildren, value) : null;
 
   if (label) {
     return <span className="truncate">{label}</span>;
@@ -158,27 +164,38 @@ export const SelectTrigger = React.forwardRef<
 });
 SelectTrigger.displayName = "SelectTrigger";
 
+type SelectContentCoords = {
+  top: number;
+  left: number;
+  minWidth: number;
+  maxWidth: number;
+  maxHeight: number;
+  transform: string;
+};
+
 export const SelectContent = React.forwardRef<
   HTMLDivElement,
   React.HTMLAttributes<HTMLDivElement>
 >(({ className, children, style, ...props }, ref) => {
   const { open, setOpen, triggerRef } = useSelectContext();
-  const [coords, setCoords] = React.useState<{
-    top?: number;
-    bottom?: number;
-    left: number;
-    minWidth: number;
-  } | null>(null);
+  const dropdownRef = React.useRef<HTMLDivElement | null>(null);
 
-  const calculatePosition = React.useCallback(() => {
-    if (!triggerRef.current) return;
+  const calculateCoords = React.useCallback((): SelectContentCoords | null => {
+    if (!triggerRef.current) return null;
     const rect = triggerRef.current.getBoundingClientRect();
-    const viewportHeight = window.innerHeight;
-    const viewportWidth = window.innerWidth;
+    if (rect.width === 0 && rect.height === 0 && rect.top === 0 && rect.bottom === 0) {
+      return null;
+    }
 
-    const spaceBelow = viewportHeight - rect.bottom;
-    const spaceAbove = rect.top;
-    const openUp = spaceBelow < 220 && spaceAbove > spaceBelow;
+    const viewportHeight = window.innerHeight || document.documentElement.clientHeight;
+    const viewportWidth = window.innerWidth || document.documentElement.clientWidth;
+
+    const spaceBelow = Math.max(0, viewportHeight - rect.bottom - 8);
+    const spaceAbove = Math.max(0, rect.top - 8);
+    const maxContentHeight = 260;
+
+    // Abre para cima se não houver espaço suficiente abaixo e houver mais espaço acima
+    const openUp = spaceBelow < 180 && spaceAbove > spaceBelow;
 
     const minWidth = Math.max(rect.width, 160);
     let left = rect.left;
@@ -187,29 +204,63 @@ export const SelectContent = React.forwardRef<
     }
     if (left < 8) left = 8;
 
-    if (openUp) {
-      setCoords({
-        bottom: Math.max(8, viewportHeight - rect.top + 4),
-        left,
-        minWidth,
-      });
-    } else {
-      setCoords({
-        top: rect.bottom + 4,
-        left,
-        minWidth,
-      });
-    }
+    const maxHeight = Math.max(
+      100,
+      Math.min(maxContentHeight, openUp ? spaceAbove : spaceBelow)
+    );
+
+    return {
+      top: openUp ? Math.round(rect.top - 4) : Math.round(rect.bottom + 4),
+      left: Math.round(left),
+      minWidth: Math.round(minWidth),
+      maxWidth: Math.round(Math.min(viewportWidth - 16, Math.max(rect.width, 380))),
+      maxHeight: Math.round(maxHeight),
+      transform: openUp ? "translateY(-100%)" : "none",
+    };
   }, [triggerRef]);
 
-  React.useLayoutEffect(() => {
-    if (open) {
-      calculatePosition();
-    }
-  }, [open, calculatePosition]);
+  const [coords, setCoords] = React.useState<SelectContentCoords | null>(() => {
+    if (typeof window === "undefined") return null;
+    return calculateCoords();
+  });
 
+  // Atualização em tempo real nas alterações de scroll e resize
+  React.useLayoutEffect(() => {
+    if (!open) return;
+
+    const update = () => {
+      const next = calculateCoords();
+      if (next) {
+        setCoords(next);
+      }
+    };
+
+    update();
+
+    window.addEventListener("resize", update);
+    window.addEventListener("scroll", update, true);
+
+    return () => {
+      window.removeEventListener("resize", update);
+      window.removeEventListener("scroll", update, true);
+    };
+  }, [open, calculateCoords]);
+
+  // Fechamento seguro ao clicar fora ou pressionar ESC
   React.useEffect(() => {
     if (!open) return;
+
+    const handlePointerDown = (e: MouseEvent | TouchEvent) => {
+      const target = e.target as Node;
+      if (
+        dropdownRef.current &&
+        !dropdownRef.current.contains(target) &&
+        triggerRef.current &&
+        !triggerRef.current.contains(target)
+      ) {
+        setOpen(false);
+      }
+    };
 
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
@@ -217,100 +268,77 @@ export const SelectContent = React.forwardRef<
       }
     };
 
-    const handleResizeOrScroll = () => {
-      calculatePosition();
-    };
-
+    document.addEventListener("mousedown", handlePointerDown, true);
+    document.addEventListener("touchstart", handlePointerDown, true);
     window.addEventListener("keydown", handleKeyDown);
-    window.addEventListener("resize", handleResizeOrScroll);
-    window.addEventListener("scroll", handleResizeOrScroll, true);
 
     return () => {
+      document.removeEventListener("mousedown", handlePointerDown, true);
+      document.removeEventListener("touchstart", handlePointerDown, true);
       window.removeEventListener("keydown", handleKeyDown);
-      window.removeEventListener("resize", handleResizeOrScroll);
-      window.removeEventListener("scroll", handleResizeOrScroll, true);
     };
-  }, [open, setOpen, calculatePosition]);
+  }, [open, setOpen, triggerRef]);
 
   if (!open) return null;
 
-  // Fallback de coordenadas imediatas no 1º render para nunca piscar ou deixar de abrir
-  let currentCoords = coords;
-  if (!currentCoords && triggerRef.current) {
-    const rect = triggerRef.current.getBoundingClientRect();
-    const spaceBelow = window.innerHeight - rect.bottom;
-    const openUp = spaceBelow < 220 && rect.top > spaceBelow;
-    const minWidth = Math.max(rect.width, 160);
-    const left = Math.min(Math.max(rect.left, 8), window.innerWidth - minWidth - 8);
+  // Se coordenadas ainda não estiverem prontas, calcula imediatamente
+  const currentCoords = coords || calculateCoords();
+  if (!currentCoords) return null;
 
-    currentCoords = {
-      top: openUp ? undefined : rect.bottom + 4,
-      bottom: openUp ? Math.max(8, window.innerHeight - rect.top + 4) : undefined,
-      left,
-      minWidth,
-    };
-  }
-
-  const dropdownPortal = (
-    <>
-      {/* Backdrop invisível para fechamento seguro ao clicar fora */}
-      <div
-        className="fixed inset-0 z-[99998] cursor-default bg-transparent"
-        onClick={(e) => {
-          e.stopPropagation();
-          setOpen(false);
-        }}
-      />
-
-      {/* Caixa do menu flutuante com z-index alto e opacidade total garantida */}
-      <div
-        ref={ref}
-        role="listbox"
-        data-radix-select-content=""
-        style={{
-          position: "fixed",
-          top: currentCoords?.top !== undefined ? `${currentCoords.top}px` : undefined,
-          bottom: currentCoords?.bottom !== undefined ? `${currentCoords.bottom}px` : undefined,
-          left: currentCoords ? `${currentCoords.left}px` : undefined,
-          minWidth: currentCoords ? `${currentCoords.minWidth}px` : "160px",
-          maxWidth: "calc(100vw - 16px)",
-          maxHeight: "260px",
-          zIndex: 99999,
-          backgroundColor: "#141417",
-          ...style,
-        }}
-        className={cn(
-          "popover-content overflow-y-auto rounded-lg border border-border/80 bg-[#141417] p-1 text-foreground shadow-2xl backdrop-blur-2xl focus:outline-none ring-1 ring-white/10",
-          className,
-        )}
-        {...props}
-      >
-        {children}
-      </div>
-    </>
+  const contentElement = (
+    <div
+      ref={(node) => {
+        dropdownRef.current = node;
+        if (typeof ref === "function") ref(node);
+        else if (ref) (ref as React.MutableRefObject<HTMLDivElement | null>).current = node;
+      }}
+      role="listbox"
+      data-radix-select-content=""
+      style={{
+        position: "fixed",
+        top: `${currentCoords.top}px`,
+        left: `${currentCoords.left}px`,
+        minWidth: `${currentCoords.minWidth}px`,
+        maxWidth: `${currentCoords.maxWidth}px`,
+        maxHeight: `${currentCoords.maxHeight}px`,
+        transform: currentCoords.transform,
+        zIndex: 99999,
+        backgroundColor: "#121215",
+        ...style,
+      }}
+      className={cn(
+        "popover-content overflow-y-auto rounded-xl border border-border/80 bg-[#121215] p-1 text-foreground shadow-2xl backdrop-blur-2xl focus:outline-none ring-1 ring-white/10 custom-scrollbar-thin animate-in fade-in-0 zoom-in-95 duration-100",
+        className,
+      )}
+      {...props}
+    >
+      {children}
+    </div>
   );
 
   if (typeof document !== "undefined") {
-    return createPortal(dropdownPortal, document.body);
+    return createPortal(contentElement, document.body);
   }
 
-  return dropdownPortal;
+  return contentElement;
 });
 SelectContent.displayName = "SelectContent";
 
 export const SelectItem = React.forwardRef<
   HTMLDivElement,
-  React.HTMLAttributes<HTMLDivElement> & { value: string }
->(({ className, children, value: itemValue, onClick, ...props }, ref) => {
+  React.HTMLAttributes<HTMLDivElement> & { value: string; disabled?: boolean }
+>(({ className, children, value: itemValue, disabled, onClick, ...props }, ref) => {
   const { value, onValueChange, setOpen } = useSelectContext();
-  const isSelected = value === itemValue;
+  const isSelected = String(value) === String(itemValue);
 
   return (
     <div
       ref={ref}
       role="option"
       aria-selected={isSelected}
+      aria-disabled={disabled}
       onClick={(e) => {
+        if (disabled) return;
         e.stopPropagation();
         e.preventDefault();
         onClick?.(e);
@@ -321,6 +349,7 @@ export const SelectItem = React.forwardRef<
         "relative flex w-full cursor-pointer select-none items-center rounded-md py-1.5 pl-2.5 pr-8 text-sm outline-none transition-colors",
         "hover:bg-primary/20 hover:text-primary text-foreground font-medium",
         isSelected && "bg-primary/15 font-semibold text-primary",
+        disabled && "opacity-50 cursor-not-allowed pointer-events-none",
         className,
       )}
       {...props}

@@ -48,6 +48,8 @@ const PAGE_PERMISSION_MAP: Record<string, Permission | null> = {
   vendas: "view_sales",
   lives: "view_lives",
   tickets: "view_tickets",
+  controledeestoque: "view_stock",
+  "controle-estoque": "view_stock",
   estoque: "view_stock",
   baus: "view_stock",
   categorias: "view_stock",
@@ -111,7 +113,7 @@ function InnerPageResolver({ page, tab, mode }: { page: string; tab?: string; mo
     if (normalizedPage === "bot") {
       return <DevBotPageContent initialTab={tab} />;
     }
-    if (normalizedPage === "estoque" || normalizedPage === "dev-estoque") {
+    if (normalizedPage === "dev-estoque" || (normalizedPage === "estoque" && !window.location.pathname.includes("controledeestoque"))) {
       return <DevEstoquePageContent initialTab={tab} />;
     }
     if (normalizedPage === "notificacoes" || normalizedPage === "dev-notificacoes") {
@@ -138,6 +140,8 @@ function InnerPageResolver({ page, tab, mode }: { page: string; tab?: string; mo
       return <Navigate to="/dashboard" replace />;
     case "tickets":
       return <TicketsPage />;
+    case "controledeestoque":
+    case "controle-estoque":
     case "estoque":
     case "baus":
     case "categorias":

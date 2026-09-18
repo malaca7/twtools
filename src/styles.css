@@ -1545,13 +1545,12 @@ html[data-status-pulse="false"] .animate-status-glow-green {
   html {
     color-scheme: dark;
     max-width: 100vw;
-    overflow-x: hidden;
-    overflow-y: auto;
+    overflow-x: clip;
   }
 
   body {
     max-width: 100vw;
-    overflow-x: visible;
+    overflow-x: clip;
     background-color: var(--background, oklch(0.15 0.012 250));
     color: var(--foreground, oklch(0.96 0.005 250));
     font-family: var(--font-sans, "Space Grotesk", ui-sans-serif, system-ui, sans-serif);

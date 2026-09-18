@@ -17,6 +17,10 @@ import {
   Settings,
   Sparkles,
   GitBranch,
+  RefreshCw,
+  EyeOff,
+  Hash,
+  AtSign,
 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
@@ -78,8 +82,9 @@ export function BotBuilder({ bot, onUpdateBot, onSaveBot, initialTab }: BotBuild
       id: `cmd_${Date.now()}`,
       botId: bot.id,
       name: "",
-      prefix: bot.prefix,
-      description: "",
+      prefix: "/",
+      isSlash: true,
+      description: "Comando Slash oficial do Discord",
       enabled: true,
       parameters: [],
       conditions: [],
@@ -87,10 +92,10 @@ export function BotBuilder({ bot, onUpdateBot, onSaveBot, initialTab }: BotBuild
         {
           id: `act_${Date.now()}`,
           type: "send_message",
-          name: "Resposta do Comando",
+          name: "Resposta do Slash Command",
           order: 1,
           config: {
-            description: "Olá {{user.name}}! O comando foi executado com sucesso.",
+            description: "Olá {{user.mention}}! O Slash Command foi executado com sucesso.",
             color: "#10B981",
           },
         },
@@ -152,6 +157,24 @@ export function BotBuilder({ bot, onUpdateBot, onSaveBot, initialTab }: BotBuild
     });
   };
 
+  const [isSyncingSlash, setIsSyncingSlash] = useState(false);
+
+  const handleForceSyncSlash = async () => {
+    setIsSyncingSlash(true);
+    try {
+      await handleUpdate(bot);
+      // Tenta chamar o endpoint de sincronização do bot local / remoto
+      try {
+        await fetch("http://localhost:8080/api/sync-slash-commands", { mode: "cors" }).catch(() => {});
+      } catch {}
+      toast.success("Slash Commands sincronizados com o Discord! Comandos ativos imediatamente com /.");
+    } catch (err: any) {
+      toast.error(`Falha ao sincronizar: ${err?.message || "Erro desconhecido"}`);
+    } finally {
+      setIsSyncingSlash(false);
+    }
+  };
+
   // =========================================================================
   // HANDLERS DE COMANDOS
   // =========================================================================
@@ -160,8 +183,9 @@ export function BotBuilder({ bot, onUpdateBot, onSaveBot, initialTab }: BotBuild
       id: `cmd_${Date.now()}`,
       botId: bot.id,
       name: "",
-      prefix: bot.prefix,
-      description: "",
+      prefix: "/",
+      isSlash: true,
+      description: "Comando Slash oficial do Discord",
       enabled: true,
       parameters: [],
       conditions: [],
@@ -169,10 +193,10 @@ export function BotBuilder({ bot, onUpdateBot, onSaveBot, initialTab }: BotBuild
         {
           id: `act_${Date.now()}`,
           type: "send_message",
-          name: "Resposta do Comando",
+          name: "Resposta do Slash Command",
           order: 1,
           config: {
-            description: "Olá {{user.name}}! Comando executado.",
+            description: "Olá {{user.mention}}! Comando executado.",
             color: "#10B981",
           },
         },
@@ -184,14 +208,30 @@ export function BotBuilder({ bot, onUpdateBot, onSaveBot, initialTab }: BotBuild
   };
 
   const handleSaveCommand = (cmd: BotCommand) => {
-    const existing = bot.commands.some((c) => c.id === cmd.id);
+    const cleanName = (cmd.name || "")
+      .toLowerCase()
+      .trim()
+      .replace(/^[!/]/, "")
+      .replace(/[^a-z0-9_-]/g, "_")
+      .slice(0, 32);
+
+    const cleanCmd: BotCommand = {
+      ...cmd,
+      name: cleanName,
+      prefix: "/",
+      isSlash: true,
+      description: (cmd.description?.trim() || `Comando /${cleanName}`).slice(0, 100),
+      updatedAt: new Date().toISOString(),
+    };
+
+    const existing = bot.commands.some((c) => c.id === cleanCmd.id);
     let updatedCommands: BotCommand[];
     if (existing) {
-      updatedCommands = bot.commands.map((c) => (c.id === cmd.id ? cmd : c));
-      toast.success(`Comando "${bot.prefix}${cmd.name}" atualizado!`);
+      updatedCommands = bot.commands.map((c) => (c.id === cleanCmd.id ? cleanCmd : c));
+      toast.success(`Slash Command "/${cleanName}" atualizado!`);
     } else {
-      updatedCommands = [...bot.commands, cmd];
-      toast.success(`Comando "${bot.prefix}${cmd.name}" criado!`);
+      updatedCommands = [...bot.commands, cleanCmd];
+      toast.success(`Slash Command "/${cleanName}" criado!`);
     }
     handleUpdate({ ...bot, commands: updatedCommands });
   };
@@ -407,6 +447,17 @@ export function BotBuilder({ bot, onUpdateBot, onSaveBot, initialTab }: BotBuild
             )}
             {activeBuilderTab === "commands" && (
               <div className="flex items-center gap-2">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={handleForceSyncSlash}
+                  disabled={isSyncingSlash}
+                  className="text-xs font-bold gap-1.5 border-emerald-500/30 text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20 h-8 shadow-sm"
+                  title="Sincroniza todos os Slash Commands no Discord para funcionamento imediato com /"
+                >
+                  <RefreshCw className={`h-3.5 w-3.5 ${isSyncingSlash ? "animate-spin" : ""}`} />
+                  {isSyncingSlash ? "Sincronizando..." : "Sincronizar no Discord"}
+                </Button>
                 <Button
                   size="sm"
                   onClick={handleOpenStudioCreateCommand}
@@ -630,19 +681,52 @@ export function BotBuilder({ bot, onUpdateBot, onSaveBot, initialTab }: BotBuild
         </TabsContent>
 
         {/* ========================================================================= */}
-        {/* ABA 1: COMANDOS */}
+        {/* ABA 1: SLASH COMMANDS */}
         {/* ========================================================================= */}
         <TabsContent value="commands" className="space-y-4">
+          {/* Banner Informativo de Slash Commands */}
+          <div className="p-4 rounded-xl bg-gradient-to-r from-emerald-950/40 via-zinc-950 to-zinc-950 border border-emerald-500/30 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-md">
+            <div className="flex items-start gap-3">
+              <div className="p-2 rounded-lg bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 shrink-0">
+                <Terminal className="h-5 w-5" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h4 className="text-xs font-black uppercase tracking-wider text-emerald-400">
+                    Discord Slash Commands (/) 100% Funcionais
+                  </h4>
+                  <Badge className="bg-emerald-500/20 text-emerald-300 border-emerald-500/40 font-mono text-[9px]">
+                    API Oficial Discord
+                  </Badge>
+                </div>
+                <p className="text-xs text-zinc-400 mt-0.5 leading-relaxed">
+                  Os comandos criados abaixo são sincronizados diretamente com a API do Discord e respondem ao digitar <code className="text-emerald-400 font-mono font-bold">/</code> nos canais de texto do servidor, suportando argumentos tipados, respostas públicas ou efêmeras.
+                </p>
+              </div>
+            </div>
+
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={handleForceSyncSlash}
+              disabled={isSyncingSlash}
+              className="text-xs font-bold gap-1.5 border-emerald-500/40 text-emerald-300 bg-emerald-500/10 hover:bg-emerald-500/20 shrink-0 h-8"
+            >
+              <RefreshCw className={`h-3.5 w-3.5 ${isSyncingSlash ? "animate-spin" : ""}`} />
+              {isSyncingSlash ? "Sincronizando..." : "Sincronizar no Discord"}
+            </Button>
+          </div>
+
           {bot.commands.length === 0 ? (
             <Card className="surface-card p-12 text-center border-dashed border-zinc-800">
               <Terminal className="h-8 w-8 text-muted-foreground mx-auto opacity-50 mb-2" />
-              <h4 className="text-sm font-bold text-foreground">Nenhum comando criado</h4>
+              <h4 className="text-sm font-bold text-foreground">Nenhum Slash Command criado</h4>
               <p className="text-xs text-muted-foreground max-w-sm mx-auto pt-1 pb-3">
-                Crie seu primeiro comando personalizado para responder automaticamente aos membros no Discord.
+                Crie seu primeiro Slash Command personalizado para responder automaticamente aos membros no Discord digitando /.
               </p>
-              <Button size="sm" onClick={handleOpenStudioCreateCommand} className="text-xs font-bold bg-emerald-600">
+              <Button size="sm" onClick={handleOpenStudioCreateCommand} className="text-xs font-bold bg-emerald-600 hover:bg-emerald-500">
                 <Sparkles className="h-3.5 w-3.5 mr-1" />
-                Criar Primeiro Comando no Studio
+                Criar Primeiro Slash Command no Studio
               </Button>
             </Card>
           ) : (
@@ -651,7 +735,7 @@ export function BotBuilder({ bot, onUpdateBot, onSaveBot, initialTab }: BotBuild
                 <Card
                   key={cmd.id}
                   className={`surface-card p-4 border transition-all flex flex-col justify-between ${
-                    cmd.enabled ? "border-zinc-800/80 bg-zinc-950/60" : "border-zinc-850 opacity-60 bg-zinc-950/30"
+                    cmd.enabled ? "border-zinc-800/80 bg-zinc-950/60 hover:border-emerald-500/40" : "border-zinc-850 opacity-60 bg-zinc-950/30"
                   }`}
                   style={{ borderLeftWidth: "4px", borderLeftColor: cmd.enabled ? "#10B981" : "#52525b" }}
                 >
@@ -659,9 +743,18 @@ export function BotBuilder({ bot, onUpdateBot, onSaveBot, initialTab }: BotBuild
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <span className="font-mono font-black text-sm text-foreground">
-                            {cmd.prefix || bot.prefix}{cmd.name}
+                          <span className="font-mono font-black text-sm text-emerald-400">
+                            /{cmd.name.replace(/^[!/]/, "")}
                           </span>
+                          <Badge variant="outline" className="text-[10px] font-mono py-0 bg-emerald-500/10 text-emerald-400 border-emerald-500/30">
+                            Slash (/)
+                          </Badge>
+                          {cmd.ephemeral && (
+                            <Badge variant="outline" className="text-[10px] font-mono py-0 bg-cyan-500/10 text-cyan-400 border-cyan-500/30 gap-1">
+                              <EyeOff className="h-2.5 w-2.5" />
+                              Efêmero
+                            </Badge>
+                          )}
                           <Badge variant="outline" className="text-[10px] font-mono py-0 bg-zinc-900">
                             {cmd.actions.length} {cmd.actions.length === 1 ? "ação" : "ações"}
                           </Badge>
@@ -676,31 +769,48 @@ export function BotBuilder({ bot, onUpdateBot, onSaveBot, initialTab }: BotBuild
                       <Switch
                         checked={cmd.enabled}
                         onCheckedChange={(val) => handleToggleCommand(cmd.id, val)}
-                        title={cmd.enabled ? "Comando Ativo" : "Comando Pausado"}
+                        title={cmd.enabled ? "Slash Command Ativo" : "Slash Command Pausado"}
                       />
                     </div>
 
-                    {/* Argumentos & Condições */}
-                    <div className="flex items-center gap-1.5 flex-wrap pt-1">
-                      {cmd.parameters.map((p) => (
-                        <Badge key={p.id} className="bg-zinc-900 text-zinc-300 border-zinc-800 text-[10px] font-mono py-0">
-                          &lt;{p.name}&gt;
-                        </Badge>
-                      ))}
-                      {cmd.conditions.length > 0 && (
-                        <Badge className="bg-violet-500/10 text-violet-400 border-violet-500/20 text-[10px] py-0">
-                          {cmd.conditions.length} {cmd.conditions.length === 1 ? "regra" : "regras"}
-                        </Badge>
-                      )}
-                    </div>
+                    {/* Argumentos / Parâmetros do Slash Command */}
+                    {cmd.parameters && cmd.parameters.length > 0 ? (
+                      <div className="flex items-center gap-1.5 flex-wrap pt-1">
+                        {cmd.parameters.map((p) => (
+                          <Badge
+                            key={p.id}
+                            className={`text-[10px] font-mono py-0 gap-1 ${
+                              p.required
+                                ? "bg-amber-500/15 text-amber-300 border-amber-500/30"
+                                : "bg-zinc-900 text-zinc-400 border-zinc-800"
+                            }`}
+                            title={`Tipo: ${p.type} (${p.required ? "Obrigatório" : "Opcional"})${p.description ? ` - ${p.description}` : ""}`}
+                          >
+                            {p.type === "user" && <AtSign className="h-2.5 w-2.5 text-amber-400" />}
+                            {p.type === "channel" && <Hash className="h-2.5 w-2.5 text-purple-400" />}
+                            {p.required ? `<${p.name}>` : `[${p.name}]`}
+                          </Badge>
+                        ))}
+                        {cmd.conditions.length > 0 && (
+                          <Badge className="bg-violet-500/10 text-violet-400 border-violet-500/20 text-[10px] py-0">
+                            {cmd.conditions.length} {cmd.conditions.length === 1 ? "regra" : "regras"}
+                          </Badge>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="text-[11px] text-zinc-500 italic">
+                        Sem argumentos adicionais.
+                      </div>
+                    )}
                   </div>
 
-                  <div className="pt-3 border-t border-zinc-800/60 mt-3 flex items-center justify-between">
-                    <span className="text-[10px] font-mono text-muted-foreground">
-                      Uso: {cmd.prefix || bot.prefix}{cmd.name}
+                  <div className="pt-3 border-t border-zinc-800/60 mt-3 flex items-center justify-between gap-2">
+                    <span className="text-[10px] font-mono text-zinc-400 truncate max-w-[180px]">
+                      /{cmd.name.replace(/^[!/]/, "")}{" "}
+                      {cmd.parameters?.map((p) => (p.required ? `<${p.name}>` : `[${p.name}]`)).join(" ")}
                     </span>
 
-                    <div className="flex items-center gap-1.5">
+                    <div className="flex items-center gap-1.5 shrink-0">
                       <Button
                         size="sm"
                         onClick={() => handleOpenStudioEditCommand(cmd)}

@@ -82,7 +82,7 @@ function AuthPage() {
         } else if (hasPermission("view_movements")) {
           void navigate({ to: "/movimentacoes", replace: true });
         } else if (hasPermission("view_stock")) {
-          void navigate({ to: "/estoque", replace: true });
+          void navigate({ to: "/controledeestoque", replace: true });
         } else if (hasPermission("view_sales")) {
           void navigate({ to: "/vendas", replace: true });
         } else {
