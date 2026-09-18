@@ -18,6 +18,7 @@ export type UserThemeSettings = {
   brightness: number;
   contrast: number;
   saturation?: number;
+  textBrightness?: number;
 };
 
 export const DEFAULT_USER_THEME: UserThemeSettings = {
@@ -37,6 +38,7 @@ export const DEFAULT_USER_THEME: UserThemeSettings = {
   brightness: 100,
   contrast: 100,
   saturation: 100,
+  textBrightness: 100,
 };
 
 export type AppUser = {

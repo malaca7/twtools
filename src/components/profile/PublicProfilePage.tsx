@@ -341,12 +341,7 @@ export function PublicProfilePage({ handleOverride, isRootRoute = false }: Publi
             </div>
           )}
 
-          {/* WATERMARK TWIN WHEELS */}
-          <div className="absolute right-4 bottom-3 text-right select-none pointer-events-none opacity-20">
-            <span className="font-black text-2xl sm:text-4xl tracking-tighter text-white font-mono">
-              TWIN WHEELS
-            </span>
-          </div>
+
 
           {/* BADGES NO BANNER */}
           <div className="absolute top-3 right-3 flex items-center gap-2">

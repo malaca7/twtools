@@ -81,6 +81,41 @@ html {
   transition: filter 150ms ease-out;
 }
 
+/* Intensidade e Brilho de Textos e Letras de Toda a Plataforma */
+:root {
+  --platform-text-brightness: 100%;
+}
+
+body,
+p,
+span,
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+label,
+td,
+th,
+a,
+button,
+input,
+textarea,
+select,
+.text-foreground,
+.text-muted-foreground {
+  filter: brightness(var(--platform-text-brightness, 100%));
+}
+
+html[data-glow="true"] h1,
+html[data-glow="true"] h2,
+html[data-glow="true"] h3,
+html[data-glow="true"] .font-black,
+html[data-glow="true"] .font-extrabold {
+  text-shadow: 0 0 calc(max(0px, (var(--platform-text-brightness, 100) - 100) * 0.08px)) currentColor;
+}
+
 :root,
 html[data-theme="cyberpunk"] {
   --radius: 0.85rem;

@@ -1107,8 +1107,8 @@ export function UserAppearanceSettings() {
             </div>
           </div>
 
-          {/* SLIDERS GRID: BRILHO, CONTRASTE, SATURAÇÃO */}
-          <div className="grid gap-5 md:grid-cols-3 pt-3 border-t border-border/40">
+          {/* SLIDERS GRID: BRILHO, CONTRASTE, SATURAÇÃO, BRILHO DE TEXTOS */}
+          <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4 pt-3 border-t border-border/40">
             {/* BRILHO */}
             <div className="space-y-2.5">
               <div className="flex items-center justify-between">
@@ -1162,6 +1162,25 @@ export function UserAppearanceSettings() {
                 max={180}
                 step={5}
                 onValueChange={([val]) => handleChange("saturation", val)}
+                className="cursor-pointer"
+              />
+            </div>
+
+            {/* BRILHO DE TEXTOS E LETRAS */}
+            <div className="space-y-2.5">
+              <div className="flex items-center justify-between">
+                <Label className="text-xs font-semibold flex items-center gap-1.5">
+                  <Sparkles className="h-3.5 w-3.5 text-yellow-400" />
+                  Brilho das Letras / Texto
+                </Label>
+                <span className="text-xs font-mono font-bold text-primary">{formData.textBrightness ?? 100}%</span>
+              </div>
+              <Slider
+                value={[formData.textBrightness ?? 100]}
+                min={70}
+                max={200}
+                step={5}
+                onValueChange={([val]) => handleChange("textBrightness", val)}
                 className="cursor-pointer"
               />
             </div>

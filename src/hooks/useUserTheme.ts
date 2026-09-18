@@ -33,6 +33,8 @@ export function applyThemeToDOM(theme: UserThemeSettings) {
   root.style.setProperty("--platform-brightness", `${theme.brightness ?? 100}%`);
   root.style.setProperty("--platform-contrast", `${theme.contrast ?? 100}%`);
   root.style.setProperty("--platform-saturation", `${theme.saturation ?? 100}%`);
+  root.style.setProperty("--platform-text-brightness", `${theme.textBrightness ?? 100}%`);
+  root.setAttribute("data-text-brightness", `${theme.textBrightness ?? 100}`);
 
   // Custom Primary / Accent Color Override & Logo Brand Gradient (Degradês e Sólidos)
   if (theme.customPrimaryColor) {

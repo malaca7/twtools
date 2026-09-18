@@ -302,9 +302,7 @@ export function PublicProfileCustomizer() {
                 <div className="absolute inset-0 bg-[linear-gradient(to_top,rgba(0,0,0,0.8)_0%,transparent_70%)]" />
               </div>
             )}
-            <div className="absolute right-4 bottom-2 text-right select-none opacity-20 pointer-events-none">
-              <span className="font-black text-xl text-white font-mono">TWIN WHEELS</span>
-            </div>
+
           </div>
 
           {/* DADOS DO PREVIEW */}
