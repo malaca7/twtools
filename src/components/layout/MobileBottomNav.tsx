@@ -135,7 +135,7 @@ export function MobileBottomNav() {
       unread: 0,
       onClick: () => navigate({ to: url as any }),
     };
-  }, [hasPermission, isChatRoute, totalUnreadCount, isDevMode, isCeoMode, pathname, navigate]);
+  }, [hasPermission, isDevMode, isCeoMode, pathname, navigate]);
 
   return (
     <nav
