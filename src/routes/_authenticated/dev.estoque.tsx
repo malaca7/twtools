@@ -664,14 +664,21 @@ function DiscordIntegrationTab() {
   // Novo mapping state
   const [newAliasKey, setNewAliasKey] = useState("");
   const [newAliasTargetProduct, setNewAliasTargetProduct] = useState("");
-  const [newBauAliasKey, setNewBauAliasKey] = useState("");
-  const [newBauAliasTarget, setNewBauAliasTarget] = useState("");
 
-  // Simulador de logs state
+  // Simulador de logs state (resolvido por canal exclusivo do baú)
+  const [selectedSimBauId, setSelectedSimBauId] = useState("");
   const [testLogText, setTestLogText] = useState(
-    "📦 BAÚ QG\nSaldo líquido:\nMP5 +5\nMicro Uzi -2\n(ID: 274 - Passaporte 274)"
+    "Andrew Delucca Ferreira • ID 274\n📦 Baú\n\n📊 Saldo líquido\nMetanfetamina -72\nCocaína -126\n\n🧾 Detalhes da movimentação\nMetanfetamina\n↳ -72 removidos\nCocaína\n↳ -126 removidos\nMovimentações agrupadas em uma janela de 30 segundos • Hoje às 19:21"
   );
   const [simulatedResult, setSimulatedResult] = useState<any>(null);
+
+  // Define baú padrão para o simulador
+  useEffect(() => {
+    if (baus.length > 0 && !selectedSimBauId) {
+      const firstAuto = baus.find((b) => b.ativo && b.tipo_gestao !== "manual");
+      setSelectedSimBauId(firstAuto ? firstAuto.id : baus[0].id);
+    }
+  }, [baus, selectedSimBauId]);
 
   // Sincroniza dados da configuração global
   useEffect(() => {
@@ -929,19 +936,36 @@ function DiscordIntegrationTab() {
   };
 
 
-  // Parser local no cliente para testes imediatos
+  // Parser local no cliente para testes e simulação com resolução de baú por canal
   const handleTestParser = () => {
     const raw = testLogText || "";
     const lines = raw.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
-    let playerId: string | null = null;
-    const idMatch = raw.match(/ID\s*[:#]?\s*(\d+)/i) || raw.match(/Passaporte\s*[:#]?\s*(\d+)/i);
-    if (idMatch) playerId = idMatch[1];
 
+    // 1. Identificar Jogador (Nome e ID)
+    let authorName: string | null = null;
+    let playerId: string | null = null;
+
+    const authorPattern = /(?:^|\n)\s*([a-zA-Z0-9À-ÿ\s\.\-_]+?)\s*[•\|\-]\s*(?:ID|Passaporte)?\s*(\d+)/i;
+    const authorMatch = raw.match(authorPattern);
+    if (authorMatch) {
+      authorName = authorMatch[1].trim();
+      playerId = authorMatch[2].trim();
+    } else {
+      const idMatch = raw.match(/ID\s*[:#]?\s*(\d+)/i) || raw.match(/Passaporte\s*[:#]?\s*(\d+)/i);
+      if (idMatch) playerId = idMatch[1];
+    }
+
+    // 2. Resolução de Baú pelo Canal Selecionado na Simulação
     let isTransfer = false;
     let fromBau = null;
     let toBau = null;
-    let detectedBau = "Baú Padrão";
 
+    const targetBauObj = baus.find((b) => b.id === selectedSimBauId) || baus[0];
+    const detectedBau = targetBauObj ? targetBauObj.nome : "Baú Desconhecido";
+    const isBauManual = targetBauObj?.tipo_gestao === "manual";
+    const channelBound = targetBauObj?.discord_channel_id || "";
+
+    // Padrão de transferência explícita entre baús
     const transferMatch =
       raw.match(/(?:origem|de)\s*[:\-]\s*([^\n\r\|]+).*?(?:destino|para)\s*[:\-]\s*([^\n\r\|]+)/i) ||
       raw.match(/transfer(?:ência|ido)?\s*(?:de)?\s*([^\n\r\->]+)\s*(?:->|para)\s*([^\n\r]+)/i);
@@ -950,24 +974,30 @@ function DiscordIntegrationTab() {
       isTransfer = true;
       fromBau = transferMatch[1].replace(/📦/g, "").trim();
       toBau = transferMatch[2].replace(/📦/g, "").trim();
-    } else {
-      for (const l of lines) {
-        if (l.includes("📦")) {
-          detectedBau = l.replace(/📦/g, "").trim();
-        } else if (/^ba[uú]\s*[:\-]\s*(.+)$/i.test(l)) {
-          const m = l.match(/^ba[uú]\s*[:\-]\s*(.+)$/i);
-          if (m) detectedBau = m[1].trim();
-        }
-      }
     }
 
+    // 3. Interpretação de Itens (Saldo Líquido e Detalhes da Movimentação)
     const items: Array<{ name: string; qtyChange: number; mappedTo?: string }> = [];
     let inSaldoLiquido = false;
+    let inDetalhes = false;
+    let lastItemPendingQty: string | null = null;
+
+    const cleanItem = (rawItemName: string) => {
+      const clean = rawItemName.replace(/^[\s\-•\*\>]+/, "").trim();
+      const lower = clean.toLowerCase();
+      if (itemMappings[lower]) return itemMappings[lower];
+      for (const [k, v] of Object.entries(itemMappings)) {
+        if (k.trim().toLowerCase() === lower) return v;
+      }
+      return clean;
+    };
 
     for (const rawLine of lines) {
       const line = rawLine.replace(/[\*\_`]/g, "").trim();
+
       if (/saldo\s*l[ií]quido/i.test(line)) {
         inSaldoLiquido = true;
+        inDetalhes = false;
         const inline = line.match(/saldo\s*l[ií]quido\s*[:\-]?\s*(.+?)\s*([+-]\s*\d+)$/i);
         if (inline) {
           const rawItem = inline[1].trim();
@@ -975,47 +1005,80 @@ function DiscordIntegrationTab() {
           items.push({
             name: rawItem,
             qtyChange: q,
-            mappedTo: itemMappings[rawItem.toLowerCase()] || rawItem,
+            mappedTo: cleanItem(rawItem),
           });
         }
         continue;
       }
 
+      if (/detalhes\s*da\s*movimenta[cç][aã]o/i.test(line)) {
+        inSaldoLiquido = false;
+        inDetalhes = true;
+        continue;
+      }
+
+      if (/movimenta[cç][oõ]es\s*agrupadas|data|hor[aá]rio|respons[aá]vel/i.test(line)) {
+        inSaldoLiquido = false;
+        inDetalhes = false;
+        continue;
+      }
+
       if (inSaldoLiquido) {
-        if (/detalhes|informa[cç][oõ]es|data|hor[aá]rio|respons[aá]vel/i.test(line)) {
-          inSaldoLiquido = false;
-          continue;
-        }
         const m = line.match(/^(.+?)\s*[:\-]?\s*([+-]\s*\d+)$/);
         if (m) {
           const rawItem = m[1].trim();
           const q = parseInt(m[2].replace(/\s+/g, ""), 10);
+          if (!isNaN(q) && rawItem.length > 1) {
+            items.push({
+              name: rawItem,
+              qtyChange: q,
+              mappedTo: cleanItem(rawItem),
+            });
+          }
+        }
+      } else if (inDetalhes && items.length === 0) {
+        const arrowMatch = line.match(/^[↳\->]+\s*([+-]?\s*\d+)\s*(removid[oa]s?|retirad[oa]s?|adicionad[oa]s?|colocad[oa]s?|guardad[oa]s?)?/i);
+        if (arrowMatch && lastItemPendingQty) {
+          let q = parseInt(arrowMatch[1].replace(/\s+/g, ""), 10);
+          const actionWord = (arrowMatch[2] || "").toLowerCase();
+          if (/removid|retirad/.test(actionWord) && q > 0) {
+            q = -q;
+          }
           items.push({
-            name: rawItem,
+            name: lastItemPendingQty,
             qtyChange: q,
-            mappedTo: itemMappings[rawItem.toLowerCase()] || rawItem,
+            mappedTo: cleanItem(lastItemPendingQty),
           });
+          lastItemPendingQty = null;
+        } else if (!/^[↳\->]/.test(line)) {
+          lastItemPendingQty = line;
         }
       } else {
         const m = line.match(/^([a-zA-Z0-9À-ÿ\s\.\-_]+?)\s+([+-]\d+)$/);
         if (m && !/saldo|detalhe|ba[uú]|id|data/i.test(m[1])) {
           const rawItem = m[1].trim();
           const q = parseInt(m[2], 10);
-          items.push({
-            name: rawItem,
-            qtyChange: q,
-            mappedTo: itemMappings[rawItem.toLowerCase()] || rawItem,
-          });
+          if (!isNaN(q) && rawItem.length > 1) {
+            items.push({
+              name: rawItem,
+              qtyChange: q,
+              mappedTo: cleanItem(rawItem),
+            });
+          }
         }
       }
     }
 
     setSimulatedResult({
+      authorName,
       playerId,
       isTransfer,
       fromBau,
       toBau,
       detectedBau,
+      isBauManual,
+      channelBound,
+      targetBauObj,
       items,
       valid: items.length > 0,
     });
@@ -1484,95 +1547,84 @@ function DiscordIntegrationTab() {
           </CardFooter>
         </Card>
 
-        {/* MAPEAMENTO DE BAÚS */}
-        <Card className="surface-card">
+        {/* MAPEAMENTO EXCLUSIVO DE BAÚS POR CANAL DISCORD */}
+        <Card className="surface-card border-border/80">
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-bold flex items-center justify-between">
               <span className="flex items-center gap-2">
                 <Boxes className="w-4 h-4 text-amber-400" />
-                Mapeamento de Nomes de Baús (Aliases)
+                Canais dos Baús no Discord (Mapeamento Exclusivo)
               </span>
-              <Badge variant="outline" className="text-[10px]">
-                {Object.keys(bauMappings).length} baús mapeados
+              <Badge variant="outline" className="text-[10px] bg-amber-500/10 text-amber-400 border-amber-500/30 font-bold">
+                {baus.filter((b) => b.ativo).length} baús ativos
               </Badge>
             </CardTitle>
             <CardDescription className="text-xs">
-              Aliases de baús que aparecem nas logs (ex: 'QG' para 'BAÚ QG'). (Salva automaticamente)
+              Cada baú possui seu <strong>canal exclusivo no Discord</strong>. As logs do Cidade Alta trazem apenas o texto genérico <code>📦 Baú</code>, de modo que o canal onde a mensagem foi postada determina qual baú recebe a movimentação.
             </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex gap-2">
-              <Input
-                placeholder="Texto Discord (ex: 'QG')"
-                value={newBauAliasKey}
-                onChange={(e) => setNewBauAliasKey(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    e.preventDefault();
-                    void handleAddBauMapping();
-                  }
-                }}
-                className="text-xs flex-1 min-w-[120px]"
-              />
-              <Select value={newBauAliasTarget} onValueChange={setNewBauAliasTarget} className="w-56 shrink-0">
-                <SelectTrigger className="text-xs w-full">
-                  <SelectValue placeholder="Baú Alvo..." />
-                </SelectTrigger>
-                <SelectContent className="max-h-60">
-                  {baus
-                    .filter((b) => b.ativo && b.nome && b.nome.trim() !== "")
-                    .map((b) => (
-                      <SelectItem key={b.id} value={b.nome}>
-                        {b.nome}
-                      </SelectItem>
-                    ))}
-                </SelectContent>
-              </Select>
-              <Button size="sm" onClick={() => void handleAddBauMapping()} className="shrink-0">
-                <Plus className="w-4 h-4" />
-              </Button>
-            </div>
-
-            <div className="max-h-48 overflow-y-auto rounded-lg border border-border/60 divide-y divide-border/40 text-xs">
-              {Object.keys(bauMappings).length === 0 ? (
+          <CardContent className="space-y-3">
+            <div className="max-h-56 overflow-y-auto rounded-lg border border-border/60 divide-y divide-border/40 text-xs">
+              {baus.filter((b) => b.ativo).length === 0 ? (
                 <div className="p-4 text-center text-muted-foreground text-[11px]">
-                  Nenhum alias customizado. Os nomes oficiais dos baús são reconhecidos diretamente.
+                  Nenhum baú cadastrado. Crie baús para vincular canais exclusivos.
                 </div>
               ) : (
-                Object.entries(bauMappings).map(([k, v]) => (
-                  <div key={k} className="p-2 flex items-center justify-between">
-                    <div className="flex items-center gap-2 font-mono">
-                      <span className="text-muted-foreground">{k}</span>
-                      <ArrowRight className="w-3 h-3 text-primary" />
-                      <strong className="text-foreground">{v}</strong>
-                    </div>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-7 w-7 p-0 text-muted-foreground hover:text-rose-400"
-                      onClick={() => void handleRemoveBauMapping(k)}
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </Button>
-                  </div>
-                ))
+                baus
+                  .filter((b) => b.ativo)
+                  .map((b) => {
+                    const cfg = bauConfigs[b.id];
+                    const isAuto = (cfg?.tipo_gestao ?? b.tipo_gestao) !== "manual";
+                    const chId = cfg?.discord_channel_id ?? b.discord_channel_id;
+
+                    return (
+                      <div key={b.id} className="p-2.5 flex items-center justify-between hover:bg-secondary/20 transition-colors">
+                        <div className="space-y-0.5">
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm">{b.icone || "📦"}</span>
+                            <strong className="text-foreground font-semibold">{b.nome}</strong>
+                            <Badge
+                              variant="secondary"
+                              className={cn(
+                                "text-[9px] px-1.5 py-0 font-bold",
+                                isAuto
+                                  ? "text-cyan-400 bg-cyan-950/40 border border-cyan-800/40"
+                                  : "text-amber-400 bg-amber-950/40 border border-amber-800/40"
+                              )}
+                            >
+                              {isAuto ? "🤖 Automático (Discord)" : "✍️ Manual"}
+                            </Badge>
+                          </div>
+                          <div className="text-[11px] font-mono text-muted-foreground flex items-center gap-2">
+                            <span>Canal:</span>
+                            {chId ? (
+                              <span className="text-emerald-400 font-bold flex items-center gap-1">
+                                <Check className="w-2.5 h-2.5" /> {chId}
+                              </span>
+                            ) : (
+                              <span className="text-rose-400 italic">Nenhum canal vinculado</span>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="text-right">
+                          <span className="text-[10px] text-muted-foreground font-mono">
+                            {b.capacidade_maxima ? `${b.capacidade_maxima} slots` : "Capac. Livre"}
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })
               )}
             </div>
           </CardContent>
           <CardFooter className="pt-2 border-t border-border/40 flex justify-between items-center text-xs">
             <span className="text-[11px] text-muted-foreground">
-              Sincronizado diretamente com a base de dados.
+              Configure os canais e modos no card acima.
             </span>
-            <Button
-              size="sm"
-              variant="outline"
-              className="text-xs gap-1.5"
-              disabled={isSavingBauMappings}
-              onClick={() => void handleSaveAllBauMappings()}
-            >
-              {isSavingBauMappings ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
-              Salvar Aliases
-            </Button>
+            <Badge variant="outline" className="text-[10px] text-primary border-primary/30">
+              Resolução por Canal Ativa
+            </Badge>
           </CardFooter>
         </Card>
       </div>
@@ -1580,21 +1632,21 @@ function DiscordIntegrationTab() {
       {/* SIMULADOR DE INTERPRETAÇÃO DE LOGS */}
       <Card className="surface-card border-primary/30">
         <CardHeader className="pb-3">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <div className="space-y-1">
               <CardTitle className="text-sm font-bold flex items-center gap-2 text-primary">
                 <Terminal className="w-4 h-4" />
-                Simulador & Validador de Interpretação de Logs
+                Simulador & Validador de Interpretação de Logs (Estilo Cidade Alta)
               </CardTitle>
               <CardDescription className="text-xs">
-                Teste se um modelo de log do Discord é compreendido pelo motor antes de colocá-lo em produção.
+                Simule como o motor de estoque interpreta mensagens de logs do Cidade Alta APP no canal exclusivo de cada baú.
               </CardDescription>
             </div>
             <Button
               size="sm"
               variant="outline"
               onClick={handleTestParser}
-              className="gap-1.5 text-xs font-bold border-primary/40 hover:bg-primary/10 text-primary"
+              className="gap-1.5 text-xs font-bold border-primary/40 hover:bg-primary/10 text-primary shrink-0"
             >
               <Sparkles className="w-3.5 h-3.5" />
               Interpretar Log
@@ -1602,11 +1654,35 @@ function DiscordIntegrationTab() {
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
+          {/* SELETOR DE CANAL / BAÚ ALVO DA SIMULAÇÃO */}
+          <div className="p-3 rounded-lg bg-secondary/30 border border-border/60 space-y-1.5">
+            <Label className="text-xs font-semibold text-foreground flex items-center justify-between">
+              <span>Canal / Baú Alvo da Mensagem:</span>
+              <span className="text-[10px] text-muted-foreground font-normal">
+                (Como a log traz apenas "📦 Baú", o canal exclusivo determina o baú de destino)
+              </span>
+            </Label>
+            <Select value={selectedSimBauId} onValueChange={setSelectedSimBauId}>
+              <SelectTrigger className="text-xs w-full bg-background/60 font-medium">
+                <SelectValue placeholder="Selecione o baú simulado..." />
+              </SelectTrigger>
+              <SelectContent>
+                {baus
+                  .filter((b) => b.ativo)
+                  .map((b) => (
+                    <SelectItem key={b.id} value={b.id}>
+                      {b.icone || "📦"} {b.nome} — {b.tipo_gestao === "manual" ? "✍️ Modo Manual" : "🤖 Modo Automático (Discord)"} {b.discord_channel_id ? `(Canal: ${b.discord_channel_id})` : "(Sem canal)"}
+                    </SelectItem>
+                  ))}
+              </SelectContent>
+            </Select>
+          </div>
+
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2">
               <Label className="text-xs font-semibold">Exemplo / Conteúdo da Mensagem</Label>
               <Textarea
-                rows={6}
+                rows={9}
                 value={testLogText}
                 onChange={(e) => setTestLogText(e.target.value)}
                 className="font-mono text-xs resize-none"
@@ -1615,27 +1691,43 @@ function DiscordIntegrationTab() {
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="text-[10px] h-6 px-2 text-muted-foreground"
+                  className="text-[10px] h-6 px-2 text-muted-foreground hover:text-cyan-400"
                   onClick={() =>
-                    setTestLogText("📦 BAÚ QG\nSaldo líquido: MP5 +1\nID: 274")
+                    setTestLogText(
+                      "Andrew Delucca Ferreira • ID 274\n📦 Baú\n\n📊 Saldo líquido\nMetanfetamina -72\nCocaína -126\n\n🧾 Detalhes da movimentação\nMetanfetamina\n↳ -72 removidos\nCocaína\n↳ -126 removidos\nMovimentações agrupadas em uma janela de 30 segundos • Hoje às 19:21"
+                    )
                   }
                 >
-                  Template: Entrada Simples
+                  Template: Cidade Alta (Metanfetamina & Cocaína)
                 </Button>
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="text-[10px] h-6 px-2 text-muted-foreground"
+                  className="text-[10px] h-6 px-2 text-muted-foreground hover:text-cyan-400"
                   onClick={() =>
-                    setTestLogText("📦 BAÚ QG\nSaldo líquido:\nMP5 +10\nMicro Uzi -5\nMunição de Fuzil +250\nID: 105")
+                    setTestLogText(
+                      "Macaé Dacoro • ID 590\n📦 Baú\n\n📊 Saldo líquido\nBarra Maciça -1\nHacking -1\n\n🧾 Detalhes da movimentação\nBarra Maciça\n↳ -1 removido\nHacking\n↳ -1 removido\nMovimentações agrupadas em uma janela de 30 segundos • Hoje às 17:03"
+                    )
                   }
                 >
-                  Template: Múltiplos Itens
+                  Template: Cidade Alta (Barra Maciça & Hacking)
                 </Button>
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="text-[10px] h-6 px-2 text-muted-foreground"
+                  className="text-[10px] h-6 px-2 text-muted-foreground hover:text-emerald-400"
+                  onClick={() =>
+                    setTestLogText(
+                      "Andrew Delucca Ferreira • ID 274\n📦 Baú\n\n📊 Saldo líquido\nLockpick +50\nColete Balístico +10\n\n🧾 Detalhes da movimentação\nLockpick\n↳ +50 adicionados\nColete Balístico\n↳ +10 adicionados\nMovimentações agrupadas em uma janela de 30 segundos • Hoje às 20:15"
+                    )
+                  }
+                >
+                  Template: Cidade Alta (Entrada +)
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-[10px] h-6 px-2 text-muted-foreground hover:text-amber-400"
                   onClick={() =>
                     setTestLogText("Transferência: BAÚ QG -> Baú Casa\nSaldo líquido: Micro Uzi +2\nID: 88")
                   }
@@ -1647,9 +1739,9 @@ function DiscordIntegrationTab() {
 
             <div className="space-y-2">
               <Label className="text-xs font-semibold">Diagnóstico da Interpretação</Label>
-              <div className="rounded-lg border border-border/80 bg-background/50 p-3 min-h-[160px] text-xs space-y-2">
+              <div className="rounded-lg border border-border/80 bg-background/50 p-3 min-h-[220px] text-xs space-y-2">
                 {!simulatedResult ? (
-                  <p className="text-muted-foreground italic text-center pt-8">
+                  <p className="text-muted-foreground italic text-center pt-16">
                     Clique em "Interpretar Log" para ver como o motor processará esta mensagem.
                   </p>
                 ) : (
@@ -1667,19 +1759,33 @@ function DiscordIntegrationTab() {
                       )}
                     </div>
 
-                    <div className="grid grid-cols-2 gap-2 text-[11px]">
+                    {/* Alerta de Modo de Movimentação do Baú */}
+                    {simulatedResult.isBauManual ? (
+                      <div className="p-2 rounded bg-amber-500/10 border border-amber-500/30 text-amber-300 text-[11px] flex items-start gap-1.5">
+                        <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                        <span>
+                          <strong>Modo Manual:</strong> O baú selecionado está configurado como manual. O bot ignorará mensagens no Discord e <strong>não fará movimentação automática</strong>.
+                        </span>
+                      </div>
+                    ) : (
+                      <div className="p-2 rounded bg-cyan-500/10 border border-cyan-500/30 text-cyan-300 text-[11px] flex items-start gap-1.5">
+                        <Bot className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                        <span>
+                          <strong>Modo Automático:</strong> O bot capturará esta mensagem no canal e registrará a movimentação imediatamente.
+                        </span>
+                      </div>
+                    )}
+
+                    <div className="grid grid-cols-2 gap-2 text-[11px] pt-1">
                       <div>
                         <span className="text-muted-foreground block">Jogador Identificado:</span>
-                        <strong className="text-foreground">{simulatedResult.playerId || "Não detectado"}</strong>
-                      </div>
-                      <div>
-                        <span className="text-muted-foreground block">Tipo Operação:</span>
                         <strong className="text-foreground">
-                          {simulatedResult.isTransfer ? "Transferência entre Baús" : "Movimentação Local"}
+                          {simulatedResult.authorName ? `${simulatedResult.authorName} ` : ""}
+                          {simulatedResult.playerId ? `(ID: ${simulatedResult.playerId})` : "Não detectado"}
                         </strong>
                       </div>
                       <div>
-                        <span className="text-muted-foreground block">Baú Detectado:</span>
+                        <span className="text-muted-foreground block">Baú Resolvido:</span>
                         <strong className="text-foreground">
                           {simulatedResult.isTransfer
                             ? `${simulatedResult.fromBau} ➔ ${simulatedResult.toBau}`
@@ -1687,7 +1793,13 @@ function DiscordIntegrationTab() {
                         </strong>
                       </div>
                       <div>
-                        <span className="text-muted-foreground block">Qtd. Itens Processados:</span>
+                        <span className="text-muted-foreground block">Canal do Baú:</span>
+                        <strong className="text-foreground font-mono">
+                          {simulatedResult.channelBound || "Nenhum canal vinculado"}
+                        </strong>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground block">Qtd. Itens Detectados:</span>
                         <strong className="text-foreground">{simulatedResult.items.length} itens</strong>
                       </div>
                     </div>
@@ -1695,18 +1807,26 @@ function DiscordIntegrationTab() {
                     {simulatedResult.items.length > 0 && (
                       <div className="pt-2 border-t border-border/40 space-y-1">
                         <span className="text-[10px] font-bold uppercase text-muted-foreground block">
-                          Itens Parseados:
+                          Itens Identificados na Log:
                         </span>
-                        {simulatedResult.items.map((item: any, idx: number) => (
-                          <div key={idx} className="flex items-center justify-between text-[11px] font-mono bg-secondary/30 px-2 py-1 rounded">
-                            <span>
-                              {item.name} ➔ <span className="text-primary font-bold">{item.mappedTo}</span>
-                            </span>
-                            <span className={item.qtyChange > 0 ? "text-emerald-400 font-bold" : "text-rose-400 font-bold"}>
-                              {item.qtyChange > 0 ? `+${item.qtyChange}` : item.qtyChange}
-                            </span>
-                          </div>
-                        ))}
+                        {simulatedResult.items.map((item: any, idx: number) => {
+                          const isSaida = item.qtyChange < 0;
+                          return (
+                            <div key={idx} className="flex items-center justify-between text-[11px] font-mono bg-secondary/30 px-2 py-1.5 rounded border border-border/40">
+                              <div className="flex items-center gap-1.5">
+                                <Badge variant="outline" className={cn("text-[9px] px-1 py-0 uppercase font-bold", isSaida ? "border-rose-500/30 text-rose-400 bg-rose-500/10" : "border-emerald-500/30 text-emerald-400 bg-emerald-500/10")}>
+                                  {isSaida ? "Saída" : "Entrada"}
+                                </Badge>
+                                <span>
+                                  {item.name} {item.mappedTo !== item.name ? <>➔ <span className="text-primary font-bold">{item.mappedTo}</span></> : null}
+                                </span>
+                              </div>
+                              <span className={cn("font-bold text-xs", isSaida ? "text-rose-400" : "text-emerald-400")}>
+                                {item.qtyChange > 0 ? `+${item.qtyChange}` : item.qtyChange}
+                              </span>
+                            </div>
+                          );
+                        })}
                       </div>
                     )}
                   </div>

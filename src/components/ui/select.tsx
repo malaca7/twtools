@@ -66,17 +66,17 @@ export const Select: React.FC<SelectProps> = ({
   className,
   disabled = false,
 }) => {
-  const [uncontrolledOpen, setUncontrolledOpen] = React.useState(defaultValue);
+  const [uncontrolledValue, setUncontrolledValue] = React.useState(defaultValue);
   const [open, setOpen] = React.useState(false);
   const triggerRef = React.useRef<HTMLButtonElement | null>(null);
 
   const isControlled = controlledValue !== undefined;
-  const value = isControlled ? controlledValue : uncontrolledOpen;
+  const value = isControlled ? controlledValue : uncontrolledValue;
 
   const handleValueChange = React.useCallback(
     (nextValue: string) => {
       if (!isControlled) {
-        setUncontrolledOpen(nextValue);
+        setUncontrolledValue(nextValue);
       }
       onValueChange?.(nextValue);
       setOpen(false);
@@ -163,92 +163,53 @@ export const SelectContent = React.forwardRef<
   React.HTMLAttributes<HTMLDivElement>
 >(({ className, children, style, ...props }, ref) => {
   const { open, setOpen, triggerRef } = useSelectContext();
-  const contentRef = React.useRef<HTMLDivElement | null>(null);
   const [coords, setCoords] = React.useState<{
     top?: number;
     bottom?: number;
     left: number;
-    width: number;
-    placement: "bottom" | "top";
+    minWidth: number;
   } | null>(null);
 
-  const updateCoords = React.useCallback(() => {
+  const calculatePosition = React.useCallback(() => {
     if (!triggerRef.current) return;
     const rect = triggerRef.current.getBoundingClientRect();
     const viewportHeight = window.innerHeight;
     const viewportWidth = window.innerWidth;
 
-    // Se o elemento estiver totalmente fora da tela, fecha o select
-    if (rect.bottom < 0 || rect.top > viewportHeight) {
-      setOpen(false);
-      return;
-    }
-
     const spaceBelow = viewportHeight - rect.bottom;
     const spaceAbove = rect.top;
+    const openUp = spaceBelow < 220 && spaceAbove > spaceBelow;
 
-    // Se houver pouco espaço abaixo (< 200px) e mais espaço acima, abre para cima
-    const openUp = spaceBelow < 200 && spaceAbove > spaceBelow;
-
-    const width = Math.max(rect.width, 160);
-
-    // Evita transbordamento horizontal nas bordas da viewport
+    const minWidth = Math.max(rect.width, 160);
     let left = rect.left;
-    if (left + width > viewportWidth - 8) {
-      left = Math.max(8, viewportWidth - width - 8);
+    if (left + minWidth > viewportWidth - 8) {
+      left = Math.max(8, viewportWidth - minWidth - 8);
     }
     if (left < 8) left = 8;
 
     if (openUp) {
       setCoords({
-        bottom: viewportHeight - rect.top + 4,
+        bottom: Math.max(8, viewportHeight - rect.top + 4),
         left,
-        width: rect.width,
-        placement: "top",
+        minWidth,
       });
     } else {
       setCoords({
         top: rect.bottom + 4,
         left,
-        width: rect.width,
-        placement: "bottom",
+        minWidth,
       });
     }
-  }, [triggerRef, setOpen]);
+  }, [triggerRef]);
 
   React.useLayoutEffect(() => {
-    if (!open) {
-      setCoords(null);
-      return;
+    if (open) {
+      calculatePosition();
     }
-    updateCoords();
-
-    const handleScrollOrResize = () => {
-      updateCoords();
-    };
-
-    window.addEventListener("resize", handleScrollOrResize);
-    window.addEventListener("scroll", handleScrollOrResize, true);
-    return () => {
-      window.removeEventListener("resize", handleScrollOrResize);
-      window.removeEventListener("scroll", handleScrollOrResize, true);
-    };
-  }, [open, updateCoords]);
+  }, [open, calculatePosition]);
 
   React.useEffect(() => {
     if (!open) return;
-
-    const handlePointerDown = (e: MouseEvent | TouchEvent) => {
-      const target = e.target as Node;
-      if (
-        contentRef.current &&
-        !contentRef.current.contains(target) &&
-        triggerRef.current &&
-        !triggerRef.current.contains(target)
-      ) {
-        setOpen(false);
-      }
-    };
 
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
@@ -256,56 +217,84 @@ export const SelectContent = React.forwardRef<
       }
     };
 
-    document.addEventListener("mousedown", handlePointerDown);
-    document.addEventListener("touchstart", handlePointerDown);
-    document.addEventListener("keydown", handleKeyDown);
-    return () => {
-      document.removeEventListener("mousedown", handlePointerDown);
-      document.removeEventListener("touchstart", handlePointerDown);
-      document.removeEventListener("keydown", handleKeyDown);
+    const handleResizeOrScroll = () => {
+      calculatePosition();
     };
-  }, [open, setOpen, triggerRef]);
 
-  if (!open || !coords) return null;
+    window.addEventListener("keydown", handleKeyDown);
+    window.addEventListener("resize", handleResizeOrScroll);
+    window.addEventListener("scroll", handleResizeOrScroll, true);
 
-  const content = (
-    <div
-      ref={(node) => {
-        contentRef.current = node;
-        if (typeof ref === "function") ref(node);
-        else if (ref) (ref as React.MutableRefObject<HTMLDivElement | null>).current = node;
-      }}
-      role="listbox"
-      data-radix-select-content=""
-      data-select-content=""
-      style={{
-        position: "fixed",
-        top: coords.top !== undefined ? `${coords.top}px` : undefined,
-        bottom: coords.bottom !== undefined ? `${coords.bottom}px` : undefined,
-        left: `${coords.left}px`,
-        width: `${Math.max(coords.width, 160)}px`,
-        minWidth: `${coords.width}px`,
-        maxWidth: "calc(100vw - 16px)",
-        zIndex: 100000,
-        backgroundColor: "var(--color-popover, var(--popover, #121216))",
-        ...style,
-      }}
-      className={cn(
-        "popover-content max-h-60 overflow-y-auto rounded-lg border border-border/80 bg-popover p-1 text-popover-foreground shadow-2xl backdrop-blur-xl focus:outline-none",
-        "animate-in fade-in-0 zoom-in-95 duration-100",
-        className,
-      )}
-      {...props}
-    >
-      {children}
-    </div>
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+      window.removeEventListener("resize", handleResizeOrScroll);
+      window.removeEventListener("scroll", handleResizeOrScroll, true);
+    };
+  }, [open, setOpen, calculatePosition]);
+
+  if (!open) return null;
+
+  // Fallback de coordenadas imediatas no 1º render para nunca piscar ou deixar de abrir
+  let currentCoords = coords;
+  if (!currentCoords && triggerRef.current) {
+    const rect = triggerRef.current.getBoundingClientRect();
+    const spaceBelow = window.innerHeight - rect.bottom;
+    const openUp = spaceBelow < 220 && rect.top > spaceBelow;
+    const minWidth = Math.max(rect.width, 160);
+    const left = Math.min(Math.max(rect.left, 8), window.innerWidth - minWidth - 8);
+
+    currentCoords = {
+      top: openUp ? undefined : rect.bottom + 4,
+      bottom: openUp ? Math.max(8, window.innerHeight - rect.top + 4) : undefined,
+      left,
+      minWidth,
+    };
+  }
+
+  const dropdownPortal = (
+    <>
+      {/* Backdrop invisível para fechamento seguro ao clicar fora */}
+      <div
+        className="fixed inset-0 z-[99998] cursor-default bg-transparent"
+        onClick={(e) => {
+          e.stopPropagation();
+          setOpen(false);
+        }}
+      />
+
+      {/* Caixa do menu flutuante com z-index alto e opacidade total garantida */}
+      <div
+        ref={ref}
+        role="listbox"
+        data-radix-select-content=""
+        style={{
+          position: "fixed",
+          top: currentCoords?.top !== undefined ? `${currentCoords.top}px` : undefined,
+          bottom: currentCoords?.bottom !== undefined ? `${currentCoords.bottom}px` : undefined,
+          left: currentCoords ? `${currentCoords.left}px` : undefined,
+          minWidth: currentCoords ? `${currentCoords.minWidth}px` : "160px",
+          maxWidth: "calc(100vw - 16px)",
+          maxHeight: "260px",
+          zIndex: 99999,
+          backgroundColor: "#141417",
+          ...style,
+        }}
+        className={cn(
+          "popover-content overflow-y-auto rounded-lg border border-border/80 bg-[#141417] p-1 text-foreground shadow-2xl backdrop-blur-2xl focus:outline-none ring-1 ring-white/10",
+          className,
+        )}
+        {...props}
+      >
+        {children}
+      </div>
+    </>
   );
 
   if (typeof document !== "undefined") {
-    return createPortal(content, document.body);
+    return createPortal(dropdownPortal, document.body);
   }
 
-  return content;
+  return dropdownPortal;
 });
 SelectContent.displayName = "SelectContent";
 
@@ -330,7 +319,7 @@ export const SelectItem = React.forwardRef<
       }}
       className={cn(
         "relative flex w-full cursor-pointer select-none items-center rounded-md py-1.5 pl-2.5 pr-8 text-sm outline-none transition-colors",
-        "hover:bg-accent hover:text-accent-foreground text-foreground",
+        "hover:bg-primary/20 hover:text-primary text-foreground font-medium",
         isSelected && "bg-primary/15 font-semibold text-primary",
         className,
       )}

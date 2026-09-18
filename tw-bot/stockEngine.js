@@ -10,29 +10,38 @@ function parseDiscordStockMessage(rawText, embed = null, config = {}, defaultBau
   const parsedItems = [];
   const lines = rawText.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
 
-  let gamePlayerId = null;
   let authorName = (embed?.author?.name) || '';
+  let gamePlayerId = null;
 
-  // 1. Extrair ID do Jogador e Nome
-  const idMatch = (authorName || rawText).match(/ID\s*[:#]?\s*(\d+)/i) || (authorName || rawText).match(/Passaporte\s*[:#]?\s*(\d+)/i);
-  if (idMatch) {
-    gamePlayerId = idMatch[1];
+  // 1. Extrair ID do Jogador e Nome (ex: "Andrew Delucca Ferreira • ID 274" ou "Macaé Dacoro • ID 590")
+  const authorPattern = /(?:^|\n)\s*([a-zA-Z0-9À-ÿ\s\.\-_]+?)\s*[•\|\-]\s*(?:ID|Passaporte)?\s*(\d+)/i;
+  const authorMatch = (authorName || rawText).match(authorPattern);
+  if (authorMatch) {
+    if (!authorName) authorName = authorMatch[1].trim();
+    gamePlayerId = authorMatch[2].trim();
+  } else {
+    const idMatch = (authorName || rawText).match(/ID\s*[:#]?\s*(\d+)/i) || (authorName || rawText).match(/Passaporte\s*[:#]?\s*(\d+)/i);
+    if (idMatch) {
+      gamePlayerId = idMatch[1];
+    }
   }
 
   if (!authorName) {
     const authorLine = lines.find(l => /ID\s*\d+/i.test(l));
-    if (authorLine) authorName = authorLine;
+    if (authorLine) {
+      const parts = authorLine.split(/[•\|\-]/);
+      authorName = parts[0]?.trim() || authorLine;
+    }
   }
 
-  // 2. Detectar Baús (e possíveis Transferências entre baús)
+  // 2. Baú: Como as mensagens de log (Cidade Alta APP) trazem apenas "📦 Baú" genérico,
+  // o baú é resolvido primordialmente pelo canal dedicado (defaultBauName)
   let isTransfer = false;
   let fromBauName = null;
   let toBauName = null;
-  let bauName = defaultBauName || 'Baú'; // fallback para o baú mapeado ao canal
+  let bauName = defaultBauName || 'Baú Geral';
 
-  // Checar padrões de transferência
-  // Ex: "Origem: BAÚ QG" e "Destino: Baú Casa"
-  // Ex: "Transferência: BAÚ QG -> Baú Casa" ou "De: BAÚ QG Para: Baú Casa"
+  // Checar padrões explícitos de transferência entre dois baús
   const transferMatch = rawText.match(/(?:origem|de)\s*[:\-]\s*([^\n\r\|]+).*?(?:destino|para)\s*[:\-]\s*([^\n\r\|]+)/i) ||
                         rawText.match(/transfer(?:ência|ido)?\s*(?:de)?\s*([^\n\r\->]+)\s*(?:->|para)\s*([^\n\r]+)/i);
 
@@ -40,12 +49,14 @@ function parseDiscordStockMessage(rawText, embed = null, config = {}, defaultBau
     isTransfer = true;
     fromBauName = transferMatch[1].replace(/📦/g, '').replace(/^[:\-\s]+/, '').trim();
     toBauName = transferMatch[2].replace(/📦/g, '').replace(/^[:\-\s]+/, '').trim();
-  } else {
-    // Busca baú explícito na mensagem
+  } else if (!defaultBauName) {
+    // Se não há defaultBauName do canal, tenta buscar se tiver nome específico no texto
     for (const line of lines) {
       if (line.includes('📦')) {
         const clean = line.replace(/📦/g, '').replace(/^[:\-\s]+/, '').trim();
-        if (clean) bauName = clean;
+        if (clean && clean.toLowerCase() !== 'baú' && clean.toLowerCase() !== 'bau') {
+          bauName = clean;
+        }
       } else if (/^ba[uú]\s*[:\-]\s*(.+)$/i.test(line)) {
         const m = line.match(/^ba[uú]\s*[:\-]\s*(.+)$/i);
         if (m && m[1]) bauName = m[1].replace(/^[:\-\s]+/, '').trim();
@@ -53,20 +64,19 @@ function parseDiscordStockMessage(rawText, embed = null, config = {}, defaultBau
     }
   }
 
-  // Se nenhum baú foi extraído do texto mas temos o baú vinculado ao canal, usa ele
-  if (bauName === 'Baú' && defaultBauName) {
-    bauName = defaultBauName;
-  }
-
-  // 3. Interpretar itens e quantidades
+  // 3. Interpretar itens e quantidades (Saldo Líquido e Detalhes da Movimentação)
   let inSaldoLiquidoSection = false;
+  let inDetalhesSection = false;
+  let lastItemPendingQty = null;
 
   for (let i = 0; i < lines.length; i++) {
     const rawLine = lines[i];
     const line = rawLine.replace(/[\*\_`]/g, '').trim();
 
+    // Início de Saldo Líquido
     if (/saldo\s*l[ií]quido/i.test(line)) {
       inSaldoLiquidoSection = true;
+      inDetalhesSection = false;
 
       const inlineMatch = line.match(/saldo\s*l[ií]quido\s*[:\-]?\s*(.+?)\s*([+-]\s*\d+)$/i);
       if (inlineMatch) {
@@ -86,17 +96,26 @@ function parseDiscordStockMessage(rawText, embed = null, config = {}, defaultBau
       continue;
     }
 
-    if (inSaldoLiquidoSection) {
-      if (/detalhes|informa[cç][oõ]es|data|hor[aá]rio|respons[aá]vel/i.test(line)) {
-        inSaldoLiquidoSection = false;
-        continue;
-      }
+    // Início de Detalhes da Movimentação
+    if (/detalhes\s*da\s*movimenta[cç][aã]o/i.test(line)) {
+      inSaldoLiquidoSection = false;
+      inDetalhesSection = true;
+      continue;
+    }
 
+    // Linhas de rodapé ou metadados de fim
+    if (/movimenta[cç][oõ]es\s*agrupadas|data|hor[aá]rio|respons[aá]vel/i.test(line)) {
+      inSaldoLiquidoSection = false;
+      inDetalhesSection = false;
+      continue;
+    }
+
+    if (inSaldoLiquidoSection) {
       const itemMatch = line.match(/^(.+?)\s*[:\-]?\s*([+-]\s*\d+)$/);
       if (itemMatch) {
         const itemName = cleanItemName(itemMatch[1], config.item_mappings);
         const qtyChange = parseInt(itemMatch[2].replace(/\s+/g, ''), 10);
-        if (!isNaN(qtyChange)) {
+        if (!isNaN(qtyChange) && itemName.length > 1) {
           parsedItems.push({
             is_transfer: isTransfer,
             from_bau_name: fromBauName,
@@ -107,7 +126,29 @@ function parseDiscordStockMessage(rawText, embed = null, config = {}, defaultBau
           });
         }
       }
+    } else if (inDetalhesSection && parsedItems.length === 0) {
+      // Fallback para quando Saldo Líquido não estiver presente ou formatado diferente
+      const arrowMatch = line.match(/^[↳\->]+\s*([+-]?\s*\d+)\s*(removid[oa]s?|retirad[oa]s?|adicionad[oa]s?|colocad[oa]s?|guardad[oa]s?)?/i);
+      if (arrowMatch && lastItemPendingQty) {
+        let qty = parseInt(arrowMatch[1].replace(/\s+/g, ''), 10);
+        const actionWord = (arrowMatch[2] || '').toLowerCase();
+        if (/removid|retirad/.test(actionWord) && qty > 0) {
+          qty = -qty;
+        }
+        parsedItems.push({
+          is_transfer: isTransfer,
+          from_bau_name: fromBauName,
+          to_bau_name: toBauName,
+          bau_name: bauName,
+          item_name: lastItemPendingQty,
+          quantity_change: qty
+        });
+        lastItemPendingQty = null;
+      } else if (!/^[↳\->]/.test(line)) {
+        lastItemPendingQty = cleanItemName(line, config.item_mappings);
+      }
     } else {
+      // Padrão de linha individual: "Metanfetamina -72"
       const itemMatch = line.match(/^([a-zA-Z0-9À-ÿ\s\.\-_]+?)\s+([+-]\d+)$/);
       if (itemMatch && !/saldo|detalhe|ba[uú]|id|data/i.test(itemMatch[1])) {
         const itemName = cleanItemName(itemMatch[1], config.item_mappings);
