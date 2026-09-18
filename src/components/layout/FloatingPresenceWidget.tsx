@@ -64,15 +64,22 @@ function CompactMemberRow({
   const avatarUrl = member.discord_avatar_url;
   const displayName = member.nickname || member.nome;
   const initials = displayName.slice(0, 2).toUpperCase();
-  const profileSlug = member.custom_url || member.discord_id || member.user_id;
+  const profileSlug =
+    member.custom_url ||
+    (member.custom_theme as any)?.custom_url ||
+    member.discord_username?.replace(/#0$/, "") ||
+    member.discord_id ||
+    member.user_id;
+  const cleanSlug = String(profileSlug || "").trim().replace(/^@/, "");
+  const profileUrl = `/${cleanSlug}`;
 
   const ausenteText = formatAusenteDuration(member.presence_updated_at || member.updated_at || member.last_seen);
   const lastSeenFull = formatLastSeen(member.last_seen || member.presence_updated_at || member.updated_at);
   const lastSeenCompact = lastSeenFull.replace("Visto por último ", "");
 
   const handleOpenProfile = () => {
-    const cleanSlug = String(profileSlug).replace(/^@/, "");
-    window.open(`/perfil/${cleanSlug}`, "_blank");
+    if (!cleanSlug) return;
+    window.open(profileUrl, "_blank");
   };
 
   return (
@@ -82,7 +89,7 @@ function CompactMemberRow({
         "flex items-center justify-between py-2 px-2.5 rounded-xl transition-all group text-xs border border-transparent select-none cursor-pointer hover:bg-secondary/70 hover:border-border/60 hover:shadow-xs active:scale-[0.99]",
         isSelf && "bg-secondary/20"
       )}
-      title={`Ver perfil público de ${displayName} (/perfil/${String(profileSlug).replace(/^@/, "")})`}
+      title={`Ver perfil público de ${displayName} (${profileUrl})`}
     >
       <div className="flex items-center gap-2.5 min-w-0 flex-1">
         <div className="relative shrink-0">
@@ -214,23 +221,24 @@ export function FloatingOnlineMembersWidget() {
 
   return (
     <div ref={panelRef} className="fixed bottom-6 right-6 z-50">
-      {/* BOTÃO FLUTUANTE DE MEMBROS ONLINE */}
+      {/* BOTÃO FLUTUANTE DE MEMBROS ONLINE (Apenas ícone e quantidade, sem textos) */}
       <button
         type="button"
         onClick={() => setIsOpen((prev) => !prev)}
         className={cn(
-          "relative flex items-center gap-2.5 px-3.5 py-2.5 sm:px-4 sm:py-3 rounded-full border shadow-2xl backdrop-blur-xl transition-all duration-300 cursor-pointer active:scale-95 group select-none",
+          "relative flex items-center justify-center gap-2 h-11 px-3.5 rounded-full border shadow-2xl backdrop-blur-xl transition-all duration-300 cursor-pointer active:scale-95 group select-none",
           isOpen
             ? "border-emerald-500 bg-emerald-500 text-white shadow-emerald-500/40 ring-4 ring-emerald-500/30"
             : "border-border/80 bg-card/95 text-foreground hover:bg-secondary hover:border-emerald-500/60 shadow-xl"
         )}
-        title={`${totalOnline} membro(s) online agora • Clique para ver lista completa`}
+        title={`${totalOnline} membro(s) online agora • Clique para ver detalhes`}
+        aria-label={`${totalOnline} membros online`}
       >
         {/* Ícone de Membros */}
         <div className="relative flex items-center justify-center">
           <Users
             className={cn(
-              "h-5 w-5 shrink-0 transition-transform group-hover:scale-110",
+              "h-4 w-4 shrink-0 transition-transform group-hover:scale-110",
               isOpen ? "text-white" : "text-emerald-400"
             )}
           />
@@ -244,29 +252,15 @@ export function FloatingOnlineMembersWidget() {
           )}
         </div>
 
-        {/* Label Membros */}
-        <span className={cn("text-xs font-black tracking-tight", isOpen ? "text-white" : "text-foreground")}>
-          Membros
-        </span>
-
-        {/* Badge de quantidade online */}
-        <div
+        {/* Quantidade online (número puro, sem textos) */}
+        <span
           className={cn(
-            "flex items-center gap-1 px-2 py-0.5 rounded-full font-mono text-[10px] font-black shadow-xs",
-            isOpen
-              ? "bg-white/20 text-white"
-              : totalOnline > 0
-              ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"
-              : "bg-secondary text-muted-foreground"
+            "font-mono text-xs font-black tracking-tight",
+            isOpen ? "text-white" : totalOnline > 0 ? "text-emerald-400" : "text-muted-foreground"
           )}
         >
-          {totalOnline > 0 && <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse shrink-0" />}
-          <span>{totalOnline} online</span>
-        </div>
-
-        <ChevronDown
-          className={cn("h-3.5 w-3.5 opacity-60 transition-transform duration-200", isOpen && "rotate-180")}
-        />
+          {totalOnline}
+        </span>
       </button>
 
       {/* POPUP DE MEMBROS ONLINE (Alta Densidade & Design Premium) */}

@@ -36,6 +36,8 @@ import {
   Layers,
   Database,
   Volume2,
+  Download,
+  AlertOctagon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -104,13 +106,19 @@ const TAGS_LIST: { id: string; label: string; color: string }[] = [
 ];
 
 export function DevNotificationsManager() {
-  const { user, profile, hasPermission } = useAuth();
+  const { user, profile, hasPermission, isDevUser } = useAuth();
 
-  const canManageRules = hasPermission("manage_dev_notification_rules");
-  const canCreate = hasPermission("create_dev_notification");
-  const canEdit = hasPermission("edit_dev_notification");
-  const canDelete = hasPermission("delete_dev_notification");
-  const canSimulate = hasPermission("simulate_dev_notification");
+  const canManageRules = isDevUser || hasPermission("manage_dev_notification_rules");
+  const canCreate = isDevUser || hasPermission("create_dev_notification");
+  const canEdit = isDevUser || hasPermission("edit_dev_notification");
+  const canDelete = isDevUser || hasPermission("delete_dev_notification");
+  const canSimulate = isDevUser || hasPermission("simulate_dev_notification");
+  const canToggle = isDevUser || hasPermission("toggle_dev_notification_active");
+  const canPurge = isDevUser || hasPermission("purge_dev_notifications");
+  const canInspect = isDevUser || hasPermission("inspect_dev_notification_payload");
+  const canExport = isDevUser || hasPermission("export_dev_notifications");
+  const canManageSounds = isDevUser || hasPermission("manage_dev_notification_sounds");
+  const canEmergencyAlert = isDevUser || hasPermission("broadcast_dev_emergency_alert");
 
   const [activeTab, setActiveTab] = useState<"matrix" | "manager" | "simulator" | "purge" | "telemetry">("matrix");
 
@@ -423,6 +431,49 @@ export function DevNotificationsManager() {
     setSimTitle(preset.title);
     setSimMessage(preset.message);
     setSimLink(preset.link);
+  };
+
+  // --- EXPORTAR DADOS ---
+  const handleExportData = () => {
+    try {
+      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(notifications, null, 2));
+      const downloadAnchor = document.createElement("a");
+      downloadAnchor.setAttribute("href", dataStr);
+      downloadAnchor.setAttribute("download", `notificacoes_tw_dev_${new Date().toISOString().slice(0, 10)}.json`);
+      document.body.appendChild(downloadAnchor);
+      downloadAnchor.click();
+      downloadAnchor.remove();
+      toast.success("Histórico de notificações exportado com sucesso!");
+    } catch (err: any) {
+      toast.error("Erro ao exportar dados: " + err.message);
+    }
+  };
+
+  // --- ALERTA DE EMERGÊNCIA ---
+  const handleEmergencyAlert = async () => {
+    if (!confirm("Confirmar emissão de ALERTA DE EMERGÊNCIA GLOBAL para toda a facção?")) return;
+    try {
+      playNotificationChimeSound(100);
+      await createNotification({
+        title: "🚨 ALERTA CRÍTICO DE EMERGÊNCIA — COMANDO",
+        message: "Atenção todos os integrantes: Convocação urgente ou alerta operacional prioritário!",
+        type: "announcement",
+        category: "alert",
+        sender_id: user?.id,
+        sender_name: profile?.nickname || profile?.nome || "Comando Dev",
+        is_active: true,
+        metadata: {
+          is_emergency: true,
+          broadcast_all: true,
+          triggered_at: new Date().toISOString(),
+          triggered_by: profile?.nickname || user?.id,
+        },
+      });
+      toast.success("Alerta de emergência emitido globalmente via Realtime!");
+      await loadNotifications();
+    } catch (err: any) {
+      toast.error("Falha ao emitir alerta: " + err.message);
+    }
   };
 
   // --- PURGE / LIMPEZA ---
@@ -813,15 +864,31 @@ export function DevNotificationsManager() {
               </Select>
             </div>
 
-            <Button
-              size="sm"
-              disabled={!canCreate}
-              onClick={openCreateModal}
-              className="h-9 text-xs font-bold gap-1.5 rounded-xl bg-gradient-brand text-primary-foreground shrink-0 shadow-sm"
-            >
-              <Plus className="h-4 w-4" />
-              Criar Notificação Dev
-            </Button>
+            <div className="flex items-center gap-2 shrink-0">
+              {canExport && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleExportData}
+                  disabled={notifications.length === 0}
+                  className="h-9 text-xs font-semibold gap-1.5 rounded-xl border-border/70"
+                  title="Exportar todas as notificações em formato JSON"
+                >
+                  <Download className="h-3.5 w-3.5" />
+                  <span className="hidden sm:inline">Exportar JSON</span>
+                </Button>
+              )}
+
+              <Button
+                size="sm"
+                disabled={!canCreate}
+                onClick={openCreateModal}
+                className="h-9 text-xs font-bold gap-1.5 rounded-xl bg-gradient-brand text-primary-foreground shadow-sm"
+              >
+                <Plus className="h-4 w-4" />
+                Criar Notificação Dev
+              </Button>
+            </div>
           </div>
 
           {isLoadingNotifs ? (
@@ -1119,6 +1186,20 @@ export function DevNotificationsManager() {
                   </p>
                   <p className="text-[11px] text-muted-foreground">Testa severidade urgente e alta prioridade.</p>
                 </button>
+
+                {canEmergencyAlert && (
+                  <button
+                    type="button"
+                    onClick={handleEmergencyAlert}
+                    className="w-full text-left p-3 rounded-xl border border-rose-500/50 bg-rose-500/10 hover:bg-rose-500/20 transition-all text-xs space-y-1 shadow-xs"
+                  >
+                    <p className="font-bold text-rose-400 flex items-center gap-1.5">
+                      <AlertOctagon className="h-3.5 w-3.5" />
+                      Emitir Alerta de Emergência Global Imediato
+                    </p>
+                    <p className="text-[11px] text-muted-foreground">Dispara push crítico em tempo real para toda a organização com som máximo.</p>
+                  </button>
+                )}
 
                 <button
                   type="button"

@@ -36,6 +36,7 @@ import {
   AlertCircle,
   Radio,
   CalendarOff,
+  BellRing,
 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -110,6 +111,7 @@ const ALL_SYSTEM_MODULES = [
       { title: "Ajustes de Estoque", url: "/dev/estoque", icon: Boxes, desc: "Ajuste manual e auditoria do motor automático do Discord", color: "text-rose-400" },
       { title: "Integrações de Lives Dev", url: "/dev/configuracao?tab=lives", icon: Radio, desc: "Configuração de APIs (Twitch, Kick, YouTube, TikTok), simulador e logs de lives", color: "text-rose-400" },
       { title: "Menu Lateral Dev", url: "/dev/menu-lateral", icon: Sliders, desc: "Configuração de ordens, categorias e visibilidade do menu dev", color: "text-rose-400" },
+      { title: "Central de Notificações Dev", url: "/dev/notificacoes", icon: BellRing, desc: "Matriz de regras por cargo, simulador realtime de push com áudio, expurgo em massa e telemetria", color: "text-amber-400" },
     ],
   },
 ];

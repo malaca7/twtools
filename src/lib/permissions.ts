@@ -114,6 +114,12 @@ export type Permission =
   | "edit_dev_notification"
   | "delete_dev_notification"
   | "simulate_dev_notification"
+  | "toggle_dev_notification_active"
+  | "purge_dev_notifications"
+  | "inspect_dev_notification_payload"
+  | "export_dev_notifications"
+  | "manage_dev_notification_sounds"
+  | "broadcast_dev_emergency_alert"
   | "view_lives"
   | "manage_lives"
   | "link_stream_account"
@@ -250,6 +256,12 @@ export const ALL_PERMISSIONS: Permission[] = [
   "edit_dev_notification",
   "delete_dev_notification",
   "simulate_dev_notification",
+  "toggle_dev_notification_active",
+  "purge_dev_notifications",
+  "inspect_dev_notification_payload",
+  "export_dev_notifications",
+  "manage_dev_notification_sounds",
+  "broadcast_dev_emergency_alert",
   "view_lives",
   "manage_lives",
   "link_stream_account",
@@ -673,6 +685,15 @@ export function can(
   if (rolePerms.includes("create_ceo_notification") && permission === "view_ceo_notifications") return true;
   if (rolePerms.includes("edit_ceo_notification") && permission === "view_ceo_notifications") return true;
   if (rolePerms.includes("create_dev_notification") && permission === "view_dev_notifications") return true;
+  if (rolePerms.includes("edit_dev_notification") && permission === "view_dev_notifications") return true;
+  if (rolePerms.includes("delete_dev_notification") && permission === "view_dev_notifications") return true;
+  if (rolePerms.includes("simulate_dev_notification") && permission === "view_dev_notifications") return true;
+  if (rolePerms.includes("toggle_dev_notification_active") && permission === "view_dev_notifications") return true;
+  if (rolePerms.includes("purge_dev_notifications") && permission === "view_dev_notifications") return true;
+  if (rolePerms.includes("inspect_dev_notification_payload") && permission === "view_dev_notifications") return true;
+  if (rolePerms.includes("export_dev_notifications") && permission === "view_dev_notifications") return true;
+  if (rolePerms.includes("manage_dev_notification_sounds") && permission === "view_dev_notifications") return true;
+  if (rolePerms.includes("broadcast_dev_emergency_alert") && permission === "view_dev_notifications") return true;
 
   // Fallback alias checks
   if (permission === "bot_add_app" && rolePerms.includes("bot_invite")) return true;

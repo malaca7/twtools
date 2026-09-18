@@ -1212,6 +1212,42 @@ export const PAGE_CARDS: PageCardConfig[] = [
         description: "Permite simular eventos de notificação com som e validação imediata na interface.",
         badge: "Simulador",
       },
+      {
+        key: "toggle_dev_notification_active",
+        label: "Ativar / Pausar Notificações no Sistema",
+        description: "Permite pausar a exibição ou reativar notificações sem removê-las do banco.",
+        badge: "Controle de Ativação",
+      },
+      {
+        key: "purge_dev_notifications",
+        label: "Expurgo em Massa de Notificações",
+        description: "Permite executar purga filtrada por tipo, categoria ou idade em dias.",
+        badge: "Limpeza & Purga",
+      },
+      {
+        key: "inspect_dev_notification_payload",
+        label: "Inspecionar Payload JSON e Metadados Técnicos",
+        description: "Permite visualizar estrutura completa de dados em JSON, read_by e metadados.",
+        badge: "Inspeção Dev",
+      },
+      {
+        key: "export_dev_notifications",
+        label: "Exportar Histórico e Logs em JSON",
+        description: "Permite download e exportação de relatórios de telemetria e notificações.",
+        badge: "Exportação",
+      },
+      {
+        key: "manage_dev_notification_sounds",
+        label: "Configurar e Testar Alertas Sonoros Dev",
+        description: "Permite testar disparos acústicos e sincronizar áudios de notificação.",
+        badge: "Áudio & Som",
+      },
+      {
+        key: "broadcast_dev_emergency_alert",
+        label: "Disparo de Alerta de Emergência Global",
+        description: "Permite emitir broadcast de alerta crítico com banner e prioridade máxima.",
+        badge: "Alerta Crítico",
+      },
     ],
   },
 ];

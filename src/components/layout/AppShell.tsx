@@ -46,6 +46,7 @@ import {
   FolderTree,
   Activity,
   Shield,
+  BellRing,
 } from "lucide-react";
 import { resolveMenuIcon } from "@/lib/menuIcons";
 import {
@@ -163,6 +164,8 @@ const URL_TO_PERMISSION_MAP: Record<string, Permission> = {
   "/atualizacoes": "view_patch_notes",
   "/perfil": "view_profile",
   "/configuracoes": "manage_platform_settings",
+  "/dev/notificacoes": "view_dev_notifications",
+  "/ceo/notificacoes": "view_ceo_notifications",
 };
 
 const DEV_MODULE_NAV_ITEMS: MasterNavItem[] = [
@@ -173,6 +176,7 @@ const DEV_MODULE_NAV_ITEMS: MasterNavItem[] = [
   { id: "dev-permissoes", title: "Permissões Tag Dev", url: "/dev/permissoes", icon: KeyRound, defaultCat: "Ferramentas Dev", defaultOrder: 4 },
   { id: "dev-configuracao", title: "Configurações Dev", url: "/dev/configuracao", icon: Code2, defaultCat: "Ferramentas Dev", defaultOrder: 5 },
   { id: "dev-menu-lateral", title: "Menu Lateral Dev", url: "/dev/menu-lateral", icon: Sliders, defaultCat: "Ferramentas Dev", defaultOrder: 6 },
+  { id: "dev-notificacoes", title: "Central de Notificações", url: "/dev/notificacoes", icon: BellRing, defaultCat: "Ferramentas Dev", defaultOrder: 7 },
 ];
 
 const CEO_MODULE_NAV_ITEMS: MasterNavItem[] = [

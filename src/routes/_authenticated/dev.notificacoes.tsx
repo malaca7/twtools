@@ -19,9 +19,9 @@ function DevNotificacoesRoute() {
 }
 
 export function DevNotificationsPage() {
-  const { hasPermission } = useAuth();
+  const { hasPermission, isDevUser } = useAuth();
 
-  if (!hasPermission("view_dev_notifications")) {
+  if (!isDevUser && !hasPermission("view_dev_notifications")) {
     return <NoAccess />;
   }
 
