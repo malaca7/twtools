@@ -56,7 +56,6 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { PageHeader, NoAccess, EmptyState, ProductThumbnail } from "@/components/ui-kit";
-import { MovementDialog } from "@/components/operations/MovementDialog";
 import { BauManagerModal } from "@/components/operations/BauManagerModal";
 import { useAuth } from "@/hooks/useAuth";
 import { useCategories, useProducts, useBaus, useMovements, useProductBaus } from "@/hooks/useData";
@@ -397,29 +396,6 @@ export function EstoquePage() {
               </Button>
             )}
 
-            {hasPermission("create_movement") ? (
-              <>
-                <MovementDialog
-                  defaultType="entrada"
-                  trigger={
-                    <Button variant="outline" size="sm" className="h-9 text-xs border-emerald-500/40 text-emerald-400 hover:bg-emerald-500/10 font-bold rounded-xl">
-                      <ArrowDownCircle className="mr-1.5 h-4 w-4" /> Entrada
-                    </Button>
-                  }
-                />
-                <MovementDialog
-                  defaultType="saida"
-                  trigger={
-                    <Button
-                      size="sm"
-                      className="h-9 text-xs bg-rose-600 hover:bg-rose-500 text-white font-bold rounded-xl"
-                    >
-                      <ArrowUpCircle className="mr-1.5 h-4 w-4" /> Saída
-                    </Button>
-                  }
-                />
-              </>
-            ) : null}
           </div>
         }
       />

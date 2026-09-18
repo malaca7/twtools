@@ -114,8 +114,7 @@ export function useAbsences() {
   return useQuery({
     queryKey: ["absences"],
     queryFn: getAbsences,
-    staleTime: 0,
-    refetchInterval: 1500,
+    staleTime: 60000,
     refetchOnWindowFocus: true,
     refetchOnReconnect: true,
   });

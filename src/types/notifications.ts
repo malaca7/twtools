@@ -22,7 +22,6 @@ export const ALL_NOTIFICATION_TYPES: NotificationType[] = [
   "signup",
   "system",
   "absence",
-  "chat",
 ];
 
 export type NotificationCategory = "info" | "success" | "warning" | "error" | "alert";

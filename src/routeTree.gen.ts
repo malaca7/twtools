@@ -50,6 +50,7 @@ import { Route as AuthenticatedDevPageRouteImport } from './routes/_authenticate
 import { Route as AuthenticatedDevBotRouteImport } from './routes/_authenticated/dev.bot'
 import { Route as AuthenticatedDevConfiguracaoRouteImport } from './routes/_authenticated/dev.configuracao'
 import { Route as AuthenticatedDevDesempenhoRouteImport } from './routes/_authenticated/dev.desempenho'
+import { Route as AuthenticatedDevEstoqueRouteImport } from './routes/_authenticated/dev.estoque'
 import { Route as AuthenticatedDevMenuLateralRouteImport } from './routes/_authenticated/dev.menu-lateral'
 import { Route as AuthenticatedDevNotificacoesRouteImport } from './routes/_authenticated/dev.notificacoes'
 import { Route as AuthenticatedDevPatchNotesRouteImport } from './routes/_authenticated/dev.patch-notes'
@@ -281,6 +282,11 @@ const AuthenticatedDevDesempenhoRoute =
     path: '/dev/desempenho',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedDevEstoqueRoute = AuthenticatedDevEstoqueRouteImport.update({
+  id: '/dev/estoque',
+  path: '/dev/estoque',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedDevMenuLateralRoute =
   AuthenticatedDevMenuLateralRouteImport.update({
     id: '/dev/menu-lateral',
@@ -420,6 +426,7 @@ export interface FileRoutesByFullPath {
   '/dev/bot': typeof AuthenticatedDevBotRoute
   '/dev/configuracao': typeof AuthenticatedDevConfiguracaoRouteWithChildren
   '/dev/desempenho': typeof AuthenticatedDevDesempenhoRoute
+  '/dev/estoque': typeof AuthenticatedDevEstoqueRoute
   '/dev/menu-lateral': typeof AuthenticatedDevMenuLateralRoute
   '/dev/notificacoes': typeof AuthenticatedDevNotificacoesRoute
   '/dev/patch-notes': typeof AuthenticatedDevPatchNotesRoute
@@ -479,6 +486,7 @@ export interface FileRoutesByTo {
   '/dev/bot': typeof AuthenticatedDevBotRoute
   '/dev/configuracao': typeof AuthenticatedDevConfiguracaoRouteWithChildren
   '/dev/desempenho': typeof AuthenticatedDevDesempenhoRoute
+  '/dev/estoque': typeof AuthenticatedDevEstoqueRoute
   '/dev/menu-lateral': typeof AuthenticatedDevMenuLateralRoute
   '/dev/notificacoes': typeof AuthenticatedDevNotificacoesRoute
   '/dev/patch-notes': typeof AuthenticatedDevPatchNotesRoute
@@ -540,6 +548,7 @@ export interface FileRoutesById {
   '/_authenticated/dev/bot': typeof AuthenticatedDevBotRoute
   '/_authenticated/dev/configuracao': typeof AuthenticatedDevConfiguracaoRouteWithChildren
   '/_authenticated/dev/desempenho': typeof AuthenticatedDevDesempenhoRoute
+  '/_authenticated/dev/estoque': typeof AuthenticatedDevEstoqueRoute
   '/_authenticated/dev/menu-lateral': typeof AuthenticatedDevMenuLateralRoute
   '/_authenticated/dev/notificacoes': typeof AuthenticatedDevNotificacoesRoute
   '/_authenticated/dev/patch-notes': typeof AuthenticatedDevPatchNotesRoute
@@ -601,6 +610,7 @@ export interface FileRouteTypes {
     | '/dev/bot'
     | '/dev/configuracao'
     | '/dev/desempenho'
+    | '/dev/estoque'
     | '/dev/menu-lateral'
     | '/dev/notificacoes'
     | '/dev/patch-notes'
@@ -660,6 +670,7 @@ export interface FileRouteTypes {
     | '/dev/bot'
     | '/dev/configuracao'
     | '/dev/desempenho'
+    | '/dev/estoque'
     | '/dev/menu-lateral'
     | '/dev/notificacoes'
     | '/dev/patch-notes'
@@ -720,6 +731,7 @@ export interface FileRouteTypes {
     | '/_authenticated/dev/bot'
     | '/_authenticated/dev/configuracao'
     | '/_authenticated/dev/desempenho'
+    | '/_authenticated/dev/estoque'
     | '/_authenticated/dev/menu-lateral'
     | '/_authenticated/dev/notificacoes'
     | '/_authenticated/dev/patch-notes'
@@ -1037,6 +1049,13 @@ declare module '@tanstack/react-router' {
       path: '/dev/desempenho'
       fullPath: '/dev/desempenho'
       preLoaderRoute: typeof AuthenticatedDevDesempenhoRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/dev/estoque': {
+      id: '/_authenticated/dev/estoque'
+      path: '/dev/estoque'
+      fullPath: '/dev/estoque'
+      preLoaderRoute: typeof AuthenticatedDevEstoqueRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/dev/menu-lateral': {
@@ -1358,6 +1377,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedDevBotRoute: typeof AuthenticatedDevBotRoute
   AuthenticatedDevConfiguracaoRoute: typeof AuthenticatedDevConfiguracaoRouteWithChildren
   AuthenticatedDevDesempenhoRoute: typeof AuthenticatedDevDesempenhoRoute
+  AuthenticatedDevEstoqueRoute: typeof AuthenticatedDevEstoqueRoute
   AuthenticatedDevMenuLateralRoute: typeof AuthenticatedDevMenuLateralRoute
   AuthenticatedDevNotificacoesRoute: typeof AuthenticatedDevNotificacoesRoute
   AuthenticatedDevPatchNotesRoute: typeof AuthenticatedDevPatchNotesRoute
@@ -1397,6 +1417,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedDevConfiguracaoRoute:
     AuthenticatedDevConfiguracaoRouteWithChildren,
   AuthenticatedDevDesempenhoRoute: AuthenticatedDevDesempenhoRoute,
+  AuthenticatedDevEstoqueRoute: AuthenticatedDevEstoqueRoute,
   AuthenticatedDevMenuLateralRoute: AuthenticatedDevMenuLateralRoute,
   AuthenticatedDevNotificacoesRoute: AuthenticatedDevNotificacoesRoute,
   AuthenticatedDevPatchNotesRoute: AuthenticatedDevPatchNotesRoute,

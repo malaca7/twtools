@@ -111,7 +111,7 @@ export function SaleDialog({ trigger }: { trigger: ReactNode }) {
         <DialogHeader>
           <DialogTitle>Nova venda</DialogTitle>
           <DialogDescription>
-            A saída de estoque é gerada automaticamente ao confirmar a venda.
+            Lançar venda para gerar registro financeiro. O estoque é abatido automaticamente pelo bot do Discord.
           </DialogDescription>
         </DialogHeader>
 

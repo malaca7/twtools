@@ -51,8 +51,7 @@ export function useConversations(activeConversationId?: string | null) {
     queryKey: ["chat_conversations", userId],
     queryFn: () => (userId ? fetchUserConversations(userId) : Promise.resolve([])),
     enabled: Boolean(userId),
-    staleTime: 10000,
-    refetchInterval: 15000,
+    staleTime: 60000,
   });
 
   const conversationsRef = useRef<ChatConversation[]>([]);
@@ -275,7 +274,7 @@ export function useChatRoom(
       return initial;
     },
     enabled: Boolean(activeConversationId),
-    staleTime: 5000,
+    staleTime: 60000,
   });
 
   // Carrega mais mensagens antigas ao rolar para cima (Lazy Loading)

@@ -99,7 +99,6 @@ import {
 } from "@/hooks/useCeoMenuConfig";
 import { LEVEL_LABEL, levelBadgeClass, type Permission } from "@/lib/permissions";
 import { cn } from "@/lib/utils";
-import { FloatingPresenceWidget } from "./FloatingPresenceWidget";
 import { MobileBottomNav } from "./MobileBottomNav";
 import { ForceCachePurgeListener } from "@/components/dev/ForceCachePurgeListener";
 import { NotificationCenter } from "@/components/notifications/NotificationCenter";
@@ -119,23 +118,21 @@ const MASTER_NAV_ITEMS: MasterNavItem[] = [
   { id: "movimentacoes", title: "Movimentações", url: "/movimentacoes", icon: ArrowLeftRight, perm: "view_movements", defaultCat: "Operação", defaultOrder: 1 },
   { id: "vendas", title: "Vendas", url: "/vendas", icon: ShoppingCart, perm: "view_sales", defaultCat: "Operação", defaultOrder: 2 },
   { id: "lives", title: "Lives", url: "/lives", icon: Radio, perm: "view_lives", defaultCat: "Operação", defaultOrder: 3 },
-  { id: "chat", title: "Chat", url: "/chat", icon: MessageSquare, perm: "view_chat", defaultCat: "Operação", defaultOrder: 4 },
-  { id: "tickets", title: "Tickets / Ouvidoria", url: "/tickets", icon: LifeBuoy, perm: "view_tickets", defaultCat: "Operação", defaultOrder: 5 },
-  { id: "estoque", title: "Controle de Estoque", url: "/estoque", icon: Boxes, perm: "view_stock", defaultCat: "Gestão", defaultOrder: 6 },
-  { id: "membros", title: "Membros", url: "/membros", icon: Users, perm: "view_members", defaultCat: "Gestão", defaultOrder: 7 },
-  { id: "hierarquia", title: "Hierarquia", url: "/hierarquia", icon: Workflow, perm: "view_hierarchy", defaultCat: "Gestão", defaultOrder: 8 },
-  { id: "fundo-caixa", title: "Fundo de Caixa", url: "/fundo-caixa", icon: Landmark, perm: "view_cash_fund", defaultCat: "Gestão", defaultOrder: 9 },
-  { id: "ausencias", title: "Ausências", url: "/ausencias", icon: CalendarOff, perm: "view_absences", defaultCat: "Gestão", defaultOrder: 10 },
-  { id: "rankings", title: "Rankings", url: "/rankings", icon: Trophy, perm: "view_rankings", defaultCat: "Gestão", defaultOrder: 11 },
-  { id: "desempenho", title: "Meu Desempenho", url: "/desempenho", icon: User, perm: "view_performance", defaultCat: "Gestão", defaultOrder: 12 },
-  { id: "metas", title: "Metas", url: "/metas", icon: Target, perm: "view_goals", defaultCat: "Gestão", defaultOrder: 13 },
-  { id: "avisos", title: "Enviar Avisos", url: "/avisos", icon: Megaphone, perm: "manage_announcements", defaultCat: "Gestão", defaultOrder: 14 },
-  { id: "cargos", title: "Gerenciamento de Cargos", url: "/cargos", icon: ShieldCheck, perm: "manage_roles", defaultCat: "Administração", defaultOrder: 15 },
-  { id: "permissoes", title: "Permissões", url: "/permissoes", icon: Settings, perm: "manage_permissions", defaultCat: "Administração", defaultOrder: 16 },
-  { id: "logs", title: "Logs", url: "/logs", icon: ScrollText, perm: "view_audit", defaultCat: "Administração", defaultOrder: 17 },
-  { id: "atualizacoes", title: "Atualizações", url: "/atualizacoes", icon: Sparkles, perm: "view_patch_notes", defaultCat: "Administração", defaultOrder: 18 },
-  { id: "perfil", title: "Meu Perfil", url: "/perfil", icon: User, perm: "view_profile", defaultCat: "Gestão", defaultOrder: 19 },
-  { id: "configuracoes", title: "Configurações", url: "/configuracoes", icon: Wrench, perm: "manage_platform_settings", defaultCat: "Administração", defaultOrder: 20 },
+  { id: "tickets", title: "Tickets / Ouvidoria", url: "/tickets", icon: LifeBuoy, perm: "view_tickets", defaultCat: "Operação", defaultOrder: 4 },
+  { id: "estoque", title: "Controle de Estoque", url: "/estoque", icon: Boxes, perm: "view_stock", defaultCat: "Gestão", defaultOrder: 5 },
+  { id: "membros", title: "Membros", url: "/membros", icon: Users, perm: "view_members", defaultCat: "Gestão", defaultOrder: 6 },
+  { id: "hierarquia", title: "Hierarquia", url: "/hierarquia", icon: Workflow, perm: "view_hierarchy", defaultCat: "Gestão", defaultOrder: 7 },
+  { id: "fundo-caixa", title: "Fundo de Caixa", url: "/fundo-caixa", icon: Landmark, perm: "view_cash_fund", defaultCat: "Gestão", defaultOrder: 8 },
+  { id: "ausencias", title: "Ausências", url: "/ausencias", icon: CalendarOff, perm: "view_absences", defaultCat: "Gestão", defaultOrder: 9 },
+  { id: "rankings", title: "Rankings", url: "/rankings", icon: Trophy, perm: "view_rankings", defaultCat: "Gestão", defaultOrder: 10 },
+  { id: "desempenho", title: "Meu Desempenho", url: "/desempenho", icon: User, perm: "view_performance", defaultCat: "Gestão", defaultOrder: 11 },
+  { id: "metas", title: "Metas", url: "/metas", icon: Target, perm: "view_goals", defaultCat: "Gestão", defaultOrder: 12 },
+  { id: "avisos", title: "Enviar Avisos", url: "/avisos", icon: Megaphone, perm: "manage_announcements", defaultCat: "Gestão", defaultOrder: 13 },
+  { id: "cargos", title: "Gerenciamento de Cargos", url: "/cargos", icon: ShieldCheck, perm: "manage_roles", defaultCat: "Administração", defaultOrder: 14 },
+  { id: "permissoes", title: "Permissões", url: "/permissoes", icon: Settings, perm: "manage_permissions", defaultCat: "Administração", defaultOrder: 15 },
+  { id: "atualizacoes", title: "Atualizações", url: "/atualizacoes", icon: Sparkles, perm: "view_patch_notes", defaultCat: "Administração", defaultOrder: 16 },
+  { id: "perfil", title: "Meu Perfil", url: "/perfil", icon: User, perm: "view_profile", defaultCat: "Gestão", defaultOrder: 17 },
+  { id: "configuracoes", title: "Configurações", url: "/configuracoes", icon: Wrench, perm: "manage_platform_settings", defaultCat: "Administração", defaultOrder: 18 },
 ];
 
 const URL_TO_PERMISSION_MAP: Record<string, Permission> = {
@@ -143,7 +140,6 @@ const URL_TO_PERMISSION_MAP: Record<string, Permission> = {
   "/movimentacoes": "view_movements",
   "/vendas": "view_sales",
   "/lives": "view_lives",
-  "/chat": "view_chat",
   "/tickets": "view_tickets",
   "/estoque": "view_stock",
   "/baus": "view_stock",
@@ -161,7 +157,6 @@ const URL_TO_PERMISSION_MAP: Record<string, Permission> = {
   "/cargos": "manage_roles",
   "/permissoes": "manage_permissions",
   "/permissoes-gerais": "manage_permissions",
-  "/logs": "view_audit",
   "/atualizacoes": "view_patch_notes",
   "/perfil": "view_profile",
   "/configuracoes": "manage_platform_settings",
@@ -332,7 +327,9 @@ function DynamicSidebarNavigation() {
         };
       });
 
-    const allPlatformItems: MasterNavItem[] = [...customizedMaster, ...customNavItems];
+    const allPlatformItems: MasterNavItem[] = [...customizedMaster, ...customNavItems].filter(
+      (item) => item.id !== "chat" && item.id !== "logs" && item.url !== "/chat" && item.url !== "/logs"
+    );
 
     // Itens da Categoria CEO (dinâmico com base em useCeoMenuConfig e permissões)
     const ceoValidItems = ceoMenuConfig?.items?.filter((c) => Boolean(c && (c.id || c.url))) || [];
@@ -1019,8 +1016,6 @@ export function AppShell({ children }: { children: ReactNode }) {
         </div>
       </div>
 
-      {/* BOTÃO E CARD FLUTUANTE DE STATUS DE MEMBROS (PRESENCE WIDGET) */}
-      <FloatingPresenceWidget />
       <MobileBottomNav />
       <ForceCachePurgeListener />
 

@@ -120,6 +120,8 @@ export type Movement = {
   sale_id: string | null;
   reversal_of: string | null;
   created_at: string;
+  origin?: string | null;
+  discord_message_id?: string | null;
 };
 
 export type Sale = {

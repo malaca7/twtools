@@ -127,7 +127,6 @@ const ICON_MAP: Record<string, typeof LayoutDashboard> = {
   "/movimentacoes": ArrowLeftRight,
   "/vendas": ShoppingCart,
   "/lives": Radio,
-  "/chat": MessageSquare,
   "/tickets": LifeBuoy,
   "/estoque": Boxes,
   "/membros": Users,
@@ -142,7 +141,6 @@ const ICON_MAP: Record<string, typeof LayoutDashboard> = {
   "/cargos": ShieldCheck,
   "/permissoes": Settings,
   "/avisos": Megaphone,
-  "/logs": ScrollText,
   "/atualizacoes": Sparkles,
   "/perfil": User,
   "/configuracoes": Wrench,
@@ -2165,9 +2163,6 @@ function NotificationsTab({ canEdit }: { canEdit: boolean }) {
           </div>
         </CardContent>
       </Card>
-
-      {/* CHAT NOTIFICATIONS SOUND CARD */}
-      <ChatSoundConfigCard />
 
       <Card className="surface-card">
         <CardHeader className="pb-3 border-b border-border/60">

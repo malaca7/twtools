@@ -422,18 +422,7 @@ export function PublicProfilePage({ handleOverride, isRootRoute = false }: Publi
                     <span>Personalizar Perfil</span>
                   </Button>
                 </Link>
-              ) : user ? (
-                <Button
-                  type="button"
-                  size="sm"
-                  onClick={handleStartChat}
-                  disabled={startingChat}
-                  className="h-9 px-4 text-xs font-bold bg-gradient-brand text-primary-foreground hover:opacity-90 rounded-xl gap-1.5 cursor-pointer shadow-md"
-                >
-                  <MessageSquare className="h-3.5 w-3.5" />
-                  <span>Mensagem</span>
-                </Button>
-              ) : (
+              ) : !user ? (
                 <Link to="/">
                   <Button
                     type="button"
@@ -444,7 +433,7 @@ export function PublicProfilePage({ handleOverride, isRootRoute = false }: Publi
                     <span>Entrar no Painel</span>
                   </Button>
                 </Link>
-              )}
+              ) : null}
             </div>
           </div>
 

@@ -1260,6 +1260,16 @@ export function MovimentacoesPage() {
                                   📦 {bauName}
                                 </Badge>
                               )}
+                              {m.origin === "discord" && (
+                                <Badge variant="outline" className="text-[10px] border-[#5865F2]/50 text-[#5865F2] bg-[#5865F2]/10 px-1.5 py-0 shrink-0" title="Sincronizado automaticamente via Discord">
+                                  Discord
+                                </Badge>
+                              )}
+                              {m.origin === "painel_dev" && (
+                                <Badge variant="outline" className="text-[10px] border-rose-500/50 text-rose-400 bg-rose-500/10 px-1.5 py-0 shrink-0" title="Ajustado manualmente pelo Painel Dev">
+                                  Dev Panel
+                                </Badge>
+                              )}
                             </div>
 
                             <div className="flex items-center gap-2 text-[11px] text-muted-foreground font-mono flex-wrap">

@@ -49,8 +49,7 @@ export const DEFAULT_MENU_ITEMS: MenuItemConfig[] = [
   { id: "vendas", title: "Vendas", url: "/vendas", visible: true, category: "Operação", order: 2 },
   { id: "lives", title: "Lives & Transmissões", url: "/lives", visible: true, category: "Operação", order: 3, iconName: "Radio" },
   { id: "notificacoes", title: "Notificações", url: "/notificacoes", visible: true, category: "Operação", order: 4, iconName: "Bell" },
-  { id: "chat", title: "Chat", url: "/chat", visible: true, category: "Operação", order: 5 },
-  { id: "tickets", title: "Tickets / Ouvidoria", url: "/tickets", visible: true, category: "Operação", order: 6 },
+  { id: "tickets", title: "Tickets / Ouvidoria", url: "/tickets", visible: true, category: "Operação", order: 5 },
   { id: "estoque", title: "Controle de Estoque", url: "/estoque", visible: true, category: "Gestão", order: 6 },
   { id: "membros", title: "Membros", url: "/membros", visible: true, category: "Gestão", order: 7 },
   { id: "hierarquia", title: "Hierarquia", url: "/hierarquia", visible: true, category: "Gestão", order: 8 },
@@ -62,10 +61,9 @@ export const DEFAULT_MENU_ITEMS: MenuItemConfig[] = [
   { id: "avisos", title: "Enviar Avisos", url: "/avisos", visible: true, category: "Gestão", order: 14 },
   { id: "cargos", title: "Gerenciamento de Cargos", url: "/cargos", visible: true, category: "Administração", order: 15 },
   { id: "permissoes", title: "Permissões", url: "/permissoes", visible: true, category: "Administração", order: 16 },
-  { id: "logs", title: "Logs", url: "/logs", visible: true, category: "Administração", order: 17 },
-  { id: "atualizacoes", title: "Atualizações", url: "/atualizacoes", visible: true, category: "Administração", order: 18 },
-  { id: "perfil", title: "Meu Perfil", url: "/perfil", visible: true, category: "Gestão", order: 19 },
-  { id: "configuracoes", title: "Configurações", url: "/configuracoes", visible: true, category: "Administração", order: 20 },
+  { id: "atualizacoes", title: "Atualizações", url: "/atualizacoes", visible: true, category: "Administração", order: 17 },
+  { id: "perfil", title: "Meu Perfil", url: "/perfil", visible: true, category: "Gestão", order: 18 },
+  { id: "configuracoes", title: "Configurações", url: "/configuracoes", visible: true, category: "Administração", order: 19 },
 ];
 
 /**
@@ -123,6 +121,7 @@ export function syncMenuConfig(raw: Partial<MenuConfig> | null | undefined): Men
   if (savedItems.length > 0) {
     savedItems.forEach((saved) => {
       if (!saved || !saved.id || processedIds.has(saved.id) || deletedSet.has(saved.id)) return;
+      if (saved.id === "chat" || saved.id === "logs" || saved.url === "/chat" || saved.url === "/logs") return;
       processedIds.add(saved.id);
 
       const defaultMatch = defaultItemsMap.get(saved.id) || DEFAULT_MENU_ITEMS.find((d) => d.url === saved.url);

@@ -144,8 +144,7 @@ export function useWeeklyGoals() {
   return useQuery({
     queryKey: ["weekly_goals"],
     queryFn: getWeeklyGoals,
-    staleTime: 0,
-    refetchInterval: 1500,
+    staleTime: 60000,
     refetchOnWindowFocus: true,
     refetchOnReconnect: true,
   });
@@ -288,8 +287,7 @@ export function useGoalSubmissions() {
   return useQuery({
     queryKey: ["goal_submissions"],
     queryFn: getGoalSubmissions,
-    staleTime: 0,
-    refetchInterval: 1500,
+    staleTime: 60000,
     refetchOnWindowFocus: true,
     refetchOnReconnect: true,
   });

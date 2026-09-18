@@ -3,7 +3,6 @@ import { useNavigate, useRouterState } from "@tanstack/react-router";
 import {
   LayoutDashboard,
   ArrowLeftRight,
-  MessageSquare,
   Crown,
   Terminal,
   Users,
@@ -14,7 +13,6 @@ import {
   Megaphone,
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
-import { useConversations } from "@/hooks/useChat";
 import { useSidebar } from "@/components/ui/sidebar";
 import { cn } from "@/lib/utils";
 
@@ -25,7 +23,6 @@ export function MobileBottomNav() {
 
   const { isDevUser, isDevMode, isCeoUser, isCeoMode, hasPermission } = useAuth();
   const { toggleSidebar } = useSidebar();
-  const { totalUnreadCount } = useConversations();
 
   const homeUrl = useMemo(() => {
     if (isDevUser && isDevMode) return "/dev/dashboard";
@@ -99,25 +96,8 @@ export function MobileBottomNav() {
     pathname.startsWith("/ceo/movimentacoes") ||
     pathname.startsWith("/ceo/vendas") ||
     pathname.startsWith("/ceo/estoque");
-  const isChatRoute = pathname.startsWith("/chat") || pathname.startsWith("/dev/chat") || pathname.startsWith("/ceo/chat");
-
-  const handleChatClick = () => {
-    window.dispatchEvent(new CustomEvent("tw_chat_toggle"));
-  };
 
   const middleTab = useMemo(() => {
-    if (hasPermission("view_chat")) {
-      const MiddleIcon = MessageSquare;
-      return {
-        label: "Chat",
-        icon: MiddleIcon,
-        iconColor: "text-emerald-400",
-        indicatorColor: "bg-emerald-400",
-        isActive: isChatRoute,
-        unread: totalUnreadCount,
-        onClick: handleChatClick,
-      };
-    }
     if (hasPermission("view_rankings")) {
       const url = isDevMode ? "/dev/rankings" : isCeoMode ? "/ceo/rankings" : "/rankings";
       const MiddleIcon = Trophy;

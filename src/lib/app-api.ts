@@ -525,6 +525,8 @@ export async function getMovements(): Promise<Movement[]> {
       sale_id: d.sale_id,
       reversal_of: d.reversal_of,
       created_at: String(d.created_at),
+      origin: d.origin,
+      discord_message_id: d.discord_message_id,
     };
   });
 }

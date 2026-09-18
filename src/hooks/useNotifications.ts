@@ -130,9 +130,7 @@ export function useNotifications() {
     queryKey: ["notifications", user?.id, level],
     queryFn: () => getNotifications(user?.id, level),
     enabled: Boolean(user?.id),
-    staleTime: 1000,
-    refetchInterval: 5000,
-    refetchIntervalInBackground: true,
+    staleTime: 60000,
     refetchOnWindowFocus: true,
     refetchOnReconnect: true,
   });

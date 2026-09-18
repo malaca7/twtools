@@ -91,7 +91,6 @@ const ALL_SYSTEM_MODULES = [
     items: [
       { title: "Permissões dos Cargos", url: "/permissoes", icon: Settings, desc: "Matriz de permissões atribuídas a cada cargo da facção", color: "text-pink-400" },
       { title: "Enviar Avisos", url: "/avisos", icon: Megaphone, desc: "Disparo de notificações e comunicados para toda a facção", color: "text-amber-400" },
-      { title: "Logs de Auditoria", url: "/logs", icon: ScrollText, desc: "Histórico completo de auditoria e ações realizadas na plataforma", color: "text-slate-400" },
       { title: "Configurações da Plataforma", url: "/configuracoes", icon: Wrench, desc: "Personalização de tema, regras, menus e integrações", color: "text-blue-400" },
       { title: "Atualizações do Sistema", url: "/atualizacoes", icon: Sparkles, desc: "Visualização completa das notas de versão e melhorias postadas pela equipe de desenvolvimento", color: "text-emerald-400" },
       { title: "Meu Perfil", url: "/perfil", icon: User, desc: "Dados cadastrais do jogador, Discord e preferências", color: "text-emerald-400" },
@@ -108,6 +107,7 @@ const ALL_SYSTEM_MODULES = [
       { title: "Limpeza de Cache & Geral", url: "/dev/configuracao/general", icon: RefreshCw, desc: "Forçar limpeza de cache dos navegadores e recarregar clientes via Realtime", color: "text-cyan-400" },
       { title: "Gestão de Desempenho Dev", url: "/dev/desempenho", icon: TrendingUp, desc: "Inspeção aprofundada de produtividade, tempo online e auditoria de membros", color: "text-rose-400" },
       { title: "Permissões da Tag Dev", url: "/dev/permissoes", icon: KeyRound, desc: "Matriz granular e gerenciamento de permissões da tag desenvolvedor", color: "text-rose-400" },
+      { title: "Ajustes de Estoque", url: "/dev/estoque", icon: Boxes, desc: "Ajuste manual e auditoria do motor automático do Discord", color: "text-rose-400" },
       { title: "Integrações de Lives Dev", url: "/dev/configuracao?tab=lives", icon: Radio, desc: "Configuração de APIs (Twitch, Kick, YouTube, TikTok), simulador e logs de lives", color: "text-rose-400" },
       { title: "Menu Lateral Dev", url: "/dev/menu-lateral", icon: Sliders, desc: "Configuração de ordens, categorias e visibilidade do menu dev", color: "text-rose-400" },
     ],

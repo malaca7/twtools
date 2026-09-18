@@ -86,7 +86,7 @@ export function useMembers() {
   return useQuery({
     queryKey: ["members"],
     queryFn: async (): Promise<Member[]> => getMembers(),
-    refetchInterval: 30000,
+    staleTime: 60000,
   });
 }
 
@@ -121,7 +121,7 @@ export function usePendingSignupRequests(enabled = true) {
     enabled,
     queryKey: ["pending_signup_requests"],
     queryFn: async (): Promise<PendingSignupRequest[]> => getPendingSignupRequests(enabled),
-    refetchInterval: 30000,
+    staleTime: 60000,
   });
 }
 
@@ -137,7 +137,7 @@ export function useAuditLogs(enabled = true) {
     enabled,
     queryKey: ["audit_logs"],
     queryFn: async (): Promise<AuditLog[]> => getAuditLogs(),
-    refetchInterval: 30000,
+    staleTime: 60000,
   });
 }
 
@@ -145,8 +145,7 @@ export function useRolePermissions() {
   return useQuery({
     queryKey: ["role_permissions"],
     queryFn: async (): Promise<Record<AppLevel, Permission[]>> => getRolePermissions(),
-    staleTime: 5000,
-    refetchInterval: 15000,
+    staleTime: 60000,
     refetchOnWindowFocus: true,
   });
 }
@@ -155,7 +154,7 @@ export function useUserPresences() {
   return useQuery({
     queryKey: ["user_presence"],
     queryFn: async (): Promise<UserPresence[]> => getUserPresences(),
-    refetchInterval: 15000,
+    staleTime: 60000,
   });
 }
 

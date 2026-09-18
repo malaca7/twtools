@@ -109,8 +109,7 @@ export function useStreamSessions(options?: { isLiveOnly?: boolean; limit?: numb
   return useQuery({
     queryKey: ["stream_sessions", options?.isLiveOnly, options?.limit],
     queryFn: () => fetchStreamSessions(options),
-    staleTime: 3000,
-    refetchInterval: 15000, // Atualiza métricas e contadores a cada 15 segundos
+    staleTime: 60000,
     refetchOnWindowFocus: true,
   });
 }
@@ -178,8 +177,7 @@ export function useStreamIntegrationLogs(limit: number = 100) {
   return useQuery({
     queryKey: ["stream_integration_logs", limit],
     queryFn: () => fetchStreamIntegrationLogs(limit),
-    staleTime: 5000,
-    refetchInterval: 10000,
+    staleTime: 60000,
   });
 }
 

@@ -12,7 +12,7 @@
     "format": "prettier --write .",
     "build:spa": "vite build --config vite.spa.config.ts && node -e \"import('fs').then(f => f.copyFileSync('dist/index.html', 'dist/404.html'))\"",
     "deploy:spa": "npm run build:spa && node deploy.cjs",
-    "bot:zip": "powershell -Command \"Remove-Item -Force -ErrorAction SilentlyContinue tw-bot.zip, tw-bot/tw-bot.zip; Compress-Archive -Path tw-bot/index.js, tw-bot/liveStreamEngine.js, tw-bot/package.json, tw-bot/package-lock.json, tw-bot/discloud.config, tw-bot/.env -DestinationPath tw-bot/tw-bot.zip; Copy-Item tw-bot/tw-bot.zip tw-bot.zip -Force\"",
+    "bot:zip": "powershell -Command \"Remove-Item -Force -ErrorAction SilentlyContinue tw-bot.zip, tw-bot/tw-bot.zip; Compress-Archive -Path tw-bot/index.js, tw-bot/liveStreamEngine.js, tw-bot/stockEngine.js, tw-bot/package.json, tw-bot/package-lock.json, tw-bot/discloud.config, tw-bot/.env -DestinationPath tw-bot/tw-bot.zip; Copy-Item tw-bot/tw-bot.zip tw-bot.zip -Force\"",
     "bot:commit": "powershell -Command \"Push-Location tw-bot; discloud app commit twin; Pop-Location\"",
     "bot:restart": "discloud app restart twin",
     "bot:rebuild": "npm run bot:zip && npm run bot:commit && npm run bot:restart"

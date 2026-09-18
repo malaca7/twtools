@@ -68,7 +68,6 @@ export const MODULE_DEFINITIONS: {
   { key: "lives", label: "Transmissões & Lives", description: "Central de transmissões ao vivo, detecção automática e canais de streamers", icon: Radio },
   { key: "membros", label: "Gestão de Membros", description: "Aprovação de cadastros, vínculos do Discord e gestão de cargos", icon: Users },
   { key: "desempenho", label: "Rankings & Metas", description: "Pódio de movimentadores, vendedores e metas operacionais", icon: Trophy },
-  { key: "auditoria", label: "Histórico de Auditoria", description: "Logs transparentes em linguagem natural de todas as ações", icon: ScrollText },
   { key: "gestao_cargos", label: "Gerenciamento de Cargos", description: "Criação, reordenação e matriz de permissões dos cargos", icon: ShieldCheck },
 ];
 

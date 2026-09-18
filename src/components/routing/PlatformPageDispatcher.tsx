@@ -10,7 +10,6 @@ import { type Permission } from "@/lib/permissions";
 import { DashboardPage } from "@/routes/_authenticated/dashboard";
 import { MovimentacoesPage } from "@/routes/_authenticated/movimentacoes";
 import { VendasPage } from "@/routes/_authenticated/vendas";
-import { ChatPage } from "@/routes/_authenticated/chat";
 import { LivesPage } from "@/routes/_authenticated/lives";
 import { TicketsPage } from "@/routes/_authenticated/tickets";
 import { EstoquePage } from "@/routes/_authenticated/estoque";
@@ -24,7 +23,6 @@ import { MetasPage } from "@/routes/_authenticated/metas";
 import { AvisosPage } from "@/routes/_authenticated/avisos";
 import { CargosPage } from "@/routes/_authenticated/cargos";
 import { PermissoesPage } from "@/routes/_authenticated/permissoes";
-import { LogsPage } from "@/routes/_authenticated/logs";
 import { AtualizacoesPage } from "@/routes/_authenticated/atualizacoes";
 import { PerfilPage } from "@/routes/_authenticated/perfil";
 import { PublicProfilePage } from "@/components/profile/PublicProfilePage";
@@ -46,7 +44,6 @@ const PAGE_PERMISSION_MAP: Record<string, Permission | null> = {
   movimentacoes: "view_movements",
   vendas: "view_sales",
   lives: "view_lives",
-  chat: "view_chat",
   tickets: "view_tickets",
   estoque: "view_stock",
   baus: "view_stock",
@@ -64,7 +61,6 @@ const PAGE_PERMISSION_MAP: Record<string, Permission | null> = {
   cargos: "manage_roles",
   permissoes: "manage_permissions",
   "permissoes-gerais": "manage_permissions",
-  logs: "view_audit",
   atualizacoes: "view_patch_notes",
   perfil: "view_profile",
   configuracoes: "manage_platform_settings",
@@ -127,7 +123,7 @@ function InnerPageResolver({ page, tab, mode }: { page: string; tab?: string; mo
     case "lives":
       return <LivesPage />;
     case "chat":
-      return <ChatPage />;
+      return <Navigate to="/dashboard" replace />;
     case "tickets":
       return <TicketsPage />;
     case "estoque":
@@ -158,7 +154,7 @@ function InnerPageResolver({ page, tab, mode }: { page: string; tab?: string; mo
     case "permissoes-gerais":
       return <PermissoesPage />;
     case "logs":
-      return <LogsPage />;
+      return <Navigate to="/dashboard" replace />;
     case "atualizacoes":
       return <AtualizacoesPage />;
     case "configuracoes":

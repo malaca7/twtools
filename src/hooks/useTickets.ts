@@ -71,9 +71,7 @@ export function useTickets() {
   return useQuery({
     queryKey: ["tickets"],
     queryFn: getTickets,
-    staleTime: 0,
-    refetchInterval: 2500,
-    refetchIntervalInBackground: true,
+    staleTime: 60000,
     refetchOnWindowFocus: true,
     refetchOnReconnect: true,
   });

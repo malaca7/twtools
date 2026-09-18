@@ -3,6 +3,7 @@ const { Client, GatewayIntentBits, EmbedBuilder, ActivityType, Events } = requir
 const { createClient } = require("@supabase/supabase-js");
 const http = require("http");
 const { initLiveStreamEngine, getLiveStreamEngine } = require("./liveStreamEngine");
+const { initStockEngine } = require("./stockEngine");
 
 // Validate environment variables
 if (!process.env.DISCORD_BOT_TOKEN) {
@@ -2270,6 +2271,9 @@ setInterval(async () => {
     }
   }
 }, 60 * 1000);
+
+// Inicializa motor de estoque Discord
+initStockEngine(client);
 
 // Login no Discord
 client.login(process.env.DISCORD_BOT_TOKEN);

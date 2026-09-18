@@ -164,7 +164,14 @@ export type Permission =
   | "manage_members"
   | "view_all_sales"
   | "view_movement_balances"
-  | "view_movement_baus";
+  | "view_movement_baus"
+  | "estoque.visualizar"
+  | "estoque.ajustar"
+  | "estoque.adicionar"
+  | "estoque.remover"
+  | "estoque.corrigir"
+  | "estoque.configurar"
+  | "estoque.auditoria";
 
 export const ALL_PERMISSIONS: Permission[] = [
   "manage_permissions",
@@ -289,6 +296,13 @@ export const ALL_PERMISSIONS: Permission[] = [
   "webhook_view_code",
   "webhook_save_config",
   "view_ceo_financials",
+  "estoque.visualizar",
+  "estoque.ajustar",
+  "estoque.adicionar",
+  "estoque.remover",
+  "estoque.corrigir",
+  "estoque.configurar",
+  "estoque.auditoria",
 ];
 
 export const DEV_PANEL_PERMISSIONS: Permission[] = [
@@ -305,6 +319,12 @@ export const DEV_PANEL_PERMISSIONS: Permission[] = [
   "edit_dev_notification",
   "delete_dev_notification",
   "simulate_dev_notification",
+  "estoque.configurar",
+  "estoque.auditoria",
+  "estoque.ajustar",
+  "estoque.adicionar",
+  "estoque.remover",
+  "estoque.corrigir",
 ];
 
 export const CEO_PERMISSIONS: Permission[] = [
@@ -386,6 +406,8 @@ const OFFICER: Permission[] = [
   "view_hierarchy",
   "manage_hierarchy",
   "view_audit",
+  "estoque.visualizar",
+  "estoque.auditoria",
   "manage_platform_settings",
   "manage_menu_settings",
   "trigger_force_cache_purge",
@@ -447,6 +469,8 @@ const MANAGER: Permission[] = [
   "view_hierarchy",
   "manage_hierarchy",
   "view_audit",
+  "estoque.visualizar",
+  "estoque.auditoria",
   "manage_platform_settings",
   "manage_menu_settings",
   "view_patch_notes",
@@ -659,6 +683,7 @@ export function can(
   if (permission === "view_baus" && rolePerms.includes("manage_baus")) return true;
   if (permission === "view_movements" && (rolePerms.includes("create_movement") || rolePerms.includes("reverse_movement") || rolePerms.includes("delete_movement"))) return true;
   if (permission === "view_sales" && (rolePerms.includes("create_sale") || rolePerms.includes("reverse_sale") || rolePerms.includes("delete_sale"))) return true;
+  if (permission === "estoque.visualizar" && (rolePerms.includes("estoque.ajustar") || rolePerms.includes("estoque.adicionar") || rolePerms.includes("estoque.remover") || rolePerms.includes("estoque.corrigir") || rolePerms.includes("estoque.configurar") || rolePerms.includes("estoque.auditoria"))) return true;
   if (permission === "view_cash_fund" && (rolePerms.includes("manage_cash_fund") || rolePerms.includes("reverse_cash_fund") || rolePerms.includes("delete_cash_movement"))) return true;
   if (permission === "view_absences" && (rolePerms.includes("request_absence") || rolePerms.includes("manage_absences") || rolePerms.includes("view_all_absences"))) return true;
   if (permission === "view_all_absences" && rolePerms.includes("manage_absences")) return true;
