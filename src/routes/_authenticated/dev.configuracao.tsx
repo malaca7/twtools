@@ -89,16 +89,16 @@ export function DevConfiguracaoContent() {
       const urlParams = new URLSearchParams(window.location.search);
       const tab = urlParams.get("tab");
       if (tab === "bot-manage" || tab === "webhooks" || tab === "discord-logs") {
-        window.location.replace(`/dev/bot?tab=${tab}`);
+        window.location.replace(`/dev/bot/${tab}`);
       }
     }
   }, []);
 
-  // Sincronização da aba ativa com a URL (?tab=general | lives)
+  // Sincronização da aba ativa com a URL (/dev/configuracao/general | lives)
   const [activeTab, setActiveTab] = useUrlTab<"general" | "lives">("general", {
     paramName: "tab",
     allowedTabs: ["general", "lives"],
-    usePath: false,
+    usePath: true,
   });
 
   // Estados para Auditoria de Ações Dev

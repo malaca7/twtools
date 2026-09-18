@@ -553,14 +553,6 @@ export function EstoquePage() {
                     }
                   </span>
                 </div>
-                {isAuto && (
-                  <Link
-                    to="/dev/estoque"
-                    className="text-[11px] underline font-bold hover:text-white shrink-0"
-                  >
-                    Ajustes de Estoque (Dev) &rarr;
-                  </Link>
-                )}
               </div>
             );
           })()}

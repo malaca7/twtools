@@ -98,18 +98,18 @@ export function CeoPageContent({ initialTab }: { initialTab?: string } = {}) {
 
   // Resolução 100% reativa da aba atual a partir de rota, params ou query
   const activeTab = useMemo<CeoTab>(() => {
-    if (initialTab === "executivo") return "dashboard";
+    if (initialTab === "dashboard" || initialTab === "executivo") return "dashboard";
     if (initialTab && (VALID_CEO_TABS as readonly string[]).includes(initialTab)) {
       return initialTab as CeoTab;
     }
     const pathParts = location.pathname.split("/").filter(Boolean);
     const lastPart = pathParts[pathParts.length - 1];
-    if (lastPart === "executivo") return "dashboard";
+    if (lastPart === "dashboard" || lastPart === "executivo") return "dashboard";
     if ((VALID_CEO_TABS as readonly string[]).includes(lastPart)) {
       return lastPart as CeoTab;
     }
     const q = (location.search as any)?.tab;
-    if (q === "executivo") return "dashboard";
+    if (q === "dashboard" || q === "executivo") return "dashboard";
     if (q && (VALID_CEO_TABS as readonly string[]).includes(q)) {
       return q as CeoTab;
     }
@@ -121,7 +121,7 @@ export function CeoPageContent({ initialTab }: { initialTab?: string } = {}) {
     (newTab: CeoTab) => {
       navigate({
         to: "/ceo/$tab",
-        params: { tab: newTab === "dashboard" ? "executivo" : newTab },
+        params: { tab: newTab },
       });
     },
     [navigate]

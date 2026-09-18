@@ -77,17 +77,20 @@ export type DevBotTabType =
   | "webhooks"
   | "discord-logs";
 
-function DevBotPageContent() {
+export function DevBotPageContent({ initialTab }: { initialTab?: string } = {}) {
   const [bots, setBots] = useState<BotProject[]>([DEFAULT_BOT_PROJECT]);
   const [selectedBotId, setSelectedBotId] = useState<string>(DEFAULT_BOT_PROJECT.id);
   const [discordConfig, setDiscordConfig] = useState<DiscordBotConfig | null>(null);
 
-  // Sincronização da aba ativa com a URL (?tab=dashboard | builder | bots | bot-manage | webhooks | discord-logs)
-  const [activeTab, setActiveTab] = useUrlTab<DevBotTabType>("dashboard", {
-    paramName: "tab",
-    allowedTabs: ["dashboard", "builder", "bots", "bot-manage", "webhooks", "discord-logs"],
-    usePath: false,
-  });
+  // Sincronização da aba ativa com a URL limpa (/dev/bot/webhooks | builder | bots | bot-manage | webhooks | discord-logs)
+  const [activeTab, setActiveTab] = useUrlTab<DevBotTabType>(
+    (initialTab as DevBotTabType) || "dashboard",
+    {
+      paramName: "tab",
+      allowedTabs: ["dashboard", "builder", "bots", "bot-manage", "webhooks", "discord-logs"],
+      usePath: true,
+    }
+  );
 
   const [builderTab, setBuilderTab] = useState<string>("commands");
   const [logs, setLogs] = useState<ExecutionLog[]>([]);

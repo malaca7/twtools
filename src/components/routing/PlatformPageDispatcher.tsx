@@ -31,6 +31,8 @@ import { CeoPageContent } from "@/routes/_authenticated/ceo";
 import { MemberNotificationsPage } from "@/routes/_authenticated/notificacoes";
 import { CeoNotificationsPage } from "@/routes/_authenticated/ceo.notificacoes";
 import { DevNotificationsPage } from "@/routes/_authenticated/dev.notificacoes";
+import { DevBotPageContent } from "@/routes/_authenticated/dev.bot";
+import { DevEstoquePageContent } from "@/routes/_authenticated/dev.estoque";
 
 export interface PlatformPageDispatcherProps {
   page: string;
@@ -102,6 +104,12 @@ function InnerPageResolver({ page, tab, mode }: { page: string; tab?: string; mo
 
   // DEV Specific modules
   if (mode === "dev") {
+    if (normalizedPage === "bot") {
+      return <DevBotPageContent initialTab={tab} />;
+    }
+    if (normalizedPage === "estoque" || normalizedPage === "dev-estoque") {
+      return <DevEstoquePageContent initialTab={tab} />;
+    }
     if (normalizedPage === "notificacoes" || normalizedPage === "dev-notificacoes") {
       return <DevNotificationsPage />;
     }

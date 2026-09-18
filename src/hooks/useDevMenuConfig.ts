@@ -5,9 +5,11 @@ export type DevMenuItemConfig = {
   id: string;
   title: string;
   url: string;
+  iconName?: string;
   visible: boolean;
   category: string;
   order: number;
+  isCustom?: boolean;
 };
 
 export type DevMenuConfig = {
@@ -19,14 +21,15 @@ export type DevMenuConfig = {
 export const DEFAULT_DEV_CATEGORIES = ["DEV"];
 
 export const DEFAULT_DEV_MENU_ITEMS: DevMenuItemConfig[] = [
-  { id: "dev-hub", title: "Painel Dev Geral", url: "/dev", visible: true, category: "DEV", order: 0 },
-  { id: "dev-bot", title: "Bot", url: "/dev/bot", visible: true, category: "DEV", order: 1 },
-  { id: "dev-patch-notes", title: "Patch Notes & Releases", url: "/dev/patch-notes", visible: true, category: "DEV", order: 2 },
-  { id: "dev-desempenho", title: "Gestão Desempenho", url: "/dev/desempenho", visible: true, category: "DEV", order: 3 },
-  { id: "dev-permissoes", title: "Permissões Tag Dev", url: "/dev/permissoes", visible: true, category: "DEV", order: 4 },
-  { id: "dev-configuracao", title: "Configurações Dev", url: "/dev/configuracao", visible: true, category: "DEV", order: 5 },
-  { id: "dev-menu-lateral", title: "Menu Lateral Dev", url: "/dev/menu-lateral", visible: true, category: "DEV", order: 6 },
-  { id: "dev-notificacoes", title: "Central de Notificações", url: "/dev/notificacoes", visible: true, category: "DEV", order: 7 },
+  { id: "dev-hub", title: "Painel Dev Geral", url: "/dev", iconName: "Terminal", visible: true, category: "DEV", order: 0 },
+  { id: "dev-bot", title: "Bot", url: "/dev/bot", iconName: "Bot", visible: true, category: "DEV", order: 1 },
+  { id: "dev-estoque", title: "Estoque", url: "/dev/estoque", iconName: "Boxes", visible: true, category: "DEV", order: 2 },
+  { id: "dev-patch-notes", title: "Patch Notes & Releases", url: "/dev/patch-notes", iconName: "Sparkles", visible: true, category: "DEV", order: 3 },
+  { id: "dev-desempenho", title: "Gestão Desempenho", url: "/dev/desempenho", iconName: "TrendingUp", visible: true, category: "DEV", order: 4 },
+  { id: "dev-permissoes", title: "Permissões Tag Dev", url: "/dev/permissoes", iconName: "KeyRound", visible: true, category: "DEV", order: 5 },
+  { id: "dev-configuracao", title: "Configurações Dev", url: "/dev/configuracao", iconName: "Code2", visible: true, category: "DEV", order: 6 },
+  { id: "dev-menu-lateral", title: "Menu Lateral Dev", url: "/dev/menu-lateral", iconName: "Sliders", visible: true, category: "DEV", order: 7 },
+  { id: "dev-notificacoes", title: "Central de Notificações", url: "/dev/notificacoes", iconName: "BellRing", visible: true, category: "DEV", order: 8 },
 ];
 
 const STORAGE_KEY = "tw_dev_menu_config";
@@ -49,40 +52,60 @@ function subscribe(callback: () => void) {
 }
 
 export function normalizeDevMenuConfig(cfg: DevMenuConfig): DevMenuConfig {
-  // Migra qualquer categoria legada "Ferramentas Dev" para "DEV"
   let cats = cfg.categories && Array.isArray(cfg.categories) && cfg.categories.length > 0
     ? cfg.categories.map((c) => (c.toLowerCase() === "ferramentas dev" || c.toLowerCase() === "ferramenta dev" ? "DEV" : c))
     : ["DEV"];
 
-  // Deduplica categorias
   cats = Array.from(new Set(cats));
   if (!cats.includes("DEV")) {
     cats.unshift("DEV");
   }
 
-  const items = (cfg.items || []).map((item) => {
-    if (!item.category || item.category.toLowerCase() === "ferramentas dev" || item.category.toLowerCase() === "ferramenta dev") {
-      return { ...item, category: "DEV" };
+  const defaultIds = new Set(DEFAULT_DEV_MENU_ITEMS.map((d) => d.id));
+  const rawItems = Array.isArray(cfg.items) ? cfg.items : [];
+  const savedMap = new Map<string, DevMenuItemConfig>();
+  rawItems.forEach((i: any) => {
+    if (i && typeof i === "object" && i.id) {
+      savedMap.set(i.id, i);
     }
-    return item;
   });
 
-  // Garante que dev-notificacoes esteja presente
-  if (!items.some((i) => i.id === "dev-notificacoes" || i.url === "/dev/notificacoes")) {
-    items.push({
-      id: "dev-notificacoes",
-      title: "Central de Notificações",
-      url: "/dev/notificacoes",
-      visible: true,
-      category: "DEV",
-      order: items.length,
-    });
-  }
+  const merged = DEFAULT_DEV_MENU_ITEMS.map((def, defaultIdx) => {
+    const saved = savedMap.get(def.id);
+    if (!saved) return def;
+    let cat = saved.category || def.category;
+    if (cat.toLowerCase() === "ferramentas dev" || cat.toLowerCase() === "ferramenta dev") {
+      cat = "DEV";
+    }
+    return {
+      id: def.id,
+      title: saved.title && typeof saved.title === "string" && saved.title.trim().length > 0 ? saved.title.trim() : def.title,
+      url: saved.url && typeof saved.url === "string" && saved.url.trim().length > 0 ? saved.url.trim() : def.url,
+      iconName: saved.iconName || def.iconName,
+      visible: typeof saved.visible === "boolean" ? saved.visible : def.visible,
+      category: cat,
+      order: typeof saved.order === "number" ? saved.order : defaultIdx,
+    };
+  });
+
+  // Preserva itens customizados adicionados pelo usuário
+  const customItems: DevMenuItemConfig[] = rawItems
+    .filter((i: any) => i && typeof i === "object" && i.id && !defaultIds.has(i.id))
+    .map((i: any, idx: number) => ({
+      id: i.id,
+      title: i.title && typeof i.title === "string" ? i.title.trim() : "Novo Item Dev",
+      url: i.url && typeof i.url === "string" ? i.url.trim() : "/dev",
+      iconName: i.iconName || "Terminal",
+      visible: typeof i.visible === "boolean" ? i.visible : true,
+      category: i.category || cats[0] || "DEV",
+      order: typeof i.order === "number" ? i.order : 50 + idx,
+      isCustom: true,
+    }));
 
   return {
     ...cfg,
     categories: cats,
-    items,
+    items: [...merged, ...customItems].sort((a, b) => (a.order ?? 0) - (b.order ?? 0)),
   };
 }
 

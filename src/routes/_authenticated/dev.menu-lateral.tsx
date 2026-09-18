@@ -47,19 +47,30 @@ import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import { PageHeader } from "@/components/ui-kit";
 import { DeveloperGuard } from "@/dev/guards/DeveloperGuard";
 import { cn } from "@/lib/utils";
+import { useUrlTab } from "@/hooks/useUrlTab";
 import {
   useDevMenuConfig,
   DEFAULT_DEV_MENU_ITEMS,
   DEFAULT_DEV_CATEGORIES,
+  normalizeDevMenuConfig,
   type DevMenuItemConfig,
 } from "@/hooks/useDevMenuConfig";
 import {
   useCeoMenuConfig,
   DEFAULT_CEO_MENU_ITEMS,
   DEFAULT_CEO_CATEGORIES,
+  sanitizeCeoConfig,
   type CeoMenuItemConfig,
 } from "@/hooks/useCeoMenuConfig";
 import { resolveMenuIcon, AVAILABLE_MENU_ICONS } from "@/lib/menuIcons";
@@ -89,6 +100,8 @@ function DevMenuLateralPageWrapper() {
 
 const DEV_ICON_MAP: Record<string, typeof Terminal> = {
   "/dev": Terminal,
+  "/dev/bot": Bot,
+  "/dev/estoque": Boxes,
   "/dev/patch-notes": Sparkles,
   "/dev/desempenho": TrendingUp,
   "/dev/permissoes": KeyRound,
@@ -135,27 +148,7 @@ function DevToolsMenuEditor() {
   const [items, setItems] = useState<DevMenuItemConfig[]>(() => {
     try {
       if (config && Array.isArray(config.items) && config.items.length > 0) {
-        const savedMap = new Map<string, DevMenuItemConfig>();
-        config.items.forEach((item) => {
-          if (item && typeof item === "object" && item.id) {
-            savedMap.set(item.id, item);
-          }
-        });
-
-        const merged = DEFAULT_DEV_MENU_ITEMS.map((def, defaultIdx) => {
-          const saved = savedMap.get(def.id);
-          if (!saved) return def;
-          return {
-            id: def.id,
-            title: saved.title || def.title,
-            url: saved.url || def.url,
-            visible: typeof saved.visible === "boolean" ? saved.visible : def.visible,
-            category: saved.category || def.category,
-            order: typeof saved.order === "number" ? saved.order : defaultIdx,
-          };
-        });
-
-        return merged.sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+        return normalizeDevMenuConfig(config).items;
       }
     } catch (e) {
       console.error("Error parsing dev menu config:", e);
@@ -172,29 +165,67 @@ function DevToolsMenuEditor() {
       setCategoryIcons(config.categoryIcons);
     }
     if (config?.items && Array.isArray(config.items) && config.items.length > 0) {
-      const savedMap = new Map<string, DevMenuItemConfig>();
-      config.items.forEach((item) => {
-        if (item && typeof item === "object" && item.id) {
-          savedMap.set(item.id, item);
-        }
-      });
-
-      const merged = DEFAULT_DEV_MENU_ITEMS.map((def, defaultIdx) => {
-        const saved = savedMap.get(def.id);
-        if (!saved) return def;
-        return {
-          id: def.id,
-          title: saved.title || def.title,
-          url: saved.url || def.url,
-          visible: typeof saved.visible === "boolean" ? saved.visible : def.visible,
-          category: saved.category || def.category,
-          order: typeof saved.order === "number" ? saved.order : defaultIdx,
-        };
-      });
-
-      setItems(merged.sort((a, b) => (a.order ?? 0) - (b.order ?? 0)));
+      setItems(normalizeDevMenuConfig(config).items);
     }
   }, [config]);
+
+  // Add Item Dialog State
+  const [isAddItemOpen, setIsAddItemOpen] = useState(false);
+  const [newItemTitle, setNewItemTitle] = useState("");
+  const [newItemUrl, setNewItemUrl] = useState("");
+  const [newItemCategory, setNewItemCategory] = useState("DEV");
+  const [newItemIcon, setNewItemIcon] = useState("Terminal");
+
+  const handleAddItem = () => {
+    const title = newItemTitle.trim();
+    let url = newItemUrl.trim();
+    if (!title) {
+      toast.error("Informe o título do menu Dev!");
+      return;
+    }
+    if (!url) {
+      toast.error("Informe a rota ou URL do menu!");
+      return;
+    }
+    if (!url.startsWith("/") && !url.startsWith("http")) {
+      url = "/" + url;
+    }
+
+    const newItem: DevMenuItemConfig = {
+      id: `dev-custom-${Date.now()}`,
+      title,
+      url,
+      iconName: newItemIcon,
+      visible: true,
+      category: newItemCategory || categories[0] || "DEV",
+      order: items.length,
+      isCustom: true,
+    };
+
+    const nextItems = [...items, newItem];
+    persist(categories, nextItems);
+    setNewItemTitle("");
+    setNewItemUrl("");
+    setIsAddItemOpen(false);
+    toast.success(`Item "${title}" adicionado ao menu Dev!`);
+  };
+
+  const handleDeleteItem = (id: string) => {
+    const item = items.find((i) => i.id === id);
+    if (!item) return;
+
+    if (item.isCustom) {
+      const nextItems = items.filter((i) => i.id !== id);
+      persist(categories, nextItems);
+      toast.success(`Item personalizado "${item.title}" removido!`);
+    } else {
+      if (confirm(`Deseja realmente remover "${item.title}" do menu Dev? Você poderá restaurar os padrões a qualquer momento.`)) {
+        const nextItems = items.filter((i) => i.id !== id);
+        persist(categories, nextItems);
+        toast.success(`Item "${item.title}" removido do menu Dev.`);
+      }
+    }
+  };
 
   // Drag and Drop state for items
   const [draggedItemId, setDraggedItemId] = useState<string | null>(null);
@@ -471,7 +502,7 @@ function DevToolsMenuEditor() {
             </Badge>
           </div>
         </PageHeader>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <Button
             variant="outline"
             size="sm"
@@ -480,6 +511,28 @@ function DevToolsMenuEditor() {
           >
             <RotateCcw className="h-3.5 w-3.5" />
             Restaurar Padrão
+          </Button>
+          <Button
+            size="sm"
+            onClick={() => {
+              setNewItemCategory(categories[0] || "DEV");
+              setIsAddItemOpen(true);
+            }}
+            className={cn("h-9 text-xs gap-1.5 font-bold border", devStyle.borderClass, devStyle.bgSubtleClass, devStyle.textClass)}
+          >
+            <Plus className="h-3.5 w-3.5" />
+            Novo Item Dev
+          </Button>
+          <Button
+            size="sm"
+            onClick={() => {
+              persist(categories, items);
+              toast.success("Configuração do Menu Lateral Dev salva no Supabase!");
+            }}
+            className={cn("h-9 text-xs gap-1.5 font-bold shadow-sm", devStyle.bgSolidClass)}
+          >
+            <Save className="h-3.5 w-3.5" />
+            Salvar Menu Dev
           </Button>
           <Badge className="bg-emerald-500/10 text-emerald-400 border-emerald-500/30 text-xs gap-1 py-1 px-3">
             <CheckCircle2 className="h-3.5 w-3.5" />
@@ -725,8 +778,7 @@ function DevToolsMenuEditor() {
                   ) : (
                     <div className="space-y-2.5">
                       {catItems.map((item, itemIdxInCat) => {
-                        const Icon = DEV_ICON_MAP[item.url] || Terminal;
-                        const title = item.title || item.id;
+                        const Icon = resolveMenuIcon(item.iconName, item.url);
                         const isDragging = draggedItemId === item.id;
                         const isDragOver = dragOverItemId === item.id;
 
@@ -739,15 +791,15 @@ function DevToolsMenuEditor() {
                             onDragLeave={handleItemDragLeave}
                             onDrop={(e) => handleItemDrop(e, item.id)}
                             className={cn(
-                              "flex items-center justify-between gap-3 p-3 rounded-xl border transition-all duration-200 cursor-grab active:cursor-grabbing",
+                              "flex flex-col md:flex-row md:items-center justify-between gap-3 p-3 rounded-xl border transition-all duration-200 cursor-grab active:cursor-grabbing",
                               item.visible
-                                ? cn("bg-card/40 border-border/60 shadow-sm", devStyle.borderHoverClass)
+                                ? cn("bg-card/50 border-border/60 shadow-sm hover:bg-card/70", devStyle.borderHoverClass)
                                 : "bg-secondary/20 border-border/30 opacity-50",
                               isDragging && cn("opacity-30 scale-95 border-dashed", devStyle.borderClass),
                               isDragOver && cn(devStyle.borderClass, devStyle.bgSubtleClass, "shadow-lg scale-[1.01]")
                             )}
                           >
-                            {/* Left Group: Controls + Icon + Title */}
+                            {/* Left Group: Controls + Icon + Title + URL */}
                             <div className="flex items-center gap-3 min-w-0 flex-1">
                               {/* Drag Handle & Arrows */}
                               <div className="flex flex-col items-center gap-0.5 shrink-0">
@@ -772,64 +824,124 @@ function DevToolsMenuEditor() {
                                 </button>
                               </div>
 
-                              {/* Icon */}
-                              <div
-                                className={cn(
-                                  "flex h-9 w-9 items-center justify-center rounded-xl border shrink-0 transition-colors shadow-sm",
-                                  item.visible
-                                    ? cn(devStyle.bgSubtleClass, devStyle.borderClass, devStyle.textClass)
-                                    : "bg-secondary/50 border-border/40 text-muted-foreground"
-                                )}
-                              >
-                                <Icon className="h-4 w-4" />
-                              </div>
-
-                              {/* Title & URL */}
-                              <div className="min-w-0 flex-1">
-                                <p className="text-sm font-extrabold text-foreground truncate leading-snug">
-                                  {title}
-                                </p>
-                                <p className="text-[0.65rem] text-muted-foreground font-mono truncate mt-0.5">
-                                  {item.url}
-                                </p>
-                              </div>
-                            </div>
-
-                            {/* Right Group: Category + Visibility */}
-                            <div className="flex items-center gap-3 shrink-0 pl-2">
-                              {/* Category Select */}
+                              {/* Icon Selector */}
                               <Select
-                                value={item.category}
-                                onValueChange={(val) => updateItem(item.id, { category: val })}
-                                className="w-32 shrink-0"
+                                value={item.iconName || "Terminal"}
+                                onValueChange={(iconVal) => updateItem(item.id, { iconName: iconVal })}
+                                className="w-auto shrink-0"
                               >
-                                <SelectTrigger className="h-7 w-32 text-[10px] font-bold border-border/60 bg-secondary/40 shrink-0">
-                                  <SelectValue />
+                                <SelectTrigger
+                                  className={cn(
+                                    "h-10 w-10 p-0 flex items-center justify-center rounded-xl shrink-0 transition-colors shadow-xs [&>svg]:hidden border",
+                                    devStyle.borderClass,
+                                    devStyle.bgSubtleClass,
+                                    devStyle.textClass
+                                  )}
+                                  title="Alterar ícone do item Dev"
+                                >
+                                  <Icon className="h-4 w-4" />
                                 </SelectTrigger>
-                                <SelectContent>
-                                  {categories.map((c) => (
-                                    <SelectItem key={c} value={c} className="text-xs font-medium">
-                                      {c}
-                                    </SelectItem>
-                                  ))}
+                                <SelectContent className="max-h-60">
+                                  {AVAILABLE_MENU_ICONS.map((ico) => {
+                                    const IcoComp = ico.icon;
+                                    return (
+                                      <SelectItem key={ico.name} value={ico.name} className="text-xs">
+                                        <div className="flex items-center gap-2">
+                                          <IcoComp className={cn("h-3.5 w-3.5", devStyle.textClass)} />
+                                          <span>{ico.label}</span>
+                                        </div>
+                                      </SelectItem>
+                                    );
+                                  })}
                                 </SelectContent>
                               </Select>
 
-                              <Separator orientation="vertical" className="h-6" />
+                              {/* Title Input & URL Input */}
+                              <div className="min-w-0 flex-1 space-y-1.5">
+                                <div className="flex items-center gap-2">
+                                  <Input
+                                    value={item.title || ""}
+                                    onChange={(e) => updateItem(item.id, { title: e.target.value })}
+                                    className="h-8 text-xs font-bold bg-background/90 border-border/70 focus:border-primary transition-colors rounded-lg shadow-2xs"
+                                    placeholder="Nome exibido no menu dev..."
+                                  />
+                                </div>
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <div className="flex items-center gap-1.5 text-[0.68rem] text-muted-foreground font-mono bg-secondary/60 border border-border/60 px-1.5 py-0.5 rounded-md truncate max-w-xs">
+                                    <span className={cn("font-bold text-[10px]", devStyle.textClass)}>ROTA:</span>
+                                    <Input
+                                      value={item.url || ""}
+                                      onChange={(e) => updateItem(item.id, { url: e.target.value })}
+                                      className="h-5 text-[0.68rem] font-mono bg-transparent border-0 p-0 focus-visible:ring-0 text-foreground w-40"
+                                      placeholder="/dev/..."
+                                    />
+                                  </div>
+                                  <Badge variant="outline" className="text-[9px] font-mono border-border/60 text-muted-foreground py-0">
+                                    ID: {item.id}
+                                  </Badge>
+                                  {item.isCustom && (
+                                    <Badge variant="outline" className={cn("text-[9px] font-bold py-0", devStyle.badgeClass)}>
+                                      Custom
+                                    </Badge>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Right Group: Category + Visibility + Delete */}
+                            <div className="flex items-center gap-3 shrink-0 self-end md:self-auto pt-2 md:pt-0 border-t md:border-t-0 border-border/30 w-full md:w-auto justify-between md:justify-end">
+                              {/* Category Select */}
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-[10px] text-muted-foreground font-medium hidden lg:inline">Cat:</span>
+                                <Select
+                                  value={item.category}
+                                  onValueChange={(val) => updateItem(item.id, { category: val })}
+                                  className="w-32 shrink-0"
+                                >
+                                  <SelectTrigger className="h-8 w-32 text-xs font-bold border-border/70 bg-secondary/40 rounded-lg shrink-0">
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {categories.map((c) => (
+                                      <SelectItem key={c} value={c} className="text-xs font-medium">
+                                        {c}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              </div>
+
+                              <Separator orientation="vertical" className="h-6 hidden md:block" />
 
                               {/* Visibility Switch */}
-                              <div className="flex items-center gap-1.5 shrink-0">
+                              <div className="flex items-center gap-2 shrink-0 bg-secondary/30 px-2.5 py-1 rounded-lg border border-border/50">
                                 {item.visible ? (
-                                  <Eye className="h-3.5 w-3.5 text-emerald-400" />
+                                  <div className="flex items-center gap-1 text-emerald-400 text-xs font-bold">
+                                    <Eye className="h-3.5 w-3.5 text-emerald-400" />
+                                    <span className="text-[10px]">Visível</span>
+                                  </div>
                                 ) : (
-                                  <EyeOff className="h-3.5 w-3.5 text-muted-foreground" />
+                                  <div className="flex items-center gap-1 text-muted-foreground text-xs font-medium">
+                                    <EyeOff className="h-3.5 w-3.5 text-muted-foreground" />
+                                    <span className="text-[10px]">Oculto</span>
+                                  </div>
                                 )}
                                 <Switch
                                   checked={item.visible}
                                   onCheckedChange={(checked) => updateItem(item.id, { visible: checked })}
-                                  className="data-[state=checked]:bg-emerald-500"
+                                  className="data-[state=checked]:bg-emerald-500 scale-90"
                                 />
                               </div>
+
+                              {/* Delete Item */}
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteItem(item.id)}
+                                className="h-8 w-8 flex items-center justify-center rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 border border-transparent hover:border-destructive/20 transition-colors"
+                                title="Excluir item do menu Dev"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </button>
                             </div>
                           </div>
                         );
@@ -872,7 +984,7 @@ function DevToolsMenuEditor() {
                       </p>
                       <div className="space-y-0.5">
                         {visibleItems.map((item) => {
-                          const Icon = DEV_ICON_MAP[item.url] || Terminal;
+                          const Icon = resolveMenuIcon(item.iconName, item.url);
                           const title = item.title || item.id;
                           return (
                             <div
@@ -898,6 +1010,86 @@ function DevToolsMenuEditor() {
           </Card>
         </div>
       </div>
+
+      {/* Modal para Adicionar Novo Item Dev */}
+      <Dialog open={isAddItemOpen} onOpenChange={setIsAddItemOpen}>
+        <DialogContent className="sm:max-w-[480px]">
+          <DialogHeader>
+            <DialogTitle className={cn("flex items-center gap-2 text-base font-bold", devStyle.textClass)}>
+              <Plus className="h-5 w-5" />
+              Novo Item de Menu Dev
+            </DialogTitle>
+            <DialogDescription className="text-xs text-muted-foreground">
+              Cadastre um novo atalho, página ou módulo na barra lateral de ferramentas do Desenvolvedor.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-3">
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold text-foreground">Título / Nome Exibido</label>
+              <Input
+                value={newItemTitle}
+                onChange={(e) => setNewItemTitle(e.target.value)}
+                placeholder="Ex: Documentação API ou Bot Studio"
+                className="h-9 text-xs"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold text-foreground">Rota / Caminho URL</label>
+              <Input
+                value={newItemUrl}
+                onChange={(e) => setNewItemUrl(e.target.value)}
+                placeholder="Ex: /dev/bot/builder ou /dev/permissoes"
+                className="h-9 text-xs font-mono"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-foreground">Categoria</label>
+                <Select value={newItemCategory} onValueChange={setNewItemCategory}>
+                  <SelectTrigger className="h-9 text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {categories.map((c) => (
+                      <SelectItem key={c} value={c} className="text-xs">{c}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-foreground">Ícone</label>
+                <Select value={newItemIcon} onValueChange={setNewItemIcon}>
+                  <SelectTrigger className="h-9 text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="max-h-56">
+                    {AVAILABLE_MENU_ICONS.map((ico) => {
+                      const Ico = ico.icon;
+                      return (
+                        <SelectItem key={ico.name} value={ico.name} className="text-xs">
+                          <div className="flex items-center gap-2">
+                            <Ico className={cn("h-3.5 w-3.5", devStyle.textClass)} />
+                            <span>{ico.label}</span>
+                          </div>
+                        </SelectItem>
+                      );
+                    })}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </div>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="outline" size="sm" onClick={() => setIsAddItemOpen(false)}>
+              Cancelar
+            </Button>
+            <Button size="sm" onClick={handleAddItem} className={cn("font-bold shadow-sm", devStyle.bgSolidClass)}>
+              <Plus className="h-3.5 w-3.5 mr-1" />
+              Adicionar ao Menu Dev
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -952,29 +1144,7 @@ function CeoMenuLateralEditor() {
   const [items, setItems] = useState<CeoMenuItemConfig[]>(() => {
     try {
       if (config && Array.isArray(config.items) && config.items.length > 0) {
-        const savedMap = new Map<string, CeoMenuItemConfig>();
-        config.items.forEach((item) => {
-          if (item && typeof item === "object") {
-            if (item.id) savedMap.set(item.id, item);
-            if (item.url) savedMap.set(item.url, item);
-          }
-        });
-
-        const merged = DEFAULT_CEO_MENU_ITEMS.map((def, defaultIdx) => {
-          const saved = savedMap.get(def.id) || savedMap.get(def.url);
-          if (!saved) return def;
-          return {
-            id: def.id,
-            title: (saved.title && typeof saved.title === "string" && saved.title.trim().length > 0) ? saved.title.trim() : def.title,
-            url: (saved.url && typeof saved.url === "string" && saved.url.trim().length > 1 && saved.url !== "/") ? saved.url.trim() : def.url,
-            iconName: saved.iconName || def.iconName,
-            visible: typeof saved.visible === "boolean" ? saved.visible : def.visible,
-            category: (saved.category && typeof saved.category === "string" && saved.category.trim().length > 0) ? saved.category.trim() : def.category,
-            order: typeof saved.order === "number" ? saved.order : defaultIdx,
-          };
-        });
-
-        return merged.sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+        return sanitizeCeoConfig(config).items;
       }
     } catch (e) {
       console.error("Error parsing ceo menu config:", e);
@@ -991,31 +1161,67 @@ function CeoMenuLateralEditor() {
       setCategoryIcons(config.categoryIcons);
     }
     if (config?.items && Array.isArray(config.items) && config.items.length > 0) {
-      const savedMap = new Map<string, CeoMenuItemConfig>();
-      config.items.forEach((item) => {
-        if (item && typeof item === "object") {
-          if (item.id) savedMap.set(item.id, item);
-          if (item.url) savedMap.set(item.url, item);
-        }
-      });
-
-      const merged = DEFAULT_CEO_MENU_ITEMS.map((def, defaultIdx) => {
-        const saved = savedMap.get(def.id) || savedMap.get(def.url);
-        if (!saved) return def;
-        return {
-          id: def.id,
-          title: (saved.title && typeof saved.title === "string" && saved.title.trim().length > 0) ? saved.title.trim() : def.title,
-          url: (saved.url && typeof saved.url === "string" && saved.url.trim().length > 1 && saved.url !== "/") ? saved.url.trim() : def.url,
-          iconName: saved.iconName || def.iconName,
-          visible: typeof saved.visible === "boolean" ? saved.visible : def.visible,
-          category: (saved.category && typeof saved.category === "string" && saved.category.trim().length > 0) ? saved.category.trim() : def.category,
-          order: typeof saved.order === "number" ? saved.order : defaultIdx,
-        };
-      });
-
-      setItems(merged.sort((a, b) => (a.order ?? 0) - (b.order ?? 0)));
+      setItems(sanitizeCeoConfig(config).items);
     }
   }, [config]);
+
+  // Add Item Dialog State
+  const [isAddItemOpen, setIsAddItemOpen] = useState(false);
+  const [newItemTitle, setNewItemTitle] = useState("");
+  const [newItemUrl, setNewItemUrl] = useState("");
+  const [newItemCategory, setNewItemCategory] = useState("CEO");
+  const [newItemIcon, setNewItemIcon] = useState("Crown");
+
+  const handleAddItem = () => {
+    const title = newItemTitle.trim();
+    let url = newItemUrl.trim();
+    if (!title) {
+      toast.error("Informe o título do menu CEO!");
+      return;
+    }
+    if (!url) {
+      toast.error("Informe a rota ou URL do menu!");
+      return;
+    }
+    if (!url.startsWith("/") && !url.startsWith("http")) {
+      url = "/" + url;
+    }
+
+    const newItem: CeoMenuItemConfig = {
+      id: `ceo-custom-${Date.now()}`,
+      title,
+      url,
+      iconName: newItemIcon,
+      visible: true,
+      category: newItemCategory || categories[0] || "CEO",
+      order: items.length,
+      isCustom: true,
+    };
+
+    const nextItems = [...items, newItem];
+    persist(categories, nextItems);
+    setNewItemTitle("");
+    setNewItemUrl("");
+    setIsAddItemOpen(false);
+    toast.success(`Item executivo "${title}" adicionado ao menu CEO! 👑`);
+  };
+
+  const handleDeleteItem = (id: string) => {
+    const item = items.find((i) => i.id === id);
+    if (!item) return;
+
+    if (item.isCustom) {
+      const nextItems = items.filter((i) => i.id !== id);
+      persist(categories, nextItems);
+      toast.success(`Item personalizado "${item.title}" removido! 👑`);
+    } else {
+      if (confirm(`Deseja realmente remover "${item.title}" do menu CEO? Você poderá restaurar os padrões a qualquer momento.`)) {
+        const nextItems = items.filter((i) => i.id !== id);
+        persist(categories, nextItems);
+        toast.success(`Item "${item.title}" removido do menu CEO. 👑`);
+      }
+    }
+  };
 
   // Drag and Drop state for items
   const [draggedItemId, setDraggedItemId] = useState<string | null>(null);
@@ -1284,7 +1490,7 @@ function CeoMenuLateralEditor() {
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <Button
             variant="outline"
             size="sm"
@@ -1293,6 +1499,18 @@ function CeoMenuLateralEditor() {
           >
             <RotateCcw className="h-3.5 w-3.5 text-muted-foreground" />
             Restaurar Padrão CEO
+          </Button>
+
+          <Button
+            size="sm"
+            onClick={() => {
+              setNewItemCategory(categories[0] || "CEO");
+              setIsAddItemOpen(true);
+            }}
+            className={cn("h-9 text-xs gap-1.5 font-bold border", ceoStyle.borderClass, ceoStyle.bgSubtleClass, ceoStyle.textClass)}
+          >
+            <Plus className="h-3.5 w-3.5" />
+            Novo Item CEO
           </Button>
 
           <Button
@@ -1638,18 +1856,28 @@ function CeoMenuLateralEditor() {
                                   />
                                 </div>
                                 <div className="flex items-center gap-2 flex-wrap">
-                                  <div className="flex items-center gap-1.5 text-[0.68rem] text-muted-foreground font-mono bg-secondary/60 border border-border/60 px-2 py-0.5 rounded-md truncate max-w-xs">
-                                    <span className={cn("font-bold", ceoStyle.textClass)}>ROTA:</span>
-                                    <span className="text-foreground font-semibold">{item.url}</span>
+                                  <div className="flex items-center gap-1.5 text-[0.68rem] text-muted-foreground font-mono bg-secondary/60 border border-border/60 px-1.5 py-0.5 rounded-md truncate max-w-xs">
+                                    <span className={cn("font-bold text-[10px]", ceoStyle.textClass)}>ROTA:</span>
+                                    <Input
+                                      value={item.url || ""}
+                                      onChange={(e) => updateItem(item.id, { url: e.target.value })}
+                                      className="h-5 text-[0.68rem] font-mono bg-transparent border-0 p-0 focus-visible:ring-0 text-foreground w-40"
+                                      placeholder="/ceo/..."
+                                    />
                                   </div>
                                   <Badge variant="outline" className="text-[9px] font-mono border-border/60 text-muted-foreground py-0">
                                     ID: {item.id}
                                   </Badge>
+                                  {item.isCustom && (
+                                    <Badge variant="outline" className={cn("text-[9px] font-bold py-0", ceoStyle.badgeClass)}>
+                                      Custom
+                                    </Badge>
+                                  )}
                                 </div>
                               </div>
                             </div>
 
-                            {/* Right Group: Category + Visibility */}
+                            {/* Right Group: Category + Visibility + Delete */}
                             <div className="flex items-center gap-3 shrink-0 self-end md:self-auto pt-2 md:pt-0 border-t md:border-t-0 border-border/30 w-full md:w-auto justify-between md:justify-end">
                               {/* Category Select */}
                               <div className="flex items-center gap-1.5">
@@ -1693,6 +1921,16 @@ function CeoMenuLateralEditor() {
                                   className="data-[state=checked]:bg-emerald-500 scale-90"
                                 />
                               </div>
+
+                              {/* Delete Item */}
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteItem(item.id)}
+                                className="h-8 w-8 flex items-center justify-center rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 border border-transparent hover:border-destructive/20 transition-colors"
+                                title="Excluir item do menu CEO"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </button>
                             </div>
                           </div>
                         );
@@ -1767,6 +2005,86 @@ function CeoMenuLateralEditor() {
           </Card>
         </div>
       </div>
+
+      {/* Modal para Adicionar Novo Item CEO */}
+      <Dialog open={isAddItemOpen} onOpenChange={setIsAddItemOpen}>
+        <DialogContent className="sm:max-w-[480px]">
+          <DialogHeader>
+            <DialogTitle className={cn("flex items-center gap-2 text-base font-bold", ceoStyle.textClass)}>
+              <Plus className="h-5 w-5" />
+              Novo Item de Menu CEO
+            </DialogTitle>
+            <DialogDescription className="text-xs text-muted-foreground">
+              Cadastre um novo atalho, página ou módulo na barra lateral da Diretoria Executiva.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-3">
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold text-foreground">Título / Nome Exibido</label>
+              <Input
+                value={newItemTitle}
+                onChange={(e) => setNewItemTitle(e.target.value)}
+                placeholder="Ex: Auditoria Geral ou Relatórios"
+                className="h-9 text-xs"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold text-foreground">Rota / Caminho URL</label>
+              <Input
+                value={newItemUrl}
+                onChange={(e) => setNewItemUrl(e.target.value)}
+                placeholder="Ex: /ceo/relatorios ou /ceo/auditoria"
+                className="h-9 text-xs font-mono"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-foreground">Categoria</label>
+                <Select value={newItemCategory} onValueChange={setNewItemCategory}>
+                  <SelectTrigger className="h-9 text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {categories.map((c) => (
+                      <SelectItem key={c} value={c} className="text-xs">{c}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-foreground">Ícone</label>
+                <Select value={newItemIcon} onValueChange={setNewItemIcon}>
+                  <SelectTrigger className="h-9 text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="max-h-56">
+                    {AVAILABLE_MENU_ICONS.map((ico) => {
+                      const Ico = ico.icon;
+                      return (
+                        <SelectItem key={ico.name} value={ico.name} className="text-xs">
+                          <div className="flex items-center gap-2">
+                            <Ico className={cn("h-3.5 w-3.5", ceoStyle.textClass)} />
+                            <span>{ico.label}</span>
+                          </div>
+                        </SelectItem>
+                      );
+                    })}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </div>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="outline" size="sm" onClick={() => setIsAddItemOpen(false)}>
+              Cancelar
+            </Button>
+            <Button size="sm" onClick={handleAddItem} className={cn("font-bold shadow-sm", ceoStyle.bgSolidClass)}>
+              <Plus className="h-3.5 w-3.5 mr-1" />
+              Adicionar ao Menu CEO
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -1776,7 +2094,11 @@ function CeoMenuLateralEditor() {
    ========================================================================================= */
 
 function DevMenuLateralContent() {
-  const [activeTab, setActiveTab] = useState<"dev" | "ceo">("dev");
+  const [activeTab, setActiveTab] = useUrlTab<"dev" | "ceo">("dev", {
+    allowedTabs: ["dev", "ceo"] as const,
+    usePath: false,
+    paramName: "tab",
+  });
 
   const [devTheme, setDevTheme] = useState<PanelColor>(() => getDevThemeColorSync());
   const [ceoTheme, setCeoTheme] = useState<PanelColor>(() => getCeoThemeColorSync());

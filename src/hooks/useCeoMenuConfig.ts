@@ -9,6 +9,7 @@ export type CeoMenuItemConfig = {
   visible: boolean;
   category: string;
   order: number;
+  isCustom?: boolean;
 };
 
 export type CeoMenuConfig = {
@@ -52,7 +53,7 @@ export function sanitizeCeoConfig(parsed: any): CeoMenuConfig {
       ? parsed.categories
       : [...DEFAULT_CEO_CATEGORIES];
 
-  const defaultMap = new Map(DEFAULT_CEO_MENU_ITEMS.map((d) => [d.id, d]));
+  const defaultIds = new Set(DEFAULT_CEO_MENU_ITEMS.map((d) => d.id));
 
   const rawItems = Array.isArray(parsed?.items) ? parsed.items : [];
   const savedMap = new Map<string, CeoMenuItemConfig>();
@@ -85,6 +86,20 @@ export function sanitizeCeoConfig(parsed: any): CeoMenuConfig {
     };
   });
 
+  // Preserva itens customizados adicionados pelo usuário
+  const customItems: CeoMenuItemConfig[] = rawItems
+    .filter((i: any) => i && typeof i === "object" && i.id && !defaultIds.has(i.id))
+    .map((i: any, idx: number) => ({
+      id: i.id,
+      title: i.title && typeof i.title === "string" ? i.title.trim() : "Novo Item",
+      url: i.url && typeof i.url === "string" ? i.url.trim() : "/ceo",
+      iconName: i.iconName || "Crown",
+      visible: typeof i.visible === "boolean" ? i.visible : true,
+      category: i.category || categories[0] || "CEO",
+      order: typeof i.order === "number" ? i.order : 50 + idx,
+      isCustom: true,
+    }));
+
   const categoryIcons =
     parsed?.categoryIcons && typeof parsed.categoryIcons === "object"
       ? parsed.categoryIcons
@@ -93,7 +108,7 @@ export function sanitizeCeoConfig(parsed: any): CeoMenuConfig {
   return {
     categories,
     categoryIcons,
-    items: merged.sort((a, b) => (a.order ?? 0) - (b.order ?? 0)),
+    items: [...merged, ...customItems].sort((a, b) => (a.order ?? 0) - (b.order ?? 0)),
   };
 }
 

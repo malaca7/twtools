@@ -355,16 +355,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const isDevMode = Boolean(
     isDevUser &&
-      (panelMode === "dev" ||
-        (typeof window !== "undefined" &&
-          (window.location.pathname.startsWith("/dev") || window.location.hash.includes("/dev"))))
+      (typeof window !== "undefined"
+        ? (window.location.pathname.startsWith("/dev") || window.location.hash.includes("/dev"))
+        : panelMode === "dev")
   );
 
   const isCeoMode = Boolean(
     (isCeoUser || isDevUser) &&
-      (panelMode === "ceo" ||
-        (typeof window !== "undefined" &&
-          (window.location.pathname.startsWith("/ceo") || window.location.hash.includes("/ceo"))))
+      (typeof window !== "undefined"
+        ? (window.location.pathname.startsWith("/ceo") || window.location.hash.includes("/ceo"))
+        : panelMode === "ceo")
   );
 
   const setPanelMode = useCallback((mode: "member" | "dev" | "ceo") => {

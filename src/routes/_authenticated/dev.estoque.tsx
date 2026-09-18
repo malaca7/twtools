@@ -67,6 +67,7 @@ import {
   adjustStockDev,
   updateDiscordStockConfig,
 } from "@/lib/app-api";
+import { useUrlTab } from "@/hooks/useUrlTab";
 import type { DiscordStockLog, DiscordStockConfig } from "@/lib/app-types";
 import { cn } from "@/lib/utils";
 
@@ -74,64 +75,84 @@ export const Route = createFileRoute("/_authenticated/dev/estoque")({
   component: DevEstoquePage,
 });
 
-function DevEstoquePage() {
+export type DevEstoqueTabType = "discord" | "logs" | "ajustes";
+export const VALID_DEV_ESTOQUE_TABS = ["discord", "logs", "ajustes"] as const;
+
+export function DevEstoquePageContent({ initialTab }: { initialTab?: string } = {}) {
   const { hasPermission } = useAuth();
   const { data: baus = [] } = useBaus();
   const { data: config } = useDiscordStockConfig();
+
+  const defaultInitialTab: DevEstoqueTabType =
+    initialTab && (VALID_DEV_ESTOQUE_TABS as readonly string[]).includes(initialTab)
+      ? (initialTab as DevEstoqueTabType)
+      : "discord";
+
+  const [activeTab, setActiveTab] = useUrlTab<DevEstoqueTabType>(defaultInitialTab, {
+    allowedTabs: VALID_DEV_ESTOQUE_TABS,
+    usePath: true,
+    paramName: "tab",
+  });
 
   const autoBausCount = baus.filter((b) => b.ativo && b.tipo_gestao !== "manual").length;
   const manualBausCount = baus.filter((b) => b.ativo && b.tipo_gestao === "manual").length;
 
   return (
-    <DeveloperGuard>
-      <div className="space-y-6 pb-12">
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-          <PageHeader
-            title="Ajustes de Estoque & Integração Discord"
-            description="Controle avançado de sincronização automática de baús via logs do Discord e terminal exclusivo de ajustes manuais auditados."
-          />
+    <div className="space-y-6 pb-12 animate-in fade-in-50 duration-300">
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <PageHeader
+          title="Gestão Técnica de Estoque & Integração Discord"
+          description="Controle avançado de sincronização automática de baús via logs do Discord, regras e terminal de ajustes manuais auditados."
+        />
 
-          <div className="flex flex-wrap items-center gap-2">
-            <Badge variant="outline" className="bg-emerald-500/10 text-emerald-400 border-emerald-500/30 gap-1.5 py-1 px-3">
-              <Bot className="w-3.5 h-3.5" />
-              {config?.is_active ? "Bot Discord Ativo" : "Bot em Pausa"}
-            </Badge>
-            <Badge variant="outline" className="bg-cyan-500/10 text-cyan-400 border-cyan-500/30 gap-1.5 py-1 px-3">
-              <Boxes className="w-3.5 h-3.5" />
-              {autoBausCount} Baús Auto • {manualBausCount} Manual
-            </Badge>
-          </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <Badge variant="outline" className="bg-emerald-500/10 text-emerald-400 border-emerald-500/30 gap-1.5 py-1 px-3">
+            <Bot className="w-3.5 h-3.5" />
+            {config?.is_active ? "Bot Discord Ativo" : "Bot em Pausa"}
+          </Badge>
+          <Badge variant="outline" className="bg-cyan-500/10 text-cyan-400 border-cyan-500/30 gap-1.5 py-1 px-3">
+            <Boxes className="w-3.5 h-3.5" />
+            {autoBausCount} Baús Auto • {manualBausCount} Manual
+          </Badge>
         </div>
-
-        <Tabs defaultValue="ajustes" className="space-y-6">
-          <TabsList className="bg-secondary/60 p-1 border border-border/60">
-            <TabsTrigger value="ajustes" className="gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
-              <Sliders className="w-4 h-4" />
-              Ajustes de Estoque
-            </TabsTrigger>
-            <TabsTrigger value="discord" className="gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
-              <Bot className="w-4 h-4" />
-              Integração Discord & Regras
-            </TabsTrigger>
-            <TabsTrigger value="logs" className="gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
-              <History className="w-4 h-4" />
-              Logs Técnicas & Auditoria
-            </TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="ajustes" className="space-y-6">
-            <StockAdjustmentsTab />
-          </TabsContent>
-
-          <TabsContent value="discord" className="space-y-6">
-            <DiscordIntegrationTab />
-          </TabsContent>
-
-          <TabsContent value="logs" className="space-y-6">
-            <DiscordLogsTab />
-          </TabsContent>
-        </Tabs>
       </div>
+
+      <Tabs value={activeTab} onValueChange={(val: any) => setActiveTab(val)} className="space-y-6">
+        <TabsList className="bg-secondary/60 p-1 border border-border/60">
+          <TabsTrigger value="discord" className="gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+            <Bot className="w-4 h-4" />
+            Integração Discord & Regras
+          </TabsTrigger>
+          <TabsTrigger value="logs" className="gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+            <History className="w-4 h-4" />
+            Logs Técnicas & Auditoria
+          </TabsTrigger>
+          <TabsTrigger value="ajustes" className="gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+            <Sliders className="w-4 h-4" />
+            Ajustes de Estoque
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="discord" className="space-y-6">
+          <DiscordIntegrationTab />
+        </TabsContent>
+
+        <TabsContent value="logs" className="space-y-6">
+          <DiscordLogsTab />
+        </TabsContent>
+
+        <TabsContent value="ajustes" className="space-y-6">
+          <StockAdjustmentsTab />
+        </TabsContent>
+      </Tabs>
+    </div>
+  );
+}
+
+function DevEstoquePage() {
+  return (
+    <DeveloperGuard>
+      <DevEstoquePageContent />
     </DeveloperGuard>
   );
 }

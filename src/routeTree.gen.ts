@@ -67,7 +67,9 @@ import { Route as AuthenticatedTicketsTabRouteImport } from './routes/_authentic
 import { Route as DevmlcDiscordidDiscordIdRouteImport } from './routes/devmlc.discordid.$discordId'
 import { Route as AuthenticatedCeoTabSubtabRouteImport } from './routes/_authenticated/ceo.$tab.$subtab'
 import { Route as AuthenticatedDevPageTabRouteImport } from './routes/_authenticated/dev.$page.$tab'
+import { Route as AuthenticatedDevBotTabRouteImport } from './routes/_authenticated/dev.bot.$tab'
 import { Route as AuthenticatedDevConfiguracaoTabRouteImport } from './routes/_authenticated/dev.configuracao.$tab'
+import { Route as AuthenticatedDevEstoqueTabRouteImport } from './routes/_authenticated/dev.estoque.$tab'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -379,11 +381,22 @@ const AuthenticatedDevPageTabRoute = AuthenticatedDevPageTabRouteImport.update({
   path: '/$tab',
   getParentRoute: () => AuthenticatedDevPageRoute,
 } as any)
+const AuthenticatedDevBotTabRoute = AuthenticatedDevBotTabRouteImport.update({
+  id: '/$tab',
+  path: '/$tab',
+  getParentRoute: () => AuthenticatedDevBotRoute,
+} as any)
 const AuthenticatedDevConfiguracaoTabRoute =
   AuthenticatedDevConfiguracaoTabRouteImport.update({
     id: '/$tab',
     path: '/$tab',
     getParentRoute: () => AuthenticatedDevConfiguracaoRoute,
+  } as any)
+const AuthenticatedDevEstoqueTabRoute =
+  AuthenticatedDevEstoqueTabRouteImport.update({
+    id: '/$tab',
+    path: '/$tab',
+    getParentRoute: () => AuthenticatedDevEstoqueRoute,
   } as any)
 
 export interface FileRoutesByFullPath {
@@ -423,10 +436,10 @@ export interface FileRoutesByFullPath {
   '/ceo/notificacoes': typeof AuthenticatedCeoNotificacoesRoute
   '/configuracoes/$tab': typeof AuthenticatedConfiguracoesTabRoute
   '/dev/$page': typeof AuthenticatedDevPageRouteWithChildren
-  '/dev/bot': typeof AuthenticatedDevBotRoute
+  '/dev/bot': typeof AuthenticatedDevBotRouteWithChildren
   '/dev/configuracao': typeof AuthenticatedDevConfiguracaoRouteWithChildren
   '/dev/desempenho': typeof AuthenticatedDevDesempenhoRoute
-  '/dev/estoque': typeof AuthenticatedDevEstoqueRoute
+  '/dev/estoque': typeof AuthenticatedDevEstoqueRouteWithChildren
   '/dev/menu-lateral': typeof AuthenticatedDevMenuLateralRoute
   '/dev/notificacoes': typeof AuthenticatedDevNotificacoesRoute
   '/dev/patch-notes': typeof AuthenticatedDevPatchNotesRoute
@@ -444,7 +457,9 @@ export interface FileRoutesByFullPath {
   '/dev/': typeof AuthenticatedDevIndexRoute
   '/ceo/$tab/$subtab': typeof AuthenticatedCeoTabSubtabRoute
   '/dev/$page/$tab': typeof AuthenticatedDevPageTabRoute
+  '/dev/bot/$tab': typeof AuthenticatedDevBotTabRoute
   '/dev/configuracao/$tab': typeof AuthenticatedDevConfiguracaoTabRoute
+  '/dev/estoque/$tab': typeof AuthenticatedDevEstoqueTabRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -483,10 +498,10 @@ export interface FileRoutesByTo {
   '/ceo/notificacoes': typeof AuthenticatedCeoNotificacoesRoute
   '/configuracoes/$tab': typeof AuthenticatedConfiguracoesTabRoute
   '/dev/$page': typeof AuthenticatedDevPageRouteWithChildren
-  '/dev/bot': typeof AuthenticatedDevBotRoute
+  '/dev/bot': typeof AuthenticatedDevBotRouteWithChildren
   '/dev/configuracao': typeof AuthenticatedDevConfiguracaoRouteWithChildren
   '/dev/desempenho': typeof AuthenticatedDevDesempenhoRoute
-  '/dev/estoque': typeof AuthenticatedDevEstoqueRoute
+  '/dev/estoque': typeof AuthenticatedDevEstoqueRouteWithChildren
   '/dev/menu-lateral': typeof AuthenticatedDevMenuLateralRoute
   '/dev/notificacoes': typeof AuthenticatedDevNotificacoesRoute
   '/dev/patch-notes': typeof AuthenticatedDevPatchNotesRoute
@@ -504,7 +519,9 @@ export interface FileRoutesByTo {
   '/dev': typeof AuthenticatedDevIndexRoute
   '/ceo/$tab/$subtab': typeof AuthenticatedCeoTabSubtabRoute
   '/dev/$page/$tab': typeof AuthenticatedDevPageTabRoute
+  '/dev/bot/$tab': typeof AuthenticatedDevBotTabRoute
   '/dev/configuracao/$tab': typeof AuthenticatedDevConfiguracaoTabRoute
+  '/dev/estoque/$tab': typeof AuthenticatedDevEstoqueTabRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -545,10 +562,10 @@ export interface FileRoutesById {
   '/_authenticated/ceo/notificacoes': typeof AuthenticatedCeoNotificacoesRoute
   '/_authenticated/configuracoes/$tab': typeof AuthenticatedConfiguracoesTabRoute
   '/_authenticated/dev/$page': typeof AuthenticatedDevPageRouteWithChildren
-  '/_authenticated/dev/bot': typeof AuthenticatedDevBotRoute
+  '/_authenticated/dev/bot': typeof AuthenticatedDevBotRouteWithChildren
   '/_authenticated/dev/configuracao': typeof AuthenticatedDevConfiguracaoRouteWithChildren
   '/_authenticated/dev/desempenho': typeof AuthenticatedDevDesempenhoRoute
-  '/_authenticated/dev/estoque': typeof AuthenticatedDevEstoqueRoute
+  '/_authenticated/dev/estoque': typeof AuthenticatedDevEstoqueRouteWithChildren
   '/_authenticated/dev/menu-lateral': typeof AuthenticatedDevMenuLateralRoute
   '/_authenticated/dev/notificacoes': typeof AuthenticatedDevNotificacoesRoute
   '/_authenticated/dev/patch-notes': typeof AuthenticatedDevPatchNotesRoute
@@ -566,7 +583,9 @@ export interface FileRoutesById {
   '/_authenticated/dev/': typeof AuthenticatedDevIndexRoute
   '/_authenticated/ceo/$tab/$subtab': typeof AuthenticatedCeoTabSubtabRoute
   '/_authenticated/dev/$page/$tab': typeof AuthenticatedDevPageTabRoute
+  '/_authenticated/dev/bot/$tab': typeof AuthenticatedDevBotTabRoute
   '/_authenticated/dev/configuracao/$tab': typeof AuthenticatedDevConfiguracaoTabRoute
+  '/_authenticated/dev/estoque/$tab': typeof AuthenticatedDevEstoqueTabRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -628,7 +647,9 @@ export interface FileRouteTypes {
     | '/dev/'
     | '/ceo/$tab/$subtab'
     | '/dev/$page/$tab'
+    | '/dev/bot/$tab'
     | '/dev/configuracao/$tab'
+    | '/dev/estoque/$tab'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -688,7 +709,9 @@ export interface FileRouteTypes {
     | '/dev'
     | '/ceo/$tab/$subtab'
     | '/dev/$page/$tab'
+    | '/dev/bot/$tab'
     | '/dev/configuracao/$tab'
+    | '/dev/estoque/$tab'
   id:
     | '__root__'
     | '/'
@@ -749,7 +772,9 @@ export interface FileRouteTypes {
     | '/_authenticated/dev/'
     | '/_authenticated/ceo/$tab/$subtab'
     | '/_authenticated/dev/$page/$tab'
+    | '/_authenticated/dev/bot/$tab'
     | '/_authenticated/dev/configuracao/$tab'
+    | '/_authenticated/dev/estoque/$tab'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -1170,12 +1195,26 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedDevPageTabRouteImport
       parentRoute: typeof AuthenticatedDevPageRoute
     }
+    '/_authenticated/dev/bot/$tab': {
+      id: '/_authenticated/dev/bot/$tab'
+      path: '/$tab'
+      fullPath: '/dev/bot/$tab'
+      preLoaderRoute: typeof AuthenticatedDevBotTabRouteImport
+      parentRoute: typeof AuthenticatedDevBotRoute
+    }
     '/_authenticated/dev/configuracao/$tab': {
       id: '/_authenticated/dev/configuracao/$tab'
       path: '/$tab'
       fullPath: '/dev/configuracao/$tab'
       preLoaderRoute: typeof AuthenticatedDevConfiguracaoTabRouteImport
       parentRoute: typeof AuthenticatedDevConfiguracaoRoute
+    }
+    '/_authenticated/dev/estoque/$tab': {
+      id: '/_authenticated/dev/estoque/$tab'
+      path: '/$tab'
+      fullPath: '/dev/estoque/$tab'
+      preLoaderRoute: typeof AuthenticatedDevEstoqueTabRouteImport
+      parentRoute: typeof AuthenticatedDevEstoqueRoute
     }
   }
 }
@@ -1332,6 +1371,17 @@ const AuthenticatedDevPageRouteChildren: AuthenticatedDevPageRouteChildren = {
 const AuthenticatedDevPageRouteWithChildren =
   AuthenticatedDevPageRoute._addFileChildren(AuthenticatedDevPageRouteChildren)
 
+interface AuthenticatedDevBotRouteChildren {
+  AuthenticatedDevBotTabRoute: typeof AuthenticatedDevBotTabRoute
+}
+
+const AuthenticatedDevBotRouteChildren: AuthenticatedDevBotRouteChildren = {
+  AuthenticatedDevBotTabRoute: AuthenticatedDevBotTabRoute,
+}
+
+const AuthenticatedDevBotRouteWithChildren =
+  AuthenticatedDevBotRoute._addFileChildren(AuthenticatedDevBotRouteChildren)
+
 interface AuthenticatedDevConfiguracaoRouteChildren {
   AuthenticatedDevConfiguracaoTabRoute: typeof AuthenticatedDevConfiguracaoTabRoute
 }
@@ -1344,6 +1394,20 @@ const AuthenticatedDevConfiguracaoRouteChildren: AuthenticatedDevConfiguracaoRou
 const AuthenticatedDevConfiguracaoRouteWithChildren =
   AuthenticatedDevConfiguracaoRoute._addFileChildren(
     AuthenticatedDevConfiguracaoRouteChildren,
+  )
+
+interface AuthenticatedDevEstoqueRouteChildren {
+  AuthenticatedDevEstoqueTabRoute: typeof AuthenticatedDevEstoqueTabRoute
+}
+
+const AuthenticatedDevEstoqueRouteChildren: AuthenticatedDevEstoqueRouteChildren =
+  {
+    AuthenticatedDevEstoqueTabRoute: AuthenticatedDevEstoqueTabRoute,
+  }
+
+const AuthenticatedDevEstoqueRouteWithChildren =
+  AuthenticatedDevEstoqueRoute._addFileChildren(
+    AuthenticatedDevEstoqueRouteChildren,
   )
 
 interface AuthenticatedRouteRouteChildren {
@@ -1374,10 +1438,10 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedTicketsRoute: typeof AuthenticatedTicketsRouteWithChildren
   AuthenticatedVendasRoute: typeof AuthenticatedVendasRoute
   AuthenticatedDevPageRoute: typeof AuthenticatedDevPageRouteWithChildren
-  AuthenticatedDevBotRoute: typeof AuthenticatedDevBotRoute
+  AuthenticatedDevBotRoute: typeof AuthenticatedDevBotRouteWithChildren
   AuthenticatedDevConfiguracaoRoute: typeof AuthenticatedDevConfiguracaoRouteWithChildren
   AuthenticatedDevDesempenhoRoute: typeof AuthenticatedDevDesempenhoRoute
-  AuthenticatedDevEstoqueRoute: typeof AuthenticatedDevEstoqueRoute
+  AuthenticatedDevEstoqueRoute: typeof AuthenticatedDevEstoqueRouteWithChildren
   AuthenticatedDevMenuLateralRoute: typeof AuthenticatedDevMenuLateralRoute
   AuthenticatedDevNotificacoesRoute: typeof AuthenticatedDevNotificacoesRoute
   AuthenticatedDevPatchNotesRoute: typeof AuthenticatedDevPatchNotesRoute
@@ -1413,11 +1477,11 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedTicketsRoute: AuthenticatedTicketsRouteWithChildren,
   AuthenticatedVendasRoute: AuthenticatedVendasRoute,
   AuthenticatedDevPageRoute: AuthenticatedDevPageRouteWithChildren,
-  AuthenticatedDevBotRoute: AuthenticatedDevBotRoute,
+  AuthenticatedDevBotRoute: AuthenticatedDevBotRouteWithChildren,
   AuthenticatedDevConfiguracaoRoute:
     AuthenticatedDevConfiguracaoRouteWithChildren,
   AuthenticatedDevDesempenhoRoute: AuthenticatedDevDesempenhoRoute,
-  AuthenticatedDevEstoqueRoute: AuthenticatedDevEstoqueRoute,
+  AuthenticatedDevEstoqueRoute: AuthenticatedDevEstoqueRouteWithChildren,
   AuthenticatedDevMenuLateralRoute: AuthenticatedDevMenuLateralRoute,
   AuthenticatedDevNotificacoesRoute: AuthenticatedDevNotificacoesRoute,
   AuthenticatedDevPatchNotesRoute: AuthenticatedDevPatchNotesRoute,
