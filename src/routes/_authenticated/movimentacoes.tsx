@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { createFileRoute, Outlet, useChildMatches, Link } from "@tanstack/react-router";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -23,12 +23,28 @@ import {
   Wrench,
   ChevronLeft,
   ChevronRight,
+  Eye,
+  PackageSearch,
+  Layers,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import {
   Select,
   SelectContent,
@@ -137,6 +153,13 @@ export function MovimentacoesPage() {
   const toBau = baus.find((b) => b.id === toBauId);
   const isTransferAuto = type === "transferencia" && ((fromBau && fromBau.tipo_gestao !== "manual") || (toBau && toBau.tipo_gestao !== "manual"));
   const isCurrentActionBlocked = (type !== "transferencia" && isSelectedBauAuto) || isTransferAuto;
+
+  // Estados para Modal de Saldo / Inventário do Baú e Ações Rápidas
+  const [balanceModalOpen, setBalanceModalOpen] = useState(false);
+  const [balanceBauId, setBalanceBauId] = useState<string | null>(null);
+  const [balanceSearch, setBalanceSearch] = useState("");
+  const [balanceFilter, setBalanceFilter] = useState<"positive" | "all" | "zero">("positive");
+  const movementSectionRef = useRef<HTMLDivElement>(null);
 
   // Set de IDs das movimentações que já foram estornadas
   const reversedIds = useMemo(() => {
@@ -523,6 +546,82 @@ export function MovimentacoesPage() {
     safeLogPage * logsPerPage
   );
 
+  // Estatísticas agregadas de inventário por baú
+  const bausStats = useMemo(() => {
+    const stats: Record<string, { itemsCount: number; totalUnits: number }> = {};
+    for (const b of baus) {
+      let itemsCount = 0;
+      let totalUnits = 0;
+      for (const p of products) {
+        if (p.ativo === false) continue;
+        const stock = getProductStockInChest(p.id, b.id);
+        if (stock > 0) {
+          itemsCount += 1;
+          totalUnits += stock;
+        }
+      }
+      stats[b.id] = { itemsCount, totalUnits };
+    }
+    return stats;
+  }, [baus, products, productBaus, movements]);
+
+  // Abertura do modal de visualização de saldo do baú
+  const handleOpenBalance = (targetBauId: string) => {
+    setBalanceBauId(targetBauId);
+    setBalanceSearch("");
+    setBalanceFilter("positive");
+    setBalanceModalOpen(true);
+  };
+
+  // Disparo de movimentação a partir do card do baú (Apenas para baús manuais)
+  const handleStartMovementOnBau = (targetBauId: string) => {
+    setSelectedBauId(targetBauId);
+    setFromBauId(targetBauId);
+    if (type === "transferencia" && toBauId === targetBauId) {
+      const other = baus.find((b) => b.id !== targetBauId);
+      if (other) setToBauId(other.id);
+    }
+    setQueue([]);
+    const targetBauObj = baus.find((b) => b.id === targetBauId);
+    toast.info(`Baú "${targetBauObj?.nome || "Selecionado"}" pronto para movimentação.`);
+    movementSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+
+  // Dados do baú ativo no modal de saldo
+  const activeBalanceBau = baus.find((b) => b.id === balanceBauId);
+  const activeBalanceInventory = useMemo(() => {
+    if (!balanceBauId) return [];
+    return products
+      .filter((p) => p.ativo !== false)
+      .map((p) => {
+        const stock = getProductStockInChest(p.id, balanceBauId);
+        const cat = categories.find((c) => c.id === p.categoria_id);
+        return {
+          product: p,
+          stock,
+          categoryName: cat?.nome || "Geral",
+        };
+      })
+      .sort((a, b) => {
+        if (b.stock !== a.stock) return b.stock - a.stock;
+        return a.product.nome.localeCompare(b.product.nome);
+      });
+  }, [balanceBauId, products, productBaus, movements, categories, baus]);
+
+  const filteredBalanceItems = useMemo(() => {
+    return activeBalanceInventory.filter((item) => {
+      if (balanceFilter === "positive" && item.stock <= 0) return false;
+      if (balanceFilter === "zero" && item.stock > 0) return false;
+      if (balanceSearch.trim()) {
+        const q = balanceSearch.toLowerCase().trim();
+        const matchName = item.product.nome.toLowerCase().includes(q);
+        const matchCat = item.categoryName.toLowerCase().includes(q);
+        return matchName || matchCat;
+      }
+      return true;
+    });
+  }, [activeBalanceInventory, balanceFilter, balanceSearch]);
+
   return (
     <div className="mx-auto max-w-6xl space-y-6">
       <PageHeader
@@ -530,9 +629,157 @@ export function MovimentacoesPage() {
         description="Lançamentos operacionais de entrada, saída e transferência direta entre baús com botões de ação rápida."
       />
 
+      {/* SEÇÃO 1: CARDS COM TODOS OS BAÚS NO TOPO */}
+      <div className="space-y-3">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <Boxes className="h-5 w-5 text-primary" />
+            <h2 className="text-base sm:text-lg font-bold text-foreground">
+              Baús da Facção
+            </h2>
+            <Badge variant="outline" className="text-[10px] font-bold">
+              {baus.length} {baus.length === 1 ? "baú" : "baús"}
+            </Badge>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Ações rápidas: <Eye className="w-3.5 h-3.5 inline mx-0.5 text-primary" /> Ver Saldo ou <ArrowRightLeft className="w-3.5 h-3.5 inline mx-0.5 text-emerald-400" /> Movimentar (baús manuais).
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
+          {baus.map((b) => {
+            const isManual = b.tipo_gestao === "manual";
+            const stat = bausStats[b.id] || { itemsCount: 0, totalUnits: 0 };
+            const isCurrentlySelected = type === "transferencia" ? fromBauId === b.id || toBauId === b.id : selectedBauId === b.id;
+
+            return (
+              <Card
+                key={b.id}
+                className={cn(
+                  "surface-card transition-all duration-200 hover:shadow-lg relative overflow-hidden flex flex-col justify-between border",
+                  isCurrentlySelected ? "border-primary ring-1 ring-primary/40 shadow-md" : "border-border/70 hover:border-border"
+                )}
+              >
+                <div className="p-4 space-y-3">
+                  {/* Top row: Icon + Name + Badges */}
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <div className="w-10 h-10 rounded-xl bg-secondary/70 border border-border/60 flex items-center justify-center text-xl shrink-0 shadow-inner">
+                        {b.icone || "📦"}
+                      </div>
+                      <div className="min-w-0">
+                        <h3 className="font-extrabold text-sm text-foreground truncate" title={b.nome}>
+                          {b.nome}
+                        </h3>
+                        {b.descricao ? (
+                          <p className="text-[11px] text-muted-foreground line-clamp-1">
+                            {b.descricao}
+                          </p>
+                        ) : (
+                          <p className="text-[11px] text-muted-foreground opacity-60">
+                            {isManual ? "Baú operacional padrão" : "Monitorado via Discord"}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="flex flex-col items-end gap-1 shrink-0">
+                      <Badge
+                        variant="secondary"
+                        className={cn(
+                          "text-[9.5px] font-bold px-2 py-0.5 rounded-md",
+                          isManual
+                            ? "bg-amber-500/10 text-amber-400 border border-amber-500/30"
+                            : "bg-cyan-500/10 text-cyan-400 border border-cyan-500/30"
+                        )}
+                      >
+                        {isManual ? "✍️ Manual" : "🤖 Automático"}
+                      </Badge>
+                    </div>
+                  </div>
+
+                  {/* Metrics summary */}
+                  <div className="grid grid-cols-2 gap-2 pt-1">
+                    <div className="p-2 rounded-lg bg-secondary/30 border border-border/40 text-center">
+                      <span className="text-[10px] uppercase font-bold text-muted-foreground block">
+                        Itens Únicos
+                      </span>
+                      <strong className="text-xs sm:text-sm font-extrabold text-foreground font-mono">
+                        {num(stat.itemsCount)}
+                      </strong>
+                    </div>
+                    <div className="p-2 rounded-lg bg-secondary/30 border border-border/40 text-center">
+                      <span className="text-[10px] uppercase font-bold text-muted-foreground block">
+                        Volume Total
+                      </span>
+                      <strong className="text-xs sm:text-sm font-extrabold text-primary font-mono">
+                        {num(stat.totalUnits)}
+                      </strong>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Actions row: ONLY SYMBOLS ON BUTTONS */}
+                <div className="px-4 py-2.5 bg-secondary/20 border-t border-border/40 flex items-center justify-between">
+                  <div className="text-[11px] text-muted-foreground">
+                    {isManual ? (
+                      <span className="text-amber-400/90 font-medium">Lançamento Web</span>
+                    ) : (
+                      <span className="text-cyan-400/90 font-medium">Sincroniza Discord</span>
+                    )}
+                  </div>
+
+                  <div className="flex items-center gap-1.5">
+                    {/* Botão Ver Saldo (Apenas Símbolo) */}
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleOpenBalance(b.id)}
+                          className="h-8 w-8 p-0 rounded-lg text-muted-foreground hover:text-primary hover:border-primary/50 hover:bg-primary/10 transition-colors cursor-pointer"
+                          aria-label={`Ver Saldo do baú ${b.nome}`}
+                        >
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent side="top" className="text-xs font-semibold">
+                        Ver Saldo do Baú
+                      </TooltipContent>
+                    </Tooltip>
+
+                    {/* Botão Movimentar (Apenas Símbolo) - SOMENTE PARA BAÚS MANUAIS */}
+                    {isManual && canMove && (
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            type="button"
+                            variant="default"
+                            size="sm"
+                            onClick={() => handleStartMovementOnBau(b.id)}
+                            className="h-8 w-8 p-0 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground shadow-sm transition-all active:scale-95 cursor-pointer"
+                            aria-label={`Movimentar baú ${b.nome}`}
+                          >
+                            <ArrowRightLeft className="h-4 w-4" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent side="top" className="text-xs font-semibold">
+                          Lançar Movimentação
+                        </TooltipContent>
+                      </Tooltip>
+                    )}
+                  </div>
+                </div>
+              </Card>
+            );
+          })}
+        </div>
+      </div>
+
       {/* PAINEL INTERATIVO ESTILO APP */}
       {canMove && (
-        <Card className="surface-card border-primary/30 shadow-2xl overflow-hidden">
+        <Card ref={movementSectionRef} className="surface-card border-primary/30 shadow-2xl overflow-hidden">
           {/* BOTÕES DE TIPO ESTILO SEGMENTED CONTROL (ENTRADA VS SAÍDA VS TRANSFERÊNCIA) */}
           <div className="grid grid-cols-3 p-1.5 sm:p-2 bg-secondary/40 border-b border-border/60 gap-1.5 sm:gap-2">
             <button
@@ -1526,6 +1773,155 @@ export function MovimentacoesPage() {
           </div>
         </Card>
       )}
+
+      {/* MODAL: VER SALDO E INVENTÁRIO DO BAÚ */}
+      <Dialog open={balanceModalOpen} onOpenChange={setBalanceModalOpen}>
+        <DialogContent className="max-w-2xl bg-card border-border/80 shadow-2xl p-0 overflow-hidden flex flex-col max-h-[85vh]">
+          <DialogHeader className="p-4 sm:p-5 border-b border-border/60 bg-secondary/30 space-y-1">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-secondary/80 border border-border/60 flex items-center justify-center text-2xl shadow-inner">
+                  {activeBalanceBau?.icone || "📦"}
+                </div>
+                <div>
+                  <DialogTitle className="text-base sm:text-lg font-black text-foreground flex items-center gap-2">
+                    <span>{activeBalanceBau?.nome || "Inventário do Baú"}</span>
+                    {activeBalanceBau?.tipo_gestao === "manual" ? (
+                      <Badge className="bg-amber-500/10 text-amber-400 border-amber-500/30 text-[10px] font-bold">
+                        ✍️ Manual
+                      </Badge>
+                    ) : (
+                      <Badge className="bg-cyan-500/10 text-cyan-400 border-cyan-500/30 text-[10px] font-bold">
+                        🤖 Automático (Discord)
+                      </Badge>
+                    )}
+                  </DialogTitle>
+                  <DialogDescription className="text-xs text-muted-foreground">
+                    Saldos atuais e itens alocados neste baú.
+                  </DialogDescription>
+                </div>
+              </div>
+            </div>
+          </DialogHeader>
+
+          {/* Search and Filters */}
+          <div className="p-3 sm:p-4 border-b border-border/40 bg-secondary/10 flex flex-col sm:flex-row gap-2 items-center justify-between">
+            <div className="relative w-full sm:w-64">
+              <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                placeholder="Buscar item no baú..."
+                value={balanceSearch}
+                onChange={(e) => setBalanceSearch(e.target.value)}
+                className="pl-8 h-8 text-xs rounded-xl"
+              />
+            </div>
+
+            <div className="flex items-center gap-1 w-full sm:w-auto justify-end">
+              <Button
+                size="sm"
+                variant={balanceFilter === "positive" ? "default" : "outline"}
+                onClick={() => setBalanceFilter("positive")}
+                className="text-[11px] h-7 px-2.5 rounded-lg cursor-pointer"
+              >
+                Com Saldo ({activeBalanceInventory.filter((i) => i.stock > 0).length})
+              </Button>
+              <Button
+                size="sm"
+                variant={balanceFilter === "all" ? "default" : "outline"}
+                onClick={() => setBalanceFilter("all")}
+                className="text-[11px] h-7 px-2.5 rounded-lg cursor-pointer"
+              >
+                Todos ({activeBalanceInventory.length})
+              </Button>
+              <Button
+                size="sm"
+                variant={balanceFilter === "zero" ? "default" : "outline"}
+                onClick={() => setBalanceFilter("zero")}
+                className="text-[11px] h-7 px-2.5 rounded-lg cursor-pointer"
+              >
+                Zerados ({activeBalanceInventory.filter((i) => i.stock <= 0).length})
+              </Button>
+            </div>
+          </div>
+
+          {/* List of items */}
+          <div className="p-4 overflow-y-auto flex-1 divide-y divide-border/40 space-y-1 max-h-[50vh]">
+            {filteredBalanceItems.length === 0 ? (
+              <div className="p-8 text-center text-muted-foreground text-xs space-y-2">
+                <PackageSearch className="w-8 h-8 mx-auto opacity-40" />
+                <p>Nenhum item encontrado com os filtros selecionados.</p>
+              </div>
+            ) : (
+              filteredBalanceItems.map(({ product, stock, categoryName }) => (
+                <div
+                  key={product.id}
+                  className="py-2.5 px-2 flex items-center justify-between rounded-lg hover:bg-secondary/30 transition-colors"
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    <ProductThumbnail
+                      imageUrl={product.imagem_url}
+                      productName={product.nome}
+                      size="sm"
+                    />
+                    <div className="min-w-0">
+                      <p className="text-xs sm:text-sm font-bold text-foreground truncate">
+                        {product.nome}
+                      </p>
+                      <p className="text-[10px] text-muted-foreground truncate">
+                        {categoryName}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="text-right shrink-0">
+                    <Badge
+                      variant="outline"
+                      className={cn(
+                        "text-xs font-mono font-bold px-2.5 py-1",
+                        stock > 0
+                          ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30"
+                          : "bg-secondary/60 text-muted-foreground border-border/60"
+                      )}
+                    >
+                      {num(stock)} {product.unidade || "un"}
+                    </Badge>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+
+          <DialogFooter className="p-3 sm:p-4 border-t border-border/40 bg-secondary/20 flex sm:justify-between items-center">
+            <div className="text-[11px] text-muted-foreground">
+              Total: <strong>{activeBalanceInventory.filter((i) => i.stock > 0).length}</strong> itens com saldo
+            </div>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setBalanceModalOpen(false)}
+                className="text-xs cursor-pointer"
+              >
+                Fechar
+              </Button>
+              {activeBalanceBau?.tipo_gestao === "manual" && canMove && (
+                <Button
+                  variant="default"
+                  size="sm"
+                  onClick={() => {
+                    setBalanceModalOpen(false);
+                    if (activeBalanceBau) handleStartMovementOnBau(activeBalanceBau.id);
+                  }}
+                  className="text-xs font-bold gap-1.5 bg-primary hover:bg-primary/90 text-primary-foreground cursor-pointer shadow-sm"
+                >
+                  <ArrowRightLeft className="w-3.5 h-3.5" />
+                  Movimentar Baú
+                </Button>
+              )}
+            </div>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
