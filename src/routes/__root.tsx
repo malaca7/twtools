@@ -202,7 +202,7 @@ function RootComponent() {
         <AppearanceSync />
         {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
         <Outlet />
-        <Toaster position="top-right" richColors theme="dark" closeButton />
+        <Toaster position="top-center" offset={80} mobileOffset={76} richColors theme="dark" closeButton />
       </AuthProvider>
     </QueryClientProvider>
   );

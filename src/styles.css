@@ -1705,6 +1705,17 @@ html, body {
   --info-border: oklch(0.63 0.185 255 / 45%) !important;
   --info-text: var(--foreground) !important;
   font-family: var(--font-sans) !important;
+  z-index: 999999 !important;
+}
+
+[data-sonner-toaster][data-y-position="top"] {
+  top: 80px !important;
+}
+
+@media (max-width: 640px) {
+  [data-sonner-toaster][data-y-position="top"] {
+    top: 76px !important;
+  }
 }
 
 [data-sonner-toast] {
