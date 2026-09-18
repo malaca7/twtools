@@ -62,7 +62,7 @@ import {
   useDiscordStockConfig,
   useDiscordStockLogs,
 } from "@/hooks/useData";
-import { num, dateTime } from "@/lib/format";
+import { num, dateTime, formatDate } from "@/lib/format";
 import {
   adjustStockDev,
   updateDiscordStockConfig,

@@ -49,6 +49,8 @@ export const dateTime = (value: string | Date | null | undefined) =>
       )
     : "—";
 
+export const formatDate = dateTime;
+
 export const dateOnly = (value: string | Date | null | undefined) =>
   value
     ? new Intl.DateTimeFormat("pt-BR", { dateStyle: "short" }).format(new Date(value))
