@@ -139,6 +139,22 @@ export function TimerEditorModal({ open, onOpenChange, timer, onSave }: TimerEdi
                 className="bg-zinc-950 border-zinc-800 text-xs"
               />
             </div>
+
+            <div className="space-y-1.5 col-span-2">
+              <Label className="text-xs font-bold flex items-center gap-1.5">
+                <Clock className="h-3.5 w-3.5 text-cyan-400" />
+                Servidor Discord Autorizado
+              </Label>
+              <select
+                value={formData.guildId || "all"}
+                onChange={(e) => setFormData({ ...formData, guildId: e.target.value })}
+                className="w-full h-9 rounded-md border border-zinc-800 bg-zinc-950 px-3 py-1 text-xs text-zinc-100 focus:outline-none focus:ring-1 focus:ring-cyan-500"
+              >
+                <option value="all">🌐 Todos os Servidores</option>
+                <option value="1535505650308620400">🏍️ Twin Wheel (1535505650308620400)</option>
+                <option value="1537229296697999462">💻 Malaca Developers (1537229296697999462)</option>
+              </select>
+            </div>
           </div>
 
           {/* Configuração de Horário / Intervalo */}

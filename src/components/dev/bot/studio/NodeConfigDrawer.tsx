@@ -16,6 +16,7 @@ import {
   Clock,
   Bell,
   Sparkles,
+  Server,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -196,6 +197,41 @@ export function NodeConfigDrawer({
                 </div>
               </>
             )}
+
+            {/* Seleção de Servidor Discord onde vai funcionar */}
+            <div className="space-y-1.5 p-3 rounded-xl bg-zinc-900/60 border border-zinc-800">
+              <div className="flex items-center justify-between">
+                <Label className="text-xs font-bold text-zinc-200 flex items-center gap-1.5">
+                  <Server className="h-3.5 w-3.5 text-blue-400" />
+                  Servidor Discord Autorizado
+                </Label>
+                <Badge variant="outline" className="text-[10px] font-mono text-zinc-400 border-zinc-700">
+                  {data.guildId === "1535505650308620400"
+                    ? "Twin Wheel"
+                    : data.guildId === "1537229296697999462"
+                    ? "Malaca Devs"
+                    : !data.guildId || data.guildId === "all"
+                    ? "Global"
+                    : "Personalizado"}
+                </Badge>
+              </div>
+              <Select
+                value={data.guildId || "all"}
+                onValueChange={(val) => onUpdateNodeData(id, { guildId: val })}
+              >
+                <SelectTrigger className="bg-zinc-950 border-zinc-800 text-xs">
+                  <SelectValue placeholder="Selecione o servidor" />
+                </SelectTrigger>
+                <SelectContent className="bg-zinc-950 border-zinc-800 text-xs">
+                  <SelectItem value="all">🌐 Todos os Servidores (Global)</SelectItem>
+                  <SelectItem value="1535505650308620400">🏍️ Twin Wheel (1535505650308620400)</SelectItem>
+                  <SelectItem value="1537229296697999462">💻 Malaca Developers (1537229296697999462)</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-[10px] text-zinc-500">
+                Define em qual servidor o bot irá responder a este {data.commandName !== undefined ? "comando" : "evento"}.
+              </p>
+            </div>
 
             {/* Condições & Regras de Execução (SE / ENTÃO) */}
             <div className="pt-4 border-t border-zinc-800/80">

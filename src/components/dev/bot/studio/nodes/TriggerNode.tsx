@@ -105,6 +105,30 @@ export const TriggerNode = memo(({ data, selected }: NodeProps<any>) => {
             </Badge>
           </div>
         )}
+
+        {/* Badge do Servidor Alvo */}
+        <div className="pt-1">
+          <Badge
+            variant="outline"
+            className={`text-[9px] font-medium px-1.5 py-0 ${
+              !nodeData.guildId || nodeData.guildId === "all"
+                ? "bg-blue-500/10 text-blue-300 border-blue-500/30"
+                : nodeData.guildId === "1535505650308620400"
+                ? "bg-amber-500/10 text-amber-300 border-amber-500/30"
+                : nodeData.guildId === "1537229296697999462"
+                ? "bg-emerald-500/10 text-emerald-300 border-emerald-500/30"
+                : "bg-zinc-800/80 text-zinc-300 border-zinc-700"
+            }`}
+          >
+            {!nodeData.guildId || nodeData.guildId === "all"
+              ? "🌐 Todos os Servidores"
+              : nodeData.guildId === "1535505650308620400"
+              ? "🏍️ Twin Wheel"
+              : nodeData.guildId === "1537229296697999462"
+              ? "💻 Malaca Devs"
+              : `🛡️ Servidor: ${nodeData.guildId}`}
+          </Badge>
+        </div>
       </div>
 
       {/* Output Handle */}

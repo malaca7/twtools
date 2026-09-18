@@ -90,6 +90,7 @@ export interface CommandParameter {
 export interface BotCommand {
   id: string;
   botId: string;
+  guildId?: string; // ID do servidor específico ou 'all' para todos
   name: string;
   prefix?: string;
   description: string;
@@ -109,6 +110,7 @@ export interface BotCommand {
 export interface BotEvent {
   id: string;
   botId: string;
+  guildId?: string; // ID do servidor específico ou 'all' para todos
   name: string;
   triggerType: EventTriggerType;
   enabled: boolean;
@@ -128,6 +130,7 @@ export interface BotEvent {
 export interface BotTimer {
   id: string;
   botId: string;
+  guildId?: string; // ID do servidor específico ou 'all' para todos
   name: string;
   description: string;
   scheduleType: ScheduleType;

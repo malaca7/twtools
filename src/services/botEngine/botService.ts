@@ -327,9 +327,16 @@ export async function saveBotProjects(bots: BotProject[]): Promise<void> {
       { onConflict: "level" }
     );
 
-    // Broadcast Realtime para o Bot e clientes
+    // Broadcast Realtime para o Bot e clientes (ambos os canais para compatibilidade garantida)
     const channel = supabase.channel("system-bot-sync");
     await channel.send({
+      type: "broadcast",
+      event: "bots_updated",
+      payload: updatedBots,
+    });
+
+    const channelListener = supabase.channel("system-bot-sync-listener");
+    await channelListener.send({
       type: "broadcast",
       event: "bots_updated",
       payload: updatedBots,

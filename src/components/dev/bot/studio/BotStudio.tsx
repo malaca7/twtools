@@ -129,6 +129,7 @@ function BotStudioInner({
   const [isTesting, setIsTesting] = useState(false);
   const [isParametersModalOpen, setIsParametersModalOpen] = useState(false);
   const [isConditionsModalOpen, setIsConditionsModalOpen] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(true);
 
   // Nó selecionado atual
   const selectedNode = useMemo(
@@ -139,6 +140,7 @@ function BotStudioInner({
   const triggerNode = useMemo(() => nodes.find((n) => n.data.isTrigger) || null, [nodes]);
   const currentParameters = useMemo(() => triggerNode?.data.parameters || [], [triggerNode]);
   const currentConditions = useMemo(() => triggerNode?.data.conditions || [], [triggerNode]);
+  const selectedGuildId = triggerNode?.data.guildId || initialCommand?.guildId || initialEvent?.guildId || "all";
 
   const handleUpdateTriggerParameters = (newParams: CommandParameter[]) => {
     if (!triggerNode) return;
@@ -148,6 +150,20 @@ function BotStudioInner({
   const handleUpdateTriggerConditions = (newConditions: ConditionGroup[]) => {
     if (!triggerNode) return;
     handleUpdateNodeData(triggerNode.id, { conditions: newConditions });
+  };
+
+  const handleSelectGuildId = (guildId: string) => {
+    if (!triggerNode) return;
+    handleUpdateNodeData(triggerNode.id, { guildId });
+    const label =
+      guildId === "1535505650308620400"
+        ? "Twin Wheel"
+        : guildId === "1537229296697999462"
+        ? "Malaca Developers"
+        : guildId === "all"
+        ? "Todos os Servidores"
+        : guildId;
+    toast.info(`Servidor alvo definido como: ${label}`);
   };
 
   // Conexão entre nós (arestas)
@@ -363,9 +379,10 @@ function BotStudioInner({
   };
 
   // Salvar no Bot
-  const handleSave = () => {
+  const handleSave = useCallback(() => {
     const actions = flowToActions(nodes, edges);
     const triggerNode = nodes.find((n) => n.data.isTrigger);
+    const targetGuildId = triggerNode?.data.guildId || initialCommand?.guildId || initialEvent?.guildId || selectedGuildId || "all";
 
     if (mode === "command") {
       const cmdName =
@@ -382,6 +399,7 @@ function BotStudioInner({
         name: cmdName,
         prefix: cmdPrefix,
         description: cmdDescription,
+        guildId: targetGuildId,
         enabled,
         parameters,
         conditions: triggerNode?.data.conditions || initialCommand?.conditions || [],
@@ -406,6 +424,7 @@ function BotStudioInner({
         name: evtName,
         triggerType,
         description: evtDesc,
+        guildId: targetGuildId,
         enabled,
         conditions: triggerNode?.data.conditions || initialEvent?.conditions || [],
         actions,
@@ -420,7 +439,37 @@ function BotStudioInner({
     }
 
     onBack();
-  };
+  }, [
+    nodes,
+    edges,
+    mode,
+    initialCommand,
+    initialEvent,
+    selectedGuildId,
+    botPrefix,
+    enabled,
+    onSaveCommand,
+    onSaveEvent,
+    onBack,
+  ]);
+
+  // Atalhos de teclado nativos (Ctrl+S / Cmd+S para salvar, Esc para fechar/minimizar)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "s") {
+        e.preventDefault();
+        handleSave();
+      } else if (e.key === "Escape") {
+        if (selectedNodeId) {
+          setSelectedNodeId(null);
+        } else if (isFullscreen) {
+          setIsFullscreen(false);
+        }
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [handleSave, selectedNodeId, isFullscreen]);
 
   // Simulação / Teste do Fluxo em Tempo Real
   const handleRunTest = async () => {
@@ -483,7 +532,13 @@ function BotStudioInner({
       : triggerNode?.data.label || initialEvent?.name || "Novo Evento";
 
   return (
-    <div className="flex flex-col h-[calc(100vh-140px)] min-h-[680px] w-full rounded-2xl overflow-hidden border border-zinc-800 bg-zinc-950 shadow-2xl relative">
+    <div
+      className={
+        isFullscreen
+          ? "fixed inset-0 z-50 w-screen h-screen flex flex-col bg-zinc-950 text-zinc-100 overflow-hidden select-none"
+          : "flex flex-col h-[calc(100vh-140px)] min-h-[680px] w-full rounded-2xl overflow-hidden border border-zinc-800 bg-zinc-950 shadow-2xl relative select-none"
+      }
+    >
       {/* Top Studio Toolbar */}
       <StudioToolbar
         title={studioTitle}
@@ -503,6 +558,10 @@ function BotStudioInner({
         parametersCount={currentParameters.length}
         onOpenConditions={() => setIsConditionsModalOpen(true)}
         conditionsCount={currentConditions.length}
+        selectedGuildId={selectedGuildId}
+        onSelectGuildId={handleSelectGuildId}
+        isFullscreen={isFullscreen}
+        onToggleFullscreen={() => setIsFullscreen((prev) => !prev)}
       />
 
       {/* Main Studio Body (Palette + Canvas + Config Drawer) */}
@@ -579,6 +638,46 @@ function BotStudioInner({
           />
         )}
       </div>
+
+      {/* Native Desktop Pro Status Bar */}
+      <footer className="h-7 px-3 bg-zinc-950 border-t border-zinc-800/80 flex items-center justify-between text-[11px] text-zinc-400 select-none z-20 shrink-0">
+        <div className="flex items-center gap-3">
+          <span className="flex items-center gap-1.5 font-medium text-zinc-300">
+            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+            Bot Studio Pro
+          </span>
+          <span className="text-zinc-600">|</span>
+          <span>{nodes.length} Nós</span>
+          <span className="text-zinc-600">•</span>
+          <span>{edges.length} Conexões</span>
+          <span className="text-zinc-600">|</span>
+          <span className="text-zinc-400">
+            Servidor Alvo:{" "}
+            <strong className="text-zinc-200">
+              {selectedGuildId === "1535505650308620400"
+                ? "Twin Wheel"
+                : selectedGuildId === "1537229296697999462"
+                ? "Malaca Developers"
+                : selectedGuildId === "all"
+                ? "Todos os Servidores"
+                : selectedGuildId}
+            </strong>
+          </span>
+        </div>
+
+        <div className="flex items-center gap-4 text-zinc-400">
+          <span className="hidden md:inline-flex items-center gap-1 text-[10px] text-zinc-400">
+            <kbd className="px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-300 border border-zinc-700">Ctrl+S</kbd> Salvar
+            <span className="mx-1 text-zinc-600">•</span>
+            <kbd className="px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-300 border border-zinc-700">Esc</kbd> Minimizar
+          </span>
+          <span className="text-zinc-600">|</span>
+          <span className="flex items-center gap-1.5 text-emerald-400 font-medium">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+            Discloud Engine (Online)
+          </span>
+        </div>
+      </footer>
 
       {/* Modal Dedicado de Parâmetros / Argumentos no Studio */}
       <Dialog open={isParametersModalOpen} onOpenChange={setIsParametersModalOpen}>
