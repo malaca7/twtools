@@ -84,6 +84,23 @@ export type Category = {
   created_at: string;
 };
 
+export type Product = {
+  id: string;
+  nome: string;
+  cda_name?: string | null;
+  descricao: string | null;
+  categoria_id: string | null;
+  bau_id: string | null;
+  unidade: string;
+  estoque_atual: number;
+  estoque_minimo: number;
+  preco_sugerido: number;
+  imagem_url: string | null;
+  ativo: boolean;
+  created_at: string;
+  updated_at: string;
+};
+
 export type Bau = {
   id: string;
   nome: string;

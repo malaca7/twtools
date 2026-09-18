@@ -183,7 +183,7 @@ export const SelectContent = React.forwardRef<
   const calculateCoords = React.useCallback((): SelectContentCoords | null => {
     if (!triggerRef.current) return null;
     const rect = triggerRef.current.getBoundingClientRect();
-    if (rect.width === 0 && rect.height === 0 && rect.top === 0 && rect.bottom === 0) {
+    if (rect.width <= 0 || rect.height <= 0) {
       return null;
     }
 
@@ -192,10 +192,10 @@ export const SelectContent = React.forwardRef<
 
     const spaceBelow = Math.max(0, viewportHeight - rect.bottom - 8);
     const spaceAbove = Math.max(0, rect.top - 8);
-    const maxContentHeight = 260;
+    const maxContentHeight = 280;
 
-    // Abre para cima se não houver espaço suficiente abaixo e houver mais espaço acima
-    const openUp = spaceBelow < 180 && spaceAbove > spaceBelow;
+    // Abre para cima apenas se espaço abaixo for muito apertado (< 160px) e acima tiver mais espaço (> 140px)
+    const openUp = spaceBelow < 160 && spaceAbove > spaceBelow && spaceAbove >= 140;
 
     const minWidth = Math.max(rect.width, 160);
     let left = rect.left;
@@ -206,7 +206,7 @@ export const SelectContent = React.forwardRef<
 
     const maxHeight = Math.max(
       100,
-      Math.min(maxContentHeight, openUp ? spaceAbove : spaceBelow)
+      Math.min(maxContentHeight, openUp ? spaceAbove - 10 : spaceBelow - 10)
     );
 
     return {
@@ -219,14 +219,14 @@ export const SelectContent = React.forwardRef<
     };
   }, [triggerRef]);
 
-  const [coords, setCoords] = React.useState<SelectContentCoords | null>(() => {
-    if (typeof window === "undefined") return null;
-    return calculateCoords();
-  });
+  const [coords, setCoords] = React.useState<SelectContentCoords | null>(null);
 
-  // Atualização em tempo real nas alterações de scroll e resize
+  // Atualização síncrona e em tempo real
   React.useLayoutEffect(() => {
-    if (!open) return;
+    if (!open) {
+      setCoords(null);
+      return;
+    }
 
     const update = () => {
       const next = calculateCoords();
@@ -236,11 +236,13 @@ export const SelectContent = React.forwardRef<
     };
 
     update();
+    const rafId = requestAnimationFrame(update);
 
     window.addEventListener("resize", update);
     window.addEventListener("scroll", update, true);
 
     return () => {
+      cancelAnimationFrame(rafId);
       window.removeEventListener("resize", update);
       window.removeEventListener("scroll", update, true);
     };
@@ -281,7 +283,6 @@ export const SelectContent = React.forwardRef<
 
   if (!open) return null;
 
-  // Se coordenadas ainda não estiverem prontas, calcula imediatamente
   const currentCoords = coords || calculateCoords();
   if (!currentCoords) return null;
 
@@ -302,12 +303,12 @@ export const SelectContent = React.forwardRef<
         maxWidth: `${currentCoords.maxWidth}px`,
         maxHeight: `${currentCoords.maxHeight}px`,
         transform: currentCoords.transform,
-        zIndex: 99999,
-        backgroundColor: "#121215",
+        zIndex: 999999,
+        backgroundColor: "#13141f",
         ...style,
       }}
       className={cn(
-        "popover-content overflow-y-auto rounded-xl border border-border/80 bg-[#121215] p-1 text-foreground shadow-2xl backdrop-blur-2xl focus:outline-none ring-1 ring-white/10 custom-scrollbar-thin animate-in fade-in-0 zoom-in-95 duration-100",
+        "popover-content overflow-y-auto rounded-xl border border-white/15 bg-[#13141f] p-1.5 text-foreground shadow-2xl backdrop-blur-2xl focus:outline-none ring-1 ring-white/10 custom-scrollbar-thin animate-in fade-in-0 zoom-in-95 duration-100",
         className,
       )}
       {...props}

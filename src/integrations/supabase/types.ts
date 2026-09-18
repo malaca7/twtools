@@ -145,6 +145,7 @@ export type Database = {
           ativo: boolean
           bau_id: string | null
           categoria_id: string | null
+          cda_name: string | null
           created_at: string
           descricao: string | null
           estoque_atual: number
@@ -160,6 +161,7 @@ export type Database = {
           ativo?: boolean
           bau_id?: string | null
           categoria_id?: string | null
+          cda_name?: string | null
           created_at?: string
           descricao?: string | null
           estoque_atual?: number
@@ -175,6 +177,7 @@ export type Database = {
           ativo?: boolean
           bau_id?: string | null
           categoria_id?: string | null
+          cda_name?: string | null
           created_at?: string
           descricao?: string | null
           estoque_atual?: number

@@ -50,7 +50,6 @@ function parseDiscordStockMessage(rawText, embed = null, config = {}, defaultBau
     fromBauName = transferMatch[1].replace(/📦/g, '').replace(/^[:\-\s]+/, '').trim();
     toBauName = transferMatch[2].replace(/📦/g, '').replace(/^[:\-\s]+/, '').trim();
   } else if (!defaultBauName) {
-    // Se não há defaultBauName do canal, tenta buscar se tiver nome específico no texto
     for (const line of lines) {
       if (line.includes('📦')) {
         const clean = line.replace(/📦/g, '').replace(/^[:\-\s]+/, '').trim();
@@ -71,6 +70,7 @@ function parseDiscordStockMessage(rawText, embed = null, config = {}, defaultBau
 
   for (let i = 0; i < lines.length; i++) {
     const rawLine = lines[i];
+    // Remove markdown e caracteres de formatação
     const line = rawLine.replace(/[\*\_`]/g, '').trim();
 
     // Início de Saldo Líquido
@@ -127,7 +127,7 @@ function parseDiscordStockMessage(rawText, embed = null, config = {}, defaultBau
         }
       }
     } else if (inDetalhesSection && parsedItems.length === 0) {
-      // Fallback para quando Saldo Líquido não estiver presente ou formatado diferente
+      // Fallback para quando Saldo Líquido não estiver presente
       const arrowMatch = line.match(/^[↳\->]+\s*([+-]?\s*\d+)\s*(removid[oa]s?|retirad[oa]s?|adicionad[oa]s?|colocad[oa]s?|guardad[oa]s?)?/i);
       if (arrowMatch && lastItemPendingQty) {
         let qty = parseInt(arrowMatch[1].replace(/\s+/g, ''), 10);
@@ -191,8 +191,142 @@ function cleanItemName(rawName, mappings = {}) {
   return name;
 }
 
+/**
+ * Processa uma mensagem individual de estoque do Discord
+ */
+async function processStockMessage(message, config, allBaus) {
+  try {
+    const channelId = message.channelId || message.channel?.id;
+    if (!channelId) return;
+
+    let matchedBau = null;
+
+    // 1. Procurar por discord_channel_id diretamente no baú
+    for (const b of allBaus) {
+      if (b.discord_channel_id && b.discord_channel_id.trim() === channelId) {
+        matchedBau = b;
+        break;
+      }
+    }
+
+    // 2. Procurar em config.bau_channels (caso configurado via JSON)
+    if (!matchedBau && config.bau_channels && typeof config.bau_channels === 'object') {
+      for (const [bId, bConf] of Object.entries(config.bau_channels)) {
+        if (bConf && bConf.channel_id && bConf.channel_id.trim() === channelId) {
+          const found = allBaus.find(b => b.id === bId);
+          matchedBau = found ? { ...found, ...bConf } : { id: bId, nome: bConf.nome || 'Baú', ...bConf };
+          break;
+        }
+      }
+    }
+
+    // Se o canal pertence a um baú específico
+    if (matchedBau) {
+      if (matchedBau.tipo_gestao === 'manual' || matchedBau.is_active === false) {
+        return;
+      }
+    } else {
+      // Se não pertence a nenhum baú específico, verifica se é o canal fallback global
+      if (!config.channel_id || config.channel_id.trim() === '' || channelId !== config.channel_id.trim()) {
+        return;
+      }
+
+      if (config.default_bau_id) {
+        matchedBau = allBaus.find(b => b.id === config.default_bau_id);
+        if (matchedBau && matchedBau.tipo_gestao === 'manual') {
+          return;
+        }
+      }
+    }
+
+    // Montar texto cru a partir do embed ou da mensagem
+    let rawText = message.content || '';
+    let embedObj = null;
+
+    if (message.embeds && message.embeds.length > 0) {
+      const embed = message.embeds[0];
+      embedObj = typeof embed.toJSON === 'function' ? embed.toJSON() : embed;
+      if (embed.author?.name) rawText += '\n' + embed.author.name;
+      if (embed.title) rawText += '\n' + embed.title;
+      if (embed.description) rawText += '\n' + embed.description;
+      if (embed.fields) {
+        embed.fields.forEach(f => {
+          rawText += '\n' + f.name + '\n' + f.value;
+        });
+      }
+    }
+
+    // Se não aparenta ser uma log de movimentação de estoque, ignorar
+    if (!/saldo\s*l[ií]quido|detalhes\s*da\s*movimenta[cç][aã]o|movimenta[cç][aã]o\s*de\s*ba[uú]|transfer[eê]ncia/i.test(rawText)) {
+      return;
+    }
+
+    // Verificar se a mensagem já foi processada anteriormente
+    const checkLog = await dbPool.query(
+      `SELECT id FROM public.discord_stock_logs WHERE message_id = $1 LIMIT 1`,
+      [message.id]
+    );
+    if (checkLog.rows.length > 0) {
+      return; // Já processada
+    }
+
+    console.log(`📦 [STOCK-ENGINE] Processando log de estoque para baú "${matchedBau?.nome || 'Geral'}" (Msg ID: ${message.id})`);
+
+    // Interpretar conteúdo passando o baú do canal como default
+    const { authorName, gamePlayerId, parsedItems } = parseDiscordStockMessage(rawText, embedObj, config, matchedBau?.nome);
+
+    if (!parsedItems || parsedItems.length === 0) {
+      console.warn(`⚠️ [STOCK-ENGINE] Não foi possível interpretar itens na log ${message.id}. Registrando erro...`);
+      await dbPool.query(`
+        INSERT INTO public.discord_stock_logs (
+          message_id, channel_id, guild_id, author_name, game_player_id, raw_content, raw_embeds, parsed_items, status, error_message
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'error', 'Nenhum item válido identificado no formato esperado')
+        ON CONFLICT (message_id) DO NOTHING
+      `, [
+        message.id,
+        channelId,
+        message.guildId || message.guild?.id || null,
+        authorName || 'Desconhecido',
+        gamePlayerId,
+        rawText,
+        embedObj ? JSON.stringify(embedObj) : null,
+        JSON.stringify([])
+      ]);
+      return;
+    }
+
+    // Chamar RPC process_discord_stock_log
+    const rpcQuery = `
+      SELECT public.process_discord_stock_log(
+        $1::TEXT, $2::TEXT, $3::TEXT, $4::TEXT, $5::TEXT, $6::TEXT, $7::JSONB, $8::JSONB
+      ) as result
+    `;
+    const values = [
+      message.id,
+      message.guildId || message.guild?.id || null,
+      channelId,
+      authorName,
+      gamePlayerId,
+      rawText,
+      embedObj ? JSON.stringify(embedObj) : null,
+      JSON.stringify(parsedItems)
+    ];
+
+    const res = await dbPool.query(rpcQuery, values);
+    const resultObj = res.rows[0].result;
+
+    if (resultObj && resultObj.success) {
+      console.log(`✅ [STOCK-ENGINE] Movimentação automática gravada! (Msg: ${message.id}, ${parsedItems.length} itens)`);
+    } else {
+      console.warn(`⚠️ [STOCK-ENGINE] Resultado RPC para msg ${message.id}:`, resultObj);
+    }
+  } catch (err) {
+    console.error(`❌ [STOCK-ENGINE] Erro ao processar mensagem ${message.id}:`, err);
+  }
+}
+
 function initStockEngine(client) {
-  console.log("📦 [STOCK-ENGINE] Motor de estoque via logs do Discord ativo!");
+  console.log("📦 [STOCK-ENGINE] Inicializando Motor de Estoque Automático via Discord...");
 
   if (process.env.DATABASE_URL) {
     dbPool = new Pool({
@@ -204,159 +338,92 @@ function initStockEngine(client) {
     return;
   }
 
-  client.on(Events.MessageCreate, async (message) => {
+  // 1. Helper para carregar config e baús atualizados com aliases
+  async function loadConfigAndBaus() {
     try {
-      // Aceitar mensagens de bots e webhooks (ex: Cidade Alta APP)
-      if (!message.author.bot && !message.webhookId) return;
-
-      // Buscar configuração de estoque do Discord no banco
       const configRes = await dbPool.query(`SELECT * FROM public.discord_stock_config LIMIT 1`);
-      if (configRes.rows.length === 0) return;
-
+      if (configRes.rows.length === 0) return null;
       const config = configRes.rows[0];
-      if (config.is_active === false) {
-        return; // Processamento automático desativado globalmente
-      }
 
-      // Buscar todos os baús para verificar canal específico e tipo de gestão
+      // Mesclar cda_name dos produtos cadastrados
+      const prodsRes = await dbPool.query(`SELECT nome, cda_name FROM public.products WHERE cda_name IS NOT NULL AND cda_name != '' AND ativo = true`);
+      const mergedMappings = { ...(config.item_mappings || {}) };
+      for (const p of prodsRes.rows) {
+        if (p.cda_name && p.cda_name.trim()) {
+          mergedMappings[p.cda_name.trim().toLowerCase()] = p.nome;
+        }
+      }
+      config.item_mappings = mergedMappings;
+
       const bausRes = await dbPool.query(`SELECT id, nome, tipo_gestao, discord_channel_id, discord_guild_id FROM public.baus WHERE ativo = true`);
       const allBaus = bausRes.rows || [];
 
-      let matchedBau = null;
+      return { config, allBaus };
+    } catch (e) {
+      console.warn("⚠️ [STOCK-ENGINE] Falha ao carregar configurações do banco:", e.message);
+      return null;
+    }
+  }
 
-      // 1. Procurar por discord_channel_id diretamente no baú
-      for (const b of allBaus) {
-        if (b.discord_channel_id && b.discord_channel_id.trim() === message.channelId) {
-          matchedBau = b;
-          break;
-        }
-      }
-
-      // 2. Procurar em config.bau_channels (caso configurado via JSON)
-      if (!matchedBau && config.bau_channels && typeof config.bau_channels === 'object') {
-        for (const [bId, bConf] of Object.entries(config.bau_channels)) {
-          if (bConf && bConf.channel_id && bConf.channel_id.trim() === message.channelId) {
-            const found = allBaus.find(b => b.id === bId);
-            matchedBau = found ? { ...found, ...bConf } : { id: bId, nome: bConf.nome || 'Baú', ...bConf };
-            break;
-          }
-        }
-      }
-
-      // Se o canal pertence a um baú específico
-      if (matchedBau) {
-        // Se o baú estiver como "manual" ou desativado, NÃO faz movimentações automáticas
-        if (matchedBau.tipo_gestao === 'manual' || matchedBau.is_active === false) {
-          console.log(`ℹ️ [STOCK-ENGINE] Canal ${message.channelId} pertence ao baú "${matchedBau.nome}", mas está configurado com movimentação MANUAL.`);
-          return;
-        }
-
-        // Se guild_id específico do baú estiver configurado e não bater, ignora
-        if (matchedBau.discord_guild_id && matchedBau.discord_guild_id.trim() !== '') {
-          if (message.guildId && message.guildId !== matchedBau.discord_guild_id.trim()) {
-            return;
-          }
-        }
-      } else {
-        // Se não pertence a nenhum baú específico, verifica se é o canal fallback global
-        if (!config.channel_id || config.channel_id.trim() === '' || message.channelId !== config.channel_id.trim()) {
-          return;
-        }
-
-        // Se guild_id global estiver configurado e não bater, ignora
-        if (config.guild_id && config.guild_id.trim() !== '') {
-          if (message.guildId && message.guildId !== config.guild_id.trim()) {
-            return;
-          }
-        }
-
-        // Se houver default_bau_id, usa como matchedBau
-        if (config.default_bau_id) {
-          matchedBau = allBaus.find(b => b.id === config.default_bau_id);
-          if (matchedBau && matchedBau.tipo_gestao === 'manual') {
-            console.log(`ℹ️ [STOCK-ENGINE] Baú fallback "${matchedBau.nome}" está configurado como MANUAL.`);
-            return;
-          }
-        }
-      }
-
-      // Montar texto cru a partir do embed ou da mensagem
-      let rawText = message.content || '';
-      let embedObj = null;
-
-      if (message.embeds && message.embeds.length > 0) {
-        const embed = message.embeds[0];
-        embedObj = embed.toJSON();
-        if (embed.author?.name) rawText += '\n' + embed.author.name;
-        if (embed.title) rawText += '\n' + embed.title;
-        if (embed.description) rawText += '\n' + embed.description;
-        if (embed.fields) {
-          embed.fields.forEach(f => {
-            rawText += '\n' + f.name + '\n' + f.value;
-          });
-        }
-      }
-
-      // Se não aparenta ser uma log de movimentação de estoque, ignorar
-      if (!/saldo\s*l[ií]quido|detalhes\s*da\s*movimenta[cç][aã]o|movimenta[cç][aã]o\s*de\s*ba[uú]|transfer[eê]ncia/i.test(rawText)) {
-        return;
-      }
-
-      console.log(`📦 [STOCK-ENGINE] Log de estoque detectada para baú "${matchedBau?.nome || 'Geral'}"! Mensagem ID: ${message.id}`);
-
-      // Interpretar conteúdo passando o baú do canal como default
-      const { authorName, gamePlayerId, parsedItems } = parseDiscordStockMessage(rawText, embedObj, config, matchedBau?.nome);
-
-      if (!parsedItems || parsedItems.length === 0) {
-        console.warn(`⚠️ [STOCK-ENGINE] Não foi possível interpretar itens na log ${message.id}. Registrando erro...`);
-        await dbPool.query(`
-          INSERT INTO public.discord_stock_logs (
-            message_id, channel_id, guild_id, author_name, game_player_id, raw_content, raw_embeds, parsed_items, status, error_message
-          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'error', 'Nenhum item válido identificado no formato esperado')
-          ON CONFLICT (message_id) DO NOTHING
-        `, [
-          message.id,
-          message.channelId,
-          message.guildId,
-          authorName || 'Desconhecido',
-          gamePlayerId,
-          rawText,
-          embedObj ? JSON.stringify(embedObj) : null,
-          JSON.stringify([])
-        ]);
-        return;
-      }
-
-      // Chamar RPC process_discord_stock_log
-      const rpcQuery = `
-        SELECT public.process_discord_stock_log(
-          $1::TEXT, $2::TEXT, $3::TEXT, $4::TEXT, $5::TEXT, $6::TEXT, $7::JSONB, $8::JSONB
-        ) as result
-      `;
-      const values = [
-        message.id,
-        message.guildId,
-        message.channelId,
-        authorName,
-        gamePlayerId,
-        rawText,
-        embedObj ? JSON.stringify(embedObj) : null,
-        JSON.stringify(parsedItems)
-      ];
-
-      const res = await dbPool.query(rpcQuery, values);
-      const resultObj = res.rows[0].result;
-
-      if (resultObj.success) {
-        console.log(`✅ [STOCK-ENGINE] Log processada com sucesso! Log ID: ${resultObj.log_id} (${parsedItems.length} itens movimentados)`);
-      } else {
-        console.warn(`⚠️ [STOCK-ENGINE] Falha ao processar log ${message.id}: ${resultObj.error}`);
-      }
-
+  // 2. Listener em tempo real (MessageCreate)
+  client.on(Events.MessageCreate, async (message) => {
+    try {
+      const loaded = await loadConfigAndBaus();
+      if (!loaded || loaded.config.is_active === false) return;
+      await processStockMessage(message, loaded.config, loaded.allBaus);
     } catch (err) {
-      console.error("❌ [STOCK-ENGINE] Erro no listener de mensagens:", err);
+      console.error("❌ [STOCK-ENGINE] Erro no listener MessageCreate:", err);
     }
   });
+
+  // 3. Rotina de Sincronização e Catch-up Periódico (a cada 20s) para garantir que NENHUMA log seja perdida
+  setInterval(async () => {
+    try {
+      const loaded = await loadConfigAndBaus();
+      if (!loaded || loaded.config.is_active === false) return;
+      const { config, allBaus } = loaded;
+
+      // Coletar todos os canais de baús automáticos configurados
+      const targetChannelIds = new Set();
+      if (config.channel_id && config.channel_id.trim()) {
+        targetChannelIds.add(config.channel_id.trim());
+      }
+      for (const b of allBaus) {
+        if (b.tipo_gestao === 'automatico' && b.discord_channel_id && b.discord_channel_id.trim()) {
+          targetChannelIds.add(b.discord_channel_id.trim());
+        }
+      }
+      if (config.bau_channels && typeof config.bau_channels === 'object') {
+        for (const bConf of Object.values(config.bau_channels)) {
+          if (bConf && bConf.tipo_gestao === 'automatico' && bConf.channel_id && bConf.channel_id.trim()) {
+            targetChannelIds.add(bConf.channel_id.trim());
+          }
+        }
+      }
+
+      for (const chId of targetChannelIds) {
+        try {
+          const channel = client.channels.cache.get(chId) || await client.channels.fetch(chId).catch(() => null);
+          if (!channel || typeof channel.messages?.fetch !== 'function') continue;
+
+          const recentMsgs = await channel.messages.fetch({ limit: 15 }).catch(() => null);
+          if (!recentMsgs || recentMsgs.size === 0) continue;
+
+          // Processar da mais antiga para a mais recente
+          const sortedMsgs = Array.from(recentMsgs.values()).reverse();
+          for (const msg of sortedMsgs) {
+            await processStockMessage(msg, config, allBaus);
+          }
+        } catch (chErr) {
+          // Ignore individual channel fetch error
+        }
+      }
+    } catch (syncErr) {
+      // Ignore background sync error
+    }
+  }, 20 * 1000);
+
+  console.log("✅ [STOCK-ENGINE] Motor de estoque ativo com listener em tempo real e catch-up automático!");
 }
 
 module.exports = { initStockEngine, parseDiscordStockMessage };

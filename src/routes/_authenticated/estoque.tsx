@@ -114,6 +114,7 @@ export function EstoquePage() {
   const [productModalOpen, setProductModalOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [prodName, setProdName] = useState("");
+  const [prodCdaName, setProdCdaName] = useState("");
   const [prodDesc, setProdDesc] = useState("");
   const [prodCategory, setProdCategory] = useState("");
   const [prodUnidade, setProdUnidade] = useState("un");
@@ -224,6 +225,7 @@ export function EstoquePage() {
     if (product) {
       setEditingProduct(product);
       setProdName(product.nome);
+      setProdCdaName(product.cda_name || "");
       setProdDesc(product.descricao || "");
       setProdCategory(product.categoria_id || "");
       setProdUnidade(product.unidade || "un");
@@ -234,6 +236,7 @@ export function EstoquePage() {
     } else {
       setEditingProduct(null);
       setProdName("");
+      setProdCdaName("");
       setProdDesc("");
       setProdCategory(categories[0]?.id || "");
       setProdUnidade("un");
@@ -271,6 +274,7 @@ export function EstoquePage() {
 
       const prodPayload: any = {
         nome: prodName.trim(),
+        cda_name: prodCdaName.trim() || null,
         unidade: prodUnidade.trim() || "un",
         estoque_minimo: estoqueMinimo,
         preco_sugerido: precoSugerido,
@@ -838,14 +842,31 @@ export function EstoquePage() {
           </DialogHeader>
 
           <div className="space-y-4 py-2">
-            <div className="space-y-1.5">
-              <Label className="text-xs font-bold text-foreground">Nome do Produto</Label>
-              <Input
-                placeholder="Ex: AK-47, Lockpick, Algema..."
-                value={prodName}
-                onChange={(e) => setProdName(e.target.value)}
-                className="h-9 text-xs rounded-xl bg-background border-border/80 text-foreground"
-              />
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-xs font-bold text-foreground">
+                  Nome do Produto <span className="text-destructive">*</span>
+                </Label>
+                <Input
+                  placeholder="Ex: AK-47, Lockpick, Algema..."
+                  value={prodName}
+                  onChange={(e) => setProdName(e.target.value)}
+                  className="h-9 text-xs rounded-xl bg-background border-border/80 text-foreground"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label className="text-xs font-bold text-foreground flex items-center justify-between">
+                  <span>Nome do Item (log CDA)</span>
+                  <span className="text-[10px] text-muted-foreground font-normal">Alias Discord</span>
+                </Label>
+                <Input
+                  placeholder="Ex: Lockpick, Micro Uzi..."
+                  value={prodCdaName}
+                  onChange={(e) => setProdCdaName(e.target.value)}
+                  className="h-9 text-xs rounded-xl bg-background border-border/80 text-foreground font-mono"
+                />
+              </div>
             </div>
 
             <div className="grid grid-cols-2 gap-3">

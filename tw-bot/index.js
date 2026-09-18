@@ -2755,8 +2755,89 @@ setInterval(async () => {
   }
 }, 60 * 1000);
 
+// 7. Servidor HTTP para Telemetria e Consulta Live de Mensagens (Sem persistência no BD)
+const PORT = process.env.PORT || 8080;
+const server = http.createServer(async (req, res) => {
+  // CORS Headers
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
+
+  if (req.method === "OPTIONS") {
+    res.writeHead(200);
+    res.end();
+    return;
+  }
+
+  try {
+    const parsedUrl = new URL(req.url, `http://${req.headers.host || "localhost"}`);
+
+    if (parsedUrl.pathname === "/health" || parsedUrl.pathname === "/") {
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ status: "online", bot: client.user?.tag || "conectando...", uptime: process.uptime() }));
+      return;
+    }
+
+    if (parsedUrl.pathname === "/api/channel-messages") {
+      const channelId = parsedUrl.searchParams.get("channelId");
+      if (!channelId) {
+        res.writeHead(400, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: "channelId é obrigatório" }));
+        return;
+      }
+
+      const channel = await client.channels.fetch(channelId).catch(() => null);
+      if (!channel || !channel.isTextBased()) {
+        res.writeHead(404, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: "Canal não encontrado ou sem permissão de leitura" }));
+        return;
+      }
+
+      const messages = await channel.messages.fetch({ limit: 20 });
+      const formatted = Array.from(messages.values()).map((m) => ({
+        id: m.id,
+        content: m.content || "",
+        channel_id: m.channelId,
+        author: {
+          id: m.author.id,
+          username: m.author.username,
+          displayName: m.author.displayName || m.author.username,
+          avatar: m.author.displayAvatarURL ? m.author.displayAvatarURL() : null,
+          bot: m.author.bot,
+        },
+        embeds: m.embeds.map((e) => ({
+          title: e.title || null,
+          description: e.description || null,
+          fields: e.fields || [],
+          author: e.author ? { name: e.author.name, iconURL: e.author.iconURL } : null,
+          footer: e.footer ? { text: e.footer.text, iconURL: e.footer.iconURL } : null,
+          color: e.color || null,
+          timestamp: e.timestamp || null,
+        })),
+        createdTimestamp: m.createdTimestamp,
+        createdAt: m.createdAt.toISOString(),
+      }));
+
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ channelId, count: formatted.length, messages: formatted }));
+      return;
+    }
+
+    res.writeHead(404, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ error: "Endpoint não encontrado" }));
+  } catch (err) {
+    res.writeHead(500, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ error: err.message }));
+  }
+});
+
+server.listen(PORT, () => {
+  console.log(`🌐 [HTTP SERVER] Servidor do Bot escutando na porta ${PORT}`);
+});
+
 // Inicializa motor de estoque Discord
 initStockEngine(client);
 
 // Login no Discord
 client.login(process.env.DISCORD_BOT_TOKEN);
+

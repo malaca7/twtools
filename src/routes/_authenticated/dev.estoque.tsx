@@ -37,6 +37,7 @@ import {
   CheckCheck,
 } from "lucide-react";
 import { DeveloperGuard } from "@/dev/guards/DeveloperGuard";
+import { BauIcon } from "@/components/ui/bau-icon";
 import { PageHeader, ProductThumbnail, EmptyState } from "@/components/ui-kit";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -1288,7 +1289,7 @@ function DiscordIntegrationTab() {
                     <div className="space-y-1.5">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
-                          <span className="text-base">{b.icone || "📦"}</span>
+                          <BauIcon icone={b.icone} className="w-5 h-5 text-primary" />
                           <strong className="text-sm text-foreground font-bold tracking-tight">
                             {b.nome}
                           </strong>
@@ -1587,7 +1588,7 @@ function DiscordIntegrationTab() {
                       <div key={b.id} className="p-2.5 flex items-center justify-between hover:bg-secondary/20 transition-colors">
                         <div className="space-y-0.5">
                           <div className="flex items-center gap-2">
-                            <span className="text-sm">{b.icone || "📦"}</span>
+                            <BauIcon icone={b.icone} className="w-4 h-4 text-amber-400" />
                             <strong className="text-foreground font-semibold">{b.nome}</strong>
                             <Badge
                               variant="secondary"
@@ -1677,7 +1678,13 @@ function DiscordIntegrationTab() {
                   .filter((b) => b.ativo)
                   .map((b) => (
                     <SelectItem key={b.id} value={b.id}>
-                      {b.icone || "📦"} {b.nome} — {b.tipo_gestao === "manual" ? "✍️ Modo Manual" : "🤖 Modo Automático (Discord)"} {b.discord_channel_id ? `(Canal: ${b.discord_channel_id})` : "(Sem canal)"}
+                      <span className="flex items-center gap-1.5">
+                        <BauIcon icone={b.icone} className="w-3.5 h-3.5 text-primary" />
+                        <span>{b.nome}</span>
+                        <span className="text-[10px] text-muted-foreground">
+                          — {b.tipo_gestao === "manual" ? "✍️ Manual" : "🤖 Automático"} {b.discord_channel_id ? `(Canal: ${b.discord_channel_id})` : "(Sem canal)"}
+                        </span>
+                      </span>
                     </SelectItem>
                   ))}
               </SelectContent>
@@ -1847,15 +1854,241 @@ function DiscordIntegrationTab() {
 }
 
 // ============================================================================
-// TAB 3: LOGS TÉCNICAS & AUDITORIA
+// TAB 3: LOGS TÉCNICAS & AUDITORIA (LIVE 20 MENSAGENS + HISTÓRICO DB)
 // ============================================================================
 function DiscordLogsTab() {
   const queryClient = useQueryClient();
-  const { data: logs = [], isLoading, isRefetching } = useDiscordStockLogs(60);
+  const { data: logs = [], isLoading: isLoadingDbLogs, isRefetching: isRefetchingDbLogs } = useDiscordStockLogs(60);
+  const { data: baus = [] } = useBaus();
+  const { data: products = [] } = useProducts();
+  const { data: discordConfig } = useDiscordStockConfig();
 
+  const itemMappings = useMemo(() => {
+    return (discordConfig?.item_mappings as Record<string, string>) || {};
+  }, [discordConfig]);
+
+  const [logTab, setLogTab] = useState<"live" | "db">("live");
+
+  // Live Messages State
+  const autoBausWithChannel = useMemo(() => {
+    return baus.filter((b) => b.ativo && b.discord_channel_id?.trim());
+  }, [baus]);
+
+  const [selectedLiveBauId, setSelectedLiveBauId] = useState<string>("");
+
+  useEffect(() => {
+    if (!selectedLiveBauId && autoBausWithChannel.length > 0) {
+      setSelectedLiveBauId(autoBausWithChannel[0]!.id);
+    }
+  }, [autoBausWithChannel, selectedLiveBauId]);
+
+  const selectedLiveBau = baus.find((b) => b.id === selectedLiveBauId);
+  const targetChannelId = selectedLiveBau?.discord_channel_id?.trim() || "";
+
+  const [liveMessages, setLiveMessages] = useState<any[]>([]);
+  const [isLoadingLive, setIsLoadingLive] = useState<boolean>(false);
+  const [liveError, setLiveError] = useState<string | null>(null);
+  const [lastLiveFetchTime, setLastLiveFetchTime] = useState<Date | null>(null);
+  const [selectedLiveMsgForInspect, setSelectedLiveMsgForInspect] = useState<any | null>(null);
+
+  // DB Logs Filters
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [searchTerm, setSearchTerm] = useState<string>("");
   const [selectedLogForInspect, setSelectedLogForInspect] = useState<DiscordStockLog | null>(null);
+
+  // Parser client-side para as mensagens do canal
+  const parseClientMessage = (msg: any) => {
+    const rawContent = msg.content || "";
+    const embeds = Array.isArray(msg.embeds) ? msg.embeds : [];
+    const firstEmbed = embeds[0] || null;
+
+    let authorName = firstEmbed?.author?.name || msg.author?.displayName || msg.author?.username || "";
+    let playerId: string | null = null;
+
+    const authorPattern = /(?:^|\n)\s*([a-zA-Z0-9À-ÿ\s\.\-_]+?)\s*[•\|\-]\s*(?:ID|Passaporte)?\s*(\d+)/i;
+    const authorMatch = (authorName || rawContent).match(authorPattern);
+    if (authorMatch) {
+      if (!authorName) authorName = authorMatch[1].trim();
+      playerId = authorMatch[2].trim();
+    } else {
+      const idMatch = (authorName || rawContent).match(/ID\s*[:#]?\s*(\d+)/i) || (authorName || rawContent).match(/Passaporte\s*[:#]?\s*(\d+)/i);
+      if (idMatch) playerId = idMatch[1];
+    }
+
+    const cleanItemName = (rawItem: string) => {
+      const clean = rawItem.replace(/^[\s\-•\*\>]+/, "").trim();
+      const lower = clean.toLowerCase();
+      if (itemMappings[lower]) return itemMappings[lower];
+      for (const [k, v] of Object.entries(itemMappings)) {
+        if (k.trim().toLowerCase() === lower) return v;
+      }
+      const matchedProd = products.find(
+        (p) =>
+          p.ativo !== false &&
+          ((p.cda_name && p.cda_name.trim().toLowerCase() === lower) ||
+            p.nome.trim().toLowerCase() === lower)
+      );
+      if (matchedProd) return matchedProd.nome;
+      return clean;
+    };
+
+    const parsedItems: Array<{ name: string; mappedTo: string; qtyChange: number }> = [];
+
+    // 1. Processar campos de Embeds (Cidade Alta APP)
+    if (firstEmbed && Array.isArray(firstEmbed.fields)) {
+      for (const field of firstEmbed.fields) {
+        const fieldName = (field.name || "").toLowerCase();
+        const fieldValue = field.value || "";
+
+        if (fieldName.includes("saldo") || fieldName.includes("líquido") || fieldName.includes("liquido")) {
+          const lines = fieldValue.split(/\r?\n/).map((l: string) => l.trim()).filter(Boolean);
+          for (const line of lines) {
+            const cleanLine = line.replace(/[\*\_`]/g, "").trim();
+            const m = cleanLine.match(/^(.+?)\s*([+-]\s*\d+)$/);
+            if (m) {
+              const rawItem = m[1].trim();
+              const qty = parseInt(m[2].replace(/\s+/g, ""), 10);
+              if (!isNaN(qty) && rawItem.length > 1) {
+                parsedItems.push({
+                  name: rawItem,
+                  mappedTo: cleanItemName(rawItem),
+                  qtyChange: qty,
+                });
+              }
+            }
+          }
+        }
+      }
+    }
+
+    // 2. Se não encontrou nos fields, processar o corpo da mensagem ou descrição do embed
+    if (parsedItems.length === 0) {
+      const fullText = [rawContent, firstEmbed?.description || ""].filter(Boolean).join("\n");
+      const lines = fullText.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+
+      let inSaldo = false;
+      for (const rawLine of lines) {
+        const line = rawLine.replace(/[\*\_`]/g, "").trim();
+        if (/saldo\s*l[ií]quido/i.test(line)) {
+          inSaldo = true;
+          const inline = line.match(/saldo\s*l[ií]quido\s*[:\-]?\s*(.+?)\s*([+-]\s*\d+)$/i);
+          if (inline) {
+            const rawItem = inline[1].trim();
+            const q = parseInt(inline[2].replace(/\s+/g, ""), 10);
+            if (!isNaN(q)) {
+              parsedItems.push({
+                name: rawItem,
+                mappedTo: cleanItemName(rawItem),
+                qtyChange: q,
+              });
+            }
+          }
+          continue;
+        }
+
+        if (/detalhes\s*da\s*movimenta[cç][aã]o/i.test(line)) {
+          inSaldo = false;
+          continue;
+        }
+
+        if (inSaldo) {
+          const m = line.match(/^(.+?)\s*[:\-]?\s*([+-]\s*\d+)$/);
+          if (m) {
+            const rawItem = m[1].trim();
+            const q = parseInt(m[2].replace(/\s+/g, ""), 10);
+            if (!isNaN(q) && rawItem.length > 1) {
+              parsedItems.push({
+                name: rawItem,
+                mappedTo: cleanItemName(rawItem),
+                qtyChange: q,
+              });
+            }
+          }
+        } else {
+          const m = line.match(/^([a-zA-Z0-9À-ÿ\s\.\-_]+?)\s+([+-]\d+)$/);
+          if (m && !/saldo|detalhe|ba[uú]|id|data/i.test(m[1])) {
+            const rawItem = m[1].trim();
+            const q = parseInt(m[2], 10);
+            if (!isNaN(q) && rawItem.length > 1) {
+              parsedItems.push({
+                name: rawItem,
+                mappedTo: cleanItemName(rawItem),
+                qtyChange: q,
+              });
+            }
+          }
+        }
+      }
+    }
+
+    return {
+      authorName,
+      playerId,
+      parsedItems,
+      isValidMovement: parsedItems.length > 0,
+    };
+  };
+
+  // Buscar as últimas 20 mensagens do canal no Discord sem salvar no BD
+  const handleFetchLiveMessages = async () => {
+    if (!targetChannelId) {
+      toast.error("Selecione um baú com ID de canal do Discord configurado.");
+      return;
+    }
+
+    setIsLoadingLive(true);
+    setLiveError(null);
+
+    try {
+      // 1. Tenta buscar via endpoint do bot Discloud
+      let messages: any[] = [];
+      // 1. Consulta via endpoint do bot Discloud
+      try {
+        const res = await fetch(`https://twin.discloud.app/api/channel-messages?channelId=${targetChannelId}`);
+        if (res.ok) {
+          const data = await res.json();
+          if (Array.isArray(data.messages)) {
+            messages = data.messages;
+          }
+        }
+      } catch {}
+
+      // 2. Fallback via proxy ou env se disponível
+      if (messages.length === 0) {
+        const clientToken = (import.meta as any).env?.VITE_DISCORD_BOT_TOKEN;
+        if (clientToken) {
+          const res = await fetch(`https://discord.com/api/v10/channels/${targetChannelId}/messages?limit=20`, {
+            headers: {
+              Authorization: `Bot ${clientToken}`,
+            },
+          });
+          if (res.ok) {
+            messages = await res.json();
+          }
+        }
+      }
+
+      if (messages.length === 0 && !liveMessages.length) {
+        // Se o bot estiver iniciando na Discloud, exibe aviso amigavel
+        setLiveError("O bot na Discloud está iniciando ou o canal não possui mensagens recentes.");
+      }
+
+      setLiveMessages(Array.isArray(messages) ? messages : []);
+      setLastLiveFetchTime(new Date());
+      toast.success(`${messages.length} mensagens recuperadas em tempo real do canal!`);
+    } catch (err: any) {
+      setLiveError(err.message || "Não foi possível carregar as mensagens do canal.");
+      toast.error(err.message || "Erro ao consultar mensagens do canal.");
+    } finally {
+      setIsLoadingLive(false);
+    }
+  };
+
+  useEffect(() => {
+    if (logTab === "live" && targetChannelId) {
+      void handleFetchLiveMessages();
+    }
+  }, [targetChannelId, logTab]);
 
   const filteredLogs = useMemo(() => {
     return logs.filter((log) => {
@@ -1873,177 +2106,480 @@ function DiscordLogsTab() {
   }, [logs, statusFilter, searchTerm]);
 
   return (
-    <Card className="surface-card border-border/80">
-      <CardHeader className="border-b border-border/40 pb-4">
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-          <div className="space-y-1">
-            <CardTitle className="text-base font-bold flex items-center gap-2">
-              <History className="w-5 h-5 text-primary" />
-              Auditoria de Mensagens & Logs do Discord
-            </CardTitle>
-            <CardDescription className="text-xs">
-              Registro técnico em tempo real de cada log capturada pelo bot no canal monitorado.
-            </CardDescription>
-          </div>
+    <div className="space-y-4">
+      {/* SELETOR DE MODO DE AUDITORIA: LIVE VS BANCO DE DADOS */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 rounded-2xl bg-secondary/30 border border-border/60">
+        <div className="flex items-center gap-2">
+          <Button
+            size="sm"
+            variant={logTab === "live" ? "default" : "outline"}
+            onClick={() => setLogTab("live")}
+            className={cn(
+              "gap-2 text-xs font-bold rounded-xl cursor-pointer transition-all",
+              logTab === "live" ? "bg-primary text-primary-foreground shadow-md" : ""
+            )}
+          >
+            <Radio className="w-3.5 h-3.5 text-emerald-400 animate-pulse" />
+            📡 Mensagens em Tempo Real (Últimas 20 do Canal — Sem Salvar no BD)
+          </Button>
 
-          <div className="flex flex-wrap items-center gap-2">
-            <div className="relative">
-              <Search className="w-3.5 h-3.5 absolute left-2.5 top-3 text-muted-foreground" />
-              <Input
-                placeholder="Filtrar por ID, Jogador ou Conteúdo..."
-                className="pl-8 h-9 text-xs w-64"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
-            </div>
-
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="h-9 text-xs w-36">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todos os Status</SelectItem>
-                <SelectItem value="success">🟢 Sucesso</SelectItem>
-                <SelectItem value="error">🔴 Erro</SelectItem>
-                <SelectItem value="ignored">⚪ Ignorados</SelectItem>
-              </SelectContent>
-            </Select>
-
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-9 text-xs gap-1.5"
-              onClick={() => queryClient.invalidateQueries({ queryKey: ["discord_stock_logs"] })}
-              disabled={isRefetching}
-            >
-              <RefreshCw className={cn("w-3.5 h-3.5", isRefetching && "animate-spin")} />
-              Atualizar
-            </Button>
-          </div>
+          <Button
+            size="sm"
+            variant={logTab === "db" ? "default" : "outline"}
+            onClick={() => setLogTab("db")}
+            className={cn(
+              "gap-2 text-xs font-bold rounded-xl cursor-pointer transition-all",
+              logTab === "db" ? "bg-primary text-primary-foreground shadow-md" : ""
+            )}
+          >
+            <History className="w-3.5 h-3.5 text-cyan-400" />
+            💾 Histórico Persistido no Banco ({logs.length})
+          </Button>
         </div>
-      </CardHeader>
 
-      <CardContent className="p-0">
-        {isLoading ? (
-          <div className="p-12 text-center text-xs text-muted-foreground flex items-center justify-center gap-2">
-            <RefreshCw className="w-4 h-4 animate-spin" /> Carregando logs de auditoria...
-          </div>
-        ) : filteredLogs.length === 0 ? (
-          <div className="p-12 text-center text-xs text-muted-foreground">
-            Nenhuma log técnica encontrada com os filtros selecionados.
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow className="border-border/40">
-                  <TableHead className="text-xs">Data/Hora</TableHead>
-                  <TableHead className="text-xs">ID da Mensagem</TableHead>
-                  <TableHead className="text-xs">Jogador / Autor</TableHead>
-                  <TableHead className="text-xs">Itens / Alteração</TableHead>
-                  <TableHead className="text-xs">Status</TableHead>
-                  <TableHead className="text-xs text-right">Ação</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredLogs.map((l) => (
-                  <TableRow key={l.id} className="border-border/30 hover:bg-secondary/20">
-                    <TableCell className="text-xs whitespace-nowrap text-muted-foreground">
-                      {formatDate(l.created_at)}
-                    </TableCell>
+        {logTab === "live" && lastLiveFetchTime && (
+          <span className="text-[11px] text-muted-foreground font-mono">
+            Última leitura: {lastLiveFetchTime.toLocaleTimeString("pt-BR")}
+          </span>
+        )}
+      </div>
 
-                    <TableCell className="text-xs font-mono">
-                      <div className="flex items-center gap-1">
-                        <span className="text-foreground">{l.message_id?.slice(0, 12)}...</span>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-6 w-6 p-0 text-muted-foreground hover:text-foreground"
-                          onClick={() => {
-                            navigator.clipboard.writeText(l.message_id || "");
-                            toast.success("ID copiado!");
-                          }}
-                        >
-                          <Copy className="w-3 h-3" />
-                        </Button>
-                      </div>
-                    </TableCell>
+      {logTab === "live" ? (
+        /* ========================================================================= */
+        /* MODO 1: LIVE 20 MENSAGENS EM TEMPO REAL DO CANAL (SEM PERSISTÊNCIA NO BD) */
+        /* ========================================================================= */
+        <Card className="surface-card border-border/80 shadow-lg">
+          <CardHeader className="border-b border-border/40 pb-4">
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+              <div className="space-y-1">
+                <CardTitle className="text-base font-bold flex items-center gap-2 text-foreground">
+                  <Radio className="w-4 h-4 text-emerald-400 animate-pulse" />
+                  Feed Live do Canal do Discord (Últimas 20 Mensagens)
+                </CardTitle>
+                <CardDescription className="text-xs">
+                  Consulta direta à API do Discord sem gravar registros no banco de dados. Ideal para conferência e auditoria ao vivo.
+                </CardDescription>
+              </div>
 
-                    <TableCell className="text-xs">
-                      {l.game_player_id ? (
-                        <Badge variant="outline" className="font-mono text-[10px]">
-                          ID {l.game_player_id}
-                        </Badge>
-                      ) : l.author_name ? (
-                        <span className="text-muted-foreground truncate max-w-[120px] block">
-                          {l.author_name}
-                        </span>
-                      ) : (
-                        <span className="text-muted-foreground italic">—</span>
-                      )}
-                    </TableCell>
-
-                    <TableCell className="text-xs">
-                      {Array.isArray(l.parsed_items) && l.parsed_items.length > 0 ? (
-                        <div className="flex flex-wrap gap-1 max-w-xs">
-                          {l.parsed_items.map((it: any, idx: number) => (
-                            <Badge
-                              key={idx}
-                              variant="outline"
-                              className={cn(
-                                "text-[10px] font-mono",
-                                it.quantity_change > 0
-                                  ? "border-emerald-500/30 text-emerald-400 bg-emerald-500/10"
-                                  : "border-rose-500/30 text-rose-400 bg-rose-500/10"
-                              )}
-                            >
-                              {it.item_name} {it.quantity_change > 0 ? `+${it.quantity_change}` : it.quantity_change}
-                            </Badge>
-                          ))}
+              {/* Seletor de Baú / Canal + Botão de Atualização */}
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="w-64">
+                  <Select value={selectedLiveBauId} onValueChange={setSelectedLiveBauId}>
+                    <SelectTrigger className="h-9 text-xs bg-background/60 font-medium">
+                      <SelectValue placeholder="Selecione o baú..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {autoBausWithChannel.length === 0 ? (
+                        <div className="p-3 text-center text-xs text-muted-foreground">
+                          Nenhum baú com canal vinculado
                         </div>
                       ) : (
-                        <span className="text-muted-foreground text-[11px] truncate max-w-[200px] block">
-                          {l.raw_content ? l.raw_content.slice(0, 40) : "—"}
-                        </span>
+                        autoBausWithChannel.map((b) => (
+                          <SelectItem key={b.id} value={b.id}>
+                            <span className="flex items-center gap-1.5">
+                              <BauIcon icone={b.icone} className="w-3.5 h-3.5 text-primary" />
+                              <span>{b.nome}</span>
+                              <span className="text-[10px] text-muted-foreground font-mono">
+                                ({b.discord_channel_id})
+                              </span>
+                            </span>
+                          </SelectItem>
+                        ))
                       )}
-                    </TableCell>
+                    </SelectContent>
+                  </Select>
+                </div>
 
-                    <TableCell className="text-xs">
-                      <Badge
-                        variant="outline"
-                        className={cn(
-                          "text-[10px] font-mono uppercase",
-                          l.status === "success"
-                            ? "border-emerald-500/40 text-emerald-400 bg-emerald-500/10"
-                            : l.status === "error"
-                            ? "border-rose-500/40 text-rose-400 bg-rose-500/10"
-                            : "border-muted text-muted-foreground bg-secondary/30"
-                        )}
-                      >
-                        {l.status}
-                      </Badge>
-                    </TableCell>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={handleFetchLiveMessages}
+                  disabled={isLoadingLive || !targetChannelId}
+                  className="h-9 text-xs gap-1.5 font-bold border-primary/40 hover:bg-primary/10 text-primary cursor-pointer"
+                >
+                  <RefreshCw className={cn("w-3.5 h-3.5", isLoadingLive && "animate-spin")} />
+                  {isLoadingLive ? "Consultando Discord..." : "Buscar 20 Mensagens"}
+                </Button>
+              </div>
+            </div>
+          </CardHeader>
 
-                    <TableCell className="text-xs text-right">
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="h-8 gap-1 text-xs"
-                        onClick={() => setSelectedLogForInspect(l)}
-                      >
-                        <Eye className="w-3.5 h-3.5 text-primary" />
-                        Inspecionar
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
-        )}
-      </CardContent>
+          <CardContent className="p-0">
+            {isLoadingLive ? (
+              <div className="p-14 text-center text-xs text-muted-foreground flex flex-col items-center justify-center gap-2">
+                <RefreshCw className="w-6 h-6 animate-spin text-primary" />
+                <span>Carregando as 20 mensagens mais recentes do canal no Discord...</span>
+              </div>
+            ) : liveError ? (
+              <div className="p-8 text-center space-y-2">
+                <AlertTriangle className="w-8 h-8 text-rose-400 mx-auto" />
+                <p className="text-xs text-rose-400 font-semibold">{liveError}</p>
+                <Button size="sm" variant="outline" onClick={handleFetchLiveMessages} className="text-xs mt-2">
+                  Tentar Novamente
+                </Button>
+              </div>
+            ) : liveMessages.length === 0 ? (
+              <div className="p-12 text-center text-xs text-muted-foreground space-y-2">
+                <Radio className="w-8 h-8 text-muted-foreground/40 mx-auto" />
+                <p>Nenhuma mensagem retornada para o canal selecionado ({targetChannelId || "Nenhum canal"}).</p>
+                <p className="text-[10px]">Certifique-se de que o bot possui permissão de leitura de mensagens e histórico no canal.</p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="border-border/40 bg-secondary/20">
+                      <TableHead className="text-xs">Data/Hora</TableHead>
+                      <TableHead className="text-xs">ID Mensagem</TableHead>
+                      <TableHead className="text-xs">Jogador / Autor</TableHead>
+                      <TableHead className="text-xs">Itens / Saldo Detectado</TableHead>
+                      <TableHead className="text-xs">Status do Parser</TableHead>
+                      <TableHead className="text-xs text-right">Ação</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {liveMessages.map((msg: any) => {
+                      const parsed = parseClientMessage(msg);
+                      const msgDate = msg.createdTimestamp ? new Date(msg.createdTimestamp) : msg.createdAt ? new Date(msg.createdAt) : new Date();
 
-      {/* MODAL DE INSPEÇÃO TÉCNICA RAW */}
+                      return (
+                        <TableRow key={msg.id} className="border-border/30 hover:bg-secondary/20 transition-colors">
+                          <TableCell className="text-xs whitespace-nowrap text-muted-foreground font-mono">
+                            {formatDate(msgDate.toISOString())}
+                          </TableCell>
+
+                          <TableCell className="text-xs font-mono">
+                            <div className="flex items-center gap-1">
+                              <span className="text-foreground">{msg.id?.slice(0, 10)}...</span>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-6 w-6 p-0 text-muted-foreground hover:text-foreground"
+                                onClick={() => {
+                                  navigator.clipboard.writeText(msg.id || "");
+                                  toast.success("ID da mensagem copiado!");
+                                }}
+                              >
+                                <Copy className="w-3 h-3" />
+                              </Button>
+                            </div>
+                          </TableCell>
+
+                          <TableCell className="text-xs">
+                            <div className="space-y-0.5">
+                              {parsed.playerId ? (
+                                <div className="flex items-center gap-1.5">
+                                  <Badge variant="outline" className="font-mono text-[10px] bg-primary/10 text-primary border-primary/30">
+                                    ID {parsed.playerId}
+                                  </Badge>
+                                  <span className="text-foreground font-semibold truncate max-w-[140px]">
+                                    {parsed.authorName}
+                                  </span>
+                                </div>
+                              ) : (
+                                <span className="text-muted-foreground font-medium truncate max-w-[150px] block">
+                                  {parsed.authorName || msg.author?.username || "Autor Desconhecido"}
+                                </span>
+                              )}
+                              {msg.author?.bot && (
+                                <Badge variant="secondary" className="text-[8.5px] px-1 py-0 uppercase bg-secondary/80 text-muted-foreground">
+                                  BOT / APP
+                                </Badge>
+                              )}
+                            </div>
+                          </TableCell>
+
+                          <TableCell className="text-xs">
+                            {parsed.parsedItems.length > 0 ? (
+                              <div className="flex flex-wrap gap-1 max-w-xs">
+                                {parsed.parsedItems.map((it, idx) => (
+                                  <Badge
+                                    key={idx}
+                                    variant="outline"
+                                    className={cn(
+                                      "text-[10px] font-mono",
+                                      it.qtyChange > 0
+                                        ? "border-emerald-500/30 text-emerald-400 bg-emerald-500/10"
+                                        : "border-rose-500/30 text-rose-400 bg-rose-500/10"
+                                    )}
+                                  >
+                                    {it.mappedTo} {it.qtyChange > 0 ? `+${it.qtyChange}` : it.qtyChange}
+                                  </Badge>
+                                ))}
+                              </div>
+                            ) : (
+                              <span className="text-muted-foreground text-[11px] truncate max-w-[200px] block italic">
+                                {msg.content || (msg.embeds?.[0]?.title ? `Embed: ${msg.embeds[0].title}` : "(Sem texto de saldo)")}
+                              </span>
+                            )}
+                          </TableCell>
+
+                          <TableCell className="text-xs">
+                            {parsed.isValidMovement ? (
+                              <Badge variant="outline" className="text-[10px] font-mono uppercase border-emerald-500/40 text-emerald-400 bg-emerald-500/10 gap-1">
+                                <CheckCircle2 className="w-3 h-3" /> Movimentação Válida
+                              </Badge>
+                            ) : (
+                              <Badge variant="outline" className="text-[10px] font-mono uppercase border-muted text-muted-foreground bg-secondary/40">
+                                Informativo / Outro
+                              </Badge>
+                            )}
+                          </TableCell>
+
+                          <TableCell className="text-xs text-right">
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-8 gap-1 text-xs hover:text-primary cursor-pointer"
+                              onClick={() => setSelectedLiveMsgForInspect(msg)}
+                            >
+                              <Eye className="w-3.5 h-3.5 text-primary" />
+                              JSON Raw
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+          </CardContent>
+
+          <CardFooter className="p-3 border-t border-border/40 bg-secondary/10 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-muted-foreground">
+            <span>
+              Exibindo <strong>{liveMessages.length}</strong> mensagens live do canal <code>{targetChannelId || "—"}</code>.
+            </span>
+            <span className="text-[11px] text-emerald-400/90 font-medium">
+              🔒 100% em memória (sem inserção no banco de dados).
+            </span>
+          </CardFooter>
+        </Card>
+      ) : (
+        /* ========================================================================= */
+        /* MODO 2: LOGS PERSISTIDAS NO BANCO DE DADOS (discord_stock_logs)          */
+        /* ========================================================================= */
+        <Card className="surface-card border-border/80">
+          <CardHeader className="border-b border-border/40 pb-4">
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+              <div className="space-y-1">
+                <CardTitle className="text-base font-bold flex items-center gap-2">
+                  <History className="w-5 h-5 text-primary" />
+                  Auditoria de Logs Gravadas no Banco (discord_stock_logs)
+                </CardTitle>
+                <CardDescription className="text-xs">
+                  Histórico persistido com auditoria técnica de sucesso e erro no banco de dados.
+                </CardDescription>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="relative">
+                  <Search className="w-3.5 h-3.5 absolute left-2.5 top-3 text-muted-foreground" />
+                  <Input
+                    placeholder="Filtrar por ID, Jogador ou Conteúdo..."
+                    className="pl-8 h-9 text-xs w-64"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                  />
+                </div>
+
+                <Select value={statusFilter} onValueChange={setStatusFilter}>
+                  <SelectTrigger className="h-9 text-xs w-36">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos os Status</SelectItem>
+                    <SelectItem value="success">🟢 Sucesso</SelectItem>
+                    <SelectItem value="error">🔴 Erro</SelectItem>
+                    <SelectItem value="ignored">⚪ Ignorados</SelectItem>
+                  </SelectContent>
+                </Select>
+
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-9 text-xs gap-1.5"
+                  onClick={() => queryClient.invalidateQueries({ queryKey: ["discord_stock_logs"] })}
+                  disabled={isRefetchingDbLogs}
+                >
+                  <RefreshCw className={cn("w-3.5 h-3.5", isRefetchingDbLogs && "animate-spin")} />
+                  Atualizar
+                </Button>
+              </div>
+            </div>
+          </CardHeader>
+
+          <CardContent className="p-0">
+            {isLoadingDbLogs ? (
+              <div className="p-12 text-center text-xs text-muted-foreground flex items-center justify-center gap-2">
+                <RefreshCw className="w-4 h-4 animate-spin" /> Carregando logs de auditoria...
+              </div>
+            ) : filteredLogs.length === 0 ? (
+              <div className="p-12 text-center text-xs text-muted-foreground">
+                Nenhuma log técnica encontrada com os filtros selecionados.
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="border-border/40">
+                      <TableHead className="text-xs">Data/Hora</TableHead>
+                      <TableHead className="text-xs">ID da Mensagem</TableHead>
+                      <TableHead className="text-xs">Jogador / Autor</TableHead>
+                      <TableHead className="text-xs">Itens / Alteração</TableHead>
+                      <TableHead className="text-xs">Status</TableHead>
+                      <TableHead className="text-xs text-right">Ação</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredLogs.map((l) => (
+                      <TableRow key={l.id} className="border-border/30 hover:bg-secondary/20">
+                        <TableCell className="text-xs whitespace-nowrap text-muted-foreground">
+                          {formatDate(l.created_at)}
+                        </TableCell>
+
+                        <TableCell className="text-xs font-mono">
+                          <div className="flex items-center gap-1">
+                            <span className="text-foreground">{l.message_id?.slice(0, 12)}...</span>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-6 w-6 p-0 text-muted-foreground hover:text-foreground"
+                              onClick={() => {
+                                navigator.clipboard.writeText(l.message_id || "");
+                                toast.success("ID copiado!");
+                              }}
+                            >
+                              <Copy className="w-3 h-3" />
+                            </Button>
+                          </div>
+                        </TableCell>
+
+                        <TableCell className="text-xs">
+                          {l.game_player_id ? (
+                            <Badge variant="outline" className="font-mono text-[10px]">
+                              ID {l.game_player_id}
+                            </Badge>
+                          ) : l.author_name ? (
+                            <span className="text-muted-foreground truncate max-w-[120px] block">
+                              {l.author_name}
+                            </span>
+                          ) : (
+                            <span className="text-muted-foreground italic">—</span>
+                          )}
+                        </TableCell>
+
+                        <TableCell className="text-xs">
+                          {Array.isArray(l.parsed_items) && l.parsed_items.length > 0 ? (
+                            <div className="flex flex-wrap gap-1 max-w-xs">
+                              {l.parsed_items.map((it: any, idx: number) => (
+                                <Badge
+                                  key={idx}
+                                  variant="outline"
+                                  className={cn(
+                                    "text-[10px] font-mono",
+                                    it.quantity_change > 0
+                                      ? "border-emerald-500/30 text-emerald-400 bg-emerald-500/10"
+                                      : "border-rose-500/30 text-rose-400 bg-rose-500/10"
+                                  )}
+                                >
+                                  {it.item_name} {it.quantity_change > 0 ? `+${it.quantity_change}` : it.quantity_change}
+                                </Badge>
+                              ))}
+                            </div>
+                          ) : (
+                            <span className="text-muted-foreground text-[11px] truncate max-w-[200px] block">
+                              {l.raw_content ? l.raw_content.slice(0, 40) : "—"}
+                            </span>
+                          )}
+                        </TableCell>
+
+                        <TableCell className="text-xs">
+                          <Badge
+                            variant="outline"
+                            className={cn(
+                              "text-[10px] font-mono uppercase",
+                              l.status === "success"
+                                ? "border-emerald-500/40 text-emerald-400 bg-emerald-500/10"
+                                : l.status === "error"
+                                ? "border-rose-500/40 text-rose-400 bg-rose-500/10"
+                                : "border-muted text-muted-foreground bg-secondary/30"
+                            )}
+                          >
+                            {l.status}
+                          </Badge>
+                        </TableCell>
+
+                        <TableCell className="text-xs text-right">
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-8 gap-1 text-xs"
+                            onClick={() => setSelectedLogForInspect(l)}
+                          >
+                            <Eye className="w-3.5 h-3.5 text-primary" />
+                            Inspecionar
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* MODAL DE INSPEÇÃO TÉCNICA RAW (MENSAGEM LIVE) */}
+      <Dialog open={Boolean(selectedLiveMsgForInspect)} onOpenChange={(open) => !open && setSelectedLiveMsgForInspect(null)}>
+        <DialogContent className="max-w-2xl surface-card">
+          <DialogHeader>
+            <div className="flex items-center justify-between">
+              <div className="space-y-1">
+                <DialogTitle className="text-base font-bold flex items-center gap-2">
+                  <Terminal className="w-4 h-4 text-emerald-400" />
+                  Inspeção Raw de Mensagem Live do Discord
+                </DialogTitle>
+                <DialogDescription className="text-xs">
+                  ID: <span className="font-mono text-foreground">{selectedLiveMsgForInspect?.id}</span> • Canal:{" "}
+                  <span className="font-mono text-foreground">{targetChannelId}</span>
+                </DialogDescription>
+              </div>
+
+              <Badge variant="outline" className="text-[10px] font-mono bg-emerald-500/10 text-emerald-400 border-emerald-500/30">
+                TEMPO REAL (DISCORD API)
+              </Badge>
+            </div>
+          </DialogHeader>
+
+          {selectedLiveMsgForInspect && (
+            <div className="space-y-4 text-xs max-h-[70vh] overflow-y-auto pr-1">
+              <div className="space-y-1.5">
+                <Label className="text-xs font-bold text-muted-foreground uppercase">Resultado da Interpretação Client-Side</Label>
+                <pre className="p-3 rounded-lg bg-background/80 border border-border/60 text-foreground font-mono text-xs overflow-x-auto">
+                  {JSON.stringify(parseClientMessage(selectedLiveMsgForInspect), null, 2)}
+                </pre>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label className="text-xs font-bold text-muted-foreground uppercase">Objeto Completo da Mensagem (JSON)</Label>
+                <pre className="p-3 rounded-lg bg-background/80 border border-border/60 text-foreground font-mono text-xs overflow-x-auto">
+                  {JSON.stringify(selectedLiveMsgForInspect, null, 2)}
+                </pre>
+              </div>
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setSelectedLiveMsgForInspect(null)}>
+              Fechar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* MODAL DE INSPEÇÃO TÉCNICA RAW (LOG DO BANCO) */}
       <Dialog open={Boolean(selectedLogForInspect)} onOpenChange={(open) => !open && setSelectedLogForInspect(null)}>
         <DialogContent className="max-w-2xl surface-card">
           <DialogHeader>
@@ -2051,7 +2587,7 @@ function DiscordLogsTab() {
               <div className="space-y-1">
                 <DialogTitle className="text-base font-bold flex items-center gap-2">
                   <Terminal className="w-4 h-4 text-primary" />
-                  Inspeção Técnica de Log do Discord
+                  Inspeção Técnica de Log do Banco
                 </DialogTitle>
                 <DialogDescription className="text-xs">
                   ID: <span className="font-mono text-foreground">{selectedLogForInspect?.message_id}</span> • Registrado em:{" "}
@@ -2116,6 +2652,7 @@ function DiscordLogsTab() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </Card>
+    </div>
   );
 }
+

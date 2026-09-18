@@ -444,7 +444,7 @@ export async function getProducts(): Promise<Product[]> {
   try {
     const { data, error } = await supabase
       .from("products")
-      .select("id, nome, descricao, categoria_id, bau_id, unidade, estoque_atual, estoque_minimo, preco_sugerido, imagem_url, ativo, created_at, updated_at")
+      .select("id, nome, cda_name, descricao, categoria_id, bau_id, unidade, estoque_atual, estoque_minimo, preco_sugerido, imagem_url, ativo, created_at, updated_at")
       .order("nome");
     if (!error && data && data.length > 0) {
       listData = data;
@@ -455,6 +455,7 @@ export async function getProducts(): Promise<Product[]> {
   return (listData || []).map(d => ({
     id: d.id,
     nome: d.nome,
+    cda_name: d.cda_name || null,
     descricao: d.descricao,
     categoria_id: d.categoria_id,
     bau_id: d.bau_id,
@@ -1978,11 +1979,12 @@ export async function uploadProductImage(file: File): Promise<string> {
   return publicUrlData.publicUrl;
 }
 
-export async function createProduct(payload: { nome: string; descricao?: string; categoria_id?: string; bau_id?: string; unidade?: string; estoque_minimo?: number; preco_sugerido?: number; imagem_url?: string }): Promise<Product> {
+export async function createProduct(payload: { nome: string; cda_name?: string | null; descricao?: string; categoria_id?: string; bau_id?: string; unidade?: string; estoque_minimo?: number; preco_sugerido?: number; imagem_url?: string }): Promise<Product> {
   const { data, error } = await supabase
     .from("products")
     .insert({
       nome: payload.nome.trim(),
+      cda_name: payload.cda_name?.trim() || null,
       descricao: payload.descricao?.trim() || null,
       categoria_id: payload.categoria_id || null,
       bau_id: payload.bau_id || null,
@@ -1996,11 +1998,24 @@ export async function createProduct(payload: { nome: string; descricao?: string;
     .single();
   if (error) throw error;
 
-  void logAuditAction("create_product", "products", { nome: data.nome, preco: data.preco_sugerido, estoque_minimo: data.estoque_minimo, imagem_url: data.imagem_url }, undefined, data.id);
+  // Sincronizar alias com discord_stock_config.item_mappings se informado
+  if (payload.cda_name && payload.cda_name.trim()) {
+    try {
+      const { data: conf } = await (supabase.from("discord_stock_config" as any)).select("item_mappings").limit(1).maybeSingle();
+      const currentMappings = conf?.item_mappings || {};
+      const newMappings = { ...currentMappings, [payload.cda_name.trim().toLowerCase()]: data.nome };
+      await (supabase.from("discord_stock_config" as any)).update({ item_mappings: newMappings, updated_at: new Date().toISOString() }).neq("id", "00000000-0000-0000-0000-000000000000");
+    } catch (e) {
+      console.warn("Could not sync item_mapping in discord_stock_config:", e);
+    }
+  }
+
+  void logAuditAction("create_product", "products", { nome: data.nome, cda_name: data.cda_name, preco: data.preco_sugerido, estoque_minimo: data.estoque_minimo, imagem_url: data.imagem_url }, undefined, data.id);
 
   return {
     id: data.id,
     nome: data.nome,
+    cda_name: data.cda_name || null,
     descricao: data.descricao,
     categoria_id: data.categoria_id,
     bau_id: data.bau_id,
@@ -2015,11 +2030,12 @@ export async function createProduct(payload: { nome: string; descricao?: string;
   };
 }
 
-export async function updateProduct(payload: { id: string; nome?: string; descricao?: string; categoria_id?: string | null; bau_id?: string | null; unidade?: string; estoque_minimo?: number; preco_sugerido?: number; imagem_url?: string | null; ativo?: boolean }): Promise<void> {
-  const { data: oldProd } = await supabase.from("products").select("nome, descricao, preco_sugerido, estoque_minimo, imagem_url, ativo").eq("id", payload.id).maybeSingle();
+export async function updateProduct(payload: { id: string; nome?: string; cda_name?: string | null; descricao?: string; categoria_id?: string | null; bau_id?: string | null; unidade?: string; estoque_minimo?: number; preco_sugerido?: number; imagem_url?: string | null; ativo?: boolean }): Promise<void> {
+  const { data: oldProd } = await supabase.from("products").select("nome, cda_name, descricao, preco_sugerido, estoque_minimo, imagem_url, ativo").eq("id", payload.id).maybeSingle();
 
   const updates: any = {};
   if (payload.nome !== undefined) updates.nome = payload.nome.trim();
+  if (payload.cda_name !== undefined) updates.cda_name = payload.cda_name ? payload.cda_name.trim() : null;
   if (payload.descricao !== undefined) updates.descricao = payload.descricao.trim();
   if (payload.categoria_id !== undefined) updates.categoria_id = payload.categoria_id;
   if (payload.bau_id !== undefined) updates.bau_id = payload.bau_id;
@@ -2034,6 +2050,28 @@ export async function updateProduct(payload: { id: string; nome?: string; descri
   if (error) throw error;
   if (!data || data.length === 0) {
     throw new Error("Não foi possível atualizar o produto.");
+  }
+
+  // Sincronizar alias com discord_stock_config.item_mappings se cda_name ou nome foram alterados
+  if (payload.cda_name !== undefined || payload.nome !== undefined) {
+    try {
+      const { data: conf } = await (supabase.from("discord_stock_config" as any)).select("item_mappings").limit(1).maybeSingle();
+      const currentMappings = conf?.item_mappings || {};
+      const newMappings = { ...currentMappings };
+
+      // Se o cda_name antigo mudou, remover o mapeamento antigo
+      if (oldProd?.cda_name && oldProd.cda_name.trim().toLowerCase() !== updates.cda_name?.toLowerCase()) {
+        delete newMappings[oldProd.cda_name.trim().toLowerCase()];
+      }
+      // Se novo cda_name definido, associar ao nome atualizado
+      const finalName = updates.nome || oldProd?.nome;
+      if (updates.cda_name) {
+        newMappings[updates.cda_name.toLowerCase()] = finalName;
+      }
+      await (supabase.from("discord_stock_config" as any)).update({ item_mappings: newMappings, updated_at: new Date().toISOString() }).neq("id", "00000000-0000-0000-0000-000000000000");
+    } catch (e) {
+      console.warn("Could not sync item_mapping in discord_stock_config:", e);
+    }
   }
 
   void logAuditAction("update_product", "products", { id: payload.id, ...updates }, oldProd || undefined, payload.id);

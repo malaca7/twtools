@@ -31,6 +31,7 @@ import {
   Info,
   Equal,
 } from "lucide-react";
+import { BauIcon } from "@/components/ui/bau-icon";
 import { useAuth } from "@/hooks/useAuth";
 import {
   useProducts,
@@ -195,6 +196,7 @@ function ProdutosTabContent() {
 
   // Form State
   const [nome, setNome] = useState("");
+  const [cdaName, setCdaName] = useState("");
   const [descricao, setDescricao] = useState("");
   const [categoriaId, setCategoriaId] = useState("");
   const [bauId, setBauId] = useState("");
@@ -210,6 +212,7 @@ function ProdutosTabContent() {
   const openCreateModal = () => {
     setEditingProduct(null);
     setNome("");
+    setCdaName("");
     setDescricao("");
     setCategoriaId(categories[0]?.id || "");
     setBauId(baus[0]?.id || "");
@@ -224,6 +227,7 @@ function ProdutosTabContent() {
   const openEditModal = (prod: Product) => {
     setEditingProduct(prod);
     setNome(prod.nome);
+    setCdaName(prod.cda_name || "");
     setDescricao(prod.descricao || "");
     setCategoriaId(prod.categoria_id || "");
     setBauId(prod.bau_id || "");
@@ -242,6 +246,7 @@ function ProdutosTabContent() {
 
       const payload: any = {
         nome: nome.trim(),
+        cda_name: cdaName.trim() || undefined,
         descricao: descricao.trim() || undefined,
         categoria_id: categoriaId || undefined,
         bau_id: bauId || undefined,
@@ -540,14 +545,31 @@ function ProdutosTabContent() {
           </DialogHeader>
 
           <div className="space-y-3.5 py-2 text-xs">
-            <div className="space-y-1.5">
-              <Label className="text-xs">Nome do Produto *</Label>
-              <Input
-                placeholder="Ex: MP5, Micro Uzi, Paracetamol..."
-                value={nome}
-                onChange={(e) => setNome(e.target.value)}
-                className="text-xs"
-              />
+            <div className="grid gap-3 grid-cols-1 sm:grid-cols-2">
+              <div className="space-y-1.5">
+                <Label className="text-xs font-bold text-foreground">
+                  Nome do Produto <span className="text-destructive">*</span>
+                </Label>
+                <Input
+                  placeholder="Ex: MP5, Micro Uzi, Paracetamol..."
+                  value={nome}
+                  onChange={(e) => setNome(e.target.value)}
+                  className="text-xs"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label className="text-xs font-bold text-foreground flex items-center justify-between">
+                  <span>Nome do Item (log CDA)</span>
+                  <span className="text-[10px] text-muted-foreground font-normal">Alias Discord</span>
+                </Label>
+                <Input
+                  placeholder="Ex: Lockpick, Micro Uzi..."
+                  value={cdaName}
+                  onChange={(e) => setCdaName(e.target.value)}
+                  className="text-xs font-mono"
+                />
+              </div>
             </div>
 
             <div className="space-y-1.5">
@@ -587,7 +609,10 @@ function ProdutosTabContent() {
                   <SelectContent>
                     {baus.map((b) => (
                       <SelectItem key={b.id} value={b.id}>
-                        {b.icone || "📦"} {b.nome}
+                        <span className="flex items-center gap-1.5">
+                          <BauIcon icone={b.icone} className="w-3.5 h-3.5 text-primary" />
+                          <span>{b.nome}</span>
+                        </span>
                       </SelectItem>
                     ))}
                   </SelectContent>

@@ -170,7 +170,7 @@ const DialogContentInner = React.forwardRef<
         onMouseDown={(e) => e.stopPropagation()}
         onClick={(e) => e.stopPropagation()}
         className={cn(
-          "fixed left-[50%] top-[50%] z-[10051] grid w-[calc(100%-1.25rem)] sm:w-[calc(100%-2rem)] max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 border border-border/80 bg-card text-card-foreground shadow-2xl rounded-2xl sm:rounded-3xl p-4 sm:p-6 opacity-100 scale-100 pointer-events-auto transition-all duration-150 max-h-[90dvh] overflow-y-auto overflow-x-hidden overscroll-contain ring-1 ring-border/50 scrollbar-none animate-in fade-in-0 zoom-in-95",
+          "fixed left-[50%] top-[50%] z-[10051] grid w-[calc(100%-1.25rem)] sm:w-[calc(100%-2rem)] max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 border border-white/15 bg-[#13141f] text-foreground shadow-2xl rounded-2xl sm:rounded-3xl p-4 sm:p-6 opacity-100 scale-100 pointer-events-auto transition-all duration-150 max-h-[90dvh] overflow-y-auto overflow-x-hidden overscroll-contain ring-1 ring-white/10 scrollbar-none animate-in fade-in-0 zoom-in-95",
           className,
         )}
         {...props}

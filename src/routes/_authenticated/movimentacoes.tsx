@@ -26,7 +26,10 @@ import {
   Eye,
   PackageSearch,
   Layers,
+  X,
+  History,
 } from "lucide-react";
+import { BauIcon } from "@/components/ui/bau-icon";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -534,6 +537,8 @@ export function MovimentacoesPage() {
   // Paginação do Histórico de Lançamentos
   const [logPage, setLogPage] = useState(1);
   const [logsPerPage, setLogsPerPage] = useState<number>(10);
+  const [activeMovementBauId, setActiveMovementBauId] = useState<string | null>(null);
+  const [showHistory, setShowHistory] = useState<boolean>(false);
 
   useEffect(() => {
     setLogPage(1);
@@ -575,6 +580,7 @@ export function MovimentacoesPage() {
 
   // Disparo de movimentação a partir do card do baú (Apenas para baús manuais)
   const handleStartMovementOnBau = (targetBauId: string) => {
+    setActiveMovementBauId(targetBauId);
     setSelectedBauId(targetBauId);
     setFromBauId(targetBauId);
     if (type === "transferencia" && toBauId === targetBauId) {
@@ -583,9 +589,13 @@ export function MovimentacoesPage() {
     }
     setQueue([]);
     const targetBauObj = baus.find((b) => b.id === targetBauId);
-    toast.info(`Baú "${targetBauObj?.nome || "Selecionado"}" pronto para movimentação.`);
-    movementSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    toast.info(`Baú "${targetBauObj?.nome || "Selecionado"}" aberto para lançamento.`);
+    setTimeout(() => {
+      movementSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 50);
   };
+
+  const activeMovementBauObj = baus.find((b) => b.id === activeMovementBauId);
 
   // Dados do baú ativo no modal de saldo
   const activeBalanceBau = baus.find((b) => b.id === balanceBauId);
@@ -664,8 +674,8 @@ export function MovimentacoesPage() {
                   {/* Top row: Icon + Name + Badges */}
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex items-center gap-2.5 min-w-0">
-                      <div className="w-10 h-10 rounded-xl bg-secondary/70 border border-border/60 flex items-center justify-center text-xl shrink-0 shadow-inner">
-                        {b.icone || "📦"}
+                      <div className="w-10 h-10 rounded-xl bg-secondary/70 border border-border/60 flex items-center justify-center shrink-0 shadow-inner">
+                        <BauIcon icone={b.icone} className="w-5 h-5 text-primary" />
                       </div>
                       <div className="min-w-0">
                         <h3 className="font-extrabold text-sm text-foreground truncate" title={b.nome}>
@@ -758,14 +768,19 @@ export function MovimentacoesPage() {
                             variant="default"
                             size="sm"
                             onClick={() => handleStartMovementOnBau(b.id)}
-                            className="h-8 w-8 p-0 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground shadow-sm transition-all active:scale-95 cursor-pointer"
+                            className={cn(
+                              "h-8 w-8 p-0 rounded-lg text-primary-foreground shadow-sm transition-all active:scale-95 cursor-pointer",
+                              activeMovementBauId === b.id
+                                ? "bg-amber-500 hover:bg-amber-600 ring-2 ring-amber-400"
+                                : "bg-primary hover:bg-primary/90"
+                            )}
                             aria-label={`Movimentar baú ${b.nome}`}
                           >
                             <ArrowRightLeft className="h-4 w-4" />
                           </Button>
                         </TooltipTrigger>
                         <TooltipContent side="top" className="text-xs font-semibold">
-                          Lançar Movimentação
+                          Lançar Movimentação neste Baú
                         </TooltipContent>
                       </Tooltip>
                     )}
@@ -777,9 +792,40 @@ export function MovimentacoesPage() {
         </div>
       </div>
 
-      {/* PAINEL INTERATIVO ESTILO APP */}
-      {canMove && (
-        <Card ref={movementSectionRef} className="surface-card border-primary/30 shadow-2xl overflow-hidden">
+      {/* PAINEL INTERATIVO ESTILO APP (ABRE APENAS AO CLICAR EM MOVIMENTAR NO CARD DE UM BAÚ MANUAL) */}
+      {canMove && activeMovementBauId && activeMovementBauObj && (
+        <Card ref={movementSectionRef} className="surface-card border-primary/50 shadow-2xl overflow-hidden animate-in fade-in-50 zoom-in-95 duration-200">
+          {/* HEADER DO BAÚ SELECIONADO PARA OPERAÇÃO */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 sm:p-4 bg-primary/10 border-b border-primary/25">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-primary/20 border border-primary/40 flex items-center justify-center shrink-0">
+                <BauIcon icone={activeMovementBauObj.icone} className="w-5 h-5 text-primary" />
+              </div>
+              <div>
+                <h3 className="font-extrabold text-sm sm:text-base text-foreground flex items-center gap-2">
+                  Lançamento Operacional: {activeMovementBauObj.nome}
+                  <Badge className="text-[10px] bg-amber-500/10 text-amber-400 border-amber-500/30">✍️ Modo Manual</Badge>
+                </h3>
+                <p className="text-xs text-muted-foreground">
+                  Selecione o tipo de movimentação (Entrada, Saída ou Transferência) e os produtos abaixo.
+                </p>
+              </div>
+            </div>
+
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setActiveMovementBauId(null);
+                setQueue([]);
+              }}
+              className="h-8 px-3 text-xs font-bold text-muted-foreground hover:text-foreground hover:bg-secondary/60 rounded-xl border-border/80 shrink-0"
+            >
+              <X className="w-4 h-4 mr-1 text-rose-400" /> Fechar / Voltar aos Baús
+            </Button>
+          </div>
+
           {/* BOTÕES DE TIPO ESTILO SEGMENTED CONTROL (ENTRADA VS SAÍDA VS TRANSFERÊNCIA) */}
           <div className="grid grid-cols-3 p-1.5 sm:p-2 bg-secondary/40 border-b border-border/60 gap-1.5 sm:gap-2">
             <button
@@ -1780,8 +1826,8 @@ export function MovimentacoesPage() {
           <DialogHeader className="p-4 sm:p-5 border-b border-border/60 bg-secondary/30 space-y-1">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-secondary/80 border border-border/60 flex items-center justify-center text-2xl shadow-inner">
-                  {activeBalanceBau?.icone || "📦"}
+                <div className="w-10 h-10 rounded-xl bg-secondary/80 border border-border/60 flex items-center justify-center shrink-0 shadow-inner">
+                  <BauIcon icone={activeBalanceBau?.icone} className="w-5 h-5 text-primary" />
                 </div>
                 <div>
                   <DialogTitle className="text-base sm:text-lg font-black text-foreground flex items-center gap-2">
