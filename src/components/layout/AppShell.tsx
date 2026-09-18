@@ -44,6 +44,8 @@ import {
   Webhook,
   Radio,
   FolderTree,
+  Activity,
+  Shield,
 } from "lucide-react";
 import { resolveMenuIcon } from "@/lib/menuIcons";
 import {
@@ -591,135 +593,96 @@ function DynamicSidebarNavigation() {
 
   return (
     <>
-      {/* Barra Compacta de Alternância entre Painéis (Membro, Dev, CEO) */}
-      {(isDevUser || isCeoUser) && (
-        <div className="px-2 pt-1 pb-2 border-b border-border/80 mb-2">
-          <div className="flex items-center justify-between p-1 bg-secondary/40 border border-border/70 rounded-xl gap-1 shadow-xs">
-            {/* Botão Painel Membro */}
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Link
-                  to="/dashboard"
-                  onClick={() => {
-                    setPanelMode("member");
-                    if (isMobile) setOpenMobile(false);
-                  }}
-                  className={cn(
-                    "flex-1 flex items-center justify-center h-8 rounded-lg transition-all duration-150 cursor-pointer relative",
-                    !pathname.startsWith("/dev") && !pathname.startsWith("/ceo")
-                      ? "bg-primary text-primary-foreground shadow-xs ring-1 ring-primary/40 font-bold"
-                      : "text-muted-foreground hover:text-foreground hover:bg-secondary/60"
-                  )}
-                  aria-label="Painel Membro"
-                >
-                  <Users className="h-4 w-4" />
-                </Link>
-              </TooltipTrigger>
-              <TooltipContent side="bottom" className="text-[11px] font-bold">
-                Painel Membro
-              </TooltipContent>
-            </Tooltip>
-
-            {/* Botão Painel CEO */}
-            {(isCeoUser || isDevUser) && (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Link
-                    to="/ceo/dashboard"
-                    onClick={() => {
-                      setPanelMode("ceo");
-                      if (isMobile) setOpenMobile(false);
-                    }}
-                    className={cn(
-                      "flex-1 flex items-center justify-center h-8 rounded-lg transition-all duration-150 cursor-pointer relative",
-                      pathname.startsWith("/ceo")
-                        ? cn(ceoStyle.bgSolidClass, "shadow-xs ring-1", ceoStyle.ringClass, "font-bold")
-                        : cn(ceoStyle.textMutedClass, "hover:bg-secondary/60")
-                    )}
-                    aria-label="Painel CEO"
-                  >
-                    <Crown className="h-4 w-4" />
-                  </Link>
-                </TooltipTrigger>
-                <TooltipContent side="bottom" className={cn("text-[11px] font-bold", ceoStyle.textClass)}>
-                  Painel CEO
-                </TooltipContent>
-              </Tooltip>
-            )}
-
-            {/* Botão Painel Dev */}
-            {isDevUser && (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Link
-                    to="/dev/dashboard"
-                    onClick={() => {
-                      setPanelMode("dev");
-                      if (isMobile) setOpenMobile(false);
-                    }}
-                    className={cn(
-                      "flex-1 flex items-center justify-center h-8 rounded-lg transition-all duration-150 cursor-pointer relative",
-                      pathname.startsWith("/dev")
-                        ? cn(devStyle.bgSolidClass, "shadow-xs ring-1", devStyle.ringClass, "font-bold")
-                        : cn(devStyle.textMutedClass, "hover:bg-secondary/60")
-                    )}
-                    aria-label="Painel Dev Tools"
-                  >
-                    <Terminal className="h-4 w-4" />
-                  </Link>
-                </TooltipTrigger>
-                <TooltipContent side="bottom" className={cn("text-[11px] font-bold", devStyle.textClass)}>
-                  Painel Dev (Dev Tools)
-                </TooltipContent>
-              </Tooltip>
-            )}
-          </div>
-        </div>
-      )}
-
       {grouped.map(({ category, items }) => {
         const isOpen = openCategory === category;
-        const isDevGroup = isDevMode && isDevUser;
-        const isCeoGroup = isCeoMode || (!isDevGroup && (category === "CEO" || ceoMenuConfig?.categories?.includes(category)));
 
-        const activeStyle = isDevGroup ? devStyle : isCeoGroup ? ceoStyle : null;
-        const defaultFallbackIcon = isDevGroup ? Terminal : isCeoGroup ? Crown : FolderTree;
-        const savedIconName = isDevGroup
-          ? devMenuConfig?.categoryIcons?.[category]
-          : isCeoGroup
-          ? ceoMenuConfig?.categoryIcons?.[category]
-          : null;
+        // Isolamento estrito: devStyle e ícone Dev APENAS em categorias de Dev
+        const isDevCategory = devMenuConfig?.categories?.length
+          ? devMenuConfig.categories.includes(category)
+          : (category === "Ferramentas Dev" || category === "Dev");
+
+        // Isolamento estrito: ceoStyle e ícone CEO APENAS em categorias de CEO
+        const isCeoCategory = !isDevCategory && (
+          ceoMenuConfig?.categories?.length
+            ? ceoMenuConfig.categories.includes(category)
+            : category === "CEO"
+        );
+
+        let activeStyle = null;
+        let defaultFallbackIcon = FolderTree;
+        let savedIconName: string | null | undefined = null;
+
+        if (isDevCategory) {
+          activeStyle = devStyle;
+          defaultFallbackIcon = Terminal;
+          savedIconName = devMenuConfig?.categoryIcons?.[category];
+        } else if (isCeoCategory) {
+          activeStyle = ceoStyle;
+          defaultFallbackIcon = Crown;
+          savedIconName = ceoMenuConfig?.categoryIcons?.[category];
+        } else {
+          // Categorias padrão da plataforma (Operação, Gestão, Administração, etc.)
+          activeStyle = null;
+          savedIconName = menuConfig?.categoryIcons?.[category];
+          if (category === "Operação") {
+            defaultFallbackIcon = Activity;
+          } else if (category === "Gestão") {
+            defaultFallbackIcon = Shield;
+          } else if (category === "Administração") {
+            defaultFallbackIcon = Sliders;
+          } else {
+            defaultFallbackIcon = FolderTree;
+          }
+        }
+
         const CatIcon = resolveCategoryIcon(savedIconName, defaultFallbackIcon);
 
         return (
-          <SidebarGroup key={category} className="py-1">
+          <SidebarGroup key={category} className="py-1 px-1">
             <SidebarGroupLabel asChild>
               <button
                 type="button"
                 onClick={() => toggleCategory(category)}
-                className="flex items-center justify-between w-full text-[0.65rem] uppercase tracking-[0.2em] text-sidebar-foreground/70 hover:text-sidebar-foreground font-bold px-2 py-1 rounded transition-colors group/label cursor-pointer"
+                className="group/label flex items-center justify-between w-full px-2.5 py-1.5 rounded-lg text-[10.5px] uppercase tracking-[0.14em] font-bold text-sidebar-foreground/75 hover:text-sidebar-foreground hover:bg-sidebar-accent/50 transition-all duration-150 cursor-pointer"
               >
-                <span
-                  className={cn(
-                    "font-black flex items-center gap-1.5",
-                    activeStyle ? activeStyle.textClass : "text-sidebar-foreground"
-                  )}
-                >
-                  <CatIcon className="h-3.5 w-3.5 shrink-0" />
-                  {category}
+                <span className="flex items-center gap-2 truncate">
+                  <span
+                    className={cn(
+                      "flex items-center justify-center h-5 w-5 rounded-md shrink-0 transition-colors",
+                      isDevCategory
+                        ? "bg-rose-500/15 text-rose-400 border border-rose-500/30"
+                        : isCeoCategory
+                        ? "bg-amber-500/15 text-amber-400 border border-amber-500/30"
+                        : "bg-primary/10 text-primary border border-primary/20"
+                    )}
+                  >
+                    <CatIcon className="h-3 w-3 shrink-0" />
+                  </span>
+                  <span
+                    className={cn(
+                      "truncate font-bold tracking-wider",
+                      isDevCategory
+                        ? devStyle.textClass
+                        : isCeoCategory
+                        ? ceoStyle.textClass
+                        : "text-sidebar-foreground"
+                    )}
+                  >
+                    {category}
+                  </span>
                 </span>
                 <ChevronDown
                   className={cn(
-                    "h-3 w-3 transition-transform duration-200 opacity-60 group-hover/label:opacity-100 shrink-0",
-                    !isOpen && "-rotate-90 text-primary font-bold"
+                    "h-3.5 w-3.5 transition-transform duration-200 text-muted-foreground/60 group-hover/label:text-foreground shrink-0",
+                    !isOpen && "-rotate-90 text-primary/70"
                   )}
                 />
               </button>
             </SidebarGroupLabel>
 
             {isOpen && (
-              <SidebarGroupContent className="animate-in fade-in-50 duration-200">
-                <SidebarMenu>
+              <SidebarGroupContent className="pt-1 pb-0.5 animate-in fade-in-50 duration-200">
+                <SidebarMenu className="gap-0.5">
                   {items.map((item) => {
                     const active = isItemActive(item.url);
                     const isExternal = item.url.startsWith("http://") || item.url.startsWith("https://");
@@ -745,19 +708,25 @@ function DynamicSidebarNavigation() {
                                 if (isMobile) setOpenMobile(false);
                               }}
                               className={cn(
-                                "flex items-center gap-3 transition-colors",
-                                activeStyle
-                                  ? cn("hover:" + activeStyle.textClass, "text-sidebar-foreground")
-                                  : "hover:text-primary text-sidebar-foreground"
+                                "group/menuitem flex items-center gap-2.5 px-3 py-2 rounded-xl text-[13px] font-medium transition-all duration-150",
+                                isDevCategory
+                                  ? "text-sidebar-foreground/85 hover:text-rose-400 hover:bg-rose-500/10"
+                                  : isCeoCategory
+                                  ? "text-sidebar-foreground/85 hover:text-amber-400 hover:bg-amber-500/10"
+                                  : "text-sidebar-foreground/85 hover:text-primary hover:bg-sidebar-accent/70"
                               )}
                             >
                               <ItemIcon
                                 className={cn(
-                                  "h-4 w-4 shrink-0",
-                                  activeStyle ? activeStyle.textClass : undefined
+                                  "h-4 w-4 shrink-0 transition-colors",
+                                  isDevCategory
+                                    ? "text-rose-400/80 group-hover/menuitem:text-rose-400"
+                                    : isCeoCategory
+                                    ? "text-amber-400/80 group-hover/menuitem:text-amber-400"
+                                    : "text-muted-foreground group-hover/menuitem:text-primary"
                                 )}
                               />
-                              <span className="truncate">{item.title}</span>
+                              <span className="truncate flex-1">{item.title}</span>
                               <ExternalLink className="h-3 w-3 ml-auto opacity-50 shrink-0" />
                             </a>
                           ) : (
@@ -768,25 +737,37 @@ function DynamicSidebarNavigation() {
                                 if (isMobile) setOpenMobile(false);
                               }}
                               className={cn(
-                                "flex items-center gap-3 transition-colors",
-                                activeStyle
-                                  ? cn("hover:" + activeStyle.textClass, "group/menuitem")
-                                  : "hover:text-primary text-sidebar-foreground",
-                                active &&
-                                  (activeStyle
-                                    ? activeStyle.activeItemClass
-                                    : "font-medium text-primary")
+                                "group/menuitem flex items-center gap-2.5 px-3 py-2 rounded-xl text-[13px] font-medium transition-all duration-150 relative",
+                                active
+                                  ? isDevCategory
+                                    ? cn(devStyle.activeItemClass, "shadow-xs font-semibold")
+                                    : isCeoCategory
+                                    ? cn(ceoStyle.activeItemClass, "shadow-xs font-semibold")
+                                    : "bg-primary/10 text-primary border-l-2 border-primary font-semibold shadow-xs"
+                                  : isDevCategory
+                                  ? "text-sidebar-foreground/80 hover:text-rose-300 hover:bg-rose-500/10"
+                                  : isCeoCategory
+                                  ? "text-sidebar-foreground/80 hover:text-amber-300 hover:bg-amber-500/10"
+                                  : "text-sidebar-foreground/80 hover:text-sidebar-foreground hover:bg-sidebar-accent/60"
                               )}
                             >
                               <ItemIcon
                                 className={cn(
                                   "h-4 w-4 shrink-0 transition-colors",
-                                  activeStyle
-                                    ? (active ? activeStyle.textClass : cn(activeStyle.textMutedClass, "group-hover/menuitem:" + activeStyle.textClass))
-                                    : undefined
+                                  active
+                                    ? isDevCategory
+                                      ? devStyle.textClass
+                                      : isCeoCategory
+                                      ? ceoStyle.textClass
+                                      : "text-primary"
+                                    : isDevCategory
+                                    ? "text-rose-400/70 group-hover/menuitem:text-rose-300"
+                                    : isCeoCategory
+                                    ? "text-amber-400/70 group-hover/menuitem:text-amber-300"
+                                    : "text-muted-foreground group-hover/menuitem:text-foreground"
                                 )}
                               />
-                              <span className={cn("truncate", activeStyle && active && activeStyle.textClass)}>{item.title}</span>
+                              <span className="truncate flex-1">{item.title}</span>
                             </Link>
                           )}
                         </SidebarMenuButton>
@@ -804,9 +785,31 @@ function DynamicSidebarNavigation() {
 }
 
 export function AppShell({ children }: { children: ReactNode }) {
-  const { profile, level, signOut, user, isCeoUser, isDevUser } = useAuth();
+  const { profile, level, signOut, user, isCeoUser, isDevUser, setPanelMode } = useAuth();
   const navigate = useNavigate();
   const pathname = useRouterState({ select: (r) => r.location.pathname });
+
+  // Permissões e cálculo de acesso a múltiplos painéis
+  const canAccessCeo = isCeoUser || isDevUser;
+  const canAccessDev = isDevUser;
+  const hasMultiplePanels = canAccessCeo || canAccessDev;
+
+  const [devTheme, setDevTheme] = useState<PanelColor>(() => getDevThemeColorSync());
+  const [ceoTheme, setCeoTheme] = useState<PanelColor>(() => getCeoThemeColorSync());
+
+  useEffect(() => {
+    const handleConfigChange = (e: any) => {
+      if (e?.detail) {
+        if (e.detail.devThemeColor) setDevTheme(e.detail.devThemeColor);
+        if (e.detail.ceoThemeColor) setCeoTheme(e.detail.ceoThemeColor);
+      }
+    };
+    window.addEventListener(DEV_CONFIG_EVENT, handleConfigChange);
+    return () => window.removeEventListener(DEV_CONFIG_EVENT, handleConfigChange);
+  }, []);
+
+  const devStyle = useMemo(() => getPanelColorStyle(devTheme, "rose"), [devTheme]);
+  const ceoStyle = useMemo(() => getPanelColorStyle(ceoTheme, "amber"), [ceoTheme]);
 
   // Active user status / presence management
   const { status, isAbsenceMode, resumeSession } = usePresence(user?.id);
@@ -815,16 +818,6 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   // Live online timer for active session
   const { formattedHuman } = useOnlineTimer(myMember?.online_since);
-
-  // Contagem de membros online e ausentes
-  const onlineMembersCount = useMemo(
-    () => members.filter((m) => m.presence_status === "online").length,
-    [members]
-  );
-  const ausenteMembersCount = useMemo(
-    () => members.filter((m) => m.presence_status === "ausente" || m.presence_status === "ocupado").length,
-    [members]
-  );
 
   const avatarUrl = profile?.avatar_url || profile?.discord_avatar_url;
   const mainName = profile?.nickname || profile?.nome || "Membro";
@@ -850,11 +843,11 @@ export function AppShell({ children }: { children: ReactNode }) {
         </Sidebar>
 
         <div className="flex min-w-0 flex-1 flex-col min-h-screen">
-          <header className="sticky top-0 z-40 flex h-16 shrink-0 items-center justify-between gap-2 sm:gap-3 border-b border-border/70 bg-background/95 backdrop-blur-xl px-3 sm:px-6 shadow-sm">
-            <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+          <header className="sticky top-0 z-40 flex h-16 shrink-0 items-center justify-between gap-2 sm:gap-4 border-b border-border/70 bg-background/95 backdrop-blur-xl px-3 sm:px-6 shadow-sm">
+            <div className="flex items-center gap-2 sm:gap-4 min-w-0">
               <SidebarTrigger />
               <div className="flex items-center gap-2 min-w-0">
-                <span className="text-gradient-brand font-display font-extrabold text-xs sm:text-base tracking-[0.12em] uppercase truncate drop-shadow-xs max-w-[130px] sm:max-w-none">
+                <span className="text-gradient-brand font-display font-extrabold text-xs sm:text-base tracking-[0.12em] uppercase truncate drop-shadow-xs max-w-[120px] sm:max-w-none">
                   {settings.factionName || "Twin Wheels"}
                 </span>
                 {settings.slogan && (
@@ -863,9 +856,88 @@ export function AppShell({ children }: { children: ReactNode }) {
                   </span>
                 )}
               </div>
+
+              {/* SELETOR DE PAINÉIS (MEMBRO / CEO / DEV) NA BARRA DE TOPO */}
+              {/* Só exibe se o membro tiver acesso a mais de um painel, e apenas os painéis permitidos */}
+              {hasMultiplePanels && (
+                <div className="flex items-center p-0.5 sm:p-1 bg-secondary/50 border border-border/80 rounded-xl shadow-xs gap-0.5 sm:gap-1 backdrop-blur-md">
+                  {/* Botão Painel Membro */}
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Link
+                        to="/dashboard"
+                        onClick={() => setPanelMode("member")}
+                        className={cn(
+                          "flex items-center gap-1.5 px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-lg text-xs font-semibold transition-all duration-150 cursor-pointer",
+                          !pathname.startsWith("/dev") && !pathname.startsWith("/ceo")
+                            ? "bg-primary text-primary-foreground shadow-xs ring-1 ring-primary/40 font-bold"
+                            : "text-muted-foreground hover:text-foreground hover:bg-secondary/60"
+                        )}
+                        aria-label="Painel Membro"
+                      >
+                        <Users className="h-3.5 w-3.5 shrink-0" />
+                        <span className="hidden md:inline">Membro</span>
+                      </Link>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom" className="text-[11px] font-bold">
+                      Painel Membro
+                    </TooltipContent>
+                  </Tooltip>
+
+                  {/* Botão Painel CEO */}
+                  {canAccessCeo && (
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Link
+                          to="/ceo/dashboard"
+                          onClick={() => setPanelMode("ceo")}
+                          className={cn(
+                            "flex items-center gap-1.5 px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-lg text-xs font-semibold transition-all duration-150 cursor-pointer",
+                            pathname.startsWith("/ceo")
+                              ? cn(ceoStyle.bgSolidClass, "shadow-xs ring-1", ceoStyle.ringClass, "font-bold")
+                              : cn(ceoStyle.textMutedClass, "hover:bg-secondary/60 hover:text-foreground")
+                          )}
+                          aria-label="Painel CEO"
+                        >
+                          <Crown className="h-3.5 w-3.5 shrink-0" />
+                          <span className="hidden md:inline">CEO</span>
+                        </Link>
+                      </TooltipTrigger>
+                      <TooltipContent side="bottom" className={cn("text-[11px] font-bold", ceoStyle.textClass)}>
+                        Painel Executivo CEO
+                      </TooltipContent>
+                    </Tooltip>
+                  )}
+
+                  {/* Botão Painel Dev */}
+                  {canAccessDev && (
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Link
+                          to="/dev/dashboard"
+                          onClick={() => setPanelMode("dev")}
+                          className={cn(
+                            "flex items-center gap-1.5 px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-lg text-xs font-semibold transition-all duration-150 cursor-pointer",
+                            pathname.startsWith("/dev")
+                              ? cn(devStyle.bgSolidClass, "shadow-xs ring-1", devStyle.ringClass, "font-bold")
+                              : cn(devStyle.textMutedClass, "hover:bg-secondary/60 hover:text-foreground")
+                          )}
+                          aria-label="Painel Dev Tools"
+                        >
+                          <Terminal className="h-3.5 w-3.5 shrink-0" />
+                          <span className="hidden md:inline">Dev</span>
+                        </Link>
+                      </TooltipTrigger>
+                      <TooltipContent side="bottom" className={cn("text-[11px] font-bold", devStyle.textClass)}>
+                        Painel Dev (Dev Tools)
+                      </TooltipContent>
+                    </Tooltip>
+                  )}
+                </div>
+              )}
             </div>
 
-            {/* TOP HEADER: LIVE REALTIME ONLINE TIMER + ONLINE/AUSENTE MEMBERS BADGE + USER AVATAR */}
+            {/* TOP HEADER: LIVE REALTIME ONLINE TIMER + NOTIFICATION CENTER + USER AVATAR */}
             <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
               {/* LIVE ONLINE TIMER BADGE (Em telas < sm fica oculto do topo para evitar poluição visual; visível no dropdown do perfil) */}
               <div
@@ -878,30 +950,6 @@ export function AppShell({ children }: { children: ReactNode }) {
                 </span>
                 <Clock className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-emerald-400 shrink-0" />
                 <span className="truncate">{formattedHuman}</span>
-              </div>
-
-              {/* ONLINE & AUSENTES MEMBERS BADGE (Compacto para nunca quebrar ou empurrar o cabeçalho no mobile) */}
-              <div
-                className="flex items-center gap-1.5 sm:gap-2 px-2 py-1 sm:px-3 sm:py-1.5 rounded-full border border-border/70 bg-card/80 backdrop-blur-md text-[11px] sm:text-xs font-mono font-bold shadow-sm"
-                title={`${onlineMembersCount} membro(s) online e ${ausenteMembersCount} ausente(s)`}
-              >
-                {/* Online */}
-                <div className="flex items-center gap-1 sm:gap-1.5 text-emerald-400">
-                  <span className="h-2 w-2 rounded-full bg-emerald-500 shadow-xs" />
-                  <span>{onlineMembersCount}</span>
-                  <span className="text-[10px] font-sans font-semibold text-muted-foreground hidden sm:inline">online</span>
-                </div>
-
-                <span className="h-3 w-px bg-border/80" />
-
-                {/* Ausentes */}
-                <div className="flex items-center gap-1 sm:gap-1.5 text-amber-400">
-                  <span className="h-2 w-2 rounded-full bg-amber-500 shadow-xs" />
-                  <span>{ausenteMembersCount}</span>
-                  <span className="text-[10px] font-sans font-semibold text-muted-foreground hidden sm:inline">
-                    {ausenteMembersCount === 1 ? "ausente" : "ausentes"}
-                  </span>
-                </div>
               </div>
 
               {/* CENTRAL DE NOTIFICAÇÕES EM TEMPO REAL */}
