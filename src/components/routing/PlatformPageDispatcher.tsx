@@ -33,6 +33,7 @@ import { CeoNotificationsPage } from "@/routes/_authenticated/ceo.notificacoes";
 import { DevNotificationsPage } from "@/routes/_authenticated/dev.notificacoes";
 import { DevBotPageContent } from "@/routes/_authenticated/dev.bot";
 import { DevEstoquePageContent } from "@/routes/_authenticated/dev.estoque";
+import { DevHubContent } from "@/routes/_authenticated/dev.index";
 
 export interface PlatformPageDispatcherProps {
   page: string;
@@ -104,6 +105,9 @@ function InnerPageResolver({ page, tab, mode }: { page: string; tab?: string; mo
 
   // DEV Specific modules
   if (mode === "dev") {
+    if (normalizedPage === "hub" || normalizedPage === "dashboard") {
+      return <DevHubContent />;
+    }
     if (normalizedPage === "bot") {
       return <DevBotPageContent initialTab={tab} />;
     }

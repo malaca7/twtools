@@ -197,14 +197,25 @@ export function useDevMenuConfig() {
 
   const config: DevMenuConfig | null = useMemo(() => {
     try {
-      if (!raw || raw === "{}" || raw === "null" || raw === "undefined") return null;
+      if (!raw || raw === "{}" || raw === "null" || raw === "undefined") {
+        return {
+          categories: [...DEFAULT_DEV_CATEGORIES],
+          items: [...DEFAULT_DEV_MENU_ITEMS],
+        };
+      }
       const parsed = JSON.parse(raw);
       if (parsed && typeof parsed === "object" && Array.isArray(parsed.items)) {
-        return parsed as DevMenuConfig;
+        return normalizeDevMenuConfig(parsed as DevMenuConfig);
       }
-      return null;
+      return {
+        categories: [...DEFAULT_DEV_CATEGORIES],
+        items: [...DEFAULT_DEV_MENU_ITEMS],
+      };
     } catch {
-      return null;
+      return {
+        categories: [...DEFAULT_DEV_CATEGORIES],
+        items: [...DEFAULT_DEV_MENU_ITEMS],
+      };
     }
   }, [raw]);
 

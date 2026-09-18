@@ -1082,7 +1082,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
                   {isDevUser && (
                     <DropdownMenuItem
-                      onClick={() => navigate({ to: "/dev/dashboard" })}
+                      onClick={() => navigate({ to: "/dev" })}
                       className="cursor-pointer text-rose-400 focus:text-rose-300 focus:bg-rose-500/10 font-bold"
                     >
                       <Terminal className="mr-2 h-4 w-4 text-rose-400" /> Painel Dev

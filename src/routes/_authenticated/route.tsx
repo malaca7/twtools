@@ -1,4 +1,5 @@
-import { createFileRoute, Outlet, Navigate, useLocation, Link } from "@tanstack/react-router";
+import { useEffect } from "react";
+import { createFileRoute, Outlet, Navigate, useLocation, Link, useNavigate } from "@tanstack/react-router";
 import { Loader2, LogIn, LayoutDashboard } from "lucide-react";
 import { AppShell } from "@/components/layout/AppShell";
 import { useAuth } from "@/hooks/useAuth";
@@ -13,12 +14,19 @@ export const Route = createFileRoute("/_authenticated")({
 function AuthenticatedLayout() {
   const { user, approvedAccess, loading } = useAuth();
   const location = useLocation();
+  const navigate = useNavigate();
 
   // Verifica se o visitante está acessando um perfil público (/perfil/:handle ou similar)
   const isPublicProfilePath = (() => {
     const p = (location.pathname || "").toLowerCase().trim();
     return p.startsWith("/perfil/") && p !== "/perfil/dados" && p !== "/perfil/aparencia" && p !== "/perfil/publico";
   })();
+
+  useEffect(() => {
+    if (!loading && (!user || !approvedAccess) && !isPublicProfilePath) {
+      void navigate({ to: "/", replace: true });
+    }
+  }, [loading, user, approvedAccess, isPublicProfilePath, navigate]);
 
   // Se for perfil público (/perfil/:handle), SEMPRE renderiza como página standalone independente do AppShell e sem bloquear no loading
   if (isPublicProfilePath) {
@@ -94,9 +102,16 @@ function AuthenticatedLayout() {
     );
   }
 
-  // Se não estiver autenticado ou não tiver acesso aprovado, redireciona para a home
+  // Se não estiver autenticado ou não tiver acesso aprovado, aguarda o redirecionamento
   if (!user || !approvedAccess) {
-    return <Navigate to="/" replace />;
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background p-4">
+        <div className="flex flex-col items-center gap-3 text-center">
+          <Loader2 className="h-10 w-10 animate-spin text-primary" />
+          <p className="text-xs text-muted-foreground font-medium">Redirecionando...</p>
+        </div>
+      </div>
+    );
   }
 
   return (

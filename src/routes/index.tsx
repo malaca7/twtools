@@ -73,7 +73,7 @@ function AuthPage() {
   useEffect(() => {
     if (!authLoading && approvedAccess) {
       if (isDevUser) {
-        void navigate({ to: "/dev/dashboard", replace: true });
+        void navigate({ to: "/dev", replace: true });
       } else if (isCeoUser) {
         void navigate({ to: "/ceo/dashboard", replace: true });
       } else {

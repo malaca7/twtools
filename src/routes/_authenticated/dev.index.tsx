@@ -117,7 +117,7 @@ const ALL_SYSTEM_MODULES = [
   },
 ];
 
-function DevHubContent() {
+export function DevHubContent() {
   const { user, profile, level, refresh } = useAuth();
   const { data: customRoles = [] } = useCustomRoles();
   const [simulatedRole, setSimulatedRole] = useState<string>("real");
