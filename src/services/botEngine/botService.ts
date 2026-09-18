@@ -306,6 +306,14 @@ export async function saveBotProjects(bots: BotProject[]): Promise<void> {
     localStorage.setItem(BOTS_STORAGE_KEY, JSON.stringify(updatedBots));
     window.dispatchEvent(new CustomEvent(BOT_SYNC_EVENT, { detail: updatedBots }));
     window.dispatchEvent(new Event("storage"));
+
+    if (updatedBots.length > 0) {
+      try {
+        void import("./syncService").then((m) => {
+          void m.syncBotProjectToDiscordConfig(updatedBots[0]);
+        });
+      } catch {}
+    }
   }
 
   try {

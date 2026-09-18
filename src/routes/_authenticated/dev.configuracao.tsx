@@ -51,9 +51,6 @@ import {
   type DevConfiguration,
 } from "@/services/devService";
 import { DevForcePurgeCard } from "@/components/dev/DevForcePurgeCard";
-import { DevBotManageCard } from "@/components/dev/DevBotManageCard";
-import { DevDiscordConfigCard } from "@/components/dev/DevDiscordConfigCard";
-import { DevWebhooksConfigCard } from "@/components/dev/DevWebhooksConfigCard";
 import { DevAuditLogModal } from "@/components/dev/DevAuditLogModal";
 import { useAuditLogs } from "@/hooks/useData";
 import { logAuditAction } from "@/lib/app-api";
@@ -86,12 +83,22 @@ export function DevConfiguracaoContent() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Sincronização da aba ativa com a URL (?tab=bot-manage | webhooks | discord-logs | lives | general)
-  const [activeTab, setActiveTab] = useUrlTab<
-    "bot-manage" | "webhooks" | "discord-logs" | "lives" | "general"
-  >("bot-manage", {
+  // Redireciona automaticamente se acessar abas de bot que foram migradas para /dev/bot
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const urlParams = new URLSearchParams(window.location.search);
+      const tab = urlParams.get("tab");
+      if (tab === "bot-manage" || tab === "webhooks" || tab === "discord-logs") {
+        window.location.replace(`/dev/bot?tab=${tab}`);
+      }
+    }
+  }, []);
+
+  // Sincronização da aba ativa com a URL (?tab=general | lives)
+  const [activeTab, setActiveTab] = useUrlTab<"general" | "lives">("general", {
     paramName: "tab",
-    allowedTabs: ["bot-manage", "webhooks", "discord-logs", "lives", "general"],
+    allowedTabs: ["general", "lives"],
+    usePath: false,
   });
 
   // Estados para Auditoria de Ações Dev
@@ -312,57 +319,52 @@ export function DevConfiguracaoContent() {
           <p className="text-sm font-bold text-rose-400">{error}</p>
         </Card>
       ) : (
-        <Tabs value={activeTab} onValueChange={(val: any) => setActiveTab(val)} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-2 sm:grid-cols-3 md:grid-cols-5 max-w-5xl bg-secondary/40 p-1 rounded-xl border border-border/60 gap-1">
-            <TabsTrigger value="bot-manage" className="text-xs font-bold gap-2 py-2 data-[state=active]:bg-gradient-to-r data-[state=active]:from-indigo-600 data-[state=active]:to-purple-600 data-[state=active]:text-white">
-              <Bot className="h-4 w-4" />
-              Gerenciar Bot
-            </TabsTrigger>
-            <TabsTrigger value="webhooks" className="text-xs font-bold gap-2 py-2 data-[state=active]:bg-gradient-to-r data-[state=active]:from-violet-600 data-[state=active]:to-pink-600 data-[state=active]:text-white">
-              <Webhook className="h-4 w-4" />
-              Webhooks Discord
-            </TabsTrigger>
-            <TabsTrigger value="discord-logs" className="text-xs font-bold gap-2 py-2 data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-600 data-[state=active]:to-cyan-600 data-[state=active]:text-white">
-              <Hash className="h-4 w-4" />
-              Canais & Logs
-            </TabsTrigger>
-            <TabsTrigger value="lives" className="text-xs font-bold gap-2 py-2 data-[state=active]:bg-gradient-to-r data-[state=active]:from-rose-600 data-[state=active]:to-red-600 data-[state=active]:text-white">
-              <Radio className="h-4 w-4" />
-              Integração Lives
-            </TabsTrigger>
-            <TabsTrigger value="general" className="text-xs font-bold gap-2 py-2 data-[state=active]:bg-gradient-to-r data-[state=active]:from-zinc-700 data-[state=active]:to-zinc-800 data-[state=active]:text-white">
-              <Settings className="h-4 w-4" />
-              Ajustes Gerais Dev
-            </TabsTrigger>
-          </TabsList>
+        <div className="space-y-6">
+          {/* BANNER INFORMATIVO: CENTRAL UNIFICADA DO BOT */}
+          <div className="rounded-xl border border-indigo-500/30 bg-gradient-to-r from-indigo-500/10 via-purple-500/10 to-indigo-500/5 p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-sm">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 rounded-xl bg-indigo-500/15 border border-indigo-500/30 text-indigo-400">
+                <Bot className="w-5 h-5" />
+              </div>
+              <div className="space-y-0.5">
+                <div className="text-sm font-bold text-foreground flex items-center gap-2">
+                  Central Unificada do Bot Discord
+                  <Badge variant="outline" className="text-[10px] bg-indigo-500/10 border-indigo-500/30 text-indigo-400">
+                    Unificado em /dev/bot
+                  </Badge>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  As abas <strong>Gerenciar Bot</strong>, <strong>Webhooks Discord</strong> e <strong>Canais & Logs</strong> foram unificadas na página dedicada do <strong>Bot</strong> junto ao Studio & Builder.
+                </p>
+              </div>
+            </div>
+            <Button asChild size="sm" className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold gap-1.5 shrink-0">
+              <Link to="/dev/bot">
+                Acessar Central do Bot
+                <ExternalLink className="w-3.5 h-3.5" />
+              </Link>
+            </Button>
+          </div>
 
-          {/* TAB 1: GERENCIAR BOT DISCORD */}
-          <TabsContent value="bot-manage" className="space-y-6 animate-in fade-in-50 duration-300">
-            <DevBotManageCard />
-          </TabsContent>
+          <Tabs value={activeTab} onValueChange={(val: any) => setActiveTab(val)} className="space-y-6">
+            <TabsList className="grid w-full grid-cols-2 max-w-md bg-secondary/40 p-1 rounded-xl border border-border/60 gap-1">
+              <TabsTrigger value="general" className="text-xs font-bold gap-2 py-2 data-[state=active]:bg-gradient-to-r data-[state=active]:from-zinc-700 data-[state=active]:to-zinc-800 data-[state=active]:text-white">
+                <Settings className="h-4 w-4" />
+                Ajustes Gerais Dev
+              </TabsTrigger>
+              <TabsTrigger value="lives" className="text-xs font-bold gap-2 py-2 data-[state=active]:bg-gradient-to-r data-[state=active]:from-rose-600 data-[state=active]:to-red-600 data-[state=active]:text-white">
+                <Radio className="h-4 w-4" />
+                Integração Lives
+              </TabsTrigger>
+            </TabsList>
 
-          {/* TAB 2: WEBHOOKS DISCORD */}
-          <TabsContent value="webhooks" className="space-y-6 animate-in fade-in-50 duration-300">
-            <DevWebhooksConfigCard />
-          </TabsContent>
+            {/* TAB 1: AJUSTES GERAIS DEV */}
+            <TabsContent value="general" className="space-y-6 animate-in fade-in-50 duration-300">
+              {/* Card de Limpeza Forçada de Cache em Tempo Real */}
+              <DevForcePurgeCard />
 
-          {/* TAB 3: CANAIS & LOGS DO BOT */}
-          <TabsContent value="discord-logs" className="space-y-6 animate-in fade-in-50 duration-300">
-            <DevDiscordConfigCard />
-          </TabsContent>
-
-          {/* TAB 4: INTEGRAÇÃO LIVES */}
-          <TabsContent value="lives" className="space-y-6 animate-in fade-in-50 duration-300">
-            <DevLivesConfigCard />
-          </TabsContent>
-
-          {/* TAB 4: AJUSTES GERAIS DEV */}
-          <TabsContent value="general" className="space-y-6 animate-in fade-in-50 duration-300">
-            {/* Card de Limpeza Forçada de Cache em Tempo Real */}
-            <DevForcePurgeCard />
-
-            {/* Card de Cores Padrão dos Painéis Dev & CEO */}
-            <Card className="surface-card border transition-all duration-300">
+              {/* Card de Cores Padrão dos Painéis Dev & CEO */}
+              <Card className="surface-card border transition-all duration-300">
               <CardHeader className="pb-3 border-b border-border/60">
                 <div className="flex items-center justify-between gap-3 flex-wrap">
                   <div className="flex items-center gap-2.5">
@@ -608,8 +610,14 @@ export function DevConfiguracaoContent() {
               </Card>
             </div>
           </TabsContent>
+
+          {/* TAB 2: INTEGRAÇÃO LIVES */}
+          <TabsContent value="lives" className="space-y-6 animate-in fade-in-50 duration-300">
+            <DevLivesConfigCard />
+          </TabsContent>
         </Tabs>
-      )}
-    </div>
-  );
+      </div>
+    )}
+  </div>
+);
 }

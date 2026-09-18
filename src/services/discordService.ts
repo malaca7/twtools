@@ -284,6 +284,16 @@ export async function saveDiscordBotConfig(
 
     localStorage.setItem(DISCORD_CONFIG_STORAGE_KEY, JSON.stringify(finalConfig));
 
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("tw_discord_config_updated", { detail: finalConfig }));
+      window.dispatchEvent(new Event("storage"));
+      try {
+        void import("./botEngine/syncService").then((m) => {
+          void m.syncDiscordConfigToBotProjects(finalConfig);
+        });
+      } catch {}
+    }
+
     // Salva no banco de dados Supabase na tabela role_permissions
     const { error } = await supabase.from("role_permissions").upsert(
       {
