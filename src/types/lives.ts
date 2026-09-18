@@ -155,46 +155,50 @@ export interface LinkStreamAccountPayload {
   channelInput: string;
   display_name?: string;
   avatar_url?: string;
+  accountId?: string;
 }
 
 export function cleanChannelInput(platform: StreamPlatform, input: string): { channel_name: string; channel_url: string } {
-  const trimmed = input.trim();
-  let cleanName = trimmed;
+  let cleanName = (input || "").trim();
 
-  // Remove URLs conhecidas se o usuário colou o link completo
+  // Remove prefixos de protocolo e domínios conhecidos se o usuário colou a URL completa
   cleanName = cleanName
-    .replace(/^https?:\/\/(?:www\.)?twitch\.tv\//i, "")
-    .replace(/^https?:\/\/(?:www\.)?kick\.com\//i, "")
-    .replace(/^https?:\/\/(?:www\.)?youtube\.com\/(?:@|c\/|user\/|channel\/)?/i, "")
-    .replace(/^https?:\/\/(?:www\.)?tiktok\.com\/(?:@)?/i, "")
-    .replace(/[/?#].*$/, "") // Remove query params ou subpaths
+    .replace(/^(?:https?:\/\/)?(?:www\.)?twitch\.tv\//i, "")
+    .replace(/^(?:https?:\/\/)?(?:www\.)?kick\.com\//i, "")
+    .replace(/^(?:https?:\/\/)?(?:www\.)?youtube\.com\/(?:@|c\/|user\/|channel\/)?/i, "")
+    .replace(/^(?:https?:\/\/)?(?:www\.)?tiktok\.com\/(?:@)?/i, "")
+    .replace(/[/?#].*$/, "") // Remove query params (?xxx) ou subpaths (/live, /videos)
     .trim();
 
-  // Para YouTube e TikTok, normaliza handle com @
+  // Para YouTube e TikTok, normaliza handle com @ (exceto se for ID de canal UC...)
   if (platform === "youtube" || platform === "tiktok") {
     if (!cleanName.startsWith("@") && !cleanName.startsWith("UC")) {
-      cleanName = `@${cleanName}`;
+      cleanName = cleanName ? `@${cleanName.replace(/^@+/, "")}` : "";
     }
   } else {
-    // Para Twitch e Kick, remove @ se digitado
-    cleanName = cleanName.replace(/^@/, "").toLowerCase();
+    // Para Twitch e Kick, remove @ se digitado e normaliza para minúsculas
+    cleanName = cleanName.replace(/^@+/, "").toLowerCase();
   }
 
   let finalUrl = "";
   switch (platform) {
     case "twitch":
-      finalUrl = `https://twitch.tv/${cleanName}`;
+      finalUrl = cleanName ? `https://twitch.tv/${cleanName}` : "https://twitch.tv/";
       break;
     case "kick":
-      finalUrl = `https://kick.com/${cleanName}`;
+      finalUrl = cleanName ? `https://kick.com/${cleanName}` : "https://kick.com/";
       break;
     case "youtube":
       finalUrl = cleanName.startsWith("UC")
         ? `https://youtube.com/channel/${cleanName}`
-        : `https://youtube.com/${cleanName}`;
+        : cleanName
+        ? `https://youtube.com/${cleanName}`
+        : "https://youtube.com/";
       break;
     case "tiktok":
-      finalUrl = `https://tiktok.com/${cleanName.startsWith("@") ? cleanName : `@${cleanName}`}/live`;
+      finalUrl = cleanName
+        ? `https://tiktok.com/${cleanName.startsWith("@") ? cleanName : `@${cleanName}`}/live`
+        : "https://tiktok.com/";
       break;
   }
 

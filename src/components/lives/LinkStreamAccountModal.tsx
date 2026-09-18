@@ -1,18 +1,18 @@
 import React, { useState, useEffect } from "react";
 import {
   Radio,
-  Plus,
   Trash2,
   ExternalLink,
   CheckCircle2,
   AlertCircle,
   Loader2,
   Power,
-  Tv,
-  LogIn,
   Sparkles,
   ArrowRight,
   RefreshCw,
+  Check,
+  Globe,
+  Share2,
 } from "lucide-react";
 import {
   Dialog,
@@ -49,13 +49,6 @@ interface LinkStreamAccountModalProps {
   initialPlatform?: StreamPlatform | null;
 }
 
-const PLATFORM_LOGIN_URLS: Record<StreamPlatform, string> = {
-  twitch: "https://www.twitch.tv/login",
-  kick: "https://kick.com",
-  youtube: "https://accounts.google.com/signin/v2/identifier?service=youtube",
-  tiktok: "https://www.tiktok.com/login",
-};
-
 export function LinkStreamAccountModal({
   open: controlledOpen,
   onOpenChange: setControlledOpen,
@@ -73,72 +66,54 @@ export function LinkStreamAccountModal({
   const unlinkMutation = useUnlinkStreamAccount();
   const toggleMutation = useToggleStreamAccountActive();
 
-  const [activePlatform, setActivePlatform] = useState<StreamPlatform | null>(initialPlatform || null);
+  const [activePlatform, setActivePlatform] = useState<StreamPlatform>(initialPlatform || "twitch");
   const [channelInput, setChannelInput] = useState("");
-  const [isPopupOpen, setIsPopupOpen] = useState(false);
-
-  // Sincroniza initialPlatform se alterado externamente
-  useEffect(() => {
-    if (initialPlatform && open) {
-      handleOpenAuthPopup(initialPlatform);
-    }
-  }, [initialPlatform, open]);
 
   const myAccounts = allAccounts.filter((acc) => acc.user_id === user?.id);
 
-  // Suggested default handle based on user's identity
+  // Identifica se a plataforma ativa já está conectada
+  const activeExistingAccount = myAccounts.find((acc) => acc.platform === activePlatform);
+
+  // Sugestão de apelido padrão baseado na identidade do membro
   const suggestedHandle =
     (profile?.nickname as string) ||
     (user?.user_metadata?.custom_claims?.username as string) ||
     (user?.user_metadata?.full_name as string) ||
     "";
 
-  const handleOpenAuthPopup = (platform: StreamPlatform) => {
-    setActivePlatform(platform);
-    if (!channelInput.trim() && suggestedHandle) {
-      setChannelInput(suggestedHandle.toLowerCase().replace(/\s+/g, "_"));
-    }
+  // Sincroniza plataforma inicial e preenche o canal existente ou sugerido
+  useEffect(() => {
+    if (open) {
+      const targetPlatform = initialPlatform || activePlatform || "twitch";
+      setActivePlatform(targetPlatform);
 
-    const authUrl = PLATFORM_LOGIN_URLS[platform];
-    const width = 650;
-    const height = 750;
-    const left = Math.max(0, Math.floor(window.screenX + (window.outerWidth - width) / 2));
-    const top = Math.max(0, Math.floor(window.screenY + (window.outerHeight - height) / 2));
-
-    try {
-      const popup = window.open(
-        authUrl,
-        `Auth_${platform}`,
-        `width=${width},height=${height},left=${left},top=${top},status=no,resizable=yes,scrollbars=yes`
-      );
-
-      if (popup) {
-        setIsPopupOpen(true);
-        popup.focus();
-        toast.info(`Popup aberto para login na ${STREAM_PLATFORMS[platform].name}`, {
-          description: "Faça login na janela aberta e confirme a vinculação abaixo.",
-        });
-
-        // Monitor popup close
-        const timer = setInterval(() => {
-          if (popup.closed) {
-            clearInterval(timer);
-            setIsPopupOpen(false);
-          }
-        }, 1000);
+      const existing = myAccounts.find((acc) => acc.platform === targetPlatform);
+      if (existing) {
+        setChannelInput(existing.channel_name);
+      } else if (suggestedHandle) {
+        setChannelInput(suggestedHandle.toLowerCase().replace(/\s+/g, "_"));
       } else {
-        toast.error("O navegador bloqueou a abertura do popup", {
-          description: "Permita popups para este site e tente novamente.",
-        });
+        setChannelInput("");
       }
-    } catch {
-      window.open(authUrl, "_blank");
+    }
+  }, [initialPlatform, open]);
+
+  // Ao trocar de plataforma manualmente nas abas
+  const handleSelectPlatform = (platform: StreamPlatform) => {
+    setActivePlatform(platform);
+    const existing = myAccounts.find((acc) => acc.platform === platform);
+    if (existing) {
+      setChannelInput(existing.channel_name);
+    } else if (suggestedHandle) {
+      setChannelInput(suggestedHandle.toLowerCase().replace(/\s+/g, "_"));
+    } else {
+      setChannelInput("");
     }
   };
 
   const handleConfirmLink = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!activePlatform || !channelInput.trim()) {
+    if (!channelInput.trim()) {
       toast.warning("Informe o nome de usuário ou link do seu canal.");
       return;
     }
@@ -147,232 +122,240 @@ export function LinkStreamAccountModal({
       await linkMutation.mutateAsync({
         platform: activePlatform,
         channelInput: channelInput.trim(),
+        accountId: activeExistingAccount?.id,
       });
-      setChannelInput("");
-      setActivePlatform(null);
-      setIsPopupOpen(false);
-      toast.success("Canal vinculado com sucesso!", {
-        description: "Agora suas transmissões serão detectadas e notificadas automaticamente.",
-      });
+
+      // Feedback de sucesso
+      toast.success(
+        activeExistingAccount
+          ? `Canal da ${STREAM_PLATFORMS[activePlatform].name} atualizado com sucesso!`
+          : `Canal da ${STREAM_PLATFORMS[activePlatform].name} vinculado com sucesso!`,
+        {
+          description: "O sistema e o bot agora monitoram suas transmissões automaticamente.",
+        }
+      );
     } catch (err: any) {
-      toast.error("Falha ao vincular canal", {
-        description: err?.message || "Tente novamente mais tarde.",
-      });
+      // O erro já é tratado no hook, mas capturamos aqui para segurança
     }
   };
+
+  const currentCleanInfo = channelInput.trim()
+    ? cleanChannelInput(activePlatform, channelInput)
+    : null;
+
+  const currentPlatformMeta = STREAM_PLATFORMS[activePlatform] || STREAM_PLATFORMS.twitch;
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       {trigger && <DialogTrigger asChild>{trigger}</DialogTrigger>}
 
-      <DialogContent className="sm:max-w-2xl p-0 overflow-hidden border-border/80 bg-card/95 backdrop-blur-2xl rounded-2xl shadow-2xl">
+      <DialogContent className="sm:max-w-2xl max-h-[90vh] flex flex-col p-0 overflow-hidden border-border/80 bg-card/95 backdrop-blur-2xl rounded-2xl shadow-2xl">
         {/* HEADER */}
-        <div className="p-6 pb-4 border-b border-border/60 bg-gradient-to-r from-muted/30 via-muted/10 to-transparent">
+        <div className="p-6 pb-4 border-b border-border/60 bg-gradient-to-r from-muted/30 via-muted/10 to-transparent shrink-0">
           <div className="flex items-center gap-3">
-            <div className="p-2.5 rounded-xl bg-rose-500/15 text-rose-400 border border-rose-500/30 shadow-xs">
+            <div className="p-2.5 rounded-xl bg-primary/15 text-primary border border-primary/30 shadow-xs">
               <Radio className="h-5 w-5 animate-pulse" />
             </div>
             <div>
               <DialogTitle className="text-base font-black text-foreground flex items-center gap-2">
-                Vincular Contas de Transmissão
+                Vincular Canal de Transmissão
                 <Badge variant="outline" className="text-[10px] font-mono border-primary/40 text-primary bg-primary/5">
-                  1-Click Popup Auth
+                  Detecção Automática
                 </Badge>
               </DialogTitle>
               <DialogDescription className="text-xs text-muted-foreground mt-0.5">
-                Clique na plataforma desejada para abrir o popup de login nativo e vincular seu canal diretamente.
+                Informe o link ou nome do seu canal na plataforma. O sistema detectará automaticamente quando você iniciar uma transmissão.
               </DialogDescription>
             </div>
           </div>
         </div>
 
-        <div className="p-6 space-y-6 max-h-[78vh] overflow-y-auto scrollbar-thin">
-          {/* BOTÕES DE CADA PLATAFORMA (LOGIN VIA POPUP NATIVO) */}
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <Label className="text-xs font-bold text-foreground flex items-center gap-1.5">
-                <Sparkles className="h-3.5 w-3.5 text-amber-400" />
-                Selecione a Plataforma para Conectar via Popup:
-              </Label>
-              <span className="text-[11px] text-muted-foreground">Login nativo oficial</span>
-            </div>
+        {/* CORPO DO MODAL (ROLÁVEL) */}
+        <div className="flex-1 p-6 space-y-6 overflow-y-auto scrollbar-thin">
+          {/* SELETOR DE PLATAFORMAS (4 CARDS COMPACTOS) */}
+          <div className="space-y-2.5">
+            <Label className="text-xs font-bold text-foreground flex items-center gap-1.5">
+              <Sparkles className="h-3.5 w-3.5 text-amber-400" />
+              Selecione a Plataforma para Conectar:
+            </Label>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
               {(Object.keys(STREAM_PLATFORMS) as StreamPlatform[]).map((pKey) => {
                 const p = STREAM_PLATFORMS[pKey];
                 const isSelected = activePlatform === pKey;
-                const isAlreadyLinked = myAccounts.some((acc) => acc.platform === pKey && acc.is_active);
+                const linkedAcc = myAccounts.find((acc) => acc.platform === pKey && acc.is_active);
 
                 return (
-                  <div
+                  <button
                     key={pKey}
+                    type="button"
+                    onClick={() => handleSelectPlatform(pKey)}
                     className={cn(
-                      "group relative p-4 rounded-xl border transition-all duration-200 flex flex-col justify-between gap-3 overflow-hidden",
+                      "relative p-3 rounded-xl border text-left transition-all duration-200 cursor-pointer flex flex-col justify-between gap-2 overflow-hidden",
                       isSelected
-                        ? "bg-secondary/70 border-primary shadow-md ring-2 ring-primary/40"
-                        : "bg-secondary/20 border-border/60 hover:bg-secondary/40 hover:border-border"
+                        ? "bg-secondary/80 border-primary ring-2 ring-primary/40 shadow-md"
+                        : "bg-secondary/30 border-border/60 hover:bg-secondary/50 hover:border-border"
                     )}
                   >
-                    {/* Background glow on hover */}
-                    <div
-                      className="absolute -right-8 -bottom-8 w-24 h-24 rounded-full blur-2xl opacity-10 pointer-events-none group-hover:opacity-25 transition-opacity"
-                      style={{ backgroundColor: p.brandHex }}
-                    />
-
-                    <div className="flex items-center justify-between z-10">
-                      <div className="flex items-center gap-2.5">
+                    <div className="flex items-center justify-between w-full">
+                      <div className="flex items-center gap-2 min-w-0">
                         <span
-                          className="h-3.5 w-3.5 rounded-full shadow-xs shrink-0"
+                          className="h-3 w-3 rounded-full shrink-0 shadow-xs"
                           style={{ backgroundColor: p.brandHex }}
                         />
-                        <div>
-                          <h4 className="text-sm font-black text-foreground">{p.name}</h4>
-                          <span className="text-[10px] text-muted-foreground font-mono">
-                            {p.domainUrl}
-                          </span>
-                        </div>
+                        <span className="text-xs font-black text-foreground truncate">{p.name}</span>
                       </div>
-
-                      {isAlreadyLinked && (
-                        <Badge
-                          variant="outline"
-                          className="text-[10px] font-semibold bg-emerald-500/10 text-emerald-400 border-emerald-500/30"
-                        >
-                          Conectado
-                        </Badge>
+                      {linkedAcc && (
+                        <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400 shrink-0" />
                       )}
                     </div>
 
-                    <p className="text-[11px] text-muted-foreground z-10 leading-snug">
-                      {p.helperText}
-                    </p>
-
-                    <Button
-                      type="button"
-                      size="sm"
-                      onClick={() => handleOpenAuthPopup(pKey)}
-                      className={cn(
-                        "w-full text-xs font-bold gap-2 shadow-xs transition-all z-10",
-                        isSelected
-                          ? "bg-primary text-primary-foreground"
-                          : "bg-secondary text-foreground hover:bg-primary hover:text-primary-foreground border border-border/80"
+                    <div className="text-[10px] font-mono truncate">
+                      {linkedAcc ? (
+                        <span className="text-emerald-400 font-bold truncate block">
+                          @{linkedAcc.channel_name}
+                        </span>
+                      ) : (
+                        <span className="text-muted-foreground">Disponível</span>
                       )}
-                    >
-                      <LogIn className="h-3.5 w-3.5" />
-                      Conectar com {p.name}
-                      <ExternalLink className="h-3 w-3 ml-auto opacity-70" />
-                    </Button>
-                  </div>
+                    </div>
+                  </button>
                 );
               })}
             </div>
           </div>
 
-          {/* PAINEL DE CONFIRMAÇÃO DA CONEXÃO ATIVA (APÓS ABRIR POPUP) */}
-          {activePlatform && (
-            <form
-              onSubmit={handleConfirmLink}
-              className="p-5 rounded-2xl bg-gradient-to-b from-secondary/40 to-secondary/20 border border-primary/40 space-y-4 animate-in fade-in slide-in-from-top-2 duration-200 shadow-lg"
-            >
-              <div className="flex items-center justify-between pb-3 border-b border-border/60">
+          {/* FORMULÁRIO DE VINCULAÇÃO DIRETA DA PLATAFORMA ATIVA */}
+          <form
+            onSubmit={handleConfirmLink}
+            className="p-5 rounded-2xl bg-gradient-to-b from-secondary/40 to-secondary/20 border border-border/80 space-y-4 shadow-sm"
+          >
+            {/* CABEÇALHO DO FORMULÁRIO */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-border/60">
+              <div className="flex items-center gap-2">
+                <span
+                  className="h-3.5 w-3.5 rounded-full shadow-xs shrink-0"
+                  style={{ backgroundColor: currentPlatformMeta.brandHex }}
+                />
+                <h4 className="text-xs font-black text-foreground uppercase tracking-wide">
+                  Configurar Canal na {currentPlatformMeta.name}
+                </h4>
+              </div>
+
+              {activeExistingAccount && (
                 <div className="flex items-center gap-2">
-                  <span
-                    className="h-3 w-3 rounded-full animate-ping"
-                    style={{ backgroundColor: STREAM_PLATFORMS[activePlatform].brandHex }}
-                  />
-                  <h4 className="text-xs font-black text-foreground uppercase tracking-wide">
-                    Autenticando na {STREAM_PLATFORMS[activePlatform].name}
-                  </h4>
-                </div>
-
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => handleOpenAuthPopup(activePlatform)}
-                  className="h-7 text-[11px] text-primary gap-1 px-2 hover:bg-primary/10"
-                >
-                  <RefreshCw className="h-3 w-3" />
-                  Reabrir Popup
-                </Button>
-              </div>
-
-              <div className="space-y-1.5">
-                <Label className="text-xs font-bold text-foreground">
-                  Confirme seu Usuário / Handle do Canal ({STREAM_PLATFORMS[activePlatform].name})
-                </Label>
-                <div className="flex gap-2">
-                  <Input
-                    value={channelInput}
-                    onChange={(e) => setChannelInput(e.target.value)}
-                    placeholder={STREAM_PLATFORMS[activePlatform].placeholder}
-                    className="h-9 text-xs bg-background/90 border-border/80"
-                    autoFocus
-                    required
-                  />
-                </div>
-                <p className="text-[11px] text-muted-foreground">
-                  Assim que logar na janela aberta, digite ou confirme o nome de usuário do seu canal para vincular.
-                </p>
-              </div>
-
-              {channelInput.trim().length > 0 && (
-                <div className="p-2.5 rounded-lg bg-background/90 border border-border/60 flex items-center justify-between gap-2 text-xs">
-                  <div className="flex items-center gap-2 min-w-0">
-                    <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0" />
-                    <span className="text-muted-foreground text-[11px] truncate">
-                      Canal reconhecido:{" "}
-                      <span className="font-mono text-primary font-bold">
-                        {cleanChannelInput(activePlatform, channelInput).channel_url}
-                      </span>
-                    </span>
-                  </div>
-                  <a
-                    href={cleanChannelInput(activePlatform, channelInput).channel_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-primary hover:underline text-[11px] font-bold shrink-0 flex items-center gap-1"
+                  <Badge variant="outline" className="text-[10px] bg-emerald-500/10 text-emerald-400 border-emerald-500/30">
+                    Conta Vinculada
+                  </Badge>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => unlinkMutation.mutate(activeExistingAccount.id)}
+                    disabled={unlinkMutation.isPending}
+                    className="h-6 text-[11px] text-destructive hover:bg-destructive/10 px-2"
                   >
-                    Testar <ExternalLink className="h-3 w-3" />
-                  </a>
+                    <Trash2 className="h-3 w-3 mr-1" />
+                    Desvincular
+                  </Button>
                 </div>
               )}
+            </div>
 
-              <div className="flex items-center justify-end gap-2 pt-2">
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setActivePlatform(null)}
-                  className="h-8 text-xs text-muted-foreground"
-                >
-                  Cancelar
-                </Button>
-
-                <Button
-                  type="submit"
-                  disabled={linkMutation.isPending || !channelInput.trim()}
-                  className="h-8 text-xs font-bold gap-2 bg-gradient-brand text-primary-foreground shadow-sm hover:opacity-95"
-                >
-                  {linkMutation.isPending ? (
-                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                  ) : (
-                    <CheckCircle2 className="h-3.5 w-3.5" />
-                  )}
-                  {linkMutation.isPending ? "Salvando..." : "Confirmar e Vincular Canal"}
-                </Button>
+            {/* CAMPO DE INPUT DO CANAL / HANDLE */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label className="text-xs font-bold text-foreground">
+                  Seu Nome de Usuário ou Link ({currentPlatformMeta.name})
+                </Label>
+                {suggestedHandle && (
+                  <button
+                    type="button"
+                    onClick={() => setChannelInput(suggestedHandle.toLowerCase().replace(/\s+/g, "_"))}
+                    className="text-[10px] text-primary hover:underline font-mono flex items-center gap-1 cursor-pointer"
+                  >
+                    ⚡ Usar meu apelido (@{suggestedHandle})
+                  </button>
+                )}
               </div>
-            </form>
-          )}
 
-          {/* MEUS CANAIS JÁ VINCULADOS */}
+              <Input
+                value={channelInput}
+                onChange={(e) => setChannelInput(e.target.value)}
+                placeholder={currentPlatformMeta.placeholder}
+                className="h-9 text-xs bg-background/90 border-border/80 font-mono"
+                required
+              />
+
+              <p className="text-[11px] text-muted-foreground">
+                {currentPlatformMeta.helperText} Você pode colar o link completo ou apenas o seu @usuário.
+              </p>
+            </div>
+
+            {/* PREVIEW DO LINK RESOLVIDO E TESTE */}
+            {currentCleanInfo && currentCleanInfo.channel_name.length > 0 && (
+              <div className="p-3 rounded-xl bg-background/90 border border-border/70 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 text-xs animate-in fade-in-50 duration-200">
+                <div className="flex items-center gap-2 min-w-0">
+                  <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0" />
+                  <div className="min-w-0">
+                    <span className="text-muted-foreground text-[10px] block uppercase font-mono">
+                      Canal Reconhecido:
+                    </span>
+                    <span className="font-mono text-primary font-bold text-xs truncate block">
+                      {currentCleanInfo.channel_url}
+                    </span>
+                  </div>
+                </div>
+
+                <a
+                  href={currentCleanInfo.channel_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-secondary text-xs font-bold text-foreground hover:text-primary transition-colors shrink-0 border border-border/80"
+                >
+                  Testar Link <ExternalLink className="h-3 w-3" />
+                </a>
+              </div>
+            )}
+
+            {/* BOTÕES DE AÇÃO DO FORMULÁRIO */}
+            <div className="flex items-center justify-between pt-2">
+              <a
+                href={currentPlatformMeta.domainUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-[11px] text-muted-foreground hover:text-foreground flex items-center gap-1 transition-colors"
+              >
+                Abrir site da {currentPlatformMeta.name} <ExternalLink className="h-3 w-3" />
+              </a>
+
+              <Button
+                type="submit"
+                disabled={linkMutation.isPending || !channelInput.trim()}
+                className="h-9 text-xs font-extrabold gap-2 bg-gradient-brand text-primary-foreground shadow-md hover:opacity-95 px-4"
+              >
+                {linkMutation.isPending ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Check className="h-4 w-4" />
+                )}
+                {linkMutation.isPending
+                  ? "Salvando..."
+                  : activeExistingAccount
+                  ? `Atualizar Canal da ${currentPlatformMeta.name}`
+                  : `Salvar e Vincular ${currentPlatformMeta.name}`}
+              </Button>
+            </div>
+          </form>
+
+          {/* LISTA DE MEUS CANAIS VINCULADOS */}
           <div className="space-y-3 pt-2 border-t border-border/40">
             <div className="flex items-center justify-between">
               <Label className="text-xs font-bold text-foreground">
                 Meus Canais Vinculados ({myAccounts.length})
               </Label>
-              <Badge variant="outline" className="text-[10px] text-emerald-400 border-emerald-500/30 bg-emerald-500/5">
-                Detecção Automática Ativa
+              <Badge variant="outline" className="text-[10px] text-emerald-400 border-emerald-500/30 bg-emerald-500/5 font-mono">
+                Detecção 100% Automática
               </Badge>
             </div>
 
@@ -382,9 +365,9 @@ export function LinkStreamAccountModal({
               </div>
             ) : myAccounts.length === 0 ? (
               <div className="p-6 text-center rounded-xl border border-dashed border-border/60 bg-muted/10 space-y-1">
-                <p className="text-xs font-semibold text-foreground">Nenhum canal vinculado ainda</p>
+                <p className="text-xs font-semibold text-foreground">Nenhum canal vinculado no momento</p>
                 <p className="text-[11px] text-muted-foreground max-w-sm mx-auto">
-                  Clique em um dos botões acima para conectar sua Twitch, Kick, YouTube ou TikTok. Quando você entrar ao vivo, a facção receberá o alerta automático!
+                  Selecione uma plataforma acima, digite seu nome de usuário ou link do canal e clique em salvar.
                 </p>
               </div>
             ) : (
@@ -418,7 +401,7 @@ export function LinkStreamAccountModal({
                         <div className="min-w-0">
                           <div className="flex items-center gap-2">
                             <span className="font-bold text-foreground truncate">
-                              {acc.channel_name}
+                              @{acc.channel_name}
                             </span>
                             {!acc.is_active && (
                               <Badge variant="secondary" className="text-[9px] py-0 px-1 font-mono">
@@ -438,7 +421,17 @@ export function LinkStreamAccountModal({
                       </div>
 
                       <div className="flex items-center gap-1.5 shrink-0 ml-2">
-                        {/* BOTÃO PAUSAR / ATIVAR DETECÇÃO */}
+                        {/* EDITAR NESTA PLATAFORMA */}
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 text-[11px] font-bold px-2 text-primary hover:bg-primary/10"
+                          onClick={() => handleSelectPlatform(acc.platform)}
+                        >
+                          Editar
+                        </Button>
+
+                        {/* PAUSAR / ATIVAR */}
                         <Button
                           variant="ghost"
                           size="icon"
@@ -451,12 +444,12 @@ export function LinkStreamAccountModal({
                           onClick={() =>
                             toggleMutation.mutate({ accountId: acc.id, isActive: !acc.is_active })
                           }
-                          title={acc.is_active ? "Pausar verificação automática" : "Ativar verificação automática"}
+                          title={acc.is_active ? "Pausar monitoramento automático" : "Ativar monitoramento automático"}
                         >
                           <Power className="h-3.5 w-3.5" />
                         </Button>
 
-                        {/* BOTÃO REMOVER / DESVINCULAR */}
+                        {/* REMOVER / DESVINCULAR */}
                         <Button
                           variant="ghost"
                           size="icon"

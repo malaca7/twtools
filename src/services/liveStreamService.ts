@@ -193,47 +193,90 @@ export async function linkStreamAccount(
 
   const { channel_name, channel_url } = cleanChannelInput(payload.platform, payload.channelInput);
 
-  if (!channel_name || channel_name.length < 2) {
-    throw new Error("Nome de usuário ou canal inválido.");
+  if (!channel_name || channel_name.replace(/^@/, "").length < 2) {
+    throw new Error("Nome de usuário ou canal inválido (mínimo 2 caracteres).");
   }
 
   const displayName = payload.display_name || profileInfo?.nickname || profileInfo?.nome || channel_name;
   const avatarUrl = payload.avatar_url || profileInfo?.avatar_url || null;
 
-  const insertData = {
-    user_id: userId,
-    platform: payload.platform,
-    channel_name: channel_name,
-    channel_url: channel_url,
-    display_name: displayName,
-    avatar_url: avatarUrl,
-    is_active: true,
-    updated_at: new Date().toISOString(),
-  };
+  // Busca se já existe uma conta cadastrada para este usuário nesta plataforma
+  let targetAccountId = payload.accountId;
+  if (!targetAccountId) {
+    const { data: existing } = await supabase
+      .from("member_stream_accounts")
+      .select("id")
+      .eq("user_id", userId)
+      .eq("platform", payload.platform)
+      .maybeSingle();
 
-  const { data, error } = await supabase
-    .from("member_stream_accounts")
-    .upsert(insertData, { onConflict: "user_id,platform,channel_name" })
-    .select()
-    .single();
+    if (existing?.id) {
+      targetAccountId = existing.id;
+    }
+  }
 
-  if (error) {
-    throw new Error(error.message || "Falha ao vincular conta de stream.");
+  let resultData: MemberStreamAccount | null = null;
+  let saveError: any = null;
+
+  if (targetAccountId) {
+    // Atualiza a conta existente para o novo canal/handle informado
+    const res = await supabase
+      .from("member_stream_accounts")
+      .update({
+        channel_name: channel_name,
+        channel_url: channel_url,
+        display_name: displayName,
+        avatar_url: avatarUrl,
+        is_active: true,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", targetAccountId)
+      .select()
+      .single();
+
+    resultData = res.data as MemberStreamAccount;
+    saveError = res.error;
+  } else {
+    // Insere novo registro na plataforma
+    const insertData = {
+      user_id: userId,
+      platform: payload.platform,
+      channel_name: channel_name,
+      channel_url: channel_url,
+      display_name: displayName,
+      avatar_url: avatarUrl,
+      is_active: true,
+      updated_at: new Date().toISOString(),
+    };
+
+    const res = await supabase
+      .from("member_stream_accounts")
+      .insert(insertData)
+      .select()
+      .single();
+
+    resultData = res.data as MemberStreamAccount;
+    saveError = res.error;
+  }
+
+  if (saveError) {
+    throw new Error(saveError.message || "Falha ao vincular conta de transmissão.");
   }
 
   // Registra log técnico de auditoria
   try {
+    const platformName = STREAM_PLATFORMS[payload.platform]?.name || payload.platform;
     await supabase.from("stream_integration_logs").insert({
       platform: payload.platform,
       event_type: "poll",
       status: "info",
       streamer_name: displayName,
-      message: `Membro vinculou conta ${STREAM_PLATFORMS[payload.platform].name}: ${channel_name}`,
+      message: `Membro vinculou conta ${platformName}: ${channel_name}`,
       details: { channel_url, user_id: userId },
     });
   } catch {}
 
-  return data as MemberStreamAccount;
+  return resultData as MemberStreamAccount;
 }
 
 /**
