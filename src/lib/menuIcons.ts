@@ -50,6 +50,7 @@ import {
   Bot,
   Webhook,
   Wallet,
+  PackageCheck,
   type LucideIcon,
 } from "lucide-react";
 
@@ -62,6 +63,7 @@ export type MenuIconDef = {
 export const AVAILABLE_MENU_ICONS: MenuIconDef[] = [
   { name: "LayoutDashboard", label: "Dashboard", icon: LayoutDashboard },
   { name: "Boxes", label: "Estoque / Armazém", icon: Boxes },
+  { name: "PackageCheck", label: "Gestão de Estoque", icon: PackageCheck },
   { name: "ArrowLeftRight", label: "Movimentações", icon: ArrowLeftRight },
   { name: "ShoppingCart", label: "Vendas", icon: ShoppingCart },
   { name: "MessageSquare", label: "Chat / Mensagens", icon: MessageSquare },

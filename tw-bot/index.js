@@ -306,6 +306,22 @@ function parseAuditLogForDiscord(log) {
   const data = log.new_data || log.old_data || {};
   const old = log.old_data || {};
 
+  // Não emitir mensagens para o Discord quando forem alterações de configurações da plataforma
+  const lowerAction = action.toLowerCase();
+  if (
+    lowerAction.includes("config") ||
+    lowerAction.includes("setting") ||
+    lowerAction.includes("permission") ||
+    lowerAction.includes("menu") ||
+    lowerAction.startsWith("dev_") ||
+    lowerAction.startsWith("update_bau") ||
+    lowerAction.startsWith("create_bau") ||
+    lowerAction.startsWith("delete_bau")
+  ) {
+    return null;
+  }
+
+
   // Busca dados do autor
   let actorName = "Sistema";
   let actorAvatar = null;
@@ -333,7 +349,14 @@ function parseAuditLogForDiscord(log) {
     case "batch_movement":
     case "view_log_detail":
     case "page_view":
-      // Ignora logs internos que não devem gerar embed no Discord
+    case "update_discord_stock_config":
+    case "update_discord_config":
+    case "save_role_permissions":
+    case "dev_config_update":
+    case "update_dev_menu_config":
+    case "update_system_config":
+    case "system_dev_menu_config":
+      // Ignora logs internos e de configurações que não devem gerar embed no Discord
       return null;
 
     // 0. TESTE DE CONEXÃO DIRETO VIA BOT

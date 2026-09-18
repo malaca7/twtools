@@ -47,6 +47,7 @@ import {
   Activity,
   Shield,
   BellRing,
+  PackageCheck,
 } from "lucide-react";
 import { resolveMenuIcon } from "@/lib/menuIcons";
 import {
@@ -124,7 +125,8 @@ const MASTER_NAV_ITEMS: MasterNavItem[] = [
   { id: "lives", title: "Lives", url: "/lives", icon: Radio, perm: "view_lives", defaultCat: "Operação", defaultOrder: 3 },
   { id: "tickets", title: "Tickets / Ouvidoria", url: "/tickets", icon: LifeBuoy, perm: "view_tickets", defaultCat: "Operação", defaultOrder: 4 },
   { id: "estoque", title: "Controle de Estoque", url: "/estoque", icon: Boxes, perm: "view_stock", defaultCat: "Gestão", defaultOrder: 5 },
-  { id: "membros", title: "Membros", url: "/membros", icon: Users, perm: "view_members", defaultCat: "Gestão", defaultOrder: 6 },
+  { id: "gestao-estoque", title: "Gestão de Estoque", url: "/gestao-estoque", icon: PackageCheck, perm: "view_stock_management", defaultCat: "Gestão", defaultOrder: 6 },
+  { id: "membros", title: "Membros", url: "/membros", icon: Users, perm: "view_members", defaultCat: "Gestão", defaultOrder: 7 },
   { id: "hierarquia", title: "Hierarquia", url: "/hierarquia", icon: Workflow, perm: "view_hierarchy", defaultCat: "Gestão", defaultOrder: 7 },
   { id: "fundo-caixa", title: "Fundo de Caixa", url: "/fundo-caixa", icon: Landmark, perm: "view_cash_fund", defaultCat: "Gestão", defaultOrder: 8 },
   { id: "ausencias", title: "Ausências", url: "/ausencias", icon: CalendarOff, perm: "view_absences", defaultCat: "Gestão", defaultOrder: 9 },
@@ -146,6 +148,7 @@ const URL_TO_PERMISSION_MAP: Record<string, Permission> = {
   "/lives": "view_lives",
   "/tickets": "view_tickets",
   "/estoque": "view_stock",
+  "/gestao-estoque": "view_stock_management",
   "/baus": "view_stock",
   "/categorias": "view_stock",
   "/produtos": "view_stock",

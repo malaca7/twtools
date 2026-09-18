@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -32,6 +32,9 @@ import {
   Layers,
   History,
   Info,
+  Save,
+  ShieldCheck,
+  CheckCheck,
 } from "lucide-react";
 import { DeveloperGuard } from "@/dev/guards/DeveloperGuard";
 import { PageHeader, ProductThumbnail, EmptyState } from "@/components/ui-kit";
@@ -66,6 +69,7 @@ import { num, dateTime, formatDate } from "@/lib/format";
 import {
   adjustStockDev,
   updateDiscordStockConfig,
+  updateBau,
 } from "@/lib/app-api";
 import { useUrlTab } from "@/hooks/useUrlTab";
 import type { DiscordStockLog, DiscordStockConfig } from "@/lib/app-types";
@@ -646,6 +650,17 @@ function DiscordIntegrationTab() {
   const [itemMappings, setItemMappings] = useState<Record<string, string>>({});
   const [bauMappings, setBauMappings] = useState<Record<string, string>>({});
 
+  type BauFormState = {
+    tipo_gestao: "automatico" | "manual";
+    discord_channel_id: string;
+    discord_guild_id: string;
+    is_saving?: boolean;
+  };
+  const [bauConfigs, setBauConfigs] = useState<Record<string, BauFormState>>({});
+  const [isSavingAllBaus, setIsSavingAllBaus] = useState(false);
+  const [isSavingItemMappings, setIsSavingItemMappings] = useState(false);
+  const [isSavingBauMappings, setIsSavingBauMappings] = useState(false);
+
   // Novo mapping state
   const [newAliasKey, setNewAliasKey] = useState("");
   const [newAliasTargetProduct, setNewAliasTargetProduct] = useState("");
@@ -658,31 +673,44 @@ function DiscordIntegrationTab() {
   );
   const [simulatedResult, setSimulatedResult] = useState<any>(null);
 
-  // Inicializa states quando config carregar
-  useState(() => {
+  // Sincroniza dados da configuração global
+  useEffect(() => {
     if (config) {
-      setGuildId(config.guild_id || "");
-      setChannelId(config.channel_id || "");
+      setGuildId((prev) => (prev ? prev : config.guild_id || ""));
+      setChannelId((prev) => (prev ? prev : config.channel_id || ""));
       setIsActive(config.is_active ?? true);
       setAllowNegativeStock(config.allow_negative_stock ?? false);
-      setDefaultBauId(config.default_bau_id || "");
-      setItemMappings(config.item_mappings || {});
-      setBauMappings(config.bau_mappings || {});
-    }
-  });
-
-  // Atualizar quando config vier do backend
-  useMemo(() => {
-    if (config) {
-      setGuildId(config.guild_id || "");
-      setChannelId(config.channel_id || "");
-      setIsActive(config.is_active ?? true);
-      setAllowNegativeStock(config.allow_negative_stock ?? false);
-      setDefaultBauId(config.default_bau_id || "");
+      setDefaultBauId((prev) => (prev ? prev : config.default_bau_id || ""));
       setItemMappings(config.item_mappings || {});
       setBauMappings(config.bau_mappings || {});
     }
   }, [config]);
+
+  // Sincroniza dados individuais dos baús
+  useEffect(() => {
+    if (baus.length > 0) {
+      setBauConfigs((prev) => {
+        const next = { ...prev };
+        for (const b of baus) {
+          const existing = next[b.id];
+          const cfgBau = config?.bau_channels?.[b.id];
+          next[b.id] = {
+            tipo_gestao: existing?.tipo_gestao ?? b.tipo_gestao ?? cfgBau?.tipo_gestao ?? "automatico",
+            discord_channel_id:
+              existing?.discord_channel_id !== undefined
+                ? existing.discord_channel_id
+                : (b.discord_channel_id ?? cfgBau?.channel_id ?? ""),
+            discord_guild_id:
+              existing?.discord_guild_id !== undefined
+                ? existing.discord_guild_id
+                : (b.discord_guild_id ?? cfgBau?.guild_id ?? ""),
+            is_saving: false,
+          };
+        }
+        return next;
+      });
+    }
+  }, [baus, config]);
 
   const saveConfigMutation = useMutation({
     mutationFn: async () => {
@@ -705,47 +733,201 @@ function DiscordIntegrationTab() {
     },
   });
 
-  const handleAddItemMapping = () => {
+  const handleAddItemMapping = async () => {
     if (!newAliasKey.trim() || !newAliasTargetProduct) {
       toast.error("Informe o nome do item no Discord e selecione o produto correspondente.");
       return;
     }
-    setItemMappings((prev) => ({
-      ...prev,
-      [newAliasKey.trim().toLowerCase()]: newAliasTargetProduct,
-    }));
+    const cleanKey = newAliasKey.trim().toLowerCase();
+    const updated = {
+      ...itemMappings,
+      [cleanKey]: newAliasTargetProduct,
+    };
+    setItemMappings(updated);
     setNewAliasKey("");
     setNewAliasTargetProduct("");
+
+    try {
+      await updateDiscordStockConfig({ item_mappings: updated });
+      void queryClient.invalidateQueries({ queryKey: ["discord_stock_config"] });
+      toast.success(`Mapeamento "${cleanKey}" associado a "${newAliasTargetProduct}" salvo!`);
+    } catch (err: any) {
+      toast.error(err.message || "Erro ao salvar mapeamento no servidor.");
+    }
   };
 
-  const handleRemoveItemMapping = (key: string) => {
-    setItemMappings((prev) => {
-      const next = { ...prev };
-      delete next[key];
-      return next;
-    });
+  const handleRemoveItemMapping = async (key: string) => {
+    const updated = { ...itemMappings };
+    delete updated[key];
+    setItemMappings(updated);
+
+    try {
+      await updateDiscordStockConfig({ item_mappings: updated });
+      void queryClient.invalidateQueries({ queryKey: ["discord_stock_config"] });
+      toast.success(`Mapeamento "${key}" removido com sucesso!`);
+    } catch (err: any) {
+      toast.error(err.message || "Erro ao remover mapeamento.");
+    }
   };
 
-  const handleAddBauMapping = () => {
+  const handleSaveAllItemMappings = async () => {
+    setIsSavingItemMappings(true);
+    try {
+      await updateDiscordStockConfig({ item_mappings: itemMappings });
+      void queryClient.invalidateQueries({ queryKey: ["discord_stock_config"] });
+      toast.success("Todos os mapeamentos de itens foram salvos!");
+    } catch (err: any) {
+      toast.error(err.message || "Erro ao salvar mapeamentos de itens.");
+    } finally {
+      setIsSavingItemMappings(false);
+    }
+  };
+
+  const handleAddBauMapping = async () => {
     if (!newBauAliasKey.trim() || !newBauAliasTarget) {
       toast.error("Informe o texto do baú e selecione o baú correspondente.");
       return;
     }
-    setBauMappings((prev) => ({
-      ...prev,
-      [newBauAliasKey.trim().toLowerCase()]: newBauAliasTarget,
-    }));
+    const cleanKey = newBauAliasKey.trim().toLowerCase();
+    const updated = {
+      ...bauMappings,
+      [cleanKey]: newBauAliasTarget,
+    };
+    setBauMappings(updated);
     setNewBauAliasKey("");
     setNewBauAliasTarget("");
+
+    try {
+      await updateDiscordStockConfig({ bau_mappings: updated });
+      void queryClient.invalidateQueries({ queryKey: ["discord_stock_config"] });
+      toast.success(`Alias de baú "${cleanKey}" associado a "${newBauAliasTarget}" salvo!`);
+    } catch (err: any) {
+      toast.error(err.message || "Erro ao salvar alias de baú no servidor.");
+    }
   };
 
-  const handleRemoveBauMapping = (key: string) => {
-    setBauMappings((prev) => {
-      const next = { ...prev };
-      delete next[key];
-      return next;
-    });
+  const handleRemoveBauMapping = async (key: string) => {
+    const updated = { ...bauMappings };
+    delete updated[key];
+    setBauMappings(updated);
+
+    try {
+      await updateDiscordStockConfig({ bau_mappings: updated });
+      void queryClient.invalidateQueries({ queryKey: ["discord_stock_config"] });
+      toast.success(`Alias "${key}" removido com sucesso!`);
+    } catch (err: any) {
+      toast.error(err.message || "Erro ao remover alias.");
+    }
   };
+
+  const handleSaveAllBauMappings = async () => {
+    setIsSavingBauMappings(true);
+    try {
+      await updateDiscordStockConfig({ bau_mappings: bauMappings });
+      void queryClient.invalidateQueries({ queryKey: ["discord_stock_config"] });
+      toast.success("Todos os aliases de baús foram salvos!");
+    } catch (err: any) {
+      toast.error(err.message || "Erro ao salvar aliases de baús.");
+    } finally {
+      setIsSavingBauMappings(false);
+    }
+  };
+
+  const handleSaveSingleBau = async (bauId: string) => {
+    const current = bauConfigs[bauId];
+    if (!current) return;
+
+    setBauConfigs((prev) => ({
+      ...prev,
+      [bauId]: { ...prev[bauId], is_saving: true },
+    }));
+
+    try {
+      const cleanChannelId = current.discord_channel_id?.trim() || null;
+      const cleanGuildId = current.discord_guild_id?.trim() || guildId?.trim() || null;
+
+      await updateBau({
+        id: bauId,
+        tipo_gestao: current.tipo_gestao,
+        discord_channel_id: cleanChannelId,
+        discord_guild_id: cleanGuildId,
+      });
+
+      const updatedBauChannels = {
+        ...(config?.bau_channels || {}),
+        [bauId]: {
+          bau_id: bauId,
+          channel_id: cleanChannelId || "",
+          guild_id: cleanGuildId || "",
+          tipo_gestao: current.tipo_gestao,
+          is_active: baus.find((b) => b.id === bauId)?.ativo ?? true,
+        },
+      };
+
+      await updateDiscordStockConfig({
+        bau_channels: updatedBauChannels,
+      });
+
+      void queryClient.invalidateQueries({ queryKey: ["baus"] });
+      void queryClient.invalidateQueries({ queryKey: ["discord_stock_config"] });
+
+      const targetBau = baus.find((b) => b.id === bauId);
+      toast.success(`Configuração do baú "${targetBau?.nome || bauId}" salva com sucesso!`);
+    } catch (err: any) {
+      toast.error(err.message || "Erro ao salvar configurações do baú.");
+    } finally {
+      setBauConfigs((prev) => ({
+        ...prev,
+        [bauId]: { ...prev[bauId], is_saving: false },
+      }));
+    }
+  };
+
+  const handleSaveAllBaus = async () => {
+    setIsSavingAllBaus(true);
+    try {
+      const updatedBauChannels = { ...(config?.bau_channels || {}) };
+
+      for (const b of baus) {
+        const current = bauConfigs[b.id] || {
+          tipo_gestao: b.tipo_gestao || "automatico",
+          discord_channel_id: b.discord_channel_id || "",
+          discord_guild_id: b.discord_guild_id || "",
+        };
+
+        const cleanChannelId = current.discord_channel_id?.trim() || null;
+        const cleanGuildId = current.discord_guild_id?.trim() || guildId?.trim() || null;
+
+        await updateBau({
+          id: b.id,
+          tipo_gestao: current.tipo_gestao,
+          discord_channel_id: cleanChannelId,
+          discord_guild_id: cleanGuildId,
+        });
+
+        updatedBauChannels[b.id] = {
+          bau_id: b.id,
+          channel_id: cleanChannelId || "",
+          guild_id: cleanGuildId || "",
+          tipo_gestao: current.tipo_gestao,
+          is_active: b.ativo,
+        };
+      }
+
+      await updateDiscordStockConfig({
+        bau_channels: updatedBauChannels,
+      });
+
+      void queryClient.invalidateQueries({ queryKey: ["baus"] });
+      void queryClient.invalidateQueries({ queryKey: ["discord_stock_config"] });
+      toast.success("Todos os baús foram configurados com sucesso!");
+    } catch (err: any) {
+      toast.error(err.message || "Erro ao salvar todos os baús.");
+    } finally {
+      setIsSavingAllBaus(false);
+    }
+  };
+
 
   // Parser local no cliente para testes imediatos
   const handleTestParser = () => {
@@ -985,6 +1167,229 @@ function DiscordIntegrationTab() {
         </Card>
       </div>
 
+      {/* MAPEAMENTO DE CANAIS E GESTÃO POR BAÚ */}
+      <Card className="surface-card border-border/80">
+        <CardHeader className="pb-3 border-b border-border/40">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div className="space-y-1">
+              <CardTitle className="text-sm font-bold flex items-center gap-2">
+                <Boxes className="w-4 h-4 text-amber-400" />
+                Canais do Discord & Modo de Movimentação por Baú
+              </CardTitle>
+              <CardDescription className="text-xs">
+                Defina para cada baú se a movimentação é <strong>Automática (via canal exclusivo do Discord)</strong> ou <strong>Manual (via painel web na página de movimentações)</strong>, e configure os IDs do canal e servidor.
+              </CardDescription>
+            </div>
+            <Button
+              size="sm"
+              className="bg-primary hover:bg-primary/90 font-bold gap-1.5 shrink-0"
+              disabled={isSavingAllBaus || baus.length === 0}
+              onClick={handleSaveAllBaus}
+            >
+              {isSavingAllBaus ? (
+                <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+              ) : (
+                <CheckCheck className="w-3.5 h-3.5" />
+              )}
+              Salvar Todos os Baús
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent className="p-4 space-y-4">
+          {baus.length === 0 ? (
+            <div className="p-8 text-center text-muted-foreground text-xs">
+              Nenhum baú cadastrado no sistema. Crie um baú antes de configurar a integração.
+            </div>
+          ) : (
+            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+              {baus.map((b) => {
+                const bCfg = bauConfigs[b.id] || {
+                  tipo_gestao: b.tipo_gestao || "automatico",
+                  discord_channel_id: b.discord_channel_id || "",
+                  discord_guild_id: b.discord_guild_id || "",
+                  is_saving: false,
+                };
+                const isAuto = bCfg.tipo_gestao === "automatico";
+
+                return (
+                  <div
+                    key={b.id}
+                    className={cn(
+                      "p-4 rounded-xl border transition-all space-y-3.5 flex flex-col justify-between",
+                      isAuto
+                        ? "bg-secondary/20 border-primary/30 hover:border-primary/50 shadow-sm"
+                        : "bg-secondary/10 border-border/60 hover:border-border"
+                    )}
+                  >
+                    {/* Cabeçalho do Baú */}
+                    <div className="space-y-1.5">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <span className="text-base">{b.icone || "📦"}</span>
+                          <strong className="text-sm text-foreground font-bold tracking-tight">
+                            {b.nome}
+                          </strong>
+                        </div>
+                        <Badge
+                          variant="outline"
+                          className={cn(
+                            "text-[10px] uppercase font-bold",
+                            b.ativo
+                              ? "border-emerald-500/40 text-emerald-400 bg-emerald-500/10"
+                              : "border-muted text-muted-foreground"
+                          )}
+                        >
+                          {b.ativo ? "Ativo" : "Inativo"}
+                        </Badge>
+                      </div>
+                      {b.descricao && (
+                        <p className="text-[11px] text-muted-foreground line-clamp-1">
+                          {b.descricao}
+                        </p>
+                      )}
+                    </div>
+
+                    {/* Modo de Movimentação */}
+                    <div className="space-y-1.5">
+                      <Label className="text-[11px] font-semibold text-muted-foreground flex items-center justify-between">
+                        <span>Modo de Movimentação:</span>
+                        <Badge
+                          variant="secondary"
+                          className={cn(
+                            "text-[10px] font-semibold",
+                            isAuto
+                              ? "text-cyan-400 bg-cyan-950/40 border border-cyan-800/40"
+                              : "text-amber-400 bg-amber-950/40 border border-amber-800/40"
+                          )}
+                        >
+                          {isAuto ? "🤖 Automático (Discord)" : "✍️ Manual (Painel Web)"}
+                        </Badge>
+                      </Label>
+                      <Select
+                        value={bCfg.tipo_gestao}
+                        onValueChange={(val: "automatico" | "manual") => {
+                          setBauConfigs((prev) => ({
+                            ...prev,
+                            [b.id]: {
+                              ...(prev[b.id] || {
+                                tipo_gestao: "automatico",
+                                discord_channel_id: "",
+                                discord_guild_id: "",
+                              }),
+                              tipo_gestao: val,
+                            },
+                          }));
+                        }}
+                      >
+                        <SelectTrigger className="h-8 text-xs bg-background/60">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="automatico">
+                            🤖 Automático (Mensagens no canal Discord)
+                          </SelectItem>
+                          <SelectItem value="manual">
+                            ✍️ Manual (Lançamentos no Painel Web)
+                          </SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <p className="text-[10px] text-muted-foreground">
+                        {isAuto
+                          ? "O bot monitora o canal exclusivo deste baú para registrar entradas, saídas e transferências automaticamente."
+                          : "Movimentações realizadas manualmente no painel web. O bot não ingere mensagens deste baú."}
+                      </p>
+                    </div>
+
+                    {/* Campos de Canal e Servidor */}
+                    <div className="space-y-2 pt-1 border-t border-border/40">
+                      <div className="space-y-1">
+                        <Label className="text-[11px] font-medium text-foreground flex items-center justify-between">
+                          <span>ID do Canal do Discord:</span>
+                          {bCfg.discord_channel_id ? (
+                            <span className="text-[9px] text-emerald-400 font-mono flex items-center gap-1">
+                              <Check className="w-2.5 h-2.5" /> Vinculado
+                            </span>
+                          ) : isAuto ? (
+                            <span className="text-[9px] text-rose-400 font-mono">
+                              Obrigatório p/ Bot
+                            </span>
+                          ) : null}
+                        </Label>
+                        <Input
+                          placeholder={isAuto ? "Ex: 112233445566778899" : "Opcional no modo manual"}
+                          value={bCfg.discord_channel_id}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setBauConfigs((prev) => ({
+                              ...prev,
+                              [b.id]: {
+                                ...(prev[b.id] || {
+                                  tipo_gestao: "automatico",
+                                  discord_channel_id: "",
+                                  discord_guild_id: "",
+                                }),
+                                discord_channel_id: val,
+                              },
+                            }));
+                          }}
+                          className="h-8 text-xs font-mono bg-background/60"
+                        />
+                      </div>
+
+                      <div className="space-y-1">
+                        <Label className="text-[11px] font-medium text-muted-foreground flex items-center justify-between">
+                          <span>ID do Servidor (Guild ID):</span>
+                          <span className="text-[9px] text-muted-foreground">
+                            {bCfg.discord_guild_id ? "Customizado" : "Usa Servidor Geral"}
+                          </span>
+                        </Label>
+                        <Input
+                          placeholder={guildId || "Ex: 998877665544332211"}
+                          value={bCfg.discord_guild_id}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setBauConfigs((prev) => ({
+                              ...prev,
+                              [b.id]: {
+                                ...(prev[b.id] || {
+                                  tipo_gestao: "automatico",
+                                  discord_channel_id: "",
+                                  discord_guild_id: "",
+                                }),
+                                discord_guild_id: val,
+                              },
+                            }));
+                          }}
+                          className="h-8 text-xs font-mono bg-background/60"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Ação individual de salvar */}
+                    <div className="pt-2">
+                      <Button
+                        size="sm"
+                        variant={isAuto ? "default" : "secondary"}
+                        className="w-full h-8 text-xs font-semibold gap-1.5"
+                        disabled={bCfg.is_saving}
+                        onClick={() => handleSaveSingleBau(b.id)}
+                      >
+                        {bCfg.is_saving ? (
+                          <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                        ) : (
+                          <Save className="w-3.5 h-3.5" />
+                        )}
+                        Salvar Configuração do Baú
+                      </Button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
       {/* MAPEAMENTO DE ITENS E BAÚS */}
       <div className="grid gap-6 md:grid-cols-2">
         {/* MAPEAMENTO DE ITENS */}
@@ -1000,7 +1405,7 @@ function DiscordIntegrationTab() {
               </Badge>
             </CardTitle>
             <CardDescription className="text-xs">
-              Mapeie como os itens são chamados no Discord para os produtos cadastrados no sistema.
+              Mapeie como os itens são chamados no Discord para os produtos cadastrados no sistema. (Salva automaticamente ao adicionar ou remover)
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -1009,6 +1414,12 @@ function DiscordIntegrationTab() {
                 placeholder="Texto Discord (ex: 'Micro Uzi')"
                 value={newAliasKey}
                 onChange={(e) => setNewAliasKey(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    void handleAddItemMapping();
+                  }
+                }}
                 className="text-xs flex-1 min-w-[120px]"
               />
               <Select value={newAliasTargetProduct} onValueChange={setNewAliasTargetProduct} className="w-56 shrink-0">
@@ -1025,7 +1436,7 @@ function DiscordIntegrationTab() {
                     ))}
                 </SelectContent>
               </Select>
-              <Button size="sm" onClick={handleAddItemMapping} className="shrink-0">
+              <Button size="sm" onClick={() => void handleAddItemMapping()} className="shrink-0">
                 <Plus className="w-4 h-4" />
               </Button>
             </div>
@@ -1047,7 +1458,7 @@ function DiscordIntegrationTab() {
                       variant="ghost"
                       size="sm"
                       className="h-7 w-7 p-0 text-muted-foreground hover:text-rose-400"
-                      onClick={() => handleRemoveItemMapping(k)}
+                      onClick={() => void handleRemoveItemMapping(k)}
                     >
                       <Trash2 className="w-3.5 h-3.5" />
                     </Button>
@@ -1056,6 +1467,21 @@ function DiscordIntegrationTab() {
               )}
             </div>
           </CardContent>
+          <CardFooter className="pt-2 border-t border-border/40 flex justify-between items-center text-xs">
+            <span className="text-[11px] text-muted-foreground">
+              Sincronizado diretamente com a base de dados.
+            </span>
+            <Button
+              size="sm"
+              variant="outline"
+              className="text-xs gap-1.5"
+              disabled={isSavingItemMappings}
+              onClick={() => void handleSaveAllItemMappings()}
+            >
+              {isSavingItemMappings ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+              Salvar Mapeamentos
+            </Button>
+          </CardFooter>
         </Card>
 
         {/* MAPEAMENTO DE BAÚS */}
@@ -1064,14 +1490,14 @@ function DiscordIntegrationTab() {
             <CardTitle className="text-sm font-bold flex items-center justify-between">
               <span className="flex items-center gap-2">
                 <Boxes className="w-4 h-4 text-amber-400" />
-                Mapeamento de Nomes de Baús
+                Mapeamento de Nomes de Baús (Aliases)
               </span>
               <Badge variant="outline" className="text-[10px]">
                 {Object.keys(bauMappings).length} baús mapeados
               </Badge>
             </CardTitle>
             <CardDescription className="text-xs">
-              Aliases de baús que aparecem nas logs (ex: 'QG' para 'BAÚ QG').
+              Aliases de baús que aparecem nas logs (ex: 'QG' para 'BAÚ QG'). (Salva automaticamente)
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -1080,6 +1506,12 @@ function DiscordIntegrationTab() {
                 placeholder="Texto Discord (ex: 'QG')"
                 value={newBauAliasKey}
                 onChange={(e) => setNewBauAliasKey(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    void handleAddBauMapping();
+                  }
+                }}
                 className="text-xs flex-1 min-w-[120px]"
               />
               <Select value={newBauAliasTarget} onValueChange={setNewBauAliasTarget} className="w-56 shrink-0">
@@ -1096,7 +1528,7 @@ function DiscordIntegrationTab() {
                     ))}
                 </SelectContent>
               </Select>
-              <Button size="sm" onClick={handleAddBauMapping} className="shrink-0">
+              <Button size="sm" onClick={() => void handleAddBauMapping()} className="shrink-0">
                 <Plus className="w-4 h-4" />
               </Button>
             </div>
@@ -1118,7 +1550,7 @@ function DiscordIntegrationTab() {
                       variant="ghost"
                       size="sm"
                       className="h-7 w-7 p-0 text-muted-foreground hover:text-rose-400"
-                      onClick={() => handleRemoveBauMapping(k)}
+                      onClick={() => void handleRemoveBauMapping(k)}
                     >
                       <Trash2 className="w-3.5 h-3.5" />
                     </Button>
@@ -1127,6 +1559,21 @@ function DiscordIntegrationTab() {
               )}
             </div>
           </CardContent>
+          <CardFooter className="pt-2 border-t border-border/40 flex justify-between items-center text-xs">
+            <span className="text-[11px] text-muted-foreground">
+              Sincronizado diretamente com a base de dados.
+            </span>
+            <Button
+              size="sm"
+              variant="outline"
+              className="text-xs gap-1.5"
+              disabled={isSavingBauMappings}
+              onClick={() => void handleSaveAllBauMappings()}
+            >
+              {isSavingBauMappings ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+              Salvar Aliases
+            </Button>
+          </CardFooter>
         </Card>
       </div>
 

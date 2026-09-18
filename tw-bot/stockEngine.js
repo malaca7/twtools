@@ -6,7 +6,7 @@ let dbPool = null;
 /**
  * Função utilitária pura para interpretar o conteúdo de uma mensagem ou embed do Discord
  */
-function parseDiscordStockMessage(rawText, embed = null, config = {}) {
+function parseDiscordStockMessage(rawText, embed = null, config = {}, defaultBauName = 'Baú') {
   const parsedItems = [];
   const lines = rawText.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
 
@@ -28,7 +28,7 @@ function parseDiscordStockMessage(rawText, embed = null, config = {}) {
   let isTransfer = false;
   let fromBauName = null;
   let toBauName = null;
-  let bauName = 'Baú'; // fallback
+  let bauName = defaultBauName || 'Baú'; // fallback para o baú mapeado ao canal
 
   // Checar padrões de transferência
   // Ex: "Origem: BAÚ QG" e "Destino: Baú Casa"
@@ -41,7 +41,7 @@ function parseDiscordStockMessage(rawText, embed = null, config = {}) {
     fromBauName = transferMatch[1].replace(/📦/g, '').replace(/^[:\-\s]+/, '').trim();
     toBauName = transferMatch[2].replace(/📦/g, '').replace(/^[:\-\s]+/, '').trim();
   } else {
-    // Busca baú comum
+    // Busca baú explícito na mensagem
     for (const line of lines) {
       if (line.includes('📦')) {
         const clean = line.replace(/📦/g, '').replace(/^[:\-\s]+/, '').trim();
@@ -53,25 +53,21 @@ function parseDiscordStockMessage(rawText, embed = null, config = {}) {
     }
   }
 
+  // Se nenhum baú foi extraído do texto mas temos o baú vinculado ao canal, usa ele
+  if (bauName === 'Baú' && defaultBauName) {
+    bauName = defaultBauName;
+  }
+
   // 3. Interpretar itens e quantidades
-  // Padrões aceitos:
-  // "Saldo líquido: MP5 +1"
-  // "Saldo líquido:" seguido por linhas "MP5 +1", "Micro Uzi -1"
-  // "Micro Uzi -1"
-  // "**MP5** +1"
-  // "Munição de Fuzil +250"
   let inSaldoLiquidoSection = false;
 
   for (let i = 0; i < lines.length; i++) {
     const rawLine = lines[i];
-    // Remove markdown bold/italic/backticks
     const line = rawLine.replace(/[\*\_`]/g, '').trim();
 
-    // Se encontrar cabeçalho de saldo líquido
     if (/saldo\s*l[ií]quido/i.test(line)) {
       inSaldoLiquidoSection = true;
 
-      // Pode ser que o item esteja na mesma linha: "Saldo líquido: MP5 +1"
       const inlineMatch = line.match(/saldo\s*l[ií]quido\s*[:\-]?\s*(.+?)\s*([+-]\s*\d+)$/i);
       if (inlineMatch) {
         const itemName = cleanItemName(inlineMatch[1], config.item_mappings);
@@ -91,13 +87,11 @@ function parseDiscordStockMessage(rawText, embed = null, config = {}) {
     }
 
     if (inSaldoLiquidoSection) {
-      // Se entrou em outra seção (ex: Detalhes da movimentação, Informações adicionais, etc.)
       if (/detalhes|informa[cç][oõ]es|data|hor[aá]rio|respons[aá]vel/i.test(line)) {
         inSaldoLiquidoSection = false;
         continue;
       }
 
-      // Procura formato: "Item [+-]Quantidade" ou "Item: [+-]Quantidade"
       const itemMatch = line.match(/^(.+?)\s*[:\-]?\s*([+-]\s*\d+)$/);
       if (itemMatch) {
         const itemName = cleanItemName(itemMatch[1], config.item_mappings);
@@ -114,8 +108,6 @@ function parseDiscordStockMessage(rawText, embed = null, config = {}) {
         }
       }
     } else {
-      // Mesmo fora da seção de saldo líquido explícita, se a linha tiver padrão estrito de item e alteração
-      // ex: "MP5 +1" ou "Micro Uzi -1"
       const itemMatch = line.match(/^([a-zA-Z0-9À-ÿ\s\.\-_]+?)\s+([+-]\d+)$/);
       if (itemMatch && !/saldo|detalhe|ba[uú]|id|data/i.test(itemMatch[1])) {
         const itemName = cleanItemName(itemMatch[1], config.item_mappings);
@@ -147,8 +139,13 @@ function parseDiscordStockMessage(rawText, embed = null, config = {}) {
 
 function cleanItemName(rawName, mappings = {}) {
   let name = rawName.replace(/^[\s\-•\*\>]+/, '').trim();
-  if (mappings && typeof mappings === 'object' && mappings[name]) {
-    return mappings[name];
+  if (mappings && typeof mappings === 'object') {
+    if (mappings[name]) return mappings[name];
+    const lower = name.toLowerCase();
+    if (mappings[lower]) return mappings[lower];
+    for (const [k, v] of Object.entries(mappings)) {
+      if (k.trim().toLowerCase() === lower) return v;
+    }
   }
   return name;
 }
@@ -177,20 +174,68 @@ function initStockEngine(client) {
 
       const config = configRes.rows[0];
       if (config.is_active === false) {
-        return; // Processamento automático desativado
+        return; // Processamento automático desativado globalmente
       }
 
-      // Se o canal estiver configurado e não for o canal da mensagem, ignora
-      if (config.channel_id && config.channel_id.trim() !== '') {
-        if (message.channelId !== config.channel_id.trim()) {
-          return;
+      // Buscar todos os baús para verificar canal específico e tipo de gestão
+      const bausRes = await dbPool.query(`SELECT id, nome, tipo_gestao, discord_channel_id, discord_guild_id FROM public.baus WHERE ativo = true`);
+      const allBaus = bausRes.rows || [];
+
+      let matchedBau = null;
+
+      // 1. Procurar por discord_channel_id diretamente no baú
+      for (const b of allBaus) {
+        if (b.discord_channel_id && b.discord_channel_id.trim() === message.channelId) {
+          matchedBau = b;
+          break;
         }
       }
 
-      // Se guild_id estiver configurado e não bater, ignora
-      if (config.guild_id && config.guild_id.trim() !== '') {
-        if (message.guildId && message.guildId !== config.guild_id.trim()) {
+      // 2. Procurar em config.bau_channels (caso configurado via JSON)
+      if (!matchedBau && config.bau_channels && typeof config.bau_channels === 'object') {
+        for (const [bId, bConf] of Object.entries(config.bau_channels)) {
+          if (bConf && bConf.channel_id && bConf.channel_id.trim() === message.channelId) {
+            const found = allBaus.find(b => b.id === bId);
+            matchedBau = found ? { ...found, ...bConf } : { id: bId, nome: bConf.nome || 'Baú', ...bConf };
+            break;
+          }
+        }
+      }
+
+      // Se o canal pertence a um baú específico
+      if (matchedBau) {
+        // Se o baú estiver como "manual" ou desativado, NÃO faz movimentações automáticas
+        if (matchedBau.tipo_gestao === 'manual' || matchedBau.is_active === false) {
+          console.log(`ℹ️ [STOCK-ENGINE] Canal ${message.channelId} pertence ao baú "${matchedBau.nome}", mas está configurado com movimentação MANUAL.`);
           return;
+        }
+
+        // Se guild_id específico do baú estiver configurado e não bater, ignora
+        if (matchedBau.discord_guild_id && matchedBau.discord_guild_id.trim() !== '') {
+          if (message.guildId && message.guildId !== matchedBau.discord_guild_id.trim()) {
+            return;
+          }
+        }
+      } else {
+        // Se não pertence a nenhum baú específico, verifica se é o canal fallback global
+        if (!config.channel_id || config.channel_id.trim() === '' || message.channelId !== config.channel_id.trim()) {
+          return;
+        }
+
+        // Se guild_id global estiver configurado e não bater, ignora
+        if (config.guild_id && config.guild_id.trim() !== '') {
+          if (message.guildId && message.guildId !== config.guild_id.trim()) {
+            return;
+          }
+        }
+
+        // Se houver default_bau_id, usa como matchedBau
+        if (config.default_bau_id) {
+          matchedBau = allBaus.find(b => b.id === config.default_bau_id);
+          if (matchedBau && matchedBau.tipo_gestao === 'manual') {
+            console.log(`ℹ️ [STOCK-ENGINE] Baú fallback "${matchedBau.nome}" está configurado como MANUAL.`);
+            return;
+          }
         }
       }
 
@@ -216,10 +261,10 @@ function initStockEngine(client) {
         return;
       }
 
-      console.log(`📦 [STOCK-ENGINE] Log de estoque detectada! Mensagem ID: ${message.id}`);
+      console.log(`📦 [STOCK-ENGINE] Log de estoque detectada para baú "${matchedBau?.nome || 'Geral'}"! Mensagem ID: ${message.id}`);
 
-      // Interpretar conteúdo
-      const { authorName, gamePlayerId, parsedItems } = parseDiscordStockMessage(rawText, embedObj, config);
+      // Interpretar conteúdo passando o baú do canal como default
+      const { authorName, gamePlayerId, parsedItems } = parseDiscordStockMessage(rawText, embedObj, config, matchedBau?.nome);
 
       if (!parsedItems || parsedItems.length === 0) {
         console.warn(`⚠️ [STOCK-ENGINE] Não foi possível interpretar itens na log ${message.id}. Registrando erro...`);

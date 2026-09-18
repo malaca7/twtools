@@ -27,6 +27,7 @@ import {
   Webhook,
   Code2,
   Radio,
+  PackageCheck,
 } from "lucide-react";
 import type { Permission } from "@/lib/permissions";
 
@@ -54,6 +55,7 @@ export const READ_ONLY_PERMISSIONS: Permission[] = [
   "view_dashboard",
   "view_cash_fund",
   "view_stock",
+  "view_stock_management",
   "view_baus",
   "view_all_movements",
   "view_movements",
@@ -319,6 +321,55 @@ export const PAGE_CARDS: PageCardConfig[] = [
         label: "Gerenciar Categorias de Produtos",
         description: "Criar, editar e excluir categorias de insumos.",
         badge: "Categorias",
+      },
+    ],
+  },
+  {
+    id: "gestao-estoque",
+    title: "Gestão de Estoque",
+    route: "/gestao-estoque",
+    icon: PackageCheck,
+    description: "Gerenciamento completo do catálogo de produtos, categorias, baús de facção e controle de saldos de estoque.",
+    color: "border-emerald-500/40 bg-emerald-500/5 text-emerald-400",
+    defaultCat: "Gestão",
+    defaultOrder: 4,
+    permissions: [
+      {
+        key: "view_stock_management",
+        label: "Acessar Gestão de Estoque",
+        description: "Permite acessar a tela /gestao-estoque e visualizar as ferramentas administrativas de estoque.",
+      },
+      {
+        key: "manage_stock_products",
+        label: "Gerenciar Produtos (Criar / Editar / Apagar)",
+        description: "Permite criar novos produtos no catálogo, alterar preços sugeridos, unidades, fotos e excluir itens.",
+        badge: "Produtos",
+      },
+      {
+        key: "manage_stock_categories",
+        label: "Gerenciar Categorias (Criar / Editar / Apagar)",
+        description: "Permite criar, renomear, redefinir descrições e apagar categorias de produtos da facção.",
+        badge: "Categorias",
+      },
+      {
+        key: "manage_stock_baus",
+        label: "Gerenciar Baús da Facção (Criar / Editar / Apagar)",
+        description: "Permite criar baús, configurar tipo de movimentação (automático via Discord / manual via painel) e excluir baús.",
+        badge: "Baús",
+      },
+      {
+        key: "adjust_stock_balance",
+        label: "Lançar Ajustes de Saldo de Estoque",
+        description: "Permite lançar acertos de contagem de inventário, créditos e débitos de produtos por baú com justificativa auditada.",
+        badge: "Ajuste Saldo",
+        importantNote: "Gera registros auditados não-removíveis no sistema.",
+      },
+      {
+        key: "manage_stock_balance",
+        label: "Gerenciar, Criar e Redefinir Saldos de Estoque",
+        description: "Permite redefinir saldos absolutos de produtos ou zerar contagens de inventário em baús.",
+        badge: "Ação Crítica",
+        importantNote: "Altera o saldo patrimonial físico dos baús da organização.",
       },
     ],
   },

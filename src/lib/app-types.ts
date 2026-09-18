@@ -91,7 +91,17 @@ export type Bau = {
   icone: string | null;
   ativo: boolean;
   tipo_gestao?: "automatico" | "manual";
+  discord_channel_id?: string | null;
+  discord_guild_id?: string | null;
   created_at: string;
+};
+
+export type BauDiscordIntegration = {
+  bau_id?: string;
+  channel_id: string;
+  guild_id?: string;
+  tipo_gestao?: "automatico" | "manual";
+  is_active?: boolean;
 };
 
 export type DiscordStockConfig = {
@@ -103,6 +113,7 @@ export type DiscordStockConfig = {
   default_bau_id: string | null;
   item_mappings: Record<string, string>;
   bau_mappings: Record<string, string>;
+  bau_channels?: Record<string, BauDiscordIntegration>;
   last_processed_at: string | null;
   last_message_id: string | null;
   last_status: string | null;

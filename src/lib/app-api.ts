@@ -270,7 +270,7 @@ export async function getBaus(): Promise<Bau[]> {
   try {
     const { data, error } = await supabase
       .from("baus")
-      .select("id, nome, descricao, icone, ativo, tipo_gestao, created_at")
+      .select("id, nome, descricao, icone, ativo, tipo_gestao, discord_channel_id, discord_guild_id, created_at")
       .order("created_at", { ascending: true });
     if (!error && data && data.length > 0) {
       listData = data;
@@ -298,6 +298,8 @@ export async function getBaus(): Promise<Bau[]> {
       icone: d.icone,
       ativo: d.ativo ?? true,
       tipo_gestao: (d.tipo_gestao === "manual" ? "manual" : "automatico"),
+      discord_channel_id: d.discord_channel_id || null,
+      discord_guild_id: d.discord_guild_id || null,
       created_at: String(d.created_at),
     });
   }
@@ -305,7 +307,7 @@ export async function getBaus(): Promise<Bau[]> {
   return list;
 }
 
-export async function createBau(payload: { nome: string; descricao?: string; icone?: string; tipo_gestao?: "automatico" | "manual" }): Promise<Bau> {
+export async function createBau(payload: { nome: string; descricao?: string; icone?: string; tipo_gestao?: "automatico" | "manual"; discord_channel_id?: string | null; discord_guild_id?: string | null }): Promise<Bau> {
   const cleanName = payload.nome.trim();
   if (!cleanName) throw new Error("Informe o nome do baú.");
 
@@ -326,7 +328,9 @@ export async function createBau(payload: { nome: string; descricao?: string; ico
       descricao: payload.descricao?.trim() || null,
       icone: payload.icone || 'box',
       ativo: true,
-      tipo_gestao: payload.tipo_gestao || 'automatico'
+      tipo_gestao: payload.tipo_gestao || 'automatico',
+      discord_channel_id: payload.discord_channel_id?.trim() || null,
+      discord_guild_id: payload.discord_guild_id?.trim() || null,
     })
     .select()
     .single();
@@ -341,12 +345,14 @@ export async function createBau(payload: { nome: string; descricao?: string; ico
     icone: data.icone,
     ativo: data.ativo,
     tipo_gestao: data.tipo_gestao || 'automatico',
+    discord_channel_id: data.discord_channel_id || null,
+    discord_guild_id: data.discord_guild_id || null,
     created_at: String(data.created_at)
   };
 }
 
-export async function updateBau(payload: { id: string; nome?: string; descricao?: string; icone?: string; ativo?: boolean; tipo_gestao?: "automatico" | "manual" }): Promise<void> {
-  const { data: oldBau } = await supabase.from("baus").select("nome, descricao, ativo, tipo_gestao").eq("id", payload.id).maybeSingle();
+export async function updateBau(payload: { id: string; nome?: string; descricao?: string; icone?: string; ativo?: boolean; tipo_gestao?: "automatico" | "manual"; discord_channel_id?: string | null; discord_guild_id?: string | null }): Promise<void> {
+  const { data: oldBau } = await supabase.from("baus").select("nome, descricao, ativo, tipo_gestao, discord_channel_id, discord_guild_id").eq("id", payload.id).maybeSingle();
 
   const updates: any = {};
   if (payload.nome !== undefined) {
@@ -370,6 +376,8 @@ export async function updateBau(payload: { id: string; nome?: string; descricao?
   if (payload.icone !== undefined) updates.icone = payload.icone;
   if (payload.ativo !== undefined) updates.ativo = payload.ativo;
   if (payload.tipo_gestao !== undefined) updates.tipo_gestao = payload.tipo_gestao;
+  if (payload.discord_channel_id !== undefined) updates.discord_channel_id = payload.discord_channel_id?.trim() || null;
+  if (payload.discord_guild_id !== undefined) updates.discord_guild_id = payload.discord_guild_id?.trim() || null;
   updates.updated_at = new Date().toISOString();
 
   const { data, error } = await supabase
@@ -1844,8 +1852,6 @@ export async function updateDiscordStockConfig(payload: Partial<DiscordStockConf
     if (error) throw error;
     resultData = data;
   }
-
-  void logAuditAction("update_discord_stock_config", "discord_stock_config", updates);
   return resultData as DiscordStockConfig;
 }
 
