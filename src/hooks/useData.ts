@@ -5,6 +5,8 @@ import {
   getAuditLogs,
   getBaus,
   getCategories,
+  getDiscordStockConfig,
+  getDiscordStockLogs,
   getGoals,
   getLoginPlayers,
   getMembers,
@@ -19,6 +21,8 @@ import type {
   AuditLog,
   Bau,
   Category,
+  DiscordStockConfig,
+  DiscordStockLog,
   Goal,
   LoginPlayer,
   Member,
@@ -65,6 +69,20 @@ export function useMovements() {
   return useQuery({
     queryKey: ["movements"],
     queryFn: async (): Promise<Movement[]> => getMovements(),
+  });
+}
+
+export function useDiscordStockConfig() {
+  return useQuery({
+    queryKey: ["discord_stock_config"],
+    queryFn: async (): Promise<DiscordStockConfig> => getDiscordStockConfig(),
+  });
+}
+
+export function useDiscordStockLogs(limit = 50) {
+  return useQuery({
+    queryKey: ["discord_stock_logs", limit],
+    queryFn: async (): Promise<DiscordStockLog[]> => getDiscordStockLogs(limit),
   });
 }
 

@@ -1250,4 +1250,58 @@ export const PAGE_CARDS: PageCardConfig[] = [
       },
     ],
   },
+  {
+    id: "dev-estoque",
+    title: "Ajustes de Estoque & Integração Discord (Dev)",
+    route: "/dev/estoque",
+    icon: Boxes,
+    description: "Configurações do canal de logs do Discord, telemetria em tempo real, auditoria técnica e realização exclusiva de ajustes manuais de estoque.",
+    color: "border-emerald-500/40 bg-emerald-500/5 text-emerald-400",
+    defaultCat: "DEV",
+    defaultOrder: 8,
+    permissions: [
+      {
+        key: "estoque.visualizar",
+        label: "Visualizar Painel de Controle de Estoque Dev",
+        description: "Permite acessar o console de estoque dev, ver inventários e status da conexão com Discord.",
+        badge: "Acesso Estoque Dev",
+      },
+      {
+        key: "estoque.ajustar",
+        label: "Ajustar Saldo de Estoque",
+        description: "Permite executar ajustes de saldo em baús automáticos e manuais com auditoria obrigatória.",
+        badge: "Ajustes Manuais",
+      },
+      {
+        key: "estoque.adicionar",
+        label: "Adicionar Itens ao Estoque",
+        description: "Permite lançar acréscimos (+) de insumos e itens diretamente nos depósitos.",
+        badge: "Entrada Dev",
+      },
+      {
+        key: "estoque.remover",
+        label: "Remover Itens do Estoque",
+        description: "Permite dar baixa (-) em quantidades de itens nos depósitos através do console.",
+        badge: "Saída Dev",
+      },
+      {
+        key: "estoque.corrigir",
+        label: "Corrigir e Definir Saldo Específico",
+        description: "Permite definir o saldo exato de um item no baú (ex: zerar ou recalibrar quantidade).",
+        badge: "Correção Exata",
+      },
+      {
+        key: "estoque.configurar",
+        label: "Configurar Parâmetros e Mapeamento Discord",
+        description: "Permite alterar Servidor, Canal de logs, ativar/desativar motor e gerenciar mapeamento de itens.",
+        badge: "Configuração Discord",
+      },
+      {
+        key: "estoque.auditoria",
+        label: "Auditoria Técnica e Logs de Movimentação",
+        description: "Permite visualizar histórico completo de mensagens do Discord, logs processadas e rejeitadas.",
+        badge: "Auditoria",
+      },
+    ],
+  },
 ];

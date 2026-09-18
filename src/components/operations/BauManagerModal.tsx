@@ -50,6 +50,7 @@ export function BauManagerModal({ trigger }: { trigger?: ReactNode }) {
   const [nome, setNome] = useState("");
   const [descricao, setDescricao] = useState("");
   const [icone, setIcone] = useState("box");
+  const [tipoGestao, setTipoGestao] = useState<"automatico" | "manual">("automatico");
   const [isCreating, setIsCreating] = useState(false);
   const [bauToDelete, setBauToDelete] = useState<Bau | null>(null);
 
@@ -72,6 +73,7 @@ export function BauManagerModal({ trigger }: { trigger?: ReactNode }) {
     setNome("");
     setDescricao("");
     setIcone("box");
+    setTipoGestao("automatico");
     setIsCreating(false);
   };
 
@@ -134,10 +136,11 @@ export function BauManagerModal({ trigger }: { trigger?: ReactNode }) {
           throw new Error(`Já existe outro baú cadastrado com o nome "${cleanName}".`);
         }
 
-        const payload: { id: string; nome: string; descricao?: string; icone?: string } = {
+        const payload: { id: string; nome: string; descricao?: string; icone?: string; tipo_gestao?: "automatico" | "manual" } = {
           id: editingBau.id,
           nome: cleanName,
           icone,
+          tipo_gestao: tipoGestao,
         };
         if (descricao.trim()) payload.descricao = descricao.trim();
         await updateBau(payload);
@@ -149,9 +152,10 @@ export function BauManagerModal({ trigger }: { trigger?: ReactNode }) {
           throw new Error(`Já existe um baú cadastrado com o nome "${cleanName}".`);
         }
 
-        const payload: { nome: string; descricao?: string; icone?: string } = {
+        const payload: { nome: string; descricao?: string; icone?: string; tipo_gestao?: "automatico" | "manual" } = {
           nome: cleanName,
           icone,
+          tipo_gestao: tipoGestao,
         };
         if (descricao.trim()) payload.descricao = descricao.trim();
         await createBau(payload);
@@ -218,6 +222,7 @@ export function BauManagerModal({ trigger }: { trigger?: ReactNode }) {
     setNome(bau.nome);
     setDescricao(bau.descricao || "");
     setIcone(bau.icone || "box");
+    setTipoGestao(bau.tipo_gestao === "manual" ? "manual" : "automatico");
     setIsCreating(true);
   };
 
@@ -292,6 +297,47 @@ export function BauManagerModal({ trigger }: { trigger?: ReactNode }) {
                 </div>
 
                 <div>
+                  <Label className="text-xs font-semibold">Modo de Operação do Baú</Label>
+                  <div className="grid grid-cols-2 gap-2 pt-1.5">
+                    <button
+                      type="button"
+                      onClick={() => setTipoGestao("automatico")}
+                      className={cn(
+                        "flex flex-col items-start gap-1 p-2.5 rounded-lg border text-left transition-all",
+                        tipoGestao === "automatico"
+                          ? "border-emerald-500/60 bg-emerald-500/10 text-emerald-300 ring-1 ring-emerald-500/50"
+                          : "border-border/60 bg-secondary/40 hover:bg-secondary/70 text-muted-foreground"
+                      )}
+                    >
+                      <div className="flex items-center gap-1.5 font-semibold text-xs text-foreground">
+                        <span>🤖</span> Automático (Discord)
+                      </div>
+                      <p className="text-[11px] leading-tight text-muted-foreground">
+                        Sincronizado via logs do Discord. Bloqueia lançamentos manuais livres.
+                      </p>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setTipoGestao("manual")}
+                      className={cn(
+                        "flex flex-col items-start gap-1 p-2.5 rounded-lg border text-left transition-all",
+                        tipoGestao === "manual"
+                          ? "border-amber-500/60 bg-amber-500/10 text-amber-300 ring-1 ring-amber-500/50"
+                          : "border-border/60 bg-secondary/40 hover:bg-secondary/70 text-muted-foreground"
+                      )}
+                    >
+                      <div className="flex items-center gap-1.5 font-semibold text-xs text-foreground">
+                        <span>✋</span> Manual (Plataforma)
+                      </div>
+                      <p className="text-[11px] leading-tight text-muted-foreground">
+                        Permite lançar entradas, saídas e transferências manuais pelo site.
+                      </p>
+                    </button>
+                  </div>
+                </div>
+
+                <div>
                   <Label>Ícone</Label>
                   <div className="flex gap-2 pt-1">
                     {[
@@ -363,6 +409,15 @@ export function BauManagerModal({ trigger }: { trigger?: ReactNode }) {
                           <div className="min-w-0 space-y-1">
                             <div className="flex items-center gap-2 flex-wrap">
                               <p className="font-medium text-sm text-foreground truncate">{b.nome}</p>
+                              {b.tipo_gestao === "manual" ? (
+                                <Badge variant="outline" className="text-[10px] py-0 px-1.5 font-medium bg-amber-500/10 text-amber-400 border-amber-500/30">
+                                  ✋ Manual
+                                </Badge>
+                              ) : (
+                                <Badge variant="outline" className="text-[10px] py-0 px-1.5 font-medium bg-emerald-500/10 text-emerald-400 border-emerald-500/30">
+                                  🤖 Automático
+                                </Badge>
+                              )}
                               {!b.ativo ? (
                                 <Badge variant="outline" className="text-[10px] py-0 px-1.5 text-muted-foreground">
                                   Inativo

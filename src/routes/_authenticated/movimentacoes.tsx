@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { createFileRoute, Outlet, useChildMatches } from "@tanstack/react-router";
+import { createFileRoute, Outlet, useChildMatches, Link } from "@tanstack/react-router";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
@@ -20,6 +20,7 @@ import {
   RotateCcw,
   Tags,
   Lock,
+  Wrench,
   ChevronLeft,
   ChevronRight,
 } from "lucide-react";
@@ -123,9 +124,19 @@ export function MovimentacoesPage() {
   // Queue batch items
   const [queue, setQueue] = useState<BatchItem[]>([]);
 
-  // Search filter
+  // Search and advanced filters
   const [prodSearch, setProdSearch] = useState("");
   const [logSearch, setLogSearch] = useState("");
+  const [filterOrigin, setFilterOrigin] = useState<string>("all");
+  const [filterBauId, setFilterBauId] = useState<string>("all");
+  const [filterType, setFilterType] = useState<string>("all");
+
+  const selectedBau = baus.find((b) => b.id === selectedBauId);
+  const isSelectedBauAuto = selectedBau ? selectedBau.tipo_gestao !== "manual" : false;
+  const fromBau = baus.find((b) => b.id === fromBauId);
+  const toBau = baus.find((b) => b.id === toBauId);
+  const isTransferAuto = type === "transferencia" && ((fromBau && fromBau.tipo_gestao !== "manual") || (toBau && toBau.tipo_gestao !== "manual"));
+  const isCurrentActionBlocked = (type !== "transferencia" && isSelectedBauAuto) || isTransferAuto;
 
   // Set de IDs das movimentações que já foram estornadas
   const reversedIds = useMemo(() => {
@@ -266,6 +277,11 @@ export function MovimentacoesPage() {
   };
 
   const handleToggleProductInQueue = (productId: string) => {
+    if (isCurrentActionBlocked) {
+      toast.error("Este baú opera em modo automático via Discord. Movimentações manuais estão bloqueadas.");
+      return;
+    }
+
     if (type === "transferencia") {
       if (!fromBauId) {
         toast.error("Selecione o baú de origem.");
@@ -314,6 +330,11 @@ export function MovimentacoesPage() {
   };
 
   const addItemToQueue = () => {
+    if (isCurrentActionBlocked) {
+      toast.error("Este baú opera em modo automático via Discord. Movimentações manuais estão bloqueadas.");
+      return;
+    }
+
     if (type === "transferencia") {
       if (!fromBauId) {
         toast.error("Selecione o baú de origem.");
@@ -367,6 +388,7 @@ export function MovimentacoesPage() {
   const submitBatchMutation = useMutation({
     mutationFn: async () => {
       if (!canMove) throw new Error("Você não possui permissão para lançar movimentações.");
+      if (isCurrentActionBlocked) throw new Error("Este baú opera em modo automático via Discord. Movimentações manuais livres estão bloqueadas.");
 
       let itemsToSubmit = [...queue];
 
@@ -467,11 +489,23 @@ export function MovimentacoesPage() {
   });
 
   const filteredLogs = movements.filter((m) => {
+    if (filterOrigin !== "all") {
+      if (filterOrigin === "manual" && m.origin && m.origin !== "manual") return false;
+      if (filterOrigin !== "manual" && m.origin !== filterOrigin) return false;
+    }
+    if (filterBauId !== "all" && m.bau_id !== filterBauId) return false;
+    if (filterType !== "all") {
+      if (filterType === "transferencia" && !m.reason?.toLowerCase().includes("transferência")) return false;
+      if (filterType !== "transferencia" && m.type !== filterType) return false;
+    }
     const q = logSearch.toLowerCase().trim();
     if (!q) return true;
     const pName = productName(products, m.product_id).toLowerCase();
     const uName = nameOf(members, m.user_id).toLowerCase();
-    return pName.includes(q) || uName.includes(q);
+    const dUser = (m.discord_user_name || "").toLowerCase();
+    const gPlayer = (m.game_player_id || "").toLowerCase();
+    const reason = (m.reason || "").toLowerCase();
+    return pName.includes(q) || uName.includes(q) || dUser.includes(q) || gPlayer.includes(q) || reason.includes(q);
   });
 
   // Paginação do Histórico de Lançamentos
@@ -480,7 +514,7 @@ export function MovimentacoesPage() {
 
   useEffect(() => {
     setLogPage(1);
-  }, [logSearch, logsPerPage]);
+  }, [logSearch, logsPerPage, filterOrigin, filterBauId, filterType]);
 
   const totalLogPages = Math.ceil(filteredLogs.length / logsPerPage) || 1;
   const safeLogPage = Math.min(Math.max(1, logPage), totalLogPages);
@@ -578,9 +612,21 @@ export function MovimentacoesPage() {
                         variant={selectedBauId === b.id ? "default" : "outline"}
                         size="sm"
                         onClick={() => setSelectedBauId(b.id)}
-                        className="text-xs h-9 px-4 rounded-xl font-bold"
+                        className={cn(
+                          "text-xs h-9 px-3.5 rounded-xl font-bold flex items-center gap-1.5",
+                          selectedBauId === b.id ? "bg-primary text-primary-foreground shadow-sm" : ""
+                        )}
                       >
-                        📦 {b.nome}
+                        <span>📦 {b.nome}</span>
+                        {b.tipo_gestao === "manual" ? (
+                          <span className={cn("text-[9px] px-1 py-0.2 rounded font-medium", selectedBauId === b.id ? "bg-amber-400 text-slate-900" : "bg-amber-500/10 text-amber-400 border border-amber-500/20")}>
+                            ✋ Manual
+                          </span>
+                        ) : (
+                          <span className={cn("text-[9px] px-1 py-0.2 rounded font-medium", selectedBauId === b.id ? "bg-emerald-400 text-slate-900" : "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20")}>
+                            🤖 Discord
+                          </span>
+                        )}
                       </Button>
                     ))}
                   </div>
@@ -608,11 +654,14 @@ export function MovimentacoesPage() {
                             }
                           }}
                           className={cn(
-                            "text-xs h-8 px-3 rounded-lg font-bold",
+                            "text-xs h-8 px-2.5 rounded-lg font-bold flex items-center gap-1",
                             fromBauId === b.id ? "bg-rose-600 hover:bg-rose-700 text-white" : ""
                           )}
                         >
-                          📦 {b.nome}
+                          <span>📦 {b.nome}</span>
+                          <span className="text-[9px] opacity-80 font-normal">
+                            ({b.tipo_gestao === "manual" ? "Manual" : "Auto"})
+                          </span>
                         </Button>
                       ))}
                     </div>
@@ -634,11 +683,14 @@ export function MovimentacoesPage() {
                             size="sm"
                             onClick={() => setToBauId(b.id)}
                             className={cn(
-                              "text-xs h-8 px-3 rounded-lg font-bold",
+                              "text-xs h-8 px-2.5 rounded-lg font-bold flex items-center gap-1",
                               toBauId === b.id ? "bg-emerald-600 hover:bg-emerald-700 text-white" : ""
                             )}
                           >
-                            📦 {b.nome}
+                            <span>📦 {b.nome}</span>
+                            <span className="text-[9px] opacity-80 font-normal">
+                              ({b.tipo_gestao === "manual" ? "Manual" : "Auto"})
+                            </span>
                           </Button>
                         ))}
                     </div>
@@ -647,8 +699,37 @@ export function MovimentacoesPage() {
               )
             )}
 
-            {/* FILTRO DE CATEGORIAS POR BOTÕES CHIP */}
-            <div className="space-y-2 pt-2 border-t border-border/50">
+            {isCurrentActionBlocked ? (
+              <div className="rounded-2xl border border-emerald-500/40 bg-emerald-950/20 p-6 text-center space-y-4 my-2 shadow-inner">
+                <div className="mx-auto w-14 h-14 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-3xl shadow-inner">
+                  🤖
+                </div>
+                <div className="space-y-1.5 max-w-lg mx-auto">
+                  <h3 className="text-base font-extrabold text-foreground">
+                    Baú com Sincronização 100% Automática via Discord
+                  </h3>
+                  <p className="text-xs text-muted-foreground leading-relaxed">
+                    O baú <strong>{type === "transferencia" ? `${fromBau?.nome || "Origem"} / ${toBau?.nome || "Destino"}` : selectedBau?.nome}</strong> opera integrado às logs do canal do Discord. Movimentações manuais comuns estão bloqueadas para este baú para manter a fidelidade do inventário.
+                  </p>
+                </div>
+                <div className="pt-1 flex flex-wrap items-center justify-center gap-3">
+                  {hasPermission("estoque.ajustar") ? (
+                    <Link to="/dev/estoque">
+                      <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs gap-2 rounded-xl shadow-md">
+                        <Wrench className="w-4 h-4" /> Acessar Ajustes de Estoque no Painel Dev &rarr;
+                      </Button>
+                    </Link>
+                  ) : (
+                    <div className="text-xs text-muted-foreground bg-secondary/50 border border-border/50 py-1.5 px-3 rounded-xl">
+                      Ajustes pontuais de estoque são restritos a Administradores e Desenvolvedores via Painel Dev.
+                    </div>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <>
+                {/* FILTRO DE CATEGORIAS POR BOTÕES CHIP */}
+                <div className="space-y-2 pt-2 border-t border-border/50">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                 <Label className="text-xs font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
                   <Tags className="h-4 w-4 text-primary" /> {canViewBaus ? (type === "transferencia" ? "3" : "2") : "1"}. Filtrar por Categoria
@@ -1181,10 +1262,11 @@ export function MovimentacoesPage() {
                 })()}
               </div>
             </div>
-
-          </CardContent>
-        </Card>
-      )}
+          </>
+        )}
+      </CardContent>
+    </Card>
+  )}
 
       {/* TABELA DE HISTÓRICO DE MOVIMENTAÇÕES (Controlado pela permissão Ver Histórico de Lançamentos) */}
       {canView ? (
@@ -1198,14 +1280,54 @@ export function MovimentacoesPage() {
                 </p>
               </div>
 
-              <div className="relative w-full sm:w-72">
-                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                <Input
-                  placeholder="Buscar por produto ou membro..."
-                  value={logSearch}
-                  onChange={(e) => setLogSearch(e.target.value)}
-                  className="pl-9 h-9 text-xs rounded-xl bg-secondary/30"
-                />
+              <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+                <div className="relative flex-1 sm:w-56 min-w-[180px]">
+                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    placeholder="Buscar produto, autor, ID..."
+                    value={logSearch}
+                    onChange={(e) => setLogSearch(e.target.value)}
+                    className="pl-9 h-9 text-xs rounded-xl bg-secondary/30"
+                  />
+                </div>
+
+                <Select value={filterOrigin} onValueChange={setFilterOrigin}>
+                  <SelectTrigger className="h-9 w-32 text-xs rounded-xl bg-secondary/30">
+                    <SelectValue placeholder="Origem" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todas Origens</SelectItem>
+                    <SelectItem value="discord">🤖 Discord</SelectItem>
+                    <SelectItem value="painel_dev">🛠️ Painel Dev</SelectItem>
+                    <SelectItem value="manual">✋ Manual</SelectItem>
+                  </SelectContent>
+                </Select>
+
+                <Select value={filterType} onValueChange={setFilterType}>
+                  <SelectTrigger className="h-9 w-28 text-xs rounded-xl bg-secondary/30">
+                    <SelectValue placeholder="Tipo" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos Tipos</SelectItem>
+                    <SelectItem value="entrada">Entradas</SelectItem>
+                    <SelectItem value="saida">Saídas</SelectItem>
+                    <SelectItem value="transferencia">Transf.</SelectItem>
+                  </SelectContent>
+                </Select>
+
+                <Select value={filterBauId} onValueChange={setFilterBauId}>
+                  <SelectTrigger className="h-9 w-32 text-xs rounded-xl bg-secondary/30">
+                    <SelectValue placeholder="Baú" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos Baús</SelectItem>
+                    {baus.map((b) => (
+                      <SelectItem key={b.id} value={b.id}>
+                        {b.nome}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             </div>
 
@@ -1225,7 +1347,7 @@ export function MovimentacoesPage() {
                     const isReversed = !!m.reversal_of || reversedIds.has(m.id);
                     const prodObj = products.find((p) => p.id === m.product_id);
                     const pName = prodObj?.nome || productName(products, m.product_id);
-                    const uName = nameOf(members, m.user_id);
+                    const uName = m.discord_user_name || (m.game_player_id ? `Jogador ID ${m.game_player_id}` : nameOf(members, m.user_id));
                     const bauName = baus.find((b) => b.id === m.bau_id)?.nome || "Baú Geral";
 
                     return (
@@ -1260,14 +1382,17 @@ export function MovimentacoesPage() {
                                   📦 {bauName}
                                 </Badge>
                               )}
-                              {m.origin === "discord" && (
-                                <Badge variant="outline" className="text-[10px] border-[#5865F2]/50 text-[#5865F2] bg-[#5865F2]/10 px-1.5 py-0 shrink-0" title="Sincronizado automaticamente via Discord">
-                                  Discord
+                              {m.origin === "discord" ? (
+                                <Badge variant="outline" className="text-[10px] border-[#5865F2]/50 text-[#5865F2] bg-[#5865F2]/10 px-1.5 py-0 shrink-0 font-semibold" title={`Discord Message ID: ${m.discord_message_id || ""}`}>
+                                  🤖 Discord
                                 </Badge>
-                              )}
-                              {m.origin === "painel_dev" && (
-                                <Badge variant="outline" className="text-[10px] border-rose-500/50 text-rose-400 bg-rose-500/10 px-1.5 py-0 shrink-0" title="Ajustado manualmente pelo Painel Dev">
-                                  Dev Panel
+                              ) : m.origin === "painel_dev" ? (
+                                <Badge variant="outline" className="text-[10px] border-rose-500/50 text-rose-400 bg-rose-500/10 px-1.5 py-0 shrink-0 font-semibold" title="Ajuste manual no Painel Dev">
+                                  🛠️ Painel Dev
+                                </Badge>
+                              ) : (
+                                <Badge variant="outline" className="text-[10px] border-amber-500/50 text-amber-400 bg-amber-500/10 px-1.5 py-0 shrink-0 font-semibold" title="Lançamento manual de plataforma">
+                                  ✋ Manual
                                 </Badge>
                               )}
                             </div>
@@ -1276,6 +1401,12 @@ export function MovimentacoesPage() {
                               <span>🕒 {dateTime(m.created_at)}</span>
                               <span>•</span>
                               <span>👤 {uName}</span>
+                              {m.discord_message_id && (
+                                <>
+                                  <span>•</span>
+                                  <span className="text-[9px] text-muted-foreground/60">ID: {m.discord_message_id.slice(-6)}</span>
+                                </>
+                              )}
                               {m.reason && (
                                 <>
                                   <span>•</span>

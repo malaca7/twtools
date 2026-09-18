@@ -13,6 +13,8 @@ import type {
   AppUser,
   Profile,
   Bau,
+  DiscordStockConfig,
+  DiscordStockLog,
   UserPresence,
   UserPresenceStatus,
   RolePermissionRecord,
@@ -268,14 +270,13 @@ export async function getBaus(): Promise<Bau[]> {
   try {
     const { data, error } = await supabase
       .from("baus")
-      .select("id, nome, descricao, icone, ativo, created_at")
+      .select("id, nome, descricao, icone, ativo, tipo_gestao, created_at")
       .order("created_at", { ascending: true });
     if (!error && data && data.length > 0) {
       listData = data;
     }
   } catch {}
 
-  
   const seenIds = new Set<string>();
   const seenNames = new Set<string>();
   const list: Bau[] = [];
@@ -283,12 +284,6 @@ export async function getBaus(): Promise<Bau[]> {
   for (const d of listData || []) {
     const id = String(d.id);
     const normName = String(d.nome || "").trim().toLowerCase();
-    
-    // Ignore and cleanup any legacy caixote entries
-    if (normName.includes("caixote")) {
-      try { void supabase.from("baus").delete().eq("id", id); } catch {}
-      continue;
-    }
 
     if (seenIds.has(id) || (normName && seenNames.has(normName))) {
       continue;
@@ -302,6 +297,7 @@ export async function getBaus(): Promise<Bau[]> {
       descricao: d.descricao,
       icone: d.icone,
       ativo: d.ativo ?? true,
+      tipo_gestao: (d.tipo_gestao === "manual" ? "manual" : "automatico"),
       created_at: String(d.created_at),
     });
   }
@@ -309,7 +305,7 @@ export async function getBaus(): Promise<Bau[]> {
   return list;
 }
 
-export async function createBau(payload: { nome: string; descricao?: string; icone?: string }): Promise<Bau> {
+export async function createBau(payload: { nome: string; descricao?: string; icone?: string; tipo_gestao?: "automatico" | "manual" }): Promise<Bau> {
   const cleanName = payload.nome.trim();
   if (!cleanName) throw new Error("Informe o nome do baú.");
 
@@ -329,13 +325,14 @@ export async function createBau(payload: { nome: string; descricao?: string; ico
       nome: cleanName,
       descricao: payload.descricao?.trim() || null,
       icone: payload.icone || 'box',
-      ativo: true
+      ativo: true,
+      tipo_gestao: payload.tipo_gestao || 'automatico'
     })
     .select()
     .single();
   if (error) throw error;
 
-  void logAuditAction("create_bau", "baus", { nome: data.nome, descricao: data.descricao }, undefined, data.id);
+  void logAuditAction("create_bau", "baus", { nome: data.nome, descricao: data.descricao, tipo_gestao: data.tipo_gestao }, undefined, data.id);
 
   return {
     id: data.id,
@@ -343,12 +340,13 @@ export async function createBau(payload: { nome: string; descricao?: string; ico
     descricao: data.descricao,
     icone: data.icone,
     ativo: data.ativo,
+    tipo_gestao: data.tipo_gestao || 'automatico',
     created_at: String(data.created_at)
   };
 }
 
-export async function updateBau(payload: { id: string; nome?: string; descricao?: string; icone?: string; ativo?: boolean }): Promise<void> {
-  const { data: oldBau } = await supabase.from("baus").select("nome, descricao, ativo").eq("id", payload.id).maybeSingle();
+export async function updateBau(payload: { id: string; nome?: string; descricao?: string; icone?: string; ativo?: boolean; tipo_gestao?: "automatico" | "manual" }): Promise<void> {
+  const { data: oldBau } = await supabase.from("baus").select("nome, descricao, ativo, tipo_gestao").eq("id", payload.id).maybeSingle();
 
   const updates: any = {};
   if (payload.nome !== undefined) {
@@ -371,6 +369,7 @@ export async function updateBau(payload: { id: string; nome?: string; descricao?
   if (payload.descricao !== undefined) updates.descricao = payload.descricao.trim();
   if (payload.icone !== undefined) updates.icone = payload.icone;
   if (payload.ativo !== undefined) updates.ativo = payload.ativo;
+  if (payload.tipo_gestao !== undefined) updates.tipo_gestao = payload.tipo_gestao;
   updates.updated_at = new Date().toISOString();
 
   const { data, error } = await supabase
@@ -1794,6 +1793,89 @@ export async function reverseMovement(movementId: string, reason?: string): Prom
     target_roles: ["01", "02", "gerente", "desenvolvedor"],
     link: "/movimentacoes",
   });
+}
+
+export async function getDiscordStockConfig(): Promise<DiscordStockConfig> {
+  const { data, error } = await supabase
+    .from("discord_stock_config")
+    .select("*")
+    .limit(1)
+    .maybeSingle();
+  if (error) throw error;
+  if (!data) {
+    const { data: newRow, error: insErr } = await supabase
+      .from("discord_stock_config")
+      .insert({ is_active: true, allow_negative_stock: false })
+      .select()
+      .single();
+    if (insErr) throw insErr;
+    return newRow as DiscordStockConfig;
+  }
+  return data as DiscordStockConfig;
+}
+
+export async function updateDiscordStockConfig(payload: Partial<DiscordStockConfig>): Promise<DiscordStockConfig> {
+  const { data: existing } = await supabase.from("discord_stock_config").select("id").limit(1).maybeSingle();
+  const targetId = existing?.id;
+
+  const updates: any = {
+    ...payload,
+    updated_at: new Date().toISOString(),
+  };
+  delete updates.id;
+  delete updates.created_at;
+
+  let resultData;
+  if (targetId) {
+    const { data, error } = await supabase
+      .from("discord_stock_config")
+      .update(updates)
+      .eq("id", targetId)
+      .select()
+      .single();
+    if (error) throw error;
+    resultData = data;
+  } else {
+    const { data, error } = await supabase
+      .from("discord_stock_config")
+      .insert(updates)
+      .select()
+      .single();
+    if (error) throw error;
+    resultData = data;
+  }
+
+  void logAuditAction("update_discord_stock_config", "discord_stock_config", updates);
+  return resultData as DiscordStockConfig;
+}
+
+export async function getDiscordStockLogs(limit = 50): Promise<DiscordStockLog[]> {
+  const { data, error } = await supabase
+    .from("discord_stock_logs")
+    .select("*")
+    .order("created_at", { ascending: false })
+    .limit(limit);
+  if (error) throw error;
+  return (data || []) as DiscordStockLog[];
+}
+
+export async function adjustStockDev(payload: {
+  bauId: string;
+  productId: string;
+  adjustmentType: "definir" | "entrada" | "saida";
+  quantity: number;
+  reason: string;
+}): Promise<{ success: boolean; movement_id: string; previous_balance: number; resulting_balance: number; global_balance: number }> {
+  const { data, error } = await supabase.rpc("adjust_stock_dev", {
+    p_bau_id: payload.bauId,
+    p_product_id: payload.productId,
+    p_adjustment_type: payload.adjustmentType,
+    p_quantity: payload.quantity,
+    p_reason: payload.reason,
+  });
+
+  if (error) throw error;
+  return data as any;
 }
 
 export async function submitSale({ data }: { data: { productId: string; quantity: number; unitPrice: number; buyerName: string; paymentMethod: string; notes?: string } }): Promise<{ success: boolean }> {

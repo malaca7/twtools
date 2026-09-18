@@ -88,23 +88,40 @@ export type Bau = {
   descricao: string | null;
   icone: string | null;
   ativo: boolean;
+  tipo_gestao?: "automatico" | "manual";
   created_at: string;
 };
 
-export type Product = {
+export type DiscordStockConfig = {
   id: string;
-  nome: string;
-  descricao: string | null;
-  categoria_id: string | null;
-  bau_id: string | null;
-  unidade: string;
-  estoque_atual: number;
-  estoque_minimo: number;
-  preco_sugerido: number;
-  imagem_url?: string | null;
-  ativo: boolean;
+  guild_id: string | null;
+  channel_id: string | null;
+  is_active: boolean;
+  allow_negative_stock: boolean;
+  default_bau_id: string | null;
+  item_mappings: Record<string, string>;
+  bau_mappings: Record<string, string>;
+  last_processed_at: string | null;
+  last_message_id: string | null;
+  last_status: string | null;
+  last_error: string | null;
   created_at: string;
   updated_at: string;
+};
+
+export type DiscordStockLog = {
+  id: string;
+  message_id: string;
+  channel_id: string | null;
+  guild_id: string | null;
+  author_name: string | null;
+  game_player_id: string | null;
+  raw_content: string | null;
+  raw_embeds: any;
+  parsed_items: any;
+  status: "success" | "error" | "ignored" | "processing";
+  error_message: string | null;
+  created_at: string;
 };
 
 export type Movement = {
@@ -120,8 +137,14 @@ export type Movement = {
   sale_id: string | null;
   reversal_of: string | null;
   created_at: string;
-  origin?: string | null;
+  origin?: "discord" | "painel_dev" | "manual" | string | null;
   discord_message_id?: string | null;
+  discord_user_name?: string | null;
+  game_player_id?: string | null;
+  raw_log?: string | null;
+  adjustment_type?: string | null;
+  status?: string | null;
+  error_message?: string | null;
 };
 
 export type Sale = {

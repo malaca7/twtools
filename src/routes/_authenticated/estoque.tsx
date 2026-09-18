@@ -510,6 +510,15 @@ export function EstoquePage() {
                 >
                   <Box className="h-4 w-4" />
                   <span>{b.nome}</span>
+                  {b.tipo_gestao === "manual" ? (
+                    <span className={cn("text-[9px] px-1 py-0.2 rounded font-medium", isSelected ? "bg-amber-400 text-slate-900" : "bg-amber-500/10 text-amber-400 border border-amber-500/20")}>
+                      ✋ Manual
+                    </span>
+                  ) : (
+                    <span className={cn("text-[9px] px-1 py-0.2 rounded font-medium", isSelected ? "bg-emerald-400 text-slate-900" : "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20")}>
+                      🤖 Discord
+                    </span>
+                  )}
                   <Badge
                     variant="secondary"
                     className={cn(
@@ -523,6 +532,38 @@ export function EstoquePage() {
               );
             })}
           </div>
+
+          {selectedBauId !== "all" && (() => {
+            const currentBau = baus.find(b => b.id === selectedBauId);
+            if (!currentBau) return null;
+            const isAuto = currentBau.tipo_gestao !== "manual";
+            return (
+              <div className={cn(
+                "rounded-xl border p-2.5 px-3.5 text-xs flex items-center justify-between gap-3 mt-1",
+                isAuto
+                  ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-300"
+                  : "bg-amber-500/10 border-amber-500/30 text-amber-300"
+              )}>
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className="text-base">{isAuto ? "🤖" : "✋"}</span>
+                  <span className="truncate">
+                    {isAuto
+                      ? `Baú "${currentBau.nome}" opera com sincronização automática do Discord. Movimentações são processadas em tempo real pelas logs.`
+                      : `Baú "${currentBau.nome}" opera em modo manual. Movimentações podem ser lançadas livremente na tela de Movimentações.`
+                    }
+                  </span>
+                </div>
+                {isAuto && (
+                  <Link
+                    to="/dev/estoque"
+                    className="text-[11px] underline font-bold hover:text-white shrink-0"
+                  >
+                    Ajustes de Estoque (Dev) &rarr;
+                  </Link>
+                )}
+              </div>
+            );
+          })()}
         </div>
       )}
 
