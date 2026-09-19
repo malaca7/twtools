@@ -7,24 +7,119 @@ export type NotificationType =
   | "goal"
   | "movement"
   | "sale"
-  | "system"
+  | "cash_fund"
+  | "stock_alert"
   | "announcement"
+  | "role_update"
+  | "member_warning"
+  | "security_alert"
+  | "achievement"
   | "signup"
-  | "live";
+  | "live"
+  | "bot_sync"
+  | "patch_notes"
+  | "feedback"
+  | "system";
 
 export const ALL_NOTIFICATION_TYPES: NotificationType[] = [
-  "live",
-  "announcement",
-  "ticket",
-  "goal",
+  // Operação & Estoque
   "movement",
+  "stock_alert",
+  "goal",
   "sale",
-  "signup",
-  "system",
+  "achievement",
+  "live",
+  // Gestão & Atendimento
+  "ticket",
+  "chat",
   "absence",
+  "signup",
+  "feedback",
+  // Governança & Segurança
+  "announcement",
+  "role_update",
+  "member_warning",
+  "cash_fund",
+  "security_alert",
+  // Sistema & Infraestrutura
+  "system",
+  "bot_sync",
+  "patch_notes",
+];
+
+export type NotificationDomain = "operacao" | "gestao" | "governanca" | "sistema";
+
+export interface NotificationDomainInfo {
+  id: NotificationDomain;
+  label: string;
+  description: string;
+  badgeClass: string;
+}
+
+export const NOTIFICATION_DOMAINS: NotificationDomainInfo[] = [
+  {
+    id: "operacao",
+    label: "Operação & Estoque",
+    description: "Baú, Estoque Crítico, Metas, Vendas, Lives e Conquistas",
+    badgeClass: "bg-emerald-500/10 text-emerald-400 border-emerald-500/30",
+  },
+  {
+    id: "gestao",
+    label: "Gestão & Atendimento",
+    description: "Tickets, Chat, Licenças, Recrutamento e Ouvidoria",
+    badgeClass: "bg-blue-500/10 text-blue-400 border-blue-500/30",
+  },
+  {
+    id: "governanca",
+    label: "Governança & Segurança",
+    description: "Comunicados, Promoções, Disciplinar, Finanças e Segurança",
+    badgeClass: "bg-purple-500/10 text-purple-400 border-purple-500/30",
+  },
+  {
+    id: "sistema",
+    label: "Sistema & Bot",
+    description: "Alertas Gerais, Sincronização do Bot Discord e Notas de Atualização",
+    badgeClass: "bg-slate-500/10 text-slate-400 border-slate-500/30",
+  },
 ];
 
 export type NotificationCategory = "info" | "success" | "warning" | "error" | "alert";
+
+export interface NotificationTypeDeliveryOptions {
+  enabled: boolean;
+  showToast: boolean;
+  showBell: boolean;
+  sound: "chime" | "success" | "online" | "urgent" | "click" | "none";
+  soundVolume: number;
+  severity: NotificationCategory;
+  toastDuration: number;
+  mirrorDiscord: boolean;
+}
+
+export const DEFAULT_TYPE_DELIVERY_OPTIONS: Record<NotificationType, NotificationTypeDeliveryOptions> = {
+  movement: { enabled: true, showToast: true, showBell: true, sound: "chime", soundVolume: 70, severity: "warning", toastDuration: 5, mirrorDiscord: false },
+  stock_alert: { enabled: true, showToast: true, showBell: true, sound: "urgent", soundVolume: 95, severity: "error", toastDuration: 8, mirrorDiscord: true },
+  goal: { enabled: true, showToast: true, showBell: true, sound: "success", soundVolume: 85, severity: "success", toastDuration: 6, mirrorDiscord: true },
+  sale: { enabled: true, showToast: true, showBell: true, sound: "success", soundVolume: 85, severity: "success", toastDuration: 6, mirrorDiscord: true },
+  achievement: { enabled: true, showToast: true, showBell: true, sound: "success", soundVolume: 90, severity: "success", toastDuration: 7, mirrorDiscord: true },
+  live: { enabled: true, showToast: true, showBell: true, sound: "online", soundVolume: 80, severity: "alert", toastDuration: 7, mirrorDiscord: false },
+  
+  ticket: { enabled: true, showToast: true, showBell: true, sound: "chime", soundVolume: 80, severity: "info", toastDuration: 5, mirrorDiscord: true },
+  chat: { enabled: true, showToast: false, showBell: true, sound: "click", soundVolume: 50, severity: "info", toastDuration: 3, mirrorDiscord: false },
+  absence: { enabled: true, showToast: true, showBell: true, sound: "chime", soundVolume: 70, severity: "info", toastDuration: 5, mirrorDiscord: true },
+  signup: { enabled: true, showToast: true, showBell: true, sound: "online", soundVolume: 75, severity: "info", toastDuration: 5, mirrorDiscord: true },
+  feedback: { enabled: true, showToast: true, showBell: true, sound: "chime", soundVolume: 70, severity: "info", toastDuration: 5, mirrorDiscord: true },
+  
+  announcement: { enabled: true, showToast: true, showBell: true, sound: "urgent", soundVolume: 90, severity: "alert", toastDuration: 10, mirrorDiscord: true },
+  role_update: { enabled: true, showToast: true, showBell: true, sound: "success", soundVolume: 90, severity: "success", toastDuration: 8, mirrorDiscord: true },
+  member_warning: { enabled: true, showToast: true, showBell: true, sound: "urgent", soundVolume: 90, severity: "error", toastDuration: 8, mirrorDiscord: true },
+  cash_fund: { enabled: true, showToast: true, showBell: true, sound: "success", soundVolume: 85, severity: "warning", toastDuration: 6, mirrorDiscord: true },
+  security_alert: { enabled: true, showToast: true, showBell: true, sound: "urgent", soundVolume: 100, severity: "error", toastDuration: 12, mirrorDiscord: true },
+  
+  system: { enabled: true, showToast: true, showBell: true, sound: "chime", soundVolume: 70, severity: "info", toastDuration: 5, mirrorDiscord: false },
+  bot_sync: { enabled: true, showToast: false, showBell: true, sound: "none", soundVolume: 50, severity: "info", toastDuration: 4, mirrorDiscord: false },
+  patch_notes: { enabled: true, showToast: true, showBell: true, sound: "chime", soundVolume: 70, severity: "info", toastDuration: 8, mirrorDiscord: true },
+};
 
 export interface AppNotification {
   id: string;
@@ -63,6 +158,7 @@ export interface CreateNotificationPayload {
 export interface NotificationTypeRules {
   roles: Record<string, NotificationType[]>;
   tags: Record<string, NotificationType[]>;
+  typeOptions?: Record<NotificationType, NotificationTypeDeliveryOptions>;
   updated_at?: string;
   updated_by?: string;
 }
@@ -71,42 +167,59 @@ export const DEFAULT_NOTIFICATION_RULES: NotificationTypeRules = {
   roles: {
     "01": [...ALL_NOTIFICATION_TYPES],
     "02": [...ALL_NOTIFICATION_TYPES],
-    gerente: [...ALL_NOTIFICATION_TYPES],
-    motoqueiro: ["live", "announcement", "goal", "movement", "sale", "system"],
-    membro: ["live", "announcement", "goal", "movement", "sale", "system"],
-    novato: ["live", "announcement", "goal", "system"],
+    gerente: [
+      "movement", "stock_alert", "goal", "sale", "achievement", "live",
+      "ticket", "chat", "absence", "signup", "feedback",
+      "announcement", "role_update", "member_warning", "cash_fund",
+      "system", "bot_sync", "patch_notes"
+    ],
+    motoqueiro: [
+      "movement", "stock_alert", "goal", "sale", "achievement", "live",
+      "announcement", "patch_notes", "system"
+    ],
+    membro: [
+      "movement", "stock_alert", "goal", "sale", "achievement", "live",
+      "announcement", "patch_notes", "system"
+    ],
+    novato: [
+      "goal", "achievement", "live", "announcement", "patch_notes", "system"
+    ],
   },
   tags: {
     tag_dev: [...ALL_NOTIFICATION_TYPES],
     tag_ceo: [...ALL_NOTIFICATION_TYPES],
   },
+  typeOptions: { ...DEFAULT_TYPE_DELIVERY_OPTIONS },
   updated_at: new Date().toISOString(),
 };
 
 export interface NotificationTypeInfo {
   label: string;
   iconName: string;
+  domain: NotificationDomain;
   badgeBg: string;
   badgeColor: string;
   borderColor: string;
-  description?: string;
+  description: string;
 }
 
-export function getNotificationTypeInfo(type: NotificationType): NotificationTypeInfo {
+export function getNotificationTypeInfo(type: NotificationType | string): NotificationTypeInfo {
   switch (type) {
     case "ticket":
       return {
         label: "Ticket",
         iconName: "LifeBuoy",
+        domain: "gestao",
         badgeBg: "bg-indigo-500/10",
         badgeColor: "text-indigo-400",
         borderColor: "border-indigo-500/30",
-        description: "Chamados e atendimentos internos do grupo",
+        description: "Chamados e atendimentos internos da facção",
       };
     case "chat":
       return {
         label: "Chat",
         iconName: "MessageSquare",
+        domain: "gestao",
         badgeBg: "bg-cyan-500/10",
         badgeColor: "text-cyan-400",
         borderColor: "border-cyan-500/30",
@@ -116,70 +229,168 @@ export function getNotificationTypeInfo(type: NotificationType): NotificationTyp
       return {
         label: "Licença",
         iconName: "Calendar",
+        domain: "gestao",
         badgeBg: "bg-purple-500/10",
         badgeColor: "text-purple-400",
         borderColor: "border-purple-500/30",
-        description: "Solicitações e aprovações de ausência",
+        description: "Solicitações e aprovações de ausência e férias",
       };
     case "goal":
       return {
-        label: "Meta",
+        label: "Metas",
         iconName: "Target",
+        domain: "operacao",
         badgeBg: "bg-emerald-500/10",
         badgeColor: "text-emerald-400",
         borderColor: "border-emerald-500/30",
-        description: "Metas de arrecadação, pontuação e tarefas",
+        description: "Metas de arrecadação, pontuação e tarefas semanais",
       };
     case "movement":
       return {
         label: "Baú",
         iconName: "Package",
+        domain: "operacao",
         badgeBg: "bg-amber-500/10",
         badgeColor: "text-amber-400",
         borderColor: "border-amber-500/30",
-        description: "Depósitos e retiradas no estoque/baú",
+        description: "Depósitos e retiradas no estoque e baú da facção",
       };
     case "sale":
       return {
-        label: "Venda",
+        label: "Vendas",
         iconName: "TrendingUp",
-        badgeBg: "bg-emerald-500/10",
-        badgeColor: "text-emerald-400",
-        borderColor: "border-emerald-500/30",
-        description: "Vendas realizadas e comissões geradas",
+        domain: "operacao",
+        badgeBg: "bg-teal-500/10",
+        badgeColor: "text-teal-400",
+        borderColor: "border-teal-500/30",
+        description: "Vendas realizadas e comissões geradas no balcão",
+      };
+    case "cash_fund":
+      return {
+        label: "Finanças",
+        iconName: "Coins",
+        domain: "governanca",
+        badgeBg: "bg-yellow-500/10",
+        badgeColor: "text-yellow-400",
+        borderColor: "border-yellow-500/30",
+        description: "Movimentações de caixa, tesouraria e retiradas financeiras",
+      };
+    case "stock_alert":
+      return {
+        label: "Estoque Crítico",
+        iconName: "AlertTriangle",
+        domain: "operacao",
+        badgeBg: "bg-orange-500/10",
+        badgeColor: "text-orange-400",
+        borderColor: "border-orange-500/30",
+        description: "Alertas de itens com estoque baixo ou zerado no baú",
       };
     case "announcement":
       return {
-        label: "Comunicado",
+        label: "Comunicados",
         iconName: "Megaphone",
+        domain: "governanca",
         badgeBg: "bg-rose-500/10",
         badgeColor: "text-rose-400",
         borderColor: "border-rose-500/30",
-        description: "Comunicados e diretrizes da liderança",
+        description: "Comunicados oficiais, diretrizes e avisos da liderança",
+      };
+    case "role_update":
+      return {
+        label: "Promoções",
+        iconName: "Award",
+        domain: "governanca",
+        badgeBg: "bg-violet-500/10",
+        badgeColor: "text-violet-400",
+        borderColor: "border-violet-500/30",
+        description: "Promoções, rebaixamentos e alterações de hierarquia",
+      };
+    case "member_warning":
+      return {
+        label: "Disciplinar",
+        iconName: "ShieldAlert",
+        domain: "governanca",
+        badgeBg: "bg-red-500/10",
+        badgeColor: "text-red-400",
+        borderColor: "border-red-500/30",
+        description: "Advertências, penalidades e ocorrências disciplinares",
+      };
+    case "security_alert":
+      return {
+        label: "Segurança",
+        iconName: "Lock",
+        domain: "governanca",
+        badgeBg: "bg-rose-600/15",
+        badgeColor: "text-rose-400 font-bold",
+        borderColor: "border-rose-600/40",
+        description: "Alertas críticos de tentativas suspeitas e acessos não autorizados",
+      };
+    case "achievement":
+      return {
+        label: "Conquistas",
+        iconName: "Trophy",
+        domain: "operacao",
+        badgeBg: "bg-amber-400/15",
+        badgeColor: "text-amber-300 font-bold",
+        borderColor: "border-amber-400/40",
+        description: "Metas batidas, recordes alcançados e medalhas da facção",
       };
     case "signup":
       return {
-        label: "Cadastro",
+        label: "Recrutamento",
         iconName: "UserPlus",
+        domain: "gestao",
         badgeBg: "bg-blue-500/10",
         badgeColor: "text-blue-400",
         borderColor: "border-blue-500/30",
-        description: "Novos registros e admissões de membros",
+        description: "Novas inscrições, entrevistas e admissões de integrantes",
       };
     case "live":
       return {
         label: "Ao Vivo",
         iconName: "Radio",
+        domain: "operacao",
         badgeBg: "bg-rose-500/15",
         badgeColor: "text-rose-400 font-extrabold",
         borderColor: "border-rose-500/40",
         description: "Transmissões e lives de streamers do grupo",
+      };
+    case "bot_sync":
+      return {
+        label: "Bot Sync",
+        iconName: "Bot",
+        domain: "sistema",
+        badgeBg: "bg-cyan-600/10",
+        badgeColor: "text-cyan-400",
+        borderColor: "border-cyan-600/30",
+        description: "Sincronização de cargos, comandos e status do Bot Discord",
+      };
+    case "patch_notes":
+      return {
+        label: "Patch Notes",
+        iconName: "Sparkles",
+        domain: "sistema",
+        badgeBg: "bg-fuchsia-500/10",
+        badgeColor: "text-fuchsia-400",
+        borderColor: "border-fuchsia-500/30",
+        description: "Novidades, melhorias e notas de versão do sistema Twin Wheels",
+      };
+    case "feedback":
+      return {
+        label: "Ouvidoria",
+        iconName: "HelpCircle",
+        domain: "gestao",
+        badgeBg: "bg-emerald-500/10",
+        badgeColor: "text-emerald-400",
+        borderColor: "border-emerald-500/30",
+        description: "Sugestões de melhoria e ouvidoria dos integrantes",
       };
     case "system":
     default:
       return {
         label: "Sistema",
         iconName: "Bell",
+        domain: "sistema",
         badgeBg: "bg-slate-500/10",
         badgeColor: "text-slate-400",
         borderColor: "border-slate-500/30",

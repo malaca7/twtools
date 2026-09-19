@@ -26,6 +26,14 @@ import {
   Settings2,
   History,
   MailCheck,
+  Coins,
+  AlertTriangle,
+  Award,
+  ShieldAlert,
+  Lock,
+  Trophy,
+  Bot,
+  HelpCircle,
 } from "lucide-react";
 import { PageHeader, NoAccess } from "@/components/ui-kit";
 import { Button } from "@/components/ui/button";
@@ -87,6 +95,24 @@ function renderTypeIcon(type: NotificationType, className: string = "h-4 w-4") {
       return <UserPlus className={className} />;
     case "live":
       return <Radio className={cn(className, "text-rose-400 animate-pulse")} />;
+    case "cash_fund":
+      return <Coins className={className} />;
+    case "stock_alert":
+      return <AlertTriangle className={className} />;
+    case "role_update":
+      return <Award className={className} />;
+    case "member_warning":
+      return <ShieldAlert className={className} />;
+    case "security_alert":
+      return <Lock className={cn(className, "text-rose-500")} />;
+    case "achievement":
+      return <Trophy className={cn(className, "text-amber-400")} />;
+    case "bot_sync":
+      return <Bot className={className} />;
+    case "patch_notes":
+      return <Sparkles className={className} />;
+    case "feedback":
+      return <HelpCircle className={className} />;
     case "system":
     default:
       return <Bell className={className} />;

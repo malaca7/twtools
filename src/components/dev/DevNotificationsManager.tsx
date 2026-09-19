@@ -36,8 +36,25 @@ import {
   Layers,
   Database,
   Volume2,
+  Volume1,
+  VolumeX,
   Download,
   AlertOctagon,
+  Coins,
+  Award,
+  ShieldAlert,
+  Lock,
+  Trophy,
+  Bot,
+  HelpCircle,
+  Settings,
+  Settings2,
+  CheckSquare,
+  Square,
+  ArrowLeftRight,
+  Play,
+  SlidersHorizontal,
+  ChevronDown,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -47,6 +64,14 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
+import { Slider } from "@/components/ui/slider";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu";
 import {
   Dialog,
   DialogContent,
@@ -63,6 +88,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useAuth } from "@/hooks/useAuth";
+import { useCustomRoles } from "@/hooks/useData";
 import {
   fetchAllRawNotifications,
   createNotification,
@@ -80,14 +106,18 @@ import {
   type NotificationType,
   type NotificationCategory,
   type NotificationTypeRules,
+  type NotificationDomain,
+  type NotificationTypeDeliveryOptions,
   ALL_NOTIFICATION_TYPES,
+  NOTIFICATION_DOMAINS,
   DEFAULT_NOTIFICATION_RULES,
+  DEFAULT_TYPE_DELIVERY_OPTIONS,
   getNotificationTypeInfo,
   getCategoryBadge,
   formatRelativeTime,
 } from "@/types/notifications";
 import { ALL_LEVELS, type AppLevel } from "@/lib/permissions";
-import { playNotificationChimeSound } from "@/lib/sound-effects";
+import { playNotificationChimeSound, playNotificationSoundEffect } from "@/lib/sound-effects";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
@@ -104,6 +134,50 @@ const TAGS_LIST: { id: string; label: string; color: string }[] = [
   { id: "tag_dev", label: "Tag Desenvolvedor", color: "text-rose-400 border-rose-500/30 bg-rose-500/10" },
   { id: "tag_ceo", label: "Tag CEO", color: "text-amber-400 border-amber-500/30 bg-amber-500/10" },
 ];
+
+function renderTypeIconHelper(type: NotificationType | string, className = "h-4 w-4") {
+  switch (type) {
+    case "ticket":
+      return <LifeBuoy className={className} />;
+    case "chat":
+      return <MessageSquare className={className} />;
+    case "absence":
+      return <Calendar className={className} />;
+    case "goal":
+      return <Target className={className} />;
+    case "movement":
+      return <Package className={className} />;
+    case "sale":
+      return <TrendingUp className={className} />;
+    case "cash_fund":
+      return <Coins className={className} />;
+    case "stock_alert":
+      return <AlertTriangle className={className} />;
+    case "announcement":
+      return <Megaphone className={className} />;
+    case "role_update":
+      return <Award className={className} />;
+    case "member_warning":
+      return <ShieldAlert className={className} />;
+    case "security_alert":
+      return <Lock className={cn(className, "text-rose-500")} />;
+    case "achievement":
+      return <Trophy className={cn(className, "text-amber-400")} />;
+    case "signup":
+      return <UserPlus className={className} />;
+    case "live":
+      return <Radio className={cn(className, "text-rose-400")} />;
+    case "bot_sync":
+      return <Bot className={className} />;
+    case "patch_notes":
+      return <Sparkles className={className} />;
+    case "feedback":
+      return <HelpCircle className={className} />;
+    case "system":
+    default:
+      return <Bell className={className} />;
+  }
+}
 
 export function DevNotificationsManager() {
   const { user, profile, hasPermission, isDevUser } = useAuth();
@@ -130,6 +204,168 @@ export function DevNotificationsManager() {
   const [rules, setRules] = useState<NotificationTypeRules>(DEFAULT_NOTIFICATION_RULES);
   const [isLoadingRules, setIsLoadingRules] = useState(true);
   const [isSavingRules, setIsSavingRules] = useState(false);
+
+  // Cargos Dinâmicos do Banco de Dados
+  const { data: dbCustomRoles = [] } = useCustomRoles();
+
+  const allRolesCombined = useMemo(() => {
+    if (dbCustomRoles && dbCustomRoles.length > 0) {
+      return dbCustomRoles.map((r: any) => ({
+        id: String(r.id),
+        label: r.nome ? `${r.id} (${r.nome})` : String(r.id),
+        nome: String(r.nome || r.id),
+        rank: Number(r.rank ?? 0),
+      }));
+    }
+    return ROLES_LIST.map((r, idx) => ({
+      id: r.id,
+      label: r.label,
+      nome: r.label,
+      rank: 100 - idx * 10,
+    }));
+  }, [dbCustomRoles]);
+
+  // Filtros Avançados da Matriz
+  const [matrixDomain, setMatrixDomain] = useState<"all" | NotificationDomain>("all");
+  const [matrixSearch, setMatrixSearch] = useState("");
+  const [matrixRoleSearch, setMatrixRoleSearch] = useState("");
+
+  // Tipos Visíveis na Matriz
+  const visibleTypes = useMemo(() => {
+    return ALL_NOTIFICATION_TYPES.filter((t) => {
+      const info = getNotificationTypeInfo(t);
+      if (matrixDomain !== "all" && info.domain !== matrixDomain) return false;
+      if (matrixSearch.trim()) {
+        const q = matrixSearch.toLowerCase();
+        return (
+          t.toLowerCase().includes(q) ||
+          info.label.toLowerCase().includes(q) ||
+          info.description.toLowerCase().includes(q)
+        );
+      }
+      return true;
+    });
+  }, [matrixDomain, matrixSearch]);
+
+  // Cargos Visíveis
+  const visibleRoles = useMemo(() => {
+    if (!matrixRoleSearch.trim()) return allRolesCombined;
+    const q = matrixRoleSearch.toLowerCase();
+    return allRolesCombined.filter(
+      (r) => r.id.toLowerCase().includes(q) || r.label.toLowerCase().includes(q)
+    );
+  }, [allRolesCombined, matrixRoleSearch]);
+
+  // Tags Visíveis
+  const visibleTags = useMemo(() => {
+    if (!matrixRoleSearch.trim()) return TAGS_LIST;
+    const q = matrixRoleSearch.toLowerCase();
+    return TAGS_LIST.filter(
+      (t) => t.id.toLowerCase().includes(q) || t.label.toLowerCase().includes(q)
+    );
+  }, [matrixRoleSearch]);
+
+  // Modal de Opções de Entrega do Tipo
+  const [isTypeOptionsOpen, setIsTypeOptionsOpen] = useState(false);
+  const [selectedTypeForOptions, setSelectedTypeForOptions] = useState<NotificationType | null>(null);
+  const [editingDeliveryOptions, setEditingDeliveryOptions] = useState<NotificationTypeDeliveryOptions>({
+    enabled: true,
+    showToast: true,
+    showBell: true,
+    sound: "chime",
+    soundVolume: 70,
+    severity: "info",
+    toastDuration: 5,
+    mirrorDiscord: true,
+  });
+
+  const openTypeOptionsModal = (type: NotificationType) => {
+    setSelectedTypeForOptions(type);
+    const existing = rules.typeOptions?.[type] || DEFAULT_TYPE_DELIVERY_OPTIONS[type] || {
+      enabled: true,
+      showToast: true,
+      showBell: true,
+      sound: "chime",
+      soundVolume: 70,
+      severity: "info",
+      toastDuration: 5,
+      mirrorDiscord: true,
+    };
+    setEditingDeliveryOptions({ ...existing });
+    setIsTypeOptionsOpen(true);
+  };
+
+  const handleSaveTypeDeliveryOptions = () => {
+    if (!selectedTypeForOptions) return;
+    setRules((prev) => ({
+      ...prev,
+      typeOptions: {
+        ...(prev.typeOptions || DEFAULT_TYPE_DELIVERY_OPTIONS),
+        [selectedTypeForOptions]: { ...editingDeliveryOptions },
+      },
+    }));
+    setIsTypeOptionsOpen(false);
+    toast.success(
+      `Opções de entrega para "${getNotificationTypeInfo(selectedTypeForOptions).label}" atualizadas!`
+    );
+  };
+
+  const handleResetCurrentTypeDeliveryOptions = () => {
+    if (!selectedTypeForOptions) return;
+    const def = DEFAULT_TYPE_DELIVERY_OPTIONS[selectedTypeForOptions];
+    if (def) {
+      setEditingDeliveryOptions({ ...def });
+      toast.info("Valores padrão restaurados.");
+    }
+  };
+
+  // Modal de Cópia de Permissões
+  const [copyModalState, setCopyModalState] = useState<{
+    open: boolean;
+    targetType: "roles" | "tags";
+    targetId: string;
+    targetLabel: string;
+    sourceSubject: string;
+  }>({
+    open: false,
+    targetType: "roles",
+    targetId: "",
+    targetLabel: "",
+    sourceSubject: "",
+  });
+
+  const handleOpenCopyModal = (targetType: "roles" | "tags", targetId: string, targetLabel: string) => {
+    const defaultSource =
+      targetType === "roles"
+        ? allRolesCombined.find((r) => r.id !== targetId)?.id || "01"
+        : "tag_dev";
+
+    setCopyModalState({
+      open: true,
+      targetType,
+      targetId,
+      targetLabel,
+      sourceSubject: defaultSource,
+    });
+  };
+
+  const handleExecuteCopy = () => {
+    const { targetType, targetId, sourceSubject } = copyModalState;
+    if (!sourceSubject) return;
+
+    const isSourceTag = sourceSubject.startsWith("tag_");
+    const sourceGroup = isSourceTag ? rules.tags : rules.roles;
+    const sourceList = sourceGroup[sourceSubject] || [];
+
+    setRules((prev) => {
+      const targetGroup = { ...prev[targetType] };
+      targetGroup[targetId] = [...sourceList];
+      return { ...prev, [targetType]: targetGroup };
+    });
+
+    setCopyModalState((prev) => ({ ...prev, open: false }));
+    toast.success(`Permissões copiadas com sucesso para "${copyModalState.targetLabel}"!`);
+  };
 
   // Filtros do Gerenciador
   const [searchQuery, setSearchQuery] = useState("");
@@ -244,6 +480,93 @@ export function DevNotificationsManager() {
         [subjectType]: group,
       };
     });
+  };
+
+  const handleInvertRow = (subjectType: "roles" | "tags", subjectId: string) => {
+    setRules((prev) => {
+      const group = { ...prev[subjectType] };
+      const currentList = group[subjectId] || [];
+      const inverted = ALL_NOTIFICATION_TYPES.filter((t) => !currentList.includes(t));
+      group[subjectId] = inverted;
+      return {
+        ...prev,
+        [subjectType]: group,
+      };
+    });
+    toast.info("Seleção de tipos invertida para esta linha.");
+  };
+
+  // Ações em Lote para Tipos Visíveis
+  const handleBulkMarkVisible = (action: "enable" | "disable" | "invert") => {
+    setRules((prev) => {
+      const nextRoles = { ...prev.roles };
+      const nextTags = { ...prev.tags };
+
+      const applyAction = (currentList: NotificationType[]) => {
+        if (action === "enable") {
+          return Array.from(new Set([...currentList, ...visibleTypes]));
+        } else if (action === "disable") {
+          return currentList.filter((t) => !visibleTypes.includes(t));
+        } else {
+          const toAdd = visibleTypes.filter((t) => !currentList.includes(t));
+          const toKeep = currentList.filter((t) => !visibleTypes.includes(t));
+          return [...toKeep, ...toAdd];
+        }
+      };
+
+      allRolesCombined.forEach((r) => {
+        nextRoles[r.id] = applyAction(nextRoles[r.id] || []);
+      });
+
+      TAGS_LIST.forEach((t) => {
+        nextTags[t.id] = applyAction(nextTags[t.id] || []);
+      });
+
+      return { ...prev, roles: nextRoles, tags: nextTags };
+    });
+
+    toast.success(
+      action === "enable"
+        ? `Todos os ${visibleTypes.length} tipos visíveis foram marcados para todos os cargos!`
+        : action === "disable"
+        ? `Tipos visíveis foram desmarcados em todos os cargos.`
+        : `Seleção dos tipos visíveis invertida em todos os cargos.`
+    );
+  };
+
+  // Presets Globais
+  const handleApplyOperationalPreset = () => {
+    setRules(DEFAULT_NOTIFICATION_RULES);
+    toast.info("Preset Operacional Padrão carregado! Clique em 'Salvar Matriz' para salvar.");
+  };
+
+  const handleApplyCriticalOnlyPreset = () => {
+    const criticalTypes: NotificationType[] = [
+      "security_alert",
+      "stock_alert",
+      "member_warning",
+      "announcement",
+      "cash_fund",
+    ];
+    setRules((prev) => {
+      const nextRoles: Record<string, NotificationType[]> = {};
+      const nextTags: Record<string, NotificationType[]> = {};
+
+      allRolesCombined.forEach((r) => {
+        nextRoles[r.id] = [...criticalTypes];
+      });
+
+      TAGS_LIST.forEach((t) => {
+        nextTags[t.id] = [...ALL_NOTIFICATION_TYPES];
+      });
+
+      return {
+        ...prev,
+        roles: nextRoles,
+        tags: nextTags,
+      };
+    });
+    toast.info("Preset 'Apenas Críticos & Alertas' aplicado.");
   };
 
   const handleSaveRules = async () => {
@@ -624,93 +947,276 @@ export function DevNotificationsManager() {
             ========================================================================= */}
         <TabsContent value="matrix" className="space-y-6">
           <Card className="border-border/80 bg-card/60 backdrop-blur-md shadow-xl">
-            <CardHeader className="p-5 pb-3 border-b border-border/60">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <CardHeader className="p-5 pb-4 border-b border-border/60">
+              <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
                 <div>
-                  <CardTitle className="text-base font-black flex items-center gap-2">
-                    <Sliders className="h-5 w-5 text-purple-400" />
-                    Matriz de Permissão de Tipos de Notificação
-                  </CardTitle>
-                  <CardDescription className="text-xs mt-0.5">
-                    Permita ou bloqueie quais categorias de notificações cada Cargo e cada Tag têm direito de receber no sistema.
-                  </CardDescription>
+                  <div className="flex items-center gap-2.5">
+                    <div className="p-2 rounded-xl bg-purple-500/10 border border-purple-500/20 text-purple-400">
+                      <Sliders className="h-5 w-5" />
+                    </div>
+                    <div>
+                      <CardTitle className="text-base font-black flex items-center gap-2">
+                        Matriz de Tipos de Notificação por Cargo & Tag
+                        <Badge variant="outline" className="text-[10px] font-mono px-2 py-0 border-purple-500/30 text-purple-400 bg-purple-500/10">
+                          {ALL_NOTIFICATION_TYPES.length} Tipos no Sistema
+                        </Badge>
+                      </CardTitle>
+                      <CardDescription className="text-xs mt-0.5">
+                        Defina quais cargos da hierarquia e tags recebem cada categoria de evento, configure canais de entrega e teste alertas sonoros.
+                      </CardDescription>
+                    </div>
+                  </div>
                 </div>
 
-                <div className="flex items-center gap-2 shrink-0">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={handleResetRules}
-                    disabled={!canManageRules || isSavingRules}
-                    className="h-8 text-xs font-semibold gap-1 rounded-xl border-border/70"
-                  >
-                    <RotateCcw className="h-3.5 w-3.5" />
-                    Restaurar Padrão
-                  </Button>
+                <div className="flex flex-wrap items-center gap-2 shrink-0">
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        disabled={!canManageRules}
+                        className="h-8 text-xs font-semibold gap-1.5 rounded-xl border-border/70 bg-card/80 hover:bg-card"
+                      >
+                        <Sparkles className="h-3.5 w-3.5 text-primary" />
+                        Presets Rápidos
+                        <ChevronDown className="h-3 w-3 opacity-60" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-60 text-xs">
+                      <DropdownMenuItem onClick={handleApplyOperationalPreset} className="gap-2.5 py-2 cursor-pointer">
+                        <Package className="h-4 w-4 text-emerald-400" />
+                        <div>
+                          <p className="font-bold">Padrão Operacional</p>
+                          <p className="text-[10px] text-muted-foreground">Distribuição equilibrada por cargo</p>
+                        </div>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={handleApplyCriticalOnlyPreset} className="gap-2.5 py-2 cursor-pointer">
+                        <AlertOctagon className="h-4 w-4 text-rose-400" />
+                        <div>
+                          <p className="font-bold text-rose-400">Apenas Críticos & Segurança</p>
+                          <p className="text-[10px] text-muted-foreground">Segurança, alertas e estoque zerado</p>
+                        </div>
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem onClick={handleResetRules} className="gap-2.5 py-2 text-muted-foreground cursor-pointer">
+                        <RotateCcw className="h-4 w-4" />
+                        <div>
+                          <p className="font-bold">Restaurar Padrão de Fábrica</p>
+                          <p className="text-[10px] text-muted-foreground">Volta todas as regras ao padrão</p>
+                        </div>
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
 
                   <Button
                     size="sm"
                     onClick={handleSaveRules}
                     disabled={!canManageRules || isSavingRules}
-                    className="h-8 text-xs font-bold gap-1.5 rounded-xl bg-gradient-brand text-primary-foreground shadow-sm hover:opacity-95"
+                    className="h-8 text-xs font-bold gap-1.5 rounded-xl bg-gradient-brand text-primary-foreground shadow-md hover:opacity-95"
                   >
                     {isSavingRules ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
                     {isSavingRules ? "Salvando..." : "Salvar Matriz"}
                   </Button>
                 </div>
               </div>
+
+              {/* FILTROS DE DOMÍNIO & BUSCAS */}
+              <div className="mt-4 pt-3 border-t border-border/40 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
+                {/* PILULAS DE DOMÍNIO */}
+                <div className="flex flex-wrap items-center gap-1.5 p-1 bg-secondary/30 rounded-xl border border-border/60">
+                  <button
+                    type="button"
+                    onClick={() => setMatrixDomain("all")}
+                    className={cn(
+                      "px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5",
+                      matrixDomain === "all"
+                        ? "bg-primary text-primary-foreground shadow-xs"
+                        : "text-muted-foreground hover:text-foreground hover:bg-secondary/50"
+                    )}
+                  >
+                    <span>Todos os Tipos</span>
+                    <Badge variant="outline" className={cn("px-1.5 py-0 text-[10px] h-4 font-mono", matrixDomain === "all" ? "border-primary-foreground/40 text-primary-foreground" : "border-border/60")}>
+                      {ALL_NOTIFICATION_TYPES.length}
+                    </Badge>
+                  </button>
+
+                  {NOTIFICATION_DOMAINS.map((dom) => {
+                    const count = ALL_NOTIFICATION_TYPES.filter(
+                      (t) => getNotificationTypeInfo(t).domain === dom.id
+                    ).length;
+                    const isSelected = matrixDomain === dom.id;
+                    return (
+                      <button
+                        key={dom.id}
+                        type="button"
+                        onClick={() => setMatrixDomain(dom.id)}
+                        className={cn(
+                          "px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5",
+                          isSelected
+                            ? "bg-card text-foreground shadow-xs border border-border"
+                            : "text-muted-foreground hover:text-foreground hover:bg-secondary/50"
+                        )}
+                        title={dom.description}
+                      >
+                        <span>{dom.label}</span>
+                        <Badge variant="secondary" className="px-1.5 py-0 text-[10px] h-4 font-mono">
+                          {count}
+                        </Badge>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* BUSCADORES */}
+                <div className="flex flex-col sm:flex-row items-center gap-2">
+                  <div className="relative w-full sm:w-56">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                    <Input
+                      value={matrixSearch}
+                      onChange={(e) => setMatrixSearch(e.target.value)}
+                      placeholder="Buscar tipo..."
+                      className="pl-9 h-8 text-xs bg-background/60 border-border/60 rounded-xl"
+                    />
+                  </div>
+
+                  <div className="relative w-full sm:w-48">
+                    <SlidersHorizontal className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                    <Input
+                      value={matrixRoleSearch}
+                      onChange={(e) => setMatrixRoleSearch(e.target.value)}
+                      placeholder="Filtrar cargo..."
+                      className="pl-9 h-8 text-xs bg-background/60 border-border/60 rounded-xl"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* BARRA DE AÇÕES EM LOTE PARA TIPOS VISÍVEIS */}
+              <div className="mt-3 flex flex-wrap items-center justify-between gap-2 p-2.5 rounded-xl bg-secondary/20 border border-border/50">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-[11px] font-black text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+                    <Zap className="h-3.5 w-3.5 text-amber-400" />
+                    Ações nos Tipos Visíveis ({visibleTypes.length}):
+                  </span>
+
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleBulkMarkVisible("enable")}
+                    disabled={!canManageRules || visibleTypes.length === 0}
+                    className="h-7 text-[11px] font-bold gap-1 rounded-lg border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10"
+                  >
+                    <CheckSquare className="h-3 w-3" />
+                    Marcar Visíveis
+                  </Button>
+
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleBulkMarkVisible("disable")}
+                    disabled={!canManageRules || visibleTypes.length === 0}
+                    className="h-7 text-[11px] font-bold gap-1 rounded-lg border-rose-500/30 text-rose-400 hover:bg-rose-500/10"
+                  >
+                    <Square className="h-3 w-3" />
+                    Desmarcar Visíveis
+                  </Button>
+
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleBulkMarkVisible("invert")}
+                    disabled={!canManageRules || visibleTypes.length === 0}
+                    className="h-7 text-[11px] font-bold gap-1 rounded-lg border-purple-500/30 text-purple-400 hover:bg-purple-500/10"
+                  >
+                    <ArrowLeftRight className="h-3 w-3" />
+                    Inverter Visíveis
+                  </Button>
+                </div>
+
+                <div className="text-[11px] text-muted-foreground font-mono">
+                  {visibleRoles.length} cargos • {visibleTags.length} tags exibidos
+                </div>
+              </div>
             </CardHeader>
 
             <CardContent className="p-0 overflow-x-auto">
-              <table className="w-full text-xs text-left border-collapse min-w-[900px]">
+              <table className="w-full text-xs text-left border-collapse min-w-[1000px]">
                 <thead>
-                  <tr className="border-b border-border/80 bg-muted/30">
-                    <th className="p-3.5 font-black uppercase text-muted-foreground w-48 sticky left-0 bg-card/95 backdrop-blur-md z-10">
-                      Cargo / Tag
+                  <tr className="border-b border-border/80 bg-muted/40">
+                    <th className="p-3.5 font-black uppercase text-muted-foreground w-64 sticky left-0 bg-card/95 backdrop-blur-md z-10 border-r border-border/40">
+                      Cargo / Tag da Facção
                     </th>
-                    {ALL_NOTIFICATION_TYPES.map((nType) => {
+                    {visibleTypes.map((nType) => {
                       const info = getNotificationTypeInfo(nType);
+                      const currentOpts = rules.typeOptions?.[nType] || DEFAULT_TYPE_DELIVERY_OPTIONS[nType];
+
                       return (
-                        <th key={nType} className="p-3 font-extrabold text-center uppercase tracking-wider">
-                          <span
-                            className={cn(
-                              "inline-flex items-center gap-1 px-2 py-0.5 rounded-md border font-mono text-[10.5px]",
-                              info.badgeBg,
-                              info.badgeColor,
-                              info.borderColor
-                            )}
-                          >
-                            {info.label}
-                          </span>
+                        <th key={nType} className="p-2.5 font-extrabold text-center uppercase tracking-wider min-w-[110px]">
+                          <div className="inline-flex flex-col items-center gap-1">
+                            <span
+                              className={cn(
+                                "inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md border font-mono text-[10.5px]",
+                                info.badgeBg,
+                                info.badgeColor,
+                                info.borderColor
+                              )}
+                              title={info.description}
+                            >
+                              {renderTypeIconHelper(nType, "h-3 w-3")}
+                              {info.label}
+                            </span>
+
+                            <button
+                              type="button"
+                              onClick={() => openTypeOptionsModal(nType)}
+                              className="inline-flex items-center gap-1 text-[9.5px] font-mono text-muted-foreground hover:text-primary transition-colors py-0.5 px-1.5 rounded hover:bg-secondary/50"
+                              title={`Configurar som (${currentOpts?.sound || "chime"}), toast e canais de "${info.label}"`}
+                            >
+                              <Settings2 className="h-2.5 w-2.5" />
+                              <span>Opções</span>
+                            </button>
+                          </div>
                         </th>
                       );
                     })}
-                    <th className="p-3 text-center font-extrabold uppercase text-muted-foreground w-20">
-                      Todos
+                    <th className="p-3 text-center font-extrabold uppercase text-muted-foreground w-28 sticky right-0 bg-card/95 backdrop-blur-md z-10 border-l border-border/40">
+                      Ações
                     </th>
                   </tr>
                 </thead>
 
                 <tbody className="divide-y divide-border/40">
                   {/* SEÇÃO 1: CARGOS HIERÁRQUICOS */}
-                  <tr className="bg-secondary/20">
-                    <td colSpan={ALL_NOTIFICATION_TYPES.length + 2} className="p-2.5 px-4 font-black uppercase tracking-wider text-[11px] text-primary">
-                      Cargos da Hierarquia Twin Wheels
+                  <tr className="bg-secondary/25">
+                    <td colSpan={visibleTypes.length + 2} className="p-2.5 px-4 font-black uppercase tracking-wider text-[11px] text-primary flex items-center justify-between">
+                      <span>Cargos da Hierarquia Twin Wheels ({visibleRoles.length})</span>
+                      <span className="text-[10px] text-muted-foreground font-mono font-normal">Permissões granulares de recebimento</span>
                     </td>
                   </tr>
 
-                  {ROLES_LIST.map((role) => {
+                  {visibleRoles.map((role) => {
                     const currentList = rules.roles[role.id] || [];
-                    const isAll = currentList.length >= ALL_NOTIFICATION_TYPES.length;
+                    const allowedCount = currentList.length;
+                    const isAll = allowedCount >= ALL_NOTIFICATION_TYPES.length;
 
                     return (
                       <tr key={role.id} className="hover:bg-secondary/30 transition-colors">
                         <td className="p-3.5 font-bold text-foreground sticky left-0 bg-card/95 backdrop-blur-md z-10 border-r border-border/40">
-                          {role.label}
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="truncate">{role.label}</span>
+                            <Badge variant="outline" className={cn("text-[9.5px] font-mono px-1.5 py-0 shrink-0", allowedCount > 0 ? "border-emerald-500/30 text-emerald-400 bg-emerald-500/10" : "border-border/60 text-muted-foreground")}>
+                              {allowedCount}/{ALL_NOTIFICATION_TYPES.length}
+                            </Badge>
+                          </div>
                         </td>
 
-                        {ALL_NOTIFICATION_TYPES.map((nType) => {
+                        {visibleTypes.map((nType) => {
                           const isAllowed = currentList.includes(nType);
+                          const info = getNotificationTypeInfo(nType);
                           return (
                             <td key={nType} className="p-2 text-center">
                               <button
@@ -720,10 +1226,10 @@ export function DevNotificationsManager() {
                                 className={cn(
                                   "h-7 w-7 rounded-lg border inline-flex items-center justify-center transition-all cursor-pointer",
                                   isAllowed
-                                    ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/50 shadow-xs"
-                                    : "bg-muted/30 text-muted-foreground/40 border-border/40 hover:bg-muted/50"
+                                    ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/50 shadow-xs hover:bg-emerald-500/30"
+                                    : "bg-muted/25 text-muted-foreground/35 border-border/40 hover:bg-muted/50 hover:text-muted-foreground"
                                 )}
-                                title={isAllowed ? `Permitido para ${role.id}` : `Bloqueado para ${role.id}`}
+                                title={isAllowed ? `${info.label}: Permitido para ${role.label}` : `${info.label}: Bloqueado para ${role.label}`}
                               >
                                 {isAllowed ? <Check className="h-4 w-4" /> : <X className="h-3.5 w-3.5" />}
                               </button>
@@ -731,43 +1237,70 @@ export function DevNotificationsManager() {
                           );
                         })}
 
-                        <td className="p-2 text-center border-l border-border/40">
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            disabled={!canManageRules}
-                            onClick={() => handleToggleRowAll("roles", role.id)}
-                            className="h-6 text-[10px] px-1.5 font-mono text-muted-foreground hover:text-primary"
-                          >
-                            {isAll ? "Desmarcar" : "Marcar"}
-                          </Button>
+                        <td className="p-2 text-center border-l border-border/40 sticky right-0 bg-card/95 backdrop-blur-md z-10">
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                disabled={!canManageRules}
+                                className="h-6 text-[10px] px-2 font-mono text-muted-foreground hover:text-foreground gap-1"
+                              >
+                                <span>Opções</span>
+                                <ChevronDown className="h-2.5 w-2.5 opacity-60" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="w-48 text-xs">
+                              <DropdownMenuItem onClick={() => handleToggleRowAll("roles", role.id)} className="gap-2 cursor-pointer">
+                                <CheckSquare className="h-3.5 w-3.5 text-emerald-400" />
+                                <span>{isAll ? "Desmarcar Todos" : "Marcar Todos"}</span>
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => handleInvertRow("roles", role.id)} className="gap-2 cursor-pointer">
+                                <ArrowLeftRight className="h-3.5 w-3.5 text-purple-400" />
+                                <span>Inverter Seleção</span>
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem onClick={() => handleOpenCopyModal("roles", role.id, role.label)} className="gap-2 cursor-pointer">
+                                <Copy className="h-3.5 w-3.5 text-primary" />
+                                <span>Copiar de outro cargo...</span>
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
                         </td>
                       </tr>
                     );
                   })}
 
                   {/* SEÇÃO 2: TAGS ESPECIAIS */}
-                  <tr className="bg-secondary/20">
-                    <td colSpan={ALL_NOTIFICATION_TYPES.length + 2} className="p-2.5 px-4 font-black uppercase tracking-wider text-[11px] text-amber-400">
-                      Tags Especiais de Diretoria & Desenvolvimento
+                  <tr className="bg-secondary/25">
+                    <td colSpan={visibleTypes.length + 2} className="p-2.5 px-4 font-black uppercase tracking-wider text-[11px] text-amber-400 flex items-center justify-between">
+                      <span>Tags Especiais de Diretoria & Desenvolvimento ({visibleTags.length})</span>
+                      <span className="text-[10px] text-muted-foreground font-mono font-normal">Cargos de auditoria e governança</span>
                     </td>
                   </tr>
 
-                  {TAGS_LIST.map((tag) => {
+                  {visibleTags.map((tag) => {
                     const currentList = rules.tags[tag.id] || [];
-                    const isAll = currentList.length >= ALL_NOTIFICATION_TYPES.length;
+                    const allowedCount = currentList.length;
+                    const isAll = allowedCount >= ALL_NOTIFICATION_TYPES.length;
 
                     return (
                       <tr key={tag.id} className="hover:bg-secondary/30 transition-colors">
                         <td className="p-3.5 sticky left-0 bg-card/95 backdrop-blur-md z-10 border-r border-border/40">
-                          <Badge variant="outline" className={cn("text-[10px] font-bold py-0.5", tag.color)}>
-                            {tag.label}
-                          </Badge>
+                          <div className="flex items-center justify-between gap-2">
+                            <Badge variant="outline" className={cn("text-[10px] font-bold py-0.5", tag.color)}>
+                              {tag.label}
+                            </Badge>
+                            <Badge variant="outline" className={cn("text-[9.5px] font-mono px-1.5 py-0 shrink-0", allowedCount > 0 ? "border-emerald-500/30 text-emerald-400 bg-emerald-500/10" : "border-border/60 text-muted-foreground")}>
+                              {allowedCount}/{ALL_NOTIFICATION_TYPES.length}
+                            </Badge>
+                          </div>
                         </td>
 
-                        {ALL_NOTIFICATION_TYPES.map((nType) => {
+                        {visibleTypes.map((nType) => {
                           const isAllowed = currentList.includes(nType);
+                          const info = getNotificationTypeInfo(nType);
                           return (
                             <td key={nType} className="p-2 text-center">
                               <button
@@ -777,9 +1310,10 @@ export function DevNotificationsManager() {
                                 className={cn(
                                   "h-7 w-7 rounded-lg border inline-flex items-center justify-center transition-all cursor-pointer",
                                   isAllowed
-                                    ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/50 shadow-xs"
-                                    : "bg-muted/30 text-muted-foreground/40 border-border/40 hover:bg-muted/50"
+                                    ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/50 shadow-xs hover:bg-emerald-500/30"
+                                    : "bg-muted/25 text-muted-foreground/35 border-border/40 hover:bg-muted/50 hover:text-muted-foreground"
                                 )}
+                                title={isAllowed ? `${info.label}: Permitido para ${tag.label}` : `${info.label}: Bloqueado para ${tag.label}`}
                               >
                                 {isAllowed ? <Check className="h-4 w-4" /> : <X className="h-3.5 w-3.5" />}
                               </button>
@@ -787,23 +1321,218 @@ export function DevNotificationsManager() {
                           );
                         })}
 
-                        <td className="p-2 text-center border-l border-border/40">
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            disabled={!canManageRules}
-                            onClick={() => handleToggleRowAll("tags", tag.id)}
-                            className="h-6 text-[10px] px-1.5 font-mono text-muted-foreground hover:text-primary"
-                          >
-                            {isAll ? "Desmarcar" : "Marcar"}
-                          </Button>
+                        <td className="p-2 text-center border-l border-border/40 sticky right-0 bg-card/95 backdrop-blur-md z-10">
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                disabled={!canManageRules}
+                                className="h-6 text-[10px] px-2 font-mono text-muted-foreground hover:text-foreground gap-1"
+                              >
+                                <span>Opções</span>
+                                <ChevronDown className="h-2.5 w-2.5 opacity-60" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="w-48 text-xs">
+                              <DropdownMenuItem onClick={() => handleToggleRowAll("tags", tag.id)} className="gap-2 cursor-pointer">
+                                <CheckSquare className="h-3.5 w-3.5 text-emerald-400" />
+                                <span>{isAll ? "Desmarcar Todos" : "Marcar Todos"}</span>
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => handleInvertRow("tags", tag.id)} className="gap-2 cursor-pointer">
+                                <ArrowLeftRight className="h-3.5 w-3.5 text-purple-400" />
+                                <span>Inverter Seleção</span>
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem onClick={() => handleOpenCopyModal("tags", tag.id, tag.label)} className="gap-2 cursor-pointer">
+                                <Copy className="h-3.5 w-3.5 text-primary" />
+                                <span>Copiar de outro cargo...</span>
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
                         </td>
                       </tr>
                     );
                   })}
                 </tbody>
               </table>
+            </CardContent>
+          </Card>
+
+          {/* =========================================================================
+              PAINEL DE CONFIGURAÇÕES DE ENTREGA, SONS & CANAIS POR TIPO
+              ========================================================================= */}
+          <Card className="border-border/80 bg-card/60 backdrop-blur-md shadow-xl">
+            <CardHeader className="p-5 pb-3 border-b border-border/60">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="flex items-center gap-2.5">
+                  <div className="p-2 rounded-xl bg-primary/10 border border-primary/20 text-primary">
+                    <Volume2 className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <CardTitle className="text-base font-black flex items-center gap-2">
+                      Canais de Entrega, Sons & Opções Globais por Tipo
+                      <Badge variant="outline" className="text-[10px] font-mono px-2 py-0 border-primary/30 text-primary bg-primary/10">
+                        {visibleTypes.length} Configurados
+                      </Badge>
+                    </CardTitle>
+                    <CardDescription className="text-xs mt-0.5">
+                      Controle pop-ups na tela (toast), gravação na central de notificações (sino), espelhamento Discord e efeitos sonoros sci-fi em tempo real.
+                    </CardDescription>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => playNotificationSoundEffect("chime", 80)}
+                    className="h-8 text-xs font-semibold gap-1.5 rounded-xl border-border/70"
+                  >
+                    <Play className="h-3.5 w-3.5 text-primary" />
+                    Testar Som Padrão
+                  </Button>
+                </div>
+              </div>
+            </CardHeader>
+
+            <CardContent className="p-5">
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3.5">
+                {visibleTypes.map((nType) => {
+                  const info = getNotificationTypeInfo(nType);
+                  const opts = rules.typeOptions?.[nType] || DEFAULT_TYPE_DELIVERY_OPTIONS[nType] || {
+                    enabled: true,
+                    showToast: true,
+                    showBell: true,
+                    sound: "chime",
+                    soundVolume: 70,
+                    severity: "info",
+                    toastDuration: 5,
+                    mirrorDiscord: false,
+                  };
+
+                  const soundLabel =
+                    opts.sound === "chime"
+                      ? "Cristal Chime"
+                      : opts.sound === "success"
+                      ? "Bipe Sucesso"
+                      : opts.sound === "online"
+                      ? "Radar Tático"
+                      : opts.sound === "urgent"
+                      ? "Alerta Urgente"
+                      : opts.sound === "click"
+                      ? "Clique Sutil"
+                      : "Silencioso";
+
+                  return (
+                    <div
+                      key={nType}
+                      className="p-3.5 rounded-2xl bg-secondary/20 border border-border/60 hover:border-border transition-all flex flex-col justify-between gap-3 group"
+                    >
+                      <div>
+                        {/* HEADER DO CARD */}
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex items-center gap-2">
+                            <span
+                              className={cn(
+                                "p-2 rounded-xl border flex items-center justify-center",
+                                info.badgeBg,
+                                info.badgeColor,
+                                info.borderColor
+                              )}
+                            >
+                              {renderTypeIconHelper(nType, "h-4 w-4")}
+                            </span>
+                            <div>
+                              <h4 className="text-xs font-black text-foreground flex items-center gap-1.5">
+                                {info.label}
+                                <span className="text-[10px] font-mono text-muted-foreground font-normal">({nType})</span>
+                              </h4>
+                              <p className="text-[11px] text-muted-foreground line-clamp-1">{info.description}</p>
+                            </div>
+                          </div>
+
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => openTypeOptionsModal(nType)}
+                            className="h-7 w-7 p-0 rounded-lg border-border/60 text-muted-foreground hover:text-primary hover:bg-secondary/60 shrink-0"
+                            title={`Editar opções de entrega de ${info.label}`}
+                          >
+                            <Settings className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
+
+                        {/* CANAIS STATUS */}
+                        <div className="mt-3 flex flex-wrap items-center gap-1.5 text-[10px] font-mono">
+                          <span
+                            className={cn(
+                              "px-2 py-0.5 rounded-md border flex items-center gap-1",
+                              opts.showToast
+                                ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30 font-bold"
+                                : "bg-muted/30 text-muted-foreground border-border/40"
+                            )}
+                          >
+                            Toast: {opts.showToast ? `${opts.toastDuration || 5}s` : "OFF"}
+                          </span>
+
+                          <span
+                            className={cn(
+                              "px-2 py-0.5 rounded-md border flex items-center gap-1",
+                              opts.showBell
+                                ? "bg-cyan-500/10 text-cyan-400 border-cyan-500/30 font-bold"
+                                : "bg-muted/30 text-muted-foreground border-border/40"
+                            )}
+                          >
+                            Sino: {opts.showBell ? "ON" : "OFF"}
+                          </span>
+
+                          <span
+                            className={cn(
+                              "px-2 py-0.5 rounded-md border flex items-center gap-1",
+                              opts.mirrorDiscord
+                                ? "bg-purple-500/10 text-purple-400 border-purple-500/30 font-bold"
+                                : "bg-muted/30 text-muted-foreground border-border/40"
+                            )}
+                          >
+                            Discord: {opts.mirrorDiscord ? "ON" : "OFF"}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* RODAPÉ DO CARD: SOM & SEVERIDADE */}
+                      <div className="pt-2 border-t border-border/40 flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => playNotificationSoundEffect(opts.sound, opts.soundVolume)}
+                            disabled={opts.sound === "none"}
+                            className={cn(
+                              "h-6 px-2 rounded-lg border text-[10px] font-mono font-bold inline-flex items-center gap-1 transition-all",
+                              opts.sound !== "none"
+                                ? "bg-primary/10 text-primary border-primary/30 hover:bg-primary/20 cursor-pointer shadow-2xs"
+                                : "bg-muted/20 text-muted-foreground/40 border-border/30 cursor-not-allowed"
+                            )}
+                            title={opts.sound !== "none" ? `Clique para ouvir som: ${soundLabel} (${opts.soundVolume}%)` : "Sem som"}
+                          >
+                            <Volume2 className="h-2.5 w-2.5" />
+                            <span>{soundLabel}</span>
+                          </button>
+                        </div>
+
+                        <Badge
+                          variant="outline"
+                          className={cn("text-[9.5px] font-mono uppercase px-1.5 py-0", getCategoryBadge(opts.severity).color)}
+                        >
+                          {opts.severity}
+                        </Badge>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
@@ -1220,6 +1949,86 @@ export function DevNotificationsManager() {
                   </p>
                   <p className="text-[11px] text-muted-foreground">Testa notificação de conquista financeira.</p>
                 </button>
+
+                <button
+                  type="button"
+                  onClick={() =>
+                    handleApplySimPreset({
+                      type: "stock_alert",
+                      category: "error",
+                      title: "⚠️ Alerta de Estoque Crítico — Baú 1",
+                      message: "Lockpick e Algemas atingiram nível crítico (apenas 2 unidades restantes no armazém).",
+                      link: "/baus",
+                    })
+                  }
+                  className="w-full text-left p-3 rounded-xl border border-border/60 bg-secondary/20 hover:bg-secondary/40 transition-all text-xs space-y-1"
+                >
+                  <p className="font-bold text-orange-400 flex items-center gap-1.5">
+                    <AlertTriangle className="h-3.5 w-3.5" />
+                    Estoque Crítico / Baixo
+                  </p>
+                  <p className="text-[11px] text-muted-foreground">Testa alerta urgente de reposição de suprimentos.</p>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() =>
+                    handleApplySimPreset({
+                      type: "security_alert",
+                      category: "error",
+                      title: "🛡️ Tentativa Suspeita Bloqueada",
+                      message: "Tentativa de acesso com credenciais inválidas detectada e bloqueada pelo firewall.",
+                      link: "/dev/auditoria",
+                    })
+                  }
+                  className="w-full text-left p-3 rounded-xl border border-border/60 bg-secondary/20 hover:bg-secondary/40 transition-all text-xs space-y-1"
+                >
+                  <p className="font-bold text-rose-500 flex items-center gap-1.5">
+                    <Lock className="h-3.5 w-3.5" />
+                    Alerta de Segurança Crítico
+                  </p>
+                  <p className="text-[11px] text-muted-foreground">Testa som sirene e severidade urgente com alerta vermelho.</p>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() =>
+                    handleApplySimPreset({
+                      type: "cash_fund",
+                      category: "warning",
+                      title: "💵 Retirada Financeira do Caixa Central",
+                      message: "Saque de R$ 150.000,00 efetuado para compra de frotas e peças de oficina.",
+                      link: "/fundo-caixa",
+                    })
+                  }
+                  className="w-full text-left p-3 rounded-xl border border-border/60 bg-secondary/20 hover:bg-secondary/40 transition-all text-xs space-y-1"
+                >
+                  <p className="font-bold text-yellow-400 flex items-center gap-1.5">
+                    <Coins className="h-3.5 w-3.5" />
+                    Movimentação de Caixa / Finanças
+                  </p>
+                  <p className="text-[11px] text-muted-foreground">Testa aviso financeiro com confirmação.</p>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() =>
+                    handleApplySimPreset({
+                      type: "achievement",
+                      category: "success",
+                      title: "🏆 Meta Semanal Concluída com Sucesso!",
+                      message: "A facção atingiu 100% da arrecadação semanal! Parabéns a todos os envolvidos.",
+                      link: "/metas",
+                    })
+                  }
+                  className="w-full text-left p-3 rounded-xl border border-border/60 bg-secondary/20 hover:bg-secondary/40 transition-all text-xs space-y-1"
+                >
+                  <p className="font-bold text-amber-300 flex items-center gap-1.5">
+                    <Trophy className="h-3.5 w-3.5" />
+                    Conquista & Meta Batida
+                  </p>
+                  <p className="text-[11px] text-muted-foreground">Testa celebração, troféu e som harmônico.</p>
+                </button>
               </CardContent>
             </Card>
           </div>
@@ -1542,6 +2351,350 @@ export function DevNotificationsManager() {
               {inspectNotif ? JSON.stringify(inspectNotif, null, 2) : ""}
             </pre>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* =========================================================================
+          MODAL: OPÇÕES DE ENTREGA & SONS DO TIPO DE NOTIFICAÇÃO
+          ========================================================================= */}
+      <Dialog open={isTypeOptionsOpen} onOpenChange={setIsTypeOptionsOpen}>
+        <DialogContent className="sm:max-w-xl p-0 overflow-hidden border-border/80 bg-card/95 backdrop-blur-2xl rounded-2xl shadow-2xl">
+          {selectedTypeForOptions && (
+            <div>
+              {/* HEADER DO MODAL */}
+              <div className="p-6 pb-4 border-b border-border/60">
+                <div className="flex items-center gap-3">
+                  <div
+                    className={cn(
+                      "p-2.5 rounded-xl border flex items-center justify-center",
+                      getNotificationTypeInfo(selectedTypeForOptions).badgeBg,
+                      getNotificationTypeInfo(selectedTypeForOptions).badgeColor,
+                      getNotificationTypeInfo(selectedTypeForOptions).borderColor
+                    )}
+                  >
+                    {renderTypeIconHelper(selectedTypeForOptions, "h-5 w-5")}
+                  </div>
+                  <div>
+                    <DialogTitle className="text-base font-black flex items-center gap-2">
+                      Opções de Entrega: {getNotificationTypeInfo(selectedTypeForOptions).label}
+                      <span className="text-xs font-mono text-muted-foreground font-normal">({selectedTypeForOptions})</span>
+                    </DialogTitle>
+                    <DialogDescription className="text-xs mt-0.5">
+                      {getNotificationTypeInfo(selectedTypeForOptions).description}
+                    </DialogDescription>
+                  </div>
+                </div>
+              </div>
+
+              {/* CORPO DE CONFIGURAÇÕES */}
+              <div className="p-6 space-y-5 max-h-[75vh] overflow-y-auto">
+                {/* 1. CANAIS DE ENTREGA */}
+                <div className="space-y-3">
+                  <h4 className="text-xs font-black uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                    <Radio className="h-3.5 w-3.5 text-primary" />
+                    Canais de Distribuição
+                  </h4>
+
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between p-3 rounded-xl bg-secondary/20 border border-border/50">
+                      <div className="space-y-0.5">
+                        <Label className="text-xs font-bold text-foreground">Pop-up Flutuante (Toast)</Label>
+                        <p className="text-[11px] text-muted-foreground">Exibe balão sonoro e visual no canto da tela do usuário.</p>
+                      </div>
+                      <Switch
+                        checked={editingDeliveryOptions.showToast}
+                        onCheckedChange={(v) =>
+                          setEditingDeliveryOptions((prev) => ({ ...prev, showToast: v }))
+                        }
+                      />
+                    </div>
+
+                    <div className="flex items-center justify-between p-3 rounded-xl bg-secondary/20 border border-border/50">
+                      <div className="space-y-0.5">
+                        <Label className="text-xs font-bold text-foreground">Central de Notificações / Sino</Label>
+                        <p className="text-[11px] text-muted-foreground">Registra no histórico persistente do cabeçalho para leitura posterior.</p>
+                      </div>
+                      <Switch
+                        checked={editingDeliveryOptions.showBell}
+                        onCheckedChange={(v) =>
+                          setEditingDeliveryOptions((prev) => ({ ...prev, showBell: v }))
+                        }
+                      />
+                    </div>
+
+                    <div className="flex items-center justify-between p-3 rounded-xl bg-secondary/20 border border-border/50">
+                      <div className="space-y-0.5">
+                        <Label className="text-xs font-bold text-foreground">Espelhar no Discord Webhook</Label>
+                        <p className="text-[11px] text-muted-foreground">Envia mensagem espelhada para o canal integrado no Discord.</p>
+                      </div>
+                      <Switch
+                        checked={editingDeliveryOptions.mirrorDiscord}
+                        onCheckedChange={(v) =>
+                          setEditingDeliveryOptions((prev) => ({ ...prev, mirrorDiscord: v }))
+                        }
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* 2. EFEITOS SONOROS SCI-FI */}
+                <div className="space-y-3 pt-3 border-t border-border/40">
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-xs font-black uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                      <Volume2 className="h-3.5 w-3.5 text-emerald-400" />
+                      Alerta Sonoro & Áudio Tático
+                    </h4>
+                    <span className="text-[10px] font-mono text-muted-foreground">Web Audio API Sci-Fi</span>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                    <div className="space-y-1.5">
+                      <Label className="text-xs font-bold text-foreground">Efeito Sonoro</Label>
+                      <Select
+                        value={editingDeliveryOptions.sound}
+                        onValueChange={(v) =>
+                          setEditingDeliveryOptions((prev) => ({ ...prev, sound: v as any }))
+                        }
+                      >
+                        <SelectTrigger className="h-9 text-xs bg-background/80 border-border/80">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="chime">Cristal Chime (Futurista / Suave)</SelectItem>
+                          <SelectItem value="success">Bipe Harmônico (Sucesso / Conquista)</SelectItem>
+                          <SelectItem value="online">Radar Tático (Pulso Sci-Fi)</SelectItem>
+                          <SelectItem value="urgent">Alerta Urgente (Grave / Sirene)</SelectItem>
+                          <SelectItem value="click">Clique Tático (Mecânico Sutil)</SelectItem>
+                          <SelectItem value="none">Silencioso (Sem Alerta Sonoro)</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <div className="flex items-center justify-between">
+                        <Label className="text-xs font-bold text-foreground">Volume do Alerta</Label>
+                        <span className="text-[11px] font-mono font-bold text-primary">
+                          {editingDeliveryOptions.sound === "none" ? "Mudo" : `${editingDeliveryOptions.soundVolume}%`}
+                        </span>
+                      </div>
+                      <div className="pt-2">
+                        <Slider
+                          disabled={editingDeliveryOptions.sound === "none"}
+                          value={[editingDeliveryOptions.soundVolume]}
+                          min={0}
+                          max={100}
+                          step={5}
+                          onValueChange={([val]) =>
+                            setEditingDeliveryOptions((prev) => ({ ...prev, soundVolume: val }))
+                          }
+                          className="w-full"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled={editingDeliveryOptions.sound === "none"}
+                    onClick={() =>
+                      playNotificationSoundEffect(
+                        editingDeliveryOptions.sound,
+                        editingDeliveryOptions.soundVolume
+                      )
+                    }
+                    className="w-full h-8 text-xs font-bold gap-2 rounded-xl border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10"
+                  >
+                    <Play className="h-3.5 w-3.5" />
+                    Ouvir Prévia do Som Selecionado ({editingDeliveryOptions.sound})
+                  </Button>
+                </div>
+
+                {/* 3. SEVERIDADE & DURAÇÃO */}
+                <div className="space-y-3 pt-3 border-t border-border/40">
+                  <h4 className="text-xs font-black uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                    <AlertTriangle className="h-3.5 w-3.5 text-amber-400" />
+                    Severidade & Duração do Toast
+                  </h4>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                    <div className="space-y-1.5">
+                      <Label className="text-xs font-bold text-foreground">Severidade Padrão</Label>
+                      <Select
+                        value={editingDeliveryOptions.severity}
+                        onValueChange={(v) =>
+                          setEditingDeliveryOptions((prev) => ({ ...prev, severity: v as any }))
+                        }
+                      >
+                        <SelectTrigger className="h-9 text-xs bg-background/80 border-border/80">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="info">Info (Azul Celeste)</SelectItem>
+                          <SelectItem value="success">Sucesso (Verde Esmeralda)</SelectItem>
+                          <SelectItem value="warning">Atenção (Âmbar)</SelectItem>
+                          <SelectItem value="alert">Alerta Operacional (Laranja)</SelectItem>
+                          <SelectItem value="error">Urgente / Crítico (Rubi)</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <Label className="text-xs font-bold text-foreground">Duração na Tela</Label>
+                      <Select
+                        value={String(editingDeliveryOptions.toastDuration || 5)}
+                        onValueChange={(v) =>
+                          setEditingDeliveryOptions((prev) => ({
+                            ...prev,
+                            toastDuration: Number(v),
+                          }))
+                        }
+                      >
+                        <SelectTrigger className="h-9 text-xs bg-background/80 border-border/80">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="3">3 Segundos (Rápido)</SelectItem>
+                          <SelectItem value="5">5 Segundos (Padrão)</SelectItem>
+                          <SelectItem value="8">8 Segundos (Destaque)</SelectItem>
+                          <SelectItem value="12">12 Segundos (Prolongado)</SelectItem>
+                          <SelectItem value="15">15 Segundos (Máximo)</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* FOOTER DO MODAL */}
+              <div className="p-4 px-6 border-t border-border/50 bg-muted/20 flex flex-col sm:flex-row items-center justify-between gap-2">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleResetCurrentTypeDeliveryOptions}
+                  className="text-xs text-muted-foreground hover:text-foreground h-8"
+                >
+                  <RotateCcw className="h-3.5 w-3.5 mr-1" />
+                  Restaurar Padrão Deste Tipo
+                </Button>
+
+                <div className="flex items-center gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setIsTypeOptionsOpen(false)}
+                    className="text-xs h-8"
+                  >
+                    Cancelar
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={handleSaveTypeDeliveryOptions}
+                    className="text-xs font-bold gap-1.5 rounded-xl bg-gradient-brand text-primary-foreground shadow-sm hover:opacity-95 h-8"
+                  >
+                    <Check className="h-3.5 w-3.5" />
+                    Salvar Opções
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* =========================================================================
+          MODAL: COPIAR PERMISSÕES DE OUTRO CARGO
+          ========================================================================= */}
+      <Dialog open={copyModalState.open} onOpenChange={(open) => setCopyModalState((prev) => ({ ...prev, open }))}>
+        <DialogContent className="sm:max-w-md p-6 border-border/80 bg-card/95 backdrop-blur-2xl rounded-2xl shadow-2xl">
+          <DialogHeader>
+            <DialogTitle className="text-sm font-black flex items-center gap-2">
+              <Copy className="h-4 w-4 text-primary" />
+              Copiar Permissões de Notificação
+            </DialogTitle>
+            <DialogDescription className="text-xs">
+              Copie instantaneamente todos os tipos de notificações habilitados de outro cargo ou tag para <strong className="text-foreground">{copyModalState.targetLabel}</strong>.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="py-4 space-y-3">
+            <div className="space-y-1.5">
+              <Label className="text-xs font-bold text-foreground">Cargo ou Tag de Origem (Copiar de:)</Label>
+              <Select
+                value={copyModalState.sourceSubject}
+                onValueChange={(v) =>
+                  setCopyModalState((prev) => ({ ...prev, sourceSubject: v }))
+                }
+              >
+                <SelectTrigger className="h-9 text-xs bg-background/80 border-border/80">
+                  <SelectValue placeholder="Selecione o cargo de origem..." />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="header_roles" disabled className="font-bold text-[10px] uppercase text-primary">
+                    -- Cargos da Hierarquia --
+                  </SelectItem>
+                  {allRolesCombined
+                    .filter((r) => r.id !== copyModalState.targetId)
+                    .map((r) => {
+                      const count = (rules.roles[r.id] || []).length;
+                      return (
+                        <SelectItem key={r.id} value={r.id}>
+                          {r.label} ({count} tipos permitidos)
+                        </SelectItem>
+                      );
+                    })}
+
+                  <SelectItem value="header_tags" disabled className="font-bold text-[10px] uppercase text-amber-400">
+                    -- Tags Especiais --
+                  </SelectItem>
+                  {TAGS_LIST
+                    .filter((t) => t.id !== copyModalState.targetId)
+                    .map((t) => {
+                      const count = (rules.tags[t.id] || []).length;
+                      return (
+                        <SelectItem key={t.id} value={t.id}>
+                          {t.label} ({count} tipos permitidos)
+                        </SelectItem>
+                      );
+                    })}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="p-3 rounded-xl bg-secondary/25 border border-border/60 text-[11px] text-muted-foreground space-y-1">
+              <p className="font-semibold text-foreground flex items-center gap-1.5">
+                <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" />
+                Como funciona a cópia:
+              </p>
+              <p>As permissões existentes de "{copyModalState.targetLabel}" serão substituídas pelas do cargo selecionado acima. Para salvar definitivamente, clique em "Salvar Matriz" na tela principal.</p>
+            </div>
+          </div>
+
+          <DialogFooter className="gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setCopyModalState((prev) => ({ ...prev, open: false }))}
+              className="text-xs h-8"
+            >
+              Cancelar
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              onClick={handleExecuteCopy}
+              disabled={!copyModalState.sourceSubject}
+              className="text-xs font-bold gap-1.5 rounded-xl bg-gradient-brand text-primary-foreground shadow-sm hover:opacity-95 h-8"
+            >
+              <Check className="h-3.5 w-3.5" />
+              Copiar e Aplicar
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

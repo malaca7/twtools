@@ -200,3 +200,29 @@ export function playNotificationChimeSound(volumePercent = 60) {
     console.warn("Erro ao tocar som de notificação:", err);
   }
 }
+
+export function playNotificationSoundEffect(
+  soundType: "chime" | "success" | "online" | "urgent" | "click" | string,
+  volumePercent = 60
+) {
+  switch (soundType) {
+    case "success":
+      playGamerSuccessSound(volumePercent);
+      break;
+    case "online":
+    case "radar":
+      playGamerOnlineAlertSound(volumePercent);
+      break;
+    case "urgent":
+    case "error":
+      playGamerErrorSound(volumePercent);
+      break;
+    case "click":
+      playGamerClickSound(volumePercent);
+      break;
+    case "chime":
+    default:
+      playNotificationChimeSound(volumePercent);
+      break;
+  }
+}
