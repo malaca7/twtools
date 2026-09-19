@@ -28,6 +28,7 @@ import { Route as AuthenticatedEstoqueRouteImport } from './routes/_authenticate
 import { Route as AuthenticatedFundoCaixaRouteImport } from './routes/_authenticated/fundo-caixa'
 import { Route as AuthenticatedGestaoEstoqueRouteImport } from './routes/_authenticated/gestao-estoque'
 import { Route as AuthenticatedHierarquiaRouteImport } from './routes/_authenticated/hierarquia'
+import { Route as AuthenticatedLifeRouteImport } from './routes/_authenticated/life'
 import { Route as AuthenticatedLivesRouteImport } from './routes/_authenticated/lives'
 import { Route as AuthenticatedLogsRouteImport } from './routes/_authenticated/logs'
 import { Route as AuthenticatedMembrosRouteImport } from './routes/_authenticated/membros'
@@ -172,6 +173,11 @@ const AuthenticatedGestaoEstoqueRoute =
 const AuthenticatedHierarquiaRoute = AuthenticatedHierarquiaRouteImport.update({
   id: '/hierarquia',
   path: '/hierarquia',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedLifeRoute = AuthenticatedLifeRouteImport.update({
+  id: '/life',
+  path: '/life',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedLivesRoute = AuthenticatedLivesRouteImport.update({
@@ -452,6 +458,7 @@ export interface FileRoutesByFullPath {
   '/fundo-caixa': typeof AuthenticatedFundoCaixaRoute
   '/gestao-estoque': typeof AuthenticatedGestaoEstoqueRouteWithChildren
   '/hierarquia': typeof AuthenticatedHierarquiaRouteWithChildren
+  '/life': typeof AuthenticatedLifeRoute
   '/lives': typeof AuthenticatedLivesRouteWithChildren
   '/logs': typeof AuthenticatedLogsRoute
   '/membros': typeof AuthenticatedMembrosRoute
@@ -519,6 +526,7 @@ export interface FileRoutesByTo {
   '/fundo-caixa': typeof AuthenticatedFundoCaixaRoute
   '/gestao-estoque': typeof AuthenticatedGestaoEstoqueRouteWithChildren
   '/hierarquia': typeof AuthenticatedHierarquiaRouteWithChildren
+  '/life': typeof AuthenticatedLifeRoute
   '/lives': typeof AuthenticatedLivesRouteWithChildren
   '/logs': typeof AuthenticatedLogsRoute
   '/membros': typeof AuthenticatedMembrosRoute
@@ -588,6 +596,7 @@ export interface FileRoutesById {
   '/_authenticated/fundo-caixa': typeof AuthenticatedFundoCaixaRoute
   '/_authenticated/gestao-estoque': typeof AuthenticatedGestaoEstoqueRouteWithChildren
   '/_authenticated/hierarquia': typeof AuthenticatedHierarquiaRouteWithChildren
+  '/_authenticated/life': typeof AuthenticatedLifeRoute
   '/_authenticated/lives': typeof AuthenticatedLivesRouteWithChildren
   '/_authenticated/logs': typeof AuthenticatedLogsRoute
   '/_authenticated/membros': typeof AuthenticatedMembrosRoute
@@ -657,6 +666,7 @@ export interface FileRouteTypes {
     | '/fundo-caixa'
     | '/gestao-estoque'
     | '/hierarquia'
+    | '/life'
     | '/lives'
     | '/logs'
     | '/membros'
@@ -724,6 +734,7 @@ export interface FileRouteTypes {
     | '/fundo-caixa'
     | '/gestao-estoque'
     | '/hierarquia'
+    | '/life'
     | '/lives'
     | '/logs'
     | '/membros'
@@ -792,6 +803,7 @@ export interface FileRouteTypes {
     | '/_authenticated/fundo-caixa'
     | '/_authenticated/gestao-estoque'
     | '/_authenticated/hierarquia'
+    | '/_authenticated/life'
     | '/_authenticated/lives'
     | '/_authenticated/logs'
     | '/_authenticated/membros'
@@ -984,6 +996,13 @@ declare module '@tanstack/react-router' {
       path: '/hierarquia'
       fullPath: '/hierarquia'
       preLoaderRoute: typeof AuthenticatedHierarquiaRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/life': {
+      id: '/_authenticated/life'
+      path: '/life'
+      fullPath: '/life'
+      preLoaderRoute: typeof AuthenticatedLifeRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/lives': {
@@ -1542,6 +1561,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedFundoCaixaRoute: typeof AuthenticatedFundoCaixaRoute
   AuthenticatedGestaoEstoqueRoute: typeof AuthenticatedGestaoEstoqueRouteWithChildren
   AuthenticatedHierarquiaRoute: typeof AuthenticatedHierarquiaRouteWithChildren
+  AuthenticatedLifeRoute: typeof AuthenticatedLifeRoute
   AuthenticatedLivesRoute: typeof AuthenticatedLivesRouteWithChildren
   AuthenticatedLogsRoute: typeof AuthenticatedLogsRoute
   AuthenticatedMembrosRoute: typeof AuthenticatedMembrosRoute
@@ -1584,6 +1604,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedFundoCaixaRoute: AuthenticatedFundoCaixaRoute,
   AuthenticatedGestaoEstoqueRoute: AuthenticatedGestaoEstoqueRouteWithChildren,
   AuthenticatedHierarquiaRoute: AuthenticatedHierarquiaRouteWithChildren,
+  AuthenticatedLifeRoute: AuthenticatedLifeRoute,
   AuthenticatedLivesRoute: AuthenticatedLivesRouteWithChildren,
   AuthenticatedLogsRoute: AuthenticatedLogsRoute,
   AuthenticatedMembrosRoute: AuthenticatedMembrosRoute,

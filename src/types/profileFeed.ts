@@ -15,9 +15,12 @@ export interface ProfilePost {
   author_id: string;
   content: string;
   media_url?: string | null;
+  video_url?: string | null;
+  media_type?: "image" | "video" | "none";
   tags: string[];
   mentions: string[];
   likes_count: number;
+  comments_count?: number;
   pinned: boolean;
   created_at: string;
   updated_at: string;
@@ -28,8 +31,31 @@ export interface ProfilePost {
     avatar_url?: string | null;
     custom_url?: string | null;
     discord_username?: string | null;
+    level?: string | null;
+    role_name?: string | null;
   };
   is_liked_by_me?: boolean;
+  is_bookmarked_by_me?: boolean;
+  is_following_author?: boolean;
+}
+
+export interface ProfilePostComment {
+  id: string;
+  post_id: string;
+  author_id: string;
+  content: string;
+  created_at: string;
+  updated_at: string;
+  author?: {
+    id: string;
+    nome: string;
+    nickname?: string | null;
+    avatar_url?: string | null;
+    custom_url?: string | null;
+    discord_username?: string | null;
+    level?: string | null;
+  };
+  is_own?: boolean;
 }
 
 export interface ProfileFollowStats {

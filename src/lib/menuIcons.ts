@@ -119,6 +119,7 @@ export const CANONICAL_URL_ICONS: Record<string, LucideIcon> = {
   "/dashboard": LayoutDashboard,
   "/movimentacoes": ArrowLeftRight,
   "/vendas": ShoppingCart,
+  "/life": Flame,
   "/tickets": LifeBuoy,
   "/controledeestoque": Boxes,
   "/estoque": Boxes,

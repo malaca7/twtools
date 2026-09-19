@@ -30,6 +30,7 @@ import {
   Trophy,
   Bot,
   HelpCircle,
+  Radio,
 } from "lucide-react";
 import { useManagementPendingActions } from "@/hooks/useManagementPendingActions";
 import {

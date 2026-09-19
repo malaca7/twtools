@@ -36,6 +36,7 @@ import { DevBotPageContent } from "@/routes/_authenticated/dev.bot";
 import { DevEstoquePageContent } from "@/routes/_authenticated/dev.estoque";
 import { DevHubContent } from "@/routes/_authenticated/dev.index";
 import { GestaoEstoquePage } from "@/routes/_authenticated/gestao-estoque";
+import { LifePage } from "@/routes/_authenticated/life";
 
 export interface PlatformPageDispatcherProps {
   page: string;
@@ -75,6 +76,7 @@ const PAGE_PERMISSION_MAP: Record<string, Permission | null> = {
   perfil: "view_profile",
   configuracoes: "manage_platform_settings",
   notificacoes: "view_notifications",
+  life: "view_life",
 
   // Módulos CEO
   executivo: "view_ceo",
@@ -196,6 +198,8 @@ function InnerPageResolver({ page, tab, mode }: { page: string; tab?: string; mo
       return <ConfiguracoesPage />;
     case "notificacoes":
       return <MemberNotificationsPage />;
+    case "life":
+      return <LifePage />;
     case "perfil":
       if (!tab || tab === "dados" || tab === "aparencia") {
         return <PerfilPage initialTab={tab as "dados" | "aparencia" | undefined} />;

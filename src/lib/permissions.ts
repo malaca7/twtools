@@ -190,11 +190,18 @@ export type Permission =
   | "manage_stock_categories"
   | "manage_stock_baus"
   | "adjust_stock_balance"
-  | "manage_stock_balance";
+  | "manage_stock_balance"
+  // Permissões do Sistema Life (Rede Social)
+  | "view_life"
+  | "post_life"
+  | "manage_life";
 
 export const ALL_PERMISSIONS: Permission[] = [
   "manage_permissions",
   "view_dashboard",
+  "view_life",
+  "post_life",
+  "manage_life",
   "view_stock_management",
   "manage_stock_products",
   "manage_stock_categories",
@@ -476,10 +483,16 @@ const OFFICER: Permission[] = [
   "force_end_live_session",
   "view_stream_logs",
   "view_profile",
+  "view_life",
+  "post_life",
+  "manage_life",
 ];
 
 const MANAGER: Permission[] = [
   "view_dashboard",
+  "view_life",
+  "post_life",
+  "manage_life",
   "view_chat",
   "create_chat_group",
   "manage_chat_groups",
@@ -568,6 +581,8 @@ const MEMBER: Permission[] = [
   "view_lives",
   "link_stream_account",
   "view_profile",
+  "view_life",
+  "post_life",
 ];
 
 const NOVATO: Permission[] = [
@@ -592,6 +607,8 @@ const NOVATO: Permission[] = [
   "view_lives",
   "link_stream_account",
   "view_profile",
+  "view_life",
+  "post_life",
 ];
 
 export const PERMISSIONS: Record<AppLevel, Permission[]> = {
@@ -634,6 +651,13 @@ export function can(
     // Fallback gracioso: se o cargo foi salvo no banco antes do módulo de tickets existir (aplica-se SOMENTE a tickets)
     const hasAnySavedTicketPerm = list.some((p) => typeof p === "string" && p.includes("ticket"));
     if (!hasAnySavedTicketPerm && permission.includes("ticket")) {
+      const defaultRolePerms = PERMISSIONS[userLevel] || [];
+      if (defaultRolePerms.includes(permission)) return true;
+    }
+
+    // Fallback gracioso para Life se não estiver no customRoleMap salvo
+    const hasAnySavedLifePerm = list.some((p) => typeof p === "string" && p.includes("life"));
+    if (!hasAnySavedLifePerm && permission.includes("life")) {
       const defaultRolePerms = PERMISSIONS[userLevel] || [];
       if (defaultRolePerms.includes(permission)) return true;
     }
@@ -790,6 +814,10 @@ export function can(
   // Ajustes de Estoque CEO
   if (permission === "view_ceo_stock_adjustments" && (rolePerms.includes("manage_ceo_stock_adjustments") || rolePerms.includes("ceo_adjust_stock_balance") || rolePerms.includes("ceo_stock_add") || rolePerms.includes("ceo_stock_remove"))) return true;
   if (rolePerms.includes("manage_ceo_stock_adjustments") && (permission === "ceo_adjust_stock_balance" || permission === "ceo_stock_add" || permission === "ceo_stock_remove" || permission === "view_ceo_stock_adjustments")) return true;
+
+  // Life
+  if (rolePerms.includes("manage_life") && (permission === "view_life" || permission === "post_life")) return true;
+  if (rolePerms.includes("post_life") && permission === "view_life") return true;
 
   return false;
 }
