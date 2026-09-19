@@ -38,6 +38,7 @@ import { Route as AuthenticatedPerfilRouteImport } from './routes/_authenticated
 import { Route as AuthenticatedPermissoesRouteImport } from './routes/_authenticated/permissoes'
 import { Route as AuthenticatedProdutosRouteImport } from './routes/_authenticated/produtos'
 import { Route as AuthenticatedRankingsRouteImport } from './routes/_authenticated/rankings'
+import { Route as AuthenticatedSaldosRouteImport } from './routes/_authenticated/saldos'
 import { Route as AuthenticatedTicketsRouteImport } from './routes/_authenticated/tickets'
 import { Route as AuthenticatedVendasRouteImport } from './routes/_authenticated/vendas'
 import { Route as AuthCallbackRouteImport } from './routes/auth.callback'
@@ -58,6 +59,7 @@ import { Route as AuthenticatedDevMenuLateralRouteImport } from './routes/_authe
 import { Route as AuthenticatedDevNotificacoesRouteImport } from './routes/_authenticated/dev.notificacoes'
 import { Route as AuthenticatedDevPatchNotesRouteImport } from './routes/_authenticated/dev.patch-notes'
 import { Route as AuthenticatedDevPermissoesRouteImport } from './routes/_authenticated/dev.permissoes'
+import { Route as AuthenticatedGestaoEstoqueTabRouteImport } from './routes/_authenticated/gestao-estoque.$tab'
 import { Route as AuthenticatedHierarquiaTabRouteImport } from './routes/_authenticated/hierarquia.$tab'
 import { Route as AuthenticatedLivesTabRouteImport } from './routes/_authenticated/lives.$tab'
 import { Route as AuthenticatedMetasTabRouteImport } from './routes/_authenticated/metas.$tab'
@@ -224,6 +226,11 @@ const AuthenticatedRankingsRoute = AuthenticatedRankingsRouteImport.update({
   path: '/rankings',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedSaldosRoute = AuthenticatedSaldosRouteImport.update({
+  id: '/saldos',
+  path: '/saldos',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedTicketsRoute = AuthenticatedTicketsRouteImport.update({
   id: '/tickets',
   path: '/tickets',
@@ -334,6 +341,12 @@ const AuthenticatedDevPermissoesRoute =
     path: '/dev/permissoes',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedGestaoEstoqueTabRoute =
+  AuthenticatedGestaoEstoqueTabRouteImport.update({
+    id: '/$tab',
+    path: '/$tab',
+    getParentRoute: () => AuthenticatedGestaoEstoqueRoute,
+  } as any)
 const AuthenticatedHierarquiaTabRoute =
   AuthenticatedHierarquiaTabRouteImport.update({
     id: '/$tab',
@@ -437,7 +450,7 @@ export interface FileRoutesByFullPath {
   '/desempenho': typeof AuthenticatedDesempenhoRoute
   '/estoque': typeof AuthenticatedEstoqueRoute
   '/fundo-caixa': typeof AuthenticatedFundoCaixaRoute
-  '/gestao-estoque': typeof AuthenticatedGestaoEstoqueRoute
+  '/gestao-estoque': typeof AuthenticatedGestaoEstoqueRouteWithChildren
   '/hierarquia': typeof AuthenticatedHierarquiaRouteWithChildren
   '/lives': typeof AuthenticatedLivesRouteWithChildren
   '/logs': typeof AuthenticatedLogsRoute
@@ -449,6 +462,7 @@ export interface FileRoutesByFullPath {
   '/permissoes': typeof AuthenticatedPermissoesRoute
   '/produtos': typeof AuthenticatedProdutosRoute
   '/rankings': typeof AuthenticatedRankingsRouteWithChildren
+  '/saldos': typeof AuthenticatedSaldosRoute
   '/tickets': typeof AuthenticatedTicketsRouteWithChildren
   '/vendas': typeof AuthenticatedVendasRoute
   '/auth/callback': typeof AuthCallbackRoute
@@ -468,6 +482,7 @@ export interface FileRoutesByFullPath {
   '/dev/notificacoes': typeof AuthenticatedDevNotificacoesRoute
   '/dev/patch-notes': typeof AuthenticatedDevPatchNotesRoute
   '/dev/permissoes': typeof AuthenticatedDevPermissoesRoute
+  '/gestao-estoque/$tab': typeof AuthenticatedGestaoEstoqueTabRoute
   '/hierarquia/$tab': typeof AuthenticatedHierarquiaTabRoute
   '/lives/$tab': typeof AuthenticatedLivesTabRoute
   '/metas/$tab': typeof AuthenticatedMetasTabRoute
@@ -502,7 +517,7 @@ export interface FileRoutesByTo {
   '/desempenho': typeof AuthenticatedDesempenhoRoute
   '/estoque': typeof AuthenticatedEstoqueRoute
   '/fundo-caixa': typeof AuthenticatedFundoCaixaRoute
-  '/gestao-estoque': typeof AuthenticatedGestaoEstoqueRoute
+  '/gestao-estoque': typeof AuthenticatedGestaoEstoqueRouteWithChildren
   '/hierarquia': typeof AuthenticatedHierarquiaRouteWithChildren
   '/lives': typeof AuthenticatedLivesRouteWithChildren
   '/logs': typeof AuthenticatedLogsRoute
@@ -514,6 +529,7 @@ export interface FileRoutesByTo {
   '/permissoes': typeof AuthenticatedPermissoesRoute
   '/produtos': typeof AuthenticatedProdutosRoute
   '/rankings': typeof AuthenticatedRankingsRouteWithChildren
+  '/saldos': typeof AuthenticatedSaldosRoute
   '/tickets': typeof AuthenticatedTicketsRouteWithChildren
   '/vendas': typeof AuthenticatedVendasRoute
   '/auth/callback': typeof AuthCallbackRoute
@@ -533,6 +549,7 @@ export interface FileRoutesByTo {
   '/dev/notificacoes': typeof AuthenticatedDevNotificacoesRoute
   '/dev/patch-notes': typeof AuthenticatedDevPatchNotesRoute
   '/dev/permissoes': typeof AuthenticatedDevPermissoesRoute
+  '/gestao-estoque/$tab': typeof AuthenticatedGestaoEstoqueTabRoute
   '/hierarquia/$tab': typeof AuthenticatedHierarquiaTabRoute
   '/lives/$tab': typeof AuthenticatedLivesTabRoute
   '/metas/$tab': typeof AuthenticatedMetasTabRoute
@@ -569,7 +586,7 @@ export interface FileRoutesById {
   '/_authenticated/desempenho': typeof AuthenticatedDesempenhoRoute
   '/_authenticated/estoque': typeof AuthenticatedEstoqueRoute
   '/_authenticated/fundo-caixa': typeof AuthenticatedFundoCaixaRoute
-  '/_authenticated/gestao-estoque': typeof AuthenticatedGestaoEstoqueRoute
+  '/_authenticated/gestao-estoque': typeof AuthenticatedGestaoEstoqueRouteWithChildren
   '/_authenticated/hierarquia': typeof AuthenticatedHierarquiaRouteWithChildren
   '/_authenticated/lives': typeof AuthenticatedLivesRouteWithChildren
   '/_authenticated/logs': typeof AuthenticatedLogsRoute
@@ -581,6 +598,7 @@ export interface FileRoutesById {
   '/_authenticated/permissoes': typeof AuthenticatedPermissoesRoute
   '/_authenticated/produtos': typeof AuthenticatedProdutosRoute
   '/_authenticated/rankings': typeof AuthenticatedRankingsRouteWithChildren
+  '/_authenticated/saldos': typeof AuthenticatedSaldosRoute
   '/_authenticated/tickets': typeof AuthenticatedTicketsRouteWithChildren
   '/_authenticated/vendas': typeof AuthenticatedVendasRoute
   '/auth/callback': typeof AuthCallbackRoute
@@ -600,6 +618,7 @@ export interface FileRoutesById {
   '/_authenticated/dev/notificacoes': typeof AuthenticatedDevNotificacoesRoute
   '/_authenticated/dev/patch-notes': typeof AuthenticatedDevPatchNotesRoute
   '/_authenticated/dev/permissoes': typeof AuthenticatedDevPermissoesRoute
+  '/_authenticated/gestao-estoque/$tab': typeof AuthenticatedGestaoEstoqueTabRoute
   '/_authenticated/hierarquia/$tab': typeof AuthenticatedHierarquiaTabRoute
   '/_authenticated/lives/$tab': typeof AuthenticatedLivesTabRoute
   '/_authenticated/metas/$tab': typeof AuthenticatedMetasTabRoute
@@ -648,6 +667,7 @@ export interface FileRouteTypes {
     | '/permissoes'
     | '/produtos'
     | '/rankings'
+    | '/saldos'
     | '/tickets'
     | '/vendas'
     | '/auth/callback'
@@ -667,6 +687,7 @@ export interface FileRouteTypes {
     | '/dev/notificacoes'
     | '/dev/patch-notes'
     | '/dev/permissoes'
+    | '/gestao-estoque/$tab'
     | '/hierarquia/$tab'
     | '/lives/$tab'
     | '/metas/$tab'
@@ -713,6 +734,7 @@ export interface FileRouteTypes {
     | '/permissoes'
     | '/produtos'
     | '/rankings'
+    | '/saldos'
     | '/tickets'
     | '/vendas'
     | '/auth/callback'
@@ -732,6 +754,7 @@ export interface FileRouteTypes {
     | '/dev/notificacoes'
     | '/dev/patch-notes'
     | '/dev/permissoes'
+    | '/gestao-estoque/$tab'
     | '/hierarquia/$tab'
     | '/lives/$tab'
     | '/metas/$tab'
@@ -779,6 +802,7 @@ export interface FileRouteTypes {
     | '/_authenticated/permissoes'
     | '/_authenticated/produtos'
     | '/_authenticated/rankings'
+    | '/_authenticated/saldos'
     | '/_authenticated/tickets'
     | '/_authenticated/vendas'
     | '/auth/callback'
@@ -798,6 +822,7 @@ export interface FileRouteTypes {
     | '/_authenticated/dev/notificacoes'
     | '/_authenticated/dev/patch-notes'
     | '/_authenticated/dev/permissoes'
+    | '/_authenticated/gestao-estoque/$tab'
     | '/_authenticated/hierarquia/$tab'
     | '/_authenticated/lives/$tab'
     | '/_authenticated/metas/$tab'
@@ -1031,6 +1056,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedRankingsRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/saldos': {
+      id: '/_authenticated/saldos'
+      path: '/saldos'
+      fullPath: '/saldos'
+      preLoaderRoute: typeof AuthenticatedSaldosRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/tickets': {
       id: '/_authenticated/tickets'
       path: '/tickets'
@@ -1170,6 +1202,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/dev/permissoes'
       preLoaderRoute: typeof AuthenticatedDevPermissoesRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/gestao-estoque/$tab': {
+      id: '/_authenticated/gestao-estoque/$tab'
+      path: '/$tab'
+      fullPath: '/gestao-estoque/$tab'
+      preLoaderRoute: typeof AuthenticatedGestaoEstoqueTabRouteImport
+      parentRoute: typeof AuthenticatedGestaoEstoqueRoute
     }
     '/_authenticated/hierarquia/$tab': {
       id: '/_authenticated/hierarquia/$tab'
@@ -1333,6 +1372,20 @@ const AuthenticatedConfiguracoesRouteWithChildren =
     AuthenticatedConfiguracoesRouteChildren,
   )
 
+interface AuthenticatedGestaoEstoqueRouteChildren {
+  AuthenticatedGestaoEstoqueTabRoute: typeof AuthenticatedGestaoEstoqueTabRoute
+}
+
+const AuthenticatedGestaoEstoqueRouteChildren: AuthenticatedGestaoEstoqueRouteChildren =
+  {
+    AuthenticatedGestaoEstoqueTabRoute: AuthenticatedGestaoEstoqueTabRoute,
+  }
+
+const AuthenticatedGestaoEstoqueRouteWithChildren =
+  AuthenticatedGestaoEstoqueRoute._addFileChildren(
+    AuthenticatedGestaoEstoqueRouteChildren,
+  )
+
 interface AuthenticatedHierarquiaRouteChildren {
   AuthenticatedHierarquiaTabRoute: typeof AuthenticatedHierarquiaTabRoute
 }
@@ -1487,7 +1540,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedDesempenhoRoute: typeof AuthenticatedDesempenhoRoute
   AuthenticatedEstoqueRoute: typeof AuthenticatedEstoqueRoute
   AuthenticatedFundoCaixaRoute: typeof AuthenticatedFundoCaixaRoute
-  AuthenticatedGestaoEstoqueRoute: typeof AuthenticatedGestaoEstoqueRoute
+  AuthenticatedGestaoEstoqueRoute: typeof AuthenticatedGestaoEstoqueRouteWithChildren
   AuthenticatedHierarquiaRoute: typeof AuthenticatedHierarquiaRouteWithChildren
   AuthenticatedLivesRoute: typeof AuthenticatedLivesRouteWithChildren
   AuthenticatedLogsRoute: typeof AuthenticatedLogsRoute
@@ -1499,6 +1552,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedPermissoesRoute: typeof AuthenticatedPermissoesRoute
   AuthenticatedProdutosRoute: typeof AuthenticatedProdutosRoute
   AuthenticatedRankingsRoute: typeof AuthenticatedRankingsRouteWithChildren
+  AuthenticatedSaldosRoute: typeof AuthenticatedSaldosRoute
   AuthenticatedTicketsRoute: typeof AuthenticatedTicketsRouteWithChildren
   AuthenticatedVendasRoute: typeof AuthenticatedVendasRoute
   AuthenticatedDevPageRoute: typeof AuthenticatedDevPageRouteWithChildren
@@ -1528,7 +1582,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedDesempenhoRoute: AuthenticatedDesempenhoRoute,
   AuthenticatedEstoqueRoute: AuthenticatedEstoqueRoute,
   AuthenticatedFundoCaixaRoute: AuthenticatedFundoCaixaRoute,
-  AuthenticatedGestaoEstoqueRoute: AuthenticatedGestaoEstoqueRoute,
+  AuthenticatedGestaoEstoqueRoute: AuthenticatedGestaoEstoqueRouteWithChildren,
   AuthenticatedHierarquiaRoute: AuthenticatedHierarquiaRouteWithChildren,
   AuthenticatedLivesRoute: AuthenticatedLivesRouteWithChildren,
   AuthenticatedLogsRoute: AuthenticatedLogsRoute,
@@ -1540,6 +1594,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedPermissoesRoute: AuthenticatedPermissoesRoute,
   AuthenticatedProdutosRoute: AuthenticatedProdutosRoute,
   AuthenticatedRankingsRoute: AuthenticatedRankingsRouteWithChildren,
+  AuthenticatedSaldosRoute: AuthenticatedSaldosRoute,
   AuthenticatedTicketsRoute: AuthenticatedTicketsRouteWithChildren,
   AuthenticatedVendasRoute: AuthenticatedVendasRoute,
   AuthenticatedDevPageRoute: AuthenticatedDevPageRouteWithChildren,
@@ -1570,13 +1625,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}
