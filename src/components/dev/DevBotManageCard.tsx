@@ -1043,10 +1043,11 @@ export function DevBotManageCard({ isCeoView: isCeoViewProp }: DevBotManageCardP
                       <button
                         type="button"
                         onClick={() => setIsSendMessageModalOpen(true)}
-                        className="h-8 w-8 rounded-lg bg-[#2b2d31] hover:bg-[#35373c] text-[#dbdee1] hover:text-white flex items-center justify-center transition-colors shadow-sm cursor-pointer"
-                        title="Enviar mensagem"
+                        className="h-8 px-2.5 rounded-lg bg-[#5865F2] hover:bg-[#4752C4] text-white flex items-center gap-1.5 transition-colors shadow-sm cursor-pointer text-xs font-bold"
+                        title="Enviar mensagem pelo bot"
                       >
                         <MessageSquare className="h-3.5 w-3.5 fill-current" />
+                        <span>Enviar Mensagem</span>
                       </button>
                     )}
 
@@ -1309,134 +1310,136 @@ export function DevBotManageCard({ isCeoView: isCeoViewProp }: DevBotManageCardP
 
         {/* COLUNA DIREITA: PAINEL DE CONTROLE, OPERAÇÃO, STATUS & TOKEN */}
         <div className="lg:col-span-7 xl:col-span-7 2xl:col-span-8 space-y-6 w-full">
-          {/* 1. CARD DE CONTROLE OPERACIONAL DO BOT */}
-          <Card className="surface-card border-border/70 bg-zinc-950/70 shadow-lg">
-            <CardHeader className="pb-3">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                <div className="flex items-center gap-3">
-                  <div className="p-2.5 rounded-xl bg-indigo-500/15 text-indigo-400 border border-indigo-500/30 shadow-xs">
-                    <Bot className="h-5 w-5" />
+          {/* 1. CARD DE CONTROLE OPERACIONAL DO BOT (APENAS PAINEL DEV) */}
+          {!isCeoView && (
+            <Card className="surface-card border-border/70 bg-zinc-950/70 shadow-lg">
+              <CardHeader className="pb-3">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2.5 rounded-xl bg-indigo-500/15 text-indigo-400 border border-indigo-500/30 shadow-xs">
+                      <Bot className="h-5 w-5" />
+                    </div>
+                    <div>
+                      <CardTitle className="text-sm font-black text-foreground flex items-center gap-2">
+                        {isCeoView ? "Controle do Bot" : "Controle do Bot Discloud"}
+                        {isBotRunning ? (
+                          <Badge className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 text-[10px] font-bold gap-1 py-0.5">
+                            <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                            Operacional
+                          </Badge>
+                        ) : (
+                          <Badge className="bg-zinc-800 text-zinc-400 border border-zinc-700 text-[10px] font-bold py-0.5">
+                            Desligado
+                          </Badge>
+                        )}
+                      </CardTitle>
+                      <CardDescription className="text-xs text-muted-foreground font-mono">
+                        App: twin · ID: {clientId}
+                      </CardDescription>
+                    </div>
                   </div>
-                  <div>
-                    <CardTitle className="text-sm font-black text-foreground flex items-center gap-2">
-                      {isCeoView ? "Controle do Bot" : "Controle do Bot Discloud"}
-                      {isBotRunning ? (
-                        <Badge className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 text-[10px] font-bold gap-1 py-0.5">
-                          <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                          Operacional
-                        </Badge>
-                      ) : (
-                        <Badge className="bg-zinc-800 text-zinc-400 border border-zinc-700 text-[10px] font-bold py-0.5">
-                          Desligado
-                        </Badge>
-                      )}
-                    </CardTitle>
-                    <CardDescription className="text-xs text-muted-foreground font-mono">
-                      App: twin · ID: {clientId}
-                    </CardDescription>
-                  </div>
-                </div>
 
-                <div className="flex items-center gap-2 flex-wrap">
-                  {/* Iniciar / Desligar Bot */}
-                  {hasPermission("bot_power_toggle") && (
-                    isBotRunning ? (
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {/* Iniciar / Desligar Bot */}
+                    {hasPermission("bot_power_toggle") && (
+                      isBotRunning ? (
+                        <Button
+                          onClick={() => handleLifecycle("stop")}
+                          disabled={actionLoading !== null}
+                          variant="outline"
+                          size="sm"
+                          className="bg-emerald-950/40 border-emerald-600/50 text-emerald-400 hover:bg-rose-950/50 hover:border-rose-600/50 hover:text-rose-300 font-bold text-xs gap-1.5 transition-all shadow-md group cursor-pointer h-8 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          {actionLoading === "stop" ? (
+                            <Loader2 className="h-3.5 w-3.5 animate-spin text-rose-400" />
+                          ) : (
+                            <>
+                              <Play className="h-3.5 w-3.5 fill-emerald-400 text-emerald-400 group-hover:hidden" />
+                              <Square className="h-3.5 w-3.5 fill-rose-400 text-rose-400 hidden group-hover:inline-block" />
+                            </>
+                          )}
+                          <span className="group-hover:hidden">Ligado</span>
+                          <span className="hidden group-hover:inline">Desligar</span>
+                        </Button>
+                      ) : (
+                        <Button
+                          onClick={() => handleLifecycle("start")}
+                          disabled={actionLoading !== null}
+                          size="sm"
+                          className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs gap-1.5 shadow-md shadow-emerald-900/40 cursor-pointer h-8 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          {actionLoading === "start" ? (
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          ) : (
+                            <Play className="h-3.5 w-3.5 fill-white" />
+                          )}
+                          Iniciar
+                        </Button>
+                      )
+                    )}
+
+                    {/* Reiniciar */}
+                    {hasPermission("bot_restart") && (
                       <Button
-                        onClick={() => handleLifecycle("stop")}
+                        onClick={() => handleLifecycle("restart")}
                         disabled={actionLoading !== null}
                         variant="outline"
                         size="sm"
-                        className="bg-emerald-950/40 border-emerald-600/50 text-emerald-400 hover:bg-rose-950/50 hover:border-rose-600/50 hover:text-rose-300 font-bold text-xs gap-1.5 transition-all shadow-md group cursor-pointer h-8 disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="bg-zinc-900/80 hover:bg-zinc-800 border-zinc-700/60 text-white font-bold text-xs gap-1.5 shadow-xs cursor-pointer h-8 disabled:opacity-50 disabled:cursor-not-allowed"
                       >
-                        {actionLoading === "stop" ? (
-                          <Loader2 className="h-3.5 w-3.5 animate-spin text-rose-400" />
+                        {actionLoading === "restart" ? (
+                          <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />
                         ) : (
-                          <>
-                            <Play className="h-3.5 w-3.5 fill-emerald-400 text-emerald-400 group-hover:hidden" />
-                            <Square className="h-3.5 w-3.5 fill-rose-400 text-rose-400 hidden group-hover:inline-block" />
-                          </>
+                          <RotateCcw className="h-3.5 w-3.5" />
                         )}
-                        <span className="group-hover:hidden">Ligado</span>
-                        <span className="hidden group-hover:inline">Desligar</span>
+                        Reiniciar
                       </Button>
-                    ) : (
+                    )}
+
+                    {/* Convidar */}
+                    {(hasPermission("bot_invite") || hasPermission("bot_add_app")) && (
                       <Button
-                        onClick={() => handleLifecycle("start")}
-                        disabled={actionLoading !== null}
+                        onClick={() => setIsInviteModalOpen(true)}
                         size="sm"
-                        className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs gap-1.5 shadow-md shadow-emerald-900/40 cursor-pointer h-8 disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="bg-[#5865F2] hover:bg-[#4752C4] text-white font-bold text-xs gap-1.5 shadow-md shadow-[#5865F2]/20 cursor-pointer h-8"
                       >
-                        {actionLoading === "start" ? (
-                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                        ) : (
-                          <Play className="h-3.5 w-3.5 fill-white" />
-                        )}
-                        Iniciar
+                        <UserPlus className="h-3.5 w-3.5" />
+                        Convidar
                       </Button>
-                    )
-                  )}
+                    )}
 
-                  {/* Reiniciar */}
-                  {hasPermission("bot_restart") && (
-                    <Button
-                      onClick={() => handleLifecycle("restart")}
-                      disabled={actionLoading !== null}
-                      variant="outline"
-                      size="sm"
-                      className="bg-zinc-900/80 hover:bg-zinc-800 border-zinc-700/60 text-white font-bold text-xs gap-1.5 shadow-xs cursor-pointer h-8 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      {actionLoading === "restart" ? (
-                        <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />
-                      ) : (
-                        <RotateCcw className="h-3.5 w-3.5" />
-                      )}
-                      Reiniciar
-                    </Button>
-                  )}
+                    {/* Enviar Mensagem pelo Bot */}
+                    {hasPermission("bot_send_message") && (
+                      <Button
+                        onClick={() => setIsSendMessageModalOpen(true)}
+                        size="sm"
+                        variant="outline"
+                        className="border-[#5865F2]/50 text-[#5865F2] hover:bg-[#5865F2]/15 hover:text-white font-bold text-xs gap-1.5 cursor-pointer h-8 transition-all"
+                      >
+                        <MessageSquare className="h-3.5 w-3.5" />
+                        Enviar Mensagem
+                      </Button>
+                    )}
 
-                  {/* Convidar */}
-                  {(hasPermission("bot_invite") || hasPermission("bot_add_app")) && (
-                    <Button
-                      onClick={() => setIsInviteModalOpen(true)}
-                      size="sm"
-                      className="bg-[#5865F2] hover:bg-[#4752C4] text-white font-bold text-xs gap-1.5 shadow-md shadow-[#5865F2]/20 cursor-pointer h-8"
-                    >
-                      <UserPlus className="h-3.5 w-3.5" />
-                      Convidar
-                    </Button>
-                  )}
-
-                  {/* Enviar Mensagem pelo Bot */}
-                  {hasPermission("bot_send_message") && (
-                    <Button
-                      onClick={() => setIsSendMessageModalOpen(true)}
-                      size="sm"
-                      variant="outline"
-                      className="border-[#5865F2]/50 text-[#5865F2] hover:bg-[#5865F2]/15 hover:text-white font-bold text-xs gap-1.5 cursor-pointer h-8 transition-all"
-                    >
-                      <MessageSquare className="h-3.5 w-3.5" />
-                      Enviar Mensagem
-                    </Button>
-                  )}
-
-                  {/* Portal Dev */}
-                  {!isCeoView && (
-                    <Button
-                      asChild
-                      variant="ghost"
-                      size="sm"
-                      className="h-8 text-xs text-muted-foreground hover:text-white gap-1"
-                    >
-                      <a href={getDeveloperPortalUrl(clientId)} target="_blank" rel="noreferrer">
-                        <ExternalLink className="h-3.5 w-3.5" />
-                        <span className="hidden xl:inline">Portal Dev</span>
-                      </a>
-                    </Button>
-                  )}
+                    {/* Portal Dev */}
+                    {!isCeoView && (
+                      <Button
+                        asChild
+                        variant="ghost"
+                        size="sm"
+                        className="h-8 text-xs text-muted-foreground hover:text-white gap-1"
+                      >
+                        <a href={getDeveloperPortalUrl(clientId)} target="_blank" rel="noreferrer">
+                          <ExternalLink className="h-3.5 w-3.5" />
+                          <span className="hidden xl:inline">Portal Dev</span>
+                        </a>
+                      </Button>
+                    )}
+                  </div>
                 </div>
-              </div>
-            </CardHeader>
-          </Card>
+              </CardHeader>
+            </Card>
+          )}
 
           {/* 2. SUB-CARDS: MENSAGEM DE STATUS & PRESENÇA */}
           {(hasPermission("bot_change_status") || hasPermission("bot_change_presence")) && (
