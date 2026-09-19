@@ -2413,7 +2413,7 @@ export function DevBotManageCard({ isCeoView: isCeoViewProp }: DevBotManageCardP
         onClose={() => setIsSendMessageModalOpen(false)}
         botToken={config.botToken || ""}
         botName={botName}
-        botAvatarUrl={avatarUrl}
+        botAvatarUrl={botAvatar}
         guilds={guilds}
         senderName={profile?.nome || user?.email || "CEO"}
       />
