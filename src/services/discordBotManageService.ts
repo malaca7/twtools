@@ -385,3 +385,230 @@ export async function uploadBotImage(file: File, type: "avatar" | "banner" = "av
   const { data: pubData } = supabase.storage.from("products").getPublicUrl(uploadRes.data.path);
   return pubData.publicUrl;
 }
+
+export interface DiscordChannelInfo {
+  id: string;
+  name: string;
+  type: number; // 0: GUILD_TEXT, 2: GUILD_VOICE, 4: GUILD_CATEGORY, 5: GUILD_ANNOUNCEMENT
+  position?: number;
+  parent_id?: string | null;
+}
+
+export interface DiscordEmbedField {
+  name: string;
+  value: string;
+  inline?: boolean;
+}
+
+export interface DiscordEmbedData {
+  title?: string;
+  url?: string;
+  description?: string;
+  color?: string | number;
+  author?: {
+    name?: string;
+    icon_url?: string;
+    url?: string;
+  };
+  thumbnail?: {
+    url?: string;
+  };
+  image?: {
+    url?: string;
+  };
+  fields?: DiscordEmbedField[];
+  footer?: {
+    text?: string;
+    icon_url?: string;
+  };
+  timestamp?: string | boolean;
+}
+
+export interface SendDiscordMessageParams {
+  token: string;
+  channelId: string;
+  content?: string;
+  embed?: DiscordEmbedData;
+  senderName?: string;
+}
+
+/**
+ * Busca canais de texto e categorias de um servidor Discord conectado
+ */
+export async function fetchGuildChannels(
+  token: string,
+  guildId: string
+): Promise<DiscordChannelInfo[]> {
+  const cleanToken = token ? token.trim().replace(/^Bot\s+/i, "") : "";
+  if (!cleanToken || !guildId) return [];
+
+  try {
+    const res = await fetch(`https://discord.com/api/v10/guilds/${guildId}/channels`, {
+      headers: {
+        Authorization: `Bot ${cleanToken}`,
+      },
+    });
+
+    if (!res.ok) {
+      console.warn("Falha ao carregar canais do Discord via REST:", res.status);
+      return [];
+    }
+
+    const data = await res.json();
+    if (Array.isArray(data)) {
+      return data;
+    }
+    return [];
+  } catch (err) {
+    console.error("Erro ao buscar canais do servidor no Discord:", err);
+    return [];
+  }
+}
+
+/**
+ * Envia mensagem direta ou Embed via bot para o Discord
+ */
+export async function sendBotDiscordMessage(params: SendDiscordMessageParams): Promise<{
+  success: boolean;
+  directSent: boolean;
+  message?: string;
+}> {
+  const { token, channelId, content, embed, senderName } = params;
+  const cleanToken = token ? token.trim().replace(/^Bot\s+/i, "") : "";
+  const targetChannel = channelId?.trim();
+
+  if (!targetChannel) {
+    throw new Error("Selecione ou informe um canal de destino válido.");
+  }
+
+  let directSent = false;
+  let errorMsg = "";
+
+  const payload: any = {};
+  if (content && content.trim()) {
+    payload.content = content.trim();
+  }
+
+  if (
+    embed &&
+    (embed.title ||
+      embed.description ||
+      embed.author?.name ||
+      (embed.fields && embed.fields.length > 0) ||
+      embed.image?.url ||
+      embed.thumbnail?.url)
+  ) {
+    const discordEmbed: any = {};
+    if (embed.title) discordEmbed.title = embed.title;
+    if (embed.url) discordEmbed.url = embed.url;
+    if (embed.description) discordEmbed.description = embed.description;
+    if (embed.color) {
+      if (typeof embed.color === "string") {
+        discordEmbed.color = parseInt(embed.color.replace("#", ""), 16) || 0x5865f2;
+      } else {
+        discordEmbed.color = embed.color;
+      }
+    }
+    if (embed.author?.name) {
+      discordEmbed.author = {
+        name: embed.author.name,
+        icon_url: embed.author.icon_url || undefined,
+        url: embed.author.url || undefined,
+      };
+    }
+    if (embed.thumbnail?.url) {
+      discordEmbed.thumbnail = { url: embed.thumbnail.url };
+    }
+    if (embed.image?.url) {
+      discordEmbed.image = { url: embed.image.url };
+    }
+    if (embed.footer?.text) {
+      discordEmbed.footer = {
+        text: embed.footer.text,
+        icon_url: embed.footer.icon_url || undefined,
+      };
+    }
+    if (embed.timestamp) {
+      discordEmbed.timestamp =
+        typeof embed.timestamp === "string" ? embed.timestamp : new Date().toISOString();
+    }
+    if (Array.isArray(embed.fields) && embed.fields.length > 0) {
+      discordEmbed.fields = embed.fields
+        .filter((f) => f.name && f.value)
+        .map((f) => ({
+          name: f.name,
+          value: f.value,
+          inline: Boolean(f.inline),
+        }));
+    }
+
+    payload.embeds = [discordEmbed];
+  }
+
+  // 1. Envio direto REST
+  if (cleanToken && cleanToken.length > 20) {
+    try {
+      const res = await fetch(`https://discord.com/api/v10/channels/${targetChannel}/messages`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bot ${cleanToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+      });
+
+      if (res.ok) {
+        directSent = true;
+      } else {
+        const errJson = await res.json().catch(() => ({}));
+        errorMsg = errJson.message || `HTTP ${res.status}`;
+      }
+    } catch (e: any) {
+      errorMsg = e?.message || "Erro na conexão REST";
+    }
+  }
+
+  // 2. Emite broadcast no Supabase Realtime
+  try {
+    const controlChannel = supabase.channel("system-discord-bot-control");
+    await controlChannel.send({
+      type: "broadcast",
+      event: "send_message",
+      payload: {
+        channelId: targetChannel,
+        content: payload.content || "",
+        embed: payload.embeds ? payload.embeds[0] : null,
+        sender: senderName || "CEO",
+        timestamp: Date.now(),
+      },
+    });
+  } catch (bcErr) {
+    console.warn("Erro ao emitir broadcast de mensagem:", bcErr);
+  }
+
+  // 3. Auditoria
+  try {
+    await logAuditAction("bot_send_message", {
+      channelId: targetChannel,
+      hasEmbed: Boolean(payload.embeds?.length),
+      contentSnippet: (payload.content || embed?.title || embed?.description || "").slice(0, 100),
+      sender: senderName || "CEO",
+      directSent,
+    });
+  } catch {}
+
+  if (!directSent && errorMsg) {
+    return {
+      success: true,
+      directSent: false,
+      message: `Transmitido para a fila do bot Discord (${errorMsg})`,
+    };
+  }
+
+  return {
+    success: true,
+    directSent: true,
+    message: "Mensagem enviada com sucesso no canal do Discord!",
+  };
+}
+

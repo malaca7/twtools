@@ -99,6 +99,7 @@ import {
 } from "@/services/discordBotManageService";
 import { cn } from "@/lib/utils";
 import { ImageCropModal } from "./ImageCropModal";
+import { DevBotSendMessageModal } from "./DevBotSendMessageModal";
 
 function DiscordIconSvg({ className }: { className?: string }) {
   return (
@@ -1405,6 +1406,19 @@ export function DevBotManageCard({ isCeoView: isCeoViewProp }: DevBotManageCardP
                     </Button>
                   )}
 
+                  {/* Enviar Mensagem pelo Bot */}
+                  {hasPermission("bot_send_message") && (
+                    <Button
+                      onClick={() => setIsSendMessageModalOpen(true)}
+                      size="sm"
+                      variant="outline"
+                      className="border-[#5865F2]/50 text-[#5865F2] hover:bg-[#5865F2]/15 hover:text-white font-bold text-xs gap-1.5 cursor-pointer h-8 transition-all"
+                    >
+                      <MessageSquare className="h-3.5 w-3.5" />
+                      Enviar Mensagem
+                    </Button>
+                  )}
+
                   {/* Portal Dev */}
                   {!isCeoView && (
                     <Button
@@ -2389,85 +2403,17 @@ export function DevBotManageCard({ isCeoView: isCeoViewProp }: DevBotManageCardP
       />
 
       {/* ========================================================================= */}
-      {/* MODAL 7: ENVIAR MENSAGEM VIA BOT DISCORD */}
+      {/* MODAL 7: ENVIAR MENSAGEM VIA BOT DISCORD COM EMBED & PRÉVIA */}
       {/* ========================================================================= */}
-      <Dialog open={isSendMessageModalOpen} onOpenChange={setIsSendMessageModalOpen}>
-        <DialogContent className="max-w-md bg-zinc-950 border-zinc-800 text-foreground">
-          <DialogHeader>
-            <DialogTitle className="text-base font-black flex items-center gap-2">
-              <MessageSquare className="h-5 w-5 text-[#5865F2]" />
-              Enviar Mensagem pelo Bot
-            </DialogTitle>
-            <DialogDescription className="text-xs text-muted-foreground">
-              Envie uma mensagem em tempo real para um canal do Discord através do bot oficial {botName}.
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-4 py-2">
-            <div className="space-y-1.5">
-              <Label className="text-xs font-bold">ID do Canal de Destino (Opcional)</Label>
-              <Input
-                value={sendMsgChannelId}
-                onChange={(e) => setSendMsgChannelId(e.target.value)}
-                placeholder="Ex: 1535505650308620400 (ou deixe em branco para canal padrão)"
-                className="bg-zinc-900 border-zinc-800 text-xs font-mono"
-              />
-              <p className="text-[0.65rem] text-muted-foreground">
-                Informe o ID do canal de texto no Discord onde a mensagem será postada.
-              </p>
-            </div>
-
-            <div className="space-y-1.5">
-              <div className="flex items-center justify-between">
-                <Label className="text-xs font-bold">Conteúdo da Mensagem</Label>
-                <span className="text-[0.65rem] text-muted-foreground font-mono">
-                  {sendMsgContent.length}/2000
-                </span>
-              </div>
-              <Textarea
-                value={sendMsgContent}
-                onChange={(e) => setSendMsgContent(e.target.value)}
-                placeholder="Digite a mensagem a ser enviada pelo bot..."
-                rows={4}
-                maxLength={2000}
-                className="bg-zinc-900 border-zinc-800 text-xs resize-none"
-              />
-              <p className="text-[0.68rem] text-zinc-400">
-                Suporta marcações do Discord como <strong className="text-zinc-200">**negrito**</strong>, <em className="text-zinc-200">*itálico*</em> e menções.
-              </p>
-            </div>
-          </div>
-
-          <DialogFooter className="gap-2 sm:gap-0">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setIsSendMessageModalOpen(false)}
-              className="bg-zinc-900 border-zinc-800 text-xs"
-            >
-              Cancelar
-            </Button>
-            <Button
-              type="button"
-              disabled={isSendingMessage || !sendMsgContent.trim() || !hasPermission("bot_send_message")}
-              onClick={handleSendDiscordMessage}
-              className="bg-[#5865F2] hover:bg-[#4752C4] text-white text-xs font-bold gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {isSendingMessage ? (
-                <>
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                  Enviando...
-                </>
-              ) : (
-                <>
-                  <Send className="h-3.5 w-3.5" />
-                  Enviar Mensagem
-                </>
-              )}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <DevBotSendMessageModal
+        isOpen={isSendMessageModalOpen}
+        onClose={() => setIsSendMessageModalOpen(false)}
+        botToken={config.botToken || ""}
+        botName={botName}
+        botAvatarUrl={avatarUrl}
+        guilds={guilds}
+        senderName={profile?.nome || user?.email || "CEO"}
+      />
 
       {/* MODAL ADICIONAR CARGO DO BOT */}
       <Dialog open={isRoleModalOpen} onOpenChange={setIsRoleModalOpen}>

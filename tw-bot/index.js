@@ -1181,6 +1181,72 @@ function setupRealtimeListeners() {
         updateBotPresence();
       }
     })
+    .on("broadcast", { event: "send_message" }, async (payload) => {
+      const data = payload?.payload;
+      if (!data || !data.channelId) return;
+      console.log(`💬 [BOT CONTROL] Mensagem recebida para envio no canal ${data.channelId} por ${data.sender || "CEO"}`);
+      try {
+        const targetChannel =
+          client.channels.cache.get(data.channelId) ||
+          (await client.channels.fetch(data.channelId).catch(() => null));
+
+        if (!targetChannel || !targetChannel.isTextBased()) {
+          console.warn(`⚠️ [BOT CONTROL] Canal ${data.channelId} não encontrado ou não é canal de texto.`);
+          return;
+        }
+
+        const msgOptions = {};
+        if (data.content && data.content.trim()) {
+          msgOptions.content = data.content.trim();
+        }
+
+        if (data.embed && typeof data.embed === "object") {
+          const eb = new EmbedBuilder();
+          if (data.embed.title) eb.setTitle(data.embed.title);
+          if (data.embed.url) eb.setURL(data.embed.url);
+          if (data.embed.description) eb.setDescription(data.embed.description);
+          if (data.embed.color) {
+            const c = typeof data.embed.color === "string" ? hexToInt(data.embed.color) : data.embed.color;
+            eb.setColor(c);
+          }
+          if (data.embed.author && data.embed.author.name) {
+            eb.setAuthor({
+              name: data.embed.author.name,
+              iconURL: data.embed.author.icon_url || data.embed.author.iconURL || undefined,
+              url: data.embed.author.url || undefined,
+            });
+          }
+          if (data.embed.thumbnail && data.embed.thumbnail.url) {
+            eb.setThumbnail(data.embed.thumbnail.url);
+          }
+          if (data.embed.image && data.embed.image.url) {
+            eb.setImage(data.embed.image.url);
+          }
+          if (data.embed.footer && data.embed.footer.text) {
+            eb.setFooter({
+              text: data.embed.footer.text,
+              iconURL: data.embed.footer.icon_url || data.embed.footer.iconURL || undefined,
+            });
+          }
+          if (data.embed.timestamp) {
+            eb.setTimestamp(new Date(data.embed.timestamp));
+          }
+          if (Array.isArray(data.embed.fields) && data.embed.fields.length > 0) {
+            for (const f of data.embed.fields) {
+              if (f.name && f.value) {
+                eb.addFields({ name: f.name, value: f.value, inline: Boolean(f.inline) });
+              }
+            }
+          }
+          msgOptions.embeds = [eb];
+        }
+
+        await targetChannel.send(msgOptions);
+        console.log(`✅ [BOT CONTROL] Mensagem enviada com sucesso no canal #${targetChannel.name} (${data.channelId})!`);
+      } catch (err) {
+        console.error(`❌ [BOT CONTROL] Falha ao enviar mensagem no canal ${data.channelId}:`, err.message);
+      }
+    })
     .subscribe((status) => {
       console.log(`📡 [BOT CONTROL CHANNEL STATUS] status: ${status}`);
     });
