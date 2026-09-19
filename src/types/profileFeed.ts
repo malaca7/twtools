@@ -5,6 +5,9 @@ export interface SocialLinks {
   twitch?: string;
   youtube?: string;
   discord?: string;
+  kick?: string;
+  steam?: string;
+  spotify?: string;
 }
 
 export interface ProfilePost {

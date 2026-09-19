@@ -46,6 +46,7 @@ import { useMembers } from "@/hooks/useData";
 import { type SocialLinks } from "@/types/profileFeed";
 import { UserAppearanceSettings } from "@/components/profile/UserAppearanceSettings";
 import { UniversalImageAdjusterModal } from "@/components/ui/UniversalImageAdjusterModal";
+import { SocialNetworksConfigCard } from "@/components/profile/SocialNetworksConfigCard";
 
 export const Route = createFileRoute("/_authenticated/perfil")({
   component: PerfilWrapper,
@@ -170,11 +171,7 @@ export function PerfilPage({ initialTab }: { initialTab?: "perfil" | "dados" | "
   const [copiedLink, setCopiedLink] = useState(false);
 
   // Redes Sociais
-  const [instagram, setInstagram] = useState("");
-  const [twitter, setTwitter] = useState("");
-  const [tiktok, setTiktok] = useState("");
-  const [twitch, setTwitch] = useState("");
-  const [youtube, setYoutube] = useState("");
+  const [socialLinks, setSocialLinks] = useState<SocialLinks>({});
 
   // Estado do Studio Universal de Ajuste de Imagem
   const [adjusterConfig, setAdjusterConfig] = useState<{
@@ -228,11 +225,7 @@ export function PerfilPage({ initialTab }: { initialTab?: "perfil" | "dados" | "
       setPublicProfileEnabled(profile.custom_theme?.public_profile_enabled !== false);
 
       const social: SocialLinks = (profile as any).social_links || profile.custom_theme?.social_links || {};
-      setInstagram(social.instagram || "");
-      setTwitter(social.twitter || "");
-      setTiktok(social.tiktok || "");
-      setTwitch(social.twitch || "");
-      setYoutube(social.youtube || "");
+      setSocialLinks(social);
     }
   }, [profile]);
 
@@ -378,14 +371,6 @@ export function PerfilPage({ initialTab }: { initialTab?: "perfil" | "dados" | "
       if (!nome.trim()) throw new Error("O Nome do Jogador é obrigatório.");
       if (!telefone.trim()) throw new Error("O Telefone em jogo é obrigatório.");
       if (!gameId.trim()) throw new Error("O ID do Personagem em jogo é obrigatório.");
-
-      const socialLinks: SocialLinks = {
-        instagram: instagram.trim().replace(/^@/, "") || undefined,
-        twitter: twitter.trim().replace(/^@/, "") || undefined,
-        tiktok: tiktok.trim().replace(/^@/, "") || undefined,
-        twitch: twitch.trim().replace(/^@/, "") || undefined,
-        youtube: youtube.trim() || undefined,
-      };
 
       await updateUserProfile({
         nome,
@@ -960,83 +945,11 @@ export function PerfilPage({ initialTab }: { initialTab?: "perfil" | "dados" | "
                 </CardContent>
               </Card>
 
-              {/* CARD 5: REDES SOCIAIS */}
-              <Card className="surface-card">
-                <CardHeader className="pb-3 border-b border-border/50">
-                  <CardTitle className="text-base font-semibold text-foreground flex items-center gap-2">
-                    <Radio className="h-4 w-4 text-rose-400" /> Redes Sociais
-                  </CardTitle>
-                  <CardDescription className="text-xs">
-                    Adicione links das suas redes sociais para exibir botões clicáveis no seu perfil.
-                  </CardDescription>
-                </CardHeader>
-
-                <CardContent className="space-y-3 pt-4 text-xs">
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    <div className="space-y-1">
-                      <Label className="text-[11px] text-muted-foreground font-semibold">📸 Instagram</Label>
-                      <div className="relative flex items-center">
-                        <span className="absolute left-3 text-muted-foreground text-xs font-bold">@</span>
-                        <Input
-                          placeholder="usuario"
-                          value={instagram}
-                          onChange={(e) => setInstagram(e.target.value)}
-                          className="pl-7 text-xs h-8"
-                        />
-                      </div>
-                    </div>
-
-                    <div className="space-y-1">
-                      <Label className="text-[11px] text-muted-foreground font-semibold">🐦 X / Twitter</Label>
-                      <div className="relative flex items-center">
-                        <span className="absolute left-3 text-muted-foreground text-xs font-bold">@</span>
-                        <Input
-                          placeholder="usuario"
-                          value={twitter}
-                          onChange={(e) => setTwitter(e.target.value)}
-                          className="pl-7 text-xs h-8"
-                        />
-                      </div>
-                    </div>
-
-                    <div className="space-y-1">
-                      <Label className="text-[11px] text-muted-foreground font-semibold">🎵 TikTok</Label>
-                      <div className="relative flex items-center">
-                        <span className="absolute left-3 text-muted-foreground text-xs font-bold">@</span>
-                        <Input
-                          placeholder="usuario"
-                          value={tiktok}
-                          onChange={(e) => setTiktok(e.target.value)}
-                          className="pl-7 text-xs h-8"
-                        />
-                      </div>
-                    </div>
-
-                    <div className="space-y-1">
-                      <Label className="text-[11px] text-muted-foreground font-semibold">🟣 Twitch</Label>
-                      <div className="relative flex items-center">
-                        <span className="absolute left-3 text-muted-foreground text-xs font-mono">twitch.tv/</span>
-                        <Input
-                          placeholder="canal"
-                          value={twitch}
-                          onChange={(e) => setTwitch(e.target.value)}
-                          className="pl-20 text-xs h-8"
-                        />
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="space-y-1">
-                    <Label className="text-[11px] text-muted-foreground font-semibold">🔴 YouTube</Label>
-                    <Input
-                      placeholder="@canal ou link completo do seu canal"
-                      value={youtube}
-                      onChange={(e) => setYoutube(e.target.value)}
-                      className="text-xs h-8"
-                    />
-                  </div>
-                </CardContent>
-              </Card>
+              {/* CARD 5: REDES SOCIAIS & CONTAS VINCULADAS */}
+              <SocialNetworksConfigCard
+                socialLinks={socialLinks}
+                onChange={setSocialLinks}
+              />
 
               {/* CARD 6: CONTA DO DISCORD VINCULADA */}
               <Card className="surface-card border-indigo-500/20 bg-indigo-500/5">

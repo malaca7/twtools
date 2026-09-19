@@ -38,6 +38,7 @@ import { ProfileFeed } from "@/components/profile/ProfileFeed";
 import { BANNER_PRESETS, type SocialLinks } from "@/types/profileFeed";
 import { STREAM_PLATFORMS } from "@/types/lives";
 import { PerfilPage } from "@/routes/_authenticated/perfil";
+import { SocialPlatformsList } from "@/components/profile/SocialPlatformIcons";
 
 export interface PublicProfilePageProps {
   handleOverride?: string;
@@ -481,13 +482,16 @@ export function PublicProfilePage({ handleOverride, isRootRoute = false }: Publi
               )}
             </div>
 
-            {/* SISTEMA DE SEGUIR & NOTIFICAÇÕES */}
-            <div className="pt-3 border-t border-border/50 mt-3">
+            {/* SISTEMA DE SEGUIR & NOTIFICAÇÕES & REDES SOCIAIS RÁPIDAS */}
+            <div className="pt-3 border-t border-border/50 mt-3 flex flex-wrap items-center justify-between gap-3">
               <ProfileFollowButton
                 targetUserId={userId}
                 targetName={displayName}
                 isSelf={isSelf}
               />
+
+              {/* Botões Elegantes de Redes Sociais no Topo */}
+              <SocialPlatformsList socialLinks={socialLinks} size="sm" />
             </div>
           </div>
         </div>
@@ -522,7 +526,7 @@ export function PublicProfilePage({ handleOverride, isRootRoute = false }: Publi
               <Radio className="h-4 w-4 text-rose-400" /> Redes & Transmissões
             </CardTitle>
           </CardHeader>
-          <CardContent className="pt-4 space-y-2.5 text-xs">
+          <CardContent className="pt-4 space-y-3.5 text-xs">
             {/* CANAIS DE STREAMING VINCULADOS */}
             {streamAccounts.length > 0 ? (
               <div className="space-y-1.5 pb-2">
@@ -553,62 +557,11 @@ export function PublicProfilePage({ handleOverride, isRootRoute = false }: Publi
               </div>
             ) : null}
 
-            {/* LINKS DE REDES SOCIAIS */}
-            <div className="space-y-1.5">
-              <p className="text-[10px] uppercase font-bold text-muted-foreground">Redes Sociais</p>
+            {/* LINKS DE REDES SOCIAIS: BOTÕES ULTRA ELEGANTES COM APENAS ÍCONES */}
+            <div className="space-y-2">
+              <p className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider">Redes Sociais</p>
               {Object.keys(socialLinks).some((k) => Boolean((socialLinks as any)[k])) ? (
-                <div className="flex flex-wrap gap-1.5">
-                  {socialLinks.instagram && (
-                    <a
-                      href={`https://instagram.com/${socialLinks.instagram.replace(/^@/, "")}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border border-border/70 bg-secondary/40 hover:bg-secondary text-[11px] font-bold text-foreground transition-colors"
-                    >
-                      <span>📸 Instagram</span>
-                    </a>
-                  )}
-                  {socialLinks.twitter && (
-                    <a
-                      href={`https://x.com/${socialLinks.twitter.replace(/^@/, "")}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border border-border/70 bg-secondary/40 hover:bg-secondary text-[11px] font-bold text-foreground transition-colors"
-                    >
-                      <span>🐦 X / Twitter</span>
-                    </a>
-                  )}
-                  {socialLinks.tiktok && (
-                    <a
-                      href={`https://tiktok.com/@${socialLinks.tiktok.replace(/^@/, "")}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border border-border/70 bg-secondary/40 hover:bg-secondary text-[11px] font-bold text-foreground transition-colors"
-                    >
-                      <span>🎵 TikTok</span>
-                    </a>
-                  )}
-                  {socialLinks.twitch && (
-                    <a
-                      href={`https://twitch.tv/${socialLinks.twitch.replace(/^@/, "")}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border border-purple-500/30 bg-purple-500/10 text-purple-300 text-[11px] font-bold transition-colors"
-                    >
-                      <span>🟣 Twitch</span>
-                    </a>
-                  )}
-                  {socialLinks.youtube && (
-                    <a
-                      href={socialLinks.youtube.startsWith("http") ? socialLinks.youtube : `https://youtube.com/@${socialLinks.youtube.replace(/^@/, "")}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border border-red-500/30 bg-red-500/10 text-red-400 text-[11px] font-bold transition-colors"
-                    >
-                      <span>🔴 YouTube</span>
-                    </a>
-                  )}
-                </div>
+                <SocialPlatformsList socialLinks={socialLinks} size="md" className="gap-2.5 pt-0.5" />
               ) : (
                 <p className="text-muted-foreground text-[11px] italic">
                   Nenhuma rede social configurada.
