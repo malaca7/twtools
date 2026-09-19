@@ -185,7 +185,7 @@ export function DevBotManageCard({ isCeoView: isCeoViewProp }: DevBotManageCardP
   const [lastHeartbeatTime, setLastHeartbeatTime] = useState<number | null>(null);
 
   // Estados estilo Perfil do Discord
-  const [activeDiscordTab, setActiveDiscordTab] = useState<"bio" | "servers" | "data">("bio");
+  const [activeDiscordTab, setActiveDiscordTab] = useState<"bio" | "servers">("bio");
   const [devNote, setDevNote] = useState<string>(() => {
     try {
       return localStorage.getItem("tw_bot_profile_note") || "";
@@ -1103,7 +1103,7 @@ export function DevBotManageCard({ isCeoView: isCeoViewProp }: DevBotManageCardP
                 </div>
               </div>
 
-              {/* ABAS DISCORD: Bio | 2 servidores mútuos | Acesso a dados */}
+              {/* ABAS DISCORD: Bio | Servidores Mútuos */}
               <div className="flex items-center gap-4 border-b border-[#2b2d31] mb-3 text-[11px] font-bold text-[#949ba4]">
                 <button
                   type="button"
@@ -1124,16 +1124,6 @@ export function DevBotManageCard({ isCeoView: isCeoViewProp }: DevBotManageCardP
                   )}
                 >
                   {guilds.length} {guilds.length === 1 ? "servidor mútuo" : "servidores mútuos"}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setActiveDiscordTab("data")}
-                  className={cn(
-                    "pb-1.5 transition-colors cursor-pointer relative",
-                    activeDiscordTab === "data" ? "text-white border-b-2 border-white" : "hover:text-zinc-200"
-                  )}
-                >
-                  Acesso a dados
                 </button>
               </div>
 
@@ -1312,43 +1302,6 @@ export function DevBotManageCard({ isCeoView: isCeoViewProp }: DevBotManageCardP
                   ))}
                 </div>
               )}
-
-              {/* ABA ACESSO A DADOS */}
-              {activeDiscordTab === "data" && (
-                <div className="space-y-2.5 text-xs">
-                  <div className="grid grid-cols-2 gap-2">
-                    <div className="rounded-xl bg-[#1e1f22] p-2.5 border border-[#2b2d31]">
-                      <p className="text-[9px] uppercase font-bold text-[#949ba4]">Gateway Latency</p>
-                      <p className="text-xs font-mono font-bold text-[#23a55a] mt-0.5">
-                        {heartbeat?.pingMs ? `${heartbeat.pingMs}ms` : "34ms (Estável)"}
-                      </p>
-                    </div>
-                    <div className="rounded-xl bg-[#1e1f22] p-2.5 border border-[#2b2d31]">
-                      <p className="text-[9px] uppercase font-bold text-[#949ba4]">
-                        {isCeoView ? "Servidor VPS" : "Discloud Host"}
-                      </p>
-                      <p className="text-xs font-mono font-bold text-primary mt-0.5 truncate">
-                        {isCeoView ? "vps.twinwheels.internal" : "twin.discloud.app"}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="rounded-xl bg-[#1e1f22] p-2.5 border border-[#2b2d31] space-y-1">
-                    <p className="text-[9px] uppercase font-bold text-[#949ba4]">Intents Ativas</p>
-                    <div className="flex flex-wrap gap-1 pt-0.5">
-                      <Badge variant="outline" className="border-emerald-500/30 text-emerald-400 text-[9px] py-0 px-1.5">
-                        ✓ Message Content
-                      </Badge>
-                      <Badge variant="outline" className="border-emerald-500/30 text-emerald-400 text-[9px] py-0 px-1.5">
-                        ✓ Server Members
-                      </Badge>
-                      <Badge variant="outline" className="border-emerald-500/30 text-emerald-400 text-[9px] py-0 px-1.5">
-                        ✓ Presence Update
-                      </Badge>
-                    </div>
-                  </div>
-                </div>
-              )}
             </div>
           </div>
         </div>
@@ -1365,7 +1318,7 @@ export function DevBotManageCard({ isCeoView: isCeoViewProp }: DevBotManageCardP
                   </div>
                   <div>
                     <CardTitle className="text-sm font-black text-foreground flex items-center gap-2">
-                      {isCeoView ? "Controle do Bot no Servidor VPS" : "Controle do Bot Discloud"}
+                      {isCeoView ? "Controle do Bot" : "Controle do Bot Discloud"}
                       {isBotRunning ? (
                         <Badge className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 text-[10px] font-bold gap-1 py-0.5">
                           <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />

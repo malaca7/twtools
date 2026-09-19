@@ -379,10 +379,10 @@ export function CeoPageContent({ initialTab }: { initialTab?: string } = {}) {
               <CardContent>
                 <div className="text-lg font-black text-indigo-300 flex items-center gap-2">
                   <span className="h-2.5 w-2.5 rounded-full bg-emerald-400 animate-pulse" />
-                  Online no Servidor VPS
+                  Bot Online & Operacional
                 </div>
                 <p className="text-[0.7rem] text-muted-foreground mt-1">
-                  Automação e logs Discord ativos no VPS
+                  Automação e logs Discord ativos em tempo real
                 </p>
               </CardContent>
             </Card>
@@ -544,13 +544,13 @@ export function CeoPageContent({ initialTab }: { initialTab?: string } = {}) {
                       </Badge>
                     </h3>
                     <p className="text-xs text-muted-foreground">
-                      Supervisione o status da aplicação no Servidor VPS, reinicie serviços e personalize mensagens e atividades em tempo real.
+                      Supervisione o status da aplicação, reinicie serviços e personalize mensagens e atividades em tempo real.
                     </p>
                   </div>
                 </div>
 
                 <Badge variant="outline" className="text-xs font-mono border-indigo-500/40 text-indigo-300 bg-indigo-500/10 self-start sm:self-auto py-1 px-3">
-                  Host: Servidor VPS Dedicado
+                  Host: Bot Discord Ativo
                 </Badge>
               </CardContent>
             </Card>
