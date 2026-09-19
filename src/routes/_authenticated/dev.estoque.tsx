@@ -1,11 +1,12 @@
 import { useState, useMemo, useEffect } from "react";
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
   Boxes,
   Bot,
   Wrench,
+  PackageCheck,
   ShieldAlert,
   CheckCircle2,
   XCircle,
@@ -113,6 +114,17 @@ export function DevEstoquePageContent({ initialTab }: { initialTab?: string } = 
         />
 
         <div className="flex flex-wrap items-center gap-2">
+          <Button
+            asChild
+            variant="outline"
+            size="sm"
+            className="h-8 text-xs font-semibold gap-1.5 rounded-xl border-emerald-500/30 text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20 hover:text-emerald-300"
+          >
+            <Link to="/dev/gestao-estoque">
+              <PackageCheck className="w-3.5 h-3.5" />
+              <span>Gestão de Estoque Geral →</span>
+            </Link>
+          </Button>
           <Badge variant="outline" className="bg-emerald-500/10 text-emerald-400 border-emerald-500/30 gap-1.5 py-1 px-3">
             <Bot className="w-3.5 h-3.5" />
             {config?.is_active ? "Bot Discord Ativo" : "Bot em Pausa"}

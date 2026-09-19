@@ -37,6 +37,7 @@ import {
   Radio,
   CalendarOff,
   BellRing,
+  PackageCheck,
 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -78,6 +79,7 @@ const ALL_SYSTEM_MODULES = [
     description: "Administração do inventário, controle de membros e estrutura hierárquica.",
     items: [
       { title: "Controle de Estoque", url: "/controledeestoque", icon: Boxes, desc: "Catálogo de produtos, imagens, saldo por baú e categorias", color: "text-blue-400" },
+      { title: "Gestão de Estoque", url: "/gestao-estoque", icon: PackageCheck, desc: "Painel gerencial de produtos, baús, categorias e saldos", color: "text-emerald-400" },
       { title: "Membros do grupo", url: "/membros", icon: Users, desc: "Lista de membros, aprovação de cadastros e atribuição de cargos", color: "text-cyan-400" },
       { title: "Hierarquia", url: "/hierarquia", icon: Workflow, desc: "Organograma visual da liderança e cargos do grupo", color: "text-purple-400" },
       { title: "Rankings", url: "/rankings", icon: Trophy, desc: "Ranking de produtividade, vendas e presença dos membros", color: "text-yellow-400" },

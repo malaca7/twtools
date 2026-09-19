@@ -1,5 +1,5 @@
 import { useState, useMemo, useRef, useEffect } from "react";
-import { createFileRoute, Outlet, useChildMatches } from "@tanstack/react-router";
+import { createFileRoute, Outlet, useChildMatches, Link } from "@tanstack/react-router";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
@@ -32,6 +32,7 @@ import {
   Equal,
   Upload,
   Filter,
+  Wrench,
 } from "lucide-react";
 import { BauIcon } from "@/components/ui/bau-icon";
 import { useAuth } from "@/hooks/useAuth";
@@ -96,25 +97,27 @@ function GestaoEstoqueWrapper() {
 export type GestaoEstoqueTab = "produtos" | "categorias" | "baus" | "saldos";
 export const VALID_GESTAO_ESTOQUE_TABS = ["produtos", "categorias", "baus", "saldos"] as const;
 
-export function GestaoEstoquePage() {
-  const { hasPermission } = useAuth();
+export function GestaoEstoquePage({ initialTab }: { initialTab?: GestaoEstoqueTab } = {}) {
+  const { hasPermission, isDevMode, isDevUser: isDevFromAuth } = useAuth();
+  const isDevUser = isDevMode || isDevFromAuth;
+
   const { data: products = [], refetch: refetchProducts, isRefetching: isRefetchingProducts } = useProducts();
   const { data: categories = [], refetch: refetchCategories } = useCategories();
   const { data: baus = [], refetch: refetchBaus } = useBaus();
   const { refetch: refetchProductBaus } = useProductBaus();
 
-  // Permissões granulares e isoladas da Gestão de Estoque
-  const canManageProdutos = hasPermission("manage_stock_products");
+  // Permissões granulares e isoladas da Gestão de Estoque (com bypass de visualização para Tag Dev)
+  const canManageProdutos = hasPermission("manage_stock_products") || isDevUser;
   const canViewProdutos = canManageProdutos;
 
-  const canManageCategorias = hasPermission("manage_stock_categories");
+  const canManageCategorias = hasPermission("manage_stock_categories") || isDevUser;
   const canViewCategorias = canManageCategorias;
 
-  const canManageBaus = hasPermission("manage_stock_baus");
+  const canManageBaus = hasPermission("manage_stock_baus") || isDevUser;
   const canViewBaus = canManageBaus;
 
-  const canManageStockBalance = hasPermission("manage_stock_balance");
-  const canAdjustSaldos = canManageStockBalance || hasPermission("adjust_stock_balance");
+  const canManageStockBalance = hasPermission("manage_stock_balance") || isDevUser;
+  const canAdjustSaldos = canManageStockBalance || hasPermission("adjust_stock_balance") || isDevUser;
   const canViewSaldos = canAdjustSaldos;
 
   const hasBaseManagement =
@@ -122,7 +125,8 @@ export function GestaoEstoquePage() {
     canViewProdutos ||
     canViewCategorias ||
     canViewBaus ||
-    canViewSaldos;
+    canViewSaldos ||
+    isDevUser;
 
   // Lista dinâmica de abas estritamente permitidas (as não permitidas ficam 100% ocultas)
   const visibleTabs = useMemo<{ id: GestaoEstoqueTab; label: string; icon: any; count?: number }[]>(() => {
@@ -144,7 +148,12 @@ export function GestaoEstoquePage() {
   }, [canViewProdutos, canViewCategorias, canViewBaus, canViewSaldos, products, categories.length, baus.length]);
 
   const allowedTabsList = useMemo(() => visibleTabs.map((t) => t.id), [visibleTabs]);
-  const defaultTab = allowedTabsList[0] || "produtos";
+  const defaultTab = useMemo(() => {
+    if (initialTab && (allowedTabsList as string[]).includes(initialTab)) {
+      return initialTab;
+    }
+    return allowedTabsList[0] || "produtos";
+  }, [initialTab, allowedTabsList]);
 
   const [activeTab, setActiveTab] = useUrlTab<GestaoEstoqueTab>(defaultTab, {
     paramName: "aba",
@@ -157,6 +166,13 @@ export function GestaoEstoquePage() {
       setActiveTab(allowedTabsList[0]);
     }
   }, [allowedTabsList, activeTab, setActiveTab]);
+
+  // Sincronização reativa caso a aba inicial da rota mude
+  useEffect(() => {
+    if (initialTab && (allowedTabsList as string[]).includes(initialTab) && activeTab !== initialTab) {
+      setActiveTab(initialTab);
+    }
+  }, [initialTab, allowedTabsList, activeTab, setActiveTab]);
 
   const canAccess = hasBaseManagement && allowedTabsList.length > 0;
 
@@ -210,6 +226,11 @@ export function GestaoEstoquePage() {
                 <Badge variant="outline" className="border-primary/40 text-primary bg-primary/10 text-[10px] font-bold">
                   Operações & Catálogo
                 </Badge>
+                {isDevUser && (
+                  <Badge variant="outline" className="border-rose-500/40 text-rose-400 bg-rose-500/10 text-[10px] font-bold hidden sm:inline-flex">
+                    Visão Dev (Acesso Pleno)
+                  </Badge>
+                )}
               </div>
               <p className="text-xs text-muted-foreground">
                 Cadastros, categorias, parametrização de baús do grupo e ajustes auditados de inventário.
@@ -218,7 +239,22 @@ export function GestaoEstoquePage() {
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          {isDevUser && (
+            <Button
+              asChild
+              variant="outline"
+              size="sm"
+              className="h-9 text-xs font-semibold gap-1.5 rounded-xl border-rose-500/30 text-rose-400 bg-rose-500/10 hover:bg-rose-500/20 hover:text-rose-300 shadow-xs"
+            >
+              <Link to="/dev/estoque">
+                <Wrench className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Ajustes Dev & Bot</span>
+                <span className="sm:hidden">Dev Estoque</span>
+              </Link>
+            </Button>
+          )}
+
           <Button
             type="button"
             variant="outline"

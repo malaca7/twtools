@@ -169,6 +169,7 @@ const URL_TO_PERMISSION_MAP: Record<string, Permission> = {
   "/perfil": "view_profile",
   "/configuracoes": "manage_platform_settings",
   "/dev/notificacoes": "view_dev_notifications",
+  "/dev/gestao-estoque": "view_stock_management",
   "/ceo/notificacoes": "view_ceo_notifications",
   "/ceo/ajustes-estoque": "view_ceo_stock_adjustments",
 };
@@ -548,6 +549,8 @@ function DynamicSidebarNavigation() {
             devUrl = "/dev/permissoes-gerais";
           } else if (item.id === "estoque" || item.url === "/controledeestoque" || item.url === "/estoque") {
             devUrl = "/dev/controledeestoque";
+          } else if (item.id === "gestao-estoque" || item.url === "/gestao-estoque") {
+            devUrl = "/dev/gestao-estoque";
           } else if (devUrl.startsWith("/") && !devUrl.startsWith("/dev")) {
             devUrl = `/dev${devUrl}`;
           }

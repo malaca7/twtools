@@ -6,5 +6,6 @@ export const Route = createFileRoute("/_authenticated/gestao-estoque/$tab")({
 });
 
 function GestaoEstoqueTabRoute() {
-  return <GestaoEstoquePage />;
+  const { tab } = Route.useParams();
+  return <GestaoEstoquePage initialTab={tab as any} />;
 }

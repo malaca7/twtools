@@ -35,6 +35,7 @@ import { DevNotificationsPage } from "@/routes/_authenticated/dev.notificacoes";
 import { DevBotPageContent } from "@/routes/_authenticated/dev.bot";
 import { DevEstoquePageContent } from "@/routes/_authenticated/dev.estoque";
 import { DevHubContent } from "@/routes/_authenticated/dev.index";
+import { GestaoEstoquePage } from "@/routes/_authenticated/gestao-estoque";
 
 export interface PlatformPageDispatcherProps {
   page: string;
@@ -52,9 +53,12 @@ const PAGE_PERMISSION_MAP: Record<string, Permission | null> = {
   controledeestoque: "view_stock",
   "controle-estoque": "view_stock",
   estoque: "view_stock",
-  baus: "view_stock",
-  categorias: "view_stock",
-  produtos: "view_stock",
+  "gestao-estoque": "view_stock_management",
+  gestaoestoque: "view_stock_management",
+  baus: "view_stock_management",
+  categorias: "view_stock_management",
+  produtos: "view_stock_management",
+  saldos: "view_stock_management",
   membros: "view_members",
   hierarquia: "view_hierarchy",
   "fundo-caixa": "view_cash_fund",
@@ -128,9 +132,9 @@ function InnerPageResolver({ page, tab, mode }: { page: string; tab?: string; mo
     }
   }
 
-  // Verifica permissão da página se exigida
+  // Verifica permissão da página se exigida (modo dev possui bypass total para inspeção e governança)
   const requiredPerm = PAGE_PERMISSION_MAP[normalizedPage];
-  if (requiredPerm && !hasPermission(requiredPerm)) {
+  if (requiredPerm && !hasPermission(requiredPerm) && mode !== "dev") {
     return <NoAccess />;
   }
 
@@ -150,10 +154,18 @@ function InnerPageResolver({ page, tab, mode }: { page: string; tab?: string; mo
     case "controledeestoque":
     case "controle-estoque":
     case "estoque":
-    case "baus":
-    case "categorias":
-    case "produtos":
       return <EstoquePage />;
+    case "gestao-estoque":
+    case "gestaoestoque":
+      return <GestaoEstoquePage initialTab={tab as any} />;
+    case "produtos":
+      return <GestaoEstoquePage initialTab="produtos" />;
+    case "categorias":
+      return <GestaoEstoquePage initialTab="categorias" />;
+    case "baus":
+      return <GestaoEstoquePage initialTab="baus" />;
+    case "saldos":
+      return <GestaoEstoquePage initialTab="saldos" />;
     case "membros":
       return <MembrosPage />;
     case "hierarquia":
