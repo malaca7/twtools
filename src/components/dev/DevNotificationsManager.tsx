@@ -881,52 +881,75 @@ export function DevNotificationsManager() {
     return { total, active, inactive, typeCounts, categoryCounts };
   }, [notifications]);
 
+  // Mobile matrix tab states
+  const [mobileMatrixTargetType, setMobileMatrixTargetType] = useState<"role" | "tag">("role");
+  const [mobileMatrixTargetId, setMobileMatrixTargetId] = useState<string>("lider");
+
+  const handleSetAllForTarget = (collection: "roles" | "tags", targetId: string, enable: boolean) => {
+    if (!canManageRules) return;
+    setRules((prev) => {
+      const nextCollection = { ...prev[collection] };
+      nextCollection[targetId] = enable ? [...ALL_NOTIFICATION_TYPES] : [];
+      return {
+        ...prev,
+        [collection]: nextCollection,
+      };
+    });
+    toast.success(enable ? "Todos os tipos ativados para este perfil!" : "Todos os tipos bloqueados para este perfil!");
+  };
+
   return (
     <div className="space-y-6">
       {/* ABAS SUPERIORES DEV */}
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)} className="space-y-6">
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 border-b border-border/60 pb-3">
-          <TabsList className="bg-secondary/60 border border-border/80 p-1 rounded-2xl inline-flex w-full sm:w-auto">
-            <TabsTrigger
-              value="matrix"
-              className="text-xs font-bold gap-1.5 rounded-xl data-[state=active]:bg-card data-[state=active]:text-foreground"
-            >
-              <Sliders className="h-4 w-4 text-purple-400" />
-              Matriz de Tipos por Cargo & Tag
-            </TabsTrigger>
+          <div className="overflow-x-auto no-scrollbar -mx-4 px-4 sm:mx-0 sm:px-0">
+            <TabsList className="bg-secondary/60 border border-border/80 p-1 rounded-2xl inline-flex w-max sm:w-auto h-auto">
+              <TabsTrigger
+                value="matrix"
+                className="text-xs font-bold gap-1.5 rounded-xl px-3 py-2 data-[state=active]:bg-card data-[state=active]:text-foreground"
+              >
+                <Sliders className="h-4 w-4 text-purple-400 shrink-0" />
+                <span className="hidden sm:inline">Matriz de Tipos por Cargo & Tag</span>
+                <span className="sm:hidden">Matriz</span>
+              </TabsTrigger>
 
-            <TabsTrigger
-              value="manager"
-              className="text-xs font-bold gap-1.5 rounded-xl data-[state=active]:bg-card data-[state=active]:text-foreground"
-            >
-              <Layers className="h-4 w-4 text-primary" />
-              Gerenciador Avançado ({notifications.length})
-            </TabsTrigger>
+              <TabsTrigger
+                value="manager"
+                className="text-xs font-bold gap-1.5 rounded-xl px-3 py-2 data-[state=active]:bg-card data-[state=active]:text-foreground"
+              >
+                <Layers className="h-4 w-4 text-primary shrink-0" />
+                <span className="hidden sm:inline">Gerenciador Avançado ({notifications.length})</span>
+                <span className="sm:hidden">Gerenciador ({notifications.length})</span>
+              </TabsTrigger>
 
-            <TabsTrigger
-              value="simulator"
-              className="text-xs font-bold gap-1.5 rounded-xl data-[state=active]:bg-card data-[state=active]:text-foreground"
-            >
-              <Zap className="h-4 w-4 text-amber-400" />
-              Simulador de Push
-            </TabsTrigger>
+              <TabsTrigger
+                value="simulator"
+                className="text-xs font-bold gap-1.5 rounded-xl px-3 py-2 data-[state=active]:bg-card data-[state=active]:text-foreground"
+              >
+                <Zap className="h-4 w-4 text-amber-400 shrink-0" />
+                <span className="hidden sm:inline">Simulador de Push</span>
+                <span className="sm:hidden">Simulador</span>
+              </TabsTrigger>
 
-            <TabsTrigger
-              value="telemetry"
-              className="text-xs font-bold gap-1.5 rounded-xl data-[state=active]:bg-card data-[state=active]:text-foreground"
-            >
-              <Activity className="h-4 w-4 text-emerald-400" />
-              Telemetria
-            </TabsTrigger>
+              <TabsTrigger
+                value="telemetry"
+                className="text-xs font-bold gap-1.5 rounded-xl px-3 py-2 data-[state=active]:bg-card data-[state=active]:text-foreground"
+              >
+                <Activity className="h-4 w-4 text-emerald-400 shrink-0" />
+                Telemetria
+              </TabsTrigger>
 
-            <TabsTrigger
-              value="purge"
-              className="text-xs font-bold gap-1.5 rounded-xl data-[state=active]:bg-card data-[state=active]:text-destructive"
-            >
-              <Trash2 className="h-4 w-4 text-rose-400" />
-              Purge & Manutenção
-            </TabsTrigger>
-          </TabsList>
+              <TabsTrigger
+                value="purge"
+                className="text-xs font-bold gap-1.5 rounded-xl px-3 py-2 data-[state=active]:bg-card data-[state=active]:text-destructive"
+              >
+                <Trash2 className="h-4 w-4 text-rose-400 shrink-0" />
+                <span className="hidden sm:inline">Purge & Manutenção</span>
+                <span className="sm:hidden">Purge</span>
+              </TabsTrigger>
+            </TabsList>
+          </div>
 
           <div className="flex items-center gap-2 self-end sm:self-auto">
             <Button
@@ -1026,12 +1049,12 @@ export function DevNotificationsManager() {
               {/* FILTROS DE DOMÍNIO & BUSCAS */}
               <div className="mt-4 pt-3 border-t border-border/40 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
                 {/* PILULAS DE DOMÍNIO */}
-                <div className="flex flex-wrap items-center gap-1.5 p-1 bg-secondary/30 rounded-xl border border-border/60">
+                <div className="flex items-center gap-1.5 p-1 bg-secondary/30 rounded-xl border border-border/60 overflow-x-auto no-scrollbar flex-nowrap max-w-full">
                   <button
                     type="button"
                     onClick={() => setMatrixDomain("all")}
                     className={cn(
-                      "px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5",
+                      "px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 shrink-0",
                       matrixDomain === "all"
                         ? "bg-primary text-primary-foreground shadow-xs"
                         : "text-muted-foreground hover:text-foreground hover:bg-secondary/50"
@@ -1054,7 +1077,7 @@ export function DevNotificationsManager() {
                         type="button"
                         onClick={() => setMatrixDomain(dom.id)}
                         className={cn(
-                          "px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5",
+                          "px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 shrink-0",
                           isSelected
                             ? "bg-card text-foreground shadow-xs border border-border"
                             : "text-muted-foreground hover:text-foreground hover:bg-secondary/50"
@@ -1145,220 +1168,400 @@ export function DevNotificationsManager() {
               </div>
             </CardHeader>
 
-            <CardContent className="p-0 overflow-x-auto">
-              <table className="w-full text-xs text-left border-collapse min-w-[1000px]">
-                <thead>
-                  <tr className="border-b border-border/80 bg-muted/40">
-                    <th className="p-3.5 font-black uppercase text-muted-foreground w-64 sticky left-0 bg-card/95 backdrop-blur-md z-10 border-r border-border/40">
-                      Cargo / Tag da Facção
-                    </th>
-                    {visibleTypes.map((nType) => {
-                      const info = getNotificationTypeInfo(nType);
-                      const currentOpts = rules.typeOptions?.[nType] || DEFAULT_TYPE_DELIVERY_OPTIONS[nType];
+            <CardContent className="p-0">
+              {/* MOBILE VIEW: ROLE/TAG CARD SELECTOR & TOGGLES */}
+              <div className="block md:hidden p-3 space-y-4">
+                {/* Target Type Switcher (Cargo vs Tag) */}
+                <div className="flex items-center gap-2 p-1 bg-secondary/30 rounded-xl border border-border/60">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMobileMatrixTargetType("role");
+                      setMobileMatrixTargetId(visibleRoles[0]?.id || "lider");
+                    }}
+                    className={cn(
+                      "flex-1 py-1.5 text-xs font-bold rounded-lg transition-all text-center",
+                      mobileMatrixTargetType === "role" ? "bg-primary text-primary-foreground shadow-xs" : "text-muted-foreground"
+                    )}
+                  >
+                    Por Cargo ({visibleRoles.length})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMobileMatrixTargetType("tag");
+                      setMobileMatrixTargetId(visibleTags[0]?.id || (FACCAO_SPECIAL_TAGS[0]?.id ?? ""));
+                    }}
+                    className={cn(
+                      "flex-1 py-1.5 text-xs font-bold rounded-lg transition-all text-center",
+                      mobileMatrixTargetType === "tag" ? "bg-primary text-primary-foreground shadow-xs" : "text-muted-foreground"
+                    )}
+                  >
+                    Por Tag Especial ({visibleTags.length})
+                  </button>
+                </div>
+
+                {/* Target Selector Dropdown */}
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-semibold text-muted-foreground">
+                    Selecione o {mobileMatrixTargetType === "role" ? "Cargo" : "Tag"}:
+                  </Label>
+                  <Select
+                    value={mobileMatrixTargetId}
+                    onValueChange={setMobileMatrixTargetId}
+                  >
+                    <SelectTrigger className="h-10 text-xs font-bold bg-card border-border/80 rounded-xl">
+                      <SelectValue placeholder="Selecione..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {mobileMatrixTargetType === "role"
+                        ? visibleRoles.map((r) => {
+                            const count = (rules.roles[r.id] || []).length;
+                            return (
+                              <SelectItem key={r.id} value={r.id} className="text-xs font-medium">
+                                <div className="flex items-center justify-between gap-3 w-full">
+                                  <span>{r.label}</span>
+                                  <Badge variant="outline" className="text-[10px] font-mono py-0 ml-2">
+                                    {count}/{ALL_NOTIFICATION_TYPES.length}
+                                  </Badge>
+                                </div>
+                              </SelectItem>
+                            );
+                          })
+                        : visibleTags.map((t) => {
+                            const count = (rules.tags[t.id] || []).length;
+                            return (
+                              <SelectItem key={t.id} value={t.id} className="text-xs font-medium">
+                                <div className="flex items-center justify-between gap-3 w-full">
+                                  <span>{t.label}</span>
+                                  <Badge variant="outline" className="text-[10px] font-mono py-0 ml-2">
+                                    {count}/{ALL_NOTIFICATION_TYPES.length}
+                                  </Badge>
+                                </div>
+                              </SelectItem>
+                            );
+                          })}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Role/Tag Quick Toggles & Active Info */}
+                {(() => {
+                  const targetCollection = mobileMatrixTargetType === "role" ? "roles" : "tags";
+                  const currentList = rules[targetCollection][mobileMatrixTargetId] || [];
+                  const activeTargetLabel =
+                    mobileMatrixTargetType === "role"
+                      ? visibleRoles.find((r) => r.id === mobileMatrixTargetId)?.label || mobileMatrixTargetId
+                      : visibleTags.find((t) => t.id === mobileMatrixTargetId)?.label || mobileMatrixTargetId;
+
+                  return (
+                    <div className="p-3 rounded-xl bg-secondary/20 border border-border/50 space-y-3">
+                      <div className="flex items-center justify-between gap-2">
+                        <div>
+                          <p className="text-xs font-extrabold text-foreground">{activeTargetLabel}</p>
+                          <p className="text-[10.5px] text-muted-foreground font-mono">
+                            {currentList.length} de {ALL_NOTIFICATION_TYPES.length} notificações ativas
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleSetAllForTarget(targetCollection, mobileMatrixTargetId, true)}
+                            disabled={!canManageRules}
+                            className="h-7 text-[10.5px] font-bold px-2 border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10"
+                          >
+                            Ativar Tudo
+                          </Button>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleSetAllForTarget(targetCollection, mobileMatrixTargetId, false)}
+                            disabled={!canManageRules}
+                            className="h-7 text-[10.5px] font-bold px-2 border-rose-500/30 text-rose-400 hover:bg-rose-500/10"
+                          >
+                            Desativar
+                          </Button>
+                        </div>
+                      </div>
+
+                      {/* List of Notification Type Cards */}
+                      <div className="divide-y divide-border/30 rounded-xl border border-border/50 bg-card/60 overflow-hidden">
+                        {visibleTypes.length === 0 ? (
+                          <div className="p-4 text-center text-xs text-muted-foreground">
+                            Nenhum tipo de notificação corresponde aos filtros.
+                          </div>
+                        ) : (
+                          visibleTypes.map((nType) => {
+                            const isAllowed = currentList.includes(nType);
+                            const info = getNotificationTypeInfo(nType);
+
+                            return (
+                              <div
+                                key={nType}
+                                className="p-3 flex items-center justify-between gap-3 hover:bg-secondary/20 transition-colors"
+                              >
+                                <div className="min-w-0 space-y-1">
+                                  <div className="flex items-center gap-1.5 flex-wrap">
+                                    <span
+                                      className={cn(
+                                        "inline-flex items-center gap-1 px-1.5 py-0.5 rounded border font-mono text-[10px]",
+                                        info.badgeBg,
+                                        info.badgeColor,
+                                        info.borderColor
+                                      )}
+                                    >
+                                      {renderTypeIconHelper(nType, "h-3 w-3")}
+                                      {info.label}
+                                    </span>
+                                    <button
+                                      type="button"
+                                      onClick={() => openTypeOptionsModal(nType)}
+                                      className="text-muted-foreground hover:text-primary transition-colors p-1"
+                                      title="Configurar som e entrega"
+                                    >
+                                      <Settings2 className="h-3.5 w-3.5" />
+                                    </button>
+                                  </div>
+                                  <p className="text-[10px] text-muted-foreground line-clamp-1">
+                                    {info.description}
+                                  </p>
+                                </div>
+
+                                <Switch
+                                  checked={isAllowed}
+                                  disabled={!canManageRules}
+                                  onCheckedChange={() => handleToggleRule(targetCollection, mobileMatrixTargetId, nType)}
+                                  className="data-[state=checked]:bg-emerald-500 shrink-0"
+                                />
+                              </div>
+                            );
+                          })
+                        )}
+                      </div>
+                    </div>
+                  );
+                })()}
+              </div>
+
+              {/* DESKTOP VIEW: FULL TABLE (Hidden on mobile) */}
+              <div className="hidden md:block overflow-x-auto">
+                <table className="w-full text-xs text-left border-collapse min-w-[1000px]">
+                  <thead>
+                    <tr className="border-b border-border/80 bg-muted/40">
+                      <th className="p-3.5 font-black uppercase text-muted-foreground w-64 md:sticky md:left-0 bg-card/95 backdrop-blur-md z-10 border-r border-border/40">
+                        Cargo / Tag da Facção
+                      </th>
+                      {visibleTypes.map((nType) => {
+                        const info = getNotificationTypeInfo(nType);
+                        const currentOpts = rules.typeOptions?.[nType] || DEFAULT_TYPE_DELIVERY_OPTIONS[nType];
+
+                        return (
+                          <th key={nType} className="p-2.5 font-extrabold text-center uppercase tracking-wider min-w-[110px]">
+                            <div className="inline-flex flex-col items-center gap-1">
+                              <span
+                                className={cn(
+                                  "inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md border font-mono text-[10.5px]",
+                                  info.badgeBg,
+                                  info.badgeColor,
+                                  info.borderColor
+                                )}
+                                title={info.description}
+                              >
+                                {renderTypeIconHelper(nType, "h-3 w-3")}
+                                {info.label}
+                              </span>
+
+                              <button
+                                type="button"
+                                onClick={() => openTypeOptionsModal(nType)}
+                                className="inline-flex items-center gap-1 text-[9.5px] font-mono text-muted-foreground hover:text-primary transition-colors py-0.5 px-1.5 rounded hover:bg-secondary/50"
+                                title={`Configurar som (${currentOpts?.sound || "chime"}), toast e canais de "${info.label}"`}
+                              >
+                                <Settings2 className="h-2.5 w-2.5" />
+                                <span>Opções</span>
+                              </button>
+                            </div>
+                          </th>
+                        );
+                      })}
+                      <th className="p-3 text-center font-extrabold uppercase text-muted-foreground w-28 md:sticky md:right-0 bg-card/95 backdrop-blur-md z-10 border-l border-border/40">
+                        Ações
+                      </th>
+                    </tr>
+                  </thead>
+
+                  <tbody className="divide-y divide-border/40">
+                    {/* SEÇÃO 1: CARGOS HIERÁRQUICOS */}
+                    <tr className="bg-secondary/25">
+                      <td colSpan={visibleTypes.length + 2} className="p-2.5 px-4 font-black uppercase tracking-wider text-[11px] text-primary flex items-center justify-between">
+                        <span>Cargos da Hierarquia Twin Wheels ({visibleRoles.length})</span>
+                        <span className="text-[10px] text-muted-foreground font-mono font-normal">Permissões granulares de recebimento</span>
+                      </td>
+                    </tr>
+
+                    {visibleRoles.map((role) => {
+                      const currentList = rules.roles[role.id] || [];
+                      const allowedCount = currentList.length;
+                      const isAll = allowedCount >= ALL_NOTIFICATION_TYPES.length;
 
                       return (
-                        <th key={nType} className="p-2.5 font-extrabold text-center uppercase tracking-wider min-w-[110px]">
-                          <div className="inline-flex flex-col items-center gap-1">
-                            <span
-                              className={cn(
-                                "inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md border font-mono text-[10.5px]",
-                                info.badgeBg,
-                                info.badgeColor,
-                                info.borderColor
-                              )}
-                              title={info.description}
-                            >
-                              {renderTypeIconHelper(nType, "h-3 w-3")}
-                              {info.label}
-                            </span>
+                        <tr key={role.id} className="hover:bg-secondary/30 transition-colors">
+                          <td className="p-3.5 font-bold text-foreground md:sticky md:left-0 bg-card/95 backdrop-blur-md z-10 border-r border-border/40">
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="truncate">{role.label}</span>
+                              <Badge variant="outline" className={cn("text-[9.5px] font-mono px-1.5 py-0 shrink-0", allowedCount > 0 ? "border-emerald-500/30 text-emerald-400 bg-emerald-500/10" : "border-border/60 text-muted-foreground")}>
+                                {allowedCount}/{ALL_NOTIFICATION_TYPES.length}
+                              </Badge>
+                            </div>
+                          </td>
 
-                            <button
-                              type="button"
-                              onClick={() => openTypeOptionsModal(nType)}
-                              className="inline-flex items-center gap-1 text-[9.5px] font-mono text-muted-foreground hover:text-primary transition-colors py-0.5 px-1.5 rounded hover:bg-secondary/50"
-                              title={`Configurar som (${currentOpts?.sound || "chime"}), toast e canais de "${info.label}"`}
-                            >
-                              <Settings2 className="h-2.5 w-2.5" />
-                              <span>Opções</span>
-                            </button>
-                          </div>
-                        </th>
+                          {visibleTypes.map((nType) => {
+                            const isAllowed = currentList.includes(nType);
+                            const info = getNotificationTypeInfo(nType);
+                            return (
+                              <td key={nType} className="p-2 text-center">
+                                <button
+                                  type="button"
+                                  disabled={!canManageRules}
+                                  onClick={() => handleToggleRule("roles", role.id, nType)}
+                                  className={cn(
+                                    "h-7 w-7 rounded-lg border inline-flex items-center justify-center transition-all cursor-pointer",
+                                    isAllowed
+                                      ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/50 shadow-xs hover:bg-emerald-500/30"
+                                      : "bg-muted/25 text-muted-foreground/35 border-border/40 hover:bg-muted/50 hover:text-muted-foreground"
+                                  )}
+                                  title={isAllowed ? `${info.label}: Permitido para ${role.label}` : `${info.label}: Bloqueado para ${role.label}`}
+                                >
+                                  {isAllowed ? <Check className="h-4 w-4" /> : <X className="h-3.5 w-3.5" />}
+                                </button>
+                              </td>
+                            );
+                          })}
+
+                          <td className="p-2 text-center border-l border-border/40 md:sticky md:right-0 bg-card/95 backdrop-blur-md z-10">
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="sm"
+                                  disabled={!canManageRules}
+                                  className="h-6 text-[10px] px-2 font-mono text-muted-foreground hover:text-foreground gap-1"
+                                >
+                                  <span>Opções</span>
+                                  <ChevronDown className="h-2.5 w-2.5 opacity-60" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end" className="w-48 text-xs">
+                                <DropdownMenuItem onClick={() => handleToggleRowAll("roles", role.id)} className="gap-2 cursor-pointer">
+                                  <CheckSquare className="h-3.5 w-3.5 text-emerald-400" />
+                                  <span>{isAll ? "Desmarcar Todos" : "Marcar Todos"}</span>
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => handleInvertRow("roles", role.id)} className="gap-2 cursor-pointer">
+                                  <ArrowLeftRight className="h-3.5 w-3.5 text-purple-400" />
+                                  <span>Inverter Seleção</span>
+                                </DropdownMenuItem>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem onClick={() => handleOpenCopyModal("roles", role.id, role.label)} className="gap-2 cursor-pointer">
+                                  <Copy className="h-3.5 w-3.5 text-primary" />
+                                  <span>Copiar de outro cargo...</span>
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </td>
+                        </tr>
                       );
                     })}
-                    <th className="p-3 text-center font-extrabold uppercase text-muted-foreground w-28 sticky right-0 bg-card/95 backdrop-blur-md z-10 border-l border-border/40">
-                      Ações
-                    </th>
-                  </tr>
-                </thead>
 
-                <tbody className="divide-y divide-border/40">
-                  {/* SEÇÃO 1: CARGOS HIERÁRQUICOS */}
-                  <tr className="bg-secondary/25">
-                    <td colSpan={visibleTypes.length + 2} className="p-2.5 px-4 font-black uppercase tracking-wider text-[11px] text-primary flex items-center justify-between">
-                      <span>Cargos da Hierarquia Twin Wheels ({visibleRoles.length})</span>
-                      <span className="text-[10px] text-muted-foreground font-mono font-normal">Permissões granulares de recebimento</span>
-                    </td>
-                  </tr>
+                    {/* SEÇÃO 2: TAGS ESPECIAIS */}
+                    <tr className="bg-secondary/25">
+                      <td colSpan={visibleTypes.length + 2} className="p-2.5 px-4 font-black uppercase tracking-wider text-[11px] text-primary flex items-center justify-between">
+                        <span>Tags Especiais de Diretoria & Desenvolvimento ({visibleTags.length})</span>
+                        <span className="text-[10px] text-muted-foreground font-mono font-normal">Cargos de auditoria e governança</span>
+                      </td>
+                    </tr>
 
-                  {visibleRoles.map((role) => {
-                    const currentList = rules.roles[role.id] || [];
-                    const allowedCount = currentList.length;
-                    const isAll = allowedCount >= ALL_NOTIFICATION_TYPES.length;
+                    {visibleTags.map((tag) => {
+                      const currentList = rules.tags[tag.id] || [];
+                      const allowedCount = currentList.length;
+                      const isAll = allowedCount >= ALL_NOTIFICATION_TYPES.length;
 
-                    return (
-                      <tr key={role.id} className="hover:bg-secondary/30 transition-colors">
-                        <td className="p-3.5 font-bold text-foreground sticky left-0 bg-card/95 backdrop-blur-md z-10 border-r border-border/40">
-                          <div className="flex items-center justify-between gap-2">
-                            <span className="truncate">{role.label}</span>
-                            <Badge variant="outline" className={cn("text-[9.5px] font-mono px-1.5 py-0 shrink-0", allowedCount > 0 ? "border-emerald-500/30 text-emerald-400 bg-emerald-500/10" : "border-border/60 text-muted-foreground")}>
-                              {allowedCount}/{ALL_NOTIFICATION_TYPES.length}
-                            </Badge>
-                          </div>
-                        </td>
+                      return (
+                        <tr key={tag.id} className="hover:bg-secondary/30 transition-colors">
+                          <td className="p-3.5 md:sticky md:left-0 bg-card/95 backdrop-blur-md z-10 border-r border-border/40">
+                            <div className="flex items-center justify-between gap-2">
+                              <Badge variant="outline" className={cn("text-[10px] font-bold py-0.5", tag.color)}>
+                                {tag.label}
+                              </Badge>
+                              <Badge variant="outline" className={cn("text-[9.5px] font-mono px-1.5 py-0 shrink-0", allowedCount > 0 ? "border-emerald-500/30 text-emerald-400 bg-emerald-500/10" : "border-border/60 text-muted-foreground")}>
+                                {allowedCount}/{ALL_NOTIFICATION_TYPES.length}
+                              </Badge>
+                            </div>
+                          </td>
 
-                        {visibleTypes.map((nType) => {
-                          const isAllowed = currentList.includes(nType);
-                          const info = getNotificationTypeInfo(nType);
-                          return (
-                            <td key={nType} className="p-2 text-center">
-                              <button
-                                type="button"
-                                disabled={!canManageRules}
-                                onClick={() => handleToggleRule("roles", role.id, nType)}
-                                className={cn(
-                                  "h-7 w-7 rounded-lg border inline-flex items-center justify-center transition-all cursor-pointer",
-                                  isAllowed
-                                    ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/50 shadow-xs hover:bg-emerald-500/30"
-                                    : "bg-muted/25 text-muted-foreground/35 border-border/40 hover:bg-muted/50 hover:text-muted-foreground"
-                                )}
-                                title={isAllowed ? `${info.label}: Permitido para ${role.label}` : `${info.label}: Bloqueado para ${role.label}`}
-                              >
-                                {isAllowed ? <Check className="h-4 w-4" /> : <X className="h-3.5 w-3.5" />}
-                              </button>
-                            </td>
-                          );
-                        })}
+                          {visibleTypes.map((nType) => {
+                            const isAllowed = currentList.includes(nType);
+                            const info = getNotificationTypeInfo(nType);
+                            return (
+                              <td key={nType} className="p-2 text-center">
+                                <button
+                                  type="button"
+                                  disabled={!canManageRules}
+                                  onClick={() => handleToggleRule("tags", tag.id, nType)}
+                                  className={cn(
+                                    "h-7 w-7 rounded-lg border inline-flex items-center justify-center transition-all cursor-pointer",
+                                    isAllowed
+                                      ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/50 shadow-xs hover:bg-emerald-500/30"
+                                      : "bg-muted/25 text-muted-foreground/35 border-border/40 hover:bg-muted/50 hover:text-muted-foreground"
+                                  )}
+                                  title={isAllowed ? `${info.label}: Permitido para ${tag.label}` : `${info.label}: Bloqueado para ${tag.label}`}
+                                >
+                                  {isAllowed ? <Check className="h-4 w-4" /> : <X className="h-3.5 w-3.5" />}
+                                </button>
+                              </td>
+                            );
+                          })}
 
-                        <td className="p-2 text-center border-l border-border/40 sticky right-0 bg-card/95 backdrop-blur-md z-10">
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="sm"
-                                disabled={!canManageRules}
-                                className="h-6 text-[10px] px-2 font-mono text-muted-foreground hover:text-foreground gap-1"
-                              >
-                                <span>Opções</span>
-                                <ChevronDown className="h-2.5 w-2.5 opacity-60" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end" className="w-48 text-xs">
-                              <DropdownMenuItem onClick={() => handleToggleRowAll("roles", role.id)} className="gap-2 cursor-pointer">
-                                <CheckSquare className="h-3.5 w-3.5 text-emerald-400" />
-                                <span>{isAll ? "Desmarcar Todos" : "Marcar Todos"}</span>
-                              </DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => handleInvertRow("roles", role.id)} className="gap-2 cursor-pointer">
-                                <ArrowLeftRight className="h-3.5 w-3.5 text-purple-400" />
-                                <span>Inverter Seleção</span>
-                              </DropdownMenuItem>
-                              <DropdownMenuSeparator />
-                              <DropdownMenuItem onClick={() => handleOpenCopyModal("roles", role.id, role.label)} className="gap-2 cursor-pointer">
-                                <Copy className="h-3.5 w-3.5 text-primary" />
-                                <span>Copiar de outro cargo...</span>
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        </td>
-                      </tr>
-                    );
-                  })}
-
-                  {/* SEÇÃO 2: TAGS ESPECIAIS */}
-                  <tr className="bg-secondary/25">
-                    <td colSpan={visibleTypes.length + 2} className="p-2.5 px-4 font-black uppercase tracking-wider text-[11px] text-amber-400 flex items-center justify-between">
-                      <span>Tags Especiais de Diretoria & Desenvolvimento ({visibleTags.length})</span>
-                      <span className="text-[10px] text-muted-foreground font-mono font-normal">Cargos de auditoria e governança</span>
-                    </td>
-                  </tr>
-
-                  {visibleTags.map((tag) => {
-                    const currentList = rules.tags[tag.id] || [];
-                    const allowedCount = currentList.length;
-                    const isAll = allowedCount >= ALL_NOTIFICATION_TYPES.length;
-
-                    return (
-                      <tr key={tag.id} className="hover:bg-secondary/30 transition-colors">
-                        <td className="p-3.5 sticky left-0 bg-card/95 backdrop-blur-md z-10 border-r border-border/40">
-                          <div className="flex items-center justify-between gap-2">
-                            <Badge variant="outline" className={cn("text-[10px] font-bold py-0.5", tag.color)}>
-                              {tag.label}
-                            </Badge>
-                            <Badge variant="outline" className={cn("text-[9.5px] font-mono px-1.5 py-0 shrink-0", allowedCount > 0 ? "border-emerald-500/30 text-emerald-400 bg-emerald-500/10" : "border-border/60 text-muted-foreground")}>
-                              {allowedCount}/{ALL_NOTIFICATION_TYPES.length}
-                            </Badge>
-                          </div>
-                        </td>
-
-                        {visibleTypes.map((nType) => {
-                          const isAllowed = currentList.includes(nType);
-                          const info = getNotificationTypeInfo(nType);
-                          return (
-                            <td key={nType} className="p-2 text-center">
-                              <button
-                                type="button"
-                                disabled={!canManageRules}
-                                onClick={() => handleToggleRule("tags", tag.id, nType)}
-                                className={cn(
-                                  "h-7 w-7 rounded-lg border inline-flex items-center justify-center transition-all cursor-pointer",
-                                  isAllowed
-                                    ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/50 shadow-xs hover:bg-emerald-500/30"
-                                    : "bg-muted/25 text-muted-foreground/35 border-border/40 hover:bg-muted/50 hover:text-muted-foreground"
-                                )}
-                                title={isAllowed ? `${info.label}: Permitido para ${tag.label}` : `${info.label}: Bloqueado para ${tag.label}`}
-                              >
-                                {isAllowed ? <Check className="h-4 w-4" /> : <X className="h-3.5 w-3.5" />}
-                              </button>
-                            </td>
-                          );
-                        })}
-
-                        <td className="p-2 text-center border-l border-border/40 sticky right-0 bg-card/95 backdrop-blur-md z-10">
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="sm"
-                                disabled={!canManageRules}
-                                className="h-6 text-[10px] px-2 font-mono text-muted-foreground hover:text-foreground gap-1"
-                              >
-                                <span>Opções</span>
-                                <ChevronDown className="h-2.5 w-2.5 opacity-60" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end" className="w-48 text-xs">
-                              <DropdownMenuItem onClick={() => handleToggleRowAll("tags", tag.id)} className="gap-2 cursor-pointer">
-                                <CheckSquare className="h-3.5 w-3.5 text-emerald-400" />
-                                <span>{isAll ? "Desmarcar Todos" : "Marcar Todos"}</span>
-                              </DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => handleInvertRow("tags", tag.id)} className="gap-2 cursor-pointer">
-                                <ArrowLeftRight className="h-3.5 w-3.5 text-purple-400" />
-                                <span>Inverter Seleção</span>
-                              </DropdownMenuItem>
-                              <DropdownMenuSeparator />
-                              <DropdownMenuItem onClick={() => handleOpenCopyModal("tags", tag.id, tag.label)} className="gap-2 cursor-pointer">
-                                <Copy className="h-3.5 w-3.5 text-primary" />
-                                <span>Copiar de outro cargo...</span>
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+                          <td className="p-2 text-center border-l border-border/40 md:sticky md:right-0 bg-card/95 backdrop-blur-md z-10">
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="sm"
+                                  disabled={!canManageRules}
+                                  className="h-6 text-[10px] px-2 font-mono text-muted-foreground hover:text-foreground gap-1"
+                                >
+                                  <span>Opções</span>
+                                  <ChevronDown className="h-2.5 w-2.5 opacity-60" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end" className="w-48 text-xs">
+                                <DropdownMenuItem onClick={() => handleToggleRowAll("tags", tag.id)} className="gap-2 cursor-pointer">
+                                  <CheckSquare className="h-3.5 w-3.5 text-emerald-400" />
+                                  <span>{isAll ? "Desmarcar Todos" : "Marcar Todos"}</span>
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => handleInvertRow("tags", tag.id)} className="gap-2 cursor-pointer">
+                                  <ArrowLeftRight className="h-3.5 w-3.5 text-purple-400" />
+                                  <span>Inverter Seleção</span>
+                                </DropdownMenuItem>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem onClick={() => handleOpenCopyModal("tags", tag.id, tag.label)} className="gap-2 cursor-pointer">
+                                  <Copy className="h-3.5 w-3.5 text-primary" />
+                                  <span>Copiar de outro cargo...</span>
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
             </CardContent>
           </Card>
 
@@ -1543,59 +1746,61 @@ export function DevNotificationsManager() {
             ABA 2: GERENCIADOR AVANÇADO (CRUD, TOGGLE, INSPEÇÃO JSON)
             ========================================================================= */}
         <TabsContent value="manager" className="space-y-4">
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-card/50 p-3 rounded-2xl border border-border/60">
-            <div className="flex flex-1 flex-wrap items-center gap-2">
-              <div className="relative flex-1 min-w-[200px]">
+          <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 bg-card/50 p-3 rounded-2xl border border-border/60">
+            <div className="flex flex-col sm:flex-row flex-1 gap-2">
+              <div className="relative flex-1">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="Buscar no sistema..."
-                  className="pl-9 h-9 text-xs bg-background/70 border-border/70 rounded-xl"
+                  className="pl-9 h-9 text-xs bg-background/70 border-border/70 rounded-xl w-full"
                 />
               </div>
 
-              <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as any)}>
-                <SelectTrigger className="h-9 text-xs bg-background/70 border-border/70 rounded-xl min-w-[110px]">
-                  <SelectValue placeholder="Status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todos Status</SelectItem>
-                  <SelectItem value="active">Ativas</SelectItem>
-                  <SelectItem value="inactive">Pausadas</SelectItem>
-                </SelectContent>
-              </Select>
+              <div className="grid grid-cols-3 gap-2 w-full sm:w-auto">
+                <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as any)}>
+                  <SelectTrigger className="h-9 text-xs bg-background/70 border-border/70 rounded-xl w-full">
+                    <SelectValue placeholder="Status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos Status</SelectItem>
+                    <SelectItem value="active">Ativas</SelectItem>
+                    <SelectItem value="inactive">Pausadas</SelectItem>
+                  </SelectContent>
+                </Select>
 
-              <Select value={typeFilter} onValueChange={setTypeFilter}>
-                <SelectTrigger className="h-9 text-xs bg-background/70 border-border/70 rounded-xl min-w-[120px]">
-                  <SelectValue placeholder="Tipo" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todos Tipos</SelectItem>
-                  {ALL_NOTIFICATION_TYPES.map((t) => (
-                    <SelectItem key={t} value={t}>
-                      {getNotificationTypeInfo(t).label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                <Select value={typeFilter} onValueChange={setTypeFilter}>
+                  <SelectTrigger className="h-9 text-xs bg-background/70 border-border/70 rounded-xl w-full">
+                    <SelectValue placeholder="Tipo" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos Tipos</SelectItem>
+                    {ALL_NOTIFICATION_TYPES.map((t) => (
+                      <SelectItem key={t} value={t}>
+                        {getNotificationTypeInfo(t).label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
 
-              <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-                <SelectTrigger className="h-9 text-xs bg-background/70 border-border/70 rounded-xl min-w-[120px]">
-                  <SelectValue placeholder="Categoria" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todas</SelectItem>
-                  <SelectItem value="info">Info</SelectItem>
-                  <SelectItem value="success">Sucesso</SelectItem>
-                  <SelectItem value="warning">Aviso</SelectItem>
-                  <SelectItem value="alert">Alerta</SelectItem>
-                  <SelectItem value="error">Urgente</SelectItem>
-                </SelectContent>
-              </Select>
+                <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+                  <SelectTrigger className="h-9 text-xs bg-background/70 border-border/70 rounded-xl w-full">
+                    <SelectValue placeholder="Categoria" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todas</SelectItem>
+                    <SelectItem value="info">Info</SelectItem>
+                    <SelectItem value="success">Sucesso</SelectItem>
+                    <SelectItem value="warning">Aviso</SelectItem>
+                    <SelectItem value="alert">Alerta</SelectItem>
+                    <SelectItem value="error">Urgente</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
 
-            <div className="flex items-center gap-2 shrink-0">
+            <div className="flex items-center gap-2 justify-end pt-2 md:pt-0 border-t md:border-t-0 border-border/40 shrink-0">
               {canExport && (
                 <Button
                   variant="outline"
@@ -1607,6 +1812,7 @@ export function DevNotificationsManager() {
                 >
                   <Download className="h-3.5 w-3.5" />
                   <span className="hidden sm:inline">Exportar JSON</span>
+                  <span className="sm:hidden">Exportar</span>
                 </Button>
               )}
 
@@ -1617,7 +1823,8 @@ export function DevNotificationsManager() {
                 className="h-9 text-xs font-bold gap-1.5 rounded-xl bg-gradient-brand text-primary-foreground shadow-sm"
               >
                 <Plus className="h-4 w-4" />
-                Criar Notificação Dev
+                <span className="hidden sm:inline">Criar Notificação Dev</span>
+                <span className="sm:hidden">Criar</span>
               </Button>
             </div>
           </div>
@@ -1706,53 +1913,58 @@ export function DevNotificationsManager() {
                     </div>
 
                     {/* AÇÕES DEV */}
-                    <div className="flex items-center gap-1 shrink-0 self-end md:self-center">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-7 w-7 text-muted-foreground hover:text-foreground rounded-lg"
-                        onClick={() => setInspectNotif(notif)}
-                        title="Inspecionar Payload JSON"
-                      >
-                        <Code2 className="h-3.5 w-3.5" />
-                      </Button>
+                    <div className="flex items-center gap-1 shrink-0 self-end md:self-center pt-2 md:pt-0 border-t md:border-t-0 border-border/30 w-full md:w-auto justify-between md:justify-end">
+                      <span className="md:hidden text-[10px] text-muted-foreground font-mono">
+                        Ações:
+                      </span>
+                      <div className="flex items-center gap-1">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-muted-foreground hover:text-foreground rounded-lg"
+                          onClick={() => setInspectNotif(notif)}
+                          title="Inspecionar Payload JSON"
+                        >
+                          <Code2 className="h-4 w-4" />
+                        </Button>
 
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className={cn(
-                          "h-7 w-7 rounded-lg",
-                          isActive ? "text-emerald-400 hover:text-amber-400" : "text-muted-foreground hover:text-emerald-400"
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className={cn(
+                            "h-8 w-8 rounded-lg",
+                            isActive ? "text-emerald-400 hover:text-amber-400" : "text-muted-foreground hover:text-emerald-400"
+                          )}
+                          onClick={() => handleToggleActive(notif)}
+                          title={isActive ? "Pausar" : "Ativar"}
+                        >
+                          <Power className="h-4 w-4" />
+                        </Button>
+
+                        {canEdit && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-muted-foreground hover:text-primary rounded-lg"
+                            onClick={() => openEditModal(notif)}
+                            title="Editar"
+                          >
+                            <Edit2 className="h-4 w-4" />
+                          </Button>
                         )}
-                        onClick={() => handleToggleActive(notif)}
-                        title={isActive ? "Pausar" : "Ativar"}
-                      >
-                        <Power className="h-3.5 w-3.5" />
-                      </Button>
 
-                      {canEdit && (
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-7 w-7 text-muted-foreground hover:text-primary rounded-lg"
-                          onClick={() => openEditModal(notif)}
-                          title="Editar"
-                        >
-                          <Edit2 className="h-3.5 w-3.5" />
-                        </Button>
-                      )}
-
-                      {canDelete && (
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-7 w-7 text-muted-foreground hover:text-destructive rounded-lg"
-                          onClick={() => handleDeleteNotif(notif.id)}
-                          title="Excluir"
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </Button>
-                      )}
+                        {canDelete && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-muted-foreground hover:text-destructive rounded-lg"
+                            onClick={() => handleDeleteNotif(notif.id)}
+                            title="Excluir"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        )}
+                      </div>
                     </div>
                   </div>
                 );

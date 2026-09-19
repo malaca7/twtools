@@ -193,14 +193,44 @@ export type Permission =
   | "manage_stock_balance"
   // Permissões do Sistema Life (Rede Social)
   | "view_life"
+  | "life_view_following"
+  | "life_view_bookmarks"
   | "post_life"
+  | "life_post_image"
+  | "life_post_video"
+  | "life_mention_members"
+  | "life_use_hashtags"
+  | "life_like_posts"
+  | "life_bookmark_posts"
+  | "life_comment_posts"
+  | "life_delete_own_comment"
+  | "life_delete_own_post"
+  | "life_follow_members"
+  | "life_pin_posts"
+  | "life_moderate_posts"
+  | "life_moderate_comments"
   | "manage_life";
 
 export const ALL_PERMISSIONS: Permission[] = [
   "manage_permissions",
   "view_dashboard",
   "view_life",
+  "life_view_following",
+  "life_view_bookmarks",
   "post_life",
+  "life_post_image",
+  "life_post_video",
+  "life_mention_members",
+  "life_use_hashtags",
+  "life_like_posts",
+  "life_bookmark_posts",
+  "life_comment_posts",
+  "life_delete_own_comment",
+  "life_delete_own_post",
+  "life_follow_members",
+  "life_pin_posts",
+  "life_moderate_posts",
+  "life_moderate_comments",
   "manage_life",
   "view_stock_management",
   "manage_stock_products",
@@ -410,6 +440,24 @@ export const CEO_PERMISSIONS: Permission[] = [
   "ceo_adjust_stock_balance",
   "ceo_stock_add",
   "ceo_stock_remove",
+  "view_life",
+  "life_view_following",
+  "life_view_bookmarks",
+  "post_life",
+  "life_post_image",
+  "life_post_video",
+  "life_mention_members",
+  "life_use_hashtags",
+  "life_like_posts",
+  "life_bookmark_posts",
+  "life_comment_posts",
+  "life_delete_own_comment",
+  "life_delete_own_post",
+  "life_follow_members",
+  "life_pin_posts",
+  "life_moderate_posts",
+  "life_moderate_comments",
+  "manage_life",
 ];
 
 const ADMIN: Permission[] = ALL_PERMISSIONS.filter(
@@ -484,14 +532,44 @@ const OFFICER: Permission[] = [
   "view_stream_logs",
   "view_profile",
   "view_life",
+  "life_view_following",
+  "life_view_bookmarks",
   "post_life",
+  "life_post_image",
+  "life_post_video",
+  "life_mention_members",
+  "life_use_hashtags",
+  "life_like_posts",
+  "life_bookmark_posts",
+  "life_comment_posts",
+  "life_delete_own_comment",
+  "life_delete_own_post",
+  "life_follow_members",
+  "life_pin_posts",
+  "life_moderate_posts",
+  "life_moderate_comments",
   "manage_life",
 ];
 
 const MANAGER: Permission[] = [
   "view_dashboard",
   "view_life",
+  "life_view_following",
+  "life_view_bookmarks",
   "post_life",
+  "life_post_image",
+  "life_post_video",
+  "life_mention_members",
+  "life_use_hashtags",
+  "life_like_posts",
+  "life_bookmark_posts",
+  "life_comment_posts",
+  "life_delete_own_comment",
+  "life_delete_own_post",
+  "life_follow_members",
+  "life_pin_posts",
+  "life_moderate_posts",
+  "life_moderate_comments",
   "manage_life",
   "view_chat",
   "create_chat_group",
@@ -582,7 +660,19 @@ const MEMBER: Permission[] = [
   "link_stream_account",
   "view_profile",
   "view_life",
+  "life_view_following",
+  "life_view_bookmarks",
   "post_life",
+  "life_post_image",
+  "life_post_video",
+  "life_mention_members",
+  "life_use_hashtags",
+  "life_like_posts",
+  "life_bookmark_posts",
+  "life_comment_posts",
+  "life_delete_own_comment",
+  "life_delete_own_post",
+  "life_follow_members",
 ];
 
 const NOVATO: Permission[] = [
@@ -608,7 +698,15 @@ const NOVATO: Permission[] = [
   "link_stream_account",
   "view_profile",
   "view_life",
+  "life_view_following",
+  "life_view_bookmarks",
   "post_life",
+  "life_like_posts",
+  "life_bookmark_posts",
+  "life_comment_posts",
+  "life_delete_own_comment",
+  "life_delete_own_post",
+  "life_follow_members",
 ];
 
 export const PERMISSIONS: Record<AppLevel, Permission[]> = {
@@ -655,8 +753,75 @@ export function can(
       if (defaultRolePerms.includes(permission)) return true;
     }
 
+    // Equivalências e herança do sistema Life
+    if (list.includes("manage_life")) {
+      if (
+        permission === "view_life" ||
+        permission === "life_view_following" ||
+        permission === "life_view_bookmarks" ||
+        permission === "post_life" ||
+        permission === "life_post_image" ||
+        permission === "life_post_video" ||
+        permission === "life_mention_members" ||
+        permission === "life_use_hashtags" ||
+        permission === "life_like_posts" ||
+        permission === "life_bookmark_posts" ||
+        permission === "life_comment_posts" ||
+        permission === "life_delete_own_comment" ||
+        permission === "life_delete_own_post" ||
+        permission === "life_follow_members" ||
+        permission === "life_pin_posts" ||
+        permission === "life_moderate_posts" ||
+        permission === "life_moderate_comments"
+      ) {
+        return true;
+      }
+    }
+    if (list.includes("life_moderate_posts") && (permission === "life_delete_own_post" || permission === "view_life")) return true;
+    if (list.includes("life_moderate_comments") && (permission === "life_delete_own_comment" || permission === "view_life")) return true;
+    if (list.includes("life_pin_posts") && permission === "view_life") return true;
+    if (list.includes("post_life") && permission === "view_life") return true;
+    if (
+      (list.includes("life_post_image") ||
+        list.includes("life_post_video") ||
+        list.includes("life_mention_members") ||
+        list.includes("life_use_hashtags")) &&
+      (permission === "post_life" || permission === "view_life")
+    ) {
+      return true;
+    }
+    if (
+      (list.includes("life_like_posts") ||
+        list.includes("life_bookmark_posts") ||
+        list.includes("life_comment_posts") ||
+        list.includes("life_follow_members") ||
+        list.includes("life_view_following") ||
+        list.includes("life_view_bookmarks")) &&
+      permission === "view_life"
+    ) {
+      return true;
+    }
+
     // Fallback gracioso para Life se não estiver no customRoleMap salvo
     const hasAnySavedLifePerm = list.some((p) => typeof p === "string" && p.includes("life"));
+    if (hasAnySavedLifePerm && list.includes("post_life")) {
+      if (
+        permission === "life_post_image" ||
+        permission === "life_post_video" ||
+        permission === "life_mention_members" ||
+        permission === "life_use_hashtags" ||
+        permission === "life_like_posts" ||
+        permission === "life_bookmark_posts" ||
+        permission === "life_comment_posts" ||
+        permission === "life_delete_own_comment" ||
+        permission === "life_delete_own_post" ||
+        permission === "life_follow_members" ||
+        permission === "life_view_following" ||
+        permission === "life_view_bookmarks"
+      ) {
+        return true;
+      }
+    }
     if (!hasAnySavedLifePerm && permission.includes("life")) {
       const defaultRolePerms = PERMISSIONS[userLevel] || [];
       if (defaultRolePerms.includes(permission)) return true;
@@ -816,8 +981,53 @@ export function can(
   if (rolePerms.includes("manage_ceo_stock_adjustments") && (permission === "ceo_adjust_stock_balance" || permission === "ceo_stock_add" || permission === "ceo_stock_remove" || permission === "view_ceo_stock_adjustments")) return true;
 
   // Life
-  if (rolePerms.includes("manage_life") && (permission === "view_life" || permission === "post_life")) return true;
+  if (rolePerms.includes("manage_life")) {
+    if (
+      permission === "view_life" ||
+      permission === "life_view_following" ||
+      permission === "life_view_bookmarks" ||
+      permission === "post_life" ||
+      permission === "life_post_image" ||
+      permission === "life_post_video" ||
+      permission === "life_mention_members" ||
+      permission === "life_use_hashtags" ||
+      permission === "life_like_posts" ||
+      permission === "life_bookmark_posts" ||
+      permission === "life_comment_posts" ||
+      permission === "life_delete_own_comment" ||
+      permission === "life_delete_own_post" ||
+      permission === "life_follow_members" ||
+      permission === "life_pin_posts" ||
+      permission === "life_moderate_posts" ||
+      permission === "life_moderate_comments"
+    ) {
+      return true;
+    }
+  }
+  if (rolePerms.includes("life_moderate_posts") && (permission === "life_delete_own_post" || permission === "view_life")) return true;
+  if (rolePerms.includes("life_moderate_comments") && (permission === "life_delete_own_comment" || permission === "view_life")) return true;
+  if (rolePerms.includes("life_pin_posts") && permission === "view_life") return true;
   if (rolePerms.includes("post_life") && permission === "view_life") return true;
+  if (
+    (rolePerms.includes("life_post_image") ||
+      rolePerms.includes("life_post_video") ||
+      rolePerms.includes("life_mention_members") ||
+      rolePerms.includes("life_use_hashtags")) &&
+    (permission === "post_life" || permission === "view_life")
+  ) {
+    return true;
+  }
+  if (
+    (rolePerms.includes("life_like_posts") ||
+      rolePerms.includes("life_bookmark_posts") ||
+      rolePerms.includes("life_comment_posts") ||
+      rolePerms.includes("life_follow_members") ||
+      rolePerms.includes("life_view_following") ||
+      rolePerms.includes("life_view_bookmarks")) &&
+    permission === "view_life"
+  ) {
+    return true;
+  }
 
   return false;
 }

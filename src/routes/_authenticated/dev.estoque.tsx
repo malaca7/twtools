@@ -137,20 +137,25 @@ export function DevEstoquePageContent({ initialTab }: { initialTab?: string } = 
       </div>
 
       <Tabs value={activeTab} onValueChange={(val: any) => setActiveTab(val)} className="space-y-6">
-        <TabsList className="bg-secondary/60 p-1 border border-border/60">
-          <TabsTrigger value="discord" className="gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
-            <Bot className="w-4 h-4" />
-            Integração Discord & Regras
-          </TabsTrigger>
-          <TabsTrigger value="simular" className="gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
-            <Sparkles className="w-4 h-4 text-amber-400" />
-            Simular Movimentação
-          </TabsTrigger>
-          <TabsTrigger value="logs" className="gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
-            <History className="w-4 h-4" />
-            Logs Técnicas & Auditoria
-          </TabsTrigger>
-        </TabsList>
+        <div className="overflow-x-auto no-scrollbar pb-1 -mx-4 px-4 sm:mx-0 sm:px-0">
+          <TabsList className="bg-secondary/60 p-1 border border-border/60 inline-flex w-max sm:w-auto h-auto">
+            <TabsTrigger value="discord" className="gap-2 px-3 py-2 text-xs sm:text-sm data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+              <Bot className="w-4 h-4 shrink-0" />
+              <span className="hidden sm:inline">Integração Discord & Regras</span>
+              <span className="sm:hidden">Discord & Regras</span>
+            </TabsTrigger>
+            <TabsTrigger value="simular" className="gap-2 px-3 py-2 text-xs sm:text-sm data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+              <Sparkles className="w-4 h-4 text-amber-400 shrink-0" />
+              <span className="hidden sm:inline">Simular Movimentação</span>
+              <span className="sm:hidden">Simulação</span>
+            </TabsTrigger>
+            <TabsTrigger value="logs" className="gap-2 px-3 py-2 text-xs sm:text-sm data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+              <History className="w-4 h-4 shrink-0" />
+              <span className="hidden sm:inline">Logs Técnicas & Auditoria</span>
+              <span className="sm:hidden">Logs & Auditoria</span>
+            </TabsTrigger>
+          </TabsList>
+        </div>
 
         <TabsContent value="discord" className="space-y-6">
           <DiscordIntegrationTab />
@@ -1022,7 +1027,7 @@ function DiscordIntegrationTab() {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="flex gap-2">
+            <div className="flex flex-col sm:flex-row gap-2">
               <Input
                 placeholder="Texto Discord (ex: 'Micro Uzi')"
                 value={newAliasKey}
@@ -1033,31 +1038,33 @@ function DiscordIntegrationTab() {
                     void handleAddItemMapping();
                   }
                 }}
-                className="text-xs flex-1 min-w-[120px]"
+                className="text-xs flex-1 w-full"
               />
-              <Select value={newAliasTargetProduct} onValueChange={setNewAliasTargetProduct} className="w-56 shrink-0">
-                <SelectTrigger className="text-xs w-full">
-                  <SelectValue placeholder="Produto..." />
-                </SelectTrigger>
-                <SelectContent className="max-h-60">
-                  {products.filter((p) => p.ativo !== false && p.nome && p.nome.trim() !== "." && p.nome.trim() !== "").length === 0 ? (
-                    <div className="p-3 text-center text-xs text-muted-foreground">
-                      Nenhum produto cadastrado
-                    </div>
-                  ) : (
-                    products
-                      .filter((p) => p.ativo !== false && p.nome && p.nome.trim() !== "." && p.nome.trim() !== "")
-                      .map((p) => (
-                        <SelectItem key={p.id} value={p.nome}>
-                          {p.nome}
-                        </SelectItem>
-                      ))
-                  )}
-                </SelectContent>
-              </Select>
-              <Button size="sm" onClick={() => void handleAddItemMapping()} className="shrink-0">
-                <Plus className="w-4 h-4" />
-              </Button>
+              <div className="flex items-center gap-2 w-full sm:w-auto">
+                <Select value={newAliasTargetProduct} onValueChange={setNewAliasTargetProduct} className="flex-1 sm:w-56 shrink-0">
+                  <SelectTrigger className="text-xs w-full">
+                    <SelectValue placeholder="Produto..." />
+                  </SelectTrigger>
+                  <SelectContent className="max-h-60">
+                    {products.filter((p) => p.ativo !== false && p.nome && p.nome.trim() !== "." && p.nome.trim() !== "").length === 0 ? (
+                      <div className="p-3 text-center text-xs text-muted-foreground">
+                        Nenhum produto cadastrado
+                      </div>
+                    ) : (
+                      products
+                        .filter((p) => p.ativo !== false && p.nome && p.nome.trim() !== "." && p.nome.trim() !== "")
+                        .map((p) => (
+                          <SelectItem key={p.id} value={p.nome}>
+                            {p.nome}
+                          </SelectItem>
+                        ))
+                    )}
+                  </SelectContent>
+                </Select>
+                <Button size="sm" onClick={() => void handleAddItemMapping()} className="shrink-0 h-9 w-9 p-0 flex items-center justify-center">
+                  <Plus className="w-4 h-4" />
+                </Button>
+              </div>
             </div>
 
             <div className="max-h-48 overflow-y-auto rounded-lg border border-border/60 divide-y divide-border/40 text-xs">
@@ -1086,14 +1093,14 @@ function DiscordIntegrationTab() {
               )}
             </div>
           </CardContent>
-          <CardFooter className="pt-2 border-t border-border/40 flex justify-between items-center text-xs">
+          <CardFooter className="pt-2 border-t border-border/40 flex flex-col sm:flex-row gap-2 justify-between items-stretch sm:items-center text-xs">
             <span className="text-[11px] text-muted-foreground">
               Sincronizado diretamente com a base de dados.
             </span>
             <Button
               size="sm"
               variant="outline"
-              className="text-xs gap-1.5"
+              className="text-xs gap-1.5 w-full sm:w-auto"
               disabled={isSavingItemMappings}
               onClick={() => void handleSaveAllItemMappings()}
             >
@@ -1711,18 +1718,19 @@ function DiscordLogsTab() {
     <div className="space-y-4">
       {/* SELETOR DE MODO DE AUDITORIA: LIVE VS BANCO DE DADOS */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 rounded-2xl bg-secondary/30 border border-border/60">
-        <div className="flex items-center gap-2">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 w-full sm:w-auto">
           <Button
             size="sm"
             variant={logTab === "live" ? "default" : "outline"}
             onClick={() => setLogTab("live")}
             className={cn(
-              "gap-2 text-xs font-bold rounded-xl cursor-pointer transition-all",
+              "gap-2 text-xs font-bold rounded-xl cursor-pointer transition-all w-full justify-center sm:justify-start",
               logTab === "live" ? "bg-primary text-primary-foreground shadow-md" : ""
             )}
           >
-            <Radio className="w-3.5 h-3.5 text-emerald-400 animate-pulse" />
-            📡 Mensagens em Tempo Real (Últimas 20 do Canal — Sem Salvar no BD)
+            <Radio className="w-3.5 h-3.5 text-emerald-400 animate-pulse shrink-0" />
+            <span className="hidden sm:inline">📡 Mensagens em Tempo Real (Últimas 20 do Canal)</span>
+            <span className="sm:hidden">📡 Mensagens Tempo Real</span>
           </Button>
 
           <Button
@@ -1730,17 +1738,18 @@ function DiscordLogsTab() {
             variant={logTab === "db" ? "default" : "outline"}
             onClick={() => setLogTab("db")}
             className={cn(
-              "gap-2 text-xs font-bold rounded-xl cursor-pointer transition-all",
+              "gap-2 text-xs font-bold rounded-xl cursor-pointer transition-all w-full justify-center sm:justify-start",
               logTab === "db" ? "bg-primary text-primary-foreground shadow-md" : ""
             )}
           >
-            <History className="w-3.5 h-3.5 text-cyan-400" />
-            💾 Histórico Persistido no Banco ({logs.length})
+            <History className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
+            <span className="hidden sm:inline">💾 Histórico Persistido no Banco ({logs.length})</span>
+            <span className="sm:hidden">💾 Histórico Banco ({logs.length})</span>
           </Button>
         </div>
 
         {logTab === "live" && lastLiveFetchTime && (
-          <span className="text-[11px] text-muted-foreground font-mono">
+          <span className="text-[11px] text-muted-foreground font-mono text-center sm:text-right">
             Última leitura: {lastLiveFetchTime.toLocaleTimeString("pt-BR")}
           </span>
         )}
@@ -1764,10 +1773,10 @@ function DiscordLogsTab() {
               </div>
 
               {/* Seletor de Baú / Canal + Botão de Atualização */}
-              <div className="flex flex-wrap items-center gap-2">
-                <div className="w-64">
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full md:w-auto">
+                <div className="w-full sm:w-64">
                   <Select value={selectedLiveBauId} onValueChange={setSelectedLiveBauId}>
-                    <SelectTrigger className="h-9 text-xs bg-background/60 font-medium">
+                    <SelectTrigger className="h-9 text-xs bg-background/60 font-medium w-full">
                       <SelectValue placeholder="Selecione o baú..." />
                     </SelectTrigger>
                     <SelectContent>
@@ -1802,7 +1811,7 @@ function DiscordLogsTab() {
                   variant="outline"
                   onClick={handleFetchLiveMessages}
                   disabled={isLoadingLive || !targetChannelId}
-                  className="h-9 text-xs gap-1.5 font-bold border-primary/40 hover:bg-primary/10 text-primary cursor-pointer"
+                  className="h-9 text-xs gap-1.5 font-bold border-primary/40 hover:bg-primary/10 text-primary cursor-pointer w-full sm:w-auto"
                 >
                   <RefreshCw className={cn("w-3.5 h-3.5", isLoadingLive && "animate-spin")} />
                   {isLoadingLive ? "Consultando Discord..." : "Buscar 20 Mensagens"}
@@ -1832,144 +1841,234 @@ function DiscordLogsTab() {
                 <p className="text-[10px]">Certifique-se de que o bot possui permissão de leitura de mensagens e histórico no canal.</p>
               </div>
             ) : (
-              <div className="overflow-x-auto mobile-touch-scroll">
-                <Table>
-                  <TableHeader>
-                    <TableRow className="border-border/40 bg-secondary/20">
-                      <TableHead className="text-xs">Data/Hora</TableHead>
-                      <TableHead className="text-xs">ID Mensagem</TableHead>
-                      <TableHead className="text-xs">Jogador / Autor</TableHead>
-                      <TableHead className="text-xs">Itens / Saldo Detectado</TableHead>
-                      <TableHead className="text-xs">Status do Parser</TableHead>
-                      <TableHead className="text-xs text-right">Ação</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {liveMessages.map((msg: any) => {
-                      const parsed = parseClientMessage(msg);
-                      const msgDate = msg.createdTimestamp ? new Date(msg.createdTimestamp) : msg.createdAt ? new Date(msg.createdAt) : new Date();
+              <>
+                {/* Mobile View: Cards */}
+                <div className="block sm:hidden divide-y divide-border/40">
+                  {liveMessages.map((msg) => {
+                    const parsed = parseClientMessage(msg);
+                    const msgDate = msg.createdTimestamp ? new Date(msg.createdTimestamp) : msg.createdAt ? new Date(msg.createdAt) : new Date();
+                    const actor = resolveActor(parsed.playerId, parsed.authorName);
 
-                      return (
-                        <TableRow key={msg.id} className="border-border/30 hover:bg-secondary/20 transition-colors">
-                          <TableCell className="text-xs whitespace-nowrap text-muted-foreground font-mono">
+                    return (
+                      <div key={msg.id} className="p-3.5 space-y-2.5">
+                        <div className="flex items-center justify-between text-xs gap-2">
+                          <span className="text-[11px] text-muted-foreground font-mono">
                             {formatDate(msgDate.toISOString())}
-                          </TableCell>
+                          </span>
+                          {parsed.isValidMovement ? (
+                            <Badge variant="outline" className="text-[9px] font-mono uppercase border-emerald-500/40 text-emerald-400 bg-emerald-500/10">
+                              Válida
+                            </Badge>
+                          ) : (
+                            <Badge variant="outline" className="text-[9px] font-mono uppercase border-muted text-muted-foreground bg-secondary/40">
+                              Informativo
+                            </Badge>
+                          )}
+                        </div>
 
-                          <TableCell className="text-xs font-mono">
-                            <div className="flex items-center gap-1">
-                              <span className="text-foreground">{msg.id?.slice(0, 10)}...</span>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="h-6 w-6 p-0 text-muted-foreground hover:text-foreground"
-                                onClick={() => {
-                                  navigator.clipboard.writeText(msg.id || "");
-                                  toast.success("ID da mensagem copiado!");
-                                }}
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="min-w-0 flex-1">
+                            {actor.isMember && actor.member ? (
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <Badge variant="outline" className="font-mono text-[10px] bg-emerald-500/10 text-emerald-400 border-emerald-500/30 font-bold px-1.5 py-0">
+                                  ID {actor.gameId}
+                                </Badge>
+                                <span className="text-foreground font-bold text-xs truncate">
+                                  {actor.displayName}
+                                </span>
+                              </div>
+                            ) : (
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <Badge variant="outline" className="text-[10px] bg-sky-500/10 text-sky-400 border-sky-500/30 font-bold px-1.5 py-0">
+                                  🤖 {parsed.playerId ? `ID ${parsed.playerId}` : "Sistema"}
+                                </Badge>
+                                {parsed.authorName && parsed.authorName !== "Sistema Twin Wheels" && (
+                                  <span className="text-[11px] text-muted-foreground truncate">
+                                    {parsed.authorName}
+                                  </span>
+                                )}
+                              </div>
+                            )}
+                          </div>
+
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-7 text-[11px] gap-1 px-2 shrink-0"
+                            onClick={() => setSelectedLiveMsgForInspect(msg)}
+                          >
+                            <Eye className="w-3 h-3 text-primary" />
+                            JSON
+                          </Button>
+                        </div>
+
+                        {parsed.parsedItems.length > 0 ? (
+                          <div className="flex flex-wrap gap-1 pt-1">
+                            {parsed.parsedItems.map((it, idx) => (
+                              <Badge
+                                key={idx}
+                                variant="outline"
+                                className={cn(
+                                  "text-[10px] font-mono",
+                                  it.qtyChange > 0
+                                    ? "border-emerald-500/30 text-emerald-400 bg-emerald-500/10"
+                                    : "border-rose-500/30 text-rose-400 bg-rose-500/10"
+                                )}
                               >
-                                <Copy className="w-3 h-3" />
-                              </Button>
-                            </div>
-                          </TableCell>
+                                {it.mappedTo} {it.qtyChange > 0 ? `+${it.qtyChange}` : it.qtyChange}
+                              </Badge>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="text-[11px] text-muted-foreground italic line-clamp-2">
+                            {msg.content || (msg.embeds?.[0]?.title ? `Embed: ${msg.embeds[0].title}` : "(Sem texto de saldo)")}
+                          </p>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
 
-                          <TableCell className="text-xs">
-                            {(() => {
-                              const actor = resolveActor(parsed.playerId, parsed.authorName);
-                              if (actor.isMember && actor.member) {
+                {/* Desktop View: Table */}
+                <div className="hidden sm:block overflow-x-auto mobile-touch-scroll">
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="border-border/40 bg-secondary/20">
+                        <TableHead className="text-xs">Data/Hora</TableHead>
+                        <TableHead className="text-xs">ID Mensagem</TableHead>
+                        <TableHead className="text-xs">Jogador / Autor</TableHead>
+                        <TableHead className="text-xs">Itens / Saldo Detectado</TableHead>
+                        <TableHead className="text-xs">Status do Parser</TableHead>
+                        <TableHead className="text-xs text-right">Ação</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {liveMessages.map((msg: any) => {
+                        const parsed = parseClientMessage(msg);
+                        const msgDate = msg.createdTimestamp ? new Date(msg.createdTimestamp) : msg.createdAt ? new Date(msg.createdAt) : new Date();
+
+                        return (
+                          <TableRow key={msg.id} className="border-border/30 hover:bg-secondary/20 transition-colors">
+                            <TableCell className="text-xs whitespace-nowrap text-muted-foreground font-mono">
+                              {formatDate(msgDate.toISOString())}
+                            </TableCell>
+
+                            <TableCell className="text-xs font-mono">
+                              <div className="flex items-center gap-1">
+                                <span className="text-foreground">{msg.id?.slice(0, 10)}...</span>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-6 w-6 p-0 text-muted-foreground hover:text-foreground"
+                                  onClick={() => {
+                                    navigator.clipboard.writeText(msg.id || "");
+                                    toast.success("ID da mensagem copiado!");
+                                  }}
+                                >
+                                  <Copy className="w-3 h-3" />
+                                </Button>
+                              </div>
+                            </TableCell>
+
+                            <TableCell className="text-xs">
+                              {(() => {
+                                const actor = resolveActor(parsed.playerId, parsed.authorName);
+                                if (actor.isMember && actor.member) {
+                                  return (
+                                    <div className="space-y-0.5">
+                                      <div className="flex items-center gap-1.5 flex-wrap">
+                                        <Badge variant="outline" className="font-mono text-[10px] bg-emerald-500/10 text-emerald-400 border-emerald-500/30 font-bold px-1.5 py-0">
+                                          ID {actor.gameId}
+                                        </Badge>
+                                        <span className="text-foreground font-bold truncate max-w-[140px]">
+                                          {actor.displayName}
+                                        </span>
+                                      </div>
+                                      <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                                        <span className="text-emerald-400 font-medium">✓ Membro Painel</span>
+                                        {actor.nickname && <span>• {actor.nickname}</span>}
+                                      </div>
+                                    </div>
+                                  );
+                                }
+
                                 return (
                                   <div className="space-y-0.5">
                                     <div className="flex items-center gap-1.5 flex-wrap">
-                                      <Badge variant="outline" className="font-mono text-[10px] bg-emerald-500/10 text-emerald-400 border-emerald-500/30 font-bold px-1.5 py-0">
-                                        ID {actor.gameId}
+                                      <Badge variant="outline" className="text-[10px] bg-sky-500/10 text-sky-400 border-sky-500/30 font-bold px-1.5 py-0">
+                                        🤖 Sistema Twin Wheels
                                       </Badge>
-                                      <span className="text-foreground font-bold truncate max-w-[140px]">
-                                        {actor.displayName}
+                                      {parsed.playerId && (
+                                        <span className="text-[10px] font-mono text-muted-foreground">
+                                          (ID {parsed.playerId})
+                                        </span>
+                                      )}
+                                    </div>
+                                    {parsed.authorName && parsed.authorName !== "Sistema Twin Wheels" && (
+                                      <span className="text-[10px] text-muted-foreground truncate max-w-[150px] block" title={parsed.authorName}>
+                                        Log: {parsed.authorName}
                                       </span>
-                                    </div>
-                                    <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
-                                      <span className="text-emerald-400 font-medium">✓ Membro Painel</span>
-                                      {actor.nickname && <span>• {actor.nickname}</span>}
-                                    </div>
+                                    )}
                                   </div>
                                 );
-                              }
+                              })()}
+                            </TableCell>
 
-                              return (
-                                <div className="space-y-0.5">
-                                  <div className="flex items-center gap-1.5 flex-wrap">
-                                    <Badge variant="outline" className="text-[10px] bg-sky-500/10 text-sky-400 border-sky-500/30 font-bold px-1.5 py-0">
-                                      🤖 Sistema Twin Wheels
+                            <TableCell className="text-xs">
+                              {parsed.parsedItems.length > 0 ? (
+                                <div className="flex flex-wrap gap-1 max-w-xs">
+                                  {parsed.parsedItems.map((it, idx) => (
+                                    <Badge
+                                      key={idx}
+                                      variant="outline"
+                                      className={cn(
+                                        "text-[10px] font-mono",
+                                        it.qtyChange > 0
+                                          ? "border-emerald-500/30 text-emerald-400 bg-emerald-500/10"
+                                          : "border-rose-500/30 text-rose-400 bg-rose-500/10"
+                                      )}
+                                    >
+                                      {it.mappedTo} {it.qtyChange > 0 ? `+${it.qtyChange}` : it.qtyChange}
                                     </Badge>
-                                    {parsed.playerId && (
-                                      <span className="text-[10px] font-mono text-muted-foreground">
-                                        (ID {parsed.playerId})
-                                      </span>
-                                    )}
-                                  </div>
-                                  {parsed.authorName && parsed.authorName !== "Sistema Twin Wheels" && (
-                                    <span className="text-[10px] text-muted-foreground truncate max-w-[150px] block" title={parsed.authorName}>
-                                      Log: {parsed.authorName}
-                                    </span>
-                                  )}
+                                  ))}
                                 </div>
-                              );
-                            })()}
-                          </TableCell>
+                              ) : (
+                                <span className="text-muted-foreground text-[11px] truncate max-w-[200px] block italic">
+                                  {msg.content || (msg.embeds?.[0]?.title ? `Embed: ${msg.embeds[0].title}` : "(Sem texto de saldo)")}
+                                </span>
+                              )}
+                            </TableCell>
 
-                          <TableCell className="text-xs">
-                            {parsed.parsedItems.length > 0 ? (
-                              <div className="flex flex-wrap gap-1 max-w-xs">
-                                {parsed.parsedItems.map((it, idx) => (
-                                  <Badge
-                                    key={idx}
-                                    variant="outline"
-                                    className={cn(
-                                      "text-[10px] font-mono",
-                                      it.qtyChange > 0
-                                        ? "border-emerald-500/30 text-emerald-400 bg-emerald-500/10"
-                                        : "border-rose-500/30 text-rose-400 bg-rose-500/10"
-                                    )}
-                                  >
-                                    {it.mappedTo} {it.qtyChange > 0 ? `+${it.qtyChange}` : it.qtyChange}
-                                  </Badge>
-                                ))}
-                              </div>
-                            ) : (
-                              <span className="text-muted-foreground text-[11px] truncate max-w-[200px] block italic">
-                                {msg.content || (msg.embeds?.[0]?.title ? `Embed: ${msg.embeds[0].title}` : "(Sem texto de saldo)")}
-                              </span>
-                            )}
-                          </TableCell>
+                            <TableCell className="text-xs">
+                              {parsed.isValidMovement ? (
+                                <Badge variant="outline" className="text-[10px] font-mono uppercase border-emerald-500/40 text-emerald-400 bg-emerald-500/10 gap-1">
+                                  <CheckCircle2 className="w-3 h-3" /> Movimentação Válida
+                                </Badge>
+                              ) : (
+                                <Badge variant="outline" className="text-[10px] font-mono uppercase border-muted text-muted-foreground bg-secondary/40">
+                                  Informativo / Outro
+                                </Badge>
+                              )}
+                            </TableCell>
 
-                          <TableCell className="text-xs">
-                            {parsed.isValidMovement ? (
-                              <Badge variant="outline" className="text-[10px] font-mono uppercase border-emerald-500/40 text-emerald-400 bg-emerald-500/10 gap-1">
-                                <CheckCircle2 className="w-3 h-3" /> Movimentação Válida
-                              </Badge>
-                            ) : (
-                              <Badge variant="outline" className="text-[10px] font-mono uppercase border-muted text-muted-foreground bg-secondary/40">
-                                Informativo / Outro
-                              </Badge>
-                            )}
-                          </TableCell>
-
-                          <TableCell className="text-xs text-right">
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              className="h-8 gap-1 text-xs hover:text-primary cursor-pointer"
-                              onClick={() => setSelectedLiveMsgForInspect(msg)}
-                            >
-                              <Eye className="w-3.5 h-3.5 text-primary" />
-                              JSON Raw
-                            </Button>
-                          </TableCell>
-                        </TableRow>
-                      );
-                    })}
-                  </TableBody>
-                </Table>
-              </div>
+                            <TableCell className="text-xs text-right">
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="h-8 gap-1 text-xs hover:text-primary cursor-pointer"
+                                onClick={() => setSelectedLiveMsgForInspect(msg)}
+                              >
+                                <Eye className="w-3.5 h-3.5 text-primary" />
+                                JSON Raw
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                </div>
+              </>
             )}
           </CardContent>
 
@@ -1999,39 +2098,41 @@ function DiscordLogsTab() {
                 </CardDescription>
               </div>
 
-              <div className="flex flex-wrap items-center gap-2">
-                <div className="relative">
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full md:w-auto">
+                <div className="relative flex-1 sm:w-64">
                   <Search className="w-3.5 h-3.5 absolute left-2.5 top-3 text-muted-foreground" />
                   <Input
                     placeholder="Filtrar por ID, Jogador ou Conteúdo..."
-                    className="pl-8 h-9 text-xs w-64"
+                    className="pl-8 h-9 text-xs w-full"
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                   />
                 </div>
 
-                <Select value={statusFilter} onValueChange={setStatusFilter}>
-                  <SelectTrigger className="h-9 text-xs w-36">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todos os Status</SelectItem>
-                    <SelectItem value="success">🟢 Sucesso</SelectItem>
-                    <SelectItem value="error">🔴 Erro</SelectItem>
-                    <SelectItem value="ignored">⚪ Ignorados</SelectItem>
-                  </SelectContent>
-                </Select>
+                <div className="flex items-center gap-2">
+                  <Select value={statusFilter} onValueChange={setStatusFilter}>
+                    <SelectTrigger className="h-9 text-xs flex-1 sm:w-36">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todos os Status</SelectItem>
+                      <SelectItem value="success">🟢 Sucesso</SelectItem>
+                      <SelectItem value="error">🔴 Erro</SelectItem>
+                      <SelectItem value="ignored">⚪ Ignorados</SelectItem>
+                    </SelectContent>
+                  </Select>
 
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="h-9 text-xs gap-1.5"
-                  onClick={() => queryClient.invalidateQueries({ queryKey: ["discord_stock_logs"] })}
-                  disabled={isRefetchingDbLogs}
-                >
-                  <RefreshCw className={cn("w-3.5 h-3.5", isRefetchingDbLogs && "animate-spin")} />
-                  Atualizar
-                </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-9 text-xs gap-1.5 shrink-0"
+                    onClick={() => queryClient.invalidateQueries({ queryKey: ["discord_stock_logs"] })}
+                    disabled={isRefetchingDbLogs}
+                  >
+                    <RefreshCw className={cn("w-3.5 h-3.5", isRefetchingDbLogs && "animate-spin")} />
+                    <span className="hidden sm:inline">Atualizar</span>
+                  </Button>
+                </div>
               </div>
             </div>
           </CardHeader>
@@ -2046,116 +2147,21 @@ function DiscordLogsTab() {
                 Nenhuma log técnica encontrada com os filtros selecionados.
               </div>
             ) : (
-              <div className="overflow-x-auto mobile-touch-scroll">
-                <Table>
-                  <TableHeader>
-                    <TableRow className="border-border/40">
-                      <TableHead className="text-xs">Data/Hora</TableHead>
-                      <TableHead className="text-xs">ID da Mensagem</TableHead>
-                      <TableHead className="text-xs">Jogador / Autor</TableHead>
-                      <TableHead className="text-xs">Itens / Alteração</TableHead>
-                      <TableHead className="text-xs">Status</TableHead>
-                      <TableHead className="text-xs text-right">Ação</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {filteredLogs.map((l) => (
-                      <TableRow key={l.id} className="border-border/30 hover:bg-secondary/20">
-                        <TableCell className="text-xs whitespace-nowrap text-muted-foreground">
-                          {formatDate(l.created_at)}
-                        </TableCell>
-
-                        <TableCell className="text-xs font-mono">
-                          <div className="flex items-center gap-1">
-                            <span className="text-foreground">{l.message_id?.slice(0, 12)}...</span>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-6 w-6 p-0 text-muted-foreground hover:text-foreground"
-                              onClick={() => {
-                                navigator.clipboard.writeText(l.message_id || "");
-                                toast.success("ID copiado!");
-                              }}
-                            >
-                              <Copy className="w-3 h-3" />
-                            </Button>
-                          </div>
-                        </TableCell>
-
-                        <TableCell className="text-xs">
-                          {(() => {
-                            const actor = resolveActor(l.game_player_id, l.author_name);
-                            if (actor.isMember && actor.member) {
-                              return (
-                                <div className="space-y-0.5">
-                                  <div className="flex items-center gap-1.5 flex-wrap">
-                                    <Badge variant="outline" className="font-mono text-[10px] bg-emerald-500/10 text-emerald-400 border-emerald-500/30 font-bold px-1.5 py-0">
-                                      ID {actor.gameId}
-                                    </Badge>
-                                    <span className="text-foreground font-bold truncate max-w-[140px]">
-                                      {actor.displayName}
-                                    </span>
-                                  </div>
-                                  <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
-                                    <span className="text-emerald-400 font-medium">✓ Membro Painel</span>
-                                    {actor.nickname && <span>• {actor.nickname}</span>}
-                                  </div>
-                                </div>
-                              );
-                            }
-
-                            return (
-                              <div className="space-y-0.5">
-                                <div className="flex items-center gap-1.5 flex-wrap">
-                                  <Badge variant="outline" className="text-[10px] bg-sky-500/10 text-sky-400 border-sky-500/30 font-bold px-1.5 py-0">
-                                    🤖 Sistema Twin Wheels
-                                  </Badge>
-                                  {l.game_player_id && (
-                                    <span className="text-[10px] font-mono text-muted-foreground">
-                                      (ID {l.game_player_id})
-                                    </span>
-                                  )}
-                                </div>
-                                {l.author_name && l.author_name !== "Sistema Twin Wheels" && (
-                                  <span className="text-[10px] text-muted-foreground truncate max-w-[150px] block" title={l.author_name}>
-                                    Log: {l.author_name}
-                                  </span>
-                                )}
-                              </div>
-                            );
-                          })()}
-                        </TableCell>
-
-                        <TableCell className="text-xs">
-                          {Array.isArray(l.parsed_items) && l.parsed_items.length > 0 ? (
-                            <div className="flex flex-wrap gap-1 max-w-xs">
-                              {l.parsed_items.map((it: any, idx: number) => (
-                                <Badge
-                                  key={idx}
-                                  variant="outline"
-                                  className={cn(
-                                    "text-[10px] font-mono",
-                                    it.quantity_change > 0
-                                      ? "border-emerald-500/30 text-emerald-400 bg-emerald-500/10"
-                                      : "border-rose-500/30 text-rose-400 bg-rose-500/10"
-                                  )}
-                                >
-                                  {it.item_name} {it.quantity_change > 0 ? `+${it.quantity_change}` : it.quantity_change}
-                                </Badge>
-                              ))}
-                            </div>
-                          ) : (
-                            <span className="text-muted-foreground text-[11px] truncate max-w-[200px] block">
-                              {l.raw_content ? l.raw_content.slice(0, 40) : "—"}
-                            </span>
-                          )}
-                        </TableCell>
-
-                        <TableCell className="text-xs">
+              <>
+                {/* Mobile View: Cards */}
+                <div className="block sm:hidden divide-y divide-border/40">
+                  {filteredLogs.map((l) => {
+                    const actor = resolveActor(l.game_player_id, l.author_name);
+                    return (
+                      <div key={l.id} className="p-3.5 space-y-2.5">
+                        <div className="flex items-center justify-between text-xs gap-2">
+                          <span className="text-[11px] text-muted-foreground font-mono">
+                            {formatDate(l.created_at)}
+                          </span>
                           <Badge
                             variant="outline"
                             className={cn(
-                              "text-[10px] font-mono uppercase",
+                              "text-[9px] font-mono uppercase",
                               l.status === "success"
                                 ? "border-emerald-500/40 text-emerald-400 bg-emerald-500/10"
                                 : l.status === "error"
@@ -2165,24 +2171,208 @@ function DiscordLogsTab() {
                           >
                             {l.status}
                           </Badge>
-                        </TableCell>
+                        </div>
 
-                        <TableCell className="text-xs text-right">
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="min-w-0 flex-1">
+                            {actor.isMember && actor.member ? (
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <Badge variant="outline" className="font-mono text-[10px] bg-emerald-500/10 text-emerald-400 border-emerald-500/30 font-bold px-1.5 py-0">
+                                  ID {actor.gameId}
+                                </Badge>
+                                <span className="text-foreground font-bold text-xs truncate">
+                                  {actor.displayName}
+                                </span>
+                              </div>
+                            ) : (
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <Badge variant="outline" className="text-[10px] bg-sky-500/10 text-sky-400 border-sky-500/30 font-bold px-1.5 py-0">
+                                  🤖 {l.game_player_id ? `ID ${l.game_player_id}` : "Sistema"}
+                                </Badge>
+                                {l.author_name && l.author_name !== "Sistema Twin Wheels" && (
+                                  <span className="text-[11px] text-muted-foreground truncate">
+                                    {l.author_name}
+                                  </span>
+                                )}
+                              </div>
+                            )}
+                          </div>
+
                           <Button
                             size="sm"
-                            variant="ghost"
-                            className="h-8 gap-1 text-xs"
+                            variant="outline"
+                            className="h-7 text-[11px] gap-1 px-2 shrink-0"
                             onClick={() => setSelectedLogForInspect(l)}
                           >
-                            <Eye className="w-3.5 h-3.5 text-primary" />
-                            Inspecionar
+                            <Eye className="w-3 h-3 text-primary" />
+                            Detalhes
                           </Button>
-                        </TableCell>
+                        </div>
+
+                        {Array.isArray(l.parsed_items) && l.parsed_items.length > 0 ? (
+                          <div className="flex flex-wrap gap-1 pt-1">
+                            {l.parsed_items.map((it: any, idx: number) => (
+                              <Badge
+                                key={idx}
+                                variant="outline"
+                                className={cn(
+                                  "text-[10px] font-mono",
+                                  it.quantity_change > 0
+                                    ? "border-emerald-500/30 text-emerald-400 bg-emerald-500/10"
+                                    : "border-rose-500/30 text-rose-400 bg-rose-500/10"
+                                )}
+                              >
+                                {it.item_name} {it.quantity_change > 0 ? `+${it.quantity_change}` : it.quantity_change}
+                              </Badge>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="text-[11px] text-muted-foreground italic truncate">
+                            {l.raw_content ? l.raw_content.slice(0, 60) : "—"}
+                          </p>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Desktop View: Table */}
+                <div className="hidden sm:block overflow-x-auto mobile-touch-scroll">
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="border-border/40">
+                        <TableHead className="text-xs">Data/Hora</TableHead>
+                        <TableHead className="text-xs">ID da Mensagem</TableHead>
+                        <TableHead className="text-xs">Jogador / Autor</TableHead>
+                        <TableHead className="text-xs">Itens / Alteração</TableHead>
+                        <TableHead className="text-xs">Status</TableHead>
+                        <TableHead className="text-xs text-right">Ação</TableHead>
                       </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
+                    </TableHeader>
+                    <TableBody>
+                      {filteredLogs.map((l) => (
+                        <TableRow key={l.id} className="border-border/30 hover:bg-secondary/20">
+                          <TableCell className="text-xs whitespace-nowrap text-muted-foreground">
+                            {formatDate(l.created_at)}
+                          </TableCell>
+
+                          <TableCell className="text-xs font-mono">
+                            <div className="flex items-center gap-1">
+                              <span className="text-foreground">{l.message_id?.slice(0, 12)}...</span>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-6 w-6 p-0 text-muted-foreground hover:text-foreground"
+                                onClick={() => {
+                                  navigator.clipboard.writeText(l.message_id || "");
+                                  toast.success("ID copiado!");
+                                }}
+                              >
+                                <Copy className="w-3 h-3" />
+                              </Button>
+                            </div>
+                          </TableCell>
+
+                          <TableCell className="text-xs">
+                            {(() => {
+                              const actor = resolveActor(l.game_player_id, l.author_name);
+                              if (actor.isMember && actor.member) {
+                                return (
+                                  <div className="space-y-0.5">
+                                    <div className="flex items-center gap-1.5 flex-wrap">
+                                      <Badge variant="outline" className="font-mono text-[10px] bg-emerald-500/10 text-emerald-400 border-emerald-500/30 font-bold px-1.5 py-0">
+                                        ID {actor.gameId}
+                                      </Badge>
+                                      <span className="text-foreground font-bold truncate max-w-[140px]">
+                                        {actor.displayName}
+                                      </span>
+                                    </div>
+                                    <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                                      <span className="text-emerald-400 font-medium">✓ Membro Painel</span>
+                                      {actor.nickname && <span>• {actor.nickname}</span>}
+                                    </div>
+                                  </div>
+                                );
+                              }
+
+                              return (
+                                <div className="space-y-0.5">
+                                  <div className="flex items-center gap-1.5 flex-wrap">
+                                    <Badge variant="outline" className="text-[10px] bg-sky-500/10 text-sky-400 border-sky-500/30 font-bold px-1.5 py-0">
+                                      🤖 Sistema Twin Wheels
+                                    </Badge>
+                                    {l.game_player_id && (
+                                      <span className="text-[10px] font-mono text-muted-foreground">
+                                        (ID {l.game_player_id})
+                                      </span>
+                                    )}
+                                  </div>
+                                  {l.author_name && l.author_name !== "Sistema Twin Wheels" && (
+                                    <span className="text-[10px] text-muted-foreground truncate max-w-[150px] block" title={l.author_name}>
+                                      Log: {l.author_name}
+                                    </span>
+                                  )}
+                                </div>
+                              );
+                            })()}
+                          </TableCell>
+
+                          <TableCell className="text-xs">
+                            {Array.isArray(l.parsed_items) && l.parsed_items.length > 0 ? (
+                              <div className="flex flex-wrap gap-1 max-w-xs">
+                                {l.parsed_items.map((it: any, idx: number) => (
+                                  <Badge
+                                    key={idx}
+                                    variant="outline"
+                                    className={cn(
+                                      "text-[10px] font-mono",
+                                      it.quantity_change > 0
+                                        ? "border-emerald-500/30 text-emerald-400 bg-emerald-500/10"
+                                        : "border-rose-500/30 text-rose-400 bg-rose-500/10"
+                                    )}
+                                  >
+                                    {it.item_name} {it.quantity_change > 0 ? `+${it.quantity_change}` : it.quantity_change}
+                                  </Badge>
+                                ))}
+                              </div>
+                            ) : (
+                              <span className="text-muted-foreground text-[11px] truncate max-w-[200px] block">
+                                {l.raw_content ? l.raw_content.slice(0, 40) : "—"}
+                              </span>
+                            )}
+                          </TableCell>
+
+                          <TableCell className="text-xs">
+                            <Badge
+                              variant="outline"
+                              className={cn(
+                                "text-[10px] font-mono uppercase",
+                                l.status === "success"
+                                  ? "border-emerald-500/40 text-emerald-400 bg-emerald-500/10"
+                                  : "border-rose-500/40 text-rose-400 bg-rose-500/10"
+                              )}
+                            >
+                              {l.status}
+                            </Badge>
+                          </TableCell>
+
+                          <TableCell className="text-xs text-right">
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-8 gap-1 text-xs"
+                              onClick={() => setSelectedLogForInspect(l)}
+                            >
+                              <Eye className="w-3.5 h-3.5 text-primary" />
+                              Inspecionar
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              </>
             )}
           </CardContent>
         </Card>

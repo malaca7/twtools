@@ -610,15 +610,15 @@ function DevToolsMenuEditor() {
             </Badge>
           </div>
         </PageHeader>
-        <div className="flex items-center gap-2 flex-wrap">
+        <div className="grid grid-cols-2 sm:flex sm:items-center gap-2 w-full sm:w-auto">
           <Button
             variant="outline"
             size="sm"
             onClick={handleReset}
-            className="h-9 text-xs gap-1.5 font-bold border-border/80"
+            className="h-10 sm:h-9 text-xs gap-1.5 font-bold border-border/80 w-full sm:w-auto"
           >
             <RotateCcw className="h-3.5 w-3.5" />
-            Restaurar Padrão
+            Restaurar
           </Button>
           <Button
             size="sm"
@@ -626,10 +626,10 @@ function DevToolsMenuEditor() {
               setNewItemCategory(categories[0] || "DEV");
               setIsAddItemOpen(true);
             }}
-            className={cn("h-9 text-xs gap-1.5 font-bold border", devStyle.borderClass, devStyle.bgSubtleClass, devStyle.textClass)}
+            className={cn("h-10 sm:h-9 text-xs gap-1.5 font-bold border w-full sm:w-auto", devStyle.borderClass, devStyle.bgSubtleClass, devStyle.textClass)}
           >
             <Plus className="h-3.5 w-3.5" />
-            Novo Item Dev
+            Novo Item
           </Button>
           <Button
             size="sm"
@@ -637,12 +637,12 @@ function DevToolsMenuEditor() {
               persist(categories, items);
               toast.success("Configuração do Menu Lateral Dev salva no Supabase!");
             }}
-            className={cn("h-9 text-xs gap-1.5 font-bold shadow-sm", devStyle.bgSolidClass)}
+            className={cn("h-10 sm:h-9 text-xs gap-1.5 font-bold shadow-sm col-span-2 sm:col-span-1 w-full sm:w-auto", devStyle.bgSolidClass)}
           >
             <Save className="h-3.5 w-3.5" />
             Salvar Menu Dev
           </Button>
-          <Badge className="bg-emerald-500/10 text-emerald-400 border-emerald-500/30 text-xs gap-1 py-1 px-3 font-mono">
+          <Badge className="bg-emerald-500/10 text-emerald-400 border-emerald-500/30 text-[10px] sm:text-xs gap-1 py-1 px-2.5 font-mono col-span-2 sm:col-span-1 justify-center sm:justify-start">
             <CheckCircle2 className="h-3.5 w-3.5" />
             Sincronizado ao vivo
           </Badge>
@@ -751,40 +751,40 @@ function DevToolsMenuEditor() {
                         </div>
                       </div>
 
-                      <div className="flex items-center gap-0.5 shrink-0">
+                      <div className="flex items-center gap-1 shrink-0">
                         <button
                           type="button"
                           onClick={() => handleMoveCategory(idx, "up")}
                           disabled={idx === 0}
-                          className="h-6 w-6 flex items-center justify-center rounded text-muted-foreground hover:text-foreground disabled:opacity-20"
+                          className="h-7 w-7 sm:h-6 sm:w-6 flex items-center justify-center rounded text-muted-foreground hover:text-foreground disabled:opacity-20 p-1"
                           title="Mover categoria para cima"
                         >
-                          <ChevronUp className="h-3.5 w-3.5" />
+                          <ChevronUp className="h-4 w-4 sm:h-3.5 sm:w-3.5" />
                         </button>
                         <button
                           type="button"
                           onClick={() => handleMoveCategory(idx, "down")}
                           disabled={idx === categories.length - 1}
-                          className="h-6 w-6 flex items-center justify-center rounded text-muted-foreground hover:text-foreground disabled:opacity-20"
+                          className="h-7 w-7 sm:h-6 sm:w-6 flex items-center justify-center rounded text-muted-foreground hover:text-foreground disabled:opacity-20 p-1"
                           title="Mover categoria para baixo"
                         >
-                          <ChevronDown className="h-3.5 w-3.5" />
+                          <ChevronDown className="h-4 w-4 sm:h-3.5 sm:w-3.5" />
                         </button>
                         <button
                           type="button"
                           onClick={() => handleStartEditCategory(idx)}
-                          className={cn("h-6 w-6 flex items-center justify-center rounded text-muted-foreground disabled:opacity-20", "hover:" + devStyle.textClass)}
+                          className={cn("h-7 w-7 sm:h-6 sm:w-6 flex items-center justify-center rounded text-muted-foreground disabled:opacity-20 p-1", "hover:" + devStyle.textClass)}
                           title="Editar nome da categoria"
                         >
-                          <Edit3 className="h-3.5 w-3.5" />
+                          <Edit3 className="h-4 w-4 sm:h-3.5 sm:w-3.5" />
                         </button>
                         <button
                           type="button"
                           onClick={() => handleDeleteCategory(cat)}
-                          className="h-6 w-6 flex items-center justify-center rounded text-muted-foreground hover:text-destructive disabled:opacity-20"
+                          className="h-7 w-7 sm:h-6 sm:w-6 flex items-center justify-center rounded text-muted-foreground hover:text-destructive disabled:opacity-20 p-1"
                           title="Excluir categoria"
                         >
-                          <Trash2 className="h-3.5 w-3.5" />
+                          <Trash2 className="h-4 w-4 sm:h-3.5 sm:w-3.5" />
                         </button>
                       </div>
                     </>
@@ -909,27 +909,27 @@ function DevToolsMenuEditor() {
                             )}
                           >
                             {/* Left Group: Controls + Icon Picker Trigger + Title + URL */}
-                            <div className="flex items-center gap-3 min-w-0 flex-1">
+                            <div className="flex items-start sm:items-center gap-3 min-w-0 flex-1 w-full">
                               {/* Drag Handle & Arrows */}
-                              <div className="flex flex-col items-center gap-0.5 shrink-0">
+                              <div className="flex flex-col items-center gap-0.5 shrink-0 pt-1 sm:pt-0">
                                 <button
                                   type="button"
                                   onClick={() => moveItemWithinCategory(item.id, "up")}
                                   disabled={itemIdxInCat === 0}
-                                  className="h-4 w-4 flex items-center justify-center rounded text-muted-foreground hover:text-foreground disabled:opacity-20"
+                                  className="h-5 w-5 sm:h-4 sm:w-4 flex items-center justify-center rounded text-muted-foreground hover:text-foreground disabled:opacity-20"
                                   title="Mover para cima nesta categoria"
                                 >
-                                  <ChevronUp className="h-3 w-3" />
+                                  <ChevronUp className="h-3.5 w-3.5 sm:h-3 sm:w-3" />
                                 </button>
                                 <GripVertical className={cn("h-4 w-4 text-muted-foreground/60 cursor-grab", "hover:" + devStyle.textClass)} />
                                 <button
                                   type="button"
                                   onClick={() => moveItemWithinCategory(item.id, "down")}
                                   disabled={itemIdxInCat === catItems.length - 1}
-                                  className="h-4 w-4 flex items-center justify-center rounded text-muted-foreground hover:text-foreground disabled:opacity-20"
+                                  className="h-5 w-5 sm:h-4 sm:w-4 flex items-center justify-center rounded text-muted-foreground hover:text-foreground disabled:opacity-20"
                                   title="Mover para baixo nesta categoria"
                                 >
-                                  <ChevronDown className="h-3 w-3" />
+                                  <ChevronDown className="h-3.5 w-3.5 sm:h-3 sm:w-3" />
                                 </button>
                               </div>
 
@@ -952,22 +952,22 @@ function DevToolsMenuEditor() {
                               </button>
 
                               {/* Title Input & URL Info */}
-                              <div className="min-w-0 flex-1 space-y-1.5">
+                              <div className="min-w-0 flex-1 space-y-1.5 w-full">
                                 <div className="flex items-center gap-2">
                                   <Input
                                     value={item.title || ""}
                                     onChange={(e) => updateItem(item.id, { title: e.target.value })}
-                                    className="h-8 text-xs font-bold bg-background/90 border-border/70 focus:border-primary transition-colors rounded-lg shadow-2xs"
+                                    className="h-8 text-xs font-bold bg-background/90 border-border/70 focus:border-primary transition-colors rounded-lg shadow-2xs w-full"
                                     placeholder="Nome exibido no menu dev..."
                                   />
                                 </div>
-                                <div className="flex items-center gap-2 flex-wrap">
-                                  <div className="flex items-center gap-1.5 text-[0.68rem] text-muted-foreground font-mono bg-secondary/60 border border-border/60 px-2 py-0.5 rounded-md truncate max-w-xs">
-                                    <span className={cn("font-bold text-[10px]", devStyle.textClass)}>ROTA:</span>
+                                <div className="flex items-center gap-2 flex-wrap w-full">
+                                  <div className="flex items-center gap-1.5 text-[0.68rem] text-muted-foreground font-mono bg-secondary/60 border border-border/60 px-2 py-0.5 rounded-md flex-1 sm:flex-initial min-w-0">
+                                    <span className={cn("font-bold text-[10px] shrink-0", devStyle.textClass)}>ROTA:</span>
                                     <Input
                                       value={item.url || ""}
                                       onChange={(e) => updateItem(item.id, { url: e.target.value })}
-                                      className="h-5 text-[0.68rem] font-mono bg-transparent border-0 p-0 focus-visible:ring-0 text-foreground w-36"
+                                      className="h-5 text-[0.68rem] font-mono bg-transparent border-0 p-0 focus-visible:ring-0 text-foreground w-full sm:w-36"
                                       placeholder="/dev/..."
                                     />
                                     {item.url && (
@@ -1005,7 +1005,7 @@ function DevToolsMenuEditor() {
                             </div>
 
                             {/* Right Group: Category + Visibility + Edit Modal Button + Delete */}
-                            <div className="flex items-center gap-2.5 shrink-0 self-end lg:self-auto pt-2 lg:pt-0 border-t lg:border-t-0 border-border/30 w-full lg:w-auto justify-between lg:justify-end">
+                            <div className="flex items-center justify-between lg:justify-end gap-2 shrink-0 pt-2 lg:pt-0 border-t lg:border-t-0 border-border/30 w-full lg:w-auto">
                               {/* Category Select */}
                               <div className="flex items-center gap-1.5">
                                 <span className="text-[10px] text-muted-foreground font-medium hidden sm:inline">Cat:</span>
@@ -1013,7 +1013,7 @@ function DevToolsMenuEditor() {
                                   value={item.category || "DEV"}
                                   onValueChange={(val) => updateItem(item.id, { category: val })}
                                 >
-                                  <SelectTrigger className="h-8 w-28 text-xs font-bold border-border/70 bg-secondary/40 rounded-lg shrink-0">
+                                  <SelectTrigger className="h-8 w-24 sm:w-28 text-xs font-bold border-border/70 bg-secondary/40 rounded-lg shrink-0">
                                     <SelectValue />
                                   </SelectTrigger>
                                   <SelectContent>
@@ -1029,7 +1029,7 @@ function DevToolsMenuEditor() {
                               <Separator orientation="vertical" className="h-6 hidden sm:block" />
 
                               {/* Visibility Switch */}
-                              <div className="flex items-center gap-2 shrink-0 bg-secondary/30 px-2.5 py-1 rounded-lg border border-border/50">
+                              <div className="flex items-center gap-1.5 shrink-0 bg-secondary/30 px-2 py-1 rounded-lg border border-border/50">
                                 {item.visible ? (
                                   <div className="flex items-center gap-1 text-emerald-400 text-xs font-bold">
                                     <Eye className="h-3.5 w-3.5 text-emerald-400" />
@@ -1055,7 +1055,7 @@ function DevToolsMenuEditor() {
                                 size="sm"
                                 onClick={() => handleOpenEditModal(item)}
                                 className={cn(
-                                  "h-8 px-2.5 text-xs font-bold gap-1 rounded-lg border shadow-2xs transition-colors",
+                                  "h-8 px-2 sm:px-2.5 text-xs font-bold gap-1 rounded-lg border shadow-2xs transition-colors",
                                   devStyle.borderClass,
                                   devStyle.bgSubtleClass,
                                   devStyle.textClass
@@ -1906,15 +1906,16 @@ function CeoMenuLateralEditor() {
           </p>
         </div>
 
-        <div className="flex items-center gap-2 flex-wrap">
+        <div className="grid grid-cols-2 sm:flex sm:items-center gap-2 w-full sm:w-auto">
           <Button
             variant="outline"
             size="sm"
             onClick={handleReset}
-            className="h-9 text-xs gap-1.5 font-bold border-border/80 hover:bg-secondary/60"
+            className="h-9 text-xs gap-1.5 font-bold border-border/80 hover:bg-secondary/60 w-full sm:w-auto"
           >
             <RotateCcw className="h-3.5 w-3.5 text-muted-foreground" />
-            Restaurar Padrão CEO
+            <span className="hidden sm:inline">Restaurar Padrão CEO</span>
+            <span className="sm:hidden">Restaurar</span>
           </Button>
 
           <Button
@@ -1923,10 +1924,11 @@ function CeoMenuLateralEditor() {
               setNewItemCategory(categories[0] || "CEO");
               setIsAddItemOpen(true);
             }}
-            className={cn("h-9 text-xs gap-1.5 font-bold border", ceoStyle.borderClass, ceoStyle.bgSubtleClass, ceoStyle.textClass)}
+            className={cn("h-9 text-xs gap-1.5 font-bold border w-full sm:w-auto", ceoStyle.borderClass, ceoStyle.bgSubtleClass, ceoStyle.textClass)}
           >
             <Plus className="h-3.5 w-3.5" />
-            Novo Item CEO
+            <span className="hidden sm:inline">Novo Item CEO</span>
+            <span className="sm:hidden">Novo Item</span>
           </Button>
 
           <Button
@@ -1935,13 +1937,13 @@ function CeoMenuLateralEditor() {
               persist(categories, items);
               toast.success("Configuração do Menu Lateral do CEO salva no Supabase! 👑");
             }}
-            className={cn("h-9 text-xs gap-1.5 font-bold shadow-sm", ceoStyle.bgSolidClass)}
+            className={cn("h-9 text-xs gap-1.5 font-bold shadow-sm col-span-2 sm:col-span-1 w-full sm:w-auto", ceoStyle.bgSolidClass)}
           >
             <Save className="h-3.5 w-3.5" />
             Salvar Menu CEO
           </Button>
 
-          <Badge className={cn("text-xs gap-1 py-1 px-3 font-mono", ceoStyle.badgeClass)}>
+          <Badge className={cn("text-xs gap-1 py-1 px-3 font-mono col-span-2 sm:col-span-1 justify-center sm:justify-start", ceoStyle.badgeClass)}>
             <CheckCircle2 className="h-3.5 w-3.5" />
             Supabase Live · {ceoStyle.label.split(" ")[0]}
           </Badge>
@@ -2048,12 +2050,12 @@ function CeoMenuLateralEditor() {
                         </Badge>
                       </div>
 
-                      <div className="flex items-center gap-1 shrink-0">
+                      <div className="flex items-center gap-0.5 shrink-0">
                         <button
                           type="button"
                           onClick={() => handleMoveCategory(idx, "up")}
                           disabled={idx === 0}
-                          className="h-6 w-6 flex items-center justify-center rounded text-muted-foreground hover:text-foreground disabled:opacity-20"
+                          className="h-7 w-7 sm:h-6 sm:w-6 p-1 flex items-center justify-center rounded text-muted-foreground hover:text-foreground disabled:opacity-20"
                           title="Mover categoria para cima"
                         >
                           <ChevronUp className="h-3.5 w-3.5" />
@@ -2062,7 +2064,7 @@ function CeoMenuLateralEditor() {
                           type="button"
                           onClick={() => handleMoveCategory(idx, "down")}
                           disabled={idx === categories.length - 1}
-                          className="h-6 w-6 flex items-center justify-center rounded text-muted-foreground hover:text-foreground disabled:opacity-20"
+                          className="h-7 w-7 sm:h-6 sm:w-6 p-1 flex items-center justify-center rounded text-muted-foreground hover:text-foreground disabled:opacity-20"
                           title="Mover categoria para baixo"
                         >
                           <ChevronDown className="h-3.5 w-3.5" />
@@ -2070,7 +2072,7 @@ function CeoMenuLateralEditor() {
                         <button
                           type="button"
                           onClick={() => handleStartEditCategory(idx)}
-                          className={cn("h-6 w-6 flex items-center justify-center rounded text-muted-foreground disabled:opacity-20", "hover:" + ceoStyle.textClass)}
+                          className={cn("h-7 w-7 sm:h-6 sm:w-6 p-1 flex items-center justify-center rounded text-muted-foreground disabled:opacity-20", "hover:" + ceoStyle.textClass)}
                           title="Editar nome da categoria"
                         >
                           <Edit3 className="h-3.5 w-3.5" />
@@ -2078,7 +2080,7 @@ function CeoMenuLateralEditor() {
                         <button
                           type="button"
                           onClick={() => handleDeleteCategory(cat)}
-                          className="h-6 w-6 flex items-center justify-center rounded text-muted-foreground hover:text-destructive disabled:opacity-20"
+                          className="h-7 w-7 sm:h-6 sm:w-6 p-1 flex items-center justify-center rounded text-muted-foreground hover:text-destructive disabled:opacity-20"
                           title="Excluir categoria"
                         >
                           <Trash2 className="h-3.5 w-3.5" />
@@ -2161,72 +2163,82 @@ function CeoMenuLateralEditor() {
             const CatIcon = resolveCategoryIcon(categoryIcons[cat], Crown);
 
             return (
-              <Card key={cat} className="surface-card border-border/60">
-                <CardHeader className="pb-2 pt-3 px-4 border-b border-border/40 bg-secondary/20">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <CatIcon className={cn("h-4 w-4", ceoStyle.textClass)} />
-                      <CardTitle className="text-xs font-bold text-foreground">
-                        Categoria CEO: <span className={cn("font-extrabold", ceoStyle.textClass)}>{cat}</span>
-                      </CardTitle>
-                    </div>
-                    <Badge variant="outline" className={cn("text-[10px] font-mono", ceoStyle.badgeClass)}>
-                      {catItems.length} {catItems.length === 1 ? "item" : "itens"}
+              <div key={cat} className="space-y-2">
+                {/* Category Subheader */}
+                <div className="flex items-center justify-between px-1">
+                  <div className="flex items-center gap-2">
+                    <CatIcon className={cn("h-4 w-4", ceoStyle.textClass)} />
+                    <span className="text-xs font-black uppercase tracking-wider text-muted-foreground">{cat}</span>
+                    <Badge variant="secondary" className="text-[10px] font-mono">
+                      {catItems.length}
                     </Badge>
                   </div>
-                </CardHeader>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      setNewItemCategory(cat);
+                      setIsAddItemOpen(true);
+                    }}
+                    className={cn("h-6 text-[10px] gap-1 px-2 font-bold", "hover:" + ceoStyle.textClass)}
+                  >
+                    <Plus className="h-3 w-3" />
+                    Adicionar a {cat}
+                  </Button>
+                </div>
 
-                <CardContent className="p-3">
-                  {catItems.length === 0 ? (
-                    <p className="text-[0.75rem] text-muted-foreground italic py-3 text-center">
-                      Nenhum item nesta categoria. Edite um dos itens abaixo para vinculá-lo a esta categoria.
-                    </p>
-                  ) : (
-                    <div className="space-y-2.5">
-                      {catItems.map((item, itemIdxInCat) => {
-                        const ItemIcon = resolveMenuIcon(item.iconName, item.url);
-                        const isDragging = draggedItemId === item.id;
-                        const isDragOver = dragOverItemId === item.id;
+                {/* Items in this category */}
+                {catItems.length === 0 ? (
+                  <div className="p-4 rounded-xl border border-dashed border-border/40 text-center text-xs text-muted-foreground/60">
+                    Nenhum item nesta categoria CEO. Arraste ou crie um novo item.
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {catItems.map((item, itemIdxInCat) => {
+                      const ItemIcon = resolveMenuIcon(item.iconName, item.url);
+                      const isDragging = draggedItemId === item.id;
+                      const isDragOver = dragOverItemId === item.id;
 
-                        return (
-                          <div
-                            key={item.id}
-                            draggable
-                            onDragStart={(e) => handleItemDragStart(e, item.id)}
-                            onDragOver={(e) => handleItemDragOver(e, item.id)}
-                            onDragLeave={handleItemDragLeave}
-                            onDrop={(e) => handleItemDrop(e, item.id)}
-                            className={cn(
-                              "flex flex-col lg:flex-row lg:items-center justify-between gap-3 p-3 rounded-xl border transition-all duration-200 cursor-grab active:cursor-grabbing",
-                              item.visible
-                                ? cn("bg-card/60 border-border/70 shadow-xs hover:bg-card/90", ceoStyle.borderHoverClass)
-                                : "bg-secondary/20 border-border/30 opacity-60",
-                              isDragging && cn("opacity-30 scale-95 border-dashed", ceoStyle.borderClass),
-                              isDragOver && cn(ceoStyle.borderClass, ceoStyle.bgSubtleClass, "shadow-lg scale-[1.01]")
-                            )}
-                          >
-                            {/* Left Group: Controls + Icon Picker Button + Title Input */}
-                            <div className="flex items-center gap-3 min-w-0 flex-1">
+                      return (
+                        <div
+                          key={item.id}
+                          draggable
+                          onDragStart={(e) => handleItemDragStart(e, item.id)}
+                          onDragOver={(e) => handleItemDragOver(e, item.id)}
+                          onDragLeave={handleItemDragLeave}
+                          onDrop={(e) => handleItemDrop(e, item.id)}
+                          className={cn(
+                            "flex flex-col lg:flex-row lg:items-center justify-between gap-3 p-3 rounded-xl border transition-all duration-200 cursor-grab active:cursor-grabbing",
+                            item.visible
+                              ? cn("bg-card/60 border-border/70 shadow-xs hover:bg-card/90", ceoStyle.borderHoverClass)
+                              : "bg-secondary/20 border-border/30 opacity-60",
+                            isDragging && cn("opacity-30 scale-95 border-dashed", ceoStyle.borderClass),
+                            isDragOver && cn(ceoStyle.borderClass, ceoStyle.bgSubtleClass, "shadow-lg scale-[1.01]")
+                          )}
+                        >
+                          {/* Left Group: Controls + Icon Picker Button + Title Input */}
+                          <div className="flex flex-col sm:flex-row sm:items-center gap-2.5 sm:gap-3 min-w-0 flex-1">
+                            <div className="flex items-center gap-2">
                               {/* Drag Handle & Arrows */}
-                              <div className="flex flex-col items-center gap-0.5 shrink-0">
+                              <div className="flex flex-row sm:flex-col items-center gap-1 sm:gap-0.5 shrink-0">
                                 <button
                                   type="button"
                                   onClick={() => moveItemWithinCategory(item.id, "up")}
                                   disabled={itemIdxInCat === 0}
-                                  className="h-4 w-4 flex items-center justify-center rounded text-muted-foreground hover:text-foreground disabled:opacity-20"
+                                  className="h-6 w-6 sm:h-4 sm:w-4 flex items-center justify-center rounded text-muted-foreground hover:text-foreground disabled:opacity-20 bg-secondary/50 sm:bg-transparent"
                                   title="Mover para cima"
                                 >
-                                  <ChevronUp className="h-3 w-3" />
+                                  <ChevronUp className="h-3.5 w-3.5 sm:h-3 sm:w-3" />
                                 </button>
-                                <GripVertical className={cn("h-4 w-4 text-muted-foreground/60 cursor-grab", "hover:" + ceoStyle.textClass)} />
+                                <GripVertical className={cn("h-4 w-4 text-muted-foreground/60 cursor-grab hidden sm:block", "hover:" + ceoStyle.textClass)} />
                                 <button
                                   type="button"
                                   onClick={() => moveItemWithinCategory(item.id, "down")}
                                   disabled={itemIdxInCat === catItems.length - 1}
-                                  className="h-4 w-4 flex items-center justify-center rounded text-muted-foreground hover:text-foreground disabled:opacity-20"
+                                  className="h-6 w-6 sm:h-4 sm:w-4 flex items-center justify-center rounded text-muted-foreground hover:text-foreground disabled:opacity-20 bg-secondary/50 sm:bg-transparent"
                                   title="Mover para baixo"
                                 >
-                                  <ChevronDown className="h-3 w-3" />
+                                  <ChevronDown className="h-3.5 w-3.5 sm:h-3 sm:w-3" />
                                 </button>
                               </div>
 
@@ -2238,7 +2250,7 @@ function CeoMenuLateralEditor() {
                                   setItemIconPickerOpen(true);
                                 }}
                                 className={cn(
-                                  "h-10 w-10 p-0 flex items-center justify-center rounded-xl shrink-0 transition-all hover:scale-105 shadow-xs border cursor-pointer",
+                                  "h-9 w-9 sm:h-10 sm:w-10 p-0 flex items-center justify-center rounded-xl shrink-0 transition-all hover:scale-105 shadow-xs border cursor-pointer",
                                   ceoStyle.borderClass,
                                   ceoStyle.bgSubtleClass,
                                   ceoStyle.textClass
@@ -2247,44 +2259,46 @@ function CeoMenuLateralEditor() {
                               >
                                 <ItemIcon className="h-4 w-4" />
                               </button>
+                            </div>
 
-                              {/* Title Input & URL Info */}
-                              <div className="min-w-0 flex-1 space-y-1.5">
-                                <div className="flex items-center gap-2">
+                            {/* Title Input & URL Info */}
+                            <div className="min-w-0 flex-1 space-y-1.5 w-full">
+                              <div className="flex items-center gap-2">
+                                <Input
+                                  value={item.title || ""}
+                                  onChange={(e) => updateItem(item.id, { title: e.target.value })}
+                                  className="h-8 text-xs font-bold bg-background/90 border-border/70 focus:border-primary transition-colors rounded-lg shadow-2xs w-full"
+                                  placeholder="Nome exibido no menu CEO..."
+                                />
+                              </div>
+                              <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
+                                <div className="flex items-center gap-1.5 text-[0.68rem] text-muted-foreground font-mono bg-secondary/60 border border-border/60 px-2 py-0.5 rounded-md w-full sm:w-auto">
+                                  <span className={cn("font-bold text-[10px] shrink-0", ceoStyle.textClass)}>ROTA:</span>
                                   <Input
-                                    value={item.title || ""}
-                                    onChange={(e) => updateItem(item.id, { title: e.target.value })}
-                                    className="h-8 text-xs font-bold bg-background/90 border-border/70 focus:border-primary transition-colors rounded-lg shadow-2xs"
-                                    placeholder="Nome exibido no menu CEO..."
+                                    value={item.url || ""}
+                                    onChange={(e) => updateItem(item.id, { url: e.target.value })}
+                                    className="h-5 text-[0.68rem] font-mono bg-transparent border-0 p-0 focus-visible:ring-0 text-foreground w-full sm:w-36"
+                                    placeholder="/ceo/..."
                                   />
+                                  {item.url && (
+                                    <a
+                                      href={item.url.startsWith("http") ? item.url : `#${item.url}`}
+                                      target={item.url.startsWith("http") ? "_blank" : undefined}
+                                      rel="noreferrer"
+                                      className="text-muted-foreground hover:text-foreground shrink-0"
+                                      title={`Testar link CEO: ${item.url}`}
+                                      onClick={(e) => {
+                                        if (!item.url.startsWith("http")) {
+                                          e.preventDefault();
+                                          window.location.href = item.url;
+                                        }
+                                      }}
+                                    >
+                                      <ExternalLink className="h-3 w-3" />
+                                    </a>
+                                  )}
                                 </div>
-                                <div className="flex items-center gap-2 flex-wrap">
-                                  <div className="flex items-center gap-1.5 text-[0.68rem] text-muted-foreground font-mono bg-secondary/60 border border-border/60 px-2 py-0.5 rounded-md truncate max-w-xs">
-                                    <span className={cn("font-bold text-[10px]", ceoStyle.textClass)}>ROTA:</span>
-                                    <Input
-                                      value={item.url || ""}
-                                      onChange={(e) => updateItem(item.id, { url: e.target.value })}
-                                      className="h-5 text-[0.68rem] font-mono bg-transparent border-0 p-0 focus-visible:ring-0 text-foreground w-36"
-                                      placeholder="/ceo/..."
-                                    />
-                                    {item.url && (
-                                      <a
-                                        href={item.url.startsWith("http") ? item.url : `#${item.url}`}
-                                        target={item.url.startsWith("http") ? "_blank" : undefined}
-                                        rel="noreferrer"
-                                        className="text-muted-foreground hover:text-foreground shrink-0"
-                                        title={`Testar link CEO: ${item.url}`}
-                                        onClick={(e) => {
-                                          if (!item.url.startsWith("http")) {
-                                            e.preventDefault();
-                                            window.location.href = item.url;
-                                          }
-                                        }}
-                                      >
-                                        <ExternalLink className="h-3 w-3" />
-                                      </a>
-                                    )}
-                                  </div>
+                                <div className="flex items-center gap-1 flex-wrap">
                                   <Badge variant="outline" className="text-[9px] font-mono border-border/60 text-muted-foreground py-0">
                                     ID: {item.id}
                                   </Badge>
@@ -2300,51 +2314,53 @@ function CeoMenuLateralEditor() {
                                 </div>
                               </div>
                             </div>
+                          </div>
 
-                            {/* Right Group: Category + Visibility + Edit Modal Button + Delete */}
-                            <div className="flex items-center gap-2.5 shrink-0 self-end lg:self-auto pt-2 lg:pt-0 border-t lg:border-t-0 border-border/30 w-full lg:w-auto justify-between lg:justify-end">
-                              {/* Category Select */}
-                              <div className="flex items-center gap-1.5">
-                                <span className="text-[10px] text-muted-foreground font-medium hidden sm:inline">Cat:</span>
-                                <Select
-                                  value={item.category || "CEO"}
-                                  onValueChange={(val) => updateItem(item.id, { category: val })}
-                                >
-                                  <SelectTrigger className="h-8 w-28 text-xs font-bold border-border/70 bg-secondary/40 rounded-lg shrink-0">
-                                    <SelectValue />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    {categories.map((c) => (
-                                      <SelectItem key={c} value={c} className="text-xs font-medium">
-                                        {c}
-                                      </SelectItem>
-                                    ))}
-                                  </SelectContent>
-                                </Select>
-                              </div>
+                          {/* Right Group: Category + Visibility + Edit Modal Button + Delete */}
+                          <div className="flex items-center gap-2 shrink-0 pt-2 border-t border-border/30 w-full lg:pt-0 lg:border-t-0 lg:w-auto justify-between lg:justify-end flex-wrap sm:flex-nowrap">
+                            {/* Category Select */}
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-[10px] text-muted-foreground font-medium hidden sm:inline">Cat:</span>
+                              <Select
+                                value={item.category || "CEO"}
+                                onValueChange={(val) => updateItem(item.id, { category: val })}
+                              >
+                                <SelectTrigger className="h-8 w-28 text-xs font-bold border-border/70 bg-secondary/40 rounded-lg shrink-0">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {categories.map((c) => (
+                                    <SelectItem key={c} value={c} className="text-xs font-medium">
+                                      {c}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
 
-                              <Separator orientation="vertical" className="h-6 hidden sm:block" />
+                            <Separator orientation="vertical" className="h-6 hidden sm:block" />
 
-                              {/* Visibility Switch */}
-                              <div className="flex items-center gap-2 shrink-0 bg-secondary/30 px-2.5 py-1 rounded-lg border border-border/50">
-                                {item.visible ? (
-                                  <div className="flex items-center gap-1 text-emerald-400 text-xs font-bold">
-                                    <Eye className="h-3.5 w-3.5 text-emerald-400" />
-                                    <span className="text-[10px] hidden sm:inline">Visível</span>
-                                  </div>
-                                ) : (
-                                  <div className="flex items-center gap-1 text-muted-foreground text-xs font-medium">
-                                    <EyeOff className="h-3.5 w-3.5 text-muted-foreground" />
-                                    <span className="text-[10px] hidden sm:inline">Oculto</span>
-                                  </div>
-                                )}
-                                <Switch
-                                  checked={item.visible}
-                                  onCheckedChange={(checked) => updateItem(item.id, { visible: checked })}
-                                  className="data-[state=checked]:bg-emerald-500 scale-90"
-                                />
-                              </div>
+                            {/* Visibility Switch */}
+                            <div className="flex items-center gap-2 shrink-0 bg-secondary/30 px-2 sm:px-2.5 py-1 rounded-lg border border-border/50">
+                              {item.visible ? (
+                                <div className="flex items-center gap-1 text-emerald-400 text-xs font-bold">
+                                  <Eye className="h-3.5 w-3.5 text-emerald-400" />
+                                  <span className="text-[10px] hidden sm:inline">Visível</span>
+                                </div>
+                              ) : (
+                                <div className="flex items-center gap-1 text-muted-foreground text-xs font-medium">
+                                  <EyeOff className="h-3.5 w-3.5 text-muted-foreground" />
+                                  <span className="text-[10px] hidden sm:inline">Oculto</span>
+                                </div>
+                              )}
+                              <Switch
+                                checked={item.visible}
+                                onCheckedChange={(checked) => updateItem(item.id, { visible: checked })}
+                                className="data-[state=checked]:bg-emerald-500 scale-90"
+                              />
+                            </div>
 
+                            <div className="flex items-center gap-1.5 ml-auto sm:ml-0">
                               {/* Edit Modal Button */}
                               <Button
                                 type="button"
@@ -2352,7 +2368,7 @@ function CeoMenuLateralEditor() {
                                 size="sm"
                                 onClick={() => handleOpenEditModal(item)}
                                 className={cn(
-                                  "h-8 px-2.5 text-xs font-bold gap-1 rounded-lg border shadow-2xs transition-colors",
+                                  "h-8 px-2 sm:px-2.5 text-xs font-bold gap-1 rounded-lg border shadow-2xs transition-colors",
                                   ceoStyle.borderClass,
                                   ceoStyle.bgSubtleClass,
                                   ceoStyle.textClass
@@ -2374,12 +2390,12 @@ function CeoMenuLateralEditor() {
                               </button>
                             </div>
                           </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
             );
           })}
         </div>
@@ -2757,18 +2773,19 @@ function DevMenuLateralContent() {
       />
 
       <Tabs value={activeTab} onValueChange={(val: any) => setActiveTab(val)} className="space-y-6">
-        <TabsList className="flex bg-secondary/30 border border-border/60 p-1.5 rounded-2xl flex-wrap h-auto gap-2 shadow-sm">
+        <TabsList className="flex bg-secondary/30 border border-border/60 p-1.5 rounded-2xl overflow-x-auto no-scrollbar flex-nowrap w-full justify-start sm:justify-center h-auto gap-2 shadow-sm">
           <TabsTrigger
             value="plataforma"
             className={cn(
-              "text-xs font-bold gap-2 py-2.5 px-4 rounded-xl transition-all cursor-pointer",
+              "text-xs font-bold gap-2 py-2.5 px-3.5 sm:px-4 rounded-xl transition-all cursor-pointer shrink-0",
               activeTab === "plataforma"
                 ? "bg-primary text-primary-foreground shadow-md"
                 : "hover:bg-secondary/50 text-muted-foreground"
             )}
           >
             <Layers className="h-4 w-4" />
-            Menu Plataforma (Membros)
+            <span className="hidden sm:inline">Menu Plataforma (Membros)</span>
+            <span className="sm:hidden">Plataforma</span>
             <Badge className={cn("text-[9px] py-0 px-1.5 font-extrabold border ml-1", activeTab === "plataforma" ? "bg-white/20 text-white border-white/30" : "bg-secondary text-foreground")}>
               Membros
             </Badge>
@@ -2777,12 +2794,13 @@ function DevMenuLateralContent() {
           <TabsTrigger
             value="dev"
             className={cn(
-              "text-xs font-bold gap-2 py-2.5 px-4 rounded-xl transition-all cursor-pointer",
+              "text-xs font-bold gap-2 py-2.5 px-3.5 sm:px-4 rounded-xl transition-all cursor-pointer shrink-0",
               activeTab === "dev" ? cn(devStyle.bgSolidClass, "shadow-md") : "hover:bg-secondary/50 text-muted-foreground"
             )}
           >
             <Terminal className="h-4 w-4" />
-            Menu Dev Tools
+            <span className="hidden sm:inline">Menu Dev Tools</span>
+            <span className="sm:hidden">Dev Tools</span>
             <Badge className={cn("text-[9px] py-0 px-1.5 font-extrabold border ml-1", activeTab === "dev" ? "bg-white/20 text-white border-white/30" : devStyle.badgeClass)}>
               Dev
             </Badge>
@@ -2791,12 +2809,13 @@ function DevMenuLateralContent() {
           <TabsTrigger
             value="ceo"
             className={cn(
-              "text-xs font-bold gap-2 py-2.5 px-4 rounded-xl transition-all cursor-pointer",
+              "text-xs font-bold gap-2 py-2.5 px-3.5 sm:px-4 rounded-xl transition-all cursor-pointer shrink-0",
               activeTab === "ceo" ? cn(ceoStyle.bgSolidClass, "shadow-md") : "hover:bg-secondary/50 text-muted-foreground"
             )}
           >
             <Crown className="h-4 w-4" />
-            Menu Painel CEO
+            <span className="hidden sm:inline">Menu Painel CEO</span>
+            <span className="sm:hidden">Painel CEO</span>
             <Badge className={cn("text-[9px] py-0 px-1.5 font-extrabold border ml-1", activeTab === "ceo" ? "bg-black/20 text-black border-black/30" : ceoStyle.badgeClass)}>
               Diretoria
             </Badge>

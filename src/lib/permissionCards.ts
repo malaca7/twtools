@@ -29,6 +29,7 @@ import {
   Radio,
   PackageCheck,
   Sliders,
+  Flame,
 } from "lucide-react";
 import type { Permission } from "@/lib/permissions";
 
@@ -86,6 +87,9 @@ export const READ_ONLY_PERMISSIONS: Permission[] = [
   "view_ceo_stock_adjustments",
   "view_lives",
   "view_stream_logs",
+  "view_life",
+  "life_view_following",
+  "life_view_bookmarks",
 ];
 
 export const PAGE_CARDS: PageCardConfig[] = [
@@ -1373,6 +1377,120 @@ export const PAGE_CARDS: PageCardConfig[] = [
         label: "Auditoria Técnica e Logs de Movimentação",
         description: "Permite visualizar histórico completo de mensagens do Discord, logs processadas e rejeitadas.",
         badge: "Auditoria",
+      },
+    ],
+  },
+  {
+    id: "life",
+    title: "Twin Life — Feed & Rede Social",
+    route: "/life",
+    icon: Flame,
+    description: "Rede social exclusiva interna com feed de publicações, fotos, vídeos, menções, hashtags, comentários, curtidas e seguidores.",
+    color: "border-pink-500/40 bg-pink-500/5 text-pink-400",
+    defaultCat: "Operação",
+    defaultOrder: 11,
+    permissions: [
+      {
+        key: "view_life",
+        label: "Visualizar Feed do Twin Life",
+        description: "Permite acessar a rota /life e visualizar o feed de publicações gerais da facção.",
+        badge: "Acesso à Rota",
+      },
+      {
+        key: "life_view_following",
+        label: "Acessar Aba 'Seguindo'",
+        description: "Permite filtrar o feed apenas pelas publicações dos membros que o usuário segue.",
+      },
+      {
+        key: "life_view_bookmarks",
+        label: "Acessar Aba 'Salvos' (Favoritos)",
+        description: "Permite visualizar a aba de publicações salvas e favoritadas.",
+      },
+      {
+        key: "post_life",
+        label: "Criar Novas Publicações",
+        description: "Permite escrever e publicar mensagens de texto no feed do Twin Life.",
+        badge: "Criação de Conteúdo",
+      },
+      {
+        key: "life_post_image",
+        label: "Anexar Imagens e Fotos",
+        description: "Permite enviar e anexar fotos, screenshots e banners às publicações (com ajuste via Studio).",
+        badge: "Mídia",
+      },
+      {
+        key: "life_post_video",
+        label: "Anexar Vídeos (YouTube / Streamable / Clipes)",
+        description: "Permite incorporar links de vídeos do YouTube, Streamable e clipes diretos nas postagens.",
+        badge: "Mídia",
+      },
+      {
+        key: "life_mention_members",
+        label: "Marcar Membros (@)",
+        description: "Permite marcar outros membros com @ no texto da publicação com menu de busca.",
+      },
+      {
+        key: "life_use_hashtags",
+        label: "Usar e Criar Hashtags (#)",
+        description: "Permite categorizar publicações com hashtags para indexação temática no feed.",
+      },
+      {
+        key: "life_like_posts",
+        label: "Curtir Publicações",
+        description: "Permite curtir e reagir às publicações dos membros no feed.",
+        badge: "Engajamento",
+      },
+      {
+        key: "life_bookmark_posts",
+        label: "Favoritar / Salvar Publicações",
+        description: "Permite salvar postagens nos favoritos para consulta posterior na aba de salvos.",
+        badge: "Engajamento",
+      },
+      {
+        key: "life_comment_posts",
+        label: "Comentar nas Publicações",
+        description: "Permite participar das discussões e enviar comentários nos posts de outros membros.",
+        badge: "Engajamento",
+      },
+      {
+        key: "life_delete_own_comment",
+        label: "Excluir Próprios Comentários",
+        description: "Permite que o autor delete seus próprios comentários feitos no feed.",
+      },
+      {
+        key: "life_delete_own_post",
+        label: "Excluir Próprias Publicações",
+        description: "Permite apagar do feed as publicações criadas pelo próprio membro.",
+      },
+      {
+        key: "life_follow_members",
+        label: "Seguir e Deixar de Seguir Membros",
+        description: "Permite seguir outros membros da organização e personalizar seu feed social.",
+        badge: "Rede Social",
+      },
+      {
+        key: "life_pin_posts",
+        label: "Fixar Publicações no Topo",
+        description: "Permite destacar e fixar comunicados e postagens importantes no topo do feed.",
+        badge: "Destaque / Gestão",
+      },
+      {
+        key: "life_moderate_posts",
+        label: "Moderar/Excluir Posts de Outros",
+        description: "Permite remover publicações inadequadas de qualquer membro da organização.",
+        badge: "Moderação",
+      },
+      {
+        key: "life_moderate_comments",
+        label: "Moderar/Excluir Comentários de Outros",
+        description: "Permite excluir comentários de outros membros para manter a ordem no feed.",
+        badge: "Moderação",
+      },
+      {
+        key: "manage_life",
+        label: "Gerenciamento Completo do Twin Life",
+        description: "Acesso administrativo irrestrito à moderação, fixação, gestão de publicações e configurações do feed.",
+        badge: "Acesso Administrativo",
       },
     ],
   },

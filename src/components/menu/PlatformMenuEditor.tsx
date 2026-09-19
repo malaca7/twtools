@@ -1153,49 +1153,49 @@ export function PlatformMenuEditor({
                             onDragLeave={handleItemDragLeave}
                             onDrop={(e) => handleItemDrop(e, item.id)}
                             className={cn(
-                              "flex items-center justify-between gap-3 p-2.5 rounded-xl border transition-all duration-200 cursor-grab active:cursor-grabbing",
+                              "flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 rounded-xl border transition-all duration-200 cursor-grab active:cursor-grabbing",
                               item.visible
                                 ? "bg-card/40 border-border/60 shadow-xs hover:border-primary/40"
-                                : "bg-secondary/20 border-border/30 opacity-50",
+                                : "bg-secondary/20 border-border/30 opacity-60",
                               isDragging && "opacity-30 scale-95 border-dashed border-primary",
                               isDragOver && "border-primary bg-primary/10 shadow-lg scale-[1.01]"
                             )}
                           >
                             {/* Left Group: Reorder Arrows + Icon + Title + URL */}
-                            <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                            <div className="flex items-center gap-2.5 min-w-0 flex-1 w-full sm:w-auto">
                               {/* Reorder Arrows & Handle */}
                               <div className="flex flex-col items-center gap-0.5 shrink-0">
                                 <button
                                   type="button"
                                   onClick={() => moveItemWithinCategory(item.id, "up")}
                                   disabled={itemIdxInCat === 0 || !userCanEdit}
-                                  className="h-4 w-4 flex items-center justify-center rounded text-muted-foreground hover:text-foreground disabled:opacity-20"
+                                  className="h-5 w-5 sm:h-4 sm:w-4 flex items-center justify-center rounded text-muted-foreground hover:text-foreground disabled:opacity-20"
                                   title="Mover para cima nesta categoria"
                                 >
-                                  <ChevronUp className="h-3 w-3" />
+                                  <ChevronUp className="h-3.5 w-3.5 sm:h-3 sm:w-3" />
                                 </button>
-                                <GripVertical className="h-3.5 w-3.5 text-muted-foreground/50 hover:text-primary cursor-grab" />
+                                <GripVertical className="h-4 w-4 text-muted-foreground/50 hover:text-primary cursor-grab" />
                                 <button
                                   type="button"
                                   onClick={() => moveItemWithinCategory(item.id, "down")}
                                   disabled={itemIdxInCat === catItems.length - 1 || !userCanEdit}
-                                  className="h-4 w-4 flex items-center justify-center rounded text-muted-foreground hover:text-foreground disabled:opacity-20"
+                                  className="h-5 w-5 sm:h-4 sm:w-4 flex items-center justify-center rounded text-muted-foreground hover:text-foreground disabled:opacity-20"
                                   title="Mover para baixo nesta categoria"
                                 >
-                                  <ChevronDown className="h-3 w-3" />
+                                  <ChevronDown className="h-3.5 w-3.5 sm:h-3 sm:w-3" />
                                 </button>
                               </div>
 
                               {/* Icon Badge */}
                               <div
                                 className={cn(
-                                  "flex h-8 w-8 items-center justify-center rounded-lg border shrink-0 transition-colors shadow-xs",
+                                  "flex h-9 w-9 sm:h-8 sm:w-8 items-center justify-center rounded-lg border shrink-0 transition-colors shadow-xs",
                                   item.visible
                                     ? "bg-primary/10 border-primary/30 text-primary"
                                     : "bg-secondary/50 border-border/40 text-muted-foreground"
                                 )}
                               >
-                                <ItemIcon className="h-4 w-4" />
+                                <ItemIcon className="h-4 w-4 sm:h-3.5 sm:w-3.5" />
                               </div>
 
                               {/* Title & Route */}
@@ -1237,14 +1237,14 @@ export function PlatformMenuEditor({
                             </div>
 
                             {/* Right Group: Category Selector + Visibility + Edit & Delete Actions */}
-                            <div className="flex items-center gap-2 shrink-0">
+                            <div className="flex items-center justify-between sm:justify-end gap-2 shrink-0 w-full sm:w-auto pt-2 sm:pt-0 border-t sm:border-t-0 border-border/40">
                               {/* Category Select */}
                               <Select
                                 value={item.category || categories[0] || "Gestão"}
                                 onValueChange={(val) => updateItem(item.id, { category: val })}
                                 disabled={!userCanEdit}
                               >
-                                <SelectTrigger className="h-7 w-28 text-[10px] font-bold border-border/60 bg-secondary/40 shrink-0">
+                                <SelectTrigger className="h-8 sm:h-7 w-28 text-[10px] font-bold border-border/60 bg-secondary/40 shrink-0">
                                   <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -1256,11 +1256,11 @@ export function PlatformMenuEditor({
                                 </SelectContent>
                               </Select>
 
-                              <Separator orientation="vertical" className="h-5" />
+                              <Separator orientation="vertical" className="h-5 hidden sm:block" />
 
                               {/* Visibility Switch */}
                               <div
-                                className="flex items-center gap-1 shrink-0"
+                                className="flex items-center gap-1.5 shrink-0 bg-secondary/30 sm:bg-transparent px-2 sm:px-0 py-1 sm:py-0 rounded-lg sm:rounded-none border sm:border-0 border-border/40"
                                 title={item.visible ? "Visível no menu" : "Oculto no menu"}
                               >
                                 {item.visible ? (
@@ -1268,17 +1268,18 @@ export function PlatformMenuEditor({
                                 ) : (
                                   <EyeOff className="h-3.5 w-3.5 text-muted-foreground" />
                                 )}
+                                <span className="text-[10px] sm:hidden text-muted-foreground">{item.visible ? "Visível" : "Oculto"}</span>
                                 <Switch
                                   checked={item.visible}
                                   onCheckedChange={(checked) =>
                                     updateItem(item.id, { visible: checked })
                                   }
                                   disabled={!userCanEdit}
-                                  className="data-[state=checked]:bg-emerald-500"
+                                  className="data-[state=checked]:bg-emerald-500 scale-90 sm:scale-75"
                                 />
                               </div>
 
-                              <Separator orientation="vertical" className="h-5" />
+                              <Separator orientation="vertical" className="h-5 hidden sm:block" />
 
                               {/* Edit Button */}
                               <Button
@@ -1286,7 +1287,7 @@ export function PlatformMenuEditor({
                                 variant="ghost"
                                 onClick={() => handleStartEditItem(item)}
                                 disabled={!userCanEdit}
-                                className="h-7 w-7 p-0 text-muted-foreground hover:text-primary hover:bg-primary/10"
+                                className="h-8 w-8 sm:h-7 sm:w-7 p-0 text-muted-foreground hover:text-primary hover:bg-primary/10"
                                 title="Editar título, rota ou ícone do menu"
                               >
                                 <Edit3 className="h-3.5 w-3.5" />
@@ -1298,8 +1299,8 @@ export function PlatformMenuEditor({
                                 variant="ghost"
                                 onClick={() => setItemToDelete(item)}
                                 disabled={!userCanEdit}
-                                className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
-                                title="Excluir este item da navegação"
+                                className="h-8 w-8 sm:h-7 sm:w-7 p-0 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                                title="Remover item da navegação"
                               >
                                 <Trash2 className="h-3.5 w-3.5" />
                               </Button>

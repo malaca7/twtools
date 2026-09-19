@@ -29,6 +29,7 @@ import {
   Smile,
   Maximize2,
   Play,
+  Lock,
 } from "lucide-react";
 import { PageHeader, NoAccess, ProductThumbnail } from "@/components/ui-kit";
 import { UniversalImageAdjusterModal } from "@/components/ui/UniversalImageAdjusterModal";
@@ -207,8 +208,23 @@ export function LifePage() {
   const { isOnline } = usePresence();
 
   const canView = hasPermission("view_life");
-  const canPost = hasPermission("post_life");
   const canManage = hasPermission("manage_life") || isDevUser || isCeoUser;
+  const canViewFollowing = hasPermission("life_view_following") || canManage;
+  const canViewBookmarks = hasPermission("life_view_bookmarks") || canManage;
+  const canPost = hasPermission("post_life") || canManage;
+  const canPostImage = hasPermission("life_post_image") || canManage;
+  const canPostVideo = hasPermission("life_post_video") || canManage;
+  const canMention = hasPermission("life_mention_members") || canManage;
+  const canUseHashtags = hasPermission("life_use_hashtags") || canManage;
+  const canLike = hasPermission("life_like_posts") || canManage;
+  const canBookmark = hasPermission("life_bookmark_posts") || canManage;
+  const canComment = hasPermission("life_comment_posts") || canManage;
+  const canDeleteOwnComment = hasPermission("life_delete_own_comment") || canManage;
+  const canDeleteOwnPost = hasPermission("life_delete_own_post") || canManage;
+  const canFollow = hasPermission("life_follow_members") || canManage;
+  const canPin = hasPermission("life_pin_posts") || canManage;
+  const canModeratePosts = hasPermission("life_moderate_posts") || canManage;
+  const canModerateComments = hasPermission("life_moderate_comments") || canManage;
 
   // Tabs state
   const [activeTab, setActiveTab] = useState<LifeFeedTab>("all");
@@ -268,13 +284,23 @@ export function LifePage() {
 
   // Mutations
   const createPostMutation = useMutation({
-    mutationFn: () =>
-      createProfilePost(
+    mutationFn: () => {
+      if (!canPost) {
+        throw new Error("Você não possui permissão para criar publicações no feed.");
+      }
+      if (mediaMode === "image" && mediaUrl && !canPostImage) {
+        throw new Error("Você não possui permissão para anexar imagens.");
+      }
+      if (mediaMode === "video" && videoUrl && !canPostVideo) {
+        throw new Error("Você não possui permissão para anexar vídeos.");
+      }
+      return createProfilePost(
         content,
         mediaMode === "image" ? mediaUrl : null,
         mediaMode === "video" ? videoUrl : null,
         mediaMode === "video" ? "video" : mediaUrl ? "image" : "none"
-      ),
+      );
+    },
     onSuccess: () => {
       setContent("");
       setMediaUrl("");
@@ -292,7 +318,14 @@ export function LifePage() {
   });
 
   const deletePostMutation = useMutation({
-    mutationFn: (postId: string) => deleteProfilePost(postId),
+    mutationFn: (postId: string) => {
+      const targetPost = posts.find((p) => p.id === postId);
+      const isAuthor = targetPost ? targetPost.author_id === user?.id : false;
+      if (!canManage && !canModeratePosts && (!isAuthor || !canDeleteOwnPost)) {
+        throw new Error("Você não possui permissão para excluir esta publicação.");
+      }
+      return deleteProfilePost(postId);
+    },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["life-feed"] });
       toast.success("Publicação removida com sucesso!");
@@ -301,7 +334,12 @@ export function LifePage() {
   });
 
   const likePostMutation = useMutation({
-    mutationFn: (postId: string) => togglePostLike(postId),
+    mutationFn: (postId: string) => {
+      if (!canLike && !canManage) {
+        throw new Error("Você não possui permissão para curtir publicações.");
+      }
+      return togglePostLike(postId);
+    },
     onSuccess: (data, postId) => {
       // Otimização de cache instantânea
       queryClient.setQueryData(
@@ -316,10 +354,16 @@ export function LifePage() {
         }
       );
     },
+    onError: (err: any) => toast.error(err.message || "Erro ao curtir publicação."),
   });
 
   const bookmarkPostMutation = useMutation({
-    mutationFn: (postId: string) => togglePostBookmark(postId),
+    mutationFn: (postId: string) => {
+      if (!canBookmark && !canManage) {
+        throw new Error("Você não possui permissão para salvar favoritos.");
+      }
+      return togglePostBookmark(postId);
+    },
     onSuccess: (data, postId) => {
       queryClient.setQueryData(
         ["life-feed", activeTab, user?.id, selectedTag],
@@ -337,10 +381,16 @@ export function LifePage() {
       );
       void queryClient.invalidateQueries({ queryKey: ["life-feed", "saved"] });
     },
+    onError: (err: any) => toast.error(err.message || "Erro ao salvar publicação."),
   });
 
   const followMutation = useMutation({
-    mutationFn: (targetUserId: string) => toggleFollowMember(targetUserId),
+    mutationFn: (targetUserId: string) => {
+      if (!canFollow && !canManage) {
+        throw new Error("Você não possui permissão para seguir membros.");
+      }
+      return toggleFollowMember(targetUserId);
+    },
     onSuccess: (data, targetUserId) => {
       toast.success(
         data.isFollowing ? "Você agora está seguindo este membro!" : "Deixou de seguir."
@@ -349,16 +399,31 @@ export function LifePage() {
       void queryClient.invalidateQueries({ queryKey: ["life-suggested-members"] });
       void queryClient.invalidateQueries({ queryKey: ["profile-follow-stats"] });
     },
+    onError: (err: any) => toast.error(err.message || "Erro ao seguir membro."),
   });
 
   const pinMutation = useMutation({
-    mutationFn: ({ postId, pinned }: { postId: string; pinned: boolean }) =>
-      togglePinPost(postId, pinned),
+    mutationFn: ({ postId, pinned }: { postId: string; pinned: boolean }) => {
+      if (!canPin && !canManage) {
+        throw new Error("Você não possui permissão para fixar ou desafixar publicações.");
+      }
+      return togglePinPost(postId, pinned);
+    },
     onSuccess: (_, vars) => {
       toast.success(vars.pinned ? "Publicação fixada no topo!" : "Publicação desafixada.");
       void queryClient.invalidateQueries({ queryKey: ["life-feed"] });
     },
+    onError: (err: any) => toast.error(err.message || "Erro ao fixar publicação."),
   });
+
+  // Validação de aba ativa quando permissões não concedem acesso
+  useEffect(() => {
+    if (activeTab === "following" && !canViewFollowing) {
+      setActiveTab("all");
+    } else if (activeTab === "saved" && !canViewBookmarks) {
+      setActiveTab("all");
+    }
+  }, [activeTab, canViewFollowing, canViewBookmarks]);
 
   // Autocomplete de @menções
   const handleTextChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
@@ -369,7 +434,7 @@ export function LifePage() {
     const textBeforeCursor = val.slice(0, cursorPos);
     const match = textBeforeCursor.match(/@([a-zA-Z0-9_.-]*)$/);
 
-    if (match) {
+    if (match && canMention) {
       setMentionQuery(match[1].toLowerCase());
       setMentionPosition({
         start: cursorPos - match[0].length,
@@ -559,7 +624,7 @@ export function LifePage() {
         {/* COLUNA ESQUERDA: COMPOSER + ABAS + POSTS (2 COLUNAS EM LG) */}
         <div className="lg:col-span-2 space-y-5">
           {/* COMPOSER DE POSTAGEM */}
-          {canPost && (
+          {canPost ? (
             <Card className="surface-card border-primary/30 shadow-lg rounded-2xl overflow-hidden">
               <CardHeader className="pb-2 pt-3 px-4 sm:px-5 border-b border-border/40 bg-secondary/15">
                 <div className="flex items-center justify-between">
@@ -737,70 +802,76 @@ export function LifePage() {
                 {/* BOTÕES DE AÇÃO DO COMPOSER */}
                 <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-border/40">
                   <div className="flex items-center gap-1.5 flex-wrap">
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => {
-                        setShowMediaInput((prev) => !prev);
-                        setMediaMode("image");
-                      }}
-                      className={cn(
-                        "h-8 text-xs gap-1.5 rounded-xl",
-                        mediaUrl ? "text-primary font-bold bg-primary/10" : "text-muted-foreground"
-                      )}
-                    >
-                      <ImageIcon className="h-4 w-4" />
-                      <span className="hidden sm:inline">Foto</span>
-                    </Button>
+                    {canPostImage && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          setShowMediaInput((prev) => (!prev ? true : mediaMode !== "image"));
+                          setMediaMode("image");
+                        }}
+                        className={cn(
+                          "h-8 text-xs gap-1.5 rounded-xl",
+                          mediaUrl ? "text-primary font-bold bg-primary/10" : "text-muted-foreground"
+                        )}
+                      >
+                        <ImageIcon className="h-4 w-4" />
+                        <span className="hidden sm:inline">Foto</span>
+                      </Button>
+                    )}
 
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => {
-                        setShowMediaInput(true);
-                        setMediaMode("video");
-                      }}
-                      className={cn(
-                        "h-8 text-xs gap-1.5 rounded-xl",
-                        videoUrl ? "text-sky-400 font-bold bg-sky-500/10" : "text-muted-foreground"
-                      )}
-                    >
-                      <Video className="h-4 w-4" />
-                      <span className="hidden sm:inline">Vídeo</span>
-                    </Button>
+                    {canPostVideo && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          setShowMediaInput((prev) => (!prev ? true : mediaMode !== "video"));
+                          setMediaMode("video");
+                        }}
+                        className={cn(
+                          "h-8 text-xs gap-1.5 rounded-xl",
+                          videoUrl ? "text-sky-400 font-bold bg-sky-500/10" : "text-muted-foreground"
+                        )}
+                      >
+                        <Video className="h-4 w-4" />
+                        <span className="hidden sm:inline">Vídeo</span>
+                      </Button>
+                    )}
 
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          className="h-8 text-xs gap-1 rounded-xl text-muted-foreground"
-                        >
-                          <Hash className="h-4 w-4 text-primary" />
-                          <span className="hidden sm:inline">Tags</span>
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-56 p-2 text-xs">
-                        <p className="font-bold text-muted-foreground text-[10px] uppercase pb-1 mb-1 border-b">
-                          Inserir hashtag rápida:
-                        </p>
-                        <div className="flex flex-wrap gap-1">
-                          {["TwinWheels", "Roleplay", "Rolê", "Ação", "Oficina", "Guerra"].map((t) => (
-                            <button
-                              key={t}
-                              type="button"
-                              onClick={() => setContent((c) => `${c} #${t} `)}
-                              className="px-2 py-0.5 rounded-md bg-secondary text-[11px] font-bold hover:text-primary hover:bg-secondary/80 cursor-pointer"
-                            >
-                              #{t}
-                            </button>
-                          ))}
-                        </div>
-                      </PopoverContent>
-                    </Popover>
+                    {canUseHashtags && (
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="h-8 text-xs gap-1 rounded-xl text-muted-foreground"
+                          >
+                            <Hash className="h-4 w-4 text-primary" />
+                            <span className="hidden sm:inline">Tags</span>
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-56 p-2 text-xs">
+                          <p className="font-bold text-muted-foreground text-[10px] uppercase pb-1 mb-1 border-b">
+                            Inserir hashtag rápida:
+                          </p>
+                          <div className="flex flex-wrap gap-1">
+                            {["TwinWheels", "Roleplay", "Rolê", "Ação", "Oficina", "Guerra"].map((t) => (
+                              <button
+                                key={t}
+                                type="button"
+                                onClick={() => setContent((c) => `${c} #${t} `)}
+                                className="px-2 py-0.5 rounded-md bg-secondary text-[11px] font-bold hover:text-primary hover:bg-secondary/80 cursor-pointer"
+                              >
+                                #{t}
+                              </button>
+                            ))}
+                          </div>
+                        </PopoverContent>
+                      </Popover>
+                    )}
                   </div>
 
                   <Button
@@ -821,6 +892,13 @@ export function LifePage() {
                   </Button>
                 </div>
               </CardContent>
+            </Card>
+          ) : (
+            <Card className="surface-card border-border/60 bg-secondary/15 rounded-2xl p-4 text-center">
+              <p className="text-xs text-muted-foreground flex items-center justify-center gap-2">
+                <Lock className="h-4 w-4 text-muted-foreground/60" />
+                Você possui permissão apenas de visualização no feed do Life.
+              </p>
             </Card>
           )}
 
@@ -844,39 +922,43 @@ export function LifePage() {
                 <span>Para Você</span>
               </button>
 
-              <button
-                type="button"
-                onClick={() => {
-                  setActiveTab("following");
-                  setSelectedTag(null);
-                }}
-                className={cn(
-                  "px-3 py-1.5 text-xs sm:text-sm font-bold rounded-xl transition-all cursor-pointer flex items-center gap-1.5",
-                  activeTab === "following"
-                    ? "bg-primary text-primary-foreground shadow-xs"
-                    : "text-muted-foreground hover:text-foreground hover:bg-secondary/60"
-                )}
-              >
-                <Users className="h-3.5 w-3.5" />
-                <span>Seguindo</span>
-              </button>
+              {canViewFollowing && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActiveTab("following");
+                    setSelectedTag(null);
+                  }}
+                  className={cn(
+                    "px-3 py-1.5 text-xs sm:text-sm font-bold rounded-xl transition-all cursor-pointer flex items-center gap-1.5",
+                    activeTab === "following"
+                      ? "bg-primary text-primary-foreground shadow-xs"
+                      : "text-muted-foreground hover:text-foreground hover:bg-secondary/60"
+                  )}
+                >
+                  <Users className="h-3.5 w-3.5" />
+                  <span>Seguindo</span>
+                </button>
+              )}
 
-              <button
-                type="button"
-                onClick={() => {
-                  setActiveTab("saved");
-                  setSelectedTag(null);
-                }}
-                className={cn(
-                  "px-3 py-1.5 text-xs sm:text-sm font-bold rounded-xl transition-all cursor-pointer flex items-center gap-1.5",
-                  activeTab === "saved"
-                    ? "bg-primary text-primary-foreground shadow-xs"
-                    : "text-muted-foreground hover:text-foreground hover:bg-secondary/60"
-                )}
-              >
-                <Bookmark className="h-3.5 w-3.5" />
-                <span>Salvos</span>
-              </button>
+              {canViewBookmarks && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActiveTab("saved");
+                    setSelectedTag(null);
+                  }}
+                  className={cn(
+                    "px-3 py-1.5 text-xs sm:text-sm font-bold rounded-xl transition-all cursor-pointer flex items-center gap-1.5",
+                    activeTab === "saved"
+                      ? "bg-primary text-primary-foreground shadow-xs"
+                      : "text-muted-foreground hover:text-foreground hover:bg-secondary/60"
+                  )}
+                >
+                  <Bookmark className="h-3.5 w-3.5" />
+                  <span>Salvos</span>
+                </button>
+              )}
 
               <button
                 type="button"
@@ -937,6 +1019,15 @@ export function LifePage() {
                   post={post}
                   currentUserId={user?.id}
                   canManage={canManage}
+                  canPin={canPin}
+                  canLike={canLike}
+                  canBookmark={canBookmark}
+                  canComment={canComment}
+                  canDeleteOwnComment={canDeleteOwnComment}
+                  canDeleteOwnPost={canDeleteOwnPost}
+                  canFollow={canFollow}
+                  canModeratePosts={canModeratePosts}
+                  canModerateComments={canModerateComments}
                   onLike={() => likePostMutation.mutate(post.id)}
                   onBookmark={() => bookmarkPostMutation.mutate(post.id)}
                   onDelete={() => deletePostMutation.mutate(post.id)}
@@ -1039,15 +1130,17 @@ export function LifePage() {
                       </div>
                     </Link>
 
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="outline"
-                      onClick={() => followMutation.mutate(sm.id)}
-                      className="h-7 text-xs px-2.5 font-bold rounded-xl border-primary/40 text-primary hover:bg-primary/10 shrink-0 cursor-pointer"
-                    >
-                      Seguir
-                    </Button>
+                    {canFollow && (
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        onClick={() => followMutation.mutate(sm.id)}
+                        className="h-7 text-xs px-2.5 font-bold rounded-xl border-primary/40 text-primary hover:bg-primary/10 shrink-0 cursor-pointer"
+                      >
+                        Seguir
+                      </Button>
+                    )}
                   </div>
                 ))}
               </CardContent>
@@ -1179,6 +1272,15 @@ interface LifePostCardProps {
   post: ProfilePost;
   currentUserId?: string;
   canManage: boolean;
+  canPin: boolean;
+  canLike: boolean;
+  canBookmark: boolean;
+  canComment: boolean;
+  canDeleteOwnComment: boolean;
+  canDeleteOwnPost: boolean;
+  canFollow: boolean;
+  canModeratePosts: boolean;
+  canModerateComments: boolean;
   onLike: () => void;
   onBookmark: () => void;
   onDelete: () => void;
@@ -1192,6 +1294,15 @@ function LifePostCard({
   post,
   currentUserId,
   canManage,
+  canPin,
+  canLike,
+  canBookmark,
+  canComment,
+  canDeleteOwnComment,
+  canDeleteOwnPost,
+  canFollow,
+  canModeratePosts,
+  canModerateComments,
   onLike,
   onBookmark,
   onDelete,
@@ -1205,6 +1316,7 @@ function LifePostCard({
   const [commentText, setCommentText] = useState("");
 
   const isSelf = currentUserId === post.author_id;
+  const canDeleteThisPost = canManage || canModeratePosts || (isSelf && canDeleteOwnPost);
   const authorSlug =
     post.author?.custom_url || post.author?.discord_username || post.author_id;
 
@@ -1216,7 +1328,12 @@ function LifePostCard({
   });
 
   const commentMutation = useMutation({
-    mutationFn: (text: string) => createPostComment(post.id, text),
+    mutationFn: (text: string) => {
+      if (!canComment && !canManage) {
+        throw new Error("Você não possui permissão para comentar no feed.");
+      }
+      return createPostComment(post.id, text);
+    },
     onSuccess: () => {
       setCommentText("");
       void queryClient.invalidateQueries({ queryKey: ["post-comments", post.id] });
@@ -1227,12 +1344,18 @@ function LifePostCard({
   });
 
   const deleteCommentMutation = useMutation({
-    mutationFn: (commentId: string) => deletePostComment(commentId, post.id),
+    mutationFn: ({ commentId, isOwn }: { commentId: string; isOwn: boolean }) => {
+      if (!canManage && !canModerateComments && (!isOwn || !canDeleteOwnComment)) {
+        throw new Error("Você não possui permissão para excluir este comentário.");
+      }
+      return deletePostComment(commentId, post.id);
+    },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["post-comments", post.id] });
       void queryClient.invalidateQueries({ queryKey: ["life-feed"] });
       toast.success("Comentário removido.");
     },
+    onError: (err: any) => toast.error(err.message || "Erro ao remover comentário."),
   });
 
   const handleShare = () => {
@@ -1261,7 +1384,7 @@ function LifePostCard({
             <Pin className="h-3 w-3 fill-amber-400 text-amber-400" />
             Publicação Fixada pela Liderança
           </span>
-          {canManage && (
+          {(canManage || canPin) && (
             <button
               type="button"
               onClick={() => onPin(false)}
@@ -1318,7 +1441,7 @@ function LifePostCard({
 
           {/* BOTÃO DE SEGUIR & MENU DE OPÇÕES */}
           <div className="flex items-center gap-1.5 shrink-0">
-            {!isSelf && currentUserId && (
+            {!isSelf && currentUserId && canFollow && (
               <Button
                 type="button"
                 size="sm"
@@ -1361,7 +1484,7 @@ function LifePostCard({
                   </Link>
                 </DropdownMenuItem>
 
-                {canManage && (
+                {(canManage || canPin) && (
                   <>
                     <DropdownMenuSeparator />
                     <DropdownMenuItem
@@ -1374,7 +1497,7 @@ function LifePostCard({
                   </>
                 )}
 
-                {(isSelf || canManage) && (
+                {canDeleteThisPost && (
                   <>
                     <DropdownMenuSeparator />
                     <DropdownMenuItem
@@ -1458,9 +1581,17 @@ function LifePostCard({
             {/* Botão Curtir */}
             <button
               type="button"
-              onClick={onLike}
+              onClick={() => {
+                if (!canLike && !canManage) {
+                  toast.error("Você não possui permissão para curtir publicações.");
+                  return;
+                }
+                onLike();
+              }}
+              disabled={!canLike && !canManage}
               className={cn(
                 "flex items-center gap-1.5 p-1.5 px-2.5 rounded-xl transition-all cursor-pointer",
+                !canLike && !canManage && "opacity-60 cursor-not-allowed",
                 post.is_liked_by_me
                   ? "text-rose-500 font-extrabold bg-rose-500/10 shadow-xs"
                   : "hover:text-rose-400 hover:bg-rose-500/5"
@@ -1495,14 +1626,28 @@ function LifePostCard({
             {/* Botão Salvar / Favoritar */}
             <button
               type="button"
-              onClick={onBookmark}
+              onClick={() => {
+                if (!canBookmark && !canManage) {
+                  toast.error("Você não possui permissão para salvar favoritos.");
+                  return;
+                }
+                onBookmark();
+              }}
+              disabled={!canBookmark && !canManage}
               className={cn(
                 "p-2 rounded-xl transition-all cursor-pointer",
+                !canBookmark && !canManage && "opacity-60 cursor-not-allowed",
                 post.is_bookmarked_by_me
                   ? "text-amber-400 font-bold bg-amber-500/15"
                   : "hover:text-amber-400 hover:bg-amber-500/10"
               )}
-              title={post.is_bookmarked_by_me ? "Remover dos salvos" : "Salvar nos favoritos"}
+              title={
+                !canBookmark && !canManage
+                  ? "Sem permissão para salvar"
+                  : post.is_bookmarked_by_me
+                  ? "Remover dos salvos"
+                  : "Salvar nos favoritos"
+              }
             >
               <Bookmark
                 className={cn(
@@ -1528,34 +1673,41 @@ function LifePostCard({
         {showComments && (
           <div className="pt-3 border-t border-border/40 space-y-3 animate-in fade-in-50 duration-200">
             {/* Input para novo comentário */}
-            <div className="flex items-center gap-2">
-              <Input
-                value={commentText}
-                onChange={(e) => setCommentText(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && !e.shiftKey && commentText.trim()) {
-                    e.preventDefault();
-                    commentMutation.mutate(commentText);
-                  }
-                }}
-                placeholder="Escreva um comentário..."
-                className="h-8 text-xs rounded-xl border-border/70 flex-1"
-                maxLength={800}
-              />
-              <Button
-                type="button"
-                size="sm"
-                onClick={() => commentMutation.mutate(commentText)}
-                disabled={!commentText.trim() || commentMutation.isPending}
-                className="h-8 px-3 text-xs font-bold rounded-xl bg-primary text-primary-foreground cursor-pointer"
-              >
-                {commentMutation.isPending ? (
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                ) : (
-                  <Send className="h-3.5 w-3.5" />
-                )}
-              </Button>
-            </div>
+            {canComment || canManage ? (
+              <div className="flex items-center gap-2">
+                <Input
+                  value={commentText}
+                  onChange={(e) => setCommentText(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && !e.shiftKey && commentText.trim()) {
+                      e.preventDefault();
+                      commentMutation.mutate(commentText);
+                    }
+                  }}
+                  placeholder="Escreva um comentário..."
+                  className="h-8 text-xs rounded-xl border-border/70 flex-1"
+                  maxLength={800}
+                />
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={() => commentMutation.mutate(commentText)}
+                  disabled={!commentText.trim() || commentMutation.isPending}
+                  className="h-8 px-3 text-xs font-bold rounded-xl bg-primary text-primary-foreground cursor-pointer"
+                >
+                  {commentMutation.isPending ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <Send className="h-3.5 w-3.5" />
+                  )}
+                </Button>
+              </div>
+            ) : (
+              <div className="p-2.5 rounded-xl bg-secondary/30 text-center text-xs text-muted-foreground flex items-center justify-center gap-1.5">
+                <Lock className="h-3.5 w-3.5 text-muted-foreground/70" />
+                <span>Você não possui permissão para comentar no feed.</span>
+              </div>
+            )}
 
             {/* Lista de comentários */}
             {loadingComments ? (
@@ -1598,10 +1750,12 @@ function LifePostCard({
                       </div>
                     </div>
 
-                    {(c.is_own || canManage) && (
+                    {(canManage || canModerateComments || (c.is_own && canDeleteOwnComment)) && (
                       <button
                         type="button"
-                        onClick={() => deleteCommentMutation.mutate(c.id)}
+                        onClick={() =>
+                          deleteCommentMutation.mutate({ commentId: c.id, isOwn: !!c.is_own })
+                        }
                         className="opacity-0 group-hover:opacity-100 p-1 text-muted-foreground hover:text-destructive transition-opacity cursor-pointer"
                         title="Excluir comentário"
                       >
