@@ -170,6 +170,7 @@ const URL_TO_PERMISSION_MAP: Record<string, Permission> = {
   "/configuracoes": "manage_platform_settings",
   "/dev/notificacoes": "view_dev_notifications",
   "/ceo/notificacoes": "view_ceo_notifications",
+  "/ceo/ajustes-estoque": "view_ceo_stock_adjustments",
 };
 
 const DEV_MODULE_NAV_ITEMS: MasterNavItem[] = [
@@ -189,6 +190,8 @@ const CEO_MODULE_NAV_ITEMS: MasterNavItem[] = [
   { id: "ceo-bot", title: "Gerenciar Bot", url: "/ceo/bot", icon: Bot, defaultCat: "CEO", defaultOrder: 1 },
   { id: "ceo-webhooks", title: "WebHook Discord", url: "/ceo/webhooks", icon: Webhook, defaultCat: "CEO", defaultOrder: 2 },
   { id: "ceo-financas", title: "Fundo de Caixa & Finanças", url: "/ceo/financas", icon: Landmark, defaultCat: "CEO", defaultOrder: 3 },
+  { id: "ceo-ajustes-estoque", title: "Ajustes de Estoque", url: "/ceo/ajustes-estoque", icon: Sliders, defaultCat: "CEO", defaultOrder: 4 },
+  { id: "ceo-notificacoes", title: "Central de Notificações", url: "/ceo/notificacoes", icon: BellRing, defaultCat: "CEO", defaultOrder: 5 },
 ];
 
 function DynamicSidebarNavigation() {
@@ -900,7 +903,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     <SidebarProvider>
       <div className="flex min-h-screen w-full">
         <Sidebar collapsible="icon" className="border-r border-sidebar-border">
-          <SidebarHeader className="px-4 py-5">
+          <SidebarHeader className="px-4 py-5 shrink-0">
             <Brand size="sm" />
           </SidebarHeader>
           <SidebarContent>
@@ -1052,7 +1055,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                   </Button>
                 </DropdownMenuTrigger>
 
-                <DropdownMenuContent align="end" className="w-56 z-50">
+                <DropdownMenuContent align="end" className="w-56">
                   <DropdownMenuLabel className="space-y-1">
                     <p className="text-xs font-bold text-foreground">{mainName}</p>
                     {subName ? <p className="text-[0.65rem] text-muted-foreground">{subName}</p> : null}

@@ -192,7 +192,7 @@ const Sidebar = React.forwardRef<
           <SheetContent
             data-sidebar="sidebar"
             data-mobile="true"
-            className="w-(--sidebar-width) bg-sidebar p-0 text-sidebar-foreground [&>button]:hidden"
+            className="w-(--sidebar-width) bg-sidebar p-0 text-sidebar-foreground [&>button]:hidden flex flex-col h-full overflow-hidden"
             style={
               {
                 "--sidebar-width": SIDEBAR_WIDTH_MOBILE,
@@ -204,7 +204,7 @@ const Sidebar = React.forwardRef<
               <SheetTitle>Sidebar</SheetTitle>
               <SheetDescription>Displays the mobile sidebar.</SheetDescription>
             </SheetHeader>
-            <div className="flex h-full w-full flex-col">{children}</div>
+            <div className="flex h-full w-full flex-col overflow-hidden">{children}</div>
           </SheetContent>
         </Sheet>
       );
@@ -232,7 +232,7 @@ const Sidebar = React.forwardRef<
         />
         <div
           className={cn(
-            "fixed inset-y-0 z-10 hidden h-svh w-(--sidebar-width) transition-[left,right,width] duration-200 ease-linear md:flex",
+            "fixed inset-y-0 z-30 hidden h-svh w-(--sidebar-width) transition-[left,right,width] duration-200 ease-linear md:flex",
             side === "left"
               ? "left-0 group-data-[collapsible=offcanvas]:left-[calc(var(--sidebar-width)*-1)]"
               : "right-0 group-data-[collapsible=offcanvas]:right-[calc(var(--sidebar-width)*-1)]",
@@ -246,7 +246,7 @@ const Sidebar = React.forwardRef<
         >
           <div
             data-sidebar="sidebar"
-            className="flex h-full w-full flex-col bg-sidebar group-data-[variant=floating]:rounded-lg group-data-[variant=floating]:border group-data-[variant=floating]:border-sidebar-border group-data-[variant=floating]:shadow"
+            className="flex h-full w-full flex-col bg-sidebar group-data-[variant=floating]:rounded-lg group-data-[variant=floating]:border group-data-[variant=floating]:border-sidebar-border group-data-[variant=floating]:shadow overflow-hidden"
           >
             {children}
           </div>
@@ -352,7 +352,7 @@ const SidebarHeader = React.forwardRef<HTMLDivElement, React.ComponentProps<"div
       <div
         ref={ref}
         data-sidebar="header"
-        className={cn("flex flex-col gap-2 p-2", className)}
+        className={cn("flex flex-col gap-2 p-2 shrink-0", className)}
         {...props}
       />
     );
@@ -366,7 +366,7 @@ const SidebarFooter = React.forwardRef<HTMLDivElement, React.ComponentProps<"div
       <div
         ref={ref}
         data-sidebar="footer"
-        className={cn("flex flex-col gap-2 p-2", className)}
+        className={cn("flex flex-col gap-2 p-2 shrink-0", className)}
         {...props}
       />
     );
@@ -396,7 +396,7 @@ const SidebarContent = React.forwardRef<HTMLDivElement, React.ComponentProps<"di
         ref={ref}
         data-sidebar="content"
         className={cn(
-          "flex min-h-0 flex-1 flex-col gap-2 overflow-auto group-data-[collapsible=icon]:overflow-hidden",
+          "flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto overflow-x-hidden overscroll-contain custom-scrollbar-thin group-data-[collapsible=icon]:overflow-hidden",
           className,
         )}
         {...props}

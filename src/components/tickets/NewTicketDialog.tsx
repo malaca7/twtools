@@ -54,11 +54,11 @@ const CATEGORY_ICONS: Record<TicketCategory, typeof HelpCircle> = {
 };
 
 const CATEGORY_PLACEHOLDERS: Record<TicketCategory, string> = {
-  duvidas: "Descreva detalhadamente a sua dúvida sobre regras, rotas, procedimentos ou funcionamento da facção...",
+  duvidas: "Descreva detalhadamente a sua dúvida sobre regras, rotas, procedimentos ou funcionamento do grupo...",
   reembolso: "Informe os itens/valores a serem ressarcidos, motivo da perda ou compra e anexe os prints dos comprovantes...",
   denuncia: "Relate o ocorrido com o máximo de detalhes (data, hora, envolvidos, passaportes e prints comprobatórios). Denúncia estritamente confidencial...",
-  promocao: "Descreva sua trajetória, tempo de facção, metas batidas, presença em ações e por que deseja a promoção de cargo...",
-  operacional: "Explique o problema encontrado na operação (baús, veículos da facção, desvios ou conflitos em rotas)...",
+  promocao: "Descreva sua trajetória, tempo de grupo, metas batidas, presença em ações e por que deseja a promoção de cargo...",
+  operacional: "Explique o problema encontrado na operação (baús, veículos do grupo, desvios ou conflitos em rotas)...",
   outros: "Descreva sua solicitação ou mensagem para a liderança...",
 };
 
@@ -176,7 +176,7 @@ export function NewTicketDialog({ open, onOpenChange }: NewTicketDialogProps) {
                   Novo Chamado / Ouvidoria
                 </DialogTitle>
                 <DialogDescription className="text-xs text-muted-foreground">
-                  Abra uma solicitação confidencial para a gerência da facção Twin Wheels.
+                  Abra uma solicitação confidencial para a gerência do grupo Twin Wheels.
                 </DialogDescription>
               </div>
             </div>

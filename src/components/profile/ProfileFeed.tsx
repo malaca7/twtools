@@ -274,14 +274,14 @@ export function ProfileFeed({ authorId, authorName, authorAvatar, isSelf }: Prof
                 ref={textareaRef}
                 value={content}
                 onChange={handleTextChange}
-                placeholder="Compartilhe uma ideia, novidade ou status com a facção... Dica: use @membro para marcar e #hashtag para criar tópicos."
+                placeholder="Compartilhe uma ideia, novidade ou status com o grupo... Dica: use @membro para marcar e #hashtag para criar tópicos."
                 className="min-h-[90px] text-xs resize-y rounded-xl border-border/80 focus:border-primary/50 p-3 leading-relaxed"
                 maxLength={2000}
               />
 
               {/* POPUP DE AUTOCOMPLETE DE @MENÇÃO */}
               {mentionQuery !== null && filteredMembers.length > 0 && (
-                <div className="absolute left-2 bottom-full mb-1 w-64 max-h-48 overflow-y-auto rounded-xl border border-primary/30 bg-card/95 backdrop-blur-md shadow-2xl p-1 z-50 animate-in fade-in-50 zoom-in-95">
+                <div className="absolute left-2 bottom-full mb-1 w-64 max-h-48 overflow-y-auto rounded-xl border border-border/80 bg-card shadow-2xl p-1 z-[99990] animate-in fade-in-50 zoom-in-95 ring-1 ring-border/40 backdrop-blur-2xl scrollbar-none">
                   <p className="px-2 py-1 text-[10px] font-mono text-muted-foreground uppercase font-bold border-b border-border/40">
                     Membros para marcar:
                   </p>
@@ -542,7 +542,7 @@ export function ProfileFeed({ authorId, authorName, authorAvatar, isSelf }: Prof
             <h3 className="text-sm font-bold text-foreground">Nenhuma publicação ainda</h3>
             <p className="text-xs text-muted-foreground max-w-sm mx-auto">
               {isSelf
-                ? "Você ainda não fez nenhuma publicação no seu feed. Escreva algo acima para interagir com a facção!"
+                ? "Você ainda não fez nenhuma publicação no seu feed. Escreva algo acima para interagir com o grupo!"
                 : `${authorName} ainda não publicou nada em seu feed oficial.`}
             </p>
           </div>

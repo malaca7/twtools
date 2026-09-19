@@ -308,7 +308,7 @@ export function CeoNotificationsManager() {
               <p className="text-xs font-semibold text-muted-foreground">Público Alvo</p>
               <h3 className="text-sm font-bold text-foreground mt-1.5 flex items-center gap-1.5">
                 <ShieldCheck className="h-4 w-4 text-primary" />
-                Facção Twin Wheels
+                Grupo Twin Wheels
               </h3>
             </div>
             <div className="p-2.5 rounded-xl bg-primary/10 text-primary border border-primary/20">
@@ -598,7 +598,7 @@ export function CeoNotificationsManager() {
               <Textarea
                 value={formMessage}
                 onChange={(e) => setFormMessage(e.target.value)}
-                placeholder="Descreva o comunicado ou instrução detalhada para a facção..."
+                placeholder="Descreva o comunicado ou instrução detalhada para o grupo..."
                 rows={3}
                 className="text-xs bg-background/80 border-border/80 resize-none"
                 required

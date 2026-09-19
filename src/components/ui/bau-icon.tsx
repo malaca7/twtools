@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import {
   Box,
   Package,
@@ -17,17 +17,50 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-interface BauIconProps {
+export interface BauIconProps {
   icone?: string | null;
+  foto_url?: string | null;
+  imagem_url?: string | null;
+  nome?: string;
   className?: string;
+  imgClassName?: string;
   fallbackEmoji?: string;
+  showPhoto?: boolean;
 }
 
 export const BauIcon: React.FC<BauIconProps> = ({
   icone,
+  foto_url,
+  imagem_url,
+  nome,
   className = "w-5 h-5",
+  imgClassName,
   fallbackEmoji = "📦",
+  showPhoto = true,
 }) => {
+  const photo = (foto_url || imagem_url)?.trim();
+  const [imgError, setImgError] = useState(false);
+
+  useEffect(() => {
+    setImgError(false);
+  }, [photo]);
+
+  if (showPhoto && photo && !imgError) {
+    return (
+      <img
+        src={photo}
+        alt={nome || "Baú"}
+        className={cn(
+          "shrink-0 rounded-lg object-cover border border-border/80 shadow-xs",
+          className,
+          imgClassName
+        )}
+        loading="lazy"
+        onError={() => setImgError(true)}
+      />
+    );
+  }
+
   if (!icone) {
     return <Box className={cn("shrink-0", className)} />;
   }

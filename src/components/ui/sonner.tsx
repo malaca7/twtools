@@ -12,6 +12,7 @@ const Toaster = ({ ...props }: ToasterProps) => {
       richColors
       closeButton
       className="toaster group"
+      style={{ zIndex: 99999 }}
       toastOptions={{
         classNames: {
           toast:

@@ -106,6 +106,8 @@ export type Bau = {
   nome: string;
   descricao: string | null;
   icone: string | null;
+  foto_url?: string | null;
+  imagem_url?: string | null;
   ativo: boolean;
   tipo_gestao?: "automatico" | "manual";
   discord_channel_id?: string | null;

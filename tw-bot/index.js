@@ -477,7 +477,7 @@ function parseAuditLogForDiscord(log) {
       const typeLabel = isEntrada ? "Depósito / Entrada (+)" : "Retirada / Saída (-)";
 
       title = isEntrada ? "🏦 Depósito no Fundo de Caixa" : "💸 Retirada do Fundo de Caixa";
-      description = `O responsável ${actorMention} realizou uma movimentação de **${valor}** no Fundo de Caixa da Facção.`;
+      description = `O responsável ${actorMention} realizou uma movimentação de **${valor}** no Fundo de Caixa do Grupo.`;
       fields = [
         { name: "💵 Valor Movimentado", value: `\`${valor}\``, inline: true },
         { name: "🔄 Tipo", value: `\`${typeLabel}\``, inline: true },
@@ -507,7 +507,7 @@ function parseAuditLogForDiscord(log) {
       color = "#38BDF8";
       const nomePlayer = data.nome || "Novo Jogador";
       title = "📝 Nova Solicitação de Cadastro";
-      description = `O jogador **${nomePlayer}**${data.game_id ? ` (ID: \`${data.game_id}\`)` : ""} enviou uma solicitação de entrada para a facção.`;
+      description = `O jogador **${nomePlayer}**${data.game_id ? ` (ID: \`${data.game_id}\`)` : ""} enviou uma solicitação de entrada para o grupo.`;
       fields = [
         { name: "👤 Nome do Jogador", value: nomePlayer, inline: true },
         ...(data.game_id ? [{ name: "🎮 ID / Passaporte", value: `\`${data.game_id}\``, inline: true }] : []),
@@ -520,7 +520,7 @@ function parseAuditLogForDiscord(log) {
       category = "members";
       color = discordConfig.embedColors.members || "#8B5CF6";
       const targetName = data.nome || data.applicant_name || "Novo Membro";
-      title = "✅ Membro Aprovado na Facção";
+      title = "✅ Membro Aprovado no Grupo";
       description = `O gestor ${actorMention} **aprovou** a entrada do membro **${targetName}** na Twin Wheels.`;
       fields = [
         { name: "👤 Novo Membro", value: targetName, inline: true },
@@ -548,7 +548,7 @@ function parseAuditLogForDiscord(log) {
       category = "members";
       color = "#EF4444";
       const targetName = data.target_name || data.nome || "Membro";
-      title = "🚫 Membro Desligado da Facção";
+      title = "🚫 Membro Desligado do Grupo";
       description = `O gestor ${actorMention} desligou **${targetName}** do grupo.`;
       fields = [
         { name: "👤 Membro Desligado", value: targetName, inline: true },
@@ -1823,6 +1823,129 @@ async function handleWebhookHttpRequest(targetParam, req, res) {
 }
 
 /**
+ * Envia uma mensagem simulada de movimentação idêntica ao bot "Cidade Alta APP" para o canal Discord
+ */
+async function handleSendSimulatedStock(payload) {
+  const {
+    channelId,
+    authorName = "Andrew Delucca Ferreira",
+    gamePlayerId = "274",
+    bauName = "Baú",
+    items = [],
+    timeString = "",
+    useWebhook = false,
+  } = payload;
+
+  if (!channelId || !/^\d{17,20}$/.test(String(channelId).trim())) {
+    return { success: false, error: "ID de canal do Discord inválido." };
+  }
+
+  const cleanChannelId = String(channelId).trim();
+  const channel = client.channels.cache.get(cleanChannelId) || (await client.channels.fetch(cleanChannelId).catch(() => null));
+
+  if (!channel || !channel.isTextBased()) {
+    return { success: false, error: `Canal ${cleanChannelId} não encontrado no Discord ou sem permissão de envio.` };
+  }
+
+  // Montar linhas de Saldo Líquido e Detalhes da Movimentação
+  const saldoLiquidoLines = [];
+  const detalhesLines = [];
+
+  for (const item of items) {
+    const qty = Number(item.quantity) || 0;
+    if (qty === 0) continue;
+    const name = String(item.name).trim();
+
+    // Formato Saldo líquido: Lockpick `+15` ou Lockpick `-15`
+    const sign = qty > 0 ? `+${qty}` : `${qty}`;
+    saldoLiquidoLines.push(`${name} \`${sign}\``);
+
+    // Formato Detalhes da movimentação:
+    // Lockpick
+    // ↳ +15 adicionados (ou ↳ +1 adicionado) / ↳ -15 removidos (ou ↳ -1 removido)
+    detalhesLines.push(name);
+    if (qty > 0) {
+      const verb = qty === 1 ? "adicionado" : "adicionados";
+      detalhesLines.push(`↳ +${qty} ${verb}`);
+    } else {
+      const absQty = Math.abs(qty);
+      const verb = absQty === 1 ? "removido" : "removidos";
+      detalhesLines.push(`↳ -${absQty} ${verb}`);
+    }
+  }
+
+  if (saldoLiquidoLines.length === 0) {
+    return { success: false, error: "Nenhum item válido informado para movimentação." };
+  }
+
+  const now = new Date();
+  const hh = String(now.getHours()).padStart(2, "0");
+  const mm = String(now.getMinutes()).padStart(2, "0");
+  const formattedTime = timeString || `Hoje às ${hh}:${mm}`;
+
+  const description = [
+    `📦 ${bauName || "Baú"}`,
+    "",
+    "📊 Saldo líquido",
+    saldoLiquidoLines.join("\n"),
+    "",
+    "🧾 Detalhes da movimentação",
+    detalhesLines.join("\n"),
+    "",
+    `Movimentações agrupadas em uma janela de 30 segundos • ${formattedTime}`,
+  ].join("\n");
+
+  const authorTitle = gamePlayerId ? `${authorName} • ID ${gamePlayerId}` : authorName;
+
+  const embed = new EmbedBuilder()
+    .setAuthor({ name: authorTitle })
+    .setDescription(description)
+    .setColor(0xf59e0b); // Gold/Amber #F59E0B
+
+  let sentMessage = null;
+
+  // Se solicitado via webhook ou se possível criar webhook para exibir "Cidade Alta APP"
+  if (useWebhook && channel.fetchWebhooks) {
+    try {
+      const webhooks = await channel.fetchWebhooks();
+      let wh = webhooks.find((w) => w.owner?.id === client.user?.id) || webhooks.first();
+      if (!wh) {
+        wh = await channel.createWebhook({
+          name: "Cidade Alta",
+          reason: "Webhook gerado para simulação de estoque Cidade Alta APP",
+        });
+      }
+      if (wh) {
+        sentMessage = await wh.send({
+          username: "Cidade Alta",
+          avatarURL: "https://i.ibb.co/ymH1BQPQ/Uma124.png",
+          embeds: [embed],
+        });
+      }
+    } catch (whErr) {
+      console.warn("⚠️ [SIMULATE-STOCK] Falha ao enviar via webhook, usando bot direto:", whErr.message);
+    }
+  }
+
+  if (!sentMessage) {
+    sentMessage = await channel.send({ embeds: [embed] });
+  }
+
+  console.log(`🚀 [SIMULATE-STOCK] Mensagem idêntica enviada com sucesso em #${channel.name} (${sentMessage.id})`);
+
+  return {
+    success: true,
+    messageId: sentMessage.id,
+    channelId: cleanChannelId,
+    channelName: channel.name,
+    authorName,
+    gamePlayerId,
+    itemsCount: items.length,
+    description,
+  };
+}
+
+/**
  * Obtém ou cria o Webhook oficial do Discord (compatível com Discohook, FiveM, etc.)
  */
 async function handleGetWebhookUrl(channelId, req, res) {
@@ -1924,6 +2047,89 @@ const server = http.createServer(async (req, res) => {
     return res.end(JSON.stringify({ success: true, message: "Slash Commands sincronizados com sucesso no Discord!" }));
   }
 
+  // Rota para Simulação de Movimentação de Estoque (envio idêntico ao Cidade Alta APP para canal de teste)
+  if (pathname === "/api/simulate-stock") {
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
+    res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
+    if (req.method === "OPTIONS") {
+      res.writeHead(204);
+      return res.end();
+    }
+    if (req.method !== "POST") {
+      res.writeHead(405, { "Content-Type": "application/json" });
+      return res.end(JSON.stringify({ error: "Método não permitido. Utilize POST." }));
+    }
+
+    let bodyStr = "";
+    req.on("data", (chunk) => {
+      bodyStr += chunk;
+      if (bodyStr.length > 1024 * 512) req.destroy();
+    });
+
+    req.on("end", async () => {
+      try {
+        const payload = JSON.parse(bodyStr || "{}");
+        const result = await handleSendSimulatedStock(payload);
+        res.writeHead(result.success ? 200 : 400, { "Content-Type": "application/json" });
+        return res.end(JSON.stringify(result));
+      } catch (err) {
+        console.error("❌ [SIMULATE-STOCK HTTP ERROR]:", err);
+        res.writeHead(500, { "Content-Type": "application/json" });
+        return res.end(JSON.stringify({ success: false, error: err.message }));
+      }
+    });
+    return;
+  }
+
+  // Rota para Consulta Live de Mensagens (Bot Studio)
+  if (pathname === "/api/channel-messages") {
+    const channelId = urlObj.searchParams.get("channelId");
+    if (!channelId) {
+      res.writeHead(400, { "Content-Type": "application/json" });
+      return res.end(JSON.stringify({ error: "channelId é obrigatório" }));
+    }
+
+    const channel = await client.channels.fetch(channelId).catch(() => null);
+    if (!channel || !channel.isTextBased()) {
+      res.writeHead(404, { "Content-Type": "application/json" });
+      return res.end(JSON.stringify({ error: "Canal não encontrado ou sem permissão de leitura" }));
+    }
+
+    try {
+      const messages = await channel.messages.fetch({ limit: 20 });
+      const formatted = Array.from(messages.values()).map((m) => ({
+        id: m.id,
+        content: m.content || "",
+        channel_id: m.channelId,
+        author: {
+          id: m.author.id,
+          username: m.author.username,
+          displayName: m.author.displayName || m.author.username,
+          avatar: m.author.displayAvatarURL ? m.author.displayAvatarURL() : null,
+          bot: m.author.bot,
+        },
+        embeds: m.embeds.map((e) => ({
+          title: e.title || null,
+          description: e.description || null,
+          fields: e.fields || [],
+          author: e.author ? { name: e.author.name, iconURL: e.author.iconURL } : null,
+          footer: e.footer ? { text: e.footer.text, iconURL: e.footer.iconURL } : null,
+          color: e.color || null,
+          timestamp: e.timestamp || null,
+        })),
+        createdTimestamp: m.createdTimestamp,
+        createdAt: m.createdAt.toISOString(),
+      }));
+
+      res.writeHead(200, { "Content-Type": "application/json" });
+      return res.end(JSON.stringify({ channelId, count: formatted.length, messages: formatted }));
+    } catch (err) {
+      res.writeHead(500, { "Content-Type": "application/json" });
+      return res.end(JSON.stringify({ error: err.message }));
+    }
+  }
+
   res.writeHead(200, { "Content-Type": "application/json" });
   res.end(
     JSON.stringify({
@@ -1970,6 +2176,26 @@ const onReady = async () => {
 
   // 7. Inicializa o Motor de Transmissões ao Vivo (Twitch, Kick, YouTube, TikTok)
   initLiveStreamEngine(supabase, client);
+
+  // 8. Inicializa listener Realtime de simulação de estoque
+  try {
+    const simChannel = supabase.channel("system-stock-simulate");
+    simChannel
+      .on("broadcast", { event: "simulate_stock" }, async (payload) => {
+        if (payload?.payload) {
+          console.log("📡 [REALTIME] Solicitação de simulação de estoque recebida via Supabase broadcast");
+          try {
+            await handleSendSimulatedStock(payload.payload);
+          } catch (e) {
+            console.error("❌ [REALTIME] Erro ao processar simulate_stock:", e.message);
+          }
+        }
+      })
+      .subscribe();
+    console.log("📡 [REALTIME] Canal 'system-stock-simulate' pronto para testes remotos.");
+  } catch (err) {
+    console.warn("⚠️ Falha ao registrar canal system-stock-simulate:", err.message);
+  }
 
   // Sincronização contínua de segurança a cada 30 segundos
   setInterval(syncAllProfiles, 30 * 1000);
@@ -2038,7 +2264,7 @@ async function syncSlashCommands() {
 
         if (!cleanName || cleanName.length < 1) continue;
 
-        const description = (cmd.description?.trim() || `Comando /${cleanName} da facção Twin Wheels`).slice(0, 100);
+        const description = (cmd.description?.trim() || `Comando /${cleanName} do grupo Twin Wheels`).slice(0, 100);
 
         const options = [];
         if (Array.isArray(cmd.parameters) && cmd.parameters.length > 0) {
@@ -2755,88 +2981,10 @@ setInterval(async () => {
   }
 }, 60 * 1000);
 
-// 7. Servidor HTTP para Telemetria e Consulta Live de Mensagens (Sem persistência no BD)
-const PORT = process.env.PORT || 8080;
-const server = http.createServer(async (req, res) => {
-  // CORS Headers
-  res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
 
-  if (req.method === "OPTIONS") {
-    res.writeHead(200);
-    res.end();
-    return;
-  }
 
-  try {
-    const parsedUrl = new URL(req.url, `http://${req.headers.host || "localhost"}`);
-
-    if (parsedUrl.pathname === "/health" || parsedUrl.pathname === "/") {
-      res.writeHead(200, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ status: "online", bot: client.user?.tag || "conectando...", uptime: process.uptime() }));
-      return;
-    }
-
-    if (parsedUrl.pathname === "/api/channel-messages") {
-      const channelId = parsedUrl.searchParams.get("channelId");
-      if (!channelId) {
-        res.writeHead(400, { "Content-Type": "application/json" });
-        res.end(JSON.stringify({ error: "channelId é obrigatório" }));
-        return;
-      }
-
-      const channel = await client.channels.fetch(channelId).catch(() => null);
-      if (!channel || !channel.isTextBased()) {
-        res.writeHead(404, { "Content-Type": "application/json" });
-        res.end(JSON.stringify({ error: "Canal não encontrado ou sem permissão de leitura" }));
-        return;
-      }
-
-      const messages = await channel.messages.fetch({ limit: 20 });
-      const formatted = Array.from(messages.values()).map((m) => ({
-        id: m.id,
-        content: m.content || "",
-        channel_id: m.channelId,
-        author: {
-          id: m.author.id,
-          username: m.author.username,
-          displayName: m.author.displayName || m.author.username,
-          avatar: m.author.displayAvatarURL ? m.author.displayAvatarURL() : null,
-          bot: m.author.bot,
-        },
-        embeds: m.embeds.map((e) => ({
-          title: e.title || null,
-          description: e.description || null,
-          fields: e.fields || [],
-          author: e.author ? { name: e.author.name, iconURL: e.author.iconURL } : null,
-          footer: e.footer ? { text: e.footer.text, iconURL: e.footer.iconURL } : null,
-          color: e.color || null,
-          timestamp: e.timestamp || null,
-        })),
-        createdTimestamp: m.createdTimestamp,
-        createdAt: m.createdAt.toISOString(),
-      }));
-
-      res.writeHead(200, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ channelId, count: formatted.length, messages: formatted }));
-      return;
-    }
-
-    res.writeHead(404, { "Content-Type": "application/json" });
-    res.end(JSON.stringify({ error: "Endpoint não encontrado" }));
-  } catch (err) {
-    res.writeHead(500, { "Content-Type": "application/json" });
-    res.end(JSON.stringify({ error: err.message }));
-  }
-});
-
-server.listen(PORT, () => {
-  console.log(`🌐 [HTTP SERVER] Servidor do Bot escutando na porta ${PORT}`);
-});
-
-// Inicializa motor de estoque Discord
-initStockEngine(client);
+// Inicializa motor de estoque Discord com sincronização em tempo real
+initStockEngine(client, supabase);
 
 // Login no Discord
 client.login(process.env.DISCORD_BOT_TOKEN);

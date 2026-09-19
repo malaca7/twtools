@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react";
+import { useState, useRef, type ReactNode } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
@@ -12,6 +12,9 @@ import {
   Box,
   AlertTriangle,
   Layers,
+  Upload,
+  Image as ImageIcon,
+  X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -36,7 +39,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { createBau, updateBau, deleteBau } from "@/lib/app-api";
+import { BauIcon } from "@/components/ui/bau-icon";
+import { createBau, updateBau, deleteBau, uploadBauImage } from "@/lib/app-api";
 import { useBaus, useProducts, useMovements, useProductBaus } from "@/hooks/useData";
 import { useAuth } from "@/hooks/useAuth";
 import { errorMessage } from "@/lib/format";
@@ -50,9 +54,12 @@ export function BauManagerModal({ trigger }: { trigger?: ReactNode }) {
   const [nome, setNome] = useState("");
   const [descricao, setDescricao] = useState("");
   const [icone, setIcone] = useState("box");
+  const [fotoUrl, setFotoUrl] = useState("");
+  const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
   const [tipoGestao, setTipoGestao] = useState<"automatico" | "manual">("automatico");
   const [isCreating, setIsCreating] = useState(false);
   const [bauToDelete, setBauToDelete] = useState<Bau | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const { data: baus = [], isLoading } = useBaus();
   const { data: products = [] } = useProducts();
@@ -73,8 +80,25 @@ export function BauManagerModal({ trigger }: { trigger?: ReactNode }) {
     setNome("");
     setDescricao("");
     setIcone("box");
+    setFotoUrl("");
     setTipoGestao("automatico");
     setIsCreating(false);
+  };
+
+  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setIsUploadingPhoto(true);
+    try {
+      const url = await uploadBauImage(file);
+      setFotoUrl(url);
+      toast.success("Foto do baú enviada com sucesso!");
+    } catch (err: any) {
+      toast.error(err.message || "Erro ao fazer upload da imagem.");
+    } finally {
+      setIsUploadingPhoto(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
   };
 
   // Helper para computar se um baú possui saldo positivo de algum item
@@ -128,6 +152,8 @@ export function BauManagerModal({ trigger }: { trigger?: ReactNode }) {
       const cleanName = nome.trim();
       if (!cleanName) throw new Error("Informe o nome do baú.");
 
+      const cleanPhoto = fotoUrl.trim() || null;
+
       if (editingBau) {
         const isDuplicate = baus.some(
           (b) => b.id !== editingBau.id && b.nome.trim().toLowerCase() === cleanName.toLowerCase()
@@ -136,10 +162,20 @@ export function BauManagerModal({ trigger }: { trigger?: ReactNode }) {
           throw new Error(`Já existe outro baú cadastrado com o nome "${cleanName}".`);
         }
 
-        const payload: { id: string; nome: string; descricao?: string; icone?: string; tipo_gestao?: "automatico" | "manual" } = {
+        const payload: {
+          id: string;
+          nome: string;
+          descricao?: string;
+          icone?: string;
+          foto_url?: string | null;
+          imagem_url?: string | null;
+          tipo_gestao?: "automatico" | "manual";
+        } = {
           id: editingBau.id,
           nome: cleanName,
           icone,
+          foto_url: cleanPhoto,
+          imagem_url: cleanPhoto,
           tipo_gestao: tipoGestao,
         };
         if (descricao.trim()) payload.descricao = descricao.trim();
@@ -152,9 +188,18 @@ export function BauManagerModal({ trigger }: { trigger?: ReactNode }) {
           throw new Error(`Já existe um baú cadastrado com o nome "${cleanName}".`);
         }
 
-        const payload: { nome: string; descricao?: string; icone?: string; tipo_gestao?: "automatico" | "manual" } = {
+        const payload: {
+          nome: string;
+          descricao?: string;
+          icone?: string;
+          foto_url?: string | null;
+          imagem_url?: string | null;
+          tipo_gestao?: "automatico" | "manual";
+        } = {
           nome: cleanName,
           icone,
+          foto_url: cleanPhoto,
+          imagem_url: cleanPhoto,
           tipo_gestao: tipoGestao,
         };
         if (descricao.trim()) payload.descricao = descricao.trim();
@@ -222,21 +267,9 @@ export function BauManagerModal({ trigger }: { trigger?: ReactNode }) {
     setNome(bau.nome);
     setDescricao(bau.descricao || "");
     setIcone(bau.icone || "box");
+    setFotoUrl(bau.foto_url || bau.imagem_url || "");
     setTipoGestao(bau.tipo_gestao === "manual" ? "manual" : "automatico");
     setIsCreating(true);
-  };
-
-  const renderIcon = (iconName: string | null) => {
-    switch (iconName) {
-      case "shield":
-        return <Shield className="h-4 w-4 text-sky-400" />;
-      case "flask-conical":
-        return <FlaskConical className="h-4 w-4 text-purple-400" />;
-      case "package":
-        return <Package className="h-4 w-4 text-amber-400" />;
-      default:
-        return <Box className="h-4 w-4 text-primary" />;
-    }
   };
 
   return (
@@ -259,7 +292,7 @@ export function BauManagerModal({ trigger }: { trigger?: ReactNode }) {
           <DialogHeader>
             <DialogTitle>Gerenciar Baús do Grupo</DialogTitle>
             <DialogDescription>
-              Crie, edite e configure os compartimentos de armazenamento de estoque do grupo.
+              Crie, edite e configure os compartimentos de armazenamento e fotos de perfil dos baús.
             </DialogDescription>
           </DialogHeader>
 
@@ -275,8 +308,71 @@ export function BauManagerModal({ trigger }: { trigger?: ReactNode }) {
               </div>
 
               <div className="space-y-3">
+                {/* Foto de Perfil do Baú */}
+                <div className="space-y-2 p-3 rounded-xl border border-border/70 bg-card/40">
+                  <Label className="text-xs font-bold text-foreground flex items-center justify-between">
+                    <span>Foto de Perfil do Baú (Opcional)</span>
+                    {fotoUrl && (
+                      <button
+                        type="button"
+                        onClick={() => setFotoUrl("")}
+                        className="text-[10px] text-destructive hover:underline flex items-center gap-1"
+                      >
+                        <X className="w-3 h-3" /> Remover foto
+                      </button>
+                    )}
+                  </Label>
+
+                  <div className="flex items-center gap-3">
+                    <div className="relative w-14 h-14 rounded-xl border-2 border-dashed border-border/80 flex items-center justify-center overflow-hidden bg-secondary/50 shrink-0 shadow-inner">
+                      {fotoUrl ? (
+                        <img
+                          src={fotoUrl}
+                          alt="Preview do Baú"
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <BauIcon icone={icone} className="w-6 h-6 text-muted-foreground" />
+                      )}
+                    </div>
+
+                    <div className="flex-1 space-y-1.5 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <input
+                          ref={fileInputRef}
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={handlePhotoUpload}
+                        />
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          disabled={isUploadingPhoto}
+                          onClick={() => fileInputRef.current?.click()}
+                          className="h-8 text-xs font-bold gap-1.5 border-border/80"
+                        >
+                          {isUploadingPhoto ? (
+                            <Loader2 className="w-3.5 h-3.5 animate-spin text-primary" />
+                          ) : (
+                            <Upload className="w-3.5 h-3.5 text-primary" />
+                          )}
+                          {isUploadingPhoto ? "Enviando..." : "Upload de Foto"}
+                        </Button>
+                      </div>
+                      <Input
+                        placeholder="Ou cole o link direto da imagem..."
+                        value={fotoUrl}
+                        onChange={(e) => setFotoUrl(e.target.value)}
+                        className="text-xs h-7.5"
+                      />
+                    </div>
+                  </div>
+                </div>
+
                 <div>
-                  <Label htmlFor="bau-nome">Nome do Baú</Label>
+                  <Label htmlFor="bau-nome">Nome do Baú *</Label>
                   <Input
                     id="bau-nome"
                     placeholder="Ex.: Baú de Munições, Baú Secundário"
@@ -338,7 +434,7 @@ export function BauManagerModal({ trigger }: { trigger?: ReactNode }) {
                 </div>
 
                 <div>
-                  <Label>Ícone</Label>
+                  <Label>Ícone Alternativo</Label>
                   <div className="flex gap-2 pt-1">
                     {[
                       { id: "box", label: "Caixa", icon: Box },
@@ -403,8 +499,13 @@ export function BauManagerModal({ trigger }: { trigger?: ReactNode }) {
                         className="flex items-center justify-between p-3 rounded-lg border border-border/70 hover:border-border transition-colors bg-card/40"
                       >
                         <div className="flex items-center gap-3 min-w-0">
-                          <div className="p-2 rounded-lg bg-secondary/80 shrink-0">
-                            {renderIcon(b.icone)}
+                          <div className="w-10 h-10 rounded-xl bg-secondary/80 border border-border/70 flex items-center justify-center shrink-0 overflow-hidden shadow-inner">
+                            <BauIcon
+                              foto_url={b.foto_url || b.imagem_url}
+                              icone={b.icone}
+                              nome={b.nome}
+                              className="w-full h-full object-cover"
+                            />
                           </div>
                           <div className="min-w-0 space-y-1">
                             <div className="flex items-center gap-2 flex-wrap">

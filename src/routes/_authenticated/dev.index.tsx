@@ -63,14 +63,14 @@ function DevHubPageWrapper() {
 const ALL_SYSTEM_MODULES = [
   {
     category: "Operação GTA RP",
-    description: "Módulos de registro diário, lançamentos e movimentação operacional da facção.",
+    description: "Módulos de registro diário, lançamentos e movimentação operacional do grupo.",
     items: [
       { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard, desc: "Métricas gerais, faturamento e resumos em tempo real", color: "text-sky-400" },
       { title: "Movimentações", url: "/movimentacoes", icon: ArrowLeftRight, desc: "Lançamento de entradas, saídas e transferências de estoque", color: "text-emerald-400" },
       { title: "Vendas", url: "/vendas", icon: ShoppingCart, desc: "Registro de vendas com baixa automática de estoque", color: "text-amber-400" },
-      { title: "Lives", url: "/lives", icon: Radio, desc: "Acompanhamento de transmissões ao vivo da facção e status dos canais", color: "text-rose-400" },
-      { title: "Fundo de Caixa", url: "/fundo-caixa", icon: Landmark, desc: "Controle financeiro, depósitos, saques e saldo da facção", color: "text-teal-400" },
-      { title: "Metas da Facção", url: "/metas", icon: Target, desc: "Acompanhamento de metas individuais e coletivas", color: "text-indigo-400" },
+      { title: "Lives", url: "/lives", icon: Radio, desc: "Acompanhamento de transmissões ao vivo do grupo e status dos canais", color: "text-rose-400" },
+      { title: "Fundo de Caixa", url: "/fundo-caixa", icon: Landmark, desc: "Controle financeiro, depósitos, saques e saldo do grupo", color: "text-teal-400" },
+      { title: "Metas do grupo", url: "/metas", icon: Target, desc: "Acompanhamento de metas individuais e coletivas", color: "text-indigo-400" },
     ],
   },
   {
@@ -78,20 +78,20 @@ const ALL_SYSTEM_MODULES = [
     description: "Administração do inventário, controle de membros e estrutura hierárquica.",
     items: [
       { title: "Controle de Estoque", url: "/controledeestoque", icon: Boxes, desc: "Catálogo de produtos, imagens, saldo por baú e categorias", color: "text-blue-400" },
-      { title: "Membros da Facção", url: "/membros", icon: Users, desc: "Lista de membros, aprovação de cadastros e atribuição de cargos", color: "text-cyan-400" },
-      { title: "Hierarquia", url: "/hierarquia", icon: Workflow, desc: "Organograma visual da liderança e cargos da facção", color: "text-purple-400" },
+      { title: "Membros do grupo", url: "/membros", icon: Users, desc: "Lista de membros, aprovação de cadastros e atribuição de cargos", color: "text-cyan-400" },
+      { title: "Hierarquia", url: "/hierarquia", icon: Workflow, desc: "Organograma visual da liderança e cargos do grupo", color: "text-purple-400" },
       { title: "Rankings", url: "/rankings", icon: Trophy, desc: "Ranking de produtividade, vendas e presença dos membros", color: "text-yellow-400" },
       { title: "Ausências & Licenças", url: "/ausencias", icon: CalendarOff, desc: "Controle e aprovação de ausências, justificativas e estatísticas", color: "text-amber-400" },
       { title: "Meu Desempenho", url: "/desempenho", icon: User, desc: "Visão pessoal de rendimento, horas online e metas do membro", color: "text-orange-400" },
-      { title: "Gerenciamento de Cargos", url: "/cargos", icon: ShieldCheck, desc: "Criação, ordenação e configuração de cargos da facção", color: "text-rose-400" },
+      { title: "Gerenciamento de Cargos", url: "/cargos", icon: ShieldCheck, desc: "Criação, ordenação e configuração de cargos do grupo", color: "text-rose-400" },
     ],
   },
   {
     category: "Administração & Governança",
     description: "Configurações globais, auditoria e permissões de segurança da plataforma.",
     items: [
-      { title: "Permissões dos Cargos", url: "/permissoes", icon: Settings, desc: "Matriz de permissões atribuídas a cada cargo da facção", color: "text-pink-400" },
-      { title: "Enviar Avisos", url: "/avisos", icon: Megaphone, desc: "Disparo de notificações e comunicados para toda a facção", color: "text-amber-400" },
+      { title: "Permissões dos Cargos", url: "/permissoes", icon: Settings, desc: "Matriz de permissões atribuídas a cada cargo do grupo", color: "text-pink-400" },
+      { title: "Enviar Avisos", url: "/avisos", icon: Megaphone, desc: "Disparo de notificações e comunicados para todo o grupo", color: "text-amber-400" },
       { title: "Configurações da Plataforma", url: "/configuracoes", icon: Wrench, desc: "Personalização de tema, regras, menus e integrações", color: "text-blue-400" },
       { title: "Atualizações do Sistema", url: "/atualizacoes", icon: Sparkles, desc: "Visualização completa das notas de versão e melhorias postadas pela equipe de desenvolvimento", color: "text-emerald-400" },
       { title: "Meu Perfil", url: "/perfil", icon: User, desc: "Dados cadastrais do jogador, Discord e preferências", color: "text-emerald-400" },

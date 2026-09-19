@@ -28,6 +28,7 @@ import {
   Code2,
   Radio,
   PackageCheck,
+  Sliders,
 } from "lucide-react";
 import type { Permission } from "@/lib/permissions";
 
@@ -82,6 +83,7 @@ export const READ_ONLY_PERMISSIONS: Permission[] = [
   "view_notifications",
   "view_ceo_notifications",
   "view_dev_notifications",
+  "view_ceo_stock_adjustments",
   "view_lives",
   "view_stream_logs",
 ];
@@ -163,7 +165,7 @@ export const PAGE_CARDS: PageCardConfig[] = [
       {
         key: "create_movement",
         label: "Registrar Movimentações de Estoque",
-        description: "Dar entrada (+) ou saída (-) de insumos nos baús da facção.",
+        description: "Dar entrada (+) ou saída (-) de insumos nos baús do grupo.",
       },
       {
         key: "reverse_movement",
@@ -192,7 +194,7 @@ export const PAGE_CARDS: PageCardConfig[] = [
       {
         key: "view_sales",
         label: "Visualizar Histórico de Vendas",
-        description: "Ver todas as vendas efetuadas pelos membros da facção.",
+        description: "Ver todas as vendas efetuadas pelos membros do grupo.",
       },
       {
         key: "create_sale",
@@ -218,7 +220,7 @@ export const PAGE_CARDS: PageCardConfig[] = [
     title: "Transmissões & Lives",
     route: "/lives",
     icon: Radio,
-    description: "Central de transmissões ao vivo da facção, detecção automática de streamers, vinculação de contas e notificações em tempo real.",
+    description: "Central de transmissões ao vivo do grupo, detecção automática de streamers, vinculação de contas e notificações em tempo real.",
     color: "border-rose-500/40 bg-rose-500/5 text-rose-400",
     defaultCat: "Operação",
     defaultOrder: 3,
@@ -287,12 +289,12 @@ export const PAGE_CARDS: PageCardConfig[] = [
       {
         key: "view_stock",
         label: "Ver Saldos do Estoque Geral",
-        description: "Consultar as quantidades totais em estoque dos produtos da facção.",
+        description: "Consultar as quantidades totais em estoque dos produtos do grupo.",
       },
       {
         key: "view_baus",
         label: "Visualizar Lista de Baús",
-        description: "Permite visualizar quais baús existem na facção e seus respectivos itens.",
+        description: "Permite visualizar quais baús existem no grupo e seus respectivos itens.",
       },
       {
         key: "manage_baus",
@@ -329,7 +331,7 @@ export const PAGE_CARDS: PageCardConfig[] = [
     title: "Gestão de Estoque",
     route: "/gestao-estoque",
     icon: PackageCheck,
-    description: "Gerenciamento completo do catálogo de produtos, categorias, baús de facção e controle de saldos de estoque.",
+    description: "Gerenciamento completo do catálogo de produtos, categorias, baús de grupo e controle de saldos de estoque.",
     color: "border-emerald-500/40 bg-emerald-500/5 text-emerald-400",
     defaultCat: "Gestão",
     defaultOrder: 4,
@@ -348,12 +350,12 @@ export const PAGE_CARDS: PageCardConfig[] = [
       {
         key: "manage_stock_categories",
         label: "Gerenciar Categorias (Criar / Editar / Apagar)",
-        description: "Permite criar, renomear, redefinir descrições e apagar categorias de produtos da facção.",
+        description: "Permite criar, renomear, redefinir descrições e apagar categorias de produtos do grupo.",
         badge: "Categorias",
       },
       {
         key: "manage_stock_baus",
-        label: "Gerenciar Baús da Facção (Criar / Editar / Apagar)",
+        label: "Gerenciar Baús do grupo (Criar / Editar / Apagar)",
         description: "Permite criar baús, configurar tipo de movimentação (automático via Discord / manual via painel) e excluir baús.",
         badge: "Baús",
       },
@@ -378,7 +380,7 @@ export const PAGE_CARDS: PageCardConfig[] = [
     title: "Gerenciamento de Membros",
     route: "/membros",
     icon: Users,
-    description: "Lista de integrantes da facção, aprovação de cadastros e alteração de cargos.",
+    description: "Lista de integrantes do grupo, aprovação de cadastros e alteração de cargos.",
     color: "border-purple-500/40 bg-purple-500/5 text-purple-400",
     defaultCat: "Gestão",
     defaultOrder: 4,
@@ -425,7 +427,7 @@ export const PAGE_CARDS: PageCardConfig[] = [
       {
         key: "delete_members",
         label: "Desligar / Excluir Membros",
-        description: "Permite desativar ou excluir registros de membros da facção.",
+        description: "Permite desativar ou excluir registros de membros do grupo.",
         badge: "Ação Crítica",
       },
     ],
@@ -435,7 +437,7 @@ export const PAGE_CARDS: PageCardConfig[] = [
     title: "Fundo de Caixa",
     route: "/fundo-caixa",
     icon: Landmark,
-    description: "Gestão do caixa geral da facção com entradas, saídas, estornos e saldo automático.",
+    description: "Gestão do caixa geral do grupo com entradas, saídas, estornos e saldo automático.",
     color: "border-emerald-500/40 bg-emerald-500/5 text-emerald-400",
     defaultCat: "Gestão",
     defaultOrder: 5,
@@ -469,14 +471,14 @@ export const PAGE_CARDS: PageCardConfig[] = [
     title: "Rankings",
     route: "/rankings",
     icon: Trophy,
-    description: "Pódio dos membros que mais movimentam estoques e realizam vendas na facção.",
+    description: "Pódio dos membros que mais movimentam estoques e realizam vendas no grupo.",
     color: "border-amber-500/40 bg-amber-500/5 text-amber-400",
     defaultCat: "Gestão",
     defaultOrder: 6,
     permissions: [
       {
         key: "view_rankings",
-        label: "Ver Rankings da Facção",
+        label: "Ver Rankings do grupo",
         description: "Acessar o pódio de membros em destaque.",
       },
     ],
@@ -499,7 +501,7 @@ export const PAGE_CARDS: PageCardConfig[] = [
       {
         key: "manage_performance",
         label: "Acessar Gestão Executiva de Desempenho (/dev.desempenho)",
-        description: "Permite acessar o painel geral da liderança com faturamento consolidado e ranking da facção.",
+        description: "Permite acessar o painel geral da liderança com faturamento consolidado e ranking do grupo.",
         badge: "Gestão Executiva",
       },
       {
@@ -563,7 +565,7 @@ export const PAGE_CARDS: PageCardConfig[] = [
       {
         key: "view_all_absences",
         label: "Visualizar Gráficos e Ausências de Todos os Membros",
-        description: "Permite visualizar a lista completa de ausências de todos os membros e o painel de gráficos estatísticos da facção.",
+        description: "Permite visualizar a lista completa de ausências de todos os membros e o painel de gráficos estatísticos do grupo.",
         badge: "Gráficos & Métricas",
       },
     ],
@@ -610,7 +612,7 @@ export const PAGE_CARDS: PageCardConfig[] = [
     title: "Enviar Avisos",
     route: "/avisos",
     icon: Megaphone,
-    description: "Publicação de comunicados gerais em destaque para toda a facção com confirmação de leitura.",
+    description: "Publicação de comunicados gerais em destaque para todo o grupo com confirmação de leitura.",
     color: "border-purple-500/40 bg-purple-500/5 text-purple-400",
     defaultCat: "Gestão",
     defaultOrder: 11,
@@ -627,7 +629,7 @@ export const PAGE_CARDS: PageCardConfig[] = [
     title: "Configurações da Plataforma",
     route: "/configuracoes",
     icon: Wrench,
-    description: "Gerenciamento das configurações gerais da facção, timeout de inatividade e personalização do menu lateral.",
+    description: "Gerenciamento das configurações gerais do grupo, timeout de inatividade e personalização do menu lateral.",
     color: "border-indigo-500/40 bg-indigo-500/5 text-indigo-400",
     defaultCat: "Gestão",
     defaultOrder: 14,
@@ -635,7 +637,7 @@ export const PAGE_CARDS: PageCardConfig[] = [
       {
         key: "manage_platform_settings",
         label: "Gerenciar Aba Plataforma",
-        description: "Permite alterar o nome da facção, descrição, timeout de inatividade e parâmetros gerais.",
+        description: "Permite alterar o nome do grupo, descrição, timeout de inatividade e parâmetros gerais.",
         badge: "Configurações",
       },
       {
@@ -718,7 +720,7 @@ export const PAGE_CARDS: PageCardConfig[] = [
       {
         key: "view_all_tickets",
         label: "Visualizar Tickets de Todos os Membros",
-        description: "Permite que a liderança visualize os tickets de toda a facção (em vez de apenas os próprios).",
+        description: "Permite que a liderança visualize os tickets de todo o grupo (em vez de apenas os próprios).",
         badge: "Liderança / Gestão",
       },
       {
@@ -771,7 +773,7 @@ export const PAGE_CARDS: PageCardConfig[] = [
     title: "Painel Executivo CEO",
     route: "/ceo",
     icon: Crown,
-    description: "Central de comando executivo da liderança: métricas operacionais, automações do Bot Discloud, WebHooks e saúde financeira.",
+    description: "Central de comando executivo da liderança: métricas operacionais, automações do Bot no Servidor VPS, WebHooks e saúde financeira.",
     color: "border-amber-500/40 bg-amber-500/5 text-amber-400",
     defaultCat: "CEO",
     defaultOrder: 0,
@@ -784,9 +786,9 @@ export const PAGE_CARDS: PageCardConfig[] = [
       },
       {
         key: "manage_ceo_bot",
-        label: "Gerenciar Bot Discloud (/ceo/bot)",
-        description: "Permite monitorar instâncias do bot, uso de CPU/RAM, servidores mútuos e reiniciar a aplicação.",
-        badge: "Bot Discord",
+        label: "Gerenciar Bot VPS (/ceo/bot)",
+        description: "Permite monitorar instâncias do bot no servidor VPS, uso de CPU/RAM, servidores mútuos e reiniciar a aplicação.",
+        badge: "Bot VPS",
       },
       {
         key: "manage_ceo_webhooks",
@@ -1006,7 +1008,7 @@ export const PAGE_CARDS: PageCardConfig[] = [
       },
       {
         key: "view_consolidated_financials",
-        label: "Visualizar Balanço Consolidado da Facção",
+        label: "Visualizar Balanço Consolidado do grupo",
         description: "Permite acompanhar gráficos analíticos de fluxo de caixa, comissões de membros e receita líquida.",
         badge: "Consolidado",
       },
@@ -1169,7 +1171,7 @@ export const PAGE_CARDS: PageCardConfig[] = [
       },
       {
         key: "manage_menu_settings",
-        label: "Salvar Estrutura do Menu para Toda a Facção",
+        label: "Salvar Estrutura do Menu para Todo o Grupo",
         description: "Permite salvar configurações de menus que se aplicam a todos os integrantes e cargos da organização.",
         badge: "Persistência de Menus",
       },
@@ -1180,7 +1182,7 @@ export const PAGE_CARDS: PageCardConfig[] = [
     title: "Central de Notificações (CEO)",
     route: "/ceo/notificacoes",
     icon: Crown,
-    description: "Comando executivo de notificações: envio de comunicados para toda a facção ou cargos específicos, edição e controle ativo.",
+    description: "Comando executivo de notificações: envio de comunicados para todo o grupo ou cargos específicos, edição e controle ativo.",
     color: "border-amber-500/40 bg-amber-500/5 text-amber-400",
     defaultCat: "CEO",
     defaultOrder: 4,
@@ -1206,7 +1208,7 @@ export const PAGE_CARDS: PageCardConfig[] = [
       {
         key: "toggle_ceo_notification_active",
         label: "Ativar / Pausar Notificações",
-        description: "Permite pausar ou reativar notificações do sistema da facção.",
+        description: "Permite pausar ou reativar notificações do sistema do grupo.",
         badge: "Controle de Status",
       },
       {
@@ -1302,44 +1304,63 @@ export const PAGE_CARDS: PageCardConfig[] = [
     ],
   },
   {
+    id: "ceo-ajustes-estoque",
+    title: "Ajustes de Estoque (CEO)",
+    route: "/ceo/ajustes-estoque",
+    icon: Sliders,
+    description: "Lançamento de ajustes manuais de inventário, recalibração de saldos, entradas, baixas e auditoria detalhada de baús.",
+    color: "border-amber-500/40 bg-amber-500/5 text-amber-400",
+    defaultCat: "CEO",
+    defaultOrder: 4,
+    permissions: [
+      {
+        key: "view_ceo_stock_adjustments",
+        label: "Visualizar Ajustes de Estoque (/ceo/ajustes-estoque)",
+        description: "Permite acessar a rota /ceo/ajustes-estoque e auditar o histórico de alterações manuais.",
+        badge: "Acesso Base",
+      },
+      {
+        key: "manage_ceo_stock_adjustments",
+        label: "Gestão Completa de Ajustes de Estoque",
+        description: "Concede controle total sobre lançamentos de inventário, recalibração e estornos nos baús.",
+        badge: "Super Gestão",
+      },
+      {
+        key: "ceo_adjust_stock_balance",
+        label: "Definir / Recalibrar Saldo Específico",
+        description: "Permite definir a quantidade exata de um produto no baú (ex: contagem de inventário físico).",
+        badge: "Recalibração",
+        importantNote: "Gera registros auditados perpétuos no sistema.",
+      },
+      {
+        key: "ceo_stock_add",
+        label: "Adicionar Quantidade (+) ao Baú",
+        description: "Permite lançar acréscimos manuais de insumos e itens diretamente nos depósitos.",
+        badge: "Entrada (+)",
+      },
+      {
+        key: "ceo_stock_remove",
+        label: "Remover Quantidade (-) do Baú",
+        description: "Permite dar baixa manual em quantidades de itens nos depósitos.",
+        badge: "Saída (-)",
+      },
+    ],
+  },
+  {
     id: "dev-estoque",
-    title: "Ajustes de Estoque & Integração Discord (Dev)",
+    title: "Integração Discord & Regras de Estoque (Dev)",
     route: "/dev/estoque",
     icon: Boxes,
-    description: "Configurações do canal de logs do Discord, telemetria em tempo real, auditoria técnica e realização exclusiva de ajustes manuais de estoque.",
+    description: "Configurações do canal de logs do Discord, telemetria em tempo real, regras de processamento e auditoria técnica de estoque.",
     color: "border-emerald-500/40 bg-emerald-500/5 text-emerald-400",
     defaultCat: "DEV",
     defaultOrder: 8,
     permissions: [
       {
         key: "estoque.visualizar",
-        label: "Visualizar Painel de Controle de Estoque Dev",
+        label: "Visualizar Painel de Estoque Dev",
         description: "Permite acessar o console de estoque dev, ver inventários e status da conexão com Discord.",
         badge: "Acesso Estoque Dev",
-      },
-      {
-        key: "estoque.ajustar",
-        label: "Ajustar Saldo de Estoque",
-        description: "Permite executar ajustes de saldo em baús automáticos e manuais com auditoria obrigatória.",
-        badge: "Ajustes Manuais",
-      },
-      {
-        key: "estoque.adicionar",
-        label: "Adicionar Itens ao Estoque",
-        description: "Permite lançar acréscimos (+) de insumos e itens diretamente nos depósitos.",
-        badge: "Entrada Dev",
-      },
-      {
-        key: "estoque.remover",
-        label: "Remover Itens do Estoque",
-        description: "Permite dar baixa (-) em quantidades de itens nos depósitos através do console.",
-        badge: "Saída Dev",
-      },
-      {
-        key: "estoque.corrigir",
-        label: "Corrigir e Definir Saldo Específico",
-        description: "Permite definir o saldo exato de um item no baú (ex: zerar ou recalibrar quantidade).",
-        badge: "Correção Exata",
       },
       {
         key: "estoque.configurar",

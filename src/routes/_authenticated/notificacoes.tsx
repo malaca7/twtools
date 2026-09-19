@@ -199,7 +199,7 @@ export function MemberNotificationsPage() {
       {/* CABEÇALHO */}
       <PageHeader
         title="Central de Notificações"
-        description="Acompanhe comunicados, chamados, transmissões ao vivo e alertas da facção Twin Wheels em tempo real."
+        description="Acompanhe comunicados, chamados, transmissões ao vivo e alertas do grupo Twin Wheels em tempo real."
         icon={BellRing}
       >
         <div className="flex items-center gap-2">
@@ -407,7 +407,7 @@ export function MemberNotificationsPage() {
                       Alertas de Lives & Transmissões
                     </p>
                     <p className="text-[11px] text-muted-foreground">
-                      Receber alertas automáticos quando membros da facção ficarem online.
+                      Receber alertas automáticos quando membros do grupo ficarem online.
                     </p>
                   </div>
                   <Switch

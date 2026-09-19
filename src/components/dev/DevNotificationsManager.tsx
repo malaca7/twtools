@@ -160,7 +160,7 @@ export function DevNotificationsManager() {
   const [simType, setSimType] = useState<NotificationType>("live");
   const [simCategory, setSimCategory] = useState<NotificationCategory>("alert");
   const [simTitle, setSimTitle] = useState("🔴 Streamer Twin Wheels iniciou Transmissão!");
-  const [simMessage, setSimMessage] = useState("Transmitindo Operação RP da facção em alta definição na Twitch!");
+  const [simMessage, setSimMessage] = useState("Transmitindo Operação RP do grupo em alta definição na Twitch!");
   const [simLink, setSimLink] = useState("/lives");
   const [isSimulating, setIsSimulating] = useState(false);
 
@@ -451,7 +451,7 @@ export function DevNotificationsManager() {
 
   // --- ALERTA DE EMERGÊNCIA ---
   const handleEmergencyAlert = async () => {
-    if (!confirm("Confirmar emissão de ALERTA DE EMERGÊNCIA GLOBAL para toda a facção?")) return;
+    if (!confirm("Confirmar emissão de ALERTA DE EMERGÊNCIA GLOBAL para todo o grupo?")) return;
     try {
       playNotificationChimeSound(100);
       await createNotification({
@@ -1153,7 +1153,7 @@ export function DevNotificationsManager() {
                     handleApplySimPreset({
                       type: "live",
                       category: "alert",
-                      title: "🔴 Streamer da Facção Ao Vivo na Twitch!",
+                      title: "🔴 Streamer do grupo Ao Vivo na Twitch!",
                       message: "Transmitindo 'Ação Policial na Favela • Twin Wheels' com mais de 50 espectadores.",
                       link: "/lives",
                     })
@@ -1174,7 +1174,7 @@ export function DevNotificationsManager() {
                       type: "announcement",
                       category: "error",
                       title: "🚨 COMUNICADO EMERGENCIAL — DEFESA DE BASE",
-                      message: "Todos os membros disponíveis devem se apresentar imediatamente na sede da facção.",
+                      message: "Todos os membros disponíveis devem se apresentar imediatamente na sede do grupo.",
                       link: "/comunicados",
                     })
                   }
@@ -1365,7 +1365,7 @@ export function DevNotificationsManager() {
               <div className="p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/20 text-xs text-rose-300">
                 <p className="font-bold">Aviso de Exclusão Irreversível:</p>
                 <p className="text-[11px] mt-0.5 text-rose-200/80">
-                  Ao executar o Purge, os registros serão excluídos definitivamente da memória e do Supabase para todos os usuários da facção.
+                  Ao executar o Purge, os registros serão excluídos definitivamente da memória e do Supabase para todos os usuários do grupo.
                 </p>
               </div>
 

@@ -85,7 +85,7 @@ export const BotList: React.FC<BotListProps> = ({
             Meus Projetos de Bot
           </h2>
           <p className="text-xs text-zinc-400">
-            Gerencie múltiplos bots ou instâncias da facção com prefixos e conjuntos de regras independentes
+            Gerencie múltiplos bots ou instâncias do grupo com prefixos e conjuntos de regras independentes
           </p>
         </div>
 

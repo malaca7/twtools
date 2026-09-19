@@ -237,7 +237,7 @@ export function PublicProfileCustomizer() {
                 Personalização do Perfil Público
               </CardTitle>
               <CardDescription className="text-xs">
-                Configure como outros membros da facção e visitantes verão seu perfil oficial em nova aba.
+                Configure como outros membros do grupo e visitantes verão seu perfil oficial em nova aba.
               </CardDescription>
             </div>
 
@@ -540,13 +540,13 @@ export function PublicProfileCustomizer() {
                 Biografia ("Sobre Mim")
               </CardTitle>
               <CardDescription className="text-xs">
-                Apresente-se para os outros membros da facção e visitantes.
+                Apresente-se para os outros membros do grupo e visitantes.
               </CardDescription>
             </CardHeader>
 
             <CardContent className="space-y-2">
               <Textarea
-                placeholder="Conte sobre sua história na cidade, funções de destaque na facção, especialidades ou hobbies..."
+                placeholder="Conte sobre sua história na cidade, funções de destaque no grupo, especialidades ou hobbies..."
                 value={bio}
                 onChange={(e) => setBio(e.target.value.slice(0, 500))}
                 className="min-h-[120px] text-xs resize-y rounded-xl leading-relaxed"

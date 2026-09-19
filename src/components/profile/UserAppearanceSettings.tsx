@@ -44,7 +44,7 @@ export const THEME_CATEGORIES = [
   { id: "all", name: "Todos (31)" },
   { id: "light", name: "☀️ Temas Claros (8)" },
   { id: "cyberpunk", name: "Cyber & Neon" },
-  { id: "faction", name: "Facções & Crime" },
+  { id: "faction", name: "Grupos & Crime" },
   { id: "dark_minimal", name: "OLED & Minimal" },
   { id: "sports", name: "Esporte & Tactical" },
 ];
@@ -70,8 +70,8 @@ export const THEME_OPTIONS = [
   { id: "vaporwave_dream", category: "cyberpunk", name: "Vaporwave Dream", color: "from-pink-400 to-cyan-300", desc: "Estética retrô pastel com azul céu e chiclete" },
   { id: "cyber_samurai", category: "cyberpunk", name: "Cyber Samurai", color: "from-blue-500 to-amber-400", desc: "Azul cobalto elétrico com toques de ouro solar" },
 
-  // Facções & Crime
-  { id: "crimson_blood", category: "faction", name: "Crimson Syndicate", color: "from-red-600 to-rose-500", desc: "Vermelho carmesim de facção combativa e sangue" },
+  // Grupos & Crime
+  { id: "crimson_blood", category: "faction", name: "Crimson Syndicate", color: "from-red-600 to-rose-500", desc: "Vermelho carmesim de grupo combativa e sangue" },
   { id: "golden_viper", category: "faction", name: "Golden Cartel & Viper", color: "from-amber-400 to-yellow-600", desc: "Preto acetinado luxuoso com detalhes em ouro 24k" },
   { id: "amethyst_royal", category: "faction", name: "Amethyst Royal Imperial", color: "from-purple-600 to-amber-400", desc: "Roxo imperial nobre com toques de realeza dourada" },
   { id: "ruby_velvet", category: "faction", name: "Ruby Velvet & Wine", color: "from-rose-700 to-red-900", desc: "Vinho bordô aveludado e carmesim profundo" },
@@ -119,7 +119,7 @@ export const ACCENT_COLOR_PRESETS = [
   { name: "Verde Esmeralda", value: "oklch(0.74 0.20 160)", hex: "#10b981", group: "vivid" },
   { name: "Branco Puro", value: "oklch(0.96 0 0)", hex: "#f8fafc", group: "vivid" },
 
-  // Facções & Táticas
+  // Grupos & Táticas
   { name: "Carmesim Syndicate", value: "oklch(0.58 0.24 25)", hex: "#dc2626", group: "faction" },
   { name: "Cartel Dourado", value: "oklch(0.76 0.18 80)", hex: "#eab308", group: "faction" },
   { name: "Roxo Imperial", value: "oklch(0.55 0.24 300)", hex: "#9333ea", group: "faction" },
@@ -694,10 +694,10 @@ export function UserAppearanceSettings() {
             </div>
           </div>
 
-          {/* FACÇÕES & TÁTICAS */}
+          {/* GRUPOS & TÁTICAS */}
           <div className="space-y-2 pt-1">
             <div className="flex items-center gap-1.5">
-              <span className="text-xs font-bold text-foreground">🛡️ Cores de Facções & Táticas</span>
+              <span className="text-xs font-bold text-foreground">🛡️ Cores de grupos & Táticas</span>
               <Badge variant="outline" className="text-[9px] px-1 py-0 border-border text-muted-foreground">
                 Identidade & RP
               </Badge>

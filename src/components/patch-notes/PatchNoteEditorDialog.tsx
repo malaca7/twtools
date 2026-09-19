@@ -341,7 +341,7 @@ export function PatchNoteEditorDialog({
                 <Textarea
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
-                  placeholder="Descreva o objetivo geral desta atualização e os principais ganhos para a facção..."
+                  placeholder="Descreva o objetivo geral desta atualização e os principais ganhos para o grupo..."
                   rows={3}
                   required
                   className="bg-[#1a2332] border-white/10 text-xs text-white rounded-xl focus:border-[#00a884] leading-relaxed resize-none"

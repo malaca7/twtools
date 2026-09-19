@@ -29,7 +29,7 @@ export function CeoNotificationsPage() {
     <div className="space-y-6 animate-in fade-in duration-300">
       <PageHeader
         title="Central de Notificações — Painel CEO"
-        description="Gerencie comunicados, alertas operacionais, ativação/pausa e disparos em tempo real para a facção Twin Wheels."
+        description="Gerencie comunicados, alertas operacionais, ativação/pausa e disparos em tempo real para o grupo Twin Wheels."
         icon={BellRing}
       />
 

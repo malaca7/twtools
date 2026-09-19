@@ -55,7 +55,7 @@ export function CeoGuard({ children }: CeoGuardProps) {
                 <Lock className="h-3 w-3 text-amber-400" /> Política de Acesso Executivo:
               </span>
               <p className="text-muted-foreground">
-                Apenas quem possui a Tag Dev pode atribuir a Tag CEO a um membro da facção. Se você deveria ter acesso a este painel, contate a diretoria de desenvolvimento.
+                Apenas quem possui a Tag Dev pode atribuir a Tag CEO a um membro do grupo. Se você deveria ter acesso a este painel, contate a diretoria de desenvolvimento.
               </p>
             </div>
           </CardContent>

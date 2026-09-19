@@ -304,11 +304,11 @@ export const SelectContent = React.forwardRef<
         maxHeight: `${currentCoords.maxHeight}px`,
         transform: currentCoords.transform,
         zIndex: 999999,
-        backgroundColor: "#13141f",
+        backgroundColor: "var(--card)",
         ...style,
       }}
       className={cn(
-        "popover-content overflow-y-auto rounded-xl border border-white/15 bg-[#13141f] p-1.5 text-foreground shadow-2xl backdrop-blur-2xl focus:outline-none ring-1 ring-white/10 custom-scrollbar-thin animate-in fade-in-0 zoom-in-95 duration-100",
+        "popover-content overflow-y-auto rounded-xl border border-border/80 bg-card p-1.5 text-card-foreground shadow-2xl backdrop-blur-2xl focus:outline-none ring-1 ring-border/40 custom-scrollbar-thin animate-in fade-in-0 zoom-in-95 duration-100",
         className,
       )}
       {...props}

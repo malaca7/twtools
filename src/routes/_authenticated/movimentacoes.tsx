@@ -28,6 +28,8 @@ import {
   Layers,
   X,
   History,
+  LayoutGrid,
+  List,
 } from "lucide-react";
 import { BauIcon } from "@/components/ui/bau-icon";
 import { Badge } from "@/components/ui/badge";
@@ -56,6 +58,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { PageHeader, NoAccess, TableSkeleton, EmptyState, ProductThumbnail } from "@/components/ui-kit";
+import { MovementHistoryModal } from "@/components/operations/MovementHistoryModal";
 import { useAuth } from "@/hooks/useAuth";
 import { useUrlTab } from "@/hooks/useUrlTab";
 import {
@@ -143,12 +146,10 @@ export function MovimentacoesPage() {
   // Queue batch items
   const [queue, setQueue] = useState<BatchItem[]>([]);
 
-  // Search and advanced filters
+  // Search and queue
   const [prodSearch, setProdSearch] = useState("");
-  const [logSearch, setLogSearch] = useState("");
-  const [filterOrigin, setFilterOrigin] = useState<string>("all");
-  const [filterBauId, setFilterBauId] = useState<string>("all");
-  const [filterType, setFilterType] = useState<string>("all");
+  const [historyModalOpen, setHistoryModalOpen] = useState(false);
+  const [historyBauId, setHistoryBauId] = useState<string | null>(null);
 
   const selectedBau = baus.find((b) => b.id === selectedBauId);
   const isSelectedBauAuto = selectedBau ? selectedBau.tipo_gestao !== "manual" : false;
@@ -162,6 +163,7 @@ export function MovimentacoesPage() {
   const [balanceBauId, setBalanceBauId] = useState<string | null>(null);
   const [balanceSearch, setBalanceSearch] = useState("");
   const [balanceFilter, setBalanceFilter] = useState<"positive" | "all" | "zero">("positive");
+  const [balanceViewMode, setBalanceViewMode] = useState<"grid" | "list">("grid");
   const movementSectionRef = useRef<HTMLDivElement>(null);
 
   // Set de IDs das movimentações que já foram estornadas
@@ -498,58 +500,7 @@ export function MovimentacoesPage() {
     onError: (err) => toast.error(errorMessage(err)),
   });
 
-  const reverseMutation = useMutation({
-    mutationFn: async (movementId: string) => {
-      if (!canReverse) throw new Error("Você não possui permissão para estornar movimentações.");
-      const { supabase } = await import("@/integrations/supabase/client");
-      const { error } = await supabase.rpc("reverse_movement", { _movement_id: movementId });
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      toast.success("Movimentação estornada com sucesso.");
-      void queryClient.invalidateQueries({ queryKey: ["movements"] });
-      void queryClient.invalidateQueries({ queryKey: ["products"] });
-      void queryClient.invalidateQueries({ queryKey: ["product_baus"] });
-    },
-    onError: (err) => toast.error(errorMessage(err)),
-  });
-
-  const filteredLogs = movements.filter((m) => {
-    if (filterOrigin !== "all") {
-      if (filterOrigin === "manual" && m.origin && m.origin !== "manual") return false;
-      if (filterOrigin !== "manual" && m.origin !== filterOrigin) return false;
-    }
-    if (filterBauId !== "all" && m.bau_id !== filterBauId) return false;
-    if (filterType !== "all") {
-      if (filterType === "transferencia" && !m.reason?.toLowerCase().includes("transferência")) return false;
-      if (filterType !== "transferencia" && m.type !== filterType) return false;
-    }
-    const q = logSearch.toLowerCase().trim();
-    if (!q) return true;
-    const pName = productName(products, m.product_id).toLowerCase();
-    const uName = nameOf(members, m.user_id).toLowerCase();
-    const dUser = (m.discord_user_name || "").toLowerCase();
-    const gPlayer = (m.game_player_id || "").toLowerCase();
-    const reason = (m.reason || "").toLowerCase();
-    return pName.includes(q) || uName.includes(q) || dUser.includes(q) || gPlayer.includes(q) || reason.includes(q);
-  });
-
-  // Paginação do Histórico de Lançamentos
-  const [logPage, setLogPage] = useState(1);
-  const [logsPerPage, setLogsPerPage] = useState<number>(10);
   const [activeMovementBauId, setActiveMovementBauId] = useState<string | null>(null);
-  const [showHistory, setShowHistory] = useState<boolean>(false);
-
-  useEffect(() => {
-    setLogPage(1);
-  }, [logSearch, logsPerPage, filterOrigin, filterBauId, filterType]);
-
-  const totalLogPages = Math.ceil(filteredLogs.length / logsPerPage) || 1;
-  const safeLogPage = Math.min(Math.max(1, logPage), totalLogPages);
-  const paginatedLogs = filteredLogs.slice(
-    (safeLogPage - 1) * logsPerPage,
-    safeLogPage * logsPerPage
-  );
 
   // Estatísticas agregadas de inventário por baú
   const bausStats = useMemo(() => {
@@ -645,15 +596,35 @@ export function MovimentacoesPage() {
           <div className="flex items-center gap-2">
             <Boxes className="h-5 w-5 text-primary" />
             <h2 className="text-base sm:text-lg font-bold text-foreground">
-              Baús da Facção
+              Baús do grupo
             </h2>
             <Badge variant="outline" className="text-[10px] font-bold">
               {baus.length} {baus.length === 1 ? "baú" : "baús"}
             </Badge>
           </div>
-          <p className="text-xs text-muted-foreground">
-            Ações rápidas: <Eye className="w-3.5 h-3.5 inline mx-0.5 text-primary" /> Ver Saldo ou <ArrowRightLeft className="w-3.5 h-3.5 inline mx-0.5 text-emerald-400" /> Movimentar (baús manuais).
-          </p>
+          <div className="flex items-center gap-2 flex-wrap">
+            <p className="text-xs text-muted-foreground hidden lg:inline">
+              Ações rápidas: <Eye className="w-3.5 h-3.5 inline mx-0.5 text-primary" /> Ver Saldo, <History className="w-3.5 h-3.5 inline mx-0.5 text-sky-400" /> Histórico ou <ArrowRightLeft className="w-3.5 h-3.5 inline mx-0.5 text-emerald-400" /> Movimentar.
+            </p>
+            {canView && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setHistoryBauId("all");
+                  setHistoryModalOpen(true);
+                }}
+                className="h-8 px-3 rounded-xl text-xs font-bold gap-1.5 border-border/80 hover:border-primary/50 hover:bg-primary/10 text-foreground cursor-pointer shadow-xs transition-all"
+              >
+                <History className="h-3.5 w-3.5 text-primary" />
+                <span>Histórico Geral</span>
+                <Badge variant="secondary" className="font-mono text-[10px] px-1.5 py-0 rounded-md">
+                  {num(movements.length)}
+                </Badge>
+              </Button>
+            )}
+          </div>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
@@ -674,8 +645,13 @@ export function MovimentacoesPage() {
                   {/* Top row: Icon + Name + Badges */}
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex items-center gap-2.5 min-w-0">
-                      <div className="w-10 h-10 rounded-xl bg-secondary/70 border border-border/60 flex items-center justify-center shrink-0 shadow-inner">
-                        <BauIcon icone={b.icone} className="w-5 h-5 text-primary" />
+                      <div className="w-10 h-10 rounded-xl bg-secondary/70 border border-border/60 flex items-center justify-center shrink-0 shadow-inner overflow-hidden">
+                        <BauIcon
+                          foto_url={b.foto_url || b.imagem_url}
+                          icone={b.icone}
+                          nome={b.nome}
+                          className="w-full h-full object-cover"
+                        />
                       </div>
                       <div className="min-w-0">
                         <h3 className="font-extrabold text-sm text-foreground truncate" title={b.nome}>
@@ -759,6 +735,30 @@ export function MovimentacoesPage() {
                       </TooltipContent>
                     </Tooltip>
 
+                    {/* Botão Ver Histórico de Movimentações do Baú (Apenas Símbolo) */}
+                    {canView && (
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              setHistoryBauId(b.id);
+                              setHistoryModalOpen(true);
+                            }}
+                            className="h-8 w-8 p-0 rounded-lg text-muted-foreground hover:text-sky-400 hover:border-sky-500/50 hover:bg-sky-500/10 transition-colors cursor-pointer"
+                            aria-label={`Histórico de Movimentações do baú ${b.nome}`}
+                          >
+                            <History className="h-4 w-4" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent side="top" className="text-xs font-semibold">
+                          Histórico de Movimentações deste Baú
+                        </TooltipContent>
+                      </Tooltip>
+                    )}
+
                     {/* Botão Movimentar (Apenas Símbolo) - SOMENTE PARA BAÚS MANUAIS */}
                     {isManual && canMove && (
                       <Tooltip>
@@ -798,8 +798,13 @@ export function MovimentacoesPage() {
           {/* HEADER DO BAÚ SELECIONADO PARA OPERAÇÃO */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 sm:p-4 bg-primary/10 border-b border-primary/25">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-primary/20 border border-primary/40 flex items-center justify-center shrink-0">
-                <BauIcon icone={activeMovementBauObj.icone} className="w-5 h-5 text-primary" />
+              <div className="w-10 h-10 rounded-xl bg-primary/20 border border-primary/40 flex items-center justify-center shrink-0 overflow-hidden shadow-sm">
+                <BauIcon
+                  foto_url={activeMovementBauObj.foto_url || activeMovementBauObj.imagem_url}
+                  icone={activeMovementBauObj.icone}
+                  nome={activeMovementBauObj.nome}
+                  className="w-full h-full object-cover"
+                />
               </div>
               <div>
                 <h3 className="font-extrabold text-sm sm:text-base text-foreground flex items-center gap-2">
@@ -1561,277 +1566,31 @@ export function MovimentacoesPage() {
     </Card>
   )}
 
-      {/* TABELA DE HISTÓRICO DE MOVIMENTAÇÕES (Controlado pela permissão Ver Histórico de Lançamentos) */}
-      {canView ? (
-        <Card className="surface-card border-border/80">
-          <CardContent className="p-4 sm:p-6 space-y-4">
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4">
-              <div>
-                <h2 className="text-base sm:text-lg font-bold tracking-tight text-foreground">Histórico de Lançamentos</h2>
-                <p className="text-xs text-muted-foreground">
-                  Últimas movimentações registradas no estoque.
-                </p>
-              </div>
-
-              <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
-                <div className="relative flex-1 sm:w-56 min-w-[180px]">
-                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                  <Input
-                    placeholder="Buscar produto, autor, ID..."
-                    value={logSearch}
-                    onChange={(e) => setLogSearch(e.target.value)}
-                    className="pl-9 h-9 text-xs rounded-xl bg-secondary/30"
-                  />
-                </div>
-
-                <Select value={filterOrigin} onValueChange={setFilterOrigin}>
-                  <SelectTrigger className="h-9 w-32 text-xs rounded-xl bg-secondary/30">
-                    <SelectValue placeholder="Origem" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todas Origens</SelectItem>
-                    <SelectItem value="discord">🤖 Discord</SelectItem>
-                    <SelectItem value="painel_dev">🛠️ Painel Dev</SelectItem>
-                    <SelectItem value="manual">✋ Manual</SelectItem>
-                  </SelectContent>
-                </Select>
-
-                <Select value={filterType} onValueChange={setFilterType}>
-                  <SelectTrigger className="h-9 w-28 text-xs rounded-xl bg-secondary/30">
-                    <SelectValue placeholder="Tipo" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todos Tipos</SelectItem>
-                    <SelectItem value="entrada">Entradas</SelectItem>
-                    <SelectItem value="saida">Saídas</SelectItem>
-                    <SelectItem value="transferencia">Transf.</SelectItem>
-                  </SelectContent>
-                </Select>
-
-                <Select value={filterBauId} onValueChange={setFilterBauId}>
-                  <SelectTrigger className="h-9 w-32 text-xs rounded-xl bg-secondary/30">
-                    <SelectValue placeholder="Baú" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todos Baús</SelectItem>
-                    {baus.map((b) => (
-                      <SelectItem key={b.id} value={b.id}>
-                        {b.nome}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            {loadingMovements ? (
-              <TableSkeleton rows={5} />
-            ) : filteredLogs.length === 0 ? (
-              <EmptyState
-                title="Nenhuma movimentação encontrada"
-                description="Ainda não existem registros de movimentação no estoque para este filtro."
-              />
-            ) : (
-              <div className="space-y-3">
-                {/* LISTA RESPONSIVA EM CARDS MODERNOS (Sem barra de rolagem lateral) */}
-                <div className="space-y-2.5">
-                  {paginatedLogs.map((m) => {
-                    const isEntrada = m.type === "entrada";
-                    const isReversed = !!m.reversal_of || reversedIds.has(m.id);
-                    const prodObj = products.find((p) => p.id === m.product_id);
-                    const pName = prodObj?.nome || productName(products, m.product_id);
-                    const uName = m.discord_user_name || (m.game_player_id ? `Jogador ID ${m.game_player_id}` : nameOf(members, m.user_id));
-                    const bauName = baus.find((b) => b.id === m.bau_id)?.nome || "Baú Geral";
-
-                    return (
-                      <div
-                        key={m.id}
-                        className={cn(
-                          "flex flex-col md:flex-row items-start md:items-center justify-between p-3 sm:p-3.5 rounded-xl border bg-card/80 hover:bg-secondary/30 transition-all gap-3 shadow-xs",
-                          isReversed ? "opacity-50 bg-secondary/10 border-border/40" : "border-border/70"
-                        )}
-                      >
-                        {/* Esquerda: Produto, Baú, Operador e Data */}
-                        <div className="flex items-center gap-3 min-w-0 flex-1">
-                          <ProductThumbnail src={prodObj?.imagem_url} name={pName} size="sm" />
-                          <div className="min-w-0 space-y-0.5">
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <span className="font-extrabold text-xs sm:text-sm text-foreground truncate max-w-[200px] sm:max-w-xs">
-                                {pName}
-                              </span>
-                              <Badge
-                                variant="outline"
-                                className={cn(
-                                  "text-[10px] font-bold px-1.5 py-0 shrink-0",
-                                  isEntrada
-                                    ? "border-emerald-500/40 text-emerald-400 bg-emerald-500/10"
-                                    : "border-rose-500/40 text-rose-400 bg-rose-500/10"
-                                )}
-                              >
-                                {isEntrada ? "+ Entrada" : "- Saída"}
-                              </Badge>
-                              {canViewBaus && (
-                                <Badge variant="outline" className="text-[10px] border-primary/30 text-primary px-1.5 py-0 shrink-0">
-                                  📦 {bauName}
-                                </Badge>
-                              )}
-                              {m.origin === "discord" ? (
-                                <Badge variant="outline" className="text-[10px] border-[#5865F2]/50 text-[#5865F2] bg-[#5865F2]/10 px-1.5 py-0 shrink-0 font-semibold" title={`Discord Message ID: ${m.discord_message_id || ""}`}>
-                                  🤖 Discord
-                                </Badge>
-                              ) : m.origin === "painel_dev" ? (
-                                <Badge variant="outline" className="text-[10px] border-rose-500/50 text-rose-400 bg-rose-500/10 px-1.5 py-0 shrink-0 font-semibold" title="Ajuste manual no Painel Dev">
-                                  🛠️ Painel Dev
-                                </Badge>
-                              ) : (
-                                <Badge variant="outline" className="text-[10px] border-amber-500/50 text-amber-400 bg-amber-500/10 px-1.5 py-0 shrink-0 font-semibold" title="Lançamento manual de plataforma">
-                                  ✋ Manual
-                                </Badge>
-                              )}
-                            </div>
-
-                            <div className="flex items-center gap-2 text-[11px] text-muted-foreground font-mono flex-wrap">
-                              <span>🕒 {dateTime(m.created_at)}</span>
-                              <span>•</span>
-                              <span>👤 {uName}</span>
-                              {m.discord_message_id && (
-                                <>
-                                  <span>•</span>
-                                  <span className="text-[9px] text-muted-foreground/60">ID: {m.discord_message_id.slice(-6)}</span>
-                                </>
-                              )}
-                              {m.reason && (
-                                <>
-                                  <span>•</span>
-                                  <span className="truncate max-w-[180px] sm:max-w-md text-foreground/70" title={m.reason}>
-                                    💬 {m.reason}
-                                  </span>
-                                </>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Direita: Quantidade, Saldo e Ação de Estorno */}
-                        <div className="flex items-center justify-between md:justify-end gap-3 sm:gap-4 w-full md:w-auto pt-2 md:pt-0 border-t md:border-t-0 border-border/40 shrink-0">
-                          <div className="text-left md:text-right space-y-0.5">
-                            <div className={cn("font-mono font-black text-sm sm:text-base leading-tight", isEntrada ? "text-emerald-400" : "text-rose-400")}>
-                              {isEntrada ? "+" : "-"}{num(m.quantity)}
-                            </div>
-                            {canViewBalances && (m.previous_balance !== undefined) && (
-                              <div className="text-[10px] font-mono text-muted-foreground">
-                                Saldo: {num(m.previous_balance)} → <span className="font-bold text-foreground">{num(m.resulting_balance)}</span>
-                              </div>
-                            )}
-                          </div>
-
-                          {canReverse && (
-                            <div className="shrink-0">
-                              {!isReversed ? (
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  className="h-7 px-2 text-xs text-amber-400 hover:bg-amber-500/10 hover:text-amber-300 rounded-lg cursor-pointer"
-                                  onClick={() => reverseMutation.mutate(m.id)}
-                                  disabled={reverseMutation.isPending}
-                                  title="Estornar lançamento"
-                                >
-                                  <RotateCcw className="h-3.5 w-3.5 mr-1" /> Estornar
-                                </Button>
-                              ) : (
-                                <Badge variant="outline" className="text-[9px] border-border text-muted-foreground">
-                                  Estornado
-                                </Badge>
-                              )}
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-
-                {/* CONTROLES DE PAGINAÇÃO */}
-                {totalLogPages > 1 || filteredLogs.length > 10 ? (
-                  <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-3 border-t border-border/60">
-                    <div className="flex items-center gap-2 text-xs text-muted-foreground flex-wrap">
-                      <span>Exibir por página:</span>
-                      <Select
-                        value={String(logsPerPage)}
-                        onValueChange={(val) => setLogsPerPage(Number(val))}
-                      >
-                        <SelectTrigger className="h-8 w-28 text-xs rounded-lg bg-secondary/30">
-                          <SelectValue placeholder="10" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="10">10 (padrão)</SelectItem>
-                          <SelectItem value="20">20 por pág.</SelectItem>
-                          <SelectItem value="50">50 por pág.</SelectItem>
-                          <SelectItem value="100">100 por pág.</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <span className="text-[11px] font-mono">
-                        ({(safeLogPage - 1) * logsPerPage + 1} - {Math.min(safeLogPage * logsPerPage, filteredLogs.length)} de {filteredLogs.length})
-                      </span>
-                    </div>
-
-                    <div className="flex items-center gap-1.5">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setLogPage((p) => Math.max(1, p - 1))}
-                        disabled={safeLogPage <= 1}
-                        className="h-8 px-2 text-xs rounded-lg cursor-pointer"
-                      >
-                        <ChevronLeft className="h-4 w-4 mr-1" /> Anterior
-                      </Button>
-
-                      <span className="text-xs font-mono font-bold px-2 text-foreground">
-                        Pág. {safeLogPage} de {totalLogPages}
-                      </span>
-
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setLogPage((p) => Math.min(totalLogPages, p + 1))}
-                        disabled={safeLogPage >= totalLogPages}
-                        className="h-8 px-2 text-xs rounded-lg cursor-pointer"
-                      >
-                        Próxima <ChevronRight className="h-4 w-4 ml-1" />
-                      </Button>
-                    </div>
-                  </div>
-                ) : null}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      ) : (
-        <Card className="surface-card border-border/80 p-8 text-center border-dashed">
-          <div className="flex flex-col items-center justify-center space-y-2">
-            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-400">
-              <Lock className="h-6 w-6" />
-            </div>
-            <h3 className="text-sm font-bold text-foreground">Histórico de Lançamentos Bloqueado</h3>
-            <p className="text-xs text-muted-foreground max-w-md">
-              Seu cargo não possui a permissão <strong className="text-primary font-semibold">Ver Histórico de Lançamentos</strong> ativada para visualizar o registro de movimentações.
-            </p>
-          </div>
-        </Card>
-      )}
+      {/* MODAL DE HISTÓRICO DE MOVIMENTAÇÕES (Abre através do botão dos baús ou pelo cabeçalho) */}
+      <MovementHistoryModal
+        open={historyModalOpen}
+        onOpenChange={setHistoryModalOpen}
+        initialBauId={historyBauId}
+      />
 
       {/* MODAL: VER SALDO E INVENTÁRIO DO BAÚ */}
       <Dialog open={balanceModalOpen} onOpenChange={setBalanceModalOpen}>
-        <DialogContent className="max-w-2xl bg-card border-border/80 shadow-2xl p-0 overflow-hidden flex flex-col max-h-[85vh]">
+        <DialogContent className="max-w-4xl bg-card border-border/80 shadow-2xl p-0 overflow-hidden flex flex-col max-h-[88vh]">
+          {/* HEADER COM FOTO DE PERFIL DO BAÚ */}
           <DialogHeader className="p-4 sm:p-5 border-b border-border/60 bg-secondary/30 space-y-1">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-secondary/80 border border-border/60 flex items-center justify-center shrink-0 shadow-inner">
-                  <BauIcon icone={activeBalanceBau?.icone} className="w-5 h-5 text-primary" />
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-12 h-12 rounded-xl bg-secondary/80 border border-border/70 flex items-center justify-center shrink-0 shadow-inner overflow-hidden ring-1 ring-primary/20">
+                  <BauIcon
+                    foto_url={activeBalanceBau?.foto_url || activeBalanceBau?.imagem_url}
+                    icone={activeBalanceBau?.icone}
+                    nome={activeBalanceBau?.nome}
+                    className="w-full h-full object-cover"
+                  />
                 </div>
-                <div>
-                  <DialogTitle className="text-base sm:text-lg font-black text-foreground flex items-center gap-2">
-                    <span>{activeBalanceBau?.nome || "Inventário do Baú"}</span>
+                <div className="min-w-0">
+                  <DialogTitle className="text-base sm:text-lg font-black text-foreground flex items-center gap-2 flex-wrap">
+                    <span className="truncate">{activeBalanceBau?.nome || "Inventário do Baú"}</span>
                     {activeBalanceBau?.tipo_gestao === "manual" ? (
                       <Badge className="bg-amber-500/10 text-amber-400 border-amber-500/30 text-[10px] font-bold">
                         ✍️ Manual
@@ -1842,106 +1601,245 @@ export function MovimentacoesPage() {
                       </Badge>
                     )}
                   </DialogTitle>
-                  <DialogDescription className="text-xs text-muted-foreground">
-                    Saldos atuais e itens alocados neste baú.
+                  <DialogDescription className="text-xs text-muted-foreground truncate">
+                    {activeBalanceBau?.descricao || "Saldos atuais e produtos alocados neste baú."}
                   </DialogDescription>
+                </div>
+              </div>
+
+              <div className="hidden sm:flex items-center gap-2 shrink-0 text-right">
+                <div className="p-2 rounded-xl bg-secondary/40 border border-border/50 text-right">
+                  <span className="text-[10px] uppercase font-bold text-muted-foreground block">Total em Estoque</span>
+                  <span className="text-xs font-mono font-bold text-emerald-400">
+                    {num(activeBalanceInventory.reduce((acc, i) => acc + (i.stock > 0 ? i.stock : 0), 0))} un.
+                  </span>
                 </div>
               </div>
             </div>
           </DialogHeader>
 
-          {/* Search and Filters */}
-          <div className="p-3 sm:p-4 border-b border-border/40 bg-secondary/10 flex flex-col sm:flex-row gap-2 items-center justify-between">
-            <div className="relative w-full sm:w-64">
+          {/* Search, Filter Tabs and View Mode Toggle */}
+          <div className="p-3 sm:p-4 border-b border-border/40 bg-secondary/15 flex flex-col sm:flex-row gap-2.5 items-center justify-between">
+            <div className="relative w-full sm:w-72">
               <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
               <Input
-                placeholder="Buscar item no baú..."
+                placeholder="Buscar item ou categoria no baú..."
                 value={balanceSearch}
                 onChange={(e) => setBalanceSearch(e.target.value)}
-                className="pl-8 h-8 text-xs rounded-xl"
+                className="pl-8 h-8 text-xs rounded-xl bg-background/80"
               />
+              {balanceSearch && (
+                <button
+                  type="button"
+                  onClick={() => setBalanceSearch("")}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
             </div>
 
-            <div className="flex items-center gap-1 w-full sm:w-auto justify-end">
-              <Button
-                size="sm"
-                variant={balanceFilter === "positive" ? "default" : "outline"}
-                onClick={() => setBalanceFilter("positive")}
-                className="text-[11px] h-7 px-2.5 rounded-lg cursor-pointer"
-              >
-                Com Saldo ({activeBalanceInventory.filter((i) => i.stock > 0).length})
-              </Button>
-              <Button
-                size="sm"
-                variant={balanceFilter === "all" ? "default" : "outline"}
-                onClick={() => setBalanceFilter("all")}
-                className="text-[11px] h-7 px-2.5 rounded-lg cursor-pointer"
-              >
-                Todos ({activeBalanceInventory.length})
-              </Button>
-              <Button
-                size="sm"
-                variant={balanceFilter === "zero" ? "default" : "outline"}
-                onClick={() => setBalanceFilter("zero")}
-                className="text-[11px] h-7 px-2.5 rounded-lg cursor-pointer"
-              >
-                Zerados ({activeBalanceInventory.filter((i) => i.stock <= 0).length})
-              </Button>
+            <div className="flex items-center gap-2 w-full sm:w-auto justify-between sm:justify-end flex-wrap">
+              <div className="flex items-center gap-1">
+                <Button
+                  size="sm"
+                  variant={balanceFilter === "positive" ? "default" : "outline"}
+                  onClick={() => setBalanceFilter("positive")}
+                  className="text-[11px] h-7 px-2.5 rounded-lg cursor-pointer"
+                >
+                  Com Saldo ({activeBalanceInventory.filter((i) => i.stock > 0).length})
+                </Button>
+                <Button
+                  size="sm"
+                  variant={balanceFilter === "all" ? "default" : "outline"}
+                  onClick={() => setBalanceFilter("all")}
+                  className="text-[11px] h-7 px-2.5 rounded-lg cursor-pointer"
+                >
+                  Todos ({activeBalanceInventory.length})
+                </Button>
+                <Button
+                  size="sm"
+                  variant={balanceFilter === "zero" ? "default" : "outline"}
+                  onClick={() => setBalanceFilter("zero")}
+                  className="text-[11px] h-7 px-2.5 rounded-lg cursor-pointer"
+                >
+                  Zerados ({activeBalanceInventory.filter((i) => i.stock <= 0).length})
+                </Button>
+              </div>
+
+              {/* Grid / List Mode Switcher */}
+              <div className="flex items-center gap-0.5 border border-border/60 bg-secondary/50 p-0.5 rounded-lg">
+                <Button
+                  size="sm"
+                  variant={balanceViewMode === "grid" ? "default" : "ghost"}
+                  onClick={() => setBalanceViewMode("grid")}
+                  className={cn(
+                    "h-6 w-7 p-0 rounded-md cursor-pointer",
+                    balanceViewMode === "grid" ? "bg-primary text-primary-foreground shadow-xs" : "text-muted-foreground hover:text-foreground"
+                  )}
+                  title="Visualização em Grade"
+                >
+                  <LayoutGrid className="w-3.5 h-3.5" />
+                </Button>
+                <Button
+                  size="sm"
+                  variant={balanceViewMode === "list" ? "default" : "ghost"}
+                  onClick={() => setBalanceViewMode("list")}
+                  className={cn(
+                    "h-6 w-7 p-0 rounded-md cursor-pointer",
+                    balanceViewMode === "list" ? "bg-primary text-primary-foreground shadow-xs" : "text-muted-foreground hover:text-foreground"
+                  )}
+                  title="Visualização em Lista"
+                >
+                  <List className="w-3.5 h-3.5" />
+                </Button>
+              </div>
             </div>
           </div>
 
-          {/* List of items */}
-          <div className="p-4 overflow-y-auto flex-1 divide-y divide-border/40 space-y-1 max-h-[50vh]">
+          {/* Body: Responsive Product Grid or List View */}
+          <div className="p-3.5 sm:p-5 overflow-y-auto flex-1 max-h-[56vh]">
             {filteredBalanceItems.length === 0 ? (
-              <div className="p-8 text-center text-muted-foreground text-xs space-y-2">
-                <PackageSearch className="w-8 h-8 mx-auto opacity-40" />
-                <p>Nenhum item encontrado com os filtros selecionados.</p>
+              <div className="py-12 text-center text-muted-foreground text-xs space-y-2.5">
+                <PackageSearch className="w-10 h-10 mx-auto opacity-40 text-primary animate-pulse" />
+                <p className="font-bold text-foreground text-sm">Nenhum item encontrado no baú</p>
+                <p className="text-[11px] max-w-xs mx-auto">
+                  {balanceSearch ? `Nenhum resultado para "${balanceSearch}". Tente outro termo.` : "Nenhum item atende aos filtros de saldo selecionados."}
+                </p>
               </div>
-            ) : (
-              filteredBalanceItems.map(({ product, stock, categoryName }) => (
-                <div
-                  key={product.id}
-                  className="py-2.5 px-2 flex items-center justify-between rounded-lg hover:bg-secondary/30 transition-colors"
-                >
-                  <div className="flex items-center gap-3 min-w-0">
-                    <ProductThumbnail
-                      imageUrl={product.imagem_url}
-                      productName={product.nome}
-                      size="sm"
-                    />
-                    <div className="min-w-0">
-                      <p className="text-xs sm:text-sm font-bold text-foreground truncate">
-                        {product.nome}
-                      </p>
-                      <p className="text-[10px] text-muted-foreground truncate">
-                        {categoryName}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="text-right shrink-0">
-                    <Badge
-                      variant="outline"
+            ) : balanceViewMode === "grid" ? (
+              /* GRID VIEW COM IMAGEM DO ITEM */
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                {filteredBalanceItems.map(({ product, stock, categoryName }) => {
+                  const hasStock = stock > 0;
+                  return (
+                    <div
+                      key={product.id}
                       className={cn(
-                        "text-xs font-mono font-bold px-2.5 py-1",
-                        stock > 0
-                          ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30"
-                          : "bg-secondary/60 text-muted-foreground border-border/60"
+                        "group relative rounded-xl border p-3 flex flex-col justify-between transition-all duration-200 shadow-xs",
+                        hasStock
+                          ? "bg-card/70 border-border/70 hover:border-primary/50 hover:bg-card/90 hover:shadow-md"
+                          : "bg-secondary/20 border-border/40 opacity-70 hover:opacity-100"
                       )}
                     >
-                      {num(stock)} {product.unidade || "un"}
-                    </Badge>
-                  </div>
-                </div>
-              ))
+                      <div className="space-y-2.5">
+                        {/* Imagem do Produto com Destaque e Hover Zoom */}
+                        <div className="w-full flex justify-center py-1">
+                          <div className="relative p-1.5 rounded-xl bg-secondary/50 border border-border/60 group-hover:border-primary/40 group-hover:scale-105 transition-all shadow-inner">
+                            <ProductThumbnail
+                              src={product.imagem_url}
+                              name={product.nome}
+                              size="xl"
+                              className="w-16 h-16 sm:w-20 sm:h-20 rounded-lg"
+                            />
+                          </div>
+                        </div>
+
+                        {/* Detalhes do Produto */}
+                        <div className="space-y-0.5 text-center">
+                          <span className="text-[10px] text-primary/80 font-bold uppercase tracking-wider block truncate">
+                            {categoryName}
+                          </span>
+                          <h4
+                            className="text-xs sm:text-sm font-bold text-foreground line-clamp-2 leading-tight group-hover:text-primary transition-colors min-h-[2.2em]"
+                            title={product.nome}
+                          >
+                            {product.nome}
+                          </h4>
+                        </div>
+                      </div>
+
+                      {/* Badge de Saldo / Unidades */}
+                      <div className="pt-2.5 mt-auto">
+                        <div
+                          className={cn(
+                            "text-xs font-mono font-bold px-2 py-1 rounded-lg text-center border shadow-xs flex items-center justify-center gap-1",
+                            hasStock
+                              ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30"
+                              : "bg-secondary/50 text-muted-foreground border-border/60"
+                          )}
+                        >
+                          <span className="truncate">
+                            {num(stock)} {product.unidade || "un"}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              /* LIST VIEW */
+              <div className="divide-y divide-border/40 space-y-1">
+                {filteredBalanceItems.map(({ product, stock, categoryName }) => {
+                  const hasStock = stock > 0;
+                  return (
+                    <div
+                      key={product.id}
+                      className="py-2 px-2.5 flex items-center justify-between rounded-lg hover:bg-secondary/30 transition-colors"
+                    >
+                      <div className="flex items-center gap-3 min-w-0">
+                        <ProductThumbnail
+                          src={product.imagem_url}
+                          name={product.nome}
+                          size="md"
+                        />
+                        <div className="min-w-0">
+                          <p className="text-xs sm:text-sm font-bold text-foreground truncate">
+                            {product.nome}
+                          </p>
+                          <p className="text-[10px] text-muted-foreground truncate">
+                            {categoryName}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="text-right shrink-0">
+                        <Badge
+                          variant="outline"
+                          className={cn(
+                            "text-xs font-mono font-bold px-2.5 py-1",
+                            hasStock
+                              ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30"
+                              : "bg-secondary/60 text-muted-foreground border-border/60"
+                          )}
+                        >
+                          {num(stock)} {product.unidade || "un"}
+                        </Badge>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
             )}
           </div>
 
-          <DialogFooter className="p-3 sm:p-4 border-t border-border/40 bg-secondary/20 flex sm:justify-between items-center">
-            <div className="text-[11px] text-muted-foreground">
-              Total: <strong>{activeBalanceInventory.filter((i) => i.stock > 0).length}</strong> itens com saldo
+          {/* FOOTER DO MODAL */}
+          <DialogFooter className="p-3 sm:p-4 border-t border-border/40 bg-secondary/20 flex flex-col sm:flex-row sm:justify-between items-center gap-2">
+            <div className="text-[11px] text-muted-foreground w-full sm:w-auto text-center sm:text-left">
+              Total exibido: <strong>{filteredBalanceItems.length}</strong> itens (
+              <strong className="text-emerald-400">
+                {filteredBalanceItems.filter((i) => i.stock > 0).length}
+              </strong>{" "}
+              com saldo)
             </div>
-            <div className="flex gap-2">
+            <div className="flex items-center gap-2 flex-wrap justify-center sm:justify-end w-full sm:w-auto">
+              {canView && activeBalanceBau && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setBalanceModalOpen(false);
+                    setHistoryBauId(activeBalanceBau.id);
+                    setHistoryModalOpen(true);
+                  }}
+                  className="text-xs font-bold gap-1.5 border-border/80 hover:border-sky-500/50 hover:bg-sky-500/10 text-foreground cursor-pointer"
+                >
+                  <History className="w-3.5 h-3.5 text-sky-400" />
+                  <span>Histórico do Baú</span>
+                </Button>
+              )}
               <Button
                 variant="outline"
                 size="sm"

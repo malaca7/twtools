@@ -469,7 +469,7 @@ export function GroupSettingsDrawer({
                               <MoreVertical className="h-3.5 w-3.5" />
                             </Button>
                           </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end" className="w-48 text-xs z-50">
+                          <DropdownMenuContent align="end" className="w-48 text-xs">
                             {isAdmin && !isCreator && (
                               <DropdownMenuItem
                                 onClick={() => handleMemberAction(part.user_id, "remove_admin")}

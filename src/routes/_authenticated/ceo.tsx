@@ -225,7 +225,7 @@ export function CeoPageContent({ initialTab }: { initialTab?: string } = {}) {
                 </div>
                 <p className="text-xs text-muted-foreground max-w-2xl leading-relaxed">
                   Bem-vindo à sala de controle executivo. Aqui você comanda as automações do Discord,
-                  transmissão de comunicados via Webhooks e acompanha a saúde financeira e operacional da facção.
+                  transmissão de comunicados via Webhooks e acompanha a saúde financeira e operacional do grupo.
                 </p>
               </div>
             </div>
@@ -337,12 +337,12 @@ export function CeoPageContent({ initialTab }: { initialTab?: string } = {}) {
                   {ceoConfig.showRealBalance || isDevUser ? currency(cashBalance) : "••••••••"}
                 </div>
                 <p className="text-[0.7rem] text-muted-foreground mt-1 flex items-center gap-1">
-                  Reserva estratégica da facção
+                  Reserva estratégica do grupo
                 </p>
               </CardContent>
             </Card>
 
-            {/* Card 3: Efetivo da Facção */}
+            {/* Card 3: Efetivo do grupo */}
             <Card className="surface-card border-border/80 hover:border-primary/50 transition-all shadow-xs">
               <CardHeader className="pb-2">
                 <div className="flex items-center justify-between">
@@ -364,7 +364,7 @@ export function CeoPageContent({ initialTab }: { initialTab?: string } = {}) {
               </CardContent>
             </Card>
 
-            {/* Card 4: Discloud Bot Status */}
+            {/* Card 4: Status do Bot no Servidor VPS */}
             <Card className="surface-card border-indigo-500/30 hover:border-indigo-500/50 transition-all shadow-xs">
               <CardHeader className="pb-2">
                 <div className="flex items-center justify-between">
@@ -379,10 +379,10 @@ export function CeoPageContent({ initialTab }: { initialTab?: string } = {}) {
               <CardContent>
                 <div className="text-lg font-black text-indigo-300 flex items-center gap-2">
                   <span className="h-2.5 w-2.5 rounded-full bg-emerald-400 animate-pulse" />
-                  Online no Discloud
+                  Online no Servidor VPS
                 </div>
                 <p className="text-[0.7rem] text-muted-foreground mt-1">
-                  Automação e logs Discord ativos
+                  Automação e logs Discord ativos no VPS
                 </p>
               </CardContent>
             </Card>
@@ -460,7 +460,7 @@ export function CeoPageContent({ initialTab }: { initialTab?: string } = {}) {
               </CardContent>
             </Card>
 
-            {/* Bloco 2: Últimas Vendas da Facção */}
+            {/* Bloco 2: Últimas Vendas do grupo */}
             <Card className="surface-card border-border/80 lg:col-span-2">
               <CardHeader className="pb-3 border-b border-border/60">
                 <div className="flex items-center justify-between">
@@ -470,7 +470,7 @@ export function CeoPageContent({ initialTab }: { initialTab?: string } = {}) {
                       Últimas Vendas & Movimentações Comerciais
                     </CardTitle>
                     <CardDescription className="text-xs">
-                      Histórico em tempo real de negócios fechados pela facção.
+                      Histórico em tempo real de negócios fechados pelo grupo.
                     </CardDescription>
                   </div>
                   <Button asChild variant="ghost" size="sm" className="text-xs font-bold h-8">
@@ -544,13 +544,13 @@ export function CeoPageContent({ initialTab }: { initialTab?: string } = {}) {
                       </Badge>
                     </h3>
                     <p className="text-xs text-muted-foreground">
-                      Supervisione o status da aplicação no Discloud, reinicie serviços e personalize mensagens e atividades em tempo real.
+                      Supervisione o status da aplicação no Servidor VPS, reinicie serviços e personalize mensagens e atividades em tempo real.
                     </p>
                   </div>
                 </div>
 
                 <Badge variant="outline" className="text-xs font-mono border-indigo-500/40 text-indigo-300 bg-indigo-500/10 self-start sm:self-auto py-1 px-3">
-                  ID: twin (Discloud)
+                  Host: Servidor VPS Dedicado
                 </Badge>
               </CardContent>
             </Card>
@@ -586,7 +586,7 @@ export function CeoPageContent({ initialTab }: { initialTab?: string } = {}) {
                       </Badge>
                     </h3>
                     <p className="text-xs text-muted-foreground">
-                      Dispare avisos estratégicos, comunicados de facção e sincronize registros diretamente nos canais de texto do Discord.
+                      Dispare avisos estratégicos, comunicados do grupo e sincronize registros diretamente nos canais de texto do Discord.
                     </p>
                   </div>
                 </div>

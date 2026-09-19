@@ -309,7 +309,7 @@ export function NodeConfigDrawer({
                   <Input
                     value={cfg.title || ""}
                     onChange={(e) => handleConfigChange("title", e.target.value)}
-                    placeholder="Ex: 📢 Comunicado da Facção"
+                    placeholder="Ex: 📢 Comunicado do grupo"
                     className="bg-zinc-900 border-zinc-800 text-xs"
                   />
                 </div>

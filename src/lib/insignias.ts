@@ -36,7 +36,7 @@ export function calculateMemberInsignias(params: {
     {
       id: "mvp",
       title: "Rei do Faturamento (MVP)",
-      description: "Conquistou o #1 lugar absoluto em faturamento na facção.",
+      description: "Conquistou o #1 lugar absoluto em faturamento no grupo.",
       icon: "👑",
       color: "text-amber-400",
       bgGradient: "from-amber-500/20 via-yellow-500/10 to-amber-950/30",
@@ -96,7 +96,7 @@ export function calculateMemberInsignias(params: {
     {
       id: "batedor_metas",
       title: "Batedor de Metas",
-      description: "Cumpriu ou superou 100% das metas da facção.",
+      description: "Cumpriu ou superou 100% das metas do grupo.",
       icon: "🎯",
       color: "text-emerald-400",
       bgGradient: "from-emerald-500/20 via-green-500/10 to-emerald-950/30",
@@ -108,7 +108,7 @@ export function calculateMemberInsignias(params: {
     {
       id: "veterano_ativo",
       title: "Veterano Operacional",
-      description: "Acumulou mais de 10 horas ativas em serviço na facção.",
+      description: "Acumulou mais de 10 horas ativas em serviço no grupo.",
       icon: "🛡️",
       color: "text-amber-300",
       bgGradient: "from-amber-500/20 via-orange-500/10 to-amber-950/30",

@@ -80,7 +80,7 @@ export function MembrosPage() {
   const { data: pending = [], isLoading: pendingLoading } = usePendingSignupRequests(canApprove);
   const { data: dbCustomRoles = [] } = useCustomRoles();
 
-  // Cargos válidos da facção (excluindo desenvolvedor, que é tag de sistema)
+  // Cargos válidos do grupo (excluindo desenvolvedor, que é tag de sistema)
   const availableLevels = useMemo(() => {
     if (dbCustomRoles && dbCustomRoles.length > 0) {
       const filtered = dbCustomRoles.filter(
@@ -354,7 +354,7 @@ export function MembrosPage() {
         </Card>
       )}
 
-      {/* MEMBROS ATIVOS DA FACÇÃO */}
+      {/* MEMBROS ATIVOS DO GRUPO */}
       <Card className="surface-card">
         <CardHeader className="pb-3">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">

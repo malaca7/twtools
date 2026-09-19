@@ -400,7 +400,7 @@ export function ConversationList({
                 <MoreVertical className="h-4 w-4" />
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-56 text-xs bg-[#233138] border border-white/10 text-white rounded-xl shadow-2xl p-1 z-50">
+            <DropdownMenuContent align="end" className="w-56 text-xs p-1">
               <DropdownMenuItem
                 onClick={handleMarkAllAsRead}
                 disabled={unreadCount === 0}
@@ -763,7 +763,7 @@ export function ConversationList({
                         </DropdownMenuTrigger>
                         <DropdownMenuContent
                           align="end"
-                          className="w-48 text-xs bg-[#233138] border border-white/10 text-white rounded-xl shadow-2xl p-1 z-50"
+                          className="w-48 text-xs p-1"
                         >
                           <DropdownMenuItem
                             onClick={(e) => handlePin(e, c)}

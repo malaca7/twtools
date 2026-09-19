@@ -169,7 +169,7 @@ export function NotificationCenter() {
       <PopoverContent
         align="end"
         sideOffset={8}
-        className="w-[360px] sm:w-[440px] p-0 z-50 rounded-2xl border border-border/80 bg-card/95 backdrop-blur-2xl shadow-2xl overflow-hidden"
+        className="w-[calc(100vw-1.25rem)] sm:w-[440px] max-w-[440px] p-0 overflow-hidden"
       >
         {/* CABEÇALHO */}
         <div className="flex items-center justify-between p-4 pb-3 border-b border-border/60 bg-muted/20">

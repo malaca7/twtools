@@ -97,7 +97,7 @@ export function InsigniaGrid({ insignias, compact = false }: InsigniaGridProps) 
                 <Sparkles className="h-4 w-4 text-amber-400" />
               </CardTitle>
               <CardDescription className="text-xs text-muted-foreground mt-0.5">
-                Medalhas de mérito e distintivos de honra conquistados com base na sua produtividade na facção.
+                Medalhas de mérito e distintivos de honra conquistados com base na sua produtividade no grupo.
               </CardDescription>
             </div>
           </div>

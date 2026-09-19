@@ -4,8 +4,10 @@ import { cn } from "@/lib/utils";
 
 export interface ProductThumbnailProps {
   src?: string | null;
+  imageUrl?: string | null;
   name?: string;
-  size?: "xs" | "sm" | "md" | "lg" | "xl";
+  productName?: string;
+  size?: "xs" | "sm" | "md" | "lg" | "xl" | "2xl" | "full";
   className?: string;
   fallbackIconClassName?: string;
   fit?: "cover" | "contain";
@@ -17,6 +19,8 @@ const sizeClasses = {
   md: "h-10 w-10 rounded-xl",
   lg: "h-12 w-12 rounded-xl",
   xl: "h-16 w-16 rounded-2xl",
+  "2xl": "h-20 w-20 rounded-2xl",
+  full: "h-full w-full rounded-xl",
 };
 
 const iconSizes = {
@@ -25,18 +29,23 @@ const iconSizes = {
   md: "h-5 w-5",
   lg: "h-6 w-6",
   xl: "h-8 w-8",
+  "2xl": "h-10 w-10",
+  full: "h-10 w-10",
 };
 
 export function ProductThumbnail({
   src,
+  imageUrl,
   name,
+  productName,
   size = "md",
   className,
   fallbackIconClassName,
   fit = "cover",
 }: ProductThumbnailProps) {
   const [hasError, setHasError] = useState(false);
-  const cleanSrc = src?.trim();
+  const cleanSrc = (src || imageUrl)?.trim();
+  const effectiveName = name || productName || "Produto";
 
   useEffect(() => {
     setHasError(false);
@@ -50,14 +59,14 @@ export function ProductThumbnail({
           sizeClasses[size],
           className
         )}
-        title={name || "Produto"}
+        title={effectiveName}
       >
         <img
           src={cleanSrc}
-          alt={name || "Produto"}
+          alt={effectiveName}
           className={cn(
             "h-full w-full object-center",
-            fit === "contain" ? "object-contain p-0.5" : "object-cover"
+            fit === "contain" ? "object-contain p-1" : "object-cover"
           )}
           loading="lazy"
           onError={() => setHasError(true)}
@@ -73,7 +82,7 @@ export function ProductThumbnail({
         sizeClasses[size],
         className
       )}
-      title={name || "Produto"}
+      title={effectiveName}
     >
       <Package className={cn(iconSizes[size], "text-primary/70", fallbackIconClassName)} />
     </div>

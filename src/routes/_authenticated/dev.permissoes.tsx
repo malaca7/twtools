@@ -580,7 +580,7 @@ function DevPermissoesContent() {
                 <div>
                   <CardTitle className="text-sm font-extrabold flex items-center gap-2">
                     <Users className="h-4 w-4 text-rose-400" />
-                    Membros da Facção & Atribuição da Tag Dev
+                    Membros do grupo & Atribuição da Tag Dev
                   </CardTitle>
                   <CardDescription className="text-xs">
                     Ative ou desative a Tag Dev instantaneamente para qualquer integrante com 1 clique.
@@ -956,7 +956,7 @@ function DevPermissoesContent() {
                 <div>
                   <CardTitle className="text-sm font-extrabold flex items-center gap-2">
                     <Users className="h-4 w-4 text-amber-400" />
-                    Membros da Facção & Atribuição da Tag CEO
+                    Membros do grupo & Atribuição da Tag CEO
                   </CardTitle>
                   <CardDescription className="text-xs">
                     Ative ou desative a Tag CEO instantaneamente para qualquer integrante com 1 clique.
@@ -1163,7 +1163,7 @@ function DevPermissoesContent() {
                         <div className="p-2 rounded-lg bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
                           <Bot className="h-4 w-4" />
                         </div>
-                        <span className="text-xs font-black text-foreground">Gerenciar Bot Discloud</span>
+                        <span className="text-xs font-black text-foreground">Gerenciar Bot VPS</span>
                       </div>
                       <Switch
                         id="ceo-cfg-bot"
@@ -1173,7 +1173,7 @@ function DevPermissoesContent() {
                       />
                     </div>
                     <p className="text-[0.7rem] text-muted-foreground leading-relaxed">
-                      Permite ao CEO monitorar status da instância no Discloud, visualizar servidores mútuos e reiniciar o bot em contingências.
+                      Permite ao CEO monitorar status da instância no servidor VPS, visualizar servidores mútuos e reiniciar o bot em contingências.
                     </p>
                   </div>
                   <div className="mt-3 pt-2 border-t border-border/40 flex items-center justify-between text-[0.68rem]">
@@ -1263,7 +1263,7 @@ function DevPermissoesContent() {
                       />
                     </div>
                     <p className="text-[0.7rem] text-muted-foreground leading-relaxed">
-                      Permite ao CEO auditar o extrato consolidado de movimentações financeiras, entradas, saídas e o saldo global da facção.
+                      Permite ao CEO auditar o extrato consolidado de movimentações financeiras, entradas, saídas e o saldo global do grupo.
                     </p>
                   </div>
                   <div className="mt-3 pt-2 border-t border-border/40 flex items-center justify-between text-[0.68rem]">
@@ -1308,7 +1308,7 @@ function DevPermissoesContent() {
                       />
                     </div>
                     <p className="text-[0.7rem] text-muted-foreground leading-relaxed">
-                      Habilita os botões de atalho no dashboard do CEO para disparo de anúncios rápidos e alertas prioritários à facção.
+                      Habilita os botões de atalho no dashboard do CEO para disparo de anúncios rápidos e alertas prioritários à grupo.
                     </p>
                   </div>
                   <div className="mt-3 pt-2 border-t border-border/40 flex items-center justify-between text-[0.68rem]">
@@ -1360,6 +1360,51 @@ function DevPermissoesContent() {
                     <span className="text-muted-foreground font-mono">Privacidade de Saldo</span>
                     <Badge variant="outline" className={cn("text-[9px] font-bold py-0", ceoConfig.showRealBalance !== false ? "text-teal-400 border-teal-500/40" : "text-muted-foreground")}>
                       {ceoConfig.showRealBalance !== false ? "Visível" : "Oculto"}
+                    </Badge>
+                  </div>
+                </div>
+
+                {/* Switch 6: Ajustes de Estoque */}
+                <div
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => handleUpdateCeoConfig({ allowStockAdjustments: !(ceoConfig.allowStockAdjustments !== false) })}
+                  onKeyDown={(e) => {
+                    if (e.key === " " || e.key === "Enter") {
+                      e.preventDefault();
+                      handleUpdateCeoConfig({ allowStockAdjustments: !(ceoConfig.allowStockAdjustments !== false) });
+                    }
+                  }}
+                  className={cn(
+                    "flex flex-col justify-between p-3.5 rounded-xl border transition-all duration-150 cursor-pointer select-none outline-none focus-visible:ring-2 focus-visible:ring-amber-500/50 hover:scale-[1.008] active:scale-[0.99]",
+                    ceoConfig.allowStockAdjustments !== false
+                      ? "bg-amber-500/10 border-amber-500/50 shadow-sm shadow-amber-500/15"
+                      : "bg-secondary/20 border-border/40 hover:bg-secondary/40 hover:border-amber-500/30 opacity-75"
+                  )}
+                >
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <div className="p-2 rounded-lg bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                          <Sliders className="h-4 w-4" />
+                        </div>
+                        <span className="text-xs font-black text-foreground">Ajustes de Estoque</span>
+                      </div>
+                      <Switch
+                        id="ceo-cfg-stock-adj"
+                        checked={ceoConfig.allowStockAdjustments !== false}
+                        tabIndex={-1}
+                        className="pointer-events-none data-[state=checked]:bg-amber-500 data-[state=checked]:border-amber-400"
+                      />
+                    </div>
+                    <p className="text-[0.7rem] text-muted-foreground leading-relaxed">
+                      Habilita o terminal de ajustes manuais de estoque e recalibração de saldos de baús no Painel CEO (/ceo/ajustes-estoque).
+                    </p>
+                  </div>
+                  <div className="mt-3 pt-2 border-t border-border/40 flex items-center justify-between text-[0.68rem]">
+                    <span className="text-muted-foreground font-mono">Aba: /ceo/ajustes-estoque</span>
+                    <Badge variant="outline" className={cn("text-[9px] font-bold py-0", ceoConfig.allowStockAdjustments !== false ? "text-amber-400 border-amber-500/40" : "text-muted-foreground")}>
+                      {ceoConfig.allowStockAdjustments !== false ? "Ativado" : "Desativado"}
                     </Badge>
                   </div>
                 </div>

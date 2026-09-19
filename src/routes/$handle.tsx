@@ -92,7 +92,7 @@ function DirectProfileRouteComponent() {
               <Link to="/dashboard">
                 <Button size="sm" className="h-8 px-3 text-xs font-bold gap-1.5 rounded-xl bg-gradient-brand text-primary-foreground shadow-sm hover:opacity-90 cursor-pointer">
                   <LayoutDashboard className="h-3.5 w-3.5" />
-                  <span>Painel da Facção</span>
+                  <span>Painel do grupo</span>
                 </Button>
               </Link>
             ) : (

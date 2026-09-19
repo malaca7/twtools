@@ -62,7 +62,7 @@ export const BANNER_PRESETS: BannerPreset[] = [
   {
     id: "blood_syndicate",
     name: "Crimson Syndicate",
-    description: "Vermelho carmesim de combate urbano e facção tática",
+    description: "Vermelho carmesim de combate urbano e grupo tática",
     gradient: "from-rose-950 via-zinc-950 to-red-950",
     accent: "#f43f5e",
   },

@@ -101,7 +101,7 @@ export function getNotificationTypeInfo(type: NotificationType): NotificationTyp
         badgeBg: "bg-indigo-500/10",
         badgeColor: "text-indigo-400",
         borderColor: "border-indigo-500/30",
-        description: "Chamados e atendimentos internos da facção",
+        description: "Chamados e atendimentos internos do grupo",
       };
     case "chat":
       return {
@@ -173,7 +173,7 @@ export function getNotificationTypeInfo(type: NotificationType): NotificationTyp
         badgeBg: "bg-rose-500/15",
         badgeColor: "text-rose-400 font-extrabold",
         borderColor: "border-rose-500/40",
-        description: "Transmissões e lives de streamers da facção",
+        description: "Transmissões e lives de streamers do grupo",
       };
     case "system":
     default:

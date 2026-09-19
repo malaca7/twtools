@@ -836,7 +836,7 @@ export function PerfilPage({ initialTab }: { initialTab?: "perfil" | "dados" | "
                   <div className="space-y-1.5">
                     <Label className="text-xs font-semibold">Biografia ("Sobre Mim")</Label>
                     <Textarea
-                      placeholder="Conte sobre sua história na cidade, funções de destaque na facção, especialidades..."
+                      placeholder="Conte sobre sua história na cidade, funções de destaque no grupo, especialidades..."
                       value={bio}
                       onChange={(e) => setBio(e.target.value.slice(0, 500))}
                       className="min-h-[100px] text-xs resize-y rounded-xl leading-relaxed"

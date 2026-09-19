@@ -14,7 +14,7 @@ export const INITIAL_PATCH_NOTES: DevPatchNote[] = [
     title: "Chat em Tempo Real, Citação WhatsApp & Notificações",
     category: "feature",
     description:
-      "Reformulação integral do sistema de chat corporativo da facção. Introdução de entrega via WebSocket de latência ultrabaixa (15ms), citação de respostas idêntica ao WhatsApp, e controle visual de mensagens não lidas no balão de chat.",
+      "Reformulação integral do sistema de chat corporativo do grupo. Introdução de entrega via WebSocket de latência ultrabaixa (15ms), citação de respostas idêntica ao WhatsApp, e controle visual de mensagens não lidas no balão de chat.",
     changes: [
       "Foco automático instantâneo no campo de digitação ao ingressar em conversas ou acionar ações de resposta.",
       "Card de citação de resposta visualmente idêntico ao WhatsApp com borda de acento colorido, ícones de anexo, miniatura de foto e rolagem suave.",
@@ -37,7 +37,7 @@ export const INITIAL_PATCH_NOTES: DevPatchNote[] = [
     title: "Central de Licenças & Validação de Comprovantes",
     category: "feature",
     description:
-      "Aprimoramento dos fluxos administrativos de gestão de membros e prestação de contas das metas operacionais da facção.",
+      "Aprimoramento dos fluxos administrativos de gestão de membros e prestação de contas das metas operacionais do grupo.",
     changes: [
       "Painel de controle de ausências e licenças com cálculo dinâmico de período e justificativas.",
       "Edição e reversão de status de validação de comprovantes com histórico de ações.",

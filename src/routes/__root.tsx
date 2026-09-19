@@ -166,7 +166,7 @@ function DocumentTitleSync() {
   useEffect(() => {
     if (typeof window !== "undefined") {
       const name = settings.factionName || "Twin Wheels";
-      const slogan = settings.slogan || settings.factionType || "Gestão de Facção — GTA RP";
+      const slogan = settings.slogan || settings.factionType || "Gestão de grupo — GTA RP";
       document.title = `${name} — ${slogan}`;
     }
   }, [settings.factionName, settings.slogan, settings.factionType]);

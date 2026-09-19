@@ -84,7 +84,7 @@ export function MediaLightboxModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col bg-black/95 backdrop-blur-2xl text-white select-none animate-in fade-in duration-150">
+    <div className="fixed inset-0 z-[10060] flex flex-col bg-black/95 backdrop-blur-2xl text-white select-none animate-in fade-in duration-150">
       {/* HEADER TOP BAR */}
       <div className="flex items-center justify-between px-4 py-3 bg-[#111b21]/80 backdrop-blur-md border-b border-white/10 shrink-0 z-20">
         {/* SENDER INFO */}

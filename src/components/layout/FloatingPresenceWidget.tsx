@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useMemo } from "react";
+import { createPortal } from "react-dom";
 import {
   Users,
   X,
@@ -181,19 +182,36 @@ export function FloatingOnlineMembersWidget() {
 
   const { data: members = [] } = useMembers();
   const panelRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
 
-  // Fecha o popup ao clicar fora
+  // Fecha o popup ao clicar fora ou pressionar ESC
   useEffect(() => {
+    if (!isOpen) return;
+
     function handleClickOutside(event: MouseEvent) {
-      if (panelRef.current && !panelRef.current.contains(event.target as Node)) {
+      const target = event.target as Node;
+      if (
+        panelRef.current &&
+        !panelRef.current.contains(target) &&
+        triggerRef.current &&
+        !triggerRef.current.contains(target)
+      ) {
         setIsOpen(false);
       }
     }
-    if (isOpen) {
-      document.addEventListener("mousedown", handleClickOutside);
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        setIsOpen(false);
+      }
     }
+
+    document.addEventListener("mousedown", handleClickOutside);
+    window.addEventListener("keydown", handleKeyDown);
+
     return () => {
       document.removeEventListener("mousedown", handleClickOutside);
+      window.removeEventListener("keydown", handleKeyDown);
     };
   }, [isOpen]);
 
@@ -220,9 +238,10 @@ export function FloatingOnlineMembersWidget() {
   };
 
   return (
-    <div ref={panelRef} className="fixed bottom-6 right-6 z-50">
+    <div className="fixed bottom-20 sm:bottom-6 right-4 sm:right-6 z-[9980]">
       {/* BOTÃO FLUTUANTE DE MEMBROS ONLINE (Apenas ícone e quantidade, sem textos) */}
       <button
+        ref={triggerRef}
         type="button"
         onClick={() => setIsOpen((prev) => !prev)}
         className={cn(
@@ -264,154 +283,166 @@ export function FloatingOnlineMembersWidget() {
       </button>
 
       {/* POPUP DE MEMBROS ONLINE (Alta Densidade & Design Premium) */}
-      {isOpen && (
-        <div className="fixed inset-x-0 bottom-0 top-0 sm:inset-auto sm:bottom-[78px] sm:right-0 sm:top-auto sm:w-[420px] sm:max-w-[calc(100vw-2.5rem)] sm:h-[580px] sm:max-h-[calc(100vh-100px)] rounded-t-3xl sm:rounded-3xl border-t sm:border border-border/80 bg-card/98 backdrop-blur-2xl shadow-2xl overflow-hidden animate-in fade-in-50 slide-in-from-bottom-4 duration-200 flex flex-col z-[999]">
-          {/* HEADER DO POPUP */}
-          <div className="px-4 py-3.5 border-b border-border/60 bg-secondary/20 flex items-center justify-between">
-            <div className="flex items-center gap-2.5">
-              <div className="h-8 w-8 rounded-xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
-                <Users className="h-4 w-4" />
+      {isOpen && typeof document !== "undefined" && createPortal(
+        <>
+          {/* Overlay escuro em mobile para fechar ao tocar fora */}
+          <div
+            onClick={() => setIsOpen(false)}
+            className="fixed inset-0 z-[99990] bg-black/60 backdrop-blur-xs sm:hidden animate-in fade-in-0 duration-150 cursor-pointer"
+          />
+
+          <div
+            ref={panelRef}
+            className="fixed inset-x-0 bottom-0 top-auto max-h-[85dvh] sm:bottom-[78px] sm:right-6 sm:left-auto sm:w-[420px] sm:max-w-[calc(100vw-2.5rem)] sm:h-[580px] sm:max-h-[calc(100vh-100px)] rounded-t-3xl sm:rounded-3xl border-t sm:border border-border/80 bg-card/98 text-card-foreground backdrop-blur-2xl shadow-2xl overflow-hidden animate-in fade-in-50 slide-in-from-bottom-4 duration-200 flex flex-col z-[99995]"
+          >
+            {/* HEADER DO POPUP */}
+            <div className="px-4 py-3.5 border-b border-border/60 bg-secondary/20 flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="h-8 w-8 rounded-xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
+                  <Users className="h-4 w-4" />
+                </div>
+                <div>
+                  <h3 className="font-black text-sm text-foreground flex items-center gap-2">
+                    Membros do grupo
+                    <span className="text-[10px] font-mono font-bold px-1.5 py-0.2 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+                      {totalOnline} online
+                    </span>
+                  </h3>
+                  <p className="text-[10.5px] text-muted-foreground">
+                    Status em tempo real dos integrantes
+                  </p>
+                </div>
               </div>
-              <div>
-                <h3 className="font-black text-sm text-foreground flex items-center gap-2">
-                  Membros da Facção
-                  <span className="text-[10px] font-mono font-bold px-1.5 py-0.2 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
-                    {totalOnline} online
-                  </span>
-                </h3>
-                <p className="text-[10.5px] text-muted-foreground">
-                  Status em tempo real dos integrantes
-                </p>
+
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                onClick={() => setIsOpen(false)}
+                className="h-8 w-8 text-muted-foreground hover:text-foreground rounded-xl"
+                title="Fechar painel"
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+
+            {/* BARRA DE PESQUISA */}
+            <div className="p-3 border-b border-border/50 bg-card/60 space-y-2">
+              <div className="relative">
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+                <Input
+                  type="search"
+                  placeholder="Buscar membro por nome, apelido, ID..."
+                  value={memberSearch}
+                  onChange={(e) => setMemberSearch(e.target.value)}
+                  className="h-8 pl-8 pr-3 text-xs bg-secondary/40 border-border/60 rounded-xl"
+                />
+              </div>
+
+              {/* FILTROS POR STATUS */}
+              <div className="grid grid-cols-4 gap-1">
+                {(["all", "online", "ausente", "offline"] as const).map((filter) => (
+                  <button
+                    key={filter}
+                    type="button"
+                    onClick={() => setMemberFilter(filter)}
+                    className={cn(
+                      "py-1 px-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all border text-center select-none cursor-pointer",
+                      memberFilter === filter
+                        ? "bg-primary text-primary-foreground border-primary shadow-xs"
+                        : "bg-secondary/40 border-border/50 text-muted-foreground hover:bg-secondary hover:text-foreground"
+                    )}
+                  >
+                    {filter === "all"
+                      ? `Todos (${members.length})`
+                      : filter === "online"
+                      ? `Online (${onlineMembers.length})`
+                      : filter === "ausente"
+                      ? `Ausente (${ausenteMembers.length})`
+                      : `Off (${offlineMembers.length})`}
+                  </button>
+                ))}
               </div>
             </div>
 
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              onClick={() => setIsOpen(false)}
-              className="h-8 w-8 text-muted-foreground hover:text-foreground rounded-xl"
-              title="Fechar painel"
-            >
-              <X className="h-4 w-4" />
-            </Button>
-          </div>
+            {/* LISTA DE MEMBROS ALTA DENSIDADE */}
+            <div className="flex-1 overflow-y-auto p-2 space-y-3 custom-scrollbar-thin">
+              {/* SEÇÃO ONLINE */}
+              {(memberFilter === "all" || memberFilter === "online") && filteredMembers(onlineMembers).length > 0 && (
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between px-2.5 py-1 text-[10px] font-black font-mono text-emerald-400 uppercase tracking-wider bg-emerald-500/10 rounded-lg border border-emerald-500/20">
+                    <span className="flex items-center gap-1.5">
+                      <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+                      ONLINE AGORA
+                    </span>
+                    <span className="font-bold">{filteredMembers(onlineMembers).length}</span>
+                  </div>
+                  <div className="space-y-0.5">
+                    {filteredMembers(onlineMembers).map((m) => (
+                      <CompactMemberRow
+                        key={m.user_id}
+                        member={m}
+                        isSelf={m.user_id === currentUserId}
+                      />
+                    ))}
+                  </div>
+                </div>
+              )}
 
-          {/* BARRA DE PESQUISA */}
-          <div className="p-3 border-b border-border/50 bg-card/60 space-y-2">
-            <div className="relative">
-              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
-              <Input
-                type="search"
-                placeholder="Buscar membro por nome, apelido, ID..."
-                value={memberSearch}
-                onChange={(e) => setMemberSearch(e.target.value)}
-                className="h-8 pl-8 pr-3 text-xs bg-secondary/40 border-border/60 rounded-xl"
-              />
+              {/* SEÇÃO AUSENTE */}
+              {(memberFilter === "all" || memberFilter === "ausente") && filteredMembers(ausenteMembers).length > 0 && (
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between px-2.5 py-1 text-[10px] font-black font-mono text-amber-400 uppercase tracking-wider bg-amber-500/10 rounded-lg border border-amber-500/20">
+                    <span className="flex items-center gap-1.5">
+                      <Moon className="h-3 w-3" />
+                      AUSENTE / AFK
+                    </span>
+                    <span className="font-bold">{filteredMembers(ausenteMembers).length}</span>
+                  </div>
+                  <div className="space-y-0.5">
+                    {filteredMembers(ausenteMembers).map((m) => (
+                      <CompactMemberRow
+                        key={m.user_id}
+                        member={m}
+                        isSelf={m.user_id === currentUserId}
+                      />
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* SEÇÃO OFFLINE */}
+              {(memberFilter === "all" || memberFilter === "offline") && filteredMembers(offlineMembers).length > 0 && (
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between px-2.5 py-1 text-[10px] font-black font-mono text-zinc-400 uppercase tracking-wider bg-zinc-500/5 rounded-lg border border-zinc-500/20">
+                    <span className="flex items-center gap-1.5">
+                      <span className="h-2 w-2 rounded-full bg-zinc-500" />
+                      OFFLINE
+                    </span>
+                    <span className="font-bold">{filteredMembers(offlineMembers).length}</span>
+                  </div>
+                  <div className="space-y-0.5">
+                    {filteredMembers(offlineMembers).map((m) => (
+                      <CompactMemberRow
+                        key={m.user_id}
+                        member={m}
+                        isSelf={m.user_id === currentUserId}
+                      />
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {filteredMembers(members).length === 0 && (
+                <div className="text-center py-12 text-muted-foreground space-y-1">
+                  <p className="text-xs font-bold text-foreground">Nenhum membro encontrado</p>
+                  <p className="text-[11px]">Tente buscar por outro nome ou ID.</p>
+                </div>
+              )}
             </div>
-
-            {/* FILTROS POR STATUS */}
-            <div className="grid grid-cols-4 gap-1">
-              {(["all", "online", "ausente", "offline"] as const).map((filter) => (
-                <button
-                  key={filter}
-                  type="button"
-                  onClick={() => setMemberFilter(filter)}
-                  className={cn(
-                    "py-1 px-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all border text-center select-none cursor-pointer",
-                    memberFilter === filter
-                      ? "bg-primary text-primary-foreground border-primary shadow-xs"
-                      : "bg-secondary/40 border-border/50 text-muted-foreground hover:bg-secondary hover:text-foreground"
-                  )}
-                >
-                  {filter === "all"
-                    ? `Todos (${members.length})`
-                    : filter === "online"
-                    ? `Online (${onlineMembers.length})`
-                    : filter === "ausente"
-                    ? `Ausente (${ausenteMembers.length})`
-                    : `Off (${offlineMembers.length})`}
-                </button>
-              ))}
-            </div>
           </div>
-
-          {/* LISTA DE MEMBROS ALTA DENSIDADE */}
-          <div className="flex-1 overflow-y-auto p-2 space-y-3">
-            {/* SEÇÃO ONLINE */}
-            {(memberFilter === "all" || memberFilter === "online") && filteredMembers(onlineMembers).length > 0 && (
-              <div className="space-y-1">
-                <div className="flex items-center justify-between px-2.5 py-1 text-[10px] font-black font-mono text-emerald-400 uppercase tracking-wider bg-emerald-500/10 rounded-lg border border-emerald-500/20">
-                  <span className="flex items-center gap-1.5">
-                    <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
-                    ONLINE AGORA
-                  </span>
-                  <span className="font-bold">{filteredMembers(onlineMembers).length}</span>
-                </div>
-                <div className="space-y-0.5">
-                  {filteredMembers(onlineMembers).map((m) => (
-                    <CompactMemberRow
-                      key={m.user_id}
-                      member={m}
-                      isSelf={m.user_id === currentUserId}
-                    />
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* SEÇÃO AUSENTE */}
-            {(memberFilter === "all" || memberFilter === "ausente") && filteredMembers(ausenteMembers).length > 0 && (
-              <div className="space-y-1">
-                <div className="flex items-center justify-between px-2.5 py-1 text-[10px] font-black font-mono text-amber-400 uppercase tracking-wider bg-amber-500/10 rounded-lg border border-amber-500/20">
-                  <span className="flex items-center gap-1.5">
-                    <Moon className="h-3 w-3" />
-                    AUSENTE / AFK
-                  </span>
-                  <span className="font-bold">{filteredMembers(ausenteMembers).length}</span>
-                </div>
-                <div className="space-y-0.5">
-                  {filteredMembers(ausenteMembers).map((m) => (
-                    <CompactMemberRow
-                      key={m.user_id}
-                      member={m}
-                      isSelf={m.user_id === currentUserId}
-                    />
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* SEÇÃO OFFLINE */}
-            {(memberFilter === "all" || memberFilter === "offline") && filteredMembers(offlineMembers).length > 0 && (
-              <div className="space-y-1">
-                <div className="flex items-center justify-between px-2.5 py-1 text-[10px] font-black font-mono text-zinc-400 uppercase tracking-wider bg-zinc-500/5 rounded-lg border border-zinc-500/20">
-                  <span className="flex items-center gap-1.5">
-                    <span className="h-2 w-2 rounded-full bg-zinc-500" />
-                    OFFLINE
-                  </span>
-                  <span className="font-bold">{filteredMembers(offlineMembers).length}</span>
-                </div>
-                <div className="space-y-0.5">
-                  {filteredMembers(offlineMembers).map((m) => (
-                    <CompactMemberRow
-                      key={m.user_id}
-                      member={m}
-                      isSelf={m.user_id === currentUserId}
-                    />
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {filteredMembers(members).length === 0 && (
-              <div className="text-center py-12 text-muted-foreground space-y-1">
-                <p className="text-xs font-bold text-foreground">Nenhum membro encontrado</p>
-                <p className="text-[11px]">Tente buscar por outro nome ou ID.</p>
-              </div>
-            )}
-          </div>
-        </div>
+        </>,
+        document.body
       )}
     </div>
   );

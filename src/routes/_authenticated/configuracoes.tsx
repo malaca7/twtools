@@ -201,7 +201,7 @@ function PlatformTab({ canEdit }: { canEdit: boolean }) {
         <div>
           <h3 className="text-sm font-extrabold text-foreground">Configurações Gerais & Identidade</h3>
           <p className="text-xs text-muted-foreground mt-0.5">
-            Personalize a identidade da facção, parâmetros operacionais e timeouts de presença.
+            Personalize a identidade do grupo, parâmetros operacionais e timeouts de presença.
           </p>
         </div>
         <div className="flex items-center gap-2 shrink-0">
@@ -242,7 +242,7 @@ function PlatformTab({ canEdit }: { canEdit: boolean }) {
               <Info className="h-4 w-4" />
             </div>
             <div>
-              <CardTitle className="text-sm font-bold">Identidade da Facção</CardTitle>
+              <CardTitle className="text-sm font-bold">Identidade do grupo</CardTitle>
               <CardDescription className="text-[0.7rem]">Nome, tag e dados públicos do grupo</CardDescription>
             </div>
           </div>
@@ -250,7 +250,7 @@ function PlatformTab({ canEdit }: { canEdit: boolean }) {
         <CardContent className="p-4 space-y-4">
           <div className="grid gap-4 sm:grid-cols-3">
             <div className="space-y-1.5">
-              <Label className="text-xs font-semibold">Nome da Facção</Label>
+              <Label className="text-xs font-semibold">Nome do grupo</Label>
               <Input
                 value={formData.factionName}
                 onChange={(e) => handleChange("factionName", e.target.value)}
@@ -275,7 +275,7 @@ function PlatformTab({ canEdit }: { canEdit: boolean }) {
                 value={formData.factionType}
                 onChange={(e) => handleChange("factionType", e.target.value)}
                 disabled={!canEdit}
-                placeholder="Ex.: Gestão de Facção — GTA RP"
+                placeholder="Ex.: Gestão de grupo — GTA RP"
                 className="h-9 text-xs bg-secondary/50 border-border/60"
               />
             </div>
@@ -1570,7 +1570,7 @@ function MenuTab({ canEdit }: { canEdit: boolean }) {
               <Input
                 value={newMenuTitle}
                 onChange={(e) => setNewMenuTitle(e.target.value)}
-                placeholder="Ex: Discord da Facção, Planilha de Armas, Loja VIP..."
+                placeholder="Ex: Discord do grupo, Planilha de Armas, Loja VIP..."
                 className="h-9 text-xs"
               />
             </div>
@@ -2065,7 +2065,7 @@ function NotificationsTab({ canEdit }: { canEdit: boolean }) {
         <div>
           <h3 className="text-sm font-extrabold text-foreground">Sons & Alertas de Notificações</h3>
           <p className="text-xs text-muted-foreground mt-0.5">
-            Configure o sistema profissional de áudio gamer e exibição de avisos da facção.
+            Configure o sistema profissional de áudio gamer e exibição de avisos do grupo.
           </p>
         </div>
         <Button
@@ -2173,7 +2173,7 @@ function NotificationsTab({ canEdit }: { canEdit: boolean }) {
             </div>
             <div>
               <CardTitle className="text-sm font-bold">Avisos & Comunicados</CardTitle>
-              <CardDescription className="text-[0.7rem]">Banners e retenção de avisos da facção</CardDescription>
+              <CardDescription className="text-[0.7rem]">Banners e retenção de avisos do grupo</CardDescription>
             </div>
           </div>
         </CardHeader>
@@ -2396,7 +2396,7 @@ function LivesTab() {
               <div>
                 <CardTitle className="text-sm font-bold">Meus Canais de Transmissão Vinculados</CardTitle>
                 <CardDescription className="text-[0.7rem]">
-                  Canais que a plataforma monitora para avisar a facção quando você iniciar live
+                  Canais que a plataforma monitora para avisar o grupo quando você iniciar live
                 </CardDescription>
               </div>
             </div>
@@ -2421,7 +2421,7 @@ function LivesTab() {
             <div className="py-8 text-center space-y-2 rounded-xl border border-dashed border-border/60 bg-muted/10">
               <p className="text-xs font-semibold text-foreground">Você ainda não vinculou nenhum canal de live</p>
               <p className="text-[11px] text-muted-foreground max-w-sm mx-auto">
-                Conecte sua conta da Twitch, Kick, YouTube ou TikTok para que seus companheiros de facção saibam sempre que você estiver transmitindo.
+                Conecte sua conta da Twitch, Kick, YouTube ou TikTok para que seus companheiros de grupo saibam sempre que você estiver transmitindo.
               </p>
               <Button
                 variant="outline"

@@ -202,7 +202,7 @@ export function MeuDesempenhoPage() {
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
       <PageHeader
         title={`Meu Desempenho Operacional 👤`}
-        description="Sua ficha individual de faturamento, volume de vendas, histórico de movimentações e produtividade na facção."
+        description="Sua ficha individual de faturamento, volume de vendas, histórico de movimentações e produtividade no grupo."
       />
       </div>
 
@@ -306,7 +306,7 @@ export function MeuDesempenhoPage() {
                 <div className="flex items-center justify-between text-xs">
                   <span className="font-bold text-foreground flex items-center gap-1.5">
                     <Target className="h-3.5 w-3.5 text-primary" />
-                    Sua Participação no Faturamento da Facção
+                    Sua Participação no Faturamento do grupo
                   </span>
                   <span className="font-extrabold text-primary font-mono">{mySharePct.toFixed(1)}%</span>
                 </div>

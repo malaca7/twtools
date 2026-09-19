@@ -76,36 +76,10 @@ html[data-font="space_grotesk"] {
   --font-display: "Space Grotesk", ui-sans-serif, system-ui, sans-serif;
 }
 
-html {
-  filter: brightness(var(--platform-brightness, 100%)) contrast(var(--platform-contrast, 100%)) saturate(var(--platform-saturation, 100%));
-  transition: filter 150ms ease-out;
-}
 
 /* Intensidade e Brilho de Textos e Letras de Toda a Plataforma */
 :root {
   --platform-text-brightness: 100%;
-}
-
-body,
-p,
-span,
-h1,
-h2,
-h3,
-h4,
-h5,
-h6,
-label,
-td,
-th,
-a,
-button,
-input,
-textarea,
-select,
-.text-foreground,
-.text-muted-foreground {
-  filter: brightness(var(--platform-text-brightness, 100%));
 }
 
 html[data-glow="true"] h1,
@@ -2027,3 +2001,28 @@ button, a, input, select, textarea {
 .mobile-touch-scroll::-webkit-scrollbar {
   display: none;
 }
+
+/* Custom Thin Scrollbar with Theme Colors */
+.custom-scrollbar-thin {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-border) transparent;
+}
+
+.custom-scrollbar-thin::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+
+.custom-scrollbar-thin::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.custom-scrollbar-thin::-webkit-scrollbar-thumb {
+  background-color: var(--color-border);
+  border-radius: 9999px;
+}
+
+.custom-scrollbar-thin::-webkit-scrollbar-thumb:hover {
+  background-color: var(--color-muted-foreground);
+}
+

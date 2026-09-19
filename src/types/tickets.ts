@@ -128,7 +128,7 @@ export const TICKET_CATEGORIES: {
     label: "Dúvidas Gerais",
     iconName: "HelpCircle",
     emoji: "❓",
-    description: "Perguntas e esclarecimentos sobre regras, procedimentos e facção.",
+    description: "Perguntas e esclarecimentos sobre regras, procedimentos e grupo.",
     badgeClass: "bg-blue-500/10 text-blue-400 border-blue-500/30",
   },
   {

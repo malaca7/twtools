@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -30,6 +30,7 @@ import {
   ShieldAlert,
   Info,
   Equal,
+  Upload,
 } from "lucide-react";
 import { BauIcon } from "@/components/ui/bau-icon";
 import { useAuth } from "@/hooks/useAuth";
@@ -53,6 +54,7 @@ import {
   deleteBau,
   adjustStockDev,
   updateDiscordStockConfig,
+  uploadBauImage,
 } from "@/lib/app-api";
 import type { Product, Category, Bau } from "@/lib/app-types";
 import { currency, formatCurrencyInput, parseCurrencyInput, num, formatDate } from "@/lib/format";
@@ -126,7 +128,7 @@ export function GestaoEstoquePage() {
                 </Badge>
               </h1>
               <p className="text-xs text-muted-foreground">
-                Cadastros, categorias, parametrização de baús da facção e ajustes auditados de inventário.
+                Cadastros, categorias, parametrização de baús do grupo e ajustes auditados de inventário.
               </p>
             </div>
           </div>
@@ -146,7 +148,7 @@ export function GestaoEstoquePage() {
           </TabsTrigger>
           <TabsTrigger value="baus" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground font-bold text-xs py-2 gap-2">
             <Layers className="w-3.5 h-3.5" />
-            Baús da Facção
+            Baús do grupo
           </TabsTrigger>
           <TabsTrigger value="saldos" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground font-bold text-xs py-2 gap-2">
             <Sliders className="w-3.5 h-3.5" />
@@ -1010,7 +1012,7 @@ function CategoriasTabContent() {
 }
 
 // ============================================================================
-// ABA 3: BAÚS DA FACÇÃO (CRIAR / EDITAR / APAGAR / GERENCIAR)
+// ABA 3: BAÚS DO GRUPO (CRIAR / EDITAR / APAGAR / GERENCIAR)
 // ============================================================================
 function BausTabContent() {
   const queryClient = useQueryClient();
@@ -1029,19 +1031,39 @@ function BausTabContent() {
   const [nome, setNome] = useState("");
   const [descricao, setDescricao] = useState("");
   const [icone, setIcone] = useState("📦");
+  const [fotoUrl, setFotoUrl] = useState("");
+  const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
   const [tipoGestao, setTipoGestao] = useState<"automatico" | "manual">("automatico");
   const [discordChannelId, setDiscordChannelId] = useState("");
   const [discordGuildId, setDiscordGuildId] = useState("");
   const [ativo, setAtivo] = useState(true);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Delete State
   const [deletingBau, setDeletingBau] = useState<Bau | null>(null);
+
+  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setIsUploadingPhoto(true);
+    try {
+      const url = await uploadBauImage(file);
+      setFotoUrl(url);
+      toast.success("Foto do baú enviada com sucesso!");
+    } catch (err: any) {
+      toast.error(err.message || "Erro ao fazer upload da imagem.");
+    } finally {
+      setIsUploadingPhoto(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
 
   const openCreateModal = () => {
     setEditingBau(null);
     setNome("");
     setDescricao("");
     setIcone("📦");
+    setFotoUrl("");
     setTipoGestao("automatico");
     setDiscordChannelId("");
     setDiscordGuildId("");
@@ -1054,6 +1076,7 @@ function BausTabContent() {
     setNome(b.nome);
     setDescricao(b.descricao || "");
     setIcone(b.icone || "📦");
+    setFotoUrl(b.foto_url || b.imagem_url || "");
     setTipoGestao(b.tipo_gestao || "automatico");
     setDiscordChannelId(b.discord_channel_id || config?.bau_channels?.[b.id]?.channel_id || "");
     setDiscordGuildId(b.discord_guild_id || config?.bau_channels?.[b.id]?.guild_id || "");
@@ -1067,6 +1090,7 @@ function BausTabContent() {
 
       const cleanChannelId = discordChannelId.trim() || null;
       const cleanGuildId = discordGuildId.trim() || null;
+      const cleanPhoto = fotoUrl.trim() || null;
 
       if (editingBau) {
         await updateBau({
@@ -1074,6 +1098,8 @@ function BausTabContent() {
           nome: nome.trim(),
           descricao: descricao.trim() || undefined,
           icone: icone.trim() || "📦",
+          foto_url: cleanPhoto,
+          imagem_url: cleanPhoto,
           tipo_gestao: tipoGestao,
           discord_channel_id: cleanChannelId,
           discord_guild_id: cleanGuildId,
@@ -1097,6 +1123,8 @@ function BausTabContent() {
           nome: nome.trim(),
           descricao: descricao.trim() || undefined,
           icone: icone.trim() || "📦",
+          foto_url: cleanPhoto,
+          imagem_url: cleanPhoto,
           tipo_gestao: tipoGestao,
           discord_channel_id: cleanChannelId,
           discord_guild_id: cleanGuildId,
@@ -1212,7 +1240,14 @@ function BausTabContent() {
                 <CardHeader className="pb-3 space-y-2">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2.5">
-                      <span className="text-2xl">{b.icone || "📦"}</span>
+                      <div className="w-10 h-10 rounded-xl bg-secondary/80 border border-border/70 flex items-center justify-center shrink-0 overflow-hidden shadow-inner">
+                        <BauIcon
+                          foto_url={b.foto_url || b.imagem_url}
+                          icone={b.icone}
+                          nome={b.nome}
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
                       <div>
                         <CardTitle className="text-sm font-bold text-foreground">{b.nome}</CardTitle>
                         <span className="text-[10px] text-muted-foreground font-mono">ID: {b.id.slice(0, 8)}...</span>
@@ -1312,6 +1347,69 @@ function BausTabContent() {
           </DialogHeader>
 
           <div className="space-y-3.5 py-2 text-xs">
+            {/* Foto de Perfil do Baú */}
+            <div className="space-y-2 p-3 rounded-xl border border-border/70 bg-card/40">
+              <Label className="text-xs font-bold text-foreground flex items-center justify-between">
+                <span>Foto de Perfil do Baú (Opcional)</span>
+                {fotoUrl && (
+                  <button
+                    type="button"
+                    onClick={() => setFotoUrl("")}
+                    className="text-[10px] text-destructive hover:underline flex items-center gap-1"
+                  >
+                    <X className="w-3 h-3" /> Remover foto
+                  </button>
+                )}
+              </Label>
+
+              <div className="flex items-center gap-3">
+                <div className="relative w-14 h-14 rounded-xl border-2 border-dashed border-border/80 flex items-center justify-center overflow-hidden bg-secondary/50 shrink-0 shadow-inner">
+                  {fotoUrl ? (
+                    <img
+                      src={fotoUrl}
+                      alt="Preview do Baú"
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <BauIcon icone={icone} className="w-6 h-6 text-muted-foreground" />
+                  )}
+                </div>
+
+                <div className="flex-1 space-y-1.5 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={handlePhotoUpload}
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      disabled={isUploadingPhoto}
+                      onClick={() => fileInputRef.current?.click()}
+                      className="h-8 text-xs font-bold gap-1.5 border-border/80"
+                    >
+                      {isUploadingPhoto ? (
+                        <RefreshCw className="w-3.5 h-3.5 animate-spin text-primary" />
+                      ) : (
+                        <Upload className="w-3.5 h-3.5 text-primary" />
+                      )}
+                      {isUploadingPhoto ? "Enviando..." : "Upload de Foto"}
+                    </Button>
+                  </div>
+                  <Input
+                    placeholder="Ou cole o link direto da imagem..."
+                    value={fotoUrl}
+                    onChange={(e) => setFotoUrl(e.target.value)}
+                    className="text-xs h-7.5"
+                  />
+                </div>
+              </div>
+            </div>
+
             <div className="grid gap-3 grid-cols-4">
               <div className="space-y-1.5 col-span-1">
                 <Label className="text-xs">Ícone</Label>
@@ -1434,7 +1532,7 @@ function BausTabContent() {
           </DialogHeader>
 
           <div className="p-3 rounded bg-rose-500/10 border border-rose-500/20 text-rose-300 text-[11px]">
-            Atenção: Apenas baús que não sejam o único depósito da facção podem ser excluídos.
+            Atenção: Apenas baús que não sejam o único depósito do grupo podem ser excluídos.
           </div>
 
           <DialogFooter className="gap-2 sm:gap-0">
@@ -1611,7 +1709,7 @@ function SaldosTabContent() {
                 Matriz de Distribuição de Estoque por Baú
               </CardTitle>
               <CardDescription className="text-xs">
-                Contagem atualizada de cada item distribuída entre os baús da facção.
+                Contagem atualizada de cada item distribuída entre os baús do grupo.
               </CardDescription>
             </div>
             <Badge variant="outline" className="text-xs font-mono">
@@ -1851,7 +1949,7 @@ function SaldosTabContent() {
             <div className="p-2.5 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-300 text-[11px] flex items-start gap-2">
               <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5 text-amber-400" />
               <span>
-                Esta ação grava imediatamente um registro de auditoria permanente com a tag <strong>[Ajuste Gestão]</strong> e recalcula o saldo geral da facção.
+                Esta ação grava imediatamente um registro de auditoria permanente com a tag <strong>[Ajuste Gestão]</strong> e recalcula o saldo geral do grupo.
               </span>
             </div>
           </div>

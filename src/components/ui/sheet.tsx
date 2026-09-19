@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { createPortal } from "react-dom";
 import { cva, type VariantProps } from "class-variance-authority";
 import { X } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -201,9 +202,9 @@ const SheetContent = React.forwardRef<HTMLDivElement, SheetContentProps>(
   (props, ref) => {
     const { open } = useSheetContext();
 
-    if (!open) return null;
+    if (!open || typeof document === "undefined") return null;
 
-    return <SheetContentInner ref={ref} {...props} />;
+    return createPortal(<SheetContentInner ref={ref} {...props} />, document.body);
   },
 );
 SheetContent.displayName = "SheetContent";

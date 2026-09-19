@@ -275,7 +275,7 @@ export function GestaoDesempenhoPage() {
       <div className="flex items-center justify-between">
         <PageHeader
           title="Gestão Executiva de Desempenho"
-          description="Painel de controle geral da liderança: produtividade individual de todos os membros, ranking de vendas e engajamento da facção."
+          description="Painel de controle geral da liderança: produtividade individual de todos os membros, ranking de vendas e engajamento do grupo."
         />
         <Link to="/desempenho">
           <Button variant="outline" size="sm" className="h-8 text-xs gap-1.5 border-primary/30 text-primary">
@@ -336,7 +336,7 @@ export function GestaoDesempenhoPage() {
                 <div className="flex items-center justify-between">
                   <span className="text-[0.7rem] uppercase tracking-wider font-extrabold text-primary flex items-center gap-1">
                     <Trophy className="h-3.5 w-3.5 text-amber-400" />
-                    MVP da Facção
+                    MVP do grupo
                   </span>
                   <Badge className="bg-amber-500/20 text-amber-400 border-amber-500/30 text-[9px]">
                     🥇 1º Lugar
@@ -781,7 +781,7 @@ export function GestaoDesempenhoPage() {
                 <div className="flex items-center justify-between text-xs">
                   <span className="font-bold text-foreground flex items-center gap-1">
                     <Target className="h-3.5 w-3.5 text-primary" />
-                    Participação no Faturamento Total da Facção
+                    Participação no Faturamento Total do grupo
                   </span>
                   <span className="font-extrabold text-primary font-mono">{inspectedMember.sharePct.toFixed(1)}%</span>
                 </div>

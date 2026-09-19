@@ -56,7 +56,9 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { PageHeader, NoAccess, EmptyState, ProductThumbnail } from "@/components/ui-kit";
+import { BauIcon } from "@/components/ui/bau-icon";
 import { BauManagerModal } from "@/components/operations/BauManagerModal";
+import { MovementHistoryModal } from "@/components/operations/MovementHistoryModal";
 import { useAuth } from "@/hooks/useAuth";
 import { useCategories, useProducts, useBaus, useMovements, useProductBaus } from "@/hooks/useData";
 import {
@@ -82,10 +84,14 @@ export function EstoquePage() {
 
   const canView = hasPermission("view_stock");
   const canViewBaus = hasPermission("view_baus");
-  const canViewMovements = hasPermission("view_movements");
+  const canViewMovements = hasPermission("view_movements") || hasPermission("view_all_movements");
   const canManageProducts = hasPermission("manage_products");
   const canManageBaus = hasPermission("manage_baus");
   const canManageCategories = hasPermission("manage_categories");
+
+  // Movement History Modal State
+  const [movementHistoryModalOpen, setMovementHistoryModalOpen] = useState(false);
+  const [historyTargetProductId, setHistoryTargetProductId] = useState<string | null>(null);
 
   if (!canView) return <NoAccess />;
 
@@ -370,11 +376,21 @@ export function EstoquePage() {
         actions={
           <div className="flex flex-wrap items-center gap-2">
             {canViewMovements && (
-              <Link to="/movimentacoes">
-                <Button variant="outline" size="sm" className="h-9 text-xs rounded-xl font-bold">
-                  <History className="mr-1.5 h-4 w-4" /> Movimentações
-                </Button>
-              </Link>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setHistoryTargetProductId(null);
+                  setMovementHistoryModalOpen(true);
+                }}
+                className="h-9 text-xs rounded-xl font-bold border-border/80 hover:border-primary/50 hover:bg-primary/10 transition-all flex items-center gap-1.5 shadow-sm"
+              >
+                <History className="h-4 w-4 text-primary" />
+                <span>Histórico de Movimentações</span>
+                <Badge variant="secondary" className="text-[10px] px-1.5 py-0 font-mono">
+                  {movements.length}
+                </Badge>
+              </Button>
             )}
 
             {canManageBaus ? <BauManagerModal /> : null}
@@ -512,7 +528,12 @@ export function EstoquePage() {
                       : "border-border/80 bg-card/40 hover:bg-secondary"
                   )}
                 >
-                  <Box className="h-4 w-4" />
+                  <BauIcon
+                    foto_url={b.foto_url || b.imagem_url}
+                    icone={b.icone}
+                    nome={b.nome}
+                    className="w-4 h-4 rounded-xs"
+                  />
                   <span>{b.nome}</span>
                   {b.tipo_gestao === "manual" ? (
                     <span className={cn("text-[9px] px-1 py-0.2 rounded font-medium", isSelected ? "bg-amber-400 text-slate-900" : "bg-amber-500/10 text-amber-400 border border-amber-500/20")}>
@@ -678,26 +699,42 @@ export function EstoquePage() {
                         <span className="font-mono font-bold text-emerald-400">{currency(p.preco_sugerido)}</span>
                       </div>
 
-                      {(canManageProducts) && (
-                        <div className="flex items-center justify-end gap-1 pt-2 border-t border-border/40">
+                      <div className="flex items-center justify-end gap-1.5 pt-2 border-t border-border/40">
+                        {canViewMovements && (
                           <Button
                             variant="outline"
                             size="sm"
-                            className="h-7 text-xs font-semibold px-2 rounded-lg"
-                            onClick={() => handleOpenProductModal(p)}
+                            className="h-7 text-xs font-semibold px-2 rounded-lg text-muted-foreground hover:text-primary hover:border-primary/40"
+                            onClick={() => {
+                              setHistoryTargetProductId(p.id);
+                              setMovementHistoryModalOpen(true);
+                            }}
+                            title="Ver histórico de movimentações deste produto"
                           >
-                            <Edit2 className="h-3 w-3 mr-1" /> Editar
+                            <History className="h-3 w-3 mr-1 text-primary" /> Histórico
                           </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="h-7 text-xs text-rose-400 border-rose-500/40 px-2 rounded-lg"
-                            onClick={() => setDeletingProduct(p)}
-                          >
-                            <Trash2 className="h-3 w-3 mr-1" /> Excluir
-                          </Button>
-                        </div>
-                      )}
+                        )}
+                        {canManageProducts && (
+                          <>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="h-7 text-xs font-semibold px-2 rounded-lg"
+                              onClick={() => handleOpenProductModal(p)}
+                            >
+                              <Edit2 className="h-3 w-3 mr-1" /> Editar
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="h-7 text-xs text-rose-400 border-rose-500/40 px-2 rounded-lg"
+                              onClick={() => setDeletingProduct(p)}
+                            >
+                              <Trash2 className="h-3 w-3 mr-1" /> Excluir
+                            </Button>
+                          </>
+                        )}
+                      </div>
                     </div>
                   );
                 })}
@@ -715,7 +752,7 @@ export function EstoquePage() {
                         {selectedBauId === "all" ? "Saldo Total" : "Saldo no Baú"}
                       </TableHead>
                       <TableHead className="text-xs font-bold text-center">Status</TableHead>
-                      {(canManageProducts) && (
+                      {(canManageProducts || canViewMovements) && (
                         <TableHead className="text-xs font-bold text-right">Ações</TableHead>
                       )}
                     </TableRow>
@@ -793,9 +830,25 @@ export function EstoquePage() {
                             )}
                           </TableCell>
 
-                             {(canManageProducts) && (
-                            <TableCell className="text-right whitespace-nowrap">
-                              <div className="flex items-center justify-end gap-1">
+                      {(canManageProducts || canViewMovements) && (
+                        <TableCell className="text-right whitespace-nowrap">
+                          <div className="flex items-center justify-end gap-1">
+                            {canViewMovements && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-7 w-7 p-0 text-muted-foreground hover:text-primary hover:bg-primary/10"
+                                onClick={() => {
+                                  setHistoryTargetProductId(p.id);
+                                  setMovementHistoryModalOpen(true);
+                                }}
+                                title="Ver histórico de movimentações deste produto"
+                              >
+                                <History className="h-3.5 w-3.5 text-primary" />
+                              </Button>
+                            )}
+                            {canManageProducts && (
+                              <>
                                 <Button
                                   variant="ghost"
                                   size="sm"
@@ -814,9 +867,11 @@ export function EstoquePage() {
                                 >
                                   <Trash2 className="h-3.5 w-3.5" />
                                 </Button>
-                              </div>
-                            </TableCell>
-                          )}
+                              </>
+                            )}
+                          </div>
+                        </TableCell>
+                      )}
                         </TableRow>
                       );
                     })}
@@ -1260,6 +1315,16 @@ export function EstoquePage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* MODAL DE HISTÓRICO DE MOVIMENTAÇÕES */}
+      {canViewMovements && (
+        <MovementHistoryModal
+          open={movementHistoryModalOpen}
+          onOpenChange={setMovementHistoryModalOpen}
+          initialProductId={historyTargetProductId}
+          initialBauId={selectedBauId !== "all" ? selectedBauId : undefined}
+        />
+      )}
     </div>
   );
 }

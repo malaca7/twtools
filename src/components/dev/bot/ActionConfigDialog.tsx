@@ -133,7 +133,7 @@ export const ACTION_TYPE_METADATA: Record<
   },
   log_audit: {
     label: "Registrar em Auditoria",
-    description: "Grava um evento no histórico de auditoria oficial da facção.",
+    description: "Grava um evento no histórico de auditoria oficial do grupo.",
     icon: FileCode,
     color: "text-slate-400 bg-slate-800/40 border-slate-700/40",
   },

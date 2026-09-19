@@ -107,6 +107,12 @@ export type Permission =
   | "edit_ceo_notification"
   | "delete_ceo_notification"
   | "toggle_ceo_notification_active"
+  // Permissões de Ajustes de Estoque CEO (/ceo/ajustes-estoque)
+  | "view_ceo_stock_adjustments"
+  | "manage_ceo_stock_adjustments"
+  | "ceo_adjust_stock_balance"
+  | "ceo_stock_add"
+  | "ceo_stock_remove"
   // Permissões da Central de Notificações Dev
   | "view_dev_notifications"
   | "manage_dev_notification_rules"
@@ -262,6 +268,12 @@ export const ALL_PERMISSIONS: Permission[] = [
   "edit_ceo_notification",
   "delete_ceo_notification",
   "toggle_ceo_notification_active",
+  // Permissões de Ajustes de Estoque CEO
+  "view_ceo_stock_adjustments",
+  "manage_ceo_stock_adjustments",
+  "ceo_adjust_stock_balance",
+  "ceo_stock_add",
+  "ceo_stock_remove",
   // Permissões da Central de Notificações Dev
   "view_dev_notifications",
   "manage_dev_notification_rules",
@@ -386,6 +398,11 @@ export const CEO_PERMISSIONS: Permission[] = [
   "webhook_view_code",
   "webhook_save_config",
   "view_ceo_financials",
+  "view_ceo_stock_adjustments",
+  "manage_ceo_stock_adjustments",
+  "ceo_adjust_stock_balance",
+  "ceo_stock_add",
+  "ceo_stock_remove",
 ];
 
 const ADMIN: Permission[] = ALL_PERMISSIONS.filter(
@@ -672,6 +689,10 @@ export function can(
     if (permission === "adjust_stock_balance" && (list.includes("estoque.ajustar") || list.includes("estoque.corrigir"))) return true;
     if (permission === "manage_stock_balance" && list.includes("estoque.corrigir")) return true;
 
+    // Ajustes de Estoque CEO
+    if (permission === "view_ceo_stock_adjustments" && (list.includes("manage_ceo_stock_adjustments") || list.includes("ceo_adjust_stock_balance") || list.includes("ceo_stock_add") || list.includes("ceo_stock_remove"))) return true;
+    if (list.includes("manage_ceo_stock_adjustments") && (permission === "ceo_adjust_stock_balance" || permission === "ceo_stock_add" || permission === "ceo_stock_remove" || permission === "view_ceo_stock_adjustments")) return true;
+
     return false;
   }
 
@@ -753,6 +774,10 @@ export function can(
   if (permission === "manage_stock_baus" && rolePerms.includes("manage_baus")) return true;
   if (permission === "adjust_stock_balance" && (rolePerms.includes("estoque.ajustar") || rolePerms.includes("estoque.corrigir"))) return true;
   if (permission === "manage_stock_balance" && rolePerms.includes("estoque.corrigir")) return true;
+
+  // Ajustes de Estoque CEO
+  if (permission === "view_ceo_stock_adjustments" && (rolePerms.includes("manage_ceo_stock_adjustments") || rolePerms.includes("ceo_adjust_stock_balance") || rolePerms.includes("ceo_stock_add") || rolePerms.includes("ceo_stock_remove"))) return true;
+  if (rolePerms.includes("manage_ceo_stock_adjustments") && (permission === "ceo_adjust_stock_balance" || permission === "ceo_stock_add" || permission === "ceo_stock_remove" || permission === "view_ceo_stock_adjustments")) return true;
 
   return false;
 }

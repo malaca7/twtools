@@ -69,7 +69,7 @@ interface RankTierConfig {
   responsibilities: string[];
 }
 
-// ─── CARGOS OFICIAIS DA FACÇÃO (Desenvolvedor removido dos cargos da hierarquia) ───
+// ─── CARGOS OFICIAIS DO GRUPO (Desenvolvedor removido dos cargos da hierarquia) ───
 const RANK_TIERS: RankTierConfig[] = [
   {
     level: "01",
@@ -80,7 +80,7 @@ const RANK_TIERS: RankTierConfig[] = [
     lineColor: "from-purple-500 to-indigo-500",
     nodeBg: "bg-purple-500/20 text-purple-300 border-purple-500/50 shadow-purple-500/20",
     icon: Crown,
-    description: "Liderança e decisões estratégicas da facção.",
+    description: "Liderança e decisões estratégicas do grupo.",
     responsibilities: ["Gestão financeira", "Aprovação de membros", "Definição de metas globais"],
   },
   {
@@ -247,7 +247,7 @@ export function HierarquiaPage() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <PageHeader
           title="Hierarquia do Grupo"
-          description="Árvore genealógica tática, estrutura organizacional e cadeia de comando da facção."
+          description="Árvore genealógica tática, estrutura organizacional e cadeia de comando do grupo."
         />
         <div className="flex flex-wrap items-center gap-2">
           {/* View Mode Switcher */}

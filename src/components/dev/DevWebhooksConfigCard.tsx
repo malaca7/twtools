@@ -98,12 +98,12 @@ const SERVERS_PRESETS = [
   {
     id: "1535505650308620400",
     name: "Twin Wheel",
-    label: "Twin Wheel (Facção GTA RP)",
+    label: "Twin Wheel (Grupo GTA RP)",
     tag: "Principal",
     badgeColor: "bg-emerald-500/10 text-emerald-400 border-emerald-500/25",
     channels: [
       { id: "1548413371194286314", name: "⚙️│testedev", hint: "Testes de Dev" },
-      { id: "1535637119471587408", name: "📰│bate-papo", hint: "Bate-Papo da Facção" },
+      { id: "1535637119471587408", name: "📰│bate-papo", hint: "Bate-Papo do grupo" },
       { id: "1535505650920984628", name: "📑│avisos", hint: "Avisos Oficiais" },
       { id: "1535637509818548234", name: "📦│baus", hint: "Baús e Estoque" },
     ],
@@ -1488,7 +1488,7 @@ export function DevWebhooksConfigCard({ isCeoView }: DevWebhooksConfigCardProps 
                         Destacar Mensagem em Caixa de Código (Codeblock)
                       </Label>
                       <p className="text-[0.65rem] text-muted-foreground">
-                        Renderiza a mensagem em caixa escura monospace de destaque (idêntico ao print do Discord da Facção).
+                        Renderiza a mensagem em caixa escura monospace de destaque (idêntico ao print do Discord do grupo).
                       </p>
                     </div>
                     <Switch

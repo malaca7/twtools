@@ -179,7 +179,7 @@ export function PublicProfilePage({ handleOverride, isRootRoute = false }: Publi
         <div className="space-y-1.5">
           <h2 className="text-xl font-bold text-foreground">Perfil não encontrado</h2>
           <p className="text-xs text-muted-foreground max-w-md mx-auto">
-            Nenhum membro da facção foi localizado com o identificador{" "}
+            Nenhum membro do grupo foi localizado com o identificador{" "}
             <span className="font-mono font-bold text-primary">@{cleanHandle}</span>.
           </p>
         </div>
@@ -230,7 +230,7 @@ export function PublicProfilePage({ handleOverride, isRootRoute = false }: Publi
           </Badge>
           <h2 className="text-xl font-black text-foreground">Este perfil está em modo privado</h2>
           <p className="text-xs text-muted-foreground max-w-sm mx-auto leading-relaxed">
-            O integrante <span className="font-bold text-foreground">{memberData.nickname || memberData.nome}</span> optou por restringir a visualização deste perfil apenas para membros autenticados no painel da facção.
+            O integrante <span className="font-bold text-foreground">{memberData.nickname || memberData.nome}</span> optou por restringir a visualização deste perfil apenas para membros autenticados no painel do grupo.
           </p>
         </div>
         <div className="pt-2">

@@ -370,7 +370,7 @@ function MessageBubbleBase({
                     // Evita que o Radix roube o foco de volta para o trigger chevron da mensagem
                     e.preventDefault();
                   }}
-                  className="w-52 text-xs bg-[#233138] border border-white/10 text-white rounded-xl shadow-2xl z-50 p-1"
+                  className="w-52 text-xs p-1"
                 >
                   <DropdownMenuItem
                     onClick={() => {

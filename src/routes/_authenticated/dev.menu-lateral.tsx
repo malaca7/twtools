@@ -39,6 +39,10 @@ import {
   Palette,
   BellRing,
   Boxes,
+  ExternalLink,
+  Copy,
+  FolderPlus,
+  Compass,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -86,6 +90,7 @@ import {
   DEV_CONFIG_EVENT,
 } from "@/services/devService";
 import { CategoryIconPickerModal } from "@/components/dev/CategoryIconPickerModal";
+import { MenuItemIconPickerModal } from "@/components/dev/MenuItemIconPickerModal";
 
 export const Route = createFileRoute("/_authenticated/dev/menu-lateral")({
   component: DevMenuLateralPageWrapper,
@@ -99,17 +104,9 @@ function DevMenuLateralPageWrapper() {
   );
 }
 
-const DEV_ICON_MAP: Record<string, typeof Terminal> = {
-  "/dev": Terminal,
-  "/dev/bot": Bot,
-  "/dev/estoque": Boxes,
-  "/dev/patch-notes": Sparkles,
-  "/dev/desempenho": TrendingUp,
-  "/dev/permissoes": KeyRound,
-  "/dev/configuracao": Code2,
-  "/dev/menu-lateral": Sliders,
-  "/dev/notificacoes": BellRing,
-};
+/* =========================================================================================
+   GESTOR DE MENU LATERAL DAS FERRAMENTAS DEV (DEV TOOLS)
+   ========================================================================================= */
 
 function DevToolsMenuEditor() {
   const { config, save, reset } = useDevMenuConfig();
@@ -177,56 +174,18 @@ function DevToolsMenuEditor() {
   const [newItemCategory, setNewItemCategory] = useState("DEV");
   const [newItemIcon, setNewItemIcon] = useState("Terminal");
 
-  const handleAddItem = () => {
-    const title = newItemTitle.trim();
-    let url = newItemUrl.trim();
-    if (!title) {
-      toast.error("Informe o título do menu Dev!");
-      return;
-    }
-    if (!url) {
-      toast.error("Informe a rota ou URL do menu!");
-      return;
-    }
-    if (!url.startsWith("/") && !url.startsWith("http")) {
-      url = "/" + url;
-    }
+  // Edit Item Modal State
+  const [editingItem, setEditingItem] = useState<DevMenuItemConfig | null>(null);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editTitle, setEditTitle] = useState("");
+  const [editUrl, setEditUrl] = useState("");
+  const [editCategory, setEditCategory] = useState("");
+  const [editIcon, setEditIcon] = useState("Terminal");
+  const [editVisible, setEditVisible] = useState(true);
 
-    const newItem: DevMenuItemConfig = {
-      id: `dev-custom-${Date.now()}`,
-      title,
-      url,
-      iconName: newItemIcon,
-      visible: true,
-      category: newItemCategory || categories[0] || "DEV",
-      order: items.length,
-      isCustom: true,
-    };
-
-    const nextItems = [...items, newItem];
-    persist(categories, nextItems);
-    setNewItemTitle("");
-    setNewItemUrl("");
-    setIsAddItemOpen(false);
-    toast.success(`Item "${title}" adicionado ao menu Dev!`);
-  };
-
-  const handleDeleteItem = (id: string) => {
-    const item = items.find((i) => i.id === id);
-    if (!item) return;
-
-    if (item.isCustom) {
-      const nextItems = items.filter((i) => i.id !== id);
-      persist(categories, nextItems);
-      toast.success(`Item personalizado "${item.title}" removido!`);
-    } else {
-      if (confirm(`Deseja realmente remover "${item.title}" do menu Dev? Você poderá restaurar os padrões a qualquer momento.`)) {
-        const nextItems = items.filter((i) => i.id !== id);
-        persist(categories, nextItems);
-        toast.success(`Item "${item.title}" removido do menu Dev.`);
-      }
-    }
-  };
+  // Item Icon Picker Modal State
+  const [itemIconPickerOpen, setItemIconPickerOpen] = useState(false);
+  const [pickingIconForContext, setPickingIconForContext] = useState<"new" | "edit" | string | null>(null);
 
   // Drag and Drop state for items
   const [draggedItemId, setDraggedItemId] = useState<string | null>(null);
@@ -246,7 +205,7 @@ function DevToolsMenuEditor() {
   );
 
   /* ─── Category Icon Picker Handler ─── */
-  const handleSelectIcon = (iconName: string) => {
+  const handleSelectCategoryIcon = (iconName: string) => {
     if (pickingForCat === null) {
       setSelectedNewCatIcon(iconName);
     } else {
@@ -254,6 +213,19 @@ function DevToolsMenuEditor() {
       persist(categories, items, nextIcons);
       toast.success(`Ícone da categoria "${pickingForCat}" alterado!`);
     }
+  };
+
+  /* ─── Item Icon Picker Handler ─── */
+  const handleSelectItemIcon = (iconName: string) => {
+    if (pickingIconForContext === "new") {
+      setNewItemIcon(iconName);
+    } else if (pickingIconForContext === "edit") {
+      setEditIcon(iconName);
+    } else if (typeof pickingIconForContext === "string") {
+      updateItem(pickingIconForContext, { iconName });
+      toast.success("Ícone do menu atualizado!");
+    }
+    setPickingIconForContext(null);
   };
 
   /* ─── Category Handlers ─── */
@@ -378,6 +350,119 @@ function DevToolsMenuEditor() {
     [categories, items, persist]
   );
 
+  const handleOpenEditModal = (item: DevMenuItemConfig) => {
+    setEditingItem(item);
+    setEditTitle(item.title || "");
+    setEditUrl(item.url || "");
+    setEditCategory(item.category || categories[0] || "DEV");
+    setEditIcon(item.iconName || "Terminal");
+    setEditVisible(item.visible ?? true);
+    setIsEditModalOpen(true);
+  };
+
+  const handleSaveEditModal = () => {
+    if (!editingItem) return;
+    const title = editTitle.trim();
+    let url = editUrl.trim();
+
+    if (!title) {
+      toast.error("O título do menu não pode ficar vazio!");
+      return;
+    }
+    if (!url) {
+      toast.error("A rota URL não pode ficar vazia!");
+      return;
+    }
+    if (!url.startsWith("/") && !url.startsWith("http")) {
+      url = "/" + url;
+    }
+
+    updateItem(editingItem.id, {
+      title,
+      url,
+      category: editCategory || categories[0] || "DEV",
+      iconName: editIcon,
+      visible: editVisible,
+    });
+
+    setIsEditModalOpen(false);
+    setEditingItem(null);
+    toast.success(`Item "${title}" atualizado com sucesso!`);
+  };
+
+  const handleResetSingleItem = (item: DevMenuItemConfig) => {
+    const defaultDef = DEFAULT_DEV_MENU_ITEMS.find((d) => d.id === item.id);
+    if (!defaultDef) {
+      toast.info("Este item é personalizado e não possui padrão de fábrica.");
+      return;
+    }
+    setEditTitle(defaultDef.title);
+    setEditUrl(defaultDef.url);
+    setEditCategory(defaultDef.category);
+    setEditIcon(defaultDef.iconName || "Terminal");
+    setEditVisible(defaultDef.visible);
+    toast.success(`Valores padrão restaurados no formulário.`);
+  };
+
+  const handleAddItem = () => {
+    const title = newItemTitle.trim();
+    let url = newItemUrl.trim();
+    if (!title) {
+      toast.error("Informe o título do menu Dev!");
+      return;
+    }
+    if (!url) {
+      toast.error("Informe a rota ou URL do menu!");
+      return;
+    }
+    if (!url.startsWith("/") && !url.startsWith("http")) {
+      url = "/" + url;
+    }
+
+    const newItem: DevMenuItemConfig = {
+      id: `dev-custom-${Date.now()}`,
+      title,
+      url,
+      iconName: newItemIcon,
+      visible: true,
+      category: newItemCategory || categories[0] || "DEV",
+      order: items.length,
+      isCustom: true,
+    };
+
+    const nextItems = [...items, newItem];
+    persist(categories, nextItems);
+    setNewItemTitle("");
+    setNewItemUrl("");
+    setIsAddItemOpen(false);
+    toast.success(`Item "${title}" adicionado ao menu Dev!`);
+  };
+
+  const handleDeleteItem = (id: string) => {
+    const item = items.find((i) => i.id === id);
+    if (!item) return;
+
+    if (item.isCustom) {
+      const nextItems = items.filter((i) => i.id !== id);
+      persist(categories, nextItems);
+      if (isEditModalOpen && editingItem?.id === id) {
+        setIsEditModalOpen(false);
+        setEditingItem(null);
+      }
+      toast.success(`Item personalizado "${item.title}" removido!`);
+    } else {
+      if (confirm(`Deseja realmente remover "${item.title}" do menu Dev? Você poderá restaurar os padrões a qualquer momento.`)) {
+        const nextItems = items.filter((i) => i.id !== id);
+        persist(categories, nextItems);
+        if (isEditModalOpen && editingItem?.id === id) {
+          setIsEditModalOpen(false);
+          setEditingItem(null);
+        }
+        toast.success(`Item "${item.title}" removido do menu Dev.`);
+      }
+    }
+  };
+
   const moveItemWithinCategory = useCallback(
     (id: string, direction: "up" | "down") => {
       const currentItem = items.find((i) => i.id === id);
@@ -405,11 +490,13 @@ function DevToolsMenuEditor() {
   );
 
   const handleReset = useCallback(() => {
-    setCategories([...DEFAULT_DEV_CATEGORIES]);
-    setItems([...DEFAULT_DEV_MENU_ITEMS]);
-    setCategoryIcons({});
-    reset();
-    toast.success("Menu Dev restaurado para o padrão!");
+    if (confirm("Deseja restaurar todos os menus e categorias Dev para o padrão original?")) {
+      setCategories([...DEFAULT_DEV_CATEGORIES]);
+      setItems([...DEFAULT_DEV_MENU_ITEMS]);
+      setCategoryIcons({});
+      reset();
+      toast.success("Menu Dev restaurado para o padrão!");
+    }
   }, [reset]);
 
   /* ─── Item Drag and Drop Handlers ─── */
@@ -477,21 +564,40 @@ function DevToolsMenuEditor() {
 
   return (
     <div className="space-y-6 pb-12 animate-in fade-in-50 duration-300">
-      {/* Modal de Escolha de Ícone para Categoria */}
+      {/* Modal de Escolha de Ícone para Categoria Dev */}
       <CategoryIconPickerModal
         open={iconPickerOpen}
         onOpenChange={setIconPickerOpen}
         selectedIcon={pickingForCat ? (categoryIcons[pickingForCat] || "Terminal") : selectedNewCatIcon}
-        onSelectIcon={handleSelectIcon}
+        onSelectIcon={handleSelectCategoryIcon}
         panelColor={devTheme}
         title={pickingForCat ? `Ícone da Categoria: ${pickingForCat}` : "Escolher Ícone da Nova Categoria Dev"}
+      />
+
+      {/* Modal de Escolha de Ícone para Item de Menu */}
+      <MenuItemIconPickerModal
+        open={itemIconPickerOpen}
+        onOpenChange={setItemIconPickerOpen}
+        selectedIcon={
+          pickingIconForContext === "new"
+            ? newItemIcon
+            : pickingIconForContext === "edit"
+            ? editIcon
+            : typeof pickingIconForContext === "string"
+            ? (items.find((i) => i.id === pickingIconForContext)?.iconName || "Terminal")
+            : "Terminal"
+        }
+        onSelectIcon={handleSelectItemIcon}
+        panelColor={devTheme}
+        title="Escolher Ícone do Menu Dev"
+        description="Selecione um ícone para identificar este atalho na barra lateral do Desenvolvedor."
       />
 
       {/* Page Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <PageHeader
           title="Dev Tools → Menu Lateral"
-          description="Personalize a ordem, categorias, ícones e visibilidade dos menus exclusivos da barra de ferramentas do Desenvolvedor."
+          description="Personalize a ordem, categorias, ícones, rotas e visibilidade dos menus exclusivos da barra de ferramentas do Desenvolvedor."
         >
           <div className="flex flex-wrap items-center gap-2">
             <Badge
@@ -535,7 +641,7 @@ function DevToolsMenuEditor() {
             <Save className="h-3.5 w-3.5" />
             Salvar Menu Dev
           </Button>
-          <Badge className="bg-emerald-500/10 text-emerald-400 border-emerald-500/30 text-xs gap-1 py-1 px-3">
+          <Badge className="bg-emerald-500/10 text-emerald-400 border-emerald-500/30 text-xs gap-1 py-1 px-3 font-mono">
             <CheckCircle2 className="h-3.5 w-3.5" />
             Sincronizado ao vivo
           </Badge>
@@ -553,7 +659,7 @@ function DevToolsMenuEditor() {
               <div>
                 <CardTitle className={cn("text-sm font-bold", devStyle.textClass)}>Categorias da Barra Dev</CardTitle>
                 <CardDescription className="text-[0.7rem]">
-                  Crie, edite, defina ícones personalizados e arraste os cards para reorganizar o menu dev
+                  Crie, renomeie, defina ícones e arraste os cards para reorganizar os grupos de menus dev
                 </CardDescription>
               </div>
             </div>
@@ -630,7 +736,7 @@ function DevToolsMenuEditor() {
                             devStyle.borderClass,
                             devStyle.textClass
                           )}
-                          title="Clique para alterar o ícone desta categoria"
+                          title="Clique para alterar o ícone desta categoria Dev"
                         >
                           <CatIcon className="h-3.5 w-3.5" />
                         </button>
@@ -689,7 +795,6 @@ function DevToolsMenuEditor() {
 
           {/* Add Category Form */}
           <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-border/40">
-            {/* New Category Icon Selector */}
             <Button
               type="button"
               variant="outline"
@@ -740,13 +845,15 @@ function DevToolsMenuEditor() {
               <div>
                 <h4 className="text-sm font-bold text-foreground">Itens do Menu Dev Agrupados por Categoria</h4>
                 <p className="text-[0.7rem] text-muted-foreground">
-                  {items.length} itens no total · {items.filter((i) => i.visible).length} visíveis na navegação dev
+                  {items.length} itens no total · {items.filter((i) => i.visible).length} visíveis no menu lateral dev
                 </p>
               </div>
             </div>
-            <Badge variant="outline" className={cn("text-[10px] gap-1", devStyle.badgeClass)}>
-              <Move className="h-3 w-3" /> Arraste para Reordenar
-            </Badge>
+            <div className="flex items-center gap-2">
+              <Badge variant="outline" className={cn("text-[10px] gap-1", devStyle.badgeClass)}>
+                <Move className="h-3 w-3" /> Arraste para Reordenar
+              </Badge>
+            </div>
           </div>
 
           {categories.map((cat) => {
@@ -774,7 +881,7 @@ function DevToolsMenuEditor() {
                 <CardContent className="p-3">
                   {catItems.length === 0 ? (
                     <p className="text-[0.75rem] text-muted-foreground italic py-3 text-center">
-                      Nenhum item nesta categoria. Altere a categoria de um item abaixo para trazê-lo para cá.
+                      Nenhum item nesta categoria. Edite um dos itens abaixo para vinculá-lo a esta categoria.
                     </p>
                   ) : (
                     <div className="space-y-2.5">
@@ -792,15 +899,15 @@ function DevToolsMenuEditor() {
                             onDragLeave={handleItemDragLeave}
                             onDrop={(e) => handleItemDrop(e, item.id)}
                             className={cn(
-                              "flex flex-col md:flex-row md:items-center justify-between gap-3 p-3 rounded-xl border transition-all duration-200 cursor-grab active:cursor-grabbing",
+                              "flex flex-col lg:flex-row lg:items-center justify-between gap-3 p-3 rounded-xl border transition-all duration-200 cursor-grab active:cursor-grabbing",
                               item.visible
-                                ? cn("bg-card/50 border-border/60 shadow-sm hover:bg-card/70", devStyle.borderHoverClass)
-                                : "bg-secondary/20 border-border/30 opacity-50",
+                                ? cn("bg-card/60 border-border/70 shadow-xs hover:bg-card/90", devStyle.borderHoverClass)
+                                : "bg-secondary/20 border-border/30 opacity-60",
                               isDragging && cn("opacity-30 scale-95 border-dashed", devStyle.borderClass),
                               isDragOver && cn(devStyle.borderClass, devStyle.bgSubtleClass, "shadow-lg scale-[1.01]")
                             )}
                           >
-                            {/* Left Group: Controls + Icon + Title + URL */}
+                            {/* Left Group: Controls + Icon Picker Trigger + Title + URL */}
                             <div className="flex items-center gap-3 min-w-0 flex-1">
                               {/* Drag Handle & Arrows */}
                               <div className="flex flex-col items-center gap-0.5 shrink-0">
@@ -825,39 +932,25 @@ function DevToolsMenuEditor() {
                                 </button>
                               </div>
 
-                              {/* Icon Selector */}
-                              <Select
-                                value={item.iconName || "Terminal"}
-                                onValueChange={(iconVal) => updateItem(item.id, { iconName: iconVal })}
-                                className="w-auto shrink-0"
+                              {/* Icon Selector Button (Opens Icon Picker Modal) */}
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setPickingIconForContext(item.id);
+                                  setItemIconPickerOpen(true);
+                                }}
+                                className={cn(
+                                  "h-10 w-10 p-0 flex items-center justify-center rounded-xl shrink-0 transition-all hover:scale-105 shadow-xs border cursor-pointer",
+                                  devStyle.borderClass,
+                                  devStyle.bgSubtleClass,
+                                  devStyle.textClass
+                                )}
+                                title="Clique para trocar o ícone deste menu Dev"
                               >
-                                <SelectTrigger
-                                  className={cn(
-                                    "h-10 w-10 p-0 flex items-center justify-center rounded-xl shrink-0 transition-colors shadow-xs [&>svg]:hidden border",
-                                    devStyle.borderClass,
-                                    devStyle.bgSubtleClass,
-                                    devStyle.textClass
-                                  )}
-                                  title="Alterar ícone do item Dev"
-                                >
-                                  <Icon className="h-4 w-4" />
-                                </SelectTrigger>
-                                <SelectContent className="max-h-60">
-                                  {AVAILABLE_MENU_ICONS.map((ico) => {
-                                    const IcoComp = ico.icon;
-                                    return (
-                                      <SelectItem key={ico.name} value={ico.name} className="text-xs">
-                                        <div className="flex items-center gap-2">
-                                          <IcoComp className={cn("h-3.5 w-3.5", devStyle.textClass)} />
-                                          <span>{ico.label}</span>
-                                        </div>
-                                      </SelectItem>
-                                    );
-                                  })}
-                                </SelectContent>
-                              </Select>
+                                <Icon className="h-4 w-4" />
+                              </button>
 
-                              {/* Title Input & URL Input */}
+                              {/* Title Input & URL Info */}
                               <div className="min-w-0 flex-1 space-y-1.5">
                                 <div className="flex items-center gap-2">
                                   <Input
@@ -868,38 +961,58 @@ function DevToolsMenuEditor() {
                                   />
                                 </div>
                                 <div className="flex items-center gap-2 flex-wrap">
-                                  <div className="flex items-center gap-1.5 text-[0.68rem] text-muted-foreground font-mono bg-secondary/60 border border-border/60 px-1.5 py-0.5 rounded-md truncate max-w-xs">
+                                  <div className="flex items-center gap-1.5 text-[0.68rem] text-muted-foreground font-mono bg-secondary/60 border border-border/60 px-2 py-0.5 rounded-md truncate max-w-xs">
                                     <span className={cn("font-bold text-[10px]", devStyle.textClass)}>ROTA:</span>
                                     <Input
                                       value={item.url || ""}
                                       onChange={(e) => updateItem(item.id, { url: e.target.value })}
-                                      className="h-5 text-[0.68rem] font-mono bg-transparent border-0 p-0 focus-visible:ring-0 text-foreground w-40"
+                                      className="h-5 text-[0.68rem] font-mono bg-transparent border-0 p-0 focus-visible:ring-0 text-foreground w-36"
                                       placeholder="/dev/..."
                                     />
+                                    {item.url && (
+                                      <a
+                                        href={item.url.startsWith("http") ? item.url : `#${item.url}`}
+                                        target={item.url.startsWith("http") ? "_blank" : undefined}
+                                        rel="noreferrer"
+                                        className="text-muted-foreground hover:text-foreground shrink-0"
+                                        title={`Testar link: ${item.url}`}
+                                        onClick={(e) => {
+                                          if (!item.url.startsWith("http")) {
+                                            e.preventDefault();
+                                            window.location.href = item.url;
+                                          }
+                                        }}
+                                      >
+                                        <ExternalLink className="h-3 w-3" />
+                                      </a>
+                                    )}
                                   </div>
                                   <Badge variant="outline" className="text-[9px] font-mono border-border/60 text-muted-foreground py-0">
                                     ID: {item.id}
                                   </Badge>
-                                  {item.isCustom && (
+                                  {item.isCustom ? (
                                     <Badge variant="outline" className={cn("text-[9px] font-bold py-0", devStyle.badgeClass)}>
                                       Custom
+                                    </Badge>
+                                  ) : (
+                                    <Badge variant="outline" className="text-[9px] font-mono text-muted-foreground py-0">
+                                      Padrão
                                     </Badge>
                                   )}
                                 </div>
                               </div>
                             </div>
 
-                            {/* Right Group: Category + Visibility + Delete */}
-                            <div className="flex items-center gap-3 shrink-0 self-end md:self-auto pt-2 md:pt-0 border-t md:border-t-0 border-border/30 w-full md:w-auto justify-between md:justify-end">
+                            {/* Right Group: Category + Visibility + Edit Modal Button + Delete */}
+                            <div className="flex items-center gap-2.5 shrink-0 self-end lg:self-auto pt-2 lg:pt-0 border-t lg:border-t-0 border-border/30 w-full lg:w-auto justify-between lg:justify-end">
                               {/* Category Select */}
                               <div className="flex items-center gap-1.5">
-                                <span className="text-[10px] text-muted-foreground font-medium hidden lg:inline">Cat:</span>
+                                <span className="text-[10px] text-muted-foreground font-medium hidden sm:inline">Cat:</span>
                                 <Select
-                                  value={item.category}
+                                  value={item.category || "DEV"}
                                   onValueChange={(val) => updateItem(item.id, { category: val })}
-                                  className="w-32 shrink-0"
                                 >
-                                  <SelectTrigger className="h-8 w-32 text-xs font-bold border-border/70 bg-secondary/40 rounded-lg shrink-0">
+                                  <SelectTrigger className="h-8 w-28 text-xs font-bold border-border/70 bg-secondary/40 rounded-lg shrink-0">
                                     <SelectValue />
                                   </SelectTrigger>
                                   <SelectContent>
@@ -912,19 +1025,19 @@ function DevToolsMenuEditor() {
                                 </Select>
                               </div>
 
-                              <Separator orientation="vertical" className="h-6 hidden md:block" />
+                              <Separator orientation="vertical" className="h-6 hidden sm:block" />
 
                               {/* Visibility Switch */}
                               <div className="flex items-center gap-2 shrink-0 bg-secondary/30 px-2.5 py-1 rounded-lg border border-border/50">
                                 {item.visible ? (
                                   <div className="flex items-center gap-1 text-emerald-400 text-xs font-bold">
                                     <Eye className="h-3.5 w-3.5 text-emerald-400" />
-                                    <span className="text-[10px]">Visível</span>
+                                    <span className="text-[10px] hidden sm:inline">Visível</span>
                                   </div>
                                 ) : (
                                   <div className="flex items-center gap-1 text-muted-foreground text-xs font-medium">
                                     <EyeOff className="h-3.5 w-3.5 text-muted-foreground" />
-                                    <span className="text-[10px]">Oculto</span>
+                                    <span className="text-[10px] hidden sm:inline">Oculto</span>
                                   </div>
                                 )}
                                 <Switch
@@ -934,11 +1047,29 @@ function DevToolsMenuEditor() {
                                 />
                               </div>
 
+                              {/* Edit Modal Button */}
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleOpenEditModal(item)}
+                                className={cn(
+                                  "h-8 px-2.5 text-xs font-bold gap-1 rounded-lg border shadow-2xs transition-colors",
+                                  devStyle.borderClass,
+                                  devStyle.bgSubtleClass,
+                                  devStyle.textClass
+                                )}
+                                title="Abrir modal de edição detalhada deste menu"
+                              >
+                                <Edit3 className="h-3.5 w-3.5" />
+                                <span className="hidden sm:inline">Editar</span>
+                              </Button>
+
                               {/* Delete Item */}
                               <button
                                 type="button"
                                 onClick={() => handleDeleteItem(item.id)}
-                                className="h-8 w-8 flex items-center justify-center rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 border border-transparent hover:border-destructive/20 transition-colors"
+                                className="h-8 w-8 flex items-center justify-center rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 border border-transparent hover:border-destructive/20 transition-colors shrink-0"
                                 title="Excluir item do menu Dev"
                               >
                                 <Trash2 className="h-4 w-4" />
@@ -959,14 +1090,19 @@ function DevToolsMenuEditor() {
         <div className="space-y-3">
           <Card className={cn("surface-card sticky top-20", devStyle.borderClass)}>
             <CardHeader className="pb-3 border-b border-border/60">
-              <div className="flex items-center gap-2">
-                <div className={cn("flex h-8 w-8 items-center justify-center rounded-lg border", devStyle.bgSubtleClass, devStyle.borderClass, devStyle.textClass)}>
-                  <Monitor className="h-4 w-4" />
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className={cn("flex h-8 w-8 items-center justify-center rounded-lg border", devStyle.bgSubtleClass, devStyle.borderClass, devStyle.textClass)}>
+                    <Monitor className="h-4 w-4" />
+                  </div>
+                  <div>
+                    <CardTitle className={cn("text-sm font-bold", devStyle.textClass)}>Preview do Menu Dev</CardTitle>
+                    <CardDescription className="text-[0.7rem]">Visualização em tempo real</CardDescription>
+                  </div>
                 </div>
-                <div>
-                  <CardTitle className={cn("text-sm font-bold", devStyle.textClass)}>Preview do Menu Dev</CardTitle>
-                  <CardDescription className="text-[0.7rem]">Visualização em tempo real</CardDescription>
-                </div>
+                <Badge className={cn("text-[9px] font-bold uppercase", devStyle.badgeClass)}>
+                  Dev Tools
+                </Badge>
               </div>
             </CardHeader>
             <CardContent className="p-3">
@@ -1012,6 +1148,184 @@ function DevToolsMenuEditor() {
         </div>
       </div>
 
+      {/* Modal para Editar Item Dev */}
+      <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
+        <DialogContent className="sm:max-w-[520px] surface-card border shadow-2xl">
+          <DialogHeader>
+            <div className="flex items-center justify-between">
+              <DialogTitle className={cn("flex items-center gap-2 text-base font-bold", devStyle.textClass)}>
+                <Edit3 className="h-5 w-5" />
+                Editar Item de Menu Dev
+              </DialogTitle>
+              {editingItem?.isCustom ? (
+                <Badge variant="outline" className={cn("text-[10px] font-bold", devStyle.badgeClass)}>
+                  Customizado
+                </Badge>
+              ) : (
+                <Badge variant="outline" className="text-[10px] font-mono text-muted-foreground">
+                  Padrão do Sistema
+                </Badge>
+              )}
+            </div>
+            <DialogDescription className="text-xs text-muted-foreground">
+              Ajuste o título, rota/URL, ícone, categoria e visibilidade deste menu dev.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-3">
+            {/* Title */}
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold text-foreground flex items-center justify-between">
+                <span>Título / Nome Exibido</span>
+                <span className="text-[10px] text-muted-foreground font-mono">{editTitle.length} caracteres</span>
+              </label>
+              <Input
+                value={editTitle}
+                onChange={(e) => setEditTitle(e.target.value)}
+                placeholder="Ex: Gestão de Estoque ou Painel Dev"
+                className="h-9 text-xs font-bold bg-secondary/30"
+              />
+            </div>
+
+            {/* Route URL */}
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold text-foreground flex items-center justify-between">
+                <span>Rota / Caminho URL</span>
+                {editUrl && (
+                  <a
+                    href={editUrl.startsWith("http") ? editUrl : `#${editUrl}`}
+                    target={editUrl.startsWith("http") ? "_blank" : undefined}
+                    rel="noreferrer"
+                    className="text-[10px] text-primary flex items-center gap-1 hover:underline"
+                    onClick={(e) => {
+                      if (!editUrl.startsWith("http")) {
+                        e.preventDefault();
+                        window.location.href = editUrl;
+                      }
+                    }}
+                  >
+                    <ExternalLink className="h-3 w-3" /> Testar Rota
+                  </a>
+                )}
+              </label>
+              <Input
+                value={editUrl}
+                onChange={(e) => setEditUrl(e.target.value)}
+                placeholder="Ex: /dev/estoque ou /dev/bot"
+                className="h-9 text-xs font-mono bg-secondary/30"
+              />
+            </div>
+
+            {/* Category & Icon Picker */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-foreground">Categoria</label>
+                <Select value={editCategory} onValueChange={setEditCategory}>
+                  <SelectTrigger className="h-9 text-xs bg-secondary/30">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {categories.map((c) => (
+                      <SelectItem key={c} value={c} className="text-xs font-medium">
+                        {c}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-foreground">Ícone do Menu</label>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setPickingIconForContext("edit");
+                    setItemIconPickerOpen(true);
+                  }}
+                  className={cn(
+                    "w-full h-9 justify-start text-xs font-bold gap-2 bg-secondary/30 border-border/70",
+                    devStyle.textClass
+                  )}
+                >
+                  {(() => {
+                    const CurrIcon = resolveMenuIcon(editIcon);
+                    return <CurrIcon className="h-4 w-4 shrink-0" />;
+                  })()}
+                  <span className="truncate">{editIcon}</span>
+                </Button>
+              </div>
+            </div>
+
+            {/* Visibility Toggle */}
+            <div className="flex items-center justify-between p-3 rounded-xl bg-secondary/20 border border-border/50">
+              <div className="space-y-0.5">
+                <p className="text-xs font-bold text-foreground">Visibilidade no Menu</p>
+                <p className="text-[0.7rem] text-muted-foreground">
+                  {editVisible ? "Exibido normalmente no menu lateral" : "Oculto para todos os desenvolvedores"}
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                {editVisible ? (
+                  <Badge className="bg-emerald-500/10 text-emerald-400 border-emerald-500/30 text-[10px] gap-1">
+                    <Eye className="h-3 w-3" /> Visível
+                  </Badge>
+                ) : (
+                  <Badge variant="outline" className="text-muted-foreground text-[10px] gap-1">
+                    <EyeOff className="h-3 w-3" /> Oculto
+                  </Badge>
+                )}
+                <Switch
+                  checked={editVisible}
+                  onCheckedChange={setEditVisible}
+                  className="data-[state=checked]:bg-emerald-500"
+                />
+              </div>
+            </div>
+
+            {/* Metadata and Reset single item if default */}
+            <div className="flex items-center justify-between pt-2 border-t border-border/40 text-[0.7rem] text-muted-foreground">
+              <span className="font-mono">ID: {editingItem?.id}</span>
+              {!editingItem?.isCustom && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => editingItem && handleResetSingleItem(editingItem)}
+                  className="h-7 text-[0.7rem] text-muted-foreground hover:text-foreground gap-1"
+                >
+                  <RotateCcw className="h-3 w-3" />
+                  Restaurar Padrão Deste Item
+                </Button>
+              )}
+            </div>
+          </div>
+
+          <DialogFooter className="flex flex-row items-center justify-between gap-2 sm:justify-between">
+            <Button
+              type="button"
+              variant="destructive"
+              size="sm"
+              onClick={() => editingItem && handleDeleteItem(editingItem.id)}
+              className="h-9 text-xs gap-1 font-bold"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+              Excluir
+            </Button>
+            <div className="flex items-center gap-2">
+              <Button variant="outline" size="sm" onClick={() => setIsEditModalOpen(false)}>
+                Cancelar
+              </Button>
+              <Button size="sm" onClick={handleSaveEditModal} className={cn("font-bold shadow-sm", devStyle.bgSolidClass)}>
+                <Check className="h-3.5 w-3.5 mr-1" />
+                Salvar Alterações
+              </Button>
+            </div>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Modal para Adicionar Novo Item Dev */}
       <Dialog open={isAddItemOpen} onOpenChange={setIsAddItemOpen}>
         <DialogContent className="sm:max-w-[480px]">
@@ -1031,7 +1345,7 @@ function DevToolsMenuEditor() {
                 value={newItemTitle}
                 onChange={(e) => setNewItemTitle(e.target.value)}
                 placeholder="Ex: Documentação API ou Bot Studio"
-                className="h-9 text-xs"
+                className="h-9 text-xs font-bold"
               />
             </div>
             <div className="space-y-1.5">
@@ -1052,31 +1366,32 @@ function DevToolsMenuEditor() {
                   </SelectTrigger>
                   <SelectContent>
                     {categories.map((c) => (
-                      <SelectItem key={c} value={c} className="text-xs">{c}</SelectItem>
+                      <SelectItem key={c} value={c} className="text-xs font-medium">{c}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
               <div className="space-y-1.5">
                 <label className="text-xs font-bold text-foreground">Ícone</label>
-                <Select value={newItemIcon} onValueChange={setNewItemIcon}>
-                  <SelectTrigger className="h-9 text-xs">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent className="max-h-56">
-                    {AVAILABLE_MENU_ICONS.map((ico) => {
-                      const Ico = ico.icon;
-                      return (
-                        <SelectItem key={ico.name} value={ico.name} className="text-xs">
-                          <div className="flex items-center gap-2">
-                            <Ico className={cn("h-3.5 w-3.5", devStyle.textClass)} />
-                            <span>{ico.label}</span>
-                          </div>
-                        </SelectItem>
-                      );
-                    })}
-                  </SelectContent>
-                </Select>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setPickingIconForContext("new");
+                    setItemIconPickerOpen(true);
+                  }}
+                  className={cn(
+                    "w-full h-9 justify-start text-xs font-bold gap-2 border-border/70",
+                    devStyle.textClass
+                  )}
+                >
+                  {(() => {
+                    const CurrIcon = resolveMenuIcon(newItemIcon);
+                    return <CurrIcon className="h-4 w-4 shrink-0" />;
+                  })()}
+                  <span className="truncate">{newItemIcon}</span>
+                </Button>
               </div>
             </div>
           </div>
@@ -1098,14 +1413,6 @@ function DevToolsMenuEditor() {
 /* =========================================================================================
    GESTOR DE MENU LATERAL DO PAINEL CEO (DIRETORIA EXECUTIVA)
    ========================================================================================= */
-
-const CEO_DEFAULT_ICONS: Record<string, typeof Crown> = {
-  "/ceo/dashboard": LayoutDashboard,
-  "/ceo/bot": Bot,
-  "/ceo/webhooks": Webhook,
-  "/ceo/financas": Landmark,
-  "/ceo": Crown,
-};
 
 function CeoMenuLateralEditor() {
   const { config, save, reset } = useCeoMenuConfig();
@@ -1173,56 +1480,18 @@ function CeoMenuLateralEditor() {
   const [newItemCategory, setNewItemCategory] = useState("CEO");
   const [newItemIcon, setNewItemIcon] = useState("Crown");
 
-  const handleAddItem = () => {
-    const title = newItemTitle.trim();
-    let url = newItemUrl.trim();
-    if (!title) {
-      toast.error("Informe o título do menu CEO!");
-      return;
-    }
-    if (!url) {
-      toast.error("Informe a rota ou URL do menu!");
-      return;
-    }
-    if (!url.startsWith("/") && !url.startsWith("http")) {
-      url = "/" + url;
-    }
+  // Edit Item Modal State
+  const [editingItem, setEditingItem] = useState<CeoMenuItemConfig | null>(null);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editTitle, setEditTitle] = useState("");
+  const [editUrl, setEditUrl] = useState("");
+  const [editCategory, setEditCategory] = useState("");
+  const [editIcon, setEditIcon] = useState("Crown");
+  const [editVisible, setEditVisible] = useState(true);
 
-    const newItem: CeoMenuItemConfig = {
-      id: `ceo-custom-${Date.now()}`,
-      title,
-      url,
-      iconName: newItemIcon,
-      visible: true,
-      category: newItemCategory || categories[0] || "CEO",
-      order: items.length,
-      isCustom: true,
-    };
-
-    const nextItems = [...items, newItem];
-    persist(categories, nextItems);
-    setNewItemTitle("");
-    setNewItemUrl("");
-    setIsAddItemOpen(false);
-    toast.success(`Item executivo "${title}" adicionado ao menu CEO! 👑`);
-  };
-
-  const handleDeleteItem = (id: string) => {
-    const item = items.find((i) => i.id === id);
-    if (!item) return;
-
-    if (item.isCustom) {
-      const nextItems = items.filter((i) => i.id !== id);
-      persist(categories, nextItems);
-      toast.success(`Item personalizado "${item.title}" removido! 👑`);
-    } else {
-      if (confirm(`Deseja realmente remover "${item.title}" do menu CEO? Você poderá restaurar os padrões a qualquer momento.`)) {
-        const nextItems = items.filter((i) => i.id !== id);
-        persist(categories, nextItems);
-        toast.success(`Item "${item.title}" removido do menu CEO. 👑`);
-      }
-    }
-  };
+  // Item Icon Picker Modal State
+  const [itemIconPickerOpen, setItemIconPickerOpen] = useState(false);
+  const [pickingIconForContext, setPickingIconForContext] = useState<"new" | "edit" | string | null>(null);
 
   // Drag and Drop state for items
   const [draggedItemId, setDraggedItemId] = useState<string | null>(null);
@@ -1242,7 +1511,7 @@ function CeoMenuLateralEditor() {
   );
 
   /* ─── Category Icon Picker Handler ─── */
-  const handleSelectIcon = (iconName: string) => {
+  const handleSelectCategoryIcon = (iconName: string) => {
     if (pickingForCat === null) {
       setSelectedNewCatIcon(iconName);
     } else {
@@ -1250,6 +1519,19 @@ function CeoMenuLateralEditor() {
       persist(categories, items, nextIcons);
       toast.success(`Ícone da categoria "${pickingForCat}" alterado! 👑`);
     }
+  };
+
+  /* ─── Item Icon Picker Handler ─── */
+  const handleSelectItemIcon = (iconName: string) => {
+    if (pickingIconForContext === "new") {
+      setNewItemIcon(iconName);
+    } else if (pickingIconForContext === "edit") {
+      setEditIcon(iconName);
+    } else if (typeof pickingIconForContext === "string") {
+      updateItem(pickingIconForContext, { iconName });
+      toast.success("Ícone do menu CEO atualizado! 👑");
+    }
+    setPickingIconForContext(null);
   };
 
   /* ─── Category Handlers ─── */
@@ -1370,6 +1652,119 @@ function CeoMenuLateralEditor() {
     persist(categories, next);
   };
 
+  const handleOpenEditModal = (item: CeoMenuItemConfig) => {
+    setEditingItem(item);
+    setEditTitle(item.title || "");
+    setEditUrl(item.url || "");
+    setEditCategory(item.category || categories[0] || "CEO");
+    setEditIcon(item.iconName || "Crown");
+    setEditVisible(item.visible ?? true);
+    setIsEditModalOpen(true);
+  };
+
+  const handleSaveEditModal = () => {
+    if (!editingItem) return;
+    const title = editTitle.trim();
+    let url = editUrl.trim();
+
+    if (!title) {
+      toast.error("O título do menu não pode ficar vazio!");
+      return;
+    }
+    if (!url) {
+      toast.error("A rota URL não pode ficar vazia!");
+      return;
+    }
+    if (!url.startsWith("/") && !url.startsWith("http")) {
+      url = "/" + url;
+    }
+
+    updateItem(editingItem.id, {
+      title,
+      url,
+      category: editCategory || categories[0] || "CEO",
+      iconName: editIcon,
+      visible: editVisible,
+    });
+
+    setIsEditModalOpen(false);
+    setEditingItem(null);
+    toast.success(`Item CEO "${title}" atualizado com sucesso! 👑`);
+  };
+
+  const handleResetSingleItem = (item: CeoMenuItemConfig) => {
+    const defaultDef = DEFAULT_CEO_MENU_ITEMS.find((d) => d.id === item.id);
+    if (!defaultDef) {
+      toast.info("Este item é personalizado e não possui padrão original.");
+      return;
+    }
+    setEditTitle(defaultDef.title);
+    setEditUrl(defaultDef.url);
+    setEditCategory(defaultDef.category);
+    setEditIcon(defaultDef.iconName || "Crown");
+    setEditVisible(defaultDef.visible);
+    toast.success(`Valores padrão restaurados no formulário CEO.`);
+  };
+
+  const handleAddItem = () => {
+    const title = newItemTitle.trim();
+    let url = newItemUrl.trim();
+    if (!title) {
+      toast.error("Informe o título do menu CEO!");
+      return;
+    }
+    if (!url) {
+      toast.error("Informe a rota ou URL do menu!");
+      return;
+    }
+    if (!url.startsWith("/") && !url.startsWith("http")) {
+      url = "/" + url;
+    }
+
+    const newItem: CeoMenuItemConfig = {
+      id: `ceo-custom-${Date.now()}`,
+      title,
+      url,
+      iconName: newItemIcon,
+      visible: true,
+      category: newItemCategory || categories[0] || "CEO",
+      order: items.length,
+      isCustom: true,
+    };
+
+    const nextItems = [...items, newItem];
+    persist(categories, nextItems);
+    setNewItemTitle("");
+    setNewItemUrl("");
+    setIsAddItemOpen(false);
+    toast.success(`Item executivo "${title}" adicionado ao menu CEO! 👑`);
+  };
+
+  const handleDeleteItem = (id: string) => {
+    const item = items.find((i) => i.id === id);
+    if (!item) return;
+
+    if (item.isCustom) {
+      const nextItems = items.filter((i) => i.id !== id);
+      persist(categories, nextItems);
+      if (isEditModalOpen && editingItem?.id === id) {
+        setIsEditModalOpen(false);
+        setEditingItem(null);
+      }
+      toast.success(`Item personalizado "${item.title}" removido! 👑`);
+    } else {
+      if (confirm(`Deseja realmente remover "${item.title}" do menu CEO? Você poderá restaurar os padrões a qualquer momento.`)) {
+        const nextItems = items.filter((i) => i.id !== id);
+        persist(categories, nextItems);
+        if (isEditModalOpen && editingItem?.id === id) {
+          setIsEditModalOpen(false);
+          setEditingItem(null);
+        }
+        toast.success(`Item "${item.title}" removido do menu CEO. 👑`);
+      }
+    }
+  };
+
   const moveItemWithinCategory = (itemId: string, direction: "up" | "down") => {
     const item = items.find((i) => i.id === itemId);
     if (!item) return;
@@ -1468,15 +1863,34 @@ function CeoMenuLateralEditor() {
   }, [categories, items]);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 pb-12 animate-in fade-in-50 duration-300">
       {/* Modal de Escolha de Ícone para Categoria CEO */}
       <CategoryIconPickerModal
         open={iconPickerOpen}
         onOpenChange={setIconPickerOpen}
         selectedIcon={pickingForCat ? (categoryIcons[pickingForCat] || "Crown") : selectedNewCatIcon}
-        onSelectIcon={handleSelectIcon}
+        onSelectIcon={handleSelectCategoryIcon}
         panelColor={ceoTheme}
         title={pickingForCat ? `Ícone da Categoria CEO: ${pickingForCat}` : "Escolher Ícone da Nova Categoria CEO"}
+      />
+
+      {/* Modal de Escolha de Ícone para Item de Menu CEO */}
+      <MenuItemIconPickerModal
+        open={itemIconPickerOpen}
+        onOpenChange={setItemIconPickerOpen}
+        selectedIcon={
+          pickingIconForContext === "new"
+            ? newItemIcon
+            : pickingIconForContext === "edit"
+            ? editIcon
+            : typeof pickingIconForContext === "string"
+            ? (items.find((i) => i.id === pickingIconForContext)?.iconName || "Crown")
+            : "Crown"
+        }
+        onSelectIcon={handleSelectItemIcon}
+        panelColor={ceoTheme}
+        title="Escolher Ícone do Menu CEO"
+        description="Selecione um ícone para identificar este atalho executivo na barra lateral da Diretoria."
       />
 
       {/* Top Action Bar */}
@@ -1487,7 +1901,7 @@ function CeoMenuLateralEditor() {
             Configuração do Menu Lateral — Painel CEO
           </h3>
           <p className="text-xs text-muted-foreground">
-            Personalize a ordem, títulos, categorias, ícones e visibilidade dos menus exclusivos da diretoria executiva.
+            Personalize a ordem, títulos, categorias, ícones, rotas e visibilidade dos menus exclusivos da diretoria executiva.
           </p>
         </div>
 
@@ -1526,7 +1940,7 @@ function CeoMenuLateralEditor() {
             Salvar Menu CEO
           </Button>
 
-          <Badge className={cn("text-xs gap-1 py-1 px-3", ceoStyle.badgeClass)}>
+          <Badge className={cn("text-xs gap-1 py-1 px-3 font-mono", ceoStyle.badgeClass)}>
             <CheckCircle2 className="h-3.5 w-3.5" />
             Supabase Live · {ceoStyle.label.split(" ")[0]}
           </Badge>
@@ -1678,7 +2092,6 @@ function CeoMenuLateralEditor() {
 
           {/* Add Category Form */}
           <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-border/40">
-            {/* New Category Icon Selector */}
             <Button
               type="button"
               variant="outline"
@@ -1733,9 +2146,11 @@ function CeoMenuLateralEditor() {
                 </p>
               </div>
             </div>
-            <Badge variant="outline" className={cn("text-[10px] gap-1", ceoStyle.badgeClass)}>
-              <Move className="h-3 w-3" /> Arraste para Reordenar
-            </Badge>
+            <div className="flex items-center gap-2">
+              <Badge variant="outline" className={cn("text-[10px] gap-1", ceoStyle.badgeClass)}>
+                <Move className="h-3 w-3" /> Arraste para Reordenar
+              </Badge>
+            </div>
           </div>
 
           {categories.map((cat) => {
@@ -1763,7 +2178,7 @@ function CeoMenuLateralEditor() {
                 <CardContent className="p-3">
                   {catItems.length === 0 ? (
                     <p className="text-[0.75rem] text-muted-foreground italic py-3 text-center">
-                      Nenhum item nesta categoria. Selecione esta categoria em um dos itens abaixo para movê-lo para cá.
+                      Nenhum item nesta categoria. Edite um dos itens abaixo para vinculá-lo a esta categoria.
                     </p>
                   ) : (
                     <div className="space-y-2.5">
@@ -1781,15 +2196,15 @@ function CeoMenuLateralEditor() {
                             onDragLeave={handleItemDragLeave}
                             onDrop={(e) => handleItemDrop(e, item.id)}
                             className={cn(
-                              "flex flex-col md:flex-row md:items-center justify-between gap-3 p-3 rounded-xl border transition-all duration-200 cursor-grab active:cursor-grabbing",
+                              "flex flex-col lg:flex-row lg:items-center justify-between gap-3 p-3 rounded-xl border transition-all duration-200 cursor-grab active:cursor-grabbing",
                               item.visible
-                                ? cn("bg-card/60 border-border/70 shadow-xs hover:bg-card/80", ceoStyle.borderHoverClass)
+                                ? cn("bg-card/60 border-border/70 shadow-xs hover:bg-card/90", ceoStyle.borderHoverClass)
                                 : "bg-secondary/20 border-border/30 opacity-60",
                               isDragging && cn("opacity-30 scale-95 border-dashed", ceoStyle.borderClass),
                               isDragOver && cn(ceoStyle.borderClass, ceoStyle.bgSubtleClass, "shadow-lg scale-[1.01]")
                             )}
                           >
-                            {/* Left Group: Controls + Icon + Title Input */}
+                            {/* Left Group: Controls + Icon Picker Button + Title Input */}
                             <div className="flex items-center gap-3 min-w-0 flex-1">
                               {/* Drag Handle & Arrows */}
                               <div className="flex flex-col items-center gap-0.5 shrink-0">
@@ -1814,37 +2229,23 @@ function CeoMenuLateralEditor() {
                                 </button>
                               </div>
 
-                              {/* Seletor de Ícone */}
-                              <Select
-                                value={item.iconName || "LayoutDashboard"}
-                                onValueChange={(iconVal) => updateItem(item.id, { iconName: iconVal })}
-                                className="w-auto shrink-0"
+                              {/* Seletor de Ícone Modal Trigger */}
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setPickingIconForContext(item.id);
+                                  setItemIconPickerOpen(true);
+                                }}
+                                className={cn(
+                                  "h-10 w-10 p-0 flex items-center justify-center rounded-xl shrink-0 transition-all hover:scale-105 shadow-xs border cursor-pointer",
+                                  ceoStyle.borderClass,
+                                  ceoStyle.bgSubtleClass,
+                                  ceoStyle.textClass
+                                )}
+                                title="Clique para trocar o ícone deste menu CEO"
                               >
-                                <SelectTrigger
-                                  className={cn(
-                                    "h-10 w-10 p-0 flex items-center justify-center rounded-xl shrink-0 transition-colors shadow-xs [&>svg]:hidden border",
-                                    ceoStyle.borderClass,
-                                    ceoStyle.bgSubtleClass,
-                                    ceoStyle.textClass
-                                  )}
-                                  title="Alterar ícone do item"
-                                >
-                                  <ItemIcon className="h-4 w-4" />
-                                </SelectTrigger>
-                                <SelectContent className="max-h-60">
-                                  {AVAILABLE_MENU_ICONS.map((ico) => {
-                                    const IcoComp = ico.icon;
-                                    return (
-                                      <SelectItem key={ico.name} value={ico.name} className="text-xs">
-                                        <div className="flex items-center gap-2">
-                                          <IcoComp className={cn("h-3.5 w-3.5", ceoStyle.textClass)} />
-                                          <span>{ico.label}</span>
-                                        </div>
-                                      </SelectItem>
-                                    );
-                                  })}
-                                </SelectContent>
-                              </Select>
+                                <ItemIcon className="h-4 w-4" />
+                              </button>
 
                               {/* Title Input & URL Info */}
                               <div className="min-w-0 flex-1 space-y-1.5">
@@ -1853,42 +2254,62 @@ function CeoMenuLateralEditor() {
                                     value={item.title || ""}
                                     onChange={(e) => updateItem(item.id, { title: e.target.value })}
                                     className="h-8 text-xs font-bold bg-background/90 border-border/70 focus:border-primary transition-colors rounded-lg shadow-2xs"
-                                    placeholder="Nome exibido no menu..."
+                                    placeholder="Nome exibido no menu CEO..."
                                   />
                                 </div>
                                 <div className="flex items-center gap-2 flex-wrap">
-                                  <div className="flex items-center gap-1.5 text-[0.68rem] text-muted-foreground font-mono bg-secondary/60 border border-border/60 px-1.5 py-0.5 rounded-md truncate max-w-xs">
+                                  <div className="flex items-center gap-1.5 text-[0.68rem] text-muted-foreground font-mono bg-secondary/60 border border-border/60 px-2 py-0.5 rounded-md truncate max-w-xs">
                                     <span className={cn("font-bold text-[10px]", ceoStyle.textClass)}>ROTA:</span>
                                     <Input
                                       value={item.url || ""}
                                       onChange={(e) => updateItem(item.id, { url: e.target.value })}
-                                      className="h-5 text-[0.68rem] font-mono bg-transparent border-0 p-0 focus-visible:ring-0 text-foreground w-40"
+                                      className="h-5 text-[0.68rem] font-mono bg-transparent border-0 p-0 focus-visible:ring-0 text-foreground w-36"
                                       placeholder="/ceo/..."
                                     />
+                                    {item.url && (
+                                      <a
+                                        href={item.url.startsWith("http") ? item.url : `#${item.url}`}
+                                        target={item.url.startsWith("http") ? "_blank" : undefined}
+                                        rel="noreferrer"
+                                        className="text-muted-foreground hover:text-foreground shrink-0"
+                                        title={`Testar link CEO: ${item.url}`}
+                                        onClick={(e) => {
+                                          if (!item.url.startsWith("http")) {
+                                            e.preventDefault();
+                                            window.location.href = item.url;
+                                          }
+                                        }}
+                                      >
+                                        <ExternalLink className="h-3 w-3" />
+                                      </a>
+                                    )}
                                   </div>
                                   <Badge variant="outline" className="text-[9px] font-mono border-border/60 text-muted-foreground py-0">
                                     ID: {item.id}
                                   </Badge>
-                                  {item.isCustom && (
+                                  {item.isCustom ? (
                                     <Badge variant="outline" className={cn("text-[9px] font-bold py-0", ceoStyle.badgeClass)}>
                                       Custom
+                                    </Badge>
+                                  ) : (
+                                    <Badge variant="outline" className="text-[9px] font-mono text-muted-foreground py-0">
+                                      Padrão
                                     </Badge>
                                   )}
                                 </div>
                               </div>
                             </div>
 
-                            {/* Right Group: Category + Visibility + Delete */}
-                            <div className="flex items-center gap-3 shrink-0 self-end md:self-auto pt-2 md:pt-0 border-t md:border-t-0 border-border/30 w-full md:w-auto justify-between md:justify-end">
+                            {/* Right Group: Category + Visibility + Edit Modal Button + Delete */}
+                            <div className="flex items-center gap-2.5 shrink-0 self-end lg:self-auto pt-2 lg:pt-0 border-t lg:border-t-0 border-border/30 w-full lg:w-auto justify-between lg:justify-end">
                               {/* Category Select */}
                               <div className="flex items-center gap-1.5">
-                                <span className="text-[10px] text-muted-foreground font-medium hidden lg:inline">Cat:</span>
+                                <span className="text-[10px] text-muted-foreground font-medium hidden sm:inline">Cat:</span>
                                 <Select
                                   value={item.category || "CEO"}
                                   onValueChange={(val) => updateItem(item.id, { category: val })}
-                                  className="w-32 shrink-0"
                                 >
-                                  <SelectTrigger className="h-8 w-32 text-xs font-bold border-border/70 bg-secondary/40 rounded-lg shrink-0">
+                                  <SelectTrigger className="h-8 w-28 text-xs font-bold border-border/70 bg-secondary/40 rounded-lg shrink-0">
                                     <SelectValue />
                                   </SelectTrigger>
                                   <SelectContent>
@@ -1901,19 +2322,19 @@ function CeoMenuLateralEditor() {
                                 </Select>
                               </div>
 
-                              <Separator orientation="vertical" className="h-6 hidden md:block" />
+                              <Separator orientation="vertical" className="h-6 hidden sm:block" />
 
                               {/* Visibility Switch */}
                               <div className="flex items-center gap-2 shrink-0 bg-secondary/30 px-2.5 py-1 rounded-lg border border-border/50">
                                 {item.visible ? (
                                   <div className="flex items-center gap-1 text-emerald-400 text-xs font-bold">
                                     <Eye className="h-3.5 w-3.5 text-emerald-400" />
-                                    <span className="text-[10px]">Visível</span>
+                                    <span className="text-[10px] hidden sm:inline">Visível</span>
                                   </div>
                                 ) : (
                                   <div className="flex items-center gap-1 text-muted-foreground text-xs font-medium">
                                     <EyeOff className="h-3.5 w-3.5 text-muted-foreground" />
-                                    <span className="text-[10px]">Oculto</span>
+                                    <span className="text-[10px] hidden sm:inline">Oculto</span>
                                   </div>
                                 )}
                                 <Switch
@@ -1923,11 +2344,29 @@ function CeoMenuLateralEditor() {
                                 />
                               </div>
 
+                              {/* Edit Modal Button */}
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleOpenEditModal(item)}
+                                className={cn(
+                                  "h-8 px-2.5 text-xs font-bold gap-1 rounded-lg border shadow-2xs transition-colors",
+                                  ceoStyle.borderClass,
+                                  ceoStyle.bgSubtleClass,
+                                  ceoStyle.textClass
+                                )}
+                                title="Abrir modal de edição detalhada deste menu CEO"
+                              >
+                                <Edit3 className="h-3.5 w-3.5" />
+                                <span className="hidden sm:inline">Editar</span>
+                              </Button>
+
                               {/* Delete Item */}
                               <button
                                 type="button"
                                 onClick={() => handleDeleteItem(item.id)}
-                                className="h-8 w-8 flex items-center justify-center rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 border border-transparent hover:border-destructive/20 transition-colors"
+                                className="h-8 w-8 flex items-center justify-center rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 border border-transparent hover:border-destructive/20 transition-colors shrink-0"
                                 title="Excluir item do menu CEO"
                               >
                                 <Trash2 className="h-4 w-4" />
@@ -2007,6 +2446,184 @@ function CeoMenuLateralEditor() {
         </div>
       </div>
 
+      {/* Modal para Editar Item CEO */}
+      <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
+        <DialogContent className="sm:max-w-[520px] surface-card border shadow-2xl">
+          <DialogHeader>
+            <div className="flex items-center justify-between">
+              <DialogTitle className={cn("flex items-center gap-2 text-base font-bold", ceoStyle.textClass)}>
+                <Edit3 className="h-5 w-5" />
+                Editar Item de Menu CEO
+              </DialogTitle>
+              {editingItem?.isCustom ? (
+                <Badge variant="outline" className={cn("text-[10px] font-bold", ceoStyle.badgeClass)}>
+                  Customizado
+                </Badge>
+              ) : (
+                <Badge variant="outline" className="text-[10px] font-mono text-muted-foreground">
+                  Padrão Executivo
+                </Badge>
+              )}
+            </div>
+            <DialogDescription className="text-xs text-muted-foreground">
+              Ajuste o título, rota/URL, ícone, categoria e visibilidade deste menu da diretoria.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-3">
+            {/* Title */}
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold text-foreground flex items-center justify-between">
+                <span>Título / Nome Exibido</span>
+                <span className="text-[10px] text-muted-foreground font-mono">{editTitle.length} caracteres</span>
+              </label>
+              <Input
+                value={editTitle}
+                onChange={(e) => setEditTitle(e.target.value)}
+                placeholder="Ex: Visão Geral & Métricas ou Auditoria Geral"
+                className="h-9 text-xs font-bold bg-secondary/30"
+              />
+            </div>
+
+            {/* Route URL */}
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold text-foreground flex items-center justify-between">
+                <span>Rota / Caminho URL</span>
+                {editUrl && (
+                  <a
+                    href={editUrl.startsWith("http") ? editUrl : `#${editUrl}`}
+                    target={editUrl.startsWith("http") ? "_blank" : undefined}
+                    rel="noreferrer"
+                    className="text-[10px] text-amber-400 flex items-center gap-1 hover:underline"
+                    onClick={(e) => {
+                      if (!editUrl.startsWith("http")) {
+                        e.preventDefault();
+                        window.location.href = editUrl;
+                      }
+                    }}
+                  >
+                    <ExternalLink className="h-3 w-3" /> Testar Rota
+                  </a>
+                )}
+              </label>
+              <Input
+                value={editUrl}
+                onChange={(e) => setEditUrl(e.target.value)}
+                placeholder="Ex: /ceo/dashboard ou /ceo/financas"
+                className="h-9 text-xs font-mono bg-secondary/30"
+              />
+            </div>
+
+            {/* Category & Icon Picker */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-foreground">Categoria</label>
+                <Select value={editCategory} onValueChange={setEditCategory}>
+                  <SelectTrigger className="h-9 text-xs bg-secondary/30">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {categories.map((c) => (
+                      <SelectItem key={c} value={c} className="text-xs font-medium">
+                        {c}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-foreground">Ícone do Menu</label>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setPickingIconForContext("edit");
+                    setItemIconPickerOpen(true);
+                  }}
+                  className={cn(
+                    "w-full h-9 justify-start text-xs font-bold gap-2 bg-secondary/30 border-border/70",
+                    ceoStyle.textClass
+                  )}
+                >
+                  {(() => {
+                    const CurrIcon = resolveMenuIcon(editIcon);
+                    return <CurrIcon className="h-4 w-4 shrink-0" />;
+                  })()}
+                  <span className="truncate">{editIcon}</span>
+                </Button>
+              </div>
+            </div>
+
+            {/* Visibility Toggle */}
+            <div className="flex items-center justify-between p-3 rounded-xl bg-secondary/20 border border-border/50">
+              <div className="space-y-0.5">
+                <p className="text-xs font-bold text-foreground">Visibilidade no Menu</p>
+                <p className="text-[0.7rem] text-muted-foreground">
+                  {editVisible ? "Exibido normalmente no menu lateral da diretoria" : "Oculto para a diretoria"}
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                {editVisible ? (
+                  <Badge className="bg-emerald-500/10 text-emerald-400 border-emerald-500/30 text-[10px] gap-1">
+                    <Eye className="h-3 w-3" /> Visível
+                  </Badge>
+                ) : (
+                  <Badge variant="outline" className="text-muted-foreground text-[10px] gap-1">
+                    <EyeOff className="h-3 w-3" /> Oculto
+                  </Badge>
+                )}
+                <Switch
+                  checked={editVisible}
+                  onCheckedChange={setEditVisible}
+                  className="data-[state=checked]:bg-emerald-500"
+                />
+              </div>
+            </div>
+
+            {/* Metadata and Reset single item if default */}
+            <div className="flex items-center justify-between pt-2 border-t border-border/40 text-[0.7rem] text-muted-foreground">
+              <span className="font-mono">ID: {editingItem?.id}</span>
+              {!editingItem?.isCustom && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => editingItem && handleResetSingleItem(editingItem)}
+                  className="h-7 text-[0.7rem] text-muted-foreground hover:text-foreground gap-1"
+                >
+                  <RotateCcw className="h-3 w-3" />
+                  Restaurar Padrão Deste Item
+                </Button>
+              )}
+            </div>
+          </div>
+
+          <DialogFooter className="flex flex-row items-center justify-between gap-2 sm:justify-between">
+            <Button
+              type="button"
+              variant="destructive"
+              size="sm"
+              onClick={() => editingItem && handleDeleteItem(editingItem.id)}
+              className="h-9 text-xs gap-1 font-bold"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+              Excluir
+            </Button>
+            <div className="flex items-center gap-2">
+              <Button variant="outline" size="sm" onClick={() => setIsEditModalOpen(false)}>
+                Cancelar
+              </Button>
+              <Button size="sm" onClick={handleSaveEditModal} className={cn("font-bold shadow-sm", ceoStyle.bgSolidClass)}>
+                <Check className="h-3.5 w-3.5 mr-1" />
+                Salvar Alterações
+              </Button>
+            </div>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Modal para Adicionar Novo Item CEO */}
       <Dialog open={isAddItemOpen} onOpenChange={setIsAddItemOpen}>
         <DialogContent className="sm:max-w-[480px]">
@@ -2026,7 +2643,7 @@ function CeoMenuLateralEditor() {
                 value={newItemTitle}
                 onChange={(e) => setNewItemTitle(e.target.value)}
                 placeholder="Ex: Auditoria Geral ou Relatórios"
-                className="h-9 text-xs"
+                className="h-9 text-xs font-bold"
               />
             </div>
             <div className="space-y-1.5">
@@ -2047,31 +2664,32 @@ function CeoMenuLateralEditor() {
                   </SelectTrigger>
                   <SelectContent>
                     {categories.map((c) => (
-                      <SelectItem key={c} value={c} className="text-xs">{c}</SelectItem>
+                      <SelectItem key={c} value={c} className="text-xs font-medium">{c}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
               <div className="space-y-1.5">
                 <label className="text-xs font-bold text-foreground">Ícone</label>
-                <Select value={newItemIcon} onValueChange={setNewItemIcon}>
-                  <SelectTrigger className="h-9 text-xs">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent className="max-h-56">
-                    {AVAILABLE_MENU_ICONS.map((ico) => {
-                      const Ico = ico.icon;
-                      return (
-                        <SelectItem key={ico.name} value={ico.name} className="text-xs">
-                          <div className="flex items-center gap-2">
-                            <Ico className={cn("h-3.5 w-3.5", ceoStyle.textClass)} />
-                            <span>{ico.label}</span>
-                          </div>
-                        </SelectItem>
-                      );
-                    })}
-                  </SelectContent>
-                </Select>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setPickingIconForContext("new");
+                    setItemIconPickerOpen(true);
+                  }}
+                  className={cn(
+                    "w-full h-9 justify-start text-xs font-bold gap-2 border-border/70",
+                    ceoStyle.textClass
+                  )}
+                >
+                  {(() => {
+                    const CurrIcon = resolveMenuIcon(newItemIcon);
+                    return <CurrIcon className="h-4 w-4 shrink-0" />;
+                  })()}
+                  <span className="truncate">{newItemIcon}</span>
+                </Button>
               </div>
             </div>
           </div>
@@ -2123,7 +2741,7 @@ function DevMenuLateralContent() {
       {/* HEADER DA PÁGINA COM SELETOR DE ABAS DEV / CEO */}
       <PageHeader
         title="Gestão de Menus Laterais — Dev & CEO"
-        description="Personalize a ordem, categorias, nomes, ícones e visibilidade dos menus exclusivos da Tag Desenvolvedor e da Tag CEO."
+        description="Personalize a ordem, categorias, nomes, rotas, ícones e visibilidade dos menus exclusivos da Tag Desenvolvedor e da Tag CEO."
         actions={
           <div className="flex items-center gap-2">
             <Badge
@@ -2179,4 +2797,3 @@ function DevMenuLateralContent() {
     </div>
   );
 }
-

@@ -73,18 +73,25 @@ export function PermissoesPage() {
 
   useEffect(() => {
     const handleScroll = () => {
+      const scrollY = window.scrollY || document.documentElement.scrollTop || document.body.scrollTop || 0;
       if (roleCardRef.current) {
         const rect = roleCardRef.current.getBoundingClientRect();
-        // Exibe a barra flutuante assim que a barra de seleção de cargo do topo rolar para fora da visão
-        setShowFloatingBar(rect.bottom < 60);
+        // Exibe o balão flutuante assim que o card de seleção de cargos do topo começar a sair da visão (ou scroll > 90px)
+        setShowFloatingBar(rect.top < 80 || scrollY > 90);
       } else {
-        setShowFloatingBar(window.scrollY > 250);
+        setShowFloatingBar(scrollY > 90);
       }
     };
 
     window.addEventListener("scroll", handleScroll, { passive: true });
+    document.addEventListener("scroll", handleScroll, { passive: true });
+    window.addEventListener("resize", handleScroll, { passive: true });
     handleScroll();
-    return () => window.removeEventListener("scroll", handleScroll);
+    return () => {
+      window.removeEventListener("scroll", handleScroll);
+      document.removeEventListener("scroll", handleScroll);
+      window.removeEventListener("resize", handleScroll);
+    };
   }, []);
 
   useEffect(() => {
@@ -101,9 +108,13 @@ export function PermissoesPage() {
     }
   }, [dbPermissions, selectedLevel]);
 
-  // Cards exclusivos da plataforma de membros (excluindo ferramentas técnicas de Dev e CEO)
+  // Cards exclusivos da plataforma operacional de membros (removendo integralmente ferramentas do Painel Dev e Painel CEO)
   const platformPageCards = useMemo(() => {
-    return PAGE_CARDS.filter((card) => card.defaultCat !== "Ferramentas Dev" && card.defaultCat !== "CEO");
+    return PAGE_CARDS.filter((card) => {
+      if (card.defaultCat === "DEV" || card.defaultCat === "Ferramentas Dev" || card.defaultCat === "CEO") return false;
+      if (card.id.startsWith("dev-") || card.id.startsWith("ceo-") || card.id === "ceo") return false;
+      return true;
+    });
   }, []);
 
   const allPlatformPermissions = useMemo(() => {
@@ -119,19 +130,24 @@ export function PermissoesPage() {
     const validConfigItems = menuConfig?.items?.filter((c) => Boolean(c && (c.id || c.url))) || [];
     const configMap = new Map(validConfigItems.map((c) => [c.id || c.url, c]));
 
-    const categoryOrder = menuConfig?.categories?.length
-      ? menuConfig.categories
-      : ["Operação", "Gestão", "Administração"];
+    const categoryOrder = (
+      menuConfig?.categories?.length
+        ? menuConfig.categories
+        : ["Operação", "Gestão", "Administração"]
+    ).filter((c) => c !== "DEV" && c !== "Ferramentas Dev" && c !== "CEO");
 
-    const customized = platformPageCards.map((card) => {
-      const cfg = configMap.get(card.id);
-      return {
-        ...card,
-        title: cfg?.title || card.title,
-        category: cfg?.category || card.defaultCat,
-        order: typeof cfg?.order === "number" ? cfg.order : card.defaultOrder,
-      };
-    });
+    const customized = platformPageCards
+      .map((card) => {
+        const cfg = configMap.get(card.id);
+        const cat = cfg?.category || card.defaultCat;
+        return {
+          ...card,
+          title: cfg?.title || card.title,
+          category: cat,
+          order: typeof cfg?.order === "number" ? cfg.order : card.defaultOrder,
+        };
+      })
+      .filter((card) => card.category !== "DEV" && card.category !== "Ferramentas Dev" && card.category !== "CEO");
 
     const groups: { category: string; cards: typeof customized }[] = [];
 
@@ -467,12 +483,12 @@ export function PermissoesPage() {
 
       {/* FLOATING ACTIVE ROLE SWITCHER BAR */}
       {showFloatingBar && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 flex items-center gap-2 p-1.5 sm:p-2 rounded-2xl bg-card/95 border border-primary/40 backdrop-blur-xl shadow-2xl shadow-primary/20 animate-in fade-in slide-in-from-bottom-5 duration-300 max-w-[calc(100vw-2rem)]">
+        <div className="fixed bottom-20 md:bottom-8 left-1/2 -translate-x-1/2 z-[60] flex items-center gap-2 p-1.5 sm:p-2 rounded-2xl bg-card/95 border border-primary/50 backdrop-blur-2xl shadow-2xl shadow-primary/25 ring-1 ring-white/10 animate-in fade-in slide-in-from-bottom-5 duration-200 max-w-[calc(100vw-2rem)]">
           {/* Cargo Ativo Atual */}
           <div className="flex items-center gap-2 pl-2 pr-1">
             <ShieldCheck className="h-4 w-4 text-primary shrink-0 animate-pulse" />
             <div className="flex items-center gap-1.5">
-              <span className="text-[11px] font-bold text-muted-foreground hidden sm:inline">Configurando:</span>
+              <span className="text-[11px] font-bold text-muted-foreground hidden sm:inline">Cargo:</span>
               <Badge className={cn("text-xs px-2.5 py-0.5 font-bold shadow-xs", levelBadgeClass(selectedLevel))}>
                 {LEVEL_LABEL[selectedLevel] || selectedLevel}
               </Badge>
@@ -490,14 +506,14 @@ export function PermissoesPage() {
               <Button
                 type="button"
                 size="sm"
-                variant="secondary"
-                className="h-8 text-xs font-bold gap-1.5 rounded-xl border border-border/80 hover:border-primary/50 cursor-pointer bg-secondary/80 hover:bg-secondary active:scale-95 transition-all shadow-xs"
+                variant="default"
+                className="h-8 text-xs font-bold gap-1.5 rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 shadow-md cursor-pointer active:scale-95 transition-all"
               >
                 <span>Alternar Cargo</span>
-                <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
+                <ChevronDown className="h-3.5 w-3.5 text-primary-foreground" />
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="center" className="w-64 bg-card border border-border text-foreground rounded-2xl p-1.5 shadow-2xl z-50 animate-in fade-in-50 zoom-in-95 duration-150">
+            <DropdownMenuContent align="center" className="w-64 p-1.5 animate-in fade-in-50 zoom-in-95 duration-150">
               <DropdownMenuLabel className="text-[10px] font-mono text-muted-foreground uppercase px-2 py-1 flex items-center justify-between">
                 <span>Alternar Cargo</span>
                 <span className="text-[9px] text-emerald-400 font-bold font-mono">Ao Vivo</span>
@@ -552,7 +568,7 @@ export function PermissoesPage() {
                 <SlidersHorizontal className="h-3.5 w-3.5" />
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-48 bg-card border border-border text-foreground rounded-2xl p-1.5 shadow-2xl z-50">
+            <DropdownMenuContent align="end" className="w-48 p-1.5">
               <DropdownMenuItem onClick={setAllPermissions} className="text-xs font-bold cursor-pointer hover:bg-secondary rounded-xl">
                 Marcar Todos
               </DropdownMenuItem>

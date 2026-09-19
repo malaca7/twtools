@@ -156,6 +156,26 @@ export function useRealtimeSync() {
           keysToInvalidate = ["chat_conversations", "chat_participants"];
           break;
 
+        case "discord_stock_logs":
+          keysToInvalidate = [
+            "discord_stock_logs",
+            "movements",
+            "product_baus",
+            "products",
+            "baus",
+            "audit_logs",
+          ];
+          break;
+
+        case "discord_stock_config":
+          keysToInvalidate = [
+            "discord_stock_config",
+            "baus",
+            "product_baus",
+            "products",
+          ];
+          break;
+
         default:
           void queryClient.invalidateQueries({ refetchType: "all" });
           void queryClient.refetchQueries({ type: "active" });
@@ -186,7 +206,29 @@ export function useRealtimeSync() {
         }
       });
 
-    // 3. Network reconnection & Window focus recovery
+    // 3. Dedicated broadcast channel for instant stock movements (sub-50ms sync with zero page reloads)
+    const stockChannel = supabase
+      .channel("system-stock-events")
+      .on("broadcast", { event: "stock_movement_created" }, (_payload) => {
+        const stockKeys = [
+          "movements",
+          "product_baus",
+          "products",
+          "baus",
+          "discord_stock_logs",
+          "discord_stock_config",
+        ];
+        triggerInvalidations(stockKeys);
+        broadcastCrossTab(stockKeys);
+
+        const settings = getPlatformSettings();
+        if (settings.soundEffectsEnabled) {
+          playGamerSuccessSound(settings.soundVolume);
+        }
+      })
+      .subscribe();
+
+    // 4. Network reconnection & Window focus recovery
     const onFocus = () => {
       void queryClient.invalidateQueries({ refetchType: "active" });
     };
@@ -208,6 +250,7 @@ export function useRealtimeSync() {
       window.removeEventListener("focus", onFocus);
       window.removeEventListener("online", onOnline);
       void supabase.removeChannel(channel);
+      void supabase.removeChannel(stockChannel);
     };
   }, [queryClient]);
 }

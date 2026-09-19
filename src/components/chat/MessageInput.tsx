@@ -637,7 +637,7 @@ export function MessageInput({
             <div className="flex-1 min-w-0 relative flex flex-col justify-end">
               {/* POPUP DE MENÇÕES (@) */}
               {showMentionPopup && filteredMentions.length > 0 && (
-                <div className="absolute bottom-full mb-2 left-0 w-72 max-h-56 overflow-y-auto bg-[#233138] border border-white/10 rounded-xl shadow-2xl z-50 p-1 divide-y divide-white/5 scrollbar-thin">
+                <div className="absolute bottom-full mb-2 left-0 w-72 max-h-56 overflow-y-auto bg-card border border-border/80 rounded-xl shadow-2xl z-[99990] p-1 divide-y divide-border/40 scrollbar-none ring-1 ring-border/40 backdrop-blur-2xl">
                   <div className="px-3 py-1.5 text-[10px] font-black text-[#8696a0] uppercase tracking-wider flex items-center justify-between">
                     <span>Mencionar no Chat</span>
                     <span className="text-[9px] font-normal lowercase">{filteredMentions.length} opção(ões)</span>

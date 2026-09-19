@@ -1233,7 +1233,7 @@ export function DiscohookPostModal({
                     <Input
                       value={username}
                       onChange={(e) => setUsername(e.target.value)}
-                      placeholder="Ex: Twin Wheels RP ou Notícias da Facção"
+                      placeholder="Ex: Twin Wheels RP ou Notícias do grupo"
                       className="bg-zinc-950 border-zinc-800 text-xs font-bold h-8"
                     />
                   </div>

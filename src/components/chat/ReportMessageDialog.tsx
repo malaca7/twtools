@@ -27,7 +27,7 @@ const REPORT_REASONS = [
   "Spam ou flood repetitivo",
   "Ofensas, assédio ou toxicidade",
   "Vazamento de informações confidenciais",
-  "Anti-RP ou quebra de regras da facção",
+  "Anti-RP ou quebra de regras do grupo",
   "Conteúdo explícito ou inapropriado",
   "Outro motivo (especificar abaixo)",
 ];

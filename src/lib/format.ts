@@ -424,7 +424,7 @@ export function humanizeAuditLog(
 
       return {
         title: "Aprovação de Membro",
-        description: `O gestor ${actor} aprovou a solicitação de cadastro${memberStr} na facção.`,
+        description: `O gestor ${actor} aprovou a solicitação de cadastro${memberStr} no grupo.`,
         tag: "Aprovado",
         tagColor: "border-emerald-500/40 bg-emerald-500/10 text-emerald-400 font-bold",
       };
@@ -674,7 +674,7 @@ export function humanizeAuditLog(
       const nome = data.nome || "Produto";
       return {
         title: "Exclusão de Produto",
-        description: `O gestor ${actor} excluiu o produto "${nome}" do catálogo da facção.`,
+        description: `O gestor ${actor} excluiu o produto "${nome}" do catálogo do grupo.`,
         tag: "Exclusão Produto",
         tagColor: "border-rose-500/40 bg-rose-500/10 text-rose-400 font-bold",
       };
@@ -778,7 +778,7 @@ export function humanizeAuditLog(
     case "reorder_custom_roles": {
       return {
         title: "Reordenação Hierárquica de Cargos",
-        description: `O administrador ${actor} reorganizou a hierarquia relativa dos cargos da facção.`,
+        description: `O administrador ${actor} reorganizou a hierarquia relativa dos cargos do grupo.`,
         tag: "Hierarquia",
         tagColor: "border-indigo-500/40 bg-indigo-500/10 text-indigo-400 font-bold",
       };

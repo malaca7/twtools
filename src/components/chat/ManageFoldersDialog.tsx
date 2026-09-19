@@ -43,7 +43,7 @@ interface ManageFoldersDialogProps {
 const PRESET_ICONS = [
   { id: "folder", icon: Folder, name: "Pasta" },
   { id: "briefcase", icon: Briefcase, name: "Trabalho" },
-  { id: "shield", icon: Shield, name: "Facção" },
+  { id: "shield", icon: Shield, name: "Grupo" },
   { id: "star", icon: Star, name: "Importantes" },
   { id: "users", icon: Users, name: "Galera" },
   { id: "flame", icon: Flame, name: "Ação" },
@@ -182,7 +182,7 @@ export function ManageFoldersDialog({
                 <Input
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  placeholder="Ex: Trabalho, Facção, Importantes..."
+                  placeholder="Ex: Trabalho, Grupo, Importantes..."
                   className="text-xs rounded-xl"
                   maxLength={40}
                   autoFocus
@@ -326,7 +326,7 @@ export function ManageFoldersDialog({
                   </div>
                   <p className="text-xs font-bold text-foreground">Nenhuma pasta criada</p>
                   <p className="text-[11px] text-muted-foreground">
-                    Crie pastas para organizar grupos de trabalho, facção ou conversas importantes.
+                    Crie pastas para organizar grupos de trabalho, grupo ou conversas importantes.
                   </p>
                   <Button
                     type="button"

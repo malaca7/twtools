@@ -385,7 +385,7 @@ export function LivesPage() {
                 </Badge>
               </div>
               <p className="text-xs text-zinc-300 mt-0.5">
-                Integrantes da facção transmitindo operações, patrulhas e momentos na cidade.
+                Integrantes do grupo transmitindo operações, patrulhas e momentos na cidade.
               </p>
             </div>
           </div>
@@ -496,7 +496,7 @@ export function LivesPage() {
             className="gap-2 text-xs font-bold data-[state=active]:bg-card data-[state=active]:text-foreground data-[state=active]:shadow-xs px-4 py-2"
           >
             <Users className="h-3.5 w-3.5" />
-            Streamers da Facção ({memberStreamersGrouped.length})
+            Streamers do grupo ({memberStreamersGrouped.length})
           </TabsTrigger>
         </TabsList>
 
@@ -570,7 +570,7 @@ export function LivesPage() {
           )}
         </TabsContent>
 
-        {/* ABA 3: STREAMERS DA FACÇÃO */}
+        {/* ABA 3: STREAMERS DO GRUPO */}
         <TabsContent value="streamers" className="space-y-6 animate-in fade-in-50 duration-200">
           {filteredStreamers.length === 0 ? (
             <div className="p-12 text-center rounded-2xl border border-dashed border-border/80 bg-card/50 space-y-2">
@@ -692,7 +692,7 @@ export function LivesPage() {
                   </Badge>
                 </DialogTitle>
                 <DialogDescription className="text-xs text-muted-foreground mt-0.5">
-                  Publique sua transmissão instantaneamente e notifique toda a facção.
+                  Publique sua transmissão instantaneamente e notifique todo o grupo.
                 </DialogDescription>
               </div>
             </div>

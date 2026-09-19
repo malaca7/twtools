@@ -133,7 +133,7 @@ export function TicketDetailView({ ticket, onClose, canManage }: TicketDetailVie
   const isAssigned = ticket.assigned_to_id === user?.id;
   const canManageMembers = effectiveCanManage || isCreator;
 
-  // Lista de membros da facção disponíveis para adicionar (não criador e ainda não participante)
+  // Lista de membros do grupo disponíveis para adicionar (não criador e ainda não participante)
   const availableMembersToAdd = useMemo(() => {
     const existingIds = new Set<string>([
       ticket.user_id,

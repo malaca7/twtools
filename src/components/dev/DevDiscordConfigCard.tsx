@@ -250,7 +250,7 @@ export function DevDiscordConfigCard() {
       salesChannelId: "Vendas & Lucros",
       cashFundChannelId: "Fundo de Caixa",
       membersChannelId: "Gestão de Membros",
-      goalsChannelId: "Metas da Facção",
+      goalsChannelId: "Metas do grupo",
       announcementsChannelId: "Avisos & Comunicados",
       systemChannelId: "Sistema & Auditoria",
     };
@@ -509,7 +509,7 @@ export function DevDiscordConfigCard() {
                   </div>
                   <div>
                     <CardTitle className="text-xs font-bold text-foreground">🏦 Fundo de Caixa & Finanças</CardTitle>
-                    <CardDescription className="text-[0.68rem]">Depósitos, retiradas e saldos da facção</CardDescription>
+                    <CardDescription className="text-[0.68rem]">Depósitos, retiradas e saldos do grupo</CardDescription>
                   </div>
                 </div>
               </CardHeader>
@@ -1059,7 +1059,7 @@ export function DevDiscordConfigCard() {
                   />
                 </div>
 
-                {/* 7. Metas da Facção */}
+                {/* 7. Metas do grupo */}
                 <div className="flex items-center justify-between gap-3 p-3 rounded-xl bg-secondary/20 border border-border/40 hover:border-pink-500/30 transition-all">
                   <div className="space-y-0.5">
                     <Label className="text-xs font-bold text-foreground cursor-pointer flex items-center gap-1.5">
@@ -1370,7 +1370,7 @@ export function DevDiscordConfigCard() {
                           </div>
                           <div className="p-2 rounded bg-[#1e1f22]/60">
                             <span className="text-[0.65rem] uppercase font-bold text-[#949ba4] block">Comprador</span>
-                            <span className="text-xs font-semibold text-white">Facção Parceira</span>
+                            <span className="text-xs font-semibold text-white">Grupo Parceira</span>
                           </div>
                           <div className="p-2 rounded bg-[#1e1f22]/60">
                             <span className="text-[0.65rem] uppercase font-bold text-[#949ba4] block">Baú de Origem</span>
@@ -1450,7 +1450,7 @@ export function DevDiscordConfigCard() {
                         <div className="flex items-start justify-between gap-3">
                           <div className="space-y-1 flex-1 min-w-0">
                             <h4 className="font-bold text-white text-sm">
-                              🏦 Depósito no Fundo de Caixa da Facção
+                              🏦 Depósito no Fundo de Caixa do grupo
                             </h4>
                             <p className="text-xs text-[#dbdee1] mt-1">
                               Depósito confirmado de <strong className="text-amber-400">R$ 1.500.000</strong> efetuado por {profile?.nickname || "Gestor"}.
@@ -1487,7 +1487,7 @@ export function DevDiscordConfigCard() {
                         <div className="flex items-start justify-between gap-3">
                           <div className="space-y-1 flex-1 min-w-0">
                             <h4 className="font-bold text-white text-sm">
-                              👥 Nova Aprovação de Membro na Facção
+                              👥 Nova Aprovação de Membro no grupo
                             </h4>
                             <p className="text-xs text-[#dbdee1] mt-1">
                               O gestor aprovou o cadastro do membro <strong>Novo Integrante (ID: 4821)</strong>.

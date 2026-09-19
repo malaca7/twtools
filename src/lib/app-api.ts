@@ -270,7 +270,7 @@ export async function getBaus(): Promise<Bau[]> {
   try {
     const { data, error } = await supabase
       .from("baus")
-      .select("id, nome, descricao, icone, ativo, tipo_gestao, discord_channel_id, discord_guild_id, created_at")
+      .select("id, nome, descricao, icone, foto_url, imagem_url, ativo, tipo_gestao, discord_channel_id, discord_guild_id, created_at")
       .order("created_at", { ascending: true });
     if (!error && data && data.length > 0) {
       listData = data;
@@ -296,6 +296,8 @@ export async function getBaus(): Promise<Bau[]> {
       nome: d.nome,
       descricao: d.descricao,
       icone: d.icone,
+      foto_url: d.foto_url || d.imagem_url || null,
+      imagem_url: d.imagem_url || d.foto_url || null,
       ativo: d.ativo ?? true,
       tipo_gestao: (d.tipo_gestao === "manual" ? "manual" : "automatico"),
       discord_channel_id: d.discord_channel_id || null,
@@ -307,7 +309,16 @@ export async function getBaus(): Promise<Bau[]> {
   return list;
 }
 
-export async function createBau(payload: { nome: string; descricao?: string; icone?: string; tipo_gestao?: "automatico" | "manual"; discord_channel_id?: string | null; discord_guild_id?: string | null }): Promise<Bau> {
+export async function createBau(payload: {
+  nome: string;
+  descricao?: string;
+  icone?: string;
+  foto_url?: string | null;
+  imagem_url?: string | null;
+  tipo_gestao?: "automatico" | "manual";
+  discord_channel_id?: string | null;
+  discord_guild_id?: string | null;
+}): Promise<Bau> {
   const cleanName = payload.nome.trim();
   if (!cleanName) throw new Error("Informe o nome do baú.");
 
@@ -321,12 +332,16 @@ export async function createBau(payload: { nome: string; descricao?: string; ico
     throw new Error(`Já existe um baú cadastrado com o nome "${existing.nome}".`);
   }
 
+  const photo = payload.foto_url?.trim() || payload.imagem_url?.trim() || null;
+
   const { data, error } = await supabase
     .from("baus")
     .insert({
       nome: cleanName,
       descricao: payload.descricao?.trim() || null,
       icone: payload.icone || 'box',
+      foto_url: photo,
+      imagem_url: photo,
       ativo: true,
       tipo_gestao: payload.tipo_gestao || 'automatico',
       discord_channel_id: payload.discord_channel_id?.trim() || null,
@@ -336,13 +351,15 @@ export async function createBau(payload: { nome: string; descricao?: string; ico
     .single();
   if (error) throw error;
 
-  void logAuditAction("create_bau", "baus", { nome: data.nome, descricao: data.descricao, tipo_gestao: data.tipo_gestao }, undefined, data.id);
+  void logAuditAction("create_bau", "baus", { nome: data.nome, descricao: data.descricao, tipo_gestao: data.tipo_gestao, foto_url: data.foto_url }, undefined, data.id);
 
   return {
     id: data.id,
     nome: data.nome,
     descricao: data.descricao,
     icone: data.icone,
+    foto_url: data.foto_url || data.imagem_url || null,
+    imagem_url: data.imagem_url || data.foto_url || null,
     ativo: data.ativo,
     tipo_gestao: data.tipo_gestao || 'automatico',
     discord_channel_id: data.discord_channel_id || null,
@@ -351,8 +368,19 @@ export async function createBau(payload: { nome: string; descricao?: string; ico
   };
 }
 
-export async function updateBau(payload: { id: string; nome?: string; descricao?: string; icone?: string; ativo?: boolean; tipo_gestao?: "automatico" | "manual"; discord_channel_id?: string | null; discord_guild_id?: string | null }): Promise<void> {
-  const { data: oldBau } = await supabase.from("baus").select("nome, descricao, ativo, tipo_gestao, discord_channel_id, discord_guild_id").eq("id", payload.id).maybeSingle();
+export async function updateBau(payload: {
+  id: string;
+  nome?: string;
+  descricao?: string;
+  icone?: string;
+  foto_url?: string | null;
+  imagem_url?: string | null;
+  ativo?: boolean;
+  tipo_gestao?: "automatico" | "manual";
+  discord_channel_id?: string | null;
+  discord_guild_id?: string | null;
+}): Promise<void> {
+  const { data: oldBau } = await supabase.from("baus").select("nome, descricao, icone, foto_url, imagem_url, ativo, tipo_gestao, discord_channel_id, discord_guild_id").eq("id", payload.id).maybeSingle();
 
   const updates: any = {};
   if (payload.nome !== undefined) {
@@ -374,6 +402,11 @@ export async function updateBau(payload: { id: string; nome?: string; descricao?
   }
   if (payload.descricao !== undefined) updates.descricao = payload.descricao.trim();
   if (payload.icone !== undefined) updates.icone = payload.icone;
+  if (payload.foto_url !== undefined || payload.imagem_url !== undefined) {
+    const photo = payload.foto_url !== undefined ? (payload.foto_url?.trim() || null) : (payload.imagem_url?.trim() || null);
+    updates.foto_url = photo;
+    updates.imagem_url = photo;
+  }
   if (payload.ativo !== undefined) updates.ativo = payload.ativo;
   if (payload.tipo_gestao !== undefined) updates.tipo_gestao = payload.tipo_gestao;
   if (payload.discord_channel_id !== undefined) updates.discord_channel_id = payload.discord_channel_id?.trim() || null;
@@ -1478,7 +1511,7 @@ export async function submitSignupReview({ data }: { data: { requestId: string; 
     if (targetId) {
       void createNotification({
         title: "Cadastro Aprovado! 🎉",
-        message: "Seu pedido de cadastro foi aprovado pela liderança. Bem-vindo à facção!",
+        message: "Seu pedido de cadastro foi aprovado pela liderança. Bem-vindo à grupo!",
         type: "signup",
         category: "success",
         user_id: targetId,
@@ -1976,6 +2009,40 @@ export async function uploadProductImage(file: File): Promise<string> {
   }
 
   const { data: publicUrlData } = supabase.storage.from("products").getPublicUrl(data.path);
+  return publicUrlData.publicUrl;
+}
+
+export async function uploadBauImage(file: File): Promise<string> {
+  const maxBytes = 5 * 1024 * 1024; // 5MB
+  if (file.size > maxBytes) {
+    throw new Error("A imagem selecionada ultrapassa o limite de 5MB.");
+  }
+
+  const ext = file.name.split(".").pop()?.toLowerCase() || "png";
+  const cleanExt = ["png", "jpg", "jpeg", "webp", "gif", "svg"].includes(ext) ? ext : "png";
+  const sanitizedName = file.name.replace(/[^a-zA-Z0-9.-]/g, "_").toLowerCase();
+  const fileName = `bau_${Date.now()}_${sanitizedName}`;
+
+  let uploadRes = await supabase.storage.from("products").upload(fileName, file, {
+    cacheControl: "31536000",
+    upsert: true,
+    contentType: file.type || `image/${cleanExt}`,
+  });
+
+  if (uploadRes.error) {
+    uploadRes = await supabase.storage.from("chat-attachments").upload(fileName, file, {
+      cacheControl: "31536000",
+      upsert: true,
+      contentType: file.type || `image/${cleanExt}`,
+    });
+    if (uploadRes.error) {
+      throw new Error(`Falha ao fazer upload da imagem do baú: ${uploadRes.error.message}`);
+    }
+    const { data: pubData } = supabase.storage.from("chat-attachments").getPublicUrl(uploadRes.data.path);
+    return pubData.publicUrl;
+  }
+
+  const { data: publicUrlData } = supabase.storage.from("products").getPublicUrl(uploadRes.data.path);
   return publicUrlData.publicUrl;
 }
 
@@ -3350,7 +3417,7 @@ async function getEffectiveTicketAuth(): Promise<EffectiveTicketAuth | null> {
  * Retorna todos os tickets acessíveis ao usuário atual de acordo com suas permissões.
  * - Membro comum: visualiza apenas os próprios chamados (`user_id === session.user.id`).
  * - Usuários sem `manage_tickets`: todas as mensagens com `is_internal_note: true` são removidas da resposta.
- * - Gerência/Liderança com `view_all_tickets` ou `manage_tickets`: visualiza todos os tickets de toda a facção.
+ * - Gerência/Liderança com `view_all_tickets` ou `manage_tickets`: visualiza todos os tickets de todo o grupo.
  */
 export async function getTickets(): Promise<Ticket[]> {
   const auth = await getEffectiveTicketAuth();
@@ -3359,7 +3426,7 @@ export async function getTickets(): Promise<Ticket[]> {
   const rawTickets = await fetchAllRawTickets();
 
   // Filtragem de privacidade:
-  // - Quem tem view_all_tickets, manage_tickets ou superUser vê todos os tickets da facção
+  // - Quem tem view_all_tickets, manage_tickets ou superUser vê todos os tickets do grupo
   // - Quem está atribuído ao ticket também pode vê-lo
   // - Membro comum visualiza apenas os próprios chamados
   const filteredTickets = rawTickets.filter((ticket) => {

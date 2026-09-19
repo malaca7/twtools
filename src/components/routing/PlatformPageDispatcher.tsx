@@ -30,6 +30,7 @@ import { ConfiguracoesPage } from "@/routes/_authenticated/configuracoes";
 import { CeoPageContent } from "@/routes/_authenticated/ceo";
 import { MemberNotificationsPage } from "@/routes/_authenticated/notificacoes";
 import { CeoNotificationsPage } from "@/routes/_authenticated/ceo.notificacoes";
+import { CeoAjustesEstoqueContent } from "@/routes/_authenticated/ceo.ajustes-estoque";
 import { DevNotificationsPage } from "@/routes/_authenticated/dev.notificacoes";
 import { DevBotPageContent } from "@/routes/_authenticated/dev.bot";
 import { DevEstoquePageContent } from "@/routes/_authenticated/dev.estoque";
@@ -76,6 +77,9 @@ const PAGE_PERMISSION_MAP: Record<string, Permission | null> = {
   bot: "manage_ceo_bot",
   webhooks: "manage_ceo_webhooks",
   financas: "view_ceo_financials",
+  "ajustes-estoque": "view_ceo_stock_adjustments",
+  "ceo-ajustes-estoque": "view_ceo_stock_adjustments",
+  "estoque-ajustes": "view_ceo_stock_adjustments",
   "ceo-notificacoes": "view_ceo_notifications",
 
   // Módulos DEV
@@ -99,6 +103,9 @@ function InnerPageResolver({ page, tab, mode }: { page: string; tab?: string; mo
     }
     if (normalizedPage === "financas") {
       return <CeoPageContent initialTab="financas" />;
+    }
+    if (normalizedPage === "ajustes-estoque" || normalizedPage === "ceo-ajustes-estoque" || normalizedPage === "estoque-ajustes") {
+      return <CeoAjustesEstoqueContent />;
     }
     if (normalizedPage === "notificacoes" || normalizedPage === "ceo-notificacoes") {
       return <CeoNotificationsPage />;

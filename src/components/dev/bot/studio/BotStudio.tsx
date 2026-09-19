@@ -541,7 +541,7 @@ function BotStudioInner({
     <div
       className={
         isFullscreen
-          ? "fixed inset-0 z-50 w-screen h-screen flex flex-col bg-zinc-950 text-zinc-100 overflow-hidden select-none"
+          ? "fixed inset-0 z-[9998] w-screen h-screen flex flex-col bg-zinc-950 text-zinc-100 overflow-hidden select-none"
           : "flex flex-col h-[calc(100vh-140px)] min-h-[680px] w-full rounded-2xl overflow-hidden border border-zinc-800 bg-zinc-950 shadow-2xl relative select-none"
       }
     >

@@ -479,7 +479,7 @@ export function AusenciasPage() {
           title={isManagerView ? "Ausências & Licenças" : "Minhas Ausências & Licenças"}
           description={
             isManagerView
-              ? "Painel de gestão e acompanhamento de ausências da facção, aprovação de licenças e estatísticas gerais."
+              ? "Painel de gestão e acompanhamento de ausências do grupo, aprovação de licenças e estatísticas gerais."
               : "Informe seus períodos de ausência com data de início e retorno, acompanhe o status de aprovação e visualize o número geral de membros ausentes."
           }
         >
@@ -538,7 +538,7 @@ export function AusenciasPage() {
             <p className="text-[0.7rem] text-muted-foreground mt-0.5">
               {isManagerView
                 ? "Membro(s) com licença ativa hoje"
-                : "Total geral da facção em licença hoje"}
+                : "Total geral do grupo em licença hoje"}
             </p>
           </CardContent>
         </Card>
@@ -700,7 +700,7 @@ export function AusenciasPage() {
                   </Badge>
                 </h3>
                 <p className="text-xs text-muted-foreground">
-                  Visão consolidada de sazonalidade, motivos mais frequentes e taxa de aprovação da facção.
+                  Visão consolidada de sazonalidade, motivos mais frequentes e taxa de aprovação do grupo.
                 </p>
               </div>
             </div>
@@ -894,7 +894,7 @@ export function AusenciasPage() {
               <p className="text-xs text-muted-foreground mt-0.5">
                 {isManagerView
                   ? "Não há registros de ausências para os filtros selecionados."
-                  : "Quando precisar se ausentar da facção por viagem, férias ou outros motivos, clique no botão abaixo para informar o período."}
+                  : "Quando precisar se ausentar do grupo por viagem, férias ou outros motivos, clique no botão abaixo para informar o período."}
               </p>
             </div>
             {canRequest && (
@@ -1107,7 +1107,7 @@ export function AusenciasPage() {
               Informar Período de Ausência
             </DialogTitle>
             <DialogDescription className="text-xs text-muted-foreground">
-              Cadastre o período que você estará ausente das atividades da facção.
+              Cadastre o período que você estará ausente das atividades do grupo.
             </DialogDescription>
           </DialogHeader>
 

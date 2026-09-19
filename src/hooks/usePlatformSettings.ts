@@ -45,9 +45,9 @@ export type PlatformSettings = {
 export const DEFAULT_PLATFORM_SETTINGS: PlatformSettings = {
   factionName: "Twin Wheels",
   factionTag: "[TW]",
-  factionType: "Gestão de Facção — GTA RP",
+  factionType: "Gestão de grupo — GTA RP",
   slogan: "Gestão Interna · GTA RP",
-  description: "Sistema interno de gestão da facção Twin Wheels. Controle de estoque, vendas, membros, cargos, desempenho e muito mais.",
+  description: "Sistema interno de gestão do grupo Twin Wheels. Controle de estoque, vendas, membros, cargos, desempenho e muito mais.",
 
   idleTimeoutSeconds: 120,
   heartbeatSeconds: 15,

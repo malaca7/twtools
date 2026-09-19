@@ -1324,8 +1324,12 @@ export function DevBotManageCard({ isCeoView: isCeoViewProp }: DevBotManageCardP
                       </p>
                     </div>
                     <div className="rounded-xl bg-[#1e1f22] p-2.5 border border-[#2b2d31]">
-                      <p className="text-[9px] uppercase font-bold text-[#949ba4]">Discloud Host</p>
-                      <p className="text-xs font-mono font-bold text-primary mt-0.5 truncate">twin.discloud.app</p>
+                      <p className="text-[9px] uppercase font-bold text-[#949ba4]">
+                        {isCeoView ? "Servidor VPS" : "Discloud Host"}
+                      </p>
+                      <p className="text-xs font-mono font-bold text-primary mt-0.5 truncate">
+                        {isCeoView ? "vps.twinwheels.internal" : "twin.discloud.app"}
+                      </p>
                     </div>
                   </div>
 
@@ -1361,7 +1365,7 @@ export function DevBotManageCard({ isCeoView: isCeoViewProp }: DevBotManageCardP
                   </div>
                   <div>
                     <CardTitle className="text-sm font-black text-foreground flex items-center gap-2">
-                      Controle do Bot Discloud
+                      {isCeoView ? "Controle do Bot no Servidor VPS" : "Controle do Bot Discloud"}
                       {isBotRunning ? (
                         <Badge className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 text-[10px] font-bold gap-1 py-0.5">
                           <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
@@ -2334,7 +2338,7 @@ export function DevBotManageCard({ isCeoView: isCeoViewProp }: DevBotManageCardP
               Convidar Bot para Servidor
             </DialogTitle>
             <DialogDescription className="text-xs text-muted-foreground">
-              Gere o link de convite oficial com as permissões necessárias para adicionar o bot ao servidor Discord da facção.
+              Gere o link de convite oficial com as permissões necessárias para adicionar o bot ao servidor Discord do grupo.
             </DialogDescription>
           </DialogHeader>
 

@@ -1345,7 +1345,7 @@ export function MetasPage() {
       <div className="flex items-center justify-between">
         <div>
           <h3 className="text-sm font-extrabold text-foreground">Metas Semanais Registradas</h3>
-          <p className="text-xs text-muted-foreground">Gerencie as metas ativas e históricas da facção.</p>
+          <p className="text-xs text-muted-foreground">Gerencie as metas ativas e históricas do grupo.</p>
         </div>
         {canManage && (
           <Button
@@ -1464,8 +1464,8 @@ export function MetasPage() {
         title="Metas & Contribuições Semanais"
         description={
           canManage
-            ? "Acompanhe o cumprimento das metas da facção, valide comprovantes com prints e gerencie a arrecadação da família."
-            : "Consulte a meta semanal da facção, acompanhe seu saldo pago/restante e envie seus comprovantes de entrega de meta."
+            ? "Acompanhe o cumprimento das metas do grupo, valide comprovantes com prints e gerencie a arrecadação da família."
+            : "Consulte a meta semanal do grupo, acompanhe seu saldo pago/restante e envie seus comprovantes de entrega de meta."
         }
         actions={
           <div className="flex flex-wrap items-center gap-2.5">

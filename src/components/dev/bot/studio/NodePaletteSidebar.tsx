@@ -180,7 +180,7 @@ const PALETTE_ITEMS: NodePaletteItem[] = [
     type: "actionNode",
     actionType: "send_notification",
     title: "Notificação no Painel",
-    description: "Envia um aviso em tempo real para o painel web da facção",
+    description: "Envia um aviso em tempo real para o painel web do grupo",
     category: "data",
     icon: Bell,
     color: "text-yellow-400 bg-yellow-500/10 border-yellow-500/30",

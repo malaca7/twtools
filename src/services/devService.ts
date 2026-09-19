@@ -557,6 +557,7 @@ export interface CeoConfiguration {
   allowManageBot: boolean;
   allowWebhooks: boolean;
   allowFinancials: boolean;
+  allowStockAdjustments: boolean;
   allowAnnouncements: boolean;
   showRealBalance: boolean;
   themeColor?: PanelColor;
@@ -568,12 +569,13 @@ export const DEFAULT_CEO_CONFIG: CeoConfiguration = {
   badgeLabel: "CEO",
   badgeColor: "gold",
   themeColor: "amber",
-  description: "Diretoria Executiva da facção Twin Wheels. Gestão operacional avançada e liderança de negócios.",
+  description: "Diretoria Executiva do grupo Twin Wheels. Gestão operacional avançada e liderança de negócios.",
   executiveBypassLevel: false,
   activeCeoUserIds: [],
   allowManageBot: true,
   allowWebhooks: true,
   allowFinancials: true,
+  allowStockAdjustments: true,
   allowAnnouncements: true,
   showRealBalance: true,
 };
@@ -603,6 +605,11 @@ export const DEFAULT_CEO_PERMISSIONS: string[] = [
   "webhook_view_code",
   "webhook_save_config",
   "view_ceo_financials",
+  "view_ceo_stock_adjustments",
+  "manage_ceo_stock_adjustments",
+  "ceo_adjust_stock_balance",
+  "ceo_stock_add",
+  "ceo_stock_remove",
   "view_dashboard",
   "view_cash_fund",
   "manage_cash_fund",
@@ -850,7 +857,7 @@ export async function saveCeoConfiguration(
 }
 
 /**
- * Ativa ou desativa a Tag CEO para um membro da facção.
+ * Ativa ou desativa a Tag CEO para um membro do grupo.
  * REGRA ESTRITA: Apenas quem possui a Tag Dev (is_developer === true) pode executar!
  */
 export async function toggleMemberCeoTag(
@@ -943,7 +950,7 @@ export async function toggleMemberCeoTag(
 }
 
 /**
- * Ativa ou desativa a Tag Dev para um membro da facção.
+ * Ativa ou desativa a Tag Dev para um membro do grupo.
  * REGRA ESTRITA: Apenas quem possui a Tag Dev (is_developer === true) pode executar!
  */
 export async function toggleMemberDevTag(
