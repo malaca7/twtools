@@ -1832,7 +1832,7 @@ function DiscordLogsTab() {
                 <p className="text-[10px]">Certifique-se de que o bot possui permissão de leitura de mensagens e histórico no canal.</p>
               </div>
             ) : (
-              <div className="overflow-x-auto">
+              <div className="overflow-x-auto mobile-touch-scroll">
                 <Table>
                   <TableHeader>
                     <TableRow className="border-border/40 bg-secondary/20">
@@ -2046,7 +2046,7 @@ function DiscordLogsTab() {
                 Nenhuma log técnica encontrada com os filtros selecionados.
               </div>
             ) : (
-              <div className="overflow-x-auto">
+              <div className="overflow-x-auto mobile-touch-scroll">
                 <Table>
                   <TableHeader>
                     <TableRow className="border-border/40">

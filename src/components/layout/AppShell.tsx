@@ -952,7 +952,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             <div className="flex items-center gap-2 sm:gap-4 min-w-0">
               <SidebarTrigger />
               <div className="flex items-center gap-2 min-w-0">
-                <span className="text-gradient-brand font-display font-extrabold text-xs sm:text-base tracking-[0.12em] uppercase truncate drop-shadow-xs max-w-[120px] sm:max-w-none">
+                <span className="text-gradient-brand font-display font-extrabold text-xs sm:text-base tracking-[0.12em] uppercase truncate drop-shadow-xs max-w-[85px] xs:max-w-[120px] sm:max-w-none">
                   {settings.factionName || "Twin Wheels"}
                 </span>
                 {settings.slogan && (
@@ -973,7 +973,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                         to="/dashboard"
                         onClick={() => setPanelMode("member")}
                         className={cn(
-                          "flex items-center gap-1.5 px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-lg text-xs font-semibold transition-all duration-150 cursor-pointer",
+                          "flex items-center gap-1.5 px-2 py-1 sm:px-3 sm:py-1.5 rounded-lg text-xs font-semibold transition-all duration-150 cursor-pointer",
                           !pathname.startsWith("/dev") && !pathname.startsWith("/ceo")
                             ? "bg-primary text-primary-foreground shadow-xs ring-1 ring-primary/40 font-bold"
                             : "text-muted-foreground hover:text-foreground hover:bg-secondary/60"
@@ -997,7 +997,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                           to="/ceo/dashboard"
                           onClick={() => setPanelMode("ceo")}
                           className={cn(
-                            "flex items-center gap-1.5 px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-lg text-xs font-semibold transition-all duration-150 cursor-pointer",
+                            "flex items-center gap-1.5 px-2 py-1 sm:px-3 sm:py-1.5 rounded-lg text-xs font-semibold transition-all duration-150 cursor-pointer",
                             pathname.startsWith("/ceo")
                               ? cn(ceoStyle.bgSolidClass, "shadow-xs ring-1", ceoStyle.ringClass, "font-bold")
                               : cn(ceoStyle.textMutedClass, "hover:bg-secondary/60 hover:text-foreground")
@@ -1022,7 +1022,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                           to="/dev/dashboard"
                           onClick={() => setPanelMode("dev")}
                           className={cn(
-                            "flex items-center gap-1.5 px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-lg text-xs font-semibold transition-all duration-150 cursor-pointer",
+                            "flex items-center gap-1.5 px-2 py-1 sm:px-3 sm:py-1.5 rounded-lg text-xs font-semibold transition-all duration-150 cursor-pointer",
                             pathname.startsWith("/dev")
                               ? cn(devStyle.bgSolidClass, "shadow-xs ring-1", devStyle.ringClass, "font-bold")
                               : cn(devStyle.textMutedClass, "hover:bg-secondary/60 hover:text-foreground")
@@ -1143,7 +1143,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             </div>
           </header>
 
-          <main className="flex-1 px-2.5 py-4 sm:px-6 lg:px-8 pb-24 md:pb-8 flex flex-col justify-between">
+          <main className="flex-1 px-2.5 py-4 sm:px-6 lg:px-8 pb-28 md:pb-8 flex flex-col justify-between">
             <div className="w-full max-w-7xl mx-auto">{children}</div>
 
             {/* RODAPÉ DISCRETO COM CRÉDITOS DO DESENVOLVEDOR (BY MALACA - DISCORD: MALACA7) */}

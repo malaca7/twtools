@@ -427,22 +427,27 @@ export function VendasPage() {
             </DialogDescription>
           </DialogHeader>
 
-          {saleToReverse && (
-            <div className="flex items-center gap-3 p-3 rounded-xl bg-secondary/40 border border-border/60 my-1">
-              <ProductThumbnail
-                src={products.find((p) => p.id === saleToReverse.product_id)?.imagem_url}
-                name={productName(products, saleToReverse.product_id)}
-                size="md"
-                className="rounded-xl border shadow-sm"
-              />
-              <div className="min-w-0 flex-1">
-                <p className="font-bold text-xs text-foreground truncate">{productName(products, saleToReverse.product_id)}</p>
-                <p className="text-[10px] text-muted-foreground font-mono">
-                  {num(saleToReverse.quantity)} {products.find((p) => p.id === saleToReverse.product_id)?.unidade || "un"} · Total: {currency(saleToReverse.total_price)}
-                </p>
+          {(() => {
+            const saleObj = sales.find((s) => s.id === saleToReverse);
+            if (!saleObj) return null;
+            const p = products.find((x) => x.id === saleObj.product_id);
+            return (
+              <div className="flex items-center gap-3 p-3 rounded-xl bg-secondary/40 border border-border/60 my-1">
+                <ProductThumbnail
+                  src={p?.imagem_url}
+                  name={p?.nome || productName(products, saleObj.product_id)}
+                  size="md"
+                  className="rounded-xl border shadow-sm"
+                />
+                <div className="min-w-0 flex-1">
+                  <p className="font-bold text-xs text-foreground truncate">{productName(products, saleObj.product_id)}</p>
+                  <p className="text-[10px] text-muted-foreground font-mono">
+                    {num(saleObj.quantity)} {p?.unidade || "un"} · Total: {currency(saleObj.total_price)}
+                  </p>
+                </div>
               </div>
-            </div>
-          )}
+            );
+          })()}
 
           <div className="space-y-3 py-2">
             <Input
