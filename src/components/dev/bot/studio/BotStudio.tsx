@@ -24,7 +24,9 @@ import { ConditionNode } from "./nodes/ConditionNode";
 import { NodePaletteSidebar } from "./NodePaletteSidebar";
 import { NodeConfigDrawer } from "./NodeConfigDrawer";
 import { StudioToolbar } from "./StudioToolbar";
-import { Sliders, Split } from "lucide-react";
+import { StudioResizeHandle } from "./StudioResizeHandle";
+import { Sliders, Split, Plus, Maximize } from "lucide-react";
+import { cn } from "@/lib/utils";
 import {
   Dialog,
   DialogContent,
@@ -123,13 +125,84 @@ function BotStudioInner({
   const [nodes, setNodes, onNodesChange] = useNodesState<Node<FlowNodeData>>(initialFlow.nodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>(initialFlow.edges);
 
+  // Responsive layout & Breakpoints
+  const [isMobile, setIsMobile] = useState<boolean>(() => {
+    if (typeof window !== "undefined") {
+      return window.innerWidth < 1024;
+    }
+    return false;
+  });
+
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth < 1024);
+    };
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
   // UI state
-  const [isPaletteOpen, setIsPaletteOpen] = useState(true);
+  const [isPaletteOpen, setIsPaletteOpen] = useState(() => {
+    if (typeof window !== "undefined") {
+      return window.innerWidth >= 1024;
+    }
+    return true;
+  });
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [isTesting, setIsTesting] = useState(false);
   const [isParametersModalOpen, setIsParametersModalOpen] = useState(false);
   const [isConditionsModalOpen, setIsConditionsModalOpen] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(true);
+
+  // Redimensionamento de barras (Desktop & Mobile)
+  const [paletteWidth, setPaletteWidth] = useState<number>(() => {
+    try {
+      const saved = localStorage.getItem("tw_studio_palette_width");
+      return saved ? Number(saved) : 300;
+    } catch {
+      return 300;
+    }
+  });
+
+  const [drawerWidth, setDrawerWidth] = useState<number>(() => {
+    try {
+      const saved = localStorage.getItem("tw_studio_drawer_width");
+      return saved ? Number(saved) : 400;
+    } catch {
+      return 400;
+    }
+  });
+
+  const [studioHeight, setStudioHeight] = useState<number>(() => {
+    try {
+      const saved = localStorage.getItem("tw_studio_height");
+      return saved ? Number(saved) : 750;
+    } catch {
+      return 750;
+    }
+  });
+
+  const [paletteMobileHeight, setPaletteMobileHeight] = useState<number>(55);
+  const [drawerMobileHeight, setDrawerMobileHeight] = useState<number>(65);
+  const [isResizing, setIsResizing] = useState(false);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem("tw_studio_palette_width", String(paletteWidth));
+    } catch (_) {}
+  }, [paletteWidth]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem("tw_studio_drawer_width", String(drawerWidth));
+    } catch (_) {}
+  }, [drawerWidth]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem("tw_studio_height", String(studioHeight));
+    } catch (_) {}
+  }, [studioHeight]);
 
   // Nó selecionado atual
   const selectedNode = useMemo(
@@ -329,6 +402,13 @@ function BotStudioInner({
           eds
         )
       );
+    }
+
+    if (isMobile) {
+      setIsPaletteOpen(false);
+      setTimeout(() => {
+        reactFlowInstance.setCenter(posX + 80, posY + 40, { zoom: 0.85, duration: 400 });
+      }, 50);
     }
 
     toast.success(`Bloco "${item.title}" inserido!`);
@@ -539,11 +619,17 @@ function BotStudioInner({
 
   return (
     <div
-      className={
-        isFullscreen
-          ? "fixed inset-0 z-[9998] w-screen h-screen flex flex-col bg-zinc-950 text-zinc-100 overflow-hidden select-none"
-          : "flex flex-col h-[calc(100vh-140px)] min-h-[680px] w-full rounded-2xl overflow-hidden border border-zinc-800 bg-zinc-950 shadow-2xl relative select-none"
+      style={
+        !isFullscreen && !isMobile
+          ? { height: `${studioHeight}px` }
+          : undefined
       }
+      className={cn(
+        "flex flex-col bg-zinc-950 text-zinc-100 overflow-hidden select-none transition-[height] duration-75",
+        isFullscreen || isMobile
+          ? "fixed inset-0 z-[9998] w-screen h-[100dvh]"
+          : "min-h-[520px] w-full rounded-2xl border border-zinc-800 shadow-2xl relative"
+      )}
     >
       {/* Top Studio Toolbar */}
       <StudioToolbar
@@ -568,6 +654,7 @@ function BotStudioInner({
         onSelectGuildId={handleSelectGuildId}
         isFullscreen={isFullscreen}
         onToggleFullscreen={() => setIsFullscreen((prev) => !prev)}
+        isMobile={isMobile}
       />
 
       {/* Main Studio Body (Palette + Canvas + Config Drawer) */}
@@ -577,10 +664,37 @@ function BotStudioInner({
           isOpen={isPaletteOpen}
           onToggle={() => setIsPaletteOpen((prev) => !prev)}
           onAddNode={handleAddNodeFromPalette}
+          width={paletteWidth}
+          onWidthPreset={(w) => setPaletteWidth(w)}
+          isMobile={isMobile}
+          mobileHeight={paletteMobileHeight}
+          onMobileHeightPreset={(h) => setPaletteMobileHeight(h)}
+          onCloseMobile={() => setIsPaletteOpen(false)}
         />
 
+        {/* Desktop Left Splitter / Resizer */}
+        {!isMobile && isPaletteOpen && (
+          <StudioResizeHandle
+            direction="vertical"
+            position="left"
+            label="Largura dos Blocos"
+            currentValue={paletteWidth}
+            onResizeStart={() => setIsResizing(true)}
+            onResizeEnd={() => setIsResizing(false)}
+            onResize={(delta) => {
+              setPaletteWidth((prev) => Math.min(Math.max(220, prev + delta), 550));
+            }}
+            onDoubleClick={() => setPaletteWidth(300)}
+          />
+        )}
+
         {/* Center Canvas */}
-        <div className="flex-1 h-full w-full relative bg-zinc-950">
+        <div
+          className={cn(
+            "flex-1 h-full w-full relative bg-zinc-950",
+            isResizing && "pointer-events-none select-none"
+          )}
+        >
           <ReactFlow
             nodes={nodes}
             edges={edges}
@@ -619,20 +733,52 @@ function BotStudioInner({
                 return "#8b5cf6";
               }}
               maskColor="rgba(9, 9, 11, 0.75)"
-              className="!bg-zinc-950 !border !border-zinc-800 !rounded-xl overflow-hidden !shadow-2xl"
+              className="!bg-zinc-950 !border !border-zinc-800 !rounded-xl overflow-hidden !shadow-2xl hidden sm:block"
             />
           </ReactFlow>
 
-          {/* Quick Add Floating Button if palette is closed */}
-          {!isPaletteOpen && (
-            <button
-              onClick={() => setIsPaletteOpen(true)}
-              className="absolute top-4 left-4 z-10 px-3 py-2 rounded-xl bg-zinc-900/90 border border-zinc-800 text-xs font-bold text-zinc-300 hover:text-white shadow-xl backdrop-blur-md flex items-center gap-2 hover:border-zinc-700"
-            >
-              <span>+ Adicionar Bloco</span>
-            </button>
+          {/* Quick Add Floating Button on Canvas (when palette closed or on mobile) */}
+          {(!isPaletteOpen || isMobile) && (
+            <div className="absolute top-4 left-4 z-10 flex items-center gap-2">
+              <Button
+                size="sm"
+                onClick={() => setIsPaletteOpen(true)}
+                className="px-3 py-1.5 h-9 rounded-xl bg-zinc-900/90 hover:bg-zinc-800 border border-zinc-800 text-xs font-bold text-zinc-200 hover:text-white shadow-xl backdrop-blur-md flex items-center gap-2 hover:border-emerald-500/50 transition-all"
+              >
+                <Plus className="h-4 w-4 text-emerald-400" />
+                <span>+ Adicionar Bloco</span>
+              </Button>
+
+              {isMobile && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => reactFlowInstance.fitView({ padding: 0.25, duration: 300 })}
+                  className="px-2.5 h-9 rounded-xl bg-zinc-900/90 border border-zinc-800 text-xs font-medium text-zinc-300 hover:text-white shadow-xl backdrop-blur-md hover:border-zinc-700"
+                  title="Ajustar Visão"
+                >
+                  <Maximize className="h-3.5 w-3.5" />
+                </Button>
+              )}
+            </div>
           )}
         </div>
+
+        {/* Desktop Right Splitter / Resizer */}
+        {!isMobile && selectedNode && (
+          <StudioResizeHandle
+            direction="vertical"
+            position="right"
+            label="Configuração do Bloco"
+            currentValue={drawerWidth}
+            onResizeStart={() => setIsResizing(true)}
+            onResizeEnd={() => setIsResizing(false)}
+            onResize={(delta) => {
+              setDrawerWidth((prev) => Math.min(Math.max(280, prev - delta), 700));
+            }}
+            onDoubleClick={() => setDrawerWidth(400)}
+          />
+        )}
 
         {/* Right Node Config Drawer */}
         {selectedNode && (
@@ -641,24 +787,29 @@ function BotStudioInner({
             onClose={() => setSelectedNodeId(null)}
             onUpdateNodeData={handleUpdateNodeData}
             onDeleteNode={handleDeleteNode}
+            width={drawerWidth}
+            onWidthPreset={(w) => setDrawerWidth(w)}
+            isMobile={isMobile}
+            mobileHeight={drawerMobileHeight}
+            onMobileHeightPreset={(h) => setDrawerMobileHeight(h)}
           />
         )}
       </div>
 
-      {/* Native Desktop Pro Status Bar */}
+      {/* Native Desktop / Mobile Pro Status Bar */}
       <footer className="h-7 px-3 bg-zinc-950 border-t border-zinc-800/80 flex items-center justify-between text-[11px] text-zinc-400 select-none z-20 shrink-0">
-        <div className="flex items-center gap-3">
-          <span className="flex items-center gap-1.5 font-medium text-zinc-300">
+        <div className="flex items-center gap-2 sm:gap-3 overflow-hidden">
+          <span className="flex items-center gap-1.5 font-medium text-zinc-300 shrink-0">
             <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-            Bot Studio Pro
+            <span className="hidden xs:inline">Bot Studio</span> Pro
           </span>
-          <span className="text-zinc-600">|</span>
-          <span>{nodes.length} Nós</span>
-          <span className="text-zinc-600">•</span>
-          <span>{edges.length} Conexões</span>
-          <span className="text-zinc-600">|</span>
-          <span className="text-zinc-400">
-            Servidor Alvo:{" "}
+          <span className="text-zinc-700">|</span>
+          <span className="shrink-0">{nodes.length} Nós</span>
+          <span className="text-zinc-700">•</span>
+          <span className="shrink-0">{edges.length} Conexões</span>
+          <span className="text-zinc-700 hidden sm:inline">|</span>
+          <span className="text-zinc-400 hidden sm:inline truncate">
+            Servidor:{" "}
             <strong className="text-zinc-200">
               {selectedGuildId === "1535505650308620400"
                 ? "Twin Wheel"
@@ -671,19 +822,35 @@ function BotStudioInner({
           </span>
         </div>
 
-        <div className="flex items-center gap-4 text-zinc-400">
-          <span className="hidden md:inline-flex items-center gap-1 text-[10px] text-zinc-400">
+        <div className="flex items-center gap-3 text-zinc-400 shrink-0">
+          <span className="hidden lg:inline-flex items-center gap-1 text-[10px] text-zinc-400">
             <kbd className="px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-300 border border-zinc-700">Ctrl+S</kbd> Salvar
             <span className="mx-1 text-zinc-600">•</span>
             <kbd className="px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-300 border border-zinc-700">Esc</kbd> Minimizar
           </span>
-          <span className="text-zinc-600">|</span>
+          <span className="text-zinc-700 hidden lg:inline">|</span>
           <span className="flex items-center gap-1.5 text-emerald-400 font-medium">
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-            Discloud Engine (Online)
+            <span className="hidden xs:inline">Discloud</span> Engine
           </span>
         </div>
       </footer>
+
+      {/* Desktop Window Bottom Resize Handle */}
+      {!isFullscreen && !isMobile && (
+        <StudioResizeHandle
+          direction="horizontal"
+          position="bottom"
+          label="Altura do Studio"
+          currentValue={studioHeight}
+          onResizeStart={() => setIsResizing(true)}
+          onResizeEnd={() => setIsResizing(false)}
+          onResize={(delta) => {
+            setStudioHeight((prev) => Math.min(Math.max(520, prev + delta), window.innerHeight - 50));
+          }}
+          onDoubleClick={() => setStudioHeight(750)}
+        />
+      )}
 
       {/* Modal Dedicado de Parâmetros / Argumentos no Studio */}
       <Dialog open={isParametersModalOpen} onOpenChange={setIsParametersModalOpen}>

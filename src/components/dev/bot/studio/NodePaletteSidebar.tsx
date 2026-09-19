@@ -16,13 +16,18 @@ import {
   GripVertical,
   Layers,
   HelpCircle,
+  X,
+  Maximize2,
+  Minimize2,
+  Sliders,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import type { ActionType } from "@/services/botEngine/types";
+import { cn } from "@/lib/utils";
 
-interface NodePaletteItem {
+export interface NodePaletteItem {
   id: string;
   type: "actionNode" | "conditionNode";
   actionType?: ActionType;
@@ -34,7 +39,7 @@ interface NodePaletteItem {
   defaultConfig?: Record<string, any>;
 }
 
-const PALETTE_ITEMS: NodePaletteItem[] = [
+export const PALETTE_ITEMS: NodePaletteItem[] = [
   // Messaging
   {
     id: "send_message",
@@ -103,90 +108,76 @@ const PALETTE_ITEMS: NodePaletteItem[] = [
     },
   },
 
-  // Logic & Flow Control
+  // Logic & Conditions
   {
     id: "condition_branch",
     type: "conditionNode",
-    actionType: "condition_branch",
-    title: "Condição IF / ELSE",
-    description: "Bifurca o fluxo em caminhos VERDADEIRO (SIM) e FALSO (SENÃO)",
+    title: "Bifurcação SE / SENÃO",
+    description: "Divide o fluxo em caminhos VERDADEIRO e FALSO de acordo com regras",
     category: "logic",
     icon: Split,
     color: "text-amber-400 bg-amber-500/10 border-amber-500/30",
     defaultConfig: {
-      conditionGroups: [
-        {
-          id: `cg_${Date.now()}`,
-          logic: "AND",
-          conditions: [
-            {
-              id: `c_${Date.now()}`,
-              field: "user.roles",
-              operator: "has_role",
-              value: "Membro",
-            },
-          ],
-        },
-      ],
+      conditionType: "role",
+      operator: "equals",
+      value: "",
     },
   },
   {
-    id: "delay",
+    id: "wait_delay",
     type: "actionNode",
-    actionType: "delay",
+    actionType: "wait_delay",
     title: "Aguardar (Delay)",
-    description: "Pausa o fluxo por um determinado tempo em milissegundos",
+    description: "Pausa a execução do fluxo por um intervalo determinado em segundos",
     category: "logic",
     icon: Clock,
-    color: "text-zinc-400 bg-zinc-800/40 border-zinc-700/40",
+    color: "text-cyan-400 bg-cyan-500/10 border-cyan-500/30",
     defaultConfig: {
-      durationMs: 1500,
+      seconds: 5,
     },
   },
 
-  // Data & Integrations
+  // Data & Webhooks
+  {
+    id: "webhook_call",
+    type: "actionNode",
+    actionType: "webhook_call",
+    title: "Disparar Webhook HTTP",
+    description: "Envia requisição POST/GET externa com payload dinâmico",
+    category: "data",
+    icon: Globe,
+    color: "text-indigo-400 bg-indigo-500/10 border-indigo-500/30",
+    defaultConfig: {
+      url: "https://",
+      method: "POST",
+      body: "{}",
+    },
+  },
+  {
+    id: "custom_code",
+    type: "actionNode",
+    actionType: "custom_code",
+    title: "Script JavaScript",
+    description: "Executa código personalizado com variáveis de contexto da mensagem",
+    category: "data",
+    icon: FileCode,
+    color: "text-emerald-400 bg-emerald-500/10 border-emerald-500/30",
+    defaultConfig: {
+      code: "// Contexto: message, author, guild, args\nreturn { success: true };",
+    },
+  },
   {
     id: "set_variable",
     type: "actionNode",
     actionType: "set_variable",
-    title: "Definir Variável",
-    description: "Salva ou atualiza uma variável na memória do bot",
+    title: "Gravar Variável",
+    description: "Armazena dados temporários ou persistentes no contexto do bot",
     category: "data",
     icon: Variable,
     color: "text-pink-400 bg-pink-500/10 border-pink-500/30",
     defaultConfig: {
-      variableName: "meu_status",
-      variableValue: "ativo",
-    },
-  },
-  {
-    id: "http_request",
-    type: "actionNode",
-    actionType: "http_request",
-    title: "Requisição Webhook / API",
-    description: "Dispara uma requisição HTTP POST/GET externa",
-    category: "data",
-    icon: Globe,
-    color: "text-teal-400 bg-teal-500/10 border-teal-500/30",
-    defaultConfig: {
-      method: "POST",
-      url: "https://api.exemplo.com/webhook",
-      headers: { "Content-Type": "application/json" },
-      body: '{"event": "discord_action"}',
-    },
-  },
-  {
-    id: "send_notification",
-    type: "actionNode",
-    actionType: "send_notification",
-    title: "Notificação no Painel",
-    description: "Envia um aviso em tempo real para o painel web do grupo",
-    category: "data",
-    icon: Bell,
-    color: "text-yellow-400 bg-yellow-500/10 border-yellow-500/30",
-    defaultConfig: {
-      title: "Notificação do Bot",
-      description: "Aviso importante acionado via Discord",
+      variableName: "",
+      variableValue: "",
     },
   },
 ];
@@ -195,9 +186,25 @@ interface NodePaletteSidebarProps {
   onAddNode: (item: NodePaletteItem) => void;
   isOpen: boolean;
   onToggle: () => void;
+  width?: number;
+  onWidthPreset?: (width: number) => void;
+  isMobile?: boolean;
+  mobileHeight?: number;
+  onMobileHeightPreset?: (heightVh: number) => void;
+  onCloseMobile?: () => void;
 }
 
-export function NodePaletteSidebar({ onAddNode, isOpen, onToggle }: NodePaletteSidebarProps) {
+export function NodePaletteSidebar({
+  onAddNode,
+  isOpen,
+  onToggle,
+  width = 300,
+  onWidthPreset,
+  isMobile = false,
+  mobileHeight = 55,
+  onMobileHeightPreset,
+  onCloseMobile,
+}: NodePaletteSidebarProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
 
@@ -216,11 +223,162 @@ export function NodePaletteSidebar({ onAddNode, isOpen, onToggle }: NodePaletteS
 
   if (!isOpen) return null;
 
+  // Render for Mobile as Bottom Sheet / Responsive Drawer
+  if (isMobile) {
+    return (
+      <div className="fixed inset-x-0 bottom-0 z-50 flex flex-col bg-zinc-950/98 border-t border-zinc-800 rounded-t-2xl shadow-2xl backdrop-blur-xl transition-all duration-200">
+        {/* Mobile Top Header with Drag Handle & Presets */}
+        <div className="p-3 border-b border-zinc-800/80 flex flex-col gap-2">
+          {/* Top Center Grab Pill */}
+          <div className="mx-auto w-12 h-1.5 rounded-full bg-zinc-700/80 mb-0.5" />
+
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="p-1.5 rounded-lg bg-emerald-500/15 border border-emerald-500/30 text-emerald-400">
+                <Layers className="h-4 w-4" />
+              </div>
+              <div>
+                <span className="text-xs font-bold text-zinc-100">Paleta de Blocos</span>
+                <p className="text-[10px] text-zinc-400">Toque em (+) para inserir no fluxo</p>
+              </div>
+            </div>
+
+            {/* Height Presets & Close Button */}
+            <div className="flex items-center gap-1.5">
+              {onMobileHeightPreset && (
+                <div className="flex items-center gap-1 bg-zinc-900 border border-zinc-800 rounded-lg p-0.5">
+                  <button
+                    onClick={() => onMobileHeightPreset(40)}
+                    className={cn(
+                      "px-1.5 py-0.5 rounded text-[9px] font-bold transition-colors",
+                      mobileHeight <= 45 ? "bg-emerald-500 text-white" : "text-zinc-400 hover:text-white"
+                    )}
+                    title="Altura compacta"
+                  >
+                    40%
+                  </button>
+                  <button
+                    onClick={() => onMobileHeightPreset(60)}
+                    className={cn(
+                      "px-1.5 py-0.5 rounded text-[9px] font-bold transition-colors",
+                      mobileHeight > 45 && mobileHeight <= 70 ? "bg-emerald-500 text-white" : "text-zinc-400 hover:text-white"
+                    )}
+                    title="Altura média"
+                  >
+                    60%
+                  </button>
+                  <button
+                    onClick={() => onMobileHeightPreset(85)}
+                    className={cn(
+                      "px-1.5 py-0.5 rounded text-[9px] font-bold transition-colors",
+                      mobileHeight > 70 ? "bg-emerald-500 text-white" : "text-zinc-400 hover:text-white"
+                    )}
+                    title="Altura máxima"
+                  >
+                    85%
+                  </button>
+                </div>
+              )}
+
+              <Button
+                size="icon"
+                variant="ghost"
+                onClick={onCloseMobile || onToggle}
+                className="h-7 w-7 text-zinc-400 hover:text-white rounded-lg border border-zinc-800"
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+
+          {/* Search Input */}
+          <div className="relative mt-1">
+            <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-zinc-500" />
+            <Input
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              placeholder="Buscar bloco ou ação..."
+              className="pl-8 h-8 text-xs bg-zinc-900/90 border-zinc-800 text-zinc-200 placeholder:text-zinc-500"
+            />
+          </div>
+
+          {/* Category Filter Pills */}
+          <div className="flex items-center gap-1 overflow-x-auto pb-0.5 no-scrollbar text-[10px]">
+            {["all", "messaging", "logic", "roles", "data"].map((cat) => {
+              const label =
+                cat === "all"
+                  ? "Todos"
+                  : cat === "messaging"
+                  ? "Discord"
+                  : cat === "logic"
+                  ? "Lógica"
+                  : cat === "roles"
+                  ? "Cargos"
+                  : "Webhooks";
+              return (
+                <button
+                  key={cat}
+                  onClick={() => setSelectedCategory(cat)}
+                  className={`px-2.5 py-1 rounded-md font-semibold transition-all shrink-0 ${
+                    selectedCategory === cat
+                      ? "bg-emerald-500 text-white shadow-sm"
+                      : "bg-zinc-900 text-zinc-400 hover:text-white"
+                  }`}
+                >
+                  {label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Scrollable Item List */}
+        <div
+          style={{ maxHeight: `calc(${mobileHeight}vh - 140px)` }}
+          className="overflow-y-auto p-3 space-y-2"
+        >
+          {filteredItems.map((item) => {
+            const Icon = item.icon;
+            return (
+              <div
+                key={item.id}
+                className="p-2.5 rounded-xl border border-zinc-800/80 bg-zinc-900/60 active:bg-zinc-900 transition-all flex items-center justify-between gap-3 shadow-sm"
+              >
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div className={`p-2 rounded-lg border shrink-0 ${item.color}`}>
+                    <Icon className="h-4 w-4" />
+                  </div>
+                  <div className="min-w-0">
+                    <div className="text-xs font-bold text-zinc-100 truncate">{item.title}</div>
+                    <div className="text-[10px] text-zinc-400 truncate">{item.description}</div>
+                  </div>
+                </div>
+
+                <Button
+                  size="sm"
+                  onClick={() => onAddNode(item)}
+                  className="h-7 px-2.5 text-xs bg-emerald-600/90 hover:bg-emerald-500 text-white rounded-lg shrink-0 gap-1 font-bold"
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                  <span>Inserir</span>
+                </Button>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  }
+
+  // Render for Desktop as Resizable Sidebar
   return (
-    <aside className="w-80 border-r border-zinc-800 bg-zinc-950/95 flex flex-col h-full z-20 shadow-2xl backdrop-blur-md">
+    <aside
+      style={{ width: `${width}px` }}
+      className="border-r border-zinc-800 bg-zinc-950/95 flex flex-col h-full z-20 shadow-2xl backdrop-blur-md relative shrink-0 transition-[width] duration-75"
+    >
       {/* Header */}
-      <div className="p-4 border-b border-zinc-800">
-        <div className="flex items-center justify-between pb-3">
+      <div className="p-3 border-b border-zinc-800 space-y-2">
+        <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <div className="p-1.5 rounded-lg bg-emerald-500/15 border border-emerald-500/30">
               <Layers className="h-4 w-4 text-emerald-400" />
@@ -229,9 +387,54 @@ export function NodePaletteSidebar({ onAddNode, isOpen, onToggle }: NodePaletteS
               Paleta de Blocos
             </span>
           </div>
-          <Badge variant="outline" className="text-[10px] text-zinc-400 border-zinc-800">
-            N8N / Studio
-          </Badge>
+
+          {/* Width Presets & Dimension Badge */}
+          <div className="flex items-center gap-1.5">
+            {onWidthPreset && (
+              <div className="hidden sm:flex items-center gap-0.5 bg-zinc-900 border border-zinc-800 rounded-md p-0.5">
+                <button
+                  onClick={() => onWidthPreset(240)}
+                  className={cn(
+                    "px-1.5 py-0.5 rounded text-[9px] font-bold transition-colors",
+                    width <= 260 ? "bg-emerald-500 text-white" : "text-zinc-400 hover:text-white"
+                  )}
+                  title="Largura compacta (240px)"
+                >
+                  240
+                </button>
+                <button
+                  onClick={() => onWidthPreset(300)}
+                  className={cn(
+                    "px-1.5 py-0.5 rounded text-[9px] font-bold transition-colors",
+                    width > 260 && width <= 360 ? "bg-emerald-500 text-white" : "text-zinc-400 hover:text-white"
+                  )}
+                  title="Largura padrão (300px)"
+                >
+                  300
+                </button>
+                <button
+                  onClick={() => onWidthPreset(420)}
+                  className={cn(
+                    "px-1.5 py-0.5 rounded text-[9px] font-bold transition-colors",
+                    width > 360 ? "bg-emerald-500 text-white" : "text-zinc-400 hover:text-white"
+                  )}
+                  title="Largura ampla (420px)"
+                >
+                  420
+                </button>
+              </div>
+            )}
+
+            <Button
+              size="icon"
+              variant="ghost"
+              onClick={onToggle}
+              className="h-6 w-6 text-zinc-400 hover:text-white rounded"
+              title="Recolher barra lateral"
+            >
+              <X className="h-3.5 w-3.5" />
+            </Button>
+          </div>
         </div>
 
         {/* Search Input */}
@@ -246,10 +449,10 @@ export function NodePaletteSidebar({ onAddNode, isOpen, onToggle }: NodePaletteS
         </div>
 
         {/* Category Pills */}
-        <div className="flex items-center gap-1 mt-3 overflow-x-auto pb-1 no-scrollbar text-[10px]">
+        <div className="flex items-center gap-1 overflow-x-auto pb-0.5 no-scrollbar text-[10px]">
           <button
             onClick={() => setSelectedCategory("all")}
-            className={`px-2.5 py-1 rounded-md font-semibold transition-all shrink-0 ${
+            className={`px-2 py-0.5 rounded font-semibold transition-all shrink-0 ${
               selectedCategory === "all"
                 ? "bg-emerald-500 text-white shadow-sm"
                 : "bg-zinc-900 text-zinc-400 hover:text-white"
@@ -259,7 +462,7 @@ export function NodePaletteSidebar({ onAddNode, isOpen, onToggle }: NodePaletteS
           </button>
           <button
             onClick={() => setSelectedCategory("messaging")}
-            className={`px-2.5 py-1 rounded-md font-semibold transition-all shrink-0 ${
+            className={`px-2 py-0.5 rounded font-semibold transition-all shrink-0 ${
               selectedCategory === "messaging"
                 ? "bg-emerald-500 text-white shadow-sm"
                 : "bg-zinc-900 text-zinc-400 hover:text-white"
@@ -269,7 +472,7 @@ export function NodePaletteSidebar({ onAddNode, isOpen, onToggle }: NodePaletteS
           </button>
           <button
             onClick={() => setSelectedCategory("logic")}
-            className={`px-2.5 py-1 rounded-md font-semibold transition-all shrink-0 ${
+            className={`px-2 py-0.5 rounded font-semibold transition-all shrink-0 ${
               selectedCategory === "logic"
                 ? "bg-emerald-500 text-white shadow-sm"
                 : "bg-zinc-900 text-zinc-400 hover:text-white"
@@ -279,7 +482,7 @@ export function NodePaletteSidebar({ onAddNode, isOpen, onToggle }: NodePaletteS
           </button>
           <button
             onClick={() => setSelectedCategory("roles")}
-            className={`px-2.5 py-1 rounded-md font-semibold transition-all shrink-0 ${
+            className={`px-2 py-0.5 rounded font-semibold transition-all shrink-0 ${
               selectedCategory === "roles"
                 ? "bg-emerald-500 text-white shadow-sm"
                 : "bg-zinc-900 text-zinc-400 hover:text-white"
@@ -289,7 +492,7 @@ export function NodePaletteSidebar({ onAddNode, isOpen, onToggle }: NodePaletteS
           </button>
           <button
             onClick={() => setSelectedCategory("data")}
-            className={`px-2.5 py-1 rounded-md font-semibold transition-all shrink-0 ${
+            className={`px-2 py-0.5 rounded font-semibold transition-all shrink-0 ${
               selectedCategory === "data"
                 ? "bg-emerald-500 text-white shadow-sm"
                 : "bg-zinc-900 text-zinc-400 hover:text-white"
@@ -350,11 +553,12 @@ export function NodePaletteSidebar({ onAddNode, isOpen, onToggle }: NodePaletteS
       </div>
 
       {/* Footer Info */}
-      <div className="p-3 border-t border-zinc-800/80 bg-zinc-900/40 text-[11px] text-zinc-400 flex items-center justify-between">
-        <span className="flex items-center gap-1.5 text-zinc-400">
+      <div className="p-2.5 border-t border-zinc-800/80 bg-zinc-900/40 text-[11px] text-zinc-400 flex items-center justify-between">
+        <span className="flex items-center gap-1.5 text-zinc-400 text-[10px]">
           <HelpCircle className="h-3.5 w-3.5 text-emerald-400" />
           Conecte nós puxando pelas bolinhas
         </span>
+        <span className="text-[10px] font-mono text-zinc-500">{Math.round(width)}px</span>
       </div>
     </aside>
   );

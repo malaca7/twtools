@@ -30,6 +30,7 @@ import { AVAILABLE_PLACEHOLDERS } from "@/services/botEngine/parser";
 import type { FlowNodeData } from "./flowUtils";
 import type { Node } from "@xyflow/react";
 import type { EventTriggerType } from "@/services/botEngine/types";
+import { cn } from "@/lib/utils";
 
 interface NodeConfigDrawerProps {
   selectedNode: Node<FlowNodeData> | null;
@@ -37,6 +38,11 @@ interface NodeConfigDrawerProps {
   onUpdateNodeData: (nodeId: string, newData: Partial<FlowNodeData>) => void;
   onDeleteNode: (nodeId: string) => void;
   onDuplicateNode?: (node: Node<FlowNodeData>) => void;
+  width?: number;
+  onWidthPreset?: (width: number) => void;
+  isMobile?: boolean;
+  mobileHeight?: number;
+  onMobileHeightPreset?: (heightVh: number) => void;
 }
 
 export function NodeConfigDrawer({
@@ -45,6 +51,11 @@ export function NodeConfigDrawer({
   onUpdateNodeData,
   onDeleteNode,
   onDuplicateNode,
+  width = 380,
+  onWidthPreset,
+  isMobile = false,
+  mobileHeight = 65,
+  onMobileHeightPreset,
 }: NodeConfigDrawerProps) {
   if (!selectedNode) return null;
 
@@ -67,13 +78,13 @@ export function NodeConfigDrawer({
     handleConfigChange(currentField, `${prev} {{${placeholder}}}`);
   };
 
-  return (
-    <aside className="w-96 border-l border-zinc-800 bg-zinc-950/95 flex flex-col h-full z-20 shadow-2xl backdrop-blur-md">
-      {/* Drawer Header */}
-      <div className="p-4 border-b border-zinc-800 flex items-center justify-between">
+  const renderHeader = () => (
+    <div className="p-3 border-b border-zinc-800 flex flex-col gap-1.5">
+      {isMobile && <div className="mx-auto w-12 h-1.5 rounded-full bg-zinc-700/80 mb-0.5" />}
+      <div className="flex items-center justify-between">
         <div className="flex items-center gap-2.5 min-w-0">
           <div
-            className={`p-2 rounded-lg border ${
+            className={`p-2 rounded-lg border shrink-0 ${
               isTrigger
                 ? "bg-emerald-500/15 border-emerald-500/30 text-emerald-400"
                 : isCondition
@@ -97,18 +108,95 @@ export function NodeConfigDrawer({
           </div>
         </div>
 
-        <Button
-          size="icon"
-          variant="ghost"
-          onClick={onClose}
-          className="h-8 w-8 text-zinc-400 hover:text-zinc-100 rounded-lg"
-        >
-          <X className="h-4 w-4" />
-        </Button>
-      </div>
+        <div className="flex items-center gap-1.5 shrink-0">
+          {/* Desktop Width Presets */}
+          {!isMobile && onWidthPreset && (
+            <div className="hidden sm:flex items-center gap-0.5 bg-zinc-900 border border-zinc-800 rounded-md p-0.5">
+              <button
+                onClick={() => onWidthPreset(320)}
+                className={cn(
+                  "px-1.5 py-0.5 rounded text-[9px] font-bold transition-colors",
+                  width <= 340 ? "bg-violet-500 text-white" : "text-zinc-400 hover:text-white"
+                )}
+                title="Largura compacta (320px)"
+              >
+                320
+              </button>
+              <button
+                onClick={() => onWidthPreset(420)}
+                className={cn(
+                  "px-1.5 py-0.5 rounded text-[9px] font-bold transition-colors",
+                  width > 340 && width <= 480 ? "bg-violet-500 text-white" : "text-zinc-400 hover:text-white"
+                )}
+                title="Largura padrão (420px)"
+              >
+                420
+              </button>
+              <button
+                onClick={() => onWidthPreset(600)}
+                className={cn(
+                  "px-1.5 py-0.5 rounded text-[9px] font-bold transition-colors",
+                  width > 480 ? "bg-violet-500 text-white" : "text-zinc-400 hover:text-white"
+                )}
+                title="Largura ampla (600px)"
+              >
+                600
+              </button>
+            </div>
+          )}
 
-      {/* Drawer Content */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-5">
+          {/* Mobile Height Presets */}
+          {isMobile && onMobileHeightPreset && (
+            <div className="flex items-center gap-1 bg-zinc-900 border border-zinc-800 rounded-lg p-0.5">
+              <button
+                onClick={() => onMobileHeightPreset(45)}
+                className={cn(
+                  "px-1.5 py-0.5 rounded text-[9px] font-bold transition-colors",
+                  mobileHeight <= 50 ? "bg-violet-500 text-white" : "text-zinc-400 hover:text-white"
+                )}
+                title="Altura compacta"
+              >
+                45%
+              </button>
+              <button
+                onClick={() => onMobileHeightPreset(70)}
+                className={cn(
+                  "px-1.5 py-0.5 rounded text-[9px] font-bold transition-colors",
+                  mobileHeight > 50 && mobileHeight <= 80 ? "bg-violet-500 text-white" : "text-zinc-400 hover:text-white"
+                )}
+                title="Altura média"
+              >
+                70%
+              </button>
+              <button
+                onClick={() => onMobileHeightPreset(92)}
+                className={cn(
+                  "px-1.5 py-0.5 rounded text-[9px] font-bold transition-colors",
+                  mobileHeight > 80 ? "bg-violet-500 text-white" : "text-zinc-400 hover:text-white"
+                )}
+                title="Altura máxima"
+              >
+                92%
+              </button>
+            </div>
+          )}
+
+          <Button
+            size="icon"
+            variant="ghost"
+            onClick={onClose}
+            className="h-7 w-7 text-zinc-400 hover:text-zinc-100 rounded-lg border border-zinc-800"
+            title="Fechar configuração"
+          >
+            <X className="h-4 w-4" />
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+
+  const renderContent = () => (
+    <>
         {/* ========================================================================= */}
         {/* 1. CONFIGURAÇÃO DE GATILHO (TRIGGER) */}
         {/* ========================================================================= */}
@@ -472,31 +560,66 @@ export function NodeConfigDrawer({
             )}
           </div>
         )}
-      </div>
+    </>
+  );
 
-      {/* Drawer Footer Actions */}
-      <div className="p-4 border-t border-zinc-800 bg-zinc-900/40 flex items-center justify-between gap-2">
-        {!isTrigger && (
-          <Button
-            size="sm"
-            variant="destructive"
-            onClick={() => onDeleteNode(id)}
-            className="text-xs font-bold gap-1.5 bg-rose-600/20 text-rose-400 hover:bg-rose-600/30 border border-rose-500/30 h-8"
-          >
-            <Trash2 className="h-3.5 w-3.5" />
-            Excluir Bloco
-          </Button>
+  const renderFooter = () => (
+    <div className="p-3 border-t border-zinc-800 bg-zinc-900/40 flex items-center justify-between gap-2">
+      {!isTrigger && (
+        <Button
+          size="sm"
+          variant="destructive"
+          onClick={() => onDeleteNode(id)}
+          className="text-xs font-bold gap-1.5 bg-rose-600/20 text-rose-400 hover:bg-rose-600/30 border border-rose-500/30 h-8"
+        >
+          <Trash2 className="h-3.5 w-3.5" />
+          Excluir Bloco
+        </Button>
+      )}
+
+      <div className="flex items-center gap-2 ml-auto">
+        {!isMobile && (
+          <span className="text-[10px] font-mono text-zinc-500 hidden sm:inline">
+            {Math.round(width)}px
+          </span>
         )}
-
         <Button
           size="sm"
           onClick={onClose}
-          className="ml-auto text-xs font-bold gap-1.5 bg-emerald-600 hover:bg-emerald-500 text-white h-8"
+          className="text-xs font-bold gap-1.5 bg-emerald-600 hover:bg-emerald-500 text-white h-8"
         >
           <Save className="h-3.5 w-3.5" />
           Concluir Edição
         </Button>
       </div>
+    </div>
+  );
+
+  if (isMobile) {
+    return (
+      <div
+        style={{ height: `${mobileHeight}vh` }}
+        className="fixed inset-x-0 bottom-0 z-50 flex flex-col bg-zinc-950/98 border-t border-zinc-800 rounded-t-2xl shadow-2xl backdrop-blur-xl transition-[height] duration-150 overflow-hidden"
+      >
+        {renderHeader()}
+        <div className="flex-1 overflow-y-auto p-4 space-y-5">
+          {renderContent()}
+        </div>
+        {renderFooter()}
+      </div>
+    );
+  }
+
+  return (
+    <aside
+      style={{ width: `${width}px` }}
+      className="border-l border-zinc-800 bg-zinc-950/95 flex flex-col h-full z-20 shadow-2xl backdrop-blur-md relative shrink-0 transition-[width] duration-75"
+    >
+      {renderHeader()}
+      <div className="flex-1 overflow-y-auto p-4 space-y-5">
+        {renderContent()}
+      </div>
+      {renderFooter()}
     </aside>
   );
 }
