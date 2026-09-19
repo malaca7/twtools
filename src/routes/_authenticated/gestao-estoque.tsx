@@ -103,34 +103,31 @@ export function GestaoEstoquePage() {
   const { data: baus = [], refetch: refetchBaus } = useBaus();
   const { refetch: refetchProductBaus } = useProductBaus();
 
-  // Permissões granulares de Gestão de Estoque
-  const canManageProdutos = hasPermission("manage_stock_products") || hasPermission("manage_products");
-  const canViewProdutos = canManageProdutos || hasPermission("view_products") || hasPermission("view_stock");
+  // Permissões granulares e isoladas da Gestão de Estoque
+  const canManageProdutos = hasPermission("manage_stock_products");
+  const canViewProdutos = canManageProdutos;
 
-  const canManageCategorias = hasPermission("manage_stock_categories") || hasPermission("manage_categories");
-  const canViewCategorias = canManageCategorias || hasPermission("view_categories");
+  const canManageCategorias = hasPermission("manage_stock_categories");
+  const canViewCategorias = canManageCategorias;
 
-  const canManageBaus = hasPermission("manage_stock_baus") || hasPermission("manage_baus");
-  const canViewBaus = canManageBaus || hasPermission("view_baus");
+  const canManageBaus = hasPermission("manage_stock_baus");
+  const canViewBaus = canManageBaus;
 
-  const canManageStockBalance =
-    hasPermission("manage_stock_balance") ||
-    hasPermission("estoque.corrigir") ||
-    hasPermission("estoque.configurar");
-  const canAdjustSaldos = canManageStockBalance || hasPermission("adjust_stock_balance") || hasPermission("estoque.ajustar");
-  const canViewSaldos = canAdjustSaldos || hasPermission("view_movement_balances") || hasPermission("estoque.visualizar");
+  const canManageStockBalance = hasPermission("manage_stock_balance");
+  const canAdjustSaldos = canManageStockBalance || hasPermission("adjust_stock_balance");
+  const canViewSaldos = canAdjustSaldos;
 
-  const hasBaseManagement = hasPermission("view_stock_management");
-
-  // Fallback seguro: se o membro tem permissão geral de gestão mas nenhuma aba específica, libera produtos como padrão
-  const isFallbackProdutos =
-    hasBaseManagement && !canViewProdutos && !canViewCategorias && !canViewBaus && !canViewSaldos;
-  const effectiveCanViewProdutos = canViewProdutos || isFallbackProdutos;
+  const hasBaseManagement =
+    hasPermission("view_stock_management") ||
+    canViewProdutos ||
+    canViewCategorias ||
+    canViewBaus ||
+    canViewSaldos;
 
   // Lista dinâmica de abas estritamente permitidas (as não permitidas ficam 100% ocultas)
   const visibleTabs = useMemo<{ id: GestaoEstoqueTab; label: string; icon: any; count?: number }[]>(() => {
     const tabs: { id: GestaoEstoqueTab; label: string; icon: any; count?: number }[] = [];
-    if (effectiveCanViewProdutos) {
+    if (canViewProdutos) {
       tabs.push({ id: "produtos", label: "Produtos", icon: Boxes, count: products.length });
     }
     if (canViewCategorias) {
@@ -144,7 +141,7 @@ export function GestaoEstoquePage() {
       tabs.push({ id: "saldos", label: "Ajuste & Saldo", icon: Sliders, count: lowCount > 0 ? lowCount : undefined });
     }
     return tabs;
-  }, [effectiveCanViewProdutos, canViewCategorias, canViewBaus, canViewSaldos, products, categories.length, baus.length]);
+  }, [canViewProdutos, canViewCategorias, canViewBaus, canViewSaldos, products, categories.length, baus.length]);
 
   const allowedTabsList = useMemo(() => visibleTabs.map((t) => t.id), [visibleTabs]);
   const defaultTab = allowedTabsList[0] || "produtos";
@@ -161,7 +158,7 @@ export function GestaoEstoquePage() {
     }
   }, [allowedTabsList, activeTab, setActiveTab]);
 
-  const canAccess = hasBaseManagement || allowedTabsList.length > 0;
+  const canAccess = hasBaseManagement && allowedTabsList.length > 0;
 
   const handleRefreshAll = async () => {
     const p = toast.loading("Atualizando dados de estoque...");
@@ -184,10 +181,12 @@ export function GestaoEstoquePage() {
         <div className="w-16 h-16 rounded-2xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-center text-rose-400 shadow-sm">
           <ShieldAlert className="w-8 h-8" />
         </div>
-        <div className="space-y-1.5 max-w-md">
-          <h2 className="text-xl font-bold tracking-tight text-foreground">Acesso Restrito</h2>
+        <div className="space-y-2 max-w-md">
+          <h2 className="text-xl font-black tracking-tight text-foreground">Acesso Restrito à Gestão de Estoque</h2>
           <p className="text-xs text-muted-foreground leading-relaxed">
-            Você não possui permissões ativas para visualizar ou gerenciar as seções de Gestão de Estoque deste grupo. Solicite acesso a um oficial ou administrador.
+            {hasBaseManagement
+              ? "Você possui autorização básica no módulo, porém nenhuma aba (Produtos, Categorias, Baús ou Ajustes de Saldo) foi liberada para o seu cargo ou usuário. Solicite a um oficial ou administrador para habilitar as abas desejadas."
+              : "Você não possui permissões ativas para visualizar ou gerenciar as seções administrativas de Gestão de Estoque deste grupo. Solicite acesso a um oficial ou administrador."}
           </p>
         </div>
       </div>
@@ -267,7 +266,7 @@ export function GestaoEstoquePage() {
         </div>
 
         {/* CONTEÚDO DAS ABAS (CARREGADO SOMENTE SE PERMITIDO) */}
-        {effectiveCanViewProdutos && (
+        {canViewProdutos && (
           <TabsContent value="produtos" className="space-y-6 m-0">
             <ProdutosTabContent
               canManage={canManageProdutos}

@@ -682,10 +682,16 @@ export function can(
     if (permission === "approve_requests" && list.includes("manage_members")) return true;
 
     // Gestão de Estoque
-    if (permission === "view_stock_management" && (list.includes("manage_stock_products") || list.includes("manage_stock_categories") || list.includes("manage_stock_baus") || list.includes("adjust_stock_balance") || list.includes("manage_stock_balance") || list.includes("manage_products") || list.includes("manage_categories") || list.includes("manage_baus") || list.includes("view_stock"))) return true;
-    if (permission === "manage_stock_products" && list.includes("manage_products")) return true;
-    if (permission === "manage_stock_categories" && list.includes("manage_categories")) return true;
-    if (permission === "manage_stock_baus" && list.includes("manage_baus")) return true;
+    if (
+      permission === "view_stock_management" &&
+      (list.includes("manage_stock_products") ||
+        list.includes("manage_stock_categories") ||
+        list.includes("manage_stock_baus") ||
+        list.includes("adjust_stock_balance") ||
+        list.includes("manage_stock_balance"))
+    ) {
+      return true;
+    }
     if (permission === "adjust_stock_balance" && (list.includes("estoque.ajustar") || list.includes("estoque.corrigir"))) return true;
     if (permission === "manage_stock_balance" && list.includes("estoque.corrigir")) return true;
 
@@ -768,10 +774,16 @@ export function can(
   if (permission === "approve_requests" && rolePerms.includes("manage_members")) return true;
 
   // Gestão de Estoque
-  if (permission === "view_stock_management" && (rolePerms.includes("manage_stock_products") || rolePerms.includes("manage_stock_categories") || rolePerms.includes("manage_stock_baus") || rolePerms.includes("adjust_stock_balance") || rolePerms.includes("manage_stock_balance") || rolePerms.includes("manage_products") || rolePerms.includes("manage_categories") || rolePerms.includes("manage_baus") || rolePerms.includes("view_stock"))) return true;
-  if (permission === "manage_stock_products" && rolePerms.includes("manage_products")) return true;
-  if (permission === "manage_stock_categories" && rolePerms.includes("manage_categories")) return true;
-  if (permission === "manage_stock_baus" && rolePerms.includes("manage_baus")) return true;
+  if (
+    permission === "view_stock_management" &&
+    (rolePerms.includes("manage_stock_products") ||
+      rolePerms.includes("manage_stock_categories") ||
+      rolePerms.includes("manage_stock_baus") ||
+      rolePerms.includes("adjust_stock_balance") ||
+      rolePerms.includes("manage_stock_balance"))
+  ) {
+    return true;
+  }
   if (permission === "adjust_stock_balance" && (rolePerms.includes("estoque.ajustar") || rolePerms.includes("estoque.corrigir"))) return true;
   if (permission === "manage_stock_balance" && rolePerms.includes("estoque.corrigir")) return true;
 

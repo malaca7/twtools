@@ -67,6 +67,38 @@ export const DEFAULT_MENU_ITEMS: MenuItemConfig[] = [
   { id: "configuracoes", title: "Configurações", url: "/configuracoes", visible: true, category: "Administração", order: 19 },
 ];
 
+export type PlatformSystemModule = {
+  id: string;
+  title: string;
+  url: string;
+  defaultCat: string;
+  iconName: string;
+  description: string;
+};
+
+export const PLATFORM_SYSTEM_MODULES: PlatformSystemModule[] = [
+  { id: "dashboard", title: "Dashboard", url: "/dashboard", defaultCat: "Operação", iconName: "LayoutDashboard", description: "Painel principal e estatísticas operacionais" },
+  { id: "movimentacoes", title: "Movimentações", url: "/movimentacoes", defaultCat: "Operação", iconName: "ArrowLeftRight", description: "Histórico de entradas e saídas de itens" },
+  { id: "vendas", title: "Vendas", url: "/vendas", defaultCat: "Operação", iconName: "ShoppingCart", description: "Registro e conferência de vendas" },
+  { id: "lives", title: "Lives & Transmissões", url: "/lives", defaultCat: "Operação", iconName: "Radio", description: "Monitoramento e alertas de lives" },
+  { id: "tickets", title: "Tickets / Ouvidoria", url: "/tickets", defaultCat: "Operação", iconName: "LifeBuoy", description: "Atendimento e chamados de membros" },
+  { id: "estoque", title: "Controle de Estoque", url: "/controledeestoque", defaultCat: "Gestão", iconName: "Boxes", description: "Controle operacional do estoque e baús" },
+  { id: "gestao-estoque", title: "Gestão de Estoque", url: "/gestao-estoque", defaultCat: "Gestão", iconName: "PackageCheck", description: "Painel gerencial de produtos, baús, categorias e saldos" },
+  { id: "membros", title: "Membros", url: "/membros", defaultCat: "Gestão", iconName: "Users", description: "Lista e cadastro de membros da facção" },
+  { id: "hierarquia", title: "Hierarquia", url: "/hierarquia", defaultCat: "Gestão", iconName: "Workflow", description: "Estrutura hierárquica e patentes" },
+  { id: "fundo-caixa", title: "Fundo de Caixa", url: "/fundo-caixa", defaultCat: "Gestão", iconName: "Landmark", description: "Gestão financeira e saldo do caixa" },
+  { id: "ausencias", title: "Ausências", url: "/ausencias", defaultCat: "Gestão", iconName: "CalendarOff", description: "Solicitações e registro de ausências" },
+  { id: "rankings", title: "Rankings", url: "/rankings", defaultCat: "Gestão", iconName: "Trophy", description: "Ranking de desempenho e atividade" },
+  { id: "desempenho", title: "Meu Desempenho", url: "/desempenho", defaultCat: "Gestão", iconName: "User", description: "Estatísticas individuais do operador" },
+  { id: "metas", title: "Metas", url: "/metas", defaultCat: "Gestão", iconName: "Target", description: "Metas semanais e mensais da facção" },
+  { id: "avisos", title: "Enviar Avisos", url: "/avisos", defaultCat: "Gestão", iconName: "Megaphone", description: "Mural de avisos para os membros" },
+  { id: "cargos", title: "Gerenciamento de Cargos", url: "/cargos", defaultCat: "Administração", iconName: "ShieldCheck", description: "Configuração de cargos e hierarquia" },
+  { id: "permissoes", title: "Permissões", url: "/permissoes", defaultCat: "Administração", iconName: "Settings", description: "Matriz de permissões e acessos" },
+  { id: "atualizacoes", title: "Atualizações", url: "/atualizacoes", defaultCat: "Administração", iconName: "Sparkles", description: "Notas de atualização e novidades" },
+  { id: "perfil", title: "Meu Perfil", url: "/perfil", defaultCat: "Gestão", iconName: "User", description: "Perfil público e dados do membro" },
+  { id: "configuracoes", title: "Configurações", url: "/configuracoes", defaultCat: "Administração", iconName: "Wrench", description: "Configurações gerais do sistema" },
+];
+
 /**
  * Reconcilia e sincroniza configurações parciais ou salvas do menu lateral.
  * Garante que:
@@ -150,8 +182,12 @@ export function syncMenuConfig(raw: Partial<MenuConfig> | null | undefined): Men
       const iconName = typeof saved.iconName === "string" ? saved.iconName : undefined;
       const isCustom = Boolean(saved.isCustom || !defaultMatch);
 
-      // Garante que a categoria do item está registrada na lista de categorias
-      addCategory(category);
+      // Se o usuário especificou categorias e o item está em categoria inexistente, mapeia para a primeira válida
+      if (savedCats.length > 0 && !categories.includes(category)) {
+        category = categories[0] || "Geral";
+      } else {
+        addCategory(category);
+      }
 
       items.push({
         id: saved.id,

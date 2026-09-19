@@ -91,6 +91,7 @@ import {
 } from "@/services/devService";
 import { CategoryIconPickerModal } from "@/components/dev/CategoryIconPickerModal";
 import { MenuItemIconPickerModal } from "@/components/dev/MenuItemIconPickerModal";
+import { PlatformMenuEditor } from "@/components/menu/PlatformMenuEditor";
 
 export const Route = createFileRoute("/_authenticated/dev/menu-lateral")({
   component: DevMenuLateralPageWrapper,
@@ -2713,8 +2714,8 @@ function CeoMenuLateralEditor() {
    ========================================================================================= */
 
 function DevMenuLateralContent() {
-  const [activeTab, setActiveTab] = useUrlTab<"dev" | "ceo">("dev", {
-    allowedTabs: ["dev", "ceo"] as const,
+  const [activeTab, setActiveTab] = useUrlTab<"plataforma" | "dev" | "ceo">("plataforma", {
+    allowedTabs: ["plataforma", "dev", "ceo"] as const,
     usePath: false,
     paramName: "tab",
   });
@@ -2738,10 +2739,10 @@ function DevMenuLateralContent() {
 
   return (
     <div className="space-y-6 pb-12 animate-in fade-in-50 duration-300">
-      {/* HEADER DA PÁGINA COM SELETOR DE ABAS DEV / CEO */}
+      {/* HEADER DA PÁGINA COM SELETOR DE ABAS PLATAFORMA / DEV / CEO */}
       <PageHeader
-        title="Gestão de Menus Laterais — Dev & CEO"
-        description="Personalize a ordem, categorias, nomes, rotas, ícones e visibilidade dos menus exclusivos da Tag Desenvolvedor e da Tag CEO."
+        title="Gestão de Menus Laterais — Plataforma, Dev & CEO"
+        description="Personalize a ordem, categorias, nomes, rotas, ícones e visibilidade dos menus da Plataforma (Membros), Dev Tools e Painel CEO em um só lugar."
         actions={
           <div className="flex items-center gap-2">
             <Badge
@@ -2757,6 +2758,22 @@ function DevMenuLateralContent() {
 
       <Tabs value={activeTab} onValueChange={(val: any) => setActiveTab(val)} className="space-y-6">
         <TabsList className="flex bg-secondary/30 border border-border/60 p-1.5 rounded-2xl flex-wrap h-auto gap-2 shadow-sm">
+          <TabsTrigger
+            value="plataforma"
+            className={cn(
+              "text-xs font-bold gap-2 py-2.5 px-4 rounded-xl transition-all cursor-pointer",
+              activeTab === "plataforma"
+                ? "bg-primary text-primary-foreground shadow-md"
+                : "hover:bg-secondary/50 text-muted-foreground"
+            )}
+          >
+            <Layers className="h-4 w-4" />
+            Menu Plataforma (Membros)
+            <Badge className={cn("text-[9px] py-0 px-1.5 font-extrabold border ml-1", activeTab === "plataforma" ? "bg-white/20 text-white border-white/30" : "bg-secondary text-foreground")}>
+              Membros
+            </Badge>
+          </TabsTrigger>
+
           <TabsTrigger
             value="dev"
             className={cn(
@@ -2785,6 +2802,10 @@ function DevMenuLateralContent() {
             </Badge>
           </TabsTrigger>
         </TabsList>
+
+        <TabsContent value="plataforma" className="space-y-6">
+          <PlatformMenuEditor canEdit={true} showDevNavigationLinks={false} />
+        </TabsContent>
 
         <TabsContent value="dev" className="space-y-6">
           <DevToolsMenuEditor />

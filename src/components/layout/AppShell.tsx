@@ -304,50 +304,83 @@ function DynamicSidebarNavigation() {
   const grouped = useMemo(() => {
     // 1. Configuração do menu da plataforma (Membros / Geral)
     const validConfigItems = menuConfig?.items?.filter((c) => Boolean(c && (c.id || c.url))) || [];
-    const configMap = new Map(validConfigItems.map((c) => [c.id || c.url, c]));
-
+    const deletedSet = new Set<string>(
+      Array.isArray(menuConfig?.deletedItemIds) ? menuConfig.deletedItemIds : []
+    );
     const categoryOrder = menuConfig?.categories?.length
       ? menuConfig.categories
       : ["Operação", "Gestão", "Administração"];
 
-    // Customiza itens nativos da plataforma com a configuração salva
-    const customizedMaster: MasterNavItem[] = MASTER_NAV_ITEMS.map((item, defaultIdx) => {
-      const cfg = configMap.get(item.id) || configMap.get(item.url);
-      return {
-        ...item,
-        title: cfg?.title || item.title,
-        icon: cfg?.iconName ? resolveMenuIcon(cfg.iconName, item.url) : item.icon,
-        visible: cfg ? cfg.visible !== false : true,
-        category: cfg?.category || item.defaultCat,
-        order: typeof cfg?.order === "number" ? cfg.order : item.defaultOrder ?? defaultIdx,
-      };
+    const masterItemsMap = new Map<string, MasterNavItem>();
+    MASTER_NAV_ITEMS.forEach((m) => {
+      masterItemsMap.set(m.id, m);
+      masterItemsMap.set(m.url, m);
     });
 
-    // Anexa itens customizados criados pelo usuário
-    const masterIds = new Set(MASTER_NAV_ITEMS.map((m) => m.id));
-    const customNavItems: MasterNavItem[] = validConfigItems
-      .filter((c) => !masterIds.has(c.id))
-      .map((c, idx) => {
-        const cleanPath = (c.url || "").split("?")[0].toLowerCase();
-        const autoPerm = URL_TO_PERMISSION_MAP[cleanPath];
-        return {
-          id: c.id,
-          title: c.title,
-          url: c.url,
-          icon: resolveMenuIcon(c.iconName, c.url) as typeof LayoutDashboard,
-          perm: autoPerm,
-          defaultCat: c.category || categoryOrder[0] || "Gestão",
-          category: c.category || categoryOrder[0] || "Gestão",
-          defaultOrder: typeof c.order === "number" ? c.order : 100 + idx,
-          order: typeof c.order === "number" ? c.order : 100 + idx,
-          visible: c.visible !== false,
-          isCustom: true,
-        };
-      });
+    let allPlatformItems: MasterNavItem[] = [];
 
-    const allPlatformItems: MasterNavItem[] = [...customizedMaster, ...customNavItems].filter(
-      (item) => item.id !== "chat" && item.id !== "logs" && item.url !== "/chat" && item.url !== "/logs"
-    );
+    if (validConfigItems.length > 0) {
+      // Quando existe configuração salva pelo usuário, ela é a fonte de verdade absoluta!
+      const processedIds = new Set<string>();
+
+      allPlatformItems = validConfigItems
+        .filter((c) => !deletedSet.has(c.id) && !deletedSet.has(c.url))
+        .filter((c) => c.id !== "chat" && c.id !== "logs" && c.url !== "/chat" && c.url !== "/logs")
+        .map((c, idx) => {
+          processedIds.add(c.id);
+          const master = masterItemsMap.get(c.id) || masterItemsMap.get(c.url);
+          const cleanPath = (c.url || "").split("?")[0].toLowerCase();
+          const autoPerm = master?.perm || URL_TO_PERMISSION_MAP[cleanPath];
+          const icon = c.iconName
+            ? (resolveMenuIcon(c.iconName, c.url) as typeof LayoutDashboard)
+            : (master?.icon || (resolveMenuIcon(undefined, c.url) as typeof LayoutDashboard));
+
+          // Garante que o item pertença a uma das categorias oficiais configuradas
+          let cat = c.category;
+          if (!cat || !categoryOrder.includes(cat)) {
+            cat = categoryOrder[0] || "Geral";
+          }
+
+          return {
+            id: c.id,
+            title: c.title || master?.title || c.id,
+            url: c.url,
+            icon,
+            perm: autoPerm,
+            category: cat,
+            defaultCat: cat,
+            order: typeof c.order === "number" ? c.order : idx,
+            visible: c.visible !== false,
+            isCustom: Boolean(c.isCustom || !master),
+          };
+        });
+
+      // Anexa apenas módulos essenciais da plataforma que não estejam na lista e NÃO foram excluídos pelo usuário
+      MASTER_NAV_ITEMS.forEach((m, idx) => {
+        if (!processedIds.has(m.id) && !deletedSet.has(m.id) && !deletedSet.has(m.url)) {
+          if (m.id === "chat" || m.id === "logs" || m.url === "/chat" || m.url === "/logs") return;
+          const targetCat = categoryOrder.includes(m.defaultCat) ? m.defaultCat : (categoryOrder[0] || "Geral");
+          allPlatformItems.push({
+            ...m,
+            category: targetCat,
+            defaultCat: targetCat,
+            order: allPlatformItems.length + idx,
+            visible: true,
+          });
+        }
+      });
+    } else {
+      // Fallback para primeira inicialização antes de qualquer configuração salva
+      allPlatformItems = MASTER_NAV_ITEMS
+        .filter((m) => !deletedSet.has(m.id) && !deletedSet.has(m.url))
+        .filter((m) => m.id !== "chat" && m.id !== "logs" && m.url !== "/chat" && m.url !== "/logs")
+        .map((m, idx) => ({
+          ...m,
+          category: categoryOrder.includes(m.defaultCat) ? m.defaultCat : (categoryOrder[0] || "Geral"),
+          order: m.defaultOrder ?? idx,
+          visible: true,
+        }));
+    }
 
     // Itens da Categoria CEO (dinâmico com base em useCeoMenuConfig e permissões)
     const ceoValidItems = ceoMenuConfig?.items?.filter((c) => Boolean(c && (c.id || c.url))) || [];
