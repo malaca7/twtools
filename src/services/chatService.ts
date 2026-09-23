@@ -38,7 +38,7 @@ export async function fetchChatMembersMap(force = false): Promise<Map<string, Me
 
   try {
     const [profilesRes, rolesRes, presencesRes] = await Promise.all([
-      supabase.from("profiles" as any).select("*"),
+      supabase.from("profiles" as any).select("user_id, nome, nickname, telefone, game_id, status, data_entrada, created_at, discord_id, discord_username, discord_avatar_url, avatar_url, discord_email, is_developer, is_ceo, custom_theme"),
       supabase.from("user_roles" as any).select("user_id, nivel"),
       supabase.from("user_presence" as any).select("user_id, status, last_seen, online_since, total_seconds_online, updated_at"),
     ]);

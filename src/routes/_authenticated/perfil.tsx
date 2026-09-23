@@ -92,11 +92,38 @@ async function uploadImageFile(file: File, prefix: string, userId: string): Prom
     return supabase.storage.from("chat-attachments").getPublicUrl(chatData.path).data.publicUrl;
   }
 
-  // 3. Fallback para Base64 Data URL
-  return new Promise<string>((resolve, reject) => {
+  // 3. Fallback: comprime em canvas (máx 1200px / 0.75 qualidade) para evitar estourar quota de banco
+  return new Promise<string>((resolve) => {
     const reader = new FileReader();
-    reader.onload = () => resolve(reader.result as string);
-    reader.onerror = () => reject(new Error("Falha ao ler o arquivo selecionado"));
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement("canvas");
+        const maxDim = prefix.includes("banner") ? 1200 : 400;
+        let { width, height } = img;
+        if (width > maxDim || height > maxDim) {
+          if (width > height) {
+            height = Math.round((height * maxDim) / width);
+            width = maxDim;
+          } else {
+            width = Math.round((width * maxDim) / height);
+            height = maxDim;
+          }
+        }
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext("2d");
+        if (ctx) {
+          ctx.drawImage(img, 0, 0, width, height);
+          resolve(canvas.toDataURL("image/jpeg", 0.75));
+        } else {
+          resolve((e.target?.result as string) || "");
+        }
+      };
+      img.onerror = () => resolve((e.target?.result as string) || "");
+      img.src = (e.target?.result as string) || "";
+    };
+    reader.onerror = () => resolve("");
     reader.readAsDataURL(file);
   });
 }
@@ -372,6 +399,10 @@ export function PerfilPage({ initialTab }: { initialTab?: "perfil" | "dados" | "
       if (!telefone.trim()) throw new Error("O Telefone em jogo é obrigatório.");
       if (!gameId.trim()) throw new Error("O ID do Personagem em jogo é obrigatório.");
 
+      const safeBanner = bannerUrl && bannerUrl.startsWith("data:image") && bannerUrl.length > 80000 ? null : (bannerUrl || null);
+      const safeOrigBanner = originalBannerUrl && originalBannerUrl.startsWith("data:image") ? null : (originalBannerUrl || null);
+      const safeOrigAvatar = originalAvatarUrl && originalAvatarUrl.startsWith("data:image") ? null : (originalAvatarUrl || null);
+
       await updateUserProfile({
         nome,
         nickname: nickname.trim() || null,
@@ -379,15 +410,15 @@ export function PerfilPage({ initialTab }: { initialTab?: "perfil" | "dados" | "
         game_id: gameId,
         custom_url: customUrl.trim().toLowerCase().replace(/^@/, "") || null,
         public_profile_enabled: publicProfileEnabled,
-        banner_url: bannerUrl || null,
+        banner_url: safeBanner,
         avatar_url: customAvatarUrl || null,
         bio: bio.trim() || null,
         custom_status: customStatus.trim() || null,
         social_links: socialLinks,
         custom_theme: {
           ...(profile?.custom_theme || {}),
-          original_banner_url: originalBannerUrl || bannerUrl || null,
-          original_avatar_url: originalAvatarUrl || customAvatarUrl || null,
+          original_banner_url: safeOrigBanner,
+          original_avatar_url: safeOrigAvatar,
         },
       } as any);
     },

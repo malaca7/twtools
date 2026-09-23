@@ -1296,8 +1296,8 @@ function setupRealtimeListeners() {
     }
   };
 
-  // Emissor periódico de Heartbeat (a cada 15 segundos e logo na inicialização)
-  setInterval(sendHeartbeat, 15000);
+  // Emissor periódico de Heartbeat (a cada 2 minutos e logo na inicialização)
+  setInterval(sendHeartbeat, 120000);
   setTimeout(sendHeartbeat, 2000);
 
   // 7. Canal de Despacho de Webhooks / Postagem em Canais por ID de Servidor e Canal
@@ -1399,8 +1399,8 @@ function setupRealtimeListeners() {
       console.log(`📡 [WEBHOOK DISPATCH STATUS] status: ${status}`);
     });
 
-  // 8. Polling Engine de segurança executado a cada 15 segundos (otimizado contra limite de banco)
-  setInterval(pollUnprocessedAuditLogs, 15000);
+  // 8. Polling Engine de segurança executado a cada 30 segundos
+  setInterval(pollUnprocessedAuditLogs, 30000);
 }
 
 /**
@@ -1410,19 +1410,37 @@ async function updateProfileAvatar(discordId, newAvatarUrl, tag) {
   if (!discordId || !newAvatarUrl) return false;
 
   try {
-    const { data, error } = await supabase
-      .from("profiles")
-      .update({
-        discord_avatar_url: newAvatarUrl,
-        avatar_url: newAvatarUrl,
-      })
-      .eq("discord_id", discordId)
-      .select("id, user_id, nome, nickname, discord_id, discord_avatar_url");
+    let data = null;
+    if (neonPool) {
+      try {
+        const pgRes = await neonPool.query(
+          "UPDATE profiles SET discord_avatar_url = $1, avatar_url = $1 WHERE discord_id = $2 RETURNING id, user_id, nome, nickname, discord_id, discord_avatar_url",
+          [newAvatarUrl, discordId]
+        );
+        data = pgRes.rows;
+      } catch (poolErr) {
+        console.warn("⚠️ [UPDATE AVATAR Fallback Supabase]:", poolErr.message);
+      }
+    }
 
-    if (error) {
-      console.error(`[ERRO Supabase] Falha ao atualizar foto de ${tag || discordId}:`, error.message);
-      return false;
-    } else if (data && data.length > 0) {
+    if (!data) {
+      const { data: sbData, error } = await supabase
+        .from("profiles")
+        .update({
+          discord_avatar_url: newAvatarUrl,
+          avatar_url: newAvatarUrl,
+        })
+        .eq("discord_id", discordId)
+        .select("id, user_id, nome, nickname, discord_id, discord_avatar_url");
+
+      if (error) {
+        console.error(`[ERRO Supabase] Falha ao atualizar foto de ${tag || discordId}:`, error.message);
+        return false;
+      }
+      data = sbData;
+    }
+
+    if (data && data.length > 0) {
       console.log(`[SUCESSO] Avatar de ${tag || discordId} sincronizado: ${newAvatarUrl}`);
       // Sincroniza metadados no Supabase Auth
       for (const p of data) {
@@ -1457,12 +1475,26 @@ async function syncAllProfiles() {
   isSyncing = true;
 
   try {
-    const { data: profiles, error } = await supabase
-      .from("profiles")
-      .select("id, user_id, discord_id, discord_avatar_url, avatar_url, discord_username")
-      .not("discord_id", "is", null);
+    let profiles = [];
+    if (neonPool) {
+      try {
+        const res = await neonPool.query(
+          "SELECT id, user_id, discord_id, discord_avatar_url, avatar_url, discord_username FROM profiles WHERE discord_id IS NOT NULL"
+        );
+        profiles = res.rows || [];
+      } catch (poolErr) {
+        console.warn("⚠️ [SYNC Fallback Supabase]:", poolErr.message);
+      }
+    }
 
-    if (error || !profiles || profiles.length === 0) return;
+    if (!profiles || profiles.length === 0) {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("id, user_id, discord_id, discord_avatar_url, avatar_url, discord_username")
+        .not("discord_id", "is", null);
+      if (error || !data || data.length === 0) return;
+      profiles = data;
+    }
 
     for (const prof of profiles) {
       if (!prof.discord_id) continue;
@@ -2263,8 +2295,8 @@ const onReady = async () => {
     console.warn("⚠️ Falha ao registrar canal system-stock-simulate:", err.message);
   }
 
-  // Sincronização contínua de segurança a cada 30 segundos
-  setInterval(syncAllProfiles, 30 * 1000);
+  // Sincronização periódica de segurança a cada 15 minutos (alterações em tempo real são ouvidas via userUpdate)
+  setInterval(syncAllProfiles, 15 * 60 * 1000);
 
   // Recarrega caches auxiliares a cada 5 minutos
   setInterval(refreshAuxiliaryCaches, 5 * 60 * 1000);
