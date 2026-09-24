@@ -47,13 +47,11 @@ export const DEFAULT_MENU_ITEMS: MenuItemConfig[] = [
   { id: "dashboard", title: "Dashboard", url: "/dashboard", visible: true, category: "Operação", order: 0 },
   { id: "movimentacoes", title: "Movimentações", url: "/movimentacoes", visible: true, category: "Operação", order: 1 },
   { id: "vendas", title: "Vendas", url: "/vendas", visible: true, category: "Operação", order: 2 },
-  { id: "life", title: "Life (Feed)", url: "/life", visible: true, category: "Operação", order: 3, iconName: "Flame" },
-  { id: "lives", title: "Lives & Transmissões", url: "/lives", visible: true, category: "Operação", order: 4, iconName: "Radio" },
-  { id: "notificacoes", title: "Notificações", url: "/notificacoes", visible: true, category: "Operação", order: 4, iconName: "Bell" },
-  { id: "tickets", title: "Tickets / Ouvidoria", url: "/tickets", visible: true, category: "Operação", order: 5 },
-  { id: "estoque", title: "Controle de Estoque", url: "/controledeestoque", visible: true, category: "Gestão", order: 6 },
-  { id: "gestao-estoque", title: "Gestão de Estoque", url: "/gestao-estoque", visible: true, category: "Gestão", order: 7, iconName: "PackageCheck" },
-  { id: "membros", title: "Membros", url: "/membros", visible: true, category: "Gestão", order: 8 },
+  { id: "notificacoes", title: "Notificações", url: "/notificacoes", visible: true, category: "Operação", order: 3, iconName: "Bell" },
+  { id: "tickets", title: "Tickets / Ouvidoria", url: "/tickets", visible: true, category: "Operação", order: 4 },
+  { id: "estoque", title: "Controle de Estoque", url: "/controledeestoque", visible: true, category: "Gestão", order: 5 },
+  { id: "gestao-estoque", title: "Gestão de Estoque", url: "/gestao-estoque", visible: true, category: "Gestão", order: 6, iconName: "PackageCheck" },
+  { id: "membros", title: "Membros", url: "/membros", visible: true, category: "Gestão", order: 7 },
   { id: "hierarquia", title: "Hierarquia", url: "/hierarquia", visible: true, category: "Gestão", order: 8 },
   { id: "fundo-caixa", title: "Fundo de Caixa", url: "/fundo-caixa", visible: true, category: "Gestão", order: 9 },
   { id: "ausencias", title: "Ausências", url: "/ausencias", visible: true, category: "Gestão", order: 10 },
@@ -81,8 +79,6 @@ export const PLATFORM_SYSTEM_MODULES: PlatformSystemModule[] = [
   { id: "dashboard", title: "Dashboard", url: "/dashboard", defaultCat: "Operação", iconName: "LayoutDashboard", description: "Painel principal e estatísticas operacionais" },
   { id: "movimentacoes", title: "Movimentações", url: "/movimentacoes", defaultCat: "Operação", iconName: "ArrowLeftRight", description: "Histórico de entradas e saídas de itens" },
   { id: "vendas", title: "Vendas", url: "/vendas", defaultCat: "Operação", iconName: "ShoppingCart", description: "Registro e conferência de vendas" },
-  { id: "life", title: "Life (Feed)", url: "/life", defaultCat: "Operação", iconName: "Flame", description: "Feed de rede social da facção com posts, fotos, vídeos e interações" },
-  { id: "lives", title: "Lives & Transmissões", url: "/lives", defaultCat: "Operação", iconName: "Radio", description: "Monitoramento e alertas de lives" },
   { id: "tickets", title: "Tickets / Ouvidoria", url: "/tickets", defaultCat: "Operação", iconName: "LifeBuoy", description: "Atendimento e chamados de membros" },
   { id: "estoque", title: "Controle de Estoque", url: "/controledeestoque", defaultCat: "Gestão", iconName: "Boxes", description: "Controle operacional do estoque e baús" },
   { id: "gestao-estoque", title: "Gestão de Estoque", url: "/gestao-estoque", defaultCat: "Gestão", iconName: "PackageCheck", description: "Painel gerencial de produtos, baús, categorias e saldos" },
@@ -156,7 +152,16 @@ export function syncMenuConfig(raw: Partial<MenuConfig> | null | undefined): Men
   if (savedItems.length > 0) {
     savedItems.forEach((saved) => {
       if (!saved || !saved.id || processedIds.has(saved.id) || deletedSet.has(saved.id)) return;
-      if (saved.id === "chat" || saved.id === "logs" || saved.url === "/chat" || saved.url === "/logs") return;
+      if (
+        saved.id === "chat" ||
+        saved.id === "logs" ||
+        saved.id === "life" ||
+        saved.id === "lives" ||
+        saved.url === "/chat" ||
+        saved.url === "/logs" ||
+        saved.url === "/life" ||
+        saved.url === "/lives"
+      ) return;
       processedIds.add(saved.id);
 
       const defaultMatch = defaultItemsMap.get(saved.id) || DEFAULT_MENU_ITEMS.find((d) => d.url === saved.url);

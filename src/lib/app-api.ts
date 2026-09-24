@@ -613,98 +613,28 @@ export async function getGoals(): Promise<Goal[]> {
 }
 
 export async function getUserPresences(): Promise<UserPresence[]> {
-  const { data, error } = await supabase
-    .from("user_presence")
-    .select("user_id, status, last_seen, updated_at");
-  if (error) throw error;
-  return (data || []).map(d => ({
-    user_id: d.user_id,
-    status: d.status as UserPresenceStatus,
-    last_seen: String(d.last_seen),
-    updated_at: String(d.updated_at)
-  }));
+  // Sistema de presença desativado para economia de recursos e prevenção de sobrecarga no banco de dados
+  return [];
 }
 
-export async function updateUserPresence(status: UserPresenceStatus, incrementSeconds = 15, customUserId?: string): Promise<void> {
-  const { data: { session } } = await supabase.auth.getSession();
-  const userId = customUserId || session?.user?.id;
-  if (!userId) return;
-
-  const nowISO = new Date().toISOString();
-
-  // 1. Invoca a RPC segura no Supabase para atualizar a presença e incrementar tempo atomicamente
-  let rpcSuccess = false;
-  try {
-    const { error: rpcErr } = await supabase.rpc("heartbeat_user_presence" as any, {
-      _status: status,
-      _increment_seconds: incrementSeconds,
-      _user_id: userId,
-    });
-    if (!rpcErr) {
-      rpcSuccess = true;
-    }
-  } catch (e) {
-    rpcSuccess = false;
-  }
-
-  // 2. Fallback direto caso a RPC falhe
-  if (!rpcSuccess) {
-    const { data: existing } = await (supabase.from("user_presence" as any))
-      .select("status, online_since, total_seconds_online, last_seen")
-      .eq("user_id", userId)
-      .maybeSingle();
-
-    let onlineSince = (existing as any)?.online_since;
-    let totalSecs = Number((existing as any)?.total_seconds_online || 0);
-    const lastSeenMs = (existing as any)?.last_seen ? new Date((existing as any).last_seen).getTime() : 0;
-    const diffSecs = lastSeenMs > 0 ? (Date.now() - lastSeenMs) / 1000 : 99999;
-
-    if (status === "online") {
-      // Se estava offline ou o último heartbeat foi há mais de 2 minutos, reinicia o início da sessão (online_since)
-      if (!onlineSince || (existing as any)?.status === "offline" || diffSecs > 120) {
-        onlineSince = nowISO;
-      }
-      if (incrementSeconds > 0) {
-        totalSecs += incrementSeconds;
-      }
-    } else if (status === "ausente") {
-      if (!onlineSince || diffSecs > 120) onlineSince = nowISO;
-    } else {
-      onlineSince = null;
-    }
-
-    const { error: upsertErr } = await (supabase.from("user_presence" as any))
-      .upsert(
-        {
-          user_id: userId,
-          status,
-          last_seen: nowISO,
-          online_since: onlineSince,
-          total_seconds_online: totalSecs,
-          updated_at: nowISO,
-        },
-        { onConflict: "user_id" }
-      );
-    if (upsertErr) console.error("Error updating user presence:", upsertErr);
-  }
+export async function updateUserPresence(_status: UserPresenceStatus, _incrementSeconds = 15, _customUserId?: string): Promise<void> {
+  // Sistema de presença desativado para prevenção de sobrecarga no banco de dados
+  return;
 }
 
 export async function getMembers(): Promise<Member[]> {
   let profiles: any[] = [];
   let roles: any[] = [];
-  let presences: any[] = [];
   let signupReqs: any[] = [];
 
   try {
-    const [profilesRes, rolesRes, presenceRes, signupReqsRes] = await Promise.all([
+    const [profilesRes, rolesRes, signupReqsRes] = await Promise.all([
       (supabase.from("profiles" as any))
         .select("user_id, nome, nickname, telefone, game_id, status, data_entrada, created_at, discord_id, discord_username, discord_avatar_url, avatar_url, discord_email, is_developer, is_ceo, custom_theme")
         .order("created_at", { ascending: true }),
       supabase
         .from("user_roles")
         .select("user_id, nivel"),
-      (supabase.from("user_presence" as any))
-        .select("user_id, status, last_seen, online_since, total_seconds_online, updated_at"),
       (supabase.from("signup_requests" as any))
         .select("user_id, status")
     ]);
@@ -712,11 +642,9 @@ export async function getMembers(): Promise<Member[]> {
     if (!profilesRes.error && profilesRes.data && profilesRes.data.length > 0) {
       profiles = profilesRes.data;
       roles = rolesRes.data || [];
-      presences = presenceRes.data || [];
       signupReqs = signupReqsRes.data || [];
     }
   } catch {}
-
 
   const rolesMap = new Map<string, AppLevel>();
   roles.forEach((r: any) => {
@@ -726,35 +654,6 @@ export async function getMembers(): Promise<Member[]> {
   const pendingSet = new Set<string>();
   signupReqs.forEach((s: any) => {
     if (s.status === "pendente") pendingSet.add(s.user_id);
-  });
-
-  const nowMs = Date.now();
-  const presenceMap = new Map<string, { status: UserPresenceStatus; last_seen?: string; updated_at?: string; online_since?: string; total_seconds: number; total_hours: number }>();
-  presences.forEach((p: any) => {
-    const secs = Number(p.total_seconds_online || 0);
-    let computedStatus = (p.status as UserPresenceStatus) || "offline";
-    const lastSeenMs = p.last_seen ? new Date(p.last_seen).getTime() : 0;
-    const diffSecs = lastSeenMs > 0 ? (nowMs - lastSeenMs) / 1000 : 99999;
-
-    // Automatic calculation for stale online presences (inactive for > 90s -> ausente, > 300s -> offline)
-    if (computedStatus === "online" && diffSecs > 90) {
-      computedStatus = diffSecs > 300 ? "offline" : "ausente";
-    }
-
-    const item: { status: UserPresenceStatus; last_seen?: string; updated_at?: string; online_since?: string; total_seconds: number; total_hours: number } = {
-      status: computedStatus,
-      last_seen: p.last_seen ? String(p.last_seen) : undefined,
-      updated_at: p.updated_at ? String(p.updated_at) : undefined,
-      total_seconds: secs,
-      total_hours: Math.round((secs / 3600) * 10) / 10,
-    };
-    if (p.online_since && (computedStatus === "online" || computedStatus === "ausente")) {
-      const osMs = new Date(p.online_since).getTime();
-      if (!isNaN(osMs) && (nowMs - osMs) < 86400000 * 3) {
-        item.online_since = String(p.online_since);
-      }
-    }
-    presenceMap.set(p.user_id, item);
   });
 
   return profiles
@@ -767,7 +666,6 @@ export async function getMembers(): Promise<Member[]> {
     })
     .map((d: any) => {
       const roleNivel = rolesMap.get(d.user_id) || "novato";
-      const pres = presenceMap.get(d.user_id);
 
       return {
         user_id: d.user_id,
@@ -779,13 +677,13 @@ export async function getMembers(): Promise<Member[]> {
         data_entrada: String(d.data_entrada),
         created_at: String(d.created_at),
         nivel: roleNivel,
-        presence_status: pres?.status || "offline",
-        last_seen: pres?.last_seen || null,
-        presence_updated_at: pres?.updated_at || pres?.last_seen || null,
-        updated_at: pres?.updated_at || null,
-        online_since: pres?.online_since || null,
-        total_seconds_online: pres?.total_seconds || 0,
-        total_hours_online: pres?.total_hours || 0,
+        presence_status: "offline" as UserPresenceStatus,
+        last_seen: null,
+        presence_updated_at: null,
+        updated_at: null,
+        online_since: null,
+        total_seconds_online: 0,
+        total_hours_online: 0,
         discord_id: d.discord_id,
         discord_username: d.discord_username,
         discord_avatar_url: d.avatar_url || d.discord_avatar_url || null,
@@ -1309,95 +1207,13 @@ function getAuditBroadcastChannel() {
 }
 
 export async function logAuditAction(
-  action: string,
-  entity: string,
-  newData?: any,
-  oldData?: any,
-  entityId?: string
+  _action: string,
+  _entity: string,
+  _newData?: any,
+  _oldData?: any,
+  _entityId?: string
 ): Promise<boolean> {
-  let userId: string | null = null;
-  try {
-    const { data: { session } } = await supabase.auth.getSession();
-    userId = session?.user?.id || null;
-  } catch (err) {}
-
-  if (!userId) {
-    userId = newData?.user_id || oldData?.user_id || newData?.target_id || null;
-  }
-
-  // Validação da Opção Dev: "Auditoria de Ações Dev"
-  const isDevContext = typeof window !== "undefined" && (
-    localStorage.getItem("tw_panel_mode") === "dev" ||
-    sessionStorage.getItem("tw_panel_mode") === "dev" ||
-    Boolean(sessionStorage.getItem("tw_dev_impersonate")) ||
-    window.location.pathname.includes("/dev") ||
-    window.location.hash.includes("/dev") ||
-    action.startsWith("dev_") ||
-    action.includes("dev") ||
-    entity.startsWith("dev_") ||
-    entity.includes("dev")
-  );
-
-  if (isDevContext && !isDevAuditLogsEnabled()) {
-    // Opção desativada nos Ajustes Gerais Dev: suprime gravação de ações dev no audit_logs
-    return false;
-  }
-
-  // Enrich new_data with _meta block (severity, user_agent, timestamp)
-  const severity = classifySeverity(action);
-  const enrichedNewData = {
-    ...(newData || {}),
-    _meta: {
-      severity,
-      user_agent: getBrowserUserAgent(),
-      logged_at: new Date().toISOString(),
-      ...(isDevContext ? { is_dev_action: true } : {}),
-    },
-  };
-
-  const logPayload = {
-    user_id: userId,
-    action,
-    entity,
-    entity_id: entityId || null,
-    old_data: oldData || null,
-    new_data: enrichedNewData,
-    created_at: new Date().toISOString(),
-  };
-
-  try {
-    // 1. Try SECURITY DEFINER RPC first
-    const { error: rpcError } = await (supabase.rpc as any)("log_audit_action_rpc", {
-      _action: action,
-      _entity: entity,
-      _new_data: enrichedNewData,
-      _old_data: oldData || null,
-      _entity_id: entityId || null,
-    });
-
-    if (rpcError) {
-      // 2. Fallback to direct insert
-      const { error } = await supabase.from("audit_logs").insert(logPayload as any);
-
-      if (error) {
-        console.error("Erro ao inserir log de auditoria:", error);
-      }
-    }
-
-    // 3. Broadcast instantâneo em tempo real para o tw-bot na Discloud (< 50ms)
-    try {
-      const ch = getAuditBroadcastChannel();
-      ch.send({
-        type: "broadcast",
-        event: "new_audit_log",
-        payload: logPayload,
-      });
-    } catch (bErr) {
-      console.warn("Falha no broadcast de audit_log:", bErr);
-    }
-  } catch (err) {
-    console.error("Exceção ao inserir log de auditoria:", err);
-  }
+  // Sistema de logs completamente desativado para economia de banco de dados e evitar egress quota
   return true;
 }
 
@@ -1562,38 +1378,9 @@ export async function getPendingSignupRequests(enabled?: boolean): Promise<Pendi
   }));
 }
 
-export async function getAuditLogs(enabled?: boolean, offset = 0, limit = 500): Promise<AuditLog[]> {
-  if (enabled === false) return [];
-  let data: any[] = [];
-  try {
-    const res = await supabase
-      .from("audit_logs")
-      .select("id, user_id, action, entity, entity_id, old_data, new_data, created_at")
-      .order("created_at", { ascending: false })
-      .range(offset, offset + limit - 1);
-    if (!res.error && res.data && res.data.length > 0) {
-      data = res.data;
-    }
-  } catch {}
-
-
-  return (data || []).map(d => {
-    const nd = d.new_data as any;
-    const meta = nd?._meta || {};
-    return {
-      id: d.id,
-      user_id: d.user_id,
-      action: d.action,
-      entity: d.entity,
-      entity_id: d.entity_id,
-      old_data: d.old_data,
-      new_data: d.new_data,
-      created_at: String(d.created_at),
-      severity: (meta.severity as AuditLog["severity"]) || classifySeverity(d.action),
-      user_agent: meta.user_agent || undefined,
-      is_dev_action: Boolean(meta.is_dev_action) || String(d.action || "").includes("dev") || String(d.entity || "").includes("dev"),
-    };
-  });
+export async function getAuditLogs(_enabled?: boolean, _offset = 0, _limit = 500): Promise<AuditLog[]> {
+  // Sistema de logs desativado para economia de banco de dados
+  return [];
 }
 
 export async function getRolePermissions(): Promise<Record<AppLevel, Permission[]>> {
@@ -1889,14 +1676,9 @@ export async function updateDiscordStockConfig(payload: Partial<DiscordStockConf
   return resultData as DiscordStockConfig;
 }
 
-export async function getDiscordStockLogs(limit = 50): Promise<DiscordStockLog[]> {
-  const { data, error } = await supabase
-    .from("discord_stock_logs")
-    .select("*")
-    .order("created_at", { ascending: false })
-    .limit(limit);
-  if (error) throw error;
-  return (data || []) as DiscordStockLog[];
+export async function getDiscordStockLogs(_limit = 50): Promise<DiscordStockLog[]> {
+  // Sistema de logs do Discord desativado para economia de banco de dados
+  return [];
 }
 
 export async function adjustStockDev(payload: {

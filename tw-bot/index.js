@@ -1021,77 +1021,21 @@ async function dispatchAuditLogToDiscord(log) {
 }
 
 /**
- * Polling contínuo de novos logs de auditoria como garantia de 100% de entrega
+ * Polling de logs de auditoria — Desativado para prevenir sobrecarga no banco de dados
  */
 async function pollUnprocessedAuditLogs() {
-  if (!discordConfig.enabled) return;
-  try {
-    let logs = [];
-    if (neonPool) {
-      const res = await neonPool.query(
-        "SELECT * FROM audit_logs WHERE created_at >= $1 ORDER BY created_at ASC LIMIT 50",
-        [lastAuditLogPollTimestamp]
-      );
-      logs = res.rows || [];
-    } else {
-      const { data, error } = await supabase
-        .from("audit_logs")
-        .select("*")
-        .gte("created_at", lastAuditLogPollTimestamp)
-        .order("created_at", { ascending: true })
-        .limit(50);
-      if (!error && data) logs = data;
-    }
-
-    if (logs.length === 0) return;
-
-    for (const log of logs) {
-      if (log.created_at && log.created_at > lastAuditLogPollTimestamp) {
-        lastAuditLogPollTimestamp = log.created_at;
-      }
-      dispatchAuditLogToDiscord(log);
-    }
-  } catch (err) {
-    console.warn("⚠️ [POLL AUDIT LOGS ERRO]:", err.message);
-  }
+  return;
 }
 
 /**
- * Escuta em tempo real inserções na tabela `audit_logs` e broadcasts
+ * Escuta em tempo real alterações de configuração no banco
  */
 function setupRealtimeListeners() {
-  console.log("⚡ [REALTIME] Conectando listeners de logs e canais no Supabase...");
+  console.log("⚡ [REALTIME] Conectando listeners de configuração no Supabase...");
 
-  // 1. Canal de broadcast em tempo real para novos logs emitidos instantaneamente pelo frontend (<50ms)
+  // Canal de postgres_changes para atualizações de configuração
   supabase
-    .channel("system-audit-logs")
-    .on("broadcast", { event: "new_audit_log" }, (payload) => {
-      if (payload?.payload) {
-        console.log(`⚡ [BROADCAST] Novo log recebido em tempo real: ${payload.payload.action}`);
-        dispatchAuditLogToDiscord(payload.payload);
-      }
-    })
-    .subscribe((status) => {
-      console.log(`📡 [AUDIT LOGS BROADCAST STATUS] status: ${status}`);
-    });
-
-  // 2. Canal de postgres_changes caso esteja ativo no banco de dados
-  supabase
-    .channel("audit-logs-to-discord-bot")
-    .on(
-      "postgres_changes",
-      {
-        event: "INSERT",
-        schema: "public",
-        table: "audit_logs",
-      },
-      (payload) => {
-        if (payload && payload.new) {
-          console.log(`📡 [POSTGRES_CHANGES] Insert recebido em audit_logs: ${payload.new.action}`);
-          dispatchAuditLogToDiscord(payload.new);
-        }
-      }
-    )
+    .channel("config-changes-to-discord-bot")
     .on(
       "postgres_changes",
       {
@@ -1107,7 +1051,7 @@ function setupRealtimeListeners() {
       }
     )
     .subscribe((status) => {
-      console.log(`📡 [REALTIME STATUS] Canal de logs do Supabase status: ${status}`);
+      console.log(`📡 [REALTIME STATUS] Canal de configurações status: ${status}`);
     });
 
   // 3. Canal de Broadcast para sincronização instantânea de configurações
@@ -1399,8 +1343,8 @@ function setupRealtimeListeners() {
       console.log(`📡 [WEBHOOK DISPATCH STATUS] status: ${status}`);
     });
 
-  // 8. Polling Engine de segurança executado a cada 30 segundos
-  setInterval(pollUnprocessedAuditLogs, 30000);
+  // 8. Polling de logs desativado para economia de banco de dados
+  // setInterval(pollUnprocessedAuditLogs, 30000);
 }
 
 /**
@@ -2358,8 +2302,8 @@ const onReady = async () => {
   await loadBotProjects();
   setupBotEngineRealtime();
 
-  // 7. Inicializa o Motor de Transmissões ao Vivo (Twitch, Kick, YouTube, TikTok)
-  initLiveStreamEngine(supabase, client);
+  // 7. Motor de Transmissões ao Vivo desativado para economia de banco de dados
+  // initLiveStreamEngine(supabase, client);
 
   // 8. Inicializa listener Realtime de simulação de estoque
   try {

@@ -143,7 +143,7 @@ function AuthPage() {
         await refresh();
         void navigate({ to: "/dashboard", replace: true });
       }
-    }, 3500);
+    }, 60000);
 
     return () => {
       void supabase.removeChannel(channel);

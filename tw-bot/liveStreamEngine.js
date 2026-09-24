@@ -797,14 +797,9 @@ class LiveStreamEngine {
 
 let liveEngineInstance = null;
 
-function initLiveStreamEngine(supabaseClient, discordClient) {
-  if (!liveEngineInstance) {
-    liveEngineInstance = new LiveStreamEngine(supabaseClient, discordClient);
-    liveEngineInstance.init().catch((err) => {
-      console.warn("⚠️ Falha ao inicializar LiveStreamEngine:", err.message);
-    });
-  }
-  return liveEngineInstance;
+function initLiveStreamEngine(_supabaseClient, _discordClient) {
+  console.log("ℹ️ [LIVE STREAM ENGINE] Motor de transmissões ao vivo desativado para economia de banco de dados.");
+  return null;
 }
 
 function getLiveStreamEngine() {

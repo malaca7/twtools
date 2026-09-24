@@ -68,7 +68,7 @@ export function useRealtimeSync() {
 
         case "stock_movements":
         case "sales":
-          keysToInvalidate = ["movements", "product_baus", "sales", "products", "audit_logs"];
+          keysToInvalidate = ["movements", "product_baus", "sales", "products"];
           const settings = getPlatformSettings();
           if (settings.soundEffectsEnabled) {
             playGamerSuccessSound(settings.soundVolume);
@@ -110,19 +110,11 @@ export function useRealtimeSync() {
           break;
 
         case "user_presence":
-          keysToInvalidate = ["user_presence", "members"];
-          const presenceSettings = getPlatformSettings();
-          if (
-            presenceSettings.onlineAlertEnabled &&
-            payload.new &&
-            (payload.new as any).presence_status === "online"
-          ) {
-            playGamerOnlineAlertSound(presenceSettings.soundVolume);
-          }
-          break;
+          // Presença desativada: não dispara invalidações
+          return;
 
         case "cash_fund_movements":
-          keysToInvalidate = ["cash_fund_movements", "audit_logs"];
+          keysToInvalidate = ["cash_fund_movements"];
           break;
 
         case "announcements":
@@ -138,8 +130,8 @@ export function useRealtimeSync() {
           break;
 
         case "audit_logs":
-          keysToInvalidate = ["audit_logs"];
-          break;
+          // Logs desativados: não dispara refetch
+          return;
 
         case "chat_messages":
         case "chat_message_reactions":
@@ -157,15 +149,8 @@ export function useRealtimeSync() {
           break;
 
         case "discord_stock_logs":
-          keysToInvalidate = [
-            "discord_stock_logs",
-            "movements",
-            "product_baus",
-            "products",
-            "baus",
-            "audit_logs",
-          ];
-          break;
+          // Logs desativados: não dispara refetch
+          return;
 
         case "discord_stock_config":
           keysToInvalidate = [
@@ -177,8 +162,6 @@ export function useRealtimeSync() {
           break;
 
         default:
-          void queryClient.invalidateQueries({ refetchType: "all" });
-          void queryClient.refetchQueries({ type: "active" });
           return;
       }
 
@@ -215,7 +198,6 @@ export function useRealtimeSync() {
           "product_baus",
           "products",
           "baus",
-          "discord_stock_logs",
           "discord_stock_config",
         ];
         triggerInvalidations(stockKeys);
@@ -228,18 +210,6 @@ export function useRealtimeSync() {
       })
       .subscribe();
 
-    // 4. Network reconnection & Window focus recovery
-    const onFocus = () => {
-      void queryClient.invalidateQueries({ refetchType: "active" });
-    };
-
-    const onOnline = () => {
-      void queryClient.invalidateQueries({ refetchType: "active" });
-    };
-
-    window.addEventListener("focus", onFocus);
-    window.addEventListener("online", onOnline);
-
     return () => {
       if (debounceTimerRef.current) {
         clearTimeout(debounceTimerRef.current);
@@ -247,8 +217,6 @@ export function useRealtimeSync() {
       if (bc) {
         bc.close();
       }
-      window.removeEventListener("focus", onFocus);
-      window.removeEventListener("online", onOnline);
       void supabase.removeChannel(channel);
       void supabase.removeChannel(stockChannel);
     };

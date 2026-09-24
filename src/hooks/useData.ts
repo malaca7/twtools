@@ -79,10 +79,11 @@ export function useDiscordStockConfig() {
   });
 }
 
-export function useDiscordStockLogs(limit = 50) {
+export function useDiscordStockLogs(_limit = 50) {
   return useQuery({
-    queryKey: ["discord_stock_logs", limit],
-    queryFn: async (): Promise<DiscordStockLog[]> => getDiscordStockLogs(limit),
+    queryKey: ["discord_stock_logs"],
+    queryFn: async (): Promise<DiscordStockLog[]> => [],
+    enabled: false,
   });
 }
 
@@ -150,12 +151,12 @@ export function useLoginPlayers() {
   });
 }
 
-export function useAuditLogs(enabled = true) {
+export function useAuditLogs(_enabled = true) {
   return useQuery({
-    enabled,
+    enabled: false,
     queryKey: ["audit_logs"],
-    queryFn: async (): Promise<AuditLog[]> => getAuditLogs(),
-    staleTime: 60000,
+    queryFn: async (): Promise<AuditLog[]> => [],
+    staleTime: Infinity,
   });
 }
 
@@ -164,15 +165,16 @@ export function useRolePermissions() {
     queryKey: ["role_permissions"],
     queryFn: async (): Promise<Record<AppLevel, Permission[]>> => getRolePermissions(),
     staleTime: 60000,
-    refetchOnWindowFocus: true,
+    refetchOnWindowFocus: false,
   });
 }
 
 export function useUserPresences() {
   return useQuery({
+    enabled: false,
     queryKey: ["user_presence"],
-    queryFn: async (): Promise<UserPresence[]> => getUserPresences(),
-    staleTime: 60000,
+    queryFn: async (): Promise<UserPresence[]> => [],
+    staleTime: Infinity,
   });
 }
 

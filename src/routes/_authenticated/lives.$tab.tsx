@@ -1,10 +1,9 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { LivesPage } from "./lives";
+import { createFileRoute, Navigate } from "@tanstack/react-router";
 
 export const Route = createFileRoute("/_authenticated/lives/$tab")({
   component: LivesTabRoute,
 });
 
 function LivesTabRoute() {
-  return <LivesPage />;
+  return <Navigate to="/dashboard" replace />;
 }
