@@ -2067,10 +2067,11 @@ async function uploadBufferToPostimages(fileBuffer, fileName, mimeType = "image/
 
   const pageRes = await fetch(data.url);
   const html = await pageRes.text();
-  const ogMatch = html.match(/<meta\s+property="og:image"\s+content="([^"]+)"/i);
-  const directMatch = html.match(/https:\/\/i\.postimg\.cc\/[a-zA-Z0-9_\-./]+\.(png|jpg|jpeg|webp|gif)/i);
+  const inputDirectMatch = html.match(/id=["']direct["'][^>]*value=["']([^"']+)["']/i) || html.match(/value=["'](https:\/\/i\.postimg\.cc\/[^"']+)["']/i);
+  const ogMatch = html.match(/<meta\s+property=["']og:image["']\s+content=["']([^"']+)["']/i) || html.match(/<meta\s+content=["']([^"']+)["']\s+property=["']og:image["']/i);
+  const directMatch = html.match(/https:\/\/i\.postimg\.cc\/[a-zA-Z0-9_\-./]+\.(?:png|jpg|jpeg|webp|gif)/i);
 
-  const cdnUrl = (ogMatch && ogMatch[1]) || (directMatch && directMatch[0]);
+  const cdnUrl = (inputDirectMatch && inputDirectMatch[1]) || (ogMatch && ogMatch[1]) || (directMatch && directMatch[0]);
   if (!cdnUrl) throw new Error(`Não foi possível extrair URL direta do CDN para ${data.url}`);
 
   return cdnUrl;
@@ -2189,7 +2190,9 @@ const server = http.createServer(async (req, res) => {
         if (contentType.includes("application/json")) {
           const json = JSON.parse(rawBuffer.toString("utf8"));
           fileName = json.filename || `img_${Date.now()}.png`;
-          const base64Data = (json.base64 || "").replace(/^data:image\/\w+;base64,/, "");
+          const base64Str = json.base64 || "";
+          const commaIdx = base64Str.indexOf(",");
+          const base64Data = commaIdx !== -1 ? base64Str.slice(commaIdx + 1) : base64Str;
           fileBuffer = Buffer.from(base64Data, "base64");
           mimeType = json.contentType || "image/png";
         } else {
@@ -2199,10 +2202,12 @@ const server = http.createServer(async (req, res) => {
         }
 
         const cdnUrl = await uploadBufferToPostimages(fileBuffer, fileName, mimeType);
+        res.setHeader("Access-Control-Allow-Origin", "*");
         res.writeHead(200, { "Content-Type": "application/json" });
         return res.end(JSON.stringify({ success: true, url: cdnUrl }));
       } catch (err) {
         console.error("❌ [UPLOAD POSTIMAGES ERROR]:", err);
+        res.setHeader("Access-Control-Allow-Origin", "*");
         res.writeHead(500, { "Content-Type": "application/json" });
         return res.end(JSON.stringify({ success: false, error: err.message }));
       }

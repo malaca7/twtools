@@ -92,7 +92,15 @@ export function BauManagerModal({ trigger }: { trigger?: ReactNode }) {
     try {
       const url = await uploadBauImage(file);
       setFotoUrl(url);
-      toast.success("Foto do baú enviada com sucesso!");
+      if (editingBau?.id) {
+        await updateBau({
+          id: editingBau.id,
+          foto_url: url,
+          imagem_url: url,
+        });
+        void queryClient.invalidateQueries({ queryKey: ["baus"] });
+      }
+      toast.success("Foto do baú enviada e salva com sucesso!");
     } catch (err: any) {
       toast.error(err.message || "Erro ao fazer upload da imagem.");
     } finally {
@@ -330,6 +338,7 @@ export function BauManagerModal({ trigger }: { trigger?: ReactNode }) {
                           src={fotoUrl}
                           alt="Preview do Baú"
                           className="w-full h-full object-cover"
+                          referrerPolicy="no-referrer"
                         />
                       ) : (
                         <BauIcon icone={icone} className="w-6 h-6 text-muted-foreground" />

@@ -314,6 +314,7 @@ export function PublicProfilePage({ handleOverride, isRootRoute = false }: Publi
                 src={bannerValue}
                 alt="Banner do Perfil"
                 className="w-full h-full object-cover"
+                referrerPolicy="no-referrer"
                 onError={(e) => {
                   (e.target as HTMLElement).style.display = "none";
                 }}

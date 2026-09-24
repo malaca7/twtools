@@ -257,6 +257,18 @@ export async function uploadPatchNoteImage(
     throw new Error("Apenas arquivos de imagem são permitidos (PNG, JPG, WEBP, GIF).");
   }
 
+  // 1. Prioriza Postimages CDN (Zero consumo de storage Supabase)
+  try {
+    const { uploadImageToPostimages } = await import("@/services/postimagesService");
+    const cdnUrl = await uploadImageToPostimages(file);
+    if (cdnUrl) {
+      onProgress?.(100);
+      return { url: cdnUrl, name: file.name, size: file.size };
+    }
+  } catch (postErr) {
+    console.warn("⚠️ Aviso ao subir anexo de patch note para Postimages, usando fallback:", postErr);
+  }
+
   const ext = file.name.split(".").pop() || "png";
   const cleanName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
   const fileName = `patch-notes/${Date.now()}_${cleanName}`;

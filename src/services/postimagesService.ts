@@ -11,9 +11,32 @@ export interface PostimagesUploadOptions {
 }
 
 /**
- * Comprime e redimensiona imagem via Canvas no navegador (para uploads rápidos e leves)
+ * Otimiza e redimensiona imagem via Canvas no navegador preservando transparência e qualidade
  */
-async function compressImageForUpload(file: File | Blob, maxDimension = 1920, quality = 0.85): Promise<{ base64: string; mimeType: string }> {
+async function compressImageForUpload(
+  file: File | Blob,
+  maxDimension = 1920,
+  quality = 0.85
+): Promise<{ base64: string; mimeType: string }> {
+  const originalType = (file as File).type || 'image/png';
+  const isTransparentFormat = originalType === 'image/png' || originalType.includes('png') || originalType.includes('svg');
+  const isAnimatedOrVector = originalType.includes('gif') || originalType.includes('svg');
+
+  // Para imagens já leves (< 2MB) ou vetores/animações, preserva integridade exata sem recompilar
+  if (file.size > 0 && file.size <= 2 * 1024 * 1024 && (isTransparentFormat || isAnimatedOrVector)) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onerror = reject;
+      reader.onload = () => {
+        resolve({
+          base64: reader.result as string,
+          mimeType: originalType
+        });
+      };
+      reader.readAsDataURL(file);
+    });
+  }
+
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onerror = reject;
@@ -23,12 +46,20 @@ async function compressImageForUpload(file: File | Blob, maxDimension = 1920, qu
         // Fallback: se falhar carregamento do Image, retorna base64 original
         resolve({
           base64: reader.result as string,
-          mimeType: (file as File).type || 'image/png'
+          mimeType: originalType
         });
       };
       img.onload = () => {
         let width = img.width;
         let height = img.height;
+
+        // Se dimensões já são adequadas e tamanho pequeno, preserva
+        if (width <= maxDimension && height <= maxDimension && file.size <= 2 * 1024 * 1024) {
+          return resolve({
+            base64: reader.result as string,
+            mimeType: originalType
+          });
+        }
 
         if (width > maxDimension || height > maxDimension) {
           if (width > height) {
@@ -47,14 +78,15 @@ async function compressImageForUpload(file: File | Blob, maxDimension = 1920, qu
         if (!ctx) {
           return resolve({
             base64: reader.result as string,
-            mimeType: (file as File).type || 'image/png'
+            mimeType: originalType
           });
         }
 
+        // Se o formato original for PNG, preserva transparência sem fundo preto
+        const targetMime = isTransparentFormat ? 'image/png' : (originalType.includes('webp') ? 'image/webp' : 'image/jpeg');
         ctx.drawImage(img, 0, 0, width, height);
-        const mimeType = 'image/jpeg';
-        const dataUrl = canvas.toDataURL(mimeType, quality);
-        resolve({ base64: dataUrl, mimeType });
+        const dataUrl = canvas.toDataURL(targetMime, targetMime === 'image/png' ? undefined : quality);
+        resolve({ base64: dataUrl, mimeType: targetMime });
       };
       img.src = reader.result as string;
     };

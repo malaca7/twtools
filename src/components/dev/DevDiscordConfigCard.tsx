@@ -144,23 +144,30 @@ export function DevDiscordConfigCard() {
     setUploading(true);
 
     try {
-      const ext = file.name.split(".").pop()?.toLowerCase() || "png";
-      const cleanExt = ["png", "jpg", "jpeg", "webp", "gif", "svg"].includes(ext) ? ext : "png";
-      const sanitizedName = file.name.replace(/[^a-zA-Z0-9.-]/g, "_").toLowerCase();
-      const fileName = `bot-avatar/${Date.now()}_${sanitizedName}`;
+      let publicUrl = "";
+      try {
+        const { uploadImageToPostimages } = await import("@/services/postimagesService");
+        publicUrl = await uploadImageToPostimages(file);
+      } catch (postErr) {
+        console.warn("⚠️ Aviso ao subir imagem no Postimages, usando fallback:", postErr);
+        const ext = file.name.split(".").pop()?.toLowerCase() || "png";
+        const cleanExt = ["png", "jpg", "jpeg", "webp", "gif", "svg"].includes(ext) ? ext : "png";
+        const sanitizedName = file.name.replace(/[^a-zA-Z0-9.-]/g, "_").toLowerCase();
+        const fileName = `bot-avatar/${Date.now()}_${sanitizedName}`;
 
-      const { data, error } = await supabase.storage.from("products").upload(fileName, file, {
-        cacheControl: "31536000",
-        upsert: true,
-        contentType: file.type || `image/${cleanExt}`,
-      });
+        const { data, error } = await supabase.storage.from("products").upload(fileName, file, {
+          cacheControl: "31536000",
+          upsert: true,
+          contentType: file.type || `image/${cleanExt}`,
+        });
 
-      if (error) {
-        throw new Error(error.message);
+        if (error) {
+          throw new Error(error.message);
+        }
+
+        const { data: publicUrlData } = supabase.storage.from("products").getPublicUrl(data.path);
+        publicUrl = publicUrlData.publicUrl;
       }
-
-      const { data: publicUrlData } = supabase.storage.from("products").getPublicUrl(data.path);
-      const publicUrl = publicUrlData.publicUrl;
 
       handleRootChange(targetField, publicUrl);
       toast.success(

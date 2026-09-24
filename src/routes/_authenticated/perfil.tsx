@@ -376,7 +376,22 @@ export function PerfilPage({ initialTab }: { initialTab?: "perfil" | "dados" | "
       if (adjusterConfig.type === "banner") {
         setBannerUrl(croppedUrl);
         if (origUrl) setOriginalBannerUrl(origUrl);
-        toast.success("Banner ajustado com sucesso! Clique em Salvar para fixar as alterações.", { id: toastId });
+        // Atualiza imediatamente o perfil com o novo banner
+        await updateUserProfile({
+          nome: nome || profile?.nome || "Membro",
+          telefone: telefone || profile?.telefone || "000-000",
+          game_id: gameId || profile?.game_id || "0",
+          banner_url: croppedUrl,
+          custom_theme: {
+            ...(profile?.custom_theme || {}),
+            banner_url: croppedUrl,
+            original_banner_url: origUrl || originalBannerUrl || croppedUrl,
+          },
+        } as any);
+        await refresh();
+        void queryClient.invalidateQueries({ queryKey: ["auth"] });
+        void queryClient.invalidateQueries({ queryKey: ["members"] });
+        toast.success("Banner do perfil atualizado e salvo com sucesso!", { id: toastId });
       } else {
         setCustomAvatarUrl(croppedUrl);
         if (origUrl) setOriginalAvatarUrl(origUrl);
@@ -750,6 +765,7 @@ export function PerfilPage({ initialTab }: { initialTab?: "perfil" | "dados" | "
                           src={bannerUrl}
                           alt="Banner Preview"
                           className="w-full h-full object-cover"
+                          referrerPolicy="no-referrer"
                           onError={(e) => {
                             (e.target as HTMLElement).style.display = "none";
                           }}

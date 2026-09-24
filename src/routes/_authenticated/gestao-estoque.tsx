@@ -34,6 +34,7 @@ import {
   Filter,
   Wrench,
 } from "lucide-react";
+import { ProductThumbnail } from "@/components/ui/product-thumbnail";
 import { BauIcon } from "@/components/ui/bau-icon";
 import { useAuth } from "@/hooks/useAuth";
 import {
@@ -422,7 +423,14 @@ function ProdutosTabContent({ canManage, canAdjustSaldos, onNavigateToAdjust }: 
     try {
       const url = await uploadProductImage(file);
       setImagemUrl(url);
-      toast.success("Foto do produto enviada com sucesso!", { id: toastId });
+      if (editingProduct?.id) {
+        await updateProduct({
+          id: editingProduct.id,
+          imagem_url: url,
+        });
+        void queryClient.invalidateQueries({ queryKey: ["products"] });
+      }
+      toast.success("Foto do produto enviada e salva com sucesso!", { id: toastId });
     } catch (err: any) {
       toast.error(err.message || "Erro ao fazer upload da foto.", { id: toastId });
     } finally {
@@ -686,20 +694,7 @@ function ProdutosTabContent({ canManage, canAdjustSaldos, onNavigateToAdjust }: 
                     <TableRow key={p.id} className="border-border/40 hover:bg-secondary/20 transition-colors">
                       <TableCell className="py-2.5">
                         <div className="flex items-center gap-2.5">
-                          {p.imagem_url ? (
-                            <img
-                              src={p.imagem_url}
-                              alt={p.nome}
-                              className="w-8 h-8 rounded-lg object-cover border border-border/60 shrink-0 bg-black/40"
-                              onError={(e) => {
-                                (e.target as HTMLElement).style.display = "none";
-                              }}
-                            />
-                          ) : (
-                            <div className="w-8 h-8 rounded-lg bg-secondary/80 border border-border/60 flex items-center justify-center text-xs font-bold text-muted-foreground shrink-0 shadow-inner">
-                              📦
-                            </div>
-                          )}
+                          <ProductThumbnail src={p.imagem_url} name={p.nome} size="sm" />
                           <div className="min-w-0">
                             <div className="flex items-center gap-1.5">
                               <strong className="text-xs text-foreground font-bold truncate">{p.nome}</strong>
@@ -951,7 +946,7 @@ function ProdutosTabContent({ canManage, canAdjustSaldos, onNavigateToAdjust }: 
                 <div className="flex items-center gap-3">
                   <div className="w-12 h-12 rounded-xl border border-border/80 flex items-center justify-center overflow-hidden bg-background shrink-0 shadow-inner">
                     {imagemUrl ? (
-                      <img src={imagemUrl} alt="Preview" className="w-full h-full object-cover" />
+                      <ProductThumbnail src={imagemUrl} name={nome || "Preview"} size="lg" className="h-full w-full rounded-none border-0" />
                     ) : (
                       <Boxes className="w-5 h-5 text-muted-foreground opacity-40" />
                     )}
@@ -1386,7 +1381,15 @@ function BausTabContent({ canManage }: BausTabContentProps) {
     try {
       const url = await uploadBauImage(file);
       setFotoUrl(url);
-      toast.success("Foto do baú enviada com sucesso!", { id: toastId });
+      if (editingBau?.id) {
+        await updateBau({
+          id: editingBau.id,
+          foto_url: url,
+          imagem_url: url,
+        });
+        void queryClient.invalidateQueries({ queryKey: ["baus"] });
+      }
+      toast.success("Foto do baú enviada e salva com sucesso!", { id: toastId });
     } catch (err: any) {
       toast.error(err.message || "Erro ao fazer upload da imagem.", { id: toastId });
     } finally {
@@ -1705,7 +1708,7 @@ function BausTabContent({ canManage }: BausTabContentProps) {
                 <div className="flex items-center gap-3">
                   <div className="relative w-14 h-14 rounded-xl border-2 border-dashed border-border/80 flex items-center justify-center overflow-hidden bg-background shrink-0 shadow-inner">
                     {fotoUrl ? (
-                      <img src={fotoUrl} alt="Preview do Baú" className="w-full h-full object-cover" />
+                      <img src={fotoUrl} alt="Preview do Baú" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                     ) : (
                       <BauIcon icone={icone} className="w-6 h-6 text-muted-foreground" />
                     )}

@@ -171,7 +171,22 @@ export function PublicProfileCustomizer() {
       if (originalDataUrl) {
         setOriginalBannerUrl(originalDataUrl);
       }
-      toast.success("Banner ajustado com sucesso! Clique em Salvar para aplicar.", { id: toastId });
+      try {
+        await updateUserProfile({
+          nome: profile?.nome || "",
+          telefone: profile?.telefone || "",
+          game_id: profile?.game_id || "",
+          banner_url: finalCroppedUrl,
+          original_banner_url: originalDataUrl || finalCroppedUrl,
+        });
+        await refresh();
+        void queryClient.invalidateQueries({ queryKey: ["auth"] });
+        void queryClient.invalidateQueries({ queryKey: ["members"] });
+        void queryClient.invalidateQueries({ queryKey: ["public-profile-details"] });
+      } catch (saveErr) {
+        console.warn("Could not auto-save banner to profile:", saveErr);
+      }
+      toast.success("Banner ajustado e salvo com sucesso!", { id: toastId });
     } catch (err: any) {
       toast.error(err.message || "Falha ao salvar banner", { id: toastId });
     } finally {
@@ -378,6 +393,7 @@ export function PublicProfileCustomizer() {
                       src={bannerUrl}
                       alt="Banner Preview"
                       className="w-full h-full object-cover"
+                      referrerPolicy="no-referrer"
                       onError={(e) => {
                         (e.target as HTMLElement).style.display = "none";
                       }}

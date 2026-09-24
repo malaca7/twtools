@@ -280,6 +280,15 @@ export async function fetchOrCreateDiscordChannelWebhook(
  * Realiza o upload de imagem de avatar do bot para o Supabase Storage
  */
 export async function uploadWebhookAvatar(file: File): Promise<string> {
+  // 1. Prioriza CDN Postimages (Zero consumo de storage e egress de banco)
+  try {
+    const { uploadImageToPostimages } = await import("@/services/postimagesService");
+    const cdnUrl = await uploadImageToPostimages(file);
+    if (cdnUrl) return cdnUrl;
+  } catch (postErr) {
+    console.warn("⚠️ Aviso ao subir avatar no Postimages CDN, usando fallback:", postErr);
+  }
+
   const ext = file.name.split(".").pop()?.toLowerCase() || "png";
   const cleanExt = ["png", "jpg", "jpeg", "webp", "gif"].includes(ext) ? ext : "png";
   const sanitized = file.name.replace(/[^a-zA-Z0-9.-]/g, "_").toLowerCase();

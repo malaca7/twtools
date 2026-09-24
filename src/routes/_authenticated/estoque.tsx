@@ -139,6 +139,13 @@ export function EstoquePage() {
       setUploadingImage(true);
       const url = await uploadProductImage(file);
       setProdImagemUrl(url);
+      if (editingProduct?.id) {
+        await updateProduct({
+          id: editingProduct.id,
+          imagem_url: url,
+        });
+        void queryClient.invalidateQueries({ queryKey: ["products"] });
+      }
       toast.success("Imagem enviada e vinculada ao produto!");
     } catch (err: any) {
       toast.error(errorMessage(err));

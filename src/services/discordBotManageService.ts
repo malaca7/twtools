@@ -358,6 +358,15 @@ export async function fetchBotGuilds(botToken?: string): Promise<BotGuildInfo[]>
  * Faz upload de imagem de avatar ou banner do bot para o Supabase Storage
  */
 export async function uploadBotImage(file: File, type: "avatar" | "banner" = "avatar"): Promise<string> {
+  // 1. Prioriza Postimages CDN (Zero consumo de storage Supabase)
+  try {
+    const { uploadImageToPostimages } = await import("@/services/postimagesService");
+    const cdnUrl = await uploadImageToPostimages(file);
+    if (cdnUrl) return cdnUrl;
+  } catch (postErr) {
+    console.warn("⚠️ Aviso ao subir imagem do bot para Postimages, usando fallback:", postErr);
+  }
+
   const ext = file.name.split(".").pop()?.toLowerCase() || "png";
   const cleanExt = ["png", "jpg", "jpeg", "webp", "gif"].includes(ext) ? ext : "png";
   const sanitized = file.name.replace(/[^a-zA-Z0-9.-]/g, "_").toLowerCase();
