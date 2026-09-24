@@ -51,6 +51,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { getProxiedImageUrl } from "@/services/postimagesService";
 import {
   type BotGuildInfo,
   type DiscordChannelInfo,
@@ -1214,7 +1215,7 @@ export function DevBotSendMessageModal({
                 <div className="flex items-start gap-3">
                   {botAvatarUrl ? (
                     <img
-                      src={botAvatarUrl}
+                      src={getProxiedImageUrl(botAvatarUrl)}
                       alt={botName}
                       className="h-10 w-10 rounded-full object-cover shrink-0 select-none shadow-sm cursor-pointer"
                     />

@@ -34,6 +34,7 @@ import { errorMessage } from "@/lib/format";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
+import { getProxiedImageUrl } from "@/services/postimagesService";
 
 export function PublicProfileCustomizer() {
   const { profile, user, refresh } = useAuth();
@@ -304,7 +305,7 @@ export function PublicProfileCustomizer() {
             {bannerUrl ? (
               <div className="w-full h-full relative">
                 <img
-                  src={bannerUrl}
+                  src={getProxiedImageUrl(bannerUrl)}
                   alt="Banner Preview"
                   className="w-full h-full object-cover"
                   onError={(e) => {
@@ -326,7 +327,7 @@ export function PublicProfileCustomizer() {
           <div className="p-4 relative">
             <div className="flex items-end gap-3 -mt-12 mb-3">
               <Avatar className="h-20 w-20 rounded-2xl border-3 border-card shadow-xl bg-secondary ring-1 ring-border">
-                {avatarUrl && <AvatarImage src={avatarUrl} alt={displayName} className="object-cover" />}
+                {avatarUrl && <AvatarImage src={getProxiedImageUrl(avatarUrl) || undefined} alt={displayName} className="object-cover" />}
                 <AvatarFallback className="bg-gradient-brand text-primary-foreground font-black text-xl">
                   {initials}
                 </AvatarFallback>

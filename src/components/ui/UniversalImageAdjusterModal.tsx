@@ -32,6 +32,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { getProxiedImageUrl } from "@/services/postimagesService";
 
 export interface AspectRatioOption {
   label: string;
@@ -77,8 +78,9 @@ export function UniversalImageAdjusterModal({
   onSave,
   isSaving = false,
 }: UniversalImageAdjusterModalProps) {
-  // Imagem ativa para carregar no canvas (prioriza a imagem original se fornecida para reajuste)
-  const effectiveImageUrl = originalImageUrl || imageUrl || imageSrcProp;
+  // Imagem ativa para carregar no canvas (prioriza a imagem original se fornecida para reajuste, roteada via edge proxy com CORS liberado)
+  const rawEffectiveImageUrl = originalImageUrl || imageUrl || imageSrcProp;
+  const effectiveImageUrl = getProxiedImageUrl(rawEffectiveImageUrl) || rawEffectiveImageUrl;
 
   const [imageSrc, setImageSrc] = useState<string | null>(null);
   const [imageObj, setImageObj] = useState<HTMLImageElement | null>(null);

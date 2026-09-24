@@ -47,6 +47,7 @@ import { type SocialLinks } from "@/types/profileFeed";
 import { UserAppearanceSettings } from "@/components/profile/UserAppearanceSettings";
 import { UniversalImageAdjusterModal } from "@/components/ui/UniversalImageAdjusterModal";
 import { SocialNetworksConfigCard } from "@/components/profile/SocialNetworksConfigCard";
+import { getProxiedImageUrl } from "@/services/postimagesService";
 
 export const Route = createFileRoute("/_authenticated/perfil")({
   component: PerfilWrapper,
@@ -304,8 +305,8 @@ export function PerfilPage({ initialTab }: { initialTab?: "perfil" | "dados" | "
       isOpen: true,
       type: "banner",
       file: null,
-      url: bannerUrl,
-      originalUrl: originalBannerUrl || bannerUrl,
+      url: getProxiedImageUrl(bannerUrl),
+      originalUrl: getProxiedImageUrl(originalBannerUrl || bannerUrl),
       cropShape: "rect",
       defaultAspectRatio: 16 / 9,
       title: "Studio Pro: Reajustar Banner do Perfil",
@@ -350,8 +351,8 @@ export function PerfilPage({ initialTab }: { initialTab?: "perfil" | "dados" | "
       isOpen: true,
       type: "avatar",
       file: null,
-      url: activeAv,
-      originalUrl: originalAvatarUrl || activeAv,
+      url: getProxiedImageUrl(activeAv),
+      originalUrl: getProxiedImageUrl(originalAvatarUrl || activeAv),
       cropShape: "round",
       defaultAspectRatio: 1,
       title: "Studio Pro: Reajustar Foto de Perfil",
@@ -483,6 +484,7 @@ export function PerfilPage({ initialTab }: { initialTab?: "perfil" | "dados" | "
 
   const currentSlug = String(customUrl || profile?.discord_username?.replace(/#0$/, "") || user?.id || "").replace(/^@/, "");
   const activeAvatar = customAvatarUrl || profile?.avatar_url || profile?.discord_avatar_url;
+  const activeBanner = bannerUrl || (profile as any)?.banner_url || profile?.custom_theme?.banner_url;
   const initials = (nickname || nome || "P").slice(0, 2).toUpperCase();
 
   const handleOpenPublicProfile = () => {
@@ -544,8 +546,30 @@ export function PerfilPage({ initialTab }: { initialTab?: "perfil" | "dados" | "
         <TabsContent value="perfil" className="space-y-6 animate-in fade-in-50 duration-200">
           <div className="grid gap-6 md:grid-cols-3">
             {/* COLUNA ESQUERDA: RESUMO DO USUÁRIO & FOTO COM STUDIO */}
-            <Card className="surface-card md:col-span-1 h-fit">
-              <CardContent className="p-6 flex flex-col items-center text-center space-y-4">
+            <Card className="surface-card md:col-span-1 h-fit overflow-hidden p-0 border border-border/80 shadow-md">
+              {/* BANNER DE CABEÇALHO DO PERFIL NO CARD DE RESUMO */}
+              <div
+                className="relative w-full h-28 sm:h-32 bg-cover bg-center transition-all group overflow-hidden border-b border-border/50"
+                style={{
+                  backgroundImage: activeBanner
+                    ? `linear-gradient(to bottom, rgba(0,0,0,0.1), rgba(0,0,0,0.6)), url("${getProxiedImageUrl(activeBanner)}")`
+                    : "linear-gradient(135deg, #18181b 0%, #27272a 100%)",
+                  backgroundColor: "#18181b",
+                }}
+              >
+                {/* Botão de alterar banner direto pelo card */}
+                <button
+                  type="button"
+                  onClick={() => bannerInputRef.current?.click()}
+                  className="absolute top-2 right-2 px-2.5 py-1 rounded-lg bg-black/70 hover:bg-black/90 text-white/90 hover:text-white flex items-center gap-1.5 text-[10px] font-bold backdrop-blur-md border border-white/10 transition-all cursor-pointer opacity-90 group-hover:opacity-100 shadow-md"
+                  title="Alterar imagem do banner"
+                >
+                  <Camera className="h-3 w-3 text-emerald-400" />
+                  <span>Banner</span>
+                </button>
+              </div>
+
+              <CardContent className="p-6 pt-0 flex flex-col items-center text-center space-y-4 relative">
                 <input
                   ref={avatarInputRef}
                   type="file"
@@ -554,10 +578,10 @@ export function PerfilPage({ initialTab }: { initialTab?: "perfil" | "dados" | "
                   onChange={handleAvatarFileSelect}
                 />
 
-                {/* AVATAR COM BOTÃO DE AJUSTAR SOBREPOSTO */}
-                <div className="relative group">
-                  <Avatar className="h-28 w-28 border-3 border-primary shadow-xl ring-2 ring-border/80">
-                    <AvatarImage src={activeAvatar || undefined} alt={nome} className="object-cover" />
+                {/* AVATAR COM BOTÃO DE AJUSTAR SOBREPOSTO AO BANNER */}
+                <div className="relative group -mt-12">
+                  <Avatar className="h-24 w-24 border-4 border-background shadow-2xl ring-2 ring-primary/40 bg-background">
+                    <AvatarImage src={getProxiedImageUrl(activeAvatar) || undefined} alt={nome} className="object-cover" />
                     <AvatarFallback className="bg-primary/20 text-primary font-bold text-2xl">
                       {initials}
                     </AvatarFallback>
@@ -763,7 +787,7 @@ export function PerfilPage({ initialTab }: { initialTab?: "perfil" | "dados" | "
                     <div className="space-y-3">
                       <div className="relative rounded-2xl overflow-hidden border border-border/80 h-36 sm:h-44 w-full bg-black shadow-inner">
                         <img
-                          src={bannerUrl}
+                          src={getProxiedImageUrl(bannerUrl)}
                           alt="Banner Preview"
                           className="w-full h-full object-cover"
                           onError={(e) => {

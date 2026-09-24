@@ -128,3 +128,26 @@ export async function uploadImageToPostimages(file: File | Blob, options: Postim
 
   return data.url;
 }
+
+/**
+ * Garante que imagens de CDN (ex: i.postimg.cc) que sofrem bloqueio/timeout de TLS por provedores de internet
+ * sejam sempre servidas com velocidade máxima via Cloudflare Edge do Discloud.
+ */
+export function getProxiedImageUrl(url: string | null | undefined): string {
+  if (!url || typeof url !== "string") return "";
+  const clean = url.trim();
+  if (!clean) return "";
+  if (
+    clean.startsWith("data:") ||
+    clean.startsWith("blob:") ||
+    clean.startsWith("/") ||
+    clean.includes("twin.discloud.app/api/image") ||
+    clean.includes("supabase.co")
+  ) {
+    return clean;
+  }
+  if (clean.includes("i.postimg.cc") || clean.includes("postimg.cc")) {
+    return `https://twin.discloud.app/api/image?url=${encodeURIComponent(clean)}`;
+  }
+  return clean;
+}

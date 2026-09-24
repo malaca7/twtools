@@ -56,6 +56,7 @@ import {
   type DiscordEmbedColors,
 } from "@/services/discordService";
 import { triggerBotProfileSync } from "@/services/discordBotManageService";
+import { getProxiedImageUrl } from "@/services/postimagesService";
 
 export function DevDiscordConfigCard() {
   const { user, profile, level } = useAuth();
@@ -77,6 +78,9 @@ export function DevDiscordConfigCard() {
 
   // Estados para Preview ao Vivo
   const [previewCategory, setPreviewCategory] = useState<"venda" | "movimentacao" | "membro" | "caixa" | "purga">("venda");
+
+  const effectiveBotAvatarUrl = getProxiedImageUrl(config.botAvatarUrl) || "https://i.ibb.co/ymH1BQPQ/Uma124.png";
+  const effectiveFooterIconUrl = getProxiedImageUrl(config.footerIconUrl) || effectiveBotAvatarUrl;
 
   // Carrega a configuração inicial
   useEffect(() => {
@@ -791,7 +795,7 @@ export function DevDiscordConfigCard() {
                     ) : (
                       <>
                         <img
-                          src={config.botAvatarUrl || "https://i.ibb.co/ymH1BQPQ/Uma124.png"}
+                          src={effectiveBotAvatarUrl}
                           alt="Imagem do Bot no Embed"
                           className="w-full h-full object-cover transition-transform group-hover:scale-105"
                           onError={(e) => {
@@ -1330,7 +1334,7 @@ export function DevDiscordConfigCard() {
                 {/* DISCORD MESSAGE CONTAINER */}
                 <div className="flex items-start gap-3">
                   <img
-                    src={config.botAvatarUrl || "https://i.ibb.co/ymH1BQPQ/Uma124.png"}
+                    src={effectiveBotAvatarUrl}
                     alt="Bot Avatar"
                     className="w-10 h-10 rounded-full bg-[#5865f2] shrink-0 mt-0.5 object-cover shadow-sm"
                     onError={(e) => {
@@ -1369,7 +1373,7 @@ export function DevDiscordConfigCard() {
                             </p>
                           </div>
                           <img
-                            src={config.botAvatarUrl || "https://i.ibb.co/ymH1BQPQ/Uma124.png"}
+                            src={effectiveBotAvatarUrl}
                             alt="Embed Thumbnail"
                             className="w-14 h-14 rounded-lg object-cover bg-black/40 border border-white/10 shrink-0 shadow-sm"
                             onError={(e) => {
@@ -1399,7 +1403,7 @@ export function DevDiscordConfigCard() {
 
                         <div className="flex items-center gap-2 pt-2 border-t border-white/5 text-[0.68rem] text-[#949ba4]">
                           <img
-                            src={config.footerIconUrl || config.botAvatarUrl || "https://i.ibb.co/ymH1BQPQ/Uma124.png"}
+                            src={effectiveFooterIconUrl}
                             alt="Footer Icon"
                             className="w-4 h-4 rounded-full object-cover"
                             onError={(e) => {
@@ -1429,7 +1433,7 @@ export function DevDiscordConfigCard() {
                             </p>
                           </div>
                           <img
-                            src={config.botAvatarUrl || "https://i.ibb.co/ymH1BQPQ/Uma124.png"}
+                            src={effectiveBotAvatarUrl}
                             alt="Embed Thumbnail"
                             className="w-14 h-14 rounded-lg object-cover bg-black/40 border border-white/10 shrink-0 shadow-sm"
                             onError={(e) => {
@@ -1449,7 +1453,7 @@ export function DevDiscordConfigCard() {
                         </div>
                         <div className="flex items-center gap-2 pt-2 border-t border-white/5 text-[0.68rem] text-[#949ba4]">
                           <img
-                            src={config.footerIconUrl || config.botAvatarUrl || "https://i.ibb.co/ymH1BQPQ/Uma124.png"}
+                            src={effectiveFooterIconUrl}
                             alt="Footer Icon"
                             className="w-4 h-4 rounded-full object-cover"
                             onError={(e) => {
@@ -1476,7 +1480,7 @@ export function DevDiscordConfigCard() {
                             </p>
                           </div>
                           <img
-                            src={config.botAvatarUrl || "https://i.ibb.co/ymH1BQPQ/Uma124.png"}
+                            src={effectiveBotAvatarUrl}
                             alt="Embed Thumbnail"
                             className="w-14 h-14 rounded-lg object-cover bg-black/40 border border-white/10 shrink-0 shadow-sm"
                             onError={(e) => {
@@ -1486,7 +1490,7 @@ export function DevDiscordConfigCard() {
                         </div>
                         <div className="flex items-center gap-2 pt-2 border-t border-white/5 text-[0.68rem] text-[#949ba4]">
                           <img
-                            src={config.footerIconUrl || config.botAvatarUrl || "https://i.ibb.co/ymH1BQPQ/Uma124.png"}
+                            src={effectiveFooterIconUrl}
                             alt="Footer Icon"
                             className="w-4 h-4 rounded-full object-cover"
                             onError={(e) => {
@@ -1513,7 +1517,7 @@ export function DevDiscordConfigCard() {
                             </p>
                           </div>
                           <img
-                            src={config.botAvatarUrl || "https://i.ibb.co/ymH1BQPQ/Uma124.png"}
+                            src={effectiveBotAvatarUrl}
                             alt="Embed Thumbnail"
                             className="w-14 h-14 rounded-lg object-cover bg-black/40 border border-white/10 shrink-0 shadow-sm"
                             onError={(e) => {
@@ -1523,7 +1527,7 @@ export function DevDiscordConfigCard() {
                         </div>
                         <div className="flex items-center gap-2 pt-2 border-t border-white/5 text-[0.68rem] text-[#949ba4]">
                           <img
-                            src={config.footerIconUrl || config.botAvatarUrl || "https://i.ibb.co/ymH1BQPQ/Uma124.png"}
+                            src={effectiveFooterIconUrl}
                             alt="Footer Icon"
                             className="w-4 h-4 rounded-full object-cover"
                             onError={(e) => {
@@ -1550,7 +1554,7 @@ export function DevDiscordConfigCard() {
                             </p>
                           </div>
                           <img
-                            src={config.botAvatarUrl || "https://i.ibb.co/ymH1BQPQ/Uma124.png"}
+                            src={effectiveBotAvatarUrl}
                             alt="Embed Thumbnail"
                             className="w-14 h-14 rounded-lg object-cover bg-black/40 border border-white/10 shrink-0 shadow-sm"
                             onError={(e) => {
@@ -1560,7 +1564,7 @@ export function DevDiscordConfigCard() {
                         </div>
                         <div className="flex items-center gap-2 pt-2 border-t border-white/5 text-[0.68rem] text-[#949ba4]">
                           <img
-                            src={config.footerIconUrl || config.botAvatarUrl || "https://i.ibb.co/ymH1BQPQ/Uma124.png"}
+                            src={effectiveFooterIconUrl}
                             alt="Footer Icon"
                             className="w-4 h-4 rounded-full object-cover"
                             onError={(e) => {

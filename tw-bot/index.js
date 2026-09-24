@@ -2247,6 +2247,45 @@ const server = http.createServer(async (req, res) => {
     return res.end(JSON.stringify({ status: "live_check_triggered", timestamp: new Date().toISOString() }));
   }
 
+  // Rota de proxy acelerado de imagens (com bypass de restrições de ISP/TLS e cache Cloudflare edge)
+  if (pathname === "/api/image" || pathname === "/image") {
+    const rawTarget = urlObj.searchParams.get("url") || "";
+    if (!rawTarget) {
+      res.writeHead(400, { "Content-Type": "application/json" });
+      return res.end(JSON.stringify({ error: "Parâmetro url é obrigatório" }));
+    }
+
+    try {
+      const decodedUrl = decodeURIComponent(rawTarget);
+      const imgRes = await fetch(decodedUrl, {
+        headers: {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+          "Referer": "https://postimages.org/",
+          "Accept": "image/*,*/*;q=0.8",
+        },
+      });
+
+      if (!imgRes.ok) {
+        res.writeHead(imgRes.status, { "Content-Type": "application/json" });
+        return res.end(JSON.stringify({ error: `Falha ao carregar imagem: ${imgRes.status}` }));
+      }
+
+      const mimeType = imgRes.headers.get("content-type") || "image/png";
+      const arrayBuf = await imgRes.arrayBuffer();
+      const buffer = Buffer.from(arrayBuf);
+
+      res.setHeader("Content-Type", mimeType);
+      res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
+      res.setHeader("Access-Control-Allow-Origin", "*");
+      res.writeHead(200);
+      return res.end(buffer);
+    } catch (err) {
+      console.error("❌ [PROXY IMAGE ERROR]:", err.message);
+      res.writeHead(502, { "Content-Type": "application/json" });
+      return res.end(JSON.stringify({ error: err.message }));
+    }
+  }
+
   // Rota para obter URL oficial do Discord Webhook (compatível com Discohook): /api/webhook-url/:channelId
   if (pathname.startsWith("/api/webhook-url/")) {
     const targetChannelId = pathname.replace("/api/webhook-url/", "").trim();
@@ -2393,9 +2432,10 @@ const server = http.createServer(async (req, res) => {
         }
 
         const cdnUrl = await uploadBufferToPostimages(fileBuffer, fileName, mimeType);
+        const proxiedUrl = `https://twin.discloud.app/api/image?url=${encodeURIComponent(cdnUrl)}`;
         res.setHeader("Access-Control-Allow-Origin", "*");
         res.writeHead(200, { "Content-Type": "application/json" });
-        return res.end(JSON.stringify({ success: true, url: cdnUrl }));
+        return res.end(JSON.stringify({ success: true, url: proxiedUrl, cdnUrl }));
       } catch (err) {
         console.error("❌ [UPLOAD POSTIMAGES ERROR]:", err);
         res.setHeader("Access-Control-Allow-Origin", "*");

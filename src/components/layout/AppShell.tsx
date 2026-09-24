@@ -88,6 +88,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { getProxiedImageUrl } from "@/services/postimagesService";
 import { useAuth } from "@/hooks/useAuth";
 import { usePlatformSettings } from "@/hooks/usePlatformSettings";
 import { useMenuConfig } from "@/hooks/useMenuConfig";
@@ -1039,7 +1040,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                     className="flex items-center gap-2 h-10 sm:h-11 px-1.5 sm:px-2 hover:bg-secondary/50 rounded-xl outline-none"
                   >
                     <Avatar className="h-8 w-8 sm:h-9 sm:w-9 border border-primary/40 shadow-sm pointer-events-none shrink-0">
-                      {avatarUrl && <AvatarImage src={avatarUrl} alt={mainName} />}
+                      {avatarUrl && <AvatarImage src={getProxiedImageUrl(avatarUrl)} alt={mainName} />}
                       <AvatarFallback className="bg-primary/20 text-primary font-bold text-xs">
                         {initials}
                       </AvatarFallback>

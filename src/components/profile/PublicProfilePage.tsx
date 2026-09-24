@@ -36,6 +36,7 @@ import { BANNER_PRESETS, type SocialLinks } from "@/types/profileFeed";
 import { STREAM_PLATFORMS } from "@/types/lives";
 import { PerfilPage } from "@/routes/_authenticated/perfil";
 import { SocialPlatformsList } from "@/components/profile/SocialPlatformIcons";
+import { getProxiedImageUrl } from "@/services/postimagesService";
 
 export interface PublicProfilePageProps {
   handleOverride?: string;
@@ -311,7 +312,7 @@ export function PublicProfilePage({ handleOverride, isRootRoute = false }: Publi
           ) : (
             <div className="w-full h-full relative">
               <img
-                src={bannerValue}
+                src={getProxiedImageUrl(bannerValue)}
                 alt="Banner do Perfil"
                 className="w-full h-full object-cover"
                 onError={(e) => {
@@ -346,7 +347,7 @@ export function PublicProfilePage({ handleOverride, isRootRoute = false }: Publi
             {/* AVATAR COM ANEL DE STATUS */}
             <div className="relative inline-block self-start">
               <Avatar className="h-28 w-28 sm:h-32 sm:w-32 rounded-3xl border-4 border-card shadow-2xl bg-secondary ring-2 ring-border/80">
-                {avatarUrl && <AvatarImage src={avatarUrl} alt={displayName} className="object-cover" />}
+                {avatarUrl && <AvatarImage src={getProxiedImageUrl(avatarUrl)} alt={displayName} className="object-cover" />}
                 <AvatarFallback className="bg-gradient-brand text-primary-foreground font-black text-2xl sm:text-3xl rounded-3xl">
                   {initials}
                 </AvatarFallback>

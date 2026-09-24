@@ -101,6 +101,7 @@ import {
 import { cn } from "@/lib/utils";
 import { ImageCropModal } from "./ImageCropModal";
 import { DevBotSendMessageModal } from "./DevBotSendMessageModal";
+import { getProxiedImageUrl } from "@/services/postimagesService";
 
 function DiscordIconSvg({ className }: { className?: string }) {
   return (
@@ -574,7 +575,7 @@ export function DevBotManageCard({ isCeoView: isCeoViewProp }: DevBotManageCardP
 
     setCropTarget(target);
     setCropFile(null);
-    setCropImageUrl(currentUrl);
+    setCropImageUrl(getProxiedImageUrl(currentUrl) || currentUrl);
     setIsCropModalOpen(true);
   };
 
@@ -817,9 +818,9 @@ export function DevBotManageCard({ isCeoView: isCeoViewProp }: DevBotManageCardP
 
   const clientId = config.clientId || "1536184283197079622";
   const botName = config.botName || "Roda Dupla";
-  const botAvatar = config.botAvatarUrl || "https://i.ibb.co/ymH1BQPQ/Uma124.png";
+  const botAvatar = getProxiedImageUrl(config.botAvatarUrl) || "https://i.ibb.co/ymH1BQPQ/Uma124.png";
   const botBanner =
-    config.botBannerUrl ||
+    getProxiedImageUrl(config.botBannerUrl) ||
     "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=1600&auto=format&fit=crop";
 
   return (
@@ -1996,7 +1997,7 @@ export function DevBotManageCard({ isCeoView: isCeoViewProp }: DevBotManageCardP
                 <div
                   className="w-full h-28 rounded-xl bg-cover bg-center border border-zinc-800 relative overflow-hidden shadow-inner"
                   style={{
-                    backgroundImage: `linear-gradient(to bottom, rgba(0,0,0,0.1), rgba(0,0,0,0.7)), url("${bannerUrlInput}")`,
+                    backgroundImage: `linear-gradient(to bottom, rgba(0,0,0,0.1), rgba(0,0,0,0.7)), url("${getProxiedImageUrl(bannerUrlInput)}")`,
                   }}
                 />
               </div>
@@ -2176,7 +2177,7 @@ export function DevBotManageCard({ isCeoView: isCeoViewProp }: DevBotManageCardP
                   </Button>
                 </div>
                 <img
-                  src={avatarInput}
+                  src={getProxiedImageUrl(avatarInput)}
                   alt="Preview Avatar"
                   className="h-24 w-24 rounded-full object-cover ring-4 ring-primary shadow-xl bg-zinc-900"
                   onError={(e) => {
