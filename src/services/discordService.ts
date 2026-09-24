@@ -295,18 +295,29 @@ export async function saveDiscordBotConfig(
     }
 
     // Salva no banco de dados Supabase na tabela role_permissions
-    const { error } = await supabase.from("role_permissions").upsert(
-      {
-        level: DISCORD_CONFIG_LEVEL,
-        nivel: DISCORD_CONFIG_LEVEL,
-        permissions: finalConfig as any,
-        updated_at: new Date().toISOString(),
-      },
-      { onConflict: "level" }
-    );
+    let saveSuccess = false;
+    try {
+      const { error: rpcErr } = await supabase.rpc("save_role_permissions", {
+        _level: DISCORD_CONFIG_LEVEL,
+        _permissions: finalConfig as any,
+      });
+      if (!rpcErr) saveSuccess = true;
+    } catch {}
 
-    if (error) {
-      throw error;
+    if (!saveSuccess) {
+      const { error } = await supabase.from("role_permissions").upsert(
+        {
+          level: DISCORD_CONFIG_LEVEL,
+          nivel: DISCORD_CONFIG_LEVEL,
+          permissions: finalConfig as any,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "level" }
+      );
+
+      if (error) {
+        throw error;
+      }
     }
 
     // Dispara broadcast em tempo real para o tw-bot atualizar a memória imediatamente

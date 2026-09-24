@@ -135,15 +135,26 @@ export async function savePlatformSettings(settings: PlatformSettings) {
   emitPlatformSettingsChange();
 
   try {
-    await supabase.from("role_permissions").upsert(
-      {
-        level: "system_platform_settings",
-        nivel: "system_platform_settings",
-        permissions: settings as any,
-        updated_at: new Date().toISOString(),
-      },
-      { onConflict: "level" }
-    );
+    let saveSuccess = false;
+    try {
+      const { error: rpcErr } = await supabase.rpc("save_role_permissions", {
+        _level: "system_platform_settings",
+        _permissions: settings as any,
+      });
+      if (!rpcErr) saveSuccess = true;
+    } catch {}
+
+    if (!saveSuccess) {
+      await supabase.from("role_permissions").upsert(
+        {
+          level: "system_platform_settings",
+          nivel: "system_platform_settings",
+          permissions: settings as any,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "level" }
+      );
+    }
   } catch (err) {
     console.error("Erro ao sincronizar system_platform_settings no banco:", err);
   }

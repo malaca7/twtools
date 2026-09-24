@@ -13,6 +13,9 @@ import appCss from "../styles.css?url";
 import { reportAppError } from "../lib/app-error-reporting";
 import { AuthProvider } from "@/hooks/useAuth";
 import { Toaster } from "@/components/ui/sonner";
+import { usePlatformSettings } from "@/hooks/usePlatformSettings";
+import { useUserTheme, applyThemeToDOM } from "@/hooks/useUserTheme";
+import { useRealtimeSync } from "@/hooks/useRealtimeSync";
 
 function NotFoundComponent() {
   const pathname = typeof window !== "undefined" ? window.location.pathname : "";
@@ -157,9 +160,6 @@ function RootShell({ children }: { children: ReactNode }) {
   );
 }
 
-import { usePlatformSettings } from "@/hooks/usePlatformSettings";
-import { useUserTheme, applyThemeToDOM } from "@/hooks/useUserTheme";
-
 function DocumentTitleSync() {
   const { settings } = usePlatformSettings();
 
@@ -183,8 +183,6 @@ function AppearanceSync() {
 
   return null;
 }
-
-import { useRealtimeSync } from "@/hooks/useRealtimeSync";
 
 function GlobalRealtimeSync() {
   useRealtimeSync();
