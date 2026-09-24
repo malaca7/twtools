@@ -25,19 +25,34 @@ function AuthCallbackPage() {
 
     async function handleCallback() {
       try {
-        // Check for error parameters in the URL query/hash first
-        const params = new URLSearchParams(window.location.search || window.location.hash.substring(1));
-        const errorCode = params.get("error_code") || params.get("error");
-        const errorDesc = params.get("error_description");
+        // Check for error parameters in both query and hash
+        const searchParams = new URLSearchParams(window.location.search);
+        const hashClean = window.location.hash.startsWith("#") ? window.location.hash.substring(1) : window.location.hash;
+        const hashParams = new URLSearchParams(hashClean);
+
+        const errorCode = searchParams.get("error_code") || searchParams.get("error") || hashParams.get("error_code") || hashParams.get("error");
+        const errorDesc = searchParams.get("error_description") || hashParams.get("error_description");
         
         if (errorCode) {
           let msg = "Erro na autenticação com o Discord.";
           if (errorCode === "access_denied" || errorDesc?.includes("cancel")) {
             msg = "Login cancelado. Você precisa autorizar o aplicativo para continuar.";
+          } else if (errorDesc?.includes("Unable to exchange external code")) {
+            msg = "Erro nas credenciais do Discord: o Client Secret no Supabase está incorreto ou expirado. É necessário atualizar o Client Secret no painel do Supabase com o valor do Discord Developer Portal.";
           } else if (errorDesc) {
             msg = errorDesc;
           }
           throw new Error(msg);
+        }
+
+        // Se houver um código retornado na URL (?code=...), tenta exchangeCodeForSession
+        const code = searchParams.get("code") || hashParams.get("code");
+        if (code) {
+          try {
+            await supabase.auth.exchangeCodeForSession(code);
+          } catch (codeErr) {
+            console.warn("exchangeCodeForSession info:", codeErr);
+          }
         }
 
         // Wait up to 3 seconds for Supabase JS client to process hash/code token and populate session

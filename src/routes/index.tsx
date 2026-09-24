@@ -156,11 +156,15 @@ function AuthPage() {
     try {
       const origin = typeof window !== "undefined" && window.location.origin
         ? window.location.origin
-        : "http://twin.malaca.com.br";
+        : "https://twin.malaca.com.br";
 
-      const cleanOrigin = origin.startsWith("http://") || origin.startsWith("https://")
+      let cleanOrigin = origin.startsWith("http://") || origin.startsWith("https://")
         ? origin
         : `https://${origin}`;
+
+      if (cleanOrigin.includes("twin.malaca.com.br")) {
+        cleanOrigin = cleanOrigin.replace(/^http:\/\//, "https://");
+      }
 
       const redirectTarget = `${cleanOrigin}/auth/callback`;
 
