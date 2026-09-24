@@ -121,20 +121,37 @@ export function PublicProfileCustomizer() {
       const fileName = `banner_${user?.id || "user"}_${Date.now()}.png`;
       let finalCroppedUrl = croppedDataUrl;
 
-      // 1. Tenta upload no bucket 'products'
-      const { data: prodData, error: prodErr } = await supabase.storage
-        .from("products")
-        .upload(fileName, croppedBlob, {
-          cacheControl: "31536000",
-          upsert: true,
-          contentType: "image/png",
+      // 1. Tenta upload direto para o CDN Postimages (Zero consumo de storage e egress de banco)
+      let postimagesSuccess = false;
+      try {
+        const { uploadImageToPostimages } = await import("@/services/postimagesService");
+        const cdnUrl = await uploadImageToPostimages(croppedBlob, {
+          filename: fileName,
+          maxDimension: 1920,
         });
+        if (cdnUrl) {
+          finalCroppedUrl = cdnUrl;
+          postimagesSuccess = true;
+        }
+      } catch (postErr) {
+        console.warn("⚠️ Aviso ao subir banner para Postimages CDN, usando fallback:", postErr);
+      }
 
-      if (!prodErr && prodData) {
-        const { data: pubData } = supabase.storage.from("products").getPublicUrl(prodData.path);
-        finalCroppedUrl = pubData.publicUrl;
-      } else {
-        // Fallback chat-attachments
+      if (!postimagesSuccess) {
+        // Fallback 1: Tenta upload no bucket 'products'
+        const { data: prodData, error: prodErr } = await supabase.storage
+          .from("products")
+          .upload(fileName, croppedBlob, {
+            cacheControl: "31536000",
+            upsert: true,
+            contentType: "image/png",
+          });
+
+        if (!prodErr && prodData) {
+          const { data: pubData } = supabase.storage.from("products").getPublicUrl(prodData.path);
+          finalCroppedUrl = pubData.publicUrl;
+        } else {
+          // Fallback 2: chat-attachments
         const { data: chatData, error: chatErr } = await supabase.storage
           .from("chat-attachments")
           .upload(fileName, croppedBlob, {
@@ -148,6 +165,7 @@ export function PublicProfileCustomizer() {
           finalCroppedUrl = pubData.publicUrl;
         }
       }
+    }
 
       setBannerUrl(finalCroppedUrl);
       if (originalDataUrl) {

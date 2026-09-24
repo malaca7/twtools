@@ -2091,12 +2091,53 @@ async function handleGetWebhookUrl(channelId, req, res) {
   }
 }
 
+/**
+ * Realiza upload de imagem para o Postimages.org via API JSON e recupera link direto CDN (i.postimg.cc)
+ * Zero consumo de storage Supabase e zero egress de banco de dados.
+ */
+async function uploadBufferToPostimages(fileBuffer, fileName, mimeType = "image/png") {
+  const form = new FormData();
+  form.append("gallery", "");
+  form.append("optsize", "0");
+  form.append("expire", "0");
+  form.append("numfiles", "1");
+  form.append("upload_session", `${Date.now()}${Math.random().toString().substring(1)}`);
+  form.append("file", new Blob([fileBuffer], { type: mimeType }), fileName);
+
+  const res = await fetch("https://postimages.org/json/rr", {
+    method: "POST",
+    body: form,
+    headers: {
+      Accept: "application/json",
+      "Cache-Control": "no-cache",
+      "X-Requested-With": "XMLHttpRequest",
+      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+      Origin: "https://postimages.org",
+      Referer: "https://postimages.org/",
+    },
+  });
+
+  if (!res.ok) throw new Error(`Postimages HTTP ${res.status}: ${await res.text()}`);
+  const data = await res.json();
+  if (!data.url) throw new Error("Postimages não retornou URL válida.");
+
+  const pageRes = await fetch(data.url);
+  const html = await pageRes.text();
+  const ogMatch = html.match(/<meta\s+property="og:image"\s+content="([^"]+)"/i);
+  const directMatch = html.match(/https:\/\/i\.postimg\.cc\/[a-zA-Z0-9_\-./]+\.(png|jpg|jpeg|webp|gif)/i);
+
+  const cdnUrl = (ogMatch && ogMatch[1]) || (directMatch && directMatch[0]);
+  if (!cdnUrl) throw new Error(`Não foi possível extrair URL direta do CDN para ${data.url}`);
+
+  return cdnUrl;
+}
+
 // Servidor HTTP básico para o Discloud (TYPE=site), Webhooks públicos e health checks
 const server = http.createServer(async (req, res) => {
   // Configuração global de CORS para permitir chamadas de qualquer frontend ou script
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Filename");
 
   if (req.method === "OPTIONS") {
     res.writeHead(204);
@@ -2173,6 +2214,51 @@ const server = http.createServer(async (req, res) => {
         return res.end(JSON.stringify(result));
       } catch (err) {
         console.error("❌ [SIMULATE-STOCK HTTP ERROR]:", err);
+        res.writeHead(500, { "Content-Type": "application/json" });
+        return res.end(JSON.stringify({ success: false, error: err.message }));
+      }
+    });
+    return;
+  }
+
+  // Rota para Upload de Imagens no Postimages.org (Zero Supabase Storage/Egress)
+  if (pathname === "/api/upload-image") {
+    if (req.method !== "POST") {
+      res.writeHead(405, { "Content-Type": "application/json" });
+      return res.end(JSON.stringify({ error: "Método não permitido. Utilize POST." }));
+    }
+
+    const chunks = [];
+    let totalLen = 0;
+    req.on("data", (chunk) => {
+      chunks.push(chunk);
+      totalLen += chunk.length;
+      if (totalLen > 20 * 1024 * 1024) req.destroy();
+    });
+
+    req.on("end", async () => {
+      try {
+        const rawBuffer = Buffer.concat(chunks);
+        const contentType = req.headers["content-type"] || "";
+        let fileBuffer, fileName, mimeType;
+
+        if (contentType.includes("application/json")) {
+          const json = JSON.parse(rawBuffer.toString("utf8"));
+          fileName = json.filename || `img_${Date.now()}.png`;
+          const base64Data = (json.base64 || "").replace(/^data:image\/\w+;base64,/, "");
+          fileBuffer = Buffer.from(base64Data, "base64");
+          mimeType = json.contentType || "image/png";
+        } else {
+          fileName = req.headers["x-filename"] || `img_${Date.now()}.png`;
+          fileBuffer = rawBuffer;
+          mimeType = contentType.split(";")[0] || "image/png";
+        }
+
+        const cdnUrl = await uploadBufferToPostimages(fileBuffer, fileName, mimeType);
+        res.writeHead(200, { "Content-Type": "application/json" });
+        return res.end(JSON.stringify({ success: true, url: cdnUrl }));
+      } catch (err) {
+        console.error("❌ [UPLOAD POSTIMAGES ERROR]:", err);
         res.writeHead(500, { "Content-Type": "application/json" });
         return res.end(JSON.stringify({ success: false, error: err.message }));
       }

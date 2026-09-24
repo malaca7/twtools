@@ -1988,9 +1988,18 @@ export async function reverseSale(saleId: string, reason?: string): Promise<void
 }
 
 export async function uploadProductImage(file: File): Promise<string> {
-  const maxBytes = 5 * 1024 * 1024; // 5MB
+  const maxBytes = 15 * 1024 * 1024; // 15MB
   if (file.size > maxBytes) {
-    throw new Error("A imagem selecionada ultrapassa o limite de 5MB.");
+    throw new Error("A imagem selecionada ultrapassa o limite de 15MB.");
+  }
+
+  // 1. Prioriza upload para CDN Postimages (Zero consumo de storage e egress de banco)
+  try {
+    const { uploadImageToPostimages } = await import("@/services/postimagesService");
+    const cdnUrl = await uploadImageToPostimages(file);
+    if (cdnUrl) return cdnUrl;
+  } catch (postimagesErr) {
+    console.warn("⚠️ Aviso ao subir para Postimages, usando fallback do Supabase Storage:", postimagesErr);
   }
 
   const ext = file.name.split(".").pop()?.toLowerCase() || "png";
@@ -2013,9 +2022,18 @@ export async function uploadProductImage(file: File): Promise<string> {
 }
 
 export async function uploadBauImage(file: File): Promise<string> {
-  const maxBytes = 5 * 1024 * 1024; // 5MB
+  const maxBytes = 15 * 1024 * 1024; // 15MB
   if (file.size > maxBytes) {
-    throw new Error("A imagem selecionada ultrapassa o limite de 5MB.");
+    throw new Error("A imagem selecionada ultrapassa o limite de 15MB.");
+  }
+
+  // 1. Prioriza upload para CDN Postimages (Zero consumo de storage e egress de banco)
+  try {
+    const { uploadImageToPostimages } = await import("@/services/postimagesService");
+    const cdnUrl = await uploadImageToPostimages(file);
+    if (cdnUrl) return cdnUrl;
+  } catch (postimagesErr) {
+    console.warn("⚠️ Aviso ao subir para Postimages, usando fallback do Supabase Storage:", postimagesErr);
   }
 
   const ext = file.name.split(".").pop()?.toLowerCase() || "png";

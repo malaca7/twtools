@@ -66,7 +66,19 @@ async function uploadImageFile(file: File, prefix: string, userId: string): Prom
   const cleanExt = ["png", "jpg", "jpeg", "webp", "gif"].includes(ext) ? ext : "png";
   const fileName = `${prefix}_${userId}_${Date.now()}.${cleanExt}`;
 
-  // 1. Tenta bucket 'products'
+  // 1. Tenta upload direto para o CDN Postimages (Zero consumo de storage e egress de banco)
+  try {
+    const { uploadImageToPostimages } = await import("@/services/postimagesService");
+    const cdnUrl = await uploadImageToPostimages(file, {
+      filename: fileName,
+      maxDimension: prefix.includes("banner") ? 1920 : 600,
+    });
+    if (cdnUrl) return cdnUrl;
+  } catch (postErr) {
+    console.warn("⚠️ Aviso ao subir imagem no Postimages CDN, usando fallback:", postErr);
+  }
+
+  // 2. Tenta bucket 'products'
   const { data: prodData, error: prodErr } = await supabase.storage
     .from("products")
     .upload(fileName, file, {
