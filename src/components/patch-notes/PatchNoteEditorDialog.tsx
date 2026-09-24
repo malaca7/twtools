@@ -156,14 +156,23 @@ export function PatchNoteEditorDialog({
     setIsAdjusterOpen(true);
   };
 
-  const handleSaveAdjustedImage = (_croppedBlob: Blob, croppedDataUrl: string, originalDataUrl?: string) => {
+  const handleSaveAdjustedImage = async (croppedBlob: Blob, croppedDataUrl: string, originalDataUrl?: string) => {
     if (!adjustingImage) return;
+    let finalUrl = croppedDataUrl;
+    try {
+      const { uploadImageToPostimages } = await import("@/services/postimagesService");
+      const cdnUrl = await uploadImageToPostimages(croppedBlob, { filename: `patch_${Date.now()}.png` });
+      if (cdnUrl) finalUrl = cdnUrl;
+    } catch (e) {
+      console.warn("⚠️ Falha ao subir imagem de patch note no Postimages:", e);
+    }
+
     setImages((prev) =>
       prev.map((img) =>
         img.id === adjustingImage.id
           ? {
               ...img,
-              url: croppedDataUrl,
+              url: finalUrl,
               original_url: originalDataUrl || img.original_url || adjustingImage.url,
             }
           : img
@@ -171,7 +180,7 @@ export function PatchNoteEditorDialog({
     );
     setIsAdjusterOpen(false);
     setAdjustingImage(null);
-    toast.success("Imagem atualizada com os novos enquadramentos!");
+    toast.success("Imagem atualizada e salva com sucesso!");
   };
 
   const handleUpdateImageCaption = (id: string, caption: string) => {

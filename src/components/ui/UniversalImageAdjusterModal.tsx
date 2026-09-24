@@ -43,15 +43,18 @@ export interface UniversalImageAdjusterModalProps {
   onClose: () => void;
   imageFile?: File | null;
   imageUrl?: string | null;
+  imageSrc?: string | null; // Compatibility alias
   originalImageUrl?: string | null; // URL da imagem original em alta resolução para reajuste
   cropShape?: "round" | "rect";
   defaultAspectRatio?: number;
+  aspectRatioPreset?: string; // Compatibility alias
   allowedRatios?: AspectRatioOption[];
   targetWidth?: number;
   targetHeight?: number;
   title?: string;
   description?: string;
-  onCropSave: (croppedFile: File, originalFileOrUrl?: File | string) => Promise<void> | void;
+  onCropSave?: (croppedFile: File, originalFileOrUrl?: File | string) => Promise<void> | void;
+  onSave?: (croppedBlob: Blob, croppedDataUrl: string, originalDataUrl?: string) => Promise<void> | void;
   isSaving?: boolean;
 }
 
@@ -60,6 +63,7 @@ export function UniversalImageAdjusterModal({
   onClose,
   imageFile,
   imageUrl,
+  imageSrc: imageSrcProp,
   originalImageUrl,
   cropShape = "rect",
   defaultAspectRatio,
@@ -69,10 +73,11 @@ export function UniversalImageAdjusterModal({
   title = "Studio de Ajuste de Imagem",
   description = "Ajuste o enquadramento, rotação e iluminação com máxima precisão antes de salvar.",
   onCropSave,
+  onSave,
   isSaving = false,
 }: UniversalImageAdjusterModalProps) {
   // Imagem ativa para carregar no canvas (prioriza a imagem original se fornecida para reajuste)
-  const effectiveImageUrl = originalImageUrl || imageUrl;
+  const effectiveImageUrl = originalImageUrl || imageUrl || imageSrcProp;
 
   const [imageSrc, setImageSrc] = useState<string | null>(null);
   const [imageObj, setImageObj] = useState<HTMLImageElement | null>(null);
@@ -426,9 +431,21 @@ export function UniversalImageAdjusterModal({
         : "imagem_ajustada";
       const croppedFileName = `${baseName}_pro.${isPng ? "png" : "jpg"}`;
       const croppedFile = new File([blob], croppedFileName, { type: mimeType });
+      const dataUrl = canvas.toDataURL(mimeType, 0.95);
 
       // Salva o arquivo ajustado e preserva a fonte original (File ou URL)
-      await onCropSave(croppedFile, imageFile || effectiveImageUrl || undefined);
+      if (onCropSave) {
+        await onCropSave(croppedFile, imageFile || effectiveImageUrl || undefined);
+      }
+      if (onSave) {
+        await onSave(
+          blob,
+          dataUrl,
+          typeof (imageFile || effectiveImageUrl) === "string"
+            ? ((imageFile || effectiveImageUrl) as string)
+            : undefined
+        );
+      }
     } catch (err) {
       console.error("Erro no processamento da imagem:", err);
     }

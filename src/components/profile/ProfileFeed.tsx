@@ -348,25 +348,39 @@ export function ProfileFeed({ authorId, authorName, authorAvatar, isSelf }: Prof
                 try {
                   const ext = croppedFile.name.split(".").pop()?.toLowerCase() || "png";
                   const fileName = `feed_${user?.id || "user"}_${Date.now()}.${ext}`;
-                  const { data, error } = await supabase.storage
-                    .from("chat-attachments")
-                    .upload(fileName, croppedFile, {
-                      cacheControl: "31536000",
-                      upsert: true,
-                      contentType: croppedFile.type || "image/png",
-                    });
 
-                  if (!error && data) {
-                    const pub = supabase.storage.from("chat-attachments").getPublicUrl(data.path);
-                    setMediaUrl(pub.data.publicUrl);
-                  } else {
-                    const b64 = await new Promise<string>((res) => {
-                      const r = new FileReader();
-                      r.onload = () => res(r.result as string);
-                      r.readAsDataURL(croppedFile);
-                    });
-                    setMediaUrl(b64);
+                  let finalUrl = "";
+                  try {
+                    const { uploadImageToPostimages } = await import("@/services/postimagesService");
+                    const cdnUrl = await uploadImageToPostimages(croppedFile, { filename: fileName });
+                    if (cdnUrl) finalUrl = cdnUrl;
+                  } catch (postErr) {
+                    console.warn("⚠️ Postimages CDN fallback para storage local:", postErr);
                   }
+
+                  if (!finalUrl) {
+                    const { data, error } = await supabase.storage
+                      .from("chat-attachments")
+                      .upload(fileName, croppedFile, {
+                        cacheControl: "31536000",
+                        upsert: true,
+                        contentType: croppedFile.type || "image/png",
+                      });
+
+                    if (!error && data) {
+                      const pub = supabase.storage.from("chat-attachments").getPublicUrl(data.path);
+                      finalUrl = pub.data.publicUrl;
+                    } else {
+                      const b64 = await new Promise<string>((res) => {
+                        const r = new FileReader();
+                        r.onload = () => res(r.result as string);
+                        r.readAsDataURL(croppedFile);
+                      });
+                      finalUrl = b64;
+                    }
+                  }
+
+                  setMediaUrl(finalUrl);
 
                   if (typeof origSource === "string") {
                     setStudioOriginalUrl(origSource);

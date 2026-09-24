@@ -24,7 +24,9 @@ import {
   Sparkles,
   Loader2,
   X,
+  Crop,
 } from "lucide-react";
+import { UniversalImageAdjusterModal } from "@/components/ui/UniversalImageAdjusterModal";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -132,11 +134,37 @@ export function EstoquePage() {
   const [imageMode, setImageMode] = useState<"upload" | "url">("upload");
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
-  const handleImageFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Studio Adjuster State for Product Image
+  const [productAdjusterOpen, setProductAdjusterOpen] = useState(false);
+  const [productAdjusterFile, setProductAdjusterFile] = useState<File | null>(null);
+  const [productAdjusterUrl, setProductAdjusterUrl] = useState<string | null>(null);
+  const [isSavingProductAdjuster, setIsSavingProductAdjuster] = useState(false);
+
+  const handleProductFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      toast.error("Por favor, selecione um arquivo de imagem válido (PNG, JPG, WEBP, GIF).");
+      return;
+    }
+    setProductAdjusterFile(file);
+    setProductAdjusterUrl(null);
+    setProductAdjusterOpen(true);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
+  const handleOpenProductAdjusterForExisting = () => {
+    if (!prodImagemUrl) return;
+    setProductAdjusterFile(null);
+    setProductAdjusterUrl(prodImagemUrl);
+    setProductAdjusterOpen(true);
+  };
+
+  const handleSaveAdjustedProductImage = async (croppedBlob: Blob) => {
+    setIsSavingProductAdjuster(true);
+    const toastId = toast.loading("Salvando e otimizando imagem do produto no estúdio...");
     try {
-      setUploadingImage(true);
+      const file = new File([croppedBlob], `product_${Date.now()}.png`, { type: "image/png" });
       const url = await uploadProductImage(file);
       setProdImagemUrl(url);
       if (editingProduct?.id) {
@@ -146,12 +174,12 @@ export function EstoquePage() {
         });
         void queryClient.invalidateQueries({ queryKey: ["products"] });
       }
-      toast.success("Imagem enviada e vinculada ao produto!");
+      toast.success("Foto do produto ajustada e salva com sucesso!", { id: toastId });
+      setProductAdjusterOpen(false);
     } catch (err: any) {
-      toast.error(errorMessage(err));
+      toast.error(err.message || "Erro ao salvar foto do produto.", { id: toastId });
     } finally {
-      setUploadingImage(false);
-      if (fileInputRef.current) fileInputRef.current.value = "";
+      setIsSavingProductAdjuster(false);
     }
   };
 
@@ -890,6 +918,20 @@ export function EstoquePage() {
         </CardContent>
       </Card>
 
+      {/* STUDIO DE AJUSTE DE IMAGEM DO PRODUTO */}
+      <UniversalImageAdjusterModal
+        isOpen={productAdjusterOpen}
+        onClose={() => setProductAdjusterOpen(false)}
+        imageFile={productAdjusterFile}
+        imageUrl={productAdjusterUrl}
+        cropShape="rect"
+        defaultAspectRatio={1}
+        title="Studio: Ajustar Foto do Produto"
+        description="Enquadre, recorte e ajuste os filtros da imagem do produto antes de publicar no catálogo."
+        onCropSave={handleSaveAdjustedProductImage}
+        isSaving={isSavingProductAdjuster}
+      />
+
       {/* MODAL DE CRIAR / EDITAR PRODUTO */}
       <Dialog open={productModalOpen} onOpenChange={setProductModalOpen}>
         <DialogContent className="sm:max-w-lg bg-card text-card-foreground border border-border/80 shadow-2xl p-5 sm:p-6">
@@ -1032,7 +1074,7 @@ export function EstoquePage() {
                     ref={fileInputRef}
                     type="file"
                     accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml"
-                    onChange={handleImageFileUpload}
+                    onChange={handleProductFileSelect}
                     className="hidden"
                     id="prod-image-file-upload"
                   />
@@ -1040,15 +1082,15 @@ export function EstoquePage() {
                     htmlFor="prod-image-file-upload"
                     className={cn(
                       "flex flex-col items-center justify-center p-4 border-2 border-dashed rounded-xl cursor-pointer transition-all duration-200 text-center gap-1.5",
-                      uploadingImage
+                      uploadingImage || isSavingProductAdjuster
                         ? "border-primary/50 bg-primary/5 cursor-wait"
                         : "border-border/80 bg-secondary/30 hover:bg-secondary/50 hover:border-primary/50"
                     )}
                   >
-                    {uploadingImage ? (
+                    {uploadingImage || isSavingProductAdjuster ? (
                       <>
                         <Loader2 className="h-6 w-6 text-primary animate-spin" />
-                        <span className="text-xs font-semibold text-foreground">Enviando imagem para o armazenamento...</span>
+                        <span className="text-xs font-semibold text-foreground">Processando e salvando imagem...</span>
                         <span className="text-[10px] text-muted-foreground">Por favor, aguarde</span>
                       </>
                     ) : (
@@ -1058,7 +1100,7 @@ export function EstoquePage() {
                           Clique para selecionar do computador / celular
                         </span>
                         <span className="text-[10px] text-muted-foreground">
-                          PNG, JPG, WEBP, GIF ou SVG (máx. 5MB)
+                          PNG, JPG, WEBP, GIF ou SVG (máx. 15MB)
                         </span>
                       </>
                     )}
@@ -1088,16 +1130,29 @@ export function EstoquePage() {
                       <p className="text-[10px] text-muted-foreground truncate max-w-xs font-mono">{prodImagemUrl}</p>
                     </div>
                   </div>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setProdImagemUrl("")}
-                    className="h-7 text-xs text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 px-2 rounded-lg shrink-0 cursor-pointer"
-                    title="Remover miniatura"
-                  >
-                    <X className="h-3.5 w-3.5 mr-1" /> Remover
-                  </Button>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      size="sm"
+                      onClick={handleOpenProductAdjusterForExisting}
+                      disabled={isSavingProductAdjuster}
+                      className="h-7 text-xs border border-primary/30 text-primary hover:bg-primary/10 px-2 rounded-lg cursor-pointer flex items-center gap-1 font-bold"
+                      title="Recortar e ajustar foto no Studio"
+                    >
+                      <Crop className="h-3 w-3" /> Ajustar
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setProdImagemUrl("")}
+                      className="h-7 text-xs text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 px-2 rounded-lg shrink-0 cursor-pointer"
+                      title="Remover miniatura"
+                    >
+                      <X className="h-3.5 w-3.5 mr-1" /> Remover
+                    </Button>
+                  </div>
                 </div>
               )}
             </div>

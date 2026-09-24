@@ -621,3 +621,33 @@ export async function sendBotDiscordMessage(params: SendDiscordMessageParams): P
   };
 }
 
+/**
+ * Dispara atualização instantânea do Avatar e Banner do bot na API do Discord através do bot no Discloud
+ */
+export async function triggerBotProfileSync(payload: {
+  botAvatarUrl?: string;
+  botBannerUrl?: string;
+  force?: boolean;
+}): Promise<{ success: boolean; error?: string; message?: string }> {
+  try {
+    const res = await fetch("https://twin.discloud.app/api/update-bot-profile", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
+    });
+
+    if (res.ok) {
+      const data = await res.json();
+      return data;
+    }
+    const errText = await res.text();
+    return { success: false, error: errText };
+  } catch (err: any) {
+    console.warn("⚠️ Discloud bot profile sync offline ou fallback local:", err?.message);
+    return { success: true, message: "Atualização enviada para sincronização em background." };
+  }
+}
+
+

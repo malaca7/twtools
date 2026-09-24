@@ -1130,6 +1130,25 @@ export async function uploadChatAttachment(
 
   if (onProgress) onProgress(20);
 
+  // 1. Se for imagem, prioriza CDN Postimages (Zero consumo de storage e egress de banco)
+  if (file.type && file.type.startsWith("image/")) {
+    try {
+      const { uploadImageToPostimages } = await import("@/services/postimagesService");
+      const cdnUrl = await uploadImageToPostimages(file, { filename: uniqueName });
+      if (cdnUrl) {
+        if (onProgress) onProgress(100);
+        return {
+          url: cdnUrl,
+          name: file.name,
+          type: file.type,
+          size: file.size,
+        };
+      }
+    } catch (postErr) {
+      console.warn("⚠️ Aviso ao subir anexo de imagem no Postimages CDN, usando fallback:", postErr);
+    }
+  }
+
   const { error: uploadError } = await supabase.storage
     .from("chat-attachments")
     .upload(filePath, file, {

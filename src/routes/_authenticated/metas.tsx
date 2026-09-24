@@ -328,14 +328,23 @@ export function MetasPage() {
     }
   };
 
-  const handleSaveAdjustedProof = (_croppedBlob: Blob, croppedDataUrl: string, originalDataUrl?: string) => {
-    setDeliverProofUrl(croppedDataUrl);
+  const handleSaveAdjustedProof = async (croppedBlob: Blob, croppedDataUrl: string, originalDataUrl?: string) => {
+    let finalUrl = croppedDataUrl;
+    try {
+      const { uploadImageToPostimages } = await import("@/services/postimagesService");
+      const cdnUrl = await uploadImageToPostimages(croppedBlob, { filename: `proof_${Date.now()}.png` });
+      if (cdnUrl) finalUrl = cdnUrl;
+    } catch (e) {
+      console.warn("⚠️ Aviso ao subir print da meta no Postimages, mantendo local:", e);
+    }
+
+    setDeliverProofUrl(finalUrl);
     if (originalDataUrl) {
       setOriginalProofSrc(originalDataUrl);
     }
     setProofAdjusterOpen(false);
     setPendingProofSrc(null);
-    toast.success("Comprovante ajustado no estúdio com sucesso!");
+    toast.success("Comprovante ajustado no estúdio e salvo com sucesso!");
   };
 
   const handleReAdjustProof = () => {

@@ -3855,6 +3855,26 @@ export async function uploadTicketAttachment(file: File): Promise<TicketAttachme
   const uniqueName = `ticket_${Date.now()}_${Math.random().toString(36).substring(2, 8)}.${sanitizedExt}`;
   const filePath = `tickets/${uniqueName}`;
 
+  // 1. Se for imagem, prioriza CDN Postimages (Zero consumo de storage e egress de banco)
+  if (file.type && file.type.startsWith("image/")) {
+    try {
+      const { uploadImageToPostimages } = await import("@/services/postimagesService");
+      const cdnUrl = await uploadImageToPostimages(file, { filename: uniqueName });
+      if (cdnUrl) {
+        return {
+          id: `att_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+          name: file.name || "print.png",
+          url: cdnUrl,
+          size: file.size,
+          type: file.type || `image/${sanitizedExt}`,
+          created_at: new Date().toISOString(),
+        };
+      }
+    } catch (postErr) {
+      console.warn("⚠️ Aviso ao subir anexo do chamado no Postimages CDN, usando fallback:", postErr);
+    }
+  }
+
   try {
     const { error } = await supabase.storage.from("chat-attachments").upload(filePath, file, {
       cacheControl: "31536000",

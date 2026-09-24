@@ -15,7 +15,9 @@ import {
   Upload,
   Image as ImageIcon,
   X,
+  Crop,
 } from "lucide-react";
+import { UniversalImageAdjusterModal } from "@/components/ui/UniversalImageAdjusterModal";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -61,6 +63,12 @@ export function BauManagerModal({ trigger }: { trigger?: ReactNode }) {
   const [bauToDelete, setBauToDelete] = useState<Bau | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Studio Adjuster state
+  const [adjusterOpen, setAdjusterOpen] = useState(false);
+  const [adjusterFile, setAdjusterFile] = useState<File | null>(null);
+  const [adjusterUrl, setAdjusterUrl] = useState<string | null>(null);
+  const [isSavingAdjustedPhoto, setIsSavingAdjustedPhoto] = useState(false);
+
   const { data: baus = [], isLoading } = useBaus();
   const { data: products = [] } = useProducts();
   const { data: movements = [] } = useMovements();
@@ -85,11 +93,31 @@ export function BauManagerModal({ trigger }: { trigger?: ReactNode }) {
     setIsCreating(false);
   };
 
-  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handlePhotoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    setIsUploadingPhoto(true);
+    if (!file.type.startsWith("image/")) {
+      toast.error("Por favor, selecione um arquivo de imagem válido (PNG, JPG, WEBP, GIF).");
+      return;
+    }
+    setAdjusterFile(file);
+    setAdjusterUrl(null);
+    setAdjusterOpen(true);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
+  const handleOpenAdjusterForExisting = () => {
+    if (!fotoUrl) return;
+    setAdjusterFile(null);
+    setAdjusterUrl(fotoUrl);
+    setAdjusterOpen(true);
+  };
+
+  const handleSaveAdjustedBauPhoto = async (croppedBlob: Blob) => {
+    setIsSavingAdjustedPhoto(true);
+    const toastId = toast.loading("Salvando e otimizando imagem do baú no estúdio...");
     try {
+      const file = new File([croppedBlob], `bau_${Date.now()}.png`, { type: "image/png" });
       const url = await uploadBauImage(file);
       setFotoUrl(url);
       if (editingBau?.id) {
@@ -100,12 +128,12 @@ export function BauManagerModal({ trigger }: { trigger?: ReactNode }) {
         });
         void queryClient.invalidateQueries({ queryKey: ["baus"] });
       }
-      toast.success("Foto do baú enviada e salva com sucesso!");
+      toast.success("Foto do baú ajustada e salva com sucesso!", { id: toastId });
+      setAdjusterOpen(false);
     } catch (err: any) {
-      toast.error(err.message || "Erro ao fazer upload da imagem.");
+      toast.error(err.message || "Erro ao salvar foto do baú.", { id: toastId });
     } finally {
-      setIsUploadingPhoto(false);
-      if (fileInputRef.current) fileInputRef.current.value = "";
+      setIsSavingAdjustedPhoto(false);
     }
   };
 
@@ -282,6 +310,19 @@ export function BauManagerModal({ trigger }: { trigger?: ReactNode }) {
 
   return (
     <>
+      <UniversalImageAdjusterModal
+        isOpen={adjusterOpen}
+        onClose={() => setAdjusterOpen(false)}
+        imageFile={adjusterFile}
+        imageUrl={adjusterUrl}
+        cropShape="rect"
+        defaultAspectRatio={1}
+        title="Studio: Ajustar Foto do Baú"
+        description="Ajuste o enquadramento, zoom e filtros da foto do baú antes de salvar no CDN."
+        onCropSave={handleSaveAdjustedBauPhoto}
+        isSaving={isSavingAdjustedPhoto}
+      />
+
       <Dialog
         open={open}
         onOpenChange={(next) => {
@@ -349,25 +390,35 @@ export function BauManagerModal({ trigger }: { trigger?: ReactNode }) {
                         <input
                           ref={fileInputRef}
                           type="file"
-                          accept="image/*"
+                          accept="image/png,image/jpeg,image/webp,image/gif"
                           className="hidden"
-                          onChange={handlePhotoUpload}
+                          onChange={handlePhotoSelect}
                         />
                         <Button
                           type="button"
                           variant="outline"
                           size="sm"
-                          disabled={isUploadingPhoto}
+                          disabled={isUploadingPhoto || isSavingAdjustedPhoto}
                           onClick={() => fileInputRef.current?.click()}
                           className="h-8 text-xs font-bold gap-1.5 border-border/80"
                         >
-                          {isUploadingPhoto ? (
-                            <Loader2 className="w-3.5 h-3.5 animate-spin text-primary" />
-                          ) : (
-                            <Upload className="w-3.5 h-3.5 text-primary" />
-                          )}
-                          {isUploadingPhoto ? "Enviando..." : "Upload de Foto"}
+                          <Upload className="w-3.5 h-3.5 text-primary" />
+                          Upload de Foto
                         </Button>
+                        {fotoUrl ? (
+                          <Button
+                            type="button"
+                            variant="secondary"
+                            size="sm"
+                            disabled={isSavingAdjustedPhoto}
+                            onClick={handleOpenAdjusterForExisting}
+                            className="h-8 text-xs font-bold gap-1.5 border border-primary/30 text-primary hover:bg-primary/10"
+                            title="Recortar e ajustar foto no Studio"
+                          >
+                            <Crop className="w-3.5 h-3.5" />
+                            Ajustar Foto
+                          </Button>
+                        ) : null}
                       </div>
                       <Input
                         placeholder="Ou cole o link direto da imagem..."

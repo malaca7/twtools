@@ -92,6 +92,7 @@ import {
   requestBotHeartbeat,
   fetchBotGuilds,
   uploadBotImage,
+  triggerBotProfileSync,
   BANNER_PRESETS,
   type BotHeartbeatData,
   type BotGuildInfo,
@@ -596,6 +597,7 @@ export function DevBotManageCard({ isCeoView: isCeoViewProp }: DevBotManageCardP
           { botAvatarUrl: publicUrl },
           "Foto de perfil do bot atualizada com sucesso!"
         );
+        void triggerBotProfileSync({ botAvatarUrl: publicUrl, force: true });
         setIsAvatarModalOpen(false);
       } else {
         const publicUrl = await uploadBotImage(croppedFile, "banner");
@@ -604,6 +606,7 @@ export function DevBotManageCard({ isCeoView: isCeoViewProp }: DevBotManageCardP
           { botBannerUrl: publicUrl },
           "Banner do bot atualizado com sucesso!"
         );
+        void triggerBotProfileSync({ botBannerUrl: publicUrl, force: true });
         setIsBannerModalOpen(false);
       }
       setIsCropModalOpen(false);
@@ -625,6 +628,7 @@ export function DevBotManageCard({ isCeoView: isCeoViewProp }: DevBotManageCardP
       { botBannerUrl: bannerUrlInput.trim() },
       "Banner do bot atualizado com sucesso!"
     );
+    void triggerBotProfileSync({ botBannerUrl: bannerUrlInput.trim(), force: true });
     setIsBannerModalOpen(false);
   };
 
@@ -653,6 +657,7 @@ export function DevBotManageCard({ isCeoView: isCeoViewProp }: DevBotManageCardP
       { botAvatarUrl: avatarInput.trim() },
       "Avatar do bot atualizado!"
     );
+    void triggerBotProfileSync({ botAvatarUrl: avatarInput.trim(), force: true });
     setIsAvatarModalOpen(false);
   };
 

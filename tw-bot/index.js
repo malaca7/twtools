@@ -195,12 +195,113 @@ function updateBotPresence() {
       activities,
       status: presenceStatus,
     });
-
-    if (discordConfig.botAvatarUrl && typeof discordConfig.botAvatarUrl === "string" && discordConfig.botAvatarUrl.startsWith("http")) {
-      client.user.setAvatar(discordConfig.botAvatarUrl).catch(() => {});
-    }
   } catch (err) {
     console.warn("⚠️ Erro ao atualizar presença do bot:", err.message);
+  }
+}
+
+let lastAppliedBotAvatarUrl = "";
+let lastAppliedBotBannerUrl = "";
+let lastProfileUpdateTimestamp = 0;
+
+/**
+ * Atualiza Avatar e/ou Banner do Bot oficial diretamente na API oficial do Discord (/users/@me).
+ * Suporta links do Postimages (https://i.postimg.cc/...), URLs externas e Base64.
+ */
+async function syncDiscordBotProfile(avatarUrl, bannerUrl, force = false) {
+  if (!client || !client.isReady()) {
+    console.warn("⚠️ [BOT PROFILE] Cliente Discord não está pronto para atualizar perfil.");
+    return { success: false, error: "Bot não está conectado ao Discord" };
+  }
+
+  const now = Date.now();
+  if (!force && now - lastProfileUpdateTimestamp < 10000) {
+    console.log("⏳ [BOT PROFILE] Aguardando janela de segurança anti-rate-limit do Discord...");
+    return { success: false, error: "Rate limit: aguarde 10 segundos antes de tentar novamente" };
+  }
+
+  const body = {};
+  let avatarChanged = false;
+  let bannerChanged = false;
+
+  // 1. Processa Avatar do Bot
+  if (avatarUrl && typeof avatarUrl === "string" && avatarUrl.trim()) {
+    const cleanAv = avatarUrl.trim();
+    if (force || cleanAv !== lastAppliedBotAvatarUrl) {
+      try {
+        console.log(`🖼️ [BOT PROFILE] Baixando avatar para atualizar no Discord: ${cleanAv}`);
+        const avRes = await fetch(cleanAv);
+        if (avRes.ok) {
+          const avBuf = await avRes.arrayBuffer();
+          const avMime = avRes.headers.get("content-type") || "image/png";
+          const avBase64 = Buffer.from(avBuf).toString("base64");
+          body.avatar = `data:${avMime.split(";")[0]};base64,${avBase64}`;
+          avatarChanged = true;
+        } else {
+          console.warn(`⚠️ [BOT PROFILE] Falha ao baixar avatar (${avRes.status}): ${cleanAv}`);
+        }
+      } catch (avErr) {
+        console.warn("⚠️ [BOT PROFILE] Erro ao converter avatar para base64:", avErr.message);
+      }
+    }
+  }
+
+  // 2. Processa Banner do Bot
+  if (bannerUrl && typeof bannerUrl === "string" && bannerUrl.trim()) {
+    const cleanBn = bannerUrl.trim();
+    if (force || cleanBn !== lastAppliedBotBannerUrl) {
+      try {
+        console.log(`🎨 [BOT PROFILE] Baixando banner para atualizar no Discord: ${cleanBn}`);
+        const bnRes = await fetch(cleanBn);
+        if (bnRes.ok) {
+          const bnBuf = await bnRes.arrayBuffer();
+          const bnMime = bnRes.headers.get("content-type") || "image/png";
+          const bnBase64 = Buffer.from(bnBuf).toString("base64");
+          body.banner = `data:${bnMime.split(";")[0]};base64,${bnBase64}`;
+          bannerChanged = true;
+        } else {
+          console.warn(`⚠️ [BOT PROFILE] Falha ao baixar banner (${bnRes.status}): ${cleanBn}`);
+        }
+      } catch (bnErr) {
+        console.warn("⚠️ [BOT PROFILE] Erro ao converter banner para base64:", bnErr.message);
+      }
+    }
+  }
+
+  if (!avatarChanged && !bannerChanged) {
+    return { success: true, message: "Avatar e banner já estão sincronizados com o Discord." };
+  }
+
+  try {
+    console.log("🚀 [BOT PROFILE] Enviando PATCH /users/@me para o Discord:", {
+      avatar: avatarChanged ? "atualizando" : "inalterado",
+      banner: bannerChanged ? "atualizando" : "inalterado",
+    });
+
+    const result = await client.rest.patch("/users/@me", { body });
+    lastProfileUpdateTimestamp = Date.now();
+
+    if (avatarChanged) lastAppliedBotAvatarUrl = avatarUrl;
+    if (bannerChanged) lastAppliedBotBannerUrl = bannerUrl;
+
+    console.log("✅ [BOT PROFILE] Perfil do bot atualizado com sucesso no Discord!", {
+      avatarHash: result.avatar,
+      bannerHash: result.banner,
+    });
+
+    return {
+      success: true,
+      avatarUpdated: avatarChanged,
+      bannerUpdated: bannerChanged,
+      avatarHash: result.avatar,
+      bannerHash: result.banner,
+    };
+  } catch (discordErr) {
+    console.error("❌ [BOT PROFILE] Erro na API do Discord ao atualizar perfil:", discordErr.message, discordErr.rawError);
+    return {
+      success: false,
+      error: discordErr.message || "Erro na API do Discord ao atualizar perfil",
+    };
   }
 }
 
@@ -1060,11 +1161,19 @@ function setupRealtimeListeners() {
     .on("broadcast", { event: "discord_config_updated" }, (payload) => {
       if (payload?.payload) {
         console.log("⚡ [BROADCAST] Nova configuração do Discord recebida em tempo real!");
+        const oldAvatar = discordConfig.botAvatarUrl;
+        const oldBanner = discordConfig.botBannerUrl;
         discordConfig = {
           ...discordConfig,
           ...payload.payload,
         };
         updateBotPresence();
+
+        if (discordConfig.botAvatarUrl !== oldAvatar || discordConfig.botBannerUrl !== oldBanner) {
+          syncDiscordBotProfile(discordConfig.botAvatarUrl, discordConfig.botBannerUrl).catch((e) => {
+            console.warn("⚠️ [BROADCAST] Falha ao sincronizar perfil do bot com o Discord:", e.message);
+          });
+        }
       }
     })
     .subscribe();
@@ -1348,19 +1457,35 @@ function setupRealtimeListeners() {
 }
 
 /**
- * Atualiza o avatar de um perfil no Supabase (tanto discord_avatar_url quanto avatar_url)
+ * Atualiza o avatar de um perfil no Supabase.
+ * - Atualiza sempre discord_avatar_url.
+ * - Preserva avatar_url se o usuário possuir foto personalizada (Postimages, etc.).
  */
-async function updateProfileAvatar(discordId, newAvatarUrl, tag) {
+async function updateProfileAvatar(discordId, newAvatarUrl, tag, forceOverwriteAvatar = false) {
   if (!discordId || !newAvatarUrl) return false;
 
   try {
     let data = null;
     if (neonPool) {
       try {
-        const pgRes = await neonPool.query(
-          "UPDATE profiles SET discord_avatar_url = $1, avatar_url = $1 WHERE discord_id = $2 RETURNING id, user_id, nome, nickname, discord_id, discord_avatar_url",
-          [newAvatarUrl, discordId]
+        const checkRes = await neonPool.query(
+          "SELECT id, user_id, avatar_url, discord_avatar_url FROM profiles WHERE discord_id = $1 LIMIT 1",
+          [discordId]
         );
+        const currentProf = checkRes.rows[0];
+        const hasCustomAvatar = currentProf && currentProf.avatar_url && !currentProf.avatar_url.includes("cdn.discordapp.com");
+
+        let updateSql = "";
+        let params = [];
+        if (forceOverwriteAvatar || !hasCustomAvatar) {
+          updateSql = "UPDATE profiles SET discord_avatar_url = $1, avatar_url = $1 WHERE discord_id = $2 RETURNING id, user_id, nome, nickname, discord_id, discord_avatar_url, avatar_url";
+          params = [newAvatarUrl, discordId];
+        } else {
+          updateSql = "UPDATE profiles SET discord_avatar_url = $1 WHERE discord_id = $2 RETURNING id, user_id, nome, nickname, discord_id, discord_avatar_url, avatar_url";
+          params = [newAvatarUrl, discordId];
+        }
+
+        const pgRes = await neonPool.query(updateSql, params);
         data = pgRes.rows;
       } catch (poolErr) {
         console.warn("⚠️ [UPDATE AVATAR Fallback Supabase]:", poolErr.message);
@@ -1368,14 +1493,25 @@ async function updateProfileAvatar(discordId, newAvatarUrl, tag) {
     }
 
     if (!data) {
+      const { data: currentData } = await supabase
+        .from("profiles")
+        .select("id, user_id, avatar_url, discord_avatar_url")
+        .eq("discord_id", discordId)
+        .maybeSingle();
+
+      const hasCustomAvatar = currentData && currentData.avatar_url && !currentData.avatar_url.includes("cdn.discordapp.com");
+      const updatePayload = {
+        discord_avatar_url: newAvatarUrl,
+      };
+      if (forceOverwriteAvatar || !hasCustomAvatar) {
+        updatePayload.avatar_url = newAvatarUrl;
+      }
+
       const { data: sbData, error } = await supabase
         .from("profiles")
-        .update({
-          discord_avatar_url: newAvatarUrl,
-          avatar_url: newAvatarUrl,
-        })
+        .update(updatePayload)
         .eq("discord_id", discordId)
-        .select("id, user_id, nome, nickname, discord_id, discord_avatar_url");
+        .select("id, user_id, nome, nickname, discord_id, discord_avatar_url, avatar_url");
 
       if (error) {
         console.error(`[ERRO Supabase] Falha ao atualizar foto de ${tag || discordId}:`, error.message);
@@ -1386,12 +1522,12 @@ async function updateProfileAvatar(discordId, newAvatarUrl, tag) {
 
     if (data && data.length > 0) {
       console.log(`[SUCESSO] Avatar de ${tag || discordId} sincronizado: ${newAvatarUrl}`);
-      // Sincroniza metadados no Supabase Auth
+      // Sincroniza metadados no Supabase Auth se avatar_url foi atualizado
       for (const p of data) {
-        if (p.user_id) {
+        if (p.user_id && p.avatar_url) {
           try {
             await supabase.auth.admin.updateUserById(p.user_id, {
-              user_metadata: { avatar_url: newAvatarUrl },
+              user_metadata: { avatar_url: p.avatar_url },
             });
           } catch {}
         }
@@ -1450,11 +1586,11 @@ async function syncAllProfiles() {
         const currentAvatar = user.displayAvatarURL({ extension: "png", forceStatic: false, size: 512 });
         const cleanCurrent = cleanAvatarUrl(currentAvatar);
         const cleanProfDiscord = cleanAvatarUrl(prof.discord_avatar_url);
-        const cleanProfAvatar = cleanAvatarUrl(prof.avatar_url);
 
-        if (cleanCurrent && (cleanCurrent !== cleanProfDiscord || cleanCurrent !== cleanProfAvatar)) {
+        // Atualiza somente se o avatar do Discord mudou no próprio Discord
+        if (cleanCurrent && cleanCurrent !== cleanProfDiscord) {
           console.log(`[SYNC Auto] Detectada diferença de avatar para ${user.tag} (${prof.discord_id}). Atualizando...`);
-          await updateProfileAvatar(prof.discord_id, currentAvatar, user.tag);
+          await updateProfileAvatar(prof.discord_id, currentAvatar, user.tag, false);
         }
       } catch (err) {}
 
@@ -2131,6 +2267,49 @@ const server = http.createServer(async (req, res) => {
     return res.end(JSON.stringify({ success: true, message: "Slash Commands sincronizados com sucesso no Discord!" }));
   }
 
+  // Rota para Atualizar Perfil do Bot no Discord (Avatar e Banner): /api/update-bot-profile
+  if (pathname === "/api/update-bot-profile") {
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
+    res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
+    if (req.method === "OPTIONS") {
+      res.writeHead(204);
+      return res.end();
+    }
+    if (req.method !== "POST") {
+      res.writeHead(405, { "Content-Type": "application/json" });
+      return res.end(JSON.stringify({ error: "Método não permitido. Utilize POST." }));
+    }
+
+    let bodyStr = "";
+    req.on("data", (chunk) => {
+      bodyStr += chunk;
+      if (bodyStr.length > 1024 * 512) req.destroy();
+    });
+
+    req.on("end", async () => {
+      try {
+        const payload = JSON.parse(bodyStr || "{}");
+        const { botAvatarUrl, botBannerUrl, force } = payload;
+
+        if (botAvatarUrl) discordConfig.botAvatarUrl = botAvatarUrl;
+        if (botBannerUrl) discordConfig.botBannerUrl = botBannerUrl;
+
+        console.log("⚡ [API UPDATE-BOT-PROFILE] Solicitando atualização imediata do perfil do bot no Discord:", { botAvatarUrl, botBannerUrl });
+        const result = await syncDiscordBotProfile(botAvatarUrl, botBannerUrl, !!force);
+        res.setHeader("Access-Control-Allow-Origin", "*");
+        res.writeHead(result.success ? 200 : 400, { "Content-Type": "application/json" });
+        return res.end(JSON.stringify(result));
+      } catch (err) {
+        console.error("❌ [UPDATE-BOT-PROFILE HTTP ERROR]:", err);
+        res.setHeader("Access-Control-Allow-Origin", "*");
+        res.writeHead(500, { "Content-Type": "application/json" });
+        return res.end(JSON.stringify({ success: false, error: err.message }));
+      }
+    });
+    return;
+  }
+
   // Rota para Simulação de Movimentação de Estoque (envio idêntico ao Cidade Alta APP para canal de teste)
   if (pathname === "/api/simulate-stock") {
     res.setHeader("Access-Control-Allow-Origin", "*");
@@ -2332,6 +2511,13 @@ const onReady = async () => {
 
   // Sincronização periódica de segurança a cada 15 minutos (alterações em tempo real são ouvidas via userUpdate)
   setInterval(syncAllProfiles, 15 * 60 * 1000);
+
+  // Sincroniza Avatar e Banner oficiais do Bot no Discord na inicialização
+  if (discordConfig.botAvatarUrl || discordConfig.botBannerUrl) {
+    syncDiscordBotProfile(discordConfig.botAvatarUrl, discordConfig.botBannerUrl).catch((e) => {
+      console.warn("⚠️ [ON READY] Falha ao sincronizar perfil do bot:", e.message);
+    });
+  }
 
   // Recarrega caches auxiliares a cada 5 minutos
   setInterval(refreshAuxiliaryCaches, 5 * 60 * 1000);

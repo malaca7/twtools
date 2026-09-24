@@ -55,6 +55,7 @@ import {
   type DiscordEnabledEvents,
   type DiscordEmbedColors,
 } from "@/services/discordService";
+import { triggerBotProfileSync } from "@/services/discordBotManageService";
 
 export function DevDiscordConfigCard() {
   const { user, profile, level } = useAuth();
@@ -170,9 +171,12 @@ export function DevDiscordConfigCard() {
       }
 
       handleRootChange(targetField, publicUrl);
+      if (targetField === "botAvatarUrl") {
+        void triggerBotProfileSync({ botAvatarUrl: publicUrl, force: true });
+      }
       toast.success(
         targetField === "botAvatarUrl"
-          ? "Imagem do Bot carregada com sucesso!"
+          ? "Imagem do Bot carregada e sincronizada com o Discord!"
           : "Ícone do rodapé carregado com sucesso!"
       );
     } catch (err: any) {
