@@ -23,9 +23,6 @@ import {
   Megaphone,
   Landmark,
   ShieldAlert,
-  Zap,
-  Clock,
-  Moon,
   Wrench,
   ChevronDown,
   Code2,
@@ -92,10 +89,6 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useAuth } from "@/hooks/useAuth";
-import { usePlatformSettings } from "@/hooks/usePlatformSettings";
-import { usePresence } from "@/hooks/usePresence";
-import { useOnlineTimer } from "@/hooks/useOnlineTimer";
-import { useMembers } from "@/hooks/useData";
 import { useMenuConfig } from "@/hooks/useMenuConfig";
 import { useDevMenuConfig } from "@/hooks/useDevMenuConfig";
 import {
@@ -104,7 +97,6 @@ import {
 } from "@/hooks/useCeoMenuConfig";
 import { LEVEL_LABEL, levelBadgeClass, type Permission } from "@/lib/permissions";
 import { cn } from "@/lib/utils";
-import { FloatingOnlineMembersWidget } from "./FloatingPresenceWidget";
 import { MobileBottomNav } from "./MobileBottomNav";
 import { ForceCachePurgeListener } from "@/components/dev/ForceCachePurgeListener";
 import { NotificationCenter } from "@/components/notifications/NotificationCenter";
@@ -915,14 +907,6 @@ export function AppShell({ children }: { children: ReactNode }) {
   const devStyle = useMemo(() => getPanelColorStyle(devTheme, "rose"), [devTheme]);
   const ceoStyle = useMemo(() => getPanelColorStyle(ceoTheme, "amber"), [ceoTheme]);
 
-  // Active user status / presence management
-  const { status, isAbsenceMode, resumeSession } = usePresence(user?.id);
-  const { data: members = [] } = useMembers();
-  const myMember = members.find((m) => m.user_id === user?.id);
-
-  // Live online timer for active session
-  const { formattedHuman } = useOnlineTimer(myMember?.online_since);
-
   const avatarUrl = profile?.avatar_url || profile?.discord_avatar_url;
   const mainName = profile?.nickname || profile?.nome || "Membro";
   const subName = profile?.nickname ? profile.nome : null;
@@ -1041,21 +1025,8 @@ export function AppShell({ children }: { children: ReactNode }) {
               )}
             </div>
 
-            {/* TOP HEADER: LIVE REALTIME ONLINE TIMER + NOTIFICATION CENTER + USER AVATAR */}
+            {/* TOP HEADER: NOTIFICATION CENTER + USER AVATAR */}
             <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
-              {/* LIVE ONLINE TIMER BADGE (Em telas < sm fica oculto do topo para evitar poluição visual; visível no dropdown do perfil) */}
-              <div
-                className="hidden sm:flex items-center gap-1.5 px-2 py-1 sm:px-3 sm:py-1.5 rounded-full border border-emerald-500/40 bg-emerald-500/10 text-emerald-400 font-mono text-[10.5px] sm:text-xs font-bold shadow-sm"
-                title="Sua sessão online ativa em tempo real nesta plataforma"
-              >
-                <span className="relative flex h-2 w-2">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-                </span>
-                <Clock className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-emerald-400 shrink-0" />
-                <span className="truncate">{formattedHuman}</span>
-              </div>
-
               {/* CENTRAL DE NOTIFICAÇÕES EM TEMPO REAL */}
               <NotificationCenter />
 
@@ -1094,9 +1065,6 @@ export function AppShell({ children }: { children: ReactNode }) {
                   <DropdownMenuLabel className="space-y-1">
                     <p className="text-xs font-bold text-foreground">{mainName}</p>
                     {subName ? <p className="text-[0.65rem] text-muted-foreground">{subName}</p> : null}
-                    <div className="flex items-center gap-1.5 text-[0.65rem] font-mono text-emerald-400 font-bold pt-0.5">
-                      <Clock className="h-3 w-3" /> Sessão Ativa: {formattedHuman}
-                    </div>
                   </DropdownMenuLabel>
                   <DropdownMenuSeparator />
 
@@ -1169,36 +1137,8 @@ export function AppShell({ children }: { children: ReactNode }) {
         </div>
       </div>
 
-      {/* BALÃO FLUTUANTE DE MEMBROS ONLINE */}
-      <FloatingOnlineMembersWidget />
       <MobileBottomNav />
       <ForceCachePurgeListener />
-
-      {/* POPUP COMPACTO DE AUSÊNCIA POR INATIVIDADE */}
-      {isAbsenceMode && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 animate-in fade-in-30 duration-200">
-          <div className="max-w-xs w-full rounded-2xl border border-amber-500/30 bg-card/95 backdrop-blur-xl p-5 shadow-2xl space-y-4 text-center">
-            <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-400">
-              <Moon className="h-5 w-5 animate-pulse" />
-            </div>
-
-            <div className="space-y-1">
-              <h4 className="text-sm font-extrabold text-foreground">Sessão Ausente</h4>
-              <p className="text-[0.75rem] text-muted-foreground leading-snug">
-                Sua sessão foi alternada para <strong>Ausente</strong> devido à inatividade.
-              </p>
-            </div>
-
-            <button
-              type="button"
-              onClick={() => resumeSession()}
-              className="w-full h-9 bg-primary text-primary-foreground font-bold text-xs shadow-md hover:bg-primary/90 rounded-xl flex items-center justify-center gap-1.5 transition-all cursor-pointer active:scale-95"
-            >
-              <Zap className="h-3.5 w-3.5" /> Voltar ao Sistema
-            </button>
-          </div>
-        </div>
-      )}
     </SidebarProvider>
   );
 }

@@ -198,10 +198,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           user_id: next.user.id,
           user_name: next.profile?.nickname || next.profile?.nome || "Membro",
         });
-        await logAuditAction("session_start", "user_presence", {
-          user_id: next.user.id,
-          user_name: next.profile?.nickname || next.profile?.nome || "Membro",
-        });
       } catch (err) {}
     }
   }, [applyState]);
@@ -318,13 +314,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           user_name: userName,
           duration_formatted: durationFormatted || "1min",
         });
-        await logAuditAction("session_end", "user_presence", {
-          user_id: targetUserId,
-          user_name: userName,
-          duration_formatted: durationFormatted || "1min",
-          reason: "logout_usuario",
-        });
-        await updateUserPresence("offline", 0, targetUserId);
       }
     } catch (err) {
       console.error("Erro ao registrar logs de saída:", err);

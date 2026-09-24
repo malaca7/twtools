@@ -158,10 +158,6 @@ export function CeoPageContent({ initialTab }: { initialTab?: string } = {}) {
     return members.filter((m) => m.status === "ativo").length;
   }, [members]);
 
-  const onlineMembersCount = useMemo(() => {
-    return members.filter((m) => m.presence_status === "online").length;
-  }, [members]);
-
   // Permissões granulares de módulos do Painel CEO (integradas com /dev/permissoes)
   const canManageBot = hasPermission("manage_ceo_bot") && ceoConfig.allowManageBot !== false;
   const canUseWebhooks = hasPermission("manage_ceo_webhooks") && ceoConfig.allowWebhooks !== false;
@@ -231,17 +227,7 @@ export function CeoPageContent({ initialTab }: { initialTab?: string } = {}) {
             </div>
 
             <div className="flex items-center gap-3 shrink-0">
-              <div className="px-4 py-2 rounded-xl bg-background/80 border border-amber-500/30 text-center shadow-xs">
-                <span className="text-[0.65rem] uppercase tracking-wider text-muted-foreground font-semibold block">
-                  Online Agora
-                </span>
-                <span className="text-lg font-black text-emerald-400 flex items-center justify-center gap-1.5">
-                  <span className="h-2 w-2 rounded-full bg-emerald-400 animate-ping" />
-                  {onlineMembersCount}
-                </span>
-              </div>
-
-              <div className="px-4 py-2 rounded-xl bg-background/80 border border-amber-500/30 text-center shadow-xs">
+                            <div className="px-4 py-2 rounded-xl bg-background/80 border border-amber-500/30 text-center shadow-xs">
                 <span className="text-[0.65rem] uppercase tracking-wider text-muted-foreground font-semibold block">
                   Efetivo Ativo
                 </span>
@@ -358,9 +344,7 @@ export function CeoPageContent({ initialTab }: { initialTab?: string } = {}) {
                 <div className="text-2xl font-black text-foreground">
                   {members.length} membros
                 </div>
-                <p className="text-[0.7rem] text-muted-foreground mt-1 flex items-center gap-1">
-                  <span className="text-emerald-400 font-bold">{onlineMembersCount}</span> conectados agora
-                </p>
+                <p className="text-[0.7rem] text-muted-foreground mt-1 font-medium">{activeMembersCount} membros ativos</p>
               </CardContent>
             </Card>
 

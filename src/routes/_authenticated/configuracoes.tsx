@@ -27,7 +27,6 @@ import {
   Landmark,
   Megaphone,
   Info,
-  Clock,
   Shield,
   Palette,
   Wrench,
@@ -202,7 +201,7 @@ function PlatformTab({ canEdit }: { canEdit: boolean }) {
         <div>
           <h3 className="text-sm font-extrabold text-foreground">Configurações Gerais & Identidade</h3>
           <p className="text-xs text-muted-foreground mt-0.5">
-            Personalize a identidade do grupo, parâmetros operacionais e timeouts de presença.
+            Personalize a identidade do grupo e parâmetros operacionais.
           </p>
         </div>
         <div className="flex items-center gap-2 shrink-0">
@@ -307,87 +306,7 @@ function PlatformTab({ canEdit }: { canEdit: boolean }) {
         </CardContent>
       </Card>
 
-      {/* Session & Presence Card */}
-      <Card className="surface-card">
-        <CardHeader className="pb-3 border-b border-border/60">
-          <div className="flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-400">
-              <Clock className="h-4 w-4" />
-            </div>
-            <div>
-              <CardTitle className="text-sm font-bold">Sessão, Inatividade & Presença</CardTitle>
-              <CardDescription className="text-[0.7rem]">Regras de detecção automática de ausência</CardDescription>
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent className="p-4 space-y-4">
-          <div className="grid gap-4 sm:grid-cols-3">
-            {/* Timeout Selection */}
-            <div className="space-y-1.5">
-              <Label className="text-xs font-semibold">Timeout de Inatividade (Status Ausente)</Label>
-              <Select
-                value={String(formData.idleTimeoutSeconds)}
-                onValueChange={(val) => handleChange("idleTimeoutSeconds", Number(val))}
-                disabled={!canEdit}
-              >
-                <SelectTrigger className="h-9 text-xs bg-secondary/50 border-border/60 font-bold">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="120" className="text-xs">120s (2 minutos — Padrão)</SelectItem>
-                  <SelectItem value="300" className="text-xs">300s (5 minutos)</SelectItem>
-                  <SelectItem value="600" className="text-xs">600s (10 minutos)</SelectItem>
-                  <SelectItem value="900" className="text-xs">900s (15 minutos)</SelectItem>
-                  <SelectItem value="1200" className="text-xs">1.200s (20 minutos)</SelectItem>
-                  <SelectItem value="1800" className="text-xs">1.800s (30 minutos)</SelectItem>
-                  <SelectItem value="2700" className="text-xs">2.700s (45 minutos)</SelectItem>
-                  <SelectItem value="3600" className="text-xs">3.600s (1 hora / 60 min)</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Heartbeat Interval */}
-            <div className="space-y-1.5">
-              <Label className="text-xs font-semibold">Frequência de Heartbeat</Label>
-              <Select
-                value={String(formData.heartbeatSeconds)}
-                onValueChange={(val) => handleChange("heartbeatSeconds", Number(val))}
-                disabled={!canEdit}
-              >
-                <SelectTrigger className="h-9 text-xs bg-secondary/50 border-border/60 font-bold">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="10" className="text-xs">10 segundos</SelectItem>
-                  <SelectItem value="15" className="text-xs">15 segundos (Padrão)</SelectItem>
-                  <SelectItem value="30" className="text-xs">30 segundos</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Auto Offline Limit */}
-            <div className="space-y-1.5">
-              <Label className="text-xs font-semibold">Limite Auto-Offline (Sem Resposta)</Label>
-              <Select
-                value={String(formData.autoOfflineMinutes)}
-                onValueChange={(val) => handleChange("autoOfflineMinutes", Number(val))}
-                disabled={!canEdit}
-              >
-                <SelectTrigger className="h-9 text-xs bg-secondary/50 border-border/60 font-bold">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="5" className="text-xs">5 minutos</SelectItem>
-                  <SelectItem value="10" className="text-xs">10 minutos (Padrão)</SelectItem>
-                  <SelectItem value="20" className="text-xs">20 minutos</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Operational Rules Card */}
+            {/* Operational Rules Card */}
       <Card className="surface-card">
         <CardHeader className="pb-3 border-b border-border/60">
           <div className="flex items-center gap-2">

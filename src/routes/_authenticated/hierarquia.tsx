@@ -226,15 +226,14 @@ export function HierarquiaPage() {
   // Overall Statistics Summary
   const statsSummary = useMemo(() => {
     const totalCount = members.length;
-    const onlineCount = members.filter((m) => m.presence_status === "online").length;
-    const leadershipCount = members.filter(
+        const leadershipCount = members.filter(
       (m) => m.nivel === "01" || m.nivel === "02" || m.nivel === "desenvolvedor"
     ).length;
     const operatorsCount = members.filter(
       (m) => m.nivel === "gerente" || m.nivel === "motoqueiro" || m.nivel === "membro"
     ).length;
 
-    return { totalCount, onlineCount, leadershipCount, operatorsCount };
+    return { totalCount, leadershipCount, operatorsCount };
   }, [members]);
 
   if (!canView) {
@@ -285,7 +284,7 @@ export function HierarquiaPage() {
       </div>
 
       {/* Metrics Banner */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <div className="p-3.5 rounded-xl bg-card border border-border/60 shadow-sm flex items-center gap-3">
           <div className="p-2.5 rounded-lg bg-primary/10 text-primary border border-primary/20">
             <Users className="h-4 w-4" />
@@ -296,17 +295,7 @@ export function HierarquiaPage() {
           </div>
         </div>
 
-        <div className="p-3.5 rounded-xl bg-card border border-border/60 shadow-sm flex items-center gap-3">
-          <div className="p-2.5 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-            <UserCheck className="h-4 w-4" />
-          </div>
-          <div>
-            <span className="text-[10px] font-bold text-muted-foreground uppercase block">Em Serviço</span>
-            <span className="text-base font-black text-emerald-400">{statsSummary.onlineCount} online</span>
-          </div>
-        </div>
-
-        <div className="p-3.5 rounded-xl bg-card border border-border/60 shadow-sm flex items-center gap-3">
+                <div className="p-3.5 rounded-xl bg-card border border-border/60 shadow-sm flex items-center gap-3">
           <div className="p-2.5 rounded-lg bg-purple-500/10 text-purple-400 border border-purple-500/20">
             <Crown className="h-4 w-4" />
           </div>
@@ -461,8 +450,6 @@ export function HierarquiaPage() {
                         totalSales: 0,
                         totalMovements: 0,
                       };
-                      const isOnline = member.presence_status === "online";
-                      const isAusente = member.presence_status === "ausente";
                       const isTopPerformer = member.user_id === topSellerId;
                       const isDeveloper = member.nivel === "desenvolvedor";
 
@@ -491,17 +478,6 @@ export function HierarquiaPage() {
                                     {(member.nome || "TW").substring(0, 2).toUpperCase()}
                                   </AvatarFallback>
                                 </Avatar>
-                                <span
-                                  className={cn(
-                                    "absolute bottom-0 right-0 h-3.5 w-3.5 rounded-full border-2 border-card shadow-sm",
-                                    isOnline
-                                      ? "bg-emerald-500 animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.8)]"
-                                      : isAusente
-                                      ? "bg-amber-500"
-                                      : "bg-zinc-600"
-                                  )}
-                                  title={`Status: ${isOnline ? "Online em serviço" : isAusente ? "Ausente" : "Offline"}`}
-                                />
                               </div>
 
                               <div className="min-w-0">

@@ -13,14 +13,12 @@ import {
   Globe,
   ExternalLink,
   Edit3,
-  Moon,
   Radio,
   Calendar,
   ChevronRight,
   LogIn,
   Quote,
   LayoutDashboard,
-  Clock,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -31,7 +29,6 @@ import { useMembers } from "@/hooks/useData";
 import { LEVEL_LABEL, levelBadgeClass, type AppLevel } from "@/lib/permissions";
 import { cn } from "@/lib/utils";
 import { getOrCreatePrivateConversation } from "@/services/chatService";
-import { formatSecondsToHoursAndMinutes } from "@/lib/format";
 import { supabase } from "@/integrations/supabase/client";
 import { ProfileFollowButton } from "@/components/profile/ProfileFollowButton";
 import { ProfileFeed } from "@/components/profile/ProfileFeed";
@@ -112,16 +109,9 @@ export function PublicProfilePage({ handleOverride, isRootRoute = false }: Publi
             .eq("user_id", directData.user_id)
             .maybeSingle();
 
-          // Busca presença correspondente
-          const { data: presenceData } = await (supabase.from("user_presence" as any))
-            .select("status, last_seen, online_since, total_seconds_online")
-            .eq("user_id", directData.user_id)
-            .maybeSingle();
-
           return {
             ...directData,
             nivel: roleData?.nivel || (directData.is_developer || directData.is_ceo ? "01" : "novato"),
-            presence: presenceData || null,
           };
         }
 
@@ -139,15 +129,9 @@ export function PublicProfilePage({ handleOverride, isRootRoute = false }: Publi
             .eq("user_id", jsonFallback.user_id)
             .maybeSingle();
 
-          const { data: presenceData } = await (supabase.from("user_presence" as any))
-            .select("status, last_seen, online_since, total_seconds_online")
-            .eq("user_id", jsonFallback.user_id)
-            .maybeSingle();
-
           return {
             ...jsonFallback,
             nivel: roleData?.nivel || (jsonFallback.is_developer || jsonFallback.is_ceo ? "01" : "novato"),
-            presence: presenceData || null,
           };
         }
       } catch (err) {
@@ -245,10 +229,6 @@ export function PublicProfilePage({ handleOverride, isRootRoute = false }: Publi
       </div>
     );
   }
-
-  const presenceObj = (memberData as any).presence || null;
-  const status = cachedMember?.presence_status || presenceObj?.status || "offline";
-  const totalSecondsOnline = cachedMember?.total_seconds_online || presenceObj?.total_seconds_online || 0;
   const currentNivel = ((memberData as any).nivel || cachedMember?.nivel || "novato") as AppLevel;
   const avatarUrl = memberData.avatar_url || memberData.discord_avatar_url;
   const displayName = memberData.nickname || memberData.nome || "Membro";
@@ -370,27 +350,6 @@ export function PublicProfilePage({ handleOverride, isRootRoute = false }: Publi
                   {initials}
                 </AvatarFallback>
               </Avatar>
-
-              {/* STATUS DE PRESENÇA */}
-              <div
-                className={cn(
-                  "absolute -bottom-1 -right-1 h-6 w-6 rounded-xl border-3 border-card flex items-center justify-center shadow-md",
-                  status === "online"
-                    ? "bg-emerald-500 text-white"
-                    : status === "ausente"
-                    ? "bg-amber-500 text-white"
-                    : "bg-zinc-600 text-white"
-                )}
-                title={status === "online" ? "Online agora" : status === "ausente" ? "Ausente" : "Offline"}
-              >
-                {status === "online" ? (
-                  <span className="h-2 w-2 rounded-full bg-white animate-pulse" />
-                ) : status === "ausente" ? (
-                  <Moon className="h-3 w-3" />
-                ) : (
-                  <span className="h-2 w-2 rounded-full bg-zinc-300" />
-                )}
-              </div>
             </div>
 
             {/* BOTÕES DE AÇÃO DO VISITANTE */}
@@ -466,13 +425,6 @@ export function PublicProfilePage({ handleOverride, isRootRoute = false }: Publi
                 <Globe className="h-3 w-3 text-primary" />
                 <span>@{String(activeSlug || "").replace(/^(@|%40)/i, "")}</span>
               </div>
-
-              {totalSecondsOnline > 0 && (
-                <div className="flex items-center gap-1.5 text-[11px] font-mono bg-secondary/40 border border-border/40 px-2.5 py-0.5 rounded-lg">
-                  <Clock className="h-3 w-3 text-emerald-400" />
-                  <span>Online: {formatSecondsToHoursAndMinutes(totalSecondsOnline)}</span>
-                </div>
-              )}
 
               {memberData.data_entrada && (
                 <div className="flex items-center gap-1.5 text-[11px]">

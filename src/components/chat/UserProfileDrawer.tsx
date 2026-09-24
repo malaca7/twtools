@@ -8,10 +8,9 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { MessageSquare, Phone, Clock, ShieldCheck, User } from "lucide-react";
+import { MessageSquare, Phone, ShieldCheck, User } from "lucide-react";
 import { useMembers } from "@/hooks/useData";
 import { LEVEL_LABEL, levelBadgeClass, type AppLevel } from "@/lib/permissions";
-import { formatSecondsToHoursAndMinutes, formatUserPresenceText, resolveMemberPresence } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 interface UserProfileDrawerProps {
@@ -35,13 +34,6 @@ export function UserProfileDrawer({
   const displayName = member.nickname || member.nome;
   const initials = displayName.slice(0, 2).toUpperCase();
   const nivel = (member.nivel || "novato") as AppLevel;
-  const presenceStatus = resolveMemberPresence(
-    member.presence_status,
-    member.last_seen,
-    member.presence_updated_at || member.updated_at
-  );
-  const isOnline = presenceStatus === "online";
-  const isAusente = presenceStatus === "ausente";
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -59,12 +51,6 @@ export function UserProfileDrawer({
                 {initials}
               </AvatarFallback>
             </Avatar>
-            <span
-              className={`absolute bottom-0 right-0 h-4 w-4 rounded-full border-2 border-card ${
-                isOnline ? "bg-emerald-500 shadow-sm" : isAusente ? "bg-amber-500 animate-pulse" : "bg-zinc-500"
-              }`}
-              title={isOnline ? "Online" : isAusente ? "Ausente" : "Offline"}
-            />
           </div>
 
           <div className="space-y-0.5">
@@ -89,19 +75,6 @@ export function UserProfileDrawer({
 
           {/* METADATA GRID */}
           <div className="w-full grid grid-cols-2 gap-2 pt-3 border-t border-border/60 text-xs text-left">
-            <div className="p-2 rounded-xl bg-secondary/30 border border-border/50 col-span-2 flex items-center justify-between">
-              <div>
-                <span className="text-[10px] text-muted-foreground block">Status de Atividade</span>
-                <span className={cn("font-bold text-xs flex items-center gap-1.5", isOnline ? "text-emerald-400" : isAusente ? "text-amber-400" : "text-zinc-400")}>
-                  <span className={cn("h-2 w-2 rounded-full inline-block", isOnline ? "bg-emerald-400" : isAusente ? "bg-amber-400 animate-pulse" : "bg-zinc-400")} />
-                  {formatUserPresenceText(
-                    member.presence_status,
-                    member.last_seen,
-                    member.presence_updated_at || member.updated_at
-                  )}
-                </span>
-              </div>
-            </div>
 
             <div className="p-2 rounded-xl bg-secondary/30 border border-border/50">
               <span className="text-[10px] text-muted-foreground block">ID no Jogo</span>
@@ -111,16 +84,6 @@ export function UserProfileDrawer({
             <div className="p-2 rounded-xl bg-secondary/30 border border-border/50">
               <span className="text-[10px] text-muted-foreground block">Telefone</span>
               <span className="font-bold text-foreground">{member.telefone || "N/A"}</span>
-            </div>
-
-            <div className="p-2 rounded-xl bg-secondary/30 border border-border/50 col-span-2 flex items-center justify-between">
-              <div>
-                <span className="text-[10px] text-muted-foreground block">Tempo Online na Plataforma</span>
-                <span className="font-mono font-bold text-emerald-400">
-                  {formatSecondsToHoursAndMinutes(member.total_seconds_online || 0)}
-                </span>
-              </div>
-              <Clock className="h-4 w-4 text-emerald-400 opacity-80" />
             </div>
 
             {member.discord_username && (

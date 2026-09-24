@@ -109,7 +109,7 @@ const ALL_SYSTEM_MODULES = [
       { title: "Canais & Logs do Bot", url: "/dev/bot/discord-logs", icon: Terminal, desc: "Mapeamento de canais para envio de logs automáticas e cores de embeds", color: "text-cyan-400" },
       { title: "Patch Notes & Atualizações Dev", url: "/dev/patch-notes", icon: Sparkles, desc: "Publicação de notas de versão, changelog técnico e envio de imagens para a administração", color: "text-emerald-400" },
       { title: "Limpeza de Cache & Geral", url: "/dev/configuracao/general", icon: RefreshCw, desc: "Forçar limpeza de cache dos navegadores e recarregar clientes via Realtime", color: "text-cyan-400" },
-      { title: "Gestão de Desempenho Dev", url: "/dev/desempenho", icon: TrendingUp, desc: "Inspeção aprofundada de produtividade, tempo online e auditoria de membros", color: "text-rose-400" },
+      { title: "Gestão de Desempenho Dev", url: "/dev/desempenho", icon: TrendingUp, desc: "Inspeção aprofundada de produtividade, metas e histórico de membros", color: "text-rose-400" },
       { title: "Permissões da Tag Dev", url: "/dev/permissoes", icon: KeyRound, desc: "Matriz granular e gerenciamento de permissões da tag desenvolvedor", color: "text-rose-400" },
       { title: "Ajustes de Estoque", url: "/dev/estoque", icon: Boxes, desc: "Ajuste manual e auditoria do motor automático do Discord", color: "text-rose-400" },
       { title: "Integrações de Lives Dev", url: "/dev/configuracao/lives", icon: Radio, desc: "Configuração de APIs (Twitch, Kick, YouTube, TikTok), simulador e logs de lives", color: "text-rose-400" },

@@ -80,7 +80,6 @@ function AuthCallbackPage() {
         // Log login & session_start audit actions
         const { logAuditAction } = await import("@/lib/app-api");
         await logAuditAction("login", "auth", { user_id: session.user.id });
-        await logAuditAction("session_start", "user_presence", { user_id: session.user.id, reason: "login_discord" });
 
         // Refresh useAuth state
         await refresh();

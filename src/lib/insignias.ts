@@ -108,14 +108,14 @@ export function calculateMemberInsignias(params: {
     {
       id: "veterano_ativo",
       title: "Veterano Operacional",
-      description: "Acumulou mais de 10 horas ativas em serviço no grupo.",
+      description: "Demonstrou lealdade e alto volume de operações no grupo.",
       icon: "🛡️",
       color: "text-amber-300",
       bgGradient: "from-amber-500/20 via-orange-500/10 to-amber-950/30",
       borderColor: "border-amber-500/40 shadow-amber-500/10 shadow-lg",
-      unlocked: totalSecondsOnline >= 36000,
-      progress: Math.min(100, Math.round((totalSecondsOnline / 36000) * 100)),
-      reqText: "10h+ Online em Serviço",
+      unlocked: salesCount >= 10 || movementsCount >= 20,
+      progress: Math.min(100, Math.round(Math.max((salesCount / 10) * 100, (movementsCount / 20) * 100))),
+      reqText: "10+ Vendas ou 20+ Operações",
     },
     {
       id: "primeira_venda",

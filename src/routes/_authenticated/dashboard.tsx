@@ -29,8 +29,7 @@ import { markAnnouncementAsRead } from "@/lib/app-api";
 import { dateTime, errorMessage } from "@/lib/format";
 import { LEVEL_LABEL, levelBadgeClass, type AppLevel } from "@/lib/permissions";
 import { cn } from "@/lib/utils";
-import { useOnlineTimer } from "@/hooks/useOnlineTimer";
-import type { UserPresenceStatus, Member } from "@/lib/app-types";
+import type { Member } from "@/lib/app-types";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   component: DashboardPage,

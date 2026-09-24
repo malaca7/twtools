@@ -39,7 +39,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { PageHeader, NoAccess } from "@/components/ui-kit";
 import { useAuth } from "@/hooks/useAuth";
 import { updateUserProfile } from "@/lib/app-api";
-import { errorMessage, formatPhone, formatSecondsToHoursAndMinutes } from "@/lib/format";
+import { errorMessage, formatPhone } from "@/lib/format";
 import { getLevelLabel, levelBadgeClass } from "@/lib/permissions";
 import { cn } from "@/lib/utils";
 import { useMembers } from "@/hooks/useData";
@@ -571,10 +571,6 @@ export function PerfilPage({ initialTab }: { initialTab?: "perfil" | "dados" | "
                   <Badge variant="outline" className="text-xs border-emerald-500/30 bg-emerald-500/10 text-emerald-500">
                     Membro Ativo
                   </Badge>
-                  <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-primary/30 bg-secondary/50 text-foreground text-xs font-mono font-medium shadow-xs">
-                    <span>⏳ Tempo Online:</span>
-                    <span className="text-primary font-bold">{formatSecondsToHoursAndMinutes(myMember?.total_seconds_online || 0)}</span>
-                  </div>
                 </div>
 
                 <div className="w-full pt-3 border-t border-border/50 space-y-2 text-xs text-left">
