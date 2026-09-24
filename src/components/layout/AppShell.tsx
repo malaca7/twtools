@@ -89,6 +89,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useAuth } from "@/hooks/useAuth";
+import { usePlatformSettings } from "@/hooks/usePlatformSettings";
 import { useMenuConfig } from "@/hooks/useMenuConfig";
 import { useDevMenuConfig } from "@/hooks/useDevMenuConfig";
 import {
