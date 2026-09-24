@@ -393,9 +393,9 @@ export function PublicProfileCustomizer() {
                       src={bannerUrl}
                       alt="Banner Preview"
                       className="w-full h-full object-cover"
-                      referrerPolicy="no-referrer"
                       onError={(e) => {
-                        (e.target as HTMLElement).style.display = "none";
+                        (e.currentTarget as HTMLImageElement).onerror = null;
+                        (e.currentTarget as HTMLImageElement).src = "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=1600&auto=format&fit=crop";
                       }}
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/20" />

@@ -1708,7 +1708,7 @@ function BausTabContent({ canManage }: BausTabContentProps) {
                 <div className="flex items-center gap-3">
                   <div className="relative w-14 h-14 rounded-xl border-2 border-dashed border-border/80 flex items-center justify-center overflow-hidden bg-background shrink-0 shadow-inner">
                     {fotoUrl ? (
-                      <img src={fotoUrl} alt="Preview do Baú" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                      <img src={fotoUrl} alt="Preview do Baú" className="w-full h-full object-cover" />
                     ) : (
                       <BauIcon icone={icone} className="w-6 h-6 text-muted-foreground" />
                     )}

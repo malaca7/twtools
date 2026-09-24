@@ -338,7 +338,6 @@ export function BauManagerModal({ trigger }: { trigger?: ReactNode }) {
                           src={fotoUrl}
                           alt="Preview do Baú"
                           className="w-full h-full object-cover"
-                          referrerPolicy="no-referrer"
                         />
                       ) : (
                         <BauIcon icone={icone} className="w-6 h-6 text-muted-foreground" />

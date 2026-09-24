@@ -296,6 +296,10 @@ export const BotDashboard: React.FC<BotDashboardProps> = ({
                         src={activeBot.avatarUrl || "https://i.ibb.co/ymH1BQPQ/Uma124.png"}
                         alt={activeBot.name}
                         className="h-16 w-16 rounded-2xl border border-zinc-700 object-cover shadow-lg"
+                        onError={(e) => {
+                          (e.currentTarget as HTMLImageElement).onerror = null;
+                          (e.currentTarget as HTMLImageElement).src = "https://i.ibb.co/ymH1BQPQ/Uma124.png";
+                        }}
                       />
                       <span
                         className={`absolute -bottom-1 -right-1 h-4 w-4 rounded-full border-2 border-zinc-950 ${

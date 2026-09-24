@@ -146,6 +146,10 @@ export const BotList: React.FC<BotListProps> = ({
                           src={bot.avatarUrl || "https://i.ibb.co/ymH1BQPQ/Uma124.png"}
                           alt={bot.name}
                           className="h-12 w-12 rounded-xl border border-zinc-700/80 object-cover shadow"
+                          onError={(e) => {
+                            (e.currentTarget as HTMLImageElement).onerror = null;
+                            (e.currentTarget as HTMLImageElement).src = "https://i.ibb.co/ymH1BQPQ/Uma124.png";
+                          }}
                         />
                         <span
                           className={`absolute -bottom-1 -right-1 h-3.5 w-3.5 rounded-full border-2 border-zinc-950 ${

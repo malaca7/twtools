@@ -110,6 +110,10 @@ export function BotEditorModal({ open, onOpenChange, bot, onSave }: BotEditorMod
                 src={formData.avatarUrl || "https://i.ibb.co/ymH1BQPQ/Uma124.png"}
                 alt={formData.name}
                 className="h-14 w-14 rounded-2xl object-cover ring-2 ring-violet-500/30 bg-zinc-950"
+                onError={(e) => {
+                  (e.currentTarget as HTMLImageElement).onerror = null;
+                  (e.currentTarget as HTMLImageElement).src = "https://i.ibb.co/ymH1BQPQ/Uma124.png";
+                }}
               />
               <button
                 type="button"

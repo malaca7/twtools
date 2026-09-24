@@ -44,29 +44,12 @@ export function ProductThumbnail({
   fit = "cover",
 }: ProductThumbnailProps) {
   const [hasError, setHasError] = useState(false);
-  const [retryCount, setRetryCount] = useState(0);
   const cleanSrc = (src || imageUrl)?.trim();
   const effectiveName = name || productName || "Produto";
 
   useEffect(() => {
     setHasError(false);
-    setRetryCount(0);
   }, [cleanSrc]);
-
-  const handleError = () => {
-    if (retryCount < 2) {
-      setTimeout(() => {
-        setRetryCount((prev) => prev + 1);
-      }, 800);
-    } else {
-      setHasError(true);
-    }
-  };
-
-  const imageSrc =
-    retryCount > 0 && cleanSrc
-      ? `${cleanSrc}${cleanSrc.includes("?") ? "&" : "?"}r=${retryCount}`
-      : cleanSrc;
 
   if (cleanSrc && !hasError) {
     return (
@@ -79,17 +62,15 @@ export function ProductThumbnail({
         title={effectiveName}
       >
         <img
-          key={`${cleanSrc}-${retryCount}`}
-          src={imageSrc}
+          key={cleanSrc}
+          src={cleanSrc}
           alt={effectiveName}
           className={cn(
             "h-full w-full object-center",
             fit === "contain" ? "object-contain p-1" : "object-cover"
           )}
           loading="lazy"
-          referrerPolicy="no-referrer"
-          crossOrigin="anonymous"
-          onError={handleError}
+          onError={() => setHasError(true)}
         />
       </div>
     );
