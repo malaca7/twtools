@@ -71,7 +71,7 @@ export async function getCurrentAuth(): Promise<AuthState> {
     // 1. Load profile (first by user_id, fallback to discord_id / discord_email)
     let profileRow: any = null;
     const { data: pByUid } = await (supabase.from("profiles" as any))
-      .select("id, user_id, nome, nickname, telefone, game_id, avatar_url, status, data_entrada, discord_id, discord_username, discord_avatar_url, discord_email, is_developer, is_ceo, custom_theme")
+      .select("id, user_id, nome, nickname, telefone, game_id, avatar_url, banner_url, status, data_entrada, discord_id, discord_username, discord_avatar_url, discord_email, is_developer, is_ceo, custom_theme, bio, custom_status, custom_url")
       .eq("user_id", session.user.id)
       .maybeSingle();
 
@@ -83,7 +83,7 @@ export async function getCurrentAuth(): Promise<AuthState> {
       if (discordEmail) filters.push(`discord_email.eq.${discordEmail}`);
 
       const { data: pFallback } = await (supabase.from("profiles" as any))
-        .select("id, user_id, nome, nickname, telefone, game_id, avatar_url, status, data_entrada, discord_id, discord_username, discord_avatar_url, discord_email, is_developer, is_ceo, custom_theme")
+        .select("id, user_id, nome, nickname, telefone, game_id, avatar_url, banner_url, status, data_entrada, discord_id, discord_username, discord_avatar_url, discord_email, is_developer, is_ceo, custom_theme, bio, custom_status, custom_url")
         .or(filters.join(","))
         .maybeSingle();
 
@@ -142,14 +142,20 @@ export async function getCurrentAuth(): Promise<AuthState> {
       telefone: pAny.telefone ?? null,
       game_id: pAny.game_id ?? null,
       avatar_url: pAny.avatar_url ?? pAny.discord_avatar_url ?? null,
+      original_avatar_url: pAny.custom_theme?.original_avatar_url ?? null,
+      banner_url: pAny.banner_url ?? pAny.custom_theme?.banner_url ?? null,
+      original_banner_url: pAny.custom_theme?.original_banner_url ?? null,
       status: pAny.status ?? "ativo",
       data_entrada: pAny.data_entrada ?? new Date().toISOString().slice(0, 10),
       discord_id: pAny.discord_id ?? discordId ?? null,
       discord_username: pAny.discord_username ?? meta["user_name"] ?? null,
-      discord_avatar_url: pAny.avatar_url ?? pAny.discord_avatar_url ?? null,
+      discord_avatar_url: pAny.discord_avatar_url ?? pAny.avatar_url ?? null,
       discord_email: pAny.discord_email ?? discordEmail ?? null,
       is_developer: isDev,
       is_ceo: isCeo,
+      bio: pAny.bio ?? pAny.custom_theme?.bio ?? null,
+      custom_status: pAny.custom_status ?? pAny.custom_theme?.custom_status ?? null,
+      social_links: pAny.social_links ?? pAny.custom_theme?.social_links ?? null,
       custom_theme: pAny.custom_theme || null,
       custom_url: pAny.custom_url ?? pAny.custom_theme?.custom_url ?? null,
     } : null;
@@ -157,13 +163,12 @@ export async function getCurrentAuth(): Promise<AuthState> {
     if (profile && !profile.discord_avatar_url && session.user.user_metadata?.avatar_url) {
       const initialDiscordAvatar = session.user.user_metadata.avatar_url;
       profile.discord_avatar_url = initialDiscordAvatar;
-      profile.avatar_url = initialDiscordAvatar;
+      if (!profile.avatar_url) profile.avatar_url = initialDiscordAvatar;
 
-      // Initialize database if avatar was completely missing
       supabase.from("profiles").update({ 
         discord_avatar_url: initialDiscordAvatar,
-        avatar_url: initialDiscordAvatar,
-      }).eq("user_id", user.id).then(({ error }) => {
+        ...(profile.avatar_url ? {} : { avatar_url: initialDiscordAvatar }),
+      }).eq("user_id", session.user.id).then(({ error }) => {
         if (error) console.error("Falha ao gravar foto inicial do Discord no perfil:", error);
       });
     }
@@ -752,11 +757,21 @@ export async function updateUserProfile(payload: {
   social_links?: any;
 }): Promise<void> {
   const { data: { session } } = await supabase.auth.getSession();
-  if (!session?.user) throw new Error("Não autenticado");
+  let targetUserId = session?.user?.id;
+  if (!targetUserId && typeof window !== "undefined") {
+    const simRaw = sessionStorage.getItem("tw_dev_impersonate") || localStorage.getItem("tw_dev_impersonate");
+    if (simRaw) {
+      try {
+        const sim = JSON.parse(simRaw);
+        targetUserId = sim.user_id || sim.id;
+      } catch {}
+    }
+  }
+  if (!targetUserId) throw new Error("Não autenticado");
 
   const { data: oldProfile } = await (supabase.from("profiles" as any))
-    .select("nome, nickname, telefone, game_id, custom_theme, banner_url, bio, custom_status, social_links")
-    .eq("user_id", session.user.id)
+    .select("id, user_id, nome, nickname, telefone, game_id, custom_theme, banner_url, bio, custom_status, social_links")
+    .or(`user_id.eq.${targetUserId},id.eq.${targetUserId}`)
     .maybeSingle();
 
   let cleanCustomUrl: string | null | undefined = undefined;
@@ -772,7 +787,7 @@ export async function updateUserProfile(payload: {
       const { data: duplicates } = await (supabase.from("profiles" as any))
         .select("user_id, custom_theme")
         .filter("custom_theme->>custom_url", "eq", raw)
-        .neq("user_id", session.user.id)
+        .neq("user_id", targetUserId)
         .limit(1);
 
       if (duplicates && duplicates.length > 0) {
@@ -817,12 +832,45 @@ export async function updateUserProfile(payload: {
   if (payload.custom_status !== undefined) updateFields.custom_status = payload.custom_status;
   if (payload.social_links !== undefined) updateFields.social_links = payload.social_links;
 
+  const targetId = (oldProfile as any)?.user_id || (oldProfile as any)?.id || targetUserId;
   const { error } = await supabase
     .from("profiles")
     .update(updateFields as any)
-    .eq("user_id", session.user.id);
+    .or(`user_id.eq.${targetId},id.eq.${targetId}`);
 
   if (error) throw error;
+
+  // Sync to local storage / session storage if impersonation or dev login is in use
+  if (typeof window !== "undefined") {
+    ["tw_dev_impersonate"].forEach((key) => {
+      [localStorage, sessionStorage].forEach((storage) => {
+        try {
+          const raw = storage.getItem(key);
+          if (raw) {
+            const parsed = JSON.parse(raw);
+            if (parsed.user_id === targetUserId || parsed.id === targetUserId || !session?.user) {
+              const updated = {
+                ...parsed,
+                nome: updateFields.nome,
+                nickname: updateFields.nickname,
+                telefone: updateFields.telefone,
+                game_id: updateFields.game_id,
+                custom_theme: updateFields.custom_theme,
+                custom_url: updateFields.custom_url !== undefined ? updateFields.custom_url : parsed.custom_url,
+                banner_url: updateFields.banner_url !== undefined ? updateFields.banner_url : parsed.banner_url,
+                avatar_url: updateFields.avatar_url !== undefined ? updateFields.avatar_url : parsed.avatar_url,
+                discord_avatar_url: updateFields.discord_avatar_url !== undefined ? updateFields.discord_avatar_url : parsed.discord_avatar_url,
+                bio: updateFields.bio !== undefined ? updateFields.bio : parsed.bio,
+                custom_status: updateFields.custom_status !== undefined ? updateFields.custom_status : parsed.custom_status,
+                social_links: updateFields.social_links !== undefined ? updateFields.social_links : parsed.social_links,
+              };
+              storage.setItem(key, JSON.stringify(updated));
+            }
+          }
+        } catch {}
+      });
+    });
+  }
 
   void logAuditAction("update_profile", "profiles", {
     nome: payload.nome.trim(),
@@ -833,7 +881,7 @@ export async function updateUserProfile(payload: {
     banner_url: payload.banner_url,
     bio: payload.bio,
     custom_status: payload.custom_status,
-  }, oldProfile || undefined, session.user.id);
+  }, oldProfile || undefined, targetUserId);
 }
 
 export async function getMemberBySlug(slug: string): Promise<Member | null> {

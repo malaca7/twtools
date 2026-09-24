@@ -54,6 +54,9 @@ export type Profile = {
   telefone?: string | null;
   game_id?: string | null;
   avatar_url: string | null;
+  original_avatar_url?: string | null;
+  banner_url?: string | null;
+  original_banner_url?: string | null;
   status: string;
   data_entrada: string;
   discord_id?: string | null;
@@ -62,7 +65,20 @@ export type Profile = {
   discord_email?: string | null;
   is_developer?: boolean;
   is_ceo?: boolean;
-  custom_theme?: (UserThemeSettings & { custom_url?: string | null; is_ceo?: boolean }) | null;
+  bio?: string | null;
+  custom_status?: string | null;
+  social_links?: any;
+  custom_theme?: (UserThemeSettings & {
+    custom_url?: string | null;
+    is_ceo?: boolean;
+    banner_url?: string | null;
+    original_banner_url?: string | null;
+    original_avatar_url?: string | null;
+    bio?: string | null;
+    custom_status?: string | null;
+    social_links?: any;
+    public_profile_enabled?: boolean;
+  }) | null;
   custom_url?: string | null;
 };
 

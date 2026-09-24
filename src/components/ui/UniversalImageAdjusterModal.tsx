@@ -30,6 +30,7 @@ import {
   Maximize2,
   Undo2,
 } from "lucide-react";
+import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
 export interface AspectRatioOption {
@@ -418,12 +419,26 @@ export function UniversalImageAdjusterModal({
       const isPng = (imageFile?.type || effectiveImageUrl || "").toLowerCase().includes("png");
       const mimeType = isPng ? "image/png" : "image/jpeg";
 
-      const blob = await new Promise<Blob | null>((resolve) => {
-        canvas.toBlob((b) => resolve(b), mimeType, 0.95);
-      });
+      let blob: Blob | null = null;
+      let dataUrl: string = "";
+
+      try {
+        blob = await new Promise<Blob | null>((resolve) => {
+          canvas.toBlob((b) => resolve(b), mimeType, 0.95);
+        });
+        if (blob) {
+          dataUrl = canvas.toDataURL(mimeType, 0.95);
+        }
+      } catch (canvasErr: any) {
+        console.warn("⚠️ Aviso no canvas export (possível CORS na imagem de origem):", canvasErr);
+      }
+
+      if (!blob && imageFile) {
+        blob = imageFile;
+      }
 
       if (!blob) {
-        throw new Error("Erro ao gerar arquivo renderizado.");
+        throw new Error("Erro ao gerar arquivo renderizado. A imagem de origem pode ter bloqueio de CORS.");
       }
 
       const baseName = imageFile?.name
@@ -431,7 +446,6 @@ export function UniversalImageAdjusterModal({
         : "imagem_ajustada";
       const croppedFileName = `${baseName}_pro.${isPng ? "png" : "jpg"}`;
       const croppedFile = new File([blob], croppedFileName, { type: mimeType });
-      const dataUrl = canvas.toDataURL(mimeType, 0.95);
 
       // Salva o arquivo ajustado e preserva a fonte original (File ou URL)
       if (onCropSave) {
@@ -440,14 +454,15 @@ export function UniversalImageAdjusterModal({
       if (onSave) {
         await onSave(
           blob,
-          dataUrl,
+          dataUrl || (typeof (imageFile || effectiveImageUrl) === "string" ? (imageFile || effectiveImageUrl) as string : ""),
           typeof (imageFile || effectiveImageUrl) === "string"
             ? ((imageFile || effectiveImageUrl) as string)
             : undefined
         );
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error("Erro no processamento da imagem:", err);
+      toast.error(err?.message || "Erro no processamento da imagem.");
     }
   };
 

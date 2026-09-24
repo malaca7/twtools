@@ -171,13 +171,21 @@ export function DevDiscordConfigCard() {
       }
 
       handleRootChange(targetField, publicUrl);
+      const updatedConfig = { ...config, [targetField]: publicUrl };
+      setConfig(updatedConfig);
+      try {
+        await saveDiscordBotConfig(updatedConfig, user, profile, level);
+        setInitialConfig(JSON.parse(JSON.stringify(updatedConfig)));
+      } catch (saveErr) {
+        console.warn("⚠️ Aviso ao salvar configuração no banco:", saveErr);
+      }
       if (targetField === "botAvatarUrl") {
         void triggerBotProfileSync({ botAvatarUrl: publicUrl, force: true });
       }
       toast.success(
         targetField === "botAvatarUrl"
-          ? "Imagem do Bot carregada e sincronizada com o Discord!"
-          : "Ícone do rodapé carregado com sucesso!"
+          ? "Imagem do Bot salva no banco e sincronizada com o Discord!"
+          : "Ícone do rodapé salvo com sucesso!"
       );
     } catch (err: any) {
       toast.error(`Falha ao fazer upload da imagem: ${err?.message || "Erro desconhecido"}`);

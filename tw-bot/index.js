@@ -137,6 +137,11 @@ async function loadDiscordConfig() {
       };
       console.log("⚙️ [DISCORD CONFIG] Configurações de canais e eventos atualizadas do banco de dados.");
       updateBotPresence();
+      if (discordConfig.botAvatarUrl || discordConfig.botBannerUrl) {
+        syncDiscordBotProfile(discordConfig.botAvatarUrl, discordConfig.botBannerUrl, false).catch((err) => {
+          console.warn("⚠️ [AUTO SYNC BOT PROFILE] Aviso ao sincronizar perfil do bot:", err.message);
+        });
+      }
     }
   } catch (err) {
     console.warn("⚠️ [DISCORD CONFIG] Não foi possível carregar configurações:", err.message);
@@ -2347,6 +2352,13 @@ const server = http.createServer(async (req, res) => {
 
   // Rota para Upload de Imagens no Postimages.org (Zero Supabase Storage/Egress)
   if (pathname === "/api/upload-image") {
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
+    res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Filename, Accept");
+    if (req.method === "OPTIONS") {
+      res.writeHead(204);
+      return res.end();
+    }
     if (req.method !== "POST") {
       res.writeHead(405, { "Content-Type": "application/json" });
       return res.end(JSON.stringify({ error: "Método não permitido. Utilize POST." }));

@@ -74,9 +74,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         prev.nickname === next.profile.nickname &&
         prev.status === next.profile.status &&
         prev.avatar_url === next.profile.avatar_url &&
+        prev.discord_avatar_url === next.profile.discord_avatar_url &&
+        prev.banner_url === next.profile.banner_url &&
+        prev.bio === next.profile.bio &&
+        prev.custom_status === next.profile.custom_status &&
         prev.is_developer === next.profile.is_developer &&
         prev.is_ceo === next.profile.is_ceo &&
-        prev.custom_url === next.profile.custom_url
+        prev.custom_url === next.profile.custom_url &&
+        JSON.stringify(prev.custom_theme) === JSON.stringify(next.profile.custom_theme)
       ) {
         return prev;
       }
@@ -103,17 +108,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               nickname: sim.nickname || null,
               telefone: sim.telefone || null,
               game_id: sim.game_id || null,
-              avatar_url: sim.discord_avatar_url || sim.avatar_url || null,
+              avatar_url: sim.avatar_url || sim.discord_avatar_url || null,
+              original_avatar_url: sim.original_avatar_url || sim.custom_theme?.original_avatar_url || null,
+              banner_url: sim.banner_url || sim.custom_theme?.banner_url || null,
+              original_banner_url: sim.original_banner_url || sim.custom_theme?.original_banner_url || null,
               status: sim.status || "ativo",
               data_entrada: sim.data_entrada || "2026-09-04",
               discord_id: sim.discord_id || null,
               discord_username: sim.discord_username || null,
-              discord_avatar_url: sim.discord_avatar_url || null,
+              discord_avatar_url: sim.discord_avatar_url || sim.avatar_url || null,
               discord_email: sim.discord_email || null,
               is_developer: Boolean(sim.is_developer === true),
               is_ceo: Boolean(sim.is_ceo === true),
+              bio: sim.bio || sim.custom_theme?.bio || null,
+              custom_status: sim.custom_status || sim.custom_theme?.custom_status || null,
+              social_links: sim.social_links || sim.custom_theme?.social_links || null,
               custom_theme: sim.custom_theme || null,
-            } as any,
+              custom_url: sim.custom_url || sim.custom_theme?.custom_url || null,
+            },
             level: sim.nivel || "novato",
             signupRequestStatus: null,
             approvedAccess: true,
@@ -152,17 +164,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               nickname: dev.nickname || null,
               telefone: dev.telefone || null,
               game_id: dev.game_id || null,
-              avatar_url: dev.discord_avatar_url || dev.avatar_url || null,
+              avatar_url: dev.avatar_url || dev.discord_avatar_url || null,
+              original_avatar_url: dev.original_avatar_url || dev.custom_theme?.original_avatar_url || null,
+              banner_url: dev.banner_url || dev.custom_theme?.banner_url || null,
+              original_banner_url: dev.original_banner_url || dev.custom_theme?.original_banner_url || null,
               status: dev.status || "ativo",
               data_entrada: dev.data_entrada || "2026-09-04",
               discord_id: dev.discord_id || null,
               discord_username: dev.discord_username || null,
-              discord_avatar_url: dev.discord_avatar_url || null,
+              discord_avatar_url: dev.discord_avatar_url || dev.avatar_url || null,
               discord_email: dev.discord_email || null,
               is_developer: Boolean(dev.is_developer === true),
               is_ceo: Boolean(dev.is_ceo === true),
+              bio: dev.bio || dev.custom_theme?.bio || null,
+              custom_status: dev.custom_status || dev.custom_theme?.custom_status || null,
+              social_links: dev.social_links || dev.custom_theme?.social_links || null,
               custom_theme: dev.custom_theme || null,
-            } as any,
+              custom_url: dev.custom_url || dev.custom_theme?.custom_url || null,
+            },
             level: dev.nivel || "novato",
             signupRequestStatus: null,
             approvedAccess: true,

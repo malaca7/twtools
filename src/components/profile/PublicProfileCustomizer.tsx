@@ -198,9 +198,6 @@ export function PublicProfileCustomizer() {
 
   const saveMutation = useMutation({
     mutationFn: async () => {
-      const safeBanner = bannerUrl && bannerUrl.startsWith("data:image") && bannerUrl.length > 80000 ? null : (bannerUrl || null);
-      const safeOrigBanner = originalBannerUrl && originalBannerUrl.startsWith("data:image") ? null : (originalBannerUrl || null);
-
       await updateUserProfile({
         nome: profile?.nome || "",
         nickname: profile?.nickname || null,
@@ -208,8 +205,8 @@ export function PublicProfileCustomizer() {
         game_id: profile?.game_id || "",
         custom_url: customUrl.trim().toLowerCase().replace(/^@/, "") || null,
         public_profile_enabled: publicProfileEnabled,
-        banner_url: safeBanner,
-        original_banner_url: safeOrigBanner,
+        banner_url: bannerUrl || null,
+        original_banner_url: originalBannerUrl || null,
         bio: bio.trim() || null,
         custom_status: customStatus.trim() || null,
         social_links: socialLinks,
