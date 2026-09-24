@@ -2,7 +2,7 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Loader2, Clock, Send, LogOut, Trash2, AlertTriangle } from "lucide-react";
+import { Loader2, Clock, Send, LogOut, Trash2, AlertTriangle, Shield, Sparkles, ArrowRight, UserCheck } from "lucide-react";
 import { Brand } from "@/components/Brand";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -67,6 +67,77 @@ function AuthPage() {
   const [nickname, setNickname] = useState("");
   const [telefone, setTelefone] = useState("");
   const [gameId, setGameId] = useState("");
+
+  // Contingency Direct Login
+  const [directLoginOpen, setDirectLoginOpen] = useState(false);
+  const [directDiscordId, setDirectDiscordId] = useState("");
+  const [directLoading, setDirectLoading] = useState(false);
+
+  const handleDirectLogin = async (targetId: string) => {
+    const cleaned = targetId.trim();
+    if (!cleaned) {
+      toast.error("Informe um Discord ID.");
+      return;
+    }
+    setDirectLoading(true);
+    try {
+      const { data: profileRow } = await supabase
+        .from("profiles" as any)
+        .select(`
+          id, user_id, nome, nickname, telefone, game_id, avatar_url, status,
+          discord_id, discord_username, discord_avatar_url, discord_email,
+          is_developer, is_ceo, custom_theme
+        `)
+        .or(`discord_id.eq.${cleaned},user_id.eq.${cleaned}`)
+        .maybeSingle();
+
+      let nivel = "novato";
+      if (profileRow?.user_id) {
+        const { data: roleRow } = await supabase
+          .from("user_roles")
+          .select("nivel")
+          .eq("user_id", profileRow.user_id)
+          .maybeSingle();
+        if (roleRow?.nivel) nivel = roleRow.nivel;
+      }
+
+      const isDev = cleaned === "722320491767136346" || Boolean(profileRow?.is_developer);
+      const isCeo = cleaned === "722320491767136346" || Boolean(profileRow?.is_ceo);
+
+      const devAuth = {
+        id: profileRow?.id || profileRow?.user_id || `dev-${cleaned}`,
+        user_id: profileRow?.user_id || `dev-${cleaned}`,
+        discord_id: profileRow?.discord_id || cleaned,
+        nome: profileRow?.nome || (cleaned === "722320491767136346" ? "Malaca" : `Membro ${cleaned.slice(-4)}`),
+        nickname: profileRow?.nickname || null,
+        discord_username: profileRow?.discord_username || `user_${cleaned}`,
+        discord_avatar_url: profileRow?.discord_avatar_url || profileRow?.avatar_url || null,
+        discord_email: profileRow?.discord_email || (cleaned === "722320491767136346" ? "malaca7x@gmail.com" : null),
+        status: profileRow?.status || "ativo",
+        nivel: profileRow ? nivel : (cleaned === "722320491767136346" ? "01" : "novato"),
+        is_developer: isDev,
+        is_ceo: isCeo,
+        game_id: profileRow?.game_id || null,
+        telefone: profileRow?.telefone || null,
+        custom_theme: profileRow?.custom_theme || null,
+        timestamp: Date.now(),
+      };
+
+      sessionStorage.setItem("tw_dev_impersonate", JSON.stringify(devAuth));
+      localStorage.setItem("tw_dev_impersonate", JSON.stringify(devAuth));
+      const initialMode = isDev ? "dev" : (isCeo ? "ceo" : "member");
+      sessionStorage.setItem("tw_panel_mode", initialMode);
+      localStorage.setItem("tw_panel_mode", initialMode);
+      sessionStorage.setItem("tw_session_start", String(Date.now()));
+
+      toast.success(`Acesso concedido como ${devAuth.nome}! Redirecionando...`);
+      window.location.href = "/dashboard";
+    } catch (err: any) {
+      toast.error(err.message || "Erro no acesso direto.");
+    } finally {
+      setDirectLoading(false);
+    }
+  };
 
   const isPendingApproval = signupRequestStatus === "pendente" || (profile && profile.status === "pendente");
 
@@ -396,6 +467,19 @@ function AuthPage() {
                   <span>Continuar com Discord</span>
                 </Button>
 
+                <div className="pt-2 border-t border-border/40 mt-3">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setDirectLoginOpen(true)}
+                    className="text-xs text-muted-foreground hover:text-foreground hover:bg-secondary/40 w-full flex items-center justify-center gap-1.5 h-8 cursor-pointer rounded-lg"
+                  >
+                    <Shield className="h-3.5 w-3.5 text-amber-500" />
+                    <span>Entrar via Discord ID (Acesso Rápido / Contingência)</span>
+                  </Button>
+                </div>
+
                 <p className="text-xs text-muted-foreground leading-relaxed px-4">
                   Ao continuar, você autoriza a plataforma a importar sua identidade básica do Discord e registrar o seu acesso interno.
                 </p>
@@ -444,6 +528,92 @@ function AuthPage() {
             >
               {cancelMutation.isPending && <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />}
               Confirmar Cancelamento
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* DIRECT LOGIN DIALOG (CONTINGENCY / DEV) */}
+      <Dialog open={directLoginOpen} onOpenChange={setDirectLoginOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-foreground font-bold text-base">
+              <Shield className="h-5 w-5 text-amber-500" /> Acesso Direto por Discord ID
+            </DialogTitle>
+            <DialogDescription className="text-xs pt-1 leading-relaxed text-muted-foreground">
+              Acesso rápido para liderança e membros ativos sem depender da confirmação OAuth do Discord.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-2">
+            {/* Quick preset for Malaca */}
+            <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3.5 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-amber-300 flex items-center gap-1.5">
+                  <Sparkles className="h-3.5 w-3.5" /> Acesso Rápido — Liderança / CEO
+                </span>
+                <Badge variant="outline" className="text-[10px] bg-amber-500/20 text-amber-300 border-amber-500/40 py-0">
+                  CEO / DEV
+                </Badge>
+              </div>
+              <p className="text-[11px] text-muted-foreground">
+                Entrar diretamente como <strong className="text-foreground">Malaca</strong> (ID: 722320491767136346) com acesso total.
+              </p>
+              <Button
+                type="button"
+                size="sm"
+                onClick={() => handleDirectLogin("722320491767136346")}
+                disabled={directLoading}
+                className="w-full h-9 bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white font-bold text-xs rounded-lg gap-2 cursor-pointer shadow-md"
+              >
+                {directLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <UserCheck className="h-3.5 w-3.5" />}
+                Entrar como Malaca (Liderança)
+              </Button>
+            </div>
+
+            {/* Manual Discord ID input */}
+            <div className="space-y-2 pt-2 border-t border-border/40">
+              <Label className="text-xs font-semibold text-foreground">
+                Ou digite seu Discord ID registrado
+              </Label>
+              <div className="flex gap-2">
+                <Input
+                  placeholder="Ex: 722320491767136346"
+                  value={directDiscordId}
+                  onChange={(e) => setDirectDiscordId(e.target.value)}
+                  className="h-9 text-xs font-mono"
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      handleDirectLogin(directDiscordId);
+                    }
+                  }}
+                />
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={() => handleDirectLogin(directDiscordId)}
+                  disabled={directLoading || !directDiscordId.trim()}
+                  className="h-9 text-xs px-4 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground font-semibold cursor-pointer shrink-0"
+                >
+                  {directLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ArrowRight className="h-3.5 w-3.5" />}
+                  Entrar
+                </Button>
+              </div>
+              <p className="text-[10px] text-muted-foreground">
+                Seu perfil e cargo cadastrados no banco serão carregados automaticamente.
+              </p>
+            </div>
+          </div>
+
+          <DialogFooter className="pt-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setDirectLoginOpen(false)}
+              className="h-8 text-xs rounded-lg w-full cursor-pointer"
+            >
+              Fechar
             </Button>
           </DialogFooter>
         </DialogContent>
