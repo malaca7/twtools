@@ -600,6 +600,7 @@ export function DevBotManageCard({ isCeoView: isCeoViewProp }: DevBotManageCardP
       if (cropTarget === "avatar") {
         const publicUrl = await uploadBotImage(croppedFile, "avatar");
         setAvatarInput(publicUrl);
+        setConfig((prev) => ({ ...prev, botAvatarUrl: publicUrl }));
         await handleUpdateConfig(
           { botAvatarUrl: publicUrl },
           "Foto de perfil do bot atualizada com sucesso!"
@@ -614,6 +615,7 @@ export function DevBotManageCard({ isCeoView: isCeoViewProp }: DevBotManageCardP
       } else {
         const publicUrl = await uploadBotImage(croppedFile, "banner");
         setBannerUrlInput(publicUrl);
+        setConfig((prev) => ({ ...prev, botBannerUrl: publicUrl }));
         await handleUpdateConfig(
           { botBannerUrl: publicUrl },
           "Banner do bot atualizado com sucesso!"
@@ -644,11 +646,13 @@ export function DevBotManageCard({ isCeoView: isCeoViewProp }: DevBotManageCardP
     setIsUploadingBanner(true);
     const toastId = toast.loading("Salvando e sincronizando banner do bot...");
     try {
+      const cleanUrl = bannerUrlInput.trim();
+      setConfig((prev) => ({ ...prev, botBannerUrl: cleanUrl }));
       await handleUpdateConfig(
-        { botBannerUrl: bannerUrlInput.trim() },
+        { botBannerUrl: cleanUrl },
         "Banner do bot atualizado com sucesso!"
       );
-      const res = await triggerBotProfileSync({ botBannerUrl: bannerUrlInput.trim(), force: true });
+      const res = await triggerBotProfileSync({ botBannerUrl: cleanUrl, force: true });
       if (res.success) {
         toast.success("Banner sincronizado!", { id: toastId });
       } else {
@@ -686,11 +690,13 @@ export function DevBotManageCard({ isCeoView: isCeoViewProp }: DevBotManageCardP
     setIsUploadingAvatar(true);
     const toastId = toast.loading("Salvando e sincronizando avatar do bot...");
     try {
+      const cleanUrl = avatarInput.trim();
+      setConfig((prev) => ({ ...prev, botAvatarUrl: cleanUrl }));
       await handleUpdateConfig(
-        { botAvatarUrl: avatarInput.trim() },
+        { botAvatarUrl: cleanUrl },
         "Avatar do bot atualizado!"
       );
-      const res = await triggerBotProfileSync({ botAvatarUrl: avatarInput.trim(), force: true });
+      const res = await triggerBotProfileSync({ botAvatarUrl: cleanUrl, force: true });
       if (res.success) {
         toast.success("Foto de perfil sincronizada no Discord com sucesso!", { id: toastId });
       } else {
@@ -885,6 +891,7 @@ export function DevBotManageCard({ isCeoView: isCeoViewProp }: DevBotManageCardP
           <div className="w-full max-w-[360px] mx-auto lg:mx-0 rounded-3xl bg-[#111214] border border-[#2b2d31] overflow-hidden shadow-2xl shadow-black/90 font-sans select-none ring-1 ring-white/5">
             {/* BANNER COM OPÇÕES (...) */}
             <div
+              key={botBanner}
               className="relative w-full h-36 sm:h-40 bg-cover bg-center transition-all duration-300"
               style={{
                 backgroundImage: `url("${botBanner}")`,
@@ -1027,11 +1034,16 @@ export function DevBotManageCard({ isCeoView: isCeoViewProp }: DevBotManageCardP
                     }
                   >
                     <img
+                      key={botAvatar}
                       src={botAvatar}
                       alt={botName}
                       className="h-20 w-20 sm:h-22 sm:w-22 rounded-full object-cover ring-6 ring-[#111214] bg-[#1e1f22] shadow-2xl transition-transform group-hover:scale-105"
                       onError={(e) => {
-                        (e.target as HTMLImageElement).src = "https://i.ibb.co/ymH1BQPQ/Uma124.png";
+                        const target = e.target as HTMLImageElement;
+                        if (target.src !== "https://i.ibb.co/ymH1BQPQ/Uma124.png") {
+                          target.onerror = null;
+                          target.src = "https://i.ibb.co/ymH1BQPQ/Uma124.png";
+                        }
                       }}
                     />
                     {/* Status indicator dot */}
@@ -2037,6 +2049,7 @@ export function DevBotManageCard({ isCeoView: isCeoViewProp }: DevBotManageCardP
                   </Button>
                 </div>
                 <div
+                  key={bannerUrlInput}
                   className="w-full h-28 rounded-xl bg-cover bg-center border border-zinc-800 relative overflow-hidden shadow-inner"
                   style={{
                     backgroundImage: `linear-gradient(to bottom, rgba(0,0,0,0.1), rgba(0,0,0,0.7)), url("${getProxiedImageUrl(bannerUrlInput)}")`,
@@ -2240,11 +2253,16 @@ export function DevBotManageCard({ isCeoView: isCeoViewProp }: DevBotManageCardP
                   </Button>
                 </div>
                 <img
+                  key={avatarInput}
                   src={getProxiedImageUrl(avatarInput)}
                   alt="Preview Avatar"
                   className="h-24 w-24 rounded-full object-cover ring-4 ring-primary shadow-xl bg-zinc-900"
                   onError={(e) => {
-                    (e.target as HTMLImageElement).src = "https://i.ibb.co/ymH1BQPQ/Uma124.png";
+                    const target = e.target as HTMLImageElement;
+                    if (target.src !== "https://i.ibb.co/ymH1BQPQ/Uma124.png") {
+                      target.onerror = null;
+                      target.src = "https://i.ibb.co/ymH1BQPQ/Uma124.png";
+                    }
                   }}
                 />
               </div>

@@ -98,35 +98,41 @@ async function compressImageForUpload(
  * Envia uma imagem para a API Postimages via Bot CDN e retorna o link direto (https://i.postimg.cc/...)
  */
 export async function uploadImageToPostimages(file: File | Blob, options: PostimagesUploadOptions = {}): Promise<string> {
-  const name = options.filename || (file instanceof File ? file.name : `img_${Date.now()}.jpg`);
-  
+  const originalName = file instanceof File ? file.name : "imagem.png";
+  const nameWithoutExt = (options.filename || originalName)
+    .replace(/\.[^/.]+$/, "")
+    .replace(/[^a-zA-Z0-9_-]/g, "_");
+  const ext = (file as File).type?.includes("png") ? "png" : "jpg";
+  const uniqueName = `${nameWithoutExt}_${Date.now()}.${ext}`;
+
   // 1. Otimiza a imagem localmente antes do envio
   const { base64, mimeType } = await compressImageForUpload(file, options.maxDimension || 1920, options.quality || 0.85);
 
   // 2. Envia para o CDN Postimages através do endpoint do Bot
-  const res = await fetch('https://twin.discloud.app/api/upload-image', {
-    method: 'POST',
+  const res = await fetch("https://twin.discloud.app/api/upload-image", {
+    method: "POST",
     headers: {
-      'Content-Type': 'application/json'
+      "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      filename: name,
+      filename: uniqueName,
       base64,
-      contentType: mimeType
-    })
+      contentType: mimeType,
+    }),
   });
 
   if (!res.ok) {
     const errorText = await res.text();
-    throw new Error(`Falha no upload para CDN (HTTP ${res.status}): ${errorText}`);
+    throw new Error(`Falha no upload para o Postimages (HTTP ${res.status}): ${errorText}`);
   }
 
   const data = await res.json();
-  if (!data.success || !data.url) {
-    throw new Error(data.error || 'URL não retornada pelo CDN');
+  const directCdnUrl = data.cdnUrl || data.url;
+  if (!data.success || !directCdnUrl) {
+    throw new Error(data.error || "URL não retornada pela API do Postimages.");
   }
 
-  return data.url;
+  return directCdnUrl;
 }
 
 /**

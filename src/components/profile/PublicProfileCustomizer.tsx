@@ -38,46 +38,13 @@ import { getProxiedImageUrl } from "@/services/postimagesService";
 
 async function uploadBannerFile(file: File | Blob, prefix: string, userId: string): Promise<string> {
   const fileName = `${prefix}_${userId}_${Date.now()}.png`;
-
-  // 1. Tenta upload direto para o CDN Postimages (Zero consumo de storage e egress de banco)
-  try {
-    const { uploadImageToPostimages } = await import("@/services/postimagesService");
-    const cdnUrl = await uploadImageToPostimages(file, {
-      filename: fileName,
-      maxDimension: 1920,
-    });
-    if (cdnUrl) return cdnUrl;
-  } catch (postErr) {
-    console.warn("⚠️ Aviso ao subir imagem no Postimages CDN, usando fallback:", postErr);
-  }
-
-  // 2. Tenta bucket 'products'
-  const { data: prodData, error: prodErr } = await supabase.storage
-    .from("products")
-    .upload(fileName, file, {
-      cacheControl: "31536000",
-      upsert: true,
-      contentType: "image/png",
-    });
-
-  if (!prodErr && prodData) {
-    return supabase.storage.from("products").getPublicUrl(prodData.path).data.publicUrl;
-  }
-
-  // 3. Fallback para bucket 'chat-attachments'
-  const { data: chatData, error: chatErr } = await supabase.storage
-    .from("chat-attachments")
-    .upload(fileName, file, {
-      cacheControl: "31536000",
-      upsert: true,
-      contentType: "image/png",
-    });
-
-  if (!chatErr && chatData) {
-    return supabase.storage.from("chat-attachments").getPublicUrl(chatData.path).data.publicUrl;
-  }
-
-  throw new Error(chatErr?.message || prodErr?.message || "Falha ao enviar imagem do banner para o servidor.");
+  const { uploadImageToPostimages } = await import("@/services/postimagesService");
+  const cdnUrl = await uploadImageToPostimages(file, {
+    filename: fileName,
+    maxDimension: 1920,
+    quality: 0.85,
+  });
+  return cdnUrl;
 }
 
 export function PublicProfileCustomizer() {
@@ -163,16 +130,7 @@ export function PublicProfileCustomizer() {
       const uid = user?.id || "user";
       const croppedUrl = await uploadBannerFile(croppedFile, "banner_crop", uid);
 
-      let origUrl = typeof originalFileOrUrl === "string" ? originalFileOrUrl : "";
-      if (originalFileOrUrl instanceof File) {
-        try {
-          origUrl = await uploadBannerFile(originalFileOrUrl, "banner_orig", uid);
-        } catch (origErr) {
-          console.warn("⚠️ Aviso ao salvar banner original em alta resolução, usando cropped:", origErr);
-          origUrl = croppedUrl;
-        }
-      }
-
+      const origUrl = typeof originalFileOrUrl === "string" ? originalFileOrUrl : croppedUrl;
       const finalOrigUrl = origUrl && !origUrl.startsWith("data:") ? origUrl : croppedUrl;
 
       setBannerUrl(croppedUrl);
@@ -180,10 +138,16 @@ export function PublicProfileCustomizer() {
 
       await updateUserProfile({
         nome: profile?.nome || "",
+        nickname: profile?.nickname || null,
         telefone: profile?.telefone || "",
         game_id: profile?.game_id || "",
+        custom_url: customUrl.trim().toLowerCase().replace(/^@/, "") || null,
+        public_profile_enabled: publicProfileEnabled,
         banner_url: croppedUrl,
         original_banner_url: finalOrigUrl,
+        bio: bio.trim() || null,
+        custom_status: customStatus.trim() || null,
+        social_links: socialLinks,
       });
 
       await refresh();
@@ -396,12 +360,16 @@ export function PublicProfileCustomizer() {
                 <div className="space-y-3">
                   <div className="relative rounded-xl overflow-hidden border border-border/80 h-32 w-full bg-black shadow-inner">
                     <img
-                      src={bannerUrl}
+                      key={bannerUrl}
+                      src={getProxiedImageUrl(bannerUrl)}
                       alt="Banner Preview"
                       className="w-full h-full object-cover"
                       onError={(e) => {
-                        (e.currentTarget as HTMLImageElement).onerror = null;
-                        (e.currentTarget as HTMLImageElement).src = "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=1600&auto=format&fit=crop";
+                        const img = e.currentTarget as HTMLImageElement;
+                        if (img.src !== "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=1600&auto=format&fit=crop") {
+                          img.onerror = null;
+                          img.src = "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=1600&auto=format&fit=crop";
+                        }
                       }}
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/20" />
@@ -424,9 +392,25 @@ export function PublicProfileCustomizer() {
                           type="button"
                           variant="destructive"
                           size="sm"
-                          onClick={() => {
+                          onClick={async () => {
                             setBannerUrl("");
                             setOriginalBannerUrl("");
+                            try {
+                              await updateUserProfile({
+                                nome: profile?.nome || "",
+                                nickname: profile?.nickname || null,
+                                telefone: profile?.telefone || "",
+                                game_id: profile?.game_id || "",
+                                banner_url: null,
+                                original_banner_url: null,
+                              });
+                              await refresh();
+                              void queryClient.invalidateQueries({ queryKey: ["auth"] });
+                              void queryClient.invalidateQueries({ queryKey: ["members"] });
+                              toast.success("Banner removido com sucesso!");
+                            } catch {
+                              toast.info("Banner removido da pré-visualização. Clique em Salvar para persistir.");
+                            }
                           }}
                           className="h-7 px-2.5 text-xs rounded-lg gap-1 shadow-sm cursor-pointer"
                         >

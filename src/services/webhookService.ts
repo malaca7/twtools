@@ -277,46 +277,20 @@ export async function fetchOrCreateDiscordChannelWebhook(
 }
 
 /**
- * Realiza o upload de imagem de avatar do bot para o Supabase Storage
+ * Realiza o upload de imagem de avatar do webhook para a API Postimages
  */
 export async function uploadWebhookAvatar(file: File): Promise<string> {
-  // 1. Prioriza CDN Postimages (Zero consumo de storage e egress de banco)
-  try {
-    const { uploadImageToPostimages } = await import("@/services/postimagesService");
-    const cdnUrl = await uploadImageToPostimages(file);
-    if (cdnUrl) return cdnUrl;
-  } catch (postErr) {
-    console.warn("⚠️ Aviso ao subir avatar no Postimages CDN, usando fallback:", postErr);
-  }
-
   const ext = file.name.split(".").pop()?.toLowerCase() || "png";
   const cleanExt = ["png", "jpg", "jpeg", "webp", "gif"].includes(ext) ? ext : "png";
-  const sanitized = file.name.replace(/[^a-zA-Z0-9.-]/g, "_").toLowerCase();
-  const fileName = `webhooks/avatar_${Date.now()}_${sanitized}`;
+  const sanitized = file.name.replace(/[^a-zA-Z0-9.-]/g, "_").toLowerCase().replace(/\.[^/.]+$/, "");
+  const fileName = `webhook_${Date.now()}_${sanitized}.${cleanExt}`;
 
-  // Tenta bucket "products"
-  let uploadRes = await supabase.storage.from("products").upload(fileName, file, {
-    cacheControl: "31536000",
-    upsert: true,
-    contentType: file.type || `image/${cleanExt}`,
+  const { uploadImageToPostimages } = await import("@/services/postimagesService");
+  return await uploadImageToPostimages(file, {
+    filename: fileName,
+    maxDimension: 512,
+    quality: 0.88,
   });
-
-  // Fallback para bucket "chat-attachments"
-  if (uploadRes.error) {
-    uploadRes = await supabase.storage.from("chat-attachments").upload(fileName, file, {
-      cacheControl: "31536000",
-      upsert: true,
-      contentType: file.type || `image/${cleanExt}`,
-    });
-    if (uploadRes.error) {
-      throw new Error(`Falha ao carregar imagem: ${uploadRes.error.message}`);
-    }
-    const { data: pubData } = supabase.storage.from("chat-attachments").getPublicUrl(uploadRes.data.path);
-    return pubData.publicUrl;
-  }
-
-  const { data: pubData } = supabase.storage.from("products").getPublicUrl(uploadRes.data.path);
-  return pubData.publicUrl;
 }
 
 /**

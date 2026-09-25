@@ -247,7 +247,7 @@ export async function deletePatchNote(
 }
 
 /**
- * Faz upload de imagem para anexar aos patch notes.
+ * Faz upload de imagem para anexar aos patch notes via Postimages API
  */
 export async function uploadPatchNoteImage(
   file: File,
@@ -257,47 +257,12 @@ export async function uploadPatchNoteImage(
     throw new Error("Apenas arquivos de imagem são permitidos (PNG, JPG, WEBP, GIF).");
   }
 
-  // 1. Prioriza Postimages CDN (Zero consumo de storage Supabase)
-  try {
-    const { uploadImageToPostimages } = await import("@/services/postimagesService");
-    const cdnUrl = await uploadImageToPostimages(file);
-    if (cdnUrl) {
-      onProgress?.(100);
-      return { url: cdnUrl, name: file.name, size: file.size };
-    }
-  } catch (postErr) {
-    console.warn("⚠️ Aviso ao subir anexo de patch note para Postimages, usando fallback:", postErr);
-  }
-
-  const ext = file.name.split(".").pop() || "png";
-  const cleanName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
-  const fileName = `patch-notes/${Date.now()}_${cleanName}`;
-
-  onProgress?.(25);
-
-  const { data, error } = await supabase.storage
-    .from("chat-attachments")
-    .upload(fileName, file, {
-      cacheControl: "31536000",
-      upsert: true,
-    });
-
-  if (error) {
-    // Tenta bucket alternativo 'products' se houver restrição
-    const { data: fallbackData, error: fallbackError } = await supabase.storage
-      .from("products")
-      .upload(fileName, file, {
-        cacheControl: "31536000",
-        upsert: true,
-      });
-
-    if (fallbackError) throw fallbackError;
-    const { data: pubUrl } = supabase.storage.from("products").getPublicUrl(fallbackData.path);
-    onProgress?.(100);
-    return { url: pubUrl.publicUrl, name: file.name, size: file.size };
-  }
-
+  onProgress?.(30);
+  const { uploadImageToPostimages } = await import("@/services/postimagesService");
+  const cdnUrl = await uploadImageToPostimages(file, {
+    maxDimension: 1920,
+    quality: 0.88,
+  });
   onProgress?.(100);
-  const { data: pubUrl } = supabase.storage.from("chat-attachments").getPublicUrl(data.path);
-  return { url: pubUrl.publicUrl, name: file.name, size: file.size };
+  return { url: cdnUrl, name: file.name, size: file.size };
 }

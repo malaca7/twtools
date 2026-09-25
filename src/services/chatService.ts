@@ -1130,46 +1130,30 @@ export async function uploadChatAttachment(
 
   if (onProgress) onProgress(20);
 
-  // 1. Se for imagem, prioriza CDN Postimages (Zero consumo de storage e egress de banco)
+  // 1. Upload de imagens diretamente para a API Postimages
   if (file.type && file.type.startsWith("image/")) {
-    try {
-      const { uploadImageToPostimages } = await import("@/services/postimagesService");
-      const cdnUrl = await uploadImageToPostimages(file, { filename: uniqueName });
-      if (cdnUrl) {
-        if (onProgress) onProgress(100);
-        return {
-          url: cdnUrl,
-          name: file.name,
-          type: file.type,
-          size: file.size,
-        };
-      }
-    } catch (postErr) {
-      console.warn("⚠️ Aviso ao subir anexo de imagem no Postimages CDN, usando fallback:", postErr);
-    }
+    const { uploadImageToPostimages } = await import("@/services/postimagesService");
+    const cdnUrl = await uploadImageToPostimages(file, { filename: uniqueName });
+    if (onProgress) onProgress(100);
+    return {
+      url: cdnUrl,
+      name: file.name,
+      type: file.type,
+      size: file.size,
+    };
   }
 
-  const { error: uploadError } = await supabase.storage
-    .from("chat-attachments")
-    .upload(filePath, file, {
-      cacheControl: "3600",
-      upsert: false,
-    });
-
-  if (uploadError) {
-    throw new Error(`Falha no upload: ${uploadError.message}`);
-  }
-
-  if (onProgress) onProgress(80);
-
-  const { data: publicUrlData } = supabase.storage
-    .from("chat-attachments")
-    .getPublicUrl(filePath);
+  // Para arquivos que não são imagem, utiliza DataURL sem envio para o Supabase Storage
+  const dataUrl = await new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
 
   if (onProgress) onProgress(100);
-
   return {
-    url: publicUrlData.publicUrl,
+    url: dataUrl,
     name: file.name,
     type: file.type,
     size: file.size,

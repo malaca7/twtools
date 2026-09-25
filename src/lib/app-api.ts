@@ -1845,32 +1845,17 @@ export async function uploadProductImage(file: File): Promise<string> {
     throw new Error("A imagem selecionada ultrapassa o limite de 15MB.");
   }
 
-  // 1. Prioriza upload para CDN Postimages (Zero consumo de storage e egress de banco)
-  try {
-    const { uploadImageToPostimages } = await import("@/services/postimagesService");
-    const cdnUrl = await uploadImageToPostimages(file);
-    if (cdnUrl) return cdnUrl;
-  } catch (postimagesErr) {
-    console.warn("⚠️ Aviso ao subir para Postimages, usando fallback do Supabase Storage:", postimagesErr);
-  }
-
+  const { uploadImageToPostimages } = await import("@/services/postimagesService");
   const ext = file.name.split(".").pop()?.toLowerCase() || "png";
   const cleanExt = ["png", "jpg", "jpeg", "webp", "gif", "svg"].includes(ext) ? ext : "png";
-  const sanitizedName = file.name.replace(/[^a-zA-Z0-9.-]/g, "_").toLowerCase();
-  const fileName = `item_${Date.now()}_${sanitizedName}`;
+  const sanitizedName = file.name.replace(/[^a-zA-Z0-9.-]/g, "_").toLowerCase().replace(/\.[^/.]+$/, "");
+  const fileName = `item_${Date.now()}_${sanitizedName}.${cleanExt}`;
 
-  const { data, error } = await supabase.storage.from("products").upload(fileName, file, {
-    cacheControl: "31536000",
-    upsert: true,
-    contentType: file.type || `image/${cleanExt}`,
+  return await uploadImageToPostimages(file, {
+    filename: fileName,
+    maxDimension: 1200,
+    quality: 0.88,
   });
-
-  if (error) {
-    throw new Error(`Falha ao fazer upload da imagem: ${error.message}`);
-  }
-
-  const { data: publicUrlData } = supabase.storage.from("products").getPublicUrl(data.path);
-  return publicUrlData.publicUrl;
 }
 
 export async function uploadBauImage(file: File): Promise<string> {
@@ -1879,41 +1864,17 @@ export async function uploadBauImage(file: File): Promise<string> {
     throw new Error("A imagem selecionada ultrapassa o limite de 15MB.");
   }
 
-  // 1. Prioriza upload para CDN Postimages (Zero consumo de storage e egress de banco)
-  try {
-    const { uploadImageToPostimages } = await import("@/services/postimagesService");
-    const cdnUrl = await uploadImageToPostimages(file);
-    if (cdnUrl) return cdnUrl;
-  } catch (postimagesErr) {
-    console.warn("⚠️ Aviso ao subir para Postimages, usando fallback do Supabase Storage:", postimagesErr);
-  }
-
+  const { uploadImageToPostimages } = await import("@/services/postimagesService");
   const ext = file.name.split(".").pop()?.toLowerCase() || "png";
   const cleanExt = ["png", "jpg", "jpeg", "webp", "gif", "svg"].includes(ext) ? ext : "png";
-  const sanitizedName = file.name.replace(/[^a-zA-Z0-9.-]/g, "_").toLowerCase();
-  const fileName = `bau_${Date.now()}_${sanitizedName}`;
+  const sanitizedName = file.name.replace(/[^a-zA-Z0-9.-]/g, "_").toLowerCase().replace(/\.[^/.]+$/, "");
+  const fileName = `bau_${Date.now()}_${sanitizedName}.${cleanExt}`;
 
-  let uploadRes = await supabase.storage.from("products").upload(fileName, file, {
-    cacheControl: "31536000",
-    upsert: true,
-    contentType: file.type || `image/${cleanExt}`,
+  return await uploadImageToPostimages(file, {
+    filename: fileName,
+    maxDimension: 1200,
+    quality: 0.88,
   });
-
-  if (uploadRes.error) {
-    uploadRes = await supabase.storage.from("chat-attachments").upload(fileName, file, {
-      cacheControl: "31536000",
-      upsert: true,
-      contentType: file.type || `image/${cleanExt}`,
-    });
-    if (uploadRes.error) {
-      throw new Error(`Falha ao fazer upload da imagem do baú: ${uploadRes.error.message}`);
-    }
-    const { data: pubData } = supabase.storage.from("chat-attachments").getPublicUrl(uploadRes.data.path);
-    return pubData.publicUrl;
-  }
-
-  const { data: publicUrlData } = supabase.storage.from("products").getPublicUrl(uploadRes.data.path);
-  return publicUrlData.publicUrl;
 }
 
 export async function createProduct(payload: { nome: string; cda_name?: string | null; descricao?: string; categoria_id?: string; bau_id?: string; unidade?: string; estoque_minimo?: number; preco_sugerido?: number; imagem_url?: string }): Promise<Product> {
@@ -3925,46 +3886,22 @@ export async function uploadTicketAttachment(file: File): Promise<TicketAttachme
   const uniqueName = `ticket_${Date.now()}_${Math.random().toString(36).substring(2, 8)}.${sanitizedExt}`;
   const filePath = `tickets/${uniqueName}`;
 
-  // 1. Se for imagem, prioriza CDN Postimages (Zero consumo de storage e egress de banco)
+  // 1. Se for imagem, envia para a API Postimages
   if (file.type && file.type.startsWith("image/")) {
     try {
       const { uploadImageToPostimages } = await import("@/services/postimagesService");
       const cdnUrl = await uploadImageToPostimages(file, { filename: uniqueName });
-      if (cdnUrl) {
-        return {
-          id: `att_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
-          name: file.name || "print.png",
-          url: cdnUrl,
-          size: file.size,
-          type: file.type || `image/${sanitizedExt}`,
-          created_at: new Date().toISOString(),
-        };
-      }
-    } catch (postErr) {
-      console.warn("⚠️ Aviso ao subir anexo do chamado no Postimages CDN, usando fallback:", postErr);
-    }
-  }
-
-  try {
-    const { error } = await supabase.storage.from("chat-attachments").upload(filePath, file, {
-      cacheControl: "31536000",
-      upsert: true,
-      contentType: file.type || `image/${sanitizedExt}`,
-    });
-
-    if (!error) {
-      const { data: publicUrlData } = supabase.storage.from("chat-attachments").getPublicUrl(filePath);
       return {
         id: `att_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
         name: file.name || "print.png",
-        url: publicUrlData.publicUrl,
+        url: cdnUrl,
         size: file.size,
         type: file.type || `image/${sanitizedExt}`,
         created_at: new Date().toISOString(),
       };
+    } catch (postErr) {
+      console.warn("⚠️ Aviso ao subir anexo para o Postimages:", postErr);
     }
-  } catch (err) {
-    console.warn("Upload de anexo para storage falhou, gerando fallback:", err);
   }
 
   // Fallback se upload falhar

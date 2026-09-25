@@ -67,78 +67,13 @@ async function uploadImageFile(file: File, prefix: string, userId: string): Prom
   const cleanExt = ["png", "jpg", "jpeg", "webp", "gif"].includes(ext) ? ext : "png";
   const fileName = `${prefix}_${userId}_${Date.now()}.${cleanExt}`;
 
-  // 1. Tenta upload direto para o CDN Postimages (Zero consumo de storage e egress de banco)
-  try {
-    const { uploadImageToPostimages } = await import("@/services/postimagesService");
-    const cdnUrl = await uploadImageToPostimages(file, {
-      filename: fileName,
-      maxDimension: prefix.includes("banner") ? 1920 : 600,
-    });
-    if (cdnUrl) return cdnUrl;
-  } catch (postErr) {
-    console.warn("⚠️ Aviso ao subir imagem no Postimages CDN, usando fallback:", postErr);
-  }
-
-  // 2. Tenta bucket 'products'
-  const { data: prodData, error: prodErr } = await supabase.storage
-    .from("products")
-    .upload(fileName, file, {
-      cacheControl: "31536000",
-      upsert: true,
-      contentType: file.type || `image/${cleanExt}`,
-    });
-
-  if (!prodErr && prodData) {
-    return supabase.storage.from("products").getPublicUrl(prodData.path).data.publicUrl;
-  }
-
-  // 2. Fallback para bucket 'chat-attachments'
-  const { data: chatData, error: chatErr } = await supabase.storage
-    .from("chat-attachments")
-    .upload(fileName, file, {
-      cacheControl: "31536000",
-      upsert: true,
-      contentType: file.type || `image/${cleanExt}`,
-    });
-
-  if (!chatErr && chatData) {
-    return supabase.storage.from("chat-attachments").getPublicUrl(chatData.path).data.publicUrl;
-  }
-
-  // 3. Fallback: comprime em canvas (máx 1200px / 0.75 qualidade) para evitar estourar quota de banco
-  return new Promise<string>((resolve) => {
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const img = new Image();
-      img.onload = () => {
-        const canvas = document.createElement("canvas");
-        const maxDim = prefix.includes("banner") ? 1200 : 400;
-        let { width, height } = img;
-        if (width > maxDim || height > maxDim) {
-          if (width > height) {
-            height = Math.round((height * maxDim) / width);
-            width = maxDim;
-          } else {
-            width = Math.round((width * maxDim) / height);
-            height = maxDim;
-          }
-        }
-        canvas.width = width;
-        canvas.height = height;
-        const ctx = canvas.getContext("2d");
-        if (ctx) {
-          ctx.drawImage(img, 0, 0, width, height);
-          resolve(canvas.toDataURL("image/jpeg", 0.75));
-        } else {
-          resolve((e.target?.result as string) || "");
-        }
-      };
-      img.onerror = () => resolve((e.target?.result as string) || "");
-      img.src = (e.target?.result as string) || "";
-    };
-    reader.onerror = () => resolve("");
-    reader.readAsDataURL(file);
+  const { uploadImageToPostimages } = await import("@/services/postimagesService");
+  const cdnUrl = await uploadImageToPostimages(file, {
+    filename: fileName,
+    maxDimension: prefix.includes("banner") ? 1920 : 600,
+    quality: 0.85,
   });
+  return cdnUrl;
 }
 
 export function PerfilPage({ initialTab }: { initialTab?: "perfil" | "dados" | "publico" | "aparencia" } = {}) {
@@ -370,10 +305,7 @@ export function PerfilPage({ initialTab }: { initialTab?: "perfil" | "dados" | "
       const uid = user?.id || "user";
       const croppedUrl = await uploadImageFile(croppedFile, adjusterConfig.type === "banner" ? "banner_crop" : "avatar_crop", uid);
 
-      let origUrl = typeof originalSource === "string" ? originalSource : "";
-      if (originalSource instanceof File) {
-        origUrl = await uploadImageFile(originalSource, adjusterConfig.type === "banner" ? "banner_orig" : "avatar_orig", uid);
-      }
+      let origUrl = typeof originalSource === "string" ? originalSource : croppedUrl;
 
       if (adjusterConfig.type === "banner") {
         setBannerUrl(croppedUrl);

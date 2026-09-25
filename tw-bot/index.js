@@ -2498,7 +2498,7 @@ const server = http.createServer(async (req, res) => {
         const proxiedUrl = `https://twin.discloud.app/api/image?url=${encodeURIComponent(cdnUrl)}`;
         res.setHeader("Access-Control-Allow-Origin", "*");
         res.writeHead(200, { "Content-Type": "application/json" });
-        return res.end(JSON.stringify({ success: true, url: proxiedUrl, cdnUrl }));
+        return res.end(JSON.stringify({ success: true, url: cdnUrl, cdnUrl, proxiedUrl }));
       } catch (err) {
         console.error("❌ [UPLOAD POSTIMAGES ERROR]:", err);
         res.setHeader("Access-Control-Allow-Origin", "*");
