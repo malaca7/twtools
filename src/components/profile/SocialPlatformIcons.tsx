@@ -224,18 +224,18 @@ export const SOCIAL_PLATFORMS: Record<SocialPlatformKey, SocialPlatformDefinitio
 export interface SocialPlatformButtonProps {
   platform: SocialPlatformKey;
   value: string;
-  size?: "sm" | "md" | "lg";
+  size?: "sm" | "md" | "lg" | "xl";
   className?: string;
 }
 
 /**
- * Botão ultra elegante contendo APENAS o ícone oficial da rede social,
- * com efeitos de glow, glassmorphism, tooltip moderno e transição suave.
+ * Botão ultra elegante e de grande destaque contendo o ícone oficial da rede social,
+ * com efeitos de glow cibernético, glassmorphism, tooltip moderno e transição suave.
  */
 export function SocialPlatformButton({
   platform,
   value,
-  size = "md",
+  size = "lg",
   className,
 }: SocialPlatformButtonProps) {
   const meta = SOCIAL_PLATFORMS[platform];
@@ -245,12 +245,14 @@ export function SocialPlatformButton({
   const IconComponent = meta.icon;
 
   const sizeStyles = {
-    sm: "h-8 w-8 rounded-xl",
-    iconSm: "h-4 w-4",
-    md: "h-10 w-10 rounded-2xl",
-    iconMd: "h-4.5 w-4.5",
-    lg: "h-12 w-12 rounded-2xl",
-    iconLg: "h-6 w-6",
+    sm: "h-9 w-9 rounded-xl",
+    iconSm: "h-4.5 w-4.5",
+    md: "h-11 w-11 rounded-xl",
+    iconMd: "h-5.5 w-5.5",
+    lg: "h-13 w-13 rounded-2xl",
+    iconLg: "h-6.5 w-6.5",
+    xl: "h-16 w-16 rounded-2xl",
+    iconXl: "h-8 w-8",
   };
 
   return (
@@ -263,13 +265,14 @@ export function SocialPlatformButton({
             rel="noopener noreferrer"
             aria-label={meta.name}
             className={cn(
-              "group relative inline-flex items-center justify-center border border-white/10 bg-secondary/40 text-foreground/80 backdrop-blur-md transition-all duration-300 shadow-sm cursor-pointer",
-              "hover:scale-110 hover:-translate-y-0.5 active:scale-95 active:translate-y-0",
+              "group relative inline-flex items-center justify-center border border-white/10 bg-secondary/50 text-foreground/90 backdrop-blur-md transition-all duration-300 shadow-md cursor-pointer",
+              "hover:scale-108 hover:-translate-y-1 active:scale-95 active:translate-y-0",
               meta.brandBg,
               meta.hoverGlow,
               size === "sm" && sizeStyles.sm,
               size === "md" && sizeStyles.md,
               size === "lg" && sizeStyles.lg,
+              size === "xl" && sizeStyles.xl,
               className
             )}
           >
@@ -278,16 +281,17 @@ export function SocialPlatformButton({
                 "transition-transform duration-300 group-hover:scale-110",
                 size === "sm" && sizeStyles.iconSm,
                 size === "md" && sizeStyles.iconMd,
-                size === "lg" && sizeStyles.iconLg
+                size === "lg" && sizeStyles.iconLg,
+                size === "xl" && sizeStyles.iconXl
               )}
             />
           </a>
         </TooltipTrigger>
-        <TooltipContent side="top" className="bg-popover/95 backdrop-blur-md border border-border/80 text-xs px-2.5 py-1 font-semibold shadow-xl">
+        <TooltipContent side="top" className="bg-popover/95 backdrop-blur-md border border-border/80 text-xs px-3 py-1.5 font-semibold shadow-2xl">
           <div className="flex items-center gap-1.5">
             <span style={{ color: meta.brandHex }}>●</span>
             <span className="font-bold text-foreground">{meta.name}</span>
-            <span className="text-muted-foreground font-mono text-[10px] truncate max-w-[140px]">
+            <span className="text-muted-foreground font-mono text-[10px] truncate max-w-[150px]">
               {value.startsWith("http") ? "" : `(${value})`}
             </span>
           </div>
@@ -298,15 +302,95 @@ export function SocialPlatformButton({
 }
 
 /**
- * Lista horizontal com botões elegantes apenas de ícones das redes sociais vinculadas
+ * Card destacado e proeminente para exibição de rede social individual no perfil
  */
-export function SocialPlatformsList({
+export function SocialPlatformCard({
+  platform,
+  value,
+  className,
+}: {
+  platform: SocialPlatformKey;
+  value: string;
+  className?: string;
+}) {
+  const meta = SOCIAL_PLATFORMS[platform];
+  if (!meta || !value?.trim()) return null;
+
+  const url = meta.formatUrl(value);
+  const IconComponent = meta.icon;
+
+  const displayHandle = (() => {
+    const val = value.trim();
+    if (val.startsWith("http://") || val.startsWith("https://")) {
+      try {
+        const u = new URL(val);
+        return u.pathname.replace(/^\//, "") || u.hostname;
+      } catch {
+        return val;
+      }
+    }
+    return val.startsWith("@") ? val : `@${val}`;
+  })();
+
+  return (
+    <a
+      href={url}
+      target="_blank"
+      rel="noopener noreferrer"
+      className={cn(
+        "group relative flex items-center justify-between p-3.5 rounded-2xl border border-border/70 bg-card/60 backdrop-blur-md hover:bg-secondary/40 transition-all duration-300 shadow-sm",
+        "hover:shadow-lg hover:-translate-y-0.5",
+        meta.hoverGlow,
+        className
+      )}
+    >
+      <div className="flex items-center gap-3.5 min-w-0">
+        {/* Ícone com tamanho aumentado e fundo temático */}
+        <div
+          className={cn(
+            "h-12 w-12 rounded-xl flex items-center justify-center shrink-0 border border-white/10 transition-transform duration-300 group-hover:scale-105",
+            meta.brandBg
+          )}
+          style={{ backgroundColor: `${meta.brandHex}15`, color: meta.brandHex }}
+        >
+          <IconComponent className="h-6 w-6" />
+        </div>
+
+        <div className="min-w-0 space-y-0.5">
+          <div className="flex items-center gap-1.5">
+            <span className="font-bold text-xs text-foreground group-hover:text-primary transition-colors">
+              {meta.name}
+            </span>
+            <span
+              className="h-1.5 w-1.5 rounded-full"
+              style={{ backgroundColor: meta.brandHex }}
+            />
+          </div>
+          <p className="text-xs text-muted-foreground font-mono truncate max-w-[200px]">
+            {displayHandle}
+          </p>
+        </div>
+      </div>
+
+      <div className="shrink-0 pl-2">
+        <div className="h-8 w-8 rounded-xl bg-secondary/80 flex items-center justify-center text-muted-foreground group-hover:text-foreground group-hover:bg-primary/20 transition-colors">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
+            <path d="M7 17l9.2-9.2M17 17V7H7" />
+          </svg>
+        </div>
+      </div>
+    </a>
+  );
+}
+
+/**
+ * Grid com cards grandes, proeminentes e modernos para as redes sociais vinculadas
+ */
+export function SocialPlatformsCardsGrid({
   socialLinks,
-  size = "md",
   className,
 }: {
   socialLinks?: SocialLinks | null;
-  size?: "sm" | "md" | "lg";
   className?: string;
 }) {
   if (!socialLinks) return null;
@@ -318,7 +402,40 @@ export function SocialPlatformsList({
   if (validPlatforms.length === 0) return null;
 
   return (
-    <div className={cn("flex flex-wrap items-center gap-2", className)}>
+    <div className={cn("grid grid-cols-1 sm:grid-cols-2 gap-3", className)}>
+      {validPlatforms.map((platform) => (
+        <SocialPlatformCard
+          key={platform}
+          platform={platform}
+          value={socialLinks[platform]!}
+        />
+      ))}
+    </div>
+  );
+}
+
+/**
+ * Lista horizontal com botões elegantes e aumentados apenas de ícones das redes sociais vinculadas
+ */
+export function SocialPlatformsList({
+  socialLinks,
+  size = "lg",
+  className,
+}: {
+  socialLinks?: SocialLinks | null;
+  size?: "sm" | "md" | "lg" | "xl";
+  className?: string;
+}) {
+  if (!socialLinks) return null;
+
+  const validPlatforms = (Object.keys(SOCIAL_PLATFORMS) as SocialPlatformKey[]).filter(
+    (k) => Boolean(socialLinks[k]?.trim())
+  );
+
+  if (validPlatforms.length === 0) return null;
+
+  return (
+    <div className={cn("flex flex-wrap items-center gap-2.5", className)}>
       {validPlatforms.map((platform) => (
         <SocialPlatformButton
           key={platform}

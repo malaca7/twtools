@@ -1,5 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
-import type { ProfilePost, ProfileFollowStats } from "@/types/profileFeed";
+import type { ProfilePost, ProfileFollowStats, FollowMemberItem } from "@/types/profileFeed";
 
 /**
  * Extrai hashtags (#tag) de um texto
@@ -408,6 +408,160 @@ export async function toggleFollowNotification(
     .eq("following_id", targetUserId);
 
   if (error) throw error;
+}
+
+/**
+ * Obtém a lista completa de seguidores de um membro (com dados do perfil)
+ */
+export async function getProfileFollowers(
+  targetUserId: string,
+  currentUserId?: string
+): Promise<FollowMemberItem[]> {
+  try {
+    const { data: records, error } = await supabase
+      .from("member_follows" as any)
+      .select("id, follower_id, created_at")
+      .eq("following_id", targetUserId)
+      .order("created_at", { ascending: false });
+
+    if (error || !records || records.length === 0) return [];
+
+    const followerIds: string[] = records.map((r: any) => r.follower_id).filter(Boolean);
+    if (followerIds.length === 0) return [];
+
+    // Busca perfis dos seguidores
+    const { data: profiles } = await supabase
+      .from("profiles")
+      .select("user_id, nome, nickname, avatar_url, discord_avatar_url, discord_username, game_id, custom_theme, is_developer, is_ceo")
+      .in("user_id", followerIds);
+
+    // Busca cargos
+    const { data: roles } = await supabase
+      .from("user_roles")
+      .select("user_id, nivel")
+      .in("user_id", followerIds);
+
+    // Verifica se o usuário atual logado segue cada um deles
+    let currentUserFollowingSet = new Set<string>();
+    if (currentUserId) {
+      const { data: currentUserFollows } = await supabase
+        .from("member_follows" as any)
+        .select("following_id")
+        .eq("follower_id", currentUserId)
+        .in("following_id", followerIds);
+
+      if (currentUserFollows) {
+        currentUserFollowingSet = new Set(currentUserFollows.map((f: any) => f.following_id));
+      }
+    }
+
+    const profileMap = new Map((profiles || []).map((p: any) => [p.user_id, p]));
+    const roleMap = new Map((roles || []).map((r: any) => [r.user_id, r.nivel]));
+    const createdAtMap = new Map(records.map((r: any) => [r.follower_id, r.created_at]));
+
+    return followerIds
+      .map((uid) => {
+        const p = profileMap.get(uid);
+        if (!p) return null;
+        return {
+          id: uid,
+          nome: p.nome,
+          nickname: p.nickname,
+          avatar_url: p.discord_avatar_url || p.avatar_url,
+          game_id: p.game_id,
+          custom_url: (p.custom_theme as any)?.custom_url || null,
+          discord_username: p.discord_username,
+          nivel: roleMap.get(uid) || (p.is_developer || p.is_ceo ? "01" : "novato"),
+          is_following: currentUserFollowingSet.has(uid),
+          is_developer: Boolean(p.is_developer),
+          is_ceo: Boolean(p.is_ceo),
+          created_at: createdAtMap.get(uid),
+        } as FollowMemberItem;
+      })
+      .filter(Boolean) as FollowMemberItem[];
+  } catch (err) {
+    console.error("Erro ao obter seguidores:", err);
+    return [];
+  }
+}
+
+/**
+ * Obtém a lista de membros que este usuário está seguindo (com dados do perfil)
+ */
+export async function getProfileFollowing(
+  targetUserId: string,
+  currentUserId?: string
+): Promise<FollowMemberItem[]> {
+  try {
+    const { data: records, error } = await supabase
+      .from("member_follows" as any)
+      .select("id, following_id, created_at")
+      .eq("follower_id", targetUserId)
+      .order("created_at", { ascending: false });
+
+    if (error || !records || records.length === 0) return [];
+
+    const followingIds: string[] = records.map((r: any) => r.following_id).filter(Boolean);
+    if (followingIds.length === 0) return [];
+
+    // Busca perfis dos membros seguidos
+    const { data: profiles } = await supabase
+      .from("profiles")
+      .select("user_id, nome, nickname, avatar_url, discord_avatar_url, discord_username, game_id, custom_theme, is_developer, is_ceo")
+      .in("user_id", followingIds);
+
+    // Busca cargos
+    const { data: roles } = await supabase
+      .from("user_roles")
+      .select("user_id, nivel")
+      .in("user_id", followingIds);
+
+    // Verifica se o usuário atual logado segue cada um deles
+    let currentUserFollowingSet = new Set<string>();
+    if (currentUserId) {
+      if (currentUserId === targetUserId) {
+        currentUserFollowingSet = new Set(followingIds);
+      } else {
+        const { data: currentUserFollows } = await supabase
+          .from("member_follows" as any)
+          .select("following_id")
+          .eq("follower_id", currentUserId)
+          .in("following_id", followingIds);
+
+        if (currentUserFollows) {
+          currentUserFollowingSet = new Set(currentUserFollows.map((f: any) => f.following_id));
+        }
+      }
+    }
+
+    const profileMap = new Map((profiles || []).map((p: any) => [p.user_id, p]));
+    const roleMap = new Map((roles || []).map((r: any) => [r.user_id, r.nivel]));
+    const createdAtMap = new Map(records.map((r: any) => [r.following_id, r.created_at]));
+
+    return followingIds
+      .map((uid) => {
+        const p = profileMap.get(uid);
+        if (!p) return null;
+        return {
+          id: uid,
+          nome: p.nome,
+          nickname: p.nickname,
+          avatar_url: p.discord_avatar_url || p.avatar_url,
+          game_id: p.game_id,
+          custom_url: (p.custom_theme as any)?.custom_url || null,
+          discord_username: p.discord_username,
+          nivel: roleMap.get(uid) || (p.is_developer || p.is_ceo ? "01" : "novato"),
+          is_following: currentUserFollowingSet.has(uid),
+          is_developer: Boolean(p.is_developer),
+          is_ceo: Boolean(p.is_ceo),
+          created_at: createdAtMap.get(uid),
+        } as FollowMemberItem;
+      })
+      .filter(Boolean) as FollowMemberItem[];
+  } catch (err) {
+    console.error("Erro ao obter seguindo:", err);
+    return [];
+  }
 }
 
 /* =========================================================================

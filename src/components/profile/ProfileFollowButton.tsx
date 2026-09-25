@@ -1,15 +1,14 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { UserPlus, UserCheck, UserMinus, Bell, BellOff, Loader2, Users } from "lucide-react";
+import { UserPlus, UserCheck, UserMinus, Loader2, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import {
   getProfileFollowStats,
   toggleFollowMember,
-  toggleFollowNotification,
 } from "@/services/profileFeedService";
 import { useAuth } from "@/hooks/useAuth";
+import { ProfileConnectionsModal } from "@/components/profile/ProfileConnectionsModal";
 import { cn } from "@/lib/utils";
 
 interface ProfileFollowButtonProps {
@@ -29,16 +28,22 @@ export function ProfileFollowButton({
   const queryClient = useQueryClient();
   const [isHovered, setIsHovered] = useState(false);
 
+  // Estado para o modal de conexões
+  const [connectionsModalOpen, setConnectionsModalOpen] = useState(false);
+  const [connectionsInitialTab, setConnectionsInitialTab] = useState<"followers" | "following">("followers");
+
   const { data: stats, isLoading } = useQuery({
     queryKey: ["profile-follow-stats", targetUserId, user?.id],
     queryFn: () => getProfileFollowStats(targetUserId, user?.id),
-    staleTime: 1000 * 30, // 30s
+    staleTime: 1000 * 20,
   });
 
   const followMutation = useMutation({
     mutationFn: () => toggleFollowMember(targetUserId),
     onSuccess: (res) => {
       void queryClient.invalidateQueries({ queryKey: ["profile-follow-stats", targetUserId] });
+      void queryClient.invalidateQueries({ queryKey: ["profile-followers-list", targetUserId] });
+      void queryClient.invalidateQueries({ queryKey: ["profile-following-list", targetUserId] });
       toast.success(
         res.isFollowing
           ? `Você agora está seguindo ${targetName}!`
@@ -50,44 +55,56 @@ export function ProfileFollowButton({
     },
   });
 
-  const notifyMutation = useMutation({
-    mutationFn: (newNotify: boolean) => toggleFollowNotification(targetUserId, newNotify),
-    onSuccess: (_, newNotify) => {
-      void queryClient.invalidateQueries({ queryKey: ["profile-follow-stats", targetUserId] });
-      toast.success(
-        newNotify
-          ? `Notificações ativadas para as postagens de ${targetName}.`
-          : `Notificações de ${targetName} foram silenciadas.`
-      );
-    },
-    onError: (err: any) => {
-      toast.error(err.message || "Erro ao atualizar preferências de notificação.");
-    },
-  });
-
   const followersCount = stats?.followers_count || 0;
   const followingCount = stats?.following_count || 0;
   const isFollowing = Boolean(stats?.is_following);
-  const notifyPosts = stats?.notify_posts ?? true;
+
+  const openFollowersModal = () => {
+    setConnectionsInitialTab("followers");
+    setConnectionsModalOpen(true);
+  };
+
+  const openFollowingModal = () => {
+    setConnectionsInitialTab("following");
+    setConnectionsModalOpen(true);
+  };
 
   return (
-    <div className={cn("flex flex-wrap items-center gap-2", className)}>
-      {/* CONTADORES DE SEGUIDORES */}
-      <div className="flex items-center gap-3 text-xs text-muted-foreground mr-1">
-        <span className="flex items-center gap-1">
-          <strong className="text-foreground font-mono font-bold text-sm">{followersCount}</strong>
-          <span>seguidores</span>
-        </span>
-        <span className="text-border">·</span>
-        <span className="flex items-center gap-1">
-          <strong className="text-foreground font-mono font-bold text-sm">{followingCount}</strong>
-          <span>seguindo</span>
-        </span>
-      </div>
+    <>
+      <div className={cn("flex flex-wrap items-center gap-2.5", className)}>
+        {/* CONTADORES INTERATIVOS DE SEGUIDORES E SEGUINDO (CLICÁVEIS) */}
+        <div className="flex items-center gap-1.5 p-1 rounded-2xl bg-secondary/40 border border-white/5 backdrop-blur-md">
+          <button
+            type="button"
+            onClick={openFollowersModal}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl hover:bg-secondary/80 text-muted-foreground hover:text-foreground transition-all duration-200 cursor-pointer group"
+            title="Ver quem está seguindo este membro"
+          >
+            <Users className="h-3.5 w-3.5 text-primary group-hover:scale-110 transition-transform" />
+            <span className="font-mono font-black text-xs text-foreground">
+              {followersCount}
+            </span>
+            <span className="text-[11px] font-medium">seguidores</span>
+          </button>
 
-      {/* BOTÃO DE SEGUIR (APENAS PARA OUTROS MEMBROS QUANDO VISITANTE LOGADO) */}
-      {!isSelf && user && (
-        <div className="flex items-center gap-1.5">
+          <span className="text-border/60 text-xs">|</span>
+
+          <button
+            type="button"
+            onClick={openFollowingModal}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl hover:bg-secondary/80 text-muted-foreground hover:text-foreground transition-all duration-200 cursor-pointer group"
+            title="Ver quem este membro está seguindo"
+          >
+            <UserCheck className="h-3.5 w-3.5 text-emerald-400 group-hover:scale-110 transition-transform" />
+            <span className="font-mono font-black text-xs text-foreground">
+              {followingCount}
+            </span>
+            <span className="text-[11px] font-medium">seguindo</span>
+          </button>
+        </div>
+
+        {/* BOTÃO PRINCIPAL DE SEGUIR (APENAS PARA OUTROS MEMBROS QUANDO VISITANTE LOGADO) */}
+        {!isSelf && user && (
           <Button
             type="button"
             size="sm"
@@ -96,12 +113,12 @@ export function ProfileFollowButton({
             onMouseLeave={() => setIsHovered(false)}
             onClick={() => followMutation.mutate()}
             className={cn(
-              "h-9 px-4 text-xs font-bold rounded-xl gap-1.5 cursor-pointer transition-all shadow-sm",
+              "h-9 px-4 text-xs font-bold rounded-xl gap-2 cursor-pointer transition-all duration-200 shadow-md",
               isFollowing
                 ? isHovered
-                  ? "bg-destructive/20 border border-destructive/40 text-destructive hover:bg-destructive hover:text-destructive-foreground"
-                  : "bg-secondary text-foreground border border-border/80 hover:bg-secondary/80"
-                : "bg-primary text-primary-foreground hover:bg-primary/90 shadow-md shadow-primary/20"
+                  ? "bg-destructive/20 border border-destructive/40 text-destructive hover:bg-destructive hover:text-destructive-foreground shadow-destructive/20"
+                  : "bg-secondary/80 text-foreground border border-border/80 hover:bg-secondary"
+                : "bg-gradient-brand text-primary-foreground hover:opacity-95 shadow-primary/25 hover:shadow-lg"
             )}
           >
             {followMutation.isPending ? (
@@ -121,42 +138,21 @@ export function ProfileFollowButton({
             ) : (
               <>
                 <UserPlus className="h-3.5 w-3.5" />
-                <span>Seguir</span>
+                <span>Seguir Membro</span>
               </>
             )}
           </Button>
+        )}
+      </div>
 
-          {/* SINO DE NOTIFICAÇÕES DO MEMBRO */}
-          {isFollowing && (
-            <Button
-              type="button"
-              variant="outline"
-              size="icon"
-              disabled={notifyMutation.isPending}
-              onClick={() => notifyMutation.mutate(!notifyPosts)}
-              className={cn(
-                "h-9 w-9 rounded-xl border transition-all cursor-pointer",
-                notifyPosts
-                  ? "border-primary/40 bg-primary/10 text-primary hover:bg-primary/20 shadow-xs"
-                  : "border-border/80 text-muted-foreground hover:text-foreground hover:bg-secondary"
-              )}
-              title={
-                notifyPosts
-                  ? "Notificações ativadas para este membro (clique para silenciar)"
-                  : "Notificações silenciadas (clique para receber avisos de novas postagens)"
-              }
-            >
-              {notifyMutation.isPending ? (
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              ) : notifyPosts ? (
-                <Bell className="h-4 w-4 fill-primary/30" />
-              ) : (
-                <BellOff className="h-4 w-4" />
-              )}
-            </Button>
-          )}
-        </div>
-      )}
-    </div>
+      {/* MODAL DE CONEXÕES (SEGUIDORES / SEGUINDO) */}
+      <ProfileConnectionsModal
+        isOpen={connectionsModalOpen}
+        onClose={() => setConnectionsModalOpen(false)}
+        initialTab={connectionsInitialTab}
+        targetUserId={targetUserId}
+        targetName={targetName}
+      />
+    </>
   );
 }

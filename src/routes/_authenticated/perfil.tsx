@@ -129,11 +129,6 @@ export function PerfilPage({ initialTab }: { initialTab?: "perfil" | "dados" | "
   const [telefone, setTelefone] = useState("");
   const [gameId, setGameId] = useState("");
 
-  // Foto / Avatar Customizado
-  const [customAvatarUrl, setCustomAvatarUrl] = useState("");
-  const [originalAvatarUrl, setOriginalAvatarUrl] = useState("");
-  const avatarInputRef = useRef<HTMLInputElement>(null);
-
   // Perfil Público & Banner
   const [bannerUrl, setBannerUrl] = useState("");
   const [originalBannerUrl, setOriginalBannerUrl] = useState("");
@@ -188,11 +183,6 @@ export function PerfilPage({ initialTab }: { initialTab?: "perfil" | "dados" | "
 
       const origB = profile.custom_theme?.original_banner_url || "";
       setOriginalBannerUrl(origB);
-
-      const av = profile.avatar_url || profile.discord_avatar_url || "";
-      setCustomAvatarUrl(av);
-      const origAv = profile.custom_theme?.original_avatar_url || "";
-      setOriginalAvatarUrl(origAv);
 
       setBio((profile as any).bio || profile.custom_theme?.bio || "");
       setCustomStatus((profile as any).custom_status || profile.custom_theme?.custom_status || "");
@@ -250,103 +240,38 @@ export function PerfilPage({ initialTab }: { initialTab?: "perfil" | "dados" | "
     });
   };
 
-  // Dispara o Studio ao selecionar novo arquivo de Avatar
-  const handleAvatarFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    if (!file.type.startsWith("image/")) {
-      toast.error("Por favor, selecione um arquivo de imagem válido (PNG, JPG, WEBP, GIF).");
-      return;
-    }
-    if (file.size > 15 * 1024 * 1024) {
-      toast.error("A foto selecionada deve ter no máximo 15MB.");
-      return;
-    }
-
-    setAdjusterConfig({
-      isOpen: true,
-      type: "avatar",
-      file,
-      url: null,
-      originalUrl: null,
-      cropShape: "round",
-      defaultAspectRatio: 1,
-      title: "Studio Pro: Ajustar Foto de Perfil",
-      description: "Enquadre sua foto com o círculo do avatar, aplique zoom e filtros.",
-    });
-
-    if (avatarInputRef.current) avatarInputRef.current.value = "";
-  };
-
-  // Reajustar o Avatar atual
-  const handleReadjustCurrentAvatar = () => {
-    const activeAv = customAvatarUrl || profile?.avatar_url || profile?.discord_avatar_url;
-    if (!activeAv) return;
-    setAdjusterConfig({
-      isOpen: true,
-      type: "avatar",
-      file: null,
-      url: getProxiedImageUrl(activeAv),
-      originalUrl: getProxiedImageUrl(originalAvatarUrl || activeAv),
-      cropShape: "round",
-      defaultAspectRatio: 1,
-      title: "Studio Pro: Reajustar Foto de Perfil",
-      description: "Reajustando sobre a foto original em alta resolução.",
-    });
-  };
-
-  // Callback de salvamento do Studio Universal
+  // Callback de salvamento do Studio Universal de Banner
   const handleSaveAdjustedImage = async (croppedFile: File, originalSource?: File | string) => {
     setIsSavingAdjustedImage(true);
-    const toastId = toast.loading("Processando e salvando imagem com qualidade máxima...");
+    const toastId = toast.loading("Processando e salvando banner com qualidade máxima...");
 
     try {
       const uid = user?.id || "user";
-      const croppedUrl = await uploadImageFile(croppedFile, adjusterConfig.type === "banner" ? "banner_crop" : "avatar_crop", uid);
+      const croppedUrl = await uploadImageFile(croppedFile, "banner_crop", uid);
 
-      let origUrl = typeof originalSource === "string" ? originalSource : croppedUrl;
+      const origUrl = typeof originalSource === "string" ? originalSource : croppedUrl;
 
-      if (adjusterConfig.type === "banner") {
-        setBannerUrl(croppedUrl);
-        if (origUrl) setOriginalBannerUrl(origUrl);
-        // Atualiza imediatamente o perfil com o novo banner
-        await updateUserProfile({
-          nome: nome || profile?.nome || "Membro",
-          telefone: telefone || profile?.telefone || "000-000",
-          game_id: gameId || profile?.game_id || "0",
+      setBannerUrl(croppedUrl);
+      if (origUrl) setOriginalBannerUrl(origUrl);
+
+      // Atualiza imediatamente o perfil com o novo banner
+      await updateUserProfile({
+        nome: nome || profile?.nome || "Membro",
+        telefone: telefone || profile?.telefone || "000-000",
+        game_id: gameId || profile?.game_id || "0",
+        banner_url: croppedUrl,
+        original_banner_url: origUrl || originalBannerUrl || croppedUrl,
+        avatar_url: profile?.discord_avatar_url || profile?.avatar_url || null,
+        custom_theme: {
+          ...(profile?.custom_theme || {}),
           banner_url: croppedUrl,
           original_banner_url: origUrl || originalBannerUrl || croppedUrl,
-          custom_theme: {
-            ...(profile?.custom_theme || {}),
-            banner_url: croppedUrl,
-            original_banner_url: origUrl || originalBannerUrl || croppedUrl,
-          },
-        } as any);
-        await refresh();
-        void queryClient.invalidateQueries({ queryKey: ["auth"] });
-        void queryClient.invalidateQueries({ queryKey: ["members"] });
-        toast.success("Banner do perfil atualizado e salvo com sucesso!", { id: toastId });
-      } else {
-        setCustomAvatarUrl(croppedUrl);
-        if (origUrl) setOriginalAvatarUrl(origUrl);
-        // Atualiza imediatamente o perfil com a nova foto
-        await updateUserProfile({
-          nome: nome || profile?.nome || "Membro",
-          telefone: telefone || profile?.telefone || "000-000",
-          game_id: gameId || profile?.game_id || "0",
-          avatar_url: croppedUrl,
-          original_avatar_url: origUrl || originalAvatarUrl || croppedUrl,
-          custom_theme: {
-            ...(profile?.custom_theme || {}),
-            original_avatar_url: origUrl || originalAvatarUrl || croppedUrl,
-          },
-        } as any);
-        await refresh();
-        void queryClient.invalidateQueries({ queryKey: ["auth"] });
-        void queryClient.invalidateQueries({ queryKey: ["members"] });
-        toast.success("Foto de perfil atualizada com sucesso!", { id: toastId });
-      }
+        },
+      } as any);
+      await refresh();
+      void queryClient.invalidateQueries({ queryKey: ["auth"] });
+      void queryClient.invalidateQueries({ queryKey: ["members"] });
+      toast.success("Banner do perfil atualizado e salvo com sucesso!", { id: toastId });
 
       setAdjusterConfig((prev) => ({ ...prev, isOpen: false }));
     } catch (err: any) {
@@ -371,8 +296,7 @@ export function PerfilPage({ initialTab }: { initialTab?: "perfil" | "dados" | "
         public_profile_enabled: publicProfileEnabled,
         banner_url: bannerUrl || null,
         original_banner_url: originalBannerUrl || null,
-        avatar_url: customAvatarUrl || null,
-        original_avatar_url: originalAvatarUrl || null,
+        avatar_url: profile?.discord_avatar_url || profile?.avatar_url || null,
         bio: bio.trim() || null,
         custom_status: customStatus.trim() || null,
         social_links: socialLinks,
@@ -380,7 +304,6 @@ export function PerfilPage({ initialTab }: { initialTab?: "perfil" | "dados" | "
           ...(profile?.custom_theme || {}),
           banner_url: bannerUrl || null,
           original_banner_url: originalBannerUrl || null,
-          original_avatar_url: originalAvatarUrl || null,
         },
       } as any);
     },
@@ -416,7 +339,7 @@ export function PerfilPage({ initialTab }: { initialTab?: "perfil" | "dados" | "
   };
 
   const currentSlug = String(customUrl || profile?.discord_username?.replace(/#0$/, "") || user?.id || "").replace(/^@/, "");
-  const activeAvatar = customAvatarUrl || profile?.avatar_url || profile?.discord_avatar_url;
+  const activeAvatar = profile?.discord_avatar_url || profile?.avatar_url;
   const activeBanner = bannerUrl || (profile as any)?.banner_url || profile?.custom_theme?.banner_url;
   const initials = (nickname || nome || "P").slice(0, 2).toUpperCase();
 
@@ -503,32 +426,14 @@ export function PerfilPage({ initialTab }: { initialTab?: "perfil" | "dados" | "
               </div>
 
               <CardContent className="p-6 pt-0 flex flex-col items-center text-center space-y-4 relative">
-                <input
-                  ref={avatarInputRef}
-                  type="file"
-                  accept="image/png,image/jpeg,image/webp,image/gif"
-                  className="hidden"
-                  onChange={handleAvatarFileSelect}
-                />
-
-                {/* AVATAR COM BOTÃO DE AJUSTAR SOBREPOSTO AO BANNER */}
+                {/* AVATAR SINCRONIZADO COM O DISCORD */}
                 <div className="relative group -mt-12">
-                  <Avatar className="h-24 w-24 border-4 border-background shadow-2xl ring-2 ring-primary/40 bg-background">
+                  <Avatar className="h-24 w-24 border-4 border-background shadow-2xl ring-2 ring-[#5865F2]/50 bg-background">
                     <AvatarImage src={getProxiedImageUrl(activeAvatar) || undefined} alt={nome} className="object-cover" />
                     <AvatarFallback className="bg-primary/20 text-primary font-bold text-2xl">
                       {initials}
                     </AvatarFallback>
                   </Avatar>
-
-                  <button
-                    type="button"
-                    onClick={() => avatarInputRef.current?.click()}
-                    className="absolute inset-0 rounded-full bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-1 text-white cursor-pointer backdrop-blur-xs"
-                    title="Trocar Foto e Ajustar no Studio"
-                  >
-                    <Camera className="h-5 w-5 text-emerald-400" />
-                    <span className="text-[10px] font-bold">Ajustar Foto</span>
-                  </button>
                 </div>
 
                 <div>
@@ -540,10 +445,14 @@ export function PerfilPage({ initialTab }: { initialTab?: "perfil" | "dados" | "
                   ) : null}
                 </div>
 
-                <div className="flex flex-col items-center gap-2">
-                  <Badge variant="outline" className="text-xs border-emerald-500/30 bg-emerald-500/10 text-emerald-500">
+                <div className="flex flex-wrap items-center justify-center gap-1.5 pt-0.5">
+                  <Badge variant="outline" className="text-xs border-emerald-500/30 bg-emerald-500/10 text-emerald-400 font-bold">
                     Membro Ativo
                   </Badge>
+                  <div className="flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-[#5865F2]/10 border border-[#5865F2]/30 text-[#5865F2] text-[10px] font-mono font-bold shadow-xs" title="A foto de perfil é gerenciada e sincronizada diretamente pelo seu Discord">
+                    <Lock className="h-3 w-3" />
+                    <span>Foto do Discord</span>
+                  </div>
                 </div>
 
                 <div className="w-full pt-3 border-t border-border/50 space-y-2 text-xs text-left">
@@ -562,33 +471,22 @@ export function PerfilPage({ initialTab }: { initialTab?: "perfil" | "dados" | "
                 </div>
 
                 <div className="w-full space-y-2 pt-1">
-                  <div className="grid grid-cols-2 gap-2">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => avatarInputRef.current?.click()}
-                      className="text-xs font-bold gap-1 rounded-xl border-border/80 hover:bg-secondary cursor-pointer h-8 px-2"
-                      title="Fazer upload de nova foto e ajustar no studio"
-                    >
-                      <Upload className="h-3.5 w-3.5 text-primary" />
-                      <span>Nova Foto</span>
-                    </Button>
-
-                    {activeAvatar && (
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={handleReadjustCurrentAvatar}
-                        className="text-xs font-bold gap-1 rounded-xl border-border/80 hover:bg-secondary cursor-pointer h-8 px-2 text-emerald-400"
-                        title="Reajustar a foto atual usando a imagem original"
-                      >
-                        <Sliders className="h-3.5 w-3.5" />
-                        <span>Reajustar</span>
-                      </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={handleManualSyncAvatar}
+                    disabled={isSyncingAvatar}
+                    className="w-full text-xs font-bold border-[#5865F2]/40 bg-[#5865F2]/10 hover:bg-[#5865F2]/20 text-[#5865F2] hover:text-[#5865F2] gap-2 cursor-pointer rounded-xl h-9 transition-all shadow-xs"
+                    title="Atualizar foto e dados diretamente do seu Discord"
+                  >
+                    {isSyncingAvatar ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <RefreshCw className="h-3.5 w-3.5" />
                     )}
-                  </div>
+                    <span>Sincronizar Foto do Discord</span>
+                  </Button>
 
                   <Button
                     type="button"
@@ -600,22 +498,6 @@ export function PerfilPage({ initialTab }: { initialTab?: "perfil" | "dados" | "
                   >
                     <ExternalLink className="h-3.5 w-3.5" />
                     <span>Ver Perfil Público</span>
-                  </Button>
-
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={handleManualSyncAvatar}
-                    disabled={isSyncingAvatar}
-                    className="w-full text-xs text-muted-foreground hover:text-foreground gap-1.5 cursor-pointer rounded-xl h-8"
-                  >
-                    {isSyncingAvatar ? (
-                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                    ) : (
-                      <RefreshCw className="h-3.5 w-3.5" />
-                    )}
-                    <span>Sincronizar com Discord</span>
                   </Button>
                 </div>
               </CardContent>

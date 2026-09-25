@@ -65,6 +65,21 @@ export interface ProfileFollowStats {
   notify_posts: boolean;
 }
 
+export interface FollowMemberItem {
+  id: string; // user_id
+  nome: string;
+  nickname?: string | null;
+  avatar_url?: string | null;
+  game_id?: string | null;
+  custom_url?: string | null;
+  discord_username?: string | null;
+  nivel?: string | null;
+  is_following?: boolean;
+  is_developer?: boolean;
+  is_ceo?: boolean;
+  created_at?: string;
+}
+
 export interface BannerPreset {
   id: string;
   name: string;
