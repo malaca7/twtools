@@ -518,6 +518,7 @@ export function DevBotManageCard({ isCeoView: isCeoViewProp }: DevBotManageCardP
       return;
     }
 
+    setIsBannerModalOpen(false);
     setCropFile(file);
     setCropImageUrl(null);
     setCropTarget("banner");
@@ -545,6 +546,7 @@ export function DevBotManageCard({ isCeoView: isCeoViewProp }: DevBotManageCardP
       return;
     }
 
+    setIsAvatarModalOpen(false);
     setCropFile(file);
     setCropImageUrl(null);
     setCropTarget("avatar");
@@ -573,6 +575,9 @@ export function DevBotManageCard({ isCeoView: isCeoViewProp }: DevBotManageCardP
       return;
     }
 
+    if (target === "avatar") setIsAvatarModalOpen(false);
+    if (target === "banner") setIsBannerModalOpen(false);
+
     setCropTarget(target);
     setCropFile(null);
     setCropImageUrl(getProxiedImageUrl(currentUrl) || currentUrl);
@@ -590,6 +595,7 @@ export function DevBotManageCard({ isCeoView: isCeoViewProp }: DevBotManageCardP
       return;
     }
     setIsCropSaving(true);
+    const toastId = toast.loading(`Enviando e salvando imagem de ${cropTarget === "avatar" ? "avatar" : "banner"}...`);
     try {
       if (cropTarget === "avatar") {
         const publicUrl = await uploadBotImage(croppedFile, "avatar");
@@ -598,7 +604,12 @@ export function DevBotManageCard({ isCeoView: isCeoViewProp }: DevBotManageCardP
           { botAvatarUrl: publicUrl },
           "Foto de perfil do bot atualizada com sucesso!"
         );
-        void triggerBotProfileSync({ botAvatarUrl: publicUrl, force: true });
+        const res = await triggerBotProfileSync({ botAvatarUrl: publicUrl, force: true });
+        if (res.success) {
+          toast.success("Foto de perfil sincronizada no Discord!", { id: toastId });
+        } else {
+          toast.info(res.message || "Avatar salvo no painel! (Sincronização em segundo plano)", { id: toastId });
+        }
         setIsAvatarModalOpen(false);
       } else {
         const publicUrl = await uploadBotImage(croppedFile, "banner");
@@ -607,12 +618,17 @@ export function DevBotManageCard({ isCeoView: isCeoViewProp }: DevBotManageCardP
           { botBannerUrl: publicUrl },
           "Banner do bot atualizado com sucesso!"
         );
-        void triggerBotProfileSync({ botBannerUrl: publicUrl, force: true });
+        const res = await triggerBotProfileSync({ botBannerUrl: publicUrl, force: true });
+        if (res.success) {
+          toast.success("Banner salvo e sincronizado!", { id: toastId });
+        } else {
+          toast.info(res.message || "Banner salvo no painel!", { id: toastId });
+        }
         setIsBannerModalOpen(false);
       }
       setIsCropModalOpen(false);
     } catch (err: any) {
-      toast.error(err.message || "Erro ao salvar imagem recortada.");
+      toast.error(err.message || "Erro ao salvar imagem recortada.", { id: toastId });
     } finally {
       setIsCropSaving(false);
     }
@@ -625,12 +641,25 @@ export function DevBotManageCard({ isCeoView: isCeoViewProp }: DevBotManageCardP
       return;
     }
     if (!bannerUrlInput) return;
-    await handleUpdateConfig(
-      { botBannerUrl: bannerUrlInput.trim() },
-      "Banner do bot atualizado com sucesso!"
-    );
-    void triggerBotProfileSync({ botBannerUrl: bannerUrlInput.trim(), force: true });
-    setIsBannerModalOpen(false);
+    setIsUploadingBanner(true);
+    const toastId = toast.loading("Salvando e sincronizando banner do bot...");
+    try {
+      await handleUpdateConfig(
+        { botBannerUrl: bannerUrlInput.trim() },
+        "Banner do bot atualizado com sucesso!"
+      );
+      const res = await triggerBotProfileSync({ botBannerUrl: bannerUrlInput.trim(), force: true });
+      if (res.success) {
+        toast.success("Banner sincronizado!", { id: toastId });
+      } else {
+        toast.info(res.message || "Banner salvo no painel!", { id: toastId });
+      }
+      setIsBannerModalOpen(false);
+    } catch (err: any) {
+      toast.error(err.message || "Erro ao salvar banner", { id: toastId });
+    } finally {
+      setIsUploadingBanner(false);
+    }
   };
 
   // Salvar Nome
@@ -654,12 +683,25 @@ export function DevBotManageCard({ isCeoView: isCeoViewProp }: DevBotManageCardP
       return;
     }
     if (!avatarInput.trim()) return;
-    await handleUpdateConfig(
-      { botAvatarUrl: avatarInput.trim() },
-      "Avatar do bot atualizado!"
-    );
-    void triggerBotProfileSync({ botAvatarUrl: avatarInput.trim(), force: true });
-    setIsAvatarModalOpen(false);
+    setIsUploadingAvatar(true);
+    const toastId = toast.loading("Salvando e sincronizando avatar do bot...");
+    try {
+      await handleUpdateConfig(
+        { botAvatarUrl: avatarInput.trim() },
+        "Avatar do bot atualizado!"
+      );
+      const res = await triggerBotProfileSync({ botAvatarUrl: avatarInput.trim(), force: true });
+      if (res.success) {
+        toast.success("Foto de perfil sincronizada no Discord com sucesso!", { id: toastId });
+      } else {
+        toast.info(res.message || "Avatar salvo no painel! (Sincronização em background)", { id: toastId });
+      }
+      setIsAvatarModalOpen(false);
+    } catch (err: any) {
+      toast.error(err.message || "Erro ao salvar avatar", { id: toastId });
+    } finally {
+      setIsUploadingAvatar(false);
+    }
   };
 
   // Salvar Mensagem de Status
@@ -2131,32 +2173,53 @@ export function DevBotManageCard({ isCeoView: isCeoViewProp }: DevBotManageCardP
               className="hidden"
             />
 
-            {/* Dropzone de Upload com clique */}
+            {/* Opção 1: Upload de Arquivo com Dropzone */}
             <div
               onClick={() => {
                 if (!hasPermission("bot_change_avatar")) return;
                 avatarFileInputRef.current?.click();
               }}
               className={cn(
-                "flex flex-col items-center justify-center p-6 rounded-xl border-2 border-dashed border-zinc-700 bg-zinc-900/50 transition-all gap-2 text-center group",
+                "flex flex-col items-center justify-center p-5 rounded-xl border-2 border-dashed border-zinc-700 bg-zinc-900/50 transition-all gap-2 text-center group",
                 hasPermission("bot_change_avatar")
                   ? "hover:border-primary/60 hover:bg-zinc-900 cursor-pointer"
                   : "opacity-50 cursor-not-allowed"
               )}
             >
-              <div className="p-3 rounded-full bg-zinc-800 text-primary group-hover:scale-110 transition-transform">
+              <div className="p-2.5 rounded-full bg-zinc-800 text-primary group-hover:scale-110 transition-transform">
                 {isUploadingAvatar ? (
-                  <Loader2 className="h-6 w-6 animate-spin" />
+                  <Loader2 className="h-5 w-5 animate-spin" />
                 ) : (
-                  <Upload className="h-6 w-6" />
+                  <Upload className="h-5 w-5" />
                 )}
               </div>
               <p className="text-xs font-bold text-foreground">
-                {isUploadingAvatar ? "Fazendo upload do avatar..." : "Clique para fazer upload da foto de perfil"}
+                {isUploadingAvatar ? "Processando imagem do avatar..." : "Escolher arquivo de imagem do computador"}
               </p>
               <p className="text-[0.65rem] text-muted-foreground">
-                Selecione uma imagem do seu computador (PNG, JPG, WEBP, GIF - máx. 5MB)
+                Abre o estúdio interativo com recorte circular, zoom e alinhamento
               </p>
+            </div>
+
+            {/* Divisor */}
+            <div className="relative flex items-center justify-center">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-zinc-800" />
+              </div>
+              <span className="relative bg-zinc-950 px-2 text-[10px] uppercase font-bold text-zinc-500">
+                ou informe um link direto
+              </span>
+            </div>
+
+            {/* Opção 2: URL direta da Imagem */}
+            <div className="space-y-1.5">
+              <Label className="text-xs font-bold text-muted-foreground">URL da Imagem do Avatar</Label>
+              <Input
+                placeholder="https://... (i.postimg.cc, cdn.discordapp.com, etc.)"
+                value={avatarInput}
+                onChange={(e) => setAvatarInput(e.target.value.trim())}
+                className="bg-zinc-900 border-zinc-800 text-xs font-mono"
+              />
             </div>
 
             {/* Preview do Avatar com anel circular e Botão de Ajustar */}
@@ -2173,7 +2236,7 @@ export function DevBotManageCard({ isCeoView: isCeoViewProp }: DevBotManageCardP
                     className="h-7 text-xs font-bold gap-1.5 bg-emerald-950/60 border-emerald-500/40 text-emerald-400 hover:bg-emerald-900/80 hover:text-white transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <Crop className="h-3.5 w-3.5" />
-                    Ajustar / Recortar Foto Atual
+                    Ajustar no Estúdio
                   </Button>
                 </div>
                 <img

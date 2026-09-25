@@ -234,16 +234,35 @@ async function syncDiscordBotProfile(avatarUrl, bannerUrl, force = false) {
     const cleanAv = avatarUrl.trim();
     if (force || cleanAv !== lastAppliedBotAvatarUrl) {
       try {
-        console.log(`🖼️ [BOT PROFILE] Baixando avatar para atualizar no Discord: ${cleanAv}`);
-        const avRes = await fetch(cleanAv);
-        if (avRes.ok) {
-          const avBuf = await avRes.arrayBuffer();
-          const avMime = avRes.headers.get("content-type") || "image/png";
-          const avBase64 = Buffer.from(avBuf).toString("base64");
-          body.avatar = `data:${avMime.split(";")[0]};base64,${avBase64}`;
+        console.log(`🖼️ [BOT PROFILE] Processando avatar para atualizar no Discord: ${cleanAv.slice(0, 80)}...`);
+        if (cleanAv.startsWith("data:")) {
+          body.avatar = cleanAv;
           avatarChanged = true;
         } else {
-          console.warn(`⚠️ [BOT PROFILE] Falha ao baixar avatar (${avRes.status}): ${cleanAv}`);
+          let targetUrl = cleanAv;
+          if (targetUrl.includes("/api/image?url=")) {
+            try {
+              const parsed = new URL(targetUrl);
+              const param = parsed.searchParams.get("url");
+              if (param) targetUrl = decodeURIComponent(param);
+            } catch {}
+          }
+          const avRes = await fetch(targetUrl, {
+            headers: {
+              "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+              "Referer": "https://postimages.org/",
+              "Accept": "image/*,*/*;q=0.8",
+            },
+          });
+          if (avRes.ok) {
+            const avBuf = await avRes.arrayBuffer();
+            const avMime = avRes.headers.get("content-type") || "image/png";
+            const avBase64 = Buffer.from(avBuf).toString("base64");
+            body.avatar = `data:${avMime.split(";")[0]};base64,${avBase64}`;
+            avatarChanged = true;
+          } else {
+            console.warn(`⚠️ [BOT PROFILE] Falha ao baixar avatar (${avRes.status}): ${cleanAv}`);
+          }
         }
       } catch (avErr) {
         console.warn("⚠️ [BOT PROFILE] Erro ao converter avatar para base64:", avErr.message);
@@ -256,16 +275,35 @@ async function syncDiscordBotProfile(avatarUrl, bannerUrl, force = false) {
     const cleanBn = bannerUrl.trim();
     if (force || cleanBn !== lastAppliedBotBannerUrl) {
       try {
-        console.log(`🎨 [BOT PROFILE] Baixando banner para atualizar no Discord: ${cleanBn}`);
-        const bnRes = await fetch(cleanBn);
-        if (bnRes.ok) {
-          const bnBuf = await bnRes.arrayBuffer();
-          const bnMime = bnRes.headers.get("content-type") || "image/png";
-          const bnBase64 = Buffer.from(bnBuf).toString("base64");
-          body.banner = `data:${bnMime.split(";")[0]};base64,${bnBase64}`;
+        console.log(`🎨 [BOT PROFILE] Processando banner para atualizar no Discord: ${cleanBn.slice(0, 80)}...`);
+        if (cleanBn.startsWith("data:")) {
+          body.banner = cleanBn;
           bannerChanged = true;
         } else {
-          console.warn(`⚠️ [BOT PROFILE] Falha ao baixar banner (${bnRes.status}): ${cleanBn}`);
+          let targetUrl = cleanBn;
+          if (targetUrl.includes("/api/image?url=")) {
+            try {
+              const parsed = new URL(targetUrl);
+              const param = parsed.searchParams.get("url");
+              if (param) targetUrl = decodeURIComponent(param);
+            } catch {}
+          }
+          const bnRes = await fetch(targetUrl, {
+            headers: {
+              "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+              "Referer": "https://postimages.org/",
+              "Accept": "image/*,*/*;q=0.8",
+            },
+          });
+          if (bnRes.ok) {
+            const bnBuf = await bnRes.arrayBuffer();
+            const bnMime = bnRes.headers.get("content-type") || "image/png";
+            const bnBase64 = Buffer.from(bnBuf).toString("base64");
+            body.banner = `data:${bnMime.split(";")[0]};base64,${bnBase64}`;
+            bannerChanged = true;
+          } else {
+            console.warn(`⚠️ [BOT PROFILE] Falha ao baixar banner (${bnRes.status}): ${cleanBn}`);
+          }
         }
       } catch (bnErr) {
         console.warn("⚠️ [BOT PROFILE] Erro ao converter banner para base64:", bnErr.message);
@@ -283,23 +321,48 @@ async function syncDiscordBotProfile(avatarUrl, bannerUrl, force = false) {
       banner: bannerChanged ? "atualizando" : "inalterado",
     });
 
-    const result = await client.rest.patch("/users/@me", { body });
+    let result;
+    if (avatarChanged && bannerChanged) {
+      try {
+        result = await client.rest.patch("/users/@me", { body });
+      } catch (combinedErr) {
+        console.warn("⚠️ PATCH /users/@me com banner falhou (provável restrição Discord em contas de bot). Tentando atualizar apenas avatar:", combinedErr.message);
+        result = await client.rest.patch("/users/@me", { body: { avatar: body.avatar } });
+        bannerChanged = false;
+      }
+    } else {
+      try {
+        result = await client.rest.patch("/users/@me", { body });
+      } catch (patchErr) {
+        if (bannerChanged && !avatarChanged) {
+          console.warn("⚠️ Discord rejeitou alteração de banner para conta de bot:", patchErr.message);
+          return {
+            success: true,
+            avatarUpdated: false,
+            bannerUpdated: false,
+            message: "Discord não permite customização de banner nesta conta de bot, mas foi salvo no painel.",
+          };
+        }
+        throw patchErr;
+      }
+    }
+
     lastProfileUpdateTimestamp = Date.now();
 
     if (avatarChanged) lastAppliedBotAvatarUrl = avatarUrl;
     if (bannerChanged) lastAppliedBotBannerUrl = bannerUrl;
 
     console.log("✅ [BOT PROFILE] Perfil do bot atualizado com sucesso no Discord!", {
-      avatarHash: result.avatar,
-      bannerHash: result.banner,
+      avatarHash: result?.avatar,
+      bannerHash: result?.banner,
     });
 
     return {
       success: true,
       avatarUpdated: avatarChanged,
       bannerUpdated: bannerChanged,
-      avatarHash: result.avatar,
-      bannerHash: result.banner,
+      avatarHash: result?.avatar,
+      bannerHash: result?.banner,
     };
   } catch (discordErr) {
     console.error("❌ [BOT PROFILE] Erro na API do Discord ao atualizar perfil:", discordErr.message, discordErr.rawError);

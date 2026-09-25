@@ -36,6 +36,50 @@ import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import { getProxiedImageUrl } from "@/services/postimagesService";
 
+async function uploadBannerFile(file: File | Blob, prefix: string, userId: string): Promise<string> {
+  const fileName = `${prefix}_${userId}_${Date.now()}.png`;
+
+  // 1. Tenta upload direto para o CDN Postimages (Zero consumo de storage e egress de banco)
+  try {
+    const { uploadImageToPostimages } = await import("@/services/postimagesService");
+    const cdnUrl = await uploadImageToPostimages(file, {
+      filename: fileName,
+      maxDimension: 1920,
+    });
+    if (cdnUrl) return cdnUrl;
+  } catch (postErr) {
+    console.warn("⚠️ Aviso ao subir imagem no Postimages CDN, usando fallback:", postErr);
+  }
+
+  // 2. Tenta bucket 'products'
+  const { data: prodData, error: prodErr } = await supabase.storage
+    .from("products")
+    .upload(fileName, file, {
+      cacheControl: "31536000",
+      upsert: true,
+      contentType: "image/png",
+    });
+
+  if (!prodErr && prodData) {
+    return supabase.storage.from("products").getPublicUrl(prodData.path).data.publicUrl;
+  }
+
+  // 3. Fallback para bucket 'chat-attachments'
+  const { data: chatData, error: chatErr } = await supabase.storage
+    .from("chat-attachments")
+    .upload(fileName, file, {
+      cacheControl: "31536000",
+      upsert: true,
+      contentType: "image/png",
+    });
+
+  if (!chatErr && chatData) {
+    return supabase.storage.from("chat-attachments").getPublicUrl(chatData.path).data.publicUrl;
+  }
+
+  throw new Error(chatErr?.message || prodErr?.message || "Falha ao enviar imagem do banner para o servidor.");
+}
+
 export function PublicProfileCustomizer() {
   const { profile, user, refresh } = useAuth();
   const queryClient = useQueryClient();
@@ -45,7 +89,8 @@ export function PublicProfileCustomizer() {
   const [originalBannerUrl, setOriginalBannerUrl] = useState("");
   const [isUploadingBanner, setIsUploadingBanner] = useState(false);
   const [bannerAdjusterOpen, setBannerAdjusterOpen] = useState(false);
-  const [pendingBannerSrc, setPendingBannerSrc] = useState<string | null>(null);
+  const [pendingBannerFile, setPendingBannerFile] = useState<File | null>(null);
+  const [pendingBannerUrl, setPendingBannerUrl] = useState<string | null>(null);
   const bannerInputRef = useRef<HTMLInputElement>(null);
 
   const [bio, setBio] = useState("");
@@ -93,14 +138,9 @@ export function PublicProfileCustomizer() {
       return;
     }
 
-    const reader = new FileReader();
-    reader.onload = () => {
-      const result = reader.result as string;
-      setPendingBannerSrc(result);
-      setOriginalBannerUrl(result);
-      setBannerAdjusterOpen(true);
-    };
-    reader.readAsDataURL(file);
+    setPendingBannerFile(file);
+    setPendingBannerUrl(null);
+    setBannerAdjusterOpen(true);
 
     if (bannerInputRef.current) {
       bannerInputRef.current.value = "";
@@ -110,95 +150,63 @@ export function PublicProfileCustomizer() {
   const handleReAdjustBanner = () => {
     const source = originalBannerUrl || bannerUrl;
     if (!source) return;
-    setPendingBannerSrc(source);
+    setPendingBannerFile(null);
+    setPendingBannerUrl(getProxiedImageUrl(source) || source);
     setBannerAdjusterOpen(true);
   };
 
-  const handleSaveAdjustedBanner = async (croppedBlob: Blob, croppedDataUrl: string, originalDataUrl?: string) => {
+  const handleSaveAdjustedBanner = async (croppedFile: File, originalFileOrUrl?: File | string) => {
     setIsUploadingBanner(true);
     const toastId = toast.loading("Salvando e otimizando banner no estúdio...");
 
     try {
-      const fileName = `banner_${user?.id || "user"}_${Date.now()}.png`;
-      let finalCroppedUrl = croppedDataUrl;
+      const uid = user?.id || "user";
+      const croppedUrl = await uploadBannerFile(croppedFile, "banner_crop", uid);
 
-      // 1. Tenta upload direto para o CDN Postimages (Zero consumo de storage e egress de banco)
-      let postimagesSuccess = false;
-      try {
-        const { uploadImageToPostimages } = await import("@/services/postimagesService");
-        const cdnUrl = await uploadImageToPostimages(croppedBlob, {
-          filename: fileName,
-          maxDimension: 1920,
-        });
-        if (cdnUrl) {
-          finalCroppedUrl = cdnUrl;
-          postimagesSuccess = true;
-        }
-      } catch (postErr) {
-        console.warn("⚠️ Aviso ao subir banner para Postimages CDN, usando fallback:", postErr);
-      }
-
-      if (!postimagesSuccess) {
-        // Fallback 1: Tenta upload no bucket 'products'
-        const { data: prodData, error: prodErr } = await supabase.storage
-          .from("products")
-          .upload(fileName, croppedBlob, {
-            cacheControl: "31536000",
-            upsert: true,
-            contentType: "image/png",
-          });
-
-        if (!prodErr && prodData) {
-          const { data: pubData } = supabase.storage.from("products").getPublicUrl(prodData.path);
-          finalCroppedUrl = pubData.publicUrl;
-        } else {
-          // Fallback 2: chat-attachments
-        const { data: chatData, error: chatErr } = await supabase.storage
-          .from("chat-attachments")
-          .upload(fileName, croppedBlob, {
-            cacheControl: "31536000",
-            upsert: true,
-            contentType: "image/png",
-          });
-
-        if (!chatErr && chatData) {
-          const { data: pubData } = supabase.storage.from("chat-attachments").getPublicUrl(chatData.path);
-          finalCroppedUrl = pubData.publicUrl;
+      let origUrl = typeof originalFileOrUrl === "string" ? originalFileOrUrl : "";
+      if (originalFileOrUrl instanceof File) {
+        try {
+          origUrl = await uploadBannerFile(originalFileOrUrl, "banner_orig", uid);
+        } catch (origErr) {
+          console.warn("⚠️ Aviso ao salvar banner original em alta resolução, usando cropped:", origErr);
+          origUrl = croppedUrl;
         }
       }
-    }
 
-      setBannerUrl(finalCroppedUrl);
-      if (originalDataUrl) {
-        setOriginalBannerUrl(originalDataUrl);
-      }
-      try {
-        await updateUserProfile({
-          nome: profile?.nome || "",
-          telefone: profile?.telefone || "",
-          game_id: profile?.game_id || "",
-          banner_url: finalCroppedUrl,
-          original_banner_url: originalDataUrl || finalCroppedUrl,
-        });
-        await refresh();
-        void queryClient.invalidateQueries({ queryKey: ["auth"] });
-        void queryClient.invalidateQueries({ queryKey: ["members"] });
-        void queryClient.invalidateQueries({ queryKey: ["public-profile-details"] });
-      } catch (saveErr) {
-        console.warn("Could not auto-save banner to profile:", saveErr);
-      }
+      const finalOrigUrl = origUrl && !origUrl.startsWith("data:") ? origUrl : croppedUrl;
+
+      setBannerUrl(croppedUrl);
+      setOriginalBannerUrl(finalOrigUrl);
+
+      await updateUserProfile({
+        nome: profile?.nome || "",
+        telefone: profile?.telefone || "",
+        game_id: profile?.game_id || "",
+        banner_url: croppedUrl,
+        original_banner_url: finalOrigUrl,
+      });
+
+      await refresh();
+      void queryClient.invalidateQueries({ queryKey: ["auth"] });
+      void queryClient.invalidateQueries({ queryKey: ["members"] });
+      void queryClient.invalidateQueries({ queryKey: ["public-profile-details"] });
+
       toast.success("Banner ajustado e salvo com sucesso!", { id: toastId });
+      setBannerAdjusterOpen(false);
+      setPendingBannerFile(null);
+      setPendingBannerUrl(null);
     } catch (err: any) {
       toast.error(err.message || "Falha ao salvar banner", { id: toastId });
     } finally {
       setIsUploadingBanner(false);
-      setBannerAdjusterOpen(false);
-      setPendingBannerSrc(null);
     }
   };
 
   const saveMutation = useMutation({
     mutationFn: async () => {
+      const cleanBanner = bannerUrl && !bannerUrl.startsWith("data:") ? bannerUrl : null;
+      const cleanOriginalBanner = originalBannerUrl && !originalBannerUrl.startsWith("data:") ? originalBannerUrl : cleanBanner;
+
       await updateUserProfile({
         nome: profile?.nome || "",
         nickname: profile?.nickname || null,
@@ -206,8 +214,8 @@ export function PublicProfileCustomizer() {
         game_id: profile?.game_id || "",
         custom_url: customUrl.trim().toLowerCase().replace(/^@/, "") || null,
         public_profile_enabled: publicProfileEnabled,
-        banner_url: bannerUrl || null,
-        original_banner_url: originalBannerUrl || null,
+        banner_url: cleanBanner,
+        original_banner_url: cleanOriginalBanner,
         bio: bio.trim() || null,
         custom_status: customStatus.trim() || null,
         social_links: socialLinks,
@@ -604,18 +612,29 @@ export function PublicProfileCustomizer() {
       </div>
 
       {/* ESTÚDIO PRO DE AJUSTE DE BANNER */}
-      {bannerAdjusterOpen && pendingBannerSrc && (
+      {bannerAdjusterOpen && (pendingBannerFile || pendingBannerUrl) && (
         <UniversalImageAdjusterModal
           isOpen={bannerAdjusterOpen}
-          imageSrc={pendingBannerSrc}
+          imageFile={pendingBannerFile}
+          imageUrl={pendingBannerUrl}
+          originalImageUrl={originalBannerUrl || undefined}
           title="Estúdio Pro — Ajuste de Imagem do Banner"
           description="Use os controles de zoom, arrasto, rotação, espelhamento e filtros para deixar seu banner impecável."
-          aspectRatioPreset="3:1"
+          defaultAspectRatio={16 / 9}
+          aspectRatioPreset="16:9"
+          allowedRatios={[
+            { label: "16:9 Panorâmico", ratio: 16 / 9 },
+            { label: "3:1 Ultrawide", ratio: 3 },
+            { label: "2.5:1 Banner", ratio: 2.5 },
+            { label: "Livre (Imagem)", ratio: 0, isAuto: true },
+          ]}
           onClose={() => {
             setBannerAdjusterOpen(false);
-            setPendingBannerSrc(null);
+            setPendingBannerFile(null);
+            setPendingBannerUrl(null);
           }}
-          onSave={handleSaveAdjustedBanner}
+          onCropSave={handleSaveAdjustedBanner}
+          isSaving={isUploadingBanner}
         />
       )}
     </div>

@@ -800,34 +800,56 @@ export async function updateUserProfile(payload: {
     }
   }
 
+  // Proteção contra payloads base64 gigantes que estouram o limite de requisição do PostgREST/PostgreSQL
+  let safeBannerUrl = payload.banner_url;
+  if (safeBannerUrl && safeBannerUrl.startsWith("data:") && safeBannerUrl.length > 2048) {
+    safeBannerUrl = undefined;
+  }
+  let safeOriginalBannerUrl = payload.original_banner_url;
+  if (safeOriginalBannerUrl && safeOriginalBannerUrl.startsWith("data:") && safeOriginalBannerUrl.length > 2048) {
+    safeOriginalBannerUrl = safeBannerUrl || undefined;
+  }
+  let safeAvatarUrl = (payload as any).avatar_url;
+  if (safeAvatarUrl && safeAvatarUrl.startsWith("data:") && safeAvatarUrl.length > 2048) {
+    safeAvatarUrl = undefined;
+  }
+  let safeOriginalAvatarUrl = payload.original_avatar_url;
+  if (safeOriginalAvatarUrl && safeOriginalAvatarUrl.startsWith("data:") && safeOriginalAvatarUrl.length > 2048) {
+    safeOriginalAvatarUrl = safeAvatarUrl || undefined;
+  }
+
   const existingTheme = (oldProfile as any)?.custom_theme || {};
   const updatedTheme = {
     ...existingTheme,
     ...(cleanCustomUrl !== undefined ? { custom_url: cleanCustomUrl } : {}),
     ...(payload.public_profile_enabled !== undefined ? { public_profile_enabled: payload.public_profile_enabled } : {}),
-    ...(payload.banner_url !== undefined ? { banner_url: payload.banner_url } : {}),
-    ...(payload.original_banner_url !== undefined ? { original_banner_url: payload.original_banner_url } : {}),
-    ...(payload.original_avatar_url !== undefined ? { original_avatar_url: payload.original_avatar_url } : {}),
+    ...(safeBannerUrl !== undefined ? { banner_url: safeBannerUrl } : {}),
+    ...(safeOriginalBannerUrl !== undefined ? { original_banner_url: safeOriginalBannerUrl } : {}),
+    ...(safeOriginalAvatarUrl !== undefined ? { original_avatar_url: safeOriginalAvatarUrl } : {}),
     ...(payload.bio !== undefined ? { bio: payload.bio } : {}),
     ...(payload.custom_status !== undefined ? { custom_status: payload.custom_status } : {}),
     ...(payload.social_links !== undefined ? { social_links: payload.social_links } : {}),
   };
 
+  const finalNome = (payload.nome || (oldProfile as any)?.nome || "Membro").trim();
+  const finalTelefone = (payload.telefone || (oldProfile as any)?.telefone || "").trim();
+  const finalGameId = (payload.game_id || (oldProfile as any)?.game_id || "").trim();
+
   const updateFields: Record<string, any> = {
-    nome: payload.nome.trim(),
-    nickname: payload.nickname?.trim() || null,
-    telefone: payload.telefone.trim(),
-    game_id: payload.game_id.trim(),
+    nome: finalNome,
+    nickname: payload.nickname?.trim() || (oldProfile as any)?.nickname || null,
+    telefone: finalTelefone,
+    game_id: finalGameId,
     custom_theme: updatedTheme,
     updated_at: new Date().toISOString(),
   };
 
   if (cleanCustomUrl !== undefined) updateFields.custom_url = cleanCustomUrl;
-  if ((payload as any).avatar_url !== undefined) {
-    updateFields.avatar_url = (payload as any).avatar_url;
-    updateFields.discord_avatar_url = (payload as any).avatar_url;
+  if (safeAvatarUrl !== undefined) {
+    updateFields.avatar_url = safeAvatarUrl;
+    updateFields.discord_avatar_url = safeAvatarUrl;
   }
-  if (payload.banner_url !== undefined) updateFields.banner_url = payload.banner_url;
+  if (safeBannerUrl !== undefined) updateFields.banner_url = safeBannerUrl;
   if (payload.bio !== undefined) updateFields.bio = payload.bio;
   if (payload.custom_status !== undefined) updateFields.custom_status = payload.custom_status;
   if (payload.social_links !== undefined) updateFields.social_links = payload.social_links;

@@ -300,13 +300,14 @@ export function PerfilPage({ initialTab }: { initialTab?: "perfil" | "dados" | "
 
   // Reajustar o Banner atual a partir da imagem original preservada
   const handleReadjustCurrentBanner = () => {
-    if (!bannerUrl) return;
+    const activeBn = bannerUrl || (profile as any)?.banner_url || profile?.custom_theme?.banner_url;
+    if (!activeBn) return;
     setAdjusterConfig({
       isOpen: true,
       type: "banner",
       file: null,
-      url: getProxiedImageUrl(bannerUrl),
-      originalUrl: getProxiedImageUrl(originalBannerUrl || bannerUrl),
+      url: getProxiedImageUrl(activeBn),
+      originalUrl: getProxiedImageUrl(originalBannerUrl || (profile as any)?.original_banner_url || profile?.custom_theme?.original_banner_url || activeBn),
       cropShape: "rect",
       defaultAspectRatio: 16 / 9,
       title: "Studio Pro: Reajustar Banner do Perfil",

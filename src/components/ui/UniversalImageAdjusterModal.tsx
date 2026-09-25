@@ -69,6 +69,7 @@ export function UniversalImageAdjusterModal({
   originalImageUrl,
   cropShape = "rect",
   defaultAspectRatio,
+  aspectRatioPreset,
   allowedRatios,
   targetWidth,
   targetHeight,
@@ -82,6 +83,22 @@ export function UniversalImageAdjusterModal({
   const rawEffectiveImageUrl = originalImageUrl || imageUrl || imageSrcProp;
   const effectiveImageUrl = getProxiedImageUrl(rawEffectiveImageUrl) || rawEffectiveImageUrl;
 
+  // Proporção numérica inicial considerando defaultAspectRatio ou aspectRatioPreset
+  const initialDesiredRatio = useMemo(() => {
+    if (defaultAspectRatio && !isNaN(defaultAspectRatio) && defaultAspectRatio > 0) {
+      return defaultAspectRatio;
+    }
+    if (aspectRatioPreset) {
+      if (aspectRatioPreset.includes(":")) {
+        const [w, h] = aspectRatioPreset.split(":").map(Number);
+        if (w && h) return w / h;
+      }
+      const parsed = parseFloat(aspectRatioPreset);
+      if (!isNaN(parsed) && parsed > 0) return parsed;
+    }
+    return undefined;
+  }, [defaultAspectRatio, aspectRatioPreset]);
+
   const [imageSrc, setImageSrc] = useState<string | null>(null);
   const [imageObj, setImageObj] = useState<HTMLImageElement | null>(null);
   const [isLoadingImage, setIsLoadingImage] = useState(false);
@@ -92,7 +109,7 @@ export function UniversalImageAdjusterModal({
   const [naturalHeight, setNaturalHeight] = useState<number>(0);
 
   // Proporção ativa selecionada
-  const [aspectRatio, setAspectRatio] = useState<number>(defaultAspectRatio || 1);
+  const [aspectRatio, setAspectRatio] = useState<number>(initialDesiredRatio || 1);
 
   // Transformações espaciais
   const [zoom, setZoom] = useState<number>(1);
@@ -141,7 +158,7 @@ export function UniversalImageAdjusterModal({
         setNaturalWidth(img.naturalWidth);
         setNaturalHeight(img.naturalHeight);
 
-        const initialRatio = defaultAspectRatio || naturalRatio;
+        const initialRatio = initialDesiredRatio || naturalRatio;
         setAspectRatio(initialRatio);
 
         // Reset transformações
@@ -337,8 +354,8 @@ export function UniversalImageAdjusterModal({
     setBrightness(100);
     setContrast(100);
     setSaturation(100);
-    if (defaultAspectRatio) {
-      setAspectRatio(defaultAspectRatio);
+    if (initialDesiredRatio) {
+      setAspectRatio(initialDesiredRatio);
     } else if (naturalAspectRatio) {
       setAspectRatio(naturalAspectRatio);
     }
