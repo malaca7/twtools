@@ -329,17 +329,23 @@ export function MetasPage() {
   };
 
   const handleSaveAdjustedProof = async (croppedBlob: Blob, croppedDataUrl: string, originalDataUrl?: string) => {
-    let finalUrl = croppedDataUrl;
+    let finalUrl = "";
     try {
       const { uploadImageToPostimages } = await import("@/services/postimagesService");
-      const cdnUrl = await uploadImageToPostimages(croppedBlob, { filename: `proof_${Date.now()}.png` });
-      if (cdnUrl) finalUrl = cdnUrl;
-    } catch (e) {
-      console.warn("⚠️ Aviso ao subir print da meta no Postimages, mantendo local:", e);
+      finalUrl = await uploadImageToPostimages(croppedBlob, { filename: `proof_${Date.now()}.png` });
+    } catch (e: any) {
+      console.warn("⚠️ Aviso ao subir print da meta no Postimages:", e);
+      toast.error(e?.message || "Não foi possível enviar o comprovante para o servidor de imagens. Tente novamente.");
+      return;
+    }
+
+    if (!finalUrl || finalUrl.startsWith("data:")) {
+      toast.error("URL de comprovante inválida. O upload não foi concluído.");
+      return;
     }
 
     setDeliverProofUrl(finalUrl);
-    if (originalDataUrl) {
+    if (originalDataUrl && !originalDataUrl.startsWith("data:")) {
       setOriginalProofSrc(originalDataUrl);
     }
     setProofAdjusterOpen(false);

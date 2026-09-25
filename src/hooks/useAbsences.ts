@@ -93,7 +93,7 @@ export function useAbsences() {
         },
         (payload) => {
           const row = (payload.new || payload.old) as any;
-          if (row?.level === "system_absences_list" || !row?.level) {
+          if (row?.level === "system_absences_list") {
             handleUpdate();
           }
         }

@@ -10,7 +10,7 @@ import {
 const NOTIFICATIONS_STORAGE_KEY = "tw_notifications_v1";
 const NOTIFICATIONS_DB_LEVEL = "system_notifications_data";
 const NOTIFICATIONS_RULES_DB_LEVEL = "system_notification_rules";
-const MAX_NOTIFICATIONS_HISTORY = 250;
+const MAX_NOTIFICATIONS_HISTORY = 60;
 
 let notificationsBroadcastChannel: any = null;
 
@@ -36,28 +36,7 @@ export function getNotificationsRealtimeChannel() {
       }
     );
 
-    // 2. Escutar inserções em audit_logs para a entidade 'notifications'
-    notificationsBroadcastChannel.on(
-      "postgres_changes",
-      {
-        event: "INSERT",
-        schema: "public",
-        table: "audit_logs",
-      },
-      (payload: any) => {
-        const row = payload.new;
-        if (
-          row?.entity === "notifications" ||
-          (row?.action && String(row.action).includes("notification"))
-        ) {
-          if (typeof window !== "undefined") {
-            window.dispatchEvent(new CustomEvent("tw_notifications_updated"));
-          }
-        }
-      }
-    );
-
-    // 3. Escutar alterações em role_permissions para level = 'system_notifications_data' ou 'system_notification_rules'
+    // 2. Escutar alterações em role_permissions apenas para as chaves exatas de notificação
     notificationsBroadcastChannel.on(
       "postgres_changes",
       {
@@ -67,13 +46,12 @@ export function getNotificationsRealtimeChannel() {
       },
       (payload: any) => {
         const row = payload.new || payload.old;
-        if (
-          row?.level === NOTIFICATIONS_DB_LEVEL ||
-          row?.level === NOTIFICATIONS_RULES_DB_LEVEL ||
-          !row?.level
-        ) {
+        if (row?.level === NOTIFICATIONS_DB_LEVEL) {
           if (typeof window !== "undefined") {
             window.dispatchEvent(new CustomEvent("tw_notifications_updated"));
+          }
+        } else if (row?.level === NOTIFICATIONS_RULES_DB_LEVEL) {
+          if (typeof window !== "undefined") {
             window.dispatchEvent(new CustomEvent("tw_notification_rules_updated"));
           }
         }

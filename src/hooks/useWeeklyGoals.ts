@@ -116,7 +116,7 @@ export function useWeeklyGoals() {
         },
         (payload) => {
           const row = (payload.new || payload.old) as any;
-          if (row?.level === "system_weekly_goals" || !row?.level) {
+          if (row?.level === "system_weekly_goals") {
             handleUpdate();
           }
         }
@@ -259,7 +259,7 @@ export function useGoalSubmissions() {
         },
         (payload) => {
           const row = (payload.new || payload.old) as any;
-          if (row?.level === "system_goal_submissions" || !row?.level) {
+          if (row?.level === "system_goal_submissions") {
             handleUpdate();
           }
         }

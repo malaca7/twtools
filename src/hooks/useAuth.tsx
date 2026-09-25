@@ -272,20 +272,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         },
         async () => {
           await loadAuth();
-          void queryClient.invalidateQueries({ queryKey: ["auth"], refetchType: "all" });
-          void queryClient.invalidateQueries({ queryKey: ["auth_session"], refetchType: "all" });
-          void queryClient.invalidateQueries({ queryKey: ["members"], refetchType: "all" });
-        }
-      )
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "role_permissions",
-        },
-        async () => {
-          void queryClient.invalidateQueries({ queryKey: ["role_permissions"], refetchType: "all" });
+          void queryClient.invalidateQueries({ queryKey: ["auth"], refetchType: "active" });
+          void queryClient.invalidateQueries({ queryKey: ["auth_session"], refetchType: "active" });
+          void queryClient.invalidateQueries({ queryKey: ["members"], refetchType: "active" });
         }
       )
       .subscribe();

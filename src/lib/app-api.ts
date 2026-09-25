@@ -526,7 +526,7 @@ export async function updateProductBau(productId: string, bauId: string | null):
   }, { bau_id: oldProd?.bau_id }, productId);
 }
 
-export async function getMovements(): Promise<Movement[]> {
+export async function getMovements(limit = 250): Promise<Movement[]> {
   const listBaus = await getBaus();
   const defaultBau = listBaus[0];
   const defaultBauId = defaultBau?.id || null;
@@ -534,9 +534,9 @@ export async function getMovements(): Promise<Movement[]> {
   let data: any[] = [];
   try {
     const res = await (supabase.from("stock_movements" as any))
-      .select("*")
+      .select("id, product_id, user_id, bau_id, type, quantity, previous_balance, resulting_balance, reason, sale_id, reversal_of, created_at, origin, discord_message_id")
       .order("created_at", { ascending: false })
-      .limit(1000);
+      .limit(limit);
     if (!res.error && res.data && res.data.length > 0) {
       data = res.data;
     }
@@ -577,12 +577,12 @@ export async function getMovements(): Promise<Movement[]> {
   });
 }
 
-export async function getSales(): Promise<Sale[]> {
+export async function getSales(limit = 250): Promise<Sale[]> {
   const { data, error } = await supabase
     .from("sales")
     .select("id, product_id, seller_id, buyer_name, quantity, unit_price, total_price, payment_method, notes, status, created_at")
     .order("created_at", { ascending: false })
-    .limit(1000);
+    .limit(limit);
   if (error) throw error;
   return (data || []).map(d => ({
     id: d.id,
@@ -1458,7 +1458,8 @@ export async function getRolePermissions(): Promise<Record<AppLevel, Permission[
   try {
     const res = await supabase
       .from("role_permissions")
-      .select("level, nivel, permissions");
+      .select("level, nivel, permissions")
+      .not("level", "like", "system_%");
     if (!res.error && res.data && res.data.length > 0) {
       rows = res.data;
     }

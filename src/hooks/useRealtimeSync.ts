@@ -27,10 +27,9 @@ export function useRealtimeSync() {
         pendingInvalidationsRef.current.clear();
 
         for (const key of toInvalidate) {
-          void queryClient.invalidateQueries({ queryKey: [key], refetchType: "all" });
-          void queryClient.refetchQueries({ queryKey: [key], type: "active" });
+          void queryClient.invalidateQueries({ queryKey: [key], refetchType: "active" });
         }
-      }, 50);
+      }, 400);
     };
 
     // 1. Cross-tab BroadcastChannel for 0ms local synchronization across open browser tabs
@@ -42,8 +41,6 @@ export function useRealtimeSync() {
           const keys = event.data?.keys;
           if (Array.isArray(keys) && keys.length > 0) {
             triggerInvalidations(keys);
-          } else {
-            void queryClient.invalidateQueries({ refetchType: "active" });
           }
         };
       } catch {}
@@ -63,47 +60,93 @@ export function useRealtimeSync() {
       switch (table) {
         case "products":
         case "product_baus":
-          keysToInvalidate = ["products", "product_baus", "movements", "sales"];
+          keysToInvalidate = ["products", "product_baus"];
           break;
 
         case "stock_movements":
-        case "sales":
-          keysToInvalidate = ["movements", "product_baus", "sales", "products"];
+          keysToInvalidate = ["movements", "product_baus"];
           const settings = getPlatformSettings();
           if (settings.soundEffectsEnabled) {
             playGamerSuccessSound(settings.soundVolume);
           }
           break;
 
+        case "sales":
+          keysToInvalidate = ["sales", "product_baus"];
+          break;
+
         case "baus":
-          keysToInvalidate = ["baus", "product_baus", "products"];
+          keysToInvalidate = ["baus", "product_baus"];
           break;
 
         case "categories":
-          keysToInvalidate = ["categories", "products", "product_baus"];
+          keysToInvalidate = ["categories", "products"];
           break;
 
         case "profiles":
+          keysToInvalidate = ["members", "auth", "auth_session"];
+          break;
+
         case "user_roles":
-          keysToInvalidate = ["members", "user_roles", "role_permissions", "auth", "auth_session"];
+          keysToInvalidate = ["members", "user_roles", "auth", "auth_session"];
           break;
 
         case "custom_roles":
           keysToInvalidate = ["custom_roles", "role_permissions", "members", "user_roles"];
           break;
 
-        case "role_permissions":
-          keysToInvalidate = [
-            "role_permissions",
-            "weekly_goals",
-            "goal_submissions",
-            "goals",
-            "absences",
-            "members",
-          ];
-          void fetchRemoteMenuConfig();
-          void fetchRemotePlatformSettings();
+        case "role_permissions": {
+          const changedLevel = payload?.new?.level || payload?.old?.level;
+          if (changedLevel === "system_menu_config" || changedLevel === "system_ceo_menu_config" || changedLevel === "system_dev_menu_config") {
+            void fetchRemoteMenuConfig();
+            return;
+          }
+          if (changedLevel === "system_platform_settings") {
+            void fetchRemotePlatformSettings();
+            return;
+          }
+          if (changedLevel === "system_weekly_goals") {
+            keysToInvalidate = ["weekly_goals"];
+            if (typeof window !== "undefined") {
+              window.dispatchEvent(new CustomEvent("tw_weekly_goals_updated"));
+            }
+            break;
+          }
+          if (changedLevel === "system_goal_submissions") {
+            keysToInvalidate = ["goal_submissions"];
+            if (typeof window !== "undefined") {
+              window.dispatchEvent(new CustomEvent("tw_goal_submissions_updated"));
+            }
+            break;
+          }
+          if (changedLevel === "system_absences_list") {
+            keysToInvalidate = ["absences"];
+            if (typeof window !== "undefined") {
+              window.dispatchEvent(new CustomEvent("tw_absences_updated"));
+            }
+            break;
+          }
+          if (changedLevel === "system_notifications_data") {
+            keysToInvalidate = ["notifications"];
+            if (typeof window !== "undefined") {
+              window.dispatchEvent(new CustomEvent("tw_notifications_updated"));
+            }
+            break;
+          }
+          if (changedLevel === "system_notification_rules") {
+            if (typeof window !== "undefined") {
+              window.dispatchEvent(new CustomEvent("tw_notification_rules_updated"));
+            }
+            return;
+          }
+          if (changedLevel && changedLevel.startsWith("system_")) {
+            keysToInvalidate = [changedLevel];
+            break;
+          }
+          // Cargo de permissão real
+          keysToInvalidate = ["role_permissions"];
           break;
+        }
 
         case "signup_requests":
           keysToInvalidate = ["pending_signup_requests", "members", "auth"];
@@ -157,7 +200,6 @@ export function useRealtimeSync() {
             "discord_stock_config",
             "baus",
             "product_baus",
-            "products",
           ];
           break;
 
@@ -182,12 +224,7 @@ export function useRealtimeSync() {
           }
         }
       )
-      .subscribe((status) => {
-        if (status === "SUBSCRIBED") {
-          // Immediately refresh visible data on channel subscription
-          void queryClient.invalidateQueries({ refetchType: "active" });
-        }
-      });
+      .subscribe();
 
     // 3. Dedicated broadcast channel for instant stock movements (sub-50ms sync with zero page reloads)
     const stockChannel = supabase
@@ -196,9 +233,6 @@ export function useRealtimeSync() {
         const stockKeys = [
           "movements",
           "product_baus",
-          "products",
-          "baus",
-          "discord_stock_config",
         ];
         triggerInvalidations(stockKeys);
         broadcastCrossTab(stockKeys);
