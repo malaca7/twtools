@@ -33,6 +33,7 @@ import {
   Upload,
   Filter,
   Wrench,
+  Zap,
   Tag,
   DollarSign,
   HelpCircle,
