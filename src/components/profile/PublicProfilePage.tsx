@@ -43,6 +43,7 @@ import {
   SocialPlatformsCardsGrid,
 } from "@/components/profile/SocialPlatformIcons";
 import { getProxiedImageUrl } from "@/services/postimagesService";
+import { MemberGamificationCard } from "@/components/gamification/MemberGamificationCard";
 
 export interface PublicProfilePageProps {
   handleOverride?: string;
@@ -509,6 +510,14 @@ export function PublicProfilePage({ handleOverride, isRootRoute = false }: Publi
           </div>
         </div>
       </div>
+
+      {/* GAMIFICAÇÃO, XP & INSÍGNIAS DO MEMBRO */}
+      <MemberGamificationCard
+        userId={userId}
+        totalXp={memberData.xp || 0}
+        starsRating={memberData.stars_rating}
+        starsCount={memberData.stars_count}
+      />
 
       {/* SEÇÃO PRINCIPAL DE INFORMAÇÕES DA FICHA TÉCNICA */}
       <div className="grid gap-6 md:grid-cols-3">

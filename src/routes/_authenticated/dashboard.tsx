@@ -30,6 +30,7 @@ import { dateTime, errorMessage } from "@/lib/format";
 import { LEVEL_LABEL, levelBadgeClass, type AppLevel } from "@/lib/permissions";
 import { cn } from "@/lib/utils";
 import type { Member } from "@/lib/app-types";
+import { MemberGamificationCard } from "@/components/gamification/MemberGamificationCard";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   component: DashboardPage,
@@ -86,6 +87,14 @@ export function DashboardPage() {
       <PageHeader
         title={`Salve, ${memberName}! ✌🏼`}
         description="Painel geral do grupo com comunicados e membros ativos sincronizados em tempo real."
+      />
+
+      {/* GAMIFICAÇÃO & DESEMPENHO DO MEMBRO */}
+      <MemberGamificationCard
+        userId={user?.id || ""}
+        totalXp={profile?.xp || 0}
+        starsRating={profile?.stars_rating}
+        starsCount={profile?.stars_count}
       />
 
       {/* ANNOUNCEMENTS SECTION */}
