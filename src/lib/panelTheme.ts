@@ -1,4 +1,6 @@
+import { useState, useEffect, useMemo } from "react";
 import type { LucideIcon } from "lucide-react";
+import { getDevConfigurationSync, DEV_CONFIG_EVENT, type DevConfiguration } from "@/services/devService";
 import {
   Terminal,
   Crown,
@@ -33,6 +35,21 @@ import {
   Gauge,
   Database,
   Lock,
+  Trophy,
+  Award,
+  Gem,
+  Compass,
+  User,
+  Bug,
+  Rocket,
+  Globe,
+  Building2,
+  BarChart3,
+  FileText,
+  Star,
+  CheckCircle2,
+  MessageSquare,
+  Bell,
 } from "lucide-react";
 
 export type PanelColorType = "solid" | "pearl" | "gradient";
@@ -781,7 +798,7 @@ export function getPanelColorStyle(color?: string | null, fallback: PanelColor =
   return PANEL_COLOR_STYLES.rose;
 }
 
-/* ─── Category Icon Registry ─── */
+/* ─── Category & Panel Icon Registry ─── */
 export const CATEGORY_ICON_MAP: Record<string, LucideIcon> = {
   Terminal,
   Crown,
@@ -816,30 +833,86 @@ export const CATEGORY_ICON_MAP: Record<string, LucideIcon> = {
   Gauge,
   Database,
   Lock,
+  Trophy,
+  Award,
+  Gem,
+  Compass,
+  User,
+  Bug,
+  Rocket,
+  Globe,
+  Building2,
+  BarChart3,
+  FileText,
+  Star,
+  CheckCircle2,
+  MessageSquare,
+  Bell,
 };
 
-export const POPULAR_CATEGORY_ICONS: { name: string; label: string; icon: LucideIcon }[] = [
-  { name: "Terminal", label: "Terminal / Console", icon: Terminal },
-  { name: "Crown", label: "Coroa Executiva", icon: Crown },
-  { name: "Code2", label: "Código / Dev", icon: Code2 },
-  { name: "FolderTree", label: "Árvore de Pastas", icon: FolderTree },
-  { name: "Sliders", label: "Controles & Sliders", icon: Sliders },
-  { name: "Bot", label: "Bot Discord", icon: Bot },
-  { name: "Webhook", label: "Webhook", icon: Webhook },
-  { name: "ShieldCheck", label: "Segurança / Cargos", icon: ShieldCheck },
-  { name: "Sparkles", label: "Destaque / Novidades", icon: Sparkles },
-  { name: "TrendingUp", label: "Métricas & Crescimento", icon: TrendingUp },
-  { name: "Boxes", label: "Inventário & Baús", icon: Boxes },
-  { name: "Users", label: "Membros & Equipe", icon: Users },
-  { name: "Landmark", label: "Finanças & Caixa", icon: Landmark },
-  { name: "Settings", label: "Configurações", icon: Settings },
-  { name: "Zap", label: "Automação / Raio", icon: Zap },
-  { name: "Radio", label: "Transmissões & Lives", icon: Radio },
-  { name: "Gauge", label: "Diagnóstico / Velocidade", icon: Gauge },
-  { name: "Database", label: "Banco de Dados", icon: Database },
-  { name: "Server", label: "Servidores", icon: Server },
-  { name: "Layers", label: "Camadas & Módulos", icon: Layers },
+export interface PanelIconOption {
+  name: string;
+  label: string;
+  category: "dev" | "ceo" | "member" | "system";
+  icon: LucideIcon;
+}
+
+export const PANEL_ICONS_CATALOG: PanelIconOption[] = [
+  // Ícones Dev
+  { name: "Terminal", label: "Terminal / Console", category: "dev", icon: Terminal },
+  { name: "Code2", label: "Código / Dev Core", category: "dev", icon: Code2 },
+  { name: "Cpu", label: "Processador / CPU", category: "dev", icon: Cpu },
+  { name: "Database", label: "Banco de Dados", category: "dev", icon: Database },
+  { name: "Server", label: "Servidores & API", category: "dev", icon: Server },
+  { name: "Bot", label: "Bot Discord", category: "dev", icon: Bot },
+  { name: "Bug", label: "Debug / Relatórios", category: "dev", icon: Bug },
+  { name: "Wrench", label: "Ferramentas & Manutenção", category: "dev", icon: Wrench },
+  { name: "KeyRound", label: "Chaves & Segurança", category: "dev", icon: KeyRound },
+  { name: "FileCode", label: "Arquivos de Código", category: "dev", icon: FileCode },
+  { name: "Webhook", label: "Webhooks & Integrações", category: "dev", icon: Webhook },
+  { name: "Gauge", label: "Diagnóstico / Velocidade", category: "dev", icon: Gauge },
+  { name: "Lock", label: "Criptografia / Bloqueio", category: "dev", icon: Lock },
+  { name: "Workflow", label: "Fluxos de Automação", category: "dev", icon: Workflow },
+
+  // Ícones CEO / Executivo
+  { name: "Crown", label: "Coroa Executiva / CEO", category: "ceo", icon: Crown },
+  { name: "Landmark", label: "Finanças / Tesouraria", category: "ceo", icon: Landmark },
+  { name: "ShieldCheck", label: "Segurança & Patentes", category: "ceo", icon: ShieldCheck },
+  { name: "Shield", label: "Escudo / Diretoria", category: "ceo", icon: Shield },
+  { name: "Award", label: "Distinção & Mérito", category: "ceo", icon: Award },
+  { name: "Trophy", label: "Troféu / Liderança", category: "ceo", icon: Trophy },
+  { name: "Gem", label: "Prestígio / Diamante", category: "ceo", icon: Gem },
+  { name: "TrendingUp", label: "Crescimento & Métricas", category: "ceo", icon: TrendingUp },
+  { name: "Building2", label: "Organização / QG", category: "ceo", icon: Building2 },
+  { name: "BarChart3", label: "Estatísticas Executivas", category: "ceo", icon: BarChart3 },
+
+  // Ícones Membro / Plataforma
+  { name: "Users", label: "Equipe / Membros", category: "member", icon: Users },
+  { name: "User", label: "Integrante Oficial", category: "member", icon: User },
+  { name: "LayoutDashboard", label: "Painel Geral", category: "member", icon: LayoutDashboard },
+  { name: "Boxes", label: "Inventário & Baús", category: "member", icon: Boxes },
+  { name: "Sparkles", label: "Destaque & Talentos", category: "member", icon: Sparkles },
+  { name: "Target", label: "Metas & Objetivos", category: "member", icon: Target },
+  { name: "Flame", label: "Engajamento / Chama", category: "member", icon: Flame },
+  { name: "Zap", label: "Energia / Agilidade", category: "member", icon: Zap },
+  { name: "Activity", label: "Atividade & Frequência", category: "member", icon: Activity },
+  { name: "Radio", label: "Transmissões & Rádio", category: "member", icon: Radio },
+  { name: "Rocket", label: "Foguete / Avanço", category: "member", icon: Rocket },
+  { name: "Compass", label: "Bússola / Direção", category: "member", icon: Compass },
+  { name: "Star", label: "Estrela / Favorito", category: "member", icon: Star },
+  { name: "Layers", label: "Módulos & Camadas", category: "member", icon: Layers },
+  { name: "Sliders", label: "Controles & Ajustes", category: "system", icon: Sliders },
+  { name: "Settings", label: "Configurações", category: "system", icon: Settings },
+  { name: "MessageSquare", label: "Comunicação / Chat", category: "member", icon: MessageSquare },
+  { name: "Bell", label: "Avisos & Comunicados", category: "member", icon: Bell },
+  { name: "FolderTree", label: "Categorias Gerais", category: "system", icon: FolderTree },
+  { name: "FileText", label: "Documentação", category: "system", icon: FileText },
+  { name: "Globe", label: "Global / Rede", category: "system", icon: Globe },
+  { name: "Eye", label: "Inspeção & Visão", category: "system", icon: Eye },
+  { name: "ScrollText", label: "Regulamento & Logs", category: "system", icon: ScrollText },
 ];
+
+export const POPULAR_CATEGORY_ICONS = PANEL_ICONS_CATALOG.slice(0, 20);
 
 export function resolveCategoryIcon(
   iconName?: string | null,
@@ -849,4 +922,68 @@ export function resolveCategoryIcon(
     return CATEGORY_ICON_MAP[iconName];
   }
   return fallback;
+}
+
+export function resolvePanelIcon(
+  iconName?: string | null,
+  fallback: LucideIcon = Terminal
+): LucideIcon {
+  if (iconName && iconName in CATEGORY_ICON_MAP) {
+    return CATEGORY_ICON_MAP[iconName];
+  }
+  return fallback;
+}
+
+export function usePanelTheme() {
+  const [config, setConfig] = useState<DevConfiguration>(() => getDevConfigurationSync());
+
+  useEffect(() => {
+    const handleUpdate = (e?: Event) => {
+      const detail = (e as CustomEvent)?.detail;
+      if (detail) {
+        setConfig(detail);
+      } else {
+        setConfig(getDevConfigurationSync());
+      }
+    };
+
+    window.addEventListener(DEV_CONFIG_EVENT, handleUpdate);
+    window.addEventListener("storage", handleUpdate);
+    return () => {
+      window.removeEventListener(DEV_CONFIG_EVENT, handleUpdate);
+      window.removeEventListener("storage", handleUpdate);
+    };
+  }, []);
+
+  const devTheme = config.devThemeColor || "rose";
+  const ceoTheme = config.ceoThemeColor || "amber";
+  const memberTheme = config.memberThemeColor || "cyan";
+
+  const devIconName = config.devPanelIcon || "Terminal";
+  const ceoIconName = config.ceoPanelIcon || "Crown";
+  const memberIconName = config.memberPanelIcon || "Users";
+
+  const devStyle = useMemo(() => getPanelColorStyle(devTheme, "rose"), [devTheme]);
+  const ceoStyle = useMemo(() => getPanelColorStyle(ceoTheme, "amber"), [ceoTheme]);
+  const memberStyle = useMemo(() => getPanelColorStyle(memberTheme, "cyan"), [memberTheme]);
+
+  const DevIcon = useMemo(() => resolvePanelIcon(devIconName, Terminal), [devIconName]);
+  const CeoIcon = useMemo(() => resolvePanelIcon(ceoIconName, Crown), [ceoIconName]);
+  const MemberIcon = useMemo(() => resolvePanelIcon(memberIconName, Users), [memberIconName]);
+
+  return {
+    config,
+    devTheme,
+    ceoTheme,
+    memberTheme,
+    devIconName,
+    ceoIconName,
+    memberIconName,
+    devStyle,
+    ceoStyle,
+    memberStyle,
+    DevIcon,
+    CeoIcon,
+    MemberIcon,
+  };
 }

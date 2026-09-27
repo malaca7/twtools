@@ -29,12 +29,15 @@ import {
   Users,
   Sparkles,
   Layers,
+  Search,
 } from "lucide-react";
 import {
   PANEL_COLOR_STYLES,
   type PanelColor,
   type PanelColorType,
   getPanelColorStyle,
+  PANEL_ICONS_CATALOG,
+  resolvePanelIcon,
 } from "@/lib/panelTheme";
 import { reportAppError } from "@/lib/app-error-reporting";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -42,6 +45,14 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
 import { PageHeader } from "@/components/ui-kit";
 import { useAuth } from "@/hooks/useAuth";
 import { DeveloperGuard } from "@/dev/guards/DeveloperGuard";
@@ -183,6 +194,33 @@ export function DevConfiguracaoContent() {
       });
     } catch (e) {
       console.error("Falha ao salvar tema localmente:", e);
+    }
+  };
+
+  // Handler imediato para trocar o ícone oficial de um painel específico
+  const handleSelectPanelIcon = (
+    key: "devPanelIcon" | "ceoPanelIcon" | "memberPanelIcon",
+    iconName: string
+  ) => {
+    const updated: DevConfiguration = {
+      ...config,
+      [key]: iconName,
+    };
+    setConfig(updated);
+
+    try {
+      if (typeof window !== "undefined") {
+        localStorage.setItem(DEV_CONFIG_KEY, JSON.stringify(updated));
+        window.dispatchEvent(new CustomEvent(DEV_CONFIG_EVENT, { detail: updated }));
+      }
+      const panelName =
+        key === "devPanelIcon" ? "Painel Dev" : key === "ceoPanelIcon" ? "Painel CEO" : "Painel Membro";
+      toast.success(`${panelName}: Ícone oficial alterado para "${iconName}"!`, {
+        description: "Os botões de alternância de painel, menus e badges agora utilizam este ícone.",
+        icon: "🎨",
+      });
+    } catch (e) {
+      console.error("Falha ao salvar ícone localmente:", e);
     }
   };
 
@@ -416,12 +454,15 @@ export function DevConfiguracaoContent() {
                 <PanelColorPickerCard
                   panelName="Painel Dev"
                   panelSubname="Desenvolvedor"
-                  icon={Terminal}
                   themeKey="devThemeColor"
                   colorValue={config.devThemeColor}
                   fallback="rose"
-                  description="Define a cor padrão aplicada a todas as categorias, ícones e itens do menu lateral em modo Desenvolvedor."
+                  iconKey="devPanelIcon"
+                  iconValue={config.devPanelIcon}
+                  fallbackIcon="Terminal"
+                  description="Define a cor e o ícone padrão aplicados ao botão de alternância, menus e categorias em modo Desenvolvedor."
                   onSelectColor={handleSelectPanelColor}
+                  onSelectIcon={handleSelectPanelIcon}
                   onApplyToAllPanels={handleApplyToAllPanels}
                 />
 
@@ -429,12 +470,15 @@ export function DevConfiguracaoContent() {
                 <PanelColorPickerCard
                   panelName="Painel CEO"
                   panelSubname="Executivo / Diretoria"
-                  icon={Crown}
                   themeKey="ceoThemeColor"
                   colorValue={config.ceoThemeColor}
                   fallback="amber"
-                  description="Define a cor padrão aplicada a todas as categorias, ícones e itens do menu lateral em modo Executivo CEO."
+                  iconKey="ceoPanelIcon"
+                  iconValue={config.ceoPanelIcon}
+                  fallbackIcon="Crown"
+                  description="Define a cor e o ícone padrão aplicados ao botão de alternância, menus e categorias em modo Executivo CEO."
                   onSelectColor={handleSelectPanelColor}
+                  onSelectIcon={handleSelectPanelIcon}
                   onApplyToAllPanels={handleApplyToAllPanels}
                 />
 
@@ -442,12 +486,15 @@ export function DevConfiguracaoContent() {
                 <PanelColorPickerCard
                   panelName="Painel Membro"
                   panelSubname="Plataforma Geral"
-                  icon={Users}
                   themeKey="memberThemeColor"
                   colorValue={config.memberThemeColor}
                   fallback="cyan"
-                  description="Define a cor padrão aplicada a todas as categorias, ícones e itens do menu lateral para todos os membros regulares."
+                  iconKey="memberPanelIcon"
+                  iconValue={config.memberPanelIcon}
+                  fallbackIcon="Users"
+                  description="Define a cor e o ícone padrão aplicados ao botão de alternância, menus e categorias para todos os membros regulares."
                   onSelectColor={handleSelectPanelColor}
+                  onSelectIcon={handleSelectPanelIcon}
                   onApplyToAllPanels={handleApplyToAllPanels}
                 />
               </div>
@@ -556,27 +603,40 @@ export function DevConfiguracaoContent() {
 function PanelColorPickerCard({
   panelName,
   panelSubname,
-  icon: Icon,
   themeKey,
   colorValue,
   fallback,
+  iconKey,
+  iconValue,
+  fallbackIcon,
   description,
   onSelectColor,
+  onSelectIcon,
   onApplyToAllPanels,
 }: {
   panelName: string;
   panelSubname: string;
-  icon: any;
   themeKey: "devThemeColor" | "ceoThemeColor" | "memberThemeColor";
   colorValue?: PanelColor;
   fallback: PanelColor;
+  iconKey: "devPanelIcon" | "ceoPanelIcon" | "memberPanelIcon";
+  iconValue?: string;
+  fallbackIcon: string;
   description: string;
   onSelectColor: (key: "devThemeColor" | "ceoThemeColor" | "memberThemeColor", color: PanelColor) => void;
+  onSelectIcon: (key: "devPanelIcon" | "ceoPanelIcon" | "memberPanelIcon", iconName: string) => void;
   onApplyToAllPanels: (color: PanelColor) => void;
 }) {
   const [filterType, setFilterType] = useState<"all" | PanelColorType>("all");
+  const [iconModalOpen, setIconModalOpen] = useState(false);
+  const [iconSearch, setIconSearch] = useState("");
+  const [iconCategory, setIconCategory] = useState<"all" | "dev" | "ceo" | "member" | "system">("all");
+
   const currentColor = colorValue || fallback;
   const currentStyle = getPanelColorStyle(currentColor, fallback);
+
+  const currentIconName = iconValue || fallbackIcon;
+  const CurrentIcon = useMemo(() => resolvePanelIcon(currentIconName), [currentIconName]);
 
   const allKeys = useMemo(() => Object.keys(PANEL_COLOR_STYLES) as PanelColor[], []);
   const filteredKeys = useMemo(() => {
@@ -588,39 +648,91 @@ function PanelColorPickerCard({
   const pearlCount = useMemo(() => allKeys.filter((k) => PANEL_COLOR_STYLES[k].colorType === "pearl").length, [allKeys]);
   const gradientCount = useMemo(() => allKeys.filter((k) => PANEL_COLOR_STYLES[k].colorType === "gradient").length, [allKeys]);
 
+  const filteredIcons = useMemo(() => {
+    return PANEL_ICONS_CATALOG.filter((item) => {
+      const matchesCategory = iconCategory === "all" || item.category === iconCategory;
+      const matchesSearch =
+        !iconSearch.trim() ||
+        item.name.toLowerCase().includes(iconSearch.toLowerCase()) ||
+        item.label.toLowerCase().includes(iconSearch.toLowerCase());
+      return matchesCategory && matchesSearch;
+    });
+  }, [iconCategory, iconSearch]);
+
   return (
     <div className="space-y-4 p-4 rounded-xl bg-secondary/20 border border-border/60 flex flex-col justify-between">
       <div className="space-y-3.5">
-        {/* Cabeçalho do Painel */}
+        {/* Cabeçalho do Painel com Ícone Dinâmico e Botão de Alterar */}
         <div className="flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2.5">
-            <span
+          <div className="flex items-center gap-2.5 min-w-0">
+            <button
+              type="button"
+              onClick={() => setIconModalOpen(true)}
               className={cn(
-                "p-2 rounded-lg border flex items-center justify-center shrink-0 shadow-xs",
+                "p-2 rounded-lg border flex items-center justify-center shrink-0 shadow-xs transition-all duration-200 cursor-pointer hover:scale-105 active:scale-95 group",
                 currentStyle.bgSubtleClass,
                 currentStyle.borderSubtleClass,
                 currentStyle.iconClass
               )}
+              title="Clique para escolher outro ícone para este painel"
             >
-              <Icon className="h-4 w-4" />
-            </span>
-            <div>
-              <span className="text-xs font-black uppercase tracking-wider text-foreground block">
+              <CurrentIcon className="h-4 w-4 transition-transform group-hover:rotate-6" />
+            </button>
+            <div className="min-w-0">
+              <span className="text-xs font-black uppercase tracking-wider text-foreground block truncate">
                 {panelName}
               </span>
-              <span className="text-[10.5px] text-muted-foreground font-medium">
+              <span className="text-[10.5px] text-muted-foreground font-medium truncate block">
                 {panelSubname}
               </span>
             </div>
           </div>
-          <Badge className={currentStyle.badgeClass}>
-            {currentStyle.label.split(" ")[0]}
-          </Badge>
+          <div className="flex items-center gap-1.5 shrink-0">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setIconModalOpen(true)}
+              className={cn(
+                "h-6 text-[10px] font-bold px-2 gap-1 border transition-colors cursor-pointer",
+                currentStyle.borderSubtleClass,
+                currentStyle.bgSubtleClass,
+                currentStyle.textClass
+              )}
+              title="Alterar o ícone oficial deste painel"
+            >
+              <CurrentIcon className="h-3 w-3" />
+              <span>{currentIconName}</span>
+            </Button>
+            <Badge className={currentStyle.badgeClass}>
+              {currentStyle.label.split(" ")[0]}
+            </Badge>
+          </div>
         </div>
 
         <p className="text-[0.7rem] text-muted-foreground leading-relaxed">
           {description}
         </p>
+
+        {/* Seletor Rápido de Ícone Oficial do Painel */}
+        <div className="flex items-center justify-between p-2 rounded-lg bg-secondary/30 border border-border/40 text-xs">
+          <div className="flex items-center gap-2">
+            <span className="text-[10.5px] text-muted-foreground font-semibold">Ícone Oficial:</span>
+            <span className={cn("flex items-center gap-1 text-[11px] font-bold", currentStyle.textClass)}>
+              <CurrentIcon className="h-3.5 w-3.5" />
+              {currentIconName}
+            </span>
+          </div>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={() => setIconModalOpen(true)}
+            className="h-6 text-[10.5px] font-bold hover:bg-secondary px-2 cursor-pointer text-primary"
+          >
+            Escolher Ícone →
+          </Button>
+        </div>
 
         {/* Filtros de Tipos de Cor */}
         <div className="flex items-center gap-1 p-1 bg-secondary/40 rounded-lg border border-border/40 text-[10px] font-bold overflow-x-auto no-scrollbar">
@@ -669,7 +781,7 @@ function PanelColorPickerCard({
         </div>
 
         {/* Grade de Cores com Scroll Suave */}
-        <div className="grid grid-cols-2 gap-1.5 max-h-[290px] overflow-y-auto pr-1 no-scrollbar">
+        <div className="grid grid-cols-2 gap-1.5 max-h-[260px] overflow-y-auto pr-1 no-scrollbar">
           {filteredKeys.map((cKey) => {
             const style = PANEL_COLOR_STYLES[cKey];
             const isSelected = currentColor === cKey;
@@ -698,20 +810,20 @@ function PanelColorPickerCard({
           })}
         </div>
 
-        {/* Preview Rápido */}
+        {/* Preview Rápido Unificado (Cor + Ícone Oficial) */}
         <div className={cn("p-3 rounded-xl border text-xs space-y-2", currentStyle.borderSubtleClass, currentStyle.bgSubtleClass)}>
           <div className="flex items-center justify-between text-[11px]">
             <span className={cn("font-bold flex items-center gap-1.5", currentStyle.textClass)}>
-              <Icon className="h-3.5 w-3.5 shrink-0" />
-              Prévia da Categoria
+              <CurrentIcon className="h-3.5 w-3.5 shrink-0" />
+              <span>{panelName} · Visual Ativo</span>
             </span>
             <Badge className={currentStyle.badgeClass}>
-              Ativo
+              {currentIconName}
             </Badge>
           </div>
           <div className={cn("px-3 py-1.5 rounded-lg flex items-center gap-2 text-[11px]", currentStyle.activeItemClass)}>
-            <Code2 className="h-3.5 w-3.5 shrink-0" />
-            <span>Item Ativo de Menu</span>
+            <CurrentIcon className="h-3.5 w-3.5 shrink-0" />
+            <span>Item Ativo de Menu ({currentStyle.label.split(" ")[0]})</span>
           </div>
         </div>
       </div>
@@ -726,9 +838,158 @@ function PanelColorPickerCard({
           className="w-full text-[11px] font-bold h-8 gap-1.5 border-border/60 hover:border-primary/50 hover:bg-primary/10 transition-all cursor-pointer"
         >
           <Sparkles className="h-3.5 w-3.5 text-primary" />
-          Aplicar em Todos os Painéis
+          Aplicar Cor em Todos os Painéis
         </Button>
       </div>
+
+      {/* MODAL DE SELEÇÃO DE ÍCONE OFICIAL DO PAINEL */}
+      <Dialog open={iconModalOpen} onOpenChange={setIconModalOpen}>
+        <DialogContent className="max-w-xl max-h-[85vh] flex flex-col p-6 space-y-4">
+          <DialogHeader className="space-y-1">
+            <div className="flex items-center gap-2.5">
+              <span className={cn("p-2 rounded-xl border shrink-0", currentStyle.bgSubtleClass, currentStyle.borderSubtleClass, currentStyle.iconClass)}>
+                <CurrentIcon className="h-5 w-5" />
+              </span>
+              <div>
+                <DialogTitle className="text-base font-extrabold text-foreground">
+                  Escolher Ícone Oficial · {panelName}
+                </DialogTitle>
+                <DialogDescription className="text-xs text-muted-foreground">
+                  Selecione o ícone representativo exibido no seletor de painéis, menus e badges oficiais do {panelName}.
+                </DialogDescription>
+              </div>
+            </div>
+          </DialogHeader>
+
+          {/* Campo de Busca de Ícones */}
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Buscar ícone por nome ou finalidade..."
+              value={iconSearch}
+              onChange={(e) => setIconSearch(e.target.value)}
+              className="pl-9 h-10 text-xs rounded-xl"
+              autoFocus
+            />
+          </div>
+
+          {/* Categorias de Ícones */}
+          <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-1 text-[11px] font-bold">
+            <button
+              type="button"
+              onClick={() => setIconCategory("all")}
+              className={cn(
+                "px-2.5 py-1 rounded-lg transition-all shrink-0 cursor-pointer",
+                iconCategory === "all" ? "bg-primary text-primary-foreground font-black shadow-xs" : "bg-secondary/50 text-muted-foreground hover:text-foreground"
+              )}
+            >
+              Todos ({PANEL_ICONS_CATALOG.length})
+            </button>
+            <button
+              type="button"
+              onClick={() => setIconCategory("dev")}
+              className={cn(
+                "px-2.5 py-1 rounded-lg transition-all shrink-0 cursor-pointer",
+                iconCategory === "dev" ? "bg-primary text-primary-foreground font-black shadow-xs" : "bg-secondary/50 text-muted-foreground hover:text-foreground"
+              )}
+            >
+              Dev & Código
+            </button>
+            <button
+              type="button"
+              onClick={() => setIconCategory("ceo")}
+              className={cn(
+                "px-2.5 py-1 rounded-lg transition-all shrink-0 cursor-pointer",
+                iconCategory === "ceo" ? "bg-primary text-primary-foreground font-black shadow-xs" : "bg-secondary/50 text-muted-foreground hover:text-foreground"
+              )}
+            >
+              Executivo & CEO
+            </button>
+            <button
+              type="button"
+              onClick={() => setIconCategory("member")}
+              className={cn(
+                "px-2.5 py-1 rounded-lg transition-all shrink-0 cursor-pointer",
+                iconCategory === "member" ? "bg-primary text-primary-foreground font-black shadow-xs" : "bg-secondary/50 text-muted-foreground hover:text-foreground"
+              )}
+            >
+              Equipe & Membros
+            </button>
+            <button
+              type="button"
+              onClick={() => setIconCategory("system")}
+              className={cn(
+                "px-2.5 py-1 rounded-lg transition-all shrink-0 cursor-pointer",
+                iconCategory === "system" ? "bg-primary text-primary-foreground font-black shadow-xs" : "bg-secondary/50 text-muted-foreground hover:text-foreground"
+              )}
+            >
+              Sistema & Utilidades
+            </button>
+          </div>
+
+          {/* Grade de Ícones com Scroll */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 overflow-y-auto max-h-[340px] pr-1">
+            {filteredIcons.map((opt) => {
+              const IconComp = opt.icon;
+              const isSelected = currentIconName === opt.name;
+
+              return (
+                <button
+                  key={opt.name}
+                  type="button"
+                  onClick={() => {
+                    onSelectIcon(iconKey, opt.name);
+                    setIconModalOpen(false);
+                  }}
+                  className={cn(
+                    "flex items-center gap-2.5 p-2.5 rounded-xl border text-left transition-all duration-150 cursor-pointer relative group",
+                    isSelected
+                      ? cn(currentStyle.bgSubtleClass, currentStyle.borderClass, "ring-2", currentStyle.ringClass, "shadow-sm")
+                      : "bg-secondary/30 border-border/60 hover:bg-secondary/60 hover:border-primary/40 text-muted-foreground hover:text-foreground"
+                  )}
+                >
+                  <span
+                    className={cn(
+                      "p-2 rounded-lg border shrink-0 transition-colors",
+                      isSelected
+                        ? cn(currentStyle.bgSolidClass, "border-transparent")
+                        : "bg-background border-border/70 group-hover:border-primary/40 group-hover:text-foreground"
+                    )}
+                  >
+                    <IconComp className="h-4 w-4" />
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <span className={cn("text-xs font-bold block truncate", isSelected && currentStyle.textClass)}>
+                      {opt.name}
+                    </span>
+                    <span className="text-[10px] text-muted-foreground truncate block">
+                      {opt.label.split("/")[0]}
+                    </span>
+                  </div>
+                  {isSelected && (
+                    <Check className={cn("h-4 w-4 ml-auto shrink-0", currentStyle.textClass)} />
+                  )}
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="flex items-center justify-between pt-3 border-t border-border/40 text-xs">
+            <span className="text-muted-foreground">
+              Ícone selecionado: <strong className={currentStyle.textClass}>{currentIconName}</strong>
+            </span>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setIconModalOpen(false)}
+              className="h-8 text-xs font-bold"
+            >
+              Fechar
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

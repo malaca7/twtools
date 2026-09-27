@@ -20,6 +20,9 @@ export interface DevConfiguration {
   devThemeColor?: PanelColor;
   ceoThemeColor?: PanelColor;
   memberThemeColor?: PanelColor;
+  devPanelIcon?: string;
+  ceoPanelIcon?: string;
+  memberPanelIcon?: string;
 }
 
 export const DEFAULT_DEV_PERMISSIONS: DevPermissionResource[] = [
@@ -86,6 +89,9 @@ export const DEFAULT_DEV_CONFIG: DevConfiguration = {
   devThemeColor: "rose",
   ceoThemeColor: "amber",
   memberThemeColor: "cyan",
+  devPanelIcon: "Terminal",
+  ceoPanelIcon: "Crown",
+  memberPanelIcon: "Users",
 };
 
 const DEV_PERMS_KEY = "tw_dev_module_permissions_v1";
@@ -395,6 +401,18 @@ export function getCeoThemeColorSync(): PanelColor {
 
 export function getMemberThemeColorSync(): PanelColor {
   return getDevConfigurationSync().memberThemeColor || "cyan";
+}
+
+export function getDevPanelIconSync(): string {
+  return getDevConfigurationSync().devPanelIcon || "Terminal";
+}
+
+export function getCeoPanelIconSync(): string {
+  return getDevConfigurationSync().ceoPanelIcon || "Crown";
+}
+
+export function getMemberPanelIconSync(): string {
+  return getDevConfigurationSync().memberPanelIcon || "Users";
 }
 
 /**

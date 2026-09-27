@@ -24,6 +24,7 @@ import {
   Flame,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { DevBadge, CeoBadge } from "@/components/ui-kit";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -351,15 +352,11 @@ export function PublicProfilePage({ handleOverride, isRootRoute = false }: Publi
             )}
 
             {Boolean(memberData.is_ceo || memberData.custom_theme?.is_ceo) && (
-              <Badge className="text-xs font-black border border-amber-500/50 text-amber-300 bg-amber-500/20 backdrop-blur-md shadow-md shadow-amber-500/20">
-                👑 CEO
-              </Badge>
+              <CeoBadge size="md" />
             )}
 
             {Boolean(memberData.is_developer) && (
-              <Badge variant="outline" className="text-xs font-mono font-black border-cyan-500/50 text-cyan-300 bg-cyan-500/15 backdrop-blur-md shadow-md shadow-cyan-500/10">
-                DEV
-              </Badge>
+              <DevBadge size="md" />
             )}
 
             <Badge

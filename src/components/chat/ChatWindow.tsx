@@ -34,6 +34,7 @@ import {
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
+import { DevBadge, CeoBadge } from "@/components/ui-kit";
 import { Button } from "@/components/ui/button";
 import {
   AlertDialog,
@@ -493,14 +494,10 @@ export function ChatWindow({
                   </Badge>
                 )}
                 {!isGroup && liveMember?.is_developer && (
-                  <Badge variant="outline" className="text-[8.5px] font-mono px-1.5 py-0 border-rose-500/40 text-rose-400 bg-rose-500/10 font-bold shrink-0">
-                    DEV
-                  </Badge>
+                  <DevBadge size="xs" />
                 )}
                 {!isGroup && Boolean(liveMember?.is_ceo || liveMember?.custom_theme?.is_ceo) && (
-                  <Badge className="text-[8.5px] font-mono px-1.5 py-0 border-amber-500/40 text-amber-300 bg-amber-500/20 font-bold shrink-0">
-                    👑 CEO
-                  </Badge>
+                  <CeoBadge size="xs" />
                 )}
               </div>
 

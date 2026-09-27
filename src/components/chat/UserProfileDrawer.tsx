@@ -7,6 +7,7 @@ import {
 } from "@/components/ui/dialog";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
+import { DevBadge, CeoBadge } from "@/components/ui-kit";
 import { Button } from "@/components/ui/button";
 import { MessageSquare, Phone, ShieldCheck, User } from "lucide-react";
 import { useMembers } from "@/hooks/useData";
@@ -60,16 +61,8 @@ export function UserProfileDrawer({
               <Badge variant="outline" className={`text-xs px-2 py-0.5 font-bold ${levelBadgeClass(nivel)}`}>
                 {LEVEL_LABEL[nivel] || nivel}
               </Badge>
-              {member.is_developer && (
-                <Badge variant="outline" className="text-xs px-2 py-0.5 font-bold border-rose-500/40 text-rose-400 bg-rose-500/10">
-                  DEV
-                </Badge>
-              )}
-              {Boolean(member.is_ceo || member.custom_theme?.is_ceo) && (
-                <Badge className="text-xs px-2 py-0.5 font-bold border-amber-500/40 text-amber-300 bg-amber-500/20 shadow-xs shadow-amber-500/20">
-                  👑 CEO
-                </Badge>
-              )}
+              {member.is_developer && <DevBadge size="xs" />}
+              {Boolean(member.is_ceo || member.custom_theme?.is_ceo) && <CeoBadge size="xs" />}
             </div>
           </div>
 

@@ -21,8 +21,8 @@ import {
   Layers,
 } from "lucide-react";
 import { CeoGuard } from "@/guards/CeoGuard";
-import { BauIcon } from "@/components/ui/bau-icon";
-import { PageHeader, ProductThumbnail, NoAccess } from "@/components/ui-kit";
+import { PageHeader, ProductThumbnail, NoAccess, CeoBadge } from "@/components/ui-kit";
+import { usePanelTheme } from "@/lib/panelTheme";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -64,6 +64,7 @@ export function CeoAjustesEstoquePage() {
 
 export function CeoAjustesEstoqueContent() {
   const { user, profile, hasPermission, isDevUser, isCeoUser } = useAuth();
+  const { ceoStyle, CeoIcon } = usePanelTheme();
   const queryClient = useQueryClient();
   const { data: baus = [], isLoading: loadingBaus } = useBaus();
   const { data: products = [], isLoading: loadingProducts } = useProducts();
@@ -205,13 +206,7 @@ export function CeoAjustesEstoqueContent() {
         />
 
         <div className="flex flex-wrap items-center gap-2">
-          <Badge
-            variant="outline"
-            className="bg-amber-500/10 text-amber-300 border-amber-500/30 gap-1.5 py-1 px-3 font-bold"
-          >
-            <Crown className="w-3.5 h-3.5 text-amber-400" />
-            Diretoria CEO
-          </Badge>
+          <CeoBadge size="sm">Diretoria CEO</CeoBadge>
           <Badge
             variant="outline"
             className="bg-sky-500/10 text-sky-400 border-sky-500/30 gap-1.5 py-1 px-3"
@@ -224,12 +219,18 @@ export function CeoAjustesEstoqueContent() {
 
       <div className="grid gap-6 lg:grid-cols-3">
         {/* FORMULÁRIO PRINCIPAL DE AJUSTE (COLUNA 1 E 2) */}
-        <Card className="surface-card lg:col-span-2 border-amber-500/30 bg-gradient-to-b from-amber-500/[0.03] to-transparent shadow-md">
+        <Card
+          className="surface-card lg:col-span-2 shadow-md transition-all"
+          style={{
+            borderColor: `${ceoStyle.primaryHex}35`,
+            background: `linear-gradient(to bottom, ${ceoStyle.primaryHex}08, transparent)`,
+          }}
+        >
           <CardHeader className="border-b border-border/40 pb-4">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div className="space-y-1">
                 <CardTitle className="text-lg font-bold flex items-center gap-2 text-foreground">
-                  <Sliders className="w-5 h-5 text-amber-400" />
+                  <Sliders className="w-5 h-5" style={{ color: ceoStyle.primaryHex }} />
                   Lançar Ajuste Manual de Estoque
                 </CardTitle>
                 <CardDescription className="text-xs">
@@ -238,9 +239,15 @@ export function CeoAjustesEstoqueContent() {
               </div>
               <Badge
                 variant="outline"
-                className="border-amber-500/40 text-amber-300 bg-amber-500/10 text-xs py-1 self-start sm:self-auto font-mono"
+                className="text-xs py-1 self-start sm:self-auto font-mono flex items-center gap-1.5 font-bold"
+                style={{
+                  borderColor: `${ceoStyle.primaryHex}40`,
+                  color: ceoStyle.primaryHex,
+                  backgroundColor: `${ceoStyle.primaryHex}15`,
+                }}
               >
-                👑 Auditado [Ajuste CEO]
+                <CeoIcon className="h-3 w-3" />
+                Auditado [Ajuste CEO]
               </Badge>
             </div>
           </CardHeader>

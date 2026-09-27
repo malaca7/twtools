@@ -25,7 +25,8 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
-import { PageHeader } from "@/components/ui-kit";
+import { PageHeader, DevBadge, CeoBadge } from "@/components/ui-kit";
+import { usePanelTheme } from "@/lib/panelTheme";
 import { useAuth } from "@/hooks/useAuth";
 import { useMembers } from "@/hooks/useData";
 import { useMenuConfig } from "@/hooks/useMenuConfig";
@@ -64,6 +65,7 @@ function DevPermissoesPageWrapper() {
 
 function DevPermissoesContent() {
   const { user, profile, level, isDevUser } = useAuth();
+  const { devStyle, ceoStyle, DevIcon, CeoIcon } = usePanelTheme();
   const { config: menuConfig } = useMenuConfig();
   const { data: members = [], isLoading: loadingMembers } = useMembers();
   const queryClient = useQueryClient();
@@ -493,14 +495,31 @@ function DevPermissoesContent() {
             onClick={() => setActiveTab("dev")}
             className={cn(
               "flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-black transition-all cursor-pointer",
-              activeTab === "dev"
-                ? "bg-rose-500/20 text-rose-300 border border-rose-500/40 shadow-sm"
-                : "text-muted-foreground hover:text-foreground hover:bg-secondary/60"
+              activeTab !== "dev" && "text-muted-foreground hover:text-foreground hover:bg-secondary/60"
             )}
+            style={
+              activeTab === "dev"
+                ? {
+                    backgroundColor: `${devStyle.primaryHex}25`,
+                    color: devStyle.primaryHex,
+                    borderColor: `${devStyle.primaryHex}50`,
+                    borderWidth: "1px",
+                    boxShadow: `0 2px 8px ${devStyle.primaryHex}20`,
+                  }
+                : undefined
+            }
           >
-            <Code2 className="h-4 w-4 text-rose-400" />
+            <DevIcon className="h-4 w-4" style={{ color: activeTab === "dev" ? devStyle.primaryHex : undefined }} />
             Tag Desenvolvedor
-            <Badge variant="outline" className="text-[9px] font-mono border-rose-500/40 text-rose-400 bg-rose-500/10 py-0 px-1.5 ml-1">
+            <Badge
+              variant="outline"
+              className="text-[9px] font-mono py-0 px-1.5 ml-1 font-bold"
+              style={{
+                borderColor: `${devStyle.primaryHex}40`,
+                color: devStyle.primaryHex,
+                backgroundColor: `${devStyle.primaryHex}15`,
+              }}
+            >
               Dev System ({activeDevsCount})
             </Badge>
           </button>
@@ -510,16 +529,30 @@ function DevPermissoesContent() {
             onClick={() => setActiveTab("ceo")}
             className={cn(
               "flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-black transition-all cursor-pointer",
-              activeTab === "ceo"
-                ? "bg-amber-500/20 text-amber-300 border border-amber-500/40 shadow-sm"
-                : "text-muted-foreground hover:text-foreground hover:bg-secondary/60"
+              activeTab !== "ceo" && "text-muted-foreground hover:text-foreground hover:bg-secondary/60"
             )}
+            style={
+              activeTab === "ceo"
+                ? {
+                    backgroundColor: `${ceoStyle.primaryHex}25`,
+                    color: ceoStyle.primaryHex,
+                    borderColor: `${ceoStyle.primaryHex}50`,
+                    borderWidth: "1px",
+                    boxShadow: `0 2px 8px ${ceoStyle.primaryHex}20`,
+                  }
+                : undefined
+            }
           >
-            <Crown className="h-4 w-4 text-amber-400" />
+            <CeoIcon className="h-4 w-4" style={{ color: activeTab === "ceo" ? ceoStyle.primaryHex : undefined }} />
             Tag CEO
             <Badge
               variant="outline"
-              className="text-[9px] font-mono border-amber-500/40 text-amber-300 bg-amber-500/10 py-0 px-1.5 ml-1"
+              className="text-[9px] font-mono py-0 px-1.5 ml-1 font-bold"
+              style={{
+                borderColor: `${ceoStyle.primaryHex}40`,
+                color: ceoStyle.primaryHex,
+                backgroundColor: `${ceoStyle.primaryHex}15`,
+              }}
             >
               Tag CEO ({activeCeosCount})
             </Badge>
@@ -538,19 +571,31 @@ function DevPermissoesContent() {
       {activeTab === "dev" && (
         <div className="space-y-6 animate-in fade-in-50 duration-200">
           {/* Card Informativo Tag Dev Aditiva */}
-          <Card className="surface-card border-rose-500/30 bg-rose-500/5">
+          <Card
+            className="surface-card transition-all"
+            style={{
+              borderColor: `${devStyle.primaryHex}35`,
+              background: `linear-gradient(to right, ${devStyle.primaryHex}15, ${devStyle.primaryHex}05, transparent)`,
+            }}
+          >
             <CardHeader className="pb-3">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div className="flex items-center gap-3.5">
-                  <div className="p-3 rounded-2xl bg-rose-500/20 text-rose-400 border border-rose-500/40 shadow-sm shrink-0">
-                    <Code2 className="h-6 w-6" />
+                  <div
+                    className="p-3 rounded-2xl shadow-sm shrink-0"
+                    style={{
+                      backgroundColor: `${devStyle.primaryHex}20`,
+                      color: devStyle.primaryHex,
+                      borderColor: `${devStyle.primaryHex}40`,
+                      borderWidth: "1px",
+                    }}
+                  >
+                    <DevIcon className="h-6 w-6" />
                   </div>
                   <div>
                     <CardTitle className="text-base font-black text-foreground flex items-center gap-2">
                       Tag Desenvolvedor — Acesso Total ao Sistema
-                      <Badge variant="outline" className="text-[10px] font-mono border-rose-500/40 text-rose-400 bg-rose-500/10 font-bold">
-                        Dev System
-                      </Badge>
+                      <DevBadge size="xs" />
                     </CardTitle>
                     <CardDescription className="text-xs mt-1">
                       As permissões marcadas abaixo são concedidas aos integrantes com a tag <strong>desenvolvedor</strong> e se somam aos privilégios do cargo.
@@ -560,11 +605,14 @@ function DevPermissoesContent() {
                 </div>
 
                 <div className="flex items-center gap-2 shrink-0">
-                  <div className="px-4 py-2 rounded-xl bg-background/60 border border-rose-500/30 text-center">
+                  <div
+                    className="px-4 py-2 rounded-xl bg-background/60 text-center"
+                    style={{ borderColor: `${devStyle.primaryHex}30`, borderWidth: "1px" }}
+                  >
                     <span className="text-[0.65rem] uppercase tracking-wider text-muted-foreground font-semibold block">
                       Devs Ativos
                     </span>
-                    <span className="text-lg font-black text-rose-400">
+                    <span className="text-lg font-black" style={{ color: devStyle.primaryHex }}>
                       {activeDevsCount}
                     </span>
                   </div>
@@ -579,7 +627,7 @@ function DevPermissoesContent() {
               <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
                 <div>
                   <CardTitle className="text-sm font-extrabold flex items-center gap-2">
-                    <Users className="h-4 w-4 text-rose-400" />
+                    <DevIcon className="h-4 w-4" style={{ color: devStyle.primaryHex }} />
                     Membros do grupo & Atribuição da Tag Dev
                   </CardTitle>
                   <CardDescription className="text-xs">
@@ -616,12 +664,21 @@ function DevPermissoesContent() {
                       onClick={() => setFilterDevOnly("dev_only")}
                       className={cn(
                         "px-2.5 py-1 text-[11px] font-bold rounded-md transition-all cursor-pointer flex items-center gap-1",
-                        filterDevOnly === "dev_only"
-                          ? "bg-rose-500/20 text-rose-300 border border-rose-500/40 shadow-xs"
-                          : "text-muted-foreground hover:text-foreground"
+                        filterDevOnly !== "dev_only" && "text-muted-foreground hover:text-foreground"
                       )}
+                      style={
+                        filterDevOnly === "dev_only"
+                          ? {
+                              backgroundColor: `${devStyle.primaryHex}20`,
+                              color: devStyle.primaryHex,
+                              borderColor: `${devStyle.primaryHex}40`,
+                              borderWidth: "1px",
+                            }
+                          : undefined
+                      }
                     >
-                      💻 Devs ({activeDevsCount})
+                      <DevIcon className="h-3.5 w-3.5" />
+                      Devs ({activeDevsCount})
                     </button>
                   </div>
                 </div>
@@ -631,7 +688,7 @@ function DevPermissoesContent() {
             <CardContent className="pt-0">
               {loadingMembers ? (
                 <div className="py-8 flex items-center justify-center text-center">
-                  <Loader2 className="h-6 w-6 animate-spin text-rose-400 mr-2" />
+                  <Loader2 className="h-6 w-6 animate-spin mr-2" style={{ color: devStyle.primaryHex }} />
                   <span className="text-xs text-muted-foreground">Carregando lista de membros...</span>
                 </div>
               ) : filteredDevMembers.length === 0 ? (
@@ -652,10 +709,16 @@ function DevPermissoesContent() {
                         key={member.user_id}
                         className={cn(
                           "flex items-center justify-between p-3 rounded-xl border transition-all",
-                          isDev
-                            ? "bg-rose-500/10 border-rose-500/40 shadow-xs"
-                            : "bg-secondary/20 border-border/60 hover:bg-secondary/40"
+                          !isDev && "bg-secondary/20 border-border/60 hover:bg-secondary/40"
                         )}
+                        style={
+                          isDev
+                            ? {
+                                backgroundColor: `${devStyle.primaryHex}12`,
+                                borderColor: `${devStyle.primaryHex}40`,
+                              }
+                            : undefined
+                        }
                       >
                         <div className="flex items-center gap-2.5 min-w-0">
                           <img
@@ -663,8 +726,16 @@ function DevPermissoesContent() {
                             alt={member.nome}
                             className={cn(
                               "h-9 w-9 rounded-full object-cover border shrink-0",
-                              isDev ? "border-rose-400 ring-2 ring-rose-500/30" : "border-border"
+                              !isDev && "border-border"
                             )}
+                            style={
+                              isDev
+                                ? {
+                                    borderColor: devStyle.primaryHex,
+                                    boxShadow: `0 0 0 2px ${devStyle.primaryHex}35`,
+                                  }
+                                : undefined
+                            }
                             onError={(e) => {
                               (e.target as HTMLElement).style.display = "none";
                             }}
@@ -674,16 +745,8 @@ function DevPermissoesContent() {
                               <span className="text-xs font-bold text-foreground truncate">
                                 {member.nickname || member.nome}
                               </span>
-                              {isDev && (
-                                <Badge className="bg-rose-500/20 text-rose-400 border-rose-500/40 text-[9px] py-0 px-1 font-bold shrink-0">
-                                  💻 DEV
-                                </Badge>
-                              )}
-                              {isCeo && (
-                                <Badge className="bg-amber-500/20 text-amber-300 border-amber-500/40 text-[9px] py-0 px-1 font-bold shrink-0">
-                                  👑 CEO
-                                </Badge>
-                              )}
+                              {isDev && <DevBadge size="xs" />}
+                              {isCeo && <CeoBadge size="xs" />}
                             </div>
                             <div className="flex items-center gap-1.5 mt-0.5">
                               <Badge
@@ -703,7 +766,7 @@ function DevPermissoesContent() {
 
                         <div className="flex items-center gap-2 shrink-0 ml-2">
                           {isToggling ? (
-                            <Loader2 className="h-4 w-4 animate-spin text-rose-400" />
+                            <Loader2 className="h-4 w-4 animate-spin" style={{ color: devStyle.primaryHex }} />
                           ) : (
                             <Switch
                               id={`dev-toggle-${member.user_id}`}
@@ -711,7 +774,6 @@ function DevPermissoesContent() {
                               onCheckedChange={() =>
                                 handleToggleDevTag(member.user_id, isDev, member.nickname || member.nome)
                               }
-                              className="data-[state=checked]:bg-rose-500 data-[state=checked]:border-rose-400"
                             />
                           )}
                         </div>
@@ -914,33 +976,48 @@ function DevPermissoesContent() {
       {activeTab === "ceo" && (
         <div className="space-y-6 animate-in fade-in-50 duration-200">
           {/* Card Informativo Tag CEO */}
-          <Card className="surface-card border-amber-500/30 bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-transparent">
+          <Card
+            className="surface-card transition-all"
+            style={{
+              borderColor: `${ceoStyle.primaryHex}35`,
+              background: `linear-gradient(to right, ${ceoStyle.primaryHex}15, ${ceoStyle.primaryHex}05, transparent)`,
+            }}
+          >
             <CardHeader className="pb-3">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div className="flex items-center gap-3.5">
-                  <div className="p-3 rounded-2xl bg-amber-500/20 text-amber-300 border border-amber-500/40 shadow-sm shadow-amber-500/20 shrink-0">
-                    <Crown className="h-6 w-6" />
+                  <div
+                    className="p-3 rounded-2xl shadow-sm shrink-0"
+                    style={{
+                      backgroundColor: `${ceoStyle.primaryHex}20`,
+                      color: ceoStyle.primaryHex,
+                      borderColor: `${ceoStyle.primaryHex}40`,
+                      borderWidth: "1px",
+                    }}
+                  >
+                    <CeoIcon className="h-6 w-6" />
                   </div>
                   <div>
                     <CardTitle className="text-base font-black text-foreground flex items-center gap-2">
                       Tag CEO — Diretoria Executiva
-                      <Badge className="bg-amber-500/20 text-amber-300 border-amber-500/40 text-[10px] font-bold">
-                        👑 Diretoria CEO
-                      </Badge>
+                      <CeoBadge size="xs" />
                     </CardTitle>
                     <CardDescription className="text-xs mt-1">
-                      A Tag CEO concede distinção executiva com emblema dourado em perfis, chat e lista de membros.
+                      A Tag CEO concede distinção executiva com emblema oficial em perfis, chat e lista de membros.
                       Toda a matriz de permissões abaixo se soma ao cargo do membro, e <strong>apenas Desenvolvedores com a Tag Dev têm o poder de atribuir ou revogar a Tag CEO</strong>.
                     </CardDescription>
                   </div>
                 </div>
 
                 <div className="flex items-center gap-2 shrink-0">
-                  <div className="px-4 py-2 rounded-xl bg-background/60 border border-amber-500/30 text-center">
+                  <div
+                    className="px-4 py-2 rounded-xl bg-background/60 text-center"
+                    style={{ borderColor: `${ceoStyle.primaryHex}30`, borderWidth: "1px" }}
+                  >
                     <span className="text-[0.65rem] uppercase tracking-wider text-muted-foreground font-semibold block">
                       CEOs Ativos
                     </span>
-                    <span className="text-lg font-black text-amber-300">
+                    <span className="text-lg font-black" style={{ color: ceoStyle.primaryHex }}>
                       {activeCeosCount}
                     </span>
                   </div>
@@ -955,7 +1032,7 @@ function DevPermissoesContent() {
               <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
                 <div>
                   <CardTitle className="text-sm font-extrabold flex items-center gap-2">
-                    <Users className="h-4 w-4 text-amber-400" />
+                    <CeoIcon className="h-4 w-4" style={{ color: ceoStyle.primaryHex }} />
                     Membros do grupo & Atribuição da Tag CEO
                   </CardTitle>
                   <CardDescription className="text-xs">
@@ -992,12 +1069,21 @@ function DevPermissoesContent() {
                       onClick={() => setFilterCeoOnly("ceo_only")}
                       className={cn(
                         "px-2.5 py-1 text-[11px] font-bold rounded-md transition-all cursor-pointer flex items-center gap-1",
-                        filterCeoOnly === "ceo_only"
-                          ? "bg-amber-500/20 text-amber-300 border border-amber-500/40 shadow-xs"
-                          : "text-muted-foreground hover:text-foreground"
+                        filterCeoOnly !== "ceo_only" && "text-muted-foreground hover:text-foreground"
                       )}
+                      style={
+                        filterCeoOnly === "ceo_only"
+                          ? {
+                              backgroundColor: `${ceoStyle.primaryHex}20`,
+                              color: ceoStyle.primaryHex,
+                              borderColor: `${ceoStyle.primaryHex}40`,
+                              borderWidth: "1px",
+                            }
+                          : undefined
+                      }
                     >
-                      👑 CEOs ({activeCeosCount})
+                      <CeoIcon className="h-3.5 w-3.5" />
+                      CEOs ({activeCeosCount})
                     </button>
                   </div>
                 </div>
@@ -1007,7 +1093,7 @@ function DevPermissoesContent() {
             <CardContent className="pt-0">
               {loadingMembers ? (
                 <div className="py-8 flex items-center justify-center text-center">
-                  <Loader2 className="h-6 w-6 animate-spin text-amber-400 mr-2" />
+                  <Loader2 className="h-6 w-6 animate-spin mr-2" style={{ color: ceoStyle.primaryHex }} />
                   <span className="text-xs text-muted-foreground">Carregando lista de membros...</span>
                 </div>
               ) : filteredMembers.length === 0 ? (
@@ -1028,10 +1114,16 @@ function DevPermissoesContent() {
                         key={member.user_id}
                         className={cn(
                           "flex items-center justify-between p-3 rounded-xl border transition-all",
-                          isCeo
-                            ? "bg-amber-500/10 border-amber-500/40 shadow-xs"
-                            : "bg-secondary/20 border-border/60 hover:bg-secondary/40"
+                          !isCeo && "bg-secondary/20 border-border/60 hover:bg-secondary/40"
                         )}
+                        style={
+                          isCeo
+                            ? {
+                                backgroundColor: `${ceoStyle.primaryHex}12`,
+                                borderColor: `${ceoStyle.primaryHex}40`,
+                              }
+                            : undefined
+                        }
                       >
                         <div className="flex items-center gap-2.5 min-w-0">
                           <img
@@ -1039,8 +1131,16 @@ function DevPermissoesContent() {
                             alt={member.nome}
                             className={cn(
                               "h-9 w-9 rounded-full object-cover border shrink-0",
-                              isCeo ? "border-amber-400 ring-2 ring-amber-500/30" : "border-border"
+                              !isCeo && "border-border"
                             )}
+                            style={
+                              isCeo
+                                ? {
+                                    borderColor: ceoStyle.primaryHex,
+                                    boxShadow: `0 0 0 2px ${ceoStyle.primaryHex}35`,
+                                  }
+                                : undefined
+                            }
                             onError={(e) => {
                               (e.target as HTMLElement).style.display = "none";
                             }}
@@ -1050,16 +1150,8 @@ function DevPermissoesContent() {
                               <span className="text-xs font-bold text-foreground truncate">
                                 {member.nickname || member.nome}
                               </span>
-                              {isCeo && (
-                                <Badge className="bg-amber-500/20 text-amber-300 border-amber-500/40 text-[9px] py-0 px-1 font-bold shrink-0">
-                                  👑 CEO
-                                </Badge>
-                              )}
-                              {isDev && (
-                                <Badge className="bg-rose-500/20 text-rose-400 border-rose-500/40 text-[9px] py-0 px-1 font-bold shrink-0">
-                                  💻 DEV
-                                </Badge>
-                              )}
+                              {isCeo && <CeoBadge size="xs" />}
+                              {isDev && <DevBadge size="xs" />}
                             </div>
                             <div className="flex items-center gap-1.5 mt-0.5">
                               <Badge
@@ -1079,7 +1171,7 @@ function DevPermissoesContent() {
 
                         <div className="flex items-center gap-2 shrink-0 ml-2">
                           {isToggling ? (
-                            <Loader2 className="h-4 w-4 animate-spin text-amber-400" />
+                            <Loader2 className="h-4 w-4 animate-spin" style={{ color: ceoStyle.primaryHex }} />
                           ) : (
                             <Switch
                               id={`ceo-toggle-${member.user_id}`}
@@ -1087,7 +1179,6 @@ function DevPermissoesContent() {
                               onCheckedChange={() =>
                                 handleToggleCeoTag(member.user_id, isCeo, member.nickname || member.nome)
                               }
-                              className="data-[state=checked]:bg-amber-500 data-[state=checked]:border-amber-400"
                             />
                           )}
                         </div>
@@ -1100,19 +1191,31 @@ function DevPermissoesContent() {
           </Card>
 
           {/* SEÇÃO 2 (CEO): MÓDULOS E RECURSOS DO PAINEL CEO */}
-          <Card className="surface-card border-amber-500/40 bg-gradient-to-b from-amber-500/[0.04] to-transparent shadow-sm">
+          <Card
+            className="surface-card shadow-sm transition-all"
+            style={{
+              borderColor: `${ceoStyle.primaryHex}35`,
+              background: `linear-gradient(to bottom, ${ceoStyle.primaryHex}0a, transparent)`,
+            }}
+          >
             <CardHeader className="pb-4">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div className="flex items-center gap-3.5">
-                  <div className="p-3 rounded-2xl bg-amber-500/20 text-amber-300 border border-amber-500/40 shadow-xs shrink-0">
+                  <div
+                    className="p-3 rounded-2xl shadow-xs shrink-0"
+                    style={{
+                      backgroundColor: `${ceoStyle.primaryHex}20`,
+                      color: ceoStyle.primaryHex,
+                      borderColor: `${ceoStyle.primaryHex}40`,
+                      borderWidth: "1px",
+                    }}
+                  >
                     <Sliders className="h-6 w-6" />
                   </div>
                   <div>
                     <CardTitle className="text-base font-black text-foreground flex items-center gap-2">
                       Módulos & Recursos do Painel CEO (/ceo)
-                      <Badge className="bg-amber-500/20 text-amber-300 border-amber-500/40 text-[10px] font-bold">
-                        Configuração Executiva
-                      </Badge>
+                      <CeoBadge size="xs" />
                     </CardTitle>
                     <CardDescription className="text-xs mt-1">
                       Controle quais funcionalidades avançadas e módulos os membros com a Tag CEO podem acessar no Painel Executivo.

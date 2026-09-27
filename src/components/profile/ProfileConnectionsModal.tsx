@@ -25,6 +25,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { DevBadge, CeoBadge } from "@/components/ui-kit";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useAuth } from "@/hooks/useAuth";
 import {
@@ -246,16 +247,8 @@ export function ProfileConnectionsModal({
                           {displayName}
                         </span>
 
-                        {member.is_ceo && (
-                          <Badge className="text-[9px] font-bold px-1 py-0 h-4 border-amber-500/40 text-amber-300 bg-amber-500/20">
-                            👑 CEO
-                          </Badge>
-                        )}
-                        {member.is_developer && (
-                          <Badge variant="outline" className="text-[9px] font-mono px-1 py-0 h-4 border-cyan-500/40 text-cyan-300 bg-cyan-500/10">
-                            DEV
-                          </Badge>
-                        )}
+                        {member.is_ceo && <CeoBadge size="xs" />}
+                        {member.is_developer && <DevBadge size="xs" />}
 
                         <Badge
                           variant="outline"

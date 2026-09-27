@@ -1,5 +1,8 @@
 export type AppLevel = "desenvolvedor" | "01" | "02" | "gerente" | "motoqueiro" | "membro" | "novato";
 
+import { getDevThemeColorSync, getMemberThemeColorSync } from "@/services/devService";
+import { getPanelColorStyle } from "@/lib/panelTheme";
+
 export const LEVELS: AppLevel[] = ["01", "02", "gerente", "motoqueiro", "membro", "novato"];
 export const ALL_LEVELS: AppLevel[] = LEVELS;
 
@@ -1043,8 +1046,10 @@ export function canPromote(
 
 export function levelBadgeClass(level: AppLevel | null | undefined): string {
   switch (level) {
-    case "desenvolvedor":
-      return "bg-rose-500/10 text-rose-400 border-rose-500/30";
+    case "desenvolvedor": {
+      const style = getPanelColorStyle(getDevThemeColorSync(), "rose");
+      return style.badgeClass;
+    }
     case "01":
       return "bg-purple-500/10 text-purple-400 border-purple-500/30";
     case "02":
@@ -1053,8 +1058,10 @@ export function levelBadgeClass(level: AppLevel | null | undefined): string {
       return "bg-blue-500/10 text-blue-400 border-blue-500/30";
     case "motoqueiro":
       return "bg-emerald-500/10 text-emerald-400 border-emerald-500/30";
-    case "membro":
-      return "bg-sky-500/10 text-sky-400 border-sky-500/30";
+    case "membro": {
+      const style = getPanelColorStyle(getMemberThemeColorSync(), "cyan");
+      return style.badgeClass;
+    }
     case "novato":
       return "bg-amber-500/10 text-amber-400 border-amber-500/30";
     default:

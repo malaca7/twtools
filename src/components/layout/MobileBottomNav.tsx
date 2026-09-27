@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useSidebar } from "@/components/ui/sidebar";
+import { usePanelTheme } from "@/lib/panelTheme";
 import { cn } from "@/lib/utils";
 
 export function MobileBottomNav() {
@@ -23,6 +24,7 @@ export function MobileBottomNav() {
 
   const { isDevUser, isDevMode, isCeoUser, isCeoMode, hasPermission } = useAuth();
   const { toggleSidebar } = useSidebar();
+  const { devStyle, ceoStyle, memberStyle, DevIcon, CeoIcon, MemberIcon } = usePanelTheme();
 
   const homeUrl = useMemo(() => {
     if (isDevUser && isDevMode) return "/dev/dashboard";
@@ -49,30 +51,33 @@ export function MobileBottomNav() {
       return {
         label: "Dev",
         url: "/dev",
-        icon: Terminal,
+        icon: DevIcon,
         isActive: pathname.startsWith("/dev") && !pathname.startsWith("/dev/dashboard") && !pathname.startsWith("/dev/movimentacoes") && !pathname.startsWith("/dev/chat"),
-        colorClass: "text-rose-400",
-        activeBgClass: "bg-rose-500/15 border-rose-500/30 text-rose-300",
+        colorClass: devStyle.textClass,
+        activeBgClass: cn(devStyle.bgSubtleClass, devStyle.borderSubtleClass, devStyle.textClass),
+        dotClass: devStyle.bgSolidClass,
       };
     }
     if ((isCeoUser || isDevUser) && isCeoMode) {
       return {
         label: "CEO",
         url: "/ceo/executivo",
-        icon: Crown,
+        icon: CeoIcon,
         isActive: pathname.startsWith("/ceo") && !pathname.startsWith("/ceo/dashboard") && !pathname.startsWith("/ceo/movimentacoes") && !pathname.startsWith("/ceo/chat"),
-        colorClass: "text-amber-400",
-        activeBgClass: "bg-amber-500/15 border-amber-500/30 text-amber-300",
+        colorClass: ceoStyle.textClass,
+        activeBgClass: cn(ceoStyle.bgSubtleClass, ceoStyle.borderSubtleClass, ceoStyle.textClass),
+        dotClass: ceoStyle.bgSolidClass,
       };
     }
     if (hasPermission("view_members")) {
       return {
         label: "Equipe",
         url: "/membros",
-        icon: Users,
+        icon: MemberIcon,
         isActive: pathname.startsWith("/membros") || pathname.startsWith("/hierarquia"),
-        colorClass: "text-primary",
-        activeBgClass: "bg-primary/15 border-primary/30 text-primary",
+        colorClass: memberStyle.textClass,
+        activeBgClass: cn(memberStyle.bgSubtleClass, memberStyle.borderSubtleClass, memberStyle.textClass),
+        dotClass: memberStyle.bgSolidClass,
       };
     }
     return {
@@ -82,8 +87,9 @@ export function MobileBottomNav() {
       isActive: pathname.startsWith("/perfil"),
       colorClass: "text-primary",
       activeBgClass: "bg-primary/15 border-primary/30 text-primary",
+      dotClass: "bg-primary",
     };
-  }, [isDevUser, isDevMode, isCeoUser, isCeoMode, hasPermission, pathname]);
+  }, [isDevUser, isDevMode, isCeoUser, isCeoMode, hasPermission, pathname, DevIcon, CeoIcon, MemberIcon, devStyle, ceoStyle, memberStyle]);
 
   const isHomeActive = pathname === "/dashboard" || pathname === "/" || pathname === "/dev/dashboard" || pathname === "/ceo/dashboard";
   const isOperationsActive =
@@ -250,11 +256,7 @@ export function MobileBottomNav() {
             <span
               className={cn(
                 "h-1 w-1 rounded-full mt-0.5",
-                managementTab.label === "CEO"
-                  ? "bg-amber-400"
-                  : managementTab.label === "Dev"
-                  ? "bg-rose-400"
-                  : "bg-primary"
+                managementTab.dotClass || "bg-primary"
               )}
             />
           )}

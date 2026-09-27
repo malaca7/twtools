@@ -61,6 +61,7 @@ import {
   type PanelColor,
   getPanelColorStyle,
   resolveCategoryIcon,
+  usePanelTheme,
 } from "@/lib/panelTheme";
 import {
   Sidebar,
@@ -208,25 +209,7 @@ function DynamicSidebarNavigation() {
     return DEFAULT_CEO_CONFIG;
   }, []);
 
-  const [devTheme, setDevTheme] = useState<PanelColor>(() => getDevThemeColorSync());
-  const [ceoTheme, setCeoTheme] = useState<PanelColor>(() => getCeoThemeColorSync());
-  const [memberTheme, setMemberTheme] = useState<PanelColor>(() => getMemberThemeColorSync());
-
-  useEffect(() => {
-    const handleConfigChange = (e: any) => {
-      if (e?.detail) {
-        if (e.detail.devThemeColor) setDevTheme(e.detail.devThemeColor);
-        if (e.detail.ceoThemeColor) setCeoTheme(e.detail.ceoThemeColor);
-        if (e.detail.memberThemeColor) setMemberTheme(e.detail.memberThemeColor);
-      }
-    };
-    window.addEventListener(DEV_CONFIG_EVENT, handleConfigChange);
-    return () => window.removeEventListener(DEV_CONFIG_EVENT, handleConfigChange);
-  }, []);
-
-  const devStyle = useMemo(() => getPanelColorStyle(devTheme, "rose"), [devTheme]);
-  const ceoStyle = useMemo(() => getPanelColorStyle(ceoTheme, "amber"), [ceoTheme]);
-  const memberStyle = useMemo(() => getPanelColorStyle(memberTheme, "cyan"), [memberTheme]);
+  const { devStyle, ceoStyle, memberStyle, DevIcon, CeoIcon, MemberIcon } = usePanelTheme();
 
   const isItemActive = useCallback(
     (targetUrl: string) => {
@@ -713,10 +696,10 @@ function DynamicSidebarNavigation() {
         let savedIconName: string | null | undefined = null;
 
         if (isDevCategory) {
-          defaultFallbackIcon = Terminal;
+          defaultFallbackIcon = DevIcon;
           savedIconName = devMenuConfig?.categoryIcons?.[category];
         } else if (isCeoCategory) {
-          defaultFallbackIcon = Crown;
+          defaultFallbackIcon = CeoIcon;
           savedIconName = ceoMenuConfig?.categoryIcons?.[category];
         } else {
           // Categorias padrão da plataforma (Operação, Gestão, Administração, etc.)
@@ -728,7 +711,7 @@ function DynamicSidebarNavigation() {
           } else if (category === "Administração") {
             defaultFallbackIcon = Sliders;
           } else {
-            defaultFallbackIcon = FolderTree;
+            defaultFallbackIcon = MemberIcon;
           }
         }
 
@@ -865,25 +848,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const canAccessDev = isDevUser;
   const hasMultiplePanels = canAccessCeo || canAccessDev;
 
-  const [devTheme, setDevTheme] = useState<PanelColor>(() => getDevThemeColorSync());
-  const [ceoTheme, setCeoTheme] = useState<PanelColor>(() => getCeoThemeColorSync());
-  const [memberTheme, setMemberTheme] = useState<PanelColor>(() => getMemberThemeColorSync());
-
-  useEffect(() => {
-    const handleConfigChange = (e: any) => {
-      if (e?.detail) {
-        if (e.detail.devThemeColor) setDevTheme(e.detail.devThemeColor);
-        if (e.detail.ceoThemeColor) setCeoTheme(e.detail.ceoThemeColor);
-        if (e.detail.memberThemeColor) setMemberTheme(e.detail.memberThemeColor);
-      }
-    };
-    window.addEventListener(DEV_CONFIG_EVENT, handleConfigChange);
-    return () => window.removeEventListener(DEV_CONFIG_EVENT, handleConfigChange);
-  }, []);
-
-  const devStyle = useMemo(() => getPanelColorStyle(devTheme, "rose"), [devTheme]);
-  const ceoStyle = useMemo(() => getPanelColorStyle(ceoTheme, "amber"), [ceoTheme]);
-  const memberStyle = useMemo(() => getPanelColorStyle(memberTheme, "cyan"), [memberTheme]);
+  const { devStyle, ceoStyle, memberStyle, DevIcon, CeoIcon, MemberIcon } = usePanelTheme();
 
   const avatarUrl = profile?.avatar_url || profile?.discord_avatar_url;
   const mainName = profile?.nickname || profile?.nome || "Membro";
@@ -941,7 +906,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                         )}
                         aria-label="Painel Membro"
                       >
-                        <Users className="h-3.5 w-3.5 shrink-0" />
+                        <MemberIcon className="h-3.5 w-3.5 shrink-0" />
                         <span className="hidden md:inline">Membro</span>
                       </Link>
                     </TooltipTrigger>
@@ -965,7 +930,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                           )}
                           aria-label="Painel CEO"
                         >
-                          <Crown className="h-3.5 w-3.5 shrink-0" />
+                          <CeoIcon className="h-3.5 w-3.5 shrink-0" />
                           <span className="hidden md:inline">CEO</span>
                         </Link>
                       </TooltipTrigger>
@@ -990,7 +955,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                           )}
                           aria-label="Painel Dev Tools"
                         >
-                          <Terminal className="h-3.5 w-3.5 shrink-0" />
+                          <DevIcon className="h-3.5 w-3.5 shrink-0" />
                           <span className="hidden md:inline">Dev</span>
                         </Link>
                       </TooltipTrigger>
@@ -1064,18 +1029,18 @@ export function AppShell({ children }: { children: ReactNode }) {
                   {(isCeoUser || isDevUser) && (
                     <DropdownMenuItem
                       onClick={() => navigate({ to: "/ceo/dashboard" })}
-                      className="cursor-pointer text-amber-300 focus:text-amber-200 focus:bg-amber-500/10 font-bold"
+                      className={cn("cursor-pointer font-bold", ceoStyle.textClass, ceoStyle.itemHoverClass)}
                     >
-                      <Crown className="mr-2 h-4 w-4 text-amber-400" /> Painel CEO
+                      <CeoIcon className={cn("mr-2 h-4 w-4", ceoStyle.iconClass)} /> Painel CEO
                     </DropdownMenuItem>
                   )}
 
                   {isDevUser && (
                     <DropdownMenuItem
                       onClick={() => navigate({ to: "/dev" })}
-                      className="cursor-pointer text-rose-400 focus:text-rose-300 focus:bg-rose-500/10 font-bold"
+                      className={cn("cursor-pointer font-bold", devStyle.textClass, devStyle.itemHoverClass)}
                     >
-                      <Terminal className="mr-2 h-4 w-4 text-rose-400" /> Painel Dev
+                      <DevIcon className={cn("mr-2 h-4 w-4", devStyle.iconClass)} /> Painel Dev
                     </DropdownMenuItem>
                   )}
 

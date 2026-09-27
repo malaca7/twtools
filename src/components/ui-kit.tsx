@@ -140,5 +140,6 @@ export function NoAccess() {
 }
 
 export { ProductThumbnail } from "@/components/ui/product-thumbnail";
+export * from "@/components/ui-kit/PanelRoleBadge";
 
 

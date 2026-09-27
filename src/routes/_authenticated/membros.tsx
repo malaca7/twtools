@@ -19,6 +19,8 @@ import {
   Lock,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { DevBadge, CeoBadge } from "@/components/ui-kit";
+import { usePanelTheme } from "@/lib/panelTheme";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -63,6 +65,7 @@ export const Route = createFileRoute("/_authenticated/membros")({
 
 export function MembrosPage() {
   const { hasPermission, level: currentUserLevel, profile: currentProfile, user, refresh, isDevMode } = useAuth();
+  const { devStyle, ceoStyle, DevIcon, CeoIcon } = usePanelTheme();
   const queryClient = useQueryClient();
 
   // Granular permissions for members management (respects current panel mode: member vs dev)
@@ -415,16 +418,8 @@ export function MembrosPage() {
                               <p className="font-bold text-sm text-foreground group-hover:text-primary transition-colors truncate">
                                 {m.nickname || m.nome}
                               </p>
-                              {targetIsDev && (
-                                <Badge variant="outline" className="text-[9px] font-mono border-rose-500/40 text-rose-400 bg-rose-500/10 px-1 py-0 shrink-0">
-                                  DEV
-                                </Badge>
-                              )}
-                              {Boolean(m.is_ceo || m.custom_theme?.is_ceo) && (
-                                <Badge className="bg-amber-500/20 text-amber-300 border-amber-500/40 text-[9px] font-bold px-1.5 py-0 shrink-0">
-                                  👑 CEO
-                                </Badge>
-                              )}
+                              {targetIsDev && <DevBadge size="xs" />}
+                              {Boolean(m.is_ceo || m.custom_theme?.is_ceo) && <CeoBadge size="xs" />}
                             </div>
                             {m.nickname && <p className="text-xs text-muted-foreground truncate">{m.nome}</p>}
                           </div>
@@ -531,16 +526,8 @@ export function MembrosPage() {
                                   <p className="font-bold text-xs text-foreground group-hover:text-primary transition-colors">
                                     {m.nickname ? `${m.nickname}` : m.nome}
                                   </p>
-                                  {targetIsDev && (
-                                    <Badge variant="outline" className="text-[9px] font-mono border-rose-500/40 text-rose-400 bg-rose-500/10 px-1 py-0">
-                                      DEV
-                                    </Badge>
-                                  )}
-                                  {Boolean(m.is_ceo || m.custom_theme?.is_ceo) && (
-                                    <Badge className="bg-amber-500/20 text-amber-300 border-amber-500/40 text-[9px] font-bold px-1.5 py-0">
-                                      👑 CEO
-                                    </Badge>
-                                  )}
+                                  {targetIsDev && <DevBadge size="xs" />}
+                                  {Boolean(m.is_ceo || m.custom_theme?.is_ceo) && <CeoBadge size="xs" />}
                                 </div>
                                 {m.nickname ? (
                                   <p className="text-[0.65rem] text-muted-foreground">{m.nome}</p>
@@ -705,17 +692,15 @@ export function MembrosPage() {
 
             {isDevMode && (
               <>
-                <div className="p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/30 flex items-center justify-between gap-3 mt-3 shadow-sm">
+                <div className={cn("p-3.5 rounded-xl border flex items-center justify-between gap-3 mt-3 shadow-sm", devStyle.bgSubtleClass, devStyle.borderSubtleClass)}>
                   <div className="flex items-center gap-2.5">
-                    <div className="p-2 rounded-lg bg-rose-500/20 text-rose-400 shrink-0">
-                      <Code2 className="h-4 w-4" />
+                    <div className={cn("p-2 rounded-lg shrink-0", devStyle.bgSubtleClass, devStyle.iconClass || devStyle.textClass)}>
+                      <DevIcon className="h-4 w-4" />
                     </div>
                     <div>
                       <Label htmlFor="edit-is-dev" className="text-xs font-extrabold text-foreground cursor-pointer flex items-center gap-1.5">
                         Desenvolvedor da Plataforma
-                        <Badge variant="outline" className="text-[9px] font-mono border-rose-500/40 text-rose-400 bg-rose-500/10">
-                          Dev System
-                        </Badge>
+                        <DevBadge size="xs" label="Dev System" />
                       </Label>
                       <p className="text-[0.7rem] text-muted-foreground mt-0.5">
                         Concede acesso pleno a todas as ferramentas do sistema e configurações.
@@ -729,17 +714,15 @@ export function MembrosPage() {
                   />
                 </div>
 
-                <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-between gap-3 mt-2.5 shadow-sm">
+                <div className={cn("p-3.5 rounded-xl border flex items-center justify-between gap-3 mt-2.5 shadow-sm", ceoStyle.bgSubtleClass, ceoStyle.borderSubtleClass)}>
                   <div className="flex items-center gap-2.5">
-                    <div className="p-2 rounded-lg bg-amber-500/20 text-amber-300 shrink-0">
-                      <Crown className="h-4 w-4" />
+                    <div className={cn("p-2 rounded-lg shrink-0", ceoStyle.bgSubtleClass, ceoStyle.iconClass || ceoStyle.textClass)}>
+                      <CeoIcon className="h-4 w-4" />
                     </div>
                     <div>
                       <Label htmlFor="edit-is-ceo" className="text-xs font-extrabold text-foreground cursor-pointer flex items-center gap-1.5">
                         Tag CEO (Diretoria Executiva)
-                        <Badge className="bg-amber-500/20 text-amber-300 border-amber-500/40 text-[9px] font-bold">
-                          👑 CEO
-                        </Badge>
+                        <CeoBadge size="xs" />
                       </Label>
                       <p className="text-[0.7rem] text-muted-foreground mt-0.5">
                         Concede a Tag CEO e toda a matriz de permissões executivas definida no painel Dev.
@@ -750,7 +733,6 @@ export function MembrosPage() {
                     id="edit-is-ceo"
                     checked={editIsCeo}
                     onCheckedChange={setEditIsCeo}
-                    className="data-[state=checked]:bg-amber-500 data-[state=checked]:border-amber-400"
                   />
                 </div>
               </>

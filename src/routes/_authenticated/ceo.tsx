@@ -28,7 +28,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { PageHeader } from "@/components/ui-kit";
+import { PageHeader, CeoBadge } from "@/components/ui-kit";
+import { usePanelTheme } from "@/lib/panelTheme";
 import { useAuth } from "@/hooks/useAuth";
 import { useMembers, useSales, useCashMovements } from "@/hooks/useData";
 import { useUrlTab } from "@/hooks/useUrlTab";
@@ -67,6 +68,7 @@ export function CeoPageContent({ initialTab }: { initialTab?: string } = {}) {
   const location = useLocation();
   const navigate = useNavigate();
   const { user, profile, level, isDevUser, isCeoUser, hasPermission } = useAuth();
+  const { ceoStyle, CeoIcon } = usePanelTheme();
   const { data: members = [], isLoading: loadingMembers } = useMembers();
   const { data: sales = [], isLoading: loadingSales } = useSales();
   const { data: cashMovements = [], isLoading: loadingCash } = useCashMovements();
@@ -199,25 +201,43 @@ export function CeoPageContent({ initialTab }: { initialTab?: string } = {}) {
       />
 
       {/* BANNER EXECUTIVO CEO */}
-      <Card className="surface-card border-amber-500/30 bg-gradient-to-r from-amber-500/15 via-amber-500/5 to-transparent relative overflow-hidden">
-        <div className="absolute right-0 top-0 translate-x-8 -translate-y-8 opacity-10 pointer-events-none">
-          <Crown className="h-64 w-64 text-amber-400" />
+      <Card
+        className="surface-card relative overflow-hidden transition-all duration-300"
+        style={{
+          borderColor: `${ceoStyle.primaryHex}40`,
+          background: ceoStyle.isGradient && ceoStyle.gradient
+            ? `linear-gradient(135deg, ${ceoStyle.primaryHex}20 0%, ${ceoStyle.primaryHex}06 50%, transparent 100%)`
+            : `linear-gradient(to right, ${ceoStyle.primaryHex}18, ${ceoStyle.primaryHex}05, transparent)`,
+        }}
+      >
+        <div
+          className="absolute right-0 top-0 translate-x-8 -translate-y-8 opacity-10 pointer-events-none transition-transform duration-500 group-hover:scale-105"
+          style={{ color: ceoStyle.primaryHex }}
+        >
+          <CeoIcon className="h-64 w-64" />
         </div>
 
         <CardContent className="p-5 sm:p-6 relative z-10">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-5">
             <div className="flex items-center gap-4">
-              <div className="p-3.5 rounded-2xl bg-amber-500/20 text-amber-300 border border-amber-500/40 shadow-md shadow-amber-500/20 shrink-0">
-                <Crown className="h-7 w-7" />
+              <div
+                className="p-3.5 rounded-2xl shrink-0 shadow-md transition-all duration-300"
+                style={{
+                  backgroundColor: `${ceoStyle.primaryHex}25`,
+                  color: ceoStyle.primaryHex,
+                  borderColor: `${ceoStyle.primaryHex}50`,
+                  borderWidth: "1px",
+                  boxShadow: `0 4px 16px ${ceoStyle.primaryHex}25`,
+                }}
+              >
+                <CeoIcon className="h-7 w-7" />
               </div>
               <div className="space-y-1">
                 <div className="flex items-center gap-2 flex-wrap">
                   <h2 className="text-xl font-black text-foreground tracking-tight">
                     Diretoria Executiva · Twin Wheels
                   </h2>
-                  <Badge className="bg-amber-500/25 text-amber-200 border-amber-500/50 text-[10px] font-extrabold uppercase">
-                    👑 CEO Access
-                  </Badge>
+                  <CeoBadge size="sm">CEO Access</CeoBadge>
                 </div>
                 <p className="text-xs text-muted-foreground max-w-2xl leading-relaxed">
                   Bem-vindo à sala de controle executivo. Aqui você comanda as automações do Discord,
@@ -227,11 +247,14 @@ export function CeoPageContent({ initialTab }: { initialTab?: string } = {}) {
             </div>
 
             <div className="flex items-center gap-3 shrink-0">
-                            <div className="px-4 py-2 rounded-xl bg-background/80 border border-amber-500/30 text-center shadow-xs">
+              <div
+                className="px-4 py-2 rounded-xl bg-background/80 text-center shadow-xs"
+                style={{ borderColor: `${ceoStyle.primaryHex}35`, borderWidth: "1px" }}
+              >
                 <span className="text-[0.65rem] uppercase tracking-wider text-muted-foreground font-semibold block">
                   Efetivo Ativo
                 </span>
-                <span className="text-lg font-black text-amber-300">
+                <span className="text-lg font-black" style={{ color: ceoStyle.primaryHex }}>
                   {activeMembersCount}
                 </span>
               </div>
@@ -243,36 +266,79 @@ export function CeoPageContent({ initialTab }: { initialTab?: string } = {}) {
       {/* NAVEGAÇÃO DE ABAS EXECUTIVAS CEO (Rápida troca por toque no mobile e desktop) */}
       <Tabs value={activeTab} onValueChange={(val: any) => setTab(val)} className="space-y-6">
         <div className="overflow-x-auto pb-1 scrollbar-none -mx-1 px-1">
-          <TabsList className="bg-secondary/60 border border-amber-500/30 p-1 rounded-2xl inline-flex w-full sm:w-auto min-w-max gap-1">
+          <TabsList
+            className="bg-secondary/60 p-1 rounded-2xl inline-flex w-full sm:w-auto min-w-max gap-1"
+            style={{ borderColor: `${ceoStyle.primaryHex}35`, borderWidth: "1px" }}
+          >
             <TabsTrigger
               value="dashboard"
-              className="gap-2 text-xs font-bold px-3.5 py-2 rounded-xl data-[state=active]:bg-amber-500/20 data-[state=active]:text-amber-300 data-[state=active]:border-amber-500/40 cursor-pointer"
+              className="gap-2 text-xs font-bold px-3.5 py-2 rounded-xl cursor-pointer transition-all"
+              style={
+                activeTab === "dashboard"
+                  ? {
+                      backgroundColor: `${ceoStyle.primaryHex}25`,
+                      color: ceoStyle.primaryHex,
+                      borderColor: `${ceoStyle.primaryHex}50`,
+                      borderWidth: "1px",
+                    }
+                  : undefined
+              }
             >
-              <LayoutDashboard className="h-4 w-4 text-amber-400" />
+              <LayoutDashboard className="h-4 w-4" style={{ color: activeTab === "dashboard" ? ceoStyle.primaryHex : undefined }} />
               <span>Visão Geral</span>
             </TabsTrigger>
 
             <TabsTrigger
               value="bot"
-              className="gap-2 text-xs font-bold px-3.5 py-2 rounded-xl data-[state=active]:bg-amber-500/20 data-[state=active]:text-amber-300 data-[state=active]:border-amber-500/40 cursor-pointer"
+              className="gap-2 text-xs font-bold px-3.5 py-2 rounded-xl cursor-pointer transition-all"
+              style={
+                activeTab === "bot"
+                  ? {
+                      backgroundColor: `${ceoStyle.primaryHex}25`,
+                      color: ceoStyle.primaryHex,
+                      borderColor: `${ceoStyle.primaryHex}50`,
+                      borderWidth: "1px",
+                    }
+                  : undefined
+              }
             >
-              <Bot className="h-4 w-4 text-amber-400" />
+              <Bot className="h-4 w-4" style={{ color: activeTab === "bot" ? ceoStyle.primaryHex : undefined }} />
               <span>Gerenciar Bot</span>
             </TabsTrigger>
 
             <TabsTrigger
               value="webhooks"
-              className="gap-2 text-xs font-bold px-3.5 py-2 rounded-xl data-[state=active]:bg-amber-500/20 data-[state=active]:text-amber-300 data-[state=active]:border-amber-500/40 cursor-pointer"
+              className="gap-2 text-xs font-bold px-3.5 py-2 rounded-xl cursor-pointer transition-all"
+              style={
+                activeTab === "webhooks"
+                  ? {
+                      backgroundColor: `${ceoStyle.primaryHex}25`,
+                      color: ceoStyle.primaryHex,
+                      borderColor: `${ceoStyle.primaryHex}50`,
+                      borderWidth: "1px",
+                    }
+                  : undefined
+              }
             >
-              <Webhook className="h-4 w-4 text-amber-400" />
+              <Webhook className="h-4 w-4" style={{ color: activeTab === "webhooks" ? ceoStyle.primaryHex : undefined }} />
               <span>Webhooks Discord</span>
             </TabsTrigger>
 
             <TabsTrigger
               value="financas"
-              className="gap-2 text-xs font-bold px-3.5 py-2 rounded-xl data-[state=active]:bg-amber-500/20 data-[state=active]:text-amber-300 data-[state=active]:border-amber-500/40 cursor-pointer"
+              className="gap-2 text-xs font-bold px-3.5 py-2 rounded-xl cursor-pointer transition-all"
+              style={
+                activeTab === "financas"
+                  ? {
+                      backgroundColor: `${ceoStyle.primaryHex}25`,
+                      color: ceoStyle.primaryHex,
+                      borderColor: `${ceoStyle.primaryHex}50`,
+                      borderWidth: "1px",
+                    }
+                  : undefined
+              }
             >
-              <Landmark className="h-4 w-4 text-amber-400" />
+              <Landmark className="h-4 w-4" style={{ color: activeTab === "financas" ? ceoStyle.primaryHex : undefined }} />
               <span>Finanças</span>
             </TabsTrigger>
           </TabsList>
@@ -285,19 +351,30 @@ export function CeoPageContent({ initialTab }: { initialTab?: string } = {}) {
           {/* CARDS DE MÉTRICAS EXECUTIVAS */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {/* Card 1: Faturamento Total */}
-            <Card className="surface-card border-amber-500/30 hover:border-amber-500/50 transition-all shadow-xs">
+            <Card
+              className="surface-card hover:shadow-md transition-all shadow-xs"
+              style={{ borderColor: `${ceoStyle.primaryHex}35` }}
+            >
               <CardHeader className="pb-2">
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
                     Faturamento de Vendas
                   </span>
-                  <div className="p-2 rounded-xl bg-amber-500/15 text-amber-300 border border-amber-500/30">
+                  <div
+                    className="p-2 rounded-xl"
+                    style={{
+                      backgroundColor: `${ceoStyle.primaryHex}15`,
+                      color: ceoStyle.primaryHex,
+                      borderColor: `${ceoStyle.primaryHex}30`,
+                      borderWidth: "1px",
+                    }}
+                  >
                     <TrendingUp className="h-4 w-4" />
                   </div>
                 </div>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-black text-amber-300">
+                <div className="text-2xl font-black" style={{ color: ceoStyle.primaryHex }}>
                   {currency(totalSalesRevenue)}
                 </div>
                 <p className="text-[0.7rem] text-muted-foreground mt-1 flex items-center gap-1">
@@ -378,7 +455,7 @@ export function CeoPageContent({ initialTab }: { initialTab?: string } = {}) {
             <Card className="surface-card border-border/80">
               <CardHeader className="pb-3 border-b border-border/60">
                 <CardTitle className="text-sm font-extrabold flex items-center gap-2">
-                  <Sparkles className="h-4 w-4 text-amber-400" />
+                  <CeoIcon className="h-4 w-4" style={{ color: ceoStyle.primaryHex }} />
                   Ações Rápidas do CEO
                 </CardTitle>
                 <CardDescription className="text-xs">
