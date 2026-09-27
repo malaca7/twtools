@@ -492,7 +492,7 @@ export const CEO_PERMISSIONS: Permission[] = [
 ];
 
 const ADMIN: Permission[] = ALL_PERMISSIONS.filter(
-  (p) => !CEO_PERMISSIONS.includes(p) && !DEV_PANEL_PERMISSIONS.includes(p)
+  (p) => !CEO_PERMISSIONS.includes(p) && !DEV_PANEL_PERMISSIONS.includes(p) && p !== "grant_insignia"
 );
 
 const OFFICER: Permission[] = [
@@ -536,7 +536,6 @@ const OFFICER: Permission[] = [
   "view_rankings_financial",
   "view_rankings_movements",
   "view_insignias",
-  "grant_insignia",
   "manage_insignias_catalog",
   "view_shop",
   "buy_shop_items",
@@ -652,7 +651,6 @@ const MANAGER: Permission[] = [
   "view_rankings_financial",
   "view_rankings_movements",
   "view_insignias",
-  "grant_insignia",
   "view_shop",
   "buy_shop_items",
   "evaluate_member",

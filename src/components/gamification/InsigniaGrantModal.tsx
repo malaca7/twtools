@@ -34,6 +34,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useAuth } from "@/hooks/useAuth";
 import {
   getInsigniasCatalog,
+  getMemberInsignias,
   grantInsignia,
   RARITY_CONFIG,
   type InsigniaItem,

@@ -146,6 +146,7 @@ export function DevGamificationManager({ initialTab = "membros" }: { initialTab?
   const [selectedInsigniaId, setSelectedInsigniaId] = useState("");
   const [grantReason, setGrantReason] = useState("");
   const [grantSubmitting, setGrantSubmitting] = useState(false);
+  const [selectedMemberOwnedInsigniaIds, setSelectedMemberOwnedInsigniaIds] = useState<Set<string>>(new Set());
 
   // Modal 4: Gerenciar Insígnias do Membro
   const [memberInsigniasModalOpen, setMemberInsigniasModalOpen] = useState(false);
@@ -276,6 +277,20 @@ export function DevGamificationManager({ initialTab = "membros" }: { initialTab?
   };
 
   // 3. Executar Concessão de Insígnia
+  // Abrir Modal de Conceder Insígnia filtrando as já possuídas
+  const handleOpenGrantModal = async (member: RankedGamificationMember) => {
+    setSelectedMember(member);
+    setSelectedInsigniaId("");
+    setGrantReason("");
+    try {
+      const badges = await getMemberInsignias(member.user_id);
+      setSelectedMemberOwnedInsigniaIds(new Set(badges.map((b) => b.insignia_id)));
+    } catch {
+      setSelectedMemberOwnedInsigniaIds(new Set());
+    }
+    setGrantModalOpen(true);
+  };
+
   const handleExecuteGrantInsignia = async () => {
     if (!selectedMember || !selectedInsigniaId) {
       toast.error("Selecione a insígnia desejada.");
@@ -668,12 +683,7 @@ export function DevGamificationManager({ initialTab = "membros" }: { initialTab?
                           <Button
                             variant="outline"
                             size="sm"
-                            onClick={() => {
-                              setSelectedMember(m);
-                              setSelectedInsigniaId("");
-                              setGrantReason("");
-                              setGrantModalOpen(true);
-                            }}
+                            onClick={() => handleOpenGrantModal(m)}
                             className="h-8 px-1 text-xs font-bold gap-1 border-amber-500/40 text-amber-300 hover:bg-amber-500/10 w-full"
                           >
                             <Award className="w-3.5 h-3.5 text-amber-400 shrink-0" />
@@ -809,12 +819,7 @@ export function DevGamificationManager({ initialTab = "membros" }: { initialTab?
                                   <Button
                                     variant="outline"
                                     size="sm"
-                                    onClick={() => {
-                                      setSelectedMember(m);
-                                      setSelectedInsigniaId("");
-                                      setGrantReason("");
-                                      setGrantModalOpen(true);
-                                    }}
+                                    onClick={() => handleOpenGrantModal(m)}
                                     className="h-8 px-2.5 text-xs font-bold gap-1 border-amber-500/40 text-amber-300 hover:bg-amber-500/10"
                                   >
                                     <Award className="w-3.5 h-3.5 text-amber-400" />
@@ -1471,27 +1476,33 @@ export function DevGamificationManager({ initialTab = "membros" }: { initialTab?
           <div className="space-y-4 py-2">
             <div className="space-y-1.5">
               <Label className="text-xs font-bold">Selecione a Insígnia do Catálogo *</Label>
-              <Select value={selectedInsigniaId} onValueChange={setSelectedInsigniaId}>
-                <SelectTrigger className="w-full h-10">
-                  <SelectValue placeholder="Escolha a insígnia..." />
-                </SelectTrigger>
-                <SelectContent className="max-h-72">
-                  {insignias
-                    .filter((b) => b.active)
-                    .map((badge) => {
-                      const rarity = RARITY_CONFIG[badge.rarity] || RARITY_CONFIG.comum;
-                      return (
-                        <SelectItem key={badge.id} value={badge.id}>
-                          <div className="flex items-center gap-2">
-                            <span className={cn("font-bold", rarity.textClass)}>[{rarity.label}]</span>
-                            <span>{badge.name}</span>
-                            <span className="text-xs text-muted-foreground font-mono">({badge.xp_cost} XP)</span>
-                          </div>
-                        </SelectItem>
-                      );
-                    })}
-                </SelectContent>
-              </Select>
+              {insignias.filter((b) => b.active && !selectedMemberOwnedInsigniaIds.has(b.id)).length === 0 ? (
+                <div className="p-3 rounded-xl border border-amber-500/30 bg-amber-500/10 text-xs text-amber-300">
+                  Este membro já possui todas as insígnias ativas disponíveis no catálogo.
+                </div>
+              ) : (
+                <Select value={selectedInsigniaId} onValueChange={setSelectedInsigniaId}>
+                  <SelectTrigger className="w-full h-10">
+                    <SelectValue placeholder="Escolha a insígnia..." />
+                  </SelectTrigger>
+                  <SelectContent className="max-h-72">
+                    {insignias
+                      .filter((b) => b.active && !selectedMemberOwnedInsigniaIds.has(b.id))
+                      .map((badge) => {
+                        const rarity = RARITY_CONFIG[badge.rarity] || RARITY_CONFIG.comum;
+                        return (
+                          <SelectItem key={badge.id} value={badge.id}>
+                            <div className="flex items-center gap-2">
+                              <span className={cn("font-bold", rarity.textClass)}>[{rarity.label}]</span>
+                              <span>{badge.name}</span>
+                              <span className="text-xs text-muted-foreground font-mono">({badge.xp_cost} XP)</span>
+                            </div>
+                          </SelectItem>
+                        );
+                      })}
+                  </SelectContent>
+                </Select>
+              )}
             </div>
 
             <div className="p-3 rounded-xl border border-amber-500/30 bg-amber-500/10 text-xs text-amber-300 flex items-center gap-2.5">
