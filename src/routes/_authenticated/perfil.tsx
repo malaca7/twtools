@@ -48,6 +48,7 @@ import { UserAppearanceSettings } from "@/components/profile/UserAppearanceSetti
 import { UniversalImageAdjusterModal } from "@/components/ui/UniversalImageAdjusterModal";
 import { SocialNetworksConfigCard } from "@/components/profile/SocialNetworksConfigCard";
 import { getProxiedImageUrl } from "@/services/postimagesService";
+import { MemberGamificationCard } from "@/components/gamification/MemberGamificationCard";
 
 export const Route = createFileRoute("/_authenticated/perfil")({
   component: PerfilWrapper,
@@ -400,6 +401,14 @@ export function PerfilPage({ initialTab }: { initialTab?: "perfil" | "dados" | "
 
         {/* ABA UNIFICADA: MEU PERFIL */}
         <TabsContent value="perfil" className="space-y-6 animate-in fade-in-50 duration-200">
+          {/* GAMIFICAÇÃO, XP, NÍVEL E INSÍGNIAS DO MEMBRO */}
+          <MemberGamificationCard
+            userId={user?.id || ""}
+            totalXp={profile?.xp || 0}
+            starsRating={profile?.stars_rating}
+            starsCount={profile?.stars_count}
+          />
+
           <div className="grid gap-6 md:grid-cols-3">
             {/* COLUNA ESQUERDA: RESUMO DO USUÁRIO & FOTO COM STUDIO */}
             <Card className="surface-card md:col-span-1 h-fit overflow-hidden p-0 border border-border/80 shadow-md">

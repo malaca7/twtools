@@ -73,7 +73,7 @@ export function InsigniaGrantModal({
   grantorXp,
 }: InsigniaGrantModalProps) {
   const queryClient = useQueryClient();
-  const { user, hasPermission } = useAuth();
+  const { user, hasPermission, refresh } = useAuth();
   const canGrant = hasPermission("grant_insignia");
 
   const [selectedInsigniaId, setSelectedInsigniaId] = useState<string>("");
@@ -85,6 +85,17 @@ export function InsigniaGrantModal({
     queryFn: getInsigniasCatalog,
     enabled: open,
   });
+
+  const { data: targetMemberInsignias = [] } = useQuery({
+    queryKey: ["member_insignias", targetMember?.user_id],
+    queryFn: () => (targetMember?.user_id ? getMemberInsignias(targetMember.user_id) : Promise.resolve([])),
+    enabled: open && Boolean(targetMember?.user_id),
+  });
+
+  const alreadyOwnedIds = useMemo(
+    () => new Set(targetMemberInsignias.map((b) => b.insignia_id)),
+    [targetMemberInsignias]
+  );
 
   const filteredCatalog = useMemo(() => {
     if (!search.trim()) return catalog;
@@ -103,6 +114,7 @@ export function InsigniaGrantModal({
   );
 
   const hasEnoughXp = selectedInsignia ? grantorXp >= selectedInsignia.xp_cost : true;
+  const isAlreadyOwned = selectedInsignia ? alreadyOwnedIds.has(selectedInsignia.id) : false;
   const xpDifference = selectedInsignia ? selectedInsignia.xp_cost - grantorXp : 0;
 
   const grantMutation = useMutation({
@@ -110,6 +122,7 @@ export function InsigniaGrantModal({
       if (!canGrant) throw new Error("Você não possui permissão para conceder insígnias.");
       if (!targetMember) throw new Error("Nenhum membro selecionado.");
       if (!selectedInsigniaId) throw new Error("Selecione uma insígnia.");
+      if (isAlreadyOwned) throw new Error("Este membro já possui esta insígnia.");
       if (!reason.trim()) throw new Error("Informe o motivo da concessão.");
 
       return await grantInsignia({
@@ -124,6 +137,8 @@ export function InsigniaGrantModal({
       void queryClient.invalidateQueries({ queryKey: ["member_insignias"] });
       void queryClient.invalidateQueries({ queryKey: ["members"] });
       void queryClient.invalidateQueries({ queryKey: ["profile"] });
+      void queryClient.invalidateQueries({ queryKey: ["profiles"] });
+      void refresh();
       onOpenChange(false);
       setSelectedInsigniaId("");
       setReason("");
@@ -235,25 +250,34 @@ export function InsigniaGrantModal({
                   const isSelected = selectedInsigniaId === insignia.id;
                   const rarity = RARITY_CONFIG[insignia.rarity] || RARITY_CONFIG.comum;
                   const isAffordable = grantorXp >= insignia.xp_cost;
+                  const isOwned = alreadyOwnedIds.has(insignia.id);
 
                   return (
                     <div
                       key={insignia.id}
                       role="button"
                       tabIndex={0}
-                      onClick={() => setSelectedInsigniaId(insignia.id)}
+                      onClick={() => {
+                        if (isOwned) {
+                          toast.info(`O membro já possui a insígnia "${insignia.name}".`);
+                          return;
+                        }
+                        setSelectedInsigniaId(insignia.id);
+                      }}
                       onKeyDown={(e) => {
                         if (e.key === " " || e.key === "Enter") {
                           e.preventDefault();
-                          setSelectedInsigniaId(insignia.id);
+                          if (!isOwned) setSelectedInsigniaId(insignia.id);
                         }
                       }}
                       className={cn(
                         "p-2.5 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between gap-2 select-none relative",
                         isSelected
                           ? "bg-amber-500/15 border-amber-500/70 shadow-sm"
+                          : isOwned
+                          ? "bg-secondary/10 border-border/40 opacity-60 cursor-not-allowed"
                           : "bg-secondary/20 border-border/60 hover:bg-secondary/40",
-                        !isAffordable && "opacity-75"
+                        !isAffordable && !isOwned && "opacity-75"
                       )}
                     >
                       <div className="flex items-start gap-2.5">
@@ -272,9 +296,13 @@ export function InsigniaGrantModal({
                             <h4 className="text-xs font-bold text-foreground truncate">
                               {insignia.name}
                             </h4>
-                            {isSelected && (
+                            {isOwned ? (
+                              <Badge className="bg-emerald-500/15 text-emerald-400 border-emerald-500/30 text-[9px] font-bold px-1.5 py-0">
+                                Já Possui
+                              </Badge>
+                            ) : isSelected ? (
                               <Check className="h-3.5 w-3.5 text-amber-400 shrink-0" />
-                            )}
+                            ) : null}
                           </div>
                           <p className="text-[10px] text-muted-foreground line-clamp-2 leading-tight mt-0.5">
                             {insignia.description}
@@ -292,10 +320,14 @@ export function InsigniaGrantModal({
                         <span
                           className={cn(
                             "font-mono font-bold",
-                            isAffordable ? "text-amber-400" : "text-destructive"
+                            isOwned
+                              ? "text-muted-foreground"
+                              : isAffordable
+                              ? "text-amber-400"
+                              : "text-destructive"
                           )}
                         >
-                          {insignia.xp_cost > 0 ? `${insignia.xp_cost} XP` : "Gratuita"}
+                          {isOwned ? "Entregue" : insignia.xp_cost > 0 ? `${insignia.xp_cost} XP` : "Gratuita"}
                         </span>
                       </div>
                     </div>

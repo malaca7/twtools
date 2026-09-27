@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import {
@@ -28,6 +28,7 @@ import {
 } from "@/services/gamificationService";
 import { useAuth } from "@/hooks/useAuth";
 import { cn } from "@/lib/utils";
+import { MemberInsigniasListModal } from "@/components/gamification/MemberInsigniasListModal";
 
 const ICON_MAP: Record<string, React.ElementType> = {
   Award,
@@ -69,6 +70,7 @@ export function MemberGamificationCard({
   className,
   showInsignias = true,
 }: MemberGamificationCardProps) {
+  const [isModalOpen, setIsModalOpen] = useState(false);
   const { hasPermission } = useAuth();
   const canViewXp = hasPermission("view_member_xp");
   const canViewInsignias = hasPermission("view_insignias");
@@ -86,7 +88,8 @@ export function MemberGamificationCard({
   if (!canViewXp) return null;
 
   return (
-    <Card
+    <>
+      <Card
       className={cn(
         "surface-card border-amber-500/30 bg-gradient-to-r from-amber-500/10 via-amber-500/[0.03] to-transparent shadow-lg relative overflow-hidden",
         className
@@ -185,45 +188,71 @@ export function MemberGamificationCard({
         </div>
 
         {/* INSÍGNIAS CONQUISTADAS */}
-        {effectiveShowInsignias && memberInsignias.length > 0 && (
+        {effectiveShowInsignias && (
           <div className="pt-2 border-t border-border/40 space-y-2">
             <div className="flex items-center justify-between text-xs">
               <span className="font-bold text-foreground flex items-center gap-1.5">
                 <Award className="h-3.5 w-3.5 text-amber-400" /> Insígnias Conquistadas ({memberInsignias.length}):
               </span>
-              <Link to="/rankings" className="text-[10px] text-amber-400 hover:underline">
-                Ver todas no ranking
-              </Link>
+              {memberInsignias.length > 0 ? (
+                <button
+                  type="button"
+                  onClick={() => setIsModalOpen(true)}
+                  className="text-[10px] text-amber-400 hover:text-amber-300 hover:underline cursor-pointer font-semibold"
+                >
+                  Ver detalhes completos
+                </button>
+              ) : (
+                <Link to="/rankings" className="text-[10px] text-amber-400 hover:underline font-semibold">
+                  Ver catálogo no ranking
+                </Link>
+              )}
             </div>
 
-            <div className="flex flex-wrap items-center gap-2">
-              {memberInsignias.map((grant) => {
-                const badge = grant.insignia;
-                if (!badge) return null;
-                const rarity = RARITY_CONFIG[badge.rarity] || RARITY_CONFIG.comum;
+            {memberInsignias.length > 0 ? (
+              <div className="flex flex-wrap items-center gap-2">
+                {memberInsignias.map((grant) => {
+                  const badge = grant.insignia;
+                  if (!badge) return null;
+                  const rarity = RARITY_CONFIG[badge.rarity] || RARITY_CONFIG.comum;
 
-                return (
-                  <div
-                    key={grant.id}
-                    title={`${badge.name} (${rarity.label})\nMotivo: ${grant.reason}\nConcedido por: ${grant.grantor_name}`}
-                    className={cn(
-                      "flex items-center gap-1.5 px-2.5 py-1 rounded-xl border text-xs shadow-xs transition-transform hover:scale-105 select-none",
-                      rarity.bgClass,
-                      rarity.borderClass,
-                      rarity.textClass
-                    )}
-                  >
-                    {renderInsigniaIcon(badge.icon, "h-3.5 w-3.5 shrink-0")}
-                    <span className="font-bold text-[11px] truncate max-w-[120px]">
-                      {badge.name}
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
+                  return (
+                    <button
+                      type="button"
+                      key={grant.id}
+                      onClick={() => setIsModalOpen(true)}
+                      title={`${badge.name} (${rarity.label})\nMotivo: ${grant.reason}\nConcedido por: ${grant.grantor_name}`}
+                      className={cn(
+                        "flex items-center gap-1.5 px-2.5 py-1 rounded-xl border text-xs shadow-xs transition-all hover:scale-105 select-none cursor-pointer",
+                        rarity.bgClass,
+                        rarity.borderClass,
+                        rarity.textClass
+                      )}
+                    >
+                      {renderInsigniaIcon(badge.icon, "h-3.5 w-3.5 shrink-0")}
+                      <span className="font-bold text-[11px] truncate max-w-[120px]">
+                        {badge.name}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="py-2.5 px-3 rounded-xl bg-secondary/30 border border-border/40 text-[11px] text-muted-foreground flex items-center gap-2">
+                <Sparkles className="h-4 w-4 text-amber-400/70 shrink-0" />
+                <span>Nenhuma insígnia conquistada ainda. Participe de ações, eventos e doações para ser condecorado pela liderança!</span>
+              </div>
+            )}
           </div>
         )}
       </CardContent>
     </Card>
+
+    <MemberInsigniasListModal
+      open={isModalOpen}
+      onOpenChange={setIsModalOpen}
+      member={{ user_id: userId, nome: "Membro", nickname: "Minhas Condecorações" }}
+    />
+  </>
   );
 }

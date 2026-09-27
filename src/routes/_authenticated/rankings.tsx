@@ -49,6 +49,7 @@ import {
 import { InsigniaGrantModal } from "@/components/gamification/InsigniaGrantModal";
 import { MemberEvaluationModal } from "@/components/gamification/MemberEvaluationModal";
 import { InsigniaCatalogManagerModal } from "@/components/gamification/InsigniaCatalogManagerModal";
+import { MemberInsigniasListModal } from "@/components/gamification/MemberInsigniasListModal";
 
 export const Route = createFileRoute("/_authenticated/rankings")({
   component: RankingsWrapper,
@@ -100,6 +101,7 @@ export function RankingsPage() {
   // Modais de avaliação, concessão e catálogo
   const [evaluatingMember, setEvaluatingMember] = useState<RankedGamificationMember | null>(null);
   const [grantingInsigniaMember, setGrantingInsigniaMember] = useState<RankedGamificationMember | null>(null);
+  const [viewingInsigniasMember, setViewingInsigniasMember] = useState<RankedGamificationMember | null>(null);
   const [isCatalogModalOpen, setIsCatalogModalOpen] = useState(false);
 
   // Consultas aos dados existentes e gamificação
@@ -313,15 +315,31 @@ export function RankingsPage() {
               </div>
 
               <div className="flex items-center justify-between pt-1">
-                <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                  <Award className="h-3.5 w-3.5 text-amber-400" />
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (currentUserGamification) {
+                      setViewingInsigniasMember(currentUserGamification);
+                    } else if (user?.id) {
+                      setViewingInsigniasMember({
+                        user_id: user.id,
+                        nome: profile?.nome || "Você",
+                        nickname: profile?.nickname || null,
+                        avatar_url: profile?.avatar_url || null,
+                      } as any);
+                    }
+                  }}
+                  className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-amber-300 transition-colors cursor-pointer group"
+                  title="Ver minhas insígnias conquistadas"
+                >
+                  <Award className="h-3.5 w-3.5 text-amber-400 group-hover:scale-110 transition-transform" />
                   <span>
                     <strong className="text-foreground font-mono">
                       {currentUserGamification?.insignias_count ?? 0}
                     </strong>{" "}
                     insígnias
                   </span>
-                </div>
+                </button>
 
                 <Link
                   to="/perfil"
@@ -889,10 +907,16 @@ export function RankingsPage() {
                                   {/* Insígnias */}
                                   <TableCell className="text-center">
                                     {m.insignias_count > 0 ? (
-                                      <Badge variant="outline" className="border-amber-500/50 bg-amber-500/10 text-amber-300 font-bold text-xs gap-1">
+                                      <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => setViewingInsigniasMember(m)}
+                                        title="Ver insígnias conquistadas por este membro"
+                                        className="h-7 px-2 border-amber-500/50 bg-amber-500/10 text-amber-300 font-bold text-xs gap-1 hover:bg-amber-500/20 hover:text-amber-200 cursor-pointer shadow-xs"
+                                      >
                                         <Award className="h-3.5 w-3.5" />
                                         <span>{m.insignias_count}</span>
-                                      </Badge>
+                                      </Button>
                                     ) : (
                                       <span className="text-xs text-muted-foreground font-mono">0</span>
                                     )}
@@ -1181,6 +1205,21 @@ export function RankingsPage() {
         }}
         targetMember={grantingInsigniaMember}
         grantorXp={profile?.xp || 0}
+      />
+
+      {/* MODAL DE VISUALIZAÇÃO DE INSÍGNIAS DO INTEGRANTE */}
+      <MemberInsigniasListModal
+        open={Boolean(viewingInsigniasMember)}
+        onOpenChange={(isOpen) => {
+          if (!isOpen) setViewingInsigniasMember(null);
+        }}
+        member={viewingInsigniasMember}
+        onGrantClick={() => {
+          if (viewingInsigniasMember) {
+            setGrantingInsigniaMember(viewingInsigniasMember);
+          }
+        }}
+        canGrant={canGrantInsignia}
       />
 
       {/* MODAL ADMINISTRATIVO DE GERENCIAMENTO DO CATÁLOGO DE INSÍGNIAS */}
