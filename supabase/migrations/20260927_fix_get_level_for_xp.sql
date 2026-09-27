@@ -1,9 +1,13 @@
 -- ============================================================================
--- FIX: Criar função public.get_level_for_xp(BIGINT) e atualizar RPCs
--- Resolve o erro: function public.get_level_for_xp(bigint) does not exist
+-- FIX: Criar função public.get_level_for_xp(BIGINT) e desambiguar RPCs
+-- Resolve o erro: Could not choose the best candidate function between integer e bigint
 -- ============================================================================
 
--- 1. Criar função get_level_for_xp mapeando para calculate_gamification_level
+-- 1. Dropar sobrecargas ambíguas de INTEGER que conflitam no PostgREST
+DROP FUNCTION IF EXISTS public.exchange_xp_for_coins_rpc(INTEGER);
+DROP FUNCTION IF EXISTS public.get_level_for_xp(INTEGER);
+
+-- 2. Criar função get_level_for_xp única (BIGINT aceita inteiros automaticamente por coerção)
 CREATE OR REPLACE FUNCTION public.get_level_for_xp(p_xp BIGINT)
 RETURNS INTEGER
 LANGUAGE sql
@@ -15,22 +19,9 @@ AS $$
   SELECT public.calculate_gamification_level(p_xp);
 $$;
 
--- Suporte a overload INTEGER
-CREATE OR REPLACE FUNCTION public.get_level_for_xp(p_xp INTEGER)
-RETURNS INTEGER
-LANGUAGE sql
-IMMUTABLE
-PARALLEL SAFE
-SECURITY DEFINER
-SET search_path = public
-AS $$
-  SELECT public.calculate_gamification_level(p_xp::BIGINT);
-$$;
-
 GRANT EXECUTE ON FUNCTION public.get_level_for_xp(BIGINT) TO authenticated, service_role, anon;
-GRANT EXECUTE ON FUNCTION public.get_level_for_xp(INTEGER) TO authenticated, service_role, anon;
 
--- 2. Atualizar exchange_xp_for_coins_rpc para resiliência e integridade total
+-- 3. Atualizar exchange_xp_for_coins_rpc com assinatura única BIGINT
 CREATE OR REPLACE FUNCTION public.exchange_xp_for_coins_rpc(
   p_xp_amount BIGINT
 )
