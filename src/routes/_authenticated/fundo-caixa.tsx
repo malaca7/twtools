@@ -68,9 +68,14 @@ export const Route = createFileRoute("/_authenticated/fundo-caixa")({
 
 export function FundoCaixaPage() {
   const { hasPermission } = useAuth();
+  if (!hasPermission("view_cash_fund")) return <NoAccess />;
+  return <FundoCaixaContent />;
+}
+
+function FundoCaixaContent() {
+  const { hasPermission } = useAuth();
   const queryClient = useQueryClient();
 
-  const canView = hasPermission("view_cash_fund");
   const canManage = hasPermission("manage_cash_fund");
   const canReverse = hasPermission("reverse_cash_fund");
   const canDelete = hasPermission("delete_cash_movement");
@@ -160,8 +165,6 @@ export function FundoCaixaPage() {
     },
     onError: (err) => toast.error(errorMessage(err)),
   });
-
-  if (!canView) return <NoAccess />;
 
   // Filtered movements
   const filtered = movements.filter((m) => {

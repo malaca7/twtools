@@ -54,13 +54,6 @@ export interface PublicProfilePageProps {
 }
 
 export function PublicProfilePage({ handleOverride, isRootRoute = false }: PublicProfilePageProps = {}) {
-  const navigate = useNavigate();
-  const { user } = useAuth();
-  const { data: members = [] } = useMembers();
-
-  const [copiedLink, setCopiedLink] = useState(false);
-  const [startingChat, setStartingChat] = useState(false);
-
   // Normaliza o handle recebido (decodifica, remove @ ou %40 e coloca em minúsculas)
   const rawHandle = (() => {
     try {
@@ -75,6 +68,18 @@ export function PublicProfilePage({ handleOverride, isRootRoute = false }: Publi
   if (cleanHandle === "aparencia" || cleanHandle === "dados" || cleanHandle === "publico") {
     return <PerfilPage initialTab={cleanHandle as any} />;
   }
+
+  return <PublicProfileContent cleanHandle={cleanHandle} isRootRoute={isRootRoute} />;
+}
+
+function PublicProfileContent({ cleanHandle, isRootRoute }: { cleanHandle: string; isRootRoute: boolean }) {
+  const navigate = useNavigate();
+  const { user } = useAuth();
+  const { data: members = [] } = useMembers();
+
+  const [copiedLink, setCopiedLink] = useState(false);
+  const [startingChat, setStartingChat] = useState(false);
+  const [isInsigniasModalOpen, setIsInsigniasModalOpen] = useState(false);
 
   // 1. Busca rápida em cache local nos membros carregados
   const cachedMember = members.find((m) => {
@@ -154,6 +159,15 @@ export function PublicProfilePage({ handleOverride, isRootRoute = false }: Publi
   });
 
   const memberData = dbProfile || cachedMember;
+  const userId = memberData?.user_id;
+
+  const { data: memberInsignias = [] } = useQuery({
+    queryKey: ["member_insignias", userId],
+    queryFn: () => (userId ? getMemberInsignias(userId) : Promise.resolve([])),
+    enabled: Boolean(userId),
+    staleTime: 60 * 1000,
+  });
+
   const isTargetLoading = !cachedMember && isDbLoading;
 
   if (isTargetLoading) {
@@ -210,17 +224,8 @@ export function PublicProfilePage({ handleOverride, isRootRoute = false }: Publi
     );
   }
 
-  const userId = memberData.user_id;
   const isSelf = Boolean(user && userId === user.id);
   const isPublicProfileEnabled = memberData.custom_theme?.public_profile_enabled !== false;
-
-  const [isInsigniasModalOpen, setIsInsigniasModalOpen] = useState(false);
-  const { data: memberInsignias = [] } = useQuery({
-    queryKey: ["member_insignias", userId],
-    queryFn: () => (userId ? getMemberInsignias(userId) : Promise.resolve([])),
-    enabled: Boolean(userId),
-    staleTime: 60 * 1000,
-  });
 
   // Se o perfil estiver em modo privado e o visitante não estiver autenticado
   if (!isPublicProfileEnabled && !user) {

@@ -112,22 +112,15 @@ export const ChatMessageText: React.FC<ChatMessageTextProps> = ({
   className,
   showPreview = true,
 }) => {
-  if (isDeleted) {
-    return (
-      <p className={cn("text-[13.5px] leading-relaxed whitespace-pre-wrap break-words italic opacity-70", className)}>
-        🚫 Mensagem apagada
-      </p>
-    );
-  }
-
-  if (!content) return null;
-
   // Extract first URL for preview card
-  const firstUrl = useMemo(() => extractFirstUrl(content), [content]);
+  const firstUrl = useMemo(
+    () => (!isDeleted && content ? extractFirstUrl(content) : null),
+    [content, isDeleted]
+  );
 
   // Tokenize text into plain string and URL tokens
   const tokens = useMemo(() => {
-    if (!content) return [];
+    if (isDeleted || !content) return [];
     const parts: { type: "text" | "link"; value: string; url: string }[] = [];
     let lastIdx = 0;
     const regex = new RegExp(URL_REGEX.source, "gi");
@@ -173,7 +166,17 @@ export const ChatMessageText: React.FC<ChatMessageTextProps> = ({
     }
 
     return parts;
-  }, [content]);
+  }, [content, isDeleted]);
+
+  if (isDeleted) {
+    return (
+      <p className={cn("text-[13.5px] leading-relaxed whitespace-pre-wrap break-words italic opacity-70", className)}>
+        🚫 Mensagem apagada
+      </p>
+    );
+  }
+
+  if (!content) return null;
 
   return (
     <div className="space-y-1">
