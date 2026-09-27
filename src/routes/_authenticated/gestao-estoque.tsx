@@ -464,6 +464,25 @@ function ProdutosTabContent({ canManage, canAdjustSaldos, onNavigateToAdjust }: 
     }
   };
 
+  const handleRemoveProductImage = async () => {
+    setImagemUrl("");
+    if (editingProduct?.id) {
+      const toastId = toast.loading("Removendo foto do produto...");
+      try {
+        await updateProduct({
+          id: editingProduct.id,
+          imagem_url: null,
+        });
+        void queryClient.invalidateQueries({ queryKey: ["products"] });
+        toast.success("Foto do produto removida com sucesso!", { id: toastId });
+      } catch (err: any) {
+        toast.error(err.message || "Erro ao remover foto do produto.", { id: toastId });
+      }
+    } else {
+      toast.info("Foto removida.");
+    }
+  };
+
   const saveMutation = useMutation({
     mutationFn: async () => {
       if (!nome.trim()) throw new Error("Informe o nome do produto.");
@@ -487,7 +506,7 @@ function ProdutosTabContent({ canManage, canAdjustSaldos, onNavigateToAdjust }: 
         unidade: unidade.trim() || "un",
         estoque_minimo: estoqueMin,
         preco_sugerido: precoSugerido,
-        imagem_url: imagemUrl.trim() || undefined,
+        imagem_url: imagemUrl.trim() ? imagemUrl.trim() : null,
       };
 
       if (editingProduct) {
@@ -1238,35 +1257,37 @@ function ProdutosTabContent({ canManage, canAdjustSaldos, onNavigateToAdjust }: 
               </div>
 
               {/* FOTO DO PRODUTO COM UPLOAD DIRETO OU LINK */}
-              <div className="space-y-2 p-3 rounded-xl border border-border/70 bg-secondary/30">
+              <div className="space-y-2.5 p-3.5 rounded-xl border border-border/70 bg-secondary/30">
                 <div className="flex items-center justify-between">
-                  <Label className="text-xs font-bold">Foto do Produto (Opcional)</Label>
+                  <Label className="text-xs font-bold text-foreground">Foto do Produto (Opcional)</Label>
                   {imagemUrl && (
-                    <button
+                    <Button
                       type="button"
-                      onClick={() => setImagemUrl("")}
-                      className="text-[10px] text-destructive hover:underline flex items-center gap-1 cursor-pointer"
+                      variant="ghost"
+                      size="sm"
+                      onClick={handleRemoveProductImage}
+                      className="h-6 px-2 text-[11px] text-destructive hover:text-destructive hover:bg-destructive/10 font-bold gap-1 cursor-pointer rounded-lg"
                     >
-                      <X className="w-3 h-3" /> Remover foto
-                    </button>
+                      <Trash2 className="w-3 h-3" /> Remover Foto
+                    </Button>
                   )}
                 </div>
 
-                <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 rounded-xl border border-border/80 flex items-center justify-center overflow-hidden bg-background shrink-0 shadow-inner">
+                <div className="flex items-center gap-3.5">
+                  <div className="w-14 h-14 rounded-2xl border border-border/80 flex items-center justify-center overflow-hidden bg-background shrink-0 shadow-inner p-1">
                     {imagemUrl ? (
-                      <ProductThumbnail src={imagemUrl} name={nome || "Preview"} size="lg" className="h-full w-full rounded-none border-0" />
+                      <ProductThumbnail src={imagemUrl} name={nome || "Preview"} size="lg" className="h-full w-full rounded-xl border-0" />
                     ) : (
-                      <Boxes className="w-5 h-5 text-muted-foreground opacity-40" />
+                      <Boxes className="w-6 h-6 text-muted-foreground opacity-40" />
                     )}
                   </div>
 
-                  <div className="flex-1 space-y-1.5 min-w-0">
+                  <div className="flex-1 space-y-2 min-w-0">
                     <div className="flex items-center gap-2">
                       <input
                         ref={productImageInputRef}
                         type="file"
-                        accept="image/*"
+                        accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml"
                         className="hidden"
                         onChange={handleProductImageUpload}
                       />
@@ -1276,17 +1297,17 @@ function ProdutosTabContent({ canManage, canAdjustSaldos, onNavigateToAdjust }: 
                         size="sm"
                         disabled={isUploadingImage}
                         onClick={() => productImageInputRef.current?.click()}
-                        className="h-7 text-xs font-bold gap-1 rounded-lg border-border/80 cursor-pointer"
+                        className="h-8 text-xs font-bold gap-1.5 rounded-xl border-border/80 cursor-pointer shadow-xs"
                       >
-                        {isUploadingImage ? <RefreshCw className="w-3 h-3 animate-spin" /> : <Upload className="w-3 h-3 text-primary" />}
-                        <span>{isUploadingImage ? "Enviando..." : "Upload Foto"}</span>
+                        {isUploadingImage ? <RefreshCw className="w-3.5 h-3.5 animate-spin text-primary" /> : <Upload className="w-3.5 h-3.5 text-primary" />}
+                        <span>{isUploadingImage ? "Enviando imagem..." : "Upload Foto"}</span>
                       </Button>
                     </div>
                     <Input
                       placeholder="Ou cole o link direto da imagem..."
                       value={imagemUrl}
                       onChange={(e) => setImagemUrl(e.target.value)}
-                      className="text-xs h-7.5"
+                      className="text-xs h-8 rounded-xl bg-background/80"
                     />
                   </div>
                 </div>
@@ -1705,6 +1726,26 @@ function BausTabContent({ canManage }: BausTabContentProps) {
     }
   };
 
+  const handleRemoveBauPhoto = async () => {
+    setFotoUrl("");
+    if (editingBau?.id) {
+      const toastId = toast.loading("Removendo foto do baú...");
+      try {
+        await updateBau({
+          id: editingBau.id,
+          foto_url: null,
+          imagem_url: null,
+        });
+        void queryClient.invalidateQueries({ queryKey: ["baus"] });
+        toast.success("Foto do baú removida com sucesso!", { id: toastId });
+      } catch (err: any) {
+        toast.error(err.message || "Erro ao remover foto do baú.", { id: toastId });
+      }
+    } else {
+      toast.info("Foto removida.");
+    }
+  };
+
   const openCreateModal = () => {
     if (!canManage) return;
     setEditingBau(null);
@@ -1996,35 +2037,38 @@ function BausTabContent({ canManage }: BausTabContentProps) {
 
             <div className="space-y-3.5 py-2 text-xs">
               {/* Foto de Perfil do Baú */}
-              <div className="space-y-2 p-3 rounded-xl border border-border/70 bg-secondary/30">
+              {/* FOTO DO BAÚ COM UPLOAD DIRETO OU LINK */}
+              <div className="space-y-2.5 p-3.5 rounded-xl border border-border/70 bg-secondary/30">
                 <div className="flex items-center justify-between">
                   <Label className="text-xs font-bold text-foreground">Foto de Perfil do Baú (Opcional)</Label>
                   {fotoUrl && (
-                    <button
+                    <Button
                       type="button"
-                      onClick={() => setFotoUrl("")}
-                      className="text-[10px] text-destructive hover:underline flex items-center gap-1 cursor-pointer"
+                      variant="ghost"
+                      size="sm"
+                      onClick={handleRemoveBauPhoto}
+                      className="h-6 px-2 text-[11px] text-destructive hover:text-destructive hover:bg-destructive/10 font-bold gap-1 cursor-pointer rounded-lg"
                     >
-                      <X className="w-3 h-3" /> Remover foto
-                    </button>
+                      <Trash2 className="w-3 h-3" /> Remover Foto
+                    </Button>
                   )}
                 </div>
 
-                <div className="flex items-center gap-3">
-                  <div className="relative w-14 h-14 rounded-xl border-2 border-dashed border-border/80 flex items-center justify-center overflow-hidden bg-background shrink-0 shadow-inner">
+                <div className="flex items-center gap-3.5">
+                  <div className="relative w-14 h-14 rounded-2xl border-2 border-dashed border-border/80 flex items-center justify-center overflow-hidden bg-background shrink-0 shadow-inner p-1">
                     {fotoUrl ? (
-                      <img src={fotoUrl} alt="Preview do Baú" className="w-full h-full object-cover" />
+                      <BauIcon foto_url={fotoUrl} icone={icone} className="w-full h-full object-cover rounded-xl" />
                     ) : (
                       <BauIcon icone={icone} className="w-6 h-6 text-muted-foreground" />
                     )}
                   </div>
 
-                  <div className="flex-1 space-y-1.5 min-w-0">
+                  <div className="flex-1 space-y-2 min-w-0">
                     <div className="flex items-center gap-2">
                       <input
                         ref={fileInputRef}
                         type="file"
-                        accept="image/*"
+                        accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml"
                         className="hidden"
                         onChange={handlePhotoUpload}
                       />
@@ -2034,21 +2078,21 @@ function BausTabContent({ canManage }: BausTabContentProps) {
                         size="sm"
                         disabled={isUploadingPhoto}
                         onClick={() => fileInputRef.current?.click()}
-                        className="h-8 text-xs font-bold gap-1.5 border-border/80 cursor-pointer"
+                        className="h-8 text-xs font-bold gap-1.5 rounded-xl border-border/80 cursor-pointer shadow-xs"
                       >
                         {isUploadingPhoto ? (
                           <RefreshCw className="w-3.5 h-3.5 animate-spin text-primary" />
                         ) : (
                           <Upload className="w-3.5 h-3.5 text-primary" />
                         )}
-                        <span>{isUploadingPhoto ? "Enviando..." : "Upload Foto"}</span>
+                        <span>{isUploadingPhoto ? "Enviando imagem..." : "Upload Foto"}</span>
                       </Button>
                     </div>
                     <Input
                       placeholder="Ou cole o link direto da imagem..."
                       value={fotoUrl}
                       onChange={(e) => setFotoUrl(e.target.value)}
-                      className="text-xs h-7.5"
+                      className="text-xs h-8 rounded-xl bg-background/80"
                     />
                   </div>
                 </div>

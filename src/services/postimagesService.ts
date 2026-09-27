@@ -1,7 +1,7 @@
 /**
- * Serviço de Upload de Imagens via CDN Postimages.org
+ * Serviço de Upload de Imagens via CDN Postimages.org & Proxy de Imagens
  * Roteado de forma transparente e otimizada pelo bot Discloud (https://twin.discloud.app/api/upload-image),
- * garantindo links diretos permanentes (i.postimg.cc), velocidade de CDN global e ZERO egress/armazenamento no banco Supabase.
+ * com fallback direto no navegador, garantindo velocidade de CDN global, suporte a CORS e ZERO egress no Supabase.
  */
 
 export interface PostimagesUploadOptions {
@@ -18,9 +18,9 @@ async function compressImageForUpload(
   maxDimension = 1920,
   quality = 0.85
 ): Promise<{ base64: string; mimeType: string }> {
-  const originalType = (file as File).type || 'image/png';
-  const isTransparentFormat = originalType === 'image/png' || originalType.includes('png') || originalType.includes('svg');
-  const isAnimatedOrVector = originalType.includes('gif') || originalType.includes('svg');
+  const originalType = (file as File).type || "image/png";
+  const isTransparentFormat = originalType === "image/png" || originalType.includes("png") || originalType.includes("svg");
+  const isAnimatedOrVector = originalType.includes("gif") || originalType.includes("svg");
 
   // Para imagens já leves (< 2MB) ou vetores/animações, preserva integridade exata sem recompilar
   if (file.size > 0 && file.size <= 2 * 1024 * 1024 && (isTransparentFormat || isAnimatedOrVector)) {
@@ -30,7 +30,7 @@ async function compressImageForUpload(
       reader.onload = () => {
         resolve({
           base64: reader.result as string,
-          mimeType: originalType
+          mimeType: originalType,
         });
       };
       reader.readAsDataURL(file);
@@ -46,7 +46,7 @@ async function compressImageForUpload(
         // Fallback: se falhar carregamento do Image, retorna base64 original
         resolve({
           base64: reader.result as string,
-          mimeType: originalType
+          mimeType: originalType,
         });
       };
       img.onload = () => {
@@ -57,7 +57,7 @@ async function compressImageForUpload(
         if (width <= maxDimension && height <= maxDimension && file.size <= 2 * 1024 * 1024) {
           return resolve({
             base64: reader.result as string,
-            mimeType: originalType
+            mimeType: originalType,
           });
         }
 
@@ -71,21 +71,21 @@ async function compressImageForUpload(
           }
         }
 
-        const canvas = document.createElement('canvas');
+        const canvas = document.createElement("canvas");
         canvas.width = width;
         canvas.height = height;
-        const ctx = canvas.getContext('2d');
+        const ctx = canvas.getContext("2d");
         if (!ctx) {
           return resolve({
             base64: reader.result as string,
-            mimeType: originalType
+            mimeType: originalType,
           });
         }
 
         // Se o formato original for PNG, preserva transparência sem fundo preto
-        const targetMime = isTransparentFormat ? 'image/png' : (originalType.includes('webp') ? 'image/webp' : 'image/jpeg');
+        const targetMime = isTransparentFormat ? "image/png" : (originalType.includes("webp") ? "image/webp" : "image/jpeg");
         ctx.drawImage(img, 0, 0, width, height);
-        const dataUrl = canvas.toDataURL(targetMime, targetMime === 'image/png' ? undefined : quality);
+        const dataUrl = canvas.toDataURL(targetMime, targetMime === "image/png" ? undefined : quality);
         resolve({ base64: dataUrl, mimeType: targetMime });
       };
       img.src = reader.result as string;
@@ -95,7 +95,51 @@ async function compressImageForUpload(
 }
 
 /**
- * Envia uma imagem para a API Postimages via Bot CDN e retorna o link direto (https://i.postimg.cc/...)
+ * Fallback direto do navegador para o Postimages.org caso o bot Discloud esteja indisponível
+ */
+async function uploadDirectToPostimages(file: File | Blob, filename: string): Promise<string> {
+  const form = new FormData();
+  form.append("gallery", "");
+  form.append("optsize", "0");
+  form.append("expire", "0");
+  form.append("numfiles", "1");
+  form.append("upload_session", `${Date.now()}${Math.random().toString().substring(1)}`);
+  form.append("file", file, filename);
+
+  const res = await fetch("https://postimages.org/json/rr", {
+    method: "POST",
+    body: form,
+    headers: {
+      Accept: "application/json",
+      "X-Requested-With": "XMLHttpRequest",
+    },
+  });
+
+  if (!res.ok) {
+    throw new Error(`Postimages HTTP ${res.status}`);
+  }
+
+  const data = await res.json();
+  if (!data.url) {
+    throw new Error("URL de visualização não retornada pelo Postimages.");
+  }
+
+  const pageRes = await fetch(data.url);
+  const html = await pageRes.text();
+  const inputDirectMatch = html.match(/id=["']direct["'][^>]*value=["']([^"']+)["']/i) || html.match(/value=["'](https:\/\/i\.postimg\.cc\/[^"']+)["']/i);
+  const ogMatch = html.match(/<meta\s+property=["']og:image["']\s+content=["']([^"']+)["']/i) || html.match(/<meta\s+content=["']([^"']+)["']\s+property=["']og:image["']/i);
+  const directMatch = html.match(/https:\/\/i\.postimg\.cc\/[a-zA-Z0-9_\-./]+\.(?:png|jpg|jpeg|webp|gif)/i);
+
+  const cdnUrl = (inputDirectMatch && inputDirectMatch[1]) || (ogMatch && ogMatch[1]) || (directMatch && directMatch[0]);
+  if (!cdnUrl) {
+    throw new Error("Não foi possível extrair link direto CDN da imagem.");
+  }
+
+  return cdnUrl;
+}
+
+/**
+ * Envia uma imagem para a API Postimages via Bot CDN (com fallback automático) e retorna o link direto
  */
 export async function uploadImageToPostimages(file: File | Blob, options: PostimagesUploadOptions = {}): Promise<string> {
   const originalName = file instanceof File ? file.name : "imagem.png";
@@ -108,31 +152,48 @@ export async function uploadImageToPostimages(file: File | Blob, options: Postim
   // 1. Otimiza a imagem localmente antes do envio
   const { base64, mimeType } = await compressImageForUpload(file, options.maxDimension || 1920, options.quality || 0.85);
 
-  // 2. Envia para o CDN Postimages através do endpoint do Bot
-  const res = await fetch("https://twin.discloud.app/api/upload-image", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      filename: uniqueName,
-      base64,
-      contentType: mimeType,
-    }),
-  });
+  // 2. Tenta enviar para o CDN através do endpoint do Bot (com timeout de 15 segundos)
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 15000);
 
-  if (!res.ok) {
-    const errorText = await res.text();
-    throw new Error(`Falha no upload para o Postimages (HTTP ${res.status}): ${errorText}`);
+    const res = await fetch("https://twin.discloud.app/api/upload-image", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        filename: uniqueName,
+        base64,
+        contentType: mimeType,
+      }),
+      signal: controller.signal,
+    });
+
+    clearTimeout(timeoutId);
+
+    if (res.ok) {
+      const data = await res.json();
+      const directCdnUrl = data.cdnUrl || data.url;
+      if (data.success && directCdnUrl) {
+        return directCdnUrl;
+      }
+    }
+  } catch (botErr) {
+    console.warn("Discloud upload-image route failed or timed out, trying direct fallback:", botErr);
   }
 
-  const data = await res.json();
-  const directCdnUrl = data.cdnUrl || data.url;
-  if (!data.success || !directCdnUrl) {
-    throw new Error(data.error || "URL não retornada pela API do Postimages.");
+  // 3. Fallback: upload direto via navegador
+  try {
+    return await uploadDirectToPostimages(file, uniqueName);
+  } catch (directErr: any) {
+    console.warn("Direct upload fallback failed:", directErr);
+    // Se a imagem for pequena o suficiente (< 150KB), pode retornar base64 temporariamente
+    if (base64 && base64.length < 200 * 1024) {
+      return base64;
+    }
+    throw new Error(directErr?.message || "Falha no upload da imagem. Verifique sua conexão e tente novamente.");
   }
-
-  return directCdnUrl;
 }
 
 /**
@@ -157,3 +218,4 @@ export function getProxiedImageUrl(url: string | null | undefined): string {
   }
   return clean;
 }
+

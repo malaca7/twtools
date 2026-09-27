@@ -408,7 +408,8 @@ export async function updateBau(payload: {
   if (payload.descricao !== undefined) updates.descricao = payload.descricao.trim();
   if (payload.icone !== undefined) updates.icone = payload.icone;
   if (payload.foto_url !== undefined || payload.imagem_url !== undefined) {
-    const photo = payload.foto_url !== undefined ? (payload.foto_url?.trim() || null) : (payload.imagem_url?.trim() || null);
+    const rawPhoto = payload.foto_url !== undefined ? payload.foto_url : payload.imagem_url;
+    const photo = rawPhoto && typeof rawPhoto === "string" ? (rawPhoto.trim() || null) : null;
     updates.foto_url = photo;
     updates.imagem_url = photo;
   }
@@ -1946,7 +1947,10 @@ export async function updateProduct(payload: { id: string; nome?: string; cda_na
   if (payload.unidade !== undefined) updates.unidade = payload.unidade;
   if (payload.estoque_minimo !== undefined) updates.estoque_minimo = payload.estoque_minimo;
   if (payload.preco_sugerido !== undefined) updates.preco_sugerido = payload.preco_sugerido;
-  if (payload.imagem_url !== undefined) updates.imagem_url = payload.imagem_url ? payload.imagem_url.trim() : null;
+  if (payload.imagem_url !== undefined) {
+    const rawImg = payload.imagem_url;
+    updates.imagem_url = rawImg && typeof rawImg === "string" ? (rawImg.trim() || null) : null;
+  }
   if (payload.ativo !== undefined) updates.ativo = payload.ativo;
   updates.updated_at = new Date().toISOString();
 

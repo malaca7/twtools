@@ -137,6 +137,26 @@ export function BauManagerModal({ trigger }: { trigger?: ReactNode }) {
     }
   };
 
+  const handleRemoveBauPhoto = async () => {
+    setFotoUrl("");
+    if (editingBau?.id) {
+      const toastId = toast.loading("Removendo foto do baú...");
+      try {
+        await updateBau({
+          id: editingBau.id,
+          foto_url: null,
+          imagem_url: null,
+        });
+        void queryClient.invalidateQueries({ queryKey: ["baus"] });
+        toast.success("Foto do baú removida com sucesso!", { id: toastId });
+      } catch (err: any) {
+        toast.error(err.message || "Erro ao remover foto do baú.", { id: toastId });
+      }
+    } else {
+      toast.info("Foto removida.");
+    }
+  };
+
   // Helper para computar se um baú possui saldo positivo de algum item
   const getBauStockInfo = (bauId: string) => {
     let totalUnits = 0;
@@ -358,39 +378,41 @@ export function BauManagerModal({ trigger }: { trigger?: ReactNode }) {
 
               <div className="space-y-3">
                 {/* Foto de Perfil do Baú */}
-                <div className="space-y-2 p-3 rounded-xl border border-border/70 bg-card/40">
-                  <Label className="text-xs font-bold text-foreground flex items-center justify-between">
-                    <span>Foto de Perfil do Baú (Opcional)</span>
+                <div className="space-y-2.5 p-3.5 rounded-xl border border-border/70 bg-card/40">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-xs font-bold text-foreground">Foto de Perfil do Baú (Opcional)</Label>
                     {fotoUrl && (
-                      <button
+                      <Button
                         type="button"
-                        onClick={() => setFotoUrl("")}
-                        className="text-[10px] text-destructive hover:underline flex items-center gap-1"
+                        variant="ghost"
+                        size="sm"
+                        onClick={handleRemoveBauPhoto}
+                        className="h-6 px-2 text-[11px] text-destructive hover:text-destructive hover:bg-destructive/10 font-bold gap-1 cursor-pointer rounded-lg"
                       >
-                        <X className="w-3 h-3" /> Remover foto
-                      </button>
+                        <Trash2 className="w-3 h-3" /> Remover Foto
+                      </Button>
                     )}
-                  </Label>
+                  </div>
 
-                  <div className="flex items-center gap-3">
-                    <div className="relative w-14 h-14 rounded-xl border-2 border-dashed border-border/80 flex items-center justify-center overflow-hidden bg-secondary/50 shrink-0 shadow-inner">
+                  <div className="flex items-center gap-3.5">
+                    <div className="relative w-14 h-14 rounded-2xl border-2 border-dashed border-border/80 flex items-center justify-center overflow-hidden bg-secondary/50 shrink-0 shadow-inner p-1">
                       {fotoUrl ? (
-                        <img
-                          src={fotoUrl}
-                          alt="Preview do Baú"
-                          className="w-full h-full object-cover"
+                        <BauIcon
+                          foto_url={fotoUrl}
+                          icone={icone}
+                          className="w-full h-full object-cover rounded-xl"
                         />
                       ) : (
                         <BauIcon icone={icone} className="w-6 h-6 text-muted-foreground" />
                       )}
                     </div>
 
-                    <div className="flex-1 space-y-1.5 min-w-0">
+                    <div className="flex-1 space-y-2 min-w-0">
                       <div className="flex items-center gap-2">
                         <input
                           ref={fileInputRef}
                           type="file"
-                          accept="image/png,image/jpeg,image/webp,image/gif"
+                          accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml"
                           className="hidden"
                           onChange={handlePhotoSelect}
                         />
@@ -400,10 +422,10 @@ export function BauManagerModal({ trigger }: { trigger?: ReactNode }) {
                           size="sm"
                           disabled={isUploadingPhoto || isSavingAdjustedPhoto}
                           onClick={() => fileInputRef.current?.click()}
-                          className="h-8 text-xs font-bold gap-1.5 border-border/80"
+                          className="h-8 text-xs font-bold gap-1.5 border-border/80 rounded-xl cursor-pointer shadow-xs"
                         >
                           <Upload className="w-3.5 h-3.5 text-primary" />
-                          Upload de Foto
+                          {isUploadingPhoto ? "Enviando imagem..." : "Upload de Foto"}
                         </Button>
                         {fotoUrl ? (
                           <Button
@@ -412,7 +434,7 @@ export function BauManagerModal({ trigger }: { trigger?: ReactNode }) {
                             size="sm"
                             disabled={isSavingAdjustedPhoto}
                             onClick={handleOpenAdjusterForExisting}
-                            className="h-8 text-xs font-bold gap-1.5 border border-primary/30 text-primary hover:bg-primary/10"
+                            className="h-8 text-xs font-bold gap-1.5 border border-primary/30 text-primary hover:bg-primary/10 rounded-xl cursor-pointer"
                             title="Recortar e ajustar foto no Studio"
                           >
                             <Crop className="w-3.5 h-3.5" />
@@ -424,7 +446,7 @@ export function BauManagerModal({ trigger }: { trigger?: ReactNode }) {
                         placeholder="Ou cole o link direto da imagem..."
                         value={fotoUrl}
                         onChange={(e) => setFotoUrl(e.target.value)}
-                        className="text-xs h-7.5"
+                        className="text-xs h-8 rounded-xl bg-background/80"
                       />
                     </div>
                   </div>

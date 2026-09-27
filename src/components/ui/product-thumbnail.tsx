@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { Package } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { getProxiedImageUrl } from "@/services/postimagesService";
 
 export interface ProductThumbnailProps {
   src?: string | null;
@@ -44,14 +45,27 @@ export function ProductThumbnail({
   fit = "cover",
 }: ProductThumbnailProps) {
   const [hasError, setHasError] = useState(false);
-  const cleanSrc = (src || imageUrl)?.trim();
+  const [useRawFallback, setUseRawFallback] = useState(false);
+  const rawSrc = (src || imageUrl)?.trim();
   const effectiveName = name || productName || "Produto";
 
   useEffect(() => {
     setHasError(false);
-  }, [cleanSrc]);
+    setUseRawFallback(false);
+  }, [rawSrc]);
 
-  if (cleanSrc && !hasError) {
+  const proxiedSrc = rawSrc ? getProxiedImageUrl(rawSrc) : "";
+  const currentSrc = useRawFallback ? rawSrc : (proxiedSrc || rawSrc);
+
+  const handleError = () => {
+    if (!useRawFallback && proxiedSrc !== rawSrc && rawSrc) {
+      setUseRawFallback(true);
+    } else {
+      setHasError(true);
+    }
+  };
+
+  if (currentSrc && !hasError) {
     return (
       <div
         className={cn(
@@ -62,15 +76,16 @@ export function ProductThumbnail({
         title={effectiveName}
       >
         <img
-          key={cleanSrc}
-          src={cleanSrc}
+          key={currentSrc}
+          src={currentSrc}
           alt={effectiveName}
+          referrerPolicy="no-referrer"
           className={cn(
             "h-full w-full object-center",
             fit === "contain" ? "object-contain p-1" : "object-cover"
           )}
           loading="lazy"
-          onError={() => setHasError(true)}
+          onError={handleError}
         />
       </div>
     );

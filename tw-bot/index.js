@@ -2244,41 +2244,66 @@ async function handleGetWebhookUrl(channelId, req, res) {
  * Zero consumo de storage Supabase e zero egress de banco de dados.
  */
 async function uploadBufferToPostimages(fileBuffer, fileName, mimeType = "image/png") {
-  const form = new FormData();
-  form.append("gallery", "");
-  form.append("optsize", "0");
-  form.append("expire", "0");
-  form.append("numfiles", "1");
-  form.append("upload_session", `${Date.now()}${Math.random().toString().substring(1)}`);
-  form.append("file", new Blob([fileBuffer], { type: mimeType }), fileName);
+  try {
+    const form = new FormData();
+    form.append("gallery", "");
+    form.append("optsize", "0");
+    form.append("expire", "0");
+    form.append("numfiles", "1");
+    form.append("upload_session", `${Date.now()}${Math.random().toString().substring(1)}`);
+    form.append("file", new Blob([fileBuffer], { type: mimeType }), fileName);
 
-  const res = await fetch("https://postimages.org/json/rr", {
-    method: "POST",
-    body: form,
-    headers: {
-      Accept: "application/json",
-      "Cache-Control": "no-cache",
-      "X-Requested-With": "XMLHttpRequest",
-      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-      Origin: "https://postimages.org",
-      Referer: "https://postimages.org/",
-    },
-  });
+    const res = await fetch("https://postimages.org/json/rr", {
+      method: "POST",
+      body: form,
+      headers: {
+        Accept: "application/json",
+        "Cache-Control": "no-cache",
+        "X-Requested-With": "XMLHttpRequest",
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        Origin: "https://postimages.org",
+        Referer: "https://postimages.org/",
+      },
+    });
 
-  if (!res.ok) throw new Error(`Postimages HTTP ${res.status}: ${await res.text()}`);
-  const data = await res.json();
-  if (!data.url) throw new Error("Postimages não retornou URL válida.");
+    if (res.ok) {
+      const data = await res.json();
+      if (data.url) {
+        const pageRes = await fetch(data.url);
+        const html = await pageRes.text();
+        const inputDirectMatch = html.match(/id=["']direct["'][^>]*value=["']([^"']+)["']/i) || html.match(/value=["'](https:\/\/i\.postimg\.cc\/[^"']+)["']/i);
+        const ogMatch = html.match(/<meta\s+property=["']og:image["']\s+content=["']([^"']+)["']/i) || html.match(/<meta\s+content=["']([^"']+)["']\s+property=["']og:image["']/i);
+        const directMatch = html.match(/https:\/\/i\.postimg\.cc\/[a-zA-Z0-9_\-./]+\.(?:png|jpg|jpeg|webp|gif)/i);
 
-  const pageRes = await fetch(data.url);
-  const html = await pageRes.text();
-  const inputDirectMatch = html.match(/id=["']direct["'][^>]*value=["']([^"']+)["']/i) || html.match(/value=["'](https:\/\/i\.postimg\.cc\/[^"']+)["']/i);
-  const ogMatch = html.match(/<meta\s+property=["']og:image["']\s+content=["']([^"']+)["']/i) || html.match(/<meta\s+content=["']([^"']+)["']\s+property=["']og:image["']/i);
-  const directMatch = html.match(/https:\/\/i\.postimg\.cc\/[a-zA-Z0-9_\-./]+\.(?:png|jpg|jpeg|webp|gif)/i);
+        const cdnUrl = (inputDirectMatch && inputDirectMatch[1]) || (ogMatch && ogMatch[1]) || (directMatch && directMatch[0]);
+        if (cdnUrl) return cdnUrl;
+      }
+    }
+  } catch (err) {
+    console.warn("⚠️ [Postimages primary failed, trying catbox fallback]:", err.message);
+  }
 
-  const cdnUrl = (inputDirectMatch && inputDirectMatch[1]) || (ogMatch && ogMatch[1]) || (directMatch && directMatch[0]);
-  if (!cdnUrl) throw new Error(`Não foi possível extrair URL direta do CDN para ${data.url}`);
+  // Fallback 1: Catbox.moe
+  try {
+    const catForm = new FormData();
+    catForm.append("reqtype", "fileupload");
+    catForm.append("fileToUpload", new Blob([fileBuffer], { type: mimeType }), fileName);
+    const catRes = await fetch("https://catbox.moe/user/api.php", {
+      method: "POST",
+      body: catForm,
+      headers: {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
+      },
+    });
+    if (catRes.ok) {
+      const catUrl = (await catRes.text()).trim();
+      if (catUrl.startsWith("http")) return catUrl;
+    }
+  } catch (catErr) {
+    console.warn("⚠️ [Catbox fallback failed]:", catErr.message);
+  }
 
-  return cdnUrl;
+  throw new Error("Não foi possível realizar o upload da imagem no CDN.");
 }
 
 // Servidor HTTP básico para o Discloud (TYPE=site), Webhooks públicos e health checks

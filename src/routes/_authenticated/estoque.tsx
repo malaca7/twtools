@@ -183,6 +183,25 @@ export function EstoquePage() {
     }
   };
 
+  const handleRemoveProductImage = async () => {
+    setProdImagemUrl("");
+    if (editingProduct?.id) {
+      const toastId = toast.loading("Removendo foto do produto...");
+      try {
+        await updateProduct({
+          id: editingProduct.id,
+          imagem_url: null,
+        });
+        void queryClient.invalidateQueries({ queryKey: ["products"] });
+        toast.success("Foto do produto removida com sucesso!", { id: toastId });
+      } catch (err: any) {
+        toast.error(err.message || "Erro ao remover foto do produto.", { id: toastId });
+      }
+    } else {
+      toast.info("Foto removida.");
+    }
+  };
+
   // Category Manager Modal State
   const [categoryModalOpen, setCategoryModalOpen] = useState(false);
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
@@ -1146,7 +1165,7 @@ export function EstoquePage() {
                       type="button"
                       variant="ghost"
                       size="sm"
-                      onClick={() => setProdImagemUrl("")}
+                      onClick={handleRemoveProductImage}
                       className="h-7 text-xs text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 px-2 rounded-lg shrink-0 cursor-pointer"
                       title="Remover miniatura"
                     >

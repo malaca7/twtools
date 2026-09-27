@@ -16,6 +16,7 @@ import {
   Container,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { getProxiedImageUrl } from "@/services/postimagesService";
 
 export interface BauIconProps {
   icone?: string | null;
@@ -40,23 +41,38 @@ export const BauIcon: React.FC<BauIconProps> = ({
 }) => {
   const photo = (foto_url || imagem_url)?.trim();
   const [imgError, setImgError] = useState(false);
+  const [useDirectPhoto, setUseDirectPhoto] = useState(false);
 
   useEffect(() => {
     setImgError(false);
+    setUseDirectPhoto(false);
   }, [photo]);
 
-  if (showPhoto && photo && !imgError) {
+  const proxiedPhoto = photo ? getProxiedImageUrl(photo) : "";
+  const currentPhoto = useDirectPhoto ? photo : (proxiedPhoto || photo);
+
+  const handlePhotoError = () => {
+    if (!useDirectPhoto && proxiedPhoto !== photo && photo) {
+      setUseDirectPhoto(true);
+    } else {
+      setImgError(true);
+    }
+  };
+
+  if (showPhoto && currentPhoto && !imgError) {
     return (
       <img
-        src={photo}
+        key={currentPhoto}
+        src={currentPhoto}
         alt={nome || "Baú"}
+        referrerPolicy="no-referrer"
         className={cn(
           "shrink-0 rounded-lg object-cover border border-border/80 shadow-xs",
           className,
           imgClassName
         )}
         loading="lazy"
-        onError={() => setImgError(true)}
+        onError={handlePhotoError}
       />
     );
   }
