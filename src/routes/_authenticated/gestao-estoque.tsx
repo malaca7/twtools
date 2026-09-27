@@ -1798,6 +1798,7 @@ function BausTabContent({ canManage }: BausTabContentProps) {
           banner_url: url,
         });
         void queryClient.invalidateQueries({ queryKey: ["baus"] });
+        void queryClient.invalidateQueries({ queryKey: ["discord_stock_config"] });
       }
       toast.success("Banner do baú salvo com sucesso!", { id: toastId });
     } catch (err: any) {
@@ -1818,6 +1819,7 @@ function BausTabContent({ canManage }: BausTabContentProps) {
           banner_url: null,
         });
         void queryClient.invalidateQueries({ queryKey: ["baus"] });
+        void queryClient.invalidateQueries({ queryKey: ["discord_stock_config"] });
         toast.success("Banner do baú removido com sucesso!", { id: toastId });
       } catch (err: any) {
         toast.error(err.message || "Erro ao remover banner do baú.", { id: toastId });
@@ -1881,7 +1883,7 @@ function BausTabContent({ canManage }: BausTabContentProps) {
           ativo,
         });
 
-        // Sincroniza com config.bau_channels
+        // Sincroniza com config.bau_channels garantindo que banner_url e foto_url sejam preservados
         const updatedBauChannels = {
           ...(config?.bau_channels || {}),
           [editingBau.id]: {
@@ -1890,6 +1892,9 @@ function BausTabContent({ canManage }: BausTabContentProps) {
             guild_id: cleanGuildId || "",
             tipo_gestao: tipoGestao,
             is_active: ativo,
+            banner_url: cleanBanner,
+            foto_url: cleanPhoto,
+            imagem_url: cleanPhoto,
           },
         };
         await updateDiscordStockConfig({ bau_channels: updatedBauChannels });
@@ -1915,6 +1920,9 @@ function BausTabContent({ canManage }: BausTabContentProps) {
               guild_id: cleanGuildId || "",
               tipo_gestao: tipoGestao,
               is_active: true,
+              banner_url: cleanBanner,
+              foto_url: cleanPhoto,
+              imagem_url: cleanPhoto,
             },
           };
           await updateDiscordStockConfig({ bau_channels: updatedBauChannels });

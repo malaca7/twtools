@@ -272,13 +272,17 @@ export async function getCategories(): Promise<Category[]> {
 
 export async function getBaus(): Promise<Bau[]> {
   let listData: any[] = [];
+  let configData: any = null;
   try {
-    const { data, error } = await supabase
-      .from("baus")
-      .select("*")
-      .order("created_at", { ascending: true });
-    if (!error && data && data.length > 0) {
-      listData = data;
+    const [bausRes, configRes] = await Promise.all([
+      supabase.from("baus").select("*").order("created_at", { ascending: true }),
+      (supabase.from("discord_stock_config" as any)).select("bau_channels").limit(1).maybeSingle(),
+    ]);
+    if (!bausRes.error && bausRes.data && bausRes.data.length > 0) {
+      listData = bausRes.data;
+    }
+    if (!configRes.error && configRes.data) {
+      configData = configRes.data;
     }
   } catch {}
 
@@ -296,18 +300,20 @@ export async function getBaus(): Promise<Bau[]> {
     seenIds.add(id);
     if (normName) seenNames.add(normName);
 
+    const channelConf = configData?.bau_channels?.[id] || {};
+
     list.push({
       id: d.id,
       nome: d.nome,
       descricao: d.descricao,
       icone: d.icone,
-      foto_url: d.foto_url || d.imagem_url || null,
-      imagem_url: d.imagem_url || d.foto_url || null,
-      banner_url: d.banner_url || d.banner || null,
-      ativo: d.ativo ?? true,
-      tipo_gestao: (d.tipo_gestao === "manual" ? "manual" : "automatico"),
-      discord_channel_id: d.discord_channel_id || null,
-      discord_guild_id: d.discord_guild_id || null,
+      foto_url: d.foto_url || d.imagem_url || channelConf.foto_url || channelConf.imagem_url || null,
+      imagem_url: d.imagem_url || d.foto_url || channelConf.imagem_url || channelConf.foto_url || null,
+      banner_url: d.banner_url || d.banner || channelConf.banner_url || null,
+      ativo: d.ativo ?? (channelConf.is_active ?? true),
+      tipo_gestao: (d.tipo_gestao === "manual" || channelConf.tipo_gestao === "manual" ? "manual" : "automatico"),
+      discord_channel_id: d.discord_channel_id || channelConf.channel_id || null,
+      discord_guild_id: d.discord_guild_id || channelConf.guild_id || null,
       created_at: String(d.created_at),
     });
   }
@@ -377,6 +383,30 @@ export async function createBau(payload: {
     data = insData;
   }
 
+  // Sincronizar metadados completos em discord_stock_config.bau_channels
+  if (data?.id) {
+    try {
+      const { data: conf } = await (supabase.from("discord_stock_config" as any)).select("bau_channels").limit(1).maybeSingle();
+      const currentChannels = conf?.bau_channels || {};
+      const updatedChannelConf = {
+        ...(currentChannels[data.id] || {}),
+        bau_id: data.id,
+        channel_id: payload.discord_channel_id?.trim() || "",
+        guild_id: payload.discord_guild_id?.trim() || "",
+        tipo_gestao: payload.tipo_gestao || "automatico",
+        is_active: true,
+        banner_url: banner,
+        foto_url: photo,
+        imagem_url: photo,
+      };
+      await (supabase.from("discord_stock_config" as any))
+        .update({ bau_channels: { ...currentChannels, [data.id]: updatedChannelConf }, updated_at: new Date().toISOString() })
+        .neq("id", "00000000-0000-0000-0000-000000000000");
+    } catch (confErr) {
+      console.warn("Could not sync createBau to discord_stock_config:", confErr);
+    }
+  }
+
   void logAuditAction("create_bau", "baus", { nome: data.nome, descricao: data.descricao, tipo_gestao: data.tipo_gestao, foto_url: data.foto_url, banner_url: data.banner_url || banner }, undefined, data.id);
 
   return {
@@ -384,8 +414,8 @@ export async function createBau(payload: {
     nome: data.nome,
     descricao: data.descricao,
     icone: data.icone,
-    foto_url: data.foto_url || data.imagem_url || null,
-    imagem_url: data.imagem_url || data.foto_url || null,
+    foto_url: data.foto_url || data.imagem_url || photo || null,
+    imagem_url: data.imagem_url || data.foto_url || photo || null,
     banner_url: data.banner_url || banner || null,
     ativo: data.ativo,
     tipo_gestao: data.tipo_gestao || 'automatico',
@@ -468,7 +498,29 @@ export async function updateBau(payload: {
     throw new Error("Não foi possível atualizar o baú.");
   }
 
-  void logAuditAction("update_bau", "baus", { id: payload.id, ...updates }, oldBau || undefined, payload.id);
+  // Sincronizar metadados completos (incluindo banner_url e foto_url) em discord_stock_config.bau_channels
+  try {
+    const { data: conf } = await (supabase.from("discord_stock_config" as any)).select("bau_channels").limit(1).maybeSingle();
+    const currentChannels = conf?.bau_channels || {};
+    const prevConf = currentChannels[payload.id] || {};
+    const updatedChannelConf = {
+      ...prevConf,
+      bau_id: payload.id,
+      ...(payload.banner_url !== undefined ? { banner_url: payload.banner_url && typeof payload.banner_url === "string" ? (payload.banner_url.trim() || null) : null } : {}),
+      ...(updates.foto_url !== undefined ? { foto_url: updates.foto_url, imagem_url: updates.foto_url } : {}),
+      ...(updates.tipo_gestao !== undefined ? { tipo_gestao: updates.tipo_gestao } : {}),
+      ...(updates.discord_channel_id !== undefined ? { channel_id: updates.discord_channel_id } : {}),
+      ...(updates.discord_guild_id !== undefined ? { guild_id: updates.discord_guild_id } : {}),
+      ...(updates.ativo !== undefined ? { is_active: updates.ativo } : {}),
+    };
+    await (supabase.from("discord_stock_config" as any))
+      .update({ bau_channels: { ...currentChannels, [payload.id]: updatedChannelConf }, updated_at: new Date().toISOString() })
+      .neq("id", "00000000-0000-0000-0000-000000000000");
+  } catch (confErr) {
+    console.warn("Could not sync updateBau to discord_stock_config:", confErr);
+  }
+
+  void logAuditAction("update_bau", "baus", { id: payload.id, ...updates, banner_url: payload.banner_url }, oldBau || undefined, payload.id);
 }
 
 export async function deleteBau(id: string): Promise<void> {
@@ -1913,8 +1965,8 @@ export async function uploadBauImage(file: File): Promise<string> {
 
   return await uploadImageToPostimages(file, {
     filename: fileName,
-    maxDimension: 1200,
-    quality: 0.88,
+    maxDimension: 1920,
+    quality: 0.92,
   });
 }
 
