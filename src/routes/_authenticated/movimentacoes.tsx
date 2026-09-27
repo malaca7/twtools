@@ -183,11 +183,9 @@ export function MovimentacoesPage() {
   const isTransferAuto = type === "transferencia" && ((fromBau && fromBau.tipo_gestao !== "manual") || (toBau && toBau.tipo_gestao !== "manual"));
   const isCurrentActionBlocked = (type !== "transferencia" && isSelectedBauAuto) || isTransferAuto;
 
-  // Estados para Modal de Saldo / Informações do Baú
+  // Estados para Modal de Saldo / Produtos do Baú
   const [balanceModalOpen, setBalanceModalOpen] = useState(false);
   const [balanceBauId, setBalanceBauId] = useState<string | null>(null);
-  const [balanceModalTab, setBalanceModalTab] = useState<"inventory" | "info" | "analytics">("inventory");
-  const [copiedBauId, setCopiedBauId] = useState(false);
   const [balanceSearch, setBalanceSearch] = useState("");
   const [balanceFilter, setBalanceFilter] = useState<"positive" | "all" | "zero">("positive");
   const [balanceViewMode, setBalanceViewMode] = useState<"grid" | "list">("grid");
@@ -552,10 +550,9 @@ export function MovimentacoesPage() {
     return stats;
   }, [baus, products, productBaus, movements]);
 
-  // Abertura do modal de visualização de saldo e detalhes do baú
-  const handleOpenBalance = (targetBauId: string, initialTab: "inventory" | "info" | "analytics" = "inventory") => {
+  // Abertura do modal de visualização de saldo e produtos do baú
+  const handleOpenBalance = (targetBauId: string) => {
     setBalanceBauId(targetBauId);
-    setBalanceModalTab(initialTab);
     setBalanceSearch("");
     setBalanceCategoryFilter("all");
     setBalanceFilter("positive");
@@ -658,111 +655,6 @@ export function MovimentacoesPage() {
     const totalValuation = activeBalanceInventory.reduce((acc, i) => acc + (i.stock > 0 ? i.totalValue : 0), 0);
     return { totalItems, itemsWithStock, totalUnits, totalValuation };
   }, [activeBalanceInventory]);
-
-  // Informações de Integração Discord do Baú Ativo
-  const bauDiscordInfo = useMemo(() => {
-    if (!activeBalanceBau) return null;
-    const isAuto = activeBalanceBau.tipo_gestao !== "manual";
-    const directChannelId = activeBalanceBau.discord_channel_id;
-    const configChannel = discordConfig?.bau_channels?.[activeBalanceBau.id];
-    const channelId = directChannelId || configChannel?.channel_id || (isAuto ? discordConfig?.channel_id : null);
-    const guildId = activeBalanceBau.discord_guild_id || configChannel?.guild_id || discordConfig?.guild_id || null;
-    return {
-      isAuto,
-      channelId,
-      guildId,
-      lastProcessedAt: discordConfig?.last_processed_at || null,
-      lastStatus: discordConfig?.last_status || null,
-      isActive: isAuto ? (configChannel?.is_active ?? discordConfig?.is_active ?? true) : false,
-    };
-  }, [activeBalanceBau, discordConfig]);
-
-  // Histórico e Métricas de Movimentação do Baú Ativo
-  const chestMovementsData = useMemo(() => {
-    if (!balanceBauId) {
-      return {
-        total: 0,
-        entradas: 0,
-        saidas: 0,
-        transferencias: 0,
-        recent: [] as typeof movements,
-        topMembers: [] as { memberId: string; name: string; count: number }[],
-        lastMovement: null as (typeof movements)[0] | null,
-      };
-    }
-
-    const defaultBauId = baus[0]?.id;
-    const chestMovs = movements.filter((m) => {
-      const mBau = m.bau_id || defaultBauId;
-      return mBau === balanceBauId || (m as any).to_bau_id === balanceBauId;
-    });
-
-    let entradas = 0;
-    let saidas = 0;
-    let transferencias = 0;
-    const memberMap: Record<string, number> = {};
-
-    chestMovs.forEach((m) => {
-      if (m.type === "entrada") entradas++;
-      else if (m.type === "saida") saidas++;
-      else if (m.type === "transferencia") transferencias++;
-      if (m.created_by) {
-        memberMap[m.created_by] = (memberMap[m.created_by] || 0) + 1;
-      }
-    });
-
-    const topMembers = Object.entries(memberMap)
-      .map(([memberId, count]) => ({
-        memberId,
-        name: nameOf(members, memberId),
-        count,
-      }))
-      .sort((a, b) => b.count - a.count)
-      .slice(0, 5);
-
-    return {
-      total: chestMovs.length,
-      entradas,
-      saidas,
-      transferencias,
-      recent: chestMovs.slice(0, 6),
-      topMembers,
-      lastMovement: chestMovs[0] || null,
-    };
-  }, [balanceBauId, movements, baus, members]);
-
-  // Top Itens do Baú Ativo (Mais estocado e Mais valioso)
-  const chestTopHighlights = useMemo(() => {
-    const itemsWithStock = activeBalanceInventory.filter((i) => i.stock > 0);
-    const topStock = [...itemsWithStock].sort((a, b) => b.stock - a.stock)[0] || null;
-    const topValuable = [...itemsWithStock].sort((a, b) => b.totalValue - a.totalValue)[0] || null;
-    return { topStock, topValuable };
-  }, [activeBalanceInventory]);
-
-  // Distribuição Percentual de Categorias no Baú Ativo
-  const categoryBreakdown = useMemo(() => {
-    if (!activeBalanceInventory.length) return [];
-    const totalUnits = balanceStats.totalUnits || 1;
-    const map = new Map<string, { id: string; nome: string; units: number; value: number; percent: number; itemsCount: number }>();
-    activeBalanceInventory.forEach((item) => {
-      if (item.stock <= 0) return;
-      const existing = map.get(item.categoryId) || {
-        id: item.categoryId,
-        nome: item.categoryName,
-        units: 0,
-        value: 0,
-        percent: 0,
-        itemsCount: 0,
-      };
-      existing.units += item.stock;
-      existing.value += item.totalValue;
-      existing.itemsCount += 1;
-      map.set(item.categoryId, existing);
-    });
-    return Array.from(map.values())
-      .map((c) => ({ ...c, percent: Math.round((c.units / totalUnits) * 100) }))
-      .sort((a, b) => b.units - a.units);
-  }, [activeBalanceInventory, balanceStats.totalUnits]);
 
   return (
     <div className="mx-auto max-w-6xl space-y-6">
@@ -945,7 +837,7 @@ export function MovimentacoesPage() {
                 {/* Rodapé de Ações do Card */}
                 <div className="px-3.5 py-3 bg-secondary/25 border-t border-border/50 flex items-center justify-between gap-1.5">
                   <div
-                    onClick={() => handleOpenBalance(b.id, "inventory")}
+                    onClick={() => handleOpenBalance(b.id)}
                     className="flex items-center gap-1 text-xs text-primary font-bold group-hover:translate-x-1 transition-transform duration-200 cursor-pointer"
                   >
                     <Eye className="w-3.5 h-3.5 text-primary" />
@@ -954,28 +846,6 @@ export function MovimentacoesPage() {
                   </div>
 
                   <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
-                    {/* Botão Informações do Baú */}
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleOpenBalance(b.id, "info");
-                          }}
-                          className="h-7 w-7 sm:h-8 sm:w-8 p-0 rounded-xl text-muted-foreground hover:text-primary hover:border-primary/50 hover:bg-primary/10 transition-colors cursor-pointer shadow-xs"
-                          aria-label={`Informações do baú ${b.nome}`}
-                        >
-                          <Info className="h-3.5 w-3.5" />
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent side="top" className="text-xs font-semibold">
-                        Informações do Baú
-                      </TooltipContent>
-                    </Tooltip>
-
                     {/* Botão Histórico do Baú */}
                     {canView && (
                       <Tooltip>
@@ -1819,14 +1689,14 @@ export function MovimentacoesPage() {
         initialBauId={historyBauId}
       />
 
-      {/* MODAL: VER SALDO, INFORMAÇÕES E INVENTÁRIO DO BAÚ */}
+      {/* MODAL: VER SALDO E PRODUTOS DO BAÚ */}
       <Dialog open={balanceModalOpen} onOpenChange={setBalanceModalOpen}>
         <DialogContent className="max-w-5xl bg-card border-border/80 shadow-2xl p-0 overflow-hidden flex flex-col max-h-[90vh]">
-          {/* HEADER COM FOTO DO BAÚ, DETALHES E SELETOR RÁPIDO DE BAÚ */}
+          {/* HEADER COM FOTO DO BAÚ, TÍTULO E SELETOR RÁPIDO DE BAÚ */}
           <DialogHeader className="p-4 sm:p-5 border-b border-border/60 bg-gradient-to-r from-secondary/40 via-secondary/20 to-secondary/40 space-y-0">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div className="flex items-center gap-3.5 min-w-0">
-                <div className="w-13 h-13 sm:w-14 sm:h-14 rounded-2xl bg-secondary/80 border border-border/80 flex items-center justify-center shrink-0 shadow-inner overflow-hidden ring-2 ring-primary/20">
+                <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-secondary/80 border border-border/80 flex items-center justify-center shrink-0 shadow-inner overflow-hidden ring-2 ring-primary/20">
                   <BauIcon
                     foto_url={activeBalanceBau?.foto_url || activeBalanceBau?.imagem_url}
                     icone={activeBalanceBau?.icone}
@@ -1837,29 +1707,14 @@ export function MovimentacoesPage() {
                 <div className="min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
                     <DialogTitle className="text-base sm:text-xl font-black text-foreground truncate">
-                      {activeBalanceBau?.nome || "Inventário do Baú"}
+                      {activeBalanceBau?.nome ? `Saldo: ${activeBalanceBau.nome}` : "Saldo do Baú"}
                     </DialogTitle>
-                    {activeBalanceBau?.tipo_gestao === "manual" ? (
-                      <Badge className="bg-amber-500/15 text-amber-400 border border-amber-500/30 text-[10px] font-bold px-2 py-0.5 rounded-lg">
-                        ✍️ Manual
-                      </Badge>
-                    ) : (
-                      <Badge className="bg-cyan-500/15 text-cyan-400 border border-cyan-500/30 text-[10px] font-bold px-2 py-0.5 rounded-lg">
-                        🤖 Automático (Discord)
-                      </Badge>
-                    )}
-                    {activeBalanceBau?.ativo !== false ? (
-                      <Badge className="bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 text-[10px] font-bold px-2 py-0.5 rounded-lg">
-                        🟢 Ativo
-                      </Badge>
-                    ) : (
-                      <Badge className="bg-rose-500/15 text-rose-400 border border-rose-500/30 text-[10px] font-bold px-2 py-0.5 rounded-lg">
-                        🔴 Inativo
-                      </Badge>
-                    )}
+                    <Badge variant="secondary" className="text-[11px] font-bold px-2 py-0.5 rounded-lg bg-primary/10 text-primary border border-primary/25">
+                      {balanceStats.itemsWithStock} {balanceStats.itemsWithStock === 1 ? "produto com saldo" : "produtos com saldo"}
+                    </Badge>
                   </div>
                   <DialogDescription className="text-xs text-muted-foreground line-clamp-1 mt-0.5">
-                    {activeBalanceBau?.descricao || "Informações completas, saldos atuais, integração Discord e histórico operacional deste baú."}
+                    Visão de estoque e saldos atuais dos produtos deste baú.
                   </DialogDescription>
                 </div>
               </div>
@@ -1882,12 +1737,7 @@ export function MovimentacoesPage() {
                     <SelectContent>
                       {baus.map((b) => (
                         <SelectItem key={b.id} value={b.id} className="text-xs">
-                          <div className="flex items-center justify-between gap-2 w-full">
-                            <span className="font-bold">{b.nome}</span>
-                            <span className="text-[10px] text-muted-foreground">
-                              {b.tipo_gestao === "manual" ? "✍️ Manual" : "🤖 Discord"}
-                            </span>
-                          </div>
+                          <span className="font-bold">{b.nome}</span>
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -1897,915 +1747,354 @@ export function MovimentacoesPage() {
             </div>
           </DialogHeader>
 
-          {/* NAVEGAÇÃO DE ABAS DO MODAL */}
-          <div className="flex items-center gap-1.5 px-4 sm:px-5 py-2.5 bg-secondary/25 border-b border-border/50 overflow-x-auto no-scrollbar shrink-0">
-            <button
-              type="button"
-              onClick={() => setBalanceModalTab("inventory")}
-              className={cn(
-                "px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-2 border",
-                balanceModalTab === "inventory"
-                  ? "bg-primary text-primary-foreground border-primary shadow-xs"
-                  : "bg-secondary/40 hover:bg-secondary/80 border-border/60 text-muted-foreground hover:text-foreground"
-              )}
-            >
-              <Boxes className="w-3.5 h-3.5" />
-              <span>Saldos & Produtos</span>
-              <Badge
-                variant="secondary"
-                className={cn(
-                  "text-[10px] px-1.5 py-0 h-4 min-w-4 rounded font-mono",
-                  balanceModalTab === "inventory" ? "bg-black/20 text-white" : ""
-                )}
-              >
-                {balanceStats.itemsWithStock}
-              </Badge>
-            </button>
+          {/* 3 STATS METRIC PODS RIBBON */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 p-3 sm:p-4 bg-secondary/15 border-b border-border/50 shrink-0">
+            <div className="p-2.5 sm:p-3 rounded-xl bg-card/60 border border-border/60 shadow-xs flex items-center gap-3">
+              <div className="w-9 h-9 rounded-lg bg-emerald-500/10 border border-emerald-500/25 flex items-center justify-center shrink-0 text-emerald-400">
+                <Boxes className="w-5 h-5" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Volume Total</p>
+                <p className="text-sm sm:text-base font-black font-mono text-emerald-400 truncate">
+                  {num(balanceStats.totalUnits)} <span className="text-[10px] font-normal text-muted-foreground">un</span>
+                </p>
+              </div>
+            </div>
 
-            <button
-              type="button"
-              onClick={() => setBalanceModalTab("info")}
-              className={cn(
-                "px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-2 border",
-                balanceModalTab === "info"
-                  ? "bg-primary text-primary-foreground border-primary shadow-xs"
-                  : "bg-secondary/40 hover:bg-secondary/80 border-border/60 text-muted-foreground hover:text-foreground"
-              )}
-            >
-              <Info className="w-3.5 h-3.5" />
-              <span>Informações do Baú</span>
-            </button>
+            <div className="p-2.5 sm:p-3 rounded-xl bg-card/60 border border-border/60 shadow-xs flex items-center gap-3">
+              <div className="w-9 h-9 rounded-lg bg-sky-500/10 border border-sky-500/25 flex items-center justify-center shrink-0 text-sky-400">
+                <Package className="w-5 h-5" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Itens com Saldo</p>
+                <p className="text-sm sm:text-base font-black font-mono text-foreground truncate">
+                  {num(balanceStats.itemsWithStock)} <span className="text-[10px] font-normal text-muted-foreground">de {balanceStats.totalItems}</span>
+                </p>
+              </div>
+            </div>
 
-            <button
-              type="button"
-              onClick={() => setBalanceModalTab("analytics")}
-              className={cn(
-                "px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-2 border",
-                balanceModalTab === "analytics"
-                  ? "bg-primary text-primary-foreground border-primary shadow-xs"
-                  : "bg-secondary/40 hover:bg-secondary/80 border-border/60 text-muted-foreground hover:text-foreground"
-              )}
-            >
-              <Activity className="w-3.5 h-3.5" />
-              <span>Atividades & Histórico</span>
-              <Badge
-                variant="secondary"
-                className={cn(
-                  "text-[10px] px-1.5 py-0 h-4 min-w-4 rounded font-mono",
-                  balanceModalTab === "analytics" ? "bg-black/20 text-white" : ""
-                )}
-              >
-                {chestMovementsData.total}
-              </Badge>
-            </button>
+            <div className="col-span-2 sm:col-span-1 p-2.5 sm:p-3 rounded-xl bg-card/60 border border-border/60 shadow-xs flex items-center gap-3">
+              <div className="w-9 h-9 rounded-lg bg-amber-500/10 border border-amber-500/25 flex items-center justify-center shrink-0 text-amber-400">
+                <DollarSign className="w-5 h-5" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Valor Estimado</p>
+                <p className="text-sm sm:text-base font-black font-mono text-amber-300 truncate">
+                  {currency(balanceStats.totalValuation)}
+                </p>
+              </div>
+            </div>
           </div>
 
-          {/* CONTEÚDO DAS ABAS */}
-          {balanceModalTab === "inventory" && (
-            <>
-              {/* 4 STATS METRIC PODS RIBBON */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 p-3 sm:p-4 bg-secondary/15 border-b border-border/50 shrink-0">
-                <div className="p-2.5 sm:p-3 rounded-xl bg-card/60 border border-border/60 shadow-xs flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-lg bg-emerald-500/10 border border-emerald-500/25 flex items-center justify-center shrink-0 text-emerald-400">
-                    <Boxes className="w-5 h-5" />
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Volume Total</p>
-                    <p className="text-sm sm:text-base font-black font-mono text-emerald-400 truncate">
-                      {num(balanceStats.totalUnits)} <span className="text-[10px] font-normal text-muted-foreground">un</span>
-                    </p>
-                  </div>
-                </div>
-
-                <div className="p-2.5 sm:p-3 rounded-xl bg-card/60 border border-border/60 shadow-xs flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-lg bg-sky-500/10 border border-sky-500/25 flex items-center justify-center shrink-0 text-sky-400">
-                    <Package className="w-5 h-5" />
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Itens com Saldo</p>
-                    <p className="text-sm sm:text-base font-black font-mono text-foreground truncate">
-                      {num(balanceStats.itemsWithStock)} <span className="text-[10px] font-normal text-muted-foreground">de {balanceStats.totalItems}</span>
-                    </p>
-                  </div>
-                </div>
-
-                <div className="p-2.5 sm:p-3 rounded-xl bg-card/60 border border-border/60 shadow-xs flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-lg bg-amber-500/10 border border-amber-500/25 flex items-center justify-center shrink-0 text-amber-400">
-                    <DollarSign className="w-5 h-5" />
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Valor Estimado</p>
-                    <p className="text-sm sm:text-base font-black font-mono text-amber-300 truncate">
-                      {currency(balanceStats.totalValuation)}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="p-2.5 sm:p-3 rounded-xl bg-card/60 border border-border/60 shadow-xs flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-lg bg-primary/10 border border-primary/25 flex items-center justify-center shrink-0 text-primary">
-                    <Sparkles className="w-5 h-5" />
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Operação</p>
-                    <p className="text-xs sm:text-sm font-black text-foreground truncate">
-                      {activeBalanceBau?.tipo_gestao === "manual" ? "Lançamento Manual" : "Sincronizado Bot"}
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              {/* CATEGORY FILTER HORIZONTAL RIBBON */}
-              {balanceCategories.length > 0 && (
-                <div className="px-3.5 sm:px-4 py-2 border-b border-border/40 bg-secondary/10 flex items-center gap-1.5 overflow-x-auto no-scrollbar scroll-smooth shrink-0">
-                  <span className="text-[10px] uppercase font-bold text-muted-foreground shrink-0 mr-1 flex items-center gap-1">
-                    <Tags className="w-3 h-3 text-primary" />
-                    Categorias:
-                  </span>
+          {/* CATEGORY FILTER HORIZONTAL RIBBON */}
+          {balanceCategories.length > 0 && (
+            <div className="px-3.5 sm:px-4 py-2 border-b border-border/40 bg-secondary/10 flex items-center gap-1.5 overflow-x-auto no-scrollbar scroll-smooth shrink-0">
+              <span className="text-[10px] uppercase font-bold text-muted-foreground shrink-0 mr-1 flex items-center gap-1">
+                <Tags className="w-3 h-3 text-primary" />
+                Categorias:
+              </span>
+              <button
+                type="button"
+                onClick={() => setBalanceCategoryFilter("all")}
+                className={cn(
+                  "px-2.5 py-1 rounded-lg text-xs font-semibold shrink-0 transition-all cursor-pointer flex items-center gap-1.5 border",
+                  balanceCategoryFilter === "all"
+                    ? "bg-primary text-primary-foreground border-primary shadow-xs font-bold"
+                    : "bg-secondary/40 hover:bg-secondary border-border/60 text-muted-foreground hover:text-foreground"
+                )}
+              >
+                <span>Todas</span>
+                <Badge
+                  variant="secondary"
+                  className={cn(
+                    "text-[9px] px-1 py-0 h-4 min-w-4 flex items-center justify-center rounded font-mono",
+                    balanceCategoryFilter === "all" ? "bg-black/20 text-white" : ""
+                  )}
+                >
+                  {balanceFilter === "positive" ? balanceStats.itemsWithStock : balanceStats.totalItems}
+                </Badge>
+              </button>
+              {balanceCategories.map((cat) => {
+                const isSelected = balanceCategoryFilter === cat.id;
+                const count = balanceFilter === "positive" ? cat.countWithStock : cat.count;
+                return (
                   <button
+                    key={cat.id}
                     type="button"
-                    onClick={() => setBalanceCategoryFilter("all")}
+                    onClick={() => setBalanceCategoryFilter(cat.id)}
                     className={cn(
                       "px-2.5 py-1 rounded-lg text-xs font-semibold shrink-0 transition-all cursor-pointer flex items-center gap-1.5 border",
-                      balanceCategoryFilter === "all"
+                      isSelected
                         ? "bg-primary text-primary-foreground border-primary shadow-xs font-bold"
                         : "bg-secondary/40 hover:bg-secondary border-border/60 text-muted-foreground hover:text-foreground"
                     )}
                   >
-                    <span>Todas</span>
+                    <span>{cat.nome}</span>
                     <Badge
                       variant="secondary"
                       className={cn(
                         "text-[9px] px-1 py-0 h-4 min-w-4 flex items-center justify-center rounded font-mono",
-                        balanceCategoryFilter === "all" ? "bg-black/20 text-white" : ""
+                        isSelected ? "bg-black/20 text-white" : ""
                       )}
                     >
-                      {balanceFilter === "positive" ? balanceStats.itemsWithStock : balanceStats.totalItems}
+                      {count}
                     </Badge>
                   </button>
-                  {balanceCategories.map((cat) => {
-                    const isSelected = balanceCategoryFilter === cat.id;
-                    const count = balanceFilter === "positive" ? cat.countWithStock : cat.count;
-                    return (
-                      <button
-                        key={cat.id}
-                        type="button"
-                        onClick={() => setBalanceCategoryFilter(cat.id)}
-                        className={cn(
-                          "px-2.5 py-1 rounded-lg text-xs font-semibold shrink-0 transition-all cursor-pointer flex items-center gap-1.5 border",
-                          isSelected
-                            ? "bg-primary text-primary-foreground border-primary shadow-xs font-bold"
-                            : "bg-secondary/40 hover:bg-secondary border-border/60 text-muted-foreground hover:text-foreground"
-                        )}
-                      >
-                        <span>{cat.nome}</span>
-                        <Badge
-                          variant="secondary"
-                          className={cn(
-                            "text-[9px] px-1 py-0 h-4 min-w-4 flex items-center justify-center rounded font-mono",
-                            isSelected ? "bg-black/20 text-white" : ""
-                          )}
-                        >
-                          {count}
-                        </Badge>
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
-
-              {/* TOOLBAR (SEARCH + STOCK FILTER TABS + SORT + VIEW SWITCHER) */}
-              <div className="p-3 sm:p-4 border-b border-border/40 bg-secondary/15 flex flex-col md:flex-row gap-2.5 items-stretch md:items-center justify-between shrink-0">
-                <div className="relative flex-1 max-w-md">
-                  <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-                  <Input
-                    placeholder="Buscar item pelo nome, categoria ou log..."
-                    value={balanceSearch}
-                    onChange={(e) => setBalanceSearch(e.target.value)}
-                    className="pl-9 pr-8 h-9 text-xs rounded-xl bg-background/80 border-border/70 focus-visible:ring-primary/40"
-                  />
-                  {balanceSearch && (
-                    <button
-                      type="button"
-                      onClick={() => setBalanceSearch("")}
-                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground p-1 cursor-pointer"
-                    >
-                      <X className="w-3.5 h-3.5" />
-                    </button>
-                  )}
-                </div>
-
-                <div className="flex items-center gap-2 flex-wrap justify-between md:justify-end">
-                  {/* STOCK FILTER TABS */}
-                  <div className="flex items-center gap-1 bg-secondary/40 p-1 rounded-xl border border-border/50">
-                    <Button
-                      size="sm"
-                      variant={balanceFilter === "positive" ? "default" : "ghost"}
-                      onClick={() => setBalanceFilter("positive")}
-                      className={cn(
-                        "text-xs h-7 px-2.5 rounded-lg cursor-pointer font-semibold",
-                        balanceFilter === "positive" ? "shadow-xs" : "text-muted-foreground"
-                      )}
-                    >
-                      Com Saldo ({balanceStats.itemsWithStock})
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant={balanceFilter === "all" ? "default" : "ghost"}
-                      onClick={() => setBalanceFilter("all")}
-                      className={cn(
-                        "text-xs h-7 px-2.5 rounded-lg cursor-pointer font-semibold",
-                        balanceFilter === "all" ? "shadow-xs" : "text-muted-foreground"
-                      )}
-                    >
-                      Todos ({balanceStats.totalItems})
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant={balanceFilter === "zero" ? "default" : "ghost"}
-                      onClick={() => setBalanceFilter("zero")}
-                      className={cn(
-                        "text-xs h-7 px-2.5 rounded-lg cursor-pointer font-semibold",
-                        balanceFilter === "zero" ? "shadow-xs" : "text-muted-foreground"
-                      )}
-                    >
-                      Zerados ({balanceStats.totalItems - balanceStats.itemsWithStock})
-                    </Button>
-                  </div>
-
-                  {/* SORT DROPDOWN */}
-                  <Select value={balanceSortBy} onValueChange={(v) => setBalanceSortBy(v as any)}>
-                    <SelectTrigger className="h-9 text-xs rounded-xl w-[150px] bg-background/80 border-border/70">
-                      <SlidersHorizontal className="w-3.5 h-3.5 mr-1 text-muted-foreground" />
-                      <SelectValue placeholder="Ordenar por" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="qty_desc">Maior Saldo</SelectItem>
-                      <SelectItem value="qty_asc">Menor Saldo</SelectItem>
-                      <SelectItem value="val_desc">Maior Valor (R$)</SelectItem>
-                      <SelectItem value="name_asc">Nome (A-Z)</SelectItem>
-                    </SelectContent>
-                  </Select>
-
-                  {/* VIEW SWITCHER */}
-                  <div className="flex items-center gap-0.5 border border-border/60 bg-secondary/50 p-1 rounded-xl">
-                    <Button
-                      size="sm"
-                      variant={balanceViewMode === "grid" ? "default" : "ghost"}
-                      onClick={() => setBalanceViewMode("grid")}
-                      className={cn(
-                        "h-7 w-7 p-0 rounded-lg cursor-pointer",
-                        balanceViewMode === "grid" ? "bg-primary text-primary-foreground shadow-xs" : "text-muted-foreground hover:text-foreground"
-                      )}
-                      title="Visualização em Grade"
-                    >
-                      <LayoutGrid className="w-3.5 h-3.5" />
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant={balanceViewMode === "list" ? "default" : "ghost"}
-                      onClick={() => setBalanceViewMode("list")}
-                      className={cn(
-                        "h-7 w-7 p-0 rounded-lg cursor-pointer",
-                        balanceViewMode === "list" ? "bg-primary text-primary-foreground shadow-xs" : "text-muted-foreground hover:text-foreground"
-                      )}
-                      title="Visualização em Lista"
-                    >
-                      <List className="w-3.5 h-3.5" />
-                    </Button>
-                  </div>
-                </div>
-              </div>
-
-              {/* BODY: RESPONSIVE PRODUCT GRID OR LIST VIEW */}
-              <div className="p-3.5 sm:p-5 overflow-y-auto flex-1 max-h-[54vh]">
-                {filteredBalanceItems.length === 0 ? (
-                  <div className="py-12 text-center text-muted-foreground text-xs space-y-2.5">
-                    <PackageSearch className="w-10 h-10 mx-auto opacity-40 text-primary animate-pulse" />
-                    <p className="font-bold text-foreground text-sm">Nenhum item encontrado no baú</p>
-                    <p className="text-[11px] max-w-xs mx-auto">
-                      {balanceSearch ? `Nenhum resultado para "${balanceSearch}". Tente outro termo de busca.` : "Nenhum item atende aos filtros selecionados."}
-                    </p>
-                  </div>
-                ) : balanceViewMode === "grid" ? (
-                  /* GRID VIEW COM DESIGN ELEGANTE */
-                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
-                    {filteredBalanceItems.map(({ product, stock, unitPrice, totalValue, categoryName }) => {
-                      const hasStock = stock > 0;
-                      return (
-                        <div
-                          key={product.id}
-                          className={cn(
-                            "group relative rounded-2xl border p-3 flex flex-col justify-between transition-all duration-300 shadow-xs",
-                            hasStock
-                              ? "bg-gradient-to-b from-card/90 to-secondary/30 border-border/80 hover:border-primary/60 hover:shadow-lg hover:-translate-y-0.5"
-                              : "bg-secondary/15 border-border/40 opacity-60 hover:opacity-100"
-                          )}
-                        >
-                          <div className="space-y-2">
-                            {/* Top category chip & price */}
-                            <div className="flex items-center justify-between gap-1">
-                              <span className="text-[9px] font-bold text-primary uppercase tracking-wider truncate">
-                                {categoryName}
-                              </span>
-                              {unitPrice > 0 && (
-                                <span className="text-[9px] font-mono text-muted-foreground shrink-0">
-                                  {currency(unitPrice)}/un
-                                </span>
-                              )}
-                            </div>
-
-                            {/* Product image with sleek presentation */}
-                            <div className="w-full flex justify-center py-2">
-                              <div className="relative p-2 rounded-2xl bg-secondary/50 border border-border/60 group-hover:border-primary/40 group-hover:scale-105 transition-all shadow-inner">
-                                <ProductThumbnail
-                                  src={product.imagem_url}
-                                  name={product.nome}
-                                  size="xl"
-                                  className="w-16 h-16 sm:w-20 sm:h-20 rounded-xl"
-                                />
-                              </div>
-                            </div>
-
-                            {/* Product Name */}
-                            <div className="text-center">
-                              <h4
-                                className="text-xs sm:text-sm font-black text-foreground line-clamp-2 leading-tight group-hover:text-primary transition-colors min-h-[2.4em]"
-                                title={product.nome}
-                              >
-                                {product.nome}
-                              </h4>
-                            </div>
-                          </div>
-
-                          {/* Stock Capsule */}
-                          <div className="pt-2.5 mt-auto space-y-1">
-                            <div
-                              className={cn(
-                                "text-xs font-mono font-black px-2.5 py-1.5 rounded-xl text-center border shadow-xs flex items-center justify-center gap-1.5",
-                                hasStock
-                                  ? "bg-emerald-500/15 text-emerald-400 border-emerald-500/30"
-                                  : "bg-secondary/50 text-muted-foreground border-border/60"
-                              )}
-                            >
-                              {hasStock && <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />}
-                              <span className="truncate">
-                                {num(stock)} {product.unidade || "un"}
-                              </span>
-                            </div>
-
-                            {hasStock && totalValue > 0 && (
-                              <p className="text-[10px] font-mono font-bold text-center text-muted-foreground">
-                                Total: <span className="text-emerald-400/90">{currency(totalValue)}</span>
-                              </p>
-                            )}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                ) : (
-                  /* LIST VIEW */
-                  <div className="space-y-2">
-                    {filteredBalanceItems.map(({ product, stock, unitPrice, totalValue, categoryName }) => {
-                      const hasStock = stock > 0;
-                      return (
-                        <div
-                          key={product.id}
-                          className={cn(
-                            "p-2.5 sm:p-3 rounded-xl border flex items-center justify-between gap-3 transition-all",
-                            hasStock
-                              ? "bg-card/70 border-border/70 hover:border-primary/50 hover:bg-secondary/30"
-                              : "bg-secondary/15 border-border/40 opacity-60 hover:opacity-100"
-                          )}
-                        >
-                          <div className="flex items-center gap-3 min-w-0">
-                            <div className="p-1 rounded-xl bg-secondary/50 border border-border/60 shrink-0">
-                              <ProductThumbnail
-                                src={product.imagem_url}
-                                name={product.nome}
-                                size="md"
-                                className="w-10 h-10 rounded-lg"
-                              />
-                            </div>
-                            <div className="min-w-0">
-                              <p className="text-xs sm:text-sm font-black text-foreground truncate">
-                                {product.nome}
-                              </p>
-                              <div className="flex items-center gap-2 text-[10px] text-muted-foreground mt-0.5">
-                                <span className="text-primary font-bold">{categoryName}</span>
-                                {unitPrice > 0 && <span>• Preço Unit: {currency(unitPrice)}</span>}
-                              </div>
-                            </div>
-                          </div>
-
-                          <div className="flex items-center gap-3 shrink-0 text-right">
-                            {totalValue > 0 && hasStock && (
-                              <div className="hidden sm:block text-right font-mono">
-                                <span className="text-[10px] text-muted-foreground block">Patrimônio</span>
-                                <span className="text-xs font-bold text-emerald-400/90">{currency(totalValue)}</span>
-                              </div>
-                            )}
-                            <Badge
-                              variant="outline"
-                              className={cn(
-                                "text-xs font-mono font-black px-3 py-1 rounded-xl",
-                                hasStock
-                                  ? "bg-emerald-500/15 text-emerald-400 border-emerald-500/30"
-                                  : "bg-secondary/60 text-muted-foreground border-border/60"
-                              )}
-                            >
-                              {num(stock)} {product.unidade || "un"}
-                            </Badge>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            </>
+                );
+              })}
+            </div>
           )}
 
-          {/* ABA 2: INFORMAÇÕES COMPLETAS DO BAÚ */}
-          {balanceModalTab === "info" && activeBalanceBau && (
-            <div className="p-4 sm:p-6 overflow-y-auto flex-1 max-h-[62vh] space-y-5">
-              {/* CARD 1: IDENTIFICAÇÃO E CADASTRO INSTITUCIONAL */}
-              <div className="rounded-2xl border border-border/80 bg-gradient-to-br from-card via-secondary/20 to-secondary/40 p-4 sm:p-5 shadow-sm space-y-4">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                  <div className="flex items-center gap-4 min-w-0">
-                    <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-secondary/90 border-2 border-primary/40 flex items-center justify-center shrink-0 shadow-lg overflow-hidden ring-4 ring-primary/10">
-                      <BauIcon
-                        foto_url={activeBalanceBau.foto_url || activeBalanceBau.imagem_url}
-                        icone={activeBalanceBau.icone}
-                        nome={activeBalanceBau.nome}
-                        className="w-full h-full object-cover"
-                      />
-                    </div>
-                    <div className="min-w-0 space-y-1">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <h3 className="text-lg sm:text-2xl font-black text-foreground">{activeBalanceBau.nome}</h3>
-                        <Badge
-                          variant="secondary"
+          {/* TOOLBAR (SEARCH + STOCK FILTER TABS + SORT + VIEW SWITCHER) */}
+          <div className="p-3 sm:p-4 border-b border-border/40 bg-secondary/15 flex flex-col md:flex-row gap-2.5 items-stretch md:items-center justify-between shrink-0">
+            <div className="relative flex-1 max-w-md">
+              <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                placeholder="Buscar item pelo nome, categoria ou log..."
+                value={balanceSearch}
+                onChange={(e) => setBalanceSearch(e.target.value)}
+                className="pl-9 pr-8 h-9 text-xs rounded-xl bg-background/80 border-border/70 focus-visible:ring-primary/40"
+              />
+              {balanceSearch && (
+                <button
+                  type="button"
+                  onClick={() => setBalanceSearch("")}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground p-1 cursor-pointer"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+
+            <div className="flex items-center gap-2 flex-wrap justify-between md:justify-end">
+              {/* STOCK FILTER TABS */}
+              <div className="flex items-center gap-1 bg-secondary/40 p-1 rounded-xl border border-border/50">
+                <Button
+                  size="sm"
+                  variant={balanceFilter === "positive" ? "default" : "ghost"}
+                  onClick={() => setBalanceFilter("positive")}
+                  className={cn(
+                    "text-xs h-7 px-2.5 rounded-lg cursor-pointer font-semibold",
+                    balanceFilter === "positive" ? "shadow-xs" : "text-muted-foreground"
+                  )}
+                >
+                  Com Saldo ({balanceStats.itemsWithStock})
+                </Button>
+                <Button
+                  size="sm"
+                  variant={balanceFilter === "all" ? "default" : "ghost"}
+                  onClick={() => setBalanceFilter("all")}
+                  className={cn(
+                    "text-xs h-7 px-2.5 rounded-lg cursor-pointer font-semibold",
+                    balanceFilter === "all" ? "shadow-xs" : "text-muted-foreground"
+                  )}
+                >
+                  Todos ({balanceStats.totalItems})
+                </Button>
+                <Button
+                  size="sm"
+                  variant={balanceFilter === "zero" ? "default" : "ghost"}
+                  onClick={() => setBalanceFilter("zero")}
+                  className={cn(
+                    "text-xs h-7 px-2.5 rounded-lg cursor-pointer font-semibold",
+                    balanceFilter === "zero" ? "shadow-xs" : "text-muted-foreground"
+                  )}
+                >
+                  Zerados ({balanceStats.totalItems - balanceStats.itemsWithStock})
+                </Button>
+              </div>
+
+              {/* SORT DROPDOWN */}
+              <Select value={balanceSortBy} onValueChange={(v) => setBalanceSortBy(v as any)}>
+                <SelectTrigger className="h-9 text-xs rounded-xl w-[150px] bg-background/80 border-border/70">
+                  <SlidersHorizontal className="w-3.5 h-3.5 mr-1 text-muted-foreground" />
+                  <SelectValue placeholder="Ordenar por" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="qty_desc">Maior Saldo</SelectItem>
+                  <SelectItem value="qty_asc">Menor Saldo</SelectItem>
+                  <SelectItem value="val_desc">Maior Valor (R$)</SelectItem>
+                  <SelectItem value="name_asc">Nome (A-Z)</SelectItem>
+                </SelectContent>
+              </Select>
+
+              {/* VIEW SWITCHER */}
+              <div className="flex items-center gap-0.5 border border-border/60 bg-secondary/50 p-1 rounded-xl">
+                <Button
+                  size="sm"
+                  variant={balanceViewMode === "grid" ? "default" : "ghost"}
+                  onClick={() => setBalanceViewMode("grid")}
+                  className={cn(
+                    "h-7 w-7 p-0 rounded-lg cursor-pointer",
+                    balanceViewMode === "grid" ? "bg-primary text-primary-foreground shadow-xs" : "text-muted-foreground hover:text-foreground"
+                  )}
+                  title="Visualização em Grade"
+                >
+                  <LayoutGrid className="w-3.5 h-3.5" />
+                </Button>
+                <Button
+                  size="sm"
+                  variant={balanceViewMode === "list" ? "default" : "ghost"}
+                  onClick={() => setBalanceViewMode("list")}
+                  className={cn(
+                    "h-7 w-7 p-0 rounded-lg cursor-pointer",
+                    balanceViewMode === "list" ? "bg-primary text-primary-foreground shadow-xs" : "text-muted-foreground hover:text-foreground"
+                  )}
+                  title="Visualização em Lista"
+                >
+                  <List className="w-3.5 h-3.5" />
+                </Button>
+              </div>
+            </div>
+          </div>
+
+          {/* BODY: RESPONSIVE PRODUCT GRID OR LIST VIEW */}
+          <div className="p-3.5 sm:p-5 overflow-y-auto flex-1 max-h-[58vh]">
+            {filteredBalanceItems.length === 0 ? (
+              <div className="py-12 text-center text-muted-foreground text-xs space-y-2.5">
+                <PackageSearch className="w-10 h-10 mx-auto opacity-40 text-primary animate-pulse" />
+                <p className="font-bold text-foreground text-sm">Nenhum item encontrado no baú</p>
+                <p className="text-[11px] max-w-xs mx-auto">
+                  {balanceSearch ? `Nenhum resultado para "${balanceSearch}". Tente outro termo de busca.` : "Nenhum item atende aos filtros selecionados."}
+                </p>
+              </div>
+            ) : balanceViewMode === "grid" ? (
+              /* GRID VIEW COM DESIGN ELEGANTE */
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+                {filteredBalanceItems.map(({ product, stock, unitPrice, totalValue, categoryName }) => {
+                  const hasStock = stock > 0;
+                  return (
+                    <div
+                      key={product.id}
+                      className={cn(
+                        "group relative rounded-2xl border p-3 flex flex-col justify-between transition-all duration-300 shadow-xs",
+                        hasStock
+                          ? "bg-gradient-to-b from-card/90 to-secondary/30 border-border/80 hover:border-primary/60 hover:shadow-lg hover:-translate-y-0.5"
+                          : "bg-secondary/15 border-border/40 opacity-60 hover:opacity-100"
+                      )}
+                    >
+                      <div className="space-y-2">
+                        {/* Top category chip & price */}
+                        <div className="flex items-center justify-between gap-1">
+                          <span className="text-[9px] font-bold text-primary uppercase tracking-wider truncate">
+                            {categoryName}
+                          </span>
+                          {unitPrice > 0 && (
+                            <span className="text-[9px] font-mono text-muted-foreground shrink-0">
+                              {currency(unitPrice)}/un
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Product image with sleek presentation */}
+                        <div className="w-full flex justify-center py-2">
+                          <div className="relative p-2 rounded-2xl bg-secondary/50 border border-border/60 group-hover:border-primary/40 group-hover:scale-105 transition-all shadow-inner">
+                            <ProductThumbnail
+                              src={product.imagem_url}
+                              name={product.nome}
+                              size="xl"
+                              className="w-16 h-16 sm:w-20 sm:h-20 rounded-xl"
+                            />
+                          </div>
+                        </div>
+
+                        {/* Product Name */}
+                        <div className="text-center">
+                          <h4
+                            className="text-xs sm:text-sm font-black text-foreground line-clamp-2 leading-tight group-hover:text-primary transition-colors min-h-[2.4em]"
+                            title={product.nome}
+                          >
+                            {product.nome}
+                          </h4>
+                        </div>
+                      </div>
+
+                      {/* Stock Capsule */}
+                      <div className="pt-2.5 mt-auto space-y-1">
+                        <div
                           className={cn(
-                            "text-xs font-bold px-2.5 py-0.5 rounded-lg",
-                            activeBalanceBau.tipo_gestao === "manual"
-                              ? "bg-amber-500/15 text-amber-400 border border-amber-500/30"
-                              : "bg-cyan-500/15 text-cyan-400 border border-cyan-500/30"
+                            "text-xs font-mono font-black px-2.5 py-1.5 rounded-xl text-center border shadow-xs flex items-center justify-center gap-1.5",
+                            hasStock
+                              ? "bg-emerald-500/15 text-emerald-400 border-emerald-500/30"
+                              : "bg-secondary/50 text-muted-foreground border-border/60"
                           )}
                         >
-                          {activeBalanceBau.tipo_gestao === "manual" ? "✍️ Gestão Manual" : "🤖 Sincronizado Discord"}
-                        </Badge>
-                        <Badge className="bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 text-xs font-bold px-2.5 py-0.5 rounded-lg">
-                          🟢 Ativo e Operante
-                        </Badge>
-                      </div>
-
-                      <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed">
-                        {activeBalanceBau.descricao || "Este baú armazena recursos e produtos operacionais da organização."}
-                      </p>
-
-                      <div className="flex items-center gap-2 pt-1 flex-wrap">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            navigator.clipboard.writeText(activeBalanceBau.id);
-                            setCopiedBauId(true);
-                            toast.success("ID do baú copiado para a área de transferência!");
-                            setTimeout(() => setCopiedBauId(false), 2000);
-                          }}
-                          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-secondary/60 hover:bg-secondary border border-border/70 text-[11px] font-mono text-muted-foreground hover:text-foreground transition-all cursor-pointer"
-                          title="Clique para copiar o ID do Baú"
-                        >
-                          <Hash className="w-3 h-3 text-primary" />
-                          <span>ID: {activeBalanceBau.id.slice(0, 16)}...</span>
-                          {copiedBauId ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3 opacity-60" />}
-                        </button>
-
-                        {activeBalanceBau.created_at && (
-                          <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground">
-                            <Calendar className="w-3 h-3 text-primary" />
-                            Cadastrado em {dateTime(activeBalanceBau.created_at)}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* CARD 2: INTEGRAÇÃO DISCORD & BOT ENGINE */}
-              <div className="rounded-2xl border border-border/80 bg-card p-4 sm:p-5 shadow-sm space-y-3">
-                <div className="flex items-center justify-between gap-2 border-b border-border/60 pb-3">
-                  <div className="flex items-center gap-2">
-                    <div className="w-8 h-8 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center text-primary">
-                      <Bot className="w-4 h-4" />
-                    </div>
-                    <div>
-                      <h4 className="text-sm font-black text-foreground">Integração Discord & Bot Discloud</h4>
-                      <p className="text-[11px] text-muted-foreground">Monitoramento e leitura de logs em tempo real</p>
-                    </div>
-                  </div>
-
-                  <Badge
-                    variant="outline"
-                    className={cn(
-                      "text-xs font-bold px-2.5 py-0.5 rounded-lg",
-                      bauDiscordInfo?.isAuto
-                        ? "bg-cyan-500/10 text-cyan-400 border-cyan-500/30"
-                        : "bg-secondary text-muted-foreground border-border/60"
-                    )}
-                  >
-                    {bauDiscordInfo?.isAuto ? "🟢 Monitoramento Ativo" : "✍️ Controle Manual"}
-                  </Badge>
-                </div>
-
-                {bauDiscordInfo?.isAuto ? (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 pt-1">
-                    <div className="p-3 rounded-xl bg-secondary/30 border border-border/60 space-y-1">
-                      <span className="text-[10px] uppercase font-bold text-muted-foreground flex items-center gap-1">
-                        <Radio className="w-3 h-3 text-cyan-400" /> Canal de Logs do Discord
-                      </span>
-                      <p className="text-xs font-mono font-bold text-foreground truncate">
-                        {bauDiscordInfo.channelId ? `# ${bauDiscordInfo.channelId}` : "Canal Padrão Configurado"}
-                      </p>
-                    </div>
-
-                    <div className="p-3 rounded-xl bg-secondary/30 border border-border/60 space-y-1">
-                      <span className="text-[10px] uppercase font-bold text-muted-foreground flex items-center gap-1">
-                        <ShieldCheck className="w-3 h-3 text-emerald-400" /> Servidor Discord (Guild)
-                      </span>
-                      <p className="text-xs font-mono font-bold text-foreground truncate">
-                        {bauDiscordInfo.guildId || "Servidor Principal"}
-                      </p>
-                    </div>
-
-                    <div className="p-3 rounded-xl bg-secondary/30 border border-border/60 space-y-1">
-                      <span className="text-[10px] uppercase font-bold text-muted-foreground flex items-center gap-1">
-                        <Clock className="w-3 h-3 text-amber-400" /> Última Leitura de Log
-                      </span>
-                      <p className="text-xs font-bold text-foreground truncate">
-                        {bauDiscordInfo.lastProcessedAt ? dateTime(bauDiscordInfo.lastProcessedAt) : "Sincronização Contínua"}
-                      </p>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="p-3.5 rounded-xl bg-secondary/25 border border-border/50 text-xs text-muted-foreground leading-relaxed flex items-start gap-2.5">
-                    <Info className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
-                    <div>
-                      <strong className="text-foreground font-bold block mb-0.5">Operação sem vinculação automática</strong>
-                      Este baú é operado exclusivamente de forma manual. As entradas, saídas e transferências não dependem de canais do Discord e devem ser registradas pela equipe através dos botões de movimentação operacional.
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* CARD 3: RESUMO PATRIMONIAL & CAPACIDADE EXECUTIVA */}
-              <div className="space-y-3">
-                <div className="flex items-center gap-2">
-                  <BarChart3 className="w-4 h-4 text-primary" />
-                  <h4 className="text-sm font-black text-foreground">Resumo Patrimonial & Capacidade</h4>
-                </div>
-
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                  <div className="p-3.5 rounded-2xl bg-card border border-border/70 shadow-xs space-y-1">
-                    <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">Valor Patrimonial</span>
-                    <strong className="text-base sm:text-lg font-black font-mono text-amber-300 block truncate">
-                      {currency(balanceStats.totalValuation)}
-                    </strong>
-                    <span className="text-[10px] text-muted-foreground">Preço sugerido consolidado</span>
-                  </div>
-
-                  <div className="p-3.5 rounded-2xl bg-card border border-border/70 shadow-xs space-y-1">
-                    <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">Volume Armazenado</span>
-                    <strong className="text-base sm:text-lg font-black font-mono text-emerald-400 block truncate">
-                      {num(balanceStats.totalUnits)} <span className="text-xs font-normal text-muted-foreground">un</span>
-                    </strong>
-                    <span className="text-[10px] text-muted-foreground">Unidades físicas totais</span>
-                  </div>
-
-                  <div className="p-3.5 rounded-2xl bg-card border border-border/70 shadow-xs space-y-1">
-                    <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">Variedade de Itens</span>
-                    <strong className="text-base sm:text-lg font-black font-mono text-foreground block truncate">
-                      {balanceStats.itemsWithStock} <span className="text-xs font-normal text-muted-foreground">/ {balanceStats.totalItems}</span>
-                    </strong>
-                    <span className="text-[10px] text-muted-foreground">Tipos de produtos com saldo</span>
-                  </div>
-
-                  <div className="p-3.5 rounded-2xl bg-card border border-border/70 shadow-xs space-y-1">
-                    <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">Categorias Ativas</span>
-                    <strong className="text-base sm:text-lg font-black font-mono text-primary block truncate">
-                      {categoryBreakdown.length} <span className="text-xs font-normal text-muted-foreground">categorias</span>
-                    </strong>
-                    <span className="text-[10px] text-muted-foreground">Diversidade do acervo</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* CARD 4: TOP DESTAQUES DO ACERVO DO BAÚ */}
-              <div className="space-y-3">
-                <div className="flex items-center gap-2">
-                  <Sparkles className="w-4 h-4 text-amber-400" />
-                  <h4 className="text-sm font-black text-foreground">Destaques do Acervo</h4>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {/* Top Maior Quantidade */}
-                  <div className="p-4 rounded-2xl bg-card border border-border/80 shadow-xs flex items-center gap-3.5">
-                    <div className="w-14 h-14 rounded-xl bg-secondary/50 border border-border/70 flex items-center justify-center shrink-0 p-1">
-                      {chestTopHighlights.topStock ? (
-                        <ProductThumbnail
-                          src={chestTopHighlights.topStock.product.imagem_url}
-                          name={chestTopHighlights.topStock.product.nome}
-                          size="lg"
-                          className="w-full h-full rounded-lg"
-                        />
-                      ) : (
-                        <Package className="w-6 h-6 text-muted-foreground" />
-                      )}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <span className="text-[10px] font-bold text-emerald-400 uppercase tracking-wider block">
-                        👑 Maior Volume em Estoque
-                      </span>
-                      <h5 className="text-sm font-black text-foreground truncate">
-                        {chestTopHighlights.topStock?.product.nome || "Sem itens estocados"}
-                      </h5>
-                      <div className="flex items-center justify-between text-xs text-muted-foreground mt-1 font-mono">
-                        <span>
-                          {chestTopHighlights.topStock ? `${num(chestTopHighlights.topStock.stock)} ${chestTopHighlights.topStock.product.unidade || "un"}` : "-"}
-                        </span>
-                        {chestTopHighlights.topStock && balanceStats.totalUnits > 0 && (
-                          <Badge variant="outline" className="text-[10px] font-bold px-1.5 py-0">
-                            {Math.round((chestTopHighlights.topStock.stock / balanceStats.totalUnits) * 100)}% do baú
-                          </Badge>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Top Maior Valor Financeiro */}
-                  <div className="p-4 rounded-2xl bg-card border border-border/80 shadow-xs flex items-center gap-3.5">
-                    <div className="w-14 h-14 rounded-xl bg-secondary/50 border border-border/70 flex items-center justify-center shrink-0 p-1">
-                      {chestTopHighlights.topValuable ? (
-                        <ProductThumbnail
-                          src={chestTopHighlights.topValuable.product.imagem_url}
-                          name={chestTopHighlights.topValuable.product.nome}
-                          size="lg"
-                          className="w-full h-full rounded-lg"
-                        />
-                      ) : (
-                        <DollarSign className="w-6 h-6 text-muted-foreground" />
-                      )}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <span className="text-[10px] font-bold text-amber-400 uppercase tracking-wider block">
-                        💎 Maior Valor Patrimonial
-                      </span>
-                      <h5 className="text-sm font-black text-foreground truncate">
-                        {chestTopHighlights.topValuable?.product.nome || "Sem itens valorados"}
-                      </h5>
-                      <div className="flex items-center justify-between text-xs text-muted-foreground mt-1 font-mono">
-                        <span className="text-amber-300 font-bold">
-                          {chestTopHighlights.topValuable ? currency(chestTopHighlights.topValuable.totalValue) : "-"}
-                        </span>
-                        {chestTopHighlights.topValuable && chestTopHighlights.topValuable.unitPrice > 0 && (
-                          <span className="text-[10px] text-muted-foreground">
-                            {currency(chestTopHighlights.topValuable.unitPrice)}/un
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* CARD 5: COMPOSIÇÃO POR CATEGORIAS */}
-              {categoryBreakdown.length > 0 && (
-                <div className="rounded-2xl border border-border/80 bg-card p-4 sm:p-5 shadow-sm space-y-3">
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-2">
-                      <PieChart className="w-4 h-4 text-primary" />
-                      <h4 className="text-sm font-black text-foreground">Composição por Categorias</h4>
-                    </div>
-                    <span className="text-[11px] text-muted-foreground">{categoryBreakdown.length} categorias presentes</span>
-                  </div>
-
-                  <div className="space-y-2.5 pt-1">
-                    {categoryBreakdown.map((cat) => (
-                      <div key={cat.id} className="space-y-1">
-                        <div className="flex items-center justify-between text-xs">
-                          <span className="font-bold text-foreground flex items-center gap-1.5">
-                            <span className="w-2 h-2 rounded-full bg-primary" />
-                            {cat.nome}
-                            <span className="text-[10px] text-muted-foreground font-normal">
-                              ({cat.itemsCount} {cat.itemsCount === 1 ? "item" : "itens"})
-                            </span>
-                          </span>
-                          <span className="font-mono text-muted-foreground">
-                            <strong className="text-foreground">{num(cat.units)} un</strong> ({cat.percent}%) •{" "}
-                            <span className="text-emerald-400 font-bold">{currency(cat.value)}</span>
+                          {hasStock && <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />}
+                          <span className="truncate">
+                            {num(stock)} {product.unidade || "un"}
                           </span>
                         </div>
-                        <div className="w-full h-2 rounded-full bg-secondary/60 overflow-hidden">
-                          <div
-                            className="h-full bg-gradient-to-r from-primary to-cyan-400 rounded-full transition-all duration-500"
-                            style={{ width: `${Math.max(4, cat.percent)}%` }}
+
+                        {hasStock && totalValue > 0 && (
+                          <p className="text-[10px] font-mono font-bold text-center text-muted-foreground">
+                            Total: <span className="text-emerald-400/90">{currency(totalValue)}</span>
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              /* LIST VIEW */
+              <div className="space-y-2">
+                {filteredBalanceItems.map(({ product, stock, unitPrice, totalValue, categoryName }) => {
+                  const hasStock = stock > 0;
+                  return (
+                    <div
+                      key={product.id}
+                      className={cn(
+                        "p-2.5 sm:p-3 rounded-xl border flex items-center justify-between gap-3 transition-all",
+                        hasStock
+                          ? "bg-card/70 border-border/70 hover:border-primary/50 hover:bg-secondary/30"
+                          : "bg-secondary/15 border-border/40 opacity-60 hover:opacity-100"
+                      )}
+                    >
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="p-1 rounded-xl bg-secondary/50 border border-border/60 shrink-0">
+                          <ProductThumbnail
+                            src={product.imagem_url}
+                            name={product.nome}
+                            size="md"
+                            className="w-10 h-10 rounded-lg"
                           />
                         </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* ABA 3: ATIVIDADES & HISTÓRICO DO BAÚ */}
-          {balanceModalTab === "analytics" && (
-            <div className="p-4 sm:p-6 overflow-y-auto flex-1 max-h-[62vh] space-y-5">
-              {/* MÉTRICAS DE FLUXO */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                <div className="p-3.5 rounded-2xl bg-card border border-border/70 shadow-xs flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-primary/10 border border-primary/25 flex items-center justify-center text-primary shrink-0">
-                    <Activity className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <span className="text-[10px] font-bold text-muted-foreground uppercase">Total de Ações</span>
-                    <strong className="text-sm sm:text-base font-black text-foreground font-mono block">
-                      {num(chestMovementsData.total)}
-                    </strong>
-                  </div>
-                </div>
-
-                <div className="p-3.5 rounded-2xl bg-card border border-border/70 shadow-xs flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/25 flex items-center justify-center text-emerald-400 shrink-0">
-                    <ArrowDownCircle className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <span className="text-[10px] font-bold text-muted-foreground uppercase">Entradas</span>
-                    <strong className="text-sm sm:text-base font-black text-emerald-400 font-mono block">
-                      {num(chestMovementsData.entradas)}
-                    </strong>
-                  </div>
-                </div>
-
-                <div className="p-3.5 rounded-2xl bg-card border border-border/70 shadow-xs flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-rose-500/10 border border-rose-500/25 flex items-center justify-center text-rose-400 shrink-0">
-                    <ArrowUpCircle className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <span className="text-[10px] font-bold text-muted-foreground uppercase">Saídas</span>
-                    <strong className="text-sm sm:text-base font-black text-rose-400 font-mono block">
-                      {num(chestMovementsData.saidas)}
-                    </strong>
-                  </div>
-                </div>
-
-                <div className="p-3.5 rounded-2xl bg-card border border-border/70 shadow-xs flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-sky-500/10 border border-sky-500/25 flex items-center justify-center text-sky-400 shrink-0">
-                    <ArrowRightLeft className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <span className="text-[10px] font-bold text-muted-foreground uppercase">Transferências</span>
-                    <strong className="text-sm sm:text-base font-black text-sky-400 font-mono block">
-                      {num(chestMovementsData.transferencias)}
-                    </strong>
-                  </div>
-                </div>
-              </div>
-
-              {/* ÚLTIMA MOVIMENTAÇÃO */}
-              {chestMovementsData.lastMovement && (
-                <div className="rounded-2xl border border-border/80 bg-gradient-to-r from-secondary/30 via-card to-secondary/30 p-4 shadow-xs space-y-2">
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="text-[10px] uppercase font-bold text-primary flex items-center gap-1.5">
-                      <Clock className="w-3.5 h-3.5" /> Última Movimentação Registrada
-                    </span>
-                    <span className="text-xs text-muted-foreground font-mono">
-                      {dateTime(chestMovementsData.lastMovement.created_at)}
-                    </span>
-                  </div>
-
-                  <div className="flex items-center justify-between gap-3 pt-1">
-                    <div className="flex items-center gap-2.5 min-w-0">
-                      <Badge
-                        className={cn(
-                          "text-xs font-bold px-2 py-0.5 rounded-lg shrink-0",
-                          chestMovementsData.lastMovement.type === "entrada"
-                            ? "bg-emerald-500/15 text-emerald-400 border-emerald-500/30"
-                            : chestMovementsData.lastMovement.type === "saida"
-                            ? "bg-rose-500/15 text-rose-400 border-rose-500/30"
-                            : "bg-sky-500/15 text-sky-400 border-sky-500/30"
-                        )}
-                      >
-                        {chestMovementsData.lastMovement.type.toUpperCase()}
-                      </Badge>
-                      <p className="text-xs sm:text-sm font-bold text-foreground truncate">
-                        {productName(products, chestMovementsData.lastMovement.product_id)}
-                      </p>
-                    </div>
-
-                    <span className="text-xs sm:text-sm font-mono font-black text-foreground shrink-0">
-                      {chestMovementsData.lastMovement.type === "entrada" ? "+" : "-"}
-                      {num(chestMovementsData.lastMovement.quantity)} un
-                    </span>
-                  </div>
-
-                  <div className="flex items-center justify-between text-[11px] text-muted-foreground pt-1 border-t border-border/40">
-                    <span>Responsável: <strong className="text-foreground">{nameOf(members, chestMovementsData.lastMovement.created_by)}</strong></span>
-                    {chestMovementsData.lastMovement.reason && (
-                      <span className="truncate max-w-xs italic">"{chestMovementsData.lastMovement.reason}"</span>
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {/* LISTA DAS ÚLTIMAS MOVIMENTAÇÕES DESTE BAÚ */}
-              <div className="space-y-3">
-                <div className="flex items-center justify-between gap-2">
-                  <div className="flex items-center gap-2">
-                    <History className="w-4 h-4 text-primary" />
-                    <h4 className="text-sm font-black text-foreground">Movimentações Recentes deste Baú</h4>
-                  </div>
-                  {canView && (
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => {
-                        setBalanceModalOpen(false);
-                        if (activeBalanceBau) setHistoryBauId(activeBalanceBau.id);
-                        setHistoryModalOpen(true);
-                      }}
-                      className="text-xs font-bold text-primary hover:text-primary/80 h-7 px-2 cursor-pointer"
-                    >
-                      Ver Todas ({chestMovementsData.total}) <ArrowRight className="w-3.5 h-3.5 ml-1" />
-                    </Button>
-                  )}
-                </div>
-
-                {chestMovementsData.recent.length === 0 ? (
-                  <div className="p-8 text-center text-xs text-muted-foreground rounded-2xl border border-dashed border-border/60">
-                    Nenhuma movimentação registrada para este baú até o momento.
-                  </div>
-                ) : (
-                  <div className="space-y-2">
-                    {chestMovementsData.recent.map((m) => {
-                      const isEntry = m.type === "entrada";
-                      const isExit = m.type === "saida";
-                      return (
-                        <div
-                          key={m.id}
-                          className="p-3 rounded-xl border border-border/60 bg-card/60 flex items-center justify-between gap-3 text-xs"
-                        >
-                          <div className="flex items-center gap-3 min-w-0">
-                            <div
-                              className={cn(
-                                "w-8 h-8 rounded-lg flex items-center justify-center shrink-0 border",
-                                isEntry
-                                  ? "bg-emerald-500/10 border-emerald-500/25 text-emerald-400"
-                                  : isExit
-                                  ? "bg-rose-500/10 border-rose-500/25 text-rose-400"
-                                  : "bg-sky-500/10 border-sky-500/25 text-sky-400"
-                              )}
-                            >
-                              {isEntry ? (
-                                <ArrowDownCircle className="w-4 h-4" />
-                              ) : isExit ? (
-                                <ArrowUpCircle className="w-4 h-4" />
-                              ) : (
-                                <ArrowRightLeft className="w-4 h-4" />
-                              )}
-                            </div>
-                            <div className="min-w-0">
-                              <p className="font-bold text-foreground truncate">
-                                {productName(products, m.product_id)}
-                              </p>
-                              <p className="text-[10px] text-muted-foreground truncate">
-                                {nameOf(members, m.created_by)} • {dateTime(m.created_at)}
-                              </p>
-                            </div>
-                          </div>
-
-                          <div className="text-right shrink-0 font-mono">
-                            <span
-                              className={cn(
-                                "font-black text-xs",
-                                isEntry ? "text-emerald-400" : isExit ? "text-rose-400" : "text-sky-400"
-                              )}
-                            >
-                              {isEntry ? "+" : "-"}
-                              {num(m.quantity)} un
-                            </span>
+                        <div className="min-w-0">
+                          <p className="text-xs sm:text-sm font-black text-foreground truncate">
+                            {product.nome}
+                          </p>
+                          <div className="flex items-center gap-2 text-[10px] text-muted-foreground mt-0.5">
+                            <span className="text-primary font-bold">{categoryName}</span>
+                            {unitPrice > 0 && <span>• Preço Unit: {currency(unitPrice)}</span>}
                           </div>
                         </div>
-                      );
-                    })}
-                  </div>
-                )}
+                      </div>
+
+                      <div className="flex items-center gap-3 shrink-0 text-right">
+                        {totalValue > 0 && hasStock && (
+                          <div className="hidden sm:block text-right font-mono">
+                            <span className="text-[10px] text-muted-foreground block">Patrimônio</span>
+                            <span className="text-xs font-bold text-emerald-400/90">{currency(totalValue)}</span>
+                          </div>
+                        )}
+                        <Badge
+                          variant="outline"
+                          className={cn(
+                            "text-xs font-mono font-black px-3 py-1 rounded-xl",
+                            hasStock
+                              ? "bg-emerald-500/15 text-emerald-400 border-emerald-500/30"
+                              : "bg-secondary/60 text-muted-foreground border-border/60"
+                          )}
+                        >
+                          {num(stock)} {product.unidade || "un"}
+                        </Badge>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
-            </div>
-          )}
+            )}
+          </div>
 
           {/* FOOTER DO MODAL */}
           <DialogFooter className="p-3 sm:p-4 border-t border-border/40 bg-secondary/20 flex flex-col sm:flex-row sm:justify-between items-center gap-2 shrink-0">
