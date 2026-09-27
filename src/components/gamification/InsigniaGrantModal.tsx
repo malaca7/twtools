@@ -73,7 +73,8 @@ export function InsigniaGrantModal({
   grantorXp,
 }: InsigniaGrantModalProps) {
   const queryClient = useQueryClient();
-  const { user } = useAuth();
+  const { user, hasPermission } = useAuth();
+  const canGrant = hasPermission("grant_insignia");
 
   const [selectedInsigniaId, setSelectedInsigniaId] = useState<string>("");
   const [reason, setReason] = useState("");
@@ -106,6 +107,7 @@ export function InsigniaGrantModal({
 
   const grantMutation = useMutation({
     mutationFn: async () => {
+      if (!canGrant) throw new Error("Você não possui permissão para conceder insígnias.");
       if (!targetMember) throw new Error("Nenhum membro selecionado.");
       if (!selectedInsigniaId) throw new Error("Selecione uma insígnia.");
       if (!reason.trim()) throw new Error("Informe o motivo da concessão.");
@@ -348,6 +350,7 @@ export function InsigniaGrantModal({
             onClick={() => grantMutation.mutate()}
             disabled={
               grantMutation.isPending ||
+              !canGrant ||
               !selectedInsigniaId ||
               !reason.trim() ||
               !hasEnoughXp

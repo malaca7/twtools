@@ -75,14 +75,16 @@ type LegacyRankedMember = {
 export function RankingsPage() {
   const { user, profile, level, isDevUser, isCeoUser, hasPermission } = useAuth();
   const canView = hasPermission("view_rankings");
-
-  const isManagerOrAdmin =
-    Boolean(isDevUser || isCeoUser || level === "01" || level === "02" || level === "gerente");
-  const isAdminOrDev =
-    Boolean(isDevUser || isCeoUser || level === "01" || level === "desenvolvedor");
+  const canViewXp = hasPermission("view_rankings_xp");
+  const canViewFinancial = hasPermission("view_rankings_financial");
+  const canViewMovements = hasPermission("view_rankings_movements");
+  const canGrantInsignia = hasPermission("grant_insignia");
+  const canManageCatalog = hasPermission("manage_insignias_catalog");
+  const canEvaluate = hasPermission("evaluate_member");
 
   // Abas de classificação sincronizadas com a URL (?tipo=xp | revenue | sales | movements)
-  const [rankingType, setRankingType] = useUrlTab<"xp" | "revenue" | "sales" | "movements">("xp", {
+  const defaultTab = canViewXp ? "xp" : canViewFinancial ? "revenue" : "movements";
+  const [rankingType, setRankingType] = useUrlTab<"xp" | "revenue" | "sales" | "movements">(defaultTab, {
     paramName: "tipo",
     allowedTabs: ["xp", "revenue", "sales", "movements"],
     usePath: false,
@@ -209,7 +211,7 @@ export function RankingsPage() {
           description="Classificação dos membros do grupo por XP, patentes de honra, faturamento e operações."
         />
 
-        {isAdminOrDev && (
+        {canManageCatalog && (
           <div className="flex items-center gap-2">
             <Button
               variant="outline"
@@ -338,18 +340,26 @@ export function RankingsPage() {
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <Tabs value={rankingType} onValueChange={(v) => setRankingType(v as any)} className="w-full sm:w-auto">
           <TabsList className="bg-secondary/60 flex-wrap">
-            <TabsTrigger value="xp" className="flex items-center gap-1.5 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground font-bold">
-              <Zap className="h-4 w-4 fill-current" /> Top XP & Nível
-            </TabsTrigger>
-            <TabsTrigger value="revenue" className="flex items-center gap-1.5">
-              <TrendingUp className="h-4 w-4" /> Top Faturamento
-            </TabsTrigger>
-            <TabsTrigger value="sales" className="flex items-center gap-1.5">
-              <ShoppingCart className="h-4 w-4" /> Top Vendas
-            </TabsTrigger>
-            <TabsTrigger value="movements" className="flex items-center gap-1.5">
-              <ArrowLeftRight className="h-4 w-4" /> Top Movimentações
-            </TabsTrigger>
+            {canViewXp && (
+              <TabsTrigger value="xp" className="flex items-center gap-1.5 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground font-bold">
+                <Zap className="h-4 w-4 fill-current" /> Top XP & Nível
+              </TabsTrigger>
+            )}
+            {canViewFinancial && (
+              <>
+                <TabsTrigger value="revenue" className="flex items-center gap-1.5">
+                  <TrendingUp className="h-4 w-4" /> Top Faturamento
+                </TabsTrigger>
+                <TabsTrigger value="sales" className="flex items-center gap-1.5">
+                  <ShoppingCart className="h-4 w-4" /> Top Vendas
+                </TabsTrigger>
+              </>
+            )}
+            {canViewMovements && (
+              <TabsTrigger value="movements" className="flex items-center gap-1.5">
+                <ArrowLeftRight className="h-4 w-4" /> Top Movimentações
+              </TabsTrigger>
+            )}
           </TabsList>
         </Tabs>
 
@@ -430,24 +440,28 @@ export function RankingsPage() {
                     ) : null}
 
                     {/* Ações de Gestão para 2º Lugar */}
-                    {isManagerOrAdmin && xpSecond && (
+                    {(canEvaluate || canGrantInsignia) && xpSecond && (
                       <div className="mt-4 flex items-center gap-1.5 pt-3 border-t border-border/40 w-full justify-center">
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => setEvaluatingMember(xpSecond)}
-                          className="h-7 text-xs gap-1 text-amber-400 hover:text-amber-300 hover:bg-amber-500/10"
-                        >
-                          <Star className="h-3 w-3 fill-amber-400" /> Avaliar
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => setGrantingInsigniaMember(xpSecond)}
-                          className="h-7 text-xs gap-1 text-primary hover:text-primary hover:bg-primary/10"
-                        >
-                          <Award className="h-3 w-3" /> Insígnia
-                        </Button>
+                        {canEvaluate && (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => setEvaluatingMember(xpSecond)}
+                            className="h-7 text-xs gap-1 text-amber-400 hover:text-amber-300 hover:bg-amber-500/10"
+                          >
+                            <Star className="h-3 w-3 fill-amber-400" /> Avaliar
+                          </Button>
+                        )}
+                        {canGrantInsignia && (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => setGrantingInsigniaMember(xpSecond)}
+                            className="h-7 text-xs gap-1 text-primary hover:text-primary hover:bg-primary/10"
+                          >
+                            <Award className="h-3 w-3" /> Insígnia
+                          </Button>
+                        )}
                       </div>
                     )}
                   </CardContent>
@@ -504,24 +518,28 @@ export function RankingsPage() {
                     ) : null}
 
                     {/* Ações de Gestão para 1º Lugar */}
-                    {isManagerOrAdmin && xpFirst && (
+                    {(canEvaluate || canGrantInsignia) && xpFirst && (
                       <div className="mt-4 flex items-center gap-1.5 pt-3 border-t border-amber-500/20 w-full justify-center">
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => setEvaluatingMember(xpFirst)}
-                          className="h-7 text-xs gap-1 text-amber-400 hover:text-amber-300 hover:bg-amber-500/10"
-                        >
-                          <Star className="h-3 w-3 fill-amber-400" /> Avaliar
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => setGrantingInsigniaMember(xpFirst)}
-                          className="h-7 text-xs gap-1 text-primary hover:text-primary hover:bg-primary/10"
-                        >
-                          <Award className="h-3 w-3" /> Insígnia
-                        </Button>
+                        {canEvaluate && (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => setEvaluatingMember(xpFirst)}
+                            className="h-7 text-xs gap-1 text-amber-400 hover:text-amber-300 hover:bg-amber-500/10"
+                          >
+                            <Star className="h-3 w-3 fill-amber-400" /> Avaliar
+                          </Button>
+                        )}
+                        {canGrantInsignia && (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => setGrantingInsigniaMember(xpFirst)}
+                            className="h-7 text-xs gap-1 text-primary hover:text-primary hover:bg-primary/10"
+                          >
+                            <Award className="h-3 w-3" /> Insígnia
+                          </Button>
+                        )}
                       </div>
                     )}
                   </CardContent>
@@ -575,24 +593,28 @@ export function RankingsPage() {
                     ) : null}
 
                     {/* Ações de Gestão para 3º Lugar */}
-                    {isManagerOrAdmin && xpThird && (
+                    {(canEvaluate || canGrantInsignia) && xpThird && (
                       <div className="mt-4 flex items-center gap-1.5 pt-3 border-t border-border/40 w-full justify-center">
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => setEvaluatingMember(xpThird)}
-                          className="h-7 text-xs gap-1 text-amber-400 hover:text-amber-300 hover:bg-amber-500/10"
-                        >
-                          <Star className="h-3 w-3 fill-amber-400" /> Avaliar
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => setGrantingInsigniaMember(xpThird)}
-                          className="h-7 text-xs gap-1 text-primary hover:text-primary hover:bg-primary/10"
-                        >
-                          <Award className="h-3 w-3" /> Insígnia
-                        </Button>
+                        {canEvaluate && (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => setEvaluatingMember(xpThird)}
+                            className="h-7 text-xs gap-1 text-amber-400 hover:text-amber-300 hover:bg-amber-500/10"
+                          >
+                            <Star className="h-3 w-3 fill-amber-400" /> Avaliar
+                          </Button>
+                        )}
+                        {canGrantInsignia && (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => setGrantingInsigniaMember(xpThird)}
+                            className="h-7 text-xs gap-1 text-primary hover:text-primary hover:bg-primary/10"
+                          >
+                            <Award className="h-3 w-3" /> Insígnia
+                          </Button>
+                        )}
                       </div>
                     )}
                   </CardContent>
@@ -701,24 +723,28 @@ export function RankingsPage() {
                               </div>
 
                               {/* Ações para Gerente / Admin */}
-                              {isManagerOrAdmin && (
+                              {(canEvaluate || canGrantInsignia) && (
                                 <div className="flex items-center gap-1 pt-2 border-t border-border/40 justify-end">
-                                  <Button
-                                    size="sm"
-                                    variant="outline"
-                                    onClick={() => setEvaluatingMember(m)}
-                                    className="h-6 text-[10px] px-2 gap-1 border-amber-500/30 text-amber-400 hover:bg-amber-500/10"
-                                  >
-                                    <Star className="h-2.5 w-2.5 fill-amber-400" /> Avaliar
-                                  </Button>
-                                  <Button
-                                    size="sm"
-                                    variant="outline"
-                                    onClick={() => setGrantingInsigniaMember(m)}
-                                    className="h-6 text-[10px] px-2 gap-1 border-primary/30 text-primary hover:bg-primary/10"
-                                  >
-                                    <Award className="h-2.5 w-2.5" /> Insígnia
-                                  </Button>
+                                  {canEvaluate && (
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      onClick={() => setEvaluatingMember(m)}
+                                      className="h-6 text-[10px] px-2 gap-1 border-amber-500/30 text-amber-400 hover:bg-amber-500/10"
+                                    >
+                                      <Star className="h-2.5 w-2.5 fill-amber-400" /> Avaliar
+                                    </Button>
+                                  )}
+                                  {canGrantInsignia && (
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      onClick={() => setGrantingInsigniaMember(m)}
+                                      className="h-6 text-[10px] px-2 gap-1 border-primary/30 text-primary hover:bg-primary/10"
+                                    >
+                                      <Award className="h-2.5 w-2.5" /> Insígnia
+                                    </Button>
+                                  )}
                                 </div>
                               )}
                             </div>
@@ -738,7 +764,7 @@ export function RankingsPage() {
                               <TableHead className="text-right">Experiência (XP)</TableHead>
                               <TableHead className="text-center">Avaliação</TableHead>
                               <TableHead className="text-center">Insígnias</TableHead>
-                              {isManagerOrAdmin && <TableHead className="text-right pr-6">Ações</TableHead>}
+                              {(canEvaluate || canGrantInsignia) && <TableHead className="text-right pr-6">Ações</TableHead>}
                             </TableRow>
                           </TableHeader>
                           <TableBody>
@@ -872,30 +898,34 @@ export function RankingsPage() {
                                     )}
                                   </TableCell>
 
-                                  {/* Ações (Gerente / Admin) */}
-                                  {isManagerOrAdmin && (
+                                  {/* Ações (Avaliação / Insígnia) */}
+                                  {(canEvaluate || canGrantInsignia) && (
                                     <TableCell className="text-right pr-6">
                                       <div className="flex items-center justify-end gap-1.5">
-                                        <Button
-                                          size="sm"
-                                          variant="ghost"
-                                          onClick={() => setEvaluatingMember(m)}
-                                          title="Avaliar Desempenho com 1 a 5 estrelas"
-                                          className="h-8 px-2 text-xs gap-1 text-amber-400 hover:text-amber-300 hover:bg-amber-500/15"
-                                        >
-                                          <Star className="h-3.5 w-3.5 fill-amber-400" />
-                                          <span className="hidden lg:inline">Avaliar</span>
-                                        </Button>
-                                        <Button
-                                          size="sm"
-                                          variant="ghost"
-                                          onClick={() => setGrantingInsigniaMember(m)}
-                                          title="Conceder Insígnia (desconta XP do seu saldo)"
-                                          className="h-8 px-2 text-xs gap-1 text-primary hover:text-primary hover:bg-primary/15"
-                                        >
-                                          <Award className="h-3.5 w-3.5" />
-                                          <span className="hidden lg:inline">Insígnia</span>
-                                        </Button>
+                                        {canEvaluate && (
+                                          <Button
+                                            size="sm"
+                                            variant="ghost"
+                                            onClick={() => setEvaluatingMember(m)}
+                                            title="Avaliar Desempenho com 1 a 5 estrelas"
+                                            className="h-8 px-2 text-xs gap-1 text-amber-400 hover:text-amber-300 hover:bg-amber-500/15"
+                                          >
+                                            <Star className="h-3.5 w-3.5 fill-amber-400" />
+                                            <span className="hidden lg:inline">Avaliar</span>
+                                          </Button>
+                                        )}
+                                        {canGrantInsignia && (
+                                          <Button
+                                            size="sm"
+                                            variant="ghost"
+                                            onClick={() => setGrantingInsigniaMember(m)}
+                                            title="Conceder Insígnia (desconta XP do seu saldo)"
+                                            className="h-8 px-2 text-xs gap-1 text-primary hover:text-primary hover:bg-primary/15"
+                                          >
+                                            <Award className="h-3.5 w-3.5" />
+                                            <span className="hidden lg:inline">Insígnia</span>
+                                          </Button>
+                                        )}
                                       </div>
                                     </TableCell>
                                   )}

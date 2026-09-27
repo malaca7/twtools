@@ -54,6 +54,7 @@ type TimeFilter = "all" | "today" | "7days" | "month" | "last_month";
 export function MeuDesempenhoPage() {
   const { user, profile, level, hasPermission } = useAuth();
   if (!hasPermission("view_performance")) return <NoAccess />;
+  const canViewInsignias = hasPermission("view_insignias");
 
   const { data: sales = [], isLoading: loadingSales } = useSales();
   const { data: movements = [], isLoading: loadingMovements } = useMovements();
@@ -316,7 +317,7 @@ export function MeuDesempenhoPage() {
           </Card>
 
           {/* Insígnias & Conquistas Operacionais */}
-          <InsigniaGrid insignias={myInsignias} />
+          {canViewInsignias && <InsigniaGrid insignias={myInsignias} />}
 
           {/* Member's Sales & Movements History Grid */}
           <div className="grid gap-6 md:grid-cols-2">

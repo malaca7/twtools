@@ -72,9 +72,18 @@ export type Permission =
   | "edit_members"
   | "delete_members"
   | "view_consolidated_financials"
-  | "manage_roles"
-  | "manage_announcements"
   | "view_rankings"
+  // Permissões Detalhadas de Ranking, Insígnias e XP
+  | "view_rankings_xp"
+  | "view_rankings_financial"
+  | "view_rankings_movements"
+  | "view_insignias"
+  | "grant_insignia"
+  | "manage_insignias_catalog"
+  | "evaluate_member"
+  | "manage_xp_rules"
+  | "adjust_member_xp"
+  | "view_member_xp"
   | "view_performance"
   | "manage_performance"
   | "inspect_member_performance"
@@ -281,6 +290,16 @@ export const ALL_PERMISSIONS: Permission[] = [
   "manage_roles",
   "manage_announcements",
   "view_rankings",
+  "view_rankings_xp",
+  "view_rankings_financial",
+  "view_rankings_movements",
+  "view_insignias",
+  "grant_insignia",
+  "manage_insignias_catalog",
+  "evaluate_member",
+  "manage_xp_rules",
+  "adjust_member_xp",
+  "view_member_xp",
   "view_performance",
   "manage_performance",
   "inspect_member_performance",
@@ -504,6 +523,16 @@ const OFFICER: Permission[] = [
   "edit_members",
   "manage_announcements",
   "view_rankings",
+  "view_rankings_xp",
+  "view_rankings_financial",
+  "view_rankings_movements",
+  "view_insignias",
+  "grant_insignia",
+  "manage_insignias_catalog",
+  "evaluate_member",
+  "manage_xp_rules",
+  "adjust_member_xp",
+  "view_member_xp",
   "view_performance",
   "manage_performance",
   "inspect_member_performance",
@@ -607,6 +636,13 @@ const MANAGER: Permission[] = [
   "edit_members",
   "manage_announcements",
   "view_rankings",
+  "view_rankings_xp",
+  "view_rankings_financial",
+  "view_rankings_movements",
+  "view_insignias",
+  "grant_insignia",
+  "evaluate_member",
+  "view_member_xp",
   "view_performance",
   "manage_performance",
   "inspect_member_performance",
@@ -651,6 +687,9 @@ const MEMBER: Permission[] = [
   "view_categories",
   "view_members",
   "view_rankings",
+  "view_rankings_xp",
+  "view_insignias",
+  "view_member_xp",
   "view_performance",
   "view_goals",
   "view_hierarchy",
@@ -690,6 +729,8 @@ const NOVATO: Permission[] = [
   "view_categories",
   "view_members",
   "view_rankings",
+  "view_rankings_xp",
+  "view_insignias",
   "view_performance",
   "view_goals",
   "view_hierarchy",
@@ -891,6 +932,28 @@ export function can(
     if (permission === "view_ceo_stock_adjustments" && (list.includes("manage_ceo_stock_adjustments") || list.includes("ceo_adjust_stock_balance") || list.includes("ceo_stock_add") || list.includes("ceo_stock_remove"))) return true;
     if (list.includes("manage_ceo_stock_adjustments") && (permission === "ceo_adjust_stock_balance" || permission === "ceo_stock_add" || permission === "ceo_stock_remove" || permission === "view_ceo_stock_adjustments")) return true;
 
+    // Rankings, Insígnias e Gamificação (XP)
+    if (list.includes("manage_insignias_catalog") && permission === "view_insignias") return true;
+    if (list.includes("grant_insignia") && permission === "view_insignias") return true;
+    if (list.includes("manage_xp_rules") && (permission === "view_rankings_xp" || permission === "view_member_xp")) return true;
+    if (list.includes("adjust_member_xp") && permission === "view_member_xp") return true;
+    if (
+      (list.includes("view_rankings_xp") ||
+        list.includes("view_rankings_financial") ||
+        list.includes("view_rankings_movements") ||
+        list.includes("evaluate_member")) &&
+      permission === "view_rankings"
+    ) {
+      return true;
+    }
+
+    // Fallback gracioso: se o cargo foi salvo no banco antes das novas sub-permissões de ranking existirem
+    const hasAnyGamificationPerm = list.some((p) => typeof p === "string" && (p.includes("insignia") || p.includes("xp") || p === "view_rankings_xp" || p === "evaluate_member"));
+    if (!hasAnyGamificationPerm && (permission.includes("ranking") || permission.includes("insignia") || permission.includes("xp") || permission === "evaluate_member")) {
+      const defaultRolePerms = PERMISSIONS[userLevel] || [];
+      if (defaultRolePerms.includes(permission)) return true;
+    }
+
     return false;
   }
 
@@ -1028,6 +1091,21 @@ export function can(
       rolePerms.includes("life_view_following") ||
       rolePerms.includes("life_view_bookmarks")) &&
     permission === "view_life"
+  ) {
+    return true;
+  }
+
+  // Rankings, Insígnias e Gamificação (XP)
+  if (rolePerms.includes("manage_insignias_catalog") && permission === "view_insignias") return true;
+  if (rolePerms.includes("grant_insignia") && permission === "view_insignias") return true;
+  if (rolePerms.includes("manage_xp_rules") && (permission === "view_rankings_xp" || permission === "view_member_xp")) return true;
+  if (rolePerms.includes("adjust_member_xp") && permission === "view_member_xp") return true;
+  if (
+    (rolePerms.includes("view_rankings_xp") ||
+      rolePerms.includes("view_rankings_financial") ||
+      rolePerms.includes("view_rankings_movements") ||
+      rolePerms.includes("evaluate_member")) &&
+    permission === "view_rankings"
   ) {
     return true;
   }

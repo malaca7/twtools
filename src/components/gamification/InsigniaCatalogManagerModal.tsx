@@ -39,6 +39,7 @@ import {
   type InsigniaItem,
   type InsigniaRarity,
 } from "@/services/gamificationService";
+import { useAuth } from "@/hooks/useAuth";
 import { cn } from "@/lib/utils";
 
 const ICONS_OPTIONS = ["Award", "Shield", "Sparkles", "Crown", "Boxes", "Target", "DollarSign", "Truck", "Eye"];
@@ -65,6 +66,8 @@ export function InsigniaCatalogManagerModal({
   onOpenChange,
 }: InsigniaCatalogManagerModalProps) {
   const queryClient = useQueryClient();
+  const { hasPermission } = useAuth();
+  const canManageCatalog = hasPermission("manage_insignias_catalog");
 
   const { data: catalog = [], isLoading } = useQuery({
     queryKey: ["insignias_catalog"],
@@ -77,6 +80,7 @@ export function InsigniaCatalogManagerModal({
 
   const saveMutation = useMutation({
     mutationFn: async (item: Partial<InsigniaItem>) => {
+      if (!canManageCatalog) throw new Error("Você não possui permissão para gerenciar o catálogo.");
       if (!item.id || !item.name) throw new Error("ID e Nome são obrigatórios.");
       await saveInsignia({
         id: item.id.trim().toLowerCase().replace(/\s+/g, "_"),
@@ -138,7 +142,7 @@ export function InsigniaCatalogManagerModal({
               </div>
             </div>
 
-            {!isEditing && (
+            {!isEditing && canManageCatalog && (
               <Button
                 type="button"
                 size="sm"
@@ -331,16 +335,18 @@ export function InsigniaCatalogManagerModal({
                         </div>
                       </div>
 
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleOpenEdit(badge)}
-                        className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground shrink-0"
-                        title="Editar esta insígnia"
-                      >
-                        <Edit2 className="h-3.5 w-3.5" />
-                      </Button>
+                      {canManageCatalog && (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleOpenEdit(badge)}
+                          className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground shrink-0"
+                          title="Editar esta insígnia"
+                        >
+                          <Edit2 className="h-3.5 w-3.5" />
+                        </Button>
+                      )}
                     </div>
                   );
                 })}

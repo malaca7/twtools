@@ -15,6 +15,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { evaluateMember, type RankedGamificationMember } from "@/services/gamificationService";
+import { useAuth } from "@/hooks/useAuth";
 import { cn } from "@/lib/utils";
 
 interface MemberEvaluationModalProps {
@@ -37,6 +38,9 @@ export function MemberEvaluationModal({
   targetMember,
 }: MemberEvaluationModalProps) {
   const queryClient = useQueryClient();
+  const { hasPermission } = useAuth();
+  const canEvaluate = hasPermission("evaluate_member");
+
   const [stars, setStars] = useState<number>(5);
   const [hoveredStar, setHoveredStar] = useState<number | null>(null);
   const [category, setCategory] = useState<string>("operacoes");
@@ -44,6 +48,7 @@ export function MemberEvaluationModal({
 
   const evalMutation = useMutation({
     mutationFn: async () => {
+      if (!canEvaluate) throw new Error("Você não possui permissão para avaliar membros.");
       if (!targetMember) throw new Error("Nenhum membro selecionado.");
       return await evaluateMember({
         memberId: targetMember.user_id,
@@ -203,7 +208,7 @@ export function MemberEvaluationModal({
             type="button"
             size="sm"
             onClick={() => evalMutation.mutate()}
-            disabled={evalMutation.isPending}
+            disabled={evalMutation.isPending || !canEvaluate}
             className="font-bold bg-amber-500 hover:bg-amber-600 text-slate-950 gap-1.5 shadow-sm"
           >
             {evalMutation.isPending ? (

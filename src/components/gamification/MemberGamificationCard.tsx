@@ -26,6 +26,7 @@ import {
   RARITY_CONFIG,
   type MemberInsigniaGrant,
 } from "@/services/gamificationService";
+import { useAuth } from "@/hooks/useAuth";
 import { cn } from "@/lib/utils";
 
 const ICON_MAP: Record<string, React.ElementType> = {
@@ -68,14 +69,21 @@ export function MemberGamificationCard({
   className,
   showInsignias = true,
 }: MemberGamificationCardProps) {
+  const { hasPermission } = useAuth();
+  const canViewXp = hasPermission("view_member_xp");
+  const canViewInsignias = hasPermission("view_insignias");
+  const effectiveShowInsignias = showInsignias && canViewInsignias;
+
   const levelInfo = useMemo(() => getLevelInfo(totalXp), [totalXp]);
 
   const { data: memberInsignias = [] } = useQuery({
     queryKey: ["member_insignias", userId],
     queryFn: () => getMemberInsignias(userId),
-    enabled: Boolean(userId) && showInsignias,
+    enabled: Boolean(userId) && effectiveShowInsignias,
     staleTime: 60 * 1000,
   });
+
+  if (!canViewXp) return null;
 
   return (
     <Card
@@ -177,7 +185,7 @@ export function MemberGamificationCard({
         </div>
 
         {/* INSÍGNIAS CONQUISTADAS */}
-        {showInsignias && memberInsignias.length > 0 && (
+        {effectiveShowInsignias && memberInsignias.length > 0 && (
           <div className="pt-2 border-t border-border/40 space-y-2">
             <div className="flex items-center justify-between text-xs">
               <span className="font-bold text-foreground flex items-center gap-1.5">
