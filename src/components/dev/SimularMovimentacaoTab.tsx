@@ -215,10 +215,11 @@ export function SimularMovimentacaoTab({ onNavigateToLogs }: SimularMovimentacao
         if (it.id !== id) return it;
         if (field === "productId") {
           const product = products.find((p) => p.id === value);
+          const firstAlias = product?.cda_name ? product.cda_name.split(/[,;\n|]+/)[0]?.trim() : "";
           return {
             ...it,
             productId: value,
-            name: product ? (product.cda_name || product.nome) : it.name,
+            name: firstAlias || product?.nome || it.name,
           };
         }
         return { ...it, [field]: value };

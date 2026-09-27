@@ -1534,8 +1534,11 @@ function DiscordLogsTab() {
       const matchedProd = products.find(
         (p) =>
           p.ativo !== false &&
-          ((p.cda_name && p.cda_name.trim().toLowerCase() === lower) ||
-            p.nome.trim().toLowerCase() === lower)
+          (p.nome.trim().toLowerCase() === lower ||
+            (p.cda_name &&
+              p.cda_name
+                .split(/[,;\n|]+/)
+                .some((a) => a.trim().toLowerCase() === lower)))
       );
       if (matchedProd) return matchedProd.nome;
       return clean;

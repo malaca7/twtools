@@ -3,16 +3,94 @@ const { Pool } = require('pg');
 
 let dbPool = null;
 
+function normalizeText(text) {
+  if (!text) return "";
+  return String(text)
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^\w\s]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function levenshteinDistance(a, b) {
+  const normA = normalizeText(a);
+  const normB = normalizeText(b);
+  if (normA === normB) return 0;
+  if (!normA.length) return normB.length;
+  if (!normB.length) return normA.length;
+
+  const matrix = [];
+  for (let i = 0; i <= normB.length; i++) matrix[i] = [i];
+  for (let j = 0; j <= normA.length; j++) matrix[0][j] = j;
+
+  for (let i = 1; i <= normB.length; i++) {
+    for (let j = 1; j <= normA.length; j++) {
+      if (normB.charAt(i - 1) === normA.charAt(j - 1)) {
+        matrix[i][j] = matrix[i - 1][j - 1];
+      } else {
+        matrix[i][j] = Math.min(
+          matrix[i - 1][j - 1] + 1,
+          matrix[i][j - 1] + 1,
+          matrix[i - 1][j] + 1
+        );
+      }
+    }
+  }
+  return matrix[normB.length][normA.length];
+}
+
+function calculateSimilarity(a, b) {
+  const normA = normalizeText(a);
+  const normB = normalizeText(b);
+  if (!normA || !normB) return 0;
+  if (normA === normB) return 1.0;
+
+  if (normA.includes(normB) || normB.includes(normA)) {
+    const ratio = Math.min(normA.length, normB.length) / Math.max(normA.length, normB.length);
+    return Math.max(0.75, ratio);
+  }
+
+  const distance = levenshteinDistance(normA, normB);
+  const maxLength = Math.max(normA.length, normB.length);
+  if (maxLength === 0) return 1.0;
+  return 1.0 - distance / maxLength;
+}
+
 function cleanItemName(rawName, mappings = {}) {
   // Remove markdown, backslashes (ex: MTAR\-21 -> MTAR-21), bullets and leading/trailing spaces
   let name = rawName.replace(/\\/g, '').replace(/^[\s\-•\*\>]+/, '').trim();
+  if (!name) return name;
 
   if (mappings && typeof mappings === 'object') {
+    // 1. Direct or case-insensitive exact match
     if (mappings[name]) return mappings[name];
     const lower = name.toLowerCase();
     if (mappings[lower]) return mappings[lower];
+
+    const norm = normalizeText(name);
     for (const [k, v] of Object.entries(mappings)) {
-      if (k.trim().toLowerCase() === lower) return v;
+      if (k.trim().toLowerCase() === lower || normalizeText(k) === norm) {
+        return v;
+      }
+    }
+
+    // 2. Fuzzy match fallback
+    let bestScore = 0;
+    let bestTarget = null;
+    for (const [k, v] of Object.entries(mappings)) {
+      const score = calculateSimilarity(name, k);
+      if (score > bestScore) {
+        bestScore = score;
+        bestTarget = v;
+      }
+    }
+
+    const minThreshold = norm.length <= 4 ? 0.75 : 0.65;
+    if (bestScore >= minThreshold && bestTarget) {
+      console.log(`🔍 [STOCK-ENGINE] Item '${name}' reconhecido por similaridade (${Math.round(bestScore * 100)}%) -> '${bestTarget}'`);
+      return bestTarget;
     }
   }
   return name;
@@ -217,12 +295,18 @@ async function refreshCache() {
     if (configRes.rows.length === 0) return null;
     const config = configRes.rows[0];
 
-    // Mesclar cda_name dos produtos cadastrados para aliases automáticos
+    // Mesclar cda_name (múltiplos aliases) e nomes dos produtos cadastrados para aliases automáticos
     const prodsRes = await dbPool.query(`SELECT nome, cda_name FROM public.products WHERE ativo = true`);
     const mergedMappings = { ...(config.item_mappings || {}) };
     for (const p of prodsRes.rows) {
+      if (p.nome && p.nome.trim()) {
+        mergedMappings[p.nome.trim().toLowerCase()] = p.nome;
+      }
       if (p.cda_name && p.cda_name.trim()) {
-        mergedMappings[p.cda_name.trim().toLowerCase()] = p.nome;
+        const aliases = p.cda_name.split(/[,;\n|]+/).map(s => s.trim()).filter(Boolean);
+        for (const alias of aliases) {
+          mergedMappings[alias.toLowerCase()] = p.nome;
+        }
       }
     }
     config.item_mappings = mergedMappings;

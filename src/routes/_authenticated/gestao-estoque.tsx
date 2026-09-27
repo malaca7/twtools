@@ -33,6 +33,9 @@ import {
   Upload,
   Filter,
   Wrench,
+  Tag,
+  DollarSign,
+  HelpCircle,
 } from "lucide-react";
 import { ProductThumbnail } from "@/components/ui/product-thumbnail";
 import { BauIcon } from "@/components/ui/bau-icon";
@@ -42,7 +45,6 @@ import {
   useCategories,
   useBaus,
   useProductBaus,
-  useMovements,
   useDiscordStockConfig,
 } from "@/hooks/useData";
 import {
@@ -64,6 +66,12 @@ import type { Product, Category, Bau } from "@/lib/app-types";
 import { currency, formatCurrencyInput, parseCurrencyInput, num, formatDate } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { useUrlTab } from "@/hooks/useUrlTab";
+import {
+  parseCdaAliases,
+  formatCdaAliases,
+  searchProductsWithFuzzy,
+  FuzzyProductMatch,
+} from "@/lib/fuzzySearch";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
@@ -139,7 +147,7 @@ export function GestaoEstoquePage({ initialTab }: { initialTab?: GestaoEstoqueTa
       tabs.push({ id: "categorias", label: "Categorias", icon: FolderTree, count: categories.length });
     }
     if (canViewBaus) {
-      tabs.push({ id: "baus", label: "Baús do grupo", icon: Layers, count: baus.length });
+      tabs.push({ id: "baus", label: "Baús do Grupo", icon: Layers, count: baus.length });
     }
     if (canViewSaldos) {
       const lowCount = products.filter((p) => p.ativo && Number(p.estoque_atual || 0) <= Number(p.estoque_minimo || 0)).length;
@@ -194,12 +202,12 @@ export function GestaoEstoquePage({ initialTab }: { initialTab?: GestaoEstoqueTa
 
   if (!canAccess || allowedTabsList.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[60vh] text-center p-6 space-y-4">
-        <div className="w-16 h-16 rounded-2xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-center text-rose-400 shadow-sm">
-          <ShieldAlert className="w-8 h-8" />
+      <div className="flex flex-col items-center justify-center min-h-[60vh] text-center p-4 sm:p-6 space-y-4">
+        <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-center text-rose-400 shadow-sm">
+          <ShieldAlert className="w-7 h-7 sm:w-8 sm:h-8" />
         </div>
-        <div className="space-y-2 max-w-md">
-          <h2 className="text-xl font-black tracking-tight text-foreground">Acesso Restrito à Gestão de Estoque</h2>
+        <div className="space-y-2 max-w-md px-2">
+          <h2 className="text-lg sm:text-xl font-black tracking-tight text-foreground">Acesso Restrito à Gestão de Estoque</h2>
           <p className="text-xs text-muted-foreground leading-relaxed">
             {hasBaseManagement
               ? "Você possui autorização básica no módulo, porém nenhuma aba (Produtos, Categorias, Baús ou Ajustes de Saldo) foi liberada para o seu cargo ou usuário. Solicite a um oficial ou administrador para habilitar as abas desejadas."
@@ -211,47 +219,44 @@ export function GestaoEstoquePage({ initialTab }: { initialTab?: GestaoEstoqueTa
   }
 
   return (
-    <div className="space-y-6 pb-12">
+    <div className="space-y-4 sm:space-y-6 pb-12">
       {/* CABEÇALHO DA PÁGINA COM AÇÕES GERAIS */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 border-b border-border/40 pb-5">
-        <div className="space-y-1">
-          <div className="flex items-center gap-3">
-            <div className="p-2.5 rounded-2xl bg-gradient-to-br from-primary/20 to-primary/5 border border-primary/30 text-primary shadow-xs">
-              <PackageCheck className="w-6 h-6" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h1 className="text-2xl font-black tracking-tight text-foreground">
-                  Gestão de Estoque
-                </h1>
-                <Badge variant="outline" className="border-primary/40 text-primary bg-primary/10 text-[10px] font-bold">
-                  Operações & Catálogo
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-border/40 pb-4 sm:pb-5">
+        <div className="flex items-start sm:items-center gap-3">
+          <div className="p-2 sm:p-2.5 rounded-2xl bg-gradient-to-br from-primary/20 to-primary/5 border border-primary/30 text-primary shadow-xs shrink-0 mt-0.5 sm:mt-0">
+            <PackageCheck className="w-5 h-5 sm:w-6 sm:h-6" />
+          </div>
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+              <h1 className="text-xl sm:text-2xl font-black tracking-tight text-foreground">
+                Gestão de Estoque
+              </h1>
+              <Badge variant="outline" className="border-primary/40 text-primary bg-primary/10 text-[9px] sm:text-[10px] font-bold py-0.5">
+                Operações & Catálogo
+              </Badge>
+              {isDevUser && (
+                <Badge variant="outline" className="border-rose-500/40 text-rose-400 bg-rose-500/10 text-[9px] sm:text-[10px] font-bold">
+                  Visão Dev
                 </Badge>
-                {isDevUser && (
-                  <Badge variant="outline" className="border-rose-500/40 text-rose-400 bg-rose-500/10 text-[10px] font-bold hidden sm:inline-flex">
-                    Visão Dev (Acesso Pleno)
-                  </Badge>
-                )}
-              </div>
-              <p className="text-xs text-muted-foreground">
-                Cadastros, categorias, parametrização de baús do grupo e ajustes auditados de inventário.
-              </p>
+              )}
             </div>
+            <p className="text-[11px] sm:text-xs text-muted-foreground line-clamp-1 sm:line-clamp-none mt-0.5">
+              Cadastros, categorias, parametrização de baús do grupo e ajustes auditados de inventário.
+            </p>
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex items-center gap-2 w-full sm:w-auto shrink-0 pt-1 sm:pt-0">
           {isDevUser && (
             <Button
               asChild
               variant="outline"
               size="sm"
-              className="h-9 text-xs font-semibold gap-1.5 rounded-xl border-rose-500/30 text-rose-400 bg-rose-500/10 hover:bg-rose-500/20 hover:text-rose-300 shadow-xs"
+              className="flex-1 sm:flex-initial h-8 sm:h-9 text-xs font-semibold gap-1.5 rounded-xl border-rose-500/30 text-rose-400 bg-rose-500/10 hover:bg-rose-500/20 hover:text-rose-300 shadow-xs"
             >
               <Link to="/dev/estoque">
                 <Wrench className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">Ajustes Dev & Bot</span>
-                <span className="sm:hidden">Dev Estoque</span>
+                <span className="inline">Ajustes Dev & Bot</span>
               </Link>
             </Button>
           )}
@@ -262,7 +267,7 @@ export function GestaoEstoquePage({ initialTab }: { initialTab?: GestaoEstoqueTa
             size="sm"
             onClick={handleRefreshAll}
             disabled={isRefetchingProducts}
-            className="h-9 text-xs font-semibold gap-1.5 rounded-xl border-border/70 hover:bg-secondary/60 cursor-pointer"
+            className="flex-1 sm:flex-initial h-8 sm:h-9 text-xs font-semibold gap-1.5 rounded-xl border-border/70 hover:bg-secondary/60 cursor-pointer"
           >
             <RefreshCw className={cn("w-3.5 h-3.5 text-primary", isRefetchingProducts && "animate-spin")} />
             <span>Atualizar</span>
@@ -270,17 +275,17 @@ export function GestaoEstoquePage({ initialTab }: { initialTab?: GestaoEstoqueTa
         </div>
       </div>
 
-      {/* ABAS PRINCIPAIS - RENDERIZAÇÃO ESTREITA E OCULTAÇÃO TOTAL DE NÃO-PERMITIDAS */}
-      <Tabs value={activeTab} onValueChange={(val) => setActiveTab(val as GestaoEstoqueTab)} className="space-y-6">
-        <div className="overflow-x-auto pb-1">
-          <TabsList className="bg-secondary/40 border border-border/50 p-1 rounded-xl flex flex-wrap items-center gap-1 w-full sm:w-auto h-auto min-w-max">
+      {/* ABAS PRINCIPAIS COM SCROLL RESPONSIVO */}
+      <Tabs value={activeTab} onValueChange={(val) => setActiveTab(val as GestaoEstoqueTab)} className="space-y-4 sm:space-y-6">
+        <div className="overflow-x-auto no-scrollbar pb-1 -mx-2 px-2 sm:mx-0 sm:px-0">
+          <TabsList className="bg-secondary/40 border border-border/50 p-1 rounded-xl flex items-center gap-1 w-max sm:w-auto h-auto">
             {visibleTabs.map((tab) => {
               const Icon = tab.icon;
               return (
                 <TabsTrigger
                   key={tab.id}
                   value={tab.id}
-                  className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground font-bold text-xs py-2 px-3.5 gap-2 rounded-lg transition-all cursor-pointer"
+                  className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground font-bold text-xs py-2 px-3 sm:px-3.5 gap-1.5 sm:gap-2 rounded-lg transition-all cursor-pointer shrink-0"
                 >
                   <Icon className="w-3.5 h-3.5" />
                   <span>{tab.label}</span>
@@ -304,7 +309,7 @@ export function GestaoEstoquePage({ initialTab }: { initialTab?: GestaoEstoqueTa
 
         {/* CONTEÚDO DAS ABAS (CARREGADO SOMENTE SE PERMITIDO) */}
         {canViewProdutos && (
-          <TabsContent value="produtos" className="space-y-6 m-0">
+          <TabsContent value="produtos" className="space-y-4 sm:space-y-6 m-0">
             <ProdutosTabContent
               canManage={canManageProdutos}
               canAdjustSaldos={canAdjustSaldos}
@@ -318,19 +323,19 @@ export function GestaoEstoquePage({ initialTab }: { initialTab?: GestaoEstoqueTa
         )}
 
         {canViewCategorias && (
-          <TabsContent value="categorias" className="space-y-6 m-0">
+          <TabsContent value="categorias" className="space-y-4 sm:space-y-6 m-0">
             <CategoriasTabContent canManage={canManageCategorias} />
           </TabsContent>
         )}
 
         {canViewBaus && (
-          <TabsContent value="baus" className="space-y-6 m-0">
+          <TabsContent value="baus" className="space-y-4 sm:space-y-6 m-0">
             <BausTabContent canManage={canManageBaus} />
           </TabsContent>
         )}
 
         {canViewSaldos && (
-          <TabsContent value="saldos" className="space-y-6 m-0">
+          <TabsContent value="saldos" className="space-y-4 sm:space-y-6 m-0">
             <SaldosTabContent
               canAdjust={canAdjustSaldos}
               canManageBalance={canManageStockBalance}
@@ -343,7 +348,7 @@ export function GestaoEstoquePage({ initialTab }: { initialTab?: GestaoEstoqueTa
 }
 
 // ============================================================================
-// ABA 1: PRODUTOS (CATÁLOGO, REGRAS, IMAGENS, PREÇOS E FILTROS INTELIGENTES)
+// ABA 1: PRODUTOS (MÚLTIPLOS ALIASES DE LOG DISCORD, FUZZY SEARCH E CARDS MOBILE)
 // ============================================================================
 interface ProdutosTabContentProps {
   canManage: boolean;
@@ -368,7 +373,8 @@ function ProdutosTabContent({ canManage, canAdjustSaldos, onNavigateToAdjust }: 
 
   // Form State
   const [nome, setNome] = useState("");
-  const [cdaName, setCdaName] = useState("");
+  const [cdaAliases, setCdaAliases] = useState<string[]>([]);
+  const [cdaInputText, setCdaInputText] = useState("");
   const [descricao, setDescricao] = useState("");
   const [categoriaId, setCategoriaId] = useState("");
   const [bauId, setBauId] = useState("");
@@ -387,7 +393,8 @@ function ProdutosTabContent({ canManage, canAdjustSaldos, onNavigateToAdjust }: 
     if (!canManage) return;
     setEditingProduct(null);
     setNome("");
-    setCdaName("");
+    setCdaAliases([]);
+    setCdaInputText("");
     setDescricao("");
     setCategoriaId(categories[0]?.id || "");
     setBauId(baus[0]?.id || "");
@@ -403,7 +410,8 @@ function ProdutosTabContent({ canManage, canAdjustSaldos, onNavigateToAdjust }: 
     if (!canManage) return;
     setEditingProduct(prod);
     setNome(prod.nome);
-    setCdaName(prod.cda_name || "");
+    setCdaAliases(parseCdaAliases(prod.cda_name));
+    setCdaInputText("");
     setDescricao(prod.descricao || "");
     setCategoriaId(prod.categoria_id || "");
     setBauId(prod.bau_id || "");
@@ -413,6 +421,23 @@ function ProdutosTabContent({ canManage, canAdjustSaldos, onNavigateToAdjust }: 
     setImagemUrl(prod.imagem_url || "");
     setAtivo(prod.ativo);
     setIsModalOpen(true);
+  };
+
+  const handleAddCdaAlias = (textToAdd?: string) => {
+    const raw = textToAdd !== undefined ? textToAdd : cdaInputText;
+    if (!raw.trim()) return;
+    const parsed = parseCdaAliases(raw);
+    if (parsed.length === 0) return;
+
+    setCdaAliases((prev) => {
+      const combined = [...prev, ...parsed];
+      return parseCdaAliases(combined.join(", "));
+    });
+    setCdaInputText("");
+  };
+
+  const handleRemoveCdaAlias = (aliasToRemove: string) => {
+    setCdaAliases((prev) => prev.filter((a) => a.toLowerCase() !== aliasToRemove.toLowerCase()));
   };
 
   const handleProductImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -444,9 +469,18 @@ function ProdutosTabContent({ canManage, canAdjustSaldos, onNavigateToAdjust }: 
       if (!nome.trim()) throw new Error("Informe o nome do produto.");
       const precoSugerido = parseCurrencyInput(precoInput);
 
+      // Inclui o que estiver digitado no campo de alias se o usuário esqueceu de clicar em adicionar
+      let finalAliases = [...cdaAliases];
+      if (cdaInputText.trim()) {
+        const pending = parseCdaAliases(cdaInputText);
+        finalAliases = parseCdaAliases([...finalAliases, ...pending].join(", "));
+      }
+
+      const formattedCda = formatCdaAliases(finalAliases);
+
       const payload: any = {
         nome: nome.trim(),
-        cda_name: cdaName.trim() || undefined,
+        cda_name: formattedCda || undefined,
         descricao: descricao.trim() || undefined,
         categoria_id: categoriaId || undefined,
         bau_id: bauId || undefined,
@@ -469,6 +503,7 @@ function ProdutosTabContent({ canManage, canAdjustSaldos, onNavigateToAdjust }: 
     onSuccess: () => {
       toast.success(editingProduct ? "Produto atualizado com sucesso!" : "Produto cadastrado com sucesso!");
       void queryClient.invalidateQueries({ queryKey: ["products"] });
+      void queryClient.invalidateQueries({ queryKey: ["discord_stock_config"] });
       setIsModalOpen(false);
     },
     onError: (err: any) => {
@@ -484,6 +519,7 @@ function ProdutosTabContent({ canManage, canAdjustSaldos, onNavigateToAdjust }: 
       toast.success("Produto excluído com sucesso.");
       void queryClient.invalidateQueries({ queryKey: ["products"] });
       void queryClient.invalidateQueries({ queryKey: ["movements"] });
+      void queryClient.invalidateQueries({ queryKey: ["discord_stock_config"] });
       setDeletingProduct(null);
     },
     onError: (err: any) => {
@@ -491,8 +527,10 @@ function ProdutosTabContent({ canManage, canAdjustSaldos, onNavigateToAdjust }: 
     },
   });
 
-  const filteredProducts = useMemo(() => {
-    return products.filter((p) => {
+  // Aplicação de filtros + busca por similaridade fuzzy
+  const { exactFilteredProducts, similarFilteredProducts } = useMemo(() => {
+    // 1. Filtragem base por status, categoria e estoque crítico
+    const baseList = products.filter((p) => {
       if (statusFilter === "active" && !p.ativo) return false;
       if (statusFilter === "inactive" && p.ativo) return false;
       if (categoryFilter !== "all" && p.categoria_id !== categoryFilter) return false;
@@ -500,16 +538,28 @@ function ProdutosTabContent({ canManage, canAdjustSaldos, onNavigateToAdjust }: 
         const isLow = p.ativo && Number(p.estoque_atual || 0) <= Number(p.estoque_minimo || 0);
         if (!isLow) return false;
       }
-      if (search.trim()) {
-        const q = search.toLowerCase();
-        const matchesName = p.nome.toLowerCase().includes(q);
-        const matchesDesc = p.descricao?.toLowerCase().includes(q);
-        const matchesCda = p.cda_name?.toLowerCase().includes(q);
-        if (!matchesName && !matchesDesc && !matchesCda) return false;
-      }
       return true;
     });
-  }, [products, search, categoryFilter, statusFilter, criticalOnlyFilter]);
+
+    if (!search.trim()) {
+      return {
+        exactFilteredProducts: baseList,
+        similarFilteredProducts: [] as FuzzyProductMatch[],
+      };
+    }
+
+    const { exactMatches, similarMatches } = searchProductsWithFuzzy(
+      baseList,
+      search,
+      categories,
+      baus
+    );
+
+    return {
+      exactFilteredProducts: exactMatches,
+      similarFilteredProducts: similarMatches,
+    };
+  }, [products, search, categoryFilter, statusFilter, criticalOnlyFilter, categories, baus]);
 
   // Estatísticas rápidas
   const totalAtivos = products.filter((p) => p.ativo).length;
@@ -519,109 +569,113 @@ function ProdutosTabContent({ canManage, canAdjustSaldos, onNavigateToAdjust }: 
   const hasAnyRowAction = canManage || canAdjustSaldos;
 
   return (
-    <div className="space-y-6">
-      {/* STATS RÁPIDOS */}
-      <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
-        <Card className="surface-card border-border/70 p-4 space-y-1">
-          <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider block">Total de Produtos</span>
+    <div className="space-y-4 sm:space-y-6">
+      {/* STATS RÁPIDOS RESPONSIVOS */}
+      <div className="grid gap-2.5 sm:gap-4 grid-cols-2 lg:grid-cols-4">
+        <Card className="surface-card border-border/70 p-3 sm:p-4 space-y-1">
+          <span className="text-[10px] sm:text-[11px] font-semibold text-muted-foreground uppercase tracking-wider block truncate">Total de Produtos</span>
           <div className="flex items-center justify-between">
-            <span className="text-2xl font-black text-foreground">{products.length}</span>
-            <Boxes className="w-5 h-5 text-primary opacity-60" />
+            <span className="text-xl sm:text-2xl font-black text-foreground">{products.length}</span>
+            <Boxes className="w-4 h-4 sm:w-5 sm:h-5 text-primary opacity-60 shrink-0" />
           </div>
-          <span className="text-[10px] text-muted-foreground">{totalAtivos} ativos no catálogo</span>
+          <span className="text-[9px] sm:text-[10px] text-muted-foreground block truncate">{totalAtivos} ativos no catálogo</span>
         </Card>
 
-        <Card className="surface-card border-border/70 p-4 space-y-1">
-          <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider block">Categorias</span>
+        <Card className="surface-card border-border/70 p-3 sm:p-4 space-y-1">
+          <span className="text-[10px] sm:text-[11px] font-semibold text-muted-foreground uppercase tracking-wider block truncate">Categorias</span>
           <div className="flex items-center justify-between">
-            <span className="text-2xl font-black text-cyan-400">{categories.length}</span>
-            <FolderTree className="w-5 h-5 text-cyan-400 opacity-60" />
+            <span className="text-xl sm:text-2xl font-black text-cyan-400">{categories.length}</span>
+            <FolderTree className="w-4 h-4 sm:w-5 sm:h-5 text-cyan-400 opacity-60 shrink-0" />
           </div>
-          <span className="text-[10px] text-muted-foreground">Departamentos configurados</span>
+          <span className="text-[9px] sm:text-[10px] text-muted-foreground block truncate">Departamentos ativos</span>
         </Card>
 
         <Card
           onClick={() => setCriticalOnlyFilter((prev) => !prev)}
           className={cn(
-            "surface-card border p-4 space-y-1 transition-all cursor-pointer",
+            "surface-card border p-3 sm:p-4 space-y-1 transition-all cursor-pointer",
             criticalOnlyFilter
               ? "border-amber-500/80 bg-amber-500/10 shadow-sm"
               : "border-border/70 hover:border-amber-500/40"
           )}
         >
           <div className="flex items-center justify-between">
-            <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider block">Estoque Crítico</span>
-            <Badge variant="outline" className="text-[9px] font-mono border-amber-500/40 text-amber-400">
-              {criticalOnlyFilter ? "Filtro Ativo" : "Filtrar"}
+            <span className="text-[10px] sm:text-[11px] font-semibold text-muted-foreground uppercase tracking-wider block truncate">Estoque Crítico</span>
+            <Badge variant="outline" className="text-[8px] sm:text-[9px] font-mono border-amber-500/40 text-amber-400 px-1 py-0">
+              {criticalOnlyFilter ? "Ativo" : "Filtrar"}
             </Badge>
           </div>
           <div className="flex items-center justify-between">
-            <span className={cn("text-2xl font-black", totalBaixoEstoque > 0 ? "text-amber-400" : "text-emerald-400")}>
+            <span className={cn("text-xl sm:text-2xl font-black", totalBaixoEstoque > 0 ? "text-amber-400" : "text-emerald-400")}>
               {totalBaixoEstoque}
             </span>
-            <AlertTriangle className={cn("w-5 h-5", totalBaixoEstoque > 0 ? "text-amber-400" : "text-emerald-400")} />
+            <AlertTriangle className={cn("w-4 h-4 sm:w-5 sm:h-5 shrink-0", totalBaixoEstoque > 0 ? "text-amber-400" : "text-emerald-400")} />
           </div>
-          <span className="text-[10px] text-muted-foreground">Itens em ou abaixo do mínimo</span>
+          <span className="text-[9px] sm:text-[10px] text-muted-foreground block truncate">Abaixo do mínimo</span>
         </Card>
 
-        <Card className="surface-card border-border/70 p-4 space-y-1">
-          <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider block">Patrimônio em Itens</span>
+        <Card className="surface-card border-border/70 p-3 sm:p-4 space-y-1">
+          <span className="text-[10px] sm:text-[11px] font-semibold text-muted-foreground uppercase tracking-wider block truncate">Patrimônio em Itens</span>
           <div className="flex items-center justify-between">
-            <span className="text-lg font-black text-emerald-400 tracking-tight">{currency(valorTotalEstoque)}</span>
-            <TrendingUp className="w-5 h-5 text-emerald-400 opacity-60" />
+            <span className="text-base sm:text-lg font-black text-emerald-400 tracking-tight truncate">{currency(valorTotalEstoque)}</span>
+            <TrendingUp className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-400 opacity-60 shrink-0" />
           </div>
-          <span className="text-[10px] text-muted-foreground">Valor estimado em depósito</span>
+          <span className="text-[9px] sm:text-[10px] text-muted-foreground block truncate">Valor em depósito</span>
         </Card>
       </div>
 
-      {/* BARRA DE FERRAMENTAS E FILTROS */}
+      {/* BARRA DE FERRAMENTAS E FILTROS RESPONSIVOS */}
       <Card className="surface-card border-border/80">
-        <CardContent className="p-4 space-y-3">
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
-            <div className="flex flex-1 flex-wrap items-center gap-2">
+        <CardContent className="p-3 sm:p-4 space-y-3">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-2.5 sm:gap-3">
+            <div className="flex flex-col sm:flex-row flex-1 items-stretch sm:items-center gap-2">
+              {/* CAMPO DE PESQUISA */}
               <div className="relative flex-1 min-w-[200px]">
                 <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
                 <Input
-                  placeholder="Pesquisar produto pelo nome, descrição ou log CDA..."
+                  placeholder="Pesquisar por nome, descrição ou logs do Discord..."
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
-                  className="pl-9 pr-8 text-xs h-9"
+                  className="pl-9 pr-8 text-xs h-9 bg-background/60"
                 />
                 {search && (
                   <button
                     type="button"
                     onClick={() => setSearch("")}
-                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground cursor-pointer"
                   >
                     <X className="w-3.5 h-3.5" />
                   </button>
                 )}
               </div>
 
-              <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-                <SelectTrigger className="w-44 text-xs h-9">
-                  <SelectValue placeholder="Categoria..." />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todas as Categorias</SelectItem>
-                  {categories.map((c) => (
-                    <SelectItem key={c.id} value={c.id}>
-                      {c.nome}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              {/* DROPDOWNS EM LINHA DUPLA NO MOBILE */}
+              <div className="grid grid-cols-2 sm:flex sm:items-center gap-2">
+                <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+                  <SelectTrigger className="text-xs h-9 w-full sm:w-40 bg-background/60">
+                    <SelectValue placeholder="Categoria..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todas Categorias</SelectItem>
+                    {categories.map((c) => (
+                      <SelectItem key={c.id} value={c.id}>
+                        {c.nome}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
 
-              <Select value={statusFilter} onValueChange={(val: any) => setStatusFilter(val)}>
-                <SelectTrigger className="w-36 text-xs h-9">
-                  <SelectValue placeholder="Status..." />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todos os Status</SelectItem>
-                  <SelectItem value="active">Apenas Ativos</SelectItem>
-                  <SelectItem value="inactive">Apenas Inativos</SelectItem>
-                </SelectContent>
-              </Select>
+                <Select value={statusFilter} onValueChange={(val: any) => setStatusFilter(val)}>
+                  <SelectTrigger className="text-xs h-9 w-full sm:w-36 bg-background/60">
+                    <SelectValue placeholder="Status..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos Status</SelectItem>
+                    <SelectItem value="active">Apenas Ativos</SelectItem>
+                    <SelectItem value="inactive">Apenas Inativos</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
 
               {criticalOnlyFilter && (
                 <Button
@@ -629,7 +683,7 @@ function ProdutosTabContent({ canManage, canAdjustSaldos, onNavigateToAdjust }: 
                   variant="secondary"
                   size="sm"
                   onClick={() => setCriticalOnlyFilter(false)}
-                  className="h-9 text-xs font-bold gap-1 text-amber-400 bg-amber-500/15 border border-amber-500/30"
+                  className="h-9 text-xs font-bold gap-1 text-amber-400 bg-amber-500/15 border border-amber-500/30 shrink-0 w-full sm:w-auto"
                 >
                   <AlertTriangle className="w-3.5 h-3.5" />
                   <span>Estoque Crítico</span>
@@ -638,57 +692,248 @@ function ProdutosTabContent({ canManage, canAdjustSaldos, onNavigateToAdjust }: 
               )}
             </div>
 
-            {/* BOTÃO NOVO PRODUTO (OCULTO SE NÃO TIVER PERMISSÃO) */}
+            {/* BOTÃO NOVO PRODUTO */}
             {canManage && (
               <Button
                 size="sm"
                 onClick={openCreateModal}
-                className="bg-primary hover:bg-primary/90 font-bold gap-1.5 h-9 shrink-0 cursor-pointer shadow-sm"
+                className="bg-primary hover:bg-primary/90 font-bold gap-1.5 h-9 w-full sm:w-auto shrink-0 cursor-pointer shadow-sm"
               >
                 <Plus className="w-4 h-4" />
-                Novo Produto
+                <span>Novo Produto</span>
               </Button>
             )}
           </div>
         </CardContent>
       </Card>
 
-      {/* TABELA DE PRODUTOS */}
-      <Card className="surface-card border-border/80 overflow-hidden">
+      {/* AVISO DE NOMES SIMILARES ENCONTRADOS (FUZZY SEARCH / SUGESTÕES) */}
+      {search.trim() && exactFilteredProducts.length === 0 && similarFilteredProducts.length > 0 && (
+        <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs space-y-2 animate-in fade-in-50 duration-200">
+          <div className="flex items-center gap-2 font-bold text-amber-400">
+            <Sparkles className="w-4 h-4" />
+            <span>Nenhum produto com o termo exato "{search}", mas encontramos {similarFilteredProducts.length} possíveis itens parecidos:</span>
+          </div>
+          <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
+            {similarFilteredProducts.map(({ product, reason, score }) => (
+              <Badge
+                key={product.id}
+                variant="outline"
+                className="border-amber-500/40 bg-amber-500/15 text-amber-200 text-[11px] py-1 px-2 gap-1.5"
+              >
+                <strong className="font-bold">{product.nome}</strong>
+                <span className="opacity-75 font-mono text-[10px]">({reason})</span>
+                <span className="text-[9px] bg-amber-500/30 px-1 rounded font-mono font-bold">
+                  {Math.round(score * 100)}%
+                </span>
+              </Badge>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* LISTA DE PRODUTOS: CARDS PARA MOBILE (md:hidden) E TABELA PARA DESKTOP (hidden md:block) */}
+      <div className="block md:hidden space-y-3">
+        {isLoading ? (
+          <Card className="p-8 text-center text-muted-foreground text-xs">
+            <RefreshCw className="w-5 h-5 animate-spin mx-auto mb-2 text-primary" />
+            Carregando catálogo de produtos...
+          </Card>
+        ) : exactFilteredProducts.length === 0 && similarFilteredProducts.length === 0 ? (
+          <Card className="p-8 text-center text-muted-foreground text-xs">
+            Nenhum produto localizado com os filtros selecionados.
+          </Card>
+        ) : (
+          (exactFilteredProducts.length > 0 ? exactFilteredProducts : similarFilteredProducts.map((s) => s.product)).map((p) => {
+            const cat = categories.find((c) => c.id === p.categoria_id);
+            const b = baus.find((item) => item.id === p.bau_id);
+            const isLow = p.ativo && Number(p.estoque_atual || 0) <= Number(p.estoque_minimo || 0);
+            const aliases = parseCdaAliases(p.cda_name);
+
+            return (
+              <Card
+                key={p.id}
+                className={cn(
+                  "surface-card border transition-all p-3.5 space-y-3 shadow-xs",
+                  isLow ? "border-rose-500/30 bg-rose-500/[0.02]" : "border-border/70"
+                )}
+              >
+                {/* TOPO: FOTO + NOME + BADGES DE STATUS E SALDO */}
+                <div className="flex items-start justify-between gap-2.5">
+                  <div className="flex items-start gap-2.5 min-w-0 flex-1">
+                    <ProductThumbnail src={p.imagem_url} name={p.nome} size="md" className="shrink-0 mt-0.5" />
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <strong className="text-sm text-foreground font-bold leading-tight">{p.nome}</strong>
+                        <Badge
+                          variant="outline"
+                          className={cn(
+                            "text-[9px] uppercase font-bold py-0 px-1.5",
+                            p.ativo ? "border-emerald-500/40 text-emerald-400 bg-emerald-500/10" : "border-muted text-muted-foreground"
+                          )}
+                        >
+                          {p.ativo ? "Ativo" : "Inativo"}
+                        </Badge>
+                      </div>
+                      {p.descricao && (
+                        <p className="text-[11px] text-muted-foreground line-clamp-2 mt-0.5">{p.descricao}</p>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* SALDO EM DESTAQUE */}
+                  <div className="text-right shrink-0">
+                    <Badge
+                      variant="outline"
+                      className={cn(
+                        "font-bold font-mono text-xs px-2 py-0.5",
+                        isLow
+                          ? "border-rose-500/40 text-rose-400 bg-rose-500/10"
+                          : "border-emerald-500/40 text-emerald-400 bg-emerald-500/10"
+                      )}
+                    >
+                      {num(p.estoque_atual || 0)} {p.unidade || "un"}
+                    </Badge>
+                    <span className="block text-[9px] text-muted-foreground font-mono mt-0.5">
+                      Mín: {p.estoque_minimo || 0}
+                    </span>
+                  </div>
+                </div>
+
+                {/* ALIASES DO DISCORD (CDA) */}
+                {aliases.length > 0 && (
+                  <div className="flex flex-wrap items-center gap-1 pt-0.5">
+                    <span className="text-[10px] text-muted-foreground font-medium flex items-center gap-1 mr-0.5">
+                      <Bot className="w-3 h-3 text-cyan-400" />
+                      Logs Discord:
+                    </span>
+                    {aliases.map((alias, idx) => (
+                      <Badge
+                        key={idx}
+                        variant="outline"
+                        className="text-[10px] font-mono py-0 px-1.5 border-primary/30 text-primary bg-primary/5"
+                      >
+                        {alias}
+                      </Badge>
+                    ))}
+                  </div>
+                )}
+
+                {/* METADADOS (CATEGORIA, BAÚ PREFERENCIAL, PREÇO) */}
+                <div className="grid grid-cols-3 gap-2 py-2 px-2.5 rounded-lg bg-secondary/30 border border-border/40 text-xs">
+                  <div>
+                    <span className="text-[9px] text-muted-foreground block uppercase font-medium">Categoria</span>
+                    <span className="text-[11px] font-semibold text-foreground truncate block">
+                      {cat?.nome || "Geral"}
+                    </span>
+                  </div>
+
+                  <div>
+                    <span className="text-[9px] text-muted-foreground block uppercase font-medium">Baú Padrão</span>
+                    <span className="text-[11px] text-foreground truncate flex items-center gap-1 font-medium">
+                      {b ? (
+                        <>
+                          <BauIcon foto_url={b.foto_url || b.imagem_url} icone={b.icone} nome={b.nome} className="w-3 h-3 object-cover rounded shrink-0" />
+                          <span className="truncate">{b.nome}</span>
+                        </>
+                      ) : (
+                        "—"
+                      )}
+                    </span>
+                  </div>
+
+                  <div className="text-right">
+                    <span className="text-[9px] text-muted-foreground block uppercase font-medium">Preço Sugerido</span>
+                    <span className="text-[11px] font-mono font-bold text-emerald-400 truncate block">
+                      {p.preco_sugerido ? currency(p.preco_sugerido) : "—"}
+                    </span>
+                  </div>
+                </div>
+
+                {/* AÇÕES NO CARD MOBILE */}
+                {hasAnyRowAction && (
+                  <div className="flex items-center justify-end gap-1.5 pt-1 border-t border-border/40">
+                    {canAdjustSaldos && onNavigateToAdjust && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-8 flex-1 text-xs text-primary border-primary/30 bg-primary/5 hover:bg-primary/10 gap-1.5 rounded-lg font-bold"
+                        onClick={() => onNavigateToAdjust(p.id, p.bau_id || undefined)}
+                      >
+                        <Sliders className="w-3.5 h-3.5" />
+                        <span>Ajustar Saldo</span>
+                      </Button>
+                    )}
+
+                    {canManage && (
+                      <>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-8 px-3 text-xs text-muted-foreground hover:text-foreground border-border/70 rounded-lg"
+                          onClick={() => openEditModal(p)}
+                          title="Editar Produto"
+                        >
+                          <Edit2 className="w-3.5 h-3.5 mr-1" />
+                          <span>Editar</span>
+                        </Button>
+
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-8 px-2.5 text-xs text-muted-foreground hover:text-rose-400 hover:bg-rose-500/10 border-border/70 rounded-lg"
+                          onClick={() => setDeletingProduct(p)}
+                          title="Excluir Produto"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </Button>
+                      </>
+                    )}
+                  </div>
+                )}
+              </Card>
+            );
+          })
+        )}
+      </div>
+
+      {/* TABELA DE PRODUTOS PARA DESKTOP (hidden md:block) */}
+      <Card className="surface-card border-border/80 overflow-hidden hidden md:block">
         <div className="overflow-x-auto">
           <Table>
             <TableHeader>
               <TableRow className="border-border/60 hover:bg-transparent">
                 <TableHead className="text-xs">Produto</TableHead>
+                <TableHead className="text-xs">Logs Discord (CDA)</TableHead>
                 <TableHead className="text-xs">Categoria</TableHead>
                 <TableHead className="text-xs">Baú Preferencial</TableHead>
                 <TableHead className="text-xs text-right">Preço Sugerido</TableHead>
                 <TableHead className="text-xs text-center">Estoque Mín.</TableHead>
                 <TableHead className="text-xs text-center">Saldo Atual</TableHead>
                 <TableHead className="text-xs text-center">Status</TableHead>
-                {/* COLUNA AÇÕES OCULTA SE O MEMBRO NÃO TIVER NENHUMA AÇÃO PERMITIDA */}
                 {hasAnyRowAction && <TableHead className="text-xs text-right">Ações</TableHead>}
               </TableRow>
             </TableHeader>
             <TableBody>
               {isLoading ? (
                 <TableRow>
-                  <TableCell colSpan={hasAnyRowAction ? 8 : 7} className="text-center py-12 text-muted-foreground text-xs">
-                    <RefreshCw className="w-5 h-5 animate-spin mx-auto mb-2" />
+                  <TableCell colSpan={hasAnyRowAction ? 9 : 8} className="text-center py-12 text-muted-foreground text-xs">
+                    <RefreshCw className="w-5 h-5 animate-spin mx-auto mb-2 text-primary" />
                     Carregando catálogo de produtos...
                   </TableCell>
                 </TableRow>
-              ) : filteredProducts.length === 0 ? (
+              ) : exactFilteredProducts.length === 0 && similarFilteredProducts.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={hasAnyRowAction ? 8 : 7} className="text-center py-12 text-muted-foreground text-xs">
+                  <TableCell colSpan={hasAnyRowAction ? 9 : 8} className="text-center py-12 text-muted-foreground text-xs">
                     Nenhum produto localizado com os filtros selecionados.
                   </TableCell>
                 </TableRow>
               ) : (
-                filteredProducts.map((p) => {
+                (exactFilteredProducts.length > 0 ? exactFilteredProducts : similarFilteredProducts.map((s) => s.product)).map((p) => {
                   const cat = categories.find((c) => c.id === p.categoria_id);
                   const b = baus.find((item) => item.id === p.bau_id);
                   const isLow = p.ativo && Number(p.estoque_atual || 0) <= Number(p.estoque_minimo || 0);
+                  const aliases = parseCdaAliases(p.cda_name);
 
                   return (
                     <TableRow key={p.id} className="border-border/40 hover:bg-secondary/20 transition-colors">
@@ -696,23 +941,32 @@ function ProdutosTabContent({ canManage, canAdjustSaldos, onNavigateToAdjust }: 
                         <div className="flex items-center gap-2.5">
                           <ProductThumbnail src={p.imagem_url} name={p.nome} size="sm" />
                           <div className="min-w-0">
-                            <div className="flex items-center gap-1.5">
-                              <strong className="text-xs text-foreground font-bold truncate">{p.nome}</strong>
-                              {p.cda_name && (
-                                <Badge variant="outline" className="text-[9px] font-mono py-0 px-1 border-primary/30 text-primary/80 bg-primary/5">
-                                  CDA: {p.cda_name}
-                                </Badge>
-                              )}
-                            </div>
+                            <strong className="text-xs text-foreground font-bold truncate block">{p.nome}</strong>
                             {p.descricao && <span className="text-[10px] text-muted-foreground block truncate max-w-xs">{p.descricao}</span>}
                           </div>
                         </div>
                       </TableCell>
+
+                      <TableCell className="text-xs py-2.5">
+                        {aliases.length > 0 ? (
+                          <div className="flex flex-wrap gap-1 max-w-[220px]">
+                            {aliases.map((a, i) => (
+                              <Badge key={i} variant="outline" className="text-[9px] font-mono py-0 px-1 border-primary/30 text-primary bg-primary/5 truncate">
+                                {a}
+                              </Badge>
+                            ))}
+                          </div>
+                        ) : (
+                          <span className="text-muted-foreground text-[10px] italic">Mesmo do produto</span>
+                        )}
+                      </TableCell>
+
                       <TableCell className="text-xs py-2.5">
                         <Badge variant="outline" className="text-[10px] border-border/60">
                           {cat?.nome || "Geral"}
                         </Badge>
                       </TableCell>
+
                       <TableCell className="text-xs py-2.5 text-muted-foreground">
                         {b ? (
                           <span className="flex items-center gap-1.5">
@@ -723,12 +977,15 @@ function ProdutosTabContent({ canManage, canAdjustSaldos, onNavigateToAdjust }: 
                           "—"
                         )}
                       </TableCell>
+
                       <TableCell className="text-xs py-2.5 text-right font-mono font-medium text-foreground">
                         {p.preco_sugerido ? currency(p.preco_sugerido) : "—"}
                       </TableCell>
+
                       <TableCell className="text-xs py-2.5 text-center font-mono text-muted-foreground">
                         {p.estoque_minimo || 0} {p.unidade || "un"}
                       </TableCell>
+
                       <TableCell className="text-xs py-2.5 text-center font-mono">
                         <Badge
                           variant="outline"
@@ -742,6 +999,7 @@ function ProdutosTabContent({ canManage, canAdjustSaldos, onNavigateToAdjust }: 
                           {num(p.estoque_atual || 0)} {p.unidade || "un"}
                         </Badge>
                       </TableCell>
+
                       <TableCell className="text-xs py-2.5 text-center">
                         <Badge
                           variant="outline"
@@ -754,7 +1012,7 @@ function ProdutosTabContent({ canManage, canAdjustSaldos, onNavigateToAdjust }: 
                         </Badge>
                       </TableCell>
 
-                      {/* AÇÕES DE LINHA (OCULTAS SE NÃO TIVER PERMISSÃO) */}
+                      {/* AÇÕES DE LINHA */}
                       {hasAnyRowAction && (
                         <TableCell className="text-xs py-2.5 text-right">
                           <div className="flex items-center justify-end gap-1">
@@ -767,7 +1025,7 @@ function ProdutosTabContent({ canManage, canAdjustSaldos, onNavigateToAdjust }: 
                                 title="Lançar ajuste de saldo deste item"
                               >
                                 <Sliders className="w-3 h-3" />
-                                <span className="hidden sm:inline">Ajustar</span>
+                                <span className="inline">Ajustar</span>
                               </Button>
                             )}
 
@@ -805,45 +1063,96 @@ function ProdutosTabContent({ canManage, canAdjustSaldos, onNavigateToAdjust }: 
         </div>
       </Card>
 
-      {/* MODAL CRIAR / EDITAR PRODUTO (SOMENTE SE canManage) */}
+      {/* MODAL CRIAR / EDITAR PRODUTO COM SUPORTE A MÚLTIPLOS ALIASES DE DISCORD */}
       {canManage && (
         <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
-          <DialogContent className="sm:max-w-lg bg-card border-border/80">
+          <DialogContent className="w-[95vw] sm:max-w-lg bg-card border-border/80 max-h-[90vh] overflow-y-auto p-4 sm:p-6">
             <DialogHeader>
               <DialogTitle className="text-base font-bold flex items-center gap-2">
-                <Boxes className="w-4 h-4 text-primary" />
-                {editingProduct ? `Editar Produto: ${editingProduct.nome}` : "Cadastrar Novo Produto"}
+                <Boxes className="w-4 h-4 text-primary shrink-0" />
+                <span>{editingProduct ? `Editar Produto: ${editingProduct.nome}` : "Cadastrar Novo Produto"}</span>
               </DialogTitle>
               <DialogDescription className="text-xs">
-                Preencha os dados do item para catálogo, baú preferencial e regras de estoque.
+                Preencha os dados do item, múltiplos nomes de log do Discord (CDA) e baú preferencial.
               </DialogDescription>
             </DialogHeader>
 
             <div className="space-y-3.5 py-2 text-xs">
-              <div className="grid gap-3 grid-cols-1 sm:grid-cols-2">
-                <div className="space-y-1.5">
-                  <Label className="text-xs font-bold text-foreground">
-                    Nome do Produto <span className="text-destructive">*</span>
+              <div className="space-y-1.5">
+                <Label className="text-xs font-bold text-foreground">
+                  Nome do Produto <span className="text-destructive">*</span>
+                </Label>
+                <Input
+                  placeholder="Ex: MP5, Micro Uzi, Paracetamol, LockPick..."
+                  value={nome}
+                  onChange={(e) => setNome(e.target.value)}
+                  className="text-xs h-9"
+                />
+              </div>
+
+              {/* SEÇÃO DE MÚLTIPLOS NOMES DE LOG DISCORD (CDA) */}
+              <div className="space-y-2 p-3 rounded-xl border border-border/70 bg-secondary/30">
+                <div className="flex items-center justify-between">
+                  <Label className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                    <Bot className="w-3.5 h-3.5 text-cyan-400" />
+                    <span>Nomes no Log Discord (CDA)</span>
                   </Label>
-                  <Input
-                    placeholder="Ex: MP5, Micro Uzi, Paracetamol..."
-                    value={nome}
-                    onChange={(e) => setNome(e.target.value)}
-                    className="text-xs"
-                  />
+                  <span className="text-[10px] text-muted-foreground font-normal">Reconhecimento do Bot</span>
+                </div>
+                <p className="text-[10px] text-muted-foreground leading-relaxed">
+                  Adicione todos os nomes ou variações que o Discord/FiveM usa para registrar este item nos baús. O bot reconhecerá qualquer um deles.
+                </p>
+
+                {/* CHIPS DE ALIASES ADICIONADOS */}
+                <div className="flex flex-wrap items-center gap-1.5 min-h-[32px] p-2 rounded-lg bg-background/80 border border-border/60">
+                  {cdaAliases.length === 0 ? (
+                    <span className="text-[11px] text-muted-foreground italic">
+                      Nenhum alias adicional cadastrado (usa o próprio nome do produto)
+                    </span>
+                  ) : (
+                    cdaAliases.map((alias) => (
+                      <Badge
+                        key={alias}
+                        variant="secondary"
+                        className="text-xs font-mono py-0.5 pl-2 pr-1 gap-1 border border-primary/30 text-primary bg-primary/10 flex items-center"
+                      >
+                        <span>{alias}</span>
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveCdaAlias(alias)}
+                          className="hover:bg-primary/20 rounded-full p-0.5 text-primary/80 hover:text-primary cursor-pointer"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      </Badge>
+                    ))
+                  )}
                 </div>
 
-                <div className="space-y-1.5">
-                  <Label className="text-xs font-bold text-foreground flex items-center justify-between">
-                    <span>Nome no Log Discord (CDA)</span>
-                    <span className="text-[10px] text-muted-foreground font-normal">Alias Ingestão</span>
-                  </Label>
+                {/* INPUT PARA ADICIONAR NOVO ALIAS */}
+                <div className="flex items-center gap-2">
                   <Input
-                    placeholder="Ex: Lockpick, Micro Uzi..."
-                    value={cdaName}
-                    onChange={(e) => setCdaName(e.target.value)}
-                    className="text-xs font-mono"
+                    placeholder="Digite um nome (ex: lockpick, micro uzi) e pressione Enter..."
+                    value={cdaInputText}
+                    onChange={(e) => setCdaInputText(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === ",") {
+                        e.preventDefault();
+                        handleAddCdaAlias();
+                      }
+                    }}
+                    className="text-xs h-8 font-mono flex-1 bg-background"
                   />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleAddCdaAlias()}
+                    className="h-8 text-xs font-bold gap-1 px-3 border-border/80 cursor-pointer shrink-0"
+                  >
+                    <Plus className="w-3.5 h-3.5 text-primary" />
+                    <span>Adicionar</span>
+                  </Button>
                 </div>
               </div>
 
@@ -858,11 +1167,11 @@ function ProdutosTabContent({ canManage, canAdjustSaldos, onNavigateToAdjust }: 
                 />
               </div>
 
-              <div className="grid gap-3 grid-cols-2">
+              <div className="grid gap-3 grid-cols-1 sm:grid-cols-2">
                 <div className="space-y-1.5">
                   <Label className="text-xs">Categoria</Label>
                   <Select value={categoriaId} onValueChange={setCategoriaId}>
-                    <SelectTrigger className="text-xs">
+                    <SelectTrigger className="text-xs h-9">
                       <SelectValue placeholder="Selecione a categoria..." />
                     </SelectTrigger>
                     <SelectContent>
@@ -878,7 +1187,7 @@ function ProdutosTabContent({ canManage, canAdjustSaldos, onNavigateToAdjust }: 
                 <div className="space-y-1.5">
                   <Label className="text-xs">Baú Preferencial</Label>
                   <Select value={bauId} onValueChange={setBauId}>
-                    <SelectTrigger className="text-xs">
+                    <SelectTrigger className="text-xs h-9">
                       <SelectValue placeholder="Selecione o baú..." />
                     </SelectTrigger>
                     <SelectContent>
@@ -895,14 +1204,14 @@ function ProdutosTabContent({ canManage, canAdjustSaldos, onNavigateToAdjust }: 
                 </div>
               </div>
 
-              <div className="grid gap-3 grid-cols-3">
+              <div className="grid gap-2.5 sm:gap-3 grid-cols-1 sm:grid-cols-3">
                 <div className="space-y-1.5">
                   <Label className="text-xs">Unidade</Label>
                   <Input
                     placeholder="Ex: un, pacote..."
                     value={unidade}
                     onChange={(e) => setUnidade(e.target.value)}
-                    className="text-xs font-mono"
+                    className="text-xs font-mono h-9"
                   />
                 </div>
 
@@ -912,7 +1221,7 @@ function ProdutosTabContent({ canManage, canAdjustSaldos, onNavigateToAdjust }: 
                     placeholder="R$ 0,00"
                     value={precoInput}
                     onChange={(e) => setPrecoInput(formatCurrencyInput(e.target.value))}
-                    className="text-xs font-mono"
+                    className="text-xs font-mono h-9"
                   />
                 </div>
 
@@ -923,7 +1232,7 @@ function ProdutosTabContent({ canManage, canAdjustSaldos, onNavigateToAdjust }: 
                     min={0}
                     value={estoqueMin}
                     onChange={(e) => setEstoqueMin(Math.max(0, parseInt(e.target.value, 10) || 0))}
-                    className="text-xs font-mono"
+                    className="text-xs font-mono h-9"
                   />
                 </div>
               </div>
@@ -992,13 +1301,13 @@ function ProdutosTabContent({ canManage, canAdjustSaldos, onNavigateToAdjust }: 
               </div>
             </div>
 
-            <DialogFooter className="gap-2 sm:gap-0">
-              <Button variant="outline" size="sm" onClick={() => setIsModalOpen(false)}>
+            <DialogFooter className="flex-col-reverse sm:flex-row gap-2 sm:gap-0 pt-2">
+              <Button variant="outline" size="sm" onClick={() => setIsModalOpen(false)} className="w-full sm:w-auto">
                 Cancelar
               </Button>
               <Button
                 size="sm"
-                className="bg-primary hover:bg-primary/90 font-bold gap-1.5 cursor-pointer"
+                className="bg-primary hover:bg-primary/90 font-bold gap-1.5 cursor-pointer w-full sm:w-auto shadow-sm"
                 disabled={saveMutation.isPending}
                 onClick={() => saveMutation.mutate()}
               >
@@ -1013,7 +1322,7 @@ function ProdutosTabContent({ canManage, canAdjustSaldos, onNavigateToAdjust }: 
       {/* MODAL CONFIRMAÇÃO DE EXCLUSÃO */}
       {canManage && (
         <Dialog open={Boolean(deletingProduct)} onOpenChange={(open) => !open && setDeletingProduct(null)}>
-          <DialogContent className="sm:max-w-md bg-card border-rose-500/30">
+          <DialogContent className="w-[95vw] sm:max-w-md bg-card border-rose-500/30 p-4 sm:p-6">
             <DialogHeader>
               <DialogTitle className="text-sm font-bold flex items-center gap-2 text-rose-400">
                 <AlertTriangle className="w-4 h-4" />
@@ -1023,16 +1332,16 @@ function ProdutosTabContent({ canManage, canAdjustSaldos, onNavigateToAdjust }: 
                 Tem certeza que deseja apagar o produto <strong>{deletingProduct?.nome}</strong>?
               </DialogDescription>
             </DialogHeader>
-            <div className="p-3 rounded bg-rose-500/10 border border-rose-500/20 text-rose-300 text-[11px]">
+            <div className="p-3 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-300 text-[11px] leading-relaxed">
               O histórico de movimentações anteriores será preservado para auditoria, mas o produto não poderá mais ser movimentado.
             </div>
-            <DialogFooter className="gap-2 sm:gap-0">
-              <Button variant="outline" size="sm" onClick={() => setDeletingProduct(null)}>
+            <DialogFooter className="flex-col-reverse sm:flex-row gap-2 sm:gap-0 pt-2">
+              <Button variant="outline" size="sm" onClick={() => setDeletingProduct(null)} className="w-full sm:w-auto">
                 Cancelar
               </Button>
               <Button
                 size="sm"
-                className="bg-rose-600 hover:bg-rose-700 text-white font-bold gap-1.5 cursor-pointer"
+                className="bg-rose-600 hover:bg-rose-700 text-white font-bold gap-1.5 cursor-pointer w-full sm:w-auto shadow-sm"
                 disabled={deleteMutation.isPending}
                 onClick={() => deletingProduct && deleteMutation.mutate(deletingProduct.id)}
               >
@@ -1048,7 +1357,7 @@ function ProdutosTabContent({ canManage, canAdjustSaldos, onNavigateToAdjust }: 
 }
 
 // ============================================================================
-// ABA 2: CATEGORIAS (CRIAR / EDITAR / APAGAR / GERENCIAR)
+// ABA 2: CATEGORIAS (CRIAR / EDITAR / APAGAR / RESPONSIVIDADE MOBILE)
 // ============================================================================
 interface CategoriasTabContentProps {
   canManage: boolean;
@@ -1140,35 +1449,34 @@ function CategoriasTabContent({ canManage }: CategoriasTabContentProps) {
   }, [categories, search]);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       {/* BARRA DE FERRAMENTAS */}
       <Card className="surface-card border-border/80">
-        <CardContent className="p-4 flex flex-col sm:flex-row items-center justify-between gap-3">
+        <CardContent className="p-3 sm:p-4 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5 sm:gap-3">
           <div className="relative flex-1 w-full sm:max-w-md">
             <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
             <Input
               placeholder="Pesquisar categoria..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="pl-9 text-xs h-9"
+              className="pl-9 text-xs h-9 bg-background/60"
             />
           </div>
 
-          {/* BOTÃO NOVA CATEGORIA (OCULTO SE NÃO TIVER PERMISSÃO) */}
           {canManage && (
-            <Button size="sm" onClick={openCreateModal} className="bg-primary hover:bg-primary/90 font-bold gap-1.5 h-9 shrink-0 cursor-pointer shadow-sm">
+            <Button size="sm" onClick={openCreateModal} className="bg-primary hover:bg-primary/90 font-bold gap-1.5 h-9 w-full sm:w-auto shrink-0 cursor-pointer shadow-sm">
               <Plus className="w-4 h-4" />
-              Nova Categoria
+              <span>Nova Categoria</span>
             </Button>
           )}
         </CardContent>
       </Card>
 
-      {/* GRID DE CATEGORIAS */}
-      <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4">
+      {/* GRID DE CATEGORIAS RESPONSIVO */}
+      <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4">
         {isLoading ? (
           <div className="col-span-full text-center py-12 text-muted-foreground text-xs">
-            <RefreshCw className="w-5 h-5 animate-spin mx-auto mb-2" />
+            <RefreshCw className="w-5 h-5 animate-spin mx-auto mb-2 text-primary" />
             Carregando categorias...
           </div>
         ) : filteredCategories.length === 0 ? (
@@ -1181,33 +1489,32 @@ function CategoriasTabContent({ canManage }: CategoriasTabContentProps) {
 
             return (
               <Card key={c.id} className="surface-card border-border/70 flex flex-col justify-between hover:border-primary/40 transition-all shadow-xs">
-                <CardHeader className="pb-2">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <div className="p-1.5 rounded-lg bg-cyan-500/10 border border-cyan-500/20 text-cyan-400">
+                <CardHeader className="p-3.5 sm:p-4 pb-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <div className="p-1.5 rounded-lg bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 shrink-0">
                         <FolderTree className="w-4 h-4" />
                       </div>
-                      <CardTitle className="text-sm font-bold text-foreground">{c.nome}</CardTitle>
+                      <CardTitle className="text-sm font-bold text-foreground truncate">{c.nome}</CardTitle>
                     </div>
                     <Badge
                       variant="outline"
                       className={cn(
-                        "text-[10px] uppercase font-bold",
+                        "text-[9px] uppercase font-bold shrink-0",
                         c.ativo ? "border-emerald-500/40 text-emerald-400 bg-emerald-500/10" : "border-muted text-muted-foreground"
                       )}
                     >
                       {c.ativo ? "Ativa" : "Inativa"}
                     </Badge>
                   </div>
-                  {c.descricao && <CardDescription className="text-xs line-clamp-2 pt-1">{c.descricao}</CardDescription>}
+                  {c.descricao && <CardDescription className="text-xs line-clamp-2 pt-1.5">{c.descricao}</CardDescription>}
                 </CardHeader>
 
-                <CardFooter className="pt-2 border-t border-border/40 flex items-center justify-between text-xs">
+                <CardFooter className="p-3.5 sm:p-4 pt-2 border-t border-border/40 flex items-center justify-between text-xs">
                   <Badge variant="secondary" className="text-[10px] font-mono">
                     {prodCount} {prodCount === 1 ? "produto" : "produtos"}
                   </Badge>
 
-                  {/* AÇÕES DE CATEGORIA (OCULTAS SE NÃO TIVER PERMISSÃO) */}
                   {canManage && (
                     <div className="flex items-center gap-1">
                       <Button
@@ -1240,11 +1547,11 @@ function CategoriasTabContent({ canManage }: CategoriasTabContentProps) {
       {/* MODAL CRIAR / EDITAR CATEGORIA */}
       {canManage && (
         <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
-          <DialogContent className="sm:max-w-md bg-card border-border/80">
+          <DialogContent className="w-[95vw] sm:max-w-md bg-card border-border/80 p-4 sm:p-6">
             <DialogHeader>
               <DialogTitle className="text-base font-bold flex items-center gap-2">
                 <FolderTree className="w-4 h-4 text-cyan-400" />
-                {editingCategory ? `Editar Categoria: ${editingCategory.nome}` : "Cadastrar Nova Categoria"}
+                <span>{editingCategory ? `Editar Categoria: ${editingCategory.nome}` : "Cadastrar Nova Categoria"}</span>
               </DialogTitle>
               <DialogDescription className="text-xs">
                 Defina o nome e a descrição para agrupamento dos insumos no catálogo.
@@ -1258,7 +1565,7 @@ function CategoriasTabContent({ canManage }: CategoriasTabContentProps) {
                   placeholder="Ex: Armamentos, Munições, Farmácia, Peças..."
                   value={nome}
                   onChange={(e) => setNome(e.target.value)}
-                  className="text-xs"
+                  className="text-xs h-9"
                 />
               </div>
 
@@ -1282,13 +1589,13 @@ function CategoriasTabContent({ canManage }: CategoriasTabContentProps) {
               </div>
             </div>
 
-            <DialogFooter className="gap-2 sm:gap-0">
-              <Button variant="outline" size="sm" onClick={() => setIsModalOpen(false)}>
+            <DialogFooter className="flex-col-reverse sm:flex-row gap-2 sm:gap-0 pt-2">
+              <Button variant="outline" size="sm" onClick={() => setIsModalOpen(false)} className="w-full sm:w-auto">
                 Cancelar
               </Button>
               <Button
                 size="sm"
-                className="bg-primary hover:bg-primary/90 font-bold gap-1.5 cursor-pointer"
+                className="bg-primary hover:bg-primary/90 font-bold gap-1.5 cursor-pointer w-full sm:w-auto shadow-sm"
                 disabled={saveMutation.isPending}
                 onClick={() => saveMutation.mutate()}
               >
@@ -1303,7 +1610,7 @@ function CategoriasTabContent({ canManage }: CategoriasTabContentProps) {
       {/* MODAL EXCLUSÃO DE CATEGORIA */}
       {canManage && (
         <Dialog open={Boolean(deletingCategory)} onOpenChange={(open) => !open && setDeletingCategory(null)}>
-          <DialogContent className="sm:max-w-md bg-card border-rose-500/30">
+          <DialogContent className="w-[95vw] sm:max-w-md bg-card border-rose-500/30 p-4 sm:p-6">
             <DialogHeader>
               <DialogTitle className="text-sm font-bold flex items-center gap-2 text-rose-400">
                 <AlertTriangle className="w-4 h-4" />
@@ -1315,18 +1622,18 @@ function CategoriasTabContent({ canManage }: CategoriasTabContentProps) {
             </DialogHeader>
 
             {deletingCategory && products.some((p) => p.categoria_id === deletingCategory.id) && (
-              <div className="p-3 rounded bg-amber-500/10 border border-amber-500/20 text-amber-300 text-[11px]">
+              <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-300 text-[11px] leading-relaxed">
                 Atenção: Existem produtos vinculados a esta categoria. Ao excluí-la, os produtos ficarão sem categoria atribuída.
               </div>
             )}
 
-            <DialogFooter className="gap-2 sm:gap-0">
-              <Button variant="outline" size="sm" onClick={() => setDeletingCategory(null)}>
+            <DialogFooter className="flex-col-reverse sm:flex-row gap-2 sm:gap-0 pt-2">
+              <Button variant="outline" size="sm" onClick={() => setDeletingCategory(null)} className="w-full sm:w-auto">
                 Cancelar
               </Button>
               <Button
                 size="sm"
-                className="bg-rose-600 hover:bg-rose-700 text-white font-bold gap-1.5 cursor-pointer"
+                className="bg-rose-600 hover:bg-rose-700 text-white font-bold gap-1.5 cursor-pointer w-full sm:w-auto shadow-sm"
                 disabled={deleteMutation.isPending}
                 onClick={() => deletingCategory && deleteMutation.mutate(deletingCategory.id)}
               >
@@ -1342,7 +1649,7 @@ function CategoriasTabContent({ canManage }: CategoriasTabContentProps) {
 }
 
 // ============================================================================
-// ABA 3: BAÚS DO GRUPO (CRIAR / EDITAR / APAGAR / GERENCIAR)
+// ABA 3: BAÚS DO GRUPO (CONFIGURAÇÃO, CANAL DISCORD E RESPONSIVIDADE MOBILE)
 // ============================================================================
 interface BausTabContentProps {
   canManage: boolean;
@@ -1531,35 +1838,34 @@ function BausTabContent({ canManage }: BausTabContentProps) {
   }, [baus, search]);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       {/* BARRA DE FERRAMENTAS */}
       <Card className="surface-card border-border/80">
-        <CardContent className="p-4 flex flex-col sm:flex-row items-center justify-between gap-3">
+        <CardContent className="p-3 sm:p-4 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5 sm:gap-3">
           <div className="relative flex-1 w-full sm:max-w-md">
             <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
             <Input
               placeholder="Pesquisar baú..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="pl-9 text-xs h-9"
+              className="pl-9 text-xs h-9 bg-background/60"
             />
           </div>
 
-          {/* BOTÃO NOVO BAÚ (OCULTO SE NÃO TIVER PERMISSÃO) */}
           {canManage && (
-            <Button size="sm" onClick={openCreateModal} className="bg-primary hover:bg-primary/90 font-bold gap-1.5 h-9 shrink-0 cursor-pointer shadow-sm">
+            <Button size="sm" onClick={openCreateModal} className="bg-primary hover:bg-primary/90 font-bold gap-1.5 h-9 w-full sm:w-auto shrink-0 cursor-pointer shadow-sm">
               <Plus className="w-4 h-4" />
-              Novo Baú
+              <span>Novo Baú</span>
             </Button>
           )}
         </CardContent>
       </Card>
 
-      {/* LISTA / CARDS DE BAÚS */}
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+      {/* LISTA / CARDS DE BAÚS RESPONSIVOS */}
+      <div className="grid gap-3 sm:gap-4 grid-cols-1 md:grid-cols-2 xl:grid-cols-3">
         {isLoading ? (
           <div className="col-span-full text-center py-12 text-muted-foreground text-xs">
-            <RefreshCw className="w-5 h-5 animate-spin mx-auto mb-2" />
+            <RefreshCw className="w-5 h-5 animate-spin mx-auto mb-2 text-primary" />
             Carregando baús...
           </div>
         ) : filteredBaus.length === 0 ? (
@@ -1580,9 +1886,9 @@ function BausTabContent({ canManage }: BausTabContentProps) {
                   isAuto ? "border-primary/30 hover:border-primary/50" : "border-border/70 hover:border-border"
                 )}
               >
-                <CardHeader className="pb-3 space-y-2">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2.5">
+                <CardHeader className="p-3.5 sm:p-4 pb-3 space-y-2">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex items-center gap-2.5 min-w-0">
                       <div className="w-10 h-10 rounded-xl bg-secondary/80 border border-border/70 flex items-center justify-center shrink-0 overflow-hidden shadow-inner">
                         <BauIcon
                           foto_url={b.foto_url || b.imagem_url}
@@ -1591,15 +1897,15 @@ function BausTabContent({ canManage }: BausTabContentProps) {
                           className="w-full h-full object-cover"
                         />
                       </div>
-                      <div>
-                        <CardTitle className="text-sm font-bold text-foreground">{b.nome}</CardTitle>
-                        <span className="text-[10px] text-muted-foreground font-mono">ID: {b.id.slice(0, 8)}...</span>
+                      <div className="min-w-0">
+                        <CardTitle className="text-sm font-bold text-foreground truncate">{b.nome}</CardTitle>
+                        <span className="text-[10px] text-muted-foreground font-mono block">ID: {b.id.slice(0, 8)}...</span>
                       </div>
                     </div>
                     <Badge
                       variant="outline"
                       className={cn(
-                        "text-[10px] uppercase font-bold",
+                        "text-[9px] uppercase font-bold shrink-0",
                         b.ativo ? "border-emerald-500/40 text-emerald-400 bg-emerald-500/10" : "border-muted text-muted-foreground"
                       )}
                     >
@@ -1609,46 +1915,45 @@ function BausTabContent({ canManage }: BausTabContentProps) {
                   {b.descricao && <CardDescription className="text-xs line-clamp-2">{b.descricao}</CardDescription>}
                 </CardHeader>
 
-                <CardContent className="space-y-3 text-xs pb-3">
+                <CardContent className="p-3.5 sm:p-4 pt-0 space-y-2.5 text-xs pb-3">
                   <div className="p-2.5 rounded-lg bg-secondary/30 border border-border/40 space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className="text-muted-foreground font-medium">Modo de Movimentação:</span>
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-muted-foreground text-[11px] font-medium">Modo de Gestão:</span>
                       <Badge
                         variant="secondary"
                         className={cn(
-                          "text-[10px] font-bold gap-1",
+                          "text-[10px] font-bold gap-1 shrink-0",
                           isAuto ? "text-cyan-400 bg-cyan-950/40 border border-cyan-800/40" : "text-amber-400 bg-amber-950/40 border border-amber-800/40"
                         )}
                       >
                         {isAuto ? <Bot className="w-3 h-3" /> : <Edit2 className="w-3 h-3" />}
-                        {isAuto ? "Automático (Discord)" : "Manual (Painel Web)"}
+                        {isAuto ? "Automático (Discord)" : "Manual (Painel)"}
                       </Badge>
                     </div>
 
-                    <div className="flex items-center justify-between">
-                      <span className="text-muted-foreground">Canal Discord:</span>
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-muted-foreground text-[11px]">Canal Discord:</span>
                       {channelId ? (
-                        <span className="font-mono text-foreground font-bold text-[11px] flex items-center gap-1">
+                        <span className="font-mono text-foreground font-bold text-[11px] flex items-center gap-1 shrink-0">
                           <Check className="w-3 h-3 text-emerald-400" />
                           {channelId.slice(0, 10)}...
                         </span>
                       ) : (
-                        <span className="text-muted-foreground italic text-[11px]">
-                          {isAuto ? "🔴 Não configurado" : "Dispensa canal"}
+                        <span className="text-muted-foreground italic text-[11px] shrink-0">
+                          {isAuto ? "🔴 Não vinculado" : "Dispensa canal"}
                         </span>
                       )}
                     </div>
                   </div>
 
                   <div className="flex items-center justify-between px-1 text-muted-foreground text-[11px]">
-                    <span>Itens com saldo em estoque:</span>
+                    <span>Itens com saldo:</span>
                     <strong className="text-foreground font-mono">{chestItemsCount} tipos de item</strong>
                   </div>
                 </CardContent>
 
-                {/* AÇÕES DE BAÚ (OCULTAS SE NÃO TIVER PERMISSÃO) */}
                 {canManage && (
-                  <CardFooter className="pt-2 border-t border-border/40 flex items-center justify-end gap-1">
+                  <CardFooter className="p-3.5 sm:p-4 pt-2 border-t border-border/40 flex items-center justify-end gap-1">
                     <Button
                       variant="ghost"
                       size="sm"
@@ -1678,11 +1983,11 @@ function BausTabContent({ canManage }: BausTabContentProps) {
       {/* MODAL CRIAR / EDITAR BAÚ */}
       {canManage && (
         <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
-          <DialogContent className="sm:max-w-lg bg-card border-border/80">
+          <DialogContent className="w-[95vw] sm:max-w-lg bg-card border-border/80 max-h-[90vh] overflow-y-auto p-4 sm:p-6">
             <DialogHeader>
               <DialogTitle className="text-base font-bold flex items-center gap-2">
                 <Layers className="w-4 h-4 text-amber-400" />
-                {editingBau ? `Editar Baú: ${editingBau.nome}` : "Cadastrar Novo Baú"}
+                <span>{editingBau ? `Editar Baú: ${editingBau.nome}` : "Cadastrar Novo Baú"}</span>
               </DialogTitle>
               <DialogDescription className="text-xs">
                 Configure o tipo de gestão de movimentação e os parâmetros de conexão com o canal do Discord.
@@ -1736,7 +2041,7 @@ function BausTabContent({ canManage }: BausTabContentProps) {
                         ) : (
                           <Upload className="w-3.5 h-3.5 text-primary" />
                         )}
-                        {isUploadingPhoto ? "Enviando..." : "Upload de Foto"}
+                        <span>{isUploadingPhoto ? "Enviando..." : "Upload Foto"}</span>
                       </Button>
                     </div>
                     <Input
@@ -1749,7 +2054,7 @@ function BausTabContent({ canManage }: BausTabContentProps) {
                 </div>
               </div>
 
-              <div className="grid gap-3 grid-cols-4">
+              <div className="grid gap-2.5 sm:gap-3 grid-cols-4">
                 <div className="space-y-1.5 col-span-1">
                   <Label className="text-xs">Ícone</Label>
                   <Input
@@ -1792,16 +2097,16 @@ function BausTabContent({ canManage }: BausTabContentProps) {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="automatico">
-                      🤖 Automático (Ingestão de mensagens via canal do Discord)
+                      🤖 Automático (Ingestão de logs via Discord)
                     </SelectItem>
                     <SelectItem value="manual">
-                      ✍️ Manual (Lançamentos manuais pelo painel na página Movimentações)
+                      ✍️ Manual (Lançamentos manuais pelo painel web)
                     </SelectItem>
                   </SelectContent>
                 </Select>
-                <p className="text-[10px] text-muted-foreground pt-1">
+                <p className="text-[10px] text-muted-foreground pt-1 leading-relaxed">
                   {tipoGestao === "automatico"
-                    ? "O bot monitora o canal exclusivo informado abaixo e lança entradas, saídas e transferências automaticamente a partir das mensagens do jogo."
+                    ? "O bot monitora o canal exclusivo informado abaixo e lança entradas, saídas e transferências automaticamente a partir das logs."
                     : "Membros realizam as movimentações diretamente na aba Movimentações do painel. O bot não ingere mensagens deste baú."}
                 </p>
               </div>
@@ -1840,13 +2145,13 @@ function BausTabContent({ canManage }: BausTabContentProps) {
               </div>
             </div>
 
-            <DialogFooter className="gap-2 sm:gap-0">
-              <Button variant="outline" size="sm" onClick={() => setIsModalOpen(false)}>
+            <DialogFooter className="flex-col-reverse sm:flex-row gap-2 sm:gap-0 pt-2">
+              <Button variant="outline" size="sm" onClick={() => setIsModalOpen(false)} className="w-full sm:w-auto">
                 Cancelar
               </Button>
               <Button
                 size="sm"
-                className="bg-primary hover:bg-primary/90 font-bold gap-1.5 cursor-pointer"
+                className="bg-primary hover:bg-primary/90 font-bold gap-1.5 cursor-pointer w-full sm:w-auto shadow-sm"
                 disabled={saveMutation.isPending}
                 onClick={() => saveMutation.mutate()}
               >
@@ -1861,7 +2166,7 @@ function BausTabContent({ canManage }: BausTabContentProps) {
       {/* MODAL EXCLUSÃO DE BAÚ */}
       {canManage && (
         <Dialog open={Boolean(deletingBau)} onOpenChange={(open) => !open && setDeletingBau(null)}>
-          <DialogContent className="sm:max-w-md bg-card border-rose-500/30">
+          <DialogContent className="w-[95vw] sm:max-w-md bg-card border-rose-500/30 p-4 sm:p-6">
             <DialogHeader>
               <DialogTitle className="text-sm font-bold flex items-center gap-2 text-rose-400">
                 <AlertTriangle className="w-4 h-4" />
@@ -1872,17 +2177,17 @@ function BausTabContent({ canManage }: BausTabContentProps) {
               </DialogDescription>
             </DialogHeader>
 
-            <div className="p-3 rounded bg-rose-500/10 border border-rose-500/20 text-rose-300 text-[11px]">
+            <div className="p-3 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-300 text-[11px] leading-relaxed">
               Atenção: Apenas baús que não sejam o único depósito do grupo podem ser excluídos.
             </div>
 
-            <DialogFooter className="gap-2 sm:gap-0">
-              <Button variant="outline" size="sm" onClick={() => setDeletingBau(null)}>
+            <DialogFooter className="flex-col-reverse sm:flex-row gap-2 sm:gap-0 pt-2">
+              <Button variant="outline" size="sm" onClick={() => setDeletingBau(null)} className="w-full sm:w-auto">
                 Cancelar
               </Button>
               <Button
                 size="sm"
-                className="bg-rose-600 hover:bg-rose-700 text-white font-bold gap-1.5 cursor-pointer"
+                className="bg-rose-600 hover:bg-rose-700 text-white font-bold gap-1.5 cursor-pointer w-full sm:w-auto shadow-sm"
                 disabled={deleteMutation.isPending}
                 onClick={() => deletingBau && deleteMutation.mutate(deletingBau)}
               >
@@ -1898,7 +2203,7 @@ function BausTabContent({ canManage }: BausTabContentProps) {
 }
 
 // ============================================================================
-// ABA 4: AJUSTE & SALDO DE ESTOQUE (MATRIZ, AJUSTES AUDITADOS, REDEFINIR)
+// ABA 4: AJUSTE & SALDO DE ESTOQUE (MATRIZ, MODAL AUDITADO E CARDS MOBILE)
 // ============================================================================
 interface SaldosTabContentProps {
   canAdjust: boolean;
@@ -1926,7 +2231,6 @@ function SaldosTabContent({ canAdjust, canManageBalance }: SaldosTabContentProps
     if (!canAdjust) return;
     setTargetProductId(productId || products[0]?.id || "");
     setTargetBauId(bauId || baus[0]?.id || "");
-    // Se não tiver permissão crítica de redefinir saldo, força "entrada"
     setAdjustmentType(canManageBalance ? "definir" : "entrada");
     setQuantity(1);
     setReason("");
@@ -1939,7 +2243,6 @@ function SaldosTabContent({ canAdjust, canManageBalance }: SaldosTabContentProps
     const entry = productBaus.find((pb) => pb.product_id === targetProductId && pb.bau_id === targetBauId);
     if (entry) return Number(entry.quantidade || 0);
 
-    // Fallback: se houver apenas 1 baú ou se o produto tem bau_id direto
     const p = products.find((prod) => prod.id === targetProductId);
     if (baus.length <= 1 && p) return Number(p.estoque_atual || 0);
     return 0;
@@ -1989,37 +2292,47 @@ function SaldosTabContent({ canAdjust, canManageBalance }: SaldosTabContentProps
     },
   });
 
-  // Tabela filtrada
-  const filteredProducts = useMemo(() => {
-    return products.filter((p) => {
-      if (search.trim()) {
-        const q = search.toLowerCase();
-        if (!p.nome.toLowerCase().includes(q) && !p.cda_name?.toLowerCase().includes(q)) return false;
-      }
-      return true;
-    });
-  }, [products, search]);
+  // Tabela filtrada com busca case-insensitive e fuzzy
+  const { exactFilteredProducts, similarFilteredProducts } = useMemo(() => {
+    if (!search.trim()) {
+      return {
+        exactFilteredProducts: products,
+        similarFilteredProducts: [] as FuzzyProductMatch[],
+      };
+    }
+    return searchProductsWithFuzzy(products, search, [], baus);
+  }, [products, search, baus]);
 
   const activeBaus = useMemo(() => baus.filter((b) => b.ativo), [baus]);
+  const displayedProducts = exactFilteredProducts.length > 0 ? exactFilteredProducts : similarFilteredProducts.map((s) => s.product);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       {/* BARRA DE FERRAMENTAS E AÇÃO RÁPIDA */}
       <Card className="surface-card border-border/80">
-        <CardContent className="p-4 flex flex-col md:flex-row md:items-center justify-between gap-3">
-          <div className="flex flex-1 items-center gap-2">
-            <div className="relative flex-1 max-w-md">
+        <CardContent className="p-3 sm:p-4 flex flex-col md:flex-row md:items-center justify-between gap-2.5 sm:gap-3">
+          <div className="flex flex-col sm:flex-row flex-1 items-stretch sm:items-center gap-2">
+            <div className="relative flex-1 min-w-[200px]">
               <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
               <Input
-                placeholder="Pesquisar saldo de item por nome ou alias..."
+                placeholder="Pesquisar saldo por nome ou alias Discord..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="pl-9 text-xs h-9"
+                className="pl-9 pr-8 text-xs h-9 bg-background/60"
               />
+              {search && (
+                <button
+                  type="button"
+                  onClick={() => setSearch("")}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground cursor-pointer"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
             </div>
 
             <Select value={selectedBauFilter} onValueChange={setSelectedBauFilter}>
-              <SelectTrigger className="w-44 text-xs h-9">
+              <SelectTrigger className="w-full sm:w-44 text-xs h-9 bg-background/60">
                 <SelectValue placeholder="Filtrar por Baú..." />
               </SelectTrigger>
               <SelectContent>
@@ -2036,25 +2349,146 @@ function SaldosTabContent({ canAdjust, canManageBalance }: SaldosTabContentProps
             </Select>
           </div>
 
-          {/* BOTÃO LANÇAR AJUSTE AUDITADO (OCULTO SE NÃO TIVER PERMISSÃO) */}
           {canAdjust && (
-            <div className="flex items-center gap-2 shrink-0">
-              <Button
-                size="sm"
-                onClick={() => openAdjustModalFor()}
-                className="bg-primary hover:bg-primary/90 font-bold gap-1.5 h-9 cursor-pointer shadow-sm"
-              >
-                <Sliders className="w-4 h-4" />
-                Lançar Ajuste Auditado
-              </Button>
-            </div>
+            <Button
+              size="sm"
+              onClick={() => openAdjustModalFor()}
+              className="bg-primary hover:bg-primary/90 font-bold gap-1.5 h-9 w-full sm:w-auto shrink-0 cursor-pointer shadow-sm"
+            >
+              <Sliders className="w-4 h-4" />
+              <span>Lançar Ajuste Auditado</span>
+            </Button>
           )}
         </CardContent>
       </Card>
 
-      {/* MATRIZ DE SALDOS POR PRODUTO E BAÚ */}
-      <Card className="surface-card border-border/80 overflow-hidden">
-        <CardHeader className="pb-3 border-b border-border/40">
+      {/* AVISO DE NOMES SIMILARES NO SALDO */}
+      {search.trim() && exactFilteredProducts.length === 0 && similarFilteredProducts.length > 0 && (
+        <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs space-y-2 animate-in fade-in-50 duration-200">
+          <div className="flex items-center gap-2 font-bold text-amber-400">
+            <Sparkles className="w-4 h-4" />
+            <span>Nenhum saldo para "{search}", mas encontramos estes itens parecidos:</span>
+          </div>
+          <div className="flex flex-wrap items-center gap-1.5">
+            {similarFilteredProducts.map(({ product, reason, score }) => (
+              <Badge
+                key={product.id}
+                variant="outline"
+                className="border-amber-500/40 bg-amber-500/15 text-amber-200 text-[11px] py-1 px-2 gap-1.5"
+              >
+                <strong className="font-bold">{product.nome}</strong>
+                <span className="opacity-75 font-mono text-[10px]">({reason})</span>
+              </Badge>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* EXIBIÇÃO MOBILE DE SALDOS POR BAÚ (md:hidden) */}
+      <div className="block md:hidden space-y-3">
+        {isLoading ? (
+          <Card className="p-8 text-center text-muted-foreground text-xs">
+            <RefreshCw className="w-5 h-5 animate-spin mx-auto mb-2 text-primary" />
+            Carregando saldos de estoque...
+          </Card>
+        ) : displayedProducts.length === 0 ? (
+          <Card className="p-8 text-center text-muted-foreground text-xs">
+            Nenhum item localizado.
+          </Card>
+        ) : (
+          displayedProducts.map((p) => {
+            const isLow = Number(p.estoque_atual || 0) <= Number(p.estoque_minimo || 0);
+            const bausToRender = selectedBauFilter === "all" ? activeBaus : activeBaus.filter((b) => b.id === selectedBauFilter);
+
+            return (
+              <Card
+                key={p.id}
+                className={cn(
+                  "surface-card border p-3.5 space-y-3 transition-all shadow-xs",
+                  isLow ? "border-rose-500/30 bg-rose-500/[0.02]" : "border-border/70"
+                )}
+              >
+                {/* TOPO: ITEM + SALDO TOTAL GERAL */}
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <ProductThumbnail src={p.imagem_url} name={p.nome} size="sm" className="shrink-0" />
+                    <div className="min-w-0">
+                      <strong className="text-sm font-bold text-foreground block truncate">{p.nome}</strong>
+                      <span className="text-[10px] text-muted-foreground font-mono">
+                        Mínimo: {p.estoque_minimo || 0} {p.unidade || "un"}
+                      </span>
+                    </div>
+                  </div>
+
+                  <Badge
+                    variant="outline"
+                    className={cn(
+                      "font-bold font-mono text-xs px-2 py-0.5 shrink-0",
+                      isLow
+                        ? "border-rose-500/40 text-rose-400 bg-rose-500/10"
+                        : "border-emerald-500/40 text-emerald-400 bg-emerald-500/10"
+                    )}
+                  >
+                    Total: {num(p.estoque_atual || 0)} {p.unidade || "un"}
+                  </Badge>
+                </div>
+
+                {/* DISTRIBUIÇÃO POR BAÚ EM CHIPS CLICÁVEIS */}
+                <div className="space-y-1.5 pt-1 border-t border-border/40">
+                  <span className="text-[10px] text-muted-foreground uppercase font-semibold block">
+                    Distribuição nos Baús (toque para ajustar):
+                  </span>
+                  <div className="grid grid-cols-2 gap-1.5">
+                    {bausToRender.map((b) => {
+                      const entry = productBaus.find((pb) => pb.product_id === p.id && pb.bau_id === b.id);
+                      const q = entry ? Number(entry.quantidade || 0) : 0;
+
+                      return (
+                        <div
+                          key={b.id}
+                          onClick={() => canAdjust && openAdjustModalFor(p.id, b.id)}
+                          className={cn(
+                            "flex items-center justify-between p-2 rounded-lg border text-xs transition-all",
+                            q > 0
+                              ? "bg-secondary/60 border-border/80 hover:border-primary/50"
+                              : "bg-secondary/20 border-border/40 opacity-60",
+                            canAdjust ? "cursor-pointer active:scale-95" : ""
+                          )}
+                        >
+                          <span className="flex items-center gap-1.5 min-w-0 truncate">
+                            <BauIcon foto_url={b.foto_url || b.imagem_url} icone={b.icone} nome={b.nome} className="w-3.5 h-3.5 object-cover rounded shrink-0" />
+                            <span className="text-[11px] font-medium truncate">{b.nome}</span>
+                          </span>
+                          <strong className="font-mono text-xs font-bold text-foreground pl-1 shrink-0">
+                            {num(q)}
+                          </strong>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* BOTÃO AJUSTAR SALDO */}
+                {canAdjust && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full h-8 text-xs font-bold text-primary border-primary/30 bg-primary/5 hover:bg-primary/10 gap-1.5 rounded-lg"
+                    onClick={() => openAdjustModalFor(p.id)}
+                  >
+                    <Sliders className="w-3.5 h-3.5" />
+                    <span>Lançar Ajuste Auditado</span>
+                  </Button>
+                )}
+              </Card>
+            );
+          })
+        )}
+      </div>
+
+      {/* MATRIZ DE SALDOS PARA DESKTOP (hidden md:block) */}
+      <Card className="surface-card border-border/80 overflow-hidden hidden md:block">
+        <CardHeader className="pb-3 border-b border-border/40 p-4">
           <div className="flex items-center justify-between">
             <div className="space-y-0.5">
               <CardTitle className="text-sm font-bold flex items-center gap-2">
@@ -2066,7 +2500,7 @@ function SaldosTabContent({ canAdjust, canManageBalance }: SaldosTabContentProps
               </CardDescription>
             </div>
             <Badge variant="outline" className="text-xs font-mono">
-              {filteredProducts.length} itens catalogados
+              {displayedProducts.length} itens catalogados
             </Badge>
           </div>
         </CardHeader>
@@ -2091,7 +2525,6 @@ function SaldosTabContent({ canAdjust, canManageBalance }: SaldosTabContentProps
                   </TableHead>
                 )}
                 <TableHead className="text-xs text-center font-mono font-bold">Total Geral</TableHead>
-                {/* COLUNA AÇÃO OCULTA SE NÃO TIVER PERMISSÃO DE AJUSTAR */}
                 {canAdjust && <TableHead className="text-xs text-right">Ação</TableHead>}
               </TableRow>
             </TableHeader>
@@ -2099,36 +2532,25 @@ function SaldosTabContent({ canAdjust, canManageBalance }: SaldosTabContentProps
               {isLoading ? (
                 <TableRow>
                   <TableCell colSpan={activeBaus.length + (canAdjust ? 3 : 2)} className="text-center py-12 text-muted-foreground text-xs">
-                    <RefreshCw className="w-5 h-5 animate-spin mx-auto mb-2" />
+                    <RefreshCw className="w-5 h-5 animate-spin mx-auto mb-2 text-primary" />
                     Carregando matriz de saldos...
                   </TableCell>
                 </TableRow>
-              ) : filteredProducts.length === 0 ? (
+              ) : displayedProducts.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={activeBaus.length + (canAdjust ? 3 : 2)} className="text-center py-12 text-muted-foreground text-xs">
                     Nenhum item localizado.
                   </TableCell>
                 </TableRow>
               ) : (
-                filteredProducts.map((p) => {
+                displayedProducts.map((p) => {
                   const bausToRender = selectedBauFilter === "all" ? activeBaus : activeBaus.filter((b) => b.id === selectedBauFilter);
 
                   return (
                     <TableRow key={p.id} className="border-border/40 hover:bg-secondary/20 transition-colors">
                       <TableCell className="py-2.5">
                         <div className="flex items-center gap-2">
-                          {p.imagem_url ? (
-                            <img
-                              src={p.imagem_url}
-                              alt={p.nome}
-                              className="w-7 h-7 rounded-lg object-cover border border-border/60 shrink-0"
-                              onError={(e) => {
-                                (e.target as HTMLElement).style.display = "none";
-                              }}
-                            />
-                          ) : (
-                            <span className="text-base">📦</span>
-                          )}
+                          <ProductThumbnail src={p.imagem_url} name={p.nome} size="sm" />
                           <div>
                             <strong className="text-xs text-foreground font-bold block truncate">{p.nome}</strong>
                             <span className="text-[10px] text-muted-foreground font-mono">
@@ -2173,7 +2595,6 @@ function SaldosTabContent({ canAdjust, canManageBalance }: SaldosTabContentProps
                         </Badge>
                       </TableCell>
 
-                      {/* COLUNA AÇÃO (OCULTA SE NÃO TIVER PERMISSÃO) */}
                       {canAdjust && (
                         <TableCell className="text-xs py-2.5 text-right">
                           <Button
@@ -2196,14 +2617,14 @@ function SaldosTabContent({ canAdjust, canManageBalance }: SaldosTabContentProps
         </div>
       </Card>
 
-      {/* MODAL DE AJUSTE AUDITADO DE ESTOQUE (SOMENTE SE canAdjust) */}
+      {/* MODAL DE AJUSTE AUDITADO DE ESTOQUE */}
       {canAdjust && (
         <Dialog open={isAdjustModalOpen} onOpenChange={setIsAdjustModalOpen}>
-          <DialogContent className="sm:max-w-lg bg-card border-border/80">
+          <DialogContent className="w-[95vw] sm:max-w-lg bg-card border-border/80 max-h-[90vh] overflow-y-auto p-4 sm:p-6">
             <DialogHeader>
               <DialogTitle className="text-base font-bold flex items-center gap-2">
                 <Sliders className="w-4 h-4 text-primary" />
-                Lançar Ajuste Auditado de Estoque
+                <span>Lançar Ajuste Auditado de Estoque</span>
               </DialogTitle>
               <DialogDescription className="text-xs">
                 Ajuste físico ou correção de contagem gravada permanentemente com motivo auditado.
@@ -2211,11 +2632,11 @@ function SaldosTabContent({ canAdjust, canManageBalance }: SaldosTabContentProps
             </DialogHeader>
 
             <div className="space-y-3.5 py-2 text-xs">
-              <div className="grid gap-3 grid-cols-2">
+              <div className="grid gap-3 grid-cols-1 sm:grid-cols-2">
                 <div className="space-y-1.5">
                   <Label className="text-xs font-semibold">Produto *</Label>
                   <Select value={targetProductId} onValueChange={setTargetProductId}>
-                    <SelectTrigger className="text-xs">
+                    <SelectTrigger className="text-xs h-9">
                       <SelectValue placeholder="Selecione o produto..." />
                     </SelectTrigger>
                     <SelectContent className="max-h-56">
@@ -2231,7 +2652,7 @@ function SaldosTabContent({ canAdjust, canManageBalance }: SaldosTabContentProps
                 <div className="space-y-1.5">
                   <Label className="text-xs font-semibold">Baú Destino *</Label>
                   <Select value={targetBauId} onValueChange={setTargetBauId}>
-                    <SelectTrigger className="text-xs">
+                    <SelectTrigger className="text-xs h-9">
                       <SelectValue placeholder="Selecione o baú..." />
                     </SelectTrigger>
                     <SelectContent>
@@ -2248,19 +2669,19 @@ function SaldosTabContent({ canAdjust, canManageBalance }: SaldosTabContentProps
                 </div>
               </div>
 
-              {/* TIPO DE AJUSTE (DEFINIR SALDO OCULTO SE NÃO TIVER canManageBalance) */}
+              {/* TIPO DE AJUSTE */}
               <div className="space-y-1.5">
                 <Label className="text-xs font-semibold">Tipo de Ajuste *</Label>
-                <div className={cn("grid gap-2", canManageBalance ? "grid-cols-3" : "grid-cols-2")}>
+                <div className={cn("grid gap-1.5 sm:gap-2", canManageBalance ? "grid-cols-3" : "grid-cols-2")}>
                   {canManageBalance && (
                     <Button
                       type="button"
                       variant={adjustmentType === "definir" ? "default" : "outline"}
                       size="sm"
-                      className="text-xs h-8 gap-1.5 font-bold cursor-pointer"
+                      className="text-[11px] sm:text-xs h-8 gap-1 font-bold cursor-pointer"
                       onClick={() => setAdjustmentType("definir")}
                     >
-                      <Equal className="w-3.5 h-3.5" />
+                      <Equal className="w-3 h-3" />
                       Definir Saldo
                     </Button>
                   )}
@@ -2269,10 +2690,10 @@ function SaldosTabContent({ canAdjust, canManageBalance }: SaldosTabContentProps
                     type="button"
                     variant={adjustmentType === "entrada" ? "default" : "outline"}
                     size="sm"
-                    className="text-xs h-8 gap-1.5 font-bold cursor-pointer"
+                    className="text-[11px] sm:text-xs h-8 gap-1 font-bold cursor-pointer"
                     onClick={() => setAdjustmentType("entrada")}
                   >
-                    <TrendingUp className="w-3.5 h-3.5 text-emerald-400" />
+                    <TrendingUp className="w-3 h-3 text-emerald-400" />
                     Creditar (+)
                   </Button>
 
@@ -2280,22 +2701,20 @@ function SaldosTabContent({ canAdjust, canManageBalance }: SaldosTabContentProps
                     type="button"
                     variant={adjustmentType === "saida" ? "default" : "outline"}
                     size="sm"
-                    className="text-xs h-8 gap-1.5 font-bold cursor-pointer"
+                    className="text-[11px] sm:text-xs h-8 gap-1 font-bold cursor-pointer"
                     onClick={() => setAdjustmentType("saida")}
                   >
-                    <TrendingDown className="w-3.5 h-3.5 text-rose-400" />
+                    <TrendingDown className="w-3 h-3 text-rose-400" />
                     Debitar (-)
                   </Button>
                 </div>
               </div>
 
-              <div className="grid gap-3 grid-cols-2">
+              <div className="grid gap-3 grid-cols-1 sm:grid-cols-2">
                 <div className="space-y-1.5">
-                  <div className="flex items-center justify-between">
-                    <Label className="text-xs font-semibold">
-                      {adjustmentType === "definir" ? "Novo Saldo Exato" : "Quantidade a Ajustar"} *
-                    </Label>
-                  </div>
+                  <Label className="text-xs font-semibold">
+                    {adjustmentType === "definir" ? "Novo Saldo Exato" : "Quantidade a Ajustar"} *
+                  </Label>
                   <Input
                     type="number"
                     min={0}
@@ -2305,13 +2724,13 @@ function SaldosTabContent({ canAdjust, canManageBalance }: SaldosTabContentProps
                   />
 
                   {/* ATALHOS RÁPIDOS DE QUANTIDADE */}
-                  <div className="flex items-center gap-1 pt-1">
+                  <div className="flex flex-wrap items-center gap-1 pt-1">
                     {[1, 5, 10, 50, 100].map((step) => (
                       <button
                         key={step}
                         type="button"
                         onClick={() => setQuantity((prev) => (adjustmentType === "definir" ? step : prev + step))}
-                        className="text-[10px] font-mono font-bold bg-secondary/80 hover:bg-secondary border border-border/70 rounded px-1.5 py-0.5 text-muted-foreground hover:text-foreground cursor-pointer"
+                        className="text-[10px] font-mono font-bold bg-secondary/80 hover:bg-secondary border border-border/70 rounded px-2 py-0.5 text-muted-foreground hover:text-foreground cursor-pointer"
                       >
                         +{step}
                       </button>
@@ -2352,7 +2771,7 @@ function SaldosTabContent({ canAdjust, canManageBalance }: SaldosTabContentProps
                 />
               </div>
 
-              <div className="p-2.5 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-300 text-[11px] flex items-start gap-2">
+              <div className="p-2.5 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-300 text-[11px] flex items-start gap-2 leading-relaxed">
                 <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5 text-amber-400" />
                 <span>
                   Esta ação grava imediatamente um registro de auditoria permanente com a tag <strong>[Ajuste Gestão]</strong> e recalcula o saldo geral do grupo.
@@ -2360,13 +2779,13 @@ function SaldosTabContent({ canAdjust, canManageBalance }: SaldosTabContentProps
               </div>
             </div>
 
-            <DialogFooter className="gap-2 sm:gap-0">
-              <Button variant="outline" size="sm" onClick={() => setIsAdjustModalOpen(false)}>
+            <DialogFooter className="flex-col-reverse sm:flex-row gap-2 sm:gap-0 pt-2">
+              <Button variant="outline" size="sm" onClick={() => setIsAdjustModalOpen(false)} className="w-full sm:w-auto">
                 Cancelar
               </Button>
               <Button
                 size="sm"
-                className="bg-primary hover:bg-primary/90 font-bold gap-1.5 cursor-pointer shadow-sm"
+                className="bg-primary hover:bg-primary/90 font-bold gap-1.5 cursor-pointer w-full sm:w-auto shadow-sm"
                 disabled={adjustMutation.isPending}
                 onClick={() => adjustMutation.mutate()}
               >

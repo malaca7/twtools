@@ -1897,12 +1897,17 @@ export async function createProduct(payload: { nome: string; cda_name?: string |
     .single();
   if (error) throw error;
 
-  // Sincronizar alias com discord_stock_config.item_mappings se informado
+  // Sincronizar múltiplos aliases com discord_stock_config.item_mappings se informado
   if (payload.cda_name && payload.cda_name.trim()) {
     try {
       const { data: conf } = await (supabase.from("discord_stock_config" as any)).select("item_mappings").limit(1).maybeSingle();
       const currentMappings = conf?.item_mappings || {};
-      const newMappings = { ...currentMappings, [payload.cda_name.trim().toLowerCase()]: data.nome };
+      const newMappings = { ...currentMappings };
+      const aliases = payload.cda_name.split(/[,;\n|]+/).map((s: string) => s.trim()).filter(Boolean);
+      for (const alias of aliases) {
+        newMappings[alias.toLowerCase()] = data.nome;
+      }
+      newMappings[data.nome.trim().toLowerCase()] = data.nome;
       await (supabase.from("discord_stock_config" as any)).update({ item_mappings: newMappings, updated_at: new Date().toISOString() }).neq("id", "00000000-0000-0000-0000-000000000000");
     } catch (e) {
       console.warn("Could not sync item_mapping in discord_stock_config:", e);
@@ -1951,21 +1956,35 @@ export async function updateProduct(payload: { id: string; nome?: string; cda_na
     throw new Error("Não foi possível atualizar o produto.");
   }
 
-  // Sincronizar alias com discord_stock_config.item_mappings se cda_name ou nome foram alterados
+  // Sincronizar múltiplos aliases com discord_stock_config.item_mappings se cda_name ou nome foram alterados
   if (payload.cda_name !== undefined || payload.nome !== undefined) {
     try {
       const { data: conf } = await (supabase.from("discord_stock_config" as any)).select("item_mappings").limit(1).maybeSingle();
       const currentMappings = conf?.item_mappings || {};
       const newMappings = { ...currentMappings };
 
-      // Se o cda_name antigo mudou, remover o mapeamento antigo
-      if (oldProd?.cda_name && oldProd.cda_name.trim().toLowerCase() !== updates.cda_name?.toLowerCase()) {
-        delete newMappings[oldProd.cda_name.trim().toLowerCase()];
+      // Se o cda_name antigo continha aliases, remove os antigos
+      if (oldProd?.cda_name) {
+        const oldAliases = oldProd.cda_name.split(/[,;\n|]+/).map((s: string) => s.trim()).filter(Boolean);
+        for (const oldAlias of oldAliases) {
+          delete newMappings[oldAlias.toLowerCase()];
+        }
       }
-      // Se novo cda_name definido, associar ao nome atualizado
-      const finalName = updates.nome || oldProd?.nome;
-      if (updates.cda_name) {
-        newMappings[updates.cda_name.toLowerCase()] = finalName;
+      if (oldProd?.nome && payload.nome && oldProd.nome.trim().toLowerCase() !== payload.nome.trim().toLowerCase()) {
+        delete newMappings[oldProd.nome.trim().toLowerCase()];
+      }
+
+      // Se novos aliases definidos, associa cada um ao nome atualizado
+      const finalName = updates.nome || oldProd?.nome || "";
+      const effectiveCda = updates.cda_name !== undefined ? updates.cda_name : oldProd?.cda_name;
+      if (effectiveCda) {
+        const newAliases = effectiveCda.split(/[,;\n|]+/).map((s: string) => s.trim()).filter(Boolean);
+        for (const newAlias of newAliases) {
+          newMappings[newAlias.toLowerCase()] = finalName;
+        }
+      }
+      if (finalName) {
+        newMappings[finalName.toLowerCase()] = finalName;
       }
       await (supabase.from("discord_stock_config" as any)).update({ item_mappings: newMappings, updated_at: new Date().toISOString() }).neq("id", "00000000-0000-0000-0000-000000000000");
     } catch (e) {
@@ -1977,9 +1996,30 @@ export async function updateProduct(payload: { id: string; nome?: string; cda_na
 }
 
 export async function deleteProduct(id: string): Promise<void> {
-  const { data: oldProd } = await supabase.from("products").select("nome").eq("id", id).maybeSingle();
+  const { data: oldProd } = await supabase.from("products").select("nome, cda_name").eq("id", id).maybeSingle();
   const { error } = await supabase.from("products").delete().eq("id", id);
   if (error) throw error;
+
+  if (oldProd?.cda_name || oldProd?.nome) {
+    try {
+      const { data: conf } = await (supabase.from("discord_stock_config" as any)).select("item_mappings").limit(1).maybeSingle();
+      if (conf?.item_mappings) {
+        const newMappings = { ...conf.item_mappings };
+        if (oldProd.cda_name) {
+          const oldAliases = oldProd.cda_name.split(/[,;\n|]+/).map((s: string) => s.trim()).filter(Boolean);
+          for (const a of oldAliases) {
+            delete newMappings[a.toLowerCase()];
+          }
+        }
+        if (oldProd.nome) {
+          delete newMappings[oldProd.nome.trim().toLowerCase()];
+        }
+        await (supabase.from("discord_stock_config" as any)).update({ item_mappings: newMappings, updated_at: new Date().toISOString() }).neq("id", "00000000-0000-0000-0000-000000000000");
+      }
+    } catch (e) {
+      console.warn("Could not remove item_mapping in discord_stock_config:", e);
+    }
+  }
 
   void logAuditAction("delete_product", "products", { id, nome: oldProd?.nome }, undefined, id);
 }

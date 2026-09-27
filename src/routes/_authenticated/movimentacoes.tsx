@@ -6,6 +6,7 @@ import {
   ArrowDownCircle,
   ArrowUpCircle,
   ArrowRightLeft,
+  ArrowRight,
   Plus,
   Minus,
   Trash2,
@@ -30,6 +31,9 @@ import {
   History,
   LayoutGrid,
   List,
+  DollarSign,
+  Sparkles,
+  SlidersHorizontal,
 } from "lucide-react";
 import { BauIcon } from "@/components/ui/bau-icon";
 import { Badge } from "@/components/ui/badge";
@@ -72,7 +76,7 @@ import {
   productName,
 } from "@/hooks/useData";
 import { batchSubmitMovements, submitChestTransfer } from "@/lib/app-api";
-import { dateTime, errorMessage, num } from "@/lib/format";
+import { currency, dateTime, errorMessage, num } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/movimentacoes")({
@@ -504,19 +508,23 @@ export function MovimentacoesPage() {
 
   // Estatísticas agregadas de inventário por baú
   const bausStats = useMemo(() => {
-    const stats: Record<string, { itemsCount: number; totalUnits: number }> = {};
+    const stats: Record<string, { itemsCount: number; totalUnits: number; totalValue: number; positiveCount: number }> = {};
     for (const b of baus) {
       let itemsCount = 0;
       let totalUnits = 0;
+      let totalValue = 0;
+      let positiveCount = 0;
       for (const p of products) {
         if (p.ativo === false) continue;
         const stock = getProductStockInChest(p.id, b.id);
+        itemsCount += 1;
         if (stock > 0) {
-          itemsCount += 1;
+          positiveCount += 1;
           totalUnits += stock;
+          totalValue += stock * Number(p.preco_sugerido || 0);
         }
       }
-      stats[b.id] = { itemsCount, totalUnits };
+      stats[b.id] = { itemsCount, totalUnits, totalValue, positiveCount };
     }
     return stats;
   }, [baus, products, productBaus, movements]);
@@ -525,7 +533,9 @@ export function MovimentacoesPage() {
   const handleOpenBalance = (targetBauId: string) => {
     setBalanceBauId(targetBauId);
     setBalanceSearch("");
+    setBalanceCategoryFilter("all");
     setBalanceFilter("positive");
+    setBalanceSortBy("qty_desc");
     setBalanceModalOpen(true);
   };
 
@@ -548,6 +558,10 @@ export function MovimentacoesPage() {
 
   const activeMovementBauObj = baus.find((b) => b.id === activeMovementBauId);
 
+  // Estados para Modal de Saldo / Inventário do Baú e Ações Rápidas
+  const [balanceCategoryFilter, setBalanceCategoryFilter] = useState<string>("all");
+  const [balanceSortBy, setBalanceSortBy] = useState<"qty_desc" | "qty_asc" | "name_asc" | "val_desc">("qty_desc");
+
   // Dados do baú ativo no modal de saldo
   const activeBalanceBau = baus.find((b) => b.id === balanceBauId);
   const activeBalanceInventory = useMemo(() => {
@@ -557,31 +571,69 @@ export function MovimentacoesPage() {
       .map((p) => {
         const stock = getProductStockInChest(p.id, balanceBauId);
         const cat = categories.find((c) => c.id === p.categoria_id);
+        const unitPrice = Number(p.preco_sugerido || 0);
+        const totalValue = stock * unitPrice;
         return {
           product: p,
           stock,
+          unitPrice,
+          totalValue,
           categoryName: cat?.nome || "Geral",
+          categoryId: p.categoria_id || "uncategorized",
         };
-      })
-      .sort((a, b) => {
-        if (b.stock !== a.stock) return b.stock - a.stock;
-        return a.product.nome.localeCompare(b.product.nome);
       });
   }, [balanceBauId, products, productBaus, movements, categories, baus]);
 
   const filteredBalanceItems = useMemo(() => {
-    return activeBalanceInventory.filter((item) => {
+    let list = activeBalanceInventory.filter((item) => {
       if (balanceFilter === "positive" && item.stock <= 0) return false;
       if (balanceFilter === "zero" && item.stock > 0) return false;
+      if (balanceCategoryFilter !== "all" && item.categoryId !== balanceCategoryFilter) return false;
       if (balanceSearch.trim()) {
         const q = balanceSearch.toLowerCase().trim();
+        const aliases = (item.product.cda_name || "").toLowerCase();
         const matchName = item.product.nome.toLowerCase().includes(q);
         const matchCat = item.categoryName.toLowerCase().includes(q);
-        return matchName || matchCat;
+        const matchAlias = aliases.includes(q);
+        return matchName || matchCat || matchAlias;
       }
       return true;
     });
-  }, [activeBalanceInventory, balanceFilter, balanceSearch]);
+
+    return list.sort((a, b) => {
+      if (balanceSortBy === "qty_desc") return b.stock - a.stock || a.product.nome.localeCompare(b.product.nome);
+      if (balanceSortBy === "qty_asc") return a.stock - b.stock || a.product.nome.localeCompare(b.product.nome);
+      if (balanceSortBy === "val_desc") return b.totalValue - a.totalValue || b.stock - a.stock;
+      if (balanceSortBy === "name_asc") return a.product.nome.localeCompare(b.product.nome);
+      return 0;
+    });
+  }, [activeBalanceInventory, balanceFilter, balanceCategoryFilter, balanceSortBy, balanceSearch]);
+
+  // Categorias presentes no baú ativo
+  const balanceCategories = useMemo(() => {
+    const map = new Map<string, { id: string; nome: string; count: number; countWithStock: number }>();
+    activeBalanceInventory.forEach((item) => {
+      const existing = map.get(item.categoryId) || {
+        id: item.categoryId,
+        nome: item.categoryName,
+        count: 0,
+        countWithStock: 0,
+      };
+      existing.count += 1;
+      if (item.stock > 0) existing.countWithStock += 1;
+      map.set(item.categoryId, existing);
+    });
+    return Array.from(map.values()).sort((a, b) => b.countWithStock - a.countWithStock || a.nome.localeCompare(b.nome));
+  }, [activeBalanceInventory]);
+
+  // Totais agregados do baú ativo
+  const balanceStats = useMemo(() => {
+    const totalItems = activeBalanceInventory.length;
+    const itemsWithStock = activeBalanceInventory.filter((i) => i.stock > 0).length;
+    const totalUnits = activeBalanceInventory.reduce((acc, i) => acc + (i.stock > 0 ? i.stock : 0), 0);
+    const totalValuation = activeBalanceInventory.reduce((acc, i) => acc + (i.stock > 0 ? i.totalValue : 0), 0);
+    return { totalItems, itemsWithStock, totalUnits, totalValuation };
+  }, [activeBalanceInventory]);
 
   return (
     <div className="mx-auto max-w-6xl space-y-6">
@@ -604,7 +656,7 @@ export function MovimentacoesPage() {
           </div>
           <div className="flex items-center gap-2 flex-wrap">
             <p className="text-xs text-muted-foreground hidden lg:inline">
-              Ações rápidas: <Eye className="w-3.5 h-3.5 inline mx-0.5 text-primary" /> Ver Saldo, <History className="w-3.5 h-3.5 inline mx-0.5 text-sky-400" /> Histórico ou <ArrowRightLeft className="w-3.5 h-3.5 inline mx-0.5 text-emerald-400" /> Movimentar.
+              Dica: <span className="font-semibold text-primary">Clique em qualquer card</span> para ver o saldo completo.
             </p>
             {canView && (
               <Button
@@ -627,25 +679,39 @@ export function MovimentacoesPage() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {baus.map((b) => {
             const isManual = b.tipo_gestao === "manual";
-            const stat = bausStats[b.id] || { itemsCount: 0, totalUnits: 0 };
+            const stat = bausStats[b.id] || { itemsCount: 0, totalUnits: 0, totalValue: 0, positiveCount: 0 };
             const isCurrentlySelected = type === "transferencia" ? fromBauId === b.id || toBauId === b.id : selectedBauId === b.id;
 
             return (
               <Card
                 key={b.id}
+                onClick={() => handleOpenBalance(b.id)}
                 className={cn(
-                  "surface-card transition-all duration-200 hover:shadow-lg relative overflow-hidden flex flex-col justify-between border",
-                  isCurrentlySelected ? "border-primary ring-1 ring-primary/40 shadow-md" : "border-border/70 hover:border-border"
+                  "group relative overflow-hidden rounded-2xl border transition-all duration-300 cursor-pointer flex flex-col justify-between shadow-sm",
+                  "bg-gradient-to-b from-card/95 via-card/85 to-secondary/30 backdrop-blur-md hover:shadow-xl",
+                  isCurrentlySelected
+                    ? "border-primary ring-2 ring-primary/40 shadow-primary/10 shadow-lg scale-[1.01]"
+                    : "border-border/70 hover:border-primary/60 hover:-translate-y-1"
                 )}
               >
-                <div className="p-4 space-y-3">
-                  {/* Top row: Icon + Name + Badges */}
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="flex items-center gap-2.5 min-w-0">
-                      <div className="w-10 h-10 rounded-xl bg-secondary/70 border border-border/60 flex items-center justify-center shrink-0 shadow-inner overflow-hidden">
+                {/* Accent Top Gradient Strip */}
+                <div
+                  className={cn(
+                    "h-1.5 w-full transition-all duration-300",
+                    isManual
+                      ? "bg-gradient-to-r from-amber-500/80 via-amber-400 to-amber-500/80 group-hover:from-amber-400 group-hover:to-amber-300"
+                      : "bg-gradient-to-r from-cyan-500/80 via-primary to-cyan-500/80 group-hover:from-cyan-400 group-hover:to-primary"
+                  )}
+                />
+
+                <div className="p-4 sm:p-5 space-y-3.5">
+                  {/* Top row: Avatar + Title & Subtitle + Mode Badge */}
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="w-12 h-12 rounded-2xl bg-secondary/80 border border-border/70 flex items-center justify-center shrink-0 shadow-inner overflow-hidden ring-1 ring-border/60 group-hover:ring-primary/40 group-hover:scale-105 transition-all duration-300">
                         <BauIcon
                           foto_url={b.foto_url || b.imagem_url}
                           icone={b.icone}
@@ -654,16 +720,16 @@ export function MovimentacoesPage() {
                         />
                       </div>
                       <div className="min-w-0">
-                        <h3 className="font-extrabold text-sm text-foreground truncate" title={b.nome}>
+                        <h3 className="font-black text-sm sm:text-base text-foreground group-hover:text-primary transition-colors truncate" title={b.nome}>
                           {b.nome}
                         </h3>
                         {b.descricao ? (
-                          <p className="text-[11px] text-muted-foreground line-clamp-1">
+                          <p className="text-[11px] text-muted-foreground line-clamp-1 mt-0.5">
                             {b.descricao}
                           </p>
                         ) : (
-                          <p className="text-[11px] text-muted-foreground opacity-60">
-                            {isManual ? "Baú operacional padrão" : "Monitorado via Discord"}
+                          <p className="text-[11px] text-muted-foreground opacity-60 mt-0.5">
+                            {isManual ? "Baú com lançamentos manuais" : "Sincronizado com o Discord"}
                           </p>
                         )}
                       </div>
@@ -673,7 +739,7 @@ export function MovimentacoesPage() {
                       <Badge
                         variant="secondary"
                         className={cn(
-                          "text-[9.5px] font-bold px-2 py-0.5 rounded-md",
+                          "text-[10px] font-bold px-2 py-0.5 rounded-lg shrink-0",
                           isManual
                             ? "bg-amber-500/10 text-amber-400 border border-amber-500/30"
                             : "bg-cyan-500/10 text-cyan-400 border border-cyan-500/30"
@@ -684,58 +750,47 @@ export function MovimentacoesPage() {
                     </div>
                   </div>
 
-                  {/* Metrics summary */}
-                  <div className="grid grid-cols-2 gap-2 pt-1">
-                    <div className="p-2 rounded-lg bg-secondary/30 border border-border/40 text-center">
-                      <span className="text-[10px] uppercase font-bold text-muted-foreground block">
+                  {/* Metrics Summary (3 Stat Capsules) */}
+                  <div className="grid grid-cols-3 gap-2 pt-1">
+                    <div className="p-2.5 rounded-xl bg-secondary/35 border border-border/50 text-center flex flex-col justify-center">
+                      <span className="text-[9px] uppercase font-bold text-muted-foreground block truncate">
                         Itens Únicos
                       </span>
-                      <strong className="text-xs sm:text-sm font-extrabold text-foreground font-mono">
-                        {num(stat.itemsCount)}
+                      <strong className="text-xs sm:text-sm font-black text-foreground font-mono mt-0.5">
+                        {num(stat.positiveCount)}
                       </strong>
                     </div>
-                    <div className="p-2 rounded-lg bg-secondary/30 border border-border/40 text-center">
-                      <span className="text-[10px] uppercase font-bold text-muted-foreground block">
+
+                    <div className="p-2.5 rounded-xl bg-secondary/35 border border-border/50 text-center flex flex-col justify-center">
+                      <span className="text-[9px] uppercase font-bold text-muted-foreground block truncate">
                         Volume Total
                       </span>
-                      <strong className="text-xs sm:text-sm font-extrabold text-primary font-mono">
+                      <strong className={cn("text-xs sm:text-sm font-black font-mono mt-0.5", stat.totalUnits > 0 ? "text-emerald-400" : "text-muted-foreground")}>
                         {num(stat.totalUnits)}
+                      </strong>
+                    </div>
+
+                    <div className="p-2.5 rounded-xl bg-secondary/35 border border-border/50 text-center flex flex-col justify-center">
+                      <span className="text-[9px] uppercase font-bold text-muted-foreground block truncate">
+                        Valor Estimado
+                      </span>
+                      <strong className="text-[11px] sm:text-xs font-black text-emerald-400/90 font-mono mt-0.5 truncate">
+                        {currency(stat.totalValue)}
                       </strong>
                     </div>
                   </div>
                 </div>
 
-                {/* Actions row: ONLY SYMBOLS ON BUTTONS */}
-                <div className="px-4 py-2.5 bg-secondary/20 border-t border-border/40 flex items-center justify-between">
-                  <div className="text-[11px] text-muted-foreground">
-                    {isManual ? (
-                      <span className="text-amber-400/90 font-medium">Lançamento Web</span>
-                    ) : (
-                      <span className="text-cyan-400/90 font-medium">Sincroniza Discord</span>
-                    )}
+                {/* Actions row with Visual Clue & Buttons */}
+                <div className="px-4 py-3 bg-secondary/25 border-t border-border/50 flex items-center justify-between">
+                  <div className="flex items-center gap-1.5 text-xs text-primary font-bold group-hover:translate-x-1 transition-transform duration-200">
+                    <Eye className="w-4 h-4 text-primary" />
+                    <span className="text-[11px] sm:text-xs">Ver Saldo</span>
+                    <ArrowRight className="w-3.5 h-3.5 opacity-60 group-hover:opacity-100" />
                   </div>
 
-                  <div className="flex items-center gap-1.5">
-                    {/* Botão Ver Saldo (Apenas Símbolo) */}
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleOpenBalance(b.id)}
-                          className="h-8 w-8 p-0 rounded-lg text-muted-foreground hover:text-primary hover:border-primary/50 hover:bg-primary/10 transition-colors cursor-pointer"
-                          aria-label={`Ver Saldo do baú ${b.nome}`}
-                        >
-                          <Eye className="h-4 w-4" />
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent side="top" className="text-xs font-semibold">
-                        Ver Saldo do Baú
-                      </TooltipContent>
-                    </Tooltip>
-
-                    {/* Botão Ver Histórico de Movimentações do Baú (Apenas Símbolo) */}
+                  <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
+                    {/* Botão Ver Histórico de Movimentações */}
                     {canView && (
                       <Tooltip>
                         <TooltipTrigger asChild>
@@ -743,12 +798,13 @@ export function MovimentacoesPage() {
                             type="button"
                             variant="outline"
                             size="sm"
-                            onClick={() => {
+                            onClick={(e) => {
+                              e.stopPropagation();
                               setHistoryBauId(b.id);
                               setHistoryModalOpen(true);
                             }}
-                            className="h-8 w-8 p-0 rounded-lg text-muted-foreground hover:text-sky-400 hover:border-sky-500/50 hover:bg-sky-500/10 transition-colors cursor-pointer"
-                            aria-label={`Histórico de Movimentações do baú ${b.nome}`}
+                            className="h-8 w-8 p-0 rounded-xl text-muted-foreground hover:text-sky-400 hover:border-sky-500/50 hover:bg-sky-500/10 transition-colors cursor-pointer shadow-xs"
+                            aria-label={`Histórico do baú ${b.nome}`}
                           >
                             <History className="h-4 w-4" />
                           </Button>
@@ -759,7 +815,7 @@ export function MovimentacoesPage() {
                       </Tooltip>
                     )}
 
-                    {/* Botão Movimentar (Apenas Símbolo) - SOMENTE PARA BAÚS MANUAIS */}
+                    {/* Botão Movimentar (Apenas para baús manuais) */}
                     {isManual && canMove && (
                       <Tooltip>
                         <TooltipTrigger asChild>
@@ -767,16 +823,20 @@ export function MovimentacoesPage() {
                             type="button"
                             variant="default"
                             size="sm"
-                            onClick={() => handleStartMovementOnBau(b.id)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleStartMovementOnBau(b.id);
+                            }}
                             className={cn(
-                              "h-8 w-8 p-0 rounded-lg text-primary-foreground shadow-sm transition-all active:scale-95 cursor-pointer",
+                              "h-8 px-2.5 rounded-xl text-xs font-bold text-primary-foreground shadow-sm transition-all active:scale-95 cursor-pointer flex items-center gap-1",
                               activeMovementBauId === b.id
-                                ? "bg-amber-500 hover:bg-amber-600 ring-2 ring-amber-400"
+                                ? "bg-amber-500 hover:bg-amber-600 ring-2 ring-amber-400 text-slate-900"
                                 : "bg-primary hover:bg-primary/90"
                             )}
                             aria-label={`Movimentar baú ${b.nome}`}
                           >
-                            <ArrowRightLeft className="h-4 w-4" />
+                            <ArrowRightLeft className="h-3.5 w-3.5" />
+                            <span className="hidden sm:inline">Movimentar</span>
                           </Button>
                         </TooltipTrigger>
                         <TooltipContent side="top" className="text-xs font-semibold">
@@ -1575,12 +1635,12 @@ export function MovimentacoesPage() {
 
       {/* MODAL: VER SALDO E INVENTÁRIO DO BAÚ */}
       <Dialog open={balanceModalOpen} onOpenChange={setBalanceModalOpen}>
-        <DialogContent className="max-w-4xl bg-card border-border/80 shadow-2xl p-0 overflow-hidden flex flex-col max-h-[88vh]">
-          {/* HEADER COM FOTO DE PERFIL DO BAÚ */}
-          <DialogHeader className="p-4 sm:p-5 border-b border-border/60 bg-secondary/30 space-y-1">
-            <div className="flex items-center justify-between gap-3">
-              <div className="flex items-center gap-3 min-w-0">
-                <div className="w-12 h-12 rounded-xl bg-secondary/80 border border-border/70 flex items-center justify-center shrink-0 shadow-inner overflow-hidden ring-1 ring-primary/20">
+        <DialogContent className="max-w-5xl bg-card border-border/80 shadow-2xl p-0 overflow-hidden flex flex-col max-h-[90vh]">
+          {/* HEADER COM FOTO DE PERFIL DO BAÚ E DETALHES */}
+          <DialogHeader className="p-4 sm:p-5 border-b border-border/60 bg-gradient-to-r from-secondary/40 via-secondary/20 to-secondary/40 space-y-0">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="flex items-center gap-3.5 min-w-0">
+                <div className="w-13 h-13 sm:w-14 sm:h-14 rounded-2xl bg-secondary/80 border border-border/80 flex items-center justify-center shrink-0 shadow-inner overflow-hidden ring-2 ring-primary/20">
                   <BauIcon
                     foto_url={activeBalanceBau?.foto_url || activeBalanceBau?.imagem_url}
                     icone={activeBalanceBau?.icone}
@@ -1589,92 +1649,219 @@ export function MovimentacoesPage() {
                   />
                 </div>
                 <div className="min-w-0">
-                  <DialogTitle className="text-base sm:text-lg font-black text-foreground flex items-center gap-2 flex-wrap">
-                    <span className="truncate">{activeBalanceBau?.nome || "Inventário do Baú"}</span>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <DialogTitle className="text-base sm:text-xl font-black text-foreground truncate">
+                      {activeBalanceBau?.nome || "Inventário do Baú"}
+                    </DialogTitle>
                     {activeBalanceBau?.tipo_gestao === "manual" ? (
-                      <Badge className="bg-amber-500/10 text-amber-400 border-amber-500/30 text-[10px] font-bold">
+                      <Badge className="bg-amber-500/15 text-amber-400 border border-amber-500/30 text-[10px] font-bold px-2 py-0.5 rounded-lg">
                         ✍️ Manual
                       </Badge>
                     ) : (
-                      <Badge className="bg-cyan-500/10 text-cyan-400 border-cyan-500/30 text-[10px] font-bold">
+                      <Badge className="bg-cyan-500/15 text-cyan-400 border border-cyan-500/30 text-[10px] font-bold px-2 py-0.5 rounded-lg">
                         🤖 Automático (Discord)
                       </Badge>
                     )}
-                  </DialogTitle>
-                  <DialogDescription className="text-xs text-muted-foreground truncate">
-                    {activeBalanceBau?.descricao || "Saldos atuais e produtos alocados neste baú."}
+                  </div>
+                  <DialogDescription className="text-xs text-muted-foreground line-clamp-1 mt-0.5">
+                    {activeBalanceBau?.descricao || "Saldos atuais, volume em estoque e precificação dos itens alocados neste baú."}
                   </DialogDescription>
-                </div>
-              </div>
-
-              <div className="hidden sm:flex items-center gap-2 shrink-0 text-right">
-                <div className="p-2 rounded-xl bg-secondary/40 border border-border/50 text-right">
-                  <span className="text-[10px] uppercase font-bold text-muted-foreground block">Total em Estoque</span>
-                  <span className="text-xs font-mono font-bold text-emerald-400">
-                    {num(activeBalanceInventory.reduce((acc, i) => acc + (i.stock > 0 ? i.stock : 0), 0))} un.
-                  </span>
                 </div>
               </div>
             </div>
           </DialogHeader>
 
-          {/* Search, Filter Tabs and View Mode Toggle */}
-          <div className="p-3 sm:p-4 border-b border-border/40 bg-secondary/15 flex flex-col sm:flex-row gap-2.5 items-center justify-between">
-            <div className="relative w-full sm:w-72">
-              <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+          {/* 4 STATS METRIC PODS RIBBON */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 p-3 sm:p-4 bg-secondary/15 border-b border-border/50">
+            <div className="p-2.5 sm:p-3 rounded-xl bg-card/60 border border-border/60 shadow-xs flex items-center gap-3">
+              <div className="w-9 h-9 rounded-lg bg-emerald-500/10 border border-emerald-500/25 flex items-center justify-center shrink-0 text-emerald-400">
+                <Boxes className="w-5 h-5" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Volume Total</p>
+                <p className="text-sm sm:text-base font-black font-mono text-emerald-400 truncate">
+                  {num(balanceStats.totalUnits)} <span className="text-[10px] font-normal text-muted-foreground">un</span>
+                </p>
+              </div>
+            </div>
+
+            <div className="p-2.5 sm:p-3 rounded-xl bg-card/60 border border-border/60 shadow-xs flex items-center gap-3">
+              <div className="w-9 h-9 rounded-lg bg-sky-500/10 border border-sky-500/25 flex items-center justify-center shrink-0 text-sky-400">
+                <Package className="w-5 h-5" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Itens com Saldo</p>
+                <p className="text-sm sm:text-base font-black font-mono text-foreground truncate">
+                  {num(balanceStats.itemsWithStock)} <span className="text-[10px] font-normal text-muted-foreground">de {balanceStats.totalItems}</span>
+                </p>
+              </div>
+            </div>
+
+            <div className="p-2.5 sm:p-3 rounded-xl bg-card/60 border border-border/60 shadow-xs flex items-center gap-3">
+              <div className="w-9 h-9 rounded-lg bg-amber-500/10 border border-amber-500/25 flex items-center justify-center shrink-0 text-amber-400">
+                <DollarSign className="w-5 h-5" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Valor Estimado</p>
+                <p className="text-sm sm:text-base font-black font-mono text-amber-300 truncate">
+                  {currency(balanceStats.totalValuation)}
+                </p>
+              </div>
+            </div>
+
+            <div className="p-2.5 sm:p-3 rounded-xl bg-card/60 border border-border/60 shadow-xs flex items-center gap-3">
+              <div className="w-9 h-9 rounded-lg bg-primary/10 border border-primary/25 flex items-center justify-center shrink-0 text-primary">
+                <Sparkles className="w-5 h-5" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Operação</p>
+                <p className="text-xs sm:text-sm font-black text-foreground truncate">
+                  {activeBalanceBau?.tipo_gestao === "manual" ? "Lançamento Manual" : "Sincronizado Bot"}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* CATEGORY FILTER HORIZONTAL RIBBON */}
+          {balanceCategories.length > 0 && (
+            <div className="px-3.5 sm:px-4 py-2 border-b border-border/40 bg-secondary/10 flex items-center gap-1.5 overflow-x-auto no-scrollbar scroll-smooth">
+              <span className="text-[10px] uppercase font-bold text-muted-foreground shrink-0 mr-1 flex items-center gap-1">
+                <Tags className="w-3 h-3 text-primary" />
+                Categorias:
+              </span>
+              <button
+                type="button"
+                onClick={() => setBalanceCategoryFilter("all")}
+                className={cn(
+                  "px-2.5 py-1 rounded-lg text-xs font-semibold shrink-0 transition-all cursor-pointer flex items-center gap-1.5 border",
+                  balanceCategoryFilter === "all"
+                    ? "bg-primary text-primary-foreground border-primary shadow-xs font-bold"
+                    : "bg-secondary/40 hover:bg-secondary border-border/60 text-muted-foreground hover:text-foreground"
+                )}
+              >
+                <span>Todas</span>
+                <Badge
+                  variant="secondary"
+                  className={cn(
+                    "text-[9px] px-1 py-0 h-4 min-w-4 flex items-center justify-center rounded font-mono",
+                    balanceCategoryFilter === "all" ? "bg-black/20 text-white" : ""
+                  )}
+                >
+                  {balanceFilter === "positive" ? balanceStats.itemsWithStock : balanceStats.totalItems}
+                </Badge>
+              </button>
+              {balanceCategories.map((cat) => {
+                const isSelected = balanceCategoryFilter === cat.id;
+                const count = balanceFilter === "positive" ? cat.countWithStock : cat.count;
+                return (
+                  <button
+                    key={cat.id}
+                    type="button"
+                    onClick={() => setBalanceCategoryFilter(cat.id)}
+                    className={cn(
+                      "px-2.5 py-1 rounded-lg text-xs font-semibold shrink-0 transition-all cursor-pointer flex items-center gap-1.5 border",
+                      isSelected
+                        ? "bg-primary text-primary-foreground border-primary shadow-xs font-bold"
+                        : "bg-secondary/40 hover:bg-secondary border-border/60 text-muted-foreground hover:text-foreground"
+                    )}
+                  >
+                    <span>{cat.nome}</span>
+                    <Badge
+                      variant="secondary"
+                      className={cn(
+                        "text-[9px] px-1 py-0 h-4 min-w-4 flex items-center justify-center rounded font-mono",
+                        isSelected ? "bg-black/20 text-white" : ""
+                      )}
+                    >
+                      {count}
+                    </Badge>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+
+          {/* TOOLBAR (SEARCH + STOCK FILTER TABS + SORT + VIEW SWITCHER) */}
+          <div className="p-3 sm:p-4 border-b border-border/40 bg-secondary/15 flex flex-col md:flex-row gap-2.5 items-stretch md:items-center justify-between">
+            <div className="relative flex-1 max-w-md">
+              <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
               <Input
-                placeholder="Buscar item ou categoria no baú..."
+                placeholder="Buscar item pelo nome, categoria ou log..."
                 value={balanceSearch}
                 onChange={(e) => setBalanceSearch(e.target.value)}
-                className="pl-8 h-8 text-xs rounded-xl bg-background/80"
+                className="pl-9 pr-8 h-9 text-xs rounded-xl bg-background/80 border-border/70 focus-visible:ring-primary/40"
               />
               {balanceSearch && (
                 <button
                   type="button"
                   onClick={() => setBalanceSearch("")}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground p-1"
                 >
                   <X className="w-3.5 h-3.5" />
                 </button>
               )}
             </div>
 
-            <div className="flex items-center gap-2 w-full sm:w-auto justify-between sm:justify-end flex-wrap">
-              <div className="flex items-center gap-1">
+            <div className="flex items-center gap-2 flex-wrap justify-between md:justify-end">
+              {/* STOCK FILTER TABS */}
+              <div className="flex items-center gap-1 bg-secondary/40 p-1 rounded-xl border border-border/50">
                 <Button
                   size="sm"
-                  variant={balanceFilter === "positive" ? "default" : "outline"}
+                  variant={balanceFilter === "positive" ? "default" : "ghost"}
                   onClick={() => setBalanceFilter("positive")}
-                  className="text-[11px] h-7 px-2.5 rounded-lg cursor-pointer"
+                  className={cn(
+                    "text-xs h-7 px-2.5 rounded-lg cursor-pointer font-semibold",
+                    balanceFilter === "positive" ? "shadow-xs" : "text-muted-foreground"
+                  )}
                 >
-                  Com Saldo ({activeBalanceInventory.filter((i) => i.stock > 0).length})
+                  Com Saldo ({balanceStats.itemsWithStock})
                 </Button>
                 <Button
                   size="sm"
-                  variant={balanceFilter === "all" ? "default" : "outline"}
+                  variant={balanceFilter === "all" ? "default" : "ghost"}
                   onClick={() => setBalanceFilter("all")}
-                  className="text-[11px] h-7 px-2.5 rounded-lg cursor-pointer"
+                  className={cn(
+                    "text-xs h-7 px-2.5 rounded-lg cursor-pointer font-semibold",
+                    balanceFilter === "all" ? "shadow-xs" : "text-muted-foreground"
+                  )}
                 >
-                  Todos ({activeBalanceInventory.length})
+                  Todos ({balanceStats.totalItems})
                 </Button>
                 <Button
                   size="sm"
-                  variant={balanceFilter === "zero" ? "default" : "outline"}
+                  variant={balanceFilter === "zero" ? "default" : "ghost"}
                   onClick={() => setBalanceFilter("zero")}
-                  className="text-[11px] h-7 px-2.5 rounded-lg cursor-pointer"
+                  className={cn(
+                    "text-xs h-7 px-2.5 rounded-lg cursor-pointer font-semibold",
+                    balanceFilter === "zero" ? "shadow-xs" : "text-muted-foreground"
+                  )}
                 >
-                  Zerados ({activeBalanceInventory.filter((i) => i.stock <= 0).length})
+                  Zerados ({balanceStats.totalItems - balanceStats.itemsWithStock})
                 </Button>
               </div>
 
-              {/* Grid / List Mode Switcher */}
-              <div className="flex items-center gap-0.5 border border-border/60 bg-secondary/50 p-0.5 rounded-lg">
+              {/* SORT DROPDOWN */}
+              <Select value={balanceSortBy} onValueChange={(v) => setBalanceSortBy(v as any)}>
+                <SelectTrigger className="h-9 text-xs rounded-xl w-[150px] bg-background/80 border-border/70">
+                  <SlidersHorizontal className="w-3.5 h-3.5 mr-1 text-muted-foreground" />
+                  <SelectValue placeholder="Ordenar por" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="qty_desc">Maior Saldo</SelectItem>
+                  <SelectItem value="qty_asc">Menor Saldo</SelectItem>
+                  <SelectItem value="val_desc">Maior Valor (R$)</SelectItem>
+                  <SelectItem value="name_asc">Nome (A-Z)</SelectItem>
+                </SelectContent>
+              </Select>
+
+              {/* VIEW SWITCHER */}
+              <div className="flex items-center gap-0.5 border border-border/60 bg-secondary/50 p-1 rounded-xl">
                 <Button
                   size="sm"
                   variant={balanceViewMode === "grid" ? "default" : "ghost"}
                   onClick={() => setBalanceViewMode("grid")}
                   className={cn(
-                    "h-6 w-7 p-0 rounded-md cursor-pointer",
+                    "h-7 w-7 p-0 rounded-lg cursor-pointer",
                     balanceViewMode === "grid" ? "bg-primary text-primary-foreground shadow-xs" : "text-muted-foreground hover:text-foreground"
                   )}
                   title="Visualização em Grade"
@@ -1686,7 +1873,7 @@ export function MovimentacoesPage() {
                   variant={balanceViewMode === "list" ? "default" : "ghost"}
                   onClick={() => setBalanceViewMode("list")}
                   className={cn(
-                    "h-6 w-7 p-0 rounded-md cursor-pointer",
+                    "h-7 w-7 p-0 rounded-lg cursor-pointer",
                     balanceViewMode === "list" ? "bg-primary text-primary-foreground shadow-xs" : "text-muted-foreground hover:text-foreground"
                   )}
                   title="Visualização em Lista"
@@ -1697,51 +1884,60 @@ export function MovimentacoesPage() {
             </div>
           </div>
 
-          {/* Body: Responsive Product Grid or List View */}
+          {/* BODY: RESPONSIVE PRODUCT GRID OR LIST VIEW */}
           <div className="p-3.5 sm:p-5 overflow-y-auto flex-1 max-h-[56vh]">
             {filteredBalanceItems.length === 0 ? (
               <div className="py-12 text-center text-muted-foreground text-xs space-y-2.5">
                 <PackageSearch className="w-10 h-10 mx-auto opacity-40 text-primary animate-pulse" />
                 <p className="font-bold text-foreground text-sm">Nenhum item encontrado no baú</p>
                 <p className="text-[11px] max-w-xs mx-auto">
-                  {balanceSearch ? `Nenhum resultado para "${balanceSearch}". Tente outro termo.` : "Nenhum item atende aos filtros de saldo selecionados."}
+                  {balanceSearch ? `Nenhum resultado para "${balanceSearch}". Tente outro termo de busca.` : "Nenhum item atende aos filtros selecionados."}
                 </p>
               </div>
             ) : balanceViewMode === "grid" ? (
-              /* GRID VIEW COM IMAGEM DO ITEM */
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-                {filteredBalanceItems.map(({ product, stock, categoryName }) => {
+              /* GRID VIEW COM DESIGN ELEGANTE */
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+                {filteredBalanceItems.map(({ product, stock, unitPrice, totalValue, categoryName }) => {
                   const hasStock = stock > 0;
                   return (
                     <div
                       key={product.id}
                       className={cn(
-                        "group relative rounded-xl border p-3 flex flex-col justify-between transition-all duration-200 shadow-xs",
+                        "group relative rounded-2xl border p-3 flex flex-col justify-between transition-all duration-300 shadow-xs",
                         hasStock
-                          ? "bg-card/70 border-border/70 hover:border-primary/50 hover:bg-card/90 hover:shadow-md"
-                          : "bg-secondary/20 border-border/40 opacity-70 hover:opacity-100"
+                          ? "bg-gradient-to-b from-card/90 to-secondary/30 border-border/80 hover:border-primary/60 hover:shadow-lg hover:-translate-y-0.5"
+                          : "bg-secondary/15 border-border/40 opacity-60 hover:opacity-100"
                       )}
                     >
-                      <div className="space-y-2.5">
-                        {/* Imagem do Produto com Destaque e Hover Zoom */}
-                        <div className="w-full flex justify-center py-1">
-                          <div className="relative p-1.5 rounded-xl bg-secondary/50 border border-border/60 group-hover:border-primary/40 group-hover:scale-105 transition-all shadow-inner">
+                      <div className="space-y-2">
+                        {/* Top category chip & price */}
+                        <div className="flex items-center justify-between gap-1">
+                          <span className="text-[9px] font-bold text-primary uppercase tracking-wider truncate">
+                            {categoryName}
+                          </span>
+                          {unitPrice > 0 && (
+                            <span className="text-[9px] font-mono text-muted-foreground shrink-0">
+                              {currency(unitPrice)}/un
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Product image with sleek presentation */}
+                        <div className="w-full flex justify-center py-2">
+                          <div className="relative p-2 rounded-2xl bg-secondary/50 border border-border/60 group-hover:border-primary/40 group-hover:scale-105 transition-all shadow-inner">
                             <ProductThumbnail
                               src={product.imagem_url}
                               name={product.nome}
                               size="xl"
-                              className="w-16 h-16 sm:w-20 sm:h-20 rounded-lg"
+                              className="w-16 h-16 sm:w-20 sm:h-20 rounded-xl"
                             />
                           </div>
                         </div>
 
-                        {/* Detalhes do Produto */}
-                        <div className="space-y-0.5 text-center">
-                          <span className="text-[10px] text-primary/80 font-bold uppercase tracking-wider block truncate">
-                            {categoryName}
-                          </span>
+                        {/* Product Name */}
+                        <div className="text-center">
                           <h4
-                            className="text-xs sm:text-sm font-bold text-foreground line-clamp-2 leading-tight group-hover:text-primary transition-colors min-h-[2.2em]"
+                            className="text-xs sm:text-sm font-black text-foreground line-clamp-2 leading-tight group-hover:text-primary transition-colors min-h-[2.4em]"
                             title={product.nome}
                           >
                             {product.nome}
@@ -1749,20 +1945,27 @@ export function MovimentacoesPage() {
                         </div>
                       </div>
 
-                      {/* Badge de Saldo / Unidades */}
-                      <div className="pt-2.5 mt-auto">
+                      {/* Stock Capsule */}
+                      <div className="pt-2.5 mt-auto space-y-1">
                         <div
                           className={cn(
-                            "text-xs font-mono font-bold px-2 py-1 rounded-lg text-center border shadow-xs flex items-center justify-center gap-1",
+                            "text-xs font-mono font-black px-2.5 py-1.5 rounded-xl text-center border shadow-xs flex items-center justify-center gap-1.5",
                             hasStock
-                              ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30"
+                              ? "bg-emerald-500/15 text-emerald-400 border-emerald-500/30"
                               : "bg-secondary/50 text-muted-foreground border-border/60"
                           )}
                         >
+                          {hasStock && <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />}
                           <span className="truncate">
                             {num(stock)} {product.unidade || "un"}
                           </span>
                         </div>
+
+                        {hasStock && totalValue > 0 && (
+                          <p className="text-[10px] font-mono font-bold text-center text-muted-foreground">
+                            Total: <span className="text-emerald-400/90">{currency(totalValue)}</span>
+                          </p>
+                        )}
                       </div>
                     </div>
                   );
@@ -1770,37 +1973,52 @@ export function MovimentacoesPage() {
               </div>
             ) : (
               /* LIST VIEW */
-              <div className="divide-y divide-border/40 space-y-1">
-                {filteredBalanceItems.map(({ product, stock, categoryName }) => {
+              <div className="space-y-2">
+                {filteredBalanceItems.map(({ product, stock, unitPrice, totalValue, categoryName }) => {
                   const hasStock = stock > 0;
                   return (
                     <div
                       key={product.id}
-                      className="py-2 px-2.5 flex items-center justify-between rounded-lg hover:bg-secondary/30 transition-colors"
+                      className={cn(
+                        "p-2.5 sm:p-3 rounded-xl border flex items-center justify-between gap-3 transition-all",
+                        hasStock
+                          ? "bg-card/70 border-border/70 hover:border-primary/50 hover:bg-secondary/30"
+                          : "bg-secondary/15 border-border/40 opacity-60 hover:opacity-100"
+                      )}
                     >
                       <div className="flex items-center gap-3 min-w-0">
-                        <ProductThumbnail
-                          src={product.imagem_url}
-                          name={product.nome}
-                          size="md"
-                        />
+                        <div className="p-1 rounded-xl bg-secondary/50 border border-border/60 shrink-0">
+                          <ProductThumbnail
+                            src={product.imagem_url}
+                            name={product.nome}
+                            size="md"
+                            className="w-10 h-10 rounded-lg"
+                          />
+                        </div>
                         <div className="min-w-0">
-                          <p className="text-xs sm:text-sm font-bold text-foreground truncate">
+                          <p className="text-xs sm:text-sm font-black text-foreground truncate">
                             {product.nome}
                           </p>
-                          <p className="text-[10px] text-muted-foreground truncate">
-                            {categoryName}
-                          </p>
+                          <div className="flex items-center gap-2 text-[10px] text-muted-foreground mt-0.5">
+                            <span className="text-primary font-bold">{categoryName}</span>
+                            {unitPrice > 0 && <span>• Preço Unit: {currency(unitPrice)}</span>}
+                          </div>
                         </div>
                       </div>
 
-                      <div className="text-right shrink-0">
+                      <div className="flex items-center gap-3 shrink-0 text-right">
+                        {totalValue > 0 && hasStock && (
+                          <div className="hidden sm:block text-right font-mono">
+                            <span className="text-[10px] text-muted-foreground block">Patrimônio</span>
+                            <span className="text-xs font-bold text-emerald-400/90">{currency(totalValue)}</span>
+                          </div>
+                        )}
                         <Badge
                           variant="outline"
                           className={cn(
-                            "text-xs font-mono font-bold px-2.5 py-1",
+                            "text-xs font-mono font-black px-3 py-1 rounded-xl",
                             hasStock
-                              ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30"
+                              ? "bg-emerald-500/15 text-emerald-400 border-emerald-500/30"
                               : "bg-secondary/60 text-muted-foreground border-border/60"
                           )}
                         >
@@ -1817,11 +2035,14 @@ export function MovimentacoesPage() {
           {/* FOOTER DO MODAL */}
           <DialogFooter className="p-3 sm:p-4 border-t border-border/40 bg-secondary/20 flex flex-col sm:flex-row sm:justify-between items-center gap-2">
             <div className="text-[11px] text-muted-foreground w-full sm:w-auto text-center sm:text-left">
-              Total exibido: <strong>{filteredBalanceItems.length}</strong> itens (
+              Exibindo <strong>{filteredBalanceItems.length}</strong> itens (
               <strong className="text-emerald-400">
                 {filteredBalanceItems.filter((i) => i.stock > 0).length}
               </strong>{" "}
-              com saldo)
+              com saldo) • Volume:{" "}
+              <strong className="text-foreground">
+                {num(filteredBalanceItems.reduce((acc, i) => acc + (i.stock > 0 ? i.stock : 0), 0))} un
+              </strong>
             </div>
             <div className="flex items-center gap-2 flex-wrap justify-center sm:justify-end w-full sm:w-auto">
               {canView && activeBalanceBau && (
@@ -1834,7 +2055,7 @@ export function MovimentacoesPage() {
                     setHistoryBauId(activeBalanceBau.id);
                     setHistoryModalOpen(true);
                   }}
-                  className="text-xs font-bold gap-1.5 border-border/80 hover:border-sky-500/50 hover:bg-sky-500/10 text-foreground cursor-pointer"
+                  className="text-xs font-bold gap-1.5 border-border/80 hover:border-sky-500/50 hover:bg-sky-500/10 text-foreground cursor-pointer rounded-xl"
                 >
                   <History className="w-3.5 h-3.5 text-sky-400" />
                   <span>Histórico do Baú</span>
@@ -1844,7 +2065,7 @@ export function MovimentacoesPage() {
                 variant="outline"
                 size="sm"
                 onClick={() => setBalanceModalOpen(false)}
-                className="text-xs cursor-pointer"
+                className="text-xs cursor-pointer rounded-xl"
               >
                 Fechar
               </Button>
@@ -1856,7 +2077,7 @@ export function MovimentacoesPage() {
                     setBalanceModalOpen(false);
                     if (activeBalanceBau) handleStartMovementOnBau(activeBalanceBau.id);
                   }}
-                  className="text-xs font-bold gap-1.5 bg-primary hover:bg-primary/90 text-primary-foreground cursor-pointer shadow-sm"
+                  className="text-xs font-bold gap-1.5 bg-primary hover:bg-primary/90 text-primary-foreground cursor-pointer shadow-sm rounded-xl"
                 >
                   <ArrowRightLeft className="w-3.5 h-3.5" />
                   Movimentar Baú
