@@ -58,10 +58,13 @@ export function BauManagerModal({ trigger }: { trigger?: ReactNode }) {
   const [icone, setIcone] = useState("box");
   const [fotoUrl, setFotoUrl] = useState("");
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
+  const [bannerUrl, setBannerUrl] = useState("");
+  const [isUploadingBanner, setIsUploadingBanner] = useState(false);
   const [tipoGestao, setTipoGestao] = useState<"automatico" | "manual">("automatico");
   const [isCreating, setIsCreating] = useState(false);
   const [bauToDelete, setBauToDelete] = useState<Bau | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const bannerInputRef = useRef<HTMLInputElement>(null);
 
   // Studio Adjuster state
   const [adjusterOpen, setAdjusterOpen] = useState(false);
@@ -89,6 +92,7 @@ export function BauManagerModal({ trigger }: { trigger?: ReactNode }) {
     setDescricao("");
     setIcone("box");
     setFotoUrl("");
+    setBannerUrl("");
     setTipoGestao("automatico");
     setIsCreating(false);
   };
@@ -104,6 +108,30 @@ export function BauManagerModal({ trigger }: { trigger?: ReactNode }) {
     setAdjusterUrl(null);
     setAdjusterOpen(true);
     if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
+  const handleBannerSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setIsUploadingBanner(true);
+    const toastId = toast.loading("Enviando banner do baú...");
+    try {
+      const url = await uploadBauImage(file);
+      setBannerUrl(url);
+      if (editingBau?.id) {
+        await updateBau({
+          id: editingBau.id,
+          banner_url: url,
+        });
+        void queryClient.invalidateQueries({ queryKey: ["baus"] });
+      }
+      toast.success("Banner do baú salvo com sucesso!", { id: toastId });
+    } catch (err: any) {
+      toast.error(err.message || "Erro ao fazer upload do banner.", { id: toastId });
+    } finally {
+      setIsUploadingBanner(false);
+      if (bannerInputRef.current) bannerInputRef.current.value = "";
+    }
   };
 
   const handleOpenAdjusterForExisting = () => {
@@ -154,6 +182,25 @@ export function BauManagerModal({ trigger }: { trigger?: ReactNode }) {
       }
     } else {
       toast.info("Foto removida.");
+    }
+  };
+
+  const handleRemoveBauBanner = async () => {
+    setBannerUrl("");
+    if (editingBau?.id) {
+      const toastId = toast.loading("Removendo banner do baú...");
+      try {
+        await updateBau({
+          id: editingBau.id,
+          banner_url: null,
+        });
+        void queryClient.invalidateQueries({ queryKey: ["baus"] });
+        toast.success("Banner do baú removido com sucesso!", { id: toastId });
+      } catch (err: any) {
+        toast.error(err.message || "Erro ao remover banner do baú.", { id: toastId });
+      }
+    } else {
+      toast.info("Banner removido.");
     }
   };
 
@@ -209,6 +256,7 @@ export function BauManagerModal({ trigger }: { trigger?: ReactNode }) {
       if (!cleanName) throw new Error("Informe o nome do baú.");
 
       const cleanPhoto = fotoUrl.trim() || null;
+      const cleanBanner = bannerUrl.trim() || null;
 
       if (editingBau) {
         const isDuplicate = baus.some(
@@ -225,6 +273,7 @@ export function BauManagerModal({ trigger }: { trigger?: ReactNode }) {
           icone?: string;
           foto_url?: string | null;
           imagem_url?: string | null;
+          banner_url?: string | null;
           tipo_gestao?: "automatico" | "manual";
         } = {
           id: editingBau.id,
@@ -232,6 +281,7 @@ export function BauManagerModal({ trigger }: { trigger?: ReactNode }) {
           icone,
           foto_url: cleanPhoto,
           imagem_url: cleanPhoto,
+          banner_url: cleanBanner,
           tipo_gestao: tipoGestao,
         };
         if (descricao.trim()) payload.descricao = descricao.trim();
@@ -250,12 +300,14 @@ export function BauManagerModal({ trigger }: { trigger?: ReactNode }) {
           icone?: string;
           foto_url?: string | null;
           imagem_url?: string | null;
+          banner_url?: string | null;
           tipo_gestao?: "automatico" | "manual";
         } = {
           nome: cleanName,
           icone,
           foto_url: cleanPhoto,
           imagem_url: cleanPhoto,
+          banner_url: cleanBanner,
           tipo_gestao: tipoGestao,
         };
         if (descricao.trim()) payload.descricao = descricao.trim();
@@ -324,6 +376,7 @@ export function BauManagerModal({ trigger }: { trigger?: ReactNode }) {
     setDescricao(bau.descricao || "");
     setIcone(bau.icone || "box");
     setFotoUrl(bau.foto_url || bau.imagem_url || "");
+    setBannerUrl(bau.banner_url || "");
     setTipoGestao(bau.tipo_gestao === "manual" ? "manual" : "automatico");
     setIsCreating(true);
   };
@@ -449,6 +502,84 @@ export function BauManagerModal({ trigger }: { trigger?: ReactNode }) {
                         className="text-xs h-8 rounded-xl bg-background/80"
                       />
                     </div>
+                  </div>
+                </div>
+
+                {/* Banner de Capa do Baú (Retangular / Panorama) */}
+                <div className="space-y-2.5 p-3.5 rounded-xl border border-border/70 bg-card/40">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <Label className="text-xs font-bold text-foreground">Banner de Capa do Baú (Opcional)</Label>
+                      <p className="text-[11px] text-muted-foreground">Exibido no topo dos cards de baú em modo retrato</p>
+                    </div>
+                    {bannerUrl && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={handleRemoveBauBanner}
+                        className="h-6 px-2 text-[11px] text-destructive hover:text-destructive hover:bg-destructive/10 font-bold gap-1 cursor-pointer rounded-lg"
+                      >
+                        <Trash2 className="w-3 h-3" /> Remover Banner
+                      </Button>
+                    )}
+                  </div>
+
+                  {bannerUrl ? (
+                    <div className="relative w-full h-24 rounded-xl border border-border/70 overflow-hidden bg-secondary/50 group">
+                      <img
+                        src={bannerUrl}
+                        alt="Banner Preview"
+                        className="w-full h-full object-cover"
+                      />
+                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                        <Button
+                          type="button"
+                          variant="secondary"
+                          size="sm"
+                          onClick={() => bannerInputRef.current?.click()}
+                          className="h-7 text-xs font-semibold"
+                        >
+                          <Upload className="w-3 h-3 mr-1" /> Trocar
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="destructive"
+                          size="sm"
+                          onClick={handleRemoveBauBanner}
+                          className="h-7 text-xs font-semibold"
+                        >
+                          <Trash2 className="w-3 h-3 mr-1" /> Remover
+                        </Button>
+                      </div>
+                    </div>
+                  ) : null}
+
+                  <div className="flex items-center gap-2">
+                    <input
+                      ref={bannerInputRef}
+                      type="file"
+                      accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml"
+                      className="hidden"
+                      onChange={handleBannerSelect}
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      disabled={isUploadingBanner}
+                      onClick={() => bannerInputRef.current?.click()}
+                      className="h-8 text-xs font-bold gap-1.5 border-border/80 rounded-xl cursor-pointer shadow-xs shrink-0"
+                    >
+                      <Upload className="w-3.5 h-3.5 text-primary" />
+                      {isUploadingBanner ? "Enviando banner..." : "Upload de Banner"}
+                    </Button>
+                    <Input
+                      placeholder="Ou cole o link direto do banner..."
+                      value={bannerUrl}
+                      onChange={(e) => setBannerUrl(e.target.value)}
+                      className="text-xs h-8 rounded-xl bg-background/80 flex-1"
+                    />
                   </div>
                 </div>
 

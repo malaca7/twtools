@@ -423,21 +423,52 @@ function ProdutosTabContent({ canManage, canAdjustSaldos, onNavigateToAdjust }: 
     setIsModalOpen(true);
   };
 
-  const handleAddCdaAlias = (textToAdd?: string) => {
+  const handleAddCdaAlias = async (textToAdd?: string) => {
     const raw = textToAdd !== undefined ? textToAdd : cdaInputText;
     if (!raw.trim()) return;
     const parsed = parseCdaAliases(raw);
     if (parsed.length === 0) return;
 
-    setCdaAliases((prev) => {
-      const combined = [...prev, ...parsed];
-      return parseCdaAliases(combined.join(", "));
-    });
+    const nextAliases = parseCdaAliases([...cdaAliases, ...parsed].join(", "));
+    setCdaAliases(nextAliases);
     setCdaInputText("");
+
+    if (editingProduct?.id) {
+      const formattedCda = formatCdaAliases(nextAliases);
+      const toastId = toast.loading("Salvando tag de log do Discord...");
+      try {
+        await updateProduct({
+          id: editingProduct.id,
+          cda_name: formattedCda || null,
+        });
+        void queryClient.invalidateQueries({ queryKey: ["products"] });
+        void queryClient.invalidateQueries({ queryKey: ["discord_stock_config"] });
+        toast.success("Nome de log do Discord salvo automaticamente!", { id: toastId });
+      } catch (err: any) {
+        toast.error(err.message || "Erro ao salvar nome de log no Discord.", { id: toastId });
+      }
+    }
   };
 
-  const handleRemoveCdaAlias = (aliasToRemove: string) => {
-    setCdaAliases((prev) => prev.filter((a) => a.toLowerCase() !== aliasToRemove.toLowerCase()));
+  const handleRemoveCdaAlias = async (aliasToRemove: string) => {
+    const nextAliases = cdaAliases.filter((a) => a.toLowerCase() !== aliasToRemove.toLowerCase());
+    setCdaAliases(nextAliases);
+
+    if (editingProduct?.id) {
+      const formattedCda = formatCdaAliases(nextAliases);
+      const toastId = toast.loading("Removendo tag de log do Discord...");
+      try {
+        await updateProduct({
+          id: editingProduct.id,
+          cda_name: formattedCda || null,
+        });
+        void queryClient.invalidateQueries({ queryKey: ["products"] });
+        void queryClient.invalidateQueries({ queryKey: ["discord_stock_config"] });
+        toast.success("Nome de log removido e salvo automaticamente!", { id: toastId });
+      } catch (err: any) {
+        toast.error(err.message || "Erro ao atualizar nomes de log no Discord.", { id: toastId });
+      }
+    }
   };
 
   const handleProductImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -1116,10 +1147,13 @@ function ProdutosTabContent({ canManage, canAdjustSaldos, onNavigateToAdjust }: 
                     <Bot className="w-3.5 h-3.5 text-cyan-400" />
                     <span>Nomes no Log Discord (CDA)</span>
                   </Label>
-                  <span className="text-[10px] text-muted-foreground font-normal">Reconhecimento do Bot</span>
+                  <span className="text-[10px] text-cyan-400 font-semibold flex items-center gap-1">
+                    <Zap className="w-3 h-3 text-cyan-400" />
+                    <span>Salva automaticamente</span>
+                  </span>
                 </div>
                 <p className="text-[10px] text-muted-foreground leading-relaxed">
-                  Adicione todos os nomes ou variações que o Discord/FiveM usa para registrar este item nos baús. O bot reconhecerá qualquer um deles.
+                  Adicione todos os nomes ou variações que o Discord/FiveM usa para registrar este item nos baús. Ao adicionar ou remover, as alterações são salvas automaticamente.
                 </p>
 
                 {/* CHIPS DE ALIASES ADICIONADOS */}
@@ -1692,11 +1726,14 @@ function BausTabContent({ canManage }: BausTabContentProps) {
   const [icone, setIcone] = useState("📦");
   const [fotoUrl, setFotoUrl] = useState("");
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
+  const [bannerUrl, setBannerUrl] = useState("");
+  const [isUploadingBanner, setIsUploadingBanner] = useState(false);
   const [tipoGestao, setTipoGestao] = useState<"automatico" | "manual">("automatico");
   const [discordChannelId, setDiscordChannelId] = useState("");
   const [discordGuildId, setDiscordGuildId] = useState("");
   const [ativo, setAtivo] = useState(true);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const bannerFileInputRef = useRef<HTMLInputElement>(null);
 
   // Delete State
   const [deletingBau, setDeletingBau] = useState<Bau | null>(null);
@@ -1746,6 +1783,49 @@ function BausTabContent({ canManage }: BausTabContentProps) {
     }
   };
 
+  const handleBannerUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setIsUploadingBanner(true);
+    const toastId = toast.loading("Enviando banner do baú...");
+    try {
+      const url = await uploadBauImage(file);
+      setBannerUrl(url);
+      if (editingBau?.id) {
+        await updateBau({
+          id: editingBau.id,
+          banner_url: url,
+        });
+        void queryClient.invalidateQueries({ queryKey: ["baus"] });
+      }
+      toast.success("Banner do baú salvo com sucesso!", { id: toastId });
+    } catch (err: any) {
+      toast.error(err.message || "Erro ao fazer upload do banner.", { id: toastId });
+    } finally {
+      setIsUploadingBanner(false);
+      if (bannerFileInputRef.current) bannerFileInputRef.current.value = "";
+    }
+  };
+
+  const handleRemoveBauBanner = async () => {
+    setBannerUrl("");
+    if (editingBau?.id) {
+      const toastId = toast.loading("Removendo banner do baú...");
+      try {
+        await updateBau({
+          id: editingBau.id,
+          banner_url: null,
+        });
+        void queryClient.invalidateQueries({ queryKey: ["baus"] });
+        toast.success("Banner do baú removido com sucesso!", { id: toastId });
+      } catch (err: any) {
+        toast.error(err.message || "Erro ao remover banner do baú.", { id: toastId });
+      }
+    } else {
+      toast.info("Banner removido.");
+    }
+  };
+
   const openCreateModal = () => {
     if (!canManage) return;
     setEditingBau(null);
@@ -1753,6 +1833,7 @@ function BausTabContent({ canManage }: BausTabContentProps) {
     setDescricao("");
     setIcone("📦");
     setFotoUrl("");
+    setBannerUrl("");
     setTipoGestao("automatico");
     setDiscordChannelId("");
     setDiscordGuildId("");
@@ -1767,6 +1848,7 @@ function BausTabContent({ canManage }: BausTabContentProps) {
     setDescricao(b.descricao || "");
     setIcone(b.icone || "📦");
     setFotoUrl(b.foto_url || b.imagem_url || "");
+    setBannerUrl(b.banner_url || "");
     setTipoGestao(b.tipo_gestao || "automatico");
     setDiscordChannelId(b.discord_channel_id || config?.bau_channels?.[b.id]?.channel_id || "");
     setDiscordGuildId(b.discord_guild_id || config?.bau_channels?.[b.id]?.guild_id || "");
@@ -1781,6 +1863,7 @@ function BausTabContent({ canManage }: BausTabContentProps) {
       const cleanChannelId = discordChannelId.trim() || null;
       const cleanGuildId = discordGuildId.trim() || null;
       const cleanPhoto = fotoUrl.trim() || null;
+      const cleanBanner = bannerUrl.trim() || null;
 
       if (editingBau) {
         await updateBau({
@@ -1790,6 +1873,7 @@ function BausTabContent({ canManage }: BausTabContentProps) {
           icone: icone.trim() || "📦",
           foto_url: cleanPhoto,
           imagem_url: cleanPhoto,
+          banner_url: cleanBanner,
           tipo_gestao: tipoGestao,
           discord_channel_id: cleanChannelId,
           discord_guild_id: cleanGuildId,
@@ -1815,6 +1899,7 @@ function BausTabContent({ canManage }: BausTabContentProps) {
           icone: icone.trim() || "📦",
           foto_url: cleanPhoto,
           imagem_url: cleanPhoto,
+          banner_url: cleanBanner,
           tipo_gestao: tipoGestao,
           discord_channel_id: cleanChannelId,
           discord_guild_id: cleanGuildId,
@@ -1902,201 +1987,310 @@ function BausTabContent({ canManage }: BausTabContentProps) {
         </CardContent>
       </Card>
 
-      {/* LISTA / CARDS DE BAÚS RESPONSIVOS */}
-      <div className="grid gap-3 sm:gap-4 grid-cols-1 md:grid-cols-2 xl:grid-cols-3">
-        {isLoading ? (
-          <div className="col-span-full text-center py-12 text-muted-foreground text-xs">
-            <RefreshCw className="w-5 h-5 animate-spin mx-auto mb-2 text-primary" />
-            Carregando baús...
-          </div>
-        ) : filteredBaus.length === 0 ? (
-          <div className="col-span-full text-center py-12 text-muted-foreground text-xs">
-            Nenhum baú localizado.
-          </div>
-        ) : (
-          filteredBaus.map((b) => {
-            const isAuto = b.tipo_gestao !== "manual";
-            const channelId = b.discord_channel_id || config?.bau_channels?.[b.id]?.channel_id;
-            const chestItemsCount = productBaus.filter((pb) => pb.bau_id === b.id && Number(pb.quantidade || 0) > 0).length;
+        {/* LISTA / CARDS DE BAÚS RESPONSIVOS */}
+        <div className="grid gap-3 sm:gap-4 grid-cols-1 md:grid-cols-2 xl:grid-cols-3">
+          {isLoading ? (
+            <div className="col-span-full text-center py-12 text-muted-foreground text-xs">
+              <RefreshCw className="w-5 h-5 animate-spin mx-auto mb-2 text-primary" />
+              Carregando baús...
+            </div>
+          ) : filteredBaus.length === 0 ? (
+            <div className="col-span-full text-center py-12 text-muted-foreground text-xs">
+              Nenhum baú localizado.
+            </div>
+          ) : (
+            filteredBaus.map((b) => {
+              const isAuto = b.tipo_gestao !== "manual";
+              const channelId = b.discord_channel_id || config?.bau_channels?.[b.id]?.channel_id;
+              const chestItemsCount = productBaus.filter((pb) => pb.bau_id === b.id && Number(pb.quantidade || 0) > 0).length;
 
-            return (
-              <Card
-                key={b.id}
-                className={cn(
-                  "surface-card border transition-all flex flex-col justify-between shadow-xs",
-                  isAuto ? "border-primary/30 hover:border-primary/50" : "border-border/70 hover:border-border"
-                )}
-              >
-                <CardHeader className="p-3.5 sm:p-4 pb-3 space-y-2">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="flex items-center gap-2.5 min-w-0">
-                      <div className="w-10 h-10 rounded-xl bg-secondary/80 border border-border/70 flex items-center justify-center shrink-0 overflow-hidden shadow-inner">
-                        <BauIcon
-                          foto_url={b.foto_url || b.imagem_url}
-                          icone={b.icone}
-                          nome={b.nome}
-                          className="w-full h-full object-cover"
-                        />
-                      </div>
-                      <div className="min-w-0">
-                        <CardTitle className="text-sm font-bold text-foreground truncate">{b.nome}</CardTitle>
-                        <span className="text-[10px] text-muted-foreground font-mono block">ID: {b.id.slice(0, 8)}...</span>
-                      </div>
-                    </div>
-                    <Badge
-                      variant="outline"
-                      className={cn(
-                        "text-[9px] uppercase font-bold shrink-0",
-                        b.ativo ? "border-emerald-500/40 text-emerald-400 bg-emerald-500/10" : "border-muted text-muted-foreground"
-                      )}
-                    >
-                      {b.ativo ? "Ativo" : "Inativo"}
-                    </Badge>
-                  </div>
-                  {b.descricao && <CardDescription className="text-xs line-clamp-2">{b.descricao}</CardDescription>}
-                </CardHeader>
-
-                <CardContent className="p-3.5 sm:p-4 pt-0 space-y-2.5 text-xs pb-3">
-                  <div className="p-2.5 rounded-lg bg-secondary/30 border border-border/40 space-y-2">
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="text-muted-foreground text-[11px] font-medium">Modo de Gestão:</span>
-                      <Badge
-                        variant="secondary"
-                        className={cn(
-                          "text-[10px] font-bold gap-1 shrink-0",
-                          isAuto ? "text-cyan-400 bg-cyan-950/40 border border-cyan-800/40" : "text-amber-400 bg-amber-950/40 border border-amber-800/40"
-                        )}
-                      >
-                        {isAuto ? <Bot className="w-3 h-3" /> : <Edit2 className="w-3 h-3" />}
-                        {isAuto ? "Automático (Discord)" : "Manual (Painel)"}
-                      </Badge>
-                    </div>
-
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="text-muted-foreground text-[11px]">Canal Discord:</span>
-                      {channelId ? (
-                        <span className="font-mono text-foreground font-bold text-[11px] flex items-center gap-1 shrink-0">
-                          <Check className="w-3 h-3 text-emerald-400" />
-                          {channelId.slice(0, 10)}...
-                        </span>
-                      ) : (
-                        <span className="text-muted-foreground italic text-[11px] shrink-0">
-                          {isAuto ? "🔴 Não vinculado" : "Dispensa canal"}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="flex items-center justify-between px-1 text-muted-foreground text-[11px]">
-                    <span>Itens com saldo:</span>
-                    <strong className="text-foreground font-mono">{chestItemsCount} tipos de item</strong>
-                  </div>
-                </CardContent>
-
-                {canManage && (
-                  <CardFooter className="p-3.5 sm:p-4 pt-2 border-t border-border/40 flex items-center justify-end gap-1">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-8 text-xs font-semibold gap-1 text-muted-foreground hover:text-foreground rounded-lg cursor-pointer"
-                      onClick={() => openEditModal(b)}
-                    >
-                      <Edit2 className="w-3.5 h-3.5" />
-                      Editar
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-8 text-xs font-semibold gap-1 text-muted-foreground hover:text-rose-400 hover:bg-rose-500/10 rounded-lg cursor-pointer"
-                      onClick={() => setDeletingBau(b)}
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                      Excluir
-                    </Button>
-                  </CardFooter>
-                )}
-              </Card>
-            );
-          })
-        )}
-      </div>
-
-      {/* MODAL CRIAR / EDITAR BAÚ */}
-      {canManage && (
-        <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
-          <DialogContent className="w-[95vw] sm:max-w-lg bg-card border-border/80 max-h-[90vh] overflow-y-auto p-4 sm:p-6">
-            <DialogHeader>
-              <DialogTitle className="text-base font-bold flex items-center gap-2">
-                <Layers className="w-4 h-4 text-amber-400" />
-                <span>{editingBau ? `Editar Baú: ${editingBau.nome}` : "Cadastrar Novo Baú"}</span>
-              </DialogTitle>
-              <DialogDescription className="text-xs">
-                Configure o tipo de gestão de movimentação e os parâmetros de conexão com o canal do Discord.
-              </DialogDescription>
-            </DialogHeader>
-
-            <div className="space-y-3.5 py-2 text-xs">
-              {/* Foto de Perfil do Baú */}
-              {/* FOTO DO BAÚ COM UPLOAD DIRETO OU LINK */}
-              <div className="space-y-2.5 p-3.5 rounded-xl border border-border/70 bg-secondary/30">
-                <div className="flex items-center justify-between">
-                  <Label className="text-xs font-bold text-foreground">Foto de Perfil do Baú (Opcional)</Label>
-                  {fotoUrl && (
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      onClick={handleRemoveBauPhoto}
-                      className="h-6 px-2 text-[11px] text-destructive hover:text-destructive hover:bg-destructive/10 font-bold gap-1 cursor-pointer rounded-lg"
-                    >
-                      <Trash2 className="w-3 h-3" /> Remover Foto
-                    </Button>
+              return (
+                <Card
+                  key={b.id}
+                  className={cn(
+                    "surface-card border overflow-hidden transition-all flex flex-col justify-between shadow-xs",
+                    isAuto ? "border-primary/30 hover:border-primary/50" : "border-border/70 hover:border-border"
                   )}
-                </div>
+                >
+                  {/* Banner do Baú se presente */}
+                  {b.banner_url ? (
+                    <div className="relative w-full h-24 sm:h-28 overflow-hidden bg-secondary/60 shrink-0">
+                      <img
+                        src={b.banner_url}
+                        alt={`Banner ${b.nome}`}
+                        className="w-full h-full object-cover"
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-t from-card via-black/30 to-transparent" />
+                      <div className="absolute top-2 right-2">
+                        <Badge
+                          variant="outline"
+                          className={cn(
+                            "text-[9px] uppercase font-bold shrink-0 backdrop-blur-md shadow-sm",
+                            b.ativo ? "border-emerald-500/50 text-emerald-300 bg-emerald-950/80" : "border-muted text-muted-foreground bg-black/60"
+                          )}
+                        >
+                          {b.ativo ? "Ativo" : "Inativo"}
+                        </Badge>
+                      </div>
+                    </div>
+                  ) : null}
 
-                <div className="flex items-center gap-3.5">
-                  <div className="relative w-14 h-14 rounded-2xl border-2 border-dashed border-border/80 flex items-center justify-center overflow-hidden bg-background shrink-0 shadow-inner p-1">
-                    {fotoUrl ? (
-                      <BauIcon foto_url={fotoUrl} icone={icone} className="w-full h-full object-cover rounded-xl" />
-                    ) : (
-                      <BauIcon icone={icone} className="w-6 h-6 text-muted-foreground" />
+                  <CardHeader className={cn("p-3.5 sm:p-4 pb-3 space-y-2", b.banner_url && "pt-2")}>
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <div className={cn(
+                          "w-11 h-11 rounded-xl bg-secondary/80 border-2 border-border/80 flex items-center justify-center shrink-0 overflow-hidden shadow-md",
+                          b.banner_url && "-mt-7 relative z-10 ring-2 ring-background bg-card"
+                        )}>
+                          <BauIcon
+                            foto_url={b.foto_url || b.imagem_url}
+                            icone={b.icone}
+                            nome={b.nome}
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
+                        <div className="min-w-0">
+                          <CardTitle className="text-sm font-bold text-foreground truncate">{b.nome}</CardTitle>
+                          <span className="text-[10px] text-muted-foreground font-mono block">ID: {b.id.slice(0, 8)}...</span>
+                        </div>
+                      </div>
+                      {!b.banner_url && (
+                        <Badge
+                          variant="outline"
+                          className={cn(
+                            "text-[9px] uppercase font-bold shrink-0",
+                            b.ativo ? "border-emerald-500/40 text-emerald-400 bg-emerald-500/10" : "border-muted text-muted-foreground"
+                          )}
+                        >
+                          {b.ativo ? "Ativo" : "Inativo"}
+                        </Badge>
+                      )}
+                    </div>
+                    {b.descricao && <CardDescription className="text-xs line-clamp-2">{b.descricao}</CardDescription>}
+                  </CardHeader>
+
+                  <CardContent className="p-3.5 sm:p-4 pt-0 space-y-2.5 text-xs pb-3">
+                    <div className="p-2.5 rounded-lg bg-secondary/30 border border-border/40 space-y-2">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-muted-foreground text-[11px] font-medium">Modo de Gestão:</span>
+                        <Badge
+                          variant="secondary"
+                          className={cn(
+                            "text-[10px] font-bold gap-1 shrink-0",
+                            isAuto ? "text-cyan-400 bg-cyan-950/40 border border-cyan-800/40" : "text-amber-400 bg-amber-950/40 border border-amber-800/40"
+                          )}
+                        >
+                          {isAuto ? <Bot className="w-3 h-3" /> : <Edit2 className="w-3 h-3" />}
+                          {isAuto ? "Automático (Discord)" : "Manual (Painel)"}
+                        </Badge>
+                      </div>
+
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-muted-foreground text-[11px]">Canal Discord:</span>
+                        {channelId ? (
+                          <span className="font-mono text-foreground font-bold text-[11px] flex items-center gap-1 shrink-0">
+                            <Check className="w-3 h-3 text-emerald-400" />
+                            {channelId.slice(0, 10)}...
+                          </span>
+                        ) : (
+                          <span className="text-muted-foreground italic text-[11px] shrink-0">
+                            {isAuto ? "🔴 Não vinculado" : "Dispensa canal"}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between px-1 text-muted-foreground text-[11px]">
+                      <span>Itens com saldo:</span>
+                      <strong className="text-foreground font-mono">{chestItemsCount} tipos de item</strong>
+                    </div>
+                  </CardContent>
+
+                  {canManage && (
+                    <CardFooter className="p-3.5 sm:p-4 pt-2 border-t border-border/40 flex items-center justify-end gap-1">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-8 text-xs font-semibold gap-1 text-muted-foreground hover:text-foreground rounded-lg cursor-pointer"
+                        onClick={() => openEditModal(b)}
+                      >
+                        <Edit2 className="w-3.5 h-3.5" />
+                        Editar
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-8 text-xs font-semibold gap-1 text-muted-foreground hover:text-rose-400 hover:bg-rose-500/10 rounded-lg cursor-pointer"
+                        onClick={() => setDeletingBau(b)}
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                        Excluir
+                      </Button>
+                    </CardFooter>
+                  )}
+                </Card>
+              );
+            })
+          )}
+        </div>
+
+        {/* MODAL CRIAR / EDITAR BAÚ */}
+        {canManage && (
+          <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
+            <DialogContent className="w-[95vw] sm:max-w-lg bg-card border-border/80 max-h-[90vh] overflow-y-auto p-4 sm:p-6">
+              <DialogHeader>
+                <DialogTitle className="text-base font-bold flex items-center gap-2">
+                  <Layers className="w-4 h-4 text-amber-400" />
+                  <span>{editingBau ? `Editar Baú: ${editingBau.nome}` : "Cadastrar Novo Baú"}</span>
+                </DialogTitle>
+                <DialogDescription className="text-xs">
+                  Configure a foto, banner, tipo de gestão de movimentação e os parâmetros de conexão com o Discord.
+                </DialogDescription>
+              </DialogHeader>
+
+              <div className="space-y-3.5 py-2 text-xs">
+                {/* FOTO DO BAÚ COM UPLOAD DIRETO OU LINK */}
+                <div className="space-y-2.5 p-3.5 rounded-xl border border-border/70 bg-secondary/30">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-xs font-bold text-foreground">Foto de Perfil do Baú (Opcional)</Label>
+                    {fotoUrl && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={handleRemoveBauPhoto}
+                        className="h-6 px-2 text-[11px] text-destructive hover:text-destructive hover:bg-destructive/10 font-bold gap-1 cursor-pointer rounded-lg"
+                      >
+                        <Trash2 className="w-3 h-3" /> Remover Foto
+                      </Button>
                     )}
                   </div>
 
-                  <div className="flex-1 space-y-2 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <input
-                        ref={fileInputRef}
-                        type="file"
-                        accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml"
-                        className="hidden"
-                        onChange={handlePhotoUpload}
+                  <div className="flex items-center gap-3.5">
+                    <div className="relative w-14 h-14 rounded-2xl border-2 border-dashed border-border/80 flex items-center justify-center overflow-hidden bg-background shrink-0 shadow-inner p-1">
+                      {fotoUrl ? (
+                        <BauIcon foto_url={fotoUrl} icone={icone} className="w-full h-full object-cover rounded-xl" />
+                      ) : (
+                        <BauIcon icone={icone} className="w-6 h-6 text-muted-foreground" />
+                      )}
+                    </div>
+
+                    <div className="flex-1 space-y-2 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <input
+                          ref={fileInputRef}
+                          type="file"
+                          accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml"
+                          className="hidden"
+                          onChange={handlePhotoUpload}
+                        />
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          disabled={isUploadingPhoto}
+                          onClick={() => fileInputRef.current?.click()}
+                          className="h-8 text-xs font-bold gap-1.5 rounded-xl border-border/80 cursor-pointer shadow-xs"
+                        >
+                          {isUploadingPhoto ? (
+                            <RefreshCw className="w-3.5 h-3.5 animate-spin text-primary" />
+                          ) : (
+                            <Upload className="w-3.5 h-3.5 text-primary" />
+                          )}
+                          <span>{isUploadingPhoto ? "Enviando imagem..." : "Upload Foto"}</span>
+                        </Button>
+                      </div>
+                      <Input
+                        placeholder="Ou cole o link direto da imagem..."
+                        value={fotoUrl}
+                        onChange={(e) => setFotoUrl(e.target.value)}
+                        className="text-xs h-8 rounded-xl bg-background/80"
                       />
+                    </div>
+                  </div>
+                </div>
+
+                {/* BANNER DE CAPA DO BAÚ (RETANGULAR / PANORÂMICO) */}
+                <div className="space-y-2.5 p-3.5 rounded-xl border border-border/70 bg-secondary/30">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <Label className="text-xs font-bold text-foreground">Banner de Capa do Baú (Opcional)</Label>
+                      <p className="text-[10px] text-muted-foreground">Exibido nos cards em modo retrato da página de movimentação</p>
+                    </div>
+                    {bannerUrl && (
                       <Button
                         type="button"
-                        variant="outline"
+                        variant="ghost"
                         size="sm"
-                        disabled={isUploadingPhoto}
-                        onClick={() => fileInputRef.current?.click()}
-                        className="h-8 text-xs font-bold gap-1.5 rounded-xl border-border/80 cursor-pointer shadow-xs"
+                        onClick={handleRemoveBauBanner}
+                        className="h-6 px-2 text-[11px] text-destructive hover:text-destructive hover:bg-destructive/10 font-bold gap-1 cursor-pointer rounded-lg"
                       >
-                        {isUploadingPhoto ? (
-                          <RefreshCw className="w-3.5 h-3.5 animate-spin text-primary" />
-                        ) : (
-                          <Upload className="w-3.5 h-3.5 text-primary" />
-                        )}
-                        <span>{isUploadingPhoto ? "Enviando imagem..." : "Upload Foto"}</span>
+                        <Trash2 className="w-3 h-3" /> Remover Banner
                       </Button>
+                    )}
+                  </div>
+
+                  {bannerUrl ? (
+                    <div className="relative w-full h-24 rounded-xl border border-border/70 overflow-hidden bg-background group shadow-inner">
+                      <img
+                        src={bannerUrl}
+                        alt="Banner Preview"
+                        className="w-full h-full object-cover"
+                      />
+                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                        <Button
+                          type="button"
+                          variant="secondary"
+                          size="sm"
+                          onClick={() => bannerFileInputRef.current?.click()}
+                          className="h-7 text-xs font-semibold"
+                        >
+                          <Upload className="w-3 h-3 mr-1" /> Trocar
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="destructive"
+                          size="sm"
+                          onClick={handleRemoveBauBanner}
+                          className="h-7 text-xs font-semibold"
+                        >
+                          <Trash2 className="w-3 h-3 mr-1" /> Remover
+                        </Button>
+                      </div>
                     </div>
+                  ) : null}
+
+                  <div className="flex items-center gap-2">
+                    <input
+                      ref={bannerFileInputRef}
+                      type="file"
+                      accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml"
+                      className="hidden"
+                      onChange={handleBannerUpload}
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      disabled={isUploadingBanner}
+                      onClick={() => bannerFileInputRef.current?.click()}
+                      className="h-8 text-xs font-bold gap-1.5 rounded-xl border-border/80 cursor-pointer shadow-xs shrink-0"
+                    >
+                      {isUploadingBanner ? (
+                        <RefreshCw className="w-3.5 h-3.5 animate-spin text-primary" />
+                      ) : (
+                        <Upload className="w-3.5 h-3.5 text-primary" />
+                      )}
+                      <span>{isUploadingBanner ? "Enviando banner..." : "Upload Banner"}</span>
+                    </Button>
                     <Input
-                      placeholder="Ou cole o link direto da imagem..."
-                      value={fotoUrl}
-                      onChange={(e) => setFotoUrl(e.target.value)}
-                      className="text-xs h-8 rounded-xl bg-background/80"
+                      placeholder="Ou cole o link direto do banner..."
+                      value={bannerUrl}
+                      onChange={(e) => setBannerUrl(e.target.value)}
+                      className="text-xs h-8 rounded-xl bg-background/80 flex-1"
                     />
                   </div>
                 </div>
-              </div>
 
               <div className="grid gap-2.5 sm:gap-3 grid-cols-4">
                 <div className="space-y-1.5 col-span-1">

@@ -808,7 +808,7 @@ export function MovimentacoesPage() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-5">
           {baus.map((b) => {
             const isManual = b.tipo_gestao === "manual";
             const stat = bausStats[b.id] || { itemsCount: 0, totalUnits: 0, totalValue: 0, positiveCount: 0 };
@@ -820,109 +820,141 @@ export function MovimentacoesPage() {
                 onClick={() => handleOpenBalance(b.id)}
                 className={cn(
                   "group relative overflow-hidden rounded-2xl border transition-all duration-300 cursor-pointer flex flex-col justify-between shadow-sm",
-                  "bg-gradient-to-b from-card/95 via-card/85 to-secondary/30 backdrop-blur-md hover:shadow-xl",
+                  "bg-card/95 backdrop-blur-md hover:shadow-2xl",
                   isCurrentlySelected
-                    ? "border-primary ring-2 ring-primary/40 shadow-primary/10 shadow-lg scale-[1.01]"
-                    : "border-border/70 hover:border-primary/60 hover:-translate-y-1"
+                    ? "border-primary ring-2 ring-primary/50 shadow-primary/15 shadow-xl scale-[1.01]"
+                    : "border-border/70 hover:border-primary/60 hover:-translate-y-1.5"
                 )}
               >
-                {/* Accent Top Gradient Strip */}
-                <div
-                  className={cn(
-                    "h-1.5 w-full transition-all duration-300",
-                    isManual
-                      ? "bg-gradient-to-r from-amber-500/80 via-amber-400 to-amber-500/80 group-hover:from-amber-400 group-hover:to-amber-300"
-                      : "bg-gradient-to-r from-cyan-500/80 via-primary to-cyan-500/80 group-hover:from-cyan-400 group-hover:to-primary"
+                {/* Banner no Card (Modo Retrato) */}
+                <div className="relative w-full h-32 sm:h-36 overflow-hidden bg-secondary/80 shrink-0">
+                  {b.banner_url ? (
+                    <img
+                      src={b.banner_url}
+                      alt={`Banner ${b.nome}`}
+                      className="w-full h-full object-cover transition-transform duration-500 ease-out group-hover:scale-105"
+                    />
+                  ) : (
+                    <div
+                      className={cn(
+                        "w-full h-full flex items-center justify-center relative overflow-hidden",
+                        isManual
+                          ? "bg-gradient-to-br from-amber-950/70 via-amber-900/40 to-card"
+                          : "bg-gradient-to-br from-cyan-950/70 via-slate-900 to-card"
+                      )}
+                    >
+                      <div className="absolute inset-0 opacity-15 bg-[radial-gradient(#fff_1px,transparent_1px)] [background-size:12px_12px]" />
+                      <Layers className="w-12 h-12 text-foreground/10" />
+                    </div>
                   )}
-                />
 
-                <div className="p-4 sm:p-5 space-y-3.5">
-                  {/* Top row: Avatar + Title & Subtitle + Mode Badge */}
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex items-center gap-3 min-w-0">
-                      <div className="w-12 h-12 rounded-2xl bg-secondary/80 border border-border/70 flex items-center justify-center shrink-0 shadow-inner overflow-hidden ring-1 ring-border/60 group-hover:ring-primary/40 group-hover:scale-105 transition-all duration-300">
-                        <BauIcon
-                          foto_url={b.foto_url || b.imagem_url}
-                          icone={b.icone}
-                          nome={b.nome}
-                          className="w-full h-full object-cover"
-                        />
-                      </div>
-                      <div className="min-w-0">
-                        <h3 className="font-black text-sm sm:text-base text-foreground group-hover:text-primary transition-colors truncate" title={b.nome}>
-                          {b.nome}
-                        </h3>
-                        {b.descricao ? (
-                          <p className="text-[11px] text-muted-foreground line-clamp-1 mt-0.5">
-                            {b.descricao}
-                          </p>
-                        ) : (
-                          <p className="text-[11px] text-muted-foreground opacity-60 mt-0.5">
-                            {isManual ? "Baú com lançamentos manuais" : "Sincronizado com o Discord"}
-                          </p>
-                        )}
-                      </div>
+                  {/* Gradiente Overlay suave no Banner */}
+                  <div className="absolute inset-0 bg-gradient-to-t from-card via-card/30 to-black/40 pointer-events-none" />
+
+                  {/* Badges Flutuantes no Topo do Banner */}
+                  <div className="absolute top-2.5 inset-x-2.5 flex items-center justify-between gap-1.5 z-10">
+                    <Badge
+                      variant="secondary"
+                      className={cn(
+                        "text-[10px] font-bold px-2 py-0.5 rounded-lg backdrop-blur-md shadow-sm border",
+                        isManual
+                          ? "bg-black/65 text-amber-400 border-amber-500/40"
+                          : "bg-black/65 text-cyan-400 border-cyan-500/40"
+                      )}
+                    >
+                      {isManual ? "✍️ Manual" : "🤖 Automático"}
+                    </Badge>
+
+                    <Badge
+                      variant="outline"
+                      className={cn(
+                        "text-[9px] uppercase font-bold px-2 py-0.5 rounded-lg backdrop-blur-md shadow-sm border",
+                        b.ativo
+                          ? "bg-emerald-950/80 text-emerald-300 border-emerald-500/50"
+                          : "bg-black/75 text-muted-foreground border-border/80"
+                      )}
+                    >
+                      {b.ativo ? "Ativo" : "Inativo"}
+                    </Badge>
+                  </div>
+                </div>
+
+                {/* Conteúdo do Card em Modo Retrato */}
+                <div className="px-4 pb-4 pt-0 space-y-3 flex-1 flex flex-col justify-between">
+                  <div>
+                    {/* Foto / Ícone do Baú Sobreposta no Banner */}
+                    <div className="-mt-9 mx-auto relative z-10 w-16 h-16 rounded-2xl border-4 border-card bg-secondary/90 flex items-center justify-center shrink-0 shadow-xl overflow-hidden ring-1 ring-border/80 group-hover:ring-primary/60 group-hover:scale-105 transition-all duration-300">
+                      <BauIcon
+                        foto_url={b.foto_url || b.imagem_url}
+                        icone={b.icone}
+                        nome={b.nome}
+                        className="w-full h-full object-cover"
+                      />
                     </div>
 
-                    <div className="flex flex-col items-end gap-1 shrink-0">
-                      <Badge
-                        variant="secondary"
-                        className={cn(
-                          "text-[10px] font-bold px-2 py-0.5 rounded-lg shrink-0",
-                          isManual
-                            ? "bg-amber-500/10 text-amber-400 border border-amber-500/30"
-                            : "bg-cyan-500/10 text-cyan-400 border border-cyan-500/30"
-                        )}
+                    {/* Título e Descrição */}
+                    <div className="text-center mt-2.5 space-y-1">
+                      <h3
+                        className="font-black text-sm sm:text-base text-foreground group-hover:text-primary transition-colors truncate px-1"
+                        title={b.nome}
                       >
-                        {isManual ? "✍️ Manual" : "🤖 Automático"}
-                      </Badge>
+                        {b.nome}
+                      </h3>
+                      <p className="text-[11px] text-muted-foreground line-clamp-2 px-1 min-h-[30px] leading-relaxed">
+                        {b.descricao || (isManual ? "Baú operacional manual com lançamentos livres." : "Sincronizado automaticamente com os logs do Discord.")}
+                      </p>
                     </div>
                   </div>
 
-                  {/* Metrics Summary (3 Stat Capsules) */}
-                  <div className="grid grid-cols-3 gap-2 pt-1">
-                    <div className="p-2.5 rounded-xl bg-secondary/35 border border-border/50 text-center flex flex-col justify-center">
+                  {/* Resumo de Métricas em Cápsulas */}
+                  <div className="grid grid-cols-3 gap-1.5 p-2 rounded-xl bg-secondary/40 border border-border/50 text-center shadow-inner">
+                    <div className="p-1.5 flex flex-col justify-center">
                       <span className="text-[9px] uppercase font-bold text-muted-foreground block truncate">
-                        Itens Únicos
+                        Itens
                       </span>
                       <strong className="text-xs sm:text-sm font-black text-foreground font-mono mt-0.5">
                         {num(stat.positiveCount)}
                       </strong>
                     </div>
 
-                    <div className="p-2.5 rounded-xl bg-secondary/35 border border-border/50 text-center flex flex-col justify-center">
+                    <div className="p-1.5 flex flex-col justify-center border-x border-border/40">
                       <span className="text-[9px] uppercase font-bold text-muted-foreground block truncate">
-                        Volume Total
+                        Volume
                       </span>
-                      <strong className={cn("text-xs sm:text-sm font-black font-mono mt-0.5", stat.totalUnits > 0 ? "text-emerald-400" : "text-muted-foreground")}>
+                      <strong
+                        className={cn(
+                          "text-xs sm:text-sm font-black font-mono mt-0.5",
+                          stat.totalUnits > 0 ? "text-emerald-400" : "text-muted-foreground"
+                        )}
+                      >
                         {num(stat.totalUnits)}
                       </strong>
                     </div>
 
-                    <div className="p-2.5 rounded-xl bg-secondary/35 border border-border/50 text-center flex flex-col justify-center">
+                    <div className="p-1.5 flex flex-col justify-center">
                       <span className="text-[9px] uppercase font-bold text-muted-foreground block truncate">
-                        Valor Estimado
+                        Valor
                       </span>
-                      <strong className="text-[11px] sm:text-xs font-black text-emerald-400/90 font-mono mt-0.5 truncate">
+                      <strong className="text-[10px] sm:text-[11px] font-black text-emerald-400/90 font-mono mt-0.5 truncate">
                         {currency(stat.totalValue)}
                       </strong>
                     </div>
                   </div>
                 </div>
 
-                {/* Actions row with Visual Clue & Buttons */}
-                <div className="px-4 py-3 bg-secondary/25 border-t border-border/50 flex items-center justify-between">
+                {/* Rodapé de Ações do Card */}
+                <div className="px-3.5 py-3 bg-secondary/25 border-t border-border/50 flex items-center justify-between gap-1.5">
                   <div
                     onClick={() => handleOpenBalance(b.id, "inventory")}
-                    className="flex items-center gap-1.5 text-xs text-primary font-bold group-hover:translate-x-1 transition-transform duration-200 cursor-pointer"
+                    className="flex items-center gap-1 text-xs text-primary font-bold group-hover:translate-x-1 transition-transform duration-200 cursor-pointer"
                   >
-                    <Eye className="w-4 h-4 text-primary" />
+                    <Eye className="w-3.5 h-3.5 text-primary" />
                     <span className="text-[11px] sm:text-xs">Ver Saldo</span>
-                    <ArrowRight className="w-3.5 h-3.5 opacity-60 group-hover:opacity-100" />
+                    <ArrowRight className="w-3 h-3 opacity-60 group-hover:opacity-100" />
                   </div>
 
-                  <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
-                    {/* Botão Ver Informações Detalhadas do Baú */}
+                  <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+                    {/* Botão Informações do Baú */}
                     <Tooltip>
                       <TooltipTrigger asChild>
                         <Button
@@ -933,18 +965,18 @@ export function MovimentacoesPage() {
                             e.stopPropagation();
                             handleOpenBalance(b.id, "info");
                           }}
-                          className="h-8 w-8 p-0 rounded-xl text-muted-foreground hover:text-primary hover:border-primary/50 hover:bg-primary/10 transition-colors cursor-pointer shadow-xs"
+                          className="h-7 w-7 sm:h-8 sm:w-8 p-0 rounded-xl text-muted-foreground hover:text-primary hover:border-primary/50 hover:bg-primary/10 transition-colors cursor-pointer shadow-xs"
                           aria-label={`Informações do baú ${b.nome}`}
                         >
-                          <Info className="h-4 w-4" />
+                          <Info className="h-3.5 w-3.5" />
                         </Button>
                       </TooltipTrigger>
                       <TooltipContent side="top" className="text-xs font-semibold">
-                        Informações e Detalhes do Baú
+                        Informações do Baú
                       </TooltipContent>
                     </Tooltip>
 
-                    {/* Botão Ver Histórico de Movimentações */}
+                    {/* Botão Histórico do Baú */}
                     {canView && (
                       <Tooltip>
                         <TooltipTrigger asChild>
@@ -957,14 +989,14 @@ export function MovimentacoesPage() {
                               setHistoryBauId(b.id);
                               setHistoryModalOpen(true);
                             }}
-                            className="h-8 w-8 p-0 rounded-xl text-muted-foreground hover:text-sky-400 hover:border-sky-500/50 hover:bg-sky-500/10 transition-colors cursor-pointer shadow-xs"
+                            className="h-7 w-7 sm:h-8 sm:w-8 p-0 rounded-xl text-muted-foreground hover:text-sky-400 hover:border-sky-500/50 hover:bg-sky-500/10 transition-colors cursor-pointer shadow-xs"
                             aria-label={`Histórico do baú ${b.nome}`}
                           >
-                            <History className="h-4 w-4" />
+                            <History className="h-3.5 w-3.5" />
                           </Button>
                         </TooltipTrigger>
                         <TooltipContent side="top" className="text-xs font-semibold">
-                          Histórico de Movimentações deste Baú
+                          Histórico de Movimentações
                         </TooltipContent>
                       </Tooltip>
                     )}
@@ -982,19 +1014,19 @@ export function MovimentacoesPage() {
                               handleStartMovementOnBau(b.id);
                             }}
                             className={cn(
-                              "h-8 px-2.5 rounded-xl text-xs font-bold text-primary-foreground shadow-sm transition-all active:scale-95 cursor-pointer flex items-center gap-1",
+                              "h-7 sm:h-8 px-2 sm:px-2.5 rounded-xl text-[11px] sm:text-xs font-bold text-primary-foreground shadow-sm transition-all active:scale-95 cursor-pointer flex items-center gap-1",
                               activeMovementBauId === b.id
                                 ? "bg-amber-500 hover:bg-amber-600 ring-2 ring-amber-400 text-slate-900"
                                 : "bg-primary hover:bg-primary/90"
                             )}
                             aria-label={`Movimentar baú ${b.nome}`}
                           >
-                            <ArrowRightLeft className="h-3.5 w-3.5" />
+                            <ArrowRightLeft className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
                             <span className="hidden sm:inline">Movimentar</span>
                           </Button>
                         </TooltipTrigger>
                         <TooltipContent side="top" className="text-xs font-semibold">
-                          Lançar Movimentação neste Baú
+                          Lançar Movimentação
                         </TooltipContent>
                       </Tooltip>
                     )}

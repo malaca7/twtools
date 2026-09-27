@@ -275,7 +275,7 @@ export async function getBaus(): Promise<Bau[]> {
   try {
     const { data, error } = await supabase
       .from("baus")
-      .select("id, nome, descricao, icone, foto_url, imagem_url, ativo, tipo_gestao, discord_channel_id, discord_guild_id, created_at")
+      .select("*")
       .order("created_at", { ascending: true });
     if (!error && data && data.length > 0) {
       listData = data;
@@ -303,6 +303,7 @@ export async function getBaus(): Promise<Bau[]> {
       icone: d.icone,
       foto_url: d.foto_url || d.imagem_url || null,
       imagem_url: d.imagem_url || d.foto_url || null,
+      banner_url: d.banner_url || d.banner || null,
       ativo: d.ativo ?? true,
       tipo_gestao: (d.tipo_gestao === "manual" ? "manual" : "automatico"),
       discord_channel_id: d.discord_channel_id || null,
@@ -320,6 +321,7 @@ export async function createBau(payload: {
   icone?: string;
   foto_url?: string | null;
   imagem_url?: string | null;
+  banner_url?: string | null;
   tipo_gestao?: "automatico" | "manual";
   discord_channel_id?: string | null;
   discord_guild_id?: string | null;
@@ -338,25 +340,44 @@ export async function createBau(payload: {
   }
 
   const photo = payload.foto_url?.trim() || payload.imagem_url?.trim() || null;
+  const banner = payload.banner_url && typeof payload.banner_url === "string" ? (payload.banner_url.trim() || null) : null;
 
-  const { data, error } = await supabase
+  const insertPayload: any = {
+    nome: cleanName,
+    descricao: payload.descricao?.trim() || null,
+    icone: payload.icone || 'box',
+    foto_url: photo,
+    imagem_url: photo,
+    ...(banner ? { banner_url: banner } : {}),
+    ativo: true,
+    tipo_gestao: payload.tipo_gestao || 'automatico',
+    discord_channel_id: payload.discord_channel_id?.trim() || null,
+    discord_guild_id: payload.discord_guild_id?.trim() || null,
+  };
+
+  let data: any = null;
+  let { data: insData, error } = await supabase
     .from("baus")
-    .insert({
-      nome: cleanName,
-      descricao: payload.descricao?.trim() || null,
-      icone: payload.icone || 'box',
-      foto_url: photo,
-      imagem_url: photo,
-      ativo: true,
-      tipo_gestao: payload.tipo_gestao || 'automatico',
-      discord_channel_id: payload.discord_channel_id?.trim() || null,
-      discord_guild_id: payload.discord_guild_id?.trim() || null,
-    })
+    .insert(insertPayload)
     .select()
     .single();
-  if (error) throw error;
 
-  void logAuditAction("create_bau", "baus", { nome: data.nome, descricao: data.descricao, tipo_gestao: data.tipo_gestao, foto_url: data.foto_url }, undefined, data.id);
+  if (error && (error.message?.includes("banner_url") || (error as any).code === "PGRST204" || (error as any).code === "42703")) {
+    delete insertPayload.banner_url;
+    const retry = await supabase
+      .from("baus")
+      .insert(insertPayload)
+      .select()
+      .single();
+    if (retry.error) throw retry.error;
+    data = retry.data;
+  } else if (error) {
+    throw error;
+  } else {
+    data = insData;
+  }
+
+  void logAuditAction("create_bau", "baus", { nome: data.nome, descricao: data.descricao, tipo_gestao: data.tipo_gestao, foto_url: data.foto_url, banner_url: data.banner_url || banner }, undefined, data.id);
 
   return {
     id: data.id,
@@ -365,6 +386,7 @@ export async function createBau(payload: {
     icone: data.icone,
     foto_url: data.foto_url || data.imagem_url || null,
     imagem_url: data.imagem_url || data.foto_url || null,
+    banner_url: data.banner_url || banner || null,
     ativo: data.ativo,
     tipo_gestao: data.tipo_gestao || 'automatico',
     discord_channel_id: data.discord_channel_id || null,
@@ -380,12 +402,13 @@ export async function updateBau(payload: {
   icone?: string;
   foto_url?: string | null;
   imagem_url?: string | null;
+  banner_url?: string | null;
   ativo?: boolean;
   tipo_gestao?: "automatico" | "manual";
   discord_channel_id?: string | null;
   discord_guild_id?: string | null;
 }): Promise<void> {
-  const { data: oldBau } = await supabase.from("baus").select("nome, descricao, icone, foto_url, imagem_url, ativo, tipo_gestao, discord_channel_id, discord_guild_id").eq("id", payload.id).maybeSingle();
+  const { data: oldBau } = await supabase.from("baus").select("*").eq("id", payload.id).maybeSingle();
 
   const updates: any = {};
   if (payload.nome !== undefined) {
@@ -413,18 +436,34 @@ export async function updateBau(payload: {
     updates.foto_url = photo;
     updates.imagem_url = photo;
   }
+  if (payload.banner_url !== undefined) {
+    updates.banner_url = payload.banner_url && typeof payload.banner_url === "string" ? (payload.banner_url.trim() || null) : null;
+  }
   if (payload.ativo !== undefined) updates.ativo = payload.ativo;
   if (payload.tipo_gestao !== undefined) updates.tipo_gestao = payload.tipo_gestao;
   if (payload.discord_channel_id !== undefined) updates.discord_channel_id = payload.discord_channel_id?.trim() || null;
   if (payload.discord_guild_id !== undefined) updates.discord_guild_id = payload.discord_guild_id?.trim() || null;
   updates.updated_at = new Date().toISOString();
 
-  const { data, error } = await supabase
+  let { data, error } = await supabase
     .from("baus")
     .update(updates)
     .eq("id", payload.id)
     .select();
-  if (error) throw error;
+
+  if (error && (error.message?.includes("banner_url") || (error as any).code === "PGRST204" || (error as any).code === "42703")) {
+    delete updates.banner_url;
+    const retry = await supabase
+      .from("baus")
+      .update(updates)
+      .eq("id", payload.id)
+      .select();
+    if (retry.error) throw retry.error;
+    data = retry.data;
+  } else if (error) {
+    throw error;
+  }
+
   if (!data || data.length === 0) {
     throw new Error("Não foi possível atualizar o baú.");
   }
