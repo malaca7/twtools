@@ -31,6 +31,7 @@ import { LEVEL_LABEL, levelBadgeClass, type AppLevel } from "@/lib/permissions";
 import { cn } from "@/lib/utils";
 import type { Member } from "@/lib/app-types";
 import { MemberGamificationCard } from "@/components/gamification/MemberGamificationCard";
+import { MemberInsigniasCardsSection } from "@/components/gamification/MemberInsigniasCardsSection";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   component: DashboardPage,
@@ -100,6 +101,19 @@ function DashboardContent() {
         totalXp={profile?.xp || 0}
         starsRating={profile?.stars_rating}
         starsCount={profile?.stars_count}
+        showInsignias={false}
+      />
+
+      {/* QUADRO DE INSÍGNIAS E CONDECORAÇÕES CONQUISTADAS */}
+      <MemberInsigniasCardsSection
+        userId={user?.id || ""}
+        member={{
+          user_id: user?.id || "",
+          nome: memberName,
+          nickname: memberName,
+          avatar_url: profile?.discord_avatar_url || profile?.avatar_url || undefined,
+        }}
+        isSelf={true}
       />
 
       {/* ANNOUNCEMENTS SECTION */}

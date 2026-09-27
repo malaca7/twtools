@@ -44,9 +44,8 @@ import {
   SocialPlatformsCardsGrid,
 } from "@/components/profile/SocialPlatformIcons";
 import { getProxiedImageUrl } from "@/services/postimagesService";
-import { MemberGamificationCard, renderInsigniaIcon } from "@/components/gamification/MemberGamificationCard";
-import { MemberInsigniasListModal } from "@/components/gamification/MemberInsigniasListModal";
-import { getMemberInsignias, RARITY_CONFIG } from "@/services/gamificationService";
+import { MemberGamificationCard } from "@/components/gamification/MemberGamificationCard";
+import { MemberInsigniasCardsSection } from "@/components/gamification/MemberInsigniasCardsSection";
 
 export interface PublicProfilePageProps {
   handleOverride?: string;
@@ -79,7 +78,6 @@ function PublicProfileContent({ cleanHandle, isRootRoute }: { cleanHandle: strin
 
   const [copiedLink, setCopiedLink] = useState(false);
   const [startingChat, setStartingChat] = useState(false);
-  const [isInsigniasModalOpen, setIsInsigniasModalOpen] = useState(false);
 
   // 1. Busca rápida em cache local nos membros carregados
   const cachedMember = members.find((m) => {
@@ -160,13 +158,6 @@ function PublicProfileContent({ cleanHandle, isRootRoute }: { cleanHandle: strin
 
   const memberData = dbProfile || cachedMember;
   const userId = memberData?.user_id;
-
-  const { data: memberInsignias = [] } = useQuery({
-    queryKey: ["member_insignias", userId],
-    queryFn: () => (userId ? getMemberInsignias(userId) : Promise.resolve([])),
-    enabled: Boolean(userId),
-    staleTime: 60 * 1000,
-  });
 
   const isTargetLoading = !cachedMember && isDbLoading;
 
@@ -534,6 +525,7 @@ function PublicProfileContent({ cleanHandle, isRootRoute }: { cleanHandle: strin
         starsRating={memberData.stars_rating}
         starsCount={memberData.stars_count}
         isPublic={true}
+        showInsignias={false}
       />
 
       {/* SEÇÃO PRINCIPAL DE INFORMAÇÕES DA FICHA TÉCNICA */}
@@ -604,145 +596,10 @@ function PublicProfileContent({ cleanHandle, isRootRoute }: { cleanHandle: strin
       </div>
 
       {/* SEÇÃO DEDICADA: QUADRO DE CONDECORAÇÕES & INSÍGNIAS OFICIAIS */}
-      <div className="space-y-4">
-        <div className="flex items-center justify-between flex-wrap gap-2">
-          <div className="space-y-0.5">
-            <h2 className="text-base font-black text-foreground flex items-center gap-2">
-              <Award className="h-5 w-5 text-amber-400" />
-              <span>Quadro de Condecorações & Insígnias</span>
-            </h2>
-            <p className="text-xs text-muted-foreground">
-              Títulos honoríficos e condecorações oficiais concedidas pela liderança da Twin Wheels
-            </p>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <Badge variant="outline" className="text-xs font-mono font-bold bg-amber-500/10 text-amber-300 border-amber-500/30 px-3 py-1">
-              {memberInsignias.length} {memberInsignias.length === 1 ? "Condecoração" : "Condecorações"}
-            </Badge>
-            {memberInsignias.length > 0 && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setIsInsigniasModalOpen(true)}
-                className="text-xs font-bold border-amber-500/30 text-amber-400 hover:bg-amber-500/10 gap-1.5 h-8 cursor-pointer rounded-xl"
-              >
-                <span>Ver Detalhes</span>
-                <ChevronRight className="h-3.5 w-3.5" />
-              </Button>
-            )}
-          </div>
-        </div>
-
-        {memberInsignias.length > 0 ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {memberInsignias.map((grant) => {
-              const badge = grant.insignia;
-              if (!badge) return null;
-              const rarity = RARITY_CONFIG[badge.rarity] || RARITY_CONFIG.comum;
-
-              return (
-                <div
-                  key={grant.id}
-                  onClick={() => setIsInsigniasModalOpen(true)}
-                  className={cn(
-                    "relative overflow-hidden rounded-3xl border-2 p-5 backdrop-blur-xl transition-all duration-300 hover:-translate-y-1.5 hover:shadow-2xl flex flex-col justify-between group cursor-pointer select-none",
-                    rarity.bgClass,
-                    rarity.borderClass
-                  )}
-                  style={{
-                    boxShadow: "0 10px 30px -10px rgba(0,0,0,0.5)",
-                  }}
-                >
-                  {/* Efeito Holográfico Refletivo */}
-                  <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/[0.07] to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
-                  
-                  {/* Símbolo de Fundo em Marca d'Água */}
-                  <div className="absolute -right-4 -bottom-4 opacity-5 pointer-events-none group-hover:opacity-10 transition-opacity">
-                    {renderInsigniaIcon(badge.icon, "h-36 w-36")}
-                  </div>
-
-                  <div className="space-y-4 relative z-10">
-                    {/* CABEÇALHO DO CARD COM EMBLEMA CENTRAL E RARIDADE */}
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="flex items-center gap-3">
-                        <div
-                          className={cn(
-                            "h-13 w-13 rounded-2xl border-2 shadow-xl flex items-center justify-center shrink-0 transition-transform duration-300 group-hover:scale-110",
-                            rarity.bgClass,
-                            rarity.borderClass,
-                            rarity.textClass
-                          )}
-                        >
-                          {renderInsigniaIcon(badge.icon, "h-7 w-7")}
-                        </div>
-                        <div>
-                          <span className={cn("text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full border shadow-xs inline-block mb-1", rarity.bgClass, rarity.borderClass, rarity.textClass)}>
-                            ★ {rarity.label} ★
-                          </span>
-                          <h4 className="font-black text-base text-foreground group-hover:text-amber-300 transition-colors leading-tight">
-                            {badge.name}
-                          </h4>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* DESCRIÇÃO DA HONRARIA */}
-                    {badge.description && (
-                      <p className="text-xs text-muted-foreground leading-relaxed">
-                        {badge.description}
-                      </p>
-                    )}
-
-                    {/* JUSTIFICATIVA / MOTIVO DA LIDERANÇA */}
-                    {grant.reason && (
-                      <div className="p-3 rounded-2xl bg-background/60 border border-white/10 text-xs space-y-1 shadow-inner">
-                        <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-                          <Quote className="h-3 w-3 text-amber-400" />
-                          <span>Motivo da Condecoração:</span>
-                        </span>
-                        <p className="italic text-foreground/95 pl-1.5 border-l-2 border-amber-400/60 font-medium">
-                          "{grant.reason}"
-                        </p>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* RODAPÉ DO CARD COM METADADOS OFICIAIS */}
-                  <div className="pt-3.5 mt-4 border-t border-white/10 flex items-center justify-between text-[11px] text-muted-foreground font-mono relative z-10">
-                    <span className="flex items-center gap-1">
-                      <Shield className="h-3 w-3 text-amber-400" />
-                      <span>{grant.grantor_name || "Liderança Twin"}</span>
-                    </span>
-                    <span className="font-bold text-foreground/80">
-                      {new Date(grant.granted_at).toLocaleDateString("pt-BR")}
-                    </span>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        ) : (
-          <Card className="surface-card p-8 text-center border-dashed border-border/60 rounded-3xl">
-            <div className="mx-auto h-14 w-14 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center mb-3">
-              <Award className="h-7 w-7 text-amber-400/60" />
-            </div>
-            <h4 className="text-base font-bold text-foreground mb-1">
-              Nenhuma condecoração registrada ainda
-            </h4>
-            <p className="text-xs text-muted-foreground max-w-sm mx-auto leading-relaxed">
-              {isSelf
-                ? "Você ainda não possui insígnias oficiais. Participe de ações, operações no asfalto e contribua para o grupo para ser condecorado pela liderança!"
-                : "Este integrante ainda não recebeu medalhas ou títulos de honra registrados pela liderança."}
-            </p>
-          </Card>
-        )}
-      </div>
-
-      <MemberInsigniasListModal
-        open={isInsigniasModalOpen}
-        onOpenChange={setIsInsigniasModalOpen}
+      <MemberInsigniasCardsSection
+        userId={userId}
         member={{ user_id: userId, nome: displayName, nickname: displayName, avatar_url: avatarUrl }}
+        isSelf={isSelf}
       />
 
       {/* SEÇÃO DE REDES SOCIAIS & TRANSMISSÕES AO VIVO EM DESTAQUE */}
