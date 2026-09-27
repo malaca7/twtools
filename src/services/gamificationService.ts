@@ -95,28 +95,59 @@ export interface LevelInfo {
   isMaxLevel?: boolean;
 }
 
-// Configuração matemática de patamares de XP por Nível
-const LEVEL_THRESHOLDS = [
+// Configuração matemática de patamares de XP por Nível (1 a 50+)
+// Milestones: Nível 10 (2.400 XP), Nível 20 (22.000 XP), Nível 50 (390.000 XP)
+export const LEVEL_THRESHOLDS = [
   { level: 1, xp: 0, title: "Recruta do Asfalto" },
-  { level: 2, xp: 100, title: "Iniciado da Twin" },
-  { level: 3, xp: 250, title: "Soldado da Estrada" },
-  { level: 4, xp: 500, title: "Operador de Pista" },
-  { level: 5, xp: 900, title: "Especialista Tático" },
-  { level: 6, xp: 1500, title: "Veterano de Honra" },
-  { level: 7, xp: 2400, title: "Capitão do Comboio" },
-  { level: 8, xp: 3700, title: "Guardião da Facção" },
-  { level: 9, xp: 5500, title: "Comandante Operacional" },
-  { level: 10, xp: 8000, title: "Mestre Supremo" },
-  { level: 11, xp: 11500, title: "Lorde do Asfalto" },
-  { level: 12, xp: 16000, title: "Pilar da Facção" },
-  { level: 13, xp: 22000, title: "Lenda Twin Wheels" },
-  { level: 14, xp: 30000, title: "Titã da Estrada" },
-  { level: 15, xp: 40000, title: "Imortal da Twin" },
-  { level: 16, xp: 55000, title: "Vanguarda Lendária" },
-  { level: 17, xp: 75000, title: "Patriarca de Honra" },
-  { level: 18, xp: 100000, title: "Dominador do Tráfego" },
-  { level: 19, xp: 135000, title: "Mito Consagrado" },
-  { level: 20, xp: 180000, title: "Supremacia Eterna" },
+  { level: 2, xp: 15, title: "Iniciado da Twin" },
+  { level: 3, xp: 50, title: "Aspirante da Estrada" },
+  { level: 4, xp: 120, title: "Soldado de Pista" },
+  { level: 5, xp: 250, title: "Operador Tático" },
+  { level: 6, xp: 450, title: "Sentinela de Honra" },
+  { level: 7, xp: 750, title: "Batedor Noturno" },
+  { level: 8, xp: 1150, title: "Veterano de Ronda" },
+  { level: 9, xp: 1700, title: "Especialista de Comboio" },
+  { level: 10, xp: 2400, title: "Comandante Operacional" },
+  { level: 11, xp: 3300, title: "Capitão da Estrada" },
+  { level: 12, xp: 4400, title: "Guarda de Elite" },
+  { level: 13, xp: 5700, title: "Inspetor Tático" },
+  { level: 14, xp: 7200, title: "Marechal de Pista" },
+  { level: 15, xp: 9000, title: "Pilar da Facção" },
+  { level: 16, xp: 11000, title: "Guardião de Ferro" },
+  { level: 17, xp: 13300, title: "Carrasco do Tráfego" },
+  { level: 18, xp: 15900, title: "Patriarca de Ronda" },
+  { level: 19, xp: 18800, title: "Mentor do Asfalto" },
+  { level: 20, xp: 22000, title: "Lorde da Facção" },
+  { level: 21, xp: 25500, title: "Mestre de Operações" },
+  { level: 22, xp: 29500, title: "Sentinela Supremo" },
+  { level: 23, xp: 34000, title: "Vanguarda Implacável" },
+  { level: 24, xp: 39000, title: "Sombra da Estrada" },
+  { level: 25, xp: 44500, title: "Grão-Mestre Twin Wheels" },
+  { level: 26, xp: 50500, title: "Titã do Asfalto" },
+  { level: 27, xp: 57000, title: "Imperador do Comboio" },
+  { level: 28, xp: 64000, title: "Paladino de Honra" },
+  { level: 29, xp: 71500, title: "Lenda Urbana" },
+  { level: 30, xp: 80000, title: "Soberano da Twin Wheels" },
+  { level: 31, xp: 89000, title: "General de Asfalto" },
+  { level: 32, xp: 98500, title: "Lança de Ébano" },
+  { level: 33, xp: 108500, title: "Comandante Lendário" },
+  { level: 34, xp: 119000, title: "Fênix do Asfalto" },
+  { level: 35, xp: 130000, title: "Lenda Viva" },
+  { level: 36, xp: 141500, title: "Arauto da Glória" },
+  { level: 37, xp: 153500, title: "Vórtice de Aço" },
+  { level: 38, xp: 166000, title: "Guardião dos Céus" },
+  { level: 39, xp: 179000, title: "Titã Imortal" },
+  { level: 40, xp: 193000, title: "Mito Consagrado" },
+  { level: 41, xp: 208000, title: "Vontade Inabalável" },
+  { level: 42, xp: 224000, title: "Pilar dos Deuses" },
+  { level: 43, xp: 241000, title: "Senhor do Destino" },
+  { level: 44, xp: 259000, title: "Lenda Cósmica" },
+  { level: 45, xp: 278000, title: "Semideus da Estrada" },
+  { level: 46, xp: 298000, title: "Tempestade de Aço" },
+  { level: 47, xp: 319000, title: "Presença Imperial" },
+  { level: 48, xp: 341000, title: "Eminência Parda" },
+  { level: 49, xp: 364000, title: "Primordial da Facção" },
+  { level: 50, xp: 390000, title: "Divindade do Asfalto" },
 ];
 
 export function getLevelInfo(totalXp: number): LevelInfo {
@@ -135,11 +166,11 @@ export function getLevelInfo(totalXp: number): LevelInfo {
   }
 
   if (!nextTier) {
-    // Acima do nível 20
-    const extraLevels = Math.floor((xp - 180000) / 30000);
-    const lvl = 20 + extraLevels;
-    const startXp = 180000 + extraLevels * 30000;
-    const endXp = startXp + 30000;
+    // Acima do nível 50
+    const extraLevels = Math.floor((xp - 390000) / 25000);
+    const lvl = 50 + extraLevels;
+    const startXp = 390000 + extraLevels * 25000;
+    const endXp = startXp + 25000;
     const inLvl = xp - startXp;
     return {
       level: lvl,
@@ -149,7 +180,7 @@ export function getLevelInfo(totalXp: number): LevelInfo {
       nextLevelXp: endXp,
       xpNeededForNext: endXp - xp,
       xpInCurrentLevel: inLvl,
-      progressPercent: Math.min(100, Math.round((inLvl / 30000) * 100)),
+      progressPercent: Math.min(100, Math.round((inLvl / 25000) * 100)),
       isMaxLevel: false,
     };
   }
