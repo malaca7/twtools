@@ -22,6 +22,7 @@ import {
   IdCard,
   Lock,
   Flame,
+  Award,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { DevBadge, CeoBadge } from "@/components/ui-kit";
@@ -43,7 +44,9 @@ import {
   SocialPlatformsCardsGrid,
 } from "@/components/profile/SocialPlatformIcons";
 import { getProxiedImageUrl } from "@/services/postimagesService";
-import { MemberGamificationCard } from "@/components/gamification/MemberGamificationCard";
+import { MemberGamificationCard, renderInsigniaIcon } from "@/components/gamification/MemberGamificationCard";
+import { MemberInsigniasListModal } from "@/components/gamification/MemberInsigniasListModal";
+import { getMemberInsignias, RARITY_CONFIG } from "@/services/gamificationService";
 
 export interface PublicProfilePageProps {
   handleOverride?: string;
@@ -210,6 +213,14 @@ export function PublicProfilePage({ handleOverride, isRootRoute = false }: Publi
   const userId = memberData.user_id;
   const isSelf = Boolean(user && userId === user.id);
   const isPublicProfileEnabled = memberData.custom_theme?.public_profile_enabled !== false;
+
+  const [isInsigniasModalOpen, setIsInsigniasModalOpen] = useState(false);
+  const { data: memberInsignias = [] } = useQuery({
+    queryKey: ["member_insignias", userId],
+    queryFn: () => (userId ? getMemberInsignias(userId) : Promise.resolve([])),
+    enabled: Boolean(userId),
+    staleTime: 60 * 1000,
+  });
 
   // Se o perfil estiver em modo privado e o visitante não estiver autenticado
   if (!isPublicProfileEnabled && !user) {
@@ -517,6 +528,7 @@ export function PublicProfilePage({ handleOverride, isRootRoute = false }: Publi
         totalXp={memberData.xp || 0}
         starsRating={memberData.stars_rating}
         starsCount={memberData.stars_count}
+        isPublic={true}
       />
 
       {/* SEÇÃO PRINCIPAL DE INFORMAÇÕES DA FICHA TÉCNICA */}
@@ -585,6 +597,124 @@ export function PublicProfilePage({ handleOverride, isRootRoute = false }: Publi
           </CardContent>
         </Card>
       </div>
+
+      {/* SEÇÃO DEDICADA: QUADRO DE CONDECORAÇÕES & INSÍGNIAS OFICIAIS */}
+      <div className="space-y-4">
+        <div className="flex items-center justify-between flex-wrap gap-2">
+          <div className="space-y-0.5">
+            <h2 className="text-base font-black text-foreground flex items-center gap-2">
+              <Award className="h-5 w-5 text-amber-400" />
+              <span>Quadro de Condecorações & Insígnias</span>
+            </h2>
+            <p className="text-xs text-muted-foreground">
+              Títulos honoríficos e condecorações oficiais concedidas pela liderança da Twin Wheels
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <Badge variant="outline" className="text-xs font-mono font-bold bg-amber-500/10 text-amber-300 border-amber-500/30 px-3 py-1">
+              {memberInsignias.length} {memberInsignias.length === 1 ? "Condecoração" : "Condecorações"}
+            </Badge>
+            {memberInsignias.length > 0 && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setIsInsigniasModalOpen(true)}
+                className="text-xs font-bold border-amber-500/30 text-amber-400 hover:bg-amber-500/10 gap-1.5 h-8 cursor-pointer rounded-xl"
+              >
+                <span>Ver Detalhes</span>
+                <ChevronRight className="h-3.5 w-3.5" />
+              </Button>
+            )}
+          </div>
+        </div>
+
+        {memberInsignias.length > 0 ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
+            {memberInsignias.map((grant) => {
+              const badge = grant.insignia;
+              if (!badge) return null;
+              const rarity = RARITY_CONFIG[badge.rarity] || RARITY_CONFIG.comum;
+
+              return (
+                <div
+                  key={grant.id}
+                  onClick={() => setIsInsigniasModalOpen(true)}
+                  className={cn(
+                    "relative overflow-hidden rounded-2xl border p-4 backdrop-blur-md transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg flex flex-col justify-between group cursor-pointer",
+                    rarity.bgClass,
+                    rarity.borderClass
+                  )}
+                >
+                  <div className="space-y-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex items-center gap-2.5">
+                        <div className={cn("p-2.5 rounded-xl border shadow-inner shrink-0", rarity.bgClass, rarity.borderClass, rarity.textClass)}>
+                          {renderInsigniaIcon(badge.icon, "h-5 w-5")}
+                        </div>
+                        <div>
+                          <h4 className="font-black text-sm text-foreground group-hover:text-amber-300 transition-colors">
+                            {badge.name}
+                          </h4>
+                          <span className={cn("text-[10px] font-extrabold uppercase tracking-wider", rarity.textClass)}>
+                            {rarity.label}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {badge.description && (
+                      <p className="text-xs text-muted-foreground leading-relaxed line-clamp-2">
+                        {badge.description}
+                      </p>
+                    )}
+
+                    {grant.reason && (
+                      <div className="p-2.5 rounded-xl bg-background/50 border border-border/40 text-[11px] space-y-1">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1">
+                          <Quote className="h-3 w-3 text-amber-400" /> Motivo da Outorga:
+                        </span>
+                        <p className="italic text-foreground/90 pl-1 border-l-2 border-amber-400/40 line-clamp-2">
+                          "{grant.reason}"
+                        </p>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="pt-3 mt-3 border-t border-border/40 flex items-center justify-between text-[10px] text-muted-foreground font-mono">
+                    <span title="Concedido por">
+                      Por: <strong className="text-foreground">{grant.grantor_name || "Liderança"}</strong>
+                    </span>
+                    <span>
+                      {new Date(grant.granted_at).toLocaleDateString("pt-BR")}
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <Card className="surface-card p-6 text-center border-dashed border-border/60">
+            <div className="mx-auto h-12 w-12 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center mb-3">
+              <Award className="h-6 w-6 text-amber-400/60" />
+            </div>
+            <h4 className="text-sm font-bold text-foreground mb-1">
+              Sem condecorações registradas
+            </h4>
+            <p className="text-xs text-muted-foreground max-w-sm mx-auto">
+              {isSelf
+                ? "Você ainda não possui insígnias registradas. Participe ativamente das atividades e ações da facção para ser condecorado!"
+                : "Este integrante ainda não recebeu condecorações oficiais registradas pela liderança."}
+            </p>
+          </Card>
+        )}
+      </div>
+
+      <MemberInsigniasListModal
+        open={isInsigniasModalOpen}
+        onOpenChange={setIsInsigniasModalOpen}
+        member={{ user_id: userId, nome: displayName, nickname: displayName, avatar_url: avatarUrl }}
+      />
 
       {/* SEÇÃO DE REDES SOCIAIS & TRANSMISSÕES AO VIVO EM DESTAQUE */}
       <div className="space-y-4">

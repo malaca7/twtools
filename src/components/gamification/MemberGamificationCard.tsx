@@ -40,14 +40,16 @@ const ICON_MAP: Record<string, React.ElementType> = {
   DollarSign,
   Truck,
   Eye,
+  Star,
+  TrendingUp,
 };
 
-function renderInsigniaIcon(iconName?: string, className = "h-4 w-4") {
+export function renderInsigniaIcon(iconName?: string, className = "h-4 w-4") {
   const IconComponent = (iconName && ICON_MAP[iconName]) || Award;
   return <IconComponent className={className} />;
 }
 
-interface MemberGamificationCardProps {
+export interface MemberGamificationCardProps {
   userId: string;
   totalXp: number;
   gamificationLevel?: number;
@@ -57,6 +59,7 @@ interface MemberGamificationCardProps {
   compact?: boolean;
   className?: string;
   showInsignias?: boolean;
+  isPublic?: boolean;
 }
 
 export function MemberGamificationCard({
@@ -69,11 +72,12 @@ export function MemberGamificationCard({
   compact = false,
   className,
   showInsignias = true,
+  isPublic = false,
 }: MemberGamificationCardProps) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const { hasPermission } = useAuth();
-  const canViewXp = hasPermission("view_member_xp");
-  const canViewInsignias = hasPermission("view_insignias");
+  const canViewXp = isPublic || hasPermission("view_member_xp");
+  const canViewInsignias = isPublic || hasPermission("view_insignias");
   const effectiveShowInsignias = showInsignias && canViewInsignias;
 
   const levelInfo = useMemo(() => getLevelInfo(totalXp), [totalXp]);
