@@ -6,20 +6,10 @@ import {
   History,
   Search,
   RotateCcw,
-  Boxes,
-  Box,
-  Package,
-  ArrowDownCircle,
-  ArrowUpCircle,
-  ArrowRightLeft,
   ChevronLeft,
   ChevronRight,
   X,
   ExternalLink,
-  Filter,
-  CheckCircle2,
-  AlertTriangle,
-  Loader2,
 } from "lucide-react";
 import {
   Dialog,
@@ -52,7 +42,7 @@ import {
 } from "@/hooks/useData";
 import { dateTime, num, errorMessage } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import type { Movement, Product, Bau } from "@/lib/app-types";
+import type { Movement } from "@/lib/app-types";
 
 export interface MovementHistoryModalProps {
   open: boolean;
@@ -84,8 +74,6 @@ export function MovementHistoryModal({
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedProductId, setSelectedProductId] = useState<string>("all");
   const [selectedBauId, setSelectedBauId] = useState<string>("all");
-  const [selectedType, setSelectedType] = useState<string>("all");
-  const [selectedOrigin, setSelectedOrigin] = useState<string>("all");
 
   // Pagination State
   const [page, setPage] = useState(1);
@@ -105,8 +93,6 @@ export function MovementHistoryModal({
         setSelectedBauId("all");
       }
       setSearchTerm("");
-      setSelectedType("all");
-      setSelectedOrigin("all");
       setPage(1);
     }
   }, [open, initialProductId, initialBauId]);
@@ -114,7 +100,7 @@ export function MovementHistoryModal({
   // Reset page on filter changes
   useEffect(() => {
     setPage(1);
-  }, [searchTerm, selectedProductId, selectedBauId, selectedType, selectedOrigin, perPage]);
+  }, [searchTerm, selectedProductId, selectedBauId, perPage]);
 
   // Set of reversed movement IDs
   const reversedIds = useMemo(() => {
@@ -156,18 +142,6 @@ export function MovementHistoryModal({
         return false;
       }
 
-      // Filter by origin
-      if (selectedOrigin !== "all") {
-        if (selectedOrigin === "manual" && m.origin && m.origin !== "manual") return false;
-        if (selectedOrigin !== "manual" && m.origin !== selectedOrigin) return false;
-      }
-
-      // Filter by type
-      if (selectedType !== "all") {
-        if (selectedType === "transferencia" && !m.reason?.toLowerCase().includes("transferência")) return false;
-        if (selectedType !== "transferencia" && m.type !== selectedType) return false;
-      }
-
       // Filter by search query
       const q = searchTerm.toLowerCase().trim();
       if (!q) return true;
@@ -188,43 +162,7 @@ export function MovementHistoryModal({
         msgId.includes(q)
       );
     });
-  }, [movements, selectedProductId, selectedBauId, selectedOrigin, selectedType, searchTerm, products, members]);
-
-  // Overall Statistics for current filtered set
-  const stats = useMemo(() => {
-    let totalEntradas = 0;
-    let qtyEntradas = 0;
-    let totalSaidas = 0;
-    let qtySaidas = 0;
-    let discordCount = 0;
-    let manualCount = 0;
-
-    filteredMovements.forEach((m) => {
-      const isReversed = !!m.reversal_of || reversedIds.has(m.id);
-      if (isReversed) return;
-
-      if (m.type === "entrada") {
-        totalEntradas += 1;
-        qtyEntradas += Number(m.quantity || 0);
-      } else {
-        totalSaidas += 1;
-        qtySaidas += Number(m.quantity || 0);
-      }
-
-      if (m.origin === "discord") discordCount += 1;
-      else manualCount += 1;
-    });
-
-    return {
-      total: filteredMovements.length,
-      totalEntradas,
-      qtyEntradas,
-      totalSaidas,
-      qtySaidas,
-      discordCount,
-      manualCount,
-    };
-  }, [filteredMovements, reversedIds]);
+  }, [movements, selectedProductId, selectedBauId, searchTerm, products, members]);
 
   // Pagination calculation
   const totalPages = Math.ceil(filteredMovements.length / perPage) || 1;
@@ -238,16 +176,12 @@ export function MovementHistoryModal({
   const hasActiveFilters =
     searchTerm !== "" ||
     selectedProductId !== "all" ||
-    selectedBauId !== "all" ||
-    selectedType !== "all" ||
-    selectedOrigin !== "all";
+    selectedBauId !== "all";
 
   const clearFilters = () => {
     setSearchTerm("");
     setSelectedProductId("all");
     setSelectedBauId("all");
-    setSelectedType("all");
-    setSelectedOrigin("all");
   };
 
   const selectedProductObj = products.find((p) => p.id === selectedProductId);
@@ -277,205 +211,27 @@ export function MovementHistoryModal({
               </DialogDescription>
             </div>
 
-            <div className="flex items-center gap-2">
-              <Badge variant="secondary" className="font-mono text-xs px-2.5 py-1 rounded-xl">
-                {num(filteredMovements.length)} registro{filteredMovements.length !== 1 ? "s" : ""}
-              </Badge>
-            </div>
-          </div>
-
-          {/* STATS QUICK BAR */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-3">
-            <div className="p-2 sm:p-2.5 rounded-xl border border-emerald-500/20 bg-emerald-500/5 flex items-center gap-2.5">
-              <div className="p-1.5 rounded-lg bg-emerald-500/10 text-emerald-400 shrink-0">
-                <ArrowDownCircle className="h-4 w-4" />
-              </div>
-              <div className="min-w-0">
-                <p className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider">Entradas</p>
-                <p className="text-xs sm:text-sm font-extrabold font-mono text-emerald-400 truncate">
-                  +{num(stats.qtyEntradas)} <span className="text-[10px] text-muted-foreground font-normal">({stats.totalEntradas}x)</span>
-                </p>
-              </div>
-            </div>
-
-            <div className="p-2 sm:p-2.5 rounded-xl border border-rose-500/20 bg-rose-500/5 flex items-center gap-2.5">
-              <div className="p-1.5 rounded-lg bg-rose-500/10 text-rose-400 shrink-0">
-                <ArrowUpCircle className="h-4 w-4" />
-              </div>
-              <div className="min-w-0">
-                <p className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider">Saídas</p>
-                <p className="text-xs sm:text-sm font-extrabold font-mono text-rose-400 truncate">
-                  -{num(stats.qtySaidas)} <span className="text-[10px] text-muted-foreground font-normal">({stats.totalSaidas}x)</span>
-                </p>
-              </div>
-            </div>
-
-            <div className="p-2 sm:p-2.5 rounded-xl border border-[#5865F2]/20 bg-[#5865F2]/5 flex items-center gap-2.5">
-              <div className="p-1.5 rounded-lg bg-[#5865F2]/10 text-[#5865F2] shrink-0">
-                <span className="text-xs">🤖</span>
-              </div>
-              <div className="min-w-0">
-                <p className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider">Via Discord</p>
-                <p className="text-xs sm:text-sm font-extrabold font-mono text-foreground truncate">
-                  {num(stats.discordCount)} logs
-                </p>
-              </div>
-            </div>
-
-            <div className="p-2 sm:p-2.5 rounded-xl border border-amber-500/20 bg-amber-500/5 flex items-center gap-2.5">
-              <div className="p-1.5 rounded-lg bg-amber-500/10 text-amber-400 shrink-0">
-                <span className="text-xs">✋</span>
-              </div>
-              <div className="min-w-0">
-                <p className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider">Manual / Painel</p>
-                <p className="text-xs sm:text-sm font-extrabold font-mono text-foreground truncate">
-                  {num(stats.manualCount)} logs
-                </p>
-              </div>
-            </div>
           </div>
         </DialogHeader>
 
-        {/* FILTERS TOOLBAR */}
-        <div className="p-3 sm:p-4 border-b border-border/60 bg-secondary/20 space-y-2.5">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2">
-            {/* SEARCH */}
-            <div className="relative lg:col-span-2">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-              <Input
-                placeholder="Buscar produto, autor, ID Discord, motivo..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-8 h-8.5 text-xs rounded-xl bg-background/80 border-border/80"
-              />
-              {searchTerm && (
-                <button
-                  type="button"
-                  onClick={() => setSearchTerm("")}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground cursor-pointer"
-                >
-                  <X className="h-3.5 w-3.5" />
-                </button>
-              )}
-            </div>
-
-            {/* PRODUCT SELECT */}
-            <div>
-              <Select value={selectedProductId} onValueChange={setSelectedProductId}>
-                <SelectTrigger className="h-8.5 text-xs rounded-xl bg-background/80 border-border/80 truncate">
-                  <SelectValue placeholder="Produto" />
-                </SelectTrigger>
-                <SelectContent className="max-h-60 z-[10000]">
-                  <SelectItem value="all">Todos os Produtos</SelectItem>
-                  {products
-                    .slice()
-                    .sort((a, b) => a.nome.localeCompare(b.nome))
-                    .map((p) => (
-                      <SelectItem key={p.id} value={p.id}>
-                        {p.nome}
-                      </SelectItem>
-                    ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* BAÚ SELECT */}
-            <div>
-              <Select value={selectedBauId} onValueChange={setSelectedBauId}>
-                <SelectTrigger className="h-8.5 text-xs rounded-xl bg-background/80 border-border/80">
-                  <SelectValue placeholder="Baú" />
-                </SelectTrigger>
-                <SelectContent className="z-[10000]">
-                  <SelectItem value="all">Todos os Baús</SelectItem>
-                  {baus.map((b) => (
-                    <SelectItem key={b.id} value={b.id}>
-                      <span className="flex items-center gap-1.5">
-                        <BauIcon
-                          foto_url={b.foto_url || b.imagem_url}
-                          icone={b.icone}
-                          nome={b.nome}
-                          className="w-3.5 h-3.5 rounded-xs"
-                        />
-                        <span>{b.nome}</span>
-                      </span>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* ORIGIN SELECT */}
-            <div>
-              <Select value={selectedOrigin} onValueChange={setSelectedOrigin}>
-                <SelectTrigger className="h-8.5 text-xs rounded-xl bg-background/80 border-border/80">
-                  <SelectValue placeholder="Origem" />
-                </SelectTrigger>
-                <SelectContent className="z-[10000]">
-                  <SelectItem value="all">Todas as Origens</SelectItem>
-                  <SelectItem value="discord">🤖 Discord Bot</SelectItem>
-                  <SelectItem value="painel_dev">🛠️ Painel Dev</SelectItem>
-                  <SelectItem value="manual">✋ Lançamento Manual</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          <div className="flex items-center justify-between gap-2 flex-wrap text-xs">
-            {/* TYPE FILTER PILLS */}
-            <div className="flex items-center gap-1.5 flex-wrap">
-              <span className="text-[11px] font-semibold text-muted-foreground mr-1">Tipo:</span>
-              <Button
+        {/* SEARCH BAR */}
+        <div className="px-3 sm:px-4 py-2.5 border-b border-border/60 bg-secondary/20">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+            <Input
+              placeholder="Buscar produto, autor, ID Discord, motivo..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-8 h-9 text-xs rounded-xl bg-background/80 border-border/80"
+            />
+            {searchTerm && (
+              <button
                 type="button"
-                variant={selectedType === "all" ? "default" : "outline"}
-                size="sm"
-                onClick={() => setSelectedType("all")}
-                className={cn(
-                  "h-7 text-[11px] px-2.5 rounded-lg",
-                  selectedType === "all" ? "bg-primary text-primary-foreground font-bold" : "bg-card/40"
-                )}
+                onClick={() => setSearchTerm("")}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground cursor-pointer"
               >
-                Todos
-              </Button>
-              <Button
-                type="button"
-                variant={selectedType === "entrada" ? "default" : "outline"}
-                size="sm"
-                onClick={() => setSelectedType("entrada")}
-                className={cn(
-                  "h-7 text-[11px] px-2.5 rounded-lg",
-                  selectedType === "entrada"
-                    ? "bg-emerald-600 text-white font-bold"
-                    : "border-emerald-500/30 text-emerald-400 bg-emerald-500/5 hover:bg-emerald-500/10"
-                )}
-              >
-                <ArrowDownCircle className="h-3 w-3 mr-1" /> Entradas
-              </Button>
-              <Button
-                type="button"
-                variant={selectedType === "saida" ? "default" : "outline"}
-                size="sm"
-                onClick={() => setSelectedType("saida")}
-                className={cn(
-                  "h-7 text-[11px] px-2.5 rounded-lg",
-                  selectedType === "saida"
-                    ? "bg-rose-600 text-white font-bold"
-                    : "border-rose-500/30 text-rose-400 bg-rose-500/5 hover:bg-rose-500/10"
-                )}
-              >
-                <ArrowUpCircle className="h-3 w-3 mr-1" /> Saídas
-              </Button>
-            </div>
-
-            {hasActiveFilters && (
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                onClick={clearFilters}
-                className="h-7 text-xs text-muted-foreground hover:text-foreground px-2"
-              >
-                <X className="h-3 w-3 mr-1" /> Limpar Filtros
-              </Button>
+                <X className="h-3.5 w-3.5" />
+              </button>
             )}
           </div>
         </div>
