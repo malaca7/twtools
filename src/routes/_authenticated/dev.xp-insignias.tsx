@@ -25,7 +25,7 @@ export function DevXpInsigniasPage({ initialTab }: { initialTab?: string }) {
   }
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-300">
+    <div className="space-y-6 animate-in fade-in duration-300 w-full max-w-full overflow-x-hidden">
       <DevGamificationManager initialTab={initialTab} />
     </div>
   );

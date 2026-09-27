@@ -37,8 +37,13 @@ export const Route = createFileRoute("/_authenticated/dashboard")({
 });
 
 export function DashboardPage() {
-  const { user, profile, hasPermission } = useAuth();
+  const { hasPermission } = useAuth();
   if (!hasPermission("view_dashboard")) return <NoAccess />;
+  return <DashboardContent />;
+}
+
+function DashboardContent() {
+  const { user, profile } = useAuth();
   const queryClient = useQueryClient();
   const { data: members = [] } = useMembers();
   const { data: announcements = [] } = useAnnouncements();

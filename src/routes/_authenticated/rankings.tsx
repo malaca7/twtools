@@ -74,6 +74,14 @@ type LegacyRankedMember = {
 };
 
 export function RankingsPage() {
+  const { hasPermission } = useAuth();
+  const canView = hasPermission("view_rankings");
+
+  if (!canView) return <NoAccess />;
+  return <RankingsContent />;
+}
+
+function RankingsContent() {
   const { user, profile, level, isDevUser, isCeoUser, hasPermission } = useAuth();
   const canView = hasPermission("view_rankings");
   const canViewXp = hasPermission("view_rankings_xp");
@@ -115,8 +123,6 @@ export function RankingsPage() {
     queryFn: () => getGamificationRanking(period as any),
     refetchInterval: 30000,
   });
-
-  if (!canView) return <NoAccess />;
 
   // Posição e destaque do próprio usuário logado
   const currentUserGamification = useMemo(() => {

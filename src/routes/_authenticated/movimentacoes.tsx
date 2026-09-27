@@ -120,6 +120,14 @@ const PRODUCTS_PER_PAGE = 18;
 
 export function MovimentacoesPage() {
   const { hasPermission } = useAuth();
+  const canViewPage = hasPermission("view_movements");
+
+  if (!canViewPage) return <NoAccess />;
+  return <MovimentacoesContent />;
+}
+
+function MovimentacoesContent() {
+  const { hasPermission } = useAuth();
   const queryClient = useQueryClient();
   const canViewPage = hasPermission("view_movements");
   const canMove = hasPermission("create_movement");
@@ -127,8 +135,6 @@ export function MovimentacoesPage() {
   const canReverse = hasPermission("reverse_movement");
   const canViewBalances = hasPermission("view_movement_balances");
   const canViewBaus = hasPermission("view_movement_baus");
-
-  if (!canViewPage) return <NoAccess />;
 
   const { data: movements = [], isLoading: loadingMovements } = useMovements();
   const { data: products = [] } = useProducts();

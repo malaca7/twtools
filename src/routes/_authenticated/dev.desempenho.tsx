@@ -77,6 +77,14 @@ type TimeFilter = "all" | "today" | "7days" | "month" | "last_month";
 type SortOption = "revenue" | "score" | "sales" | "ticket" | "movements";
 
 export function GestaoDesempenhoPage() {
+  const { hasPermission } = useAuth();
+  const canView = hasPermission("manage_performance");
+
+  if (!canView) return <NoAccess />;
+  return <GestaoDesempenhoContent />;
+}
+
+function GestaoDesempenhoContent() {
   const { user, profile, level, hasPermission } = useAuth();
   const isDev = isUserDeveloper(user, profile, level);
   const canView = hasPermission("manage_performance");
@@ -92,8 +100,6 @@ export function GestaoDesempenhoPage() {
   const [levelFilter, setLevelFilter] = useState<string>("all");
   const [sortBy, setSortBy] = useState<SortOption>("revenue");
   const [inspectMemberId, setInspectMemberId] = useState<string | null>(null);
-
-  if (!canView) return <NoAccess />;
 
   const isLoading = loadingSales || loadingMovements || loadingMembers;
 

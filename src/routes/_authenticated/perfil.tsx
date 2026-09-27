@@ -78,14 +78,20 @@ async function uploadImageFile(file: File, prefix: string, userId: string): Prom
 }
 
 export function PerfilPage({ initialTab }: { initialTab?: "perfil" | "dados" | "publico" | "aparencia" } = {}) {
-  const { profile, level, refresh, user, hasPermission } = useAuth();
-  const { data: members = [] } = useMembers();
-  const myMember = members.find((m) => m.user_id === user?.id);
-  const queryClient = useQueryClient();
+  const { hasPermission } = useAuth();
 
   if (!hasPermission("view_profile")) {
     return <NoAccess />;
   }
+
+  return <PerfilContent initialTab={initialTab} />;
+}
+
+function PerfilContent({ initialTab }: { initialTab?: "perfil" | "dados" | "publico" | "aparencia" } = {}) {
+  const { profile, level, refresh, user } = useAuth();
+  const { data: members = [] } = useMembers();
+  const myMember = members.find((m) => m.user_id === user?.id);
+  const queryClient = useQueryClient();
 
   const readInitialTab = (): "perfil" | "aparencia" => {
     if (initialTab && initialTab === "aparencia") {

@@ -68,6 +68,17 @@ function TicketsWrapper() {
 }
 
 export function TicketsPage() {
+  const { hasPermission } = useAuth();
+  const canView = hasPermission("view_tickets");
+
+  if (!canView) {
+    return <NoAccess message="Você não tem permissão para acessar a área de Tickets / Ouvidoria." />;
+  }
+
+  return <TicketsContent />;
+}
+
+function TicketsContent() {
   const { user, profile, hasPermission } = useAuth();
   const canView = hasPermission("view_tickets");
   const canCreate = hasPermission("create_ticket");
@@ -100,11 +111,6 @@ export function TicketsPage() {
   const [filterStatus, setFilterStatus] = useState<string>("all");
   const [filterPriority, setFilterPriority] = useState<string>("all");
   const [filterAssignee, setFilterAssignee] = useState<string>("all"); // all, my_assigned, unassigned
-
-  // Check access
-  if (!canView) {
-    return <NoAccess message="Você não tem permissão para acessar a área de Tickets / Ouvidoria." />;
-  }
 
   // Estatísticas globais
   const stats = useMemo(() => {

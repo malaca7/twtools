@@ -120,12 +120,18 @@ function renderTypeIcon(type: NotificationType, className: string = "h-4 w-4") {
 }
 
 export function MemberNotificationsPage() {
-  const { user, hasPermission } = useAuth();
-  const navigate = useNavigate();
+  const { hasPermission } = useAuth();
 
   if (!hasPermission("view_notifications")) {
     return <NoAccess />;
   }
+
+  return <MemberNotificationsContent />;
+}
+
+function MemberNotificationsContent() {
+  const { user } = useAuth();
+  const navigate = useNavigate();
 
   const {
     notifications,

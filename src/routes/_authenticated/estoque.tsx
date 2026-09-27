@@ -82,6 +82,14 @@ export const Route = createFileRoute("/_authenticated/estoque")({
 
 export function EstoquePage() {
   const { hasPermission } = useAuth();
+  const canView = hasPermission("view_stock");
+
+  if (!canView) return <NoAccess />;
+  return <EstoqueContent />;
+}
+
+function EstoqueContent() {
+  const { hasPermission } = useAuth();
   const queryClient = useQueryClient();
 
   const canView = hasPermission("view_stock");
@@ -94,8 +102,6 @@ export function EstoquePage() {
   // Movement History Modal State
   const [movementHistoryModalOpen, setMovementHistoryModalOpen] = useState(false);
   const [historyTargetProductId, setHistoryTargetProductId] = useState<string | null>(null);
-
-  if (!canView) return <NoAccess />;
 
   // Main Filters
   const [term, setTerm] = useState("");

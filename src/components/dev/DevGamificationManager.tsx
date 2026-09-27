@@ -439,52 +439,53 @@ export function DevGamificationManager({ initialTab = "membros" }: { initialTab?
   }, [selectedMember, xpMode, xpAmount]);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 w-full max-w-full overflow-x-hidden">
       {/* Header com Design System */}
       <PageHeader
         title="XP e Insígnias"
         description="Controle avançado de gamificação, concessão direta de XP e patamares de níveis, condecorações manuais sem débito e governança de catálogo."
-      >
-        <div className="flex items-center gap-2">
-          <Badge className={cn("px-3 py-1 text-xs font-bold gap-1.5 border", devStyle.badgeClass)}>
-            <DevIcon className="w-3.5 h-3.5" />
-            Ferramenta Exclusiva Dev
-          </Badge>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={loadData}
-            disabled={loading}
-            className="h-9 gap-1.5 border-border/60 hover:bg-accent/40"
-          >
-            <RefreshCw className={cn("w-4 h-4", loading && "animate-spin")} />
-            Atualizar Dados
-          </Button>
-        </div>
-      </PageHeader>
+        actions={
+          <div className="flex items-center gap-2 flex-wrap">
+            <Badge className={cn("px-2.5 py-1 text-xs font-bold gap-1.5 border", devStyle.badgeClass)}>
+              <DevIcon className="w-3.5 h-3.5 shrink-0" />
+              <span>Exclusivo Dev</span>
+            </Badge>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={loadData}
+              disabled={loading}
+              className="h-8 sm:h-9 text-xs gap-1.5 border-border/60 hover:bg-accent/40"
+            >
+              <RefreshCw className={cn("w-3.5 h-3.5", loading && "animate-spin")} />
+              <span>Atualizar</span>
+            </Button>
+          </div>
+        }
+      />
 
       {/* Cards de Métricas e Estado da Gamificação */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5 sm:gap-4">
         <Card className="border-border/60 bg-card/60 backdrop-blur-sm shadow-sm hover:border-primary/40 transition-all">
-          <CardContent className="p-4 flex items-center gap-3.5">
-            <div className={cn("p-2.5 rounded-xl border shrink-0", devStyle.bgSubtleClass, devStyle.borderSubtleClass)}>
-              <Users className={cn("w-5 h-5", devStyle.iconClass || devStyle.textClass)} />
+          <CardContent className="p-3 sm:p-4 flex items-center gap-2.5 sm:gap-3.5 min-w-0">
+            <div className={cn("p-2 sm:p-2.5 rounded-xl border shrink-0", devStyle.bgSubtleClass, devStyle.borderSubtleClass)}>
+              <Users className={cn("w-4 h-4 sm:w-5 sm:h-5", devStyle.iconClass || devStyle.textClass)} />
             </div>
-            <div>
-              <p className="text-xs font-semibold text-muted-foreground">Membros Ativos</p>
-              <h3 className="text-xl font-extrabold tracking-tight text-foreground">{stats.totalMembers}</h3>
+            <div className="min-w-0 flex-1">
+              <p className="text-[11px] sm:text-xs font-semibold text-muted-foreground truncate">Membros</p>
+              <h3 className="text-base sm:text-xl font-extrabold tracking-tight text-foreground truncate">{stats.totalMembers}</h3>
             </div>
           </CardContent>
         </Card>
 
         <Card className="border-border/60 bg-card/60 backdrop-blur-sm shadow-sm hover:border-primary/40 transition-all">
-          <CardContent className="p-4 flex items-center gap-3.5">
-            <div className="p-2.5 rounded-xl border border-purple-500/30 bg-purple-500/10 text-purple-400 shrink-0">
-              <TrendingUp className="w-5 h-5" />
+          <CardContent className="p-3 sm:p-4 flex items-center gap-2.5 sm:gap-3.5 min-w-0">
+            <div className="p-2 sm:p-2.5 rounded-xl border border-purple-500/30 bg-purple-500/10 text-purple-400 shrink-0">
+              <TrendingUp className="w-4 h-4 sm:w-5 sm:h-5" />
             </div>
-            <div>
-              <p className="text-xs font-semibold text-muted-foreground">XP Total Distribuído</p>
-              <h3 className="text-xl font-extrabold tracking-tight text-foreground">
+            <div className="min-w-0 flex-1">
+              <p className="text-[11px] sm:text-xs font-semibold text-muted-foreground truncate">XP Distribuído</p>
+              <h3 className="text-base sm:text-xl font-extrabold tracking-tight text-foreground truncate">
                 {stats.totalXp.toLocaleString("pt-BR")} XP
               </h3>
             </div>
@@ -492,48 +493,48 @@ export function DevGamificationManager({ initialTab = "membros" }: { initialTab?
         </Card>
 
         <Card className="border-border/60 bg-card/60 backdrop-blur-sm shadow-sm hover:border-primary/40 transition-all">
-          <CardContent className="p-4 flex items-center gap-3.5">
-            <div className="p-2.5 rounded-xl border border-amber-500/30 bg-amber-500/10 text-amber-400 shrink-0">
-              <Award className="w-5 h-5" />
+          <CardContent className="p-3 sm:p-4 flex items-center gap-2.5 sm:gap-3.5 min-w-0">
+            <div className="p-2 sm:p-2.5 rounded-xl border border-amber-500/30 bg-amber-500/10 text-amber-400 shrink-0">
+              <Award className="w-4 h-4 sm:w-5 sm:h-5" />
             </div>
-            <div>
-              <p className="text-xs font-semibold text-muted-foreground">Insígnias no Catálogo</p>
-              <h3 className="text-xl font-extrabold tracking-tight text-foreground">{stats.activeInsignias}</h3>
+            <div className="min-w-0 flex-1">
+              <p className="text-[11px] sm:text-xs font-semibold text-muted-foreground truncate">Insígnias</p>
+              <h3 className="text-base sm:text-xl font-extrabold tracking-tight text-foreground truncate">{stats.activeInsignias}</h3>
             </div>
           </CardContent>
         </Card>
 
         <Card className="border-border/60 bg-card/60 backdrop-blur-sm shadow-sm hover:border-primary/40 transition-all">
-          <CardContent className="p-4 flex items-center gap-3.5">
-            <div className="p-2.5 rounded-xl border border-emerald-500/30 bg-emerald-500/10 text-emerald-400 shrink-0">
-              <History className="w-5 h-5" />
+          <CardContent className="p-3 sm:p-4 flex items-center gap-2.5 sm:gap-3.5 min-w-0">
+            <div className="p-2 sm:p-2.5 rounded-xl border border-emerald-500/30 bg-emerald-500/10 text-emerald-400 shrink-0">
+              <History className="w-4 h-4 sm:w-5 sm:h-5" />
             </div>
-            <div>
-              <p className="text-xs font-semibold text-muted-foreground">Auditorias de Transação</p>
-              <h3 className="text-xl font-extrabold tracking-tight text-foreground">{stats.totalTransactions}</h3>
+            <div className="min-w-0 flex-1">
+              <p className="text-[11px] sm:text-xs font-semibold text-muted-foreground truncate">Auditorias</p>
+              <h3 className="text-base sm:text-xl font-extrabold tracking-tight text-foreground truncate">{stats.totalTransactions}</h3>
             </div>
           </CardContent>
         </Card>
       </div>
 
       {/* Tabs Principais de Gerenciamento */}
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-        <TabsList className="bg-muted/50 p-1 border border-border/50 rounded-xl grid grid-cols-2 md:grid-cols-4 max-w-2xl">
-          <TabsTrigger value="membros" className="gap-2 font-bold data-[state=active]:bg-background">
-            <Users className="w-4 h-4" />
-            Membros & Ações
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4 w-full">
+        <TabsList className="bg-muted/50 p-1 border border-border/50 rounded-xl grid grid-cols-2 sm:grid-cols-4 h-auto w-full max-w-2xl gap-1">
+          <TabsTrigger value="membros" className="gap-1.5 sm:gap-2 font-bold data-[state=active]:bg-background py-2 text-xs sm:text-sm">
+            <Users className="w-4 h-4 shrink-0" />
+            <span className="truncate">Membros</span>
           </TabsTrigger>
-          <TabsTrigger value="insignias" className="gap-2 font-bold data-[state=active]:bg-background">
-            <Award className="w-4 h-4" />
-            Catálogo de Insígnias
+          <TabsTrigger value="insignias" className="gap-1.5 sm:gap-2 font-bold data-[state=active]:bg-background py-2 text-xs sm:text-sm">
+            <Award className="w-4 h-4 shrink-0" />
+            <span className="truncate">Insígnias</span>
           </TabsTrigger>
-          <TabsTrigger value="regras" className="gap-2 font-bold data-[state=active]:bg-background">
-            <Sliders className="w-4 h-4" />
-            Regras de XP
+          <TabsTrigger value="regras" className="gap-1.5 sm:gap-2 font-bold data-[state=active]:bg-background py-2 text-xs sm:text-sm">
+            <Sliders className="w-4 h-4 shrink-0" />
+            <span className="truncate">Regras XP</span>
           </TabsTrigger>
-          <TabsTrigger value="auditoria" className="gap-2 font-bold data-[state=active]:bg-background">
-            <History className="w-4 h-4" />
-            Histórico & Logs
+          <TabsTrigger value="auditoria" className="gap-1.5 sm:gap-2 font-bold data-[state=active]:bg-background py-2 text-xs sm:text-sm">
+            <History className="w-4 h-4 shrink-0" />
+            <span className="truncate">Histórico</span>
           </TabsTrigger>
         </TabsList>
 
@@ -542,31 +543,152 @@ export function DevGamificationManager({ initialTab = "membros" }: { initialTab?
             ========================================================================= */}
         <TabsContent value="membros" className="space-y-4">
           <Card className="border-border/60 bg-card/40 backdrop-blur-sm">
-            <CardHeader className="p-5 pb-3">
-              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <CardHeader className="p-4 sm:p-5 pb-3">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
                 <div>
-                  <CardTitle className="text-lg font-extrabold flex items-center gap-2">
-                    <Users className="w-5 h-5 text-primary" />
-                    Quadro Operacional de Gamificação dos Membros
+                  <CardTitle className="text-base sm:text-lg font-extrabold flex items-center gap-2">
+                    <Users className="w-5 h-5 text-primary shrink-0" />
+                    <span>Membros & Ações</span>
                   </CardTitle>
-                  <CardDescription>
+                  <CardDescription className="text-xs">
                     Selecione um membro para conceder XP, definir nível manualmente ou gerenciar condecorações.
                   </CardDescription>
                 </div>
-                <div className="relative w-full md:w-72">
+                <div className="relative w-full sm:w-72">
                   <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
                   <Input
                     placeholder="Buscar membro, nick ou ID..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-9 bg-background/80 border-border/60 h-9 rounded-lg"
+                    className="pl-9 bg-background/80 border-border/60 h-9 rounded-lg text-xs"
                   />
                 </div>
               </div>
             </CardHeader>
-            <CardContent className="p-5 pt-2">
-              <div className="rounded-xl border border-border/60 overflow-hidden bg-background/50">
-                <div className="overflow-x-auto">
+            <CardContent className="p-3 sm:p-5 pt-2">
+              {/* VISUALIZAÇÃO MOBILE (CARDS RESPONSIVOS - SEM BARRA DE ROLAGEM LATERAL) */}
+              <div className="md:hidden space-y-3">
+                {filteredMembers.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground text-xs">
+                    Nenhum membro encontrado.
+                  </div>
+                ) : (
+                  filteredMembers.map((m) => {
+                    const lvlInfo = getLevelInfo(m.xp);
+                    return (
+                      <Card key={m.user_id} className="border border-border/60 bg-background/80 p-3.5 rounded-xl shadow-xs space-y-3">
+                        <div className="flex items-start justify-between gap-2.5">
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            <span className="font-mono font-extrabold text-xs text-muted-foreground shrink-0 w-5">
+                              #{m.rank_position}
+                            </span>
+                            <img
+                              src={m.avatar_url || "/placeholder-avatar.png"}
+                              alt={m.nome}
+                              className="w-10 h-10 rounded-full object-cover border border-border/80 shrink-0"
+                              onError={(e) => { (e.target as HTMLElement).style.display = "none"; }}
+                            />
+                            <div className="min-w-0">
+                              <div className="font-bold text-foreground text-sm flex items-center gap-1">
+                                <span className="truncate">{m.nickname || m.nome}</span>
+                                {m.is_developer && <DevBadge size="xs" />}
+                                {m.is_ceo && <CeoBadge size="xs" />}
+                              </div>
+                              <div className="text-[11px] text-muted-foreground font-mono truncate">
+                                {m.game_id ? `ID: ${m.game_id}` : m.nome}
+                              </div>
+                            </div>
+                          </div>
+                          <div className="text-right shrink-0">
+                            <span className="font-mono font-extrabold text-foreground text-sm">
+                              {(m.xp || 0).toLocaleString("pt-BR")}
+                            </span>
+                            <span className="text-[10px] text-muted-foreground ml-1">XP</span>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center justify-between gap-2 flex-wrap pt-2 border-t border-border/40 text-xs">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <Badge variant="outline" className={cn("text-[10px] font-bold border", levelBadgeClass(m.nivel))}>
+                              {getLevelLabel(m.nivel)}
+                            </Badge>
+                            <Badge className="bg-purple-500/15 text-purple-300 border-purple-500/30 text-[10px] font-extrabold px-2 py-0.5">
+                              Nível {m.gamification_level || lvlInfo.level}
+                            </Badge>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleOpenMemberInsignias(m)}
+                              className="h-6 px-2 font-bold text-[11px] gap-1 hover:bg-amber-500/10 text-amber-300"
+                            >
+                              <Award className="w-3.5 h-3.5 text-amber-400" />
+                              <span>{m.insignias_count || 0}</span>
+                            </Button>
+                            <div className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-400 bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/20">
+                              <Star className="w-2.5 h-2.5 fill-amber-400" />
+                              <span>{Number(m.stars_rating || 5).toFixed(1)}</span>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Botões de Ações Dev Mobile */}
+                        <div className="grid grid-cols-3 gap-1.5 pt-1">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              setSelectedMember(m);
+                              setXpMode("add");
+                              setXpAmount(50);
+                              setXpReason("");
+                              setXpModalOpen(true);
+                            }}
+                            className="h-8 px-1 text-xs font-bold gap-1 border-purple-500/40 text-purple-300 hover:bg-purple-500/10 w-full"
+                          >
+                            <Sparkles className="w-3.5 h-3.5 text-purple-400 shrink-0" />
+                            <span>XP</span>
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              setSelectedMember(m);
+                              setTargetLevel(m.gamification_level || lvlInfo.level);
+                              setSyncXpWithLevel(true);
+                              setLevelReason("");
+                              setLevelModalOpen(true);
+                            }}
+                            className="h-8 px-1 text-xs font-bold gap-1 border-border/80 hover:bg-accent/40 w-full"
+                          >
+                            <Layers className="w-3.5 h-3.5 shrink-0" />
+                            <span>Nível</span>
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              setSelectedMember(m);
+                              setSelectedInsigniaId("");
+                              setGrantReason("");
+                              setGrantModalOpen(true);
+                            }}
+                            className="h-8 px-1 text-xs font-bold gap-1 border-amber-500/40 text-amber-300 hover:bg-amber-500/10 w-full"
+                          >
+                            <Award className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                            <span>Insígnia</span>
+                          </Button>
+                        </div>
+                      </Card>
+                    );
+                  })
+                )}
+              </div>
+
+              {/* VISUALIZAÇÃO DESKTOP / TABLET (TABELA COMPLETA COM SCROLL INTERNO CONTROLADO) */}
+              <div className="hidden md:block rounded-xl border border-border/60 overflow-hidden bg-background/50">
+                <div className="overflow-x-auto w-full">
                   <table className="w-full text-sm text-left border-collapse">
                     <thead>
                       <tr className="border-b border-border/60 bg-muted/40 text-xs font-bold text-muted-foreground uppercase tracking-wider">
@@ -717,15 +839,15 @@ export function DevGamificationManager({ initialTab = "membros" }: { initialTab?
             ========================================================================= */}
         <TabsContent value="insignias" className="space-y-4">
           <Card className="border-border/60 bg-card/40 backdrop-blur-sm">
-            <CardHeader className="p-5 pb-3">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <CardHeader className="p-4 sm:p-5 pb-3">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
                 <div>
-                  <CardTitle className="text-lg font-extrabold flex items-center gap-2">
-                    <Award className="w-5 h-5 text-amber-400" />
-                    Catálogo Oficial de Insígnias & Condecorações
+                  <CardTitle className="text-base sm:text-lg font-extrabold flex items-center gap-2">
+                    <Award className="w-5 h-5 text-amber-400 shrink-0" />
+                    <span>Catálogo de Insígnias & Condecorações</span>
                   </CardTitle>
-                  <CardDescription>
-                    Cadastre, personalize regras de custo em XP, raridade visual e metadados de cada condecoração da facção.
+                  <CardDescription className="text-xs">
+                    Cadastre, personalize regras de custo em XP, raridade e condecorações da facção.
                   </CardDescription>
                 </div>
                 <Button
@@ -742,7 +864,7 @@ export function DevGamificationManager({ initialTab = "membros" }: { initialTab?
                     });
                     setInsigniaEditorOpen(true);
                   }}
-                  className="font-extrabold gap-1.5 bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm"
+                  className="font-extrabold gap-1.5 bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm w-full sm:w-auto text-xs h-9"
                 >
                   <Plus className="w-4 h-4" />
                   Nova Insígnia
@@ -850,18 +972,64 @@ export function DevGamificationManager({ initialTab = "membros" }: { initialTab?
             ========================================================================= */}
         <TabsContent value="regras" className="space-y-4">
           <Card className="border-border/60 bg-card/40 backdrop-blur-sm">
-            <CardHeader className="p-5 pb-3">
-              <CardTitle className="text-lg font-extrabold flex items-center gap-2">
-                <Sliders className="w-5 h-5 text-primary" />
-                Matriz de Regras de XP, Cooldowns e Limites Diários
+            <CardHeader className="p-4 sm:p-5 pb-3">
+              <CardTitle className="text-base sm:text-lg font-extrabold flex items-center gap-2">
+                <Sliders className="w-5 h-5 text-primary shrink-0" />
+                <span>Matriz de Regras de XP, Cooldowns e Limites</span>
               </CardTitle>
-              <CardDescription>
+              <CardDescription className="text-xs">
                 Regras ativas de combate a spam e concessão backend de XP por ações reais dentro do sistema.
               </CardDescription>
             </CardHeader>
-            <CardContent className="p-5 pt-2">
-              <div className="rounded-xl border border-border/60 overflow-hidden bg-background/50">
-                <div className="overflow-x-auto">
+            <CardContent className="p-3 sm:p-5 pt-2">
+              {/* VISUALIZAÇÃO MOBILE (CARDS RESPONSIVOS SEM SCROLL LATERAL) */}
+              <div className="md:hidden space-y-3">
+                {rules.map((r) => (
+                  <Card key={r.action_type} className="border border-border/60 bg-background/80 p-3.5 rounded-xl shadow-xs space-y-2.5">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <div className="font-mono text-xs font-bold text-primary truncate">{r.action_type}</div>
+                        <h4 className="font-bold text-foreground text-sm">{r.name}</h4>
+                        <p className="text-xs text-muted-foreground leading-relaxed">{r.description}</p>
+                      </div>
+                      <Badge className="bg-purple-500/15 text-purple-300 border-purple-500/30 font-mono font-bold text-xs shrink-0">
+                        +{r.xp_reward} XP
+                      </Badge>
+                    </div>
+
+                    <div className="flex items-center justify-between gap-2 pt-2 border-t border-border/40 text-xs">
+                      <div className="flex items-center gap-2 text-muted-foreground text-[11px] font-mono">
+                        <span>{r.cooldown_seconds}s cooldown</span>
+                        <span>•</span>
+                        <span className="text-foreground font-bold">{r.daily_cap} XP/dia</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {r.enabled ? (
+                          <Badge className="bg-emerald-500/15 text-emerald-400 border-emerald-500/30 text-[10px]">Ativo</Badge>
+                        ) : (
+                          <Badge variant="destructive" className="text-[10px]">Inativo</Badge>
+                        )}
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            setEditingRule(r);
+                            setRuleEditorOpen(true);
+                          }}
+                          className="h-7 px-2 text-xs font-bold gap-1"
+                        >
+                          <Edit3 className="w-3 h-3" />
+                          Editar
+                        </Button>
+                      </div>
+                    </div>
+                  </Card>
+                ))}
+              </div>
+
+              {/* VISUALIZAÇÃO DESKTOP (TABELA) */}
+              <div className="hidden md:block rounded-xl border border-border/60 overflow-hidden bg-background/50">
+                <div className="overflow-x-auto w-full">
                   <table className="w-full text-sm text-left border-collapse">
                     <thead>
                       <tr className="border-b border-border/60 bg-muted/40 text-xs font-bold text-muted-foreground uppercase tracking-wider">
@@ -933,14 +1101,14 @@ export function DevGamificationManager({ initialTab = "membros" }: { initialTab?
             ========================================================================= */}
         <TabsContent value="auditoria" className="space-y-4">
           <Card className="border-border/60 bg-card/40 backdrop-blur-sm">
-            <CardHeader className="p-5 pb-3">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <CardHeader className="p-4 sm:p-5 pb-3">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
                 <div>
-                  <CardTitle className="text-lg font-extrabold flex items-center gap-2">
-                    <History className="w-5 h-5 text-emerald-400" />
-                    Auditoria Imutável de Transações de XP
+                  <CardTitle className="text-base sm:text-lg font-extrabold flex items-center gap-2">
+                    <History className="w-5 h-5 text-emerald-400 shrink-0" />
+                    <span>Auditoria Imutável de Transações de XP</span>
                   </CardTitle>
-                  <CardDescription>
+                  <CardDescription className="text-xs">
                     Registros completos de pontuação, deduplicação, ajustes manuais dev e condecorações.
                   </CardDescription>
                 </div>
@@ -949,16 +1117,74 @@ export function DevGamificationManager({ initialTab = "membros" }: { initialTab?
                   size="sm"
                   onClick={loadData}
                   disabled={loading}
-                  className="h-8 text-xs font-bold gap-1.5"
+                  className="h-8 text-xs font-bold gap-1.5 w-full sm:w-auto"
                 >
                   <RefreshCw className={cn("w-3.5 h-3.5", loading && "animate-spin")} />
-                  Recarregar Logs
+                  <span>Recarregar Logs</span>
                 </Button>
               </div>
             </CardHeader>
-            <CardContent className="p-5 pt-2">
-              <div className="rounded-xl border border-border/60 overflow-hidden bg-background/50">
-                <div className="overflow-x-auto">
+            <CardContent className="p-3 sm:p-5 pt-2">
+              {/* VISUALIZAÇÃO MOBILE (CARDS RESPONSIVOS SEM SCROLL LATERAL) */}
+              <div className="md:hidden space-y-3">
+                {transactions.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground text-xs font-sans">
+                    Nenhuma transação registrada.
+                  </div>
+                ) : (
+                  transactions.map((tx) => {
+                    const isPositive = (tx.amount || 0) >= 0;
+                    return (
+                      <Card key={tx.id} className="border border-border/60 bg-background/80 p-3 rounded-xl shadow-xs space-y-2 text-xs">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex items-center gap-2 min-w-0">
+                            {tx.avatar_url && (
+                              <img
+                                src={tx.avatar_url}
+                                alt=""
+                                className="w-6 h-6 rounded-full object-cover shrink-0"
+                              />
+                            )}
+                            <span className="font-bold text-foreground truncate">
+                              {tx.member_nickname || tx.member_name || tx.user_id.slice(0, 8)}
+                            </span>
+                          </div>
+                          <Badge
+                            className={cn(
+                              "font-bold text-xs px-2 py-0.5 shrink-0",
+                              isPositive
+                                ? "bg-emerald-500/15 text-emerald-400 border-emerald-500/30"
+                                : "bg-rose-500/15 text-rose-400 border-rose-500/30"
+                            )}
+                          >
+                            {isPositive ? `+${tx.amount}` : tx.amount} XP
+                          </Badge>
+                        </div>
+
+                        <div className="flex items-center justify-between text-[11px] text-muted-foreground font-mono">
+                          <span>{new Date(tx.created_at).toLocaleString("pt-BR")}</span>
+                          <span>
+                            {tx.xp_before} ➔ <strong className="text-foreground">{tx.xp_after}</strong>
+                          </span>
+                        </div>
+
+                        <div className="flex items-center justify-between gap-2 pt-1 border-t border-border/40 text-[11px]">
+                          <Badge variant="outline" className="font-mono text-[9px] uppercase shrink-0">
+                            {tx.action_type}
+                          </Badge>
+                          <span className="text-muted-foreground truncate leading-tight">
+                            {tx.description}
+                          </span>
+                        </div>
+                      </Card>
+                    );
+                  })
+                )}
+              </div>
+
+              {/* VISUALIZAÇÃO DESKTOP (TABELA) */}
+              <div className="hidden md:block rounded-xl border border-border/60 overflow-hidden bg-background/50">
+                <div className="overflow-x-auto w-full">
                   <table className="w-full text-sm text-left border-collapse">
                     <thead>
                       <tr className="border-b border-border/60 bg-muted/40 text-xs font-bold text-muted-foreground uppercase tracking-wider">
@@ -1037,7 +1263,7 @@ export function DevGamificationManager({ initialTab = "membros" }: { initialTab?
           MODAL 1: AJUSTAR XP MANUALMENTE
           ========================================================================= */}
       <Dialog open={xpModalOpen} onOpenChange={setXpModalOpen}>
-        <DialogContent className="max-w-lg bg-card/95 border-border backdrop-blur-md">
+        <DialogContent className="max-h-[90vh] overflow-y-auto w-[95vw] sm:max-w-lg bg-card/95 border-border backdrop-blur-md">
           <DialogHeader>
             <DialogTitle className="text-lg font-extrabold flex items-center gap-2">
               <Sparkles className="w-5 h-5 text-purple-400" />
@@ -1148,7 +1374,7 @@ export function DevGamificationManager({ initialTab = "membros" }: { initialTab?
           MODAL 2: DEFINIR NÍVEL MANUALMENTE
           ========================================================================= */}
       <Dialog open={levelModalOpen} onOpenChange={setLevelModalOpen}>
-        <DialogContent className="max-w-md bg-card/95 border-border backdrop-blur-md">
+        <DialogContent className="max-h-[90vh] overflow-y-auto w-[95vw] sm:max-w-md bg-card/95 border-border backdrop-blur-md">
           <DialogHeader>
             <DialogTitle className="text-lg font-extrabold flex items-center gap-2">
               <Layers className="w-5 h-5 text-primary" />
@@ -1226,7 +1452,7 @@ export function DevGamificationManager({ initialTab = "membros" }: { initialTab?
           MODAL 3: CONCEDER INSÍGNIA (DEV BYPASS)
           ========================================================================= */}
       <Dialog open={grantModalOpen} onOpenChange={setGrantModalOpen}>
-        <DialogContent className="max-w-lg bg-card/95 border-border backdrop-blur-md">
+        <DialogContent className="max-h-[90vh] overflow-y-auto w-[95vw] sm:max-w-lg bg-card/95 border-border backdrop-blur-md">
           <DialogHeader>
             <DialogTitle className="text-lg font-extrabold flex items-center gap-2">
               <Award className="w-5 h-5 text-amber-400" />
@@ -1310,7 +1536,7 @@ export function DevGamificationManager({ initialTab = "membros" }: { initialTab?
           MODAL 4: GERENCIAR INSÍGNIAS CONCEDIDAS AO MEMBRO
           ========================================================================= */}
       <Dialog open={memberInsigniasModalOpen} onOpenChange={setMemberInsigniasModalOpen}>
-        <DialogContent className="max-w-xl bg-card/95 border-border backdrop-blur-md">
+        <DialogContent className="max-h-[90vh] overflow-y-auto w-[95vw] sm:max-w-xl bg-card/95 border-border backdrop-blur-md">
           <DialogHeader>
             <DialogTitle className="text-lg font-extrabold flex items-center gap-2">
               <Award className="w-5 h-5 text-amber-400" />
@@ -1397,7 +1623,7 @@ export function DevGamificationManager({ initialTab = "membros" }: { initialTab?
           MODAL 5: CRIAR / EDITAR INSÍGNIA NO CATÁLOGO
           ========================================================================= */}
       <Dialog open={insigniaEditorOpen} onOpenChange={setInsigniaEditorOpen}>
-        <DialogContent className="max-w-lg bg-card/95 border-border backdrop-blur-md">
+        <DialogContent className="max-h-[90vh] overflow-y-auto w-[95vw] sm:max-w-lg bg-card/95 border-border backdrop-blur-md">
           <DialogHeader>
             <DialogTitle className="text-lg font-extrabold flex items-center gap-2">
               <Award className="w-5 h-5 text-amber-400" />
@@ -1548,7 +1774,7 @@ export function DevGamificationManager({ initialTab = "membros" }: { initialTab?
           MODAL 6: EDITAR REGRA DE XP
           ========================================================================= */}
       <Dialog open={ruleEditorOpen} onOpenChange={setRuleEditorOpen}>
-        <DialogContent className="max-w-md bg-card/95 border-border backdrop-blur-md">
+        <DialogContent className="max-h-[90vh] overflow-y-auto w-[95vw] sm:max-w-md bg-card/95 border-border backdrop-blur-md">
           <DialogHeader>
             <DialogTitle className="text-lg font-extrabold flex items-center gap-2">
               <Sliders className="w-5 h-5 text-primary" />

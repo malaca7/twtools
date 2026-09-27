@@ -52,8 +52,13 @@ export const Route = createFileRoute("/_authenticated/desempenho")({
 type TimeFilter = "all" | "today" | "7days" | "month" | "last_month";
 
 export function MeuDesempenhoPage() {
-  const { user, profile, level, hasPermission } = useAuth();
+  const { hasPermission } = useAuth();
   if (!hasPermission("view_performance")) return <NoAccess />;
+  return <MeuDesempenhoContent />;
+}
+
+function MeuDesempenhoContent() {
+  const { user, profile, level, hasPermission } = useAuth();
   const canViewInsignias = hasPermission("view_insignias");
 
   const { data: sales = [], isLoading: loadingSales } = useSales();
