@@ -34,6 +34,7 @@ import { CeoAjustesEstoqueContent } from "@/routes/_authenticated/ceo.ajustes-es
 import { DevNotificationsPage } from "@/routes/_authenticated/dev.notificacoes";
 import { DevBotPageContent } from "@/routes/_authenticated/dev.bot";
 import { DevEstoquePageContent } from "@/routes/_authenticated/dev.estoque";
+import { DevXpInsigniasPage } from "@/routes/_authenticated/dev.xp-insignias";
 import { GestaoEstoquePage } from "@/routes/_authenticated/gestao-estoque";
 import { LifePage } from "@/routes/_authenticated/life";
 
@@ -89,6 +90,8 @@ const PAGE_PERMISSION_MAP: Record<string, Permission | null> = {
 
   // Módulos DEV
   "dev-notificacoes": "view_dev_notifications",
+  "dev-xp-insignias": "manage_dev_gamification",
+  "xp-insignias": "manage_dev_gamification",
 };
 
 function InnerPageResolver({ page, tab, mode }: { page: string; tab?: string; mode: "dev" | "ceo" | "member" }) {
@@ -130,6 +133,9 @@ function InnerPageResolver({ page, tab, mode }: { page: string; tab?: string; mo
     }
     if (normalizedPage === "notificacoes" || normalizedPage === "dev-notificacoes") {
       return <DevNotificationsPage />;
+    }
+    if (normalizedPage === "xp-insignias" || normalizedPage === "dev-xp-insignias" || normalizedPage === "gamificacao") {
+      return <DevXpInsigniasPage initialTab={tab} />;
     }
   }
 

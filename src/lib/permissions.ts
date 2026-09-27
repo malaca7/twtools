@@ -154,6 +154,7 @@ export type Permission =
   | "manage_dev_permissions"
   | "manage_dev_config"
   | "manage_dev_menu"
+  | "manage_dev_gamification"
   // Permissões do Painel Executivo CEO & Gerenciamento de Bot
   | "view_ceo"
   | "manage_ceo_bot"
@@ -363,6 +364,7 @@ export const ALL_PERMISSIONS: Permission[] = [
   "manage_dev_permissions",
   "manage_dev_config",
   "manage_dev_menu",
+  "manage_dev_gamification",
   // CEO Panel Permissions
   "view_ceo",
   "manage_ceo_bot",
@@ -409,6 +411,7 @@ export const DEV_PANEL_PERMISSIONS: Permission[] = [
   "manage_dev_permissions",
   "manage_dev_config",
   "manage_dev_menu",
+  "manage_dev_gamification",
   "view_dev_notifications",
   "manage_dev_notification_rules",
   "create_dev_notification",

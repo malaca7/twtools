@@ -1248,6 +1248,36 @@ export const PAGE_CARDS: PageCardConfig[] = [
     ],
   },
   {
+    id: "dev-xp-insignias",
+    title: "Gestão de XP e Insígnias (Dev)",
+    route: "/dev/xp-insignias",
+    icon: Award,
+    description: "Gestão completa de gamificação: concessão manual de XP, definição de nível, concessão e revogação de insígnias e regras do sistema.",
+    color: "border-purple-500/40 bg-purple-500/5 text-purple-400",
+    defaultCat: "DEV",
+    defaultOrder: 8,
+    permissions: [
+      {
+        key: "manage_dev_gamification",
+        label: "Acesso à Gestão de XP e Insígnias (/dev/xp-insignias)",
+        description: "Permite gerenciar XP de membros, conceder e revogar insígnias sem custo e editar regras de pontuação.",
+        badge: "Gamificação Dev",
+      },
+      {
+        key: "adjust_member_xp",
+        label: "Ajuste Manual de XP e Níveis de Membros",
+        description: "Permite adicionar, subtrair ou definir o saldo de XP e o nível de qualquer membro com justificativa auditada.",
+        badge: "Controle de XP",
+      },
+      {
+        key: "grant_insignia",
+        label: "Concessão e Revogação de Insígnias",
+        description: "Permite atribuir qualquer insígnia do catálogo a membros ou revogar condecorações existentes.",
+        badge: "Insígnias",
+      },
+    ],
+  },
+  {
     id: "ceo-notificacoes",
     title: "Central de Notificações (CEO)",
     route: "/ceo/notificacoes",

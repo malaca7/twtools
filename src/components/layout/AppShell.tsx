@@ -46,6 +46,7 @@ import {
   Shield,
   BellRing,
   PackageCheck,
+  Award,
 } from "lucide-react";
 import { resolveMenuIcon } from "@/lib/menuIcons";
 import {
@@ -164,6 +165,7 @@ const URL_TO_PERMISSION_MAP: Record<string, Permission> = {
   "/perfil": "view_profile",
   "/configuracoes": "manage_platform_settings",
   "/dev/notificacoes": "view_dev_notifications",
+  "/dev/xp-insignias": "manage_dev_gamification",
   "/dev/gestao-estoque": "view_stock_management",
   "/ceo/notificacoes": "view_ceo_notifications",
   "/ceo/ajustes-estoque": "view_ceo_stock_adjustments",
@@ -174,10 +176,11 @@ const DEV_MODULE_NAV_ITEMS: MasterNavItem[] = [
   { id: "dev-estoque", title: "Estoque", url: "/dev/estoque", icon: Boxes, defaultCat: "DEV", defaultOrder: 2 },
   { id: "dev-patch-notes", title: "Patch Notes & Releases", url: "/dev/patch-notes", icon: Sparkles, defaultCat: "DEV", defaultOrder: 3 },
   { id: "dev-desempenho", title: "Gestão Desempenho", url: "/dev/desempenho", icon: TrendingUp, defaultCat: "DEV", defaultOrder: 4 },
-  { id: "dev-permissoes", title: "Permissões Tag Dev", url: "/dev/permissoes", icon: KeyRound, defaultCat: "DEV", defaultOrder: 5 },
-  { id: "dev-configuracao", title: "Configurações Dev", url: "/dev/configuracao", icon: Code2, defaultCat: "DEV", defaultOrder: 6 },
-  { id: "dev-menu-lateral", title: "Menu Lateral Dev", url: "/dev/menu-lateral", icon: Sliders, defaultCat: "DEV", defaultOrder: 7 },
-  { id: "dev-notificacoes", title: "Central de Notificações", url: "/dev/notificacoes", icon: BellRing, defaultCat: "DEV", defaultOrder: 8 },
+  { id: "dev-xp-insignias", title: "Xp e insígnias", url: "/dev/xp-insignias", icon: Award, defaultCat: "DEV", defaultOrder: 5 },
+  { id: "dev-permissoes", title: "Permissões Tag Dev", url: "/dev/permissoes", icon: KeyRound, defaultCat: "DEV", defaultOrder: 6 },
+  { id: "dev-configuracao", title: "Configurações Dev", url: "/dev/configuracao", icon: Code2, defaultCat: "DEV", defaultOrder: 7 },
+  { id: "dev-menu-lateral", title: "Menu Lateral Dev", url: "/dev/menu-lateral", icon: Sliders, defaultCat: "DEV", defaultOrder: 8 },
+  { id: "dev-notificacoes", title: "Central de Notificações", url: "/dev/notificacoes", icon: BellRing, defaultCat: "DEV", defaultOrder: 9 },
 ];
 
 const CEO_MODULE_NAV_ITEMS: MasterNavItem[] = [

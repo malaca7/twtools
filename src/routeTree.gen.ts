@@ -60,6 +60,7 @@ import { Route as AuthenticatedDevMenuLateralRouteImport } from './routes/_authe
 import { Route as AuthenticatedDevNotificacoesRouteImport } from './routes/_authenticated/dev.notificacoes'
 import { Route as AuthenticatedDevPatchNotesRouteImport } from './routes/_authenticated/dev.patch-notes'
 import { Route as AuthenticatedDevPermissoesRouteImport } from './routes/_authenticated/dev.permissoes'
+import { Route as AuthenticatedDevXpInsigniasRouteImport } from './routes/_authenticated/dev.xp-insignias'
 import { Route as AuthenticatedGestaoEstoqueTabRouteImport } from './routes/_authenticated/gestao-estoque.$tab'
 import { Route as AuthenticatedHierarquiaTabRouteImport } from './routes/_authenticated/hierarquia.$tab'
 import { Route as AuthenticatedLivesTabRouteImport } from './routes/_authenticated/lives.$tab'
@@ -347,6 +348,12 @@ const AuthenticatedDevPermissoesRoute =
     path: '/dev/permissoes',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedDevXpInsigniasRoute =
+  AuthenticatedDevXpInsigniasRouteImport.update({
+    id: '/dev/xp-insignias',
+    path: '/dev/xp-insignias',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedGestaoEstoqueTabRoute =
   AuthenticatedGestaoEstoqueTabRouteImport.update({
     id: '/$tab',
@@ -489,6 +496,7 @@ export interface FileRoutesByFullPath {
   '/dev/notificacoes': typeof AuthenticatedDevNotificacoesRoute
   '/dev/patch-notes': typeof AuthenticatedDevPatchNotesRoute
   '/dev/permissoes': typeof AuthenticatedDevPermissoesRoute
+  '/dev/xp-insignias': typeof AuthenticatedDevXpInsigniasRoute
   '/gestao-estoque/$tab': typeof AuthenticatedGestaoEstoqueTabRoute
   '/hierarquia/$tab': typeof AuthenticatedHierarquiaTabRoute
   '/lives/$tab': typeof AuthenticatedLivesTabRoute
@@ -557,6 +565,7 @@ export interface FileRoutesByTo {
   '/dev/notificacoes': typeof AuthenticatedDevNotificacoesRoute
   '/dev/patch-notes': typeof AuthenticatedDevPatchNotesRoute
   '/dev/permissoes': typeof AuthenticatedDevPermissoesRoute
+  '/dev/xp-insignias': typeof AuthenticatedDevXpInsigniasRoute
   '/gestao-estoque/$tab': typeof AuthenticatedGestaoEstoqueTabRoute
   '/hierarquia/$tab': typeof AuthenticatedHierarquiaTabRoute
   '/lives/$tab': typeof AuthenticatedLivesTabRoute
@@ -627,6 +636,7 @@ export interface FileRoutesById {
   '/_authenticated/dev/notificacoes': typeof AuthenticatedDevNotificacoesRoute
   '/_authenticated/dev/patch-notes': typeof AuthenticatedDevPatchNotesRoute
   '/_authenticated/dev/permissoes': typeof AuthenticatedDevPermissoesRoute
+  '/_authenticated/dev/xp-insignias': typeof AuthenticatedDevXpInsigniasRoute
   '/_authenticated/gestao-estoque/$tab': typeof AuthenticatedGestaoEstoqueTabRoute
   '/_authenticated/hierarquia/$tab': typeof AuthenticatedHierarquiaTabRoute
   '/_authenticated/lives/$tab': typeof AuthenticatedLivesTabRoute
@@ -697,6 +707,7 @@ export interface FileRouteTypes {
     | '/dev/notificacoes'
     | '/dev/patch-notes'
     | '/dev/permissoes'
+    | '/dev/xp-insignias'
     | '/gestao-estoque/$tab'
     | '/hierarquia/$tab'
     | '/lives/$tab'
@@ -765,6 +776,7 @@ export interface FileRouteTypes {
     | '/dev/notificacoes'
     | '/dev/patch-notes'
     | '/dev/permissoes'
+    | '/dev/xp-insignias'
     | '/gestao-estoque/$tab'
     | '/hierarquia/$tab'
     | '/lives/$tab'
@@ -834,6 +846,7 @@ export interface FileRouteTypes {
     | '/_authenticated/dev/notificacoes'
     | '/_authenticated/dev/patch-notes'
     | '/_authenticated/dev/permissoes'
+    | '/_authenticated/dev/xp-insignias'
     | '/_authenticated/gestao-estoque/$tab'
     | '/_authenticated/hierarquia/$tab'
     | '/_authenticated/lives/$tab'
@@ -1222,6 +1235,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedDevPermissoesRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/dev/xp-insignias': {
+      id: '/_authenticated/dev/xp-insignias'
+      path: '/dev/xp-insignias'
+      fullPath: '/dev/xp-insignias'
+      preLoaderRoute: typeof AuthenticatedDevXpInsigniasRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/gestao-estoque/$tab': {
       id: '/_authenticated/gestao-estoque/$tab'
       path: '/$tab'
@@ -1584,6 +1604,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedDevNotificacoesRoute: typeof AuthenticatedDevNotificacoesRoute
   AuthenticatedDevPatchNotesRoute: typeof AuthenticatedDevPatchNotesRoute
   AuthenticatedDevPermissoesRoute: typeof AuthenticatedDevPermissoesRoute
+  AuthenticatedDevXpInsigniasRoute: typeof AuthenticatedDevXpInsigniasRoute
   AuthenticatedDevIndexRoute: typeof AuthenticatedDevIndexRoute
 }
 
@@ -1628,6 +1649,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedDevNotificacoesRoute: AuthenticatedDevNotificacoesRoute,
   AuthenticatedDevPatchNotesRoute: AuthenticatedDevPatchNotesRoute,
   AuthenticatedDevPermissoesRoute: AuthenticatedDevPermissoesRoute,
+  AuthenticatedDevXpInsigniasRoute: AuthenticatedDevXpInsigniasRoute,
   AuthenticatedDevIndexRoute: AuthenticatedDevIndexRoute,
 }
 

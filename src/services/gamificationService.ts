@@ -465,3 +465,248 @@ export async function saveInsignia(insignia: Partial<InsigniaItem> & { id: strin
     throw new Error(error.message || "Falha ao salvar insígnia no catálogo.");
   }
 }
+
+/**
+ * ============================================================================
+ * SERVIÇOS EXCLUSIVOS DO PAINEL DEV (XP, NÍVEIS E INSÍGNIAS)
+ * ============================================================================
+ */
+
+/**
+ * Ajusta o XP de um membro manualmente (Modo adicionar/subtrair ou modo fixo)
+ */
+export async function devManageMemberXp(params: {
+  memberId: string;
+  mode: "add" | "set";
+  amount: number;
+  reason: string;
+}): Promise<{
+  success: boolean;
+  member_id: string;
+  member_name: string;
+  old_xp: number;
+  new_xp: number;
+  delta: number;
+  old_level: number;
+  new_level: number;
+}> {
+  const { data, error } = await supabase.rpc("dev_manage_member_xp_rpc", {
+    p_member_id: params.memberId,
+    p_mode: params.mode,
+    p_amount: Math.round(Number(params.amount || 0)),
+    p_reason: params.reason,
+  });
+
+  if (error) {
+    throw new Error(error.message || "Falha ao ajustar XP do membro.");
+  }
+
+  return data as any;
+}
+
+/**
+ * Define o nível gamificado de um membro manualmente, com opção de sincronizar o XP mínimo
+ */
+export async function devSetMemberLevel(params: {
+  memberId: string;
+  level: number;
+  syncXp: boolean;
+  reason: string;
+}): Promise<{
+  success: boolean;
+  member_id: string;
+  old_level: number;
+  new_level: number;
+  old_xp: number;
+  new_xp: number;
+}> {
+  const { data, error } = await supabase.rpc("dev_set_member_level_rpc", {
+    p_member_id: params.memberId,
+    p_level: Math.round(Number(params.level || 1)),
+    p_sync_xp: Boolean(params.syncXp),
+    p_reason: params.reason,
+  });
+
+  if (error) {
+    throw new Error(error.message || "Falha ao definir nível do membro.");
+  }
+
+  return data as any;
+}
+
+/**
+ * Concede uma insígnia diretamente via Dev Bypass (sem consumir XP de ninguém)
+ */
+export async function devGrantInsignia(params: {
+  memberId: string;
+  insigniaId: string;
+  reason: string;
+}): Promise<{
+  success: boolean;
+  grant_id: string;
+  member_name: string;
+  insignia_name: string;
+}> {
+  const { data, error } = await supabase.rpc("dev_grant_insignia_rpc", {
+    p_member_id: params.memberId,
+    p_insignia_id: params.insigniaId,
+    p_reason: params.reason,
+  });
+
+  if (error) {
+    throw new Error(error.message || "Falha ao conceder insígnia.");
+  }
+
+  return data as any;
+}
+
+/**
+ * Revoga uma insígnia de um membro
+ */
+export async function devRevokeInsignia(params: {
+  memberId: string;
+  insigniaId: string;
+  reason: string;
+}): Promise<{
+  success: boolean;
+  deleted_count: number;
+  member_name: string;
+  insignia_name: string;
+}> {
+  const { data, error } = await supabase.rpc("dev_revoke_insignia_rpc", {
+    p_member_id: params.memberId,
+    p_insignia_id: params.insigniaId,
+    p_reason: params.reason,
+  });
+
+  if (error) {
+    throw new Error(error.message || "Falha ao revogar insígnia.");
+  }
+
+  return data as any;
+}
+
+/**
+ * Exclui uma insígnia do catálogo
+ */
+export async function devDeleteInsignia(insigniaId: string): Promise<void> {
+  const { error } = await supabase.rpc("dev_delete_insignia_rpc", {
+    p_insignia_id: insigniaId,
+  });
+
+  if (error) {
+    throw new Error(error.message || "Falha ao excluir insígnia do catálogo.");
+  }
+}
+
+/**
+ * Lista todas as insígnias do catálogo (ativas e inativas) para o painel Dev
+ */
+export async function devGetAllInsignias(): Promise<InsigniaItem[]> {
+  const { data, error } = await supabase
+    .from("insignias" as any)
+    .select("*")
+    .order("created_at", { ascending: true });
+
+  if (error || !data) {
+    console.error("Falha ao buscar catálogo completo de insígnias:", error);
+    return [];
+  }
+
+  return data as InsigniaItem[];
+}
+
+/**
+ * Lista as regras de pontuação de XP configuradas no sistema
+ */
+export async function devGetXpRules(): Promise<XpRuleConfig[]> {
+  const { data, error } = await supabase
+    .from("xp_rules_config" as any)
+    .select("*")
+    .order("action_type", { ascending: true });
+
+  if (error || !data) {
+    console.error("Falha ao buscar regras de XP:", error);
+    return [];
+  }
+
+  return data as XpRuleConfig[];
+}
+
+/**
+ * Atualiza parâmetros de uma regra de XP
+ */
+export async function devUpdateXpRule(rule: Partial<XpRuleConfig> & { action_type: string; name: string }): Promise<void> {
+  const { error } = await supabase.rpc("dev_update_xp_rule_rpc", {
+    p_action_type: rule.action_type,
+    p_name: rule.name,
+    p_xp_reward: Number(rule.xp_reward || 0),
+    p_cooldown_seconds: Number(rule.cooldown_seconds || 0),
+    p_daily_cap: Number(rule.daily_cap || 0),
+    p_category: rule.category || "geral",
+    p_description: rule.description || "",
+    p_enabled: rule.enabled !== false,
+  });
+
+  if (error) {
+    throw new Error(error.message || "Falha ao salvar regra de XP.");
+  }
+}
+
+/**
+ * Busca histórico global de transações de XP para auditoria dev
+ */
+export async function devGetAllXpTransactions(limit = 100, memberId?: string): Promise<
+  (XpTransaction & { member_name?: string; member_nickname?: string; avatar_url?: string })[]
+> {
+  let query = supabase
+    .from("xp_transactions" as any)
+    .select(`
+      id,
+      user_id,
+      amount,
+      xp_before,
+      xp_after,
+      action_type,
+      reference_id,
+      category,
+      description,
+      metadata,
+      created_at,
+      profiles:user_id (
+        nome,
+        nickname,
+        avatar_url,
+        discord_avatar_url
+      )
+    `)
+    .order("created_at", { ascending: false })
+    .limit(limit);
+
+  if (memberId) {
+    query = query.eq("user_id", memberId);
+  }
+
+  const { data, error } = await query;
+  if (error || !data) {
+    console.error("Falha ao buscar histórico de XP para auditoria:", error);
+    return [];
+  }
+
+  return (data as any[]).map((row) => ({
+    id: row.id,
+    user_id: row.user_id,
+    amount: Number(row.amount || 0),
+    xp_before: Number(row.xp_before || 0),
+    xp_after: Number(row.xp_after || 0),
+    action_type: row.action_type,
+    reference_id: row.reference_id,
+    category: row.category,
+    description: row.description,
+    metadata: row.metadata,
+    created_at: row.created_at,
+    member_name: row.profiles?.nome,
+    member_nickname: row.profiles?.nickname,
+    avatar_url: row.profiles?.avatar_url || row.profiles?.discord_avatar_url,
+  }));
+}

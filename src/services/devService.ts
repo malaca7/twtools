@@ -80,6 +80,15 @@ export const DEFAULT_DEV_PERMISSIONS: DevPermissionResource[] = [
     editar: true,
     excluir: true,
   },
+  {
+    id: "gamificacao_xp",
+    name: "XP, Níveis & Insígnias (Gamificação)",
+    description: "Gestão completa de XP, níveis e concessão manual de insígnias sem débito de saldo",
+    visualizar: true,
+    criar: true,
+    editar: true,
+    excluir: true,
+  },
 ];
 
 export const DEFAULT_DEV_CONFIG: DevConfiguration = {
@@ -148,6 +157,15 @@ export const DEFAULT_ADMIN_TAG_PERMISSIONS: DevPermissionResource[] = [
     id: "lives_transmissoes",
     name: "Lives & Transmissões em Tempo Real",
     description: "Detecção automática de streams, vinculação de contas, encerramento forçado e alertas",
+    visualizar: true,
+    criar: true,
+    editar: true,
+    excluir: false,
+  },
+  {
+    id: "gamificacao_xp",
+    name: "XP, Níveis & Insígnias (Gamificação)",
+    description: "Gestão completa de XP, níveis e concessão manual de insígnias sem débito de saldo",
     visualizar: true,
     criar: true,
     editar: true,
