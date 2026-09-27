@@ -49,6 +49,7 @@ import {
   Award,
   ShoppingBag,
   Coins,
+  Zap,
 } from "lucide-react";
 import { resolveMenuIcon } from "@/lib/menuIcons";
 import {
@@ -170,6 +171,8 @@ const URL_TO_PERMISSION_MAP: Record<string, Permission> = {
   "/configuracoes": "manage_platform_settings",
   "/dev/notificacoes": "view_dev_notifications",
   "/dev/xp-insignias": "manage_dev_gamification",
+  "/dev/loja": "view_dev_shop",
+  "/dev/coins": "view_dev_coins",
   "/dev/gestao-estoque": "view_stock_management",
   "/ceo/notificacoes": "view_ceo_notifications",
   "/ceo/ajustes-estoque": "view_ceo_stock_adjustments",
@@ -181,10 +184,12 @@ const DEV_MODULE_NAV_ITEMS: MasterNavItem[] = [
   { id: "dev-patch-notes", title: "Patch Notes & Releases", url: "/dev/patch-notes", icon: Sparkles, defaultCat: "DEV", defaultOrder: 3 },
   { id: "dev-desempenho", title: "Gestão Desempenho", url: "/dev/desempenho", icon: TrendingUp, defaultCat: "DEV", defaultOrder: 4 },
   { id: "dev-xp-insignias", title: "Xp e insígnias", url: "/dev/xp-insignias", icon: Award, defaultCat: "DEV", defaultOrder: 5 },
-  { id: "dev-permissoes", title: "Permissões Tag Dev", url: "/dev/permissoes", icon: KeyRound, defaultCat: "DEV", defaultOrder: 6 },
-  { id: "dev-configuracao", title: "Configurações Dev", url: "/dev/configuracao", icon: Code2, defaultCat: "DEV", defaultOrder: 7 },
-  { id: "dev-menu-lateral", title: "Menu Lateral Dev", url: "/dev/menu-lateral", icon: Sliders, defaultCat: "DEV", defaultOrder: 8 },
-  { id: "dev-notificacoes", title: "Central de Notificações", url: "/dev/notificacoes", icon: BellRing, defaultCat: "DEV", defaultOrder: 9 },
+  { id: "dev-loja", title: "Gestão da Loja", url: "/dev/loja", icon: ShoppingBag, defaultCat: "DEV", defaultOrder: 6 },
+  { id: "dev-coins", title: "Gestão de Coins", url: "/dev/coins", icon: Coins, defaultCat: "DEV", defaultOrder: 7 },
+  { id: "dev-permissoes", title: "Permissões Tag Dev", url: "/dev/permissoes", icon: KeyRound, defaultCat: "DEV", defaultOrder: 8 },
+  { id: "dev-configuracao", title: "Configurações Dev", url: "/dev/configuracao", icon: Code2, defaultCat: "DEV", defaultOrder: 9 },
+  { id: "dev-menu-lateral", title: "Menu Lateral Dev", url: "/dev/menu-lateral", icon: Sliders, defaultCat: "DEV", defaultOrder: 10 },
+  { id: "dev-notificacoes", title: "Central de Notificações", url: "/dev/notificacoes", icon: BellRing, defaultCat: "DEV", defaultOrder: 11 },
 ];
 
 const CEO_MODULE_NAV_ITEMS: MasterNavItem[] = [
@@ -975,8 +980,71 @@ export function AppShell({ children }: { children: ReactNode }) {
               )}
             </div>
 
-            {/* TOP HEADER: NOTIFICATION CENTER + USER AVATAR */}
+            {/* TOP HEADER: GAMIFICATION BADGES + NOTIFICATION CENTER + USER AVATAR */}
             <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
+              {/* BADGES DE GAMIFICAÇÃO: XP & TW COINS */}
+              {user && (
+                <div className="flex items-center gap-1 sm:gap-1.5 mr-0.5 sm:mr-1">
+                  {/* BADGE DE XP */}
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Link
+                        to="/desempenho"
+                        className="flex items-center gap-1 sm:gap-1.5 px-2 py-1 sm:px-2.5 sm:py-1 rounded-xl bg-violet-500/10 hover:bg-violet-500/20 border border-violet-500/30 text-violet-300 font-mono text-xs font-bold transition-all shadow-xs hover:scale-105 active:scale-95 cursor-pointer"
+                      >
+                        <Zap className="h-3.5 w-3.5 text-violet-400 fill-violet-400/20 shrink-0" />
+                        <span className="hidden xs:inline text-[11px] font-bold text-violet-200">
+                          {Number(profile?.xp || 0).toLocaleString("pt-BR")}{" "}
+                          <span className="text-[10px] text-violet-400/80 font-normal">XP</span>
+                        </span>
+                        <span className="xs:hidden text-[10px] font-bold text-violet-200">
+                          {Number(profile?.xp || 0) >= 1000
+                            ? `${(Number(profile?.xp || 0) / 1000).toFixed(1)}k`
+                            : Number(profile?.xp || 0)}
+                        </span>
+                      </Link>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom" className="text-xs space-y-0.5 bg-card/95 border-violet-500/30">
+                      <p className="font-bold text-violet-300 flex items-center gap-1">
+                        <Zap className="h-3 w-3" /> Pontos de Experiência (XP)
+                      </p>
+                      <p className="text-[10px] text-muted-foreground">
+                        Nível {Number(profile?.gamification_level || 1)} · {Number(profile?.xp || 0).toLocaleString("pt-BR")} XP acumulados. Clique para abrir Meu Desempenho.
+                      </p>
+                    </TooltipContent>
+                  </Tooltip>
+
+                  {/* BADGE DE TW COINS */}
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Link
+                        to="/loja"
+                        className="flex items-center gap-1 sm:gap-1.5 px-2 py-1 sm:px-2.5 sm:py-1 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 text-amber-300 font-mono text-xs font-bold transition-all shadow-xs hover:scale-105 active:scale-95 cursor-pointer"
+                      >
+                        <Coins className="h-3.5 w-3.5 text-amber-400 shrink-0" />
+                        <span className="hidden xs:inline text-[11px] font-bold text-amber-200">
+                          {Number(profile?.tw_coins || 0).toLocaleString("pt-BR")}{" "}
+                          <span className="text-[10px] text-amber-400/80 font-normal">Coins</span>
+                        </span>
+                        <span className="xs:hidden text-[10px] font-bold text-amber-200">
+                          {Number(profile?.tw_coins || 0) >= 1000
+                            ? `${(Number(profile?.tw_coins || 0) / 1000).toFixed(1)}k`
+                            : Number(profile?.tw_coins || 0)}
+                        </span>
+                      </Link>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom" className="text-xs space-y-0.5 bg-card/95 border-amber-500/30">
+                      <p className="font-bold text-amber-300 flex items-center gap-1">
+                        <Coins className="h-3 w-3" /> Saldo de TW Coins
+                      </p>
+                      <p className="text-[10px] text-muted-foreground">
+                        {Number(profile?.tw_coins || 0).toLocaleString("pt-BR")} moedas disponíveis. Clique para abrir a Loja Oficial.
+                      </p>
+                    </TooltipContent>
+                  </Tooltip>
+                </div>
+              )}
+
               {/* CENTRAL DE NOTIFICAÇÕES EM TEMPO REAL */}
               <NotificationCenter />
 

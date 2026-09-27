@@ -84,6 +84,7 @@ export type Profile = {
   gamification_level?: number;
   stars_rating?: number;
   stars_count?: number;
+  tw_coins?: number;
 };
 
 export type SignupRequestStatus = "pendente" | "aprovado" | "rejeitado";
@@ -265,6 +266,7 @@ export type Member = {
   gamification_level?: number;
   stars_rating?: number;
   stars_count?: number;
+  tw_coins?: number;
 };
 
 export type Announcement = {

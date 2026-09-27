@@ -35,6 +35,8 @@ import { DevNotificationsPage } from "@/routes/_authenticated/dev.notificacoes";
 import { DevBotPageContent } from "@/routes/_authenticated/dev.bot";
 import { DevEstoquePageContent } from "@/routes/_authenticated/dev.estoque";
 import { DevXpInsigniasPage } from "@/routes/_authenticated/dev.xp-insignias";
+import { DevShopPage } from "@/routes/_authenticated/dev.loja";
+import { DevCoinsPage } from "@/routes/_authenticated/dev.coins";
 import { GestaoEstoquePage } from "@/routes/_authenticated/gestao-estoque";
 import { LifePage } from "@/routes/_authenticated/life";
 import { ShopPage } from "@/components/shop/ShopPage";
@@ -93,6 +95,10 @@ const PAGE_PERMISSION_MAP: Record<string, Permission | null> = {
   "dev-notificacoes": "view_dev_notifications",
   "dev-xp-insignias": "manage_dev_gamification",
   "xp-insignias": "manage_dev_gamification",
+  "dev-loja": "view_dev_shop",
+  "loja-dev": "view_dev_shop",
+  "dev-coins": "view_dev_coins",
+  "coins-dev": "view_dev_coins",
 };
 
 function InnerPageResolver({ page, tab, mode }: { page: string; tab?: string; mode: "dev" | "ceo" | "member" }) {
@@ -137,6 +143,12 @@ function InnerPageResolver({ page, tab, mode }: { page: string; tab?: string; mo
     }
     if (normalizedPage === "xp-insignias" || normalizedPage === "dev-xp-insignias" || normalizedPage === "gamificacao") {
       return <DevXpInsigniasPage initialTab={tab} />;
+    }
+    if (normalizedPage === "loja" || normalizedPage === "dev-loja") {
+      return <DevShopPage />;
+    }
+    if (normalizedPage === "coins" || normalizedPage === "dev-coins") {
+      return <DevCoinsPage />;
     }
   }
 

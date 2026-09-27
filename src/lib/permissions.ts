@@ -158,6 +158,23 @@ export type Permission =
   | "manage_dev_config"
   | "manage_dev_menu"
   | "manage_dev_gamification"
+  // Permissões Detalhadas de Gestão da Loja Dev (/dev/loja)
+  | "view_dev_shop"
+  | "create_dev_shop_item"
+  | "edit_dev_shop_item"
+  | "delete_dev_shop_item"
+  | "manage_dev_shop_prices"
+  | "manage_dev_shop_stock"
+  | "manage_dev_shop_orders"
+  | "deliver_dev_shop_order"
+  | "refund_dev_shop_order"
+  // Permissões Detalhadas de Gestão de TW Coins Dev (/dev/coins)
+  | "view_dev_coins"
+  | "grant_dev_coins"
+  | "deduct_dev_coins"
+  | "view_dev_coins_transactions"
+  | "manage_dev_coins_rates"
+  | "manage_dev_coins_batch"
   // Permissões do Painel Executivo CEO & Gerenciamento de Bot
   | "view_ceo"
   | "manage_ceo_bot"
@@ -371,6 +388,21 @@ export const ALL_PERMISSIONS: Permission[] = [
   "manage_dev_config",
   "manage_dev_menu",
   "manage_dev_gamification",
+  "view_dev_shop",
+  "create_dev_shop_item",
+  "edit_dev_shop_item",
+  "delete_dev_shop_item",
+  "manage_dev_shop_prices",
+  "manage_dev_shop_stock",
+  "manage_dev_shop_orders",
+  "deliver_dev_shop_order",
+  "refund_dev_shop_order",
+  "view_dev_coins",
+  "grant_dev_coins",
+  "deduct_dev_coins",
+  "view_dev_coins_transactions",
+  "manage_dev_coins_rates",
+  "manage_dev_coins_batch",
   // CEO Panel Permissions
   "view_ceo",
   "manage_ceo_bot",
@@ -418,6 +450,21 @@ export const DEV_PANEL_PERMISSIONS: Permission[] = [
   "manage_dev_config",
   "manage_dev_menu",
   "manage_dev_gamification",
+  "view_dev_shop",
+  "create_dev_shop_item",
+  "edit_dev_shop_item",
+  "delete_dev_shop_item",
+  "manage_dev_shop_prices",
+  "manage_dev_shop_stock",
+  "manage_dev_shop_orders",
+  "deliver_dev_shop_order",
+  "refund_dev_shop_order",
+  "view_dev_coins",
+  "grant_dev_coins",
+  "deduct_dev_coins",
+  "view_dev_coins_transactions",
+  "manage_dev_coins_rates",
+  "manage_dev_coins_batch",
   "view_dev_notifications",
   "manage_dev_notification_rules",
   "create_dev_notification",

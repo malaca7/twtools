@@ -901,3 +901,212 @@ export async function getCoinTransactions(userId: string): Promise<TwCoinTransac
   }));
 }
 
+// ==========================================
+// FUNÇÕES DEV: GERENCIAMENTO DE LOJA
+// ==========================================
+export async function createShopItem(payload: {
+  title: string;
+  description?: string;
+  icon?: string;
+  category: string;
+  price_coins: number;
+  price_xp?: number;
+  rarity?: InsigniaRarity;
+  stock?: number | null;
+  insignia_id?: string | null;
+  active?: boolean;
+  display_order?: number;
+}): Promise<ShopItem> {
+  const { data, error } = await supabase
+    .from("shop_items" as any)
+    .insert({
+      title: payload.title,
+      description: payload.description || null,
+      icon: payload.icon || "Gift",
+      category: payload.category || "geral",
+      price_coins: Math.max(0, Math.floor(payload.price_coins || 0)),
+      price_xp: Math.max(0, Math.floor(payload.price_xp || 0)),
+      rarity: payload.rarity || "comum",
+      stock: payload.stock !== undefined ? payload.stock : null,
+      insignia_id: payload.insignia_id || null,
+      active: payload.active !== undefined ? payload.active : true,
+      display_order: payload.display_order || 0,
+    })
+    .select("*")
+    .single();
+
+  if (error) {
+    throw new Error(error.message || "Erro ao criar item na loja.");
+  }
+
+  return {
+    id: data.id,
+    title: data.title,
+    description: data.description,
+    icon: data.icon,
+    category: data.category,
+    price_coins: Number(data.price_coins || 0),
+    price_xp: Number(data.price_xp || 0),
+    rarity: data.rarity,
+    stock: data.stock !== null ? Number(data.stock) : null,
+    insignia_id: data.insignia_id,
+    active: data.active,
+    display_order: Number(data.display_order || 0),
+    created_at: data.created_at,
+  };
+}
+
+export async function updateShopItem(
+  id: string,
+  payload: Partial<{
+    title: string;
+    description: string | null;
+    icon: string;
+    category: string;
+    price_coins: number;
+    price_xp: number;
+    rarity: InsigniaRarity;
+    stock: number | null;
+    insignia_id: string | null;
+    active: boolean;
+    display_order: number;
+  }>
+): Promise<void> {
+  const updateData: any = { updated_at: new Date().toISOString() };
+  if (payload.title !== undefined) updateData.title = payload.title;
+  if (payload.description !== undefined) updateData.description = payload.description;
+  if (payload.icon !== undefined) updateData.icon = payload.icon;
+  if (payload.category !== undefined) updateData.category = payload.category;
+  if (payload.price_coins !== undefined) updateData.price_coins = Math.max(0, Math.floor(payload.price_coins));
+  if (payload.price_xp !== undefined) updateData.price_xp = Math.max(0, Math.floor(payload.price_xp));
+  if (payload.rarity !== undefined) updateData.rarity = payload.rarity;
+  if (payload.stock !== undefined) updateData.stock = payload.stock;
+  if (payload.insignia_id !== undefined) updateData.insignia_id = payload.insignia_id;
+  if (payload.active !== undefined) updateData.active = payload.active;
+  if (payload.display_order !== undefined) updateData.display_order = payload.display_order;
+
+  const { error } = await supabase
+    .from("shop_items" as any)
+    .update(updateData)
+    .eq("id", id);
+
+  if (error) {
+    throw new Error(error.message || "Erro ao atualizar item da loja.");
+  }
+}
+
+export async function deleteShopItem(id: string): Promise<void> {
+  const { error } = await supabase
+    .from("shop_items" as any)
+    .delete()
+    .eq("id", id);
+
+  if (error) {
+    throw new Error(error.message || "Erro ao excluir item da loja.");
+  }
+}
+
+export async function getAllShopPurchases(): Promise<(ShopPurchase & { buyer_name?: string })[]> {
+  const { data, error } = await supabase
+    .from("shop_purchases" as any)
+    .select("*")
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    console.error("Erro ao carregar todos os pedidos da loja:", error);
+    return [];
+  }
+
+  return (data || []).map((row: any) => ({
+    id: row.id,
+    user_id: row.user_id,
+    item_id: row.item_id,
+    item_title: row.item_title,
+    category: row.category,
+    price_coins_paid: Number(row.price_coins_paid || 0),
+    price_xp_paid: Number(row.price_xp_paid || 0),
+    status: row.status,
+    metadata: row.metadata,
+    created_at: row.created_at,
+    buyer_name: row.metadata?.buyer_name || undefined,
+  }));
+}
+
+export async function updateShopPurchaseStatus(purchaseId: string, status: string): Promise<void> {
+  const { error } = await supabase
+    .from("shop_purchases" as any)
+    .update({ status, updated_at: new Date().toISOString() })
+    .eq("id", purchaseId);
+
+  if (error) {
+    throw new Error(error.message || "Erro ao atualizar status do pedido.");
+  }
+}
+
+export async function devRefundShopPurchase(
+  purchaseId: string,
+  reason?: string
+): Promise<{ success: boolean; message: string; refunded_coins: number }> {
+  const { data, error } = await supabase.rpc("dev_refund_shop_purchase_rpc", {
+    p_purchase_id: purchaseId,
+    p_reason: reason || "Estorno administrativo solicitado",
+  });
+
+  if (error) {
+    throw new Error(error.message || "Erro ao estornar compra.");
+  }
+
+  return data as any;
+}
+
+// ==========================================
+// FUNÇÕES DEV: GERENCIAMENTO DE COINS
+// ==========================================
+export async function devAdjustMemberCoins(
+  targetUserId: string,
+  amount: number,
+  reason: string
+): Promise<{
+  success: boolean;
+  message: string;
+  new_coins: number;
+}> {
+  const { data, error } = await supabase.rpc("dev_adjust_member_coins_rpc", {
+    p_target_user_id: targetUserId,
+    p_amount: Math.floor(amount),
+    p_reason: reason,
+  });
+
+  if (error) {
+    throw new Error(error.message || "Erro ao ajustar moedas do membro.");
+  }
+
+  return data as any;
+}
+
+export async function getAllCoinsTransactions(limit = 100): Promise<TwCoinTransaction[]> {
+  const { data, error } = await supabase
+    .from("tw_coins_transactions" as any)
+    .select("*")
+    .order("created_at", { ascending: false })
+    .limit(limit);
+
+  if (error) {
+    console.error("Erro ao carregar transações de moedas:", error);
+    return [];
+  }
+
+  return (data || []).map((row: any) => ({
+    id: row.id,
+    user_id: row.user_id,
+    amount: Number(row.amount || 0),
+    balance_before: Number(row.balance_before || 0),
+    balance_after: Number(row.balance_after || 0),
+    action_type: row.action_type,
+    description: row.description,
+    metadata: row.metadata,
+    created_at: row.created_at,
+  }));
+}
+
+

@@ -81,6 +81,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         prev.is_developer === next.profile.is_developer &&
         prev.is_ceo === next.profile.is_ceo &&
         prev.custom_url === next.profile.custom_url &&
+        prev.xp === next.profile.xp &&
+        prev.tw_coins === next.profile.tw_coins &&
+        prev.gamification_level === next.profile.gamification_level &&
+        prev.stars_rating === next.profile.stars_rating &&
+        prev.stars_count === next.profile.stars_count &&
         JSON.stringify(prev.custom_theme) === JSON.stringify(next.profile.custom_theme)
       ) {
         return prev;

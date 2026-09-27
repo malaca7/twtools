@@ -54,9 +54,11 @@ import { Route as AuthenticatedConfiguracoesTabRouteImport } from './routes/_aut
 import { Route as AuthenticatedDevIndexRouteImport } from './routes/_authenticated/dev.index'
 import { Route as AuthenticatedDevPageRouteImport } from './routes/_authenticated/dev.$page'
 import { Route as AuthenticatedDevBotRouteImport } from './routes/_authenticated/dev.bot'
+import { Route as AuthenticatedDevCoinsRouteImport } from './routes/_authenticated/dev.coins'
 import { Route as AuthenticatedDevConfiguracaoRouteImport } from './routes/_authenticated/dev.configuracao'
 import { Route as AuthenticatedDevDesempenhoRouteImport } from './routes/_authenticated/dev.desempenho'
 import { Route as AuthenticatedDevEstoqueRouteImport } from './routes/_authenticated/dev.estoque'
+import { Route as AuthenticatedDevLojaRouteImport } from './routes/_authenticated/dev.loja'
 import { Route as AuthenticatedDevMenuLateralRouteImport } from './routes/_authenticated/dev.menu-lateral'
 import { Route as AuthenticatedDevNotificacoesRouteImport } from './routes/_authenticated/dev.notificacoes'
 import { Route as AuthenticatedDevPatchNotesRouteImport } from './routes/_authenticated/dev.patch-notes'
@@ -313,6 +315,11 @@ const AuthenticatedDevBotRoute = AuthenticatedDevBotRouteImport.update({
   path: '/dev/bot',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedDevCoinsRoute = AuthenticatedDevCoinsRouteImport.update({
+  id: '/dev/coins',
+  path: '/dev/coins',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedDevConfiguracaoRoute =
   AuthenticatedDevConfiguracaoRouteImport.update({
     id: '/dev/configuracao',
@@ -328,6 +335,11 @@ const AuthenticatedDevDesempenhoRoute =
 const AuthenticatedDevEstoqueRoute = AuthenticatedDevEstoqueRouteImport.update({
   id: '/dev/estoque',
   path: '/dev/estoque',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedDevLojaRoute = AuthenticatedDevLojaRouteImport.update({
+  id: '/dev/loja',
+  path: '/dev/loja',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedDevMenuLateralRoute =
@@ -496,9 +508,11 @@ export interface FileRoutesByFullPath {
   '/configuracoes/$tab': typeof AuthenticatedConfiguracoesTabRoute
   '/dev/$page': typeof AuthenticatedDevPageRouteWithChildren
   '/dev/bot': typeof AuthenticatedDevBotRouteWithChildren
+  '/dev/coins': typeof AuthenticatedDevCoinsRoute
   '/dev/configuracao': typeof AuthenticatedDevConfiguracaoRouteWithChildren
   '/dev/desempenho': typeof AuthenticatedDevDesempenhoRoute
   '/dev/estoque': typeof AuthenticatedDevEstoqueRouteWithChildren
+  '/dev/loja': typeof AuthenticatedDevLojaRoute
   '/dev/menu-lateral': typeof AuthenticatedDevMenuLateralRoute
   '/dev/notificacoes': typeof AuthenticatedDevNotificacoesRoute
   '/dev/patch-notes': typeof AuthenticatedDevPatchNotesRoute
@@ -566,9 +580,11 @@ export interface FileRoutesByTo {
   '/configuracoes/$tab': typeof AuthenticatedConfiguracoesTabRoute
   '/dev/$page': typeof AuthenticatedDevPageRouteWithChildren
   '/dev/bot': typeof AuthenticatedDevBotRouteWithChildren
+  '/dev/coins': typeof AuthenticatedDevCoinsRoute
   '/dev/configuracao': typeof AuthenticatedDevConfiguracaoRouteWithChildren
   '/dev/desempenho': typeof AuthenticatedDevDesempenhoRoute
   '/dev/estoque': typeof AuthenticatedDevEstoqueRouteWithChildren
+  '/dev/loja': typeof AuthenticatedDevLojaRoute
   '/dev/menu-lateral': typeof AuthenticatedDevMenuLateralRoute
   '/dev/notificacoes': typeof AuthenticatedDevNotificacoesRoute
   '/dev/patch-notes': typeof AuthenticatedDevPatchNotesRoute
@@ -638,9 +654,11 @@ export interface FileRoutesById {
   '/_authenticated/configuracoes/$tab': typeof AuthenticatedConfiguracoesTabRoute
   '/_authenticated/dev/$page': typeof AuthenticatedDevPageRouteWithChildren
   '/_authenticated/dev/bot': typeof AuthenticatedDevBotRouteWithChildren
+  '/_authenticated/dev/coins': typeof AuthenticatedDevCoinsRoute
   '/_authenticated/dev/configuracao': typeof AuthenticatedDevConfiguracaoRouteWithChildren
   '/_authenticated/dev/desempenho': typeof AuthenticatedDevDesempenhoRoute
   '/_authenticated/dev/estoque': typeof AuthenticatedDevEstoqueRouteWithChildren
+  '/_authenticated/dev/loja': typeof AuthenticatedDevLojaRoute
   '/_authenticated/dev/menu-lateral': typeof AuthenticatedDevMenuLateralRoute
   '/_authenticated/dev/notificacoes': typeof AuthenticatedDevNotificacoesRoute
   '/_authenticated/dev/patch-notes': typeof AuthenticatedDevPatchNotesRoute
@@ -710,9 +728,11 @@ export interface FileRouteTypes {
     | '/configuracoes/$tab'
     | '/dev/$page'
     | '/dev/bot'
+    | '/dev/coins'
     | '/dev/configuracao'
     | '/dev/desempenho'
     | '/dev/estoque'
+    | '/dev/loja'
     | '/dev/menu-lateral'
     | '/dev/notificacoes'
     | '/dev/patch-notes'
@@ -780,9 +800,11 @@ export interface FileRouteTypes {
     | '/configuracoes/$tab'
     | '/dev/$page'
     | '/dev/bot'
+    | '/dev/coins'
     | '/dev/configuracao'
     | '/dev/desempenho'
     | '/dev/estoque'
+    | '/dev/loja'
     | '/dev/menu-lateral'
     | '/dev/notificacoes'
     | '/dev/patch-notes'
@@ -851,9 +873,11 @@ export interface FileRouteTypes {
     | '/_authenticated/configuracoes/$tab'
     | '/_authenticated/dev/$page'
     | '/_authenticated/dev/bot'
+    | '/_authenticated/dev/coins'
     | '/_authenticated/dev/configuracao'
     | '/_authenticated/dev/desempenho'
     | '/_authenticated/dev/estoque'
+    | '/_authenticated/dev/loja'
     | '/_authenticated/dev/menu-lateral'
     | '/_authenticated/dev/notificacoes'
     | '/_authenticated/dev/patch-notes'
@@ -1205,6 +1229,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedDevBotRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/dev/coins': {
+      id: '/_authenticated/dev/coins'
+      path: '/dev/coins'
+      fullPath: '/dev/coins'
+      preLoaderRoute: typeof AuthenticatedDevCoinsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/dev/configuracao': {
       id: '/_authenticated/dev/configuracao'
       path: '/dev/configuracao'
@@ -1224,6 +1255,13 @@ declare module '@tanstack/react-router' {
       path: '/dev/estoque'
       fullPath: '/dev/estoque'
       preLoaderRoute: typeof AuthenticatedDevEstoqueRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/dev/loja': {
+      id: '/_authenticated/dev/loja'
+      path: '/dev/loja'
+      fullPath: '/dev/loja'
+      preLoaderRoute: typeof AuthenticatedDevLojaRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/dev/menu-lateral': {
@@ -1617,9 +1655,11 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedVendasRoute: typeof AuthenticatedVendasRoute
   AuthenticatedDevPageRoute: typeof AuthenticatedDevPageRouteWithChildren
   AuthenticatedDevBotRoute: typeof AuthenticatedDevBotRouteWithChildren
+  AuthenticatedDevCoinsRoute: typeof AuthenticatedDevCoinsRoute
   AuthenticatedDevConfiguracaoRoute: typeof AuthenticatedDevConfiguracaoRouteWithChildren
   AuthenticatedDevDesempenhoRoute: typeof AuthenticatedDevDesempenhoRoute
   AuthenticatedDevEstoqueRoute: typeof AuthenticatedDevEstoqueRouteWithChildren
+  AuthenticatedDevLojaRoute: typeof AuthenticatedDevLojaRoute
   AuthenticatedDevMenuLateralRoute: typeof AuthenticatedDevMenuLateralRoute
   AuthenticatedDevNotificacoesRoute: typeof AuthenticatedDevNotificacoesRoute
   AuthenticatedDevPatchNotesRoute: typeof AuthenticatedDevPatchNotesRoute
@@ -1662,10 +1702,12 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedVendasRoute: AuthenticatedVendasRoute,
   AuthenticatedDevPageRoute: AuthenticatedDevPageRouteWithChildren,
   AuthenticatedDevBotRoute: AuthenticatedDevBotRouteWithChildren,
+  AuthenticatedDevCoinsRoute: AuthenticatedDevCoinsRoute,
   AuthenticatedDevConfiguracaoRoute:
     AuthenticatedDevConfiguracaoRouteWithChildren,
   AuthenticatedDevDesempenhoRoute: AuthenticatedDevDesempenhoRoute,
   AuthenticatedDevEstoqueRoute: AuthenticatedDevEstoqueRouteWithChildren,
+  AuthenticatedDevLojaRoute: AuthenticatedDevLojaRoute,
   AuthenticatedDevMenuLateralRoute: AuthenticatedDevMenuLateralRoute,
   AuthenticatedDevNotificacoesRoute: AuthenticatedDevNotificacoesRoute,
   AuthenticatedDevPatchNotesRoute: AuthenticatedDevPatchNotesRoute,

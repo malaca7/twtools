@@ -26,10 +26,12 @@ export const DEFAULT_DEV_MENU_ITEMS: DevMenuItemConfig[] = [
   { id: "dev-patch-notes", title: "Patch Notes & Releases", url: "/dev/patch-notes", iconName: "Sparkles", visible: true, category: "DEV", order: 2 },
   { id: "dev-desempenho", title: "Gestão Desempenho", url: "/dev/desempenho", iconName: "TrendingUp", visible: true, category: "DEV", order: 3 },
   { id: "dev-xp-insignias", title: "Xp e insígnias", url: "/dev/xp-insignias", iconName: "Award", visible: true, category: "DEV", order: 4 },
-  { id: "dev-permissoes", title: "Permissões Tag Dev", url: "/dev/permissoes", iconName: "KeyRound", visible: true, category: "DEV", order: 5 },
-  { id: "dev-configuracao", title: "Configurações Dev", url: "/dev/configuracao", iconName: "Code2", visible: true, category: "DEV", order: 6 },
-  { id: "dev-menu-lateral", title: "Menu Lateral Dev", url: "/dev/menu-lateral", iconName: "Sliders", visible: true, category: "DEV", order: 7 },
-  { id: "dev-notificacoes", title: "Central de Notificações", url: "/dev/notificacoes", iconName: "BellRing", visible: true, category: "DEV", order: 8 },
+  { id: "dev-loja", title: "Gestão da Loja", url: "/dev/loja", iconName: "ShoppingBag", visible: true, category: "DEV", order: 5 },
+  { id: "dev-coins", title: "Gestão de TW Coins", url: "/dev/coins", iconName: "Coins", visible: true, category: "DEV", order: 6 },
+  { id: "dev-permissoes", title: "Permissões Tag Dev", url: "/dev/permissoes", iconName: "KeyRound", visible: true, category: "DEV", order: 7 },
+  { id: "dev-configuracao", title: "Configurações Dev", url: "/dev/configuracao", iconName: "Code2", visible: true, category: "DEV", order: 8 },
+  { id: "dev-menu-lateral", title: "Menu Lateral Dev", url: "/dev/menu-lateral", iconName: "Sliders", visible: true, category: "DEV", order: 9 },
+  { id: "dev-notificacoes", title: "Central de Notificações", url: "/dev/notificacoes", iconName: "BellRing", visible: true, category: "DEV", order: 10 },
 ];
 
 const STORAGE_KEY = "tw_dev_menu_config";
