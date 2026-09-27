@@ -15,6 +15,7 @@ const RESERVED_ROUTES = new Set([
   "fundo-caixa",
   "metas",
   "rankings",
+  "loja",
   "avisos",
   "hierarquia",
   "cargos",

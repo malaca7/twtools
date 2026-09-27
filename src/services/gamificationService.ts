@@ -710,3 +710,194 @@ export async function devGetAllXpTransactions(limit = 100, memberId?: string): P
     avatar_url: row.profiles?.avatar_url || row.profiles?.discord_avatar_url,
   }));
 }
+
+// ==========================================
+// TIPOS E SERVIÇOS DA LOJA E MOEDA TW COINS
+// ==========================================
+
+export interface ShopItem {
+  id: string;
+  title: string;
+  description: string;
+  icon: string;
+  category: "insignias" | "vantagens" | "recursos" | "veiculos" | "personalizacao" | string;
+  price_coins: number;
+  price_xp: number;
+  rarity: InsigniaRarity;
+  stock: number | null;
+  insignia_id?: string | null;
+  active: boolean;
+  display_order: number;
+  created_at: string;
+  insignia?: InsigniaItem;
+}
+
+export interface ShopPurchase {
+  id: string;
+  user_id: string;
+  item_id: string;
+  item_title: string;
+  category: string;
+  price_coins_paid: number;
+  price_xp_paid: number;
+  status: string;
+  metadata?: any;
+  created_at: string;
+}
+
+export interface TwCoinTransaction {
+  id: string;
+  user_id: string;
+  amount: number;
+  balance_before: number;
+  balance_after: number;
+  action_type: string;
+  description: string;
+  metadata?: any;
+  created_at: string;
+}
+
+export async function getShopItems(): Promise<ShopItem[]> {
+  const { data, error } = await supabase
+    .from("shop_items" as any)
+    .select(`
+      *,
+      insignia:insignias (
+        id,
+        name,
+        description,
+        icon,
+        rarity,
+        xp_cost
+      )
+    `)
+    .eq("active", true)
+    .order("display_order", { ascending: true });
+
+  if (error) {
+    console.error("Erro ao carregar itens da loja:", error);
+    return [];
+  }
+
+  return (data || []).map((row: any) => ({
+    id: row.id,
+    title: row.title,
+    description: row.description,
+    icon: row.icon || "Gift",
+    category: row.category,
+    price_coins: Number(row.price_coins || 0),
+    price_xp: Number(row.price_xp || 0),
+    rarity: (row.rarity || "comum") as InsigniaRarity,
+    stock: row.stock !== null ? Number(row.stock) : null,
+    insignia_id: row.insignia_id,
+    active: row.active,
+    display_order: Number(row.display_order || 0),
+    created_at: row.created_at,
+    insignia: row.insignia,
+  }));
+}
+
+export async function getMemberCoins(userId: string): Promise<number> {
+  if (!userId) return 0;
+  const { data, error } = await supabase
+    .from("profiles" as any)
+    .select("tw_coins")
+    .eq("user_id", userId)
+    .maybeSingle();
+
+  if (error || !data) return 0;
+  return Number((data as any).tw_coins || 0);
+}
+
+export async function exchangeXpForCoins(xpAmount: number): Promise<{
+  success: boolean;
+  coins_gained: number;
+  new_xp: number;
+  new_coins: number;
+  message: string;
+}> {
+  const { data, error } = await supabase.rpc("exchange_xp_for_coins_rpc", {
+    p_xp_amount: Math.floor(xpAmount),
+  });
+
+  if (error) {
+    throw new Error(error.message || "Erro ao converter XP em TW Coins.");
+  }
+
+  return data as any;
+}
+
+export async function buyShopItem(itemId: string): Promise<{
+  success: boolean;
+  purchase_id: string;
+  item_title: string;
+  price_paid: number;
+  new_coins: number;
+  has_insignia: boolean;
+  message: string;
+}> {
+  const { data, error } = await supabase.rpc("buy_shop_item_rpc", {
+    p_item_id: itemId,
+  });
+
+  if (error) {
+    throw new Error(error.message || "Erro ao comprar item na loja.");
+  }
+
+  return data as any;
+}
+
+export async function getMemberShopPurchases(userId: string): Promise<ShopPurchase[]> {
+  if (!userId) return [];
+  const { data, error } = await supabase
+    .from("shop_purchases" as any)
+    .select("*")
+    .eq("user_id", userId)
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    console.error("Erro ao buscar histórico de compras:", error);
+    return [];
+  }
+
+  return (data || []).map((row: any) => ({
+    id: row.id,
+    user_id: row.user_id,
+    item_id: row.item_id,
+    item_title: row.item_title,
+    category: row.category,
+    price_coins_paid: Number(row.price_coins_paid || 0),
+    price_xp_paid: Number(row.price_xp_paid || 0),
+    status: row.status,
+    metadata: row.metadata,
+    created_at: row.created_at,
+  }));
+}
+
+export async function getCoinTransactions(userId: string): Promise<TwCoinTransaction[]> {
+  if (!userId) return [];
+  const { data, error } = await supabase
+    .from("tw_coins_transactions" as any)
+    .select("*")
+    .eq("user_id", userId)
+    .order("created_at", { ascending: false })
+    .limit(50);
+
+  if (error) {
+    console.error("Erro ao buscar transações de moedas:", error);
+    return [];
+  }
+
+  return (data || []).map((row: any) => ({
+    id: row.id,
+    user_id: row.user_id,
+    amount: Number(row.amount || 0),
+    balance_before: Number(row.balance_before || 0),
+    balance_after: Number(row.balance_after || 0),
+    action_type: row.action_type,
+    description: row.description,
+    metadata: row.metadata,
+    created_at: row.created_at,
+  }));
+}
+

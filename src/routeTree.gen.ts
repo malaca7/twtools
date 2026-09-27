@@ -31,6 +31,7 @@ import { Route as AuthenticatedHierarquiaRouteImport } from './routes/_authentic
 import { Route as AuthenticatedLifeRouteImport } from './routes/_authenticated/life'
 import { Route as AuthenticatedLivesRouteImport } from './routes/_authenticated/lives'
 import { Route as AuthenticatedLogsRouteImport } from './routes/_authenticated/logs'
+import { Route as AuthenticatedLojaRouteImport } from './routes/_authenticated/loja'
 import { Route as AuthenticatedMembrosRouteImport } from './routes/_authenticated/membros'
 import { Route as AuthenticatedMetasRouteImport } from './routes/_authenticated/metas'
 import { Route as AuthenticatedMovimentacoesRouteImport } from './routes/_authenticated/movimentacoes'
@@ -189,6 +190,11 @@ const AuthenticatedLivesRoute = AuthenticatedLivesRouteImport.update({
 const AuthenticatedLogsRoute = AuthenticatedLogsRouteImport.update({
   id: '/logs',
   path: '/logs',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedLojaRoute = AuthenticatedLojaRouteImport.update({
+  id: '/loja',
+  path: '/loja',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedMembrosRoute = AuthenticatedMembrosRouteImport.update({
@@ -468,6 +474,7 @@ export interface FileRoutesByFullPath {
   '/life': typeof AuthenticatedLifeRoute
   '/lives': typeof AuthenticatedLivesRouteWithChildren
   '/logs': typeof AuthenticatedLogsRoute
+  '/loja': typeof AuthenticatedLojaRoute
   '/membros': typeof AuthenticatedMembrosRoute
   '/metas': typeof AuthenticatedMetasRouteWithChildren
   '/movimentacoes': typeof AuthenticatedMovimentacoesRouteWithChildren
@@ -537,6 +544,7 @@ export interface FileRoutesByTo {
   '/life': typeof AuthenticatedLifeRoute
   '/lives': typeof AuthenticatedLivesRouteWithChildren
   '/logs': typeof AuthenticatedLogsRoute
+  '/loja': typeof AuthenticatedLojaRoute
   '/membros': typeof AuthenticatedMembrosRoute
   '/metas': typeof AuthenticatedMetasRouteWithChildren
   '/movimentacoes': typeof AuthenticatedMovimentacoesRouteWithChildren
@@ -608,6 +616,7 @@ export interface FileRoutesById {
   '/_authenticated/life': typeof AuthenticatedLifeRoute
   '/_authenticated/lives': typeof AuthenticatedLivesRouteWithChildren
   '/_authenticated/logs': typeof AuthenticatedLogsRoute
+  '/_authenticated/loja': typeof AuthenticatedLojaRoute
   '/_authenticated/membros': typeof AuthenticatedMembrosRoute
   '/_authenticated/metas': typeof AuthenticatedMetasRouteWithChildren
   '/_authenticated/movimentacoes': typeof AuthenticatedMovimentacoesRouteWithChildren
@@ -679,6 +688,7 @@ export interface FileRouteTypes {
     | '/life'
     | '/lives'
     | '/logs'
+    | '/loja'
     | '/membros'
     | '/metas'
     | '/movimentacoes'
@@ -748,6 +758,7 @@ export interface FileRouteTypes {
     | '/life'
     | '/lives'
     | '/logs'
+    | '/loja'
     | '/membros'
     | '/metas'
     | '/movimentacoes'
@@ -818,6 +829,7 @@ export interface FileRouteTypes {
     | '/_authenticated/life'
     | '/_authenticated/lives'
     | '/_authenticated/logs'
+    | '/_authenticated/loja'
     | '/_authenticated/membros'
     | '/_authenticated/metas'
     | '/_authenticated/movimentacoes'
@@ -1030,6 +1042,13 @@ declare module '@tanstack/react-router' {
       path: '/logs'
       fullPath: '/logs'
       preLoaderRoute: typeof AuthenticatedLogsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/loja': {
+      id: '/_authenticated/loja'
+      path: '/loja'
+      fullPath: '/loja'
+      preLoaderRoute: typeof AuthenticatedLojaRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/membros': {
@@ -1584,6 +1603,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedLifeRoute: typeof AuthenticatedLifeRoute
   AuthenticatedLivesRoute: typeof AuthenticatedLivesRouteWithChildren
   AuthenticatedLogsRoute: typeof AuthenticatedLogsRoute
+  AuthenticatedLojaRoute: typeof AuthenticatedLojaRoute
   AuthenticatedMembrosRoute: typeof AuthenticatedMembrosRoute
   AuthenticatedMetasRoute: typeof AuthenticatedMetasRouteWithChildren
   AuthenticatedMovimentacoesRoute: typeof AuthenticatedMovimentacoesRouteWithChildren
@@ -1628,6 +1648,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedLifeRoute: AuthenticatedLifeRoute,
   AuthenticatedLivesRoute: AuthenticatedLivesRouteWithChildren,
   AuthenticatedLogsRoute: AuthenticatedLogsRoute,
+  AuthenticatedLojaRoute: AuthenticatedLojaRoute,
   AuthenticatedMembrosRoute: AuthenticatedMembrosRoute,
   AuthenticatedMetasRoute: AuthenticatedMetasRouteWithChildren,
   AuthenticatedMovimentacoesRoute: AuthenticatedMovimentacoesRouteWithChildren,

@@ -80,6 +80,9 @@ export type Permission =
   | "view_insignias"
   | "grant_insignia"
   | "manage_insignias_catalog"
+  | "view_shop"
+  | "buy_shop_items"
+  | "manage_shop"
   | "evaluate_member"
   | "manage_xp_rules"
   | "adjust_member_xp"
@@ -297,6 +300,9 @@ export const ALL_PERMISSIONS: Permission[] = [
   "view_insignias",
   "grant_insignia",
   "manage_insignias_catalog",
+  "view_shop",
+  "buy_shop_items",
+  "manage_shop",
   "evaluate_member",
   "manage_xp_rules",
   "adjust_member_xp",
@@ -532,6 +538,9 @@ const OFFICER: Permission[] = [
   "view_insignias",
   "grant_insignia",
   "manage_insignias_catalog",
+  "view_shop",
+  "buy_shop_items",
+  "manage_shop",
   "evaluate_member",
   "manage_xp_rules",
   "adjust_member_xp",
@@ -644,6 +653,8 @@ const MANAGER: Permission[] = [
   "view_rankings_movements",
   "view_insignias",
   "grant_insignia",
+  "view_shop",
+  "buy_shop_items",
   "evaluate_member",
   "view_member_xp",
   "view_performance",
@@ -692,6 +703,8 @@ const MEMBER: Permission[] = [
   "view_rankings",
   "view_rankings_xp",
   "view_insignias",
+  "view_shop",
+  "buy_shop_items",
   "view_member_xp",
   "view_performance",
   "view_goals",
@@ -734,6 +747,8 @@ const NOVATO: Permission[] = [
   "view_rankings",
   "view_rankings_xp",
   "view_insignias",
+  "view_shop",
+  "buy_shop_items",
   "view_performance",
   "view_goals",
   "view_hierarchy",

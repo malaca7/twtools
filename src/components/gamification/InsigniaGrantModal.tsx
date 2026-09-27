@@ -98,19 +98,21 @@ export function InsigniaGrantModal({
   );
 
   const filteredCatalog = useMemo(() => {
-    if (!search.trim()) return catalog;
+    // FILTRAR TOTALMENTE AS INSÍGNIAS QUE O MEMBRO JÁ POSSUI
+    const available = catalog.filter((item) => !alreadyOwnedIds.has(item.id));
+    if (!search.trim()) return available;
     const q = search.toLowerCase();
-    return catalog.filter(
+    return available.filter(
       (item) =>
         item.name.toLowerCase().includes(q) ||
         item.description.toLowerCase().includes(q) ||
         item.rarity.toLowerCase().includes(q)
     );
-  }, [catalog, search]);
+  }, [catalog, search, alreadyOwnedIds]);
 
   const selectedInsignia = useMemo(
-    () => catalog.find((i) => i.id === selectedInsigniaId),
-    [catalog, selectedInsigniaId]
+    () => filteredCatalog.find((i) => i.id === selectedInsigniaId),
+    [filteredCatalog, selectedInsigniaId]
   );
 
   const hasEnoughXp = selectedInsignia ? grantorXp >= selectedInsignia.xp_cost : true;
@@ -220,16 +222,24 @@ export function InsigniaGrantModal({
 
           {/* BUSCA E SELEÇÃO DE INSÍGNIAS */}
           <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <label className="text-xs font-bold text-foreground">
-                Selecione a Insígnia do Catálogo:
+            <div className="flex items-center justify-between flex-wrap gap-1.5">
+              <label className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                <span>Insígnias Disponíveis:</span>
+                <Badge variant="outline" className="text-[10px] bg-amber-500/10 text-amber-300 border-amber-500/30">
+                  {filteredCatalog.length}
+                </Badge>
+                {alreadyOwnedIds.size > 0 && (
+                  <span className="text-[10px] text-muted-foreground font-normal">
+                    ({alreadyOwnedIds.size} já possuídas ocultadas)
+                  </span>
+                )}
               </label>
-              <div className="relative w-44">
+              <div className="relative w-40">
                 <Search className="h-3 w-3 absolute left-2.5 top-2.5 text-muted-foreground" />
                 <Input
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
-                  placeholder="Buscar insígnia..."
+                  placeholder="Filtrar catálogo..."
                   className="h-8 pl-8 text-xs bg-background/50"
                 />
               </div>
@@ -241,8 +251,15 @@ export function InsigniaGrantModal({
                 Carregando catálogo...
               </div>
             ) : filteredCatalog.length === 0 ? (
-              <div className="py-6 text-center text-xs text-muted-foreground border border-dashed rounded-xl">
-                Nenhuma insígnia encontrada com os termos buscados.
+              <div className="py-8 text-center text-xs text-muted-foreground border border-dashed rounded-xl p-4 space-y-1.5">
+                {catalog.length > 0 && alreadyOwnedIds.size >= catalog.length ? (
+                  <>
+                    <p className="font-bold text-amber-400">🏆 Membro 100% Condecorado!</p>
+                    <p>{memberDisplayName} já possui todas as {catalog.length} insígnias cadastradas no catálogo da facção.</p>
+                  </>
+                ) : (
+                  <p>Nenhuma insígnia disponível para concessão {search ? "com os termos buscados" : ""}.</p>
+                )}
               </div>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 max-h-56 overflow-y-auto pr-1">

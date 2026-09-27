@@ -77,6 +77,7 @@ export const READ_ONLY_PERMISSIONS: Permission[] = [
   "view_rankings_financial",
   "view_rankings_movements",
   "view_insignias",
+  "view_shop",
   "view_member_xp",
   "view_performance",
   "view_goals",
@@ -267,9 +268,25 @@ export const PAGE_CARDS: PageCardConfig[] = [
       {
         key: "grant_insignia",
         label: "Conceder Insígnias a Membros",
-        description: "Permite premiar membros concedendo insígnias (o custo em XP é debitado do saldo do próprio concedente).",
+        description: "Permite a qualquer cargo com esta permissão ativa condecorar membros (o custo em XP é debitado do saldo do concedente).",
         badge: "Gestão",
-        importantNote: "Requer saldo de XP suficiente no perfil de quem está concedendo.",
+        importantNote: "Funciona para qualquer cargo configurado com esta permissão. Requer saldo de XP suficiente.",
+      },
+      {
+        key: "view_shop",
+        label: "Visualizar Loja Twin Wheels",
+        description: "Permite acessar o catálogo oficial da loja da facção e consultar ofertas disponíveis.",
+      },
+      {
+        key: "buy_shop_items",
+        label: "Comprar Itens & Trocar XP por Moedas",
+        description: "Permite converter XP acumulado em TW Coins e comprar insígnias, vantagens e suprimentos na loja.",
+      },
+      {
+        key: "manage_shop",
+        label: "Gerenciar Catálogo da Loja",
+        description: "Permite cadastrar novos produtos, editar preços, estoque e gerenciar itens da loja oficial.",
+        badge: "Administração",
       },
       {
         key: "manage_insignias_catalog",

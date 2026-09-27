@@ -37,6 +37,7 @@ import { DevEstoquePageContent } from "@/routes/_authenticated/dev.estoque";
 import { DevXpInsigniasPage } from "@/routes/_authenticated/dev.xp-insignias";
 import { GestaoEstoquePage } from "@/routes/_authenticated/gestao-estoque";
 import { LifePage } from "@/routes/_authenticated/life";
+import { ShopPage } from "@/components/shop/ShopPage";
 
 export interface PlatformPageDispatcherProps {
   page: string;
@@ -183,6 +184,10 @@ function InnerPageResolver({ page, tab, mode }: { page: string; tab?: string; mo
       return <AusenciasPage />;
     case "rankings":
       return <RankingsPage />;
+    case "loja":
+    case "shop":
+    case "store":
+      return <ShopPage />;
     case "desempenho":
     case "meu-desempenho":
       return <MeuDesempenhoPage />;
