@@ -34,7 +34,6 @@ import { CeoAjustesEstoqueContent } from "@/routes/_authenticated/ceo.ajustes-es
 import { DevNotificationsPage } from "@/routes/_authenticated/dev.notificacoes";
 import { DevBotPageContent } from "@/routes/_authenticated/dev.bot";
 import { DevEstoquePageContent } from "@/routes/_authenticated/dev.estoque";
-import { DevHubContent } from "@/routes/_authenticated/dev.index";
 import { GestaoEstoquePage } from "@/routes/_authenticated/gestao-estoque";
 import { LifePage } from "@/routes/_authenticated/life";
 
@@ -120,8 +119,8 @@ function InnerPageResolver({ page, tab, mode }: { page: string; tab?: string; mo
 
   // DEV Specific modules
   if (mode === "dev") {
-    if (normalizedPage === "hub" || normalizedPage === "dashboard") {
-      return <DevHubContent />;
+    if (normalizedPage === "hub") {
+      return <Navigate to="/dev/dashboard" replace />;
     }
     if (normalizedPage === "bot") {
       return <DevBotPageContent initialTab={tab} />;
@@ -207,7 +206,7 @@ function InnerPageResolver({ page, tab, mode }: { page: string; tab?: string; mo
       return <PublicProfilePage handleOverride={tab} />;
     default:
       if (mode === "dev") {
-        return <Navigate to="/dev" replace />;
+        return <Navigate to="/dev/dashboard" replace />;
       }
       if (mode === "ceo") {
         return <Navigate to="/ceo/dashboard" replace />;

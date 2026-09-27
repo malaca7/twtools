@@ -14,6 +14,8 @@ function DevConfiguracaoTabRoute() {
   useEffect(() => {
     if (tab === "bot-manage" || tab === "webhooks" || tab === "discord-logs") {
       window.location.replace(`/dev/bot/${tab}`);
+    } else if (tab === "lives") {
+      window.location.replace("/dev/configuracao");
     }
   }, [tab]);
 

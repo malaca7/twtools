@@ -87,6 +87,7 @@ import {
 import {
   getDevThemeColorSync,
   getCeoThemeColorSync,
+  getMemberThemeColorSync,
   DEV_CONFIG_EVENT,
 } from "@/services/devService";
 import { CategoryIconPickerModal } from "@/components/dev/CategoryIconPickerModal";
@@ -2738,12 +2739,14 @@ function DevMenuLateralContent() {
 
   const [devTheme, setDevTheme] = useState<PanelColor>(() => getDevThemeColorSync());
   const [ceoTheme, setCeoTheme] = useState<PanelColor>(() => getCeoThemeColorSync());
+  const [memberTheme, setMemberTheme] = useState<PanelColor>(() => getMemberThemeColorSync());
 
   useEffect(() => {
     const handleConfig = (e: any) => {
       if (e?.detail) {
         if (e.detail.devThemeColor) setDevTheme(e.detail.devThemeColor);
         if (e.detail.ceoThemeColor) setCeoTheme(e.detail.ceoThemeColor);
+        if (e.detail.memberThemeColor) setMemberTheme(e.detail.memberThemeColor);
       }
     };
     window.addEventListener(DEV_CONFIG_EVENT, handleConfig);
@@ -2752,6 +2755,7 @@ function DevMenuLateralContent() {
 
   const devStyle = useMemo(() => getPanelColorStyle(devTheme, "rose"), [devTheme]);
   const ceoStyle = useMemo(() => getPanelColorStyle(ceoTheme, "amber"), [ceoTheme]);
+  const memberStyle = useMemo(() => getPanelColorStyle(memberTheme, "cyan"), [memberTheme]);
 
   return (
     <div className="space-y-6 pb-12 animate-in fade-in-50 duration-300">
@@ -2779,7 +2783,7 @@ function DevMenuLateralContent() {
             className={cn(
               "text-xs font-bold gap-2 py-2.5 px-3.5 sm:px-4 rounded-xl transition-all cursor-pointer shrink-0",
               activeTab === "plataforma"
-                ? "bg-primary text-primary-foreground shadow-md"
+                ? cn(memberStyle.bgSolidClass, "shadow-md ring-1", memberStyle.ringClass)
                 : "hover:bg-secondary/50 text-muted-foreground"
             )}
           >

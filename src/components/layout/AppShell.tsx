@@ -54,6 +54,7 @@ import {
   type CeoConfiguration,
   getDevThemeColorSync,
   getCeoThemeColorSync,
+  getMemberThemeColorSync,
   DEV_CONFIG_EVENT,
 } from "@/services/devService";
 import {
@@ -168,8 +169,7 @@ const URL_TO_PERMISSION_MAP: Record<string, Permission> = {
 };
 
 const DEV_MODULE_NAV_ITEMS: MasterNavItem[] = [
-  { id: "dev-hub", title: "Painel Dev Geral", url: "/dev", icon: Terminal, defaultCat: "DEV", defaultOrder: 0 },
-  { id: "dev-bot", title: "Bot", url: "/dev/bot", icon: Bot, defaultCat: "DEV", defaultOrder: 1 },
+  { id: "dev-bot", title: "Bot", url: "/dev/bot", icon: Bot, defaultCat: "DEV", defaultOrder: 0 },
   { id: "dev-estoque", title: "Estoque", url: "/dev/estoque", icon: Boxes, defaultCat: "DEV", defaultOrder: 2 },
   { id: "dev-patch-notes", title: "Patch Notes & Releases", url: "/dev/patch-notes", icon: Sparkles, defaultCat: "DEV", defaultOrder: 3 },
   { id: "dev-desempenho", title: "Gestão Desempenho", url: "/dev/desempenho", icon: TrendingUp, defaultCat: "DEV", defaultOrder: 4 },
@@ -210,12 +210,14 @@ function DynamicSidebarNavigation() {
 
   const [devTheme, setDevTheme] = useState<PanelColor>(() => getDevThemeColorSync());
   const [ceoTheme, setCeoTheme] = useState<PanelColor>(() => getCeoThemeColorSync());
+  const [memberTheme, setMemberTheme] = useState<PanelColor>(() => getMemberThemeColorSync());
 
   useEffect(() => {
     const handleConfigChange = (e: any) => {
       if (e?.detail) {
         if (e.detail.devThemeColor) setDevTheme(e.detail.devThemeColor);
         if (e.detail.ceoThemeColor) setCeoTheme(e.detail.ceoThemeColor);
+        if (e.detail.memberThemeColor) setMemberTheme(e.detail.memberThemeColor);
       }
     };
     window.addEventListener(DEV_CONFIG_EVENT, handleConfigChange);
@@ -224,6 +226,7 @@ function DynamicSidebarNavigation() {
 
   const devStyle = useMemo(() => getPanelColorStyle(devTheme, "rose"), [devTheme]);
   const ceoStyle = useMemo(() => getPanelColorStyle(ceoTheme, "amber"), [ceoTheme]);
+  const memberStyle = useMemo(() => getPanelColorStyle(memberTheme, "cyan"), [memberTheme]);
 
   const isItemActive = useCallback(
     (targetUrl: string) => {
@@ -244,7 +247,6 @@ function DynamicSidebarNavigation() {
         }
         return false;
       }
-      if (targetUrl === "/dev" && (pathname === "/dev" || pathname === "/dev/")) return true;
       if (targetUrl === "/ceo" && (pathname === "/ceo" || pathname === "/ceo/")) return true;
       if (pathname === targetUrl) return true;
       if (targetUrl !== "/dev" && targetUrl !== "/ceo" && targetUrl !== "/" && pathname.startsWith(targetUrl + "/")) return true;
@@ -491,7 +493,7 @@ function DynamicSidebarNavigation() {
       });
 
       const customDevItems: MasterNavItem[] = devValidItems
-        .filter((c) => !defaultDevIds.has(c.id))
+        .filter((c) => !defaultDevIds.has(c.id) && c.id !== "dev-hub" && c.url !== "/dev")
         .map((c, idx) => ({
           id: c.id,
           title: c.title,
@@ -706,21 +708,18 @@ function DynamicSidebarNavigation() {
             : category === "CEO"
         );
 
-        let activeStyle = null;
+        let activeStyle = isDevCategory ? devStyle : isCeoCategory ? ceoStyle : memberStyle;
         let defaultFallbackIcon = FolderTree;
         let savedIconName: string | null | undefined = null;
 
         if (isDevCategory) {
-          activeStyle = devStyle;
           defaultFallbackIcon = Terminal;
           savedIconName = devMenuConfig?.categoryIcons?.[category];
         } else if (isCeoCategory) {
-          activeStyle = ceoStyle;
           defaultFallbackIcon = Crown;
           savedIconName = ceoMenuConfig?.categoryIcons?.[category];
         } else {
           // Categorias padrão da plataforma (Operação, Gestão, Administração, etc.)
-          activeStyle = null;
           savedIconName = menuConfig?.categoryIcons?.[category];
           if (category === "Operação") {
             defaultFallbackIcon = Activity;
@@ -746,12 +745,10 @@ function DynamicSidebarNavigation() {
                 <span className="flex items-center gap-2 truncate">
                   <span
                     className={cn(
-                      "flex items-center justify-center h-5 w-5 rounded-md shrink-0 transition-colors",
-                      isDevCategory
-                        ? "bg-rose-500/15 text-rose-400 border border-rose-500/30"
-                        : isCeoCategory
-                        ? "bg-amber-500/15 text-amber-400 border border-amber-500/30"
-                        : "bg-primary/10 text-primary border border-primary/20"
+                      "flex items-center justify-center h-5 w-5 rounded-md shrink-0 transition-colors border",
+                      activeStyle.bgSubtleClass,
+                      activeStyle.iconClass || activeStyle.textClass,
+                      activeStyle.borderSubtleClass
                     )}
                   >
                     <CatIcon className="h-3 w-3 shrink-0" />
@@ -759,11 +756,7 @@ function DynamicSidebarNavigation() {
                   <span
                     className={cn(
                       "truncate font-bold tracking-wider",
-                      isDevCategory
-                        ? devStyle.textClass
-                        : isCeoCategory
-                        ? ceoStyle.textClass
-                        : "text-sidebar-foreground"
+                      activeStyle.textClass
                     )}
                   >
                     {category}
@@ -807,21 +800,14 @@ function DynamicSidebarNavigation() {
                               }}
                               className={cn(
                                 "group/menuitem flex items-center gap-2.5 px-3 py-2 rounded-xl text-[13px] font-medium transition-all duration-150",
-                                isDevCategory
-                                  ? "text-sidebar-foreground/85 hover:text-rose-400 hover:bg-rose-500/10"
-                                  : isCeoCategory
-                                  ? "text-sidebar-foreground/85 hover:text-amber-400 hover:bg-amber-500/10"
-                                  : "text-sidebar-foreground/85 hover:text-primary hover:bg-sidebar-accent/70"
+                                "text-sidebar-foreground/85 hover:text-foreground",
+                                activeStyle.itemHoverClass || "hover:bg-sidebar-accent/70"
                               )}
                             >
                               <ItemIcon
                                 className={cn(
-                                  "h-4 w-4 shrink-0 transition-colors",
-                                  isDevCategory
-                                    ? "text-rose-400/80 group-hover/menuitem:text-rose-400"
-                                    : isCeoCategory
-                                    ? "text-amber-400/80 group-hover/menuitem:text-amber-400"
-                                    : "text-muted-foreground group-hover/menuitem:text-primary"
+                                  "h-4 w-4 shrink-0 transition-colors text-muted-foreground",
+                                  activeStyle.itemIconHoverClass || "group-hover/menuitem:text-foreground"
                                 )}
                               />
                               <span className="truncate flex-1">{item.title}</span>
@@ -837,32 +823,19 @@ function DynamicSidebarNavigation() {
                               className={cn(
                                 "group/menuitem flex items-center gap-2.5 px-3 py-2 rounded-xl text-[13px] font-medium transition-all duration-150 relative",
                                 active
-                                  ? isDevCategory
-                                    ? cn(devStyle.activeItemClass, "shadow-xs font-semibold")
-                                    : isCeoCategory
-                                    ? cn(ceoStyle.activeItemClass, "shadow-xs font-semibold")
-                                    : "bg-primary/10 text-primary border-l-2 border-primary font-semibold shadow-xs"
-                                  : isDevCategory
-                                  ? "text-sidebar-foreground/80 hover:text-rose-300 hover:bg-rose-500/10"
-                                  : isCeoCategory
-                                  ? "text-sidebar-foreground/80 hover:text-amber-300 hover:bg-amber-500/10"
-                                  : "text-sidebar-foreground/80 hover:text-sidebar-foreground hover:bg-sidebar-accent/60"
+                                  ? cn(activeStyle.activeItemClass, "shadow-xs font-semibold")
+                                  : cn(
+                                      "text-sidebar-foreground/80 hover:text-foreground",
+                                      activeStyle.itemHoverClass || "hover:bg-sidebar-accent/60"
+                                    )
                               )}
                             >
                               <ItemIcon
                                 className={cn(
                                   "h-4 w-4 shrink-0 transition-colors",
                                   active
-                                    ? isDevCategory
-                                      ? devStyle.textClass
-                                      : isCeoCategory
-                                      ? ceoStyle.textClass
-                                      : "text-primary"
-                                    : isDevCategory
-                                    ? "text-rose-400/70 group-hover/menuitem:text-rose-300"
-                                    : isCeoCategory
-                                    ? "text-amber-400/70 group-hover/menuitem:text-amber-300"
-                                    : "text-muted-foreground group-hover/menuitem:text-foreground"
+                                    ? (activeStyle.iconClass || activeStyle.textClass)
+                                    : cn("text-muted-foreground/75", activeStyle.itemIconHoverClass || "group-hover/menuitem:text-foreground")
                                 )}
                               />
                               <span className="truncate flex-1">{item.title}</span>
@@ -894,12 +867,14 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   const [devTheme, setDevTheme] = useState<PanelColor>(() => getDevThemeColorSync());
   const [ceoTheme, setCeoTheme] = useState<PanelColor>(() => getCeoThemeColorSync());
+  const [memberTheme, setMemberTheme] = useState<PanelColor>(() => getMemberThemeColorSync());
 
   useEffect(() => {
     const handleConfigChange = (e: any) => {
       if (e?.detail) {
         if (e.detail.devThemeColor) setDevTheme(e.detail.devThemeColor);
         if (e.detail.ceoThemeColor) setCeoTheme(e.detail.ceoThemeColor);
+        if (e.detail.memberThemeColor) setMemberTheme(e.detail.memberThemeColor);
       }
     };
     window.addEventListener(DEV_CONFIG_EVENT, handleConfigChange);
@@ -908,6 +883,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   const devStyle = useMemo(() => getPanelColorStyle(devTheme, "rose"), [devTheme]);
   const ceoStyle = useMemo(() => getPanelColorStyle(ceoTheme, "amber"), [ceoTheme]);
+  const memberStyle = useMemo(() => getPanelColorStyle(memberTheme, "cyan"), [memberTheme]);
 
   const avatarUrl = profile?.avatar_url || profile?.discord_avatar_url;
   const mainName = profile?.nickname || profile?.nome || "Membro";
@@ -960,8 +936,8 @@ export function AppShell({ children }: { children: ReactNode }) {
                         className={cn(
                           "flex items-center gap-1.5 px-2 py-1 sm:px-3 sm:py-1.5 rounded-lg text-xs font-semibold transition-all duration-150 cursor-pointer",
                           !pathname.startsWith("/dev") && !pathname.startsWith("/ceo")
-                            ? "bg-primary text-primary-foreground shadow-xs ring-1 ring-primary/40 font-bold"
-                            : "text-muted-foreground hover:text-foreground hover:bg-secondary/60"
+                            ? cn(memberStyle.bgSolidClass, "shadow-xs ring-1", memberStyle.ringClass, "font-bold")
+                            : cn(memberStyle.textMutedClass, "hover:bg-secondary/60 hover:text-foreground")
                         )}
                         aria-label="Painel Membro"
                       >
@@ -969,7 +945,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                         <span className="hidden md:inline">Membro</span>
                       </Link>
                     </TooltipTrigger>
-                    <TooltipContent side="bottom" className="text-[11px] font-bold">
+                    <TooltipContent side="bottom" className={cn("text-[11px] font-bold", memberStyle.textClass)}>
                       Painel Membro
                     </TooltipContent>
                   </Tooltip>

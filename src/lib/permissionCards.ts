@@ -1019,24 +1019,6 @@ export const PAGE_CARDS: PageCardConfig[] = [
     ],
   },
   {
-    id: "dev-hub",
-    title: "Hub do Desenvolvedor",
-    route: "/dev",
-    icon: Code2,
-    description: "Central principal de ferramentas do sistema: monitoramento do servidor, status de APIs e atalhos rápidos de desenvolvimento.",
-    color: "border-rose-500/40 bg-rose-500/5 text-rose-400",
-    defaultCat: "DEV",
-    defaultOrder: 0,
-    permissions: [
-      {
-        key: "view_dev_hub",
-        label: "Acesso ao Hub Desenvolvedor (/dev)",
-        description: "Permite acessar a rota /dev e visualizar o dashboard central de engenharia e ferramentas de infraestrutura.",
-        badge: "Acesso Geral Dev",
-      },
-    ],
-  },
-  {
     id: "dev-bot",
     title: "Gerenciador do Bot Discloud (Dev)",
     route: "/dev/bot",

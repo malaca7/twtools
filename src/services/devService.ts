@@ -17,6 +17,9 @@ export interface DevConfiguration {
   developerBypassMode: boolean;
   devAuditLogs: boolean;
   devSystemNotifications: boolean;
+  devThemeColor?: PanelColor;
+  ceoThemeColor?: PanelColor;
+  memberThemeColor?: PanelColor;
 }
 
 export const DEFAULT_DEV_PERMISSIONS: DevPermissionResource[] = [
@@ -82,11 +85,12 @@ export const DEFAULT_DEV_CONFIG: DevConfiguration = {
   devSystemNotifications: true,
   devThemeColor: "rose",
   ceoThemeColor: "amber",
+  memberThemeColor: "cyan",
 };
 
 const DEV_PERMS_KEY = "tw_dev_module_permissions_v1";
 const ADMIN_PERMS_KEY = "tw_admin_tag_permissions_v1";
-const DEV_CONFIG_KEY = "tw_dev_module_config_v1";
+export const DEV_CONFIG_KEY = "tw_dev_module_config_v1";
 
 export const DEFAULT_ADMIN_TAG_PERMISSIONS: DevPermissionResource[] = [
   {
@@ -387,6 +391,10 @@ export function getDevThemeColorSync(): PanelColor {
 
 export function getCeoThemeColorSync(): PanelColor {
   return getDevConfigurationSync().ceoThemeColor || "amber";
+}
+
+export function getMemberThemeColorSync(): PanelColor {
+  return getDevConfigurationSync().memberThemeColor || "cyan";
 }
 
 /**
