@@ -135,7 +135,7 @@ export function MemberInsigniasListModal({
                     <div className="flex items-start gap-3.5">
                       <div
                         className={cn(
-                          "w-12 h-12 rounded-xl border flex items-center justify-center shrink-0 shadow-inner",
+                          "w-[50px] h-[50px] min-w-[50px] min-h-[50px] rounded-xl border-2 flex items-center justify-center shrink-0 shadow-inner",
                           rarityStyle.borderClass,
                           rarityStyle.bgClass,
                           rarityStyle.textClass

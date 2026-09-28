@@ -16,10 +16,12 @@ import {
   Truck,
   Eye,
   Crown,
+  Quote,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   getLevelInfo,
   getMemberInsignias,
@@ -214,33 +216,87 @@ export function MemberGamificationCard({
             </div>
 
             {memberInsignias.length > 0 ? (
-              <div className="flex flex-wrap items-center gap-2">
-                {memberInsignias.map((grant) => {
-                  const badge = grant.insignia;
-                  if (!badge) return null;
-                  const rarity = RARITY_CONFIG[badge.rarity] || RARITY_CONFIG.comum;
+              <TooltipProvider delayDuration={50}>
+                <div className="flex flex-wrap items-center gap-2.5">
+                  {memberInsignias.map((grant) => {
+                    const badge = grant.insignia;
+                    if (!badge) return null;
+                    const rarity = RARITY_CONFIG[badge.rarity] || RARITY_CONFIG.comum;
 
-                  return (
-                    <button
-                      type="button"
-                      key={grant.id}
-                      onClick={() => setIsModalOpen(true)}
-                      title={`${badge.name} (${rarity.label})\nMotivo: ${grant.reason}\nConcedido por: ${grant.grantor_name}`}
-                      className={cn(
-                        "flex items-center gap-1.5 px-2.5 py-1 rounded-xl border text-xs shadow-xs transition-all hover:scale-105 select-none cursor-pointer",
-                        rarity.bgClass,
-                        rarity.borderClass,
-                        rarity.textClass
-                      )}
-                    >
-                      {renderInsigniaIcon(badge.icon, "h-3.5 w-3.5 shrink-0")}
-                      <span className="font-bold text-[11px] truncate max-w-[120px]">
-                        {badge.name}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
+                    return (
+                      <Tooltip key={grant.id}>
+                        <TooltipTrigger asChild>
+                          <button
+                            type="button"
+                            onClick={() => setIsModalOpen(true)}
+                            className={cn(
+                              "group relative flex items-center justify-center w-[50px] h-[50px] min-w-[50px] min-h-[50px] max-w-[50px] max-h-[50px] rounded-xl border-2 shadow-md transition-all duration-200 cursor-pointer select-none",
+                              "hover:scale-115 hover:-translate-y-1 hover:z-20 active:scale-95",
+                              rarity.bgClass,
+                              rarity.borderClass,
+                              rarity.textClass,
+                              rarity.glowClass ? `hover:${rarity.glowClass}` : ""
+                            )}
+                            style={{
+                              boxShadow: "0 4px 14px -2px rgba(0,0,0,0.35)",
+                            }}
+                            aria-label={`${badge.name} (${rarity.label})`}
+                          >
+                            {/* Brilho Holográfico no Hover */}
+                            <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none rounded-[10px]" />
+
+                            {/* Ícone Centralizado do Emblema */}
+                            <div className="transform transition-transform duration-200 group-hover:scale-110">
+                              {renderInsigniaIcon(badge.icon, "h-6 w-6 shrink-0")}
+                            </div>
+
+                            {/* Estrela de Honra no Canto Superior Direito */}
+                            <div className="absolute -top-1 -right-1 h-3.5 w-3.5 rounded-full bg-background border border-amber-400/80 flex items-center justify-center shadow-xs">
+                              <span className="text-[7px] text-amber-400 leading-none font-bold select-none">★</span>
+                            </div>
+                          </button>
+                        </TooltipTrigger>
+
+                        <TooltipContent
+                          side="top"
+                          className="p-3 max-w-xs bg-card/95 backdrop-blur-xl border border-border/80 shadow-2xl rounded-2xl space-y-1.5 z-[99999]"
+                        >
+                          <div className="flex items-center justify-between gap-3 border-b border-border/50 pb-1.5">
+                            <span className="font-black text-xs text-foreground truncate">
+                              {badge.name}
+                            </span>
+                            <span
+                              className={cn(
+                                "text-[8px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded border shrink-0",
+                                rarity.bgClass,
+                                rarity.borderClass,
+                                rarity.textClass
+                              )}
+                            >
+                              {rarity.label}
+                            </span>
+                          </div>
+                          {badge.description && (
+                            <p className="text-[11px] text-muted-foreground leading-relaxed">
+                              {badge.description}
+                            </p>
+                          )}
+                          {grant.reason && (
+                            <div className="p-1.5 rounded-lg bg-background/80 border border-white/10 text-[10px]">
+                              <p className="italic text-foreground/90 font-medium leading-snug">
+                                "{grant.reason}"
+                              </p>
+                            </div>
+                          )}
+                          <div className="text-[9px] text-center text-amber-400 font-semibold pt-0.5">
+                            Clique para abrir detalhes completos
+                          </div>
+                        </TooltipContent>
+                      </Tooltip>
+                    );
+                  })}
+                </div>
+              </TooltipProvider>
             ) : (
               <div className="py-2.5 px-3 rounded-xl bg-secondary/30 border border-border/40 text-[11px] text-muted-foreground flex items-center gap-2">
                 <Sparkles className="h-4 w-4 text-amber-400/70 shrink-0" />
