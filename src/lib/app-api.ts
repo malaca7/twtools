@@ -1252,7 +1252,7 @@ export async function markAnnouncementAsRead(announcementId: string): Promise<vo
   void logAuditAction("read_announcement", "announcements", { title: (ann as any)?.title || "Comunicado" }, undefined, announcementId);
 }
 
-export async function setMemberLevel(targetUserId: string, newLevel: AppLevel): Promise<void> {
+export async function setMemberLevel(targetUserId: string, newLevel: AppLevel | string): Promise<void> {
   const { data: targetProfile } = await (supabase.from("profiles" as any)).select("nome, nickname").eq("user_id", targetUserId).maybeSingle();
   const { data: targetRole } = await supabase.from("user_roles").select("nivel").eq("user_id", targetUserId).maybeSingle();
   const { data: oldCustomRole } = await (supabase.from("custom_roles" as any)).select("nome").eq("id", targetRole?.nivel).maybeSingle();
@@ -1302,7 +1302,7 @@ export async function setMemberLevel(targetUserId: string, newLevel: AppLevel): 
   const p = targetProfile as { nome?: string; nickname?: string } | null;
   const targetName = p ? (p.nickname || p.nome) : "Membro";
   const oldLevelLabel = (oldCustomRole as any)?.nome || LEVEL_LABEL[targetRole?.nivel as AppLevel] || targetRole?.nivel || "cargo anterior";
-  const newLevelLabel = (newCustomRole as any)?.nome || LEVEL_LABEL[newLevel] || newLevel;
+  const newLevelLabel = (newCustomRole as any)?.nome || LEVEL_LABEL[newLevel as AppLevel] || newLevel;
 
   void logAuditAction(
     "update_level",

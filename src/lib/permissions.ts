@@ -1,4 +1,4 @@
-export type AppLevel = "desenvolvedor" | "01" | "02" | "gerente" | "motoqueiro" | "membro" | "novato";
+export type AppLevel = "desenvolvedor" | "01" | "02" | "gerente" | "motoqueiro" | "membro" | "novato" | (string & {});
 
 import { getDevThemeColorSync, getMemberThemeColorSync } from "@/services/devService";
 import { getPanelColorStyle } from "@/lib/panelTheme";
