@@ -155,9 +155,9 @@ export function useUserTheme() {
     };
   }, []);
 
-  // Salva o tema individual (no localStorage e no perfil do Supabase)
+  // Salva o tema individual (no localStorage e no perfil do Supabase) em tempo real
   const saveTheme = useCallback(
-    async (newSettings: Partial<UserThemeSettings>) => {
+    async (newSettings: Partial<UserThemeSettings>, showFeedback = false) => {
       const updated: UserThemeSettings = {
         ...localTheme,
         ...newSettings,
@@ -175,10 +175,11 @@ export function useUserTheme() {
       try {
         await updateUserTheme(updated);
         await refresh?.();
-        toast.success("Seu tema e aparência individuais foram salvos!");
+        if (showFeedback) {
+          toast.success("Seu tema e aparência individuais foram salvos!");
+        }
       } catch (err: any) {
         console.warn("Tema salvo localmente (offline ou fallback):", err);
-        toast.success("Tema salvo no seu navegador!");
       } finally {
         setIsSaving(false);
       }

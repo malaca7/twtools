@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   Palette,
   Sparkles,
@@ -9,6 +9,8 @@ import {
   Save,
   RotateCcw,
   Check,
+  CheckCircle2,
+  Loader2,
   Shield,
   Zap,
   Sliders,
@@ -292,32 +294,40 @@ export function UserAppearanceSettings() {
   const { theme, saveTheme, resetTheme, previewTheme, isSaving } = useUserTheme();
   const [formData, setFormData] = useState<UserThemeSettings>(theme);
   const [selectedCategory, setSelectedCategory] = useState("all");
-  const [hasChanges, setHasChanges] = useState(false);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     setFormData(theme);
-    setHasChanges(false);
   }, [theme]);
 
+  // Alteração e salvamento em tempo real imediato (sem botão de salvar)
   const handleChange = <K extends keyof UserThemeSettings>(key: K, value: UserThemeSettings[K]) => {
-    setFormData((prev) => {
-      const updated = { ...prev, [key]: value };
-      setHasChanges(JSON.stringify(updated) !== JSON.stringify(theme));
-      previewTheme(updated);
-      return updated;
-    });
-  };
+    const updated: UserThemeSettings = { ...formData, [key]: value };
+    setFormData(updated);
 
-  const handleSave = async () => {
-    await saveTheme(formData);
-    setHasChanges(false);
+    // 1. Aplicação visual instantânea no DOM (0ms)
+    applyThemeToDOM(updated);
+
+    // 2. Debounce rápido (200ms) para sliders de arrasto contínuo, salvamento imediato para cliques
+    const isSlider = key === "brightness" || key === "contrast" || key === "saturation" || key === "textBrightness";
+
+    if (debounceRef.current) {
+      clearTimeout(debounceRef.current);
+    }
+
+    if (isSlider) {
+      debounceRef.current = setTimeout(() => {
+        void saveTheme(updated, false);
+      }, 200);
+    } else {
+      void saveTheme(updated, false);
+    }
   };
 
   const handleReset = async () => {
     if (!confirm("Restaurar todas as configurações de tema e aparência para o padrão original?")) return;
-    await resetTheme();
     setFormData(DEFAULT_USER_THEME);
-    setHasChanges(false);
+    await resetTheme();
   };
 
   const filteredThemes = selectedCategory === "all"
@@ -343,28 +353,32 @@ export function UserAppearanceSettings() {
           </p>
         </div>
 
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex items-center gap-2 shrink-0 flex-wrap">
+          {/* Indicador de Salvamento Automático em Tempo Real */}
+          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-semibold shadow-xs">
+            {isSaving ? (
+              <>
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                <span>Sincronizando...</span>
+              </>
+            ) : (
+              <>
+                <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" />
+                <span>Salvo em tempo real</span>
+              </>
+            )}
+          </div>
+
           <Button
             type="button"
             variant="outline"
             size="sm"
             onClick={handleReset}
             disabled={isSaving}
-            className="h-8 text-xs font-bold gap-1.5 cursor-pointer"
+            className="h-8 text-xs font-bold gap-1.5 cursor-pointer border-border/80 hover:bg-destructive/10 hover:text-destructive hover:border-destructive/30"
           >
             <RotateCcw className="h-3.5 w-3.5" />
             Restaurar Padrão
-          </Button>
-
-          <Button
-            type="button"
-            size="sm"
-            onClick={handleSave}
-            disabled={!hasChanges || isSaving}
-            className="h-8 text-xs font-bold gap-1.5 bg-primary text-primary-foreground shadow-md disabled:opacity-40 cursor-pointer"
-          >
-            <Save className="h-3.5 w-3.5" />
-            Salvar Minha Configuração
           </Button>
         </div>
       </div>
@@ -379,8 +393,8 @@ export function UserAppearanceSettings() {
                 Pré-visualização Ao Vivo da Sua Interface
               </CardTitle>
             </div>
-            <Badge variant="outline" className="text-[10px] font-mono text-muted-foreground bg-background/50">
-              {hasChanges ? "Modificações Não Salvas" : "Sincronizado"}
+            <Badge variant="outline" className="text-[10px] font-mono text-emerald-400 border-emerald-500/30 bg-emerald-500/10">
+              ⚡ Sincronizado ao Vivo
             </Badge>
           </div>
         </CardHeader>

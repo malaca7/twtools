@@ -29,7 +29,7 @@ export function useRealtimeSync() {
         for (const key of toInvalidate) {
           void queryClient.invalidateQueries({ queryKey: [key], refetchType: "active" });
         }
-      }, 400);
+      }, 80);
     };
 
     // 1. Cross-tab BroadcastChannel for 0ms local synchronization across open browser tabs
@@ -72,11 +72,20 @@ export function useRealtimeSync() {
           break;
 
         case "sales":
-          keysToInvalidate = ["sales", "product_baus"];
+          keysToInvalidate = ["sales", "product_baus", "cash_fund_movements"];
           break;
 
         case "baus":
-          keysToInvalidate = ["baus", "product_baus"];
+          keysToInvalidate = ["baus", "product_baus", "movements"];
+          break;
+
+        case "tickets":
+        case "ticket_messages":
+        case "ticket_members":
+          keysToInvalidate = ["tickets", "ticket_messages"];
+          if (typeof window !== "undefined") {
+            window.dispatchEvent(new CustomEvent("tw_tickets_updated"));
+          }
           break;
 
         case "categories":
@@ -244,6 +253,23 @@ export function useRealtimeSync() {
       })
       .subscribe();
 
+    // 4. Dedicated broadcast channel for instant platform settings & maintenance mode updates (<50ms)
+    const settingsChannel = supabase
+      .channel("system-platform-settings")
+      .on("broadcast", { event: "platform_settings_updated" }, (payload) => {
+        if (payload?.payload?.settings) {
+          try {
+            localStorage.setItem("tw_platform_settings", JSON.stringify(payload.payload.settings));
+          } catch {}
+          if (typeof window !== "undefined") {
+            window.dispatchEvent(
+              new CustomEvent("tw_platform_settings_updated", { detail: payload.payload.settings })
+            );
+          }
+        }
+      })
+      .subscribe();
+
     return () => {
       if (debounceTimerRef.current) {
         clearTimeout(debounceTimerRef.current);
@@ -253,6 +279,7 @@ export function useRealtimeSync() {
       }
       void supabase.removeChannel(channel);
       void supabase.removeChannel(stockChannel);
+      void supabase.removeChannel(settingsChannel);
     };
   }, [queryClient]);
 }

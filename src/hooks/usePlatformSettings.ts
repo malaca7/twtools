@@ -266,7 +266,17 @@ export async function savePlatformSettings(settings: PlatformSettings) {
     } catch {}
   }
 
-  // 2. Persistência em banco de dados Supabase
+  // 2. Broadcast via Supabase Realtime para todos os membros conectados (<50ms)
+  try {
+    const realtimeChannel = supabase.channel("system-platform-settings");
+    realtimeChannel.send({
+      type: "broadcast",
+      event: "platform_settings_updated",
+      payload: { settings },
+    });
+  } catch {}
+
+  // 3. Persistência em banco de dados Supabase
   try {
     let saveSuccess = false;
     try {
@@ -473,11 +483,26 @@ export function usePlatformSettings() {
 
     window.addEventListener("tw_platform_settings_updated", onCustomUpdate);
 
+    // Supabase Realtime Channel para recebimento instantâneo em todas as telas (<50ms)
+    const realtimeChannel = supabase
+      .channel("system-platform-settings")
+      .on("broadcast", { event: "platform_settings_updated" }, (payload: any) => {
+        if (payload?.payload?.settings) {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(payload.payload.settings));
+          emitPlatformSettingsChange();
+          window.dispatchEvent(
+            new CustomEvent("tw_platform_settings_updated", { detail: payload.payload.settings })
+          );
+        }
+      })
+      .subscribe();
+
     return () => {
       try {
         bc?.close();
       } catch {}
       window.removeEventListener("tw_platform_settings_updated", onCustomUpdate);
+      void supabase.removeChannel(realtimeChannel);
     };
   }, []);
 

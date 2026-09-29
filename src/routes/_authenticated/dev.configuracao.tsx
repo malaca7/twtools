@@ -246,7 +246,7 @@ export function DevConfiguracaoContent() {
           ? "Banner oficial enviado com sucesso para a CDN Postimages!"
           : "Favicon oficial enviado com sucesso!",
         {
-          description: "A imagem foi carregada na nuvem. Clique em 'Salvar Informações da Plataforma' para consolidar.",
+          description: "A imagem foi carregada na nuvem e sincronizada em tempo real.",
           icon: "🚀",
         }
       );
@@ -292,6 +292,93 @@ export function DevConfiguracaoContent() {
   const hasChanges = useMemo(() => {
     return JSON.stringify(config) !== JSON.stringify(initialConfig);
   }, [config, initialConfig]);
+
+  // Auto-save em tempo real para configurações do Módulo Dev
+  const devAutosaveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  useEffect(() => {
+    if (loading) return;
+    if (!hasChanges) return;
+
+    if (devAutosaveTimeoutRef.current) {
+      clearTimeout(devAutosaveTimeoutRef.current);
+    }
+
+    devAutosaveTimeoutRef.current = setTimeout(async () => {
+      setSaving(true);
+      setError(null);
+      try {
+        await saveDevConfiguration(config, user, profile, level);
+        setInitialConfig(JSON.parse(JSON.stringify(config)));
+        void logAuditAction(
+          "save_dev_configuration",
+          "dev_configuration",
+          { ...config },
+          { ...initialConfig }
+        );
+        void queryClient.invalidateQueries({ queryKey: ["audit_logs"] });
+      } catch (err: any) {
+        const msg = err?.message || "Falha ao salvar configurações do Módulo Dev.";
+        setError(msg);
+        console.error("Erro no auto-save dev:", err);
+      } finally {
+        setSaving(false);
+      }
+    }, 350);
+
+    return () => {
+      if (devAutosaveTimeoutRef.current) clearTimeout(devAutosaveTimeoutRef.current);
+    };
+  }, [config, hasChanges, loading, user, profile, level, initialConfig]);
+
+  // Detecta alterações pendentes no formulário da plataforma / rodapé
+  const hasPlatformChanges = useMemo(() => {
+    return JSON.stringify(platformForm) !== JSON.stringify(initialPlatformForm);
+  }, [platformForm, initialPlatformForm]);
+
+  // Auto-save em tempo real para Informações da Plataforma e Rodapé
+  const platformAutosaveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  useEffect(() => {
+    if (!hasPlatformChanges) return;
+
+    if (platformAutosaveTimeoutRef.current) {
+      clearTimeout(platformAutosaveTimeoutRef.current);
+    }
+
+    platformAutosaveTimeoutRef.current = setTimeout(async () => {
+      setSavingPlatform(true);
+      try {
+        await savePlatformSettingsHook(platformForm);
+        setInitialPlatformForm(platformForm);
+        void logAuditAction(
+          "update_platform_info",
+          "platform_settings",
+          {
+            factionName: platformForm.factionName,
+            factionTag: platformForm.factionTag,
+            slogan: platformForm.slogan,
+            cityRpName: platformForm.cityRpName,
+            systemVersion: platformForm.systemVersion,
+          },
+          {
+            factionName: initialPlatformForm.factionName,
+            factionTag: initialPlatformForm.factionTag,
+            slogan: initialPlatformForm.slogan,
+            cityRpName: initialPlatformForm.cityRpName,
+            systemVersion: initialPlatformForm.systemVersion,
+          }
+        );
+        void queryClient.invalidateQueries({ queryKey: ["audit_logs"] });
+      } catch (err: any) {
+        console.error("Erro no auto-save plataforma:", err);
+      } finally {
+        setSavingPlatform(false);
+      }
+    }, 350);
+
+    return () => {
+      if (platformAutosaveTimeoutRef.current) clearTimeout(platformAutosaveTimeoutRef.current);
+    };
+  }, [platformForm, hasPlatformChanges, savePlatformSettingsHook, initialPlatformForm]);
 
   // Handler para alternar switches individuais
   const handleToggle = (key: keyof DevConfiguration) => {
@@ -556,7 +643,7 @@ export function DevConfiguracaoContent() {
       systemStatusNotice: DEFAULT_PLATFORM_SETTINGS.systemStatusNotice,
       systemStatusType: DEFAULT_PLATFORM_SETTINGS.systemStatusType,
     }));
-    toast.info("Valores padrão da plataforma restaurados no formulário. Clique em Salvar para aplicar.");
+    toast.info("Valores padrão da plataforma restaurados e salvos automaticamente em tempo real.");
   };
 
   // Handler para restaurar padrões do Rodapé
@@ -575,7 +662,7 @@ export function DevConfiguracaoContent() {
       footerShowSupportLink: DEFAULT_PLATFORM_SETTINGS.footerShowSupportLink,
       footerShowVersion: DEFAULT_PLATFORM_SETTINGS.footerShowVersion,
     }));
-    toast.info("Valores padrão do rodapé restaurados no formulário. Clique em Salvar para aplicar.");
+    toast.info("Valores padrão do rodapé restaurados e salvos automaticamente em tempo real.");
   };
 
   // Handler para restaurar os padrões dev
@@ -611,29 +698,19 @@ export function DevConfiguracaoContent() {
             Restaurar Padrões
           </Button>
 
-          <Button
-            size="sm"
-            onClick={handleSave}
-            disabled={loading || saving || !hasChanges}
-            className={cn(
-              "h-9 text-xs gap-1.5 font-bold shadow-sm transition-all duration-200",
-              hasChanges
-                ? "bg-rose-600 hover:bg-rose-700 text-white shadow-rose-500/20"
-                : "bg-secondary text-muted-foreground hover:bg-secondary/80"
-            )}
-          >
-            {saving ? (
-              <>
+          <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg border bg-card/60 backdrop-blur text-xs font-semibold shadow-xs">
+            {saving || savingPlatform ? (
+              <span className="flex items-center gap-1.5 text-amber-500 animate-pulse">
                 <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                Salvando...
-              </>
+                Salvando alterações...
+              </span>
             ) : (
-              <>
-                <Save className="h-3.5 w-3.5" />
-                Salvar Alterações
-              </>
+              <span className="flex items-center gap-1.5 text-emerald-500">
+                <CheckCircle2 className="h-3.5 w-3.5" />
+                Salvo em tempo real
+              </span>
             )}
-          </Button>
+          </div>
         </div>
       </div>
 
@@ -1737,25 +1814,19 @@ export function DevConfiguracaoContent() {
                   Restaurar Padrões da Plataforma
                 </Button>
 
-                <Button
-                  type="button"
-                  size="sm"
-                  onClick={handleSavePlatformInfo}
-                  disabled={savingPlatform}
-                  className="h-8 text-xs font-bold gap-1.5 bg-sky-600 hover:bg-sky-700 text-white shadow-sm cursor-pointer"
-                >
+                <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg border bg-card/60 text-xs font-semibold">
                   {savingPlatform ? (
-                    <>
+                    <span className="flex items-center gap-1.5 text-amber-500 animate-pulse">
                       <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                      Salvando...
-                    </>
+                      Salvando dados da plataforma...
+                    </span>
                   ) : (
-                    <>
-                      <Save className="h-3.5 w-3.5" />
-                      Salvar Informações da Plataforma
-                    </>
+                    <span className="flex items-center gap-1.5 text-emerald-500">
+                      <CheckCircle2 className="h-3.5 w-3.5" />
+                      Informações sincronizadas em tempo real
+                    </span>
                   )}
-                </Button>
+                </div>
               </div>
             </CardContent>
           </Card>
@@ -2062,25 +2133,19 @@ export function DevConfiguracaoContent() {
                   Restaurar Padrões do Rodapé
                 </Button>
 
-                <Button
-                  type="button"
-                  size="sm"
-                  onClick={handleSaveFooterInfo}
-                  disabled={savingFooter}
-                  className="h-8 text-xs font-bold gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm"
-                >
-                  {savingFooter ? (
-                    <>
+                <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg border bg-card/60 text-xs font-semibold">
+                  {savingPlatform ? (
+                    <span className="flex items-center gap-1.5 text-amber-500 animate-pulse">
                       <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                      Salvando...
-                    </>
+                      Salvando configurações do rodapé...
+                    </span>
                   ) : (
-                    <>
-                      <Save className="h-3.5 w-3.5" />
-                      Salvar Configurações do Rodapé
-                    </>
+                    <span className="flex items-center gap-1.5 text-emerald-500">
+                      <CheckCircle2 className="h-3.5 w-3.5" />
+                      Rodapé sincronizado em tempo real
+                    </span>
                   )}
-                </Button>
+                </div>
               </div>
             </CardContent>
           </Card>

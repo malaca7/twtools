@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo, useEffect, Component } from "react";
+import { useState, useCallback, useMemo, useEffect, useRef, Component } from "react";
 import { createFileRoute, Outlet, useChildMatches } from "@tanstack/react-router";
 import { toast } from "sonner";
 import {
@@ -159,38 +159,40 @@ function PlatformTab({ canEdit }: { canEdit: boolean }) {
   const { settings, save, reset } = usePlatformSettings();
 
   const [formData, setFormData] = useState<PlatformSettings>(() => settings);
-  const [hasChanges, setHasChanges] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
-    if (!hasChanges) {
-      setFormData(settings);
-    }
-  }, [settings, hasChanges]);
+    setFormData(settings);
+  }, [settings]);
 
   const handleChange = <K extends keyof PlatformSettings>(key: K, value: PlatformSettings[K]) => {
     if (!canEdit) return;
-    setFormData((prev) => {
-      const updated = { ...prev, [key]: value };
-      setHasChanges(JSON.stringify(updated) !== JSON.stringify(settings));
-      return updated;
-    });
-  };
+    const updated = { ...formData, [key]: value };
+    setFormData(updated);
 
-  const handleSave = () => {
-    if (!canEdit) {
-      toast.error("Você não tem permissão para alterar as configurações da plataforma.");
-      return;
+    if (debounceRef.current) {
+      clearTimeout(debounceRef.current);
     }
-    save(formData);
-    setHasChanges(false);
-    toast.success("Configurações da plataforma salvas com sucesso!");
+
+    const isText = typeof value === "string";
+    if (isText) {
+      setIsSaving(true);
+      debounceRef.current = setTimeout(async () => {
+        await save(updated);
+        setIsSaving(false);
+      }, 350);
+    } else {
+      setIsSaving(true);
+      void save(updated).then(() => setIsSaving(false));
+    }
   };
 
   const handleReset = () => {
     if (!canEdit) return;
+    if (!confirm("Restaurar configurações da plataforma para o padrão?")) return;
     reset();
     setFormData(DEFAULT_PLATFORM_SETTINGS);
-    setHasChanges(false);
     toast.success("Configurações restauradas para o padrão!");
   };
 
@@ -201,28 +203,34 @@ function PlatformTab({ canEdit }: { canEdit: boolean }) {
         <div>
           <h3 className="text-sm font-extrabold text-foreground">Configurações Gerais & Identidade</h3>
           <p className="text-xs text-muted-foreground mt-0.5">
-            Personalize a identidade do grupo e parâmetros operacionais.
+            Personalize a identidade do grupo e parâmetros operacionais com salvamento em tempo real.
           </p>
         </div>
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex items-center gap-2 shrink-0 flex-wrap">
+          {/* Indicador de Salvamento Automático em Tempo Real */}
+          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-semibold shadow-xs">
+            {isSaving ? (
+              <>
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                <span>Sincronizando...</span>
+              </>
+            ) : (
+              <>
+                <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" />
+                <span>Salvo automaticamente</span>
+              </>
+            )}
+          </div>
+
           <Button
             variant="outline"
             size="sm"
             onClick={handleReset}
-            disabled={!canEdit}
-            className="h-8 text-xs gap-1.5"
+            disabled={!canEdit || isSaving}
+            className="h-8 text-xs gap-1.5 cursor-pointer border-border/80 hover:bg-destructive/10 hover:text-destructive hover:border-destructive/30"
           >
             <RotateCcw className="h-3.5 w-3.5" />
             Restaurar Padrão
-          </Button>
-          <Button
-            size="sm"
-            onClick={handleSave}
-            disabled={!hasChanges || !canEdit}
-            className="h-8 text-xs gap-1.5 bg-gradient-brand text-primary-foreground font-bold"
-          >
-            <Save className="h-3.5 w-3.5" />
-            Salvar Alterações
           </Button>
         </div>
       </div>
@@ -499,30 +507,37 @@ function ChatSoundConfigCard() {
 function NotificationsTab({ canEdit }: { canEdit: boolean }) {
   const { settings, save } = usePlatformSettings();
   const [formData, setFormData] = useState<PlatformSettings>(() => settings);
-  const [hasChanges, setHasChanges] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
-    if (!hasChanges) {
-      setFormData(settings);
-    }
-  }, [settings, hasChanges]);
+    setFormData(settings);
+  }, [settings]);
 
   const handleChange = <K extends keyof PlatformSettings>(key: K, value: PlatformSettings[K]) => {
     if (!canEdit) return;
-    setFormData((prev) => {
-      const updated = { ...prev, [key]: value };
-      setHasChanges(JSON.stringify(updated) !== JSON.stringify(settings));
-      return updated;
-    });
-  };
+    const updated = { ...formData, [key]: value };
+    setFormData(updated);
 
-  const handleSave = () => {
-    if (!canEdit) return;
-    save(formData);
-    setHasChanges(false);
-    toast.success("Configurações de notificações salvas com sucesso!");
-    if (formData.soundEffectsEnabled) {
-      playGamerSuccessSound(formData.soundVolume || 60);
+    if (debounceRef.current) {
+      clearTimeout(debounceRef.current);
+    }
+
+    const isSlider = key === "soundVolume";
+    if (isSlider) {
+      setIsSaving(true);
+      debounceRef.current = setTimeout(async () => {
+        await save(updated);
+        setIsSaving(false);
+      }, 250);
+    } else {
+      setIsSaving(true);
+      void save(updated).then(() => {
+        setIsSaving(false);
+        if (key === "soundEffectsEnabled" && value) {
+          playGamerSuccessSound(updated.soundVolume || 60);
+        }
+      });
     }
   };
 
@@ -542,22 +557,27 @@ function NotificationsTab({ canEdit }: { canEdit: boolean }) {
 
   return (
     <div className="space-y-6 animate-in fade-in-50 slide-in-from-bottom-2 duration-300">
-      <div className="flex items-center justify-between gap-3 p-4 rounded-xl bg-card border border-border/60 shadow-sm">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-xl bg-card border border-border/60 shadow-sm">
         <div>
           <h3 className="text-sm font-extrabold text-foreground">Sons & Alertas de Notificações</h3>
           <p className="text-xs text-muted-foreground mt-0.5">
-            Configure o sistema profissional de áudio gamer e exibição de avisos do grupo.
+            Configure o sistema profissional de áudio gamer e exibição de avisos do grupo com salvamento automático.
           </p>
         </div>
-        <Button
-          size="sm"
-          onClick={handleSave}
-          disabled={!hasChanges || !canEdit}
-          className="h-8 text-xs gap-1.5 bg-gradient-brand text-primary-foreground font-bold shrink-0"
-        >
-          <Save className="h-3.5 w-3.5" />
-          Salvar Alterações
-        </Button>
+        {/* Indicador de Salvamento Automático em Tempo Real */}
+        <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-semibold shadow-xs shrink-0">
+          {isSaving ? (
+            <>
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              <span>Sincronizando...</span>
+            </>
+          ) : (
+            <>
+              <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" />
+              <span>Salvo automaticamente</span>
+            </>
+          )}
+        </div>
       </div>
 
       <Card className="surface-card">
@@ -733,24 +753,40 @@ function LivesTab() {
   }, [preferences]);
 
   const handleTogglePlatform = (platform: StreamPlatform) => {
-    setFormData((prev) => {
-      const exists = prev.notify_platforms.includes(platform);
-      const next = exists
-        ? prev.notify_platforms.filter((p) => p !== platform)
-        : [...prev.notify_platforms, platform];
-      const updated = { ...prev, notify_platforms: next };
-      setHasChanges(true);
-      return updated;
-    });
+    const exists = formData.notify_platforms.includes(platform);
+    const next = exists
+      ? formData.notify_platforms.filter((p) => p !== platform)
+      : [...formData.notify_platforms, platform];
+    const updated = { ...formData, notify_platforms: next };
+    setFormData(updated);
+    if (user?.id) {
+      updatePreferences({
+        user_id: user.id,
+        ...updated,
+      });
+    }
   };
 
-  const handleSavePreferences = () => {
-    if (!user?.id) return;
-    updatePreferences({
-      user_id: user.id,
-      ...formData,
-    });
-    setHasChanges(false);
+  const handleToggleNotification = (checked: boolean) => {
+    const updated = { ...formData, notifications_enabled: checked };
+    setFormData(updated);
+    if (user?.id) {
+      updatePreferences({
+        user_id: user.id,
+        ...updated,
+      });
+    }
+  };
+
+  const handleToggleSound = (checked: boolean) => {
+    const updated = { ...formData, sound_enabled: checked };
+    setFormData(updated);
+    if (user?.id) {
+      updatePreferences({
+        user_id: user.id,
+        ...updated,
+      });
+    }
   };
 
   const myAccounts = allAccounts.filter((acc) => acc.user_id === user?.id);
@@ -767,19 +803,24 @@ function LivesTab() {
             </Badge>
           </h3>
           <p className="text-xs text-muted-foreground mt-0.5">
-            Personalize quais plataformas e membros dispararão alertas em tempo real na sua tela.
+            Personalize quais plataformas e membros dispararão alertas em tempo real na sua tela com salvamento automático.
           </p>
         </div>
         <div className="flex items-center gap-2 shrink-0">
-          <Button
-            size="sm"
-            onClick={handleSavePreferences}
-            disabled={!hasChanges || isUpdating}
-            className="h-8 text-xs gap-1.5 bg-gradient-brand text-primary-foreground font-bold"
-          >
-            {isUpdating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
-            Salvar Preferências
-          </Button>
+          {/* Indicador de Salvamento Automático em Tempo Real */}
+          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-semibold shadow-xs">
+            {isUpdating ? (
+              <>
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                <span>Sincronizando...</span>
+              </>
+            ) : (
+              <>
+                <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" />
+                <span>Salvo automaticamente</span>
+              </>
+            )}
+          </div>
         </div>
       </div>
 
@@ -807,10 +848,7 @@ function LivesTab() {
               </div>
               <Switch
                 checked={formData.notifications_enabled}
-                onCheckedChange={(checked) => {
-                  setFormData((prev) => ({ ...prev, notifications_enabled: checked }));
-                  setHasChanges(true);
-                }}
+                onCheckedChange={handleToggleNotification}
               />
             </div>
 
@@ -821,10 +859,7 @@ function LivesTab() {
               </div>
               <Switch
                 checked={formData.sound_enabled}
-                onCheckedChange={(checked) => {
-                  setFormData((prev) => ({ ...prev, sound_enabled: checked }));
-                  setHasChanges(true);
-                }}
+                onCheckedChange={handleToggleSound}
               />
             </div>
           </div>

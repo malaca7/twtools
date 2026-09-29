@@ -145,6 +145,11 @@ function MovimentacoesContent() {
   const { data: members = [] } = useMembers();
   const { data: discordConfig } = useDiscordStockConfig();
 
+  // Filtragem estrita de baús ativos vs inativos
+  const activeBaus = useMemo(() => baus.filter((b) => b.ativo !== false), [baus]);
+  const inactiveBaus = useMemo(() => baus.filter((b) => b.ativo === false), [baus]);
+  const [showInactiveBaus, setShowInactiveBaus] = useState(false);
+
   // App State sincronizado com a URL (?tipo=entrada | saida | transferencia)
   const [type, setType] = useUrlTab<"entrada" | "saida" | "transferencia">("saida", {
     paramName: "tipo",
@@ -158,22 +163,23 @@ function MovimentacoesContent() {
   const [quantity, setQuantity] = useState<number>(1);
   const [reason, setReason] = useState<string>("");
 
-  // Auto-set default chests when loaded
+  // Auto-selecionar baú padrão ativo para movimentações
   useEffect(() => {
-    if (baus.length > 0) {
-      if (!selectedBauId || !baus.some((b) => b.id === selectedBauId)) {
-        const defaultBau = baus[0];
+    const listToPick = activeBaus.length > 0 ? activeBaus : baus;
+    if (listToPick.length > 0) {
+      if (!selectedBauId || !listToPick.some((b) => b.id === selectedBauId)) {
+        const defaultBau = listToPick[0];
         if (defaultBau) setSelectedBauId(defaultBau.id);
       }
-      if (!fromBauId || !baus.some((b) => b.id === fromBauId)) {
-        if (baus[0]) setFromBauId(baus[0].id);
+      if (!fromBauId || !listToPick.some((b) => b.id === fromBauId)) {
+        if (listToPick[0]) setFromBauId(listToPick[0].id);
       }
-      if (!toBauId || toBauId === fromBauId || !baus.some((b) => b.id === toBauId)) {
-        const otherBau = baus.find((b) => b.id !== (fromBauId || baus[0]?.id)) || baus[1] || baus[0];
+      if (!toBauId || toBauId === fromBauId || !listToPick.some((b) => b.id === toBauId)) {
+        const otherBau = listToPick.find((b) => b.id !== (fromBauId || listToPick[0]?.id)) || listToPick[1] || listToPick[0];
         if (otherBau) setToBauId(otherBau.id);
       }
     }
-  }, [baus, selectedBauId, fromBauId, toBauId]);
+  }, [activeBaus, baus, selectedBauId, fromBauId, toBauId]);
 
   // Queue batch items
   const [queue, setQueue] = useState<BatchItem[]>([]);
@@ -566,13 +572,18 @@ function MovimentacoesContent() {
     setBalanceModalOpen(true);
   };
 
-  // Disparo de movimentação a partir do card do baú (Apenas para baús manuais)
+  // Disparo de movimentação a partir do card do baú (Apenas para baús manuais e ativos)
   const handleStartMovementOnBau = (targetBauId: string) => {
+    const target = baus.find((b) => b.id === targetBauId);
+    if (!target || target.ativo === false) {
+      toast.error("Este baú está inativo e não pode receber movimentações.");
+      return;
+    }
     setActiveMovementBauId(targetBauId);
     setSelectedBauId(targetBauId);
     setFromBauId(targetBauId);
     if (type === "transferencia" && toBauId === targetBauId) {
-      const other = baus.find((b) => b.id !== targetBauId);
+      const other = activeBaus.find((b) => b.id !== targetBauId);
       if (other) setToBauId(other.id);
     }
     setQueue([]);
@@ -639,6 +650,11 @@ function MovimentacoesContent() {
     return list.sort((a, b) => b.stock - a.stock || a.product.nome.localeCompare(b.product.nome));
   }, [activeBalanceInventory, balanceStockFilter, balanceSearch]);
 
+  // Lista de baús exibidos na grade (por padrão apenas ativos)
+  const displayedBaus = useMemo(() => {
+    return showInactiveBaus ? baus : activeBaus;
+  }, [baus, activeBaus, showInactiveBaus]);
+
   return (
     <div className="mx-auto max-w-6xl space-y-6">
       <PageHeader
@@ -649,14 +665,33 @@ function MovimentacoesContent() {
       {/* SEÇÃO 1: CARDS COM TODOS OS BAÚS NO TOPO */}
       <div className="space-y-3">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <Boxes className="h-5 w-5 text-primary" />
             <h2 className="text-base sm:text-lg font-bold text-foreground">
               Baús do grupo
             </h2>
-            <Badge variant="outline" className="text-[10px] font-bold">
-              {baus.length} {baus.length === 1 ? "baú" : "baús"}
+            <Badge variant="outline" className="text-[10px] font-bold border-primary/40 text-primary">
+              {activeBaus.length} {activeBaus.length === 1 ? "baú ativo" : "baús ativos"}
             </Badge>
+
+            {inactiveBaus.length > 0 && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setShowInactiveBaus((prev) => !prev)}
+                className={cn(
+                  "h-6.5 px-2 text-[10.5px] rounded-lg font-bold border transition-all cursor-pointer",
+                  showInactiveBaus
+                    ? "bg-rose-500/20 text-rose-300 border-rose-500/50 shadow-xs"
+                    : "text-muted-foreground border-border/70 hover:bg-secondary/60 hover:text-foreground"
+                )}
+              >
+                {showInactiveBaus
+                  ? `Ocultar Inativos (${inactiveBaus.length})`
+                  : `Mostrar Inativos (${inactiveBaus.length})`}
+              </Button>
+            )}
           </div>
           <div className="flex items-center gap-2 flex-wrap">
             <p className="text-xs text-muted-foreground hidden lg:inline">
@@ -684,8 +719,9 @@ function MovimentacoesContent() {
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-5">
-          {baus.map((b) => {
+          {displayedBaus.map((b) => {
             const isManual = b.tipo_gestao === "manual";
+            const isInactive = b.ativo === false;
             const stat = bausStats[b.id] || { itemsCount: 0, totalUnits: 0, totalValue: 0, positiveCount: 0 };
             const isCurrentlySelected = type === "transferencia" ? fromBauId === b.id || toBauId === b.id : selectedBauId === b.id;
 
@@ -695,10 +731,12 @@ function MovimentacoesContent() {
                 onClick={() => handleOpenBalance(b.id)}
                 className={cn(
                   "group relative overflow-hidden rounded-2xl border transition-all duration-300 cursor-pointer flex flex-col justify-between shadow-sm",
-                  "bg-card/95 backdrop-blur-md hover:shadow-2xl",
-                  isCurrentlySelected
+                  isInactive
+                    ? "bg-card/60 border-dashed border-rose-500/40 opacity-75 grayscale-[35%] hover:opacity-100 hover:grayscale-0"
+                    : "bg-card/95 backdrop-blur-md hover:shadow-2xl",
+                  isCurrentlySelected && !isInactive
                     ? "border-primary ring-2 ring-primary/50 shadow-primary/15 shadow-xl scale-[1.01]"
-                    : "border-border/70 hover:border-primary/60 hover:-translate-y-1.5"
+                    : !isInactive && "border-border/70 hover:border-primary/60 hover:-translate-y-1.5"
                 )}
               >
                 {/* Banner no Card (Modo Retrato) */}
@@ -726,6 +764,15 @@ function MovimentacoesContent() {
                   {/* Gradiente Overlay suave no Banner */}
                   <div className="absolute inset-0 bg-gradient-to-t from-card via-card/30 to-black/40 pointer-events-none" />
 
+                  {/* Overlay central quando inativo */}
+                  {isInactive && (
+                    <div className="absolute inset-0 bg-black/65 backdrop-blur-[1px] flex items-center justify-center pointer-events-none z-10">
+                      <Badge variant="destructive" className="bg-rose-950/95 text-rose-300 border border-rose-500/60 font-black text-[11px] px-2.5 py-0.5 shadow-xl uppercase tracking-wider">
+                        🔒 Baú Inativo
+                      </Badge>
+                    </div>
+                  )}
+
                   {/* Badges Flutuantes no Topo do Banner */}
                   <div className="absolute top-2.5 inset-x-2.5 flex items-center justify-between gap-1.5 z-10">
                     <Badge
@@ -744,12 +791,12 @@ function MovimentacoesContent() {
                       variant="outline"
                       className={cn(
                         "text-[9px] uppercase font-bold px-2 py-0.5 rounded-lg backdrop-blur-md shadow-sm border",
-                        b.ativo
+                        !isInactive
                           ? "bg-emerald-950/80 text-emerald-300 border-emerald-500/50"
-                          : "bg-black/75 text-muted-foreground border-border/80"
+                          : "bg-rose-950/90 text-rose-300 border-rose-500/60"
                       )}
                     >
-                      {b.ativo ? "Ativo" : "Inativo"}
+                      {!isInactive ? "Ativo" : "Inativo"}
                     </Badge>
                   </div>
                 </div>
@@ -858,33 +905,53 @@ function MovimentacoesContent() {
                       </Tooltip>
                     )}
 
-                    {/* Botão Movimentar (Apenas para baús manuais - Ícone sem texto para não cortar no desktop) */}
+                    {/* Botão Movimentar (Apenas para baús manuais e ativos) */}
                     {isManual && canMove && (
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Button
-                            type="button"
-                            variant="default"
-                            size="sm"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleStartMovementOnBau(b.id);
-                            }}
-                            className={cn(
-                              "h-7 w-7 sm:h-8 sm:w-8 p-0 rounded-xl text-primary-foreground shadow-sm transition-all active:scale-95 cursor-pointer flex items-center justify-center shrink-0",
-                              activeMovementBauId === b.id
-                                ? "bg-amber-500 hover:bg-amber-600 ring-2 ring-amber-400 text-slate-900"
-                                : "bg-primary hover:bg-primary/90"
-                            )}
-                            aria-label={`Movimentar baú ${b.nome}`}
-                          >
-                            <ArrowRightLeft className="h-3.5 w-3.5" />
-                          </Button>
-                        </TooltipTrigger>
-                        <TooltipContent side="top" className="text-xs font-semibold">
-                          Lançar Movimentação
-                        </TooltipContent>
-                      </Tooltip>
+                      !isInactive ? (
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button
+                              type="button"
+                              variant="default"
+                              size="sm"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleStartMovementOnBau(b.id);
+                              }}
+                              className={cn(
+                                "h-7 w-7 sm:h-8 sm:w-8 p-0 rounded-xl text-primary-foreground shadow-sm transition-all active:scale-95 cursor-pointer flex items-center justify-center shrink-0",
+                                activeMovementBauId === b.id
+                                  ? "bg-amber-500 hover:bg-amber-600 ring-2 ring-amber-400 text-slate-900"
+                                  : "bg-primary hover:bg-primary/90"
+                              )}
+                              aria-label={`Movimentar baú ${b.nome}`}
+                            >
+                              <ArrowRightLeft className="h-3.5 w-3.5" />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent side="top" className="text-xs font-semibold">
+                            Lançar Movimentação
+                          </TooltipContent>
+                        </Tooltip>
+                      ) : (
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              disabled
+                              className="h-7 w-7 sm:h-8 sm:w-8 p-0 rounded-xl text-muted-foreground opacity-40 cursor-not-allowed border-rose-500/30"
+                              aria-label="Baú inativo"
+                            >
+                              <Lock className="h-3.5 w-3.5" />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent side="top" className="text-xs font-semibold">
+                            Baú Inativo (Bloqueado)
+                          </TooltipContent>
+                        </Tooltip>
+                      )
                     )}
                   </div>
                 </div>
@@ -931,7 +998,7 @@ function MovimentacoesContent() {
               </div>
 
               {/* SELETOR RÁPIDO DE BAÚ (Permite trocar de baú manual diretamente no popup) */}
-              {baus.filter((b) => b.tipo_gestao === "manual").length > 1 && (
+              {activeBaus.filter((b) => b.tipo_gestao === "manual").length > 1 && (
                 <div className="flex items-center gap-2 shrink-0">
                   <span className="text-[11px] font-bold text-muted-foreground hidden sm:inline">Baú:</span>
                   <Select
@@ -945,7 +1012,7 @@ function MovimentacoesContent() {
                       <SelectValue placeholder="Trocar Baú" />
                     </SelectTrigger>
                     <SelectContent>
-                      {baus
+                      {activeBaus
                         .filter((b) => b.tipo_gestao === "manual")
                         .map((b) => (
                           <SelectItem key={b.id} value={b.id} className="text-xs">
@@ -1031,7 +1098,7 @@ function MovimentacoesContent() {
                   </div>
 
                   <div className="flex flex-wrap gap-1.5">
-                    {baus.map((b) => (
+                    {activeBaus.map((b) => (
                       <Button
                         key={b.id}
                         type="button"
@@ -1066,7 +1133,7 @@ function MovimentacoesContent() {
                       <Boxes className="h-4 w-4 text-rose-400" /> De onde sai (Baú Origem) *
                     </Label>
                     <div className="flex flex-wrap gap-1.5">
-                      {baus.map((b) => (
+                      {activeBaus.map((b) => (
                         <Button
                           key={b.id}
                           type="button"
@@ -1075,7 +1142,7 @@ function MovimentacoesContent() {
                           onClick={() => {
                             setFromBauId(b.id);
                             if (toBauId === b.id) {
-                              const other = baus.find((o) => o.id !== b.id);
+                              const other = activeBaus.find((o) => o.id !== b.id);
                               if (other) setToBauId(other.id);
                             }
                           }}
@@ -1099,7 +1166,7 @@ function MovimentacoesContent() {
                       <Boxes className="h-4 w-4 text-emerald-400" /> Para onde vai (Baú Destino) *
                     </Label>
                     <div className="flex flex-wrap gap-1.5">
-                      {baus
+                      {activeBaus
                         .filter((b) => b.id !== fromBauId)
                         .map((b) => (
                           <Button
