@@ -38,7 +38,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useUserTheme } from "@/hooks/useUserTheme";
+import { useUserTheme, applyThemeToDOM } from "@/hooks/useUserTheme";
 import { DEFAULT_USER_THEME, type UserThemeSettings } from "@/lib/app-types";
 import { cn } from "@/lib/utils";
 
