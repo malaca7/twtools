@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { updateUserTheme } from "@/lib/app-api";
 import { DEFAULT_USER_THEME, type UserThemeSettings } from "@/lib/app-types";
@@ -121,15 +121,28 @@ function getLocalUserTheme(): UserThemeSettings {
  * Hook para gerenciar e persistir o tema e a aparência INDIVIDUAL de cada membro.
  */
 export function useUserTheme() {
-  const { profile, refresh } = useAuth();
+  const { profile } = useAuth();
   const [localTheme, setLocalTheme] = useState<UserThemeSettings>(getLocalUserTheme);
   const [isSaving, setIsSaving] = useState(false);
 
-  // Sincroniza quando o perfil remoto do usuário carrega
+  // Ref para rastrear o tema mais recente e evitar problemas de stale closure
+  const latestThemeRef = useRef<UserThemeSettings>(localTheme);
   useEffect(() => {
+    latestThemeRef.current = localTheme;
+  }, [localTheme]);
+
+  // Ref para saber se estamos ativamente salvando (evita que o sync remoto sobrescreva)
+  const isSavingRef = useRef(false);
+
+  // Sincroniza quando o perfil remoto do usuário carrega (apenas na carga inicial, não durante saves)
+  useEffect(() => {
+    // Se estamos salvando, ignorar o sync remoto para evitar reverter a alteração local
+    if (isSavingRef.current) return;
+
     if (profile?.custom_theme) {
       const merged = { ...DEFAULT_USER_THEME, ...profile.custom_theme };
       setLocalTheme(merged);
+      latestThemeRef.current = merged;
       try {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
       } catch {}
@@ -137,6 +150,7 @@ export function useUserTheme() {
     } else {
       const local = getLocalUserTheme();
       setLocalTheme(local);
+      latestThemeRef.current = local;
       applyThemeToDOM(local);
     }
   }, [profile?.custom_theme]);
@@ -146,6 +160,7 @@ export function useUserTheme() {
     const handleChange = () => {
       const current = getLocalUserTheme();
       setLocalTheme(current);
+      latestThemeRef.current = current;
       applyThemeToDOM(current);
     };
 
@@ -156,14 +171,20 @@ export function useUserTheme() {
   }, []);
 
   // Salva o tema individual (no localStorage e no perfil do Supabase) em tempo real
+  // Aceita um objeto COMPLETO ou partial — usa latestThemeRef para evitar stale closures
   const saveTheme = useCallback(
-    async (newSettings: Partial<UserThemeSettings>, showFeedback = false) => {
+    async (newSettings: Partial<UserThemeSettings> | UserThemeSettings, showFeedback = false) => {
+      // Usa o ref para obter o estado mais recente (evita stale closure)
+      const baseTheme = latestThemeRef.current;
       const updated: UserThemeSettings = {
-        ...localTheme,
+        ...baseTheme,
         ...newSettings,
       };
 
+      // Atualiza estado e ref simultaneamente
       setLocalTheme(updated);
+      latestThemeRef.current = updated;
+
       try {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
       } catch {}
@@ -171,10 +192,11 @@ export function useUserTheme() {
       applyThemeToDOM(updated);
       emitThemeChange();
 
+      // Marca como salvando para bloquear o sync remoto de sobrescrever
+      isSavingRef.current = true;
       setIsSaving(true);
       try {
         await updateUserTheme(updated);
-        await refresh?.();
         if (showFeedback) {
           toast.success("Seu tema e aparência individuais foram salvos!");
         }
@@ -182,20 +204,25 @@ export function useUserTheme() {
         console.warn("Tema salvo localmente (offline ou fallback):", err);
       } finally {
         setIsSaving(false);
+        // Desbloqueia o sync remoto após um delay para evitar race condition
+        setTimeout(() => {
+          isSavingRef.current = false;
+        }, 1000);
       }
     },
-    [localTheme, refresh]
+    [] // Sem dependências — usa refs para estado mais recente
   );
 
   // Pré-visualização instantânea sem salvar
   const previewTheme = useCallback((draft: Partial<UserThemeSettings>) => {
-    const merged = { ...localTheme, ...draft };
+    const merged = { ...latestThemeRef.current, ...draft };
     applyThemeToDOM(merged);
-  }, [localTheme]);
+  }, []);
 
   // Reverte para o tema padrão individual
   const resetTheme = useCallback(async () => {
     setLocalTheme(DEFAULT_USER_THEME);
+    latestThemeRef.current = DEFAULT_USER_THEME;
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(DEFAULT_USER_THEME));
     } catch {}
@@ -203,14 +230,18 @@ export function useUserTheme() {
     applyThemeToDOM(DEFAULT_USER_THEME);
     emitThemeChange();
 
+    isSavingRef.current = true;
     try {
       await updateUserTheme(DEFAULT_USER_THEME);
-      await refresh?.();
       toast.success("Tema restaurado para o padrão!");
     } catch {
       toast.success("Tema padrão aplicado!");
+    } finally {
+      setTimeout(() => {
+        isSavingRef.current = false;
+      }, 1000);
     }
-  }, [refresh]);
+  }, []);
 
   return {
     theme: localTheme,
