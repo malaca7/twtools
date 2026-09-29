@@ -2250,6 +2250,12 @@ export function DevConfiguracaoContent() {
           </div>
         </div>
       )}
+
+      {/* Modal Central de Gestão Completa de Manutenção */}
+      <DevMaintenanceManagerModal
+        open={maintenanceModalOpen}
+        onOpenChange={setMaintenanceModalOpen}
+      />
     </div>
   );
 }
@@ -2649,12 +2655,6 @@ function PanelColorPickerCard({
           </div>
         </DialogContent>
       </Dialog>
-
-      {/* Modal Central de Gestão Completa de Manutenção */}
-      <DevMaintenanceManagerModal
-        open={maintenanceModalOpen}
-        onOpenChange={setMaintenanceModalOpen}
-      />
     </div>
   );
 }
