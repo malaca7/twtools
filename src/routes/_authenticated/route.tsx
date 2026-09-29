@@ -5,6 +5,7 @@ import { AppShell } from "@/components/layout/AppShell";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Brand } from "@/components/Brand";
 
 export const Route = createFileRoute("/_authenticated")({
   ssr: false,
@@ -36,22 +37,7 @@ function AuthenticatedLayout() {
         <header className="sticky top-0 z-50 w-full border-b border-border/60 bg-background/85 backdrop-blur-md px-4 sm:px-8 py-3 shadow-xs">
           <div className="mx-auto max-w-5xl flex items-center justify-between gap-4">
             <Link to="/" className="flex items-center gap-2.5 group">
-              <img
-                src="/logo.png"
-                alt="Twin Wheels"
-                className="h-8 w-8 rounded-xl object-contain border border-primary/40 p-0.5 bg-secondary/50 group-hover:scale-105 transition-transform"
-                onError={(e) => {
-                  (e.target as HTMLElement).style.display = "none";
-                }}
-              />
-              <div className="flex flex-col">
-                <span className="font-black text-sm tracking-tight text-foreground group-hover:text-primary transition-colors">
-                  TWIN WHEELS
-                </span>
-                <span className="text-[10px] text-muted-foreground font-mono leading-none">
-                  Perfil de Integrante Oficial
-                </span>
-              </div>
+              <Brand size="sm" showSlogan={false} />
             </Link>
 
             <div className="flex items-center gap-2">

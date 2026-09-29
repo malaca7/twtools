@@ -40,15 +40,36 @@ export type PlatformSettings = {
   borderGlowSpeed: string;
   brightness: number;
   contrast: number;
-  // Extended Platform Information
+  // Extended Platform Information & RP Identity
   cityRpName?: string;
+  cityRpTag?: string;
+  fivemConnectUrl?: string;
+  factionCode?: string;
   supportDiscordUrl?: string;
+  factionDiscordUrl?: string;
+  radioFrequency?: string;
   systemVersion?: string;
   platformLogoUrl?: string;
   platformBannerUrl?: string;
+  platformFaviconUrl?: string;
   contactEmail?: string;
+  instagramHandle?: string;
+  tiktokHandle?: string;
+  recruitmentFormUrl?: string;
+  operatingHours?: string;
+  headquartersLocation?: string;
+  minRecruitAge?: string;
+  minCityTime?: string;
+  defaultNewRole?: string;
+  weeklyGoalHours?: string;
+  weeklyGoalFarm?: string;
+  motd?: string;
+  welcomeMessage?: string;
+  motto?: string;
+  rulesSummary?: string;
   systemStatusNotice?: string;
   showSystemStatusNotice?: boolean;
+  systemStatusType?: "info" | "warning" | "destructive";
 
   // Footer Information & Customization
   footerFactionText?: string;
@@ -98,15 +119,36 @@ export const DEFAULT_PLATFORM_SETTINGS: PlatformSettings = {
   brightness: 100,
   contrast: 100,
 
-  // Extended Platform Information
+  // Extended Platform Information & RP Identity
   cityRpName: "Los Santos RP",
+  cityRpTag: "LSRP",
+  fivemConnectUrl: "connect cpx.rp",
+  factionCode: "FAC-TW01",
   supportDiscordUrl: "https://discord.gg/twinwheels",
+  factionDiscordUrl: "https://discord.gg/twinwheels",
+  radioFrequency: "98.5 MHz",
   systemVersion: "v2.5.0",
   platformLogoUrl: "",
   platformBannerUrl: "",
+  platformFaviconUrl: "",
   contactEmail: "contato@twinwheels.rp",
+  instagramHandle: "@twinwheels.rp",
+  tiktokHandle: "@twinwheels.rp",
+  recruitmentFormUrl: "",
+  operatingHours: "18:00h às 02:00h",
+  headquartersLocation: "Perto do Píer · Setor Sul",
+  minRecruitAge: "16 anos",
+  minCityTime: "50 horas de voo",
+  defaultNewRole: "Novato / Recruta",
+  weeklyGoalHours: "10h semanais",
+  weeklyGoalFarm: "100 insumos",
+  motd: "Bora bater as metas da semana e manter o estoque abastecido!",
+  welcomeMessage: "Bem-vindo à Twin Wheels! Leia as regras e procure um líder para sua integração.",
+  motto: "Velocidade, lealdade e precisão em cada curva.",
+  rulesSummary: "Respeito mútuo, lealdade à facção, prestação de contas dos baús e discrição total em ações externas.",
   systemStatusNotice: "",
   showSystemStatusNotice: false,
+  systemStatusType: "warning",
 
   // Footer Information & Customization
   footerFactionText: "Twin Wheels",

@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { createFileRoute, Link, Outlet, useChildMatches } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -37,6 +37,24 @@ import {
   Copy,
   HelpCircle,
   Info,
+  UploadCloud,
+  Image as ImageIcon,
+  Radio,
+  Tv,
+  Instagram,
+  Share2,
+  Clock,
+  MapPin,
+  MessageSquareQuote,
+  ShieldAlert,
+  Trash2,
+  Camera,
+  Compass,
+  Send,
+  Megaphone,
+  ScrollText,
+  Bookmark,
+  Link2,
 } from "lucide-react";
 import {
   PANEL_COLOR_STYLES,
@@ -54,6 +72,14 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   Dialog,
   DialogContent,
@@ -73,6 +99,7 @@ import {
   DEV_CONFIG_EVENT,
   type DevConfiguration,
 } from "@/services/devService";
+import { getProxiedImageUrl } from "@/services/postimagesService";
 import { DevForcePurgeCard } from "@/components/dev/DevForcePurgeCard";
 import { DevAuditLogModal } from "@/components/dev/DevAuditLogModal";
 import { useAuditLogs } from "@/hooks/useData";
@@ -155,6 +182,67 @@ export function DevConfiguracaoContent() {
 
   const updatePlatformField = <K extends keyof PlatformSettings>(key: K, value: PlatformSettings[K]) => {
     setPlatformForm((prev) => ({ ...prev, [key]: value }));
+  };
+
+  // Estados e Refs para Upload de Mídia com Postimages (Logo, Banner, Favicon)
+  const logoInputRef = useRef<HTMLInputElement>(null);
+  const bannerInputRef = useRef<HTMLInputElement>(null);
+  const faviconInputRef = useRef<HTMLInputElement>(null);
+
+  const [uploadingLogo, setUploadingLogo] = useState(false);
+  const [uploadingBanner, setUploadingBanner] = useState(false);
+  const [uploadingFavicon, setUploadingFavicon] = useState(false);
+
+  const [isDraggingLogo, setIsDraggingLogo] = useState(false);
+  const [isDraggingBanner, setIsDraggingBanner] = useState(false);
+
+  const [platformActiveSubTab, setPlatformActiveSubTab] = useState("identidade");
+
+  const handleUploadPlatformMedia = async (
+    file: File,
+    field: "platformLogoUrl" | "platformBannerUrl" | "platformFaviconUrl"
+  ) => {
+    if (!file.type.startsWith("image/")) {
+      toast.error("Por favor, selecione um arquivo de imagem válido (PNG, JPG, WEBP, SVG ou GIF).");
+      return;
+    }
+    if (file.size > 15 * 1024 * 1024) {
+      toast.error("O tamanho da imagem não pode ultrapassar 15MB.");
+      return;
+    }
+
+    if (field === "platformLogoUrl") setUploadingLogo(true);
+    else if (field === "platformBannerUrl") setUploadingBanner(true);
+    else setUploadingFavicon(true);
+
+    try {
+      const { uploadImageToPostimages } = await import("@/services/postimagesService");
+      const maxDim = field === "platformBannerUrl" ? 1920 : field === "platformLogoUrl" ? 1024 : 256;
+      const cdnUrl = await uploadImageToPostimages(file, {
+        filename: `${field}_${Date.now()}`,
+        maxDimension: maxDim,
+        quality: 0.9,
+      });
+
+      updatePlatformField(field, cdnUrl);
+      toast.success(
+        field === "platformLogoUrl"
+          ? "Logo oficial enviada com sucesso para a CDN Postimages!"
+          : field === "platformBannerUrl"
+          ? "Banner oficial enviado com sucesso para a CDN Postimages!"
+          : "Favicon oficial enviado com sucesso!",
+        {
+          description: "A imagem foi carregada na nuvem. Clique em 'Salvar Informações da Plataforma' para consolidar.",
+          icon: "🚀",
+        }
+      );
+    } catch (err: any) {
+      toast.error("Erro no upload da imagem: " + (err?.message || "Erro desconhecido"));
+    } finally {
+      if (field === "platformLogoUrl") setUploadingLogo(false);
+      else if (field === "platformBannerUrl") setUploadingBanner(false);
+      else setUploadingFavicon(false);
+    }
   };
 
   // Carrega as configurações exclusivas do Módulo Dev ao inicializar
@@ -424,12 +512,35 @@ export function DevConfiguracaoContent() {
       slogan: DEFAULT_PLATFORM_SETTINGS.slogan,
       factionType: DEFAULT_PLATFORM_SETTINGS.factionType,
       cityRpName: DEFAULT_PLATFORM_SETTINGS.cityRpName,
+      cityRpTag: DEFAULT_PLATFORM_SETTINGS.cityRpTag,
+      fivemConnectUrl: DEFAULT_PLATFORM_SETTINGS.fivemConnectUrl,
+      factionCode: DEFAULT_PLATFORM_SETTINGS.factionCode,
       systemVersion: DEFAULT_PLATFORM_SETTINGS.systemVersion,
+      platformLogoUrl: DEFAULT_PLATFORM_SETTINGS.platformLogoUrl,
+      platformBannerUrl: DEFAULT_PLATFORM_SETTINGS.platformBannerUrl,
+      platformFaviconUrl: DEFAULT_PLATFORM_SETTINGS.platformFaviconUrl,
       supportDiscordUrl: DEFAULT_PLATFORM_SETTINGS.supportDiscordUrl,
+      factionDiscordUrl: DEFAULT_PLATFORM_SETTINGS.factionDiscordUrl,
+      radioFrequency: DEFAULT_PLATFORM_SETTINGS.radioFrequency,
       contactEmail: DEFAULT_PLATFORM_SETTINGS.contactEmail,
+      instagramHandle: DEFAULT_PLATFORM_SETTINGS.instagramHandle,
+      tiktokHandle: DEFAULT_PLATFORM_SETTINGS.tiktokHandle,
+      recruitmentFormUrl: DEFAULT_PLATFORM_SETTINGS.recruitmentFormUrl,
+      operatingHours: DEFAULT_PLATFORM_SETTINGS.operatingHours,
+      headquartersLocation: DEFAULT_PLATFORM_SETTINGS.headquartersLocation,
+      minRecruitAge: DEFAULT_PLATFORM_SETTINGS.minRecruitAge,
+      minCityTime: DEFAULT_PLATFORM_SETTINGS.minCityTime,
+      defaultNewRole: DEFAULT_PLATFORM_SETTINGS.defaultNewRole,
+      weeklyGoalHours: DEFAULT_PLATFORM_SETTINGS.weeklyGoalHours,
+      weeklyGoalFarm: DEFAULT_PLATFORM_SETTINGS.weeklyGoalFarm,
+      motd: DEFAULT_PLATFORM_SETTINGS.motd,
+      welcomeMessage: DEFAULT_PLATFORM_SETTINGS.welcomeMessage,
+      motto: DEFAULT_PLATFORM_SETTINGS.motto,
+      rulesSummary: DEFAULT_PLATFORM_SETTINGS.rulesSummary,
       description: DEFAULT_PLATFORM_SETTINGS.description,
       showSystemStatusNotice: DEFAULT_PLATFORM_SETTINGS.showSystemStatusNotice,
       systemStatusNotice: DEFAULT_PLATFORM_SETTINGS.systemStatusNotice,
+      systemStatusType: DEFAULT_PLATFORM_SETTINGS.systemStatusType,
     }));
     toast.info("Valores padrão da plataforma restaurados no formulário. Clique em Salvar para aplicar.");
   };
@@ -565,7 +676,42 @@ export function DevConfiguracaoContent() {
           {/* Card de Limpeza Forçada de Cache em Tempo Real */}
           <DevForcePurgeCard />
 
-          {/* CARD 1: INFORMAÇÕES GERAIS DA PLATAFORMA */}
+          {/* Inputs invisíveis para upload de imagem via Postimages API */}
+          <input
+            type="file"
+            ref={logoInputRef}
+            className="hidden"
+            accept="image/png,image/jpeg,image/webp,image/svg+xml,image/gif"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file) void handleUploadPlatformMedia(file, "platformLogoUrl");
+              e.target.value = "";
+            }}
+          />
+          <input
+            type="file"
+            ref={bannerInputRef}
+            className="hidden"
+            accept="image/png,image/jpeg,image/webp,image/svg+xml,image/gif"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file) void handleUploadPlatformMedia(file, "platformBannerUrl");
+              e.target.value = "";
+            }}
+          />
+          <input
+            type="file"
+            ref={faviconInputRef}
+            className="hidden"
+            accept="image/png,image/jpeg,image/webp,image/svg+xml,image/gif,image/x-icon"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file) void handleUploadPlatformMedia(file, "platformFaviconUrl");
+              e.target.value = "";
+            }}
+          />
+
+          {/* CARD 1: INFORMAÇÕES GERAIS DA PLATAFORMA (EXPANDIDO COM TABS E UPLOAD POSTIMAGES) */}
           <Card className="surface-card border transition-all duration-300">
             <CardHeader className="pb-3 border-b border-border/60">
               <div className="flex items-center justify-between gap-3 flex-wrap">
@@ -575,217 +721,868 @@ export function DevConfiguracaoContent() {
                   </div>
                   <div>
                     <CardTitle className="text-sm font-extrabold text-foreground">
-                      Informações Gerais da Plataforma
+                      Informações Gerais & Identidade da Plataforma
                     </CardTitle>
                     <CardDescription className="text-xs">
-                      Gerencie a identidade institucional da facção, servidor GTA RP, versão do sistema, links de suporte e comunicados globais.
+                      Gerencie a identidade visual completa (Upload Postimages), dados da facção, servidor GTA RP FiveM, frequências, expediente e comunicados globais.
                     </CardDescription>
                   </div>
                 </div>
-                <Badge variant="outline" className="text-[10px] font-mono border-sky-500/40 text-sky-400">
-                  Identidade & Metadados
-                </Badge>
+                <div className="flex items-center gap-2">
+                  <Badge variant="outline" className="text-[10px] font-mono border-sky-500/40 text-sky-400 bg-sky-500/5">
+                    Postimages API Integrada
+                  </Badge>
+                  <Badge variant="outline" className="text-[10px] font-mono border-border/80">
+                    Sincronização Supabase
+                  </Badge>
+                </div>
               </div>
             </CardHeader>
-            <CardContent className="p-5 space-y-5">
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                {/* Nome da Facção */}
-                <div className="space-y-1.5">
-                  <Label htmlFor="plat-factionName" className="text-xs font-bold text-foreground">
-                    Nome da Organização / Facção
-                  </Label>
-                  <Input
-                    id="plat-factionName"
-                    value={platformForm.factionName || ""}
-                    onChange={(e) => updatePlatformField("factionName", e.target.value)}
-                    placeholder="Ex: Twin Wheels"
-                    className="h-9 text-xs rounded-xl"
-                  />
-                  <p className="text-[10px] text-muted-foreground">Exibido no cabeçalho e títulos.</p>
-                </div>
+            <CardContent className="p-5 space-y-6">
+              {/* SUB-TABS INTERNAS DE CONFIGURAÇÕES DA PLATAFORMA */}
+              <Tabs
+                value={platformActiveSubTab}
+                onValueChange={setPlatformActiveSubTab}
+                className="w-full space-y-5"
+              >
+                <TabsList className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-1 bg-secondary/40 p-1 rounded-xl border border-border/60 h-auto">
+                  <TabsTrigger
+                    value="identidade"
+                    className="text-xs font-bold gap-1.5 py-2 data-[state=active]:bg-sky-600 data-[state=active]:text-white"
+                  >
+                    <Building2 className="h-3.5 w-3.5" />
+                    <span>Identidade & RP</span>
+                  </TabsTrigger>
+                  <TabsTrigger
+                    value="midia"
+                    className="text-xs font-bold gap-1.5 py-2 data-[state=active]:bg-sky-600 data-[state=active]:text-white"
+                  >
+                    <ImageIcon className="h-3.5 w-3.5" />
+                    <span>Logo & Banner</span>
+                  </TabsTrigger>
+                  <TabsTrigger
+                    value="comunicacao"
+                    className="text-xs font-bold gap-1.5 py-2 data-[state=active]:bg-sky-600 data-[state=active]:text-white"
+                  >
+                    <Radio className="h-3.5 w-3.5" />
+                    <span>Comunicação & Redes</span>
+                  </TabsTrigger>
+                  <TabsTrigger
+                    value="operacao"
+                    className="text-xs font-bold gap-1.5 py-2 data-[state=active]:bg-sky-600 data-[state=active]:text-white"
+                  >
+                    <Clock className="h-3.5 w-3.5" />
+                    <span>Expediente & Regras</span>
+                  </TabsTrigger>
+                  <TabsTrigger
+                    value="comunicados"
+                    className="text-xs font-bold gap-1.5 py-2 data-[state=active]:bg-sky-600 data-[state=active]:text-white col-span-2 sm:col-span-1"
+                  >
+                    <Megaphone className="h-3.5 w-3.5" />
+                    <span>Avisos & MOTD</span>
+                  </TabsTrigger>
+                </TabsList>
 
-                {/* Tag da Facção */}
-                <div className="space-y-1.5">
-                  <Label htmlFor="plat-factionTag" className="text-xs font-bold text-foreground">
-                    Tag / Sigla Oficial
-                  </Label>
-                  <Input
-                    id="plat-factionTag"
-                    value={platformForm.factionTag || ""}
-                    onChange={(e) => updatePlatformField("factionTag", e.target.value)}
-                    placeholder="Ex: [TW]"
-                    className="h-9 text-xs rounded-xl"
-                  />
-                  <p className="text-[10px] text-muted-foreground">Abreviação ou prefixo da facção.</p>
-                </div>
+                {/* ABA 1: IDENTIDADE & SERVIDOR GTA RP */}
+                <TabsContent value="identidade" className="space-y-4 m-0 focus-visible:outline-none">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {/* Nome da Facção */}
+                    <div className="space-y-1.5">
+                      <Label htmlFor="plat-factionName" className="text-xs font-bold text-foreground">
+                        Nome da Organização / Facção *
+                      </Label>
+                      <Input
+                        id="plat-factionName"
+                        value={platformForm.factionName || ""}
+                        onChange={(e) => updatePlatformField("factionName", e.target.value)}
+                        placeholder="Ex: Twin Wheels"
+                        className="h-9 text-xs rounded-xl font-bold"
+                      />
+                      <p className="text-[10px] text-muted-foreground">Exibido na barra superior, menus e títulos.</p>
+                    </div>
 
-                {/* Slogan */}
-                <div className="space-y-1.5">
-                  <Label htmlFor="plat-slogan" className="text-xs font-bold text-foreground">
-                    Slogan / Subtítulo
-                  </Label>
-                  <Input
-                    id="plat-slogan"
-                    value={platformForm.slogan || ""}
-                    onChange={(e) => updatePlatformField("slogan", e.target.value)}
-                    placeholder="Ex: Gestão Interna · GTA RP"
-                    className="h-9 text-xs rounded-xl"
-                  />
-                  <p className="text-[10px] text-muted-foreground">Frase curta na barra superior.</p>
-                </div>
+                    {/* Tag da Facção */}
+                    <div className="space-y-1.5">
+                      <Label htmlFor="plat-factionTag" className="text-xs font-bold text-foreground">
+                        Tag / Sigla Oficial *
+                      </Label>
+                      <Input
+                        id="plat-factionTag"
+                        value={platformForm.factionTag || ""}
+                        onChange={(e) => updatePlatformField("factionTag", e.target.value)}
+                        placeholder="Ex: [TW]"
+                        className="h-9 text-xs rounded-xl font-mono font-bold"
+                      />
+                      <p className="text-[10px] text-muted-foreground">Prefixo oficial da organização.</p>
+                    </div>
 
-                {/* Tipo de Facção / Segmento */}
-                <div className="space-y-1.5">
-                  <Label htmlFor="plat-factionType" className="text-xs font-bold text-foreground">
-                    Segmento / Tipo
-                  </Label>
-                  <Input
-                    id="plat-factionType"
-                    value={platformForm.factionType || ""}
-                    onChange={(e) => updatePlatformField("factionType", e.target.value)}
-                    placeholder="Ex: Gestão de grupo — GTA RP"
-                    className="h-9 text-xs rounded-xl"
-                  />
-                  <p className="text-[10px] text-muted-foreground">Ramo de atuação ou foco no RP.</p>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                {/* Cidade / Servidor GTA RP */}
-                <div className="space-y-1.5">
-                  <Label htmlFor="plat-cityRpName" className="text-xs font-bold text-foreground">
-                    Cidade / Servidor RP
-                  </Label>
-                  <Input
-                    id="plat-cityRpName"
-                    value={platformForm.cityRpName || ""}
-                    onChange={(e) => updatePlatformField("cityRpName", e.target.value)}
-                    placeholder="Ex: Los Santos RP / Cidade Alta"
-                    className="h-9 text-xs rounded-xl"
-                  />
-                  <p className="text-[10px] text-muted-foreground">Servidor onde a facção atua.</p>
-                </div>
-
-                {/* Versão do Sistema */}
-                <div className="space-y-1.5">
-                  <Label htmlFor="plat-systemVersion" className="text-xs font-bold text-foreground">
-                    Versão da Plataforma
-                  </Label>
-                  <Input
-                    id="plat-systemVersion"
-                    value={platformForm.systemVersion || ""}
-                    onChange={(e) => updatePlatformField("systemVersion", e.target.value)}
-                    placeholder="Ex: v2.5.0"
-                    className="h-9 text-xs rounded-xl font-mono"
-                  />
-                  <p className="text-[10px] text-muted-foreground">Exibida em badges e rodapé.</p>
-                </div>
-
-                {/* Link de Suporte / Discord */}
-                <div className="space-y-1.5">
-                  <Label htmlFor="plat-supportDiscordUrl" className="text-xs font-bold text-foreground">
-                    Link de Suporte / Discord
-                  </Label>
-                  <Input
-                    id="plat-supportDiscordUrl"
-                    value={platformForm.supportDiscordUrl || ""}
-                    onChange={(e) => updatePlatformField("supportDiscordUrl", e.target.value)}
-                    placeholder="https://discord.gg/..."
-                    className="h-9 text-xs rounded-xl"
-                  />
-                  <p className="text-[10px] text-muted-foreground">Convite do Discord ou canal de ajuda.</p>
-                </div>
-
-                {/* E-mail ou Contato Oficial */}
-                <div className="space-y-1.5">
-                  <Label htmlFor="plat-contactEmail" className="text-xs font-bold text-foreground">
-                    Contato Institucional
-                  </Label>
-                  <Input
-                    id="plat-contactEmail"
-                    value={platformForm.contactEmail || ""}
-                    onChange={(e) => updatePlatformField("contactEmail", e.target.value)}
-                    placeholder="Ex: contato@twinwheels.rp"
-                    className="h-9 text-xs rounded-xl"
-                  />
-                  <p className="text-[10px] text-muted-foreground">Canal de contato para membros.</p>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {/* Logo da Plataforma */}
-                <div className="space-y-1.5">
-                  <Label htmlFor="plat-logoUrl" className="text-xs font-bold text-foreground">
-                    URL da Logo Oficial (PNG/SVG/WebP)
-                  </Label>
-                  <Input
-                    id="plat-logoUrl"
-                    value={platformForm.platformLogoUrl || ""}
-                    onChange={(e) => updatePlatformField("platformLogoUrl", e.target.value)}
-                    placeholder="https://..."
-                    className="h-9 text-xs rounded-xl font-mono"
-                  />
-                  <p className="text-[10px] text-muted-foreground">Link direto para ícone ou emblema da organização.</p>
-                </div>
-
-                {/* Banner da Plataforma */}
-                <div className="space-y-1.5">
-                  <Label htmlFor="plat-bannerUrl" className="text-xs font-bold text-foreground">
-                    URL do Banner Oficial
-                  </Label>
-                  <Input
-                    id="plat-bannerUrl"
-                    value={platformForm.platformBannerUrl || ""}
-                    onChange={(e) => updatePlatformField("platformBannerUrl", e.target.value)}
-                    placeholder="https://..."
-                    className="h-9 text-xs rounded-xl font-mono"
-                  />
-                  <p className="text-[10px] text-muted-foreground">Banner exibido em páginas de destaque e login.</p>
-                </div>
-              </div>
-
-              {/* Descrição Geral */}
-              <div className="space-y-1.5">
-                <Label htmlFor="plat-description" className="text-xs font-bold text-foreground">
-                  Descrição Completa da Organização
-                </Label>
-                <Textarea
-                  id="plat-description"
-                  value={platformForm.description || ""}
-                  onChange={(e) => updatePlatformField("description", e.target.value)}
-                  placeholder="Descreva a história, missão e propósito da facção na cidade RP..."
-                  rows={2}
-                  className="text-xs rounded-xl resize-none"
-                />
-              </div>
-
-              {/* Aviso Global / Status do Sistema */}
-              <div className="p-3.5 rounded-xl border border-amber-500/30 bg-amber-500/5 space-y-3">
-                <div className="flex items-center justify-between gap-3">
-                  <div className="space-y-0.5">
-                    <Label htmlFor="showSystemStatusNotice" className="text-xs font-bold text-foreground flex items-center gap-1.5 cursor-pointer">
-                      <AlertTriangle className="h-3.5 w-3.5 text-amber-400" />
-                      Aviso Global de Sistema / Manutenção
-                    </Label>
-                    <p className="text-[10px] text-muted-foreground">
-                      Exibe um banner de alerta importante no topo para todos os usuários conectados.
-                    </p>
+                    {/* Slogan */}
+                    <div className="space-y-1.5">
+                      <Label htmlFor="plat-slogan" className="text-xs font-bold text-foreground">
+                        Slogan / Subtítulo Institucional
+                      </Label>
+                      <Input
+                        id="plat-slogan"
+                        value={platformForm.slogan || ""}
+                        onChange={(e) => updatePlatformField("slogan", e.target.value)}
+                        placeholder="Ex: Gestão Interna · GTA RP"
+                        className="h-9 text-xs rounded-xl"
+                      />
+                      <p className="text-[10px] text-muted-foreground">Frase curta ao lado do nome na barra de topo.</p>
+                    </div>
                   </div>
-                  <Switch
-                    id="showSystemStatusNotice"
-                    checked={Boolean(platformForm.showSystemStatusNotice)}
-                    onCheckedChange={(val) => updatePlatformField("showSystemStatusNotice", val)}
-                  />
-                </div>
-                {platformForm.showSystemStatusNotice && (
-                  <Input
-                    value={platformForm.systemStatusNotice || ""}
-                    onChange={(e) => updatePlatformField("systemStatusNotice", e.target.value)}
-                    placeholder="Ex: Servidor em manutenção preventiva hoje das 04h às 05h da manhã."
-                    className="h-8.5 text-xs bg-background/80 rounded-lg border-amber-500/30"
-                  />
-                )}
-              </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {/* Segmento / Ramo de Atuação */}
+                    <div className="space-y-1.5">
+                      <Label htmlFor="plat-factionType" className="text-xs font-bold text-foreground">
+                        Segmento / Ramo de Atuação
+                      </Label>
+                      <Input
+                        id="plat-factionType"
+                        value={platformForm.factionType || ""}
+                        onChange={(e) => updatePlatformField("factionType", e.target.value)}
+                        placeholder="Ex: Oficina Mecânica & Preparação"
+                        className="h-9 text-xs rounded-xl"
+                      />
+                      <p className="text-[10px] text-muted-foreground">Área de atuação e foco no RP.</p>
+                    </div>
+
+                    {/* Cidade / Servidor RP */}
+                    <div className="space-y-1.5">
+                      <Label htmlFor="plat-cityRpName" className="text-xs font-bold text-foreground">
+                        Cidade / Servidor RP
+                      </Label>
+                      <Input
+                        id="plat-cityRpName"
+                        value={platformForm.cityRpName || ""}
+                        onChange={(e) => updatePlatformField("cityRpName", e.target.value)}
+                        placeholder="Ex: Los Santos RP / Complexo"
+                        className="h-9 text-xs rounded-xl"
+                      />
+                      <p className="text-[10px] text-muted-foreground">Servidor FiveM onde a facção opera.</p>
+                    </div>
+
+                    {/* Sigla da Cidade RP */}
+                    <div className="space-y-1.5">
+                      <Label htmlFor="plat-cityRpTag" className="text-xs font-bold text-foreground">
+                        Sigla da Cidade RP
+                      </Label>
+                      <Input
+                        id="plat-cityRpTag"
+                        value={platformForm.cityRpTag || ""}
+                        onChange={(e) => updatePlatformField("cityRpTag", e.target.value)}
+                        placeholder="Ex: CPX / CDA / LSRP"
+                        className="h-9 text-xs rounded-xl font-mono"
+                      />
+                      <p className="text-[10px] text-muted-foreground">Sigla compacta para relatórios e títulos.</p>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {/* Comando Connect FiveM */}
+                    <div className="space-y-1.5">
+                      <Label htmlFor="plat-fivemConnectUrl" className="text-xs font-bold text-foreground">
+                        Comando / Link FiveM Connect
+                      </Label>
+                      <Input
+                        id="plat-fivemConnectUrl"
+                        value={platformForm.fivemConnectUrl || ""}
+                        onChange={(e) => updatePlatformField("fivemConnectUrl", e.target.value)}
+                        placeholder="Ex: connect cpx.rp ou cfx.re/join/..."
+                        className="h-9 text-xs rounded-xl font-mono"
+                      />
+                      <p className="text-[10px] text-muted-foreground">Instrução para os membros entrarem na cidade.</p>
+                    </div>
+
+                    {/* Código / ID da Facção */}
+                    <div className="space-y-1.5">
+                      <Label htmlFor="plat-factionCode" className="text-xs font-bold text-foreground">
+                        Código / ID da Facção no Servidor
+                      </Label>
+                      <Input
+                        id="plat-factionCode"
+                        value={platformForm.factionCode || ""}
+                        onChange={(e) => updatePlatformField("factionCode", e.target.value)}
+                        placeholder="Ex: FAC-TW01 / Setor 4"
+                        className="h-9 text-xs rounded-xl font-mono"
+                      />
+                      <p className="text-[10px] text-muted-foreground">Identificador oficial no servidor RP.</p>
+                    </div>
+
+                    {/* Versão do Sistema */}
+                    <div className="space-y-1.5">
+                      <Label htmlFor="plat-systemVersion" className="text-xs font-bold text-foreground">
+                        Versão da Plataforma
+                      </Label>
+                      <Input
+                        id="plat-systemVersion"
+                        value={platformForm.systemVersion || ""}
+                        onChange={(e) => updatePlatformField("systemVersion", e.target.value)}
+                        placeholder="Ex: v2.5.0"
+                        className="h-9 text-xs rounded-xl font-mono font-bold"
+                      />
+                      <p className="text-[10px] text-muted-foreground">Exibida em badges e rodapé.</p>
+                    </div>
+                  </div>
+                </TabsContent>
+
+                {/* ABA 2: LOGO, BANNER & MÍDIA (UPLOAD VIA POSTIMAGES) */}
+                <TabsContent value="midia" className="space-y-6 m-0 focus-visible:outline-none">
+                  {/* SEÇÃO 1: LOGO OFICIAL COM UPLOAD POSTIMAGES */}
+                  <div className="p-4 sm:p-5 rounded-2xl bg-secondary/20 border border-border/70 space-y-4">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-border/50">
+                      <div>
+                        <h4 className="text-sm font-extrabold text-foreground flex items-center gap-2">
+                          <ImageIcon className="h-4 w-4 text-sky-400" />
+                          Logo Oficial da Plataforma
+                        </h4>
+                        <p className="text-xs text-muted-foreground">
+                          Exibida no topo da barra lateral, cabeçalho de login e documentos oficiais.
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => updatePlatformField("platformLogoUrl", "/logo.png")}
+                          className="h-7 text-[11px] font-bold gap-1"
+                        >
+                          <RotateCcw className="h-3 w-3" /> Padrão TW
+                        </Button>
+                        <Button
+                          type="button"
+                          size="sm"
+                          onClick={() => logoInputRef.current?.click()}
+                          disabled={uploadingLogo}
+                          className="h-7 text-[11px] font-bold gap-1.5 bg-sky-600 hover:bg-sky-700 text-white cursor-pointer"
+                        >
+                          {uploadingLogo ? (
+                            <>
+                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                              Enviando...
+                            </>
+                          ) : (
+                            <>
+                              <UploadCloud className="h-3.5 w-3.5" />
+                              Upload com Postimages
+                            </>
+                          )}
+                        </Button>
+                      </div>
+                    </div>
+
+                    <div className="flex flex-col md:flex-row items-center gap-5">
+                      {/* Dropzone / Preview da Logo */}
+                      <div
+                        onClick={() => logoInputRef.current?.click()}
+                        onDragOver={(e) => {
+                          e.preventDefault();
+                          setIsDraggingLogo(true);
+                        }}
+                        onDragLeave={() => setIsDraggingLogo(false)}
+                        onDrop={(e) => {
+                          e.preventDefault();
+                          setIsDraggingLogo(false);
+                          const file = e.dataTransfer.files?.[0];
+                          if (file) void handleUploadPlatformMedia(file, "platformLogoUrl");
+                        }}
+                        className={cn(
+                          "w-28 h-28 sm:w-32 sm:h-32 rounded-2xl border-2 border-dashed flex flex-col items-center justify-center p-2 relative group cursor-pointer transition-all shrink-0 bg-background/80 shadow-md",
+                          isDraggingLogo
+                            ? "border-sky-500 bg-sky-500/10 ring-4 ring-sky-500/20 scale-105"
+                            : "border-border/80 hover:border-sky-500/70 hover:bg-secondary/40"
+                        )}
+                        title="Clique ou arraste um arquivo para fazer upload da Logo via Postimages CDN"
+                      >
+                        {uploadingLogo ? (
+                          <div className="flex flex-col items-center justify-center gap-1.5 text-center">
+                            <Loader2 className="h-7 w-7 text-sky-400 animate-spin" />
+                            <span className="text-[10px] font-bold text-sky-300">Enviando CDN...</span>
+                          </div>
+                        ) : (
+                          <>
+                            <img
+                              src={getProxiedImageUrl(platformForm.platformLogoUrl) || "/logo.png"}
+                              alt="Logo Oficial da Plataforma"
+                              onError={(e) => {
+                                (e.currentTarget as HTMLImageElement).src = "/logo.png";
+                              }}
+                              className="w-full h-full object-contain rounded-xl transition-transform group-hover:scale-105"
+                            />
+                            <div className="absolute inset-0 bg-black/60 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-1 text-white p-1 text-center">
+                              <UploadCloud className="h-5 w-5 text-sky-300" />
+                              <span className="text-[9.5px] font-black leading-tight">Trocar Logo (Postimages)</span>
+                            </div>
+                          </>
+                        )}
+                      </div>
+
+                      {/* Campo de URL Manual & Orientações */}
+                      <div className="flex-1 w-full space-y-3 min-w-0">
+                        <div className="space-y-1.5">
+                          <Label htmlFor="plat-logoUrl" className="text-xs font-bold text-foreground flex items-center justify-between">
+                            <span>Link Direto da Imagem (CDN Postimages)</span>
+                            {platformForm.platformLogoUrl && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  navigator.clipboard.writeText(platformForm.platformLogoUrl || "");
+                                  toast.success("Link da Logo copiado!");
+                                }}
+                                className="text-[10px] text-sky-400 hover:underline flex items-center gap-1 cursor-pointer"
+                              >
+                                <Copy className="w-3 h-3" /> Copiar Link
+                              </button>
+                            )}
+                          </Label>
+                          <Input
+                            id="plat-logoUrl"
+                            value={platformForm.platformLogoUrl || ""}
+                            onChange={(e) => updatePlatformField("platformLogoUrl", e.target.value)}
+                            placeholder="https://i.postimg.cc/.../logo.png"
+                            className="h-9 text-xs rounded-xl font-mono bg-background/80"
+                          />
+                        </div>
+                        <div className="p-2.5 rounded-xl bg-background/60 border border-border/50 text-[11px] text-muted-foreground flex items-start gap-2">
+                          <Sparkles className="w-4 h-4 text-sky-400 shrink-0 mt-0.5" />
+                          <span>
+                            Dica: Arraste e solte o arquivo da logo diretamente sobre o quadro ao lado ou clique para selecionar. O arquivo será otimizado e hospedado na CDN Postimages com velocidade global.
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* SEÇÃO 2: BANNER OFICIAL COM UPLOAD POSTIMAGES */}
+                  <div className="p-4 sm:p-5 rounded-2xl bg-secondary/20 border border-border/70 space-y-4">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-border/50">
+                      <div>
+                        <h4 className="text-sm font-extrabold text-foreground flex items-center gap-2">
+                          <Tv className="h-4 w-4 text-purple-400" />
+                          Banner Oficial da Plataforma (Panorâmico)
+                        </h4>
+                        <p className="text-xs text-muted-foreground">
+                          Exibido na tela de login, páginas de apresentação e comunicados da facção.
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {platformForm.platformBannerUrl && (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => updatePlatformField("platformBannerUrl", "")}
+                            className="h-7 text-[11px] font-bold gap-1 text-destructive hover:bg-destructive/10"
+                          >
+                            <Trash2 className="h-3 w-3" /> Limpar Banner
+                          </Button>
+                        )}
+                        <Button
+                          type="button"
+                          size="sm"
+                          onClick={() => bannerInputRef.current?.click()}
+                          disabled={uploadingBanner}
+                          className="h-7 text-[11px] font-bold gap-1.5 bg-purple-600 hover:bg-purple-700 text-white cursor-pointer"
+                        >
+                          {uploadingBanner ? (
+                            <>
+                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                              Enviando Banner...
+                            </>
+                          ) : (
+                            <>
+                              <UploadCloud className="h-3.5 w-3.5" />
+                              Upload de Banner (Postimages)
+                            </>
+                          )}
+                        </Button>
+                      </div>
+                    </div>
+
+                    <div className="space-y-4">
+                      {/* Dropzone Panorâmica do Banner */}
+                      <div
+                        onClick={() => bannerInputRef.current?.click()}
+                        onDragOver={(e) => {
+                          e.preventDefault();
+                          setIsDraggingBanner(true);
+                        }}
+                        onDragLeave={() => setIsDraggingBanner(false)}
+                        onDrop={(e) => {
+                          e.preventDefault();
+                          setIsDraggingBanner(false);
+                          const file = e.dataTransfer.files?.[0];
+                          if (file) void handleUploadPlatformMedia(file, "platformBannerUrl");
+                        }}
+                        className={cn(
+                          "w-full h-36 sm:h-48 rounded-2xl border-2 border-dashed flex flex-col items-center justify-center relative group cursor-pointer transition-all overflow-hidden bg-background/80 shadow-inner",
+                          isDraggingBanner
+                            ? "border-purple-500 bg-purple-500/10 ring-4 ring-purple-500/20"
+                            : "border-border/80 hover:border-purple-500/70"
+                        )}
+                        title="Clique ou arraste um arquivo panorâmico para fazer upload do Banner via Postimages CDN"
+                      >
+                        {uploadingBanner ? (
+                          <div className="flex flex-col items-center justify-center gap-2">
+                            <Loader2 className="h-8 w-8 text-purple-400 animate-spin" />
+                            <span className="text-xs font-bold text-purple-300">
+                              Otimizando e enviando banner para CDN...
+                            </span>
+                          </div>
+                        ) : platformForm.platformBannerUrl ? (
+                          <>
+                            <img
+                              src={getProxiedImageUrl(platformForm.platformBannerUrl)}
+                              alt="Banner Oficial"
+                              className="w-full h-full object-cover transition-transform group-hover:scale-102"
+                            />
+                            <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-1.5 text-white">
+                              <UploadCloud className="h-6 w-6 text-purple-300" />
+                              <span className="text-xs font-bold">Trocar Banner Oficial (Postimages)</span>
+                            </div>
+                          </>
+                        ) : (
+                          <div className="flex flex-col items-center justify-center gap-2 text-muted-foreground p-4 text-center">
+                            <div className="p-3 rounded-2xl bg-secondary/50 border border-border/70 text-purple-400 group-hover:scale-110 transition-transform">
+                              <UploadCloud className="h-6 w-6" />
+                            </div>
+                            <span className="text-xs font-bold text-foreground">
+                              Arraste seu Banner aqui ou clique para selecionar
+                            </span>
+                            <span className="text-[10px] text-muted-foreground">
+                              Formatos aceitos: PNG, JPG, WEBP. Dimensão recomendada: 1920x1080 (16:9).
+                            </span>
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <Label htmlFor="plat-bannerUrl" className="text-xs font-bold text-foreground flex items-center justify-between">
+                          <span>Link Direto do Banner</span>
+                          {platformForm.platformBannerUrl && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                navigator.clipboard.writeText(platformForm.platformBannerUrl || "");
+                                toast.success("Link do Banner copiado!");
+                              }}
+                              className="text-[10px] text-purple-400 hover:underline flex items-center gap-1 cursor-pointer"
+                            >
+                              <Copy className="w-3 h-3" /> Copiar Link
+                            </button>
+                          )}
+                        </Label>
+                        <Input
+                          id="plat-bannerUrl"
+                          value={platformForm.platformBannerUrl || ""}
+                          onChange={(e) => updatePlatformField("platformBannerUrl", e.target.value)}
+                          placeholder="https://i.postimg.cc/.../banner.png"
+                          className="h-9 text-xs rounded-xl font-mono bg-background/80"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* SEÇÃO 3: FAVICON DA ABA DO NAVEGADOR */}
+                  <div className="p-4 sm:p-5 rounded-2xl bg-secondary/20 border border-border/70 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                    <div className="flex items-center gap-3.5">
+                      <div
+                        onClick={() => faviconInputRef.current?.click()}
+                        className="w-12 h-12 rounded-xl border border-border/80 bg-background/90 flex items-center justify-center p-1.5 cursor-pointer hover:border-primary transition-all group relative overflow-hidden shrink-0 shadow-xs"
+                        title="Upload de Favicon via Postimages"
+                      >
+                        {uploadingFavicon ? (
+                          <Loader2 className="w-4 h-4 animate-spin text-primary" />
+                        ) : (
+                          <img
+                            src={getProxiedImageUrl(platformForm.platformFaviconUrl) || "/favicon.ico"}
+                            alt="Favicon"
+                            onError={(e) => {
+                              (e.currentTarget as HTMLImageElement).src = "/favicon.ico";
+                            }}
+                            className="w-full h-full object-contain"
+                          />
+                        )}
+                      </div>
+                      <div className="space-y-0.5 min-w-0">
+                        <h5 className="text-xs font-bold text-foreground">Ícone Favicon da Aba</h5>
+                        <p className="text-[10.5px] text-muted-foreground">
+                          Ícone exibido ao lado do título da página na aba do navegador.
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 w-full sm:w-auto">
+                      <Input
+                        value={platformForm.platformFaviconUrl || ""}
+                        onChange={(e) => updatePlatformField("platformFaviconUrl", e.target.value)}
+                        placeholder="https://.../favicon.png"
+                        className="h-8 text-xs font-mono w-full sm:w-60 bg-background/80"
+                      />
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        onClick={() => faviconInputRef.current?.click()}
+                        disabled={uploadingFavicon}
+                        className="h-8 text-xs font-bold shrink-0 gap-1"
+                      >
+                        <UploadCloud className="w-3.5 h-3.5" /> Upload
+                      </Button>
+                    </div>
+                  </div>
+                </TabsContent>
+
+                {/* ABA 3: COMUNICAÇÃO, RÁDIO & REDES */}
+                <TabsContent value="comunicacao" className="space-y-4 m-0 focus-visible:outline-none">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {/* Discord da Facção */}
+                    <div className="space-y-1.5">
+                      <Label htmlFor="plat-factionDiscordUrl" className="text-xs font-bold text-foreground">
+                        Discord da Facção (Convite Oficial)
+                      </Label>
+                      <Input
+                        id="plat-factionDiscordUrl"
+                        value={platformForm.factionDiscordUrl || ""}
+                        onChange={(e) => updatePlatformField("factionDiscordUrl", e.target.value)}
+                        placeholder="https://discord.gg/suafaccao"
+                        className="h-9 text-xs rounded-xl"
+                      />
+                      <p className="text-[10px] text-muted-foreground">Link permanente do servidor Discord da facção.</p>
+                    </div>
+
+                    {/* Discord de Suporte */}
+                    <div className="space-y-1.5">
+                      <Label htmlFor="plat-supportDiscordUrl" className="text-xs font-bold text-foreground">
+                        Link de Suporte / Ouvidoria
+                      </Label>
+                      <Input
+                        id="plat-supportDiscordUrl"
+                        value={platformForm.supportDiscordUrl || ""}
+                        onChange={(e) => updatePlatformField("supportDiscordUrl", e.target.value)}
+                        placeholder="https://discord.gg/..."
+                        className="h-9 text-xs rounded-xl"
+                      />
+                      <p className="text-[10px] text-muted-foreground">Canal de suporte ou abertura de tickets.</p>
+                    </div>
+
+                    {/* Frequência de Rádio Padrão RP */}
+                    <div className="space-y-1.5">
+                      <Label htmlFor="plat-radioFrequency" className="text-xs font-bold text-foreground">
+                        Frequência de Rádio Oficial RP
+                      </Label>
+                      <Input
+                        id="plat-radioFrequency"
+                        value={platformForm.radioFrequency || ""}
+                        onChange={(e) => updatePlatformField("radioFrequency", e.target.value)}
+                        placeholder="Ex: 98.5 MHz / 112.4"
+                        className="h-9 text-xs rounded-xl font-mono font-bold"
+                      />
+                      <p className="text-[10px] text-muted-foreground">Canal de rádio padrão para ações e patrulhas.</p>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                    {/* Contato Institucional / E-mail */}
+                    <div className="space-y-1.5">
+                      <Label htmlFor="plat-contactEmail" className="text-xs font-bold text-foreground">
+                        E-mail de Contato
+                      </Label>
+                      <Input
+                        id="plat-contactEmail"
+                        value={platformForm.contactEmail || ""}
+                        onChange={(e) => updatePlatformField("contactEmail", e.target.value)}
+                        placeholder="contato@twinwheels.rp"
+                        className="h-9 text-xs rounded-xl"
+                      />
+                    </div>
+
+                    {/* Instagram RP */}
+                    <div className="space-y-1.5">
+                      <Label htmlFor="plat-instagramHandle" className="text-xs font-bold text-foreground">
+                        Instagram RP
+                      </Label>
+                      <Input
+                        id="plat-instagramHandle"
+                        value={platformForm.instagramHandle || ""}
+                        onChange={(e) => updatePlatformField("instagramHandle", e.target.value)}
+                        placeholder="@twinwheels.rp"
+                        className="h-9 text-xs rounded-xl"
+                      />
+                    </div>
+
+                    {/* TikTok / Mídia */}
+                    <div className="space-y-1.5">
+                      <Label htmlFor="plat-tiktokHandle" className="text-xs font-bold text-foreground">
+                        TikTok / Mídia RP
+                      </Label>
+                      <Input
+                        id="plat-tiktokHandle"
+                        value={platformForm.tiktokHandle || ""}
+                        onChange={(e) => updatePlatformField("tiktokHandle", e.target.value)}
+                        placeholder="@twinwheels.rp"
+                        className="h-9 text-xs rounded-xl"
+                      />
+                    </div>
+
+                    {/* Formulário de Recrutamento Externo */}
+                    <div className="space-y-1.5">
+                      <Label htmlFor="plat-recruitmentFormUrl" className="text-xs font-bold text-foreground">
+                        Link de Recrutamento (Google Forms)
+                      </Label>
+                      <Input
+                        id="plat-recruitmentFormUrl"
+                        value={platformForm.recruitmentFormUrl || ""}
+                        onChange={(e) => updatePlatformField("recruitmentFormUrl", e.target.value)}
+                        placeholder="https://forms.gle/..."
+                        className="h-9 text-xs rounded-xl"
+                      />
+                    </div>
+                  </div>
+                </TabsContent>
+
+                {/* ABA 4: EXPEDIENTE, REGRAS & METAS */}
+                <TabsContent value="operacao" className="space-y-4 m-0 focus-visible:outline-none">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                    {/* Horário de Expediente / Ação RP */}
+                    <div className="space-y-1.5">
+                      <Label htmlFor="plat-operatingHours" className="text-xs font-bold text-foreground">
+                        Horário de Expediente / Ação
+                      </Label>
+                      <Input
+                        id="plat-operatingHours"
+                        value={platformForm.operatingHours || ""}
+                        onChange={(e) => updatePlatformField("operatingHours", e.target.value)}
+                        placeholder="Ex: 18:00h às 02:00h"
+                        className="h-9 text-xs rounded-xl"
+                      />
+                      <p className="text-[10px] text-muted-foreground">Janela de maior atividade da facção.</p>
+                    </div>
+
+                    {/* Localização da Base / QG */}
+                    <div className="space-y-1.5">
+                      <Label htmlFor="plat-headquartersLocation" className="text-xs font-bold text-foreground">
+                        Localização do QG / Base no Mapa
+                      </Label>
+                      <Input
+                        id="plat-headquartersLocation"
+                        value={platformForm.headquartersLocation || ""}
+                        onChange={(e) => updatePlatformField("headquartersLocation", e.target.value)}
+                        placeholder="Ex: Perto do Píer · Setor Sul"
+                        className="h-9 text-xs rounded-xl"
+                      />
+                      <p className="text-[10px] text-muted-foreground">Ponto de encontro dos integrantes.</p>
+                    </div>
+
+                    {/* Idade Mínima RP */}
+                    <div className="space-y-1.5">
+                      <Label htmlFor="plat-minRecruitAge" className="text-xs font-bold text-foreground">
+                        Idade Mínima para Recrutamento
+                      </Label>
+                      <Input
+                        id="plat-minRecruitAge"
+                        value={platformForm.minRecruitAge || ""}
+                        onChange={(e) => updatePlatformField("minRecruitAge", e.target.value)}
+                        placeholder="Ex: 16 anos"
+                        className="h-9 text-xs rounded-xl"
+                      />
+                    </div>
+
+                    {/* Horas Mínimas de Cidade */}
+                    <div className="space-y-1.5">
+                      <Label htmlFor="plat-minCityTime" className="text-xs font-bold text-foreground">
+                        Horas de Cidade Exigidas
+                      </Label>
+                      <Input
+                        id="plat-minCityTime"
+                        value={platformForm.minCityTime || ""}
+                        onChange={(e) => updatePlatformField("minCityTime", e.target.value)}
+                        placeholder="Ex: 50 horas de voo"
+                        className="h-9 text-xs rounded-xl"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    {/* Cargo Padrão Inicial */}
+                    <div className="space-y-1.5">
+                      <Label htmlFor="plat-defaultNewRole" className="text-xs font-bold text-foreground">
+                        Cargo Inicial Padrão de Novos Membros
+                      </Label>
+                      <Input
+                        id="plat-defaultNewRole"
+                        value={platformForm.defaultNewRole || ""}
+                        onChange={(e) => updatePlatformField("defaultNewRole", e.target.value)}
+                        placeholder="Ex: Novato / Recruta"
+                        className="h-9 text-xs rounded-xl"
+                      />
+                    </div>
+
+                    {/* Meta Semanal de Horas */}
+                    <div className="space-y-1.5">
+                      <Label htmlFor="plat-weeklyGoalHours" className="text-xs font-bold text-foreground">
+                        Meta Semanal Recomendada (Horas)
+                      </Label>
+                      <Input
+                        id="plat-weeklyGoalHours"
+                        value={platformForm.weeklyGoalHours || ""}
+                        onChange={(e) => updatePlatformField("weeklyGoalHours", e.target.value)}
+                        placeholder="Ex: 10h semanais"
+                        className="h-9 text-xs rounded-xl"
+                      />
+                    </div>
+
+                    {/* Meta Semanal de Insumos / Farm */}
+                    <div className="space-y-1.5">
+                      <Label htmlFor="plat-weeklyGoalFarm" className="text-xs font-bold text-foreground">
+                        Meta Semanal Recomendada (Farm/Insumos)
+                      </Label>
+                      <Input
+                        id="plat-weeklyGoalFarm"
+                        value={platformForm.weeklyGoalFarm || ""}
+                        onChange={(e) => updatePlatformField("weeklyGoalFarm", e.target.value)}
+                        placeholder="Ex: 100 insumos"
+                        className="h-9 text-xs rounded-xl"
+                      />
+                    </div>
+                  </div>
+                </TabsContent>
+
+                {/* ABA 5: MENSAGENS, MOTD & COMUNICADOS */}
+                <TabsContent value="comunicados" className="space-y-4 m-0 focus-visible:outline-none">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {/* Mensagem do Dia (MOTD) */}
+                    <div className="space-y-1.5">
+                      <Label htmlFor="plat-motd" className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                        <Bookmark className="w-3.5 h-3.5 text-primary" />
+                        Mensagem do Dia (MOTD) do Dashboard
+                      </Label>
+                      <Textarea
+                        id="plat-motd"
+                        value={platformForm.motd || ""}
+                        onChange={(e) => updatePlatformField("motd", e.target.value)}
+                        placeholder="Ex: Bora bater as metas da semana e manter o estoque abastecido!"
+                        rows={2}
+                        className="text-xs rounded-xl resize-none"
+                      />
+                      <p className="text-[10px] text-muted-foreground">Exibida em destaque na página inicial.</p>
+                    </div>
+
+                    {/* Mensagem de Boas-Vindas */}
+                    <div className="space-y-1.5">
+                      <Label htmlFor="plat-welcomeMessage" className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                        <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+                        Mensagem de Boas-Vindas aos Novos Integrantes
+                      </Label>
+                      <Textarea
+                        id="plat-welcomeMessage"
+                        value={platformForm.welcomeMessage || ""}
+                        onChange={(e) => updatePlatformField("welcomeMessage", e.target.value)}
+                        placeholder="Ex: Bem-vindo à facção! Leia as regras e procure a liderança para onboarding."
+                        rows={2}
+                        className="text-xs rounded-xl resize-none"
+                      />
+                      <p className="text-[10px] text-muted-foreground">Aviso apresentado no primeiro acesso.</p>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {/* Lema Oficial */}
+                    <div className="space-y-1.5">
+                      <Label htmlFor="plat-motto" className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                        <ScrollText className="w-3.5 h-3.5 text-sky-400" />
+                        Lema / Juramento de Lealdade
+                      </Label>
+                      <Input
+                        id="plat-motto"
+                        value={platformForm.motto || ""}
+                        onChange={(e) => updatePlatformField("motto", e.target.value)}
+                        placeholder="Ex: Velocidade, lealdade e precisão em cada curva."
+                        className="h-9 text-xs rounded-xl font-medium"
+                      />
+                    </div>
+
+                    {/* Resumo das Regras */}
+                    <div className="space-y-1.5">
+                      <Label htmlFor="plat-rulesSummary" className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                        <ShieldAlert className="w-3.5 h-3.5 text-rose-400" />
+                        Código de Conduta / Resumo de Regras
+                      </Label>
+                      <Input
+                        id="plat-rulesSummary"
+                        value={platformForm.rulesSummary || ""}
+                        onChange={(e) => updatePlatformField("rulesSummary", e.target.value)}
+                        placeholder="Ex: Respeito mútuo, prestação de contas dos baús e discrição total."
+                        className="h-9 text-xs rounded-xl"
+                      />
+                    </div>
+                  </div>
+
+                  {/* História Completa / Descrição */}
+                  <div className="space-y-1.5">
+                    <Label htmlFor="plat-description" className="text-xs font-bold text-foreground">
+                      História Completa & Propósito da Organização
+                    </Label>
+                    <Textarea
+                      id="plat-description"
+                      value={platformForm.description || ""}
+                      onChange={(e) => updatePlatformField("description", e.target.value)}
+                      placeholder="Descreva as origens da facção, trajetória na cidade e diretrizes operacionais..."
+                      rows={3}
+                      className="text-xs rounded-xl resize-none"
+                    />
+                  </div>
+
+                  {/* Aviso Global de Sistema / Manutenção */}
+                  <div className="p-3.5 rounded-xl border border-amber-500/30 bg-amber-500/5 space-y-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="space-y-0.5">
+                        <Label htmlFor="showSystemStatusNotice" className="text-xs font-bold text-foreground flex items-center gap-1.5 cursor-pointer">
+                          <AlertTriangle className="h-3.5 w-3.5 text-amber-400" />
+                          Aviso Global de Sistema / Manutenção
+                        </Label>
+                        <p className="text-[10px] text-muted-foreground">
+                          Exibe uma faixa de alerta urgente no topo da plataforma para todos os membros online.
+                        </p>
+                      </div>
+                      <Switch
+                        id="showSystemStatusNotice"
+                        checked={Boolean(platformForm.showSystemStatusNotice)}
+                        onCheckedChange={(val) => updatePlatformField("showSystemStatusNotice", val)}
+                      />
+                    </div>
+
+                    {platformForm.showSystemStatusNotice && (
+                      <div className="grid grid-cols-1 sm:grid-cols-4 gap-2 pt-1">
+                        <div className="sm:col-span-3">
+                          <Input
+                            value={platformForm.systemStatusNotice || ""}
+                            onChange={(e) => updatePlatformField("systemStatusNotice", e.target.value)}
+                            placeholder="Ex: Servidor FiveM em manutenção preventiva hoje das 04h às 05h da manhã."
+                            className="h-8.5 text-xs bg-background/80 rounded-lg border-amber-500/30"
+                          />
+                        </div>
+                        <div>
+                          <Select
+                            value={platformForm.systemStatusType || "warning"}
+                            onValueChange={(val: any) => updatePlatformField("systemStatusType", val)}
+                          >
+                            <SelectTrigger className="h-8.5 text-xs bg-background/80 rounded-lg border-amber-500/30">
+                              <SelectValue placeholder="Tipo de Alerta" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="info">Informativo (Azul)</SelectItem>
+                              <SelectItem value="warning">Aviso (Amarelo)</SelectItem>
+                              <SelectItem value="destructive">Urgente / Crítico (Vermelho)</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </TabsContent>
+              </Tabs>
 
               {/* Botões de Ação para Informações da Plataforma */}
               <div className="flex items-center justify-between pt-3 border-t border-border/40 gap-3 flex-wrap">
@@ -805,7 +1602,7 @@ export function DevConfiguracaoContent() {
                   size="sm"
                   onClick={handleSavePlatformInfo}
                   disabled={savingPlatform}
-                  className="h-8 text-xs font-bold gap-1.5 bg-sky-600 hover:bg-sky-700 text-white shadow-sm"
+                  className="h-8 text-xs font-bold gap-1.5 bg-sky-600 hover:bg-sky-700 text-white shadow-sm cursor-pointer"
                 >
                   {savingPlatform ? (
                     <>

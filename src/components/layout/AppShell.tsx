@@ -50,6 +50,7 @@ import {
   ShoppingBag,
   Coins,
   Zap,
+  AlertTriangle,
 } from "lucide-react";
 import { resolveMenuIcon } from "@/lib/menuIcons";
 import {
@@ -1148,6 +1149,39 @@ export function AppShell({ children }: { children: ReactNode }) {
           </header>
 
           <main className="flex-1 px-2.5 py-4 sm:px-6 lg:px-8 pb-28 md:pb-8 flex flex-col justify-between">
+            {settings.showSystemStatusNotice && settings.systemStatusNotice && (
+              <div className="w-full max-w-7xl mx-auto mb-4">
+                <div
+                  className={cn(
+                    "p-3 rounded-2xl border text-xs flex items-center justify-between gap-3 shadow-xs transition-all",
+                    settings.systemStatusType === "destructive"
+                      ? "bg-rose-500/10 border-rose-500/30 text-rose-200"
+                      : settings.systemStatusType === "info"
+                      ? "bg-sky-500/10 border-sky-500/30 text-sky-200"
+                      : "bg-amber-500/10 border-amber-500/30 text-amber-200"
+                  )}
+                >
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <AlertTriangle
+                      className={cn(
+                        "w-4 h-4 shrink-0",
+                        settings.systemStatusType === "destructive"
+                          ? "text-rose-400"
+                          : settings.systemStatusType === "info"
+                          ? "text-sky-400"
+                          : "text-amber-400"
+                      )}
+                    />
+                    <span className="font-semibold leading-relaxed truncate">{settings.systemStatusNotice}</span>
+                  </div>
+                  {settings.cityRpName && (
+                    <span className="hidden sm:inline-block font-mono text-[10px] px-2 py-0.5 rounded-full bg-background/50 border border-current opacity-80 shrink-0">
+                      {settings.cityRpName}
+                    </span>
+                  )}
+                </div>
+              </div>
+            )}
             <div className="w-full max-w-7xl mx-auto">{children}</div>
 
             {/* RODAPÉ DINÂMICO E TOTALMENTE PERSONALIZÁVEL */}

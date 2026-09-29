@@ -18,6 +18,9 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { useAuth } from "@/hooks/useAuth";
+import { usePlatformSettings } from "@/hooks/usePlatformSettings";
+import { getProxiedImageUrl } from "@/services/postimagesService";
+import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { submitSignupRequest, cancelSignupRequest } from "@/lib/app-api";
 import { errorMessage, formatPhone } from "@/lib/format";
@@ -58,6 +61,7 @@ function AuthPage() {
     signOut,
     refresh,
   } = useAuth();
+  const { settings } = usePlatformSettings();
 
   const [loading, setLoading] = useState(false);
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
@@ -219,6 +223,42 @@ function AuthPage() {
 
   return (
     <div className="relative flex min-h-screen items-center justify-center overflow-hidden px-4 py-10">
+      {/* Imagem de Fundo Panorâmica Oficial da Facção (se configurada) */}
+      {settings.platformBannerUrl && (
+        <div
+          className="absolute inset-0 bg-cover bg-center pointer-events-none opacity-20 dark:opacity-25 filter blur-[3px] scale-105 transition-all duration-700"
+          style={{ backgroundImage: `url(${getProxiedImageUrl(settings.platformBannerUrl)})` }}
+        />
+      )}
+
+      {/* Alerta Global de Sistema no Topo (se ativo) */}
+      {settings.showSystemStatusNotice && settings.systemStatusNotice && (
+        <div className="absolute top-4 left-4 right-4 z-30 mx-auto max-w-xl">
+          <div
+            className={cn(
+              "p-3 rounded-2xl border text-xs flex items-center gap-2.5 backdrop-blur-md shadow-lg",
+              settings.systemStatusType === "destructive"
+                ? "bg-rose-500/20 border-rose-500/40 text-rose-200"
+                : settings.systemStatusType === "info"
+                ? "bg-sky-500/20 border-sky-500/40 text-sky-200"
+                : "bg-amber-500/20 border-amber-500/40 text-amber-200"
+            )}
+          >
+            <AlertTriangle
+              className={cn(
+                "w-4 h-4 shrink-0",
+                settings.systemStatusType === "destructive"
+                  ? "text-rose-400"
+                  : settings.systemStatusType === "info"
+                  ? "text-sky-400"
+                  : "text-amber-400"
+              )}
+            />
+            <span className="font-semibold leading-relaxed">{settings.systemStatusNotice}</span>
+          </div>
+        </div>
+      )}
+
       {/* Background Atmospheric Decorative Glows sincronizados com o tema e cor de destaque */}
       <div className="absolute top-1/4 left-1/4 h-[380px] w-[380px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-primary/20 blur-[130px] pointer-events-none animate-pulse" />
       <div className="absolute bottom-1/4 right-1/4 h-[420px] w-[420px] translate-x-1/2 translate-y-1/2 rounded-full bg-gradient-brand/15 blur-[150px] pointer-events-none" />
@@ -229,6 +269,16 @@ function AuthPage() {
         </div>
 
         <Card className="surface-card border border-border/70 shadow-2xl backdrop-blur-2xl rounded-3xl overflow-hidden">
+          {settings.platformBannerUrl && (
+            <div className="h-28 sm:h-32 w-full relative overflow-hidden border-b border-border/50">
+              <img
+                src={getProxiedImageUrl(settings.platformBannerUrl)}
+                alt="Banner Oficial"
+                className="w-full h-full object-cover"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-background/95 via-background/30 to-transparent" />
+            </div>
+          )}
           <CardContent className="p-7 sm:p-8">
             {authLoading ? (
               <div className="flex flex-col items-center justify-center py-10 space-y-4">

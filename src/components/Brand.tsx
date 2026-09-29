@@ -35,8 +35,11 @@ export function Brand({
     <div className={cn("flex items-center gap-3", className)}>
       {showLogo ? (
         <img
-          src="/logo.png"
+          src={settings.platformLogoUrl || "/logo.png"}
           alt={factionName}
+          onError={(e) => {
+            (e.currentTarget as HTMLImageElement).src = "/logo.png";
+          }}
           className={cn("object-contain drop-shadow-md rounded-full", logoSizes[size])}
         />
       ) : null}

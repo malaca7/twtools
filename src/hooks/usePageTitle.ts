@@ -287,6 +287,7 @@ export function useModalTitle(title: string | null | undefined, isOpen: boolean)
  */
 export function usePageTitleSync() {
   const { fullTitle } = usePageTitle();
+  const { settings } = usePlatformSettings();
 
   // 1. Sincroniza o document.title com o título composto atual
   useEffect(() => {
@@ -294,6 +295,23 @@ export function usePageTitleSync() {
       document.title = fullTitle;
     }
   }, [fullTitle]);
+
+  // 1.1 Sincroniza dinamicamente o favicon na aba do navegador
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const faviconHref = settings.platformFaviconUrl?.trim() || "/favicon.ico";
+    const existingLinks = document.querySelectorAll<HTMLLinkElement>("link[rel*='icon']");
+    if (existingLinks.length > 0) {
+      existingLinks.forEach((link) => {
+        link.href = faviconHref;
+      });
+    } else {
+      const link = document.createElement("link");
+      link.rel = "icon";
+      link.href = faviconHref;
+      document.head.appendChild(link);
+    }
+  }, [settings.platformFaviconUrl]);
 
   // 2. Observador automático de Modals e Diálogos Radix UI no DOM
   useEffect(() => {
