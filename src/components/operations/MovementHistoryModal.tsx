@@ -32,6 +32,7 @@ import {
 import { TableSkeleton, EmptyState, ProductThumbnail } from "@/components/ui-kit";
 import { BauIcon } from "@/components/ui/bau-icon";
 import { useAuth } from "@/hooks/useAuth";
+import { useModalTitle } from "@/hooks/usePageTitle";
 import {
   useMovements,
   useProducts,
@@ -185,6 +186,11 @@ export function MovementHistoryModal({
   };
 
   const selectedProductObj = products.find((p) => p.id === selectedProductId);
+
+  useModalTitle(
+    selectedProductObj ? `Histórico: ${selectedProductObj.nome}` : "Histórico de Movimentações",
+    open
+  );
 
   if (!canViewPage) return null;
 

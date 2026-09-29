@@ -84,6 +84,7 @@ import { PageHeader, NoAccess, TableSkeleton, EmptyState, ProductThumbnail } fro
 import { MovementHistoryModal } from "@/components/operations/MovementHistoryModal";
 import { useAuth } from "@/hooks/useAuth";
 import { useUrlTab } from "@/hooks/useUrlTab";
+import { useModalTitle } from "@/hooks/usePageTitle";
 import {
   useMovements,
   useProducts,
@@ -581,6 +582,16 @@ function MovimentacoesContent() {
 
   // Dados do baú ativo no modal de saldo
   const activeBalanceBau = baus.find((b) => b.id === balanceBauId);
+
+  // Personalização dinâmica da barra de título (document.title) ao abrir popups
+  useModalTitle(
+    activeBalanceBau?.nome ? `Saldo: ${activeBalanceBau.nome}` : "Saldo do Baú",
+    balanceModalOpen
+  );
+  useModalTitle(
+    activeMovementBauObj?.nome ? `Movimentar: ${activeMovementBauObj.nome}` : "Movimentar Itens",
+    activeMovementBauId !== null
+  );
   const activeBalanceInventory = useMemo(() => {
     if (!balanceBauId) return [];
     return products

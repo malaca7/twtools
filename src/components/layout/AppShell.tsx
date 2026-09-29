@@ -67,6 +67,7 @@ import {
   resolveCategoryIcon,
   usePanelTheme,
 } from "@/lib/panelTheme";
+import { usePageTitle } from "@/hooks/usePageTitle";
 import {
   Sidebar,
   SidebarContent,
@@ -867,6 +868,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const subName = profile?.nickname ? profile.nome : null;
   const initials = mainName.slice(0, 2).toUpperCase();
   const { settings } = usePlatformSettings();
+  const { pageTitle, tabTitle } = usePageTitle();
 
   const handleSignOut = async () => {
     await signOut();
@@ -899,6 +901,23 @@ export function AppShell({ children }: { children: ReactNode }) {
                   </span>
                 )}
               </div>
+
+              {/* TÍTULO ESPECÍFICO DA PÁGINA & ABA NA BARRA DE TOPO */}
+              {pageTitle && (
+                <div className="hidden lg:flex items-center gap-1.5 min-w-0 pl-2 sm:pl-3 border-l border-border/60 text-xs">
+                  <span className="font-extrabold text-foreground truncate max-w-[160px] xl:max-w-[220px]">
+                    {pageTitle}
+                  </span>
+                  {tabTitle && (
+                    <>
+                      <span className="text-muted-foreground/40 font-bold">•</span>
+                      <span className="text-[11px] font-semibold text-primary bg-primary/10 border border-primary/20 px-1.5 py-0.5 rounded-md truncate max-w-[140px]">
+                        {tabTitle}
+                      </span>
+                    </>
+                  )}
+                </div>
+              )}
 
               {/* SELETOR DE PAINÉIS (MEMBRO / CEO / DEV) NA BARRA DE TOPO */}
               {/* Só exibe se o membro tiver acesso a mais de um painel, e apenas os painéis permitidos */}
@@ -1131,25 +1150,80 @@ export function AppShell({ children }: { children: ReactNode }) {
           <main className="flex-1 px-2.5 py-4 sm:px-6 lg:px-8 pb-28 md:pb-8 flex flex-col justify-between">
             <div className="w-full max-w-7xl mx-auto">{children}</div>
 
-            {/* RODAPÉ DISCRETO COM CRÉDITOS DO DESENVOLVEDOR (BY MALACA - DISCORD: MALACA7) */}
-            <footer className="py-6 mt-12 border-t border-border/40 text-center text-xs text-muted-foreground/80 space-y-1 w-full max-w-7xl mx-auto">
+            {/* RODAPÉ DINÂMICO E TOTALMENTE PERSONALIZÁVEL */}
+            <footer className="py-6 mt-12 border-t border-border/40 text-center text-xs text-muted-foreground/80 space-y-1.5 w-full max-w-7xl mx-auto">
               <div className="flex items-center justify-center gap-1.5 flex-wrap font-medium">
-                <span>{settings.factionName || "Twin Wheels"} &copy; {new Date().getFullYear()}</span>
-                <span className="opacity-40">•</span>
-                <span>Desenvolvido por</span>
-                <button
-                  type="button"
-                  onClick={() => {
-                    navigator.clipboard.writeText("malaca7");
-                    toast.success("Tag do Discord (malaca7) copiada com sucesso!");
-                  }}
-                  className="font-bold text-primary hover:underline inline-flex items-center gap-1 bg-primary/10 px-2 py-0.5 rounded-md border border-primary/20 transition-all hover:bg-primary/20 cursor-pointer"
-                  title="Clique para copiar a tag do Discord: malaca7"
-                >
-                  <span>malaca</span>
-                  <span className="text-[10px] font-mono opacity-80">(malaca7)</span>
-                </button>
+                <span>
+                  {settings.footerFactionText || settings.factionName || "Twin Wheels"}
+                  {settings.footerShowYear !== false && (
+                    <> &copy; {new Date().getFullYear()}</>
+                  )}
+                </span>
+
+                {settings.footerCopyrightText && (
+                  <>
+                    <span className="opacity-40">•</span>
+                    <span>{settings.footerCopyrightText}</span>
+                  </>
+                )}
+
+                {settings.footerShowDeveloperCredits !== false && (
+                  <>
+                    <span className="opacity-40">•</span>
+                    <span>{settings.footerDeveloperRole || "Desenvolvido por"}</span>
+                    {settings.footerShowDiscordCopy !== false && (settings.footerDeveloperDiscord || "malaca7") ? (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const tag = settings.footerDeveloperDiscord || "malaca7";
+                          navigator.clipboard.writeText(tag);
+                          toast.success(`Tag do Discord (${tag}) copiada com sucesso!`);
+                        }}
+                        className="font-bold text-primary hover:underline inline-flex items-center gap-1 bg-primary/10 px-2 py-0.5 rounded-md border border-primary/20 transition-all hover:bg-primary/20 cursor-pointer"
+                        title={`Clique para copiar a tag do Discord: ${settings.footerDeveloperDiscord || "malaca7"}`}
+                      >
+                        <span>{settings.footerDeveloperName || "malaca"}</span>
+                        <span className="text-[10px] font-mono opacity-80">
+                          ({settings.footerDeveloperDiscord || "malaca7"})
+                        </span>
+                      </button>
+                    ) : (
+                      <span className="font-bold text-primary">
+                        {settings.footerDeveloperName || "malaca"}
+                      </span>
+                    )}
+                  </>
+                )}
+
+                {settings.footerShowVersion !== false && (settings.systemVersion || "v2.5.0") && (
+                  <>
+                    <span className="opacity-40">•</span>
+                    <span className="font-mono text-[10px] bg-secondary/60 px-1.5 py-0.5 rounded border border-border/50 text-foreground/80">
+                      {settings.systemVersion || "v2.5.0"}
+                    </span>
+                  </>
+                )}
+
+                {settings.footerShowSupportLink !== false && settings.supportDiscordUrl && (
+                  <>
+                    <span className="opacity-40">•</span>
+                    <a
+                      href={settings.supportDiscordUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-primary hover:underline inline-flex items-center gap-0.5"
+                    >
+                      Suporte Discord
+                    </a>
+                  </>
+                )}
               </div>
+
+              {settings.footerCustomNote && (
+                <p className="text-[11px] text-muted-foreground/60 italic font-mono">
+                  {settings.footerCustomNote}
+                </p>
+              )}
             </footer>
           </main>
         </div>

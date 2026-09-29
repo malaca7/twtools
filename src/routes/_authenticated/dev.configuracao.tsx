@@ -30,6 +30,13 @@ import {
   Sparkles,
   Layers,
   Search,
+  Globe,
+  Building2,
+  LayoutTemplate,
+  FileText,
+  Copy,
+  HelpCircle,
+  Info,
 } from "lucide-react";
 import {
   PANEL_COLOR_STYLES,
@@ -46,6 +53,7 @@ import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Dialog,
   DialogContent,
@@ -69,6 +77,11 @@ import { DevForcePurgeCard } from "@/components/dev/DevForcePurgeCard";
 import { DevAuditLogModal } from "@/components/dev/DevAuditLogModal";
 import { useAuditLogs } from "@/hooks/useData";
 import { logAuditAction } from "@/lib/app-api";
+import {
+  usePlatformSettings,
+  DEFAULT_PLATFORM_SETTINGS,
+  type PlatformSettings,
+} from "@/hooks/usePlatformSettings";
 
 export const Route = createFileRoute("/_authenticated/dev/configuracao")({
   component: DevConfiguracaoPageWrapper,
@@ -127,6 +140,22 @@ export function DevConfiguracaoContent() {
       );
     });
   }, [allAuditLogs]);
+
+  // Estados para Informações da Plataforma e Edição do Rodapé
+  const { settings: remotePlatformSettings, save: savePlatformSettingsHook } = usePlatformSettings();
+  const [platformForm, setPlatformForm] = useState<PlatformSettings>(remotePlatformSettings);
+  const [initialPlatformForm, setInitialPlatformForm] = useState<PlatformSettings>(remotePlatformSettings);
+  const [savingPlatform, setSavingPlatform] = useState(false);
+  const [savingFooter, setSavingFooter] = useState(false);
+
+  useEffect(() => {
+    setPlatformForm(remotePlatformSettings);
+    setInitialPlatformForm(remotePlatformSettings);
+  }, [remotePlatformSettings]);
+
+  const updatePlatformField = <K extends keyof PlatformSettings>(key: K, value: PlatformSettings[K]) => {
+    setPlatformForm((prev) => ({ ...prev, [key]: value }));
+  };
 
   // Carrega as configurações exclusivas do Módulo Dev ao inicializar
   useEffect(() => {
@@ -314,7 +343,117 @@ export function DevConfiguracaoContent() {
     }
   };
 
-  // Handler para restaurar os padrões
+  // Handler para salvar Informações Gerais da Plataforma
+  const handleSavePlatformInfo = async () => {
+    setSavingPlatform(true);
+    try {
+      await savePlatformSettingsHook(platformForm);
+      setInitialPlatformForm(platformForm);
+      toast.success("Informações da Plataforma salvas com sucesso!", {
+        description: "Os dados foram sincronizados no banco de dados para todos os usuários.",
+        icon: "🌐",
+      });
+      void logAuditAction(
+        "update_platform_info",
+        "platform_settings",
+        {
+          factionName: platformForm.factionName,
+          factionTag: platformForm.factionTag,
+          slogan: platformForm.slogan,
+          cityRpName: platformForm.cityRpName,
+          systemVersion: platformForm.systemVersion,
+        },
+        {
+          factionName: initialPlatformForm.factionName,
+          factionTag: initialPlatformForm.factionTag,
+          slogan: initialPlatformForm.slogan,
+          cityRpName: initialPlatformForm.cityRpName,
+          systemVersion: initialPlatformForm.systemVersion,
+        }
+      );
+      void queryClient.invalidateQueries({ queryKey: ["audit_logs"] });
+    } catch (err: any) {
+      toast.error("Falha ao salvar informações da plataforma: " + (err?.message || "Erro desconhecido"));
+    } finally {
+      setSavingPlatform(false);
+    }
+  };
+
+  // Handler para salvar Edição Completa do Rodapé
+  const handleSaveFooterInfo = async () => {
+    setSavingFooter(true);
+    try {
+      await savePlatformSettingsHook(platformForm);
+      setInitialPlatformForm(platformForm);
+      toast.success("Configurações do Rodapé salvas com sucesso!", {
+        description: "O novo rodapé já está ativo em todas as páginas da plataforma.",
+        icon: "✨",
+      });
+      void logAuditAction(
+        "update_footer_settings",
+        "platform_settings",
+        {
+          footerFactionText: platformForm.footerFactionText,
+          footerDeveloperName: platformForm.footerDeveloperName,
+          footerDeveloperDiscord: platformForm.footerDeveloperDiscord,
+          footerDeveloperRole: platformForm.footerDeveloperRole,
+          footerShowDeveloperCredits: platformForm.footerShowDeveloperCredits,
+        },
+        {
+          footerFactionText: initialPlatformForm.footerFactionText,
+          footerDeveloperName: initialPlatformForm.footerDeveloperName,
+          footerDeveloperDiscord: initialPlatformForm.footerDeveloperDiscord,
+          footerDeveloperRole: initialPlatformForm.footerDeveloperRole,
+          footerShowDeveloperCredits: initialPlatformForm.footerShowDeveloperCredits,
+        }
+      );
+      void queryClient.invalidateQueries({ queryKey: ["audit_logs"] });
+    } catch (err: any) {
+      toast.error("Falha ao salvar configurações do rodapé: " + (err?.message || "Erro desconhecido"));
+    } finally {
+      setSavingFooter(false);
+    }
+  };
+
+  // Handler para restaurar padrões das Informações da Plataforma
+  const handleResetPlatformDefaults = () => {
+    setPlatformForm((prev) => ({
+      ...prev,
+      factionName: DEFAULT_PLATFORM_SETTINGS.factionName,
+      factionTag: DEFAULT_PLATFORM_SETTINGS.factionTag,
+      slogan: DEFAULT_PLATFORM_SETTINGS.slogan,
+      factionType: DEFAULT_PLATFORM_SETTINGS.factionType,
+      cityRpName: DEFAULT_PLATFORM_SETTINGS.cityRpName,
+      systemVersion: DEFAULT_PLATFORM_SETTINGS.systemVersion,
+      supportDiscordUrl: DEFAULT_PLATFORM_SETTINGS.supportDiscordUrl,
+      contactEmail: DEFAULT_PLATFORM_SETTINGS.contactEmail,
+      description: DEFAULT_PLATFORM_SETTINGS.description,
+      showSystemStatusNotice: DEFAULT_PLATFORM_SETTINGS.showSystemStatusNotice,
+      systemStatusNotice: DEFAULT_PLATFORM_SETTINGS.systemStatusNotice,
+    }));
+    toast.info("Valores padrão da plataforma restaurados no formulário. Clique em Salvar para aplicar.");
+  };
+
+  // Handler para restaurar padrões do Rodapé
+  const handleResetFooterDefaults = () => {
+    setPlatformForm((prev) => ({
+      ...prev,
+      footerFactionText: DEFAULT_PLATFORM_SETTINGS.footerFactionText,
+      footerDeveloperName: DEFAULT_PLATFORM_SETTINGS.footerDeveloperName,
+      footerDeveloperDiscord: DEFAULT_PLATFORM_SETTINGS.footerDeveloperDiscord,
+      footerDeveloperRole: DEFAULT_PLATFORM_SETTINGS.footerDeveloperRole,
+      footerCustomNote: DEFAULT_PLATFORM_SETTINGS.footerCustomNote,
+      footerCopyrightText: DEFAULT_PLATFORM_SETTINGS.footerCopyrightText,
+      footerShowYear: DEFAULT_PLATFORM_SETTINGS.footerShowYear,
+      footerShowDeveloperCredits: DEFAULT_PLATFORM_SETTINGS.footerShowDeveloperCredits,
+      footerShowDiscordCopy: DEFAULT_PLATFORM_SETTINGS.footerShowDiscordCopy,
+      footerShowSupportLink: DEFAULT_PLATFORM_SETTINGS.footerShowSupportLink,
+      footerShowVersion: DEFAULT_PLATFORM_SETTINGS.footerShowVersion,
+    }));
+    toast.info("Valores padrão do rodapé restaurados no formulário. Clique em Salvar para aplicar.");
+  };
+
+  // Handler para restaurar os padrões dev
   const handleResetDefaults = () => {
     const defaults = JSON.parse(JSON.stringify(DEFAULT_DEV_CONFIG));
     setConfig(defaults);
@@ -425,6 +564,589 @@ export function DevConfiguracaoContent() {
 
           {/* Card de Limpeza Forçada de Cache em Tempo Real */}
           <DevForcePurgeCard />
+
+          {/* CARD 1: INFORMAÇÕES GERAIS DA PLATAFORMA */}
+          <Card className="surface-card border transition-all duration-300">
+            <CardHeader className="pb-3 border-b border-border/60">
+              <div className="flex items-center justify-between gap-3 flex-wrap">
+                <div className="flex items-center gap-2.5">
+                  <div className="p-2 rounded-lg bg-sky-500/10 text-sky-400 border border-sky-500/20">
+                    <Globe className="h-4 w-4" />
+                  </div>
+                  <div>
+                    <CardTitle className="text-sm font-extrabold text-foreground">
+                      Informações Gerais da Plataforma
+                    </CardTitle>
+                    <CardDescription className="text-xs">
+                      Gerencie a identidade institucional da facção, servidor GTA RP, versão do sistema, links de suporte e comunicados globais.
+                    </CardDescription>
+                  </div>
+                </div>
+                <Badge variant="outline" className="text-[10px] font-mono border-sky-500/40 text-sky-400">
+                  Identidade & Metadados
+                </Badge>
+              </div>
+            </CardHeader>
+            <CardContent className="p-5 space-y-5">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                {/* Nome da Facção */}
+                <div className="space-y-1.5">
+                  <Label htmlFor="plat-factionName" className="text-xs font-bold text-foreground">
+                    Nome da Organização / Facção
+                  </Label>
+                  <Input
+                    id="plat-factionName"
+                    value={platformForm.factionName || ""}
+                    onChange={(e) => updatePlatformField("factionName", e.target.value)}
+                    placeholder="Ex: Twin Wheels"
+                    className="h-9 text-xs rounded-xl"
+                  />
+                  <p className="text-[10px] text-muted-foreground">Exibido no cabeçalho e títulos.</p>
+                </div>
+
+                {/* Tag da Facção */}
+                <div className="space-y-1.5">
+                  <Label htmlFor="plat-factionTag" className="text-xs font-bold text-foreground">
+                    Tag / Sigla Oficial
+                  </Label>
+                  <Input
+                    id="plat-factionTag"
+                    value={platformForm.factionTag || ""}
+                    onChange={(e) => updatePlatformField("factionTag", e.target.value)}
+                    placeholder="Ex: [TW]"
+                    className="h-9 text-xs rounded-xl"
+                  />
+                  <p className="text-[10px] text-muted-foreground">Abreviação ou prefixo da facção.</p>
+                </div>
+
+                {/* Slogan */}
+                <div className="space-y-1.5">
+                  <Label htmlFor="plat-slogan" className="text-xs font-bold text-foreground">
+                    Slogan / Subtítulo
+                  </Label>
+                  <Input
+                    id="plat-slogan"
+                    value={platformForm.slogan || ""}
+                    onChange={(e) => updatePlatformField("slogan", e.target.value)}
+                    placeholder="Ex: Gestão Interna · GTA RP"
+                    className="h-9 text-xs rounded-xl"
+                  />
+                  <p className="text-[10px] text-muted-foreground">Frase curta na barra superior.</p>
+                </div>
+
+                {/* Tipo de Facção / Segmento */}
+                <div className="space-y-1.5">
+                  <Label htmlFor="plat-factionType" className="text-xs font-bold text-foreground">
+                    Segmento / Tipo
+                  </Label>
+                  <Input
+                    id="plat-factionType"
+                    value={platformForm.factionType || ""}
+                    onChange={(e) => updatePlatformField("factionType", e.target.value)}
+                    placeholder="Ex: Gestão de grupo — GTA RP"
+                    className="h-9 text-xs rounded-xl"
+                  />
+                  <p className="text-[10px] text-muted-foreground">Ramo de atuação ou foco no RP.</p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                {/* Cidade / Servidor GTA RP */}
+                <div className="space-y-1.5">
+                  <Label htmlFor="plat-cityRpName" className="text-xs font-bold text-foreground">
+                    Cidade / Servidor RP
+                  </Label>
+                  <Input
+                    id="plat-cityRpName"
+                    value={platformForm.cityRpName || ""}
+                    onChange={(e) => updatePlatformField("cityRpName", e.target.value)}
+                    placeholder="Ex: Los Santos RP / Cidade Alta"
+                    className="h-9 text-xs rounded-xl"
+                  />
+                  <p className="text-[10px] text-muted-foreground">Servidor onde a facção atua.</p>
+                </div>
+
+                {/* Versão do Sistema */}
+                <div className="space-y-1.5">
+                  <Label htmlFor="plat-systemVersion" className="text-xs font-bold text-foreground">
+                    Versão da Plataforma
+                  </Label>
+                  <Input
+                    id="plat-systemVersion"
+                    value={platformForm.systemVersion || ""}
+                    onChange={(e) => updatePlatformField("systemVersion", e.target.value)}
+                    placeholder="Ex: v2.5.0"
+                    className="h-9 text-xs rounded-xl font-mono"
+                  />
+                  <p className="text-[10px] text-muted-foreground">Exibida em badges e rodapé.</p>
+                </div>
+
+                {/* Link de Suporte / Discord */}
+                <div className="space-y-1.5">
+                  <Label htmlFor="plat-supportDiscordUrl" className="text-xs font-bold text-foreground">
+                    Link de Suporte / Discord
+                  </Label>
+                  <Input
+                    id="plat-supportDiscordUrl"
+                    value={platformForm.supportDiscordUrl || ""}
+                    onChange={(e) => updatePlatformField("supportDiscordUrl", e.target.value)}
+                    placeholder="https://discord.gg/..."
+                    className="h-9 text-xs rounded-xl"
+                  />
+                  <p className="text-[10px] text-muted-foreground">Convite do Discord ou canal de ajuda.</p>
+                </div>
+
+                {/* E-mail ou Contato Oficial */}
+                <div className="space-y-1.5">
+                  <Label htmlFor="plat-contactEmail" className="text-xs font-bold text-foreground">
+                    Contato Institucional
+                  </Label>
+                  <Input
+                    id="plat-contactEmail"
+                    value={platformForm.contactEmail || ""}
+                    onChange={(e) => updatePlatformField("contactEmail", e.target.value)}
+                    placeholder="Ex: contato@twinwheels.rp"
+                    className="h-9 text-xs rounded-xl"
+                  />
+                  <p className="text-[10px] text-muted-foreground">Canal de contato para membros.</p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {/* Logo da Plataforma */}
+                <div className="space-y-1.5">
+                  <Label htmlFor="plat-logoUrl" className="text-xs font-bold text-foreground">
+                    URL da Logo Oficial (PNG/SVG/WebP)
+                  </Label>
+                  <Input
+                    id="plat-logoUrl"
+                    value={platformForm.platformLogoUrl || ""}
+                    onChange={(e) => updatePlatformField("platformLogoUrl", e.target.value)}
+                    placeholder="https://..."
+                    className="h-9 text-xs rounded-xl font-mono"
+                  />
+                  <p className="text-[10px] text-muted-foreground">Link direto para ícone ou emblema da organização.</p>
+                </div>
+
+                {/* Banner da Plataforma */}
+                <div className="space-y-1.5">
+                  <Label htmlFor="plat-bannerUrl" className="text-xs font-bold text-foreground">
+                    URL do Banner Oficial
+                  </Label>
+                  <Input
+                    id="plat-bannerUrl"
+                    value={platformForm.platformBannerUrl || ""}
+                    onChange={(e) => updatePlatformField("platformBannerUrl", e.target.value)}
+                    placeholder="https://..."
+                    className="h-9 text-xs rounded-xl font-mono"
+                  />
+                  <p className="text-[10px] text-muted-foreground">Banner exibido em páginas de destaque e login.</p>
+                </div>
+              </div>
+
+              {/* Descrição Geral */}
+              <div className="space-y-1.5">
+                <Label htmlFor="plat-description" className="text-xs font-bold text-foreground">
+                  Descrição Completa da Organização
+                </Label>
+                <Textarea
+                  id="plat-description"
+                  value={platformForm.description || ""}
+                  onChange={(e) => updatePlatformField("description", e.target.value)}
+                  placeholder="Descreva a história, missão e propósito da facção na cidade RP..."
+                  rows={2}
+                  className="text-xs rounded-xl resize-none"
+                />
+              </div>
+
+              {/* Aviso Global / Status do Sistema */}
+              <div className="p-3.5 rounded-xl border border-amber-500/30 bg-amber-500/5 space-y-3">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="space-y-0.5">
+                    <Label htmlFor="showSystemStatusNotice" className="text-xs font-bold text-foreground flex items-center gap-1.5 cursor-pointer">
+                      <AlertTriangle className="h-3.5 w-3.5 text-amber-400" />
+                      Aviso Global de Sistema / Manutenção
+                    </Label>
+                    <p className="text-[10px] text-muted-foreground">
+                      Exibe um banner de alerta importante no topo para todos os usuários conectados.
+                    </p>
+                  </div>
+                  <Switch
+                    id="showSystemStatusNotice"
+                    checked={Boolean(platformForm.showSystemStatusNotice)}
+                    onCheckedChange={(val) => updatePlatformField("showSystemStatusNotice", val)}
+                  />
+                </div>
+                {platformForm.showSystemStatusNotice && (
+                  <Input
+                    value={platformForm.systemStatusNotice || ""}
+                    onChange={(e) => updatePlatformField("systemStatusNotice", e.target.value)}
+                    placeholder="Ex: Servidor em manutenção preventiva hoje das 04h às 05h da manhã."
+                    className="h-8.5 text-xs bg-background/80 rounded-lg border-amber-500/30"
+                  />
+                )}
+              </div>
+
+              {/* Botões de Ação para Informações da Plataforma */}
+              <div className="flex items-center justify-between pt-3 border-t border-border/40 gap-3 flex-wrap">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={handleResetPlatformDefaults}
+                  className="h-8 text-xs font-bold gap-1.5"
+                >
+                  <RotateCcw className="h-3.5 w-3.5" />
+                  Restaurar Padrões da Plataforma
+                </Button>
+
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={handleSavePlatformInfo}
+                  disabled={savingPlatform}
+                  className="h-8 text-xs font-bold gap-1.5 bg-sky-600 hover:bg-sky-700 text-white shadow-sm"
+                >
+                  {savingPlatform ? (
+                    <>
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      Salvando...
+                    </>
+                  ) : (
+                    <>
+                      <Save className="h-3.5 w-3.5" />
+                      Salvar Informações da Plataforma
+                    </>
+                  )}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* CARD 2: CONFIGURAÇÕES E EDIÇÃO DO RODAPÉ DA PLATAFORMA */}
+          <Card className="surface-card border transition-all duration-300">
+            <CardHeader className="pb-3 border-b border-border/60">
+              <div className="flex items-center justify-between gap-3 flex-wrap">
+                <div className="flex items-center gap-2.5">
+                  <div className="p-2 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                    <LayoutTemplate className="h-4 w-4" />
+                  </div>
+                  <div>
+                    <CardTitle className="text-sm font-extrabold text-foreground">
+                      Personalização Completa do Rodapé
+                    </CardTitle>
+                    <CardDescription className="text-xs">
+                      Personalize todos os textos, créditos de desenvolvedor, tag Discord clicável, copyright e notas adicionais visíveis no rodapé da plataforma.
+                    </CardDescription>
+                  </div>
+                </div>
+                <Badge variant="outline" className="text-[10px] font-mono border-emerald-500/40 text-emerald-400">
+                  Rodapé Oficial
+                </Badge>
+              </div>
+            </CardHeader>
+            <CardContent className="p-5 space-y-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                {/* Texto da Facção no Rodapé */}
+                <div className="space-y-1.5">
+                  <Label htmlFor="foot-factionText" className="text-xs font-bold text-foreground">
+                    Texto Principal da Facção
+                  </Label>
+                  <Input
+                    id="foot-factionText"
+                    value={platformForm.footerFactionText || ""}
+                    onChange={(e) => updatePlatformField("footerFactionText", e.target.value)}
+                    placeholder="Ex: Twin Wheels"
+                    className="h-9 text-xs rounded-xl"
+                  />
+                  <p className="text-[10px] text-muted-foreground">Nome exibido antes do copyright.</p>
+                </div>
+
+                {/* Papel / Título do Crédito */}
+                <div className="space-y-1.5">
+                  <Label htmlFor="foot-devRole" className="text-xs font-bold text-foreground">
+                    Frase de Crédito
+                  </Label>
+                  <Input
+                    id="foot-devRole"
+                    value={platformForm.footerDeveloperRole || ""}
+                    onChange={(e) => updatePlatformField("footerDeveloperRole", e.target.value)}
+                    placeholder="Ex: Desenvolvido por"
+                    className="h-9 text-xs rounded-xl"
+                  />
+                  <p className="text-[10px] text-muted-foreground">Texto antes do nome do autor.</p>
+                </div>
+
+                {/* Nome do Desenvolvedor */}
+                <div className="space-y-1.5">
+                  <Label htmlFor="foot-devName" className="text-xs font-bold text-foreground">
+                    Nome do Desenvolvedor
+                  </Label>
+                  <Input
+                    id="foot-devName"
+                    value={platformForm.footerDeveloperName || ""}
+                    onChange={(e) => updatePlatformField("footerDeveloperName", e.target.value)}
+                    placeholder="Ex: malaca"
+                    className="h-9 text-xs rounded-xl font-bold"
+                  />
+                  <p className="text-[10px] text-muted-foreground">Nome ou apelido em destaque.</p>
+                </div>
+
+                {/* Tag Discord para Cópia */}
+                <div className="space-y-1.5">
+                  <Label htmlFor="foot-devDiscord" className="text-xs font-bold text-foreground">
+                    Tag do Discord para Cópia
+                  </Label>
+                  <Input
+                    id="foot-devDiscord"
+                    value={platformForm.footerDeveloperDiscord || ""}
+                    onChange={(e) => updatePlatformField("footerDeveloperDiscord", e.target.value)}
+                    placeholder="Ex: malaca7"
+                    className="h-9 text-xs rounded-xl font-mono"
+                  />
+                  <p className="text-[10px] text-muted-foreground">Texto copiado ao clicar no botão.</p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {/* Texto de Copyright */}
+                <div className="space-y-1.5">
+                  <Label htmlFor="foot-copyrightText" className="text-xs font-bold text-foreground">
+                    Texto Adicional de Copyright
+                  </Label>
+                  <Input
+                    id="foot-copyrightText"
+                    value={platformForm.footerCopyrightText || ""}
+                    onChange={(e) => updatePlatformField("footerCopyrightText", e.target.value)}
+                    placeholder="Ex: Todos os direitos reservados."
+                    className="h-9 text-xs rounded-xl"
+                  />
+                  <p className="text-[10px] text-muted-foreground">Texto legal ou aviso institucional.</p>
+                </div>
+
+                {/* Nota / Slogan do Rodapé */}
+                <div className="space-y-1.5">
+                  <Label htmlFor="foot-customNote" className="text-xs font-bold text-foreground">
+                    Mensagem / Nota Inferior do Rodapé
+                  </Label>
+                  <Input
+                    id="foot-customNote"
+                    value={platformForm.footerCustomNote || ""}
+                    onChange={(e) => updatePlatformField("footerCustomNote", e.target.value)}
+                    placeholder="Ex: Gestão Operacional & Executiva GTA RP"
+                    className="h-9 text-xs rounded-xl"
+                  />
+                  <p className="text-[10px] text-muted-foreground">Linha sutil exibida abaixo dos créditos.</p>
+                </div>
+              </div>
+
+              {/* Switches de Visibilidade dos Elementos do Rodapé */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 pt-2">
+                <div className="p-3 rounded-xl bg-secondary/30 border border-border/40 space-y-2 flex flex-col justify-between">
+                  <div className="space-y-0.5">
+                    <Label htmlFor="footerShowDeveloperCredits" className="text-xs font-bold text-foreground cursor-pointer block">
+                      Créditos Dev
+                    </Label>
+                    <p className="text-[10px] text-muted-foreground">
+                      Exibir créditos de autoria e desenvolvimento.
+                    </p>
+                  </div>
+                  <Switch
+                    id="footerShowDeveloperCredits"
+                    checked={platformForm.footerShowDeveloperCredits !== false}
+                    onCheckedChange={(val) => updatePlatformField("footerShowDeveloperCredits", val)}
+                  />
+                </div>
+
+                <div className="p-3 rounded-xl bg-secondary/30 border border-border/40 space-y-2 flex flex-col justify-between">
+                  <div className="space-y-0.5">
+                    <Label htmlFor="footerShowDiscordCopy" className="text-xs font-bold text-foreground cursor-pointer block">
+                      Botão Copiar Discord
+                    </Label>
+                    <p className="text-[10px] text-muted-foreground">
+                      Transforma a tag Discord em botão copiador interativo.
+                    </p>
+                  </div>
+                  <Switch
+                    id="footerShowDiscordCopy"
+                    checked={platformForm.footerShowDiscordCopy !== false}
+                    onCheckedChange={(val) => updatePlatformField("footerShowDiscordCopy", val)}
+                  />
+                </div>
+
+                <div className="p-3 rounded-xl bg-secondary/30 border border-border/40 space-y-2 flex flex-col justify-between">
+                  <div className="space-y-0.5">
+                    <Label htmlFor="footerShowYear" className="text-xs font-bold text-foreground cursor-pointer block">
+                      Ano Atual &copy;
+                    </Label>
+                    <p className="text-[10px] text-muted-foreground">
+                      Incluir o ano corrente ({new Date().getFullYear()}) no copyright.
+                    </p>
+                  </div>
+                  <Switch
+                    id="footerShowYear"
+                    checked={platformForm.footerShowYear !== false}
+                    onCheckedChange={(val) => updatePlatformField("footerShowYear", val)}
+                  />
+                </div>
+
+                <div className="p-3 rounded-xl bg-secondary/30 border border-border/40 space-y-2 flex flex-col justify-between">
+                  <div className="space-y-0.5">
+                    <Label htmlFor="footerShowVersion" className="text-xs font-bold text-foreground cursor-pointer block">
+                      Badge de Versão
+                    </Label>
+                    <p className="text-[10px] text-muted-foreground">
+                      Exibir a etiqueta com a versão do sistema.
+                    </p>
+                  </div>
+                  <Switch
+                    id="footerShowVersion"
+                    checked={platformForm.footerShowVersion !== false}
+                    onCheckedChange={(val) => updatePlatformField("footerShowVersion", val)}
+                  />
+                </div>
+
+                <div className="p-3 rounded-xl bg-secondary/30 border border-border/40 space-y-2 flex flex-col justify-between">
+                  <div className="space-y-0.5">
+                    <Label htmlFor="footerShowSupportLink" className="text-xs font-bold text-foreground cursor-pointer block">
+                      Link de Suporte
+                    </Label>
+                    <p className="text-[10px] text-muted-foreground">
+                      Exibir atalho direto para o Discord de suporte.
+                    </p>
+                  </div>
+                  <Switch
+                    id="footerShowSupportLink"
+                    checked={Boolean(platformForm.footerShowSupportLink)}
+                    onCheckedChange={(val) => updatePlatformField("footerShowSupportLink", val)}
+                  />
+                </div>
+              </div>
+
+              {/* PREVIEW EM TEMPO REAL DO RODAPÉ */}
+              <div className="p-4 rounded-xl border border-border/70 bg-background/80 space-y-2">
+                <div className="flex items-center justify-between text-xs pb-1 border-b border-border/40">
+                  <span className="font-bold text-muted-foreground flex items-center gap-1.5">
+                    <Eye className="w-3.5 h-3.5 text-primary" />
+                    Preview Interativo em Tempo Real do Rodapé:
+                  </span>
+                  <Badge variant="outline" className="text-[10px] font-mono">
+                    Visualização Idêntica ao Rodapé Real
+                  </Badge>
+                </div>
+
+                {/* Rodapé Simulado com Ação Real de Cópia */}
+                <div className="py-4 text-center text-xs text-muted-foreground/80 space-y-1.5 bg-card/60 rounded-lg border border-border/40">
+                  <div className="flex items-center justify-center gap-1.5 flex-wrap font-medium">
+                    <span>
+                      {platformForm.footerFactionText || platformForm.factionName || "Twin Wheels"}
+                      {platformForm.footerShowYear !== false && (
+                        <> &copy; {new Date().getFullYear()}</>
+                      )}
+                    </span>
+
+                    {platformForm.footerCopyrightText && (
+                      <>
+                        <span className="opacity-40">•</span>
+                        <span>{platformForm.footerCopyrightText}</span>
+                      </>
+                    )}
+
+                    {platformForm.footerShowDeveloperCredits !== false && (
+                      <>
+                        <span className="opacity-40">•</span>
+                        <span>{platformForm.footerDeveloperRole || "Desenvolvido por"}</span>
+                        {platformForm.footerShowDiscordCopy !== false && (platformForm.footerDeveloperDiscord || "malaca7") ? (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const tag = platformForm.footerDeveloperDiscord || "malaca7";
+                              navigator.clipboard.writeText(tag);
+                              toast.success(`Tag do Discord (${tag}) copiada com sucesso!`);
+                            }}
+                            className="font-bold text-primary hover:underline inline-flex items-center gap-1 bg-primary/10 px-2 py-0.5 rounded-md border border-primary/20 transition-all hover:bg-primary/20 cursor-pointer"
+                            title={`Clique para testar a cópia da tag: ${platformForm.footerDeveloperDiscord || "malaca7"}`}
+                          >
+                            <span>{platformForm.footerDeveloperName || "malaca"}</span>
+                            <span className="text-[10px] font-mono opacity-80">
+                              ({platformForm.footerDeveloperDiscord || "malaca7"})
+                            </span>
+                          </button>
+                        ) : (
+                          <span className="font-bold text-primary">
+                            {platformForm.footerDeveloperName || "malaca"}
+                          </span>
+                        )}
+                      </>
+                    )}
+
+                    {platformForm.footerShowVersion !== false && (platformForm.systemVersion || "v2.5.0") && (
+                      <>
+                        <span className="opacity-40">•</span>
+                        <span className="font-mono text-[10px] bg-secondary/60 px-1.5 py-0.5 rounded border border-border/50 text-foreground/80">
+                          {platformForm.systemVersion || "v2.5.0"}
+                        </span>
+                      </>
+                    )}
+
+                    {platformForm.footerShowSupportLink !== false && platformForm.supportDiscordUrl && (
+                      <>
+                        <span className="opacity-40">•</span>
+                        <a
+                          href={platformForm.supportDiscordUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-primary hover:underline inline-flex items-center gap-0.5"
+                        >
+                          Suporte Discord
+                        </a>
+                      </>
+                    )}
+                  </div>
+
+                  {platformForm.footerCustomNote && (
+                    <p className="text-[11px] text-muted-foreground/60 italic font-mono">
+                      {platformForm.footerCustomNote}
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              {/* Botões de Ação para o Rodapé */}
+              <div className="flex items-center justify-between pt-3 border-t border-border/40 gap-3 flex-wrap">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={handleResetFooterDefaults}
+                  className="h-8 text-xs font-bold gap-1.5"
+                >
+                  <RotateCcw className="h-3.5 w-3.5" />
+                  Restaurar Padrões do Rodapé
+                </Button>
+
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={handleSaveFooterInfo}
+                  disabled={savingFooter}
+                  className="h-8 text-xs font-bold gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm"
+                >
+                  {savingFooter ? (
+                    <>
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      Salvando...
+                    </>
+                  ) : (
+                    <>
+                      <Save className="h-3.5 w-3.5" />
+                      Salvar Configurações do Rodapé
+                    </>
+                  )}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
 
           {/* Card de Cores Padrão dos Painéis Dev, CEO & Membro */}
           <Card className="surface-card border transition-all duration-300">

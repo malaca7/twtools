@@ -16,6 +16,7 @@ import { Toaster } from "@/components/ui/sonner";
 import { usePlatformSettings } from "@/hooks/usePlatformSettings";
 import { useUserTheme, applyThemeToDOM } from "@/hooks/useUserTheme";
 import { useRealtimeSync } from "@/hooks/useRealtimeSync";
+import { usePageTitleSync } from "@/hooks/usePageTitle";
 
 function NotFoundComponent() {
   const pathname = typeof window !== "undefined" ? window.location.pathname : "";
@@ -161,16 +162,7 @@ function RootShell({ children }: { children: ReactNode }) {
 }
 
 function DocumentTitleSync() {
-  const { settings } = usePlatformSettings();
-
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      const name = settings.factionName || "Twin Wheels";
-      const slogan = settings.slogan || settings.factionType || "Gestão de grupo — GTA RP";
-      document.title = `${name} — ${slogan}`;
-    }
-  }, [settings.factionName, settings.slogan, settings.factionType]);
-
+  usePageTitleSync();
   return null;
 }
 

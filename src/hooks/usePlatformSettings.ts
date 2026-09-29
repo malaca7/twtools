@@ -40,6 +40,28 @@ export type PlatformSettings = {
   borderGlowSpeed: string;
   brightness: number;
   contrast: number;
+  // Extended Platform Information
+  cityRpName?: string;
+  supportDiscordUrl?: string;
+  systemVersion?: string;
+  platformLogoUrl?: string;
+  platformBannerUrl?: string;
+  contactEmail?: string;
+  systemStatusNotice?: string;
+  showSystemStatusNotice?: boolean;
+
+  // Footer Information & Customization
+  footerFactionText?: string;
+  footerDeveloperName?: string;
+  footerDeveloperDiscord?: string;
+  footerDeveloperRole?: string;
+  footerCustomNote?: string;
+  footerCopyrightText?: string;
+  footerShowYear?: boolean;
+  footerShowDeveloperCredits?: boolean;
+  footerShowDiscordCopy?: boolean;
+  footerShowSupportLink?: boolean;
+  footerShowVersion?: boolean;
 };
 
 export const DEFAULT_PLATFORM_SETTINGS: PlatformSettings = {
@@ -75,6 +97,29 @@ export const DEFAULT_PLATFORM_SETTINGS: PlatformSettings = {
   borderGlowSpeed: "normal",
   brightness: 100,
   contrast: 100,
+
+  // Extended Platform Information
+  cityRpName: "Los Santos RP",
+  supportDiscordUrl: "https://discord.gg/twinwheels",
+  systemVersion: "v2.5.0",
+  platformLogoUrl: "",
+  platformBannerUrl: "",
+  contactEmail: "contato@twinwheels.rp",
+  systemStatusNotice: "",
+  showSystemStatusNotice: false,
+
+  // Footer Information & Customization
+  footerFactionText: "Twin Wheels",
+  footerDeveloperName: "malaca",
+  footerDeveloperDiscord: "malaca7",
+  footerDeveloperRole: "Desenvolvido por",
+  footerCustomNote: "Gestão Operacional & Executiva GTA RP",
+  footerCopyrightText: "Todos os direitos reservados.",
+  footerShowYear: true,
+  footerShowDeveloperCredits: true,
+  footerShowDiscordCopy: true,
+  footerShowSupportLink: true,
+  footerShowVersion: true,
 };
 
 const STORAGE_KEY = "tw_platform_settings";
