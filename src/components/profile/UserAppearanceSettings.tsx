@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useRef } from "react";
 import {
   Palette,
   Sparkles,
@@ -292,21 +292,15 @@ export const UI_DENSITY_OPTIONS = [
 
 export function UserAppearanceSettings() {
   const { theme, saveTheme, resetTheme, previewTheme, isSaving } = useUserTheme();
-  const [formData, setFormData] = useState<UserThemeSettings>(theme);
   const [selectedCategory, setSelectedCategory] = useState("all");
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  useEffect(() => {
-    setFormData(theme);
-  }, [theme]);
-
   // Alteração e salvamento em tempo real imediato (sem botão de salvar)
   const handleChange = <K extends keyof UserThemeSettings>(key: K, value: UserThemeSettings[K]) => {
-    const updated: UserThemeSettings = { ...formData, [key]: value };
-    setFormData(updated);
+    const partial = { [key]: value } as Partial<UserThemeSettings>;
 
     // 1. Aplicação visual instantânea no DOM (0ms)
-    applyThemeToDOM(updated);
+    applyThemeToDOM({ ...theme, ...partial });
 
     // 2. Debounce rápido (200ms) para sliders de arrasto contínuo, salvamento imediato para cliques
     const isSlider = key === "brightness" || key === "contrast" || key === "saturation" || key === "textBrightness";
@@ -317,16 +311,15 @@ export function UserAppearanceSettings() {
 
     if (isSlider) {
       debounceRef.current = setTimeout(() => {
-        void saveTheme(updated, false);
+        void saveTheme(partial, false);
       }, 200);
     } else {
-      void saveTheme(updated, false);
+      void saveTheme(partial, false);
     }
   };
 
   const handleReset = async () => {
     if (!confirm("Restaurar todas as configurações de tema e aparência para o padrão original?")) return;
-    setFormData(DEFAULT_USER_THEME);
     await resetTheme();
   };
 
@@ -452,15 +445,15 @@ export function UserAppearanceSettings() {
               <div>
                 <span className="text-xs font-bold text-foreground">Resumo do Estilo</span>
                 <div className="space-y-1 mt-1.5 text-[11px] text-muted-foreground font-mono">
-                  <div>Tema: <strong className="text-foreground">{formData.themeStyle}</strong></div>
-                  <div>Fonte: <strong className="text-foreground">{formData.fontFamily}</strong></div>
-                  <div>Cards: <strong className="text-foreground">{formData.cardStyle}</strong></div>
+                  <div>Tema: <strong className="text-foreground">{theme.themeStyle}</strong></div>
+                  <div>Fonte: <strong className="text-foreground">{theme.fontFamily}</strong></div>
+                  <div>Cards: <strong className="text-foreground">{theme.cardStyle}</strong></div>
                 </div>
               </div>
               <div className="flex items-center justify-between text-[10px] text-muted-foreground pt-2 border-t border-border/40 font-mono">
-                <span>Brilho: {formData.brightness}%</span>
-                <span>Contraste: {formData.contrast}%</span>
-                <span>Sat: {formData.saturation ?? 100}%</span>
+                <span>Brilho: {theme.brightness}%</span>
+                <span>Contraste: {theme.contrast}%</span>
+                <span>Sat: {theme.saturation ?? 100}%</span>
               </div>
             </div>
           </div>
@@ -507,7 +500,7 @@ export function UserAppearanceSettings() {
         <CardContent className="p-4 sm:p-5 space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
             {filteredThemes.map((opt) => {
-              const isSelected = formData.themeStyle === opt.id;
+              const isSelected = theme.themeStyle === opt.id;
               return (
                 <button
                   key={opt.id}
@@ -560,7 +553,7 @@ export function UserAppearanceSettings() {
           <div>
             {(() => {
               const defaultPreset = ACCENT_COLOR_PRESETS[0];
-              const isSelected = formData.customPrimaryColor === defaultPreset.value;
+              const isSelected = theme.customPrimaryColor === defaultPreset.value;
               return (
                 <button
                   type="button"
@@ -599,7 +592,7 @@ export function UserAppearanceSettings() {
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
               {ACCENT_GRADIENT_PRESETS.map((grad) => {
-                const isSelected = formData.customPrimaryColor === grad.value;
+                const isSelected = theme.customPrimaryColor === grad.value;
                 return (
                   <button
                     key={grad.name}
@@ -648,7 +641,7 @@ export function UserAppearanceSettings() {
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
               {ACCENT_COLOR_PRESETS.filter((p) => p.group === "light").map((preset) => {
-                const isSelected = formData.customPrimaryColor === preset.value;
+                const isSelected = theme.customPrimaryColor === preset.value;
                 return (
                   <button
                     key={preset.name}
@@ -683,7 +676,7 @@ export function UserAppearanceSettings() {
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
               {ACCENT_COLOR_PRESETS.filter((p) => p.group === "vivid").map((preset) => {
-                const isSelected = formData.customPrimaryColor === preset.value;
+                const isSelected = theme.customPrimaryColor === preset.value;
                 return (
                   <button
                     key={preset.name}
@@ -718,7 +711,7 @@ export function UserAppearanceSettings() {
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
               {ACCENT_COLOR_PRESETS.filter((p) => p.group === "faction").map((preset) => {
-                const isSelected = formData.customPrimaryColor === preset.value;
+                const isSelected = theme.customPrimaryColor === preset.value;
                 return (
                   <button
                     key={preset.name}
@@ -759,8 +752,8 @@ export function UserAppearanceSettings() {
               <input
                 type="color"
                 value={
-                  formData.customPrimaryColor && formData.customPrimaryColor.startsWith("#")
-                    ? formData.customPrimaryColor
+                  theme.customPrimaryColor && theme.customPrimaryColor.startsWith("#")
+                    ? theme.customPrimaryColor
                     : "#6366f1"
                 }
                 onChange={(e) => handleChange("customPrimaryColor", e.target.value)}
@@ -768,11 +761,11 @@ export function UserAppearanceSettings() {
               />
               <Input
                 placeholder="#6366f1 ou oklch(...)"
-                value={formData.customPrimaryColor || ""}
+                value={theme.customPrimaryColor || ""}
                 onChange={(e) => handleChange("customPrimaryColor", e.target.value || null)}
                 className="h-9 w-40 text-xs font-mono rounded-xl bg-background/80"
               />
-              {formData.customPrimaryColor && (
+              {theme.customPrimaryColor && (
                 <Button
                   type="button"
                   variant="ghost"
@@ -795,9 +788,9 @@ export function UserAppearanceSettings() {
                 Prévia em Tempo Real da Cor de Destaque
               </span>
               <span className="text-[10px] font-mono text-primary font-bold truncate max-w-[220px]">
-                {ACCENT_GRADIENT_PRESETS.find((g) => g.value === formData.customPrimaryColor)?.name ||
-                 ACCENT_COLOR_PRESETS.find((p) => p.value === formData.customPrimaryColor)?.name ||
-                 formData.customPrimaryColor ||
+                {ACCENT_GRADIENT_PRESETS.find((g) => g.value === theme.customPrimaryColor)?.name ||
+                 ACCENT_COLOR_PRESETS.find((p) => p.value === theme.customPrimaryColor)?.name ||
+                 theme.customPrimaryColor ||
                  "Padrão do Tema"}
               </span>
             </div>
@@ -850,7 +843,7 @@ export function UserAppearanceSettings() {
 
           <CardContent className="p-4 space-y-2.5">
             {CARD_STYLE_OPTIONS.map((opt) => {
-              const isSelected = formData.cardStyle === opt.id;
+              const isSelected = theme.cardStyle === opt.id;
               return (
                 <button
                   key={opt.id}
@@ -892,7 +885,7 @@ export function UserAppearanceSettings() {
 
           <CardContent className="p-4 space-y-2.5">
             {FONT_OPTIONS.map((opt) => {
-              const isSelected = formData.fontFamily === opt.id;
+              const isSelected = theme.fontFamily === opt.id;
               return (
                 <button
                   key={opt.id}
@@ -940,13 +933,13 @@ export function UserAppearanceSettings() {
                 onClick={() => handleChange("bgPattern", opt.id)}
                 className={cn(
                   "w-full p-2 rounded-xl border text-left text-xs transition-all cursor-pointer flex items-center justify-between",
-                  formData.bgPattern === opt.id
+                  theme.bgPattern === opt.id
                     ? "border-primary bg-primary/10 font-bold text-foreground"
                     : "border-border/60 bg-secondary/20 text-muted-foreground hover:text-foreground"
                 )}
               >
                 <span className="truncate text-xs">{opt.name}</span>
-                {formData.bgPattern === opt.id && <Check className="h-3.5 w-3.5 text-primary shrink-0" />}
+                {theme.bgPattern === opt.id && <Check className="h-3.5 w-3.5 text-primary shrink-0" />}
               </button>
             ))}
           </CardContent>
@@ -973,13 +966,13 @@ export function UserAppearanceSettings() {
                 onClick={() => handleChange("borderRadius", opt.id)}
                 className={cn(
                   "w-full p-2 rounded-xl border text-left text-xs transition-all cursor-pointer flex items-center justify-between",
-                  formData.borderRadius === opt.id
+                  theme.borderRadius === opt.id
                     ? "border-primary bg-primary/10 font-bold text-foreground"
                     : "border-border/60 bg-secondary/20 text-muted-foreground hover:text-foreground"
                 )}
               >
                 <span className="truncate text-xs">{opt.name}</span>
-                {formData.borderRadius === opt.id && <Check className="h-3.5 w-3.5 text-primary shrink-0" />}
+                {theme.borderRadius === opt.id && <Check className="h-3.5 w-3.5 text-primary shrink-0" />}
               </button>
             ))}
           </CardContent>
@@ -1006,13 +999,13 @@ export function UserAppearanceSettings() {
                 onClick={() => handleChange("uiDensity", opt.id)}
                 className={cn(
                   "w-full p-2 rounded-xl border text-left text-xs transition-all cursor-pointer flex items-center justify-between",
-                  formData.uiDensity === opt.id
+                  theme.uiDensity === opt.id
                     ? "border-primary bg-primary/10 font-bold text-foreground"
                     : "border-border/60 bg-secondary/20 text-muted-foreground hover:text-foreground"
                 )}
               >
                 <span className="truncate text-xs">{opt.name}</span>
-                {formData.uiDensity === opt.id && <Check className="h-3.5 w-3.5 text-primary shrink-0" />}
+                {theme.uiDensity === opt.id && <Check className="h-3.5 w-3.5 text-primary shrink-0" />}
               </button>
             ))}
           </CardContent>
@@ -1044,7 +1037,7 @@ export function UserAppearanceSettings() {
                 <span className="text-[10px] text-muted-foreground">Iluminação neon</span>
               </div>
               <Switch
-                checked={formData.glowEffectsEnabled}
+                checked={theme.glowEffectsEnabled}
                 onCheckedChange={(val) => handleChange("glowEffectsEnabled", val)}
               />
             </div>
@@ -1055,7 +1048,7 @@ export function UserAppearanceSettings() {
                 <span className="text-[10px] text-muted-foreground">Animação online</span>
               </div>
               <Switch
-                checked={formData.statusPulseEnabled}
+                checked={theme.statusPulseEnabled}
                 onCheckedChange={(val) => handleChange("statusPulseEnabled", val)}
               />
             </div>
@@ -1066,7 +1059,7 @@ export function UserAppearanceSettings() {
                 <span className="text-[10px] text-muted-foreground">Efeito 3D ao passar</span>
               </div>
               <Switch
-                checked={formData.hoverZoomEnabled}
+                checked={theme.hoverZoomEnabled}
                 onCheckedChange={(val) => handleChange("hoverZoomEnabled", val)}
               />
             </div>
@@ -1077,7 +1070,7 @@ export function UserAppearanceSettings() {
                 <span className="text-[10px] text-muted-foreground">Navegação suave</span>
               </div>
               <Switch
-                checked={formData.pageTransitionsEnabled}
+                checked={theme.pageTransitionsEnabled}
                 onCheckedChange={(val) => handleChange("pageTransitionsEnabled", val)}
               />
             </div>
@@ -1088,7 +1081,7 @@ export function UserAppearanceSettings() {
             <div className="space-y-1.5">
               <Label className="text-xs font-semibold">Intensidade do Glow Neon</Label>
               <Select
-                value={formData.glowIntensity || "medium"}
+                value={theme.glowIntensity || "medium"}
                 onValueChange={(val) => handleChange("glowIntensity", val)}
               >
                 <SelectTrigger className="h-9 text-xs bg-secondary/50 border-border/80 font-bold rounded-xl">
@@ -1105,7 +1098,7 @@ export function UserAppearanceSettings() {
             <div className="space-y-1.5">
               <Label className="text-xs font-semibold">Velocidade da Pulsação / Animações</Label>
               <Select
-                value={formData.borderGlowSpeed || "normal"}
+                value={theme.borderGlowSpeed || "normal"}
                 onValueChange={(val) => handleChange("borderGlowSpeed", val)}
               >
                 <SelectTrigger className="h-9 text-xs bg-secondary/50 border-border/80 font-bold rounded-xl">
@@ -1130,10 +1123,10 @@ export function UserAppearanceSettings() {
                   <SunMedium className="h-3.5 w-3.5 text-amber-400" />
                   Brilho Global
                 </Label>
-                <span className="text-xs font-mono font-bold text-primary">{formData.brightness}%</span>
+                <span className="text-xs font-mono font-bold text-primary">{theme.brightness}%</span>
               </div>
               <Slider
-                value={[formData.brightness]}
+                value={[theme.brightness]}
                 min={60}
                 max={140}
                 step={5}
@@ -1149,10 +1142,10 @@ export function UserAppearanceSettings() {
                   <Contrast className="h-3.5 w-3.5 text-blue-400" />
                   Contraste Global
                 </Label>
-                <span className="text-xs font-mono font-bold text-primary">{formData.contrast}%</span>
+                <span className="text-xs font-mono font-bold text-primary">{theme.contrast}%</span>
               </div>
               <Slider
-                value={[formData.contrast]}
+                value={[theme.contrast]}
                 min={60}
                 max={140}
                 step={5}
@@ -1168,10 +1161,10 @@ export function UserAppearanceSettings() {
                   <Flame className="h-3.5 w-3.5 text-rose-400" />
                   Saturação de Cores
                 </Label>
-                <span className="text-xs font-mono font-bold text-primary">{formData.saturation ?? 100}%</span>
+                <span className="text-xs font-mono font-bold text-primary">{theme.saturation ?? 100}%</span>
               </div>
               <Slider
-                value={[formData.saturation ?? 100]}
+                value={[theme.saturation ?? 100]}
                 min={30}
                 max={180}
                 step={5}
@@ -1187,10 +1180,10 @@ export function UserAppearanceSettings() {
                   <Sparkles className="h-3.5 w-3.5 text-yellow-400" />
                   Brilho das Letras / Texto
                 </Label>
-                <span className="text-xs font-mono font-bold text-primary">{formData.textBrightness ?? 100}%</span>
+                <span className="text-xs font-mono font-bold text-primary">{theme.textBrightness ?? 100}%</span>
               </div>
               <Slider
-                value={[formData.textBrightness ?? 100]}
+                value={[theme.textBrightness ?? 100]}
                 min={70}
                 max={200}
                 step={5}
