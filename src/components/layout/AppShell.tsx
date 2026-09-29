@@ -1065,6 +1065,20 @@ export function AppShell({ children }: { children: ReactNode }) {
                 </div>
               )}
 
+              {/* Indicador de Manutenção Ativa */}
+              {(settings.maintenanceActive || settings.showSystemStatusNotice) && (
+                <div className="flex items-center">
+                  <Badge
+                    variant="outline"
+                    className="border-amber-500/70 bg-amber-500/15 text-amber-300 font-mono text-[10px] font-bold gap-1.5 animate-pulse px-2 sm:px-2.5 py-1 shadow-sm"
+                  >
+                    <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-ping shrink-0" />
+                    <span className="hidden sm:inline">MODO DE MANUTENÇÃO ATIVO</span>
+                    <span className="sm:hidden">MANUTENÇÃO</span>
+                  </Badge>
+                </div>
+              )}
+
               {/* CENTRAL DE NOTIFICAÇÕES EM TEMPO REAL */}
               <NotificationCenter />
 

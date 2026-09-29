@@ -1,6 +1,17 @@
 import { useEffect, useCallback, useMemo, useSyncExternalStore } from "react";
 import { supabase } from "@/integrations/supabase/client";
 
+export type MaintenanceHistoryItem = {
+  id: string;
+  title: string;
+  message: string;
+  startedAt: string;
+  endedAt?: string;
+  durationMinutes?: number;
+  severity?: "warning" | "destructive" | "info";
+  authorName?: string;
+};
+
 export type PlatformSettings = {
   // Faction Identity
   factionName: string;
@@ -40,6 +51,7 @@ export type PlatformSettings = {
   borderGlowSpeed: string;
   brightness: number;
   contrast: number;
+
   // Extended Platform Information & RP Identity
   cityRpName?: string;
   cityRpTag?: string;
@@ -67,6 +79,18 @@ export type PlatformSettings = {
   welcomeMessage?: string;
   motto?: string;
   rulesSummary?: string;
+
+  // Sistema Global de Manutenção do Sistema & Status Notice
+  maintenanceActive: boolean;
+  maintenanceTitle: string;
+  maintenanceMessage: string;
+  maintenanceEstimatedEnd: string; // ISO string
+  maintenanceDurationMinutes: number;
+  maintenanceStartedAt: string; // ISO string
+  maintenanceSeverity: "warning" | "destructive" | "info";
+  maintenanceAllowDevAccess: boolean;
+  maintenanceHistory: MaintenanceHistoryItem[];
+
   systemStatusNotice?: string;
   showSystemStatusNotice?: boolean;
   systemStatusType?: "info" | "warning" | "destructive";
@@ -146,6 +170,17 @@ export const DEFAULT_PLATFORM_SETTINGS: PlatformSettings = {
   welcomeMessage: "Bem-vindo à Twin Wheels! Leia as regras e procure um líder para sua integração.",
   motto: "Velocidade, lealdade e precisão em cada curva.",
   rulesSummary: "Respeito mútuo, lealdade à facção, prestação de contas dos baús e discrição total em ações externas.",
+  // Sistema Global de Manutenção do Sistema & Status Notice
+  maintenanceActive: false,
+  maintenanceTitle: "Manutenção Preventiva de Sistema",
+  maintenanceMessage: "Estamos realizando melhorias programadas e otimizações na infraestrutura. A plataforma retornará em instantes.",
+  maintenanceEstimatedEnd: "",
+  maintenanceDurationMinutes: 30,
+  maintenanceStartedAt: "",
+  maintenanceSeverity: "warning",
+  maintenanceAllowDevAccess: true,
+  maintenanceHistory: [],
+
   systemStatusNotice: "",
   showSystemStatusNotice: false,
   systemStatusType: "warning",
@@ -221,6 +256,17 @@ export async function savePlatformSettings(settings: PlatformSettings) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
   emitPlatformSettingsChange();
 
+  // 1. Broadcast instantâneo entre abas e janelas locais
+  if (typeof window !== "undefined") {
+    try {
+      window.dispatchEvent(new CustomEvent("tw_platform_settings_updated", { detail: settings }));
+      const bc = new BroadcastChannel("tw_platform_settings_channel");
+      bc.postMessage({ settings, timestamp: Date.now() });
+      bc.close();
+    } catch {}
+  }
+
+  // 2. Persistência em banco de dados Supabase
   try {
     let saveSuccess = false;
     try {
@@ -247,12 +293,213 @@ export async function savePlatformSettings(settings: PlatformSettings) {
   }
 }
 
+/**
+ * Inicia a manutenção global do sistema com prazo e mensagem definidos
+ */
+export async function startPlatformMaintenance(params: {
+  title?: string;
+  message?: string;
+  durationMinutes?: number;
+  estimatedEnd?: string;
+  severity?: "warning" | "destructive" | "info";
+  authorName?: string;
+  allowDevAccess?: boolean;
+}) {
+  const current = getPlatformSettings();
+  const now = new Date();
+  const duration = params.durationMinutes ?? current.maintenanceDurationMinutes ?? 30;
+  const estimatedEnd =
+    params.estimatedEnd ||
+    new Date(now.getTime() + duration * 60 * 1000).toISOString();
+
+  const updated: PlatformSettings = {
+    ...current,
+    maintenanceActive: true,
+    maintenanceTitle: params.title || current.maintenanceTitle || "Manutenção do Sistema em Andamento",
+    maintenanceMessage: params.message || current.maintenanceMessage || "Estamos realizando atualizações técnicas na infraestrutura. O sistema retornará em instantes.",
+    maintenanceDurationMinutes: duration,
+    maintenanceStartedAt: now.toISOString(),
+    maintenanceEstimatedEnd: estimatedEnd,
+    maintenanceSeverity: params.severity || current.maintenanceSeverity || "warning",
+    maintenanceAllowDevAccess: params.allowDevAccess ?? true,
+    // Sincroniza também o notice para retrocompatibilidade
+    showSystemStatusNotice: true,
+    systemStatusNotice: params.message || current.maintenanceMessage || "Sistema em manutenção programada.",
+    systemStatusType: params.severity || "warning",
+  };
+
+  await savePlatformSettings(updated);
+  return updated;
+}
+
+/**
+ * Desativa/finaliza a manutenção global do sistema e registra no histórico
+ */
+export async function finishPlatformMaintenance(authorName?: string) {
+  const current = getPlatformSettings();
+  const now = new Date();
+
+  let historyItem: MaintenanceHistoryItem | null = null;
+  if (current.maintenanceStartedAt) {
+    const started = new Date(current.maintenanceStartedAt).getTime();
+    const durationMin = Math.max(1, Math.round((now.getTime() - started) / (1000 * 60)));
+    historyItem = {
+      id: "maint_" + Date.now(),
+      title: current.maintenanceTitle || "Manutenção do Sistema",
+      message: current.maintenanceMessage || "",
+      startedAt: current.maintenanceStartedAt,
+      endedAt: now.toISOString(),
+      durationMinutes: durationMin,
+      severity: current.maintenanceSeverity || "warning",
+      authorName: authorName || "Desenvolvedor",
+    };
+  }
+
+  const updatedHistory = historyItem
+    ? [historyItem, ...(current.maintenanceHistory || [])].slice(0, 30)
+    : (current.maintenanceHistory || []);
+
+  const updated: PlatformSettings = {
+    ...current,
+    maintenanceActive: false,
+    showSystemStatusNotice: false,
+    systemStatusNotice: "",
+    maintenanceHistory: updatedHistory,
+  };
+
+  await savePlatformSettings(updated);
+  return updated;
+}
+
+/**
+ * Prorroga o tempo estimado da manutenção (+15min, +30min, etc.)
+ */
+export async function extendPlatformMaintenance(extraMinutes: number = 15) {
+  const current = getPlatformSettings();
+  const currentEnd = current.maintenanceEstimatedEnd
+    ? new Date(current.maintenanceEstimatedEnd).getTime()
+    : Date.now();
+  const baseTime = Math.max(Date.now(), currentEnd);
+  const newEnd = new Date(baseTime + extraMinutes * 60 * 1000).toISOString();
+  const newDuration = (current.maintenanceDurationMinutes || 30) + extraMinutes;
+
+  const updated: PlatformSettings = {
+    ...current,
+    maintenanceActive: true,
+    maintenanceEstimatedEnd: newEnd,
+    maintenanceDurationMinutes: newDuration,
+  };
+
+  await savePlatformSettings(updated);
+  return updated;
+}
+
+/**
+ * Apaga e reseta os dados da manutenção
+ */
+export async function resetPlatformMaintenanceData() {
+  const current = getPlatformSettings();
+  const updated: PlatformSettings = {
+    ...current,
+    maintenanceActive: false,
+    maintenanceTitle: DEFAULT_PLATFORM_SETTINGS.maintenanceTitle,
+    maintenanceMessage: DEFAULT_PLATFORM_SETTINGS.maintenanceMessage,
+    maintenanceEstimatedEnd: "",
+    maintenanceStartedAt: "",
+    maintenanceDurationMinutes: 30,
+    maintenanceSeverity: "warning",
+    showSystemStatusNotice: false,
+    systemStatusNotice: "",
+  };
+
+  await savePlatformSettings(updated);
+  return updated;
+}
+
+/**
+ * Limpa todo o histórico de manutenções
+ */
+export async function clearPlatformMaintenanceHistory() {
+  const current = getPlatformSettings();
+  const updated: PlatformSettings = {
+    ...current,
+    maintenanceHistory: [],
+  };
+
+  await savePlatformSettings(updated);
+  return updated;
+}
+
+/**
+ * Remove um item específico do histórico de manutenções
+ */
+export async function deletePlatformMaintenanceHistoryItem(id: string) {
+  const current = getPlatformSettings();
+  const updated: PlatformSettings = {
+    ...current,
+    maintenanceHistory: (current.maintenanceHistory || []).filter((h) => h.id !== id),
+  };
+
+  await savePlatformSettings(updated);
+  return updated;
+}
+
 export function usePlatformSettings() {
   const raw = useSyncExternalStore(subscribe, getSnapshot, () => "{}");
 
   useEffect(() => {
     void fetchRemotePlatformSettings();
+
+    // Sincroniza via BroadcastChannel entre abas
+    let bc: BroadcastChannel | null = null;
+    try {
+      if (typeof BroadcastChannel !== "undefined") {
+        bc = new BroadcastChannel("tw_platform_settings_channel");
+        bc.onmessage = (event) => {
+          if (event.data?.settings) {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(event.data.settings));
+            emitPlatformSettingsChange();
+          }
+        };
+      }
+    } catch {}
+
+    const onCustomUpdate = (e: any) => {
+      if (e.detail) {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(e.detail));
+        emitPlatformSettingsChange();
+      }
+    };
+
+    window.addEventListener("tw_platform_settings_updated", onCustomUpdate);
+
+    return () => {
+      try {
+        bc?.close();
+      } catch {}
+      window.removeEventListener("tw_platform_settings_updated", onCustomUpdate);
+    };
   }, []);
+
+  // Polling a cada 6 segundos caso manutenção esteja ativa para garantir atualização em tempo real para visitantes bloqueados
+  useEffect(() => {
+    const rawVal = localStorage.getItem(STORAGE_KEY);
+    let isActive = false;
+    try {
+      if (rawVal) {
+        const p = JSON.parse(rawVal);
+        isActive = Boolean(p.maintenanceActive || p.showSystemStatusNotice);
+      }
+    } catch {}
+
+    if (!isActive) return;
+
+    const interval = setInterval(() => {
+      void fetchRemotePlatformSettings();
+    }, 6000);
+
+    return () => clearInterval(interval);
+  }, [raw]);
 
   const settings: PlatformSettings = useMemo(() => {
     try {
@@ -264,8 +511,8 @@ export function usePlatformSettings() {
     }
   }, [raw]);
 
-  const save = useCallback((s: PlatformSettings) => {
-    void savePlatformSettings(s);
+  const save = useCallback(async (s: PlatformSettings) => {
+    await savePlatformSettings(s);
   }, []);
 
   const reset = useCallback(() => {
@@ -276,5 +523,39 @@ export function usePlatformSettings() {
     } catch {}
   }, []);
 
-  return { settings, save, reset };
+  const startMaintenance = useCallback((params: Parameters<typeof startPlatformMaintenance>[0]) => {
+    return startPlatformMaintenance(params);
+  }, []);
+
+  const finishMaintenance = useCallback((authorName?: string) => {
+    return finishPlatformMaintenance(authorName);
+  }, []);
+
+  const extendMaintenance = useCallback((extraMinutes?: number) => {
+    return extendPlatformMaintenance(extraMinutes);
+  }, []);
+
+  const resetMaintenance = useCallback(() => {
+    return resetPlatformMaintenanceData();
+  }, []);
+
+  const clearHistory = useCallback(() => {
+    return clearPlatformMaintenanceHistory();
+  }, []);
+
+  const deleteHistoryItem = useCallback((id: string) => {
+    return deletePlatformMaintenanceHistoryItem(id);
+  }, []);
+
+  return {
+    settings,
+    save,
+    reset,
+    startMaintenance,
+    finishMaintenance,
+    extendMaintenance,
+    resetMaintenance,
+    clearHistory,
+    deleteHistoryItem,
+  };
 }

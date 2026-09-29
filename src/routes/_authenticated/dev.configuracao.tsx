@@ -55,7 +55,12 @@ import {
   ScrollText,
   Bookmark,
   Link2,
+  Square,
+  PlusCircle,
+  Sliders,
+  History,
 } from "lucide-react";
+import { DevMaintenanceManagerModal } from "@/components/maintenance/DevMaintenanceManagerModal";
 import {
   PANEL_COLOR_STYLES,
   type PanelColor,
@@ -169,11 +174,19 @@ export function DevConfiguracaoContent() {
   }, [allAuditLogs]);
 
   // Estados para Informações da Plataforma e Edição do Rodapé
-  const { settings: remotePlatformSettings, save: savePlatformSettingsHook } = usePlatformSettings();
+  const {
+    settings: remotePlatformSettings,
+    save: savePlatformSettingsHook,
+    startMaintenance: startMaintenanceHook,
+    finishMaintenance: finishMaintenanceHook,
+    extendMaintenance: extendMaintenanceHook,
+    resetMaintenance: resetMaintenanceHook,
+  } = usePlatformSettings();
   const [platformForm, setPlatformForm] = useState<PlatformSettings>(remotePlatformSettings);
   const [initialPlatformForm, setInitialPlatformForm] = useState<PlatformSettings>(remotePlatformSettings);
   const [savingPlatform, setSavingPlatform] = useState(false);
   const [savingFooter, setSavingFooter] = useState(false);
+  const [maintenanceModalOpen, setMaintenanceModalOpen] = useState(false);
 
   useEffect(() => {
     setPlatformForm(remotePlatformSettings);
@@ -1534,52 +1547,178 @@ export function DevConfiguracaoContent() {
                     />
                   </div>
 
-                  {/* Aviso Global de Sistema / Manutenção */}
-                  <div className="p-3.5 rounded-xl border border-amber-500/30 bg-amber-500/5 space-y-3">
-                    <div className="flex items-center justify-between gap-3">
-                      <div className="space-y-0.5">
-                        <Label htmlFor="showSystemStatusNotice" className="text-xs font-bold text-foreground flex items-center gap-1.5 cursor-pointer">
-                          <AlertTriangle className="h-3.5 w-3.5 text-amber-400" />
-                          Aviso Global de Sistema / Manutenção
-                        </Label>
-                        <p className="text-[10px] text-muted-foreground">
-                          Exibe uma faixa de alerta urgente no topo da plataforma para todos os membros online.
+                  {/* Central de Manutenção & Alerta Global do Sistema */}
+                  <div className="p-4 sm:p-5 rounded-2xl border-2 border-amber-500/40 bg-amber-500/5 space-y-4 shadow-xs">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-amber-500/30">
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <Label htmlFor="maint-switch" className="text-sm font-extrabold text-foreground flex items-center gap-2 cursor-pointer">
+                            <Wrench className="h-4 w-4 text-amber-400" />
+                            Aviso Global de Sistema / Modo de Manutenção
+                          </Label>
+                          {platformForm.maintenanceActive || platformForm.showSystemStatusNotice ? (
+                            <Badge variant="destructive" className="text-[10px] uppercase font-mono animate-pulse">
+                              ● Manutenção Ativa Agora
+                            </Badge>
+                          ) : (
+                            <Badge variant="outline" className="text-[10px] uppercase font-mono text-muted-foreground">
+                              Inativa
+                            </Badge>
+                          )}
+                        </div>
+                        <p className="text-xs text-muted-foreground leading-relaxed">
+                          Quando ativado, exibe um <strong>popup centralizado com fundo desfocado e contador de tempo estimado</strong>. A plataforma fica restrita para membros comuns e visitantes, enquanto quem possui <strong>Tag Dev</strong> navega normalmente com indicativos visuais no topo e nas bordas.
                         </p>
                       </div>
-                      <Switch
-                        id="showSystemStatusNotice"
-                        checked={Boolean(platformForm.showSystemStatusNotice)}
-                        onCheckedChange={(val) => updatePlatformField("showSystemStatusNotice", val)}
-                      />
+
+                      <div className="flex items-center gap-2.5 shrink-0">
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          onClick={() => setMaintenanceModalOpen(true)}
+                          className="h-8 text-xs font-bold gap-1.5 border-amber-500/50 text-amber-300 hover:bg-amber-500/10 cursor-pointer"
+                        >
+                          <Sliders className="w-3.5 h-3.5" />
+                          Central Completa & Histórico
+                        </Button>
+
+                        <Switch
+                          id="maint-switch"
+                          checked={Boolean(platformForm.maintenanceActive || platformForm.showSystemStatusNotice)}
+                          onCheckedChange={(val) => {
+                            updatePlatformField("maintenanceActive", val);
+                            updatePlatformField("showSystemStatusNotice", val);
+                            if (val && !platformForm.maintenanceStartedAt) {
+                              updatePlatformField("maintenanceStartedAt", new Date().toISOString());
+                              const d = new Date(Date.now() + (platformForm.maintenanceDurationMinutes || 30) * 60 * 1000);
+                              updatePlatformField("maintenanceEstimatedEnd", d.toISOString());
+                            }
+                          }}
+                        />
+                      </div>
                     </div>
 
-                    {platformForm.showSystemStatusNotice && (
-                      <div className="grid grid-cols-1 sm:grid-cols-4 gap-2 pt-1">
-                        <div className="sm:col-span-3">
+                    {/* Controles Rápidos da Manutenção */}
+                    <div className="space-y-3">
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        <div className="sm:col-span-2 space-y-1.5">
+                          <Label htmlFor="maint-form-title" className="text-xs font-bold text-foreground">
+                            Título da Manutenção
+                          </Label>
                           <Input
-                            value={platformForm.systemStatusNotice || ""}
-                            onChange={(e) => updatePlatformField("systemStatusNotice", e.target.value)}
-                            placeholder="Ex: Servidor FiveM em manutenção preventiva hoje das 04h às 05h da manhã."
-                            className="h-8.5 text-xs bg-background/80 rounded-lg border-amber-500/30"
+                            id="maint-form-title"
+                            value={platformForm.maintenanceTitle || "Manutenção Preventiva de Sistema"}
+                            onChange={(e) => updatePlatformField("maintenanceTitle", e.target.value)}
+                            placeholder="Ex: Manutenção Preventiva de Sistema"
+                            className="h-9 text-xs rounded-xl"
                           />
                         </div>
-                        <div>
+
+                        <div className="space-y-1.5">
+                          <Label htmlFor="maint-form-severity" className="text-xs font-bold text-foreground">
+                            Gravidade / Tipo de Alerta
+                          </Label>
                           <Select
-                            value={platformForm.systemStatusType || "warning"}
-                            onValueChange={(val: any) => updatePlatformField("systemStatusType", val)}
+                            value={platformForm.maintenanceSeverity || platformForm.systemStatusType || "warning"}
+                            onValueChange={(val: any) => {
+                              updatePlatformField("maintenanceSeverity", val);
+                              updatePlatformField("systemStatusType", val);
+                            }}
                           >
-                            <SelectTrigger className="h-8.5 text-xs bg-background/80 rounded-lg border-amber-500/30">
+                            <SelectTrigger id="maint-form-severity" className="h-9 text-xs rounded-xl">
                               <SelectValue placeholder="Tipo de Alerta" />
                             </SelectTrigger>
                             <SelectContent>
-                              <SelectItem value="info">Informativo (Azul)</SelectItem>
-                              <SelectItem value="warning">Aviso (Amarelo)</SelectItem>
-                              <SelectItem value="destructive">Urgente / Crítico (Vermelho)</SelectItem>
+                              <SelectItem value="warning">Aviso / Programada (Amarelo)</SelectItem>
+                              <SelectItem value="destructive">Urgente / Crítica (Vermelho)</SelectItem>
+                              <SelectItem value="info">Otimização Rápida (Azul)</SelectItem>
                             </SelectContent>
                           </Select>
                         </div>
                       </div>
-                    )}
+
+                      <div className="space-y-1.5">
+                        <Label htmlFor="maint-form-msg" className="text-xs font-bold text-foreground">
+                          Mensagem Explicativa aos Usuários
+                        </Label>
+                        <Textarea
+                          id="maint-form-msg"
+                          value={platformForm.maintenanceMessage || platformForm.systemStatusNotice || ""}
+                          onChange={(e) => {
+                            updatePlatformField("maintenanceMessage", e.target.value);
+                            updatePlatformField("systemStatusNotice", e.target.value);
+                          }}
+                          placeholder="Ex: Estamos aplicando melhorias e otimizações técnicas na infraestrutura. Retornaremos em instantes."
+                          rows={2}
+                          className="text-xs rounded-xl resize-none"
+                        />
+                      </div>
+
+                      <div className="flex items-center justify-between gap-3 pt-2 border-t border-amber-500/20 flex-wrap">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className="text-[11px] font-bold text-muted-foreground font-mono">Duração Rápida:</span>
+                          {[15, 30, 45, 60, 120].map((mins) => (
+                            <Button
+                              key={mins}
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                updatePlatformField("maintenanceDurationMinutes", mins);
+                                const d = new Date(Date.now() + mins * 60 * 1000);
+                                updatePlatformField("maintenanceEstimatedEnd", d.toISOString());
+                                toast.info(`Tempo previsto ajustado para +${mins} minutos.`);
+                              }}
+                              className="h-7 text-[10px] font-bold px-2 rounded-lg cursor-pointer"
+                            >
+                              {mins >= 60 ? `${mins / 60}h` : `${mins}m`}
+                            </Button>
+                          ))}
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          {platformForm.maintenanceActive || platformForm.showSystemStatusNotice ? (
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="destructive"
+                              onClick={async () => {
+                                await finishMaintenanceHook(profile?.nome || "Dev");
+                                updatePlatformField("maintenanceActive", false);
+                                updatePlatformField("showSystemStatusNotice", false);
+                                toast.success("Manutenção finalizada com sucesso!");
+                              }}
+                              className="h-7 text-xs font-bold gap-1 cursor-pointer"
+                            >
+                              <Square className="w-3.5 h-3.5" />
+                              Finalizar Agora
+                            </Button>
+                          ) : (
+                            <Button
+                              type="button"
+                              size="sm"
+                              onClick={async () => {
+                                updatePlatformField("maintenanceActive", true);
+                                updatePlatformField("showSystemStatusNotice", true);
+                                await startMaintenanceHook({
+                                  title: platformForm.maintenanceTitle || "Manutenção Preventiva de Sistema",
+                                  message: platformForm.maintenanceMessage || "Estamos realizando atualizações técnicas na infraestrutura.",
+                                  durationMinutes: platformForm.maintenanceDurationMinutes || 30,
+                                  severity: platformForm.maintenanceSeverity || "warning",
+                                  authorName: profile?.nome || "Dev",
+                                });
+                                toast.success("Manutenção iniciada com sucesso!");
+                              }}
+                              className="h-7 text-xs font-bold gap-1.5 bg-amber-500 hover:bg-amber-600 text-black cursor-pointer"
+                            >
+                              <Play className="w-3.5 h-3.5 fill-black" />
+                              Iniciar Manutenção Agora
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </TabsContent>
               </Tabs>
@@ -2509,6 +2648,12 @@ function PanelColorPickerCard({
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Modal Central de Gestão Completa de Manutenção */}
+      <DevMaintenanceManagerModal
+        open={maintenanceModalOpen}
+        onOpenChange={setMaintenanceModalOpen}
+      />
     </div>
   );
 }

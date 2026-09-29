@@ -17,6 +17,7 @@ import { usePlatformSettings } from "@/hooks/usePlatformSettings";
 import { useUserTheme, applyThemeToDOM } from "@/hooks/useUserTheme";
 import { useRealtimeSync } from "@/hooks/useRealtimeSync";
 import { usePageTitleSync } from "@/hooks/usePageTitle";
+import { GlobalMaintenanceOverlay } from "@/components/maintenance/GlobalMaintenanceOverlay";
 
 function NotFoundComponent() {
   const pathname = typeof window !== "undefined" ? window.location.pathname : "";
@@ -190,6 +191,7 @@ function RootComponent() {
         <GlobalRealtimeSync />
         <DocumentTitleSync />
         <AppearanceSync />
+        <GlobalMaintenanceOverlay />
         {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
         <Outlet />
         <Toaster position="top-center" offset={80} mobileOffset={76} richColors theme="dark" closeButton />
