@@ -158,11 +158,6 @@ export function GlobalMaintenanceOverlay() {
     }
   };
 
-  // If maintenance is completely inactive, do nothing
-  if (!isMaintenanceActive) {
-    return null;
-  }
-
   // Format estimated end string
   const formattedEndTime = useMemo(() => {
     if (!settings.maintenanceEstimatedEnd) return null;
@@ -173,6 +168,11 @@ export function GlobalMaintenanceOverlay() {
       return null;
     }
   }, [settings.maintenanceEstimatedEnd]);
+
+  // If maintenance is completely inactive, do nothing
+  if (!isMaintenanceActive) {
+    return null;
+  }
 
   // DEV MODE (Bypass active and not in preview mode):
   // Renders the non-blocking indicators (Top HUD banner, screen edge glow, and floating manager button)
