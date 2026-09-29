@@ -96,7 +96,7 @@ import {
   productName,
 } from "@/hooks/useData";
 import { batchSubmitMovements, submitChestTransfer } from "@/lib/app-api";
-import { currency, dateTime, errorMessage, num } from "@/lib/format";
+import { currency, compactCurrency, dateTime, errorMessage, num } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/movimentacoes")({
@@ -754,23 +754,23 @@ function MovimentacoesContent() {
                   </div>
 
                   {/* Resumo de Métricas em Cápsulas */}
-                  <div className="grid grid-cols-3 gap-1.5 p-2 rounded-xl bg-secondary/40 border border-border/50 text-center shadow-inner">
-                    <div className="p-1.5 flex flex-col justify-center">
+                  <div className="grid grid-cols-3 gap-1 p-2 rounded-xl bg-secondary/40 border border-border/50 text-center shadow-inner">
+                    <div className="p-1 flex flex-col justify-center min-w-0">
                       <span className="text-[9px] uppercase font-bold text-muted-foreground block truncate">
                         Itens
                       </span>
-                      <strong className="text-xs sm:text-sm font-black text-foreground font-mono mt-0.5">
+                      <strong className="text-xs sm:text-sm font-black text-foreground font-mono mt-0.5 truncate">
                         {num(stat.positiveCount)}
                       </strong>
                     </div>
 
-                    <div className="p-1.5 flex flex-col justify-center border-x border-border/40">
+                    <div className="p-1 flex flex-col justify-center border-x border-border/40 min-w-0">
                       <span className="text-[9px] uppercase font-bold text-muted-foreground block truncate">
                         Volume
                       </span>
                       <strong
                         className={cn(
-                          "text-xs sm:text-sm font-black font-mono mt-0.5",
+                          "text-xs sm:text-sm font-black font-mono mt-0.5 truncate",
                           stat.totalUnits > 0 ? "text-emerald-400" : "text-muted-foreground"
                         )}
                       >
@@ -778,12 +778,16 @@ function MovimentacoesContent() {
                       </strong>
                     </div>
 
-                    <div className="p-1.5 flex flex-col justify-center">
+                    <div className="p-1 flex flex-col justify-center min-w-0" title={currency(stat.totalValue)}>
                       <span className="text-[9px] uppercase font-bold text-muted-foreground block truncate">
                         Valor
                       </span>
-                      <strong className="text-[10px] sm:text-[11px] font-black text-emerald-400/90 font-mono mt-0.5 truncate">
-                        {currency(stat.totalValue)}
+                      <strong className="text-[10px] sm:text-xs font-black text-emerald-400 font-mono mt-0.5 truncate block">
+                        {Number(stat.totalValue || 0) === 0
+                          ? "R$ 0"
+                          : Number(stat.totalValue || 0) >= 10000
+                          ? compactCurrency(stat.totalValue)
+                          : currency(stat.totalValue)}
                       </strong>
                     </div>
                   </div>
@@ -1649,7 +1653,7 @@ function MovimentacoesContent() {
         <DialogContent className="max-w-4xl bg-card border-border/80 shadow-2xl p-0 overflow-hidden flex flex-col max-h-[90vh]">
           {/* HEADER COM FOTO DO BAÚ, TÍTULO E SELETOR RÁPIDO DE BAÚ */}
           <DialogHeader className="p-4 sm:p-5 border-b border-border/60 bg-gradient-to-r from-secondary/40 via-secondary/20 to-secondary/40 space-y-0">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pr-8 sm:pr-0">
               <div className="flex items-center gap-3.5 min-w-0">
                 <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-2xl bg-secondary/80 border border-border/80 flex items-center justify-center shrink-0 shadow-inner overflow-hidden ring-2 ring-primary/20">
                   <BauIcon

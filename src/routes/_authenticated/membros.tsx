@@ -693,12 +693,12 @@ export function MembrosPage() {
             {isDevMode && (
               <>
                 <div className={cn("p-3.5 rounded-xl border flex items-center justify-between gap-3 mt-3 shadow-sm", devStyle.bgSubtleClass, devStyle.borderSubtleClass)}>
-                  <div className="flex items-center gap-2.5">
+                  <div className="flex items-center gap-2.5 min-w-0 flex-1">
                     <div className={cn("p-2 rounded-lg shrink-0", devStyle.bgSubtleClass, devStyle.iconClass || devStyle.textClass)}>
                       <DevIcon className="h-4 w-4" />
                     </div>
-                    <div>
-                      <Label htmlFor="edit-is-dev" className="text-xs font-extrabold text-foreground cursor-pointer flex items-center gap-1.5">
+                    <div className="min-w-0 flex-1">
+                      <Label htmlFor="edit-is-dev" className="text-xs font-extrabold text-foreground cursor-pointer flex items-center gap-1.5 flex-wrap">
                         Desenvolvedor da Plataforma
                         <DevBadge size="xs" label="Dev System" />
                       </Label>
@@ -711,16 +711,17 @@ export function MembrosPage() {
                     id="edit-is-dev"
                     checked={editIsDeveloper}
                     onCheckedChange={setEditIsDeveloper}
+                    className="shrink-0"
                   />
                 </div>
 
                 <div className={cn("p-3.5 rounded-xl border flex items-center justify-between gap-3 mt-2.5 shadow-sm", ceoStyle.bgSubtleClass, ceoStyle.borderSubtleClass)}>
-                  <div className="flex items-center gap-2.5">
+                  <div className="flex items-center gap-2.5 min-w-0 flex-1">
                     <div className={cn("p-2 rounded-lg shrink-0", ceoStyle.bgSubtleClass, ceoStyle.iconClass || ceoStyle.textClass)}>
                       <CeoIcon className="h-4 w-4" />
                     </div>
-                    <div>
-                      <Label htmlFor="edit-is-ceo" className="text-xs font-extrabold text-foreground cursor-pointer flex items-center gap-1.5">
+                    <div className="min-w-0 flex-1">
+                      <Label htmlFor="edit-is-ceo" className="text-xs font-extrabold text-foreground cursor-pointer flex items-center gap-1.5 flex-wrap">
                         Tag CEO (Diretoria Executiva)
                         <CeoBadge size="xs" />
                       </Label>
@@ -733,6 +734,7 @@ export function MembrosPage() {
                     id="edit-is-ceo"
                     checked={editIsCeo}
                     onCheckedChange={setEditIsCeo}
+                    className="shrink-0"
                   />
                 </div>
               </>

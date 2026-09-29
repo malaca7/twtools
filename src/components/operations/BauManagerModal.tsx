@@ -708,7 +708,7 @@ export function BauManagerModal({ trigger }: { trigger?: ReactNode }) {
                     return (
                       <div
                         key={b.id}
-                        className="flex items-center justify-between p-3 rounded-lg border border-border/70 hover:border-border transition-colors bg-card/40"
+                        className="flex flex-col sm:flex-row sm:items-center justify-between p-3 rounded-xl border border-border/70 hover:border-border transition-colors bg-card/40 gap-2.5"
                       >
                         <div className="flex items-center gap-3 min-w-0">
                           <div className="w-10 h-10 rounded-xl bg-secondary/80 border border-border/70 flex items-center justify-center shrink-0 overflow-hidden shadow-inner">
@@ -721,7 +721,7 @@ export function BauManagerModal({ trigger }: { trigger?: ReactNode }) {
                           </div>
                           <div className="min-w-0 space-y-1">
                             <div className="flex items-center gap-2 flex-wrap">
-                              <p className="font-medium text-sm text-foreground truncate">{b.nome}</p>
+                              <p className="font-bold text-sm text-foreground truncate">{b.nome}</p>
                               {b.tipo_gestao === "manual" ? (
                                 <Badge variant="outline" className="text-[10px] py-0 px-1.5 font-medium bg-amber-500/10 text-amber-400 border-amber-500/30">
                                   ✋ Manual
@@ -759,7 +759,7 @@ export function BauManagerModal({ trigger }: { trigger?: ReactNode }) {
                           </div>
                         </div>
 
-                        <div className="flex items-center gap-1.5 shrink-0 ml-2">
+                        <div className="flex items-center justify-end gap-1.5 shrink-0 pt-1.5 sm:pt-0 border-t sm:border-t-0 border-border/40 sm:ml-2">
                           <Button
                             variant="ghost"
                             size="icon"

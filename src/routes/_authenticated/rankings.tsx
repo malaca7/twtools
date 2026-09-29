@@ -361,9 +361,9 @@ function RankingsContent() {
       </Card>
 
       {/* CATEGORY & PERIOD SWITCHERS */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <Tabs value={rankingType} onValueChange={(v) => setRankingType(v as any)} className="w-full sm:w-auto">
-          <TabsList className="bg-secondary/60 flex-wrap">
+          <TabsList className="bg-secondary/60 flex-wrap w-full sm:w-auto h-auto p-1 gap-1">
             {canViewXp && (
               <TabsTrigger value="xp" className="flex items-center gap-1.5 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground font-bold">
                 <Zap className="h-4 w-4 fill-current" /> Top XP & Nível
@@ -387,10 +387,10 @@ function RankingsContent() {
           </TabsList>
         </Tabs>
 
-        <div className="flex items-center gap-2 self-end sm:self-auto">
-          <Calendar className="h-4 w-4 text-muted-foreground" />
-          <Tabs value={period} onValueChange={(v) => setPeriod(v as any)}>
-            <TabsList className="bg-secondary/40">
+        <div className="flex items-center gap-2 self-start sm:self-auto flex-wrap">
+          <Calendar className="h-4 w-4 text-muted-foreground shrink-0" />
+          <Tabs value={period} onValueChange={(v) => setPeriod(v as any)} className="w-full sm:w-auto">
+            <TabsList className="bg-secondary/40 w-full sm:w-auto h-auto p-1 gap-1">
               <TabsTrigger value="week" className="text-xs">
                 Esta Semana
               </TabsTrigger>

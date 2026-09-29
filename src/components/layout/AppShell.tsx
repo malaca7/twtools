@@ -885,9 +885,9 @@ export function AppShell({ children }: { children: ReactNode }) {
           </SidebarContent>
         </Sidebar>
 
-        <div className="flex min-w-0 flex-1 flex-col min-h-screen">
-          <header className="sticky top-0 z-40 flex h-16 shrink-0 items-center justify-between gap-2 sm:gap-4 border-b border-border/70 bg-background/95 backdrop-blur-xl px-3 sm:px-6 shadow-sm">
-            <div className="flex items-center gap-2 sm:gap-4 min-w-0">
+        <div className="flex min-w-0 flex-1 flex-col min-h-screen overflow-x-clip">
+          <header className="sticky top-0 z-40 flex h-16 shrink-0 items-center justify-between gap-1.5 sm:gap-4 border-b border-border/70 bg-background/95 backdrop-blur-xl px-2.5 sm:px-6 shadow-sm">
+            <div className="flex items-center gap-1.5 sm:gap-4 min-w-0">
               <SidebarTrigger />
               <div className="flex items-center gap-2 min-w-0">
                 <span className="text-gradient-brand font-display font-extrabold text-xs sm:text-base tracking-[0.12em] uppercase truncate drop-shadow-xs max-w-[85px] xs:max-w-[120px] sm:max-w-none">
@@ -911,7 +911,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                         to="/dashboard"
                         onClick={() => setPanelMode("member")}
                         className={cn(
-                          "flex items-center gap-1.5 px-2 py-1 sm:px-3 sm:py-1.5 rounded-lg text-xs font-semibold transition-all duration-150 cursor-pointer",
+                          "flex items-center gap-1 sm:gap-1.5 px-1.5 py-1 sm:px-3 sm:py-1.5 rounded-lg text-xs font-semibold transition-all duration-150 cursor-pointer",
                           !pathname.startsWith("/dev") && !pathname.startsWith("/ceo")
                             ? cn(memberStyle.bgSolidClass, "shadow-xs ring-1", memberStyle.ringClass, "font-bold")
                             : cn(memberStyle.textMutedClass, "hover:bg-secondary/60 hover:text-foreground")
@@ -935,7 +935,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                           to="/ceo/dashboard"
                           onClick={() => setPanelMode("ceo")}
                           className={cn(
-                            "flex items-center gap-1.5 px-2 py-1 sm:px-3 sm:py-1.5 rounded-lg text-xs font-semibold transition-all duration-150 cursor-pointer",
+                            "flex items-center gap-1 sm:gap-1.5 px-1.5 py-1 sm:px-3 sm:py-1.5 rounded-lg text-xs font-semibold transition-all duration-150 cursor-pointer",
                             pathname.startsWith("/ceo")
                               ? cn(ceoStyle.bgSolidClass, "shadow-xs ring-1", ceoStyle.ringClass, "font-bold")
                               : cn(ceoStyle.textMutedClass, "hover:bg-secondary/60 hover:text-foreground")
@@ -960,7 +960,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                           to="/dev/dashboard"
                           onClick={() => setPanelMode("dev")}
                           className={cn(
-                            "flex items-center gap-1.5 px-2 py-1 sm:px-3 sm:py-1.5 rounded-lg text-xs font-semibold transition-all duration-150 cursor-pointer",
+                            "flex items-center gap-1 sm:gap-1.5 px-1.5 py-1 sm:px-3 sm:py-1.5 rounded-lg text-xs font-semibold transition-all duration-150 cursor-pointer",
                             pathname.startsWith("/dev")
                               ? cn(devStyle.bgSolidClass, "shadow-xs ring-1", devStyle.ringClass, "font-bold")
                               : cn(devStyle.textMutedClass, "hover:bg-secondary/60 hover:text-foreground")
