@@ -193,6 +193,7 @@ function MovimentacoesContent() {
   const [balanceModalOpen, setBalanceModalOpen] = useState(false);
   const [balanceBauId, setBalanceBauId] = useState<string | null>(null);
   const [balanceSearch, setBalanceSearch] = useState("");
+  const [balanceStockFilter, setBalanceStockFilter] = useState<"com_saldo" | "sem_saldo" | "todos">("com_saldo");
   const [balanceViewMode, setBalanceViewMode] = useState<"grid" | "list">("grid");
   const movementSectionRef = useRef<HTMLDivElement>(null);
 
@@ -560,6 +561,7 @@ function MovimentacoesContent() {
   const handleOpenBalance = (targetBauId: string) => {
     setBalanceBauId(targetBauId);
     setBalanceSearch("");
+    setBalanceStockFilter("com_saldo");
     setBalanceModalOpen(true);
   };
 
@@ -592,8 +594,27 @@ function MovimentacoesContent() {
       });
   }, [balanceBauId, products, productBaus, movements, baus]);
 
+  // Contadores de produtos com saldo / sem saldo no baú ativo
+  const balanceCounts = useMemo(() => {
+    let comSaldo = 0;
+    let semSaldo = 0;
+    for (const item of activeBalanceInventory) {
+      if (item.stock > 0) comSaldo++;
+      else semSaldo++;
+    }
+    return {
+      comSaldo,
+      semSaldo,
+      total: activeBalanceInventory.length,
+    };
+  }, [activeBalanceInventory]);
+
   const filteredBalanceItems = useMemo(() => {
     let list = activeBalanceInventory.filter((item) => {
+      // Filtro de saldo: com_saldo, sem_saldo ou todos
+      if (balanceStockFilter === "com_saldo" && item.stock <= 0) return false;
+      if (balanceStockFilter === "sem_saldo" && item.stock > 0) return false;
+
       if (balanceSearch.trim()) {
         const q = balanceSearch.toLowerCase().trim();
         const aliases = (item.product.cda_name || "").toLowerCase();
@@ -605,7 +626,7 @@ function MovimentacoesContent() {
     });
 
     return list.sort((a, b) => b.stock - a.stock || a.product.nome.localeCompare(b.product.nome));
-  }, [activeBalanceInventory, balanceSearch]);
+  }, [activeBalanceInventory, balanceStockFilter, balanceSearch]);
 
   return (
     <div className="mx-auto max-w-6xl space-y-6">
@@ -1722,15 +1743,114 @@ function MovimentacoesContent() {
             </div>
           </DialogHeader>
 
-          {/* TOOLBAR (APENAS CAMPO DE BUSCA + ALTERNADOR DE GRADE/LISTA) */}
-          <div className="p-3.5 sm:p-4 border-b border-border/40 bg-secondary/15 flex items-center gap-2.5 shrink-0">
-            <div className="relative flex-1">
+          {/* TOOLBAR: FILTRO DE SALDO + BUSCA + ALTERNADOR DE GRADE/LISTA */}
+          <div className="p-3 sm:p-4 border-b border-border/40 bg-secondary/15 space-y-2.5 shrink-0">
+            {/* LINHA 1: FILTROS DE ESTOQUE (COM SALDO, SEM SALDO, TODOS) + BOTÕES DE MODO (GRADE/LISTA) */}
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="flex items-center gap-1 p-1 rounded-xl bg-background/80 border border-border/70 shadow-xs">
+                <button
+                  type="button"
+                  onClick={() => setBalanceStockFilter("com_saldo")}
+                  className={cn(
+                    "flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer",
+                    balanceStockFilter === "com_saldo"
+                      ? "bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 shadow-xs"
+                      : "text-muted-foreground hover:text-foreground hover:bg-secondary/40"
+                  )}
+                >
+                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 shrink-0" />
+                  <span>Com Saldo</span>
+                  <span className={cn(
+                    "text-[10px] font-mono px-1.5 py-0.2 rounded-md",
+                    balanceStockFilter === "com_saldo"
+                      ? "bg-emerald-500/25 text-emerald-300 font-black"
+                      : "bg-secondary text-muted-foreground"
+                  )}>
+                    {balanceCounts.comSaldo}
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setBalanceStockFilter("sem_saldo")}
+                  className={cn(
+                    "flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer",
+                    balanceStockFilter === "sem_saldo"
+                      ? "bg-rose-500/15 text-rose-400 border border-rose-500/30 shadow-xs"
+                      : "text-muted-foreground hover:text-foreground hover:bg-secondary/40"
+                  )}
+                >
+                  <span className="h-1.5 w-1.5 rounded-full bg-rose-400 shrink-0" />
+                  <span>Sem Saldo</span>
+                  <span className={cn(
+                    "text-[10px] font-mono px-1.5 py-0.2 rounded-md",
+                    balanceStockFilter === "sem_saldo"
+                      ? "bg-rose-500/25 text-rose-300 font-black"
+                      : "bg-secondary text-muted-foreground"
+                  )}>
+                    {balanceCounts.semSaldo}
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setBalanceStockFilter("todos")}
+                  className={cn(
+                    "flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer",
+                    balanceStockFilter === "todos"
+                      ? "bg-primary text-primary-foreground shadow-xs"
+                      : "text-muted-foreground hover:text-foreground hover:bg-secondary/40"
+                  )}
+                >
+                  <Package className="w-3 h-3 shrink-0" />
+                  <span>Todos</span>
+                  <span className={cn(
+                    "text-[10px] font-mono px-1.5 py-0.2 rounded-md",
+                    balanceStockFilter === "todos"
+                      ? "bg-primary-foreground/20 text-primary-foreground font-black"
+                      : "bg-secondary text-muted-foreground"
+                  )}>
+                    {balanceCounts.total}
+                  </span>
+                </button>
+              </div>
+
+              <div className="flex items-center gap-0.5 border border-border/60 bg-secondary/50 p-1 rounded-xl shrink-0">
+                <Button
+                  size="sm"
+                  variant={balanceViewMode === "grid" ? "default" : "ghost"}
+                  onClick={() => setBalanceViewMode("grid")}
+                  className={cn(
+                    "h-7 w-7 p-0 rounded-lg cursor-pointer",
+                    balanceViewMode === "grid" ? "bg-primary text-primary-foreground shadow-xs" : "text-muted-foreground hover:text-foreground"
+                  )}
+                  title="Visualização em Grade"
+                >
+                  <LayoutGrid className="w-3.5 h-3.5" />
+                </Button>
+                <Button
+                  size="sm"
+                  variant={balanceViewMode === "list" ? "default" : "ghost"}
+                  onClick={() => setBalanceViewMode("list")}
+                  className={cn(
+                    "h-7 w-7 p-0 rounded-lg cursor-pointer",
+                    balanceViewMode === "list" ? "bg-primary text-primary-foreground shadow-xs" : "text-muted-foreground hover:text-foreground"
+                  )}
+                  title="Visualização em Lista"
+                >
+                  <List className="w-3.5 h-3.5" />
+                </Button>
+              </div>
+            </div>
+
+            {/* LINHA 2: CAMPO DE BUSCA */}
+            <div className="relative w-full">
               <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
               <Input
                 placeholder="Buscar produto por nome ou tag..."
                 value={balanceSearch}
                 onChange={(e) => setBalanceSearch(e.target.value)}
-                className="pl-9 pr-8 h-9 text-xs sm:text-sm rounded-xl bg-background/80 border-border/70 focus-visible:ring-primary/40"
+                className="pl-9 pr-8 h-8.5 text-xs sm:text-sm rounded-xl bg-background/80 border-border/70 focus-visible:ring-primary/40"
               />
               {balanceSearch && (
                 <button
@@ -1742,44 +1862,33 @@ function MovimentacoesContent() {
                 </button>
               )}
             </div>
-
-            <div className="flex items-center gap-0.5 border border-border/60 bg-secondary/50 p-1 rounded-xl shrink-0">
-              <Button
-                size="sm"
-                variant={balanceViewMode === "grid" ? "default" : "ghost"}
-                onClick={() => setBalanceViewMode("grid")}
-                className={cn(
-                  "h-7 w-7 p-0 rounded-lg cursor-pointer",
-                  balanceViewMode === "grid" ? "bg-primary text-primary-foreground shadow-xs" : "text-muted-foreground hover:text-foreground"
-                )}
-                title="Visualização em Grade"
-              >
-                <LayoutGrid className="w-3.5 h-3.5" />
-              </Button>
-              <Button
-                size="sm"
-                variant={balanceViewMode === "list" ? "default" : "ghost"}
-                onClick={() => setBalanceViewMode("list")}
-                className={cn(
-                  "h-7 w-7 p-0 rounded-lg cursor-pointer",
-                  balanceViewMode === "list" ? "bg-primary text-primary-foreground shadow-xs" : "text-muted-foreground hover:text-foreground"
-                )}
-                title="Visualização em Lista"
-              >
-                <List className="w-3.5 h-3.5" />
-              </Button>
-            </div>
           </div>
 
           {/* BODY: RESPONSIVE PRODUCT GRID OR LIST VIEW */}
           <div className="p-3.5 sm:p-5 overflow-y-auto flex-1 max-h-[60vh]">
             {filteredBalanceItems.length === 0 ? (
-              <div className="py-12 text-center text-muted-foreground text-xs space-y-2">
+              <div className="py-12 text-center text-muted-foreground text-xs space-y-2.5">
                 <PackageSearch className="w-10 h-10 mx-auto opacity-40 text-primary animate-pulse" />
                 <p className="font-bold text-foreground text-sm">Nenhum produto encontrado</p>
-                <p className="text-[11px] max-w-xs mx-auto">
-                  {balanceSearch ? `Nenhum resultado para "${balanceSearch}".` : "Nenhum produto cadastrado para este baú."}
+                <p className="text-[11px] max-w-sm mx-auto leading-relaxed">
+                  {balanceSearch
+                    ? `Nenhum resultado para "${balanceSearch}".`
+                    : balanceStockFilter === "com_saldo"
+                    ? "Este baú não possui nenhum produto com saldo positivo no momento."
+                    : balanceStockFilter === "sem_saldo"
+                    ? "Todos os produtos cadastrados possuem saldo positivo neste baú."
+                    : "Nenhum produto cadastrado para este baú."}
                 </p>
+                {balanceStockFilter !== "todos" && !balanceSearch && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setBalanceStockFilter("todos")}
+                    className="mt-1 text-xs rounded-xl cursor-pointer"
+                  >
+                    Ver Todos os Produtos ({balanceCounts.total})
+                  </Button>
+                )}
               </div>
             ) : balanceViewMode === "grid" ? (
               /* GRID VIEW COM DESIGN ELEGANTE E COMPACTO */
