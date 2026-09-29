@@ -20,6 +20,7 @@ import {
   Bot,
   Settings,
   AlertTriangle,
+  Wrench,
   Play,
   Eye,
   ExternalLink,
