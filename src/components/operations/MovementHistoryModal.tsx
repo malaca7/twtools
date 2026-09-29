@@ -77,7 +77,7 @@ export function MovementHistoryModal({
 
   // Pagination State
   const [page, setPage] = useState(1);
-  const [perPage, setPerPage] = useState(10);
+  const [perPage, setPerPage] = useState(15);
 
   // Sync initial product / baú when modal opens
   useEffect(() => {
@@ -237,7 +237,7 @@ export function MovementHistoryModal({
         </div>
 
         {/* MOVEMENTS LIST BODY */}
-        <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-3 min-h-[260px]">
+        <div className="flex-1 overflow-y-auto p-3 sm:p-4 space-y-2 min-h-[260px]">
           {loadingMovements ? (
             <TableSkeleton rows={6} />
           ) : filteredMovements.length === 0 ? (
@@ -260,7 +260,7 @@ export function MovementHistoryModal({
               />
             </div>
           ) : (
-            <div className="space-y-2.5">
+            <div className="space-y-1.5 sm:space-y-2">
               {paginatedMovements.map((m) => {
                 const isEntrada = m.type === "entrada";
                 const isReversed = !!m.reversal_of || reversedIds.has(m.id);
@@ -290,7 +290,7 @@ export function MovementHistoryModal({
                   <div
                     key={m.id}
                     className={cn(
-                      "flex flex-col md:flex-row items-start md:items-center justify-between p-3.5 rounded-xl border bg-card/90 hover:bg-secondary/40 transition-all gap-3 shadow-xs",
+                      "flex flex-col md:flex-row items-start md:items-center justify-between p-2 sm:p-2.5 rounded-xl border bg-card/90 hover:bg-secondary/40 transition-all gap-2 sm:gap-2.5 shadow-2xs",
                       isReversed
                         ? "opacity-50 bg-secondary/10 border-border/40"
                         : isEntrada
@@ -299,18 +299,23 @@ export function MovementHistoryModal({
                     )}
                   >
                     {/* LEFT: Product, Details, Author, Date */}
-                    <div className="flex items-center gap-3 min-w-0 flex-1">
-                      <ProductThumbnail src={prodObj?.imagem_url} name={pName} size="sm" />
-                      <div className="min-w-0 space-y-1">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className="font-bold text-xs sm:text-sm text-foreground truncate max-w-[200px] sm:max-w-xs">
+                    <div className="flex items-center gap-2 sm:gap-2.5 min-w-0 flex-1">
+                      <ProductThumbnail
+                        src={prodObj?.imagem_url}
+                        name={pName}
+                        size="sm"
+                        className="h-7 w-7 sm:h-8 sm:w-8 shrink-0 rounded-lg"
+                      />
+                      <div className="min-w-0 space-y-0.5">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className="font-bold text-xs sm:text-[13px] text-foreground truncate max-w-[180px] sm:max-w-xs">
                             {pName}
                           </span>
 
                           <Badge
                             variant="outline"
                             className={cn(
-                              "text-[10px] font-bold px-2 py-0.5 rounded-md shrink-0",
+                              "text-[9px] sm:text-[9.5px] font-bold px-1.5 py-0.2 rounded-md shrink-0",
                               isEntrada
                                 ? "border-emerald-500/40 text-emerald-400 bg-emerald-500/10"
                                 : "border-rose-500/40 text-rose-400 bg-rose-500/10"
@@ -320,12 +325,12 @@ export function MovementHistoryModal({
                           </Badge>
 
                           {canViewBaus && (
-                            <Badge variant="outline" className="text-[10px] border-border/80 text-foreground/80 px-1.5 py-0.5 rounded-md shrink-0 font-medium flex items-center gap-1">
+                            <Badge variant="outline" className="text-[9px] sm:text-[9.5px] border-border/80 text-foreground/80 px-1.5 py-0.2 rounded-md shrink-0 font-medium flex items-center gap-1">
                               <BauIcon
                                 foto_url={bauObj?.foto_url || bauObj?.imagem_url}
                                 icone={bauObj?.icone}
                                 nome={bauName}
-                                className="w-3.5 h-3.5 rounded-xs"
+                                className="w-3 h-3 rounded-xs"
                               />
                               <span>{bauName}</span>
                             </Badge>
@@ -334,7 +339,7 @@ export function MovementHistoryModal({
                           {m.origin === "discord" ? (
                             <Badge
                               variant="outline"
-                              className="text-[10px] border-[#5865F2]/40 text-[#5865F2] bg-[#5865F2]/10 px-1.5 py-0.5 rounded-md shrink-0 font-semibold"
+                              className="text-[9px] sm:text-[9.5px] border-[#5865F2]/40 text-[#5865F2] bg-[#5865F2]/10 px-1.5 py-0.2 rounded-md shrink-0 font-semibold"
                               title={`Mensagem Discord: ${m.discord_message_id || "N/A"}`}
                             >
                               🤖 Discord
@@ -342,28 +347,28 @@ export function MovementHistoryModal({
                           ) : m.origin === "painel_dev" ? (
                             <Badge
                               variant="outline"
-                              className="text-[10px] border-rose-500/40 text-rose-400 bg-rose-500/10 px-1.5 py-0.5 rounded-md shrink-0 font-semibold"
+                              className="text-[9px] sm:text-[9.5px] border-rose-500/40 text-rose-400 bg-rose-500/10 px-1.5 py-0.2 rounded-md shrink-0 font-semibold"
                             >
                               🛠️ Painel Dev
                             </Badge>
                           ) : (
                             <Badge
                               variant="outline"
-                              className="text-[10px] border-amber-500/40 text-amber-400 bg-amber-500/10 px-1.5 py-0.5 rounded-md shrink-0 font-semibold"
+                              className="text-[9px] sm:text-[9.5px] border-amber-500/40 text-amber-400 bg-amber-500/10 px-1.5 py-0.2 rounded-md shrink-0 font-semibold"
                             >
                               ✋ Manual
                             </Badge>
                           )}
                         </div>
 
-                        <div className="flex items-center gap-2 text-[11px] text-muted-foreground font-mono flex-wrap">
+                        <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground font-mono flex-wrap">
                           <span>🕒 {dateTime(m.created_at)}</span>
                           <span>•</span>
                           <span>👤 {uName}</span>
                           {m.reason && (
                             <>
                               <span>•</span>
-                              <span className="truncate max-w-[220px] sm:max-w-md text-foreground/80 font-sans" title={m.reason}>
+                              <span className="truncate max-w-[200px] sm:max-w-md text-foreground/80 font-sans" title={m.reason}>
                                 💬 {m.reason}
                               </span>
                             </>
@@ -373,11 +378,11 @@ export function MovementHistoryModal({
                     </div>
 
                     {/* RIGHT: Quantity & Reversal */}
-                    <div className="flex items-center justify-between md:justify-end gap-3 sm:gap-4 w-full md:w-auto pt-2 md:pt-0 border-t md:border-t-0 border-border/40 shrink-0">
+                    <div className="flex items-center justify-between md:justify-end gap-2.5 sm:gap-3.5 w-full md:w-auto pt-1.5 md:pt-0 border-t md:border-t-0 border-border/40 shrink-0">
                       <div className="text-left md:text-right space-y-0.5">
                         <div
                           className={cn(
-                            "font-mono font-black text-sm sm:text-base leading-tight",
+                            "font-mono font-black text-xs sm:text-sm leading-tight",
                             isEntrada ? "text-emerald-400" : "text-rose-400"
                           )}
                         >
@@ -385,7 +390,7 @@ export function MovementHistoryModal({
                           {num(m.quantity)} {prodObj?.unidade || "un"}
                         </div>
                         {canViewBalances && m.previous_balance !== undefined && (
-                          <div className="text-[10px] font-mono text-muted-foreground">
+                          <div className="text-[9px] font-mono text-muted-foreground">
                             {num(m.previous_balance)} →{" "}
                             <span className="font-bold text-foreground">{num(m.resulting_balance)}</span>
                           </div>
@@ -398,15 +403,15 @@ export function MovementHistoryModal({
                             <Button
                               variant="ghost"
                               size="sm"
-                              className="h-7 px-2 text-xs text-amber-400 hover:bg-amber-500/10 hover:text-amber-300 rounded-lg cursor-pointer"
+                              className="h-6.5 px-2 text-[11px] text-amber-400 hover:bg-amber-500/10 hover:text-amber-300 rounded-lg cursor-pointer"
                               onClick={() => reverseMutation.mutate(m.id)}
                               disabled={reverseMutation.isPending}
                               title="Estornar lançamento"
                             >
-                              <RotateCcw className="h-3.5 w-3.5 mr-1" /> Estornar
+                              <RotateCcw className="h-3 w-3 mr-1" /> Estornar
                             </Button>
                           ) : (
-                            <Badge variant="outline" className="text-[9px] border-border text-muted-foreground">
+                            <Badge variant="outline" className="text-[8.5px] border-border text-muted-foreground">
                               Estornado
                             </Badge>
                           )}
@@ -432,8 +437,10 @@ export function MovementHistoryModal({
                 </SelectTrigger>
                 <SelectContent className="z-[10000]">
                   <SelectItem value="10">10</SelectItem>
+                  <SelectItem value="15">15</SelectItem>
                   <SelectItem value="25">25</SelectItem>
                   <SelectItem value="50">50</SelectItem>
+                  <SelectItem value="100">100</SelectItem>
                 </SelectContent>
               </Select>
             </div>

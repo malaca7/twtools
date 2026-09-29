@@ -270,9 +270,9 @@ function MovimentacoesContent() {
       return a.nome.localeCompare(b.nome);
     });
 
-  // Paginação da seleção de produtos (18 itens por página)
+  // Paginação da seleção de produtos (28 itens por página para grade compacta)
   const [productPage, setProductPage] = useState(1);
-  const PRODUCTS_PER_PAGE = 18;
+  const PRODUCTS_PER_PAGE = 28;
 
   useEffect(() => {
     setProductPage(1);
@@ -285,9 +285,9 @@ function MovimentacoesContent() {
     safeProductPage * PRODUCTS_PER_PAGE
   );
 
-  // Paginação da lista do lote selecionado (12 itens por página)
+  // Paginação da lista do lote selecionado (18 itens por página para visualização compacta)
   const [queuePage, setQueuePage] = useState(1);
-  const QUEUE_PER_PAGE = 12;
+  const QUEUE_PER_PAGE = 18;
 
   const totalQueuePages = Math.ceil(queue.length / QUEUE_PER_PAGE) || 1;
   const safeQueuePage = Math.min(Math.max(1, queuePage), totalQueuePages);
@@ -522,6 +522,7 @@ function MovimentacoesContent() {
       void queryClient.invalidateQueries({ queryKey: ["products"] });
       void queryClient.invalidateQueries({ queryKey: ["product_baus"] });
       void queryClient.invalidateQueries({ queryKey: ["audit_logs"] });
+      setActiveMovementBauId(null);
       setQueue([]);
       setSelectedProductId("");
       setQuantity(1);
@@ -572,11 +573,6 @@ function MovimentacoesContent() {
       if (other) setToBauId(other.id);
     }
     setQueue([]);
-    const targetBauObj = baus.find((b) => b.id === targetBauId);
-    toast.info(`Baú "${targetBauObj?.nome || "Selecionado"}" aberto para lançamento.`);
-    setTimeout(() => {
-      movementSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-    }, 50);
   };
 
   const activeMovementBauObj = baus.find((b) => b.id === activeMovementBauId);
@@ -830,7 +826,7 @@ function MovimentacoesContent() {
                       </Tooltip>
                     )}
 
-                    {/* Botão Movimentar (Apenas para baús manuais) */}
+                    {/* Botão Movimentar (Apenas para baús manuais - Ícone sem texto para não cortar no desktop) */}
                     {isManual && canMove && (
                       <Tooltip>
                         <TooltipTrigger asChild>
@@ -843,15 +839,14 @@ function MovimentacoesContent() {
                               handleStartMovementOnBau(b.id);
                             }}
                             className={cn(
-                              "h-7 sm:h-8 px-2 sm:px-2.5 rounded-xl text-[11px] sm:text-xs font-bold text-primary-foreground shadow-sm transition-all active:scale-95 cursor-pointer flex items-center gap-1",
+                              "h-7 w-7 sm:h-8 sm:w-8 p-0 rounded-xl text-primary-foreground shadow-sm transition-all active:scale-95 cursor-pointer flex items-center justify-center shrink-0",
                               activeMovementBauId === b.id
                                 ? "bg-amber-500 hover:bg-amber-600 ring-2 ring-amber-400 text-slate-900"
                                 : "bg-primary hover:bg-primary/90"
                             )}
                             aria-label={`Movimentar baú ${b.nome}`}
                           >
-                            <ArrowRightLeft className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
-                            <span className="hidden sm:inline">Movimentar</span>
+                            <ArrowRightLeft className="h-3.5 w-3.5" />
                           </Button>
                         </TooltipTrigger>
                         <TooltipContent side="top" className="text-xs font-semibold">
@@ -867,52 +862,78 @@ function MovimentacoesContent() {
         </div>
       </div>
 
-      {/* PAINEL INTERATIVO ESTILO APP (ABRE APENAS AO CLICAR EM MOVIMENTAR NO CARD DE UM BAÚ MANUAL) */}
-      {canMove && activeMovementBauId && activeMovementBauObj && (
-        <Card ref={movementSectionRef} className="surface-card border-primary/50 shadow-2xl overflow-hidden animate-in fade-in-50 zoom-in-95 duration-200">
-          {/* HEADER DO BAÚ SELECIONADO PARA OPERAÇÃO */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 sm:p-4 bg-primary/10 border-b border-primary/25">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-primary/20 border border-primary/40 flex items-center justify-center shrink-0 overflow-hidden shadow-sm">
-                <BauIcon
-                  foto_url={activeMovementBauObj.foto_url || activeMovementBauObj.imagem_url}
-                  icone={activeMovementBauObj.icone}
-                  nome={activeMovementBauObj.nome}
-                  className="w-full h-full object-cover"
-                />
+      {/* MODAL DE MOVIMENTAÇÃO OPERACIONAL (POPUP IGUAL SALDO E HISTÓRICO) */}
+      <Dialog
+        open={Boolean(canMove && activeMovementBauId && activeMovementBauObj)}
+        onOpenChange={(open) => {
+          if (!open) {
+            setActiveMovementBauId(null);
+            setQueue([]);
+          }
+        }}
+      >
+        <DialogContent className="max-w-4xl sm:max-w-5xl bg-card border-border/80 shadow-2xl p-0 overflow-hidden flex flex-col max-h-[92vh]">
+          {/* HEADER DO POPUP */}
+          <DialogHeader className="p-3.5 sm:p-5 border-b border-border/60 bg-gradient-to-r from-secondary/40 via-secondary/20 to-secondary/40 space-y-0 shrink-0">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pr-8 sm:pr-0">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-2xl bg-secondary/80 border border-border/80 flex items-center justify-center shrink-0 shadow-inner overflow-hidden ring-2 ring-primary/20">
+                  <BauIcon
+                    foto_url={activeMovementBauObj?.foto_url || activeMovementBauObj?.imagem_url}
+                    icone={activeMovementBauObj?.icone}
+                    nome={activeMovementBauObj?.nome}
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+                <div className="min-w-0">
+                  <DialogTitle className="text-base sm:text-lg font-black text-foreground truncate flex items-center gap-2">
+                    {activeMovementBauObj?.nome ? `Movimentar: ${activeMovementBauObj.nome}` : "Movimentação"}
+                    <Badge className="text-[10px] bg-amber-500/10 text-amber-400 border-amber-500/30 font-semibold">
+                      ✋ Modo Manual
+                    </Badge>
+                  </DialogTitle>
+                  <DialogDescription className="text-xs text-muted-foreground truncate">
+                    Selecione o tipo de movimentação e os produtos para lançar
+                  </DialogDescription>
+                </div>
               </div>
-              <div>
-                <h3 className="font-extrabold text-sm sm:text-base text-foreground flex items-center gap-2">
-                  Lançamento Operacional: {activeMovementBauObj.nome}
-                  <Badge className="text-[10px] bg-amber-500/10 text-amber-400 border-amber-500/30">✍️ Modo Manual</Badge>
-                </h3>
-                <p className="text-xs text-muted-foreground">
-                  Selecione o tipo de movimentação (Entrada, Saída ou Transferência) e os produtos abaixo.
-                </p>
-              </div>
-            </div>
 
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => {
-                setActiveMovementBauId(null);
-                setQueue([]);
-              }}
-              className="h-8 px-3 text-xs font-bold text-muted-foreground hover:text-foreground hover:bg-secondary/60 rounded-xl border-border/80 shrink-0"
-            >
-              <X className="w-4 h-4 mr-1 text-rose-400" /> Fechar / Voltar aos Baús
-            </Button>
-          </div>
+              {/* SELETOR RÁPIDO DE BAÚ (Permite trocar de baú manual diretamente no popup) */}
+              {baus.filter((b) => b.tipo_gestao === "manual").length > 1 && (
+                <div className="flex items-center gap-2 shrink-0">
+                  <span className="text-[11px] font-bold text-muted-foreground hidden sm:inline">Baú:</span>
+                  <Select
+                    value={activeMovementBauId || ""}
+                    onValueChange={(newId) => {
+                      handleStartMovementOnBau(newId);
+                    }}
+                  >
+                    <SelectTrigger className="h-8.5 text-xs font-semibold rounded-xl bg-background/90 border-border/80 min-w-[150px] shadow-xs">
+                      <Boxes className="w-3.5 h-3.5 mr-1.5 text-primary" />
+                      <SelectValue placeholder="Trocar Baú" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {baus
+                        .filter((b) => b.tipo_gestao === "manual")
+                        .map((b) => (
+                          <SelectItem key={b.id} value={b.id} className="text-xs">
+                            <span className="font-bold">{b.nome}</span>
+                          </SelectItem>
+                        ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+            </div>
+          </DialogHeader>
 
           {/* BOTÕES DE TIPO ESTILO SEGMENTED CONTROL (ENTRADA VS SAÍDA VS TRANSFERÊNCIA) */}
-          <div className="grid grid-cols-3 p-1.5 sm:p-2 bg-secondary/40 border-b border-border/60 gap-1.5 sm:gap-2">
+          <div className="grid grid-cols-3 p-1.5 sm:p-2 bg-secondary/30 border-b border-border/60 gap-1.5 sm:gap-2 shrink-0">
             <button
               type="button"
               onClick={() => { setType("entrada"); setQueue([]); }}
               className={cn(
-                "flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2.5 py-2.5 sm:py-3.5 px-2 sm:px-3 rounded-xl font-bold text-xs sm:text-sm transition-all duration-200 shadow-md cursor-pointer active:scale-95",
+                "flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 py-2 sm:py-2.5 px-2 sm:px-3 rounded-xl font-bold text-xs sm:text-sm transition-all duration-200 shadow-md cursor-pointer active:scale-95",
                 type === "entrada"
                   ? "bg-emerald-600 text-white shadow-emerald-600/25 ring-2 ring-emerald-400"
                   : "bg-background/60 text-muted-foreground hover:text-foreground hover:bg-secondary/60"
@@ -929,7 +950,7 @@ function MovimentacoesContent() {
               type="button"
               onClick={() => { setType("saida"); setQueue([]); }}
               className={cn(
-                "flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2.5 py-2.5 sm:py-3.5 px-2 sm:px-3 rounded-xl font-bold text-xs sm:text-sm transition-all duration-200 shadow-md cursor-pointer active:scale-95",
+                "flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 py-2 sm:py-2.5 px-2 sm:px-3 rounded-xl font-bold text-xs sm:text-sm transition-all duration-200 shadow-md cursor-pointer active:scale-95",
                 type === "saida"
                   ? "bg-rose-600 text-white shadow-rose-600/25 ring-2 ring-rose-400"
                   : "bg-background/60 text-muted-foreground hover:text-foreground hover:bg-secondary/60"
@@ -946,7 +967,7 @@ function MovimentacoesContent() {
               type="button"
               onClick={() => { setType("transferencia"); setQueue([]); }}
               className={cn(
-                "flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2.5 py-2.5 sm:py-3.5 px-2 sm:px-3 rounded-xl font-bold text-xs sm:text-sm transition-all duration-200 shadow-md cursor-pointer active:scale-95",
+                "flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 py-2 sm:py-2.5 px-2 sm:px-3 rounded-xl font-bold text-xs sm:text-sm transition-all duration-200 shadow-md cursor-pointer active:scale-95",
                 type === "transferencia"
                   ? "bg-sky-600 text-white shadow-sky-600/25 ring-2 ring-sky-400"
                   : "bg-background/60 text-muted-foreground hover:text-foreground hover:bg-secondary/60"
@@ -960,12 +981,12 @@ function MovimentacoesContent() {
             </button>
           </div>
 
-          <CardContent className="p-6 space-y-6">
+          <div className="p-3.5 sm:p-5 overflow-y-auto flex-1 space-y-4 max-h-[calc(92vh-140px)]">
             {/* SELEÇÃO DE BAÚS */}
             {canViewBaus && (
               type !== "transferencia" ? (
                 /* MODO ENTRADA / SAÍDA: 1 BAÚ */
-                <div className="space-y-2">
+                <div className="space-y-1.5">
                   <div className="flex items-center justify-between">
                     <Label className="text-xs font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
                       <Boxes className="h-4 w-4 text-primary" /> 1. Escolha o Baú de Operação
@@ -977,7 +998,7 @@ function MovimentacoesContent() {
                     )}
                   </div>
 
-                  <div className="flex flex-wrap gap-2">
+                  <div className="flex flex-wrap gap-1.5">
                     {baus.map((b) => (
                       <Button
                         key={b.id}
@@ -986,7 +1007,7 @@ function MovimentacoesContent() {
                         size="sm"
                         onClick={() => setSelectedBauId(b.id)}
                         className={cn(
-                          "text-xs h-9 px-3.5 rounded-xl font-bold flex items-center gap-1.5",
+                          "text-xs h-8 px-3 rounded-xl font-bold flex items-center gap-1.5",
                           selectedBauId === b.id ? "bg-primary text-primary-foreground shadow-sm" : ""
                         )}
                       >
@@ -1006,9 +1027,9 @@ function MovimentacoesContent() {
                 </div>
               ) : (
                 /* MODO TRANSFERÊNCIA: BAÚ ORIGEM E DESTINO */
-                <div className="grid gap-4 sm:grid-cols-2 p-4 rounded-2xl border border-sky-500/30 bg-sky-500/5">
+                <div className="grid gap-3 sm:grid-cols-2 p-3 sm:p-4 rounded-2xl border border-sky-500/30 bg-sky-500/5">
                   {/* BAÚ ORIGEM */}
-                  <div className="space-y-2">
+                  <div className="space-y-1.5">
                     <Label className="text-xs font-bold text-rose-400 uppercase tracking-wider flex items-center gap-1.5">
                       <Boxes className="h-4 w-4 text-rose-400" /> De onde sai (Baú Origem) *
                     </Label>
@@ -1027,7 +1048,7 @@ function MovimentacoesContent() {
                             }
                           }}
                           className={cn(
-                            "text-xs h-8 px-2.5 rounded-lg font-bold flex items-center gap-1",
+                            "text-xs h-7.5 px-2.5 rounded-lg font-bold flex items-center gap-1",
                             fromBauId === b.id ? "bg-rose-600 hover:bg-rose-700 text-white" : ""
                           )}
                         >
@@ -1041,7 +1062,7 @@ function MovimentacoesContent() {
                   </div>
 
                   {/* BAÚ DESTINO */}
-                  <div className="space-y-2">
+                  <div className="space-y-1.5">
                     <Label className="text-xs font-bold text-emerald-400 uppercase tracking-wider flex items-center gap-1.5">
                       <Boxes className="h-4 w-4 text-emerald-400" /> Para onde vai (Baú Destino) *
                     </Label>
@@ -1056,7 +1077,7 @@ function MovimentacoesContent() {
                             size="sm"
                             onClick={() => setToBauId(b.id)}
                             className={cn(
-                              "text-xs h-8 px-2.5 rounded-lg font-bold flex items-center gap-1",
+                              "text-xs h-7.5 px-2.5 rounded-lg font-bold flex items-center gap-1",
                               toBauId === b.id ? "bg-emerald-600 hover:bg-emerald-700 text-white" : ""
                             )}
                           >
@@ -1073,23 +1094,23 @@ function MovimentacoesContent() {
             )}
 
             {isCurrentActionBlocked ? (
-              <div className="rounded-2xl border border-emerald-500/40 bg-emerald-950/20 p-6 text-center space-y-4 my-2 shadow-inner">
-                <div className="mx-auto w-14 h-14 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-3xl shadow-inner">
+              <div className="rounded-2xl border border-emerald-500/40 bg-emerald-950/20 p-5 text-center space-y-3 my-2 shadow-inner">
+                <div className="mx-auto w-12 h-12 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-2xl shadow-inner">
                   🤖
                 </div>
-                <div className="space-y-1.5 max-w-lg mx-auto">
-                  <h3 className="text-base font-extrabold text-foreground">
+                <div className="space-y-1 max-w-lg mx-auto">
+                  <h3 className="text-sm font-extrabold text-foreground">
                     Baú com Sincronização 100% Automática via Discord
                   </h3>
                   <p className="text-xs text-muted-foreground leading-relaxed">
                     O baú <strong>{type === "transferencia" ? `${fromBau?.nome || "Origem"} / ${toBau?.nome || "Destino"}` : selectedBau?.nome}</strong> opera integrado às logs do canal do Discord. Movimentações manuais comuns estão bloqueadas para este baú para manter a fidelidade do inventário.
                   </p>
                 </div>
-                <div className="pt-1 flex flex-wrap items-center justify-center gap-3">
+                <div className="pt-1 flex flex-wrap items-center justify-center gap-2">
                   {hasPermission("estoque.ajustar") ? (
                     <Link to="/dev/estoque">
-                      <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs gap-2 rounded-xl shadow-md">
-                        <Wrench className="w-4 h-4" /> Acessar Ajustes de Estoque no Painel Dev &rarr;
+                      <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs gap-1.5 rounded-xl shadow-md">
+                        <Wrench className="w-3.5 h-3.5" /> Acessar Ajustes de Estoque no Painel Dev &rarr;
                       </Button>
                     </Link>
                   ) : (
@@ -1103,543 +1124,543 @@ function MovimentacoesContent() {
               <>
                 {/* FILTRO DE CATEGORIAS POR BOTÕES CHIP */}
                 <div className="space-y-2 pt-2 border-t border-border/50">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                <Label className="text-xs font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
-                  <Tags className="h-4 w-4 text-primary" /> {canViewBaus ? (type === "transferencia" ? "3" : "2") : "1"}. Filtrar por Categoria
-                </Label>
-                <div className="relative w-full sm:w-56">
-                  <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-                  <Input
-                    placeholder="Buscar produto pelo nome..."
-                    value={prodSearch}
-                    onChange={(e) => setProdSearch(e.target.value)}
-                    className="pl-8 h-7 text-xs rounded-xl"
-                  />
-                </div>
-              </div>
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                    <Label className="text-xs font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+                      <Tags className="h-4 w-4 text-primary" /> {canViewBaus ? (type === "transferencia" ? "3" : "2") : "1"}. Filtrar por Categoria
+                    </Label>
+                    <div className="relative w-full sm:w-56">
+                      <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+                      <Input
+                        placeholder="Buscar produto pelo nome..."
+                        value={prodSearch}
+                        onChange={(e) => setProdSearch(e.target.value)}
+                        className="pl-8 h-7.5 text-xs rounded-xl"
+                      />
+                    </div>
+                  </div>
 
-              <div className="flex flex-wrap gap-1.5">
-                <Button
-                  type="button"
-                  variant={selectedCategoryId === "" ? "secondary" : "ghost"}
-                  size="sm"
-                  onClick={() => setSelectedCategoryId("")}
-                  className="text-[11px] h-7 px-3 rounded-lg font-semibold"
-                >
-                  Todas as Categorias
-                </Button>
-                {categories.map((cat) => (
-                  <Button
-                    key={cat.id}
-                    type="button"
-                    variant={selectedCategoryId === cat.id ? "secondary" : "ghost"}
-                    size="sm"
-                    onClick={() => setSelectedCategoryId(cat.id)}
-                    className="text-[11px] h-7 px-3 rounded-lg font-semibold"
-                  >
-                    {cat.nome}
-                  </Button>
-                ))}
-              </div>
-            </div>
-
-            {/* SELETOR GRANDE DE PRODUTOS (SELEÇÃO MÚLTIPLA DIRETA POR TOQUE) */}
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <Label className="text-xs font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
-                  <Package className="h-4 w-4 text-primary" /> {canViewBaus ? (type === "transferencia" ? "4" : "3") : "2"}. Toque para Selecionar os Produtos ({activeProducts.length})
-                </Label>
-                {queue.length > 0 && (
-                  <Badge variant="outline" className="text-[10px] font-bold text-primary border-primary/40 bg-primary/10">
-                    {queue.length} {queue.length === 1 ? "produto selecionado" : "produtos selecionados"}
-                  </Badge>
-                )}
-              </div>
-
-              {/* GRADE DE PRODUTOS SEM BARRA DE ROLAGEM COM PAGINAÇÃO */}
-              <div className="grid gap-2.5 grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 p-0.5">
-                {paginatedProducts.map((p) => {
-                  const isQueued = queue.some((i) => i.productId === p.id);
-                  const queuedItem = queue.find((i) => i.productId === p.id);
-                  const stockInChest = getProductStockInChest(p.id, activeBauId);
-                  const globalStock = Number(p.estoque_atual || 0);
-
-                  return (
-                    <button
-                      key={p.id}
-                      type="button"
-                      onClick={() => handleToggleProductInQueue(p.id)}
-                      className={cn(
-                        "relative flex flex-col items-center justify-center p-2 rounded-2xl border text-left transition-all duration-200 group cursor-pointer aspect-square overflow-hidden select-none",
-                        isQueued
-                          ? "border-primary bg-primary/15 shadow-lg shadow-primary/20 ring-2 ring-primary scale-[1.02]"
-                          : "border-border/80 bg-card/60 hover:bg-secondary/60 hover:border-primary/50 hover:shadow-md hover:scale-[1.02]"
-                      )}
-                    >
-                      {/* NOME DO PRODUTO NO CANTO SUPERIOR ESQUERDO */}
-                      <div className="absolute top-2 left-2 z-10 max-w-[78%] pointer-events-none">
-                        <span className="inline-block font-extrabold text-[11px] sm:text-xs text-foreground bg-background/85 backdrop-blur-md px-1.5 py-0.5 rounded-md border border-border/70 shadow-sm truncate max-w-full leading-tight">
-                          {p.nome}
-                        </span>
-                      </div>
-
-                      {/* INDICADOR DE SELEÇÃO NO CANTO SUPERIOR DIREITO */}
-                      {isQueued && (
-                        <div className="absolute top-2 right-2 z-10 bg-primary text-primary-foreground p-1 rounded-lg shadow-md animate-in zoom-in duration-150 pointer-events-none">
-                          <Check className="h-3 w-3 stroke-[3]" />
-                        </div>
-                      )}
-
-                      {/* IMAGEM DO PRODUTO CENTRALIZADA */}
-                      <div className="w-full h-full flex items-center justify-center p-3 my-auto pointer-events-none">
-                        {p.imagem_url ? (
-                          <img
-                            src={p.imagem_url}
-                            alt={p.nome}
-                            className="max-h-20 sm:max-h-24 w-auto object-contain transition-transform duration-300 group-hover:scale-110 drop-shadow-md"
-                            loading="lazy"
-                          />
-                        ) : (
-                          <div className="flex items-center justify-center w-14 h-14 rounded-2xl bg-secondary/50 border border-border/60 text-primary/70 group-hover:scale-110 transition-transform">
-                            <Package className="h-7 w-7" />
-                          </div>
-                        )}
-                      </div>
-
-                      {/* QUANTIDADE NO CANTO INFERIOR DIREITO */}
-                      <div className="absolute bottom-2 right-2 z-10 pointer-events-none">
-                        <span
-                          className={cn(
-                            "inline-flex items-center justify-center font-mono font-black text-xs sm:text-sm px-2 py-0.5 rounded-md border shadow-md backdrop-blur-md",
-                            isQueued
-                              ? "bg-primary text-primary-foreground border-primary/50 shadow-primary/30"
-                              : stockInChest > 0
-                              ? "bg-background/90 text-emerald-400 border-emerald-500/40"
-                              : "bg-background/90 text-rose-400 border-rose-500/40"
-                          )}
-                        >
-                          {isQueued ? `${num(queuedItem?.quantity || 1)}x` : `${num(stockInChest)} un`}
-                        </span>
-                      </div>
-
-                      {/* DETALHE NO CANTO INFERIOR ESQUERDO */}
-                      {canViewBalances && (
-                        <div className="absolute bottom-2 left-2 z-10 pointer-events-none">
-                          {isQueued ? (
-                            <span className="inline-block text-[9px] font-bold text-muted-foreground bg-background/85 backdrop-blur-md px-1.5 py-0.5 rounded-md border border-border/60">
-                              Disp: {num(stockInChest)}
-                            </span>
-                          ) : stockInChest === 0 && globalStock > 0 ? (
-                            <span className="inline-block text-[8.5px] font-bold text-amber-400 bg-background/90 backdrop-blur-md px-1 py-0.5 rounded-md border border-amber-500/40">
-                              Tot: {num(globalStock)}
-                            </span>
-                          ) : null}
-                        </div>
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
-
-              {/* CONTROLES DE PAGINAÇÃO SE HOUVER MAIS DE 18 PRODUTOS */}
-              {totalProductPages > 1 && (
-                <div className="flex flex-col sm:flex-row items-center justify-between gap-2 pt-3 border-t border-border/50">
-                  <p className="text-xs text-muted-foreground">
-                    Mostrando {(safeProductPage - 1) * PRODUCTS_PER_PAGE + 1}–{Math.min(safeProductPage * PRODUCTS_PER_PAGE, activeProducts.length)} de {activeProducts.length} itens cadastrados
-                  </p>
-                  <div className="flex items-center gap-1.5">
+                  <div className="flex flex-wrap gap-1.5">
                     <Button
                       type="button"
-                      variant="outline"
+                      variant={selectedCategoryId === "" ? "secondary" : "ghost"}
                       size="sm"
-                      className="h-8 px-3 text-xs rounded-xl"
-                      disabled={safeProductPage <= 1}
-                      onClick={() => setProductPage((p) => Math.max(1, p - 1))}
+                      onClick={() => setSelectedCategoryId("")}
+                      className="text-[11px] h-7 px-2.5 rounded-lg font-semibold"
                     >
-                      <ChevronLeft className="h-3.5 w-3.5 mr-1" /> Anterior
+                      Todas as Categorias
                     </Button>
-
-                    <div className="flex items-center gap-1">
-                      {Array.from({ length: totalProductPages }, (_, i) => i + 1).map((pageNum) => (
-                        <Button
-                          key={pageNum}
-                          type="button"
-                          variant={safeProductPage === pageNum ? "default" : "outline"}
-                          size="sm"
-                          className={cn(
-                            "h-8 w-8 p-0 text-xs font-mono font-bold rounded-xl",
-                            safeProductPage === pageNum ? "bg-primary text-primary-foreground shadow-sm" : ""
-                          )}
-                          onClick={() => setProductPage(pageNum)}
-                        >
-                          {pageNum}
-                        </Button>
-                      ))}
-                    </div>
-
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      className="h-8 px-3 text-xs rounded-xl"
-                      disabled={safeProductPage >= totalProductPages}
-                      onClick={() => setProductPage((p) => Math.min(totalProductPages, p + 1))}
-                    >
-                      Próxima <ChevronRight className="h-3.5 w-3.5 ml-1" />
-                    </Button>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* PAINEL DO LOTE EM PREPARAÇÃO COM EDIÇÃO INLINE DE QUANTIDADES */}
-            <div className={cn(
-              "space-y-4 rounded-2xl border p-3.5 sm:p-5 transition-all shadow-md mt-4 w-full max-w-full overflow-hidden",
-              queue.length > 0
-                ? "border-primary/50 bg-primary/5 ring-1 ring-primary/30"
-                : "border-border/60 bg-secondary/20"
-            )}>
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-border/60 pb-3 gap-2">
-                <div className="flex items-center gap-2">
-                  <Zap className="h-5 w-5 text-primary animate-pulse shrink-0" />
-                  <div>
-                    <h4 className="text-sm font-extrabold text-foreground">
-                      Lote Selecionado ({queue.length} {queue.length === 1 ? "produto" : "produtos"})
-                    </h4>
-                    <p className="text-[0.65rem] text-muted-foreground">
-                      Ajuste as quantidades diretamente abaixo de cada item antes de confirmar.
-                    </p>
-                  </div>
-                </div>
-
-                {queue.length > 0 && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-7 text-xs text-destructive hover:bg-destructive/10 rounded-lg font-bold shrink-0 self-start sm:self-auto"
-                    onClick={() => setQueue([])}
-                  >
-                    Desmarcar Todos
-                  </Button>
-                )}
-              </div>
-
-              {/* BANNER DE DESTAQUE: TIPO DE MOVIMENTAÇÃO & BAÚ(S) ENVOLVIDOS */}
-              <div className="rounded-xl border border-border/80 bg-background/90 p-3 sm:p-3.5 space-y-2.5 shadow-inner w-full max-w-full overflow-hidden">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="text-[0.65rem] font-extrabold uppercase tracking-wider text-muted-foreground">
-                      Operação em Lote:
-                    </span>
-                    <Badge
-                      variant="outline"
-                      className={cn(
-                        "text-[11px] sm:text-xs px-2.5 py-1 font-black tracking-wide rounded-lg uppercase shadow-sm flex items-center gap-1 max-w-full truncate",
-                        type === "saida"
-                          ? "border-rose-500/50 bg-rose-500/15 text-rose-400 ring-1 ring-rose-500/30"
-                          : type === "entrada"
-                          ? "border-emerald-500/50 bg-emerald-500/15 text-emerald-400 ring-1 ring-emerald-500/30"
-                          : "border-sky-500/50 bg-sky-500/15 text-sky-400 ring-1 ring-sky-500/30"
-                      )}
-                    >
-                      {type === "saida"
-                        ? "🔻 SAÍDA DE ESTOQUE (-)"
-                        : type === "entrada"
-                        ? "🟢 ENTRADA DE ESTOQUE (+)"
-                        : "⇄ TRANSFERÊNCIA ENTRE BAÚS"}
-                    </Badge>
-                  </div>
-
-                  {/* DESTACAR BAÚ OPERACIONAL / RETIRADA / ORIGEM E DESTINO */}
-                  {type !== "transferencia" ? (
-                    <div className="flex flex-wrap items-center gap-1.5 text-xs font-bold">
-                      <span className="text-muted-foreground text-[0.7rem]">
-                        {type === "saida" ? "Baú de Retirada:" : "Baú de Depósito:"}
-                      </span>
-                      <Badge variant="secondary" className="font-extrabold text-xs px-2.5 py-0.5 rounded-lg border border-border bg-secondary text-foreground flex items-center gap-1 truncate max-w-full">
-                        <Box className="h-3.5 w-3.5 text-primary shrink-0" />
-                        <span className="truncate">{baus.find((b) => b.id === selectedBauId)?.nome || "Selecione um Baú"}</span>
-                      </Badge>
-                    </div>
-                  ) : (
-                    <div className="flex flex-wrap items-center gap-1.5 text-xs font-bold w-full sm:w-auto">
-                      <Badge variant="outline" className="border-rose-500/50 bg-rose-500/10 text-rose-400 font-extrabold text-xs px-2 py-0.5 rounded-lg flex items-center gap-1 truncate max-w-full">
-                        <span>De:</span>
-                        <span className="truncate">{baus.find((b) => b.id === fromBauId)?.nome || "Origem"}</span>
-                      </Badge>
-
-                      <ArrowRightLeft className="h-3.5 w-3.5 text-sky-400 shrink-0" />
-
-                      <Badge variant="outline" className="border-emerald-500/50 bg-emerald-500/10 text-emerald-400 font-extrabold text-xs px-2 py-0.5 rounded-lg flex items-center gap-1 truncate max-w-full">
-                        <span>Para:</span>
-                        <span className="truncate">{baus.find((b) => b.id === toBauId)?.nome || "Destino"}</span>
-                      </Badge>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* LISTA DE PRODUTOS NO LOTE COM O MESMO FORMATO DE CARD ESTILO INVENTÁRIO GTA RP */}
-              {queue.length === 0 ? (
-                <div className="py-6 text-center text-xs text-muted-foreground italic space-y-1">
-                  <p className="font-bold text-foreground not-italic">Nenhum produto selecionado no lote.</p>
-                  <p>Toque em um ou mais produtos na grade acima para montá-lo instantaneamente.</p>
-                </div>
-              ) : (
-                <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
-                  {paginatedQueue.map((item) => {
-                    const prod = products.find((p) => p.id === item.productId);
-                    if (!prod) return null;
-                    const stockInChest = getProductStockInChest(prod.id, activeBauId);
-                    const isOverStock = (type === "saida" || type === "transferencia") && item.quantity > stockInChest;
-
-                    return (
-                      <div
-                        key={item.productId}
-                        className={cn(
-                          "relative flex flex-col rounded-2xl border bg-card shadow-sm transition-all overflow-hidden p-2.5 gap-2",
-                          isOverStock
-                            ? "border-rose-500/60 bg-rose-500/5 ring-1 ring-rose-500/30"
-                            : "border-primary/40 bg-primary/5 hover:border-primary/70 shadow-md"
-                        )}
+                    {categories.map((cat) => (
+                      <Button
+                        key={cat.id}
+                        type="button"
+                        variant={selectedCategoryId === cat.id ? "secondary" : "ghost"}
+                        size="sm"
+                        onClick={() => setSelectedCategoryId(cat.id)}
+                        className="text-[11px] h-7 px-2.5 rounded-lg font-semibold"
                       >
-                        {/* CARD VISUAL IDÊNTICO AO DA PARTE DE PRODUTOS */}
-                        <div className="relative flex flex-col items-center justify-center rounded-xl border border-border/70 bg-background/90 aspect-square overflow-hidden select-none w-full">
+                        {cat.nome}
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* SELETOR DE PRODUTOS COMPACTO */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-xs font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+                      <Package className="h-4 w-4 text-primary" /> {canViewBaus ? (type === "transferencia" ? "4" : "3") : "2"}. Toque para Selecionar os Produtos ({activeProducts.length})
+                    </Label>
+                    {queue.length > 0 && (
+                      <Badge variant="outline" className="text-[10px] font-bold text-primary border-primary/40 bg-primary/10">
+                        {queue.length} {queue.length === 1 ? "produto selecionado" : "produtos selecionados"}
+                      </Badge>
+                    )}
+                  </div>
+
+                  {/* GRADE DE PRODUTOS COMPACTA */}
+                  <div className="grid gap-2 grid-cols-2 xs:grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 p-0.5">
+                    {paginatedProducts.map((p) => {
+                      const isQueued = queue.some((i) => i.productId === p.id);
+                      const queuedItem = queue.find((i) => i.productId === p.id);
+                      const stockInChest = getProductStockInChest(p.id, activeBauId);
+                      const globalStock = Number(p.estoque_atual || 0);
+
+                      return (
+                        <button
+                          key={p.id}
+                          type="button"
+                          onClick={() => handleToggleProductInQueue(p.id)}
+                          className={cn(
+                            "relative flex flex-col items-center justify-between p-1.5 sm:p-2 rounded-xl border text-left transition-all duration-200 group cursor-pointer aspect-square overflow-hidden select-none",
+                            isQueued
+                              ? "border-primary bg-primary/15 shadow-md shadow-primary/20 ring-2 ring-primary scale-[1.02]"
+                              : "border-border/80 bg-card/60 hover:bg-secondary/60 hover:border-primary/50 hover:shadow-sm hover:scale-[1.02]"
+                          )}
+                        >
                           {/* NOME DO PRODUTO NO CANTO SUPERIOR ESQUERDO */}
-                          <div className="absolute top-1.5 left-1.5 z-10 max-w-[72%] pointer-events-none">
-                            <span className="inline-block font-extrabold text-[10px] sm:text-[11px] text-foreground bg-background/85 backdrop-blur-md px-1.5 py-0.5 rounded-md border border-border/70 shadow-sm truncate max-w-full leading-tight">
-                              {prod.nome}
+                          <div className="absolute top-1.5 left-1.5 z-10 max-w-[70%] pointer-events-none">
+                            <span className="inline-block font-bold text-[9.5px] sm:text-[10px] text-foreground bg-background/85 backdrop-blur-md px-1 py-0.2 rounded border border-border/70 shadow-2xs truncate max-w-full leading-tight">
+                              {p.nome}
                             </span>
                           </div>
 
-                          {/* BOTÃO DE REMOVER NO CANTO SUPERIOR DIREITO */}
-                          <div className="absolute top-1.5 right-1.5 z-10">
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="icon"
-                              className="h-6 w-6 text-rose-400 hover:text-rose-300 hover:bg-rose-500/20 rounded-md shadow-sm bg-background/80 backdrop-blur-md"
-                              onClick={() => setQueue((q) => q.filter((i) => i.productId !== item.productId))}
-                              title="Remover do lote"
-                            >
-                              <Trash2 className="h-3 w-3" />
-                            </Button>
-                          </div>
+                          {/* INDICADOR DE SELEÇÃO NO CANTO SUPERIOR DIREITO */}
+                          {isQueued && (
+                            <div className="absolute top-1.5 right-1.5 z-10 bg-primary text-primary-foreground p-0.5 rounded-md shadow-sm animate-in zoom-in duration-150 pointer-events-none">
+                              <Check className="h-2.5 w-2.5 sm:h-3 sm:w-3 stroke-[3]" />
+                            </div>
+                          )}
 
                           {/* IMAGEM DO PRODUTO CENTRALIZADA */}
-                          <div className="w-full h-full flex items-center justify-center p-2.5 my-auto pointer-events-none">
-                            {prod.imagem_url ? (
+                          <div className="w-full h-full flex items-center justify-center p-1.5 my-auto pointer-events-none">
+                            {p.imagem_url ? (
                               <img
-                                src={prod.imagem_url}
-                                alt={prod.nome}
-                                className="max-h-16 sm:max-h-20 w-auto object-contain drop-shadow-md transition-transform duration-200"
+                                src={p.imagem_url}
+                                alt={p.nome}
+                                className="max-h-12 sm:max-h-14 w-auto object-contain transition-transform duration-300 group-hover:scale-105 drop-shadow-sm"
                                 loading="lazy"
                               />
                             ) : (
-                              <div className="flex items-center justify-center w-12 h-12 rounded-xl bg-secondary/50 border border-border/60 text-primary/70">
-                                <Package className="h-6 w-6" />
+                              <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-secondary/50 border border-border/60 text-primary/70 group-hover:scale-105 transition-transform">
+                                <Package className="h-5 w-5" />
                               </div>
                             )}
                           </div>
 
                           {/* QUANTIDADE NO CANTO INFERIOR DIREITO */}
                           <div className="absolute bottom-1.5 right-1.5 z-10 pointer-events-none">
-                            <span className="inline-flex items-center justify-center font-mono font-black text-[11px] sm:text-xs px-1.5 py-0.5 rounded-md border shadow-md backdrop-blur-md bg-primary text-primary-foreground border-primary/50 shadow-primary/30">
-                              {num(item.quantity)}x
+                            <span
+                              className={cn(
+                                "inline-flex items-center justify-center font-mono font-black text-[9.5px] sm:text-[11px] px-1.5 py-0.5 rounded border shadow-2xs backdrop-blur-md",
+                                isQueued
+                                  ? "bg-primary text-primary-foreground border-primary/50 shadow-primary/30"
+                                  : stockInChest > 0
+                                  ? "bg-background/90 text-emerald-400 border-emerald-500/40"
+                                  : "bg-background/90 text-rose-400 border-rose-500/40"
+                              )}
+                            >
+                              {isQueued ? `${num(queuedItem?.quantity || 1)}x` : `${num(stockInChest)} un`}
                             </span>
                           </div>
 
-                          {/* SALDO DISPONÍVEL NO CANTO INFERIOR ESQUERDO */}
+                          {/* DETALHE NO CANTO INFERIOR ESQUERDO */}
                           {canViewBalances && (
                             <div className="absolute bottom-1.5 left-1.5 z-10 pointer-events-none">
-                              <span
-                                className={cn(
-                                  "inline-block text-[8.5px] font-bold bg-background/85 backdrop-blur-md px-1 py-0.5 rounded border leading-none",
-                                  isOverStock ? "text-rose-400 border-rose-500/50" : "text-muted-foreground border-border/60"
-                                )}
-                              >
-                                {isOverStock ? "⚠️ Falta saldo" : `Disp: ${num(stockInChest)}`}
-                              </span>
+                              {isQueued ? (
+                                <span className="inline-block text-[8px] sm:text-[8.5px] font-bold text-muted-foreground bg-background/85 backdrop-blur-md px-1 py-0.2 rounded border border-border/60">
+                                  Disp: {num(stockInChest)}
+                                </span>
+                              ) : stockInChest === 0 && globalStock > 0 ? (
+                                <span className="inline-block text-[8px] sm:text-[8.5px] font-bold text-amber-400 bg-background/90 backdrop-blur-md px-1 py-0.2 rounded border border-amber-500/40">
+                                  Tot: {num(globalStock)}
+                                </span>
+                              ) : null}
                             </div>
                           )}
-                        </div>
+                        </button>
+                      );
+                    })}
+                  </div>
 
-                        {/* CONTROLES DE QUANTIDADE EMBUTIDOS ABAIXO DO CARD (CAMPO FULL-WIDTH PERFEITO PARA 4+ DÍGITOS) */}
-                        <div className="space-y-1.5 pt-1">
-                          {/* LINHA 1: CAMPO NUMÉRICO DEDICADO 100% DE LARGURA (PERFEITO PARA DIGITAR 4+ DÍGITOS) */}
-                          <div className="w-full">
-                            <Input
-                              type="number"
-                              min="1"
-                              value={item.quantity}
-                              onChange={(e) => handleUpdateQueueQuantity(item.productId, Number(e.target.value) || 1)}
-                              className="h-9 w-full text-center text-sm font-black font-mono rounded-xl border-primary/50 bg-background text-foreground shadow-inner px-2 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none focus-visible:ring-primary"
-                              placeholder="Qtd"
-                            />
-                          </div>
-
-                          {/* LINHA 2: CONTROLES DE PASSO (- / + / MÁX) EM GRID COM ZERO OVERFLOW */}
-                          <div
-                            className={cn(
-                              "grid gap-1 w-full",
-                              type === "saida" || type === "transferencia" ? "grid-cols-3" : "grid-cols-2"
-                            )}
-                          >
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              className="h-7.5 w-full min-w-0 px-0 text-xs font-black rounded-xl bg-secondary/70 hover:bg-secondary border-border/80"
-                              onClick={() => handleUpdateQueueQuantity(item.productId, item.quantity - 1)}
-                              title="Diminuir 1"
-                            >
-                              <Minus className="h-3.5 w-3.5" />
-                            </Button>
-
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              className="h-7.5 w-full min-w-0 px-0 text-xs font-black rounded-xl bg-secondary/70 hover:bg-secondary border-border/80"
-                              onClick={() => handleUpdateQueueQuantity(item.productId, item.quantity + 1)}
-                              title="Aumentar 1"
-                            >
-                              <Plus className="h-3.5 w-3.5" />
-                            </Button>
-
-                            {(type === "saida" || type === "transferencia") && (
-                              <Button
-                                type="button"
-                                variant="outline"
-                                size="sm"
-                                className="h-7.5 w-full min-w-0 px-0 text-[10.5px] sm:text-xs font-black text-primary border-primary/40 rounded-xl bg-primary/10 hover:bg-primary/20 truncate shadow-2xs"
-                                onClick={() => handleUpdateQueueQuantity(item.productId, Math.max(1, stockInChest))}
-                                title={`Usar saldo máximo (${num(stockInChest)})`}
-                              >
-                                MÁX
-                              </Button>
-                            )}
-                          </div>
-
-                          {/* LINHA 3: ATALHOS RÁPIDOS DE QUANTIDADE (BOTÕES GRANDES EM GRID, SEM NENHUMA BARRA DE ROLAGEM) */}
-                          <div className="grid grid-cols-4 gap-1 pt-0.5 w-full">
-                            {[1, 5, 10, 25, 50, 100, 250, 500].map((q) => (
-                              <Button
-                                key={q}
-                                type="button"
-                                variant="secondary"
-                                size="sm"
-                                className={cn(
-                                  "h-7 w-full min-w-0 px-0 text-[11px] font-black rounded-xl transition-all active:scale-95 border",
-                                  item.quantity === q
-                                    ? "bg-primary text-primary-foreground border-primary/50 shadow-md font-black ring-1 ring-primary/40"
-                                    : "bg-secondary/70 border-border/60 hover:border-primary/40 hover:bg-primary/15 text-foreground/80 hover:text-foreground"
-                                )}
-                                onClick={() => handleUpdateQueueQuantity(item.productId, q)}
-                              >
-                                {q}
-                              </Button>
-                            ))}
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-
-              {/* CONTROLES DE PAGINAÇÃO SE HOUVER MAIS DE 12 ITENS NO LOTE */}
-              {totalQueuePages > 1 && (
-                <div className="flex flex-col sm:flex-row items-center justify-between gap-2 pt-3 border-t border-border/50">
-                  <p className="text-xs text-muted-foreground">
-                    Mostrando {(safeQueuePage - 1) * QUEUE_PER_PAGE + 1}–{Math.min(safeQueuePage * QUEUE_PER_PAGE, queue.length)} de {queue.length} produtos no lote
-                  </p>
-                  <div className="flex items-center gap-1.5">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      className="h-8 px-3 text-xs rounded-xl"
-                      disabled={safeQueuePage <= 1}
-                      onClick={() => setQueuePage((p) => Math.max(1, p - 1))}
-                    >
-                      <ChevronLeft className="h-3.5 w-3.5 mr-1" /> Anterior
-                    </Button>
-
-                    <div className="flex items-center gap-1">
-                      {Array.from({ length: totalQueuePages }, (_, i) => i + 1).map((pageNum) => (
+                  {/* CONTROLES DE PAGINAÇÃO */}
+                  {totalProductPages > 1 && (
+                    <div className="flex flex-col sm:flex-row items-center justify-between gap-2 pt-2.5 border-t border-border/50">
+                      <p className="text-xs text-muted-foreground">
+                        Mostrando {(safeProductPage - 1) * PRODUCTS_PER_PAGE + 1}–{Math.min(safeProductPage * PRODUCTS_PER_PAGE, activeProducts.length)} de {activeProducts.length} itens cadastrados
+                      </p>
+                      <div className="flex items-center gap-1.5">
                         <Button
-                          key={pageNum}
                           type="button"
-                          variant={safeQueuePage === pageNum ? "default" : "outline"}
+                          variant="outline"
                           size="sm"
-                          className={cn(
-                            "h-8 w-8 p-0 text-xs font-mono font-bold rounded-xl",
-                            safeQueuePage === pageNum ? "bg-primary text-primary-foreground shadow-sm" : ""
-                          )}
-                          onClick={() => setQueuePage(pageNum)}
+                          className="h-7.5 px-2.5 text-xs rounded-xl"
+                          disabled={safeProductPage <= 1}
+                          onClick={() => setProductPage((p) => Math.max(1, p - 1))}
                         >
-                          {pageNum}
+                          <ChevronLeft className="h-3.5 w-3.5 mr-1" /> Anterior
                         </Button>
-                      ))}
+
+                        <div className="flex items-center gap-1">
+                          {Array.from({ length: totalProductPages }, (_, i) => i + 1).map((pageNum) => (
+                            <Button
+                              key={pageNum}
+                              type="button"
+                              variant={safeProductPage === pageNum ? "default" : "outline"}
+                              size="sm"
+                              className={cn(
+                                "h-7.5 w-7.5 p-0 text-xs font-mono font-bold rounded-xl",
+                                safeProductPage === pageNum ? "bg-primary text-primary-foreground shadow-sm" : ""
+                              )}
+                              onClick={() => setProductPage(pageNum)}
+                            >
+                              {pageNum}
+                            </Button>
+                          ))}
+                        </div>
+
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="h-7.5 px-2.5 text-xs rounded-xl"
+                          disabled={safeProductPage >= totalProductPages}
+                          onClick={() => setProductPage((p) => Math.min(totalProductPages, p + 1))}
+                        >
+                          Próxima <ChevronRight className="h-3.5 w-3.5 ml-1" />
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* PAINEL DO LOTE EM PREPARAÇÃO COM EDIÇÃO INLINE DE QUANTIDADES */}
+                <div className={cn(
+                  "space-y-3 rounded-2xl border p-3 sm:p-4 transition-all shadow-md mt-3 w-full max-w-full overflow-hidden",
+                  queue.length > 0
+                    ? "border-primary/50 bg-primary/5 ring-1 ring-primary/30"
+                    : "border-border/60 bg-secondary/20"
+                )}>
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-border/60 pb-2.5 gap-2">
+                    <div className="flex items-center gap-2">
+                      <Zap className="h-4.5 w-4.5 text-primary animate-pulse shrink-0" />
+                      <div>
+                        <h4 className="text-xs sm:text-sm font-extrabold text-foreground">
+                          Lote Selecionado ({queue.length} {queue.length === 1 ? "produto" : "produtos"})
+                        </h4>
+                        <p className="text-[0.65rem] text-muted-foreground">
+                          Ajuste as quantidades diretamente abaixo de cada item antes de confirmar.
+                        </p>
+                      </div>
                     </div>
 
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      className="h-8 px-3 text-xs rounded-xl"
-                      disabled={safeQueuePage >= totalQueuePages}
-                      onClick={() => setQueuePage((p) => Math.min(totalQueuePages, p + 1))}
-                    >
-                      Próxima <ChevronRight className="h-3.5 w-3.5 ml-1" />
-                    </Button>
+                    {queue.length > 0 && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-6.5 text-xs text-destructive hover:bg-destructive/10 rounded-lg font-bold shrink-0 self-start sm:self-auto cursor-pointer"
+                        onClick={() => setQueue([])}
+                      >
+                        Desmarcar Todos
+                      </Button>
+                    )}
+                  </div>
+
+                  {/* BANNER DE DESTAQUE: TIPO DE MOVIMENTAÇÃO & BAÚ(S) ENVOLVIDOS */}
+                  <div className="rounded-xl border border-border/80 bg-background/90 p-2.5 sm:p-3 space-y-2 shadow-inner w-full max-w-full overflow-hidden">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <span className="text-[0.65rem] font-extrabold uppercase tracking-wider text-muted-foreground">
+                          Operação:
+                        </span>
+                        <Badge
+                          variant="outline"
+                          className={cn(
+                            "text-[10px] sm:text-[11px] px-2 py-0.5 font-black tracking-wide rounded-lg uppercase shadow-sm flex items-center gap-1 max-w-full truncate",
+                            type === "saida"
+                              ? "border-rose-500/50 bg-rose-500/15 text-rose-400 ring-1 ring-rose-500/30"
+                              : type === "entrada"
+                              ? "border-emerald-500/50 bg-emerald-500/15 text-emerald-400 ring-1 ring-emerald-500/30"
+                              : "border-sky-500/50 bg-sky-500/15 text-sky-400 ring-1 ring-sky-500/30"
+                          )}
+                        >
+                          {type === "saida"
+                            ? "🔻 SAÍDA (-)"
+                            : type === "entrada"
+                            ? "🟢 ENTRADA (+)"
+                            : "⇄ TRANSFERÊNCIA"}
+                        </Badge>
+                      </div>
+
+                      {/* DESTACAR BAÚ OPERACIONAL / RETIRADA / ORIGEM E DESTINO */}
+                      {type !== "transferencia" ? (
+                        <div className="flex flex-wrap items-center gap-1 text-xs font-bold">
+                          <span className="text-muted-foreground text-[0.7rem]">
+                            {type === "saida" ? "Retirada:" : "Depósito:"}
+                          </span>
+                          <Badge variant="secondary" className="font-extrabold text-[11px] px-2 py-0.5 rounded-lg border border-border bg-secondary text-foreground flex items-center gap-1 truncate max-w-full">
+                            <Box className="h-3 w-3 text-primary shrink-0" />
+                            <span className="truncate">{baus.find((b) => b.id === selectedBauId)?.nome || "Selecione um Baú"}</span>
+                          </Badge>
+                        </div>
+                      ) : (
+                        <div className="flex flex-wrap items-center gap-1.5 text-xs font-bold w-full sm:w-auto">
+                          <Badge variant="outline" className="border-rose-500/50 bg-rose-500/10 text-rose-400 font-extrabold text-[11px] px-2 py-0.5 rounded-lg flex items-center gap-1 truncate max-w-full">
+                            <span>De:</span>
+                            <span className="truncate">{baus.find((b) => b.id === fromBauId)?.nome || "Origem"}</span>
+                          </Badge>
+
+                          <ArrowRightLeft className="h-3 w-3 text-sky-400 shrink-0" />
+
+                          <Badge variant="outline" className="border-emerald-500/50 bg-emerald-500/10 text-emerald-400 font-extrabold text-[11px] px-2 py-0.5 rounded-lg flex items-center gap-1 truncate max-w-full">
+                            <span>Para:</span>
+                            <span className="truncate">{baus.find((b) => b.id === toBauId)?.nome || "Destino"}</span>
+                          </Badge>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* LISTA DE PRODUTOS NO LOTE COM CARDS COMPACTOS */}
+                  {queue.length === 0 ? (
+                    <div className="py-5 text-center text-xs text-muted-foreground italic space-y-1">
+                      <p className="font-bold text-foreground not-italic">Nenhum produto selecionado no lote.</p>
+                      <p>Toque em um ou mais produtos na grade acima para montá-lo instantaneamente.</p>
+                    </div>
+                  ) : (
+                    <div className="grid gap-2 sm:gap-2.5 grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
+                      {paginatedQueue.map((item) => {
+                        const prod = products.find((p) => p.id === item.productId);
+                        if (!prod) return null;
+                        const stockInChest = getProductStockInChest(prod.id, activeBauId);
+                        const isOverStock = (type === "saida" || type === "transferencia") && item.quantity > stockInChest;
+
+                        return (
+                          <div
+                            key={item.productId}
+                            className={cn(
+                              "relative flex flex-col rounded-xl border bg-card shadow-xs transition-all overflow-hidden p-2 gap-1.5",
+                              isOverStock
+                                ? "border-rose-500/60 bg-rose-500/5 ring-1 ring-rose-500/30"
+                                : "border-primary/40 bg-primary/5 hover:border-primary/70 shadow-sm"
+                            )}
+                          >
+                            {/* CARD VISUAL DO PRODUTO */}
+                            <div className="relative flex flex-col items-center justify-center rounded-lg border border-border/70 bg-background/90 aspect-[4/3] overflow-hidden select-none w-full">
+                              {/* NOME DO PRODUTO */}
+                              <div className="absolute top-1 left-1 z-10 max-w-[70%] pointer-events-none">
+                                <span className="inline-block font-bold text-[9.5px] sm:text-[10px] text-foreground bg-background/85 backdrop-blur-md px-1 py-0.2 rounded border border-border/70 shadow-2xs truncate max-w-full leading-tight">
+                                  {prod.nome}
+                                </span>
+                              </div>
+
+                              {/* BOTÃO DE REMOVER */}
+                              <div className="absolute top-1 right-1 z-10">
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-5 w-5 text-rose-400 hover:text-rose-300 hover:bg-rose-500/20 rounded-md shadow-2xs bg-background/80 backdrop-blur-md cursor-pointer"
+                                  onClick={() => setQueue((q) => q.filter((i) => i.productId !== item.productId))}
+                                  title="Remover do lote"
+                                >
+                                  <Trash2 className="h-2.5 w-2.5" />
+                                </Button>
+                              </div>
+
+                              {/* IMAGEM DO PRODUTO */}
+                              <div className="w-full h-full flex items-center justify-center p-1.5 my-auto pointer-events-none">
+                                {prod.imagem_url ? (
+                                  <img
+                                    src={prod.imagem_url}
+                                    alt={prod.nome}
+                                    className="max-h-11 sm:max-h-14 w-auto object-contain drop-shadow-sm transition-transform duration-200"
+                                    loading="lazy"
+                                  />
+                                ) : (
+                                  <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-secondary/50 border border-border/60 text-primary/70">
+                                    <Package className="h-4 w-4" />
+                                  </div>
+                                )}
+                              </div>
+
+                              {/* QUANTIDADE */}
+                              <div className="absolute bottom-1 right-1 z-10 pointer-events-none">
+                                <span className="inline-flex items-center justify-center font-mono font-black text-[10px] sm:text-[11px] px-1.5 py-0.2 rounded border shadow-2xs backdrop-blur-md bg-primary text-primary-foreground border-primary/50">
+                                  {num(item.quantity)}x
+                                </span>
+                              </div>
+
+                              {/* SALDO DISPONÍVEL */}
+                              {canViewBalances && (
+                                <div className="absolute bottom-1 left-1 z-10 pointer-events-none">
+                                  <span
+                                    className={cn(
+                                      "inline-block text-[8px] font-bold bg-background/85 backdrop-blur-md px-1 py-0.2 rounded border leading-none",
+                                      isOverStock ? "text-rose-400 border-rose-500/50" : "text-muted-foreground border-border/60"
+                                    )}
+                                  >
+                                    {isOverStock ? "⚠️ Falta saldo" : `Disp: ${num(stockInChest)}`}
+                                  </span>
+                                </div>
+                              )}
+                            </div>
+
+                            {/* CONTROLES DE QUANTIDADE EMBUTIDOS ABAIXO DO CARD */}
+                            <div className="space-y-1 pt-0.5">
+                              {/* LINHA 1: CAMPO NUMÉRICO */}
+                              <div className="w-full">
+                                <Input
+                                  type="number"
+                                  min="1"
+                                  value={item.quantity}
+                                  onChange={(e) => handleUpdateQueueQuantity(item.productId, Number(e.target.value) || 1)}
+                                  className="h-7 w-full text-center text-xs font-black font-mono rounded-lg border-primary/50 bg-background text-foreground shadow-inner px-1 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none focus-visible:ring-primary"
+                                  placeholder="Qtd"
+                                />
+                              </div>
+
+                              {/* LINHA 2: CONTROLES DE PASSO (- / + / MÁX) */}
+                              <div
+                                className={cn(
+                                  "grid gap-1 w-full",
+                                  type === "saida" || type === "transferencia" ? "grid-cols-3" : "grid-cols-2"
+                                )}
+                              >
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="sm"
+                                  className="h-6.5 w-full min-w-0 px-0 text-xs font-black rounded-lg bg-secondary/70 hover:bg-secondary border-border/80 cursor-pointer"
+                                  onClick={() => handleUpdateQueueQuantity(item.productId, item.quantity - 1)}
+                                  title="Diminuir 1"
+                                >
+                                  <Minus className="h-3 w-3" />
+                                </Button>
+
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="sm"
+                                  className="h-6.5 w-full min-w-0 px-0 text-xs font-black rounded-lg bg-secondary/70 hover:bg-secondary border-border/80 cursor-pointer"
+                                  onClick={() => handleUpdateQueueQuantity(item.productId, item.quantity + 1)}
+                                  title="Aumentar 1"
+                                >
+                                  <Plus className="h-3 w-3" />
+                                </Button>
+
+                                {(type === "saida" || type === "transferencia") && (
+                                  <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    className="h-6.5 w-full min-w-0 px-0 text-[10px] font-black text-primary border-primary/40 rounded-lg bg-primary/10 hover:bg-primary/20 truncate cursor-pointer shadow-2xs"
+                                    onClick={() => handleUpdateQueueQuantity(item.productId, Math.max(1, stockInChest))}
+                                    title={`Usar saldo máximo (${num(stockInChest)})`}
+                                  >
+                                    MÁX
+                                  </Button>
+                                )}
+                              </div>
+
+                              {/* LINHA 3: ATALHOS RÁPIDOS DE QUANTIDADE */}
+                              <div className="grid grid-cols-4 gap-1 pt-0.5 w-full">
+                                {[1, 5, 10, 25, 50, 100, 250, 500].map((q) => (
+                                  <Button
+                                    key={q}
+                                    type="button"
+                                    variant="secondary"
+                                    size="sm"
+                                    className={cn(
+                                      "h-6 w-full min-w-0 px-0 text-[10px] font-black rounded-lg transition-all active:scale-95 border cursor-pointer",
+                                      item.quantity === q
+                                        ? "bg-primary text-primary-foreground border-primary/50 shadow-xs font-black ring-1 ring-primary/40"
+                                        : "bg-secondary/70 border-border/60 hover:border-primary/40 hover:bg-primary/15 text-foreground/80 hover:text-foreground"
+                                    )}
+                                    onClick={() => handleUpdateQueueQuantity(item.productId, q)}
+                                  >
+                                    {q}
+                                  </Button>
+                                ))}
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  {/* CONTROLES DE PAGINAÇÃO DO LOTE */}
+                  {totalQueuePages > 1 && (
+                    <div className="flex flex-col sm:flex-row items-center justify-between gap-2 pt-2.5 border-t border-border/50">
+                      <p className="text-xs text-muted-foreground">
+                        Mostrando {(safeQueuePage - 1) * QUEUE_PER_PAGE + 1}–{Math.min(safeQueuePage * QUEUE_PER_PAGE, queue.length)} de {queue.length} produtos no lote
+                      </p>
+                      <div className="flex items-center gap-1.5">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="h-7.5 px-2.5 text-xs rounded-xl"
+                          disabled={safeQueuePage <= 1}
+                          onClick={() => setQueuePage((p) => Math.max(1, p - 1))}
+                        >
+                          <ChevronLeft className="h-3.5 w-3.5 mr-1" /> Anterior
+                        </Button>
+
+                        <div className="flex items-center gap-1">
+                          {Array.from({ length: totalQueuePages }, (_, i) => i + 1).map((pageNum) => (
+                            <Button
+                              key={pageNum}
+                              type="button"
+                              variant={safeQueuePage === pageNum ? "default" : "outline"}
+                              size="sm"
+                              className={cn(
+                                "h-7.5 w-7.5 p-0 text-xs font-mono font-bold rounded-xl",
+                                safeQueuePage === pageNum ? "bg-primary text-primary-foreground shadow-sm" : ""
+                              )}
+                              onClick={() => setQueuePage(pageNum)}
+                            >
+                              {pageNum}
+                            </Button>
+                          ))}
+                        </div>
+
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="h-7.5 px-2.5 text-xs rounded-xl"
+                          disabled={safeQueuePage >= totalQueuePages}
+                          onClick={() => setQueuePage((p) => Math.min(totalQueuePages, p + 1))}
+                        >
+                          Próxima <ChevronRight className="h-3.5 w-3.5 ml-1" />
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* OBSERVAÇÃO DO LOTE E BOTÃO MASTER DE CONFIRMAÇÃO */}
+                  <div className="space-y-2.5 pt-2.5 border-t border-border/60">
+                    <Input
+                      placeholder="Motivo / Observação do Lote (ex.: Reposição de Ação, Entrega de Carga...)"
+                      value={reason}
+                      onChange={(e) => setReason(e.target.value)}
+                      className="h-9 text-xs rounded-xl bg-background"
+                    />
+
+                    {(() => {
+                      const totalBatchCount = queue.length + (selectedProductId && !queue.some((i) => i.productId === selectedProductId) ? 1 : 0);
+                      const itemsText = totalBatchCount === 1 ? "1 item" : `${totalBatchCount} itens`;
+
+                      return (
+                        <Button
+                          className={cn(
+                            "w-full h-11 text-white font-extrabold text-xs sm:text-sm shadow-xl hover:opacity-90 rounded-xl transition-all flex items-center justify-center gap-2 px-3 overflow-hidden text-center leading-none cursor-pointer",
+                            type === "entrada"
+                              ? "bg-emerald-600 hover:bg-emerald-700 shadow-emerald-950/20"
+                              : type === "saida"
+                              ? "bg-rose-600 hover:bg-rose-700 shadow-rose-950/20"
+                              : "bg-sky-600 hover:bg-sky-700 shadow-sky-950/20"
+                          )}
+                          onClick={() => submitBatchMutation.mutate()}
+                          disabled={submitBatchMutation.isPending || (queue.length === 0 && !selectedProductId)}
+                        >
+                          {submitBatchMutation.isPending ? (
+                            <Loader2 className="h-4 w-4 sm:h-5 sm:w-5 animate-spin shrink-0" />
+                          ) : (
+                            <CheckCircle2 className="h-4 w-4 sm:h-5 sm:w-5 shrink-0" />
+                          )}
+                          <span className="truncate">CONFIRMAR LOTE ({itemsText})</span>
+                        </Button>
+                      );
+                    })()}
                   </div>
                 </div>
-              )}
-
-              {/* OBSERVAÇÃO DO LOTE E BOTÃO MASTER DE CONFIRMAÇÃO */}
-              <div className="space-y-3 pt-3 border-t border-border/60">
-                <Input
-                  placeholder="Motivo / Observação do Lote (ex.: Reposição de Ação, Entrega de Carga...)"
-                  value={reason}
-                  onChange={(e) => setReason(e.target.value)}
-                  className="h-10 text-xs rounded-xl bg-background"
-                />
-
-                {(() => {
-                  const totalBatchCount = queue.length + (selectedProductId && !queue.some((i) => i.productId === selectedProductId) ? 1 : 0);
-                  const itemsText = totalBatchCount === 1 ? "1 item" : `${totalBatchCount} itens`;
-
-                  return (
-                    <Button
-                      className={cn(
-                        "w-full h-12 text-white font-extrabold text-xs sm:text-sm shadow-xl hover:opacity-90 rounded-xl transition-all flex items-center justify-center gap-2 px-3 overflow-hidden text-center leading-none",
-                        type === "entrada"
-                          ? "bg-emerald-600 hover:bg-emerald-700 shadow-emerald-950/20"
-                          : type === "saida"
-                          ? "bg-rose-600 hover:bg-rose-700 shadow-rose-950/20"
-                          : "bg-sky-600 hover:bg-sky-700 shadow-sky-950/20"
-                      )}
-                      onClick={() => submitBatchMutation.mutate()}
-                      disabled={submitBatchMutation.isPending || (queue.length === 0 && !selectedProductId)}
-                    >
-                      {submitBatchMutation.isPending ? (
-                        <Loader2 className="h-4 w-4 sm:h-5 sm:w-5 animate-spin shrink-0" />
-                      ) : (
-                        <CheckCircle2 className="h-4 w-4 sm:h-5 sm:w-5 shrink-0" />
-                      )}
-                      <span className="truncate">CONFIRMAR LOTE ({itemsText})</span>
-                    </Button>
-                  );
-                })()}
-              </div>
-            </div>
-          </>
-        )}
-      </CardContent>
-    </Card>
-  )}
+              </>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* MODAL DE HISTÓRICO DE MOVIMENTAÇÕES (Abre através do botão dos baús ou pelo cabeçalho) */}
       <MovementHistoryModal
@@ -1761,37 +1782,37 @@ function MovimentacoesContent() {
                 </p>
               </div>
             ) : balanceViewMode === "grid" ? (
-              /* GRID VIEW COM DESIGN ELEGANTE */
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+              /* GRID VIEW COM DESIGN ELEGANTE E COMPACTO */
+              <div className="grid grid-cols-2 xs:grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 gap-2 sm:gap-2.5">
                 {filteredBalanceItems.map(({ product, stock }) => {
                   const hasStock = stock > 0;
                   return (
                     <div
                       key={product.id}
                       className={cn(
-                        "group relative rounded-2xl border p-3 flex flex-col justify-between transition-all duration-300 shadow-xs",
+                        "group relative rounded-xl border p-2 sm:p-2.5 flex flex-col justify-between transition-all duration-200 shadow-xs",
                         hasStock
-                          ? "bg-gradient-to-b from-card/90 to-secondary/30 border-border/80 hover:border-primary/60 hover:shadow-lg hover:-translate-y-0.5"
+                          ? "bg-gradient-to-b from-card/90 to-secondary/30 border-border/80 hover:border-primary/60 hover:shadow-md hover:-translate-y-0.5"
                           : "bg-secondary/15 border-border/40 opacity-60 hover:opacity-100"
                       )}
                     >
-                      <div className="space-y-2">
-                        {/* Product image with sleek presentation */}
-                        <div className="w-full flex justify-center py-2">
-                          <div className="relative p-2 rounded-2xl bg-secondary/50 border border-border/60 group-hover:border-primary/40 group-hover:scale-105 transition-all shadow-inner">
+                      <div className="space-y-1.5">
+                        {/* Imagem compacta do produto */}
+                        <div className="w-full flex justify-center py-1">
+                          <div className="relative p-1.5 rounded-xl bg-secondary/50 border border-border/60 group-hover:border-primary/40 group-hover:scale-105 transition-all shadow-inner">
                             <ProductThumbnail
                               src={product.imagem_url}
                               name={product.nome}
-                              size="xl"
-                              className="w-16 h-16 sm:w-20 sm:h-20 rounded-xl"
+                              size="md"
+                              className="w-10 h-10 sm:w-12 sm:h-12 rounded-lg"
                             />
                           </div>
                         </div>
 
-                        {/* Product Name */}
+                        {/* Nome do produto */}
                         <div className="text-center">
                           <h4
-                            className="text-xs sm:text-sm font-black text-foreground line-clamp-2 leading-tight group-hover:text-primary transition-colors min-h-[2.4em]"
+                            className="text-[11px] sm:text-xs font-bold text-foreground line-clamp-1 leading-tight group-hover:text-primary transition-colors"
                             title={product.nome}
                           >
                             {product.nome}
@@ -1799,17 +1820,17 @@ function MovimentacoesContent() {
                         </div>
                       </div>
 
-                      {/* Stock Capsule */}
-                      <div className="pt-2.5 mt-auto">
+                      {/* Cápsula de Estoque */}
+                      <div className="pt-1.5 mt-auto">
                         <div
                           className={cn(
-                            "text-xs font-mono font-black px-2.5 py-1.5 rounded-xl text-center border shadow-xs flex items-center justify-center gap-1.5",
+                            "text-[10px] sm:text-[11px] font-mono font-bold px-1.5 py-1 rounded-lg text-center border shadow-xs flex items-center justify-center gap-1",
                             hasStock
                               ? "bg-emerald-500/15 text-emerald-400 border-emerald-500/30"
                               : "bg-secondary/50 text-muted-foreground border-border/60"
                           )}
                         >
-                          {hasStock && <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />}
+                          {hasStock && <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse shrink-0" />}
                           <span className="truncate">
                             {num(stock)} {product.unidade || "un"}
                           </span>
