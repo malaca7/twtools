@@ -43,23 +43,7 @@ import {
 import { getInsigniaIconStyles, getInsigniaCardStyles } from "@/components/gamification/InsigniaCatalogManagerModal";
 import { cn } from "@/lib/utils";
 
-// Resolução de ícone para as insígnias
-const ICON_MAP: Record<string, React.ElementType> = {
-  Award,
-  Shield,
-  Sparkles,
-  Crown,
-  Boxes,
-  Target,
-  DollarSign,
-  Truck,
-  Eye,
-};
-
-function renderInsigniaIcon(iconName: string, className = "h-5 w-5") {
-  const IconComponent = ICON_MAP[iconName] || Award;
-  return <IconComponent className={className} />;
-}
+import { renderInsigniaIcon, DynamicInsigniaIcon } from "@/components/gamification/InsigniaIcon";
 
 interface InsigniaGrantModalProps {
   open: boolean;

@@ -33,24 +33,13 @@ import { cn } from "@/lib/utils";
 import { MemberInsigniasListModal } from "@/components/gamification/MemberInsigniasListModal";
 import { getInsigniaIconStyles } from "@/components/gamification/InsigniaCatalogManagerModal";
 
-const ICON_MAP: Record<string, React.ElementType> = {
-  Award,
-  Shield,
-  Sparkles,
-  Crown,
-  Boxes,
-  Target,
-  DollarSign,
-  Truck,
-  Eye,
-  Star,
-  TrendingUp,
-};
+import {
+  renderInsigniaIcon,
+  DynamicInsigniaIcon,
+  getInsigniaIconComponent,
+} from "@/components/gamification/InsigniaIcon";
 
-export function renderInsigniaIcon(iconName?: string, className = "h-4 w-4") {
-  const IconComponent = (iconName && ICON_MAP[iconName]) || Award;
-  return <IconComponent className={className} />;
-}
+export { renderInsigniaIcon, DynamicInsigniaIcon, getInsigniaIconComponent };
 
 export interface MemberGamificationCardProps {
   userId: string;

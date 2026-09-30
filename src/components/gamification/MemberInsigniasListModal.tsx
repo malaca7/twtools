@@ -34,27 +34,7 @@ import { getMemberInsignias, RARITY_CONFIG, type MemberInsigniaGrant, type Ranke
 import { getInsigniaIconStyles, getInsigniaCardStyles } from "@/components/gamification/InsigniaCatalogManagerModal";
 import { cn } from "@/lib/utils";
 
-const ICON_COMPONENTS: Record<string, React.ComponentType<{ className?: string }>> = {
-  Award,
-  Shield,
-  Boxes,
-  Target,
-  DollarSign,
-  Truck,
-  Eye,
-  Crown,
-  Sparkles,
-  Star,
-  Flame,
-  Zap,
-  Medal,
-  Users,
-};
-
-function DynamicInsigniaIcon({ name, className }: { name?: string; className?: string }) {
-  const IconComp = (name && ICON_COMPONENTS[name]) || Award;
-  return <IconComp className={className} />;
-}
+import { DynamicInsigniaIcon } from "@/components/gamification/InsigniaIcon";
 
 interface MemberInsigniasListModalProps {
   open: boolean;

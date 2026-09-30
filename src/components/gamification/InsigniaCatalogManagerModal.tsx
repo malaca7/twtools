@@ -41,11 +41,8 @@ import {
 import { useAuth } from "@/hooks/useAuth";
 import { cn } from "@/lib/utils";
 
-const ICONS_OPTIONS = ["Award", "Shield", "Sparkles", "Crown", "Boxes", "Target", "DollarSign", "Truck", "Eye"];
-
-const ICON_MAP: Record<string, React.ElementType> = {
-  Award, Shield, Sparkles, Crown, Boxes, Target, DollarSign, Truck, Eye,
-};
+import { DynamicInsigniaIcon } from "@/components/gamification/InsigniaIcon";
+import { IconPicker } from "@/components/dev/IconPicker";
 
 /** Paleta de presets de cor */
 export const COLOR_PALETTE = [
@@ -248,7 +245,6 @@ export function InsigniaCatalogManagerModal({ open, onOpenChange }: InsigniaCata
   // Preview
   const rarity = RARITY_CONFIG[(editingItem?.rarity as InsigniaRarity) || "comum"] || RARITY_CONFIG.comum;
   const previewStyle = getInsigniaIconStyles(editingItem || {});
-  const IconComp = ICON_MAP[editingItem?.icon || "Award"] || Award;
   const hasCustomColor = editingItem?.color || editingItem?.bg_color || editingItem?.border_color;
 
   return (
@@ -293,7 +289,7 @@ export function InsigniaCatalogManagerModal({ open, onOpenChange }: InsigniaCata
                 )}
                 style={previewStyle || undefined}
               >
-                <IconComp className="h-7 w-7" />
+                <DynamicInsigniaIcon name={editingItem.icon || "Award"} className="h-7 w-7" />
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-black text-foreground truncate">
@@ -373,20 +369,18 @@ export function InsigniaCatalogManagerModal({ open, onOpenChange }: InsigniaCata
                   className="h-8 text-xs font-mono bg-background/50" />
               </div>
               <div className="space-y-1">
-                <label className="text-xs font-bold text-foreground">Ícone:</label>
-                <Select value={editingItem.icon || "Award"} onValueChange={(v) => set("icon", v)}>
-                  <SelectTrigger className="h-8 text-xs bg-background/50"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {ICONS_OPTIONS.map((ico) => {
-                      const I = ICON_MAP[ico] || Award;
-                      return (
-                        <SelectItem key={ico} value={ico}>
-                          <div className="flex items-center gap-2"><I className="h-3.5 w-3.5" /><span>{ico}</span></div>
-                        </SelectItem>
-                      );
-                    })}
-                  </SelectContent>
-                </Select>
+                <label className="text-xs font-bold text-foreground">Ícone Lucide:</label>
+                <IconPicker
+                  value={editingItem.icon || "Award"}
+                  onChange={(val) => set("icon", val)}
+                >
+                  <Button variant="outline" className="w-full justify-start h-8 text-xs px-2.5 bg-background/50">
+                    <div className="flex items-center gap-2 overflow-hidden text-ellipsis">
+                      <DynamicInsigniaIcon name={editingItem.icon || "Award"} className="w-3.5 h-3.5 shrink-0 text-primary" />
+                      <span className="truncate">{editingItem.icon || "Award"}</span>
+                    </div>
+                  </Button>
+                </IconPicker>
               </div>
             </div>
 
@@ -486,7 +480,6 @@ export function InsigniaCatalogManagerModal({ open, onOpenChange }: InsigniaCata
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                 {catalog.map((badge) => {
                   const rar = RARITY_CONFIG[badge.rarity] || RARITY_CONFIG.comum;
-                  const IC = ICON_MAP[badge.icon] || Award;
                   const iconStyle = getInsigniaIconStyles(badge);
                   const cardStyle = getInsigniaCardStyles(badge);
 
@@ -509,7 +502,7 @@ export function InsigniaCatalogManagerModal({ open, onOpenChange }: InsigniaCata
                           )}
                           style={iconStyle}
                         >
-                          <IC className="h-5 w-5" />
+                          <DynamicInsigniaIcon name={badge.icon} className="h-5 w-5" />
                         </div>
 
                         <div className="min-w-0">

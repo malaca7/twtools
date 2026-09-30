@@ -94,11 +94,8 @@ import {
 import * as LucideIcons from "lucide-react";
 import { IconPicker } from "./IconPicker";
 
-// Helper para renderizar ícones dinâmicos das insígnias
-export function DynamicInsigniaIcon({ name, className }: { name: string; className?: string }) {
-  const IconComp = (LucideIcons as any)[name] || LucideIcons.Award;
-  return <IconComp className={className} />;
-}
+import { DynamicInsigniaIcon } from "@/components/gamification/InsigniaIcon";
+export { DynamicInsigniaIcon };
 
 function formatCooldown(secs: number): string {
   if (secs % 31536000 === 0 && secs > 0) return `${secs / 31536000} ano(s)`;
