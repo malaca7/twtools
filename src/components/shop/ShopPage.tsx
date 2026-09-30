@@ -43,6 +43,7 @@ import {
   getShopItems,
   getMemberCoins,
   exchangeXpForCoins,
+  getCoinsExchangeConfig,
   buyShopItem,
   getMemberShopPurchases,
   getMemberInsignias,
@@ -465,9 +466,25 @@ function ExchangeXpModal({
   const { refresh } = useAuth();
   const [xpToExchange, setXpToExchange] = useState<string>("50");
 
-  const numXp = Math.max(0, parseInt(xpToExchange || "0", 10) || 0);
-  const coinsToReceive = numXp; // Taxa 1:1
-  const hasEnoughXp = currentXp >= numXp && numXp > 0;
+  const { data: exchangeConfig, isLoading: isLoadingConfig } = useQuery({
+    queryKey: ["coins_exchange_config"],
+    queryFn: getCoinsExchangeConfig,
+    enabled: open,
+    staleTime: 30 * 1000,
+  });
+
+  const xpPerCoin = Math.max(0.01, Number(exchangeConfig?.xp_per_coin || 1.0));
+  const feePercent = Math.max(0, Math.min(100, Number(exchangeConfig?.exchange_fee_percent || 0.0)));
+  const minXp = Math.max(1, Number(exchangeConfig?.min_xp_exchange || 1.0));
+  const isExchangeEnabled = exchangeConfig?.exchange_enabled !== false;
+
+  const numXp = Math.max(0, parseFloat(xpToExchange.replace(",", ".") || "0") || 0);
+  const grossCoins = Math.floor(numXp / xpPerCoin);
+  const feeCoins = feePercent > 0 ? Math.floor(grossCoins * (feePercent / 100)) : 0;
+  const coinsToReceive = Math.max(0, grossCoins - feeCoins);
+
+  const hasEnoughXp = currentXp >= numXp && numXp >= minXp;
+  const canConvert = isExchangeEnabled && hasEnoughXp && coinsToReceive > 0;
 
   const exchangeMutation = useMutation({
     mutationFn: () => exchangeXpForCoins(numXp),
@@ -477,6 +494,7 @@ function ExchangeXpModal({
       void queryClient.invalidateQueries({ queryKey: ["profile"] });
       void queryClient.invalidateQueries({ queryKey: ["members"] });
       void queryClient.invalidateQueries({ queryKey: ["gamification_ranking"] });
+      void queryClient.invalidateQueries({ queryKey: ["coins_exchange_config"] });
       void refresh();
       onOpenChange(false);
       setXpToExchange("50");
@@ -499,22 +517,47 @@ function ExchangeXpModal({
                 Trocar XP por TW Coins
               </DialogTitle>
               <DialogDescription className="text-xs">
-                Converta seus pontos de XP acumulados em moedas para gastar na loja.
+                Converta seus pontos de XP acumulados em moedas para gastar na loja oficial da facção.
               </DialogDescription>
             </div>
           </div>
         </DialogHeader>
 
         <div className="space-y-4 py-2 text-xs">
-          {/* TAXA DE CONVERSÃO OFICIAL */}
-          <div className="p-3 rounded-2xl bg-amber-500/10 border border-amber-500/25 flex items-center justify-between text-amber-300 font-bold">
-            <div className="flex items-center gap-2">
-              <Sparkles className="h-4 w-4" />
-              <span>Taxa Oficial de Câmbio:</span>
+          {!isExchangeEnabled && (
+            <div className="p-3 rounded-2xl bg-rose-500/15 border border-rose-500/30 text-rose-300 flex items-center gap-2.5">
+              <AlertCircle className="h-5 w-5 shrink-0 text-rose-400" />
+              <span className="font-semibold text-xs leading-tight">
+                A conversão de XP em TW Coins está temporariamente suspensa pela administração.
+              </span>
             </div>
-            <span className="font-mono bg-amber-500/20 px-2 py-0.5 rounded-lg border border-amber-500/40">
-              1 XP = 1 TW Coin
-            </span>
+          )}
+
+          {/* TAXA DE CONVERSÃO E COBRANÇA DE CÂMBIO */}
+          <div className="p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/25 space-y-2 text-amber-300 font-bold">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Sparkles className="h-4 w-4 text-amber-400" />
+                <span>Câmbio Oficial:</span>
+              </div>
+              <span className="font-mono bg-amber-500/20 px-2 py-0.5 rounded-lg border border-amber-500/40 text-xs">
+                {xpPerCoin} XP = 1 TW Coin
+              </span>
+            </div>
+
+            <div className="flex items-center justify-between pt-1.5 border-t border-amber-500/20 text-[11px] text-amber-300/80 font-normal">
+              <span>Tarifa de Câmbio:</span>
+              <span className="font-mono font-bold text-amber-200">
+                {feePercent > 0 ? `${feePercent}% cobrada pela facção` : "Isento (0% taxa)"}
+              </span>
+            </div>
+
+            {minXp > 1 && (
+              <div className="flex items-center justify-between text-[11px] text-amber-300/80 font-normal">
+                <span>Conversão Mínima:</span>
+                <span className="font-mono font-bold text-amber-200">{minXp} XP</span>
+              </div>
+            )}
           </div>
 
           {/* SALDOS ATUAIS */}
@@ -524,7 +567,7 @@ function ExchangeXpModal({
                 Seu Saldo de XP
               </span>
               <p className="font-mono font-black text-base text-foreground">
-                {currentXp.toLocaleString()} XP
+                {Number(currentXp || 0).toLocaleString("pt-BR")} XP
               </p>
             </div>
             <div className="p-3 rounded-xl bg-secondary/50 border border-border/70 space-y-1">
@@ -532,7 +575,7 @@ function ExchangeXpModal({
                 Seu Saldo de Coins
               </span>
               <p className="font-mono font-black text-base text-amber-400">
-                {currentCoins.toLocaleString()} Coins
+                {Number(currentCoins || 0).toLocaleString("pt-BR")} Coins
               </p>
             </div>
           </div>
@@ -544,7 +587,7 @@ function ExchangeXpModal({
                 Quantidade de XP para Converter:
               </label>
               <span className="text-[11px] text-muted-foreground font-mono">
-                Máximo disponível: {currentXp.toLocaleString()} XP
+                Máximo disponível: {Number(currentXp || 0).toLocaleString("pt-BR")} XP
               </span>
             </div>
 
@@ -552,18 +595,18 @@ function ExchangeXpModal({
               <Zap className="h-4 w-4 absolute left-3 top-3 text-amber-400" />
               <Input
                 type="number"
-                min={1}
+                min={minXp}
                 max={currentXp}
                 value={xpToExchange}
                 onChange={(e) => setXpToExchange(e.target.value)}
-                placeholder="Ex: 50"
+                placeholder={`Ex: ${Math.max(minXp, 50)}`}
                 className="h-10 pl-9 font-mono font-black text-sm bg-background/50"
               />
             </div>
 
             {/* BOTÕES DE PRESET RÁPIDO */}
             <div className="flex items-center gap-1.5 flex-wrap pt-1">
-              {[10, 25, 50, 100].map((preset) => (
+              {[Math.max(minXp, 10), 25, 50, 100].map((preset) => (
                 <button
                   key={preset}
                   type="button"
@@ -575,28 +618,40 @@ function ExchangeXpModal({
               ))}
               <button
                 type="button"
-                onClick={() => setXpToExchange(String(currentXp))}
+                onClick={() => setXpToExchange(String(Math.floor(currentXp)))}
                 className="px-2.5 py-1 rounded-lg bg-amber-500/15 hover:bg-amber-500/25 text-[11px] font-bold text-amber-300 border border-amber-500/30 transition-colors cursor-pointer ml-auto"
               >
-                Converter Tudo ({currentXp} XP)
+                Converter Tudo ({Math.floor(currentXp)} XP)
               </button>
             </div>
           </div>
 
-          {/* SIMULAÇÃO DE RESULTADO */}
+          {/* SIMULAÇÃO DE RESULTADO DETALHADA */}
           <div className="p-3.5 rounded-2xl bg-secondary/40 border border-border/60 space-y-2 font-mono text-xs">
             <div className="flex items-center justify-between text-muted-foreground">
               <span>XP a Deduzir:</span>
-              <span className="text-rose-400 font-bold">-{numXp.toLocaleString()} XP</span>
+              <span className="text-rose-400 font-bold">-{numXp.toLocaleString("pt-BR")} XP</span>
             </div>
             <div className="flex items-center justify-between text-muted-foreground">
-              <span>TW Coins a Receber:</span>
-              <span className="text-amber-400 font-bold">+{coinsToReceive.toLocaleString()} Coins</span>
+              <span>Câmbio Bruto:</span>
+              <span className="text-foreground font-bold">+{grossCoins.toLocaleString("pt-BR")} Coins</span>
             </div>
+            {feePercent > 0 && (
+              <div className="flex items-center justify-between text-muted-foreground">
+                <span>Tarifa da Facção ({feePercent}%):</span>
+                <span className="text-rose-400 font-bold">-{feeCoins.toLocaleString("pt-BR")} Coins</span>
+              </div>
+            )}
             <div className="pt-2 border-t border-border/50 flex items-center justify-between font-bold text-foreground">
-              <span>Novo Saldo de Coins:</span>
-              <span className="text-amber-300">
-                {(currentCoins + coinsToReceive).toLocaleString()} Coins
+              <span>TW Coins a Receber:</span>
+              <span className="text-amber-400 text-sm font-black">
+                +{coinsToReceive.toLocaleString("pt-BR")} Coins
+              </span>
+            </div>
+            <div className="flex items-center justify-between text-[11px] text-muted-foreground">
+              <span>Novo Saldo Estimado:</span>
+              <span className="text-amber-300 font-bold">
+                {(currentCoins + coinsToReceive).toLocaleString("pt-BR")} Coins
               </span>
             </div>
           </div>
@@ -614,7 +669,7 @@ function ExchangeXpModal({
           <Button
             type="button"
             onClick={() => exchangeMutation.mutate()}
-            disabled={!hasEnoughXp || exchangeMutation.isPending}
+            disabled={!canConvert || exchangeMutation.isPending}
             className="rounded-xl text-xs font-black bg-amber-500 hover:bg-amber-400 text-black gap-1.5 shadow-md shadow-amber-500/20"
           >
             {exchangeMutation.isPending ? (
@@ -622,7 +677,17 @@ function ExchangeXpModal({
             ) : (
               <ArrowRightLeft className="h-4 w-4" />
             )}
-            <span>Confirmar Conversão</span>
+            <span>
+              {!isExchangeEnabled
+                ? "Câmbio Suspenso"
+                : numXp < minXp
+                ? `Mínimo de ${minXp} XP`
+                : currentXp < numXp
+                ? "XP Insuficiente"
+                : coinsToReceive < 1
+                ? "Rendimento Menor que 1 Coin"
+                : "Confirmar Conversão"}
+            </span>
           </Button>
         </DialogFooter>
       </DialogContent>

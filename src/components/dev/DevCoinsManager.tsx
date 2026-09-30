@@ -19,12 +19,15 @@ import {
   Award,
   Wallet,
   TrendingUp,
+  Percent,
+  HelpCircle,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
@@ -49,7 +52,10 @@ import { LEVEL_LABEL, levelBadgeClass } from "@/lib/permissions";
 import {
   devAdjustMemberCoins,
   getAllCoinsTransactions,
+  getCoinsExchangeConfig,
+  devUpdateCoinsConfig,
   type TwCoinTransaction,
+  type TwCoinsConfig,
 } from "@/services/gamificationService";
 import { cn } from "@/lib/utils";
 
@@ -80,12 +86,63 @@ export function DevCoinsManager() {
   const canDeduct = isDevUser || hasPermission("deduct_dev_coins");
   const canViewTransactions = isDevUser || hasPermission("view_dev_coins_transactions");
   const canBatch = isDevUser || hasPermission("manage_dev_coins_batch");
+  const canManageConfig = isDevUser || hasPermission("grant_dev_coins") || hasPermission("manage_dev_coins_config");
 
   // Query de Transações Globais
   const { data: transactions = [], isLoading: isLoadingTransactions } = useQuery({
     queryKey: ["tw_coins_transactions"],
     queryFn: () => getAllCoinsTransactions(200),
     enabled: canViewTransactions,
+  });
+
+  // Query de Configuração de Câmbio de Moedas
+  const { data: exchangeConfig, isLoading: isLoadingConfig } = useQuery({
+    queryKey: ["tw_coins_config"],
+    queryFn: getCoinsExchangeConfig,
+    enabled: canManageConfig,
+  });
+
+  // Estados de Configuração de Câmbio
+  const [cfgXpPerCoin, setCfgXpPerCoin] = useState<string>("1");
+  const [cfgExchangeFee, setCfgExchangeFee] = useState<string>("0");
+  const [cfgMinXp, setCfgMinXp] = useState<string>("1");
+  const [cfgEnabled, setCfgEnabled] = useState<boolean>(true);
+  const [simulatedXp, setSimulatedXp] = useState<string>("100");
+
+  // Sincronizar configuração quando carregada do banco
+  React.useEffect(() => {
+    if (exchangeConfig) {
+      setCfgXpPerCoin(String(exchangeConfig.xp_per_coin ?? 1));
+      setCfgExchangeFee(String(exchangeConfig.exchange_fee_percent ?? 0));
+      setCfgMinXp(String(exchangeConfig.min_xp_exchange ?? 1));
+      setCfgEnabled(exchangeConfig.exchange_enabled !== false);
+    }
+  }, [exchangeConfig]);
+
+  // Mutação para Atualizar Configuração de Câmbio
+  const updateConfigMutation = useMutation({
+    mutationFn: async () => {
+      const xpPerCoinNum = parseFloat(cfgXpPerCoin) || 1;
+      const feeNum = parseFloat(cfgExchangeFee) || 0;
+      const minXpNum = parseFloat(cfgMinXp) || 1;
+      if (xpPerCoinNum <= 0) throw new Error("A taxa de XP por Coin deve ser maior que 0.");
+      if (feeNum < 0 || feeNum > 90) throw new Error("A taxa de câmbio deve estar entre 0% e 90%.");
+      if (minXpNum <= 0) throw new Error("O valor mínimo de XP deve ser pelo menos 1.");
+
+      return devUpdateCoinsConfig({
+        xp_per_coin: xpPerCoinNum,
+        exchange_fee_percent: feeNum,
+        min_xp_exchange: minXpNum,
+        exchange_enabled: cfgEnabled,
+      });
+    },
+    onSuccess: () => {
+      toast.success("Configurações de câmbio e tarifas salvas com sucesso!");
+      void queryClient.invalidateQueries({ queryKey: ["tw_coins_config"] });
+    },
+    onError: (err: any) => {
+      toast.error(err.message || "Erro ao salvar configurações de câmbio.");
+    },
   });
 
   // Métricas
@@ -283,6 +340,12 @@ export function DevCoinsManager() {
             <TabsTrigger value="transactions" className="gap-2 rounded-xl text-xs font-bold">
               <History className="h-4 w-4" />
               <span>Extrato Global de Moedas ({transactions.length})</span>
+            </TabsTrigger>
+          )}
+          {canManageConfig && (
+            <TabsTrigger value="exchange_config" className="gap-2 rounded-xl text-xs font-bold">
+              <ArrowRightLeft className="h-4 w-4" />
+              <span>Câmbio & Taxas ({cfgExchangeFee}% taxa)</span>
             </TabsTrigger>
           )}
         </TabsList>
@@ -550,6 +613,331 @@ export function DevCoinsManager() {
                 )}
               </CardContent>
             </Card>
+          </TabsContent>
+        )}
+
+        {/* ==================================================== */}
+        {/* ABA 3: CONFIGURAÇÃO DE CÂMBIO E COBRANÇA */}
+        {/* ==================================================== */}
+        {canManageConfig && (
+          <TabsContent value="exchange_config" className="space-y-6">
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+              {/* COLUNA ESQUERDA: FORMULÁRIO DE CONFIGURAÇÃO */}
+              <div className="lg:col-span-7 space-y-5">
+                <Card className="surface-card border-border/70 overflow-hidden">
+                  <CardHeader className="border-b border-border/40 pb-4 bg-muted/10">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2.5">
+                        <div className="p-2 rounded-xl bg-amber-500/15 text-amber-400 border border-amber-500/30">
+                          <ArrowRightLeft className="h-5 w-5" />
+                        </div>
+                        <div>
+                          <CardTitle className="text-base font-black text-foreground">
+                            Taxas de Câmbio & Regras de Conversão
+                          </CardTitle>
+                          <CardDescription className="text-xs">
+                            Defina o valor do XP perante a TW Coin e a tarifa cobrada pela facção na loja
+                          </CardDescription>
+                        </div>
+                      </div>
+                      <Badge
+                        variant="outline"
+                        className={cn(
+                          "text-[10px] font-bold uppercase font-mono px-2 py-0.5",
+                          cfgEnabled
+                            ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30"
+                            : "bg-rose-500/10 text-rose-400 border-rose-500/30"
+                        )}
+                      >
+                        {cfgEnabled ? "Câmbio Aberto" : "Câmbio Pausado"}
+                      </Badge>
+                    </div>
+                  </CardHeader>
+
+                  <CardContent className="p-5 space-y-6">
+                    {/* STATUS DE DISPONIBILIDADE */}
+                    <div className="flex items-center justify-between p-4 rounded-2xl bg-secondary/30 border border-border/60">
+                      <div className="space-y-0.5">
+                        <Label className="text-sm font-bold text-foreground cursor-pointer flex items-center gap-2">
+                          <span>Permitir Conversão de XP na Loja</span>
+                        </Label>
+                        <p className="text-xs text-muted-foreground">
+                          Se desligado, os membros verão aviso de que o câmbio está temporariamente suspenso.
+                        </p>
+                      </div>
+                      <Switch
+                        checked={cfgEnabled}
+                        onCheckedChange={setCfgEnabled}
+                        className="data-[state=checked]:bg-emerald-500"
+                      />
+                    </div>
+
+                    {/* TAXA DE CÂMBIO BASE (XP por Coin) */}
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <Label className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                          <span>Taxa de Câmbio Base (XP por 1 TW Coin)</span>
+                          <span className="text-amber-400">*</span>
+                        </Label>
+                        <span className="text-[11px] font-mono text-muted-foreground">
+                          1 Coin = {cfgXpPerCoin || 1} XP
+                        </span>
+                      </div>
+                      <Input
+                        type="number"
+                        min="0.1"
+                        step="0.1"
+                        value={cfgXpPerCoin}
+                        onChange={(e) => setCfgXpPerCoin(e.target.value)}
+                        placeholder="Ex: 1"
+                        className="h-10 text-sm font-mono font-bold rounded-xl bg-background/50 border-border/70"
+                      />
+                      <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                        <span className="text-[10px] text-muted-foreground mr-1">Atalhos:</span>
+                        {[1, 2, 5, 10, 20].map((rate) => (
+                          <Button
+                            key={rate}
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setCfgXpPerCoin(String(rate))}
+                            className={cn(
+                              "h-6 text-[10px] px-2 font-mono rounded-lg",
+                              cfgXpPerCoin === String(rate)
+                                ? "border-amber-500/50 bg-amber-500/15 text-amber-300"
+                                : "text-muted-foreground"
+                            )}
+                          >
+                            {rate} XP = 1 Coin
+                          </Button>
+                        ))}
+                      </div>
+                      <p className="text-[11px] text-muted-foreground">
+                        Define a proporção direta entre pontos de experiência e moedas brutas calculadas.
+                      </p>
+                    </div>
+
+                    {/* COBRANÇA DE CÂMBIO / TARIFA DA FACÇÃO */}
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <Label className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                          <Percent className="h-3.5 w-3.5 text-rose-400" />
+                          <span>Cobrança de Câmbio / Tarifa da Facção (%)</span>
+                        </Label>
+                        <span className="text-[11px] font-mono font-bold text-rose-400">
+                          {cfgExchangeFee || 0}% de retenção
+                        </span>
+                      </div>
+                      <Input
+                        type="number"
+                        min="0"
+                        max="90"
+                        step="0.5"
+                        value={cfgExchangeFee}
+                        onChange={(e) => setCfgExchangeFee(e.target.value)}
+                        placeholder="0"
+                        className="h-10 text-sm font-mono font-bold text-rose-300 rounded-xl bg-background/50 border-border/70"
+                      />
+                      <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                        <span className="text-[10px] text-muted-foreground mr-1">Atalhos:</span>
+                        {[0, 5, 10, 15, 20, 25].map((fee) => (
+                          <Button
+                            key={fee}
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setCfgExchangeFee(String(fee))}
+                            className={cn(
+                              "h-6 text-[10px] px-2 font-mono rounded-lg",
+                              cfgExchangeFee === String(fee)
+                                ? "border-rose-500/50 bg-rose-500/15 text-rose-300"
+                                : "text-muted-foreground"
+                            )}
+                          >
+                            {fee === 0 ? "Sem taxa (0%)" : `${fee}%`}
+                          </Button>
+                        ))}
+                      </div>
+                      <p className="text-[11px] text-muted-foreground">
+                        Percentual retido na conversão para o cofre da Twin Wheels como tarifa cambial.
+                      </p>
+                    </div>
+
+                    {/* MÍNIMO DE XP PARA CONVERSÃO */}
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <Label className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                          <span>Mínimo de XP para Conversão</span>
+                        </Label>
+                        <span className="text-[11px] font-mono text-muted-foreground">
+                          Min: {cfgMinXp || 1} XP
+                        </span>
+                      </div>
+                      <Input
+                        type="number"
+                        min="1"
+                        step="1"
+                        value={cfgMinXp}
+                        onChange={(e) => setCfgMinXp(e.target.value)}
+                        placeholder="1"
+                        className="h-10 text-sm font-mono font-bold rounded-xl bg-background/50 border-border/70"
+                      />
+                      <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                        <span className="text-[10px] text-muted-foreground mr-1">Atalhos:</span>
+                        {[1, 10, 50, 100].map((minVal) => (
+                          <Button
+                            key={minVal}
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setCfgMinXp(String(minVal))}
+                            className={cn(
+                              "h-6 text-[10px] px-2 font-mono rounded-lg",
+                              cfgMinXp === String(minVal)
+                                ? "border-primary/50 bg-primary/15 text-primary"
+                                : "text-muted-foreground"
+                            )}
+                          >
+                            {minVal} XP
+                          </Button>
+                        ))}
+                      </div>
+                      <p className="text-[11px] text-muted-foreground">
+                        Evita micro-conversões de quantias inferiores ao piso desejado.
+                      </p>
+                    </div>
+
+                    {/* BOTÃO SALVAR */}
+                    <div className="pt-2 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-t border-border/40">
+                      <div className="text-[11px] text-muted-foreground">
+                        {exchangeConfig?.updated_at && (
+                          <span>
+                            Última atualização:{" "}
+                            {new Date(exchangeConfig.updated_at).toLocaleString("pt-BR")}
+                          </span>
+                        )}
+                      </div>
+                      <Button
+                        onClick={() => updateConfigMutation.mutate()}
+                        disabled={updateConfigMutation.isPending}
+                        className="h-10 px-5 text-xs font-bold bg-amber-500 hover:bg-amber-600 text-slate-950 rounded-xl cursor-pointer shadow-md shadow-amber-500/20"
+                      >
+                        {updateConfigMutation.isPending ? "Salvando..." : "Salvar Configuração de Câmbio"}
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* COLUNA DIREITA: SIMULADOR INTERATIVO */}
+              <div className="lg:col-span-5 space-y-5">
+                <Card className="surface-card border-border/70 bg-gradient-to-br from-amber-500/[0.04] via-secondary/15 to-transparent">
+                  <CardHeader className="border-b border-border/40 pb-4">
+                    <CardTitle className="text-base font-black text-foreground flex items-center gap-2">
+                      <Sparkles className="h-5 w-5 text-amber-400" />
+                      <span>Simulador em Tempo Real</span>
+                    </CardTitle>
+                    <CardDescription className="text-xs">
+                      Veja exatamente como as regras configuradas afetam a troca de um membro na loja
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="p-5 space-y-4">
+                    <div className="space-y-1.5">
+                      <Label className="text-xs font-semibold">Simular conversão com XP:</Label>
+                      <Input
+                        type="number"
+                        min="1"
+                        value={simulatedXp}
+                        onChange={(e) => setSimulatedXp(e.target.value)}
+                        placeholder="100"
+                        className="text-base font-mono font-bold text-violet-300 rounded-xl bg-background/60"
+                      />
+                      <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                        {[50, 100, 250, 500, 1000].map((amt) => (
+                          <Button
+                            key={amt}
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setSimulatedXp(String(amt))}
+                            className="h-6 text-[10px] px-2 font-mono text-muted-foreground hover:text-foreground"
+                          >
+                            {amt} XP
+                          </Button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* RESULTADO DO CÁLCULO */}
+                    {(() => {
+                      const simXp = Math.max(0, parseFloat(simulatedXp) || 0);
+                      const curRate = Math.max(0.01, parseFloat(cfgXpPerCoin) || 1);
+                      const curFee = Math.max(0, Math.min(100, parseFloat(cfgExchangeFee) || 0));
+                      const grossSimCoins = Math.floor(simXp / curRate);
+                      const feeSimCoins = Math.round((grossSimCoins * curFee) / 100);
+                      const netSimCoins = Math.max(0, grossSimCoins - feeSimCoins);
+
+                      return (
+                        <div className="space-y-3 pt-2">
+                          <div className="p-4 rounded-2xl bg-secondary/40 border border-border/60 space-y-3">
+                            <div className="flex items-center justify-between text-xs">
+                              <span className="text-muted-foreground">XP a Deduzir:</span>
+                              <span className="font-mono font-bold text-violet-300">
+                                -{simXp.toLocaleString("pt-BR")} XP
+                              </span>
+                            </div>
+
+                            <div className="flex items-center justify-between text-xs">
+                              <span className="text-muted-foreground">Taxa Base de Conversão:</span>
+                              <span className="font-mono text-foreground font-semibold">
+                                1 Coin = {curRate} XP
+                              </span>
+                            </div>
+
+                            <div className="flex items-center justify-between text-xs">
+                              <span className="text-muted-foreground">TW Coins Brutas:</span>
+                              <span className="font-mono font-bold text-amber-300">
+                                {grossSimCoins.toLocaleString("pt-BR")} Coins
+                              </span>
+                            </div>
+
+                            <div className="flex items-center justify-between text-xs text-rose-300">
+                              <span className="flex items-center gap-1">
+                                <Percent className="h-3 w-3" />
+                                <span>Tarifa da Facção ({curFee}%):</span>
+                              </span>
+                              <span className="font-mono font-bold">
+                                -{feeSimCoins.toLocaleString("pt-BR")} Coins
+                              </span>
+                            </div>
+
+                            <div className="pt-2 border-t border-border/60 flex items-center justify-between">
+                              <span className="text-xs font-bold text-foreground">
+                                Saldo Líquido Entregue:
+                              </span>
+                              <span className="text-lg font-mono font-black text-amber-400 flex items-center gap-1.5">
+                                <Coins className="h-4 w-4" />
+                                +{netSimCoins.toLocaleString("pt-BR")} Coins
+                              </span>
+                            </div>
+                          </div>
+
+                          <div className="p-3.5 rounded-xl bg-muted/20 border border-border/40 text-[11px] text-muted-foreground space-y-1">
+                            <p className="font-semibold text-foreground flex items-center gap-1.5">
+                              <HelpCircle className="h-3.5 w-3.5 text-primary" />
+                              <span>Como funciona para o membro?</span>
+                            </p>
+                            <p>
+                              Ao abrir o modal de conversão na loja, o sistema carrega estas taxas em tempo real. O saldo de XP é verificado e debitado na conta do jogador, e as TW Coins líquidas são depositadas com histórico auditável.
+                            </p>
+                          </div>
+                        </div>
+                      );
+                    })()}
+                  </CardContent>
+                </Card>
+              </div>
+            </div>
           </TabsContent>
         )}
       </Tabs>

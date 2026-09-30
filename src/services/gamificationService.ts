@@ -832,15 +832,85 @@ export async function getMemberCoins(userId: string): Promise<number> {
   return Number((data as any).tw_coins || 0);
 }
 
+export interface TwCoinsConfig {
+  id?: number;
+  xp_per_coin: number;
+  exchange_fee_percent: number;
+  min_xp_exchange: number;
+  exchange_enabled: boolean;
+  updated_at?: string;
+}
+
+export async function getCoinsExchangeConfig(): Promise<TwCoinsConfig> {
+  const { data, error } = await supabase.rpc("get_coins_exchange_config_rpc");
+  if (error || !data) {
+    // Fallback diretamente na tabela
+    const { data: tblData } = await supabase
+      .from("tw_coins_config" as any)
+      .select("*")
+      .eq("id", 1)
+      .maybeSingle();
+
+    if (tblData) {
+      return {
+        id: (tblData as any).id,
+        xp_per_coin: Number((tblData as any).xp_per_coin || 1.0),
+        exchange_fee_percent: Number((tblData as any).exchange_fee_percent || 0.0),
+        min_xp_exchange: Number((tblData as any).min_xp_exchange || 1.0),
+        exchange_enabled: (tblData as any).exchange_enabled !== false,
+        updated_at: (tblData as any).updated_at,
+      };
+    }
+
+    return {
+      xp_per_coin: 1.0,
+      exchange_fee_percent: 0.0,
+      min_xp_exchange: 1.0,
+      exchange_enabled: true,
+      updated_at: new Date().toISOString(),
+    };
+  }
+
+  return {
+    xp_per_coin: Number((data as any).xp_per_coin ?? 1.0),
+    exchange_fee_percent: Number((data as any).exchange_fee_percent ?? 0.0),
+    min_xp_exchange: Number((data as any).min_xp_exchange ?? 1.0),
+    exchange_enabled: (data as any).exchange_enabled !== false,
+    updated_at: (data as any).updated_at,
+  };
+}
+
+export async function devUpdateCoinsConfig(config: {
+  xp_per_coin: number;
+  exchange_fee_percent: number;
+  min_xp_exchange: number;
+  exchange_enabled: boolean;
+}): Promise<TwCoinsConfig> {
+  const { data, error } = await supabase.rpc("dev_update_coins_config_rpc", {
+    p_xp_per_coin: Number(config.xp_per_coin),
+    p_exchange_fee_percent: Number(config.exchange_fee_percent),
+    p_min_xp_exchange: Number(config.min_xp_exchange),
+    p_exchange_enabled: Boolean(config.exchange_enabled),
+  });
+
+  if (error) {
+    throw new Error(error.message || "Erro ao atualizar configuração de câmbio.");
+  }
+
+  return data as any;
+}
+
 export async function exchangeXpForCoins(xpAmount: number): Promise<{
   success: boolean;
   coins_gained: number;
+  gross_coins?: number;
+  fee_coins?: number;
   new_xp: number;
   new_coins: number;
   message: string;
 }> {
   const { data, error } = await supabase.rpc("exchange_xp_for_coins_rpc", {
-    p_xp_amount: Math.floor(xpAmount),
+    p_xp_amount: Number(xpAmount),
   });
 
   if (error) {
