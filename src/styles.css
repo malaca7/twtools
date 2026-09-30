@@ -80,14 +80,51 @@ html[data-font="space_grotesk"] {
 /* Intensidade e Brilho de Textos e Letras de Toda a Plataforma */
 :root {
   --platform-text-brightness: 100%;
+  --platform-brightness: 100%;
+  --platform-contrast: 100%;
+  --platform-saturation: 100%;
 }
 
+/* ─── Filtros Globais de Brilho, Contraste e Saturação ─── */
+body {
+  filter:
+    brightness(var(--platform-brightness, 100%))
+    contrast(var(--platform-contrast, 100%))
+    saturate(var(--platform-saturation, 100%));
+  transition: filter 150ms ease-out;
+}
+
+/* ─── Brilho Individual de Textos e Letras ─── */
 html[data-glow="true"] h1,
 html[data-glow="true"] h2,
 html[data-glow="true"] h3,
 html[data-glow="true"] .font-black,
 html[data-glow="true"] .font-extrabold {
   text-shadow: 0 0 calc(max(0px, (var(--platform-text-brightness, 100) - 100) * 0.08px)) currentColor;
+}
+
+/* Ajuste de opacidade/brilho de texto global baseado no slider de brilho de texto */
+html[data-text-brightness] body {
+  --tw-text-opacity: calc(var(--platform-text-brightness, 100%) / 100%);
+}
+
+/* Quando o brilho de texto é diferente de 100%, aplica filtro sutil nos textos */
+html:not([data-text-brightness="100"]) p,
+html:not([data-text-brightness="100"]) span,
+html:not([data-text-brightness="100"]) label,
+html:not([data-text-brightness="100"]) h1,
+html:not([data-text-brightness="100"]) h2,
+html:not([data-text-brightness="100"]) h3,
+html:not([data-text-brightness="100"]) h4,
+html:not([data-text-brightness="100"]) h5,
+html:not([data-text-brightness="100"]) h6,
+html:not([data-text-brightness="100"]) a,
+html:not([data-text-brightness="100"]) li,
+html:not([data-text-brightness="100"]) td,
+html:not([data-text-brightness="100"]) th,
+html:not([data-text-brightness="100"]) .text-foreground,
+html:not([data-text-brightness="100"]) .text-muted-foreground {
+  filter: brightness(var(--platform-text-brightness, 100%));
 }
 
 :root,
