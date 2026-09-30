@@ -158,7 +158,7 @@ export type Permission =
   | "manage_dev_config"
   | "manage_dev_menu"
   | "manage_dev_gamification"
-  // Permissões Detalhadas de Gestão da Loja Dev (/dev/loja)
+  // Permissões Detalhadas de Gestão da Loja Dev (/dev/gestaoloja)
   | "view_dev_shop"
   | "create_dev_shop_item"
   | "edit_dev_shop_item"

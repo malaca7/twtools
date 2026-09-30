@@ -58,6 +58,7 @@ import { Route as AuthenticatedDevCoinsRouteImport } from './routes/_authenticat
 import { Route as AuthenticatedDevConfiguracaoRouteImport } from './routes/_authenticated/dev.configuracao'
 import { Route as AuthenticatedDevDesempenhoRouteImport } from './routes/_authenticated/dev.desempenho'
 import { Route as AuthenticatedDevEstoqueRouteImport } from './routes/_authenticated/dev.estoque'
+import { Route as AuthenticatedDevGestaolojaRouteImport } from './routes/_authenticated/dev.gestaoloja'
 import { Route as AuthenticatedDevLojaRouteImport } from './routes/_authenticated/dev.loja'
 import { Route as AuthenticatedDevMenuLateralRouteImport } from './routes/_authenticated/dev.menu-lateral'
 import { Route as AuthenticatedDevNotificacoesRouteImport } from './routes/_authenticated/dev.notificacoes'
@@ -337,6 +338,12 @@ const AuthenticatedDevEstoqueRoute = AuthenticatedDevEstoqueRouteImport.update({
   path: '/dev/estoque',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedDevGestaolojaRoute =
+  AuthenticatedDevGestaolojaRouteImport.update({
+    id: '/dev/gestaoloja',
+    path: '/dev/gestaoloja',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedDevLojaRoute = AuthenticatedDevLojaRouteImport.update({
   id: '/dev/loja',
   path: '/dev/loja',
@@ -512,6 +519,7 @@ export interface FileRoutesByFullPath {
   '/dev/configuracao': typeof AuthenticatedDevConfiguracaoRouteWithChildren
   '/dev/desempenho': typeof AuthenticatedDevDesempenhoRoute
   '/dev/estoque': typeof AuthenticatedDevEstoqueRouteWithChildren
+  '/dev/gestaoloja': typeof AuthenticatedDevGestaolojaRoute
   '/dev/loja': typeof AuthenticatedDevLojaRoute
   '/dev/menu-lateral': typeof AuthenticatedDevMenuLateralRoute
   '/dev/notificacoes': typeof AuthenticatedDevNotificacoesRoute
@@ -584,6 +592,7 @@ export interface FileRoutesByTo {
   '/dev/configuracao': typeof AuthenticatedDevConfiguracaoRouteWithChildren
   '/dev/desempenho': typeof AuthenticatedDevDesempenhoRoute
   '/dev/estoque': typeof AuthenticatedDevEstoqueRouteWithChildren
+  '/dev/gestaoloja': typeof AuthenticatedDevGestaolojaRoute
   '/dev/loja': typeof AuthenticatedDevLojaRoute
   '/dev/menu-lateral': typeof AuthenticatedDevMenuLateralRoute
   '/dev/notificacoes': typeof AuthenticatedDevNotificacoesRoute
@@ -658,6 +667,7 @@ export interface FileRoutesById {
   '/_authenticated/dev/configuracao': typeof AuthenticatedDevConfiguracaoRouteWithChildren
   '/_authenticated/dev/desempenho': typeof AuthenticatedDevDesempenhoRoute
   '/_authenticated/dev/estoque': typeof AuthenticatedDevEstoqueRouteWithChildren
+  '/_authenticated/dev/gestaoloja': typeof AuthenticatedDevGestaolojaRoute
   '/_authenticated/dev/loja': typeof AuthenticatedDevLojaRoute
   '/_authenticated/dev/menu-lateral': typeof AuthenticatedDevMenuLateralRoute
   '/_authenticated/dev/notificacoes': typeof AuthenticatedDevNotificacoesRoute
@@ -732,6 +742,7 @@ export interface FileRouteTypes {
     | '/dev/configuracao'
     | '/dev/desempenho'
     | '/dev/estoque'
+    | '/dev/gestaoloja'
     | '/dev/loja'
     | '/dev/menu-lateral'
     | '/dev/notificacoes'
@@ -804,6 +815,7 @@ export interface FileRouteTypes {
     | '/dev/configuracao'
     | '/dev/desempenho'
     | '/dev/estoque'
+    | '/dev/gestaoloja'
     | '/dev/loja'
     | '/dev/menu-lateral'
     | '/dev/notificacoes'
@@ -877,6 +889,7 @@ export interface FileRouteTypes {
     | '/_authenticated/dev/configuracao'
     | '/_authenticated/dev/desempenho'
     | '/_authenticated/dev/estoque'
+    | '/_authenticated/dev/gestaoloja'
     | '/_authenticated/dev/loja'
     | '/_authenticated/dev/menu-lateral'
     | '/_authenticated/dev/notificacoes'
@@ -1255,6 +1268,13 @@ declare module '@tanstack/react-router' {
       path: '/dev/estoque'
       fullPath: '/dev/estoque'
       preLoaderRoute: typeof AuthenticatedDevEstoqueRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/dev/gestaoloja': {
+      id: '/_authenticated/dev/gestaoloja'
+      path: '/dev/gestaoloja'
+      fullPath: '/dev/gestaoloja'
+      preLoaderRoute: typeof AuthenticatedDevGestaolojaRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/dev/loja': {
@@ -1659,6 +1679,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedDevConfiguracaoRoute: typeof AuthenticatedDevConfiguracaoRouteWithChildren
   AuthenticatedDevDesempenhoRoute: typeof AuthenticatedDevDesempenhoRoute
   AuthenticatedDevEstoqueRoute: typeof AuthenticatedDevEstoqueRouteWithChildren
+  AuthenticatedDevGestaolojaRoute: typeof AuthenticatedDevGestaolojaRoute
   AuthenticatedDevLojaRoute: typeof AuthenticatedDevLojaRoute
   AuthenticatedDevMenuLateralRoute: typeof AuthenticatedDevMenuLateralRoute
   AuthenticatedDevNotificacoesRoute: typeof AuthenticatedDevNotificacoesRoute
@@ -1707,6 +1728,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
     AuthenticatedDevConfiguracaoRouteWithChildren,
   AuthenticatedDevDesempenhoRoute: AuthenticatedDevDesempenhoRoute,
   AuthenticatedDevEstoqueRoute: AuthenticatedDevEstoqueRouteWithChildren,
+  AuthenticatedDevGestaolojaRoute: AuthenticatedDevGestaolojaRoute,
   AuthenticatedDevLojaRoute: AuthenticatedDevLojaRoute,
   AuthenticatedDevMenuLateralRoute: AuthenticatedDevMenuLateralRoute,
   AuthenticatedDevNotificacoesRoute: AuthenticatedDevNotificacoesRoute,

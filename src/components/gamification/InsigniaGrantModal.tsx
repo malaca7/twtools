@@ -40,6 +40,7 @@ import {
   type InsigniaItem,
   type RankedGamificationMember,
 } from "@/services/gamificationService";
+import { getInsigniaIconStyles, getInsigniaCardStyles } from "@/components/gamification/InsigniaCatalogManagerModal";
 import { cn } from "@/lib/utils";
 
 // Resolução de ícone para as insígnias
@@ -269,6 +270,8 @@ export function InsigniaGrantModal({
                   const rarity = RARITY_CONFIG[insignia.rarity] || RARITY_CONFIG.comum;
                   const isAffordable = grantorXp >= insignia.xp_cost;
                   const isOwned = alreadyOwnedIds.has(insignia.id);
+                  const iconStyle = getInsigniaIconStyles(insignia);
+                  const cardStyle = getInsigniaCardStyles(insignia);
 
                   return (
                     <div
@@ -294,18 +297,20 @@ export function InsigniaGrantModal({
                           ? "bg-amber-500/15 border-amber-500/70 shadow-sm"
                           : isOwned
                           ? "bg-secondary/10 border-border/40 opacity-60 cursor-not-allowed"
-                          : "bg-secondary/20 border-border/60 hover:bg-secondary/40",
+                          : !cardStyle && "bg-secondary/20 border-border/60 hover:bg-secondary/40",
                         !isAffordable && !isOwned && "opacity-75"
                       )}
+                      style={!isSelected && !isOwned ? cardStyle : undefined}
                     >
                       <div className="flex items-start gap-2.5">
                         <div
                           className={cn(
                             "h-9 w-9 rounded-xl flex items-center justify-center shrink-0 border",
-                            rarity.bgClass,
-                            rarity.borderClass,
-                            rarity.textClass
+                            !iconStyle && rarity.bgClass,
+                            !iconStyle && rarity.borderClass,
+                            !iconStyle && rarity.textClass
                           )}
+                          style={iconStyle}
                         >
                           {renderInsigniaIcon(insignia.icon)}
                         </div>

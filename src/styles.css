@@ -85,8 +85,12 @@ html[data-font="space_grotesk"] {
   --platform-saturation: 100%;
 }
 
-/* ─── Filtros Globais de Brilho, Contraste e Saturação ─── */
-body {
+/* ─── Filtros Globais de Brilho, Contraste e Saturação ───
+ * IMPORTANTE: NÃO aplicar filter no body/html — isso cria um novo containing block
+ * e quebra position:fixed (sidebar, header sticky, mobile nav).
+ * O filtro é aplicado via classe .platform-filters no wrapper do conteúdo principal (AppShell).
+ */
+.platform-filters {
   filter:
     brightness(var(--platform-brightness, 100%))
     contrast(var(--platform-contrast, 100%))
@@ -108,7 +112,7 @@ html[data-text-brightness] body {
   --tw-text-opacity: calc(var(--platform-text-brightness, 100%) / 100%);
 }
 
-/* Quando o brilho de texto é diferente de 100%, aplica filtro sutil nos textos */
+/* Quando o brilho de texto é diferente de 100%, aplica filtro sutil nos textos (apenas em tags de texto para não quebrar wrappers e position fixed) */
 html:not([data-text-brightness="100"]) p,
 html:not([data-text-brightness="100"]) span,
 html:not([data-text-brightness="100"]) label,
@@ -122,8 +126,10 @@ html:not([data-text-brightness="100"]) a,
 html:not([data-text-brightness="100"]) li,
 html:not([data-text-brightness="100"]) td,
 html:not([data-text-brightness="100"]) th,
-html:not([data-text-brightness="100"]) .text-foreground,
-html:not([data-text-brightness="100"]) .text-muted-foreground {
+html:not([data-text-brightness="100"]) b,
+html:not([data-text-brightness="100"]) strong,
+html:not([data-text-brightness="100"]) i,
+html:not([data-text-brightness="100"]) em {
   filter: brightness(var(--platform-text-brightness, 100%));
 }
 

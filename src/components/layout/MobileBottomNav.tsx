@@ -15,6 +15,7 @@ import {
 import { useAuth } from "@/hooks/useAuth";
 import { useSidebar } from "@/components/ui/sidebar";
 import { usePanelTheme } from "@/lib/panelTheme";
+import { usePlatformSettings } from "@/hooks/usePlatformSettings";
 import { cn } from "@/lib/utils";
 
 export function MobileBottomNav() {
@@ -25,15 +26,16 @@ export function MobileBottomNav() {
   const { isDevUser, isDevMode, isCeoUser, isCeoMode, hasPermission } = useAuth();
   const { toggleSidebar } = useSidebar();
   const { devStyle, ceoStyle, memberStyle, DevIcon, CeoIcon, MemberIcon } = usePanelTheme();
+  const { settings } = usePlatformSettings();
 
   const homeUrl = useMemo(() => {
-    if (isDevUser && isDevMode) return "/dev/dashboard";
-    if (isCeoUser && isCeoMode) return "/ceo/dashboard";
-    if (hasPermission("view_dashboard")) return "/dashboard";
+    if (isDevUser && isDevMode) return settings?.startPageDev || "/dev/dashboard";
+    if (isCeoUser && isCeoMode) return settings?.startPageCeo || "/ceo/dashboard";
+    if (hasPermission("view_dashboard")) return settings?.startPageUser || "/dashboard";
     if (hasPermission("view_movements")) return "/movimentacoes";
     if (hasPermission("view_stock")) return "/controledeestoque";
     return "/perfil";
-  }, [isDevUser, isDevMode, isCeoUser, isCeoMode, hasPermission]);
+  }, [isDevUser, isDevMode, isCeoUser, isCeoMode, hasPermission, settings]);
 
   const opsUrl = useMemo(() => {
     if (isDevUser && isDevMode) return "/dev/movimentacoes";

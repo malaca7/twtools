@@ -51,6 +51,7 @@ import {
   Coins,
   Zap,
   AlertTriangle,
+  Store,
 } from "lucide-react";
 import { resolveMenuIcon } from "@/lib/menuIcons";
 import {
@@ -173,6 +174,7 @@ const URL_TO_PERMISSION_MAP: Record<string, Permission> = {
   "/configuracoes": "manage_platform_settings",
   "/dev/notificacoes": "view_dev_notifications",
   "/dev/xp-insignias": "manage_dev_gamification",
+  "/dev/gestaoloja": "view_dev_shop",
   "/dev/loja": "view_dev_shop",
   "/dev/coins": "view_dev_coins",
   "/dev/gestao-estoque": "view_stock_management",
@@ -186,7 +188,8 @@ const DEV_MODULE_NAV_ITEMS: MasterNavItem[] = [
   { id: "dev-patch-notes", title: "Patch Notes & Releases", url: "/dev/patch-notes", icon: Sparkles, defaultCat: "DEV", defaultOrder: 3 },
   { id: "dev-desempenho", title: "Gestão Desempenho", url: "/dev/desempenho", icon: TrendingUp, defaultCat: "DEV", defaultOrder: 4 },
   { id: "dev-xp-insignias", title: "Xp e insígnias", url: "/dev/xp-insignias", icon: Award, defaultCat: "DEV", defaultOrder: 5 },
-  { id: "dev-loja", title: "Gestão da Loja", url: "/dev/loja", icon: ShoppingBag, defaultCat: "DEV", defaultOrder: 6 },
+  { id: "dev-loja", title: "Gestão da Loja", url: "/dev/gestaoloja", icon: ShoppingBag, defaultCat: "DEV", defaultOrder: 6 },
+  { id: "dev-loja-oficial", title: "Loja", url: "/dev/loja", icon: Store, defaultCat: "DEV", defaultOrder: 6.5 },
   { id: "dev-coins", title: "Gestão de Coins", url: "/dev/coins", icon: Coins, defaultCat: "DEV", defaultOrder: 7 },
   { id: "dev-permissoes", title: "Permissões Tag Dev", url: "/dev/permissoes", icon: KeyRound, defaultCat: "DEV", defaultOrder: 8 },
   { id: "dev-configuracao", title: "Configurações Dev", url: "/dev/configuracao", icon: Code2, defaultCat: "DEV", defaultOrder: 9 },
@@ -888,7 +891,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           </SidebarContent>
         </Sidebar>
 
-        <div className="flex min-w-0 flex-1 flex-col min-h-screen overflow-x-clip">
+        <div className="flex min-w-0 flex-1 flex-col min-h-screen platform-filters">
           <header className="sticky top-0 z-40 flex h-16 shrink-0 items-center justify-between gap-1.5 sm:gap-4 border-b border-border/70 bg-background/95 backdrop-blur-xl px-2.5 sm:px-6 shadow-sm">
             <div className="flex items-center gap-1.5 sm:gap-4 min-w-0">
               <SidebarTrigger />
@@ -928,7 +931,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <Link
-                        to="/dashboard"
+                        to={settings?.startPageUser || "/dashboard"}
                         onClick={() => setPanelMode("member")}
                         className={cn(
                           "flex items-center gap-1 sm:gap-1.5 px-1.5 py-1 sm:px-3 sm:py-1.5 rounded-lg text-xs font-semibold transition-all duration-150 cursor-pointer",
@@ -952,7 +955,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                     <Tooltip>
                       <TooltipTrigger asChild>
                         <Link
-                          to="/ceo/dashboard"
+                          to={settings?.startPageCeo || "/ceo/dashboard"}
                           onClick={() => setPanelMode("ceo")}
                           className={cn(
                             "flex items-center gap-1 sm:gap-1.5 px-1.5 py-1 sm:px-3 sm:py-1.5 rounded-lg text-xs font-semibold transition-all duration-150 cursor-pointer",
@@ -977,7 +980,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                     <Tooltip>
                       <TooltipTrigger asChild>
                         <Link
-                          to="/dev/dashboard"
+                          to={settings?.startPageDev || "/dev"}
                           onClick={() => setPanelMode("dev")}
                           className={cn(
                             "flex items-center gap-1 sm:gap-1.5 px-1.5 py-1 sm:px-3 sm:py-1.5 rounded-lg text-xs font-semibold transition-all duration-150 cursor-pointer",
@@ -1137,7 +1140,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
                   {(isCeoUser || isDevUser) && (
                     <DropdownMenuItem
-                      onClick={() => navigate({ to: "/ceo/dashboard" })}
+                      onClick={() => navigate({ to: settings?.startPageCeo || "/ceo/dashboard" })}
                       className={cn("cursor-pointer font-bold", ceoStyle.textClass, ceoStyle.itemHoverClass)}
                     >
                       <CeoIcon className={cn("mr-2 h-4 w-4", ceoStyle.iconClass)} /> Painel CEO
@@ -1146,7 +1149,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
                   {isDevUser && (
                     <DropdownMenuItem
-                      onClick={() => navigate({ to: "/dev" })}
+                      onClick={() => navigate({ to: settings?.startPageDev || "/dev" })}
                       className={cn("cursor-pointer font-bold", devStyle.textClass, devStyle.itemHoverClass)}
                     >
                       <DevIcon className={cn("mr-2 h-4 w-4", devStyle.iconClass)} /> Painel Dev
@@ -1204,20 +1207,20 @@ export function AppShell({ children }: { children: ReactNode }) {
                 <span>
                   {settings.footerFactionText || settings.factionName || "Twin Wheels"}
                   {settings.footerShowYear !== false && (
-                    <> &copy; {new Date().getFullYear()}</>
+                    <> &copy; {(!settings.footerYear || settings.footerYear === "Automático") ? new Date().getFullYear() : settings.footerYear}</>
                   )}
                 </span>
 
                 {settings.footerCopyrightText && (
                   <>
-                    <span className="opacity-40">•</span>
+                    <span className="text-foreground/60 mx-1 font-bold">{settings.footerDividerSymbol || "•"}</span>
                     <span>{settings.footerCopyrightText}</span>
                   </>
                 )}
 
                 {settings.footerShowDeveloperCredits !== false && (
                   <>
-                    <span className="opacity-40">•</span>
+                    <span className="text-foreground/60 mx-1 font-bold">{settings.footerDividerSymbol || "•"}</span>
                     <span>{settings.footerDeveloperRole || "Desenvolvido por"}</span>
                     {settings.footerShowDiscordCopy !== false && (settings.footerDeveloperDiscord || "malaca7") ? (
                       <button
@@ -1245,7 +1248,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
                 {settings.footerShowVersion !== false && (settings.systemVersion || "v2.5.0") && (
                   <>
-                    <span className="opacity-40">•</span>
+                    <span className="text-foreground/60 mx-1 font-bold">{settings.footerDividerSymbol || "•"}</span>
                     <span className="font-mono text-[10px] bg-secondary/60 px-1.5 py-0.5 rounded border border-border/50 text-foreground/80">
                       {settings.systemVersion || "v2.5.0"}
                     </span>
@@ -1254,7 +1257,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
                 {settings.footerShowSupportLink !== false && settings.supportDiscordUrl && (
                   <>
-                    <span className="opacity-40">•</span>
+                    <span className="text-foreground/60 mx-1 font-bold">{settings.footerDividerSymbol || "•"}</span>
                     <a
                       href={settings.supportDiscordUrl}
                       target="_blank"

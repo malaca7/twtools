@@ -83,29 +83,31 @@ import {
   devUpdateXpRule,
   devGetAllXpTransactions,
   saveInsignia,
+  devUpdateMemberInsigniaReason,
 } from "@/services/gamificationService";
+import {
+  getInsigniaIconStyles,
+  getInsigniaCardStyles,
+  ColorPickerField,
+} from "@/components/gamification/InsigniaCatalogManagerModal";
+
+import * as LucideIcons from "lucide-react";
+import { IconPicker } from "./IconPicker";
 
 // Helper para renderizar ícones dinâmicos das insígnias
-const ICON_COMPONENTS: Record<string, React.ComponentType<{ className?: string }>> = {
-  Award,
-  Shield,
-  Boxes,
-  Target,
-  DollarSign,
-  Truck,
-  Eye,
-  Crown,
-  Sparkles,
-  Star,
-  Flame,
-  Zap,
-  Medal,
-  Users,
-};
-
-function DynamicInsigniaIcon({ name, className }: { name: string; className?: string }) {
-  const IconComp = ICON_COMPONENTS[name] || Award;
+export function DynamicInsigniaIcon({ name, className }: { name: string; className?: string }) {
+  const IconComp = (LucideIcons as any)[name] || LucideIcons.Award;
   return <IconComp className={className} />;
+}
+
+function formatCooldown(secs: number): string {
+  if (secs % 31536000 === 0 && secs > 0) return `${secs / 31536000} ano(s)`;
+  if (secs % 2592000 === 0 && secs > 0) return `${secs / 2592000} mês(es)`;
+  if (secs % 604800 === 0 && secs > 0) return `${secs / 604800} sem(s)`;
+  if (secs % 86400 === 0 && secs > 0) return `${secs / 86400} dia(s)`;
+  if (secs % 3600 === 0 && secs > 0) return `${secs / 3600} hora(s)`;
+  if (secs % 60 === 0 && secs > 0) return `${secs / 60} min(s)`;
+  return `${secs} seg(s)`;
 }
 
 export function DevGamificationManager({ initialTab = "membros" }: { initialTab?: string }) {
@@ -153,16 +155,44 @@ export function DevGamificationManager({ initialTab = "membros" }: { initialTab?
   const [memberBadges, setMemberBadges] = useState<MemberInsigniaGrant[]>([]);
   const [loadingMemberBadges, setLoadingMemberBadges] = useState(false);
   const [revokingId, setRevokingId] = useState<string | null>(null);
+  const [editingGrantId, setEditingGrantId] = useState<string | null>(null);
+  const [editGrantReason, setEditGrantReason] = useState("");
+  const [editGrantSubmitting, setEditGrantSubmitting] = useState(false);
 
   // Modal 5: Criar / Editar Insígnia no Catálogo
   const [insigniaEditorOpen, setInsigniaEditorOpen] = useState(false);
   const [editingInsignia, setEditingInsignia] = useState<Partial<InsigniaItem> | null>(null);
   const [insigniaSubmitting, setInsigniaSubmitting] = useState(false);
+  const [colorTab, setColorTab] = useState<"icon" | "bg" | "border">("icon");
 
   // Modal 6: Editar Regra de XP
   const [ruleEditorOpen, setRuleEditorOpen] = useState(false);
   const [editingRule, setEditingRule] = useState<Partial<XpRuleConfig> | null>(null);
+  const [editRewardStr, setEditRewardStr] = useState("0");
+  const [editCapStr, setEditCapStr] = useState("0");
+  const [editCooldownStr, setEditCooldownStr] = useState("0");
   const [ruleSubmitting, setRuleSubmitting] = useState(false);
+  const [cooldownUnit, setCooldownUnit] = useState<number>(1);
+
+  const openRuleEditor = (r: XpRuleConfig) => {
+    let secs = r.cooldown_seconds || 0;
+    let unit = 1;
+    let val = secs;
+    if (secs > 0) {
+      if (secs % 31536000 === 0) { unit = 31536000; val = secs / 31536000; }
+      else if (secs % 2592000 === 0) { unit = 2592000; val = secs / 2592000; }
+      else if (secs % 604800 === 0) { unit = 604800; val = secs / 604800; }
+      else if (secs % 86400 === 0) { unit = 86400; val = secs / 86400; }
+      else if (secs % 3600 === 0) { unit = 3600; val = secs / 3600; }
+      else if (secs % 60 === 0) { unit = 60; val = secs / 60; }
+    }
+    setCooldownUnit(unit);
+    setEditCooldownStr(String(val));
+    setEditRewardStr(String(r.xp_reward || 0));
+    setEditCapStr(String(r.daily_cap || 0));
+    setEditingRule(r);
+    setRuleEditorOpen(true);
+  };
 
   // Carregar dados gerais
   const loadData = useCallback(async () => {
@@ -362,6 +392,29 @@ export function DevGamificationManager({ initialTab = "membros" }: { initialTab?
     }
   };
 
+  // Editar Justificativa de Insígnia
+  const handleSaveEditedInsigniaReason = async (grantId: string) => {
+    if (!editGrantReason.trim()) {
+      toast.error("A justificativa não pode ficar vazia.");
+      return;
+    }
+    setEditGrantSubmitting(true);
+    try {
+      await devUpdateMemberInsigniaReason(grantId, editGrantReason.trim());
+      toast.success("Justificativa da insígnia atualizada com sucesso.");
+      
+      setMemberBadges((prev) => 
+        prev.map((b) => b.id === grantId ? { ...b, reason: editGrantReason.trim() } : b)
+      );
+      setEditingGrantId(null);
+      setEditGrantReason("");
+    } catch (err: any) {
+      toast.error(err.message || "Erro ao editar justificativa.");
+    } finally {
+      setEditGrantSubmitting(false);
+    }
+  };
+
   // 6. Salvar Insígnia no Catálogo
   const handleSaveInsigniaCatalog = async () => {
     if (!editingInsignia?.name?.trim() || !editingInsignia?.id?.trim()) {
@@ -380,6 +433,9 @@ export function DevGamificationManager({ initialTab = "membros" }: { initialTab?
         xp_cost: Number(editingInsignia.xp_cost || 0),
         category: editingInsignia.category || "geral",
         active: editingInsignia.active !== false,
+        color: editingInsignia.color || null,
+        bg_color: editingInsignia.bg_color || null,
+        border_color: editingInsignia.border_color || null,
       });
 
       toast.success("Insígnia salva no catálogo com sucesso!");
@@ -413,14 +469,19 @@ export function DevGamificationManager({ initialTab = "membros" }: { initialTab?
   const handleSaveXpRule = async () => {
     if (!editingRule?.action_type || !editingRule?.name) return;
 
+    const finalReward = Number(editRewardStr.replace(',', '.')) || 0;
+    const finalCap = Number(editCapStr.replace(',', '.')) || 0;
+    const cooldownValParsed = Number(editCooldownStr.replace(',', '.')) || 0;
+    const finalCooldownSeconds = cooldownValParsed * cooldownUnit;
+
     setRuleSubmitting(true);
     try {
       await devUpdateXpRule({
         action_type: editingRule.action_type,
         name: editingRule.name,
-        xp_reward: Number(editingRule.xp_reward || 0),
-        cooldown_seconds: Number(editingRule.cooldown_seconds || 0),
-        daily_cap: Number(editingRule.daily_cap || 0),
+        xp_reward: finalReward,
+        cooldown_seconds: finalCooldownSeconds,
+        daily_cap: finalCap,
         category: editingRule.category || "geral",
         description: editingRule.description || "",
         enabled: editingRule.enabled !== false,
@@ -683,7 +744,7 @@ export function DevGamificationManager({ initialTab = "membros" }: { initialTab?
                           <Button
                             variant="outline"
                             size="sm"
-                            onClick={() => handleOpenGrantModal(m)}
+                            onClick={() => handleOpenMemberInsignias(m)}
                             className="h-8 px-1 text-xs font-bold gap-1 border-amber-500/40 text-amber-300 hover:bg-amber-500/10 w-full"
                           >
                             <Award className="w-3.5 h-3.5 text-amber-400 shrink-0" />
@@ -819,7 +880,7 @@ export function DevGamificationManager({ initialTab = "membros" }: { initialTab?
                                   <Button
                                     variant="outline"
                                     size="sm"
-                                    onClick={() => handleOpenGrantModal(m)}
+                                    onClick={() => handleOpenMemberInsignias(m)}
                                     className="h-8 px-2.5 text-xs font-bold gap-1 border-amber-500/40 text-amber-300 hover:bg-amber-500/10"
                                   >
                                     <Award className="w-3.5 h-3.5 text-amber-400" />
@@ -866,7 +927,11 @@ export function DevGamificationManager({ initialTab = "membros" }: { initialTab?
                       xp_cost: 0,
                       category: "honra",
                       active: true,
+                      color: null,
+                      bg_color: null,
+                      border_color: null,
                     });
+                    setColorTab("icon");
                     setInsigniaEditorOpen(true);
                   }}
                   className="font-extrabold gap-1.5 bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm w-full sm:w-auto text-xs h-9"
@@ -880,15 +945,19 @@ export function DevGamificationManager({ initialTab = "membros" }: { initialTab?
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {insignias.map((badge) => {
                   const rarityStyle = RARITY_CONFIG[badge.rarity] || RARITY_CONFIG.comum;
+                  const iconStyle = getInsigniaIconStyles(badge);
+                  const cardStyle = getInsigniaCardStyles(badge);
+                  const hasCustomColors = Boolean(badge.color || badge.bg_color || badge.border_color);
                   return (
                     <Card
                       key={badge.id}
                       className={cn(
                         "border relative overflow-hidden backdrop-blur-sm transition-all hover:scale-[1.01] shadow-sm",
-                        rarityStyle.borderClass,
-                        rarityStyle.bgClass,
+                        !cardStyle && rarityStyle.borderClass,
+                        !cardStyle && rarityStyle.bgClass,
                         !badge.active && "opacity-50 grayscale"
                       )}
+                      style={cardStyle}
                     >
                       <CardContent className="p-4 space-y-3">
                         <div className="flex items-start justify-between gap-3">
@@ -896,16 +965,32 @@ export function DevGamificationManager({ initialTab = "membros" }: { initialTab?
                             <div
                               className={cn(
                                 "w-11 h-11 rounded-xl flex items-center justify-center border shadow-inner shrink-0",
-                                rarityStyle.borderClass,
-                                rarityStyle.bgClass,
-                                rarityStyle.textClass
+                                !iconStyle && rarityStyle.borderClass,
+                                !iconStyle && rarityStyle.bgClass,
+                                !iconStyle && rarityStyle.textClass
                               )}
+                              style={iconStyle}
                             >
                               <DynamicInsigniaIcon name={badge.icon} className="w-6 h-6" />
                             </div>
                             <div>
                               <h4 className="font-extrabold text-sm text-foreground tracking-tight">{badge.name}</h4>
-                              <span className="text-[11px] font-mono text-muted-foreground">ID: {badge.id}</span>
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <span className="text-[11px] font-mono text-muted-foreground">ID: {badge.id}</span>
+                                {hasCustomColors && (
+                                  <div className="flex items-center gap-1 bg-background/50 px-1 py-0.5 rounded border border-border/40">
+                                    {badge.bg_color && (
+                                      <span className="h-2 w-2 rounded-full border border-white/40" style={{ backgroundColor: badge.bg_color }} title={`Fundo: ${badge.bg_color}`} />
+                                    )}
+                                    {badge.border_color && (
+                                      <span className="h-2 w-2 rounded-full border border-white/40" style={{ borderColor: badge.border_color, borderWidth: 2 }} title={`Borda: ${badge.border_color}`} />
+                                    )}
+                                    {badge.color && (
+                                      <span className="h-2 w-2 rounded-full border border-white/40" style={{ backgroundColor: badge.color }} title={`Ícone: ${badge.color}`} />
+                                    )}
+                                  </div>
+                                )}
+                              </div>
                             </div>
                           </div>
                           <Badge
@@ -946,7 +1031,13 @@ export function DevGamificationManager({ initialTab = "membros" }: { initialTab?
                             variant="ghost"
                             size="sm"
                             onClick={() => {
-                              setEditingInsignia(badge);
+                              setEditingInsignia({
+                                ...badge,
+                                color: badge.color || null,
+                                bg_color: badge.bg_color || null,
+                                border_color: badge.border_color || null,
+                              });
+                              setColorTab("icon");
                               setInsigniaEditorOpen(true);
                             }}
                             className="h-7 px-2.5 text-xs font-bold gap-1 hover:bg-accent"
@@ -1004,7 +1095,7 @@ export function DevGamificationManager({ initialTab = "membros" }: { initialTab?
 
                     <div className="flex items-center justify-between gap-2 pt-2 border-t border-border/40 text-xs">
                       <div className="flex items-center gap-2 text-muted-foreground text-[11px] font-mono">
-                        <span>{r.cooldown_seconds}s cooldown</span>
+                        <span>{formatCooldown(r.cooldown_seconds || 0)} cooldown</span>
                         <span>•</span>
                         <span className="text-foreground font-bold">{r.daily_cap} XP/dia</span>
                       </div>
@@ -1017,10 +1108,7 @@ export function DevGamificationManager({ initialTab = "membros" }: { initialTab?
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => {
-                            setEditingRule(r);
-                            setRuleEditorOpen(true);
-                          }}
+                          onClick={() => openRuleEditor(r)}
                           className="h-7 px-2 text-xs font-bold gap-1"
                         >
                           <Edit3 className="w-3 h-3" />
@@ -1061,7 +1149,7 @@ export function DevGamificationManager({ initialTab = "membros" }: { initialTab?
                             </Badge>
                           </td>
                           <td className="py-3 px-4 text-center font-mono text-xs text-muted-foreground">
-                            {r.cooldown_seconds}s ({Math.round(r.cooldown_seconds / 60)} min)
+                            {formatCooldown(r.cooldown_seconds || 0)}
                           </td>
                           <td className="py-3 px-4 text-center font-mono text-xs font-bold text-foreground">
                             {r.daily_cap} XP / dia
@@ -1081,10 +1169,7 @@ export function DevGamificationManager({ initialTab = "membros" }: { initialTab?
                             <Button
                               variant="outline"
                               size="sm"
-                              onClick={() => {
-                                setEditingRule(r);
-                                setRuleEditorOpen(true);
-                              }}
+                              onClick={() => openRuleEditor(r)}
                               className="h-8 px-2.5 text-xs font-bold gap-1 hover:bg-accent"
                             >
                               <Edit3 className="w-3.5 h-3.5" />
@@ -1549,13 +1634,32 @@ export function DevGamificationManager({ initialTab = "membros" }: { initialTab?
       <Dialog open={memberInsigniasModalOpen} onOpenChange={setMemberInsigniasModalOpen}>
         <DialogContent className="max-h-[90vh] overflow-y-auto w-[95vw] sm:max-w-xl bg-card/95 border-border backdrop-blur-md">
           <DialogHeader>
-            <DialogTitle className="text-lg font-extrabold flex items-center gap-2">
-              <Award className="w-5 h-5 text-amber-400" />
-              Insígnias de {selectedMember?.nickname || selectedMember?.nome}
-            </DialogTitle>
-            <DialogDescription>
-              Lista de todas as condecorações ativas deste membro. Você pode revogá-las a qualquer momento.
-            </DialogDescription>
+            <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 w-full pr-6">
+              <div>
+                <DialogTitle className="text-lg font-extrabold flex items-center gap-2">
+                  <Award className="w-5 h-5 text-amber-400" />
+                  Insígnias de {selectedMember?.nickname || selectedMember?.nome}
+                </DialogTitle>
+                <DialogDescription>
+                  Lista de todas as condecorações ativas deste membro. Você pode editar justificativas ou revogá-las.
+                </DialogDescription>
+              </div>
+              <Button
+                size="sm"
+                className="font-extrabold gap-1.5 bg-amber-500 hover:bg-amber-600 text-black shadow-sm shrink-0"
+                onClick={() => {
+                  setMemberInsigniasModalOpen(false);
+                  setTimeout(() => {
+                    if (selectedMember) {
+                      handleOpenGrantModal(selectedMember);
+                    }
+                  }, 100);
+                }}
+              >
+                <Plus className="w-4 h-4" />
+                Conceder Insígnia
+              </Button>
+            </div>
           </DialogHeader>
 
           <div className="space-y-3 py-2 max-h-[60vh] overflow-y-auto">
@@ -1571,51 +1675,114 @@ export function DevGamificationManager({ initialTab = "membros" }: { initialTab?
               memberBadges.map((grant) => {
                 const b = grant.insignia;
                 const rarityStyle = b?.rarity ? RARITY_CONFIG[b.rarity] : RARITY_CONFIG.comum;
+                const iconStyle = b ? getInsigniaIconStyles(b) : undefined;
+                const cardStyle = b ? getInsigniaCardStyles(b) : undefined;
                 return (
                   <div
                     key={grant.id}
                     className={cn(
                       "p-3 rounded-xl border flex items-center justify-between gap-3 backdrop-blur-sm",
-                      rarityStyle.borderClass,
-                      rarityStyle.bgClass
+                      !cardStyle && rarityStyle.borderClass,
+                      !cardStyle && rarityStyle.bgClass
                     )}
+                    style={cardStyle}
                   >
-                    <div className="flex items-center gap-3">
-                      <div
-                        className={cn(
-                          "w-10 h-10 rounded-xl border flex items-center justify-center shrink-0 shadow-inner",
-                          rarityStyle.borderClass,
-                          rarityStyle.bgClass,
-                          rarityStyle.textClass
-                        )}
-                      >
-                        <DynamicInsigniaIcon name={b?.icon || "Award"} className="w-5 h-5" />
-                      </div>
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <h4 className="font-extrabold text-sm text-foreground">{b?.name || grant.insignia_id}</h4>
-                          <Badge className={cn("text-[9px] font-bold uppercase", rarityStyle.textClass)}>
-                            {rarityStyle.label}
-                          </Badge>
+                    <div className="flex flex-col gap-2 w-full">
+                      <div className="flex items-start justify-between w-full">
+                        <div className="flex items-start gap-3 w-full">
+                          <div
+                            className={cn(
+                              "w-10 h-10 rounded-xl border flex items-center justify-center shrink-0 shadow-inner mt-1",
+                              !iconStyle && rarityStyle.borderClass,
+                              !iconStyle && rarityStyle.bgClass,
+                              !iconStyle && rarityStyle.textClass
+                            )}
+                            style={iconStyle}
+                          >
+                            <DynamicInsigniaIcon name={b?.icon || "Award"} className="w-5 h-5" />
+                          </div>
+                          <div className="flex-1 min-w-0 pr-2">
+                            <div className="flex items-center gap-2">
+                              <h4 className="font-extrabold text-sm text-foreground">{b?.name || grant.insignia_id}</h4>
+                              <Badge className={cn("text-[9px] font-bold uppercase", rarityStyle.textClass)}>
+                                {rarityStyle.label}
+                              </Badge>
+                            </div>
+
+                            {editingGrantId === grant.id ? (
+                              <div className="mt-2 space-y-2">
+                                <Textarea
+                                  value={editGrantReason}
+                                  onChange={(e) => setEditGrantReason(e.target.value)}
+                                  className="text-xs min-h-[60px]"
+                                  placeholder="Nova justificativa..."
+                                  disabled={editGrantSubmitting}
+                                />
+                                <div className="flex items-center gap-2">
+                                  <Button 
+                                    size="sm" 
+                                    className="h-7 text-[10px] px-2"
+                                    onClick={() => handleSaveEditedInsigniaReason(grant.id)}
+                                    disabled={editGrantSubmitting}
+                                  >
+                                    Salvar
+                                  </Button>
+                                  <Button 
+                                    size="sm" 
+                                    variant="ghost" 
+                                    className="h-7 text-[10px] px-2"
+                                    onClick={() => {
+                                      setEditingGrantId(null);
+                                      setEditGrantReason("");
+                                    }}
+                                    disabled={editGrantSubmitting}
+                                  >
+                                    Cancelar
+                                  </Button>
+                                </div>
+                              </div>
+                            ) : (
+                              <>
+                                <p className="text-xs text-muted-foreground line-clamp-2 mt-0.5" title={grant.reason || b?.description}>
+                                  {grant.reason || b?.description}
+                                </p>
+                                <div className="text-[10px] text-muted-foreground font-mono mt-1">
+                                  Concedido em {new Date(grant.granted_at).toLocaleDateString("pt-BR")} por{" "}
+                                  <strong>{grant.grantor_name}</strong>
+                                </div>
+                              </>
+                            )}
+                          </div>
                         </div>
-                        <p className="text-xs text-muted-foreground line-clamp-1">{grant.reason || b?.description}</p>
-                        <div className="text-[10px] text-muted-foreground font-mono mt-0.5">
-                          Concedido em {new Date(grant.granted_at).toLocaleDateString("pt-BR")} por{" "}
-                          <strong>{grant.grantor_name}</strong>
+
+                        <div className="flex flex-col gap-1.5 shrink-0">
+                          {editingGrantId !== grant.id && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                setEditingGrantId(grant.id);
+                                setEditGrantReason(grant.reason || "");
+                              }}
+                              className="h-7 px-2 text-[10px] font-bold gap-1 w-full"
+                            >
+                              <Edit3 className="w-3 h-3" />
+                              Editar
+                            </Button>
+                          )}
+                          <Button
+                            variant="destructive"
+                            size="sm"
+                            onClick={() => handleRevokeInsignia(grant.insignia_id, b?.name || grant.insignia_id)}
+                            disabled={revokingId === grant.insignia_id}
+                            className="h-7 px-2 text-[10px] font-bold gap-1 w-full"
+                          >
+                            <Trash2 className="w-3 h-3" />
+                            Revogar
+                          </Button>
                         </div>
                       </div>
                     </div>
-
-                    <Button
-                      variant="destructive"
-                      size="sm"
-                      onClick={() => handleRevokeInsignia(grant.insignia_id, b?.name || grant.insignia_id)}
-                      disabled={revokingId === grant.insignia_id}
-                      className="h-8 px-2.5 text-xs font-bold gap-1 shrink-0"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                      Revogar
-                    </Button>
                   </div>
                 );
               })
@@ -1634,137 +1801,295 @@ export function DevGamificationManager({ initialTab = "membros" }: { initialTab?
           MODAL 5: CRIAR / EDITAR INSÍGNIA NO CATÁLOGO
           ========================================================================= */}
       <Dialog open={insigniaEditorOpen} onOpenChange={setInsigniaEditorOpen}>
-        <DialogContent className="max-h-[90vh] overflow-y-auto w-[95vw] sm:max-w-lg bg-card/95 border-border backdrop-blur-md">
+        <DialogContent className="max-h-[90vh] overflow-y-auto w-[95vw] sm:max-w-xl bg-card/95 border-border backdrop-blur-md">
           <DialogHeader>
             <DialogTitle className="text-lg font-extrabold flex items-center gap-2">
               <Award className="w-5 h-5 text-amber-400" />
-              {editingInsignia?.id ? "Editar Insígnia do Catálogo" : "Criar Nova Insígnia Oficial"}
+              {editingInsignia?.id && insignias.some((i) => i.id === editingInsignia.id)
+                ? "Editar Insígnia do Catálogo"
+                : "Criar Nova Insígnia Oficial"}
             </DialogTitle>
             <DialogDescription>
-              Configure o identificador único, nome de exibição, custo em XP e parâmetros visuais.
+              Configure identificador, nome, custo em XP e parâmetros visuais exclusivos (fundo, borda e ícone).
             </DialogDescription>
           </DialogHeader>
 
-          {editingInsignia && (
-            <div className="space-y-4 py-2">
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1.5">
-                  <Label htmlFor="badge-id" className="text-xs font-bold">
-                    Identificador (ID) *
-                  </Label>
-                  <Input
-                    id="badge-id"
-                    disabled={Boolean(insignias.some((i) => i.id === editingInsignia.id))}
-                    value={editingInsignia.id || ""}
-                    onChange={(e) => setEditingInsignia({ ...editingInsignia, id: e.target.value })}
-                    placeholder="ex: guardiao_asfalto"
-                    className="font-mono text-xs"
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="badge-name" className="text-xs font-bold">
-                    Nome Oficial *
-                  </Label>
-                  <Input
-                    id="badge-name"
-                    value={editingInsignia.name || ""}
-                    onChange={(e) => setEditingInsignia({ ...editingInsignia, name: e.target.value })}
-                    placeholder="Ex: Guardião do Asfalto"
-                    className="text-xs font-bold"
-                  />
-                </div>
-              </div>
+          {editingInsignia && (() => {
+            const previewRarity = RARITY_CONFIG[(editingInsignia.rarity as InsigniaRarity) || "comum"] || RARITY_CONFIG.comum;
+            const previewStyle = getInsigniaIconStyles(editingInsignia);
+            const previewCardStyle = getInsigniaCardStyles(editingInsignia);
+            const hasCustomColor = Boolean(editingInsignia.color || editingInsignia.bg_color || editingInsignia.border_color);
 
-              <div className="grid grid-cols-3 gap-3">
-                <div className="space-y-1.5">
-                  <Label className="text-xs font-bold">Raridade</Label>
-                  <Select
-                    value={editingInsignia.rarity || "comum"}
-                    onValueChange={(val: any) => setEditingInsignia({ ...editingInsignia, rarity: val })}
+            return (
+              <div className="space-y-4 py-2">
+                {/* ── PREVIEW AO VIVO ── */}
+                <div
+                  className={cn(
+                    "flex items-center gap-4 p-3.5 rounded-2xl border transition-all duration-200",
+                    !previewCardStyle && "bg-secondary/30 border-border/60"
+                  )}
+                  style={previewCardStyle}
+                >
+                  <div
+                    className={cn(
+                      "h-14 w-14 rounded-xl flex items-center justify-center shrink-0 border-2 shadow-inner transition-all duration-200",
+                      !previewStyle && previewRarity.bgClass,
+                      !previewStyle && previewRarity.borderClass,
+                      !previewStyle && previewRarity.textClass
+                    )}
+                    style={previewStyle}
                   >
-                    <SelectTrigger className="h-9 text-xs">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="comum">Comum</SelectItem>
-                      <SelectItem value="raro">Raro</SelectItem>
-                      <SelectItem value="epico">Épico</SelectItem>
-                      <SelectItem value="lendario">Lendário</SelectItem>
-                      <SelectItem value="mitico">Mítico</SelectItem>
-                    </SelectContent>
-                  </Select>
+                    <DynamicInsigniaIcon name={editingInsignia.icon || "Award"} className="h-7 w-7" />
+                  </div>
+
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-black text-foreground truncate">
+                        {editingInsignia.name || "Nome da Insígnia"}
+                      </span>
+                      <Badge className={cn("text-[9px] font-extrabold uppercase px-1.5 py-0 border", previewRarity.borderClass, previewRarity.bgClass, previewRarity.textClass)}>
+                        {previewRarity.label}
+                      </Badge>
+                    </div>
+                    <p className="text-[11px] text-muted-foreground mt-0.5">
+                      {hasCustomColor ? "Cores personalizadas ativas (Fundo / Borda / Ícone)" : `Cores padrão da raridade (${previewRarity.label})`}
+                    </p>
+
+                    <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+                      {editingInsignia.bg_color && (
+                        <div className="flex items-center gap-1 text-[10px] text-muted-foreground font-mono bg-background/60 px-1.5 py-0.5 rounded border border-border/40">
+                          <div className="h-2.5 w-2.5 rounded-sm border border-white/20" style={{ backgroundColor: editingInsignia.bg_color }} />
+                          <span>Fundo: {editingInsignia.bg_color}</span>
+                        </div>
+                      )}
+                      {editingInsignia.border_color && (
+                        <div className="flex items-center gap-1 text-[10px] text-muted-foreground font-mono bg-background/60 px-1.5 py-0.5 rounded border border-border/40">
+                          <div className="h-2.5 w-2.5 rounded-sm border-2" style={{ borderColor: editingInsignia.border_color }} />
+                          <span>Borda: {editingInsignia.border_color}</span>
+                        </div>
+                      )}
+                      {editingInsignia.color && (
+                        <div className="flex items-center gap-1 text-[10px] text-muted-foreground font-mono bg-background/60 px-1.5 py-0.5 rounded border border-border/40">
+                          <div className="h-2.5 w-2.5 rounded-sm" style={{ backgroundColor: editingInsignia.color }} />
+                          <span>Ícone: {editingInsignia.color}</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {hasCustomColor && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() =>
+                        setEditingInsignia({
+                          ...editingInsignia,
+                          color: null,
+                          bg_color: null,
+                          border_color: null,
+                        })
+                      }
+                      className="h-7 text-[10px] text-muted-foreground hover:text-rose-400 gap-1 shrink-0"
+                    >
+                      <RefreshCw className="h-3 w-3" /> Resetar
+                    </Button>
+                  )}
                 </div>
 
+                {/* ── IDENTIFICADOR E NOME ── */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="badge-id" className="text-xs font-bold">
+                      Identificador (ID) *
+                    </Label>
+                    <Input
+                      id="badge-id"
+                      disabled={Boolean(insignias.some((i) => i.id === editingInsignia.id))}
+                      value={editingInsignia.id || ""}
+                      onChange={(e) => setEditingInsignia({ ...editingInsignia, id: e.target.value })}
+                      placeholder="ex: guardiao_asfalto"
+                      className="font-mono text-xs"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="badge-name" className="text-xs font-bold">
+                      Nome Oficial *
+                    </Label>
+                    <Input
+                      id="badge-name"
+                      value={editingInsignia.name || ""}
+                      onChange={(e) => setEditingInsignia({ ...editingInsignia, name: e.target.value })}
+                      placeholder="Ex: Guardião do Asfalto"
+                      className="text-xs font-bold"
+                    />
+                  </div>
+                </div>
+
+                {/* ── RARIDADE, CUSTO E ÍCONE ── */}
+                <div className="grid grid-cols-3 gap-3">
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-bold">Raridade</Label>
+                    <Select
+                      value={editingInsignia.rarity || "comum"}
+                      onValueChange={(val: any) => setEditingInsignia({ ...editingInsignia, rarity: val })}
+                    >
+                      <SelectTrigger className="h-9 text-xs">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="comum">Comum</SelectItem>
+                        <SelectItem value="raro">Raro</SelectItem>
+                        <SelectItem value="epico">Épico</SelectItem>
+                        <SelectItem value="lendario">Lendário</SelectItem>
+                        <SelectItem value="mitico">Mítico</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <Label htmlFor="badge-cost" className="text-xs font-bold">
+                      Custo em XP
+                    </Label>
+                    <Input
+                      id="badge-cost"
+                      type="number"
+                      min={0}
+                      value={editingInsignia.xp_cost || 0}
+                      onChange={(e) => setEditingInsignia({ ...editingInsignia, xp_cost: Number(e.target.value) })}
+                      className="h-9 text-xs font-mono font-bold"
+                    />
+                  </div>
+
+                  <div className="space-y-1.5 flex flex-col items-start justify-center">
+                    <Label htmlFor="badge-icon" className="text-xs font-bold">
+                      Ícone Lucide
+                    </Label>
+                    <IconPicker
+                      value={editingInsignia.icon || "Award"}
+                      onChange={(val) => setEditingInsignia({ ...editingInsignia, icon: val })}
+                    >
+                      <Button variant="outline" className="w-full justify-start h-9 text-xs px-3">
+                        <div className="flex items-center gap-2 overflow-hidden text-ellipsis">
+                          <DynamicInsigniaIcon name={editingInsignia.icon || "Award"} className="w-4 h-4 shrink-0 text-primary" />
+                          <span className="truncate">{editingInsignia.icon || "Award"}</span>
+                        </div>
+                      </Button>
+                    </IconPicker>
+                  </div>
+                </div>
+
+                {/* ── SELETOR DE CORES INDEPENDENTES (FUNDO / BORDA / ÍCONE) ── */}
+                <div className="rounded-2xl border border-border/70 overflow-hidden bg-background/40">
+                  <div className="flex border-b border-border/60 bg-muted/30">
+                    {([
+                      { id: "bg" as const, label: "Fundo", color: editingInsignia.bg_color },
+                      { id: "border" as const, label: "Borda", color: editingInsignia.border_color },
+                      { id: "icon" as const, label: "Ícone", color: editingInsignia.color },
+                    ]).map((tab) => (
+                      <button
+                        key={tab.id}
+                        type="button"
+                        onClick={() => setColorTab(tab.id)}
+                        className={cn(
+                          "flex-1 py-2 px-3 text-xs font-extrabold flex items-center justify-center gap-2 border-b-2 transition-all cursor-pointer",
+                          colorTab === tab.id
+                            ? "border-primary text-foreground bg-accent/40"
+                            : "border-transparent text-muted-foreground hover:text-foreground hover:bg-accent/20"
+                        )}
+                      >
+                        <span>{tab.label}</span>
+                        {tab.color ? (
+                          <span
+                            className="h-2.5 w-2.5 rounded-full border border-white/40 shrink-0"
+                            style={{ backgroundColor: tab.color }}
+                          />
+                        ) : (
+                          <span className="text-[10px] font-normal text-muted-foreground/60">(padrão)</span>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+
+                  <div className="p-3.5 space-y-2">
+                    {colorTab === "bg" && (
+                      <div>
+                        <p className="text-[11px] text-muted-foreground mb-2">
+                          Cor de preenchimento do escudo/fundo do emblema. Deixe vazio para usar a cor padrão da raridade.
+                        </p>
+                        <ColorPickerField
+                          label="Cor de Fundo do Emblema"
+                          value={editingInsignia.bg_color}
+                          onChange={(val) => setEditingInsignia({ ...editingInsignia, bg_color: val })}
+                          placeholder="#1e1b4b ou rgba(30,27,75,0.8)"
+                        />
+                      </div>
+                    )}
+
+                    {colorTab === "border" && (
+                      <div>
+                        <p className="text-[11px] text-muted-foreground mb-2">
+                          Cor do contorno/borda do emblema e do card. Deixe vazio para usar o contorno padrão da raridade.
+                        </p>
+                        <ColorPickerField
+                          label="Cor da Borda do Emblema"
+                          value={editingInsignia.border_color}
+                          onChange={(val) => setEditingInsignia({ ...editingInsignia, border_color: val })}
+                          placeholder="#a855f7 ou #eab308"
+                        />
+                      </div>
+                    )}
+
+                    {colorTab === "icon" && (
+                      <div>
+                        <p className="text-[11px] text-muted-foreground mb-2">
+                          Cor do símbolo/ícone Lucide no centro do emblema. Deixe vazio para usar a cor padrão da raridade.
+                        </p>
+                        <ColorPickerField
+                          label="Cor do Ícone / Símbolo"
+                          value={editingInsignia.color}
+                          onChange={(val) => setEditingInsignia({ ...editingInsignia, color: val })}
+                          placeholder="#facc15 ou #38bdf8"
+                        />
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* ── DESCRIÇÃO ── */}
                 <div className="space-y-1.5">
-                  <Label htmlFor="badge-cost" className="text-xs font-bold">
-                    Custo em XP
+                  <Label htmlFor="badge-desc" className="text-xs font-bold">
+                    Descrição / Critério de Conquista
                   </Label>
-                  <Input
-                    id="badge-cost"
-                    type="number"
-                    min={0}
-                    value={editingInsignia.xp_cost || 0}
-                    onChange={(e) => setEditingInsignia({ ...editingInsignia, xp_cost: Number(e.target.value) })}
-                    className="h-9 text-xs font-mono font-bold"
+                  <Textarea
+                    id="badge-desc"
+                    value={editingInsignia.description || ""}
+                    onChange={(e) => setEditingInsignia({ ...editingInsignia, description: e.target.value })}
+                    placeholder="Critérios exigidos para que a diretoria conceda esta distinção..."
+                    rows={2}
+                    className="text-xs"
                   />
                 </div>
 
-                <div className="space-y-1.5">
-                  <Label htmlFor="badge-icon" className="text-xs font-bold">
-                    Ícone Lucide
-                  </Label>
-                  <Select
-                    value={editingInsignia.icon || "Award"}
-                    onValueChange={(val) => setEditingInsignia({ ...editingInsignia, icon: val })}
-                  >
-                    <SelectTrigger className="h-9 text-xs">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {Object.keys(ICON_COMPONENTS).map((iconName) => (
-                        <SelectItem key={iconName} value={iconName}>
-                          <div className="flex items-center gap-2">
-                            <DynamicInsigniaIcon name={iconName} className="w-4 h-4" />
-                            <span>{iconName}</span>
-                          </div>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                {/* ── ATIVA/INATIVA ── */}
+                <div className="flex items-center justify-between p-3 rounded-xl border border-border/80 bg-background/50">
+                  <div className="space-y-0.5">
+                    <Label htmlFor="badge-active" className="text-xs font-bold cursor-pointer">
+                      Insígnia Ativa para Concessão
+                    </Label>
+                    <p className="text-[11px] text-muted-foreground">
+                      Quando desativada, não aparece na lista de condecoração para novos membros.
+                    </p>
+                  </div>
+                  <Switch
+                    id="badge-active"
+                    checked={editingInsignia.active !== false}
+                    onCheckedChange={(checked) => setEditingInsignia({ ...editingInsignia, active: checked })}
+                  />
                 </div>
               </div>
-
-              <div className="space-y-1.5">
-                <Label htmlFor="badge-desc" className="text-xs font-bold">
-                  Descrição / Critério de Conquista
-                </Label>
-                <Textarea
-                  id="badge-desc"
-                  value={editingInsignia.description || ""}
-                  onChange={(e) => setEditingInsignia({ ...editingInsignia, description: e.target.value })}
-                  placeholder="Critérios exigidos para que a diretoria conceda esta distinção..."
-                  rows={2}
-                  className="text-xs"
-                />
-              </div>
-
-              <div className="flex items-center justify-between p-3 rounded-xl border border-border/80 bg-background/50">
-                <div className="space-y-0.5">
-                  <Label htmlFor="badge-active" className="text-xs font-bold cursor-pointer">
-                    Insígnia Ativa para Concessão
-                  </Label>
-                  <p className="text-[11px] text-muted-foreground">
-                    Quando desativada, não aparece na lista de condecoração para novos membros.
-                  </p>
-                </div>
-                <Switch
-                  id="badge-active"
-                  checked={editingInsignia.active !== false}
-                  onCheckedChange={(checked) => setEditingInsignia({ ...editingInsignia, active: checked })}
-                />
-              </div>
-            </div>
-          )}
+            );
+          })()}
 
           <DialogFooter className="gap-2">
             <Button variant="ghost" onClick={() => setInsigniaEditorOpen(false)}>
@@ -1810,33 +2135,58 @@ export function DevGamificationManager({ initialTab = "membros" }: { initialTab?
                 />
               </div>
 
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
                 <div className="space-y-1.5">
                   <Label htmlFor="rule-reward" className="text-xs font-bold">
                     Recompensa (XP)
                   </Label>
                   <Input
                     id="rule-reward"
-                    type="number"
-                    min={0}
-                    value={editingRule.xp_reward || 0}
-                    onChange={(e) => setEditingRule({ ...editingRule, xp_reward: Number(e.target.value) })}
+                    type="text"
+                    inputMode="decimal"
+                    value={editRewardStr}
+                    onChange={(e) => {
+                      const val = e.target.value.replace(/[^0-9.,]/g, '');
+                      setEditRewardStr(val);
+                    }}
                     className="font-mono text-xs font-bold"
                   />
                 </div>
 
-                <div className="space-y-1.5">
-                  <Label htmlFor="rule-cooldown" className="text-xs font-bold">
-                    Cooldown (s)
-                  </Label>
-                  <Input
-                    id="rule-cooldown"
-                    type="number"
-                    min={0}
-                    value={editingRule.cooldown_seconds || 0}
-                    onChange={(e) => setEditingRule({ ...editingRule, cooldown_seconds: Number(e.target.value) })}
-                    className="font-mono text-xs font-bold"
-                  />
+                <div className="col-span-1 sm:col-span-2 space-y-1.5">
+                  <Label className="text-xs font-bold">Cooldown</Label>
+                  <div className="flex gap-2">
+                    <Input
+                      type="text"
+                      inputMode="decimal"
+                      value={editCooldownStr}
+                      onChange={(e) => {
+                        const val = e.target.value.replace(/[^0-9.,]/g, '');
+                        setEditCooldownStr(val);
+                      }}
+                      className="font-mono text-xs font-bold w-1/2"
+                    />
+                    <Select
+                      value={String(cooldownUnit)}
+                      onValueChange={(valStr) => {
+                        const unit = Number(valStr);
+                        setCooldownUnit(unit);
+                      }}
+                    >
+                      <SelectTrigger className="w-1/2 h-9 text-xs font-bold">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="1">Segundos</SelectItem>
+                        <SelectItem value="60">Minutos</SelectItem>
+                        <SelectItem value="3600">Horas</SelectItem>
+                        <SelectItem value="86400">Dias</SelectItem>
+                        <SelectItem value="604800">Semanas</SelectItem>
+                        <SelectItem value="2592000">Meses</SelectItem>
+                        <SelectItem value="31536000">Anos</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
 
                 <div className="space-y-1.5">
@@ -1845,10 +2195,13 @@ export function DevGamificationManager({ initialTab = "membros" }: { initialTab?
                   </Label>
                   <Input
                     id="rule-cap"
-                    type="number"
-                    min={0}
-                    value={editingRule.daily_cap || 0}
-                    onChange={(e) => setEditingRule({ ...editingRule, daily_cap: Number(e.target.value) })}
+                    type="text"
+                    inputMode="decimal"
+                    value={editCapStr}
+                    onChange={(e) => {
+                      const val = e.target.value.replace(/[^0-9.,]/g, '');
+                      setEditCapStr(val);
+                    }}
                     className="font-mono text-xs font-bold"
                   />
                 </div>

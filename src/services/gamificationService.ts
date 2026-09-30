@@ -11,6 +11,9 @@ export interface InsigniaItem {
   xp_cost: number;
   category: string;
   active: boolean;
+  color?: string | null;       // cor do ícone (foreground)
+  bg_color?: string | null;    // cor de fundo do emblema
+  border_color?: string | null; // cor da borda do emblema
   created_at?: string;
   updated_at?: string;
 }
@@ -354,7 +357,10 @@ export async function getMemberInsignias(memberId: string): Promise<MemberInsign
         description,
         rarity,
         xp_cost,
-        category
+        category,
+        color,
+        bg_color,
+        border_color
       ),
       grantor:granted_by (
         nome,
@@ -446,9 +452,6 @@ export async function getMemberXpTransactions(userId: string, limit = 20): Promi
   return data as XpTransaction[];
 }
 
-/**
- * Salva/configura uma insígnia no catálogo (Admin/Dev)
- */
 export async function saveInsignia(insignia: Partial<InsigniaItem> & { id: string; name: string }): Promise<void> {
   const { error } = await supabase.rpc("save_insignia_rpc", {
     p_id: insignia.id,
@@ -459,6 +462,9 @@ export async function saveInsignia(insignia: Partial<InsigniaItem> & { id: strin
     p_xp_cost: Number(insignia.xp_cost || 0),
     p_category: insignia.category || "geral",
     p_active: insignia.active !== false,
+    p_color: insignia.color || null,
+    p_bg_color: insignia.bg_color || null,
+    p_border_color: insignia.border_color || null,
   });
 
   if (error) {
@@ -584,6 +590,20 @@ export async function devRevokeInsignia(params: {
   }
 
   return data as any;
+}
+
+/**
+ * Edita o motivo/justificativa de uma insígnia já concedida (Dev)
+ */
+export async function devUpdateMemberInsigniaReason(grantId: string, newReason: string): Promise<void> {
+  const { error } = await supabase.rpc("dev_update_insignia_reason_rpc", {
+    p_grant_id: grantId,
+    p_new_reason: newReason,
+  });
+
+  if (error) {
+    throw new Error(error.message || "Falha ao editar a justificativa da insígnia.");
+  }
 }
 
 /**
@@ -768,7 +788,10 @@ export async function getShopItems(): Promise<ShopItem[]> {
         description,
         icon,
         rarity,
-        xp_cost
+        xp_cost,
+        color,
+        bg_color,
+        border_color
       )
     `)
     .eq("active", true)

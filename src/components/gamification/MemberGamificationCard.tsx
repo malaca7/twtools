@@ -31,6 +31,7 @@ import {
 import { useAuth } from "@/hooks/useAuth";
 import { cn } from "@/lib/utils";
 import { MemberInsigniasListModal } from "@/components/gamification/MemberInsigniasListModal";
+import { getInsigniaIconStyles } from "@/components/gamification/InsigniaCatalogManagerModal";
 
 const ICON_MAP: Record<string, React.ElementType> = {
   Award,
@@ -222,6 +223,8 @@ export function MemberGamificationCard({
                     const badge = grant.insignia;
                     if (!badge) return null;
                     const rarity = RARITY_CONFIG[badge.rarity] || RARITY_CONFIG.comum;
+                    const iconStyle = getInsigniaIconStyles(badge);
+                    const glowColor = badge.border_color || badge.bg_color || badge.color;
 
                     return (
                       <Tooltip key={grant.id}>
@@ -232,13 +235,16 @@ export function MemberGamificationCard({
                             className={cn(
                               "group relative flex items-center justify-center w-[50px] h-[50px] min-w-[50px] min-h-[50px] max-w-[50px] max-h-[50px] rounded-xl border-2 shadow-md transition-all duration-200 cursor-pointer select-none",
                               "hover:scale-115 hover:-translate-y-1 hover:z-20 active:scale-95",
-                              rarity.bgClass,
-                              rarity.borderClass,
-                              rarity.textClass,
+                              !iconStyle && rarity.bgClass,
+                              !iconStyle && rarity.borderClass,
+                              !iconStyle && rarity.textClass,
                               rarity.glowClass ? `hover:${rarity.glowClass}` : ""
                             )}
                             style={{
-                              boxShadow: "0 4px 14px -2px rgba(0,0,0,0.35)",
+                              ...(iconStyle || {}),
+                              boxShadow: glowColor
+                                ? `0 4px 18px -2px ${glowColor}60`
+                                : "0 4px 14px -2px rgba(0,0,0,0.35)",
                             }}
                             aria-label={`${badge.name} (${rarity.label})`}
                           >

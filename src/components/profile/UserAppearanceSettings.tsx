@@ -1127,8 +1127,8 @@ export function UserAppearanceSettings() {
               </div>
               <Slider
                 value={[theme.brightness]}
-                min={60}
-                max={140}
+                min={0}
+                max={1000}
                 step={5}
                 onValueChange={([val]) => handleChange("brightness", val)}
                 className="cursor-pointer"
@@ -1146,8 +1146,8 @@ export function UserAppearanceSettings() {
               </div>
               <Slider
                 value={[theme.contrast]}
-                min={60}
-                max={140}
+                min={0}
+                max={1000}
                 step={5}
                 onValueChange={([val]) => handleChange("contrast", val)}
                 className="cursor-pointer"
@@ -1165,8 +1165,8 @@ export function UserAppearanceSettings() {
               </div>
               <Slider
                 value={[theme.saturation ?? 100]}
-                min={30}
-                max={180}
+                min={0}
+                max={1000}
                 step={5}
                 onValueChange={([val]) => handleChange("saturation", val)}
                 className="cursor-pointer"
@@ -1184,8 +1184,8 @@ export function UserAppearanceSettings() {
               </div>
               <Slider
                 value={[theme.textBrightness ?? 100]}
-                min={70}
-                max={200}
+                min={0}
+                max={1000}
                 step={5}
                 onValueChange={([val]) => handleChange("textBrightness", val)}
                 className="cursor-pointer"

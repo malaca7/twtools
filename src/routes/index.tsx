@@ -77,12 +77,12 @@ function AuthPage() {
   useEffect(() => {
     if (!authLoading && approvedAccess) {
       if (isDevUser) {
-        void navigate({ to: "/dev", replace: true });
+        void navigate({ to: settings.startPageDev || "/dev", replace: true });
       } else if (isCeoUser) {
-        void navigate({ to: "/ceo/dashboard", replace: true });
+        void navigate({ to: settings.startPageCeo || "/ceo/dashboard", replace: true });
       } else {
         if (hasPermission("view_dashboard")) {
-          void navigate({ to: "/dashboard", replace: true });
+          void navigate({ to: settings.startPageUser || "/dashboard", replace: true });
         } else if (hasPermission("view_movements")) {
           void navigate({ to: "/movimentacoes", replace: true });
         } else if (hasPermission("view_stock")) {

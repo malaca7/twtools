@@ -102,11 +102,18 @@ export type PlatformSettings = {
   footerDeveloperRole?: string;
   footerCustomNote?: string;
   footerCopyrightText?: string;
+  footerYear?: string; // "Automático" ou um ano específico
   footerShowYear?: boolean;
   footerShowDeveloperCredits?: boolean;
   footerShowDiscordCopy?: boolean;
   footerShowSupportLink?: boolean;
   footerShowVersion?: boolean;
+  footerDividerSymbol?: string;
+
+  // Start Pages / Landing Pages
+  startPageUser?: string;
+  startPageCeo?: string;
+  startPageDev?: string;
 };
 
 export const DEFAULT_PLATFORM_SETTINGS: PlatformSettings = {
@@ -192,11 +199,17 @@ export const DEFAULT_PLATFORM_SETTINGS: PlatformSettings = {
   footerDeveloperRole: "Desenvolvido por",
   footerCustomNote: "Gestão Operacional & Executiva GTA RP",
   footerCopyrightText: "Todos os direitos reservados.",
+  footerYear: "Automático",
   footerShowYear: true,
   footerShowDeveloperCredits: true,
   footerShowDiscordCopy: true,
   footerShowSupportLink: true,
   footerShowVersion: true,
+  footerDividerSymbol: "•",
+
+  startPageUser: "/dashboard",
+  startPageCeo: "/ceo/dashboard",
+  startPageDev: "/dev",
 };
 
 const STORAGE_KEY = "tw_platform_settings";

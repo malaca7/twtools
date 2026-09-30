@@ -30,12 +30,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import {
-  getMemberInsignias,
-  RARITY_CONFIG,
-  type MemberInsigniaGrant,
-  type RankedGamificationMember,
-} from "@/services/gamificationService";
+import { getMemberInsignias, RARITY_CONFIG, type MemberInsigniaGrant, type RankedGamificationMember } from "@/services/gamificationService";
+import { getInsigniaIconStyles, getInsigniaCardStyles } from "@/components/gamification/InsigniaCatalogManagerModal";
 import { cn } from "@/lib/utils";
 
 const ICON_COMPONENTS: Record<string, React.ComponentType<{ className?: string }>> = {
@@ -123,23 +119,27 @@ export function MemberInsigniasListModal({
               {insignias.map((grant) => {
                 const b = grant.insignia;
                 const rarityStyle = b?.rarity ? RARITY_CONFIG[b.rarity] : RARITY_CONFIG.comum;
+                const iconStyle = getInsigniaIconStyles(b || {});
+                const cardStyle = getInsigniaCardStyles(b || {});
                 return (
                   <div
                     key={grant.id}
                     className={cn(
                       "p-3.5 rounded-2xl border transition-all relative overflow-hidden backdrop-blur-sm shadow-xs",
-                      rarityStyle.borderClass,
-                      rarityStyle.bgClass
+                      !cardStyle && rarityStyle.borderClass,
+                      !cardStyle && rarityStyle.bgClass
                     )}
+                    style={cardStyle}
                   >
                     <div className="flex items-start gap-3.5">
                       <div
                         className={cn(
                           "w-[50px] h-[50px] min-w-[50px] min-h-[50px] rounded-xl border-2 flex items-center justify-center shrink-0 shadow-inner",
-                          rarityStyle.borderClass,
-                          rarityStyle.bgClass,
-                          rarityStyle.textClass
+                          !iconStyle && rarityStyle.borderClass,
+                          !iconStyle && rarityStyle.bgClass,
+                          !iconStyle && rarityStyle.textClass
                         )}
+                        style={iconStyle}
                       >
                         <DynamicInsigniaIcon name={b?.icon} className="w-6 h-6" />
                       </div>

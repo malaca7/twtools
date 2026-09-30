@@ -1299,7 +1299,7 @@ export const PAGE_CARDS: PageCardConfig[] = [
   {
     id: "dev-loja",
     title: "Gestão da Loja Oficial (Dev)",
-    route: "/dev/loja",
+    route: "/dev/gestaoloja",
     icon: ShoppingBag,
     description: "Controle total do catálogo da loja: criação de novos itens, definição de preços em TW Coins/XP, controle de estoque e aprovação/entrega de pedidos.",
     color: "border-emerald-500/40 bg-emerald-500/5 text-emerald-400",
@@ -1308,7 +1308,7 @@ export const PAGE_CARDS: PageCardConfig[] = [
     permissions: [
       {
         key: "view_dev_shop",
-        label: "Acesso à Gestão da Loja (/dev/loja)",
+        label: "Acesso à Gestão da Loja (/dev/gestaoloja)",
         description: "Permite acessar o painel de administração do catálogo, produtos e pedidos da loja.",
         badge: "Painel Loja",
       },

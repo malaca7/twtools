@@ -8,6 +8,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { MemberInsigniasListModal } from "@/components/gamification/MemberInsigniasListModal";
 import { renderInsigniaIcon } from "@/components/gamification/MemberGamificationCard";
 import { getMemberInsignias, RARITY_CONFIG } from "@/services/gamificationService";
+import { getInsigniaIconStyles } from "@/components/gamification/InsigniaCatalogManagerModal";
 import { cn } from "@/lib/utils";
 
 export interface MemberInsigniasCardsSectionProps {
@@ -88,6 +89,8 @@ export function MemberInsigniasCardsSection({
                 const badge = grant.insignia;
                 if (!badge) return null;
                 const rarity = RARITY_CONFIG[badge.rarity] || RARITY_CONFIG.comum;
+                const iconStyle = getInsigniaIconStyles(badge);
+                const glowColor = badge.border_color || badge.bg_color || badge.color;
 
                 return (
                   <Tooltip key={grant.id}>
@@ -98,13 +101,15 @@ export function MemberInsigniasCardsSection({
                         className={cn(
                           "group relative flex items-center justify-center w-[50px] h-[50px] min-w-[50px] min-h-[50px] max-w-[50px] max-h-[50px] rounded-xl border-2 shadow-md transition-all duration-200 cursor-pointer select-none",
                           "hover:scale-115 hover:-translate-y-1 hover:z-20 active:scale-95",
-                          rarity.bgClass,
-                          rarity.borderClass,
-                          rarity.textClass,
-                          rarity.glowClass ? `hover:${rarity.glowClass}` : ""
+                          !iconStyle && rarity.bgClass,
+                          !iconStyle && rarity.borderClass,
+                          !iconStyle && rarity.textClass,
                         )}
                         style={{
-                          boxShadow: "0 4px 14px -2px rgba(0,0,0,0.35)",
+                          ...(iconStyle || {}),
+                          boxShadow: glowColor
+                            ? `0 4px 18px -2px ${glowColor}60`
+                            : "0 4px 14px -2px rgba(0,0,0,0.35)",
                         }}
                         aria-label={`${badge.name} (${rarity.label})`}
                       >
@@ -131,13 +136,14 @@ export function MemberInsigniasCardsSection({
                       <div className="flex items-center justify-between gap-3 border-b border-border/50 pb-2">
                         <div className="flex items-center gap-2 min-w-0">
                           <div
-                            className={cn(
-                              "h-7 w-7 rounded-lg border flex items-center justify-center shrink-0 shadow-xs",
-                              rarity.bgClass,
-                              rarity.borderClass,
-                              rarity.textClass
-                            )}
-                          >
+                              className={cn(
+                                "h-7 w-7 rounded-lg border flex items-center justify-center shrink-0 shadow-xs",
+                                !iconStyle && rarity.bgClass,
+                                !iconStyle && rarity.borderClass,
+                                !iconStyle && rarity.textClass
+                              )}
+                              style={iconStyle || undefined}
+                            >
                             {renderInsigniaIcon(badge.icon, "h-4 w-4")}
                           </div>
                           <span className="font-black text-xs text-foreground truncate">

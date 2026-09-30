@@ -5,6 +5,7 @@ import { CeoGuard } from "@/guards/CeoGuard";
 import { useAuth } from "@/hooks/useAuth";
 import { NoAccess } from "@/components/ui-kit";
 import { type Permission } from "@/lib/permissions";
+import { usePlatformSettings } from "@/hooks/usePlatformSettings";
 
 // Route page components
 import { DashboardPage } from "@/routes/_authenticated/dashboard";
@@ -35,7 +36,7 @@ import { DevNotificationsPage } from "@/routes/_authenticated/dev.notificacoes";
 import { DevBotPageContent } from "@/routes/_authenticated/dev.bot";
 import { DevEstoquePageContent } from "@/routes/_authenticated/dev.estoque";
 import { DevXpInsigniasPage } from "@/routes/_authenticated/dev.xp-insignias";
-import { DevShopPage } from "@/routes/_authenticated/dev.loja";
+import { DevShopPage } from "@/routes/_authenticated/dev.gestaoloja";
 import { DevCoinsPage } from "@/routes/_authenticated/dev.coins";
 import { GestaoEstoquePage } from "@/routes/_authenticated/gestao-estoque";
 import { LifePage } from "@/routes/_authenticated/life";
@@ -103,6 +104,7 @@ const PAGE_PERMISSION_MAP: Record<string, Permission | null> = {
 
 function InnerPageResolver({ page, tab, mode }: { page: string; tab?: string; mode: "dev" | "ceo" | "member" }) {
   const { hasPermission } = useAuth();
+  const { settings } = usePlatformSettings();
   const normalizedPage = (page || "").toLowerCase().trim();
 
   // CEO Specific modules
@@ -144,8 +146,11 @@ function InnerPageResolver({ page, tab, mode }: { page: string; tab?: string; mo
     if (normalizedPage === "xp-insignias" || normalizedPage === "dev-xp-insignias" || normalizedPage === "gamificacao") {
       return <DevXpInsigniasPage initialTab={tab} />;
     }
-    if (normalizedPage === "loja" || normalizedPage === "dev-loja") {
+    if (normalizedPage === "gestaoloja" || normalizedPage === "dev-gestaoloja") {
       return <DevShopPage />;
+    }
+    if (normalizedPage === "loja" || normalizedPage === "dev-loja") {
+      return <ShopPage />;
     }
     if (normalizedPage === "coins" || normalizedPage === "dev-coins") {
       return <DevCoinsPage />;
@@ -229,12 +234,12 @@ function InnerPageResolver({ page, tab, mode }: { page: string; tab?: string; mo
       return <PublicProfilePage handleOverride={tab} />;
     default:
       if (mode === "dev") {
-        return <Navigate to="/dev/dashboard" replace />;
+        return <Navigate to={settings?.startPageDev || "/dev/dashboard"} replace />;
       }
       if (mode === "ceo") {
-        return <Navigate to="/ceo/dashboard" replace />;
+        return <Navigate to={settings?.startPageCeo || "/ceo/dashboard"} replace />;
       }
-      return <Navigate to="/dashboard" replace />;
+      return <Navigate to={settings?.startPageUser || "/dashboard"} replace />;
   }
 }
 
