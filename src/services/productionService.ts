@@ -31,6 +31,7 @@ export async function getRawMaterials(): Promise<RawMaterial[]> {
     unit: row.unit || "un",
     stock_quantity: Number(row.stock_quantity || 0),
     image_url: row.image_url || null,
+    product_id: row.product_id || null,
     is_active: row.is_active !== false,
     created_at: row.created_at,
     updated_at: row.updated_at,
@@ -43,6 +44,7 @@ export async function createRawMaterial(input: {
   unit: string;
   stock_quantity?: number;
   image_url?: string | null;
+  product_id?: string | null;
   is_active?: boolean;
 }): Promise<RawMaterial> {
   const { data, error } = await supabase
@@ -53,6 +55,7 @@ export async function createRawMaterial(input: {
       unit: input.unit.trim() || "un",
       stock_quantity: Math.max(0, Number(input.stock_quantity || 0)),
       image_url: input.image_url?.trim() || null,
+      product_id: input.product_id || null,
       is_active: input.is_active !== false,
     })
     .select()
@@ -69,6 +72,7 @@ export async function createRawMaterial(input: {
     unit: (data as any).unit,
     stock_quantity: Number((data as any).stock_quantity || 0),
     image_url: (data as any).image_url || null,
+    product_id: (data as any).product_id || null,
     is_active: (data as any).is_active,
     created_at: (data as any).created_at,
     updated_at: (data as any).updated_at,
@@ -82,6 +86,7 @@ export async function updateRawMaterial(
     description?: string | null;
     unit?: string;
     image_url?: string | null;
+    product_id?: string | null;
     is_active?: boolean;
   }
 ): Promise<void> {
@@ -90,6 +95,7 @@ export async function updateRawMaterial(
   if (input.description !== undefined) payload.description = input.description?.trim() || null;
   if (input.unit !== undefined) payload.unit = input.unit.trim();
   if (input.image_url !== undefined) payload.image_url = input.image_url?.trim() || null;
+  if (input.product_id !== undefined) payload.product_id = input.product_id;
   if (input.is_active !== undefined) payload.is_active = input.is_active;
 
   const { error } = await supabase
@@ -100,6 +106,69 @@ export async function updateRawMaterial(
   if (error) {
     throw new Error(error.message || "Erro ao atualizar matéria-prima");
   }
+}
+
+/**
+ * Garante que todas as matérias-primas cadastradas estejam presentes na tabela de produtos de estoque.
+ * Se alguma matéria-prima não possuir produto correspondente, ela é cadastrada automaticamente como produto.
+ */
+export async function syncRawMaterialsAsProducts(): Promise<{ createdCount: number }> {
+  const { data: materials, error: matErr } = await supabase
+    .from("raw_materials" as any)
+    .select("*");
+  if (matErr || !materials) return { createdCount: 0 };
+
+  const { data: prods, error: prodErr } = await supabase
+    .from("products")
+    .select("id, nome, unidade, categoria_id");
+  if (prodErr || !prods) return { createdCount: 0 };
+
+  const { data: cat } = await supabase
+    .from("categories")
+    .select("id")
+    .ilike("nome", "Outros")
+    .maybeSingle();
+  const defaultCatId = cat?.id || null;
+
+  let createdCount = 0;
+  for (const mat of materials) {
+    let matched = (prods as any[]).find((p: any) => p.id === mat.product_id) ||
+      (prods as any[]).find((p: any) => p.nome.trim().toLowerCase() === mat.name.trim().toLowerCase());
+
+    if (!matched) {
+      const { data: newProd, error: insErr } = await supabase
+        .from("products")
+        .insert({
+          nome: mat.name.trim(),
+          descricao: mat.description?.trim() || `Matéria-prima: ${mat.name.trim()}`,
+          unidade: mat.unit?.trim() || "un",
+          categoria_id: defaultCatId,
+          estoque_atual: Number(mat.stock_quantity || 0),
+          estoque_minimo: 0,
+          preco_sugerido: 0,
+          imagem_url: mat.image_url?.trim() || null,
+          can_be_produced: false,
+          can_be_sold: false,
+          ativo: true,
+        })
+        .select()
+        .single();
+
+      if (!insErr && newProd) {
+        matched = newProd;
+        createdCount++;
+      }
+    }
+
+    if (matched && mat.product_id !== (matched as any).id) {
+      await supabase
+        .from("raw_materials" as any)
+        .update({ product_id: (matched as any).id, updated_at: new Date().toISOString() })
+        .eq("id", mat.id);
+    }
+  }
+
+  return { createdCount };
 }
 
 export async function deleteRawMaterial(

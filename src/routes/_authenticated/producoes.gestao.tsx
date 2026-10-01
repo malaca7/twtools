@@ -38,6 +38,7 @@ import {
   Undo2,
   ArrowDownLeft,
   ArrowUpRight,
+  RefreshCw,
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import {
@@ -59,6 +60,7 @@ import {
   updateRawMaterial,
   deleteRawMaterial,
   adjustRawMaterialStock,
+  syncRawMaterialsAsProducts,
   getProductRecipes,
   saveProductRecipe,
   updateProductProductionSettings,
@@ -171,6 +173,7 @@ export function GestaoProducaoPage() {
   // Modais de Matéria-Prima
   const [isNewMaterialOpen, setIsNewMaterialOpen] = useState(false);
   const [editingMaterial, setEditingMaterial] = useState<RawMaterial | null>(null);
+  const [selectedMaterialProductId, setSelectedMaterialProductId] = useState<string>("");
   const [materialName, setMaterialName] = useState("");
   const [materialDesc, setMaterialDesc] = useState("");
   const [materialUnit, setMaterialUnit] = useState("un");
@@ -250,8 +253,35 @@ export function GestaoProducaoPage() {
   const saveMaterialMutation = useMutation({
     mutationFn: async () => {
       if (!canManageMaterials) throw new Error("Você não possui permissão para cadastrar ou editar matérias-primas.");
-      if (!materialName.trim()) throw new Error("Informe o nome da matéria-prima.");
+      if (!materialName.trim()) throw new Error("Selecione um produto do estoque ou informe o nome da matéria-prima.");
       if (!materialUnit.trim()) throw new Error("Selecione a unidade da matéria-prima.");
+
+      let prodId = selectedMaterialProductId && selectedMaterialProductId !== "custom" ? selectedMaterialProductId : null;
+
+      // Se não tiver selecionado um produto existente, verificar se já existe produto com esse nome no estoque
+      if (!prodId) {
+        const found = products.find(p => p.nome.trim().toLowerCase() === materialName.trim().toLowerCase());
+        if (found) {
+          prodId = found.id;
+        } else {
+          // Cadastrar automaticamente como produto de estoque se caso não for cadastrada
+          try {
+            const newProd = await createProduct({
+              nome: materialName.trim(),
+              descricao: materialDesc.trim() || `Matéria-prima: ${materialName.trim()}`,
+              unidade: materialUnit.trim(),
+              imagem_url: materialImageUrl.trim() || undefined,
+              estoque_minimo: 0,
+              preco_sugerido: 0,
+              can_be_produced: false,
+              can_be_sold: false,
+            });
+            prodId = newProd.id;
+          } catch (e) {
+            console.warn("Aviso ao criar produto correspondente para matéria-prima:", e);
+          }
+        }
+      }
 
       if (editingMaterial) {
         await updateRawMaterial(editingMaterial.id, {
@@ -259,6 +289,7 @@ export function GestaoProducaoPage() {
           description: materialDesc.trim() || null,
           unit: materialUnit.trim(),
           image_url: materialImageUrl.trim() || null,
+          product_id: prodId,
         });
       } else {
         await createRawMaterial({
@@ -267,6 +298,7 @@ export function GestaoProducaoPage() {
           unit: materialUnit.trim(),
           stock_quantity: Math.max(0, parseFloat(materialStock) || 0),
           image_url: materialImageUrl.trim() || null,
+          product_id: prodId,
         });
       }
     },
@@ -274,11 +306,13 @@ export function GestaoProducaoPage() {
       toast.success(
         editingMaterial
           ? "Matéria-prima atualizada com sucesso!"
-          : "Matéria-prima cadastrada com sucesso!"
+          : "Matéria-prima cadastrada e vinculada ao estoque com sucesso!"
       );
       void queryClient.invalidateQueries({ queryKey: ["raw_materials"] });
+      void queryClient.invalidateQueries({ queryKey: ["products"] });
       setIsNewMaterialOpen(false);
       setEditingMaterial(null);
+      setSelectedMaterialProductId("");
       setMaterialName("");
       setMaterialDesc("");
       setMaterialUnit("un");
@@ -287,6 +321,26 @@ export function GestaoProducaoPage() {
     },
     onError: (err: any) => {
       toast.error(err.message || "Erro ao salvar matéria-prima.");
+    },
+  });
+
+  // MUTAÇÃO: Sincronizar todas as matérias-primas como produtos de estoque
+  const syncMaterialsMutation = useMutation({
+    mutationFn: async () => {
+      if (!canManageMaterials) throw new Error("Você não possui permissão para sincronizar matérias-primas.");
+      return await syncRawMaterialsAsProducts();
+    },
+    onSuccess: (res) => {
+      if (res.createdCount > 0) {
+        toast.success(`${res.createdCount} matéria(s)-prima(s) cadastrada(s) como novos produtos de estoque!`);
+      } else {
+        toast.success("Todas as matérias-primas já estão cadastradas e sincronizadas no estoque!");
+      }
+      void queryClient.invalidateQueries({ queryKey: ["raw_materials"] });
+      void queryClient.invalidateQueries({ queryKey: ["products"] });
+    },
+    onError: (err: any) => {
+      toast.error(err.message || "Erro ao sincronizar com o estoque.");
     },
   });
 
@@ -1057,21 +1111,36 @@ export function GestaoProducaoPage() {
               />
             </div>
 
-            <Button
-              onClick={() => {
-                setEditingMaterial(null);
-                setMaterialName("");
-                setMaterialDesc("");
-                setMaterialUnit("un");
-                setMaterialStock("0");
-                setMaterialImageUrl("");
-                setIsNewMaterialOpen(true);
-              }}
-              className="h-9 px-3 text-xs bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-bold rounded-xl gap-1.5"
-            >
-              <Plus className="h-4 w-4" />
-              <span>Nova Matéria-Prima</span>
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => syncMaterialsMutation.mutate()}
+                disabled={syncMaterialsMutation.isPending}
+                className="h-9 px-3 text-xs rounded-xl gap-1.5 border-border/70 hover:bg-secondary/40 text-muted-foreground hover:text-foreground"
+                title="Cadastra automaticamente no estoque qualquer matéria-prima que ainda não for produto"
+              >
+                <RefreshCw className={cn("h-3.5 w-3.5", syncMaterialsMutation.isPending && "animate-spin text-amber-400")} />
+                <span className="hidden sm:inline">Sincronizar com Estoque</span>
+              </Button>
+
+              <Button
+                onClick={() => {
+                  setEditingMaterial(null);
+                  setSelectedMaterialProductId("");
+                  setMaterialName("");
+                  setMaterialDesc("");
+                  setMaterialUnit("un");
+                  setMaterialStock("0");
+                  setMaterialImageUrl("");
+                  setIsNewMaterialOpen(true);
+                }}
+                className="h-9 px-3 text-xs bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-bold rounded-xl gap-1.5"
+              >
+                <Plus className="h-4 w-4" />
+                <span>Nova Matéria-Prima</span>
+              </Button>
+            </div>
           </div>
 
           <Card className="surface-card border-border/70 overflow-hidden">
@@ -1102,7 +1171,18 @@ export function GestaoProducaoPage() {
                                 className="h-9 w-9 rounded-xl shrink-0"
                               />
                               <div>
-                                <p className="font-bold text-foreground">{mat.name}</p>
+                                <div className="flex items-center gap-2">
+                                  <p className="font-bold text-foreground">{mat.name}</p>
+                                  {mat.product_id ? (
+                                    <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4 bg-sky-500/10 text-sky-400 border-sky-500/30">
+                                      Estoque Vinculado
+                                    </Badge>
+                                  ) : (
+                                    <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4 bg-amber-500/10 text-amber-400 border-amber-500/30">
+                                      Pendente Estoque
+                                    </Badge>
+                                  )}
+                                </div>
                                 <span className="text-[10px] text-muted-foreground font-mono">
                                   Unidade: {mat.unit}
                                 </span>
@@ -1162,6 +1242,7 @@ export function GestaoProducaoPage() {
                                 variant="ghost"
                                 onClick={() => {
                                   setEditingMaterial(mat);
+                                  setSelectedMaterialProductId(mat.product_id || "");
                                   setMaterialName(mat.name);
                                   setMaterialDesc(mat.description || "");
                                   setMaterialUnit(mat.unit || "un");
@@ -1354,14 +1435,98 @@ export function GestaoProducaoPage() {
         <DialogContent className="max-w-md surface-card border-border/80">
           <DialogHeader>
             <DialogTitle className="text-base font-black text-foreground">
-              {editingMaterial ? "Editar Matéria-Prima" : "Cadastrar Nova Matéria-Prima"}
+              {editingMaterial ? "Editar Matéria-Prima" : "Adicionar Matéria-Prima"}
             </DialogTitle>
             <DialogDescription className="text-xs">
-              Defina os dados, unidade e foto da matéria-prima utilizada na fábrica.
+              Selecione um produto do estoque ou informe as definições da matéria-prima.
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4 py-2 text-xs">
+            {/* 1. SELEÇÃO DO PRODUTO DE ESTOQUE */}
+            <div className="space-y-1.5 p-3 rounded-2xl bg-amber-500/10 border border-amber-500/25">
+              <Label className="text-xs font-bold text-amber-200 flex items-center justify-between">
+                <span>Produto de Estoque *</span>
+                <span className="text-[10px] font-normal text-muted-foreground">
+                  Selecione para preencher automaticamente
+                </span>
+              </Label>
+              <Select
+                value={selectedMaterialProductId}
+                onValueChange={(val) => {
+                  setSelectedMaterialProductId(val);
+                  if (val === "custom") {
+                    setMaterialName("");
+                    return;
+                  }
+                  const prod = products.find((p) => p.id === val);
+                  if (prod) {
+                    setMaterialName(prod.nome);
+                    if (prod.unidade) setMaterialUnit(prod.unidade);
+                    if (prod.imagem_url) setMaterialImageUrl(prod.imagem_url);
+                    if (prod.descricao) setMaterialDesc(prod.descricao);
+                    if (!editingMaterial) {
+                      setMaterialStock(String(prod.estoque_atual || 0));
+                    }
+                  }
+                }}
+              >
+                <SelectTrigger className="text-xs rounded-xl bg-background/80 border-border/70 h-9 font-medium">
+                  <SelectValue placeholder="Selecione um produto do estoque..." />
+                </SelectTrigger>
+                <SelectContent className="max-h-64">
+                  <SelectItem value="custom" className="text-xs font-bold text-amber-400">
+                    + Digitar Outro / Cadastrar Novo Produto
+                  </SelectItem>
+                  {products.map((p) => {
+                    const alreadyIsMat = rawMaterials.some(
+                      (m) =>
+                        (editingMaterial ? m.id !== editingMaterial.id : true) &&
+                        (m.product_id === p.id || m.name.toLowerCase() === p.nome.toLowerCase())
+                    );
+                    return (
+                      <SelectItem key={p.id} value={p.id} className="text-xs">
+                        <div className="flex items-center gap-2">
+                          <span className="font-semibold text-foreground">{p.nome}</span>
+                          <span className="text-[11px] text-muted-foreground font-mono">
+                            (Estoque: {p.estoque_atual} {p.unidade})
+                          </span>
+                          {alreadyIsMat && (
+                            <span className="text-[10px] text-amber-400/90 font-mono">
+                              • Já adicionado
+                            </span>
+                          )}
+                        </div>
+                      </SelectItem>
+                    );
+                  })}
+                </SelectContent>
+              </Select>
+
+              {selectedMaterialProductId && selectedMaterialProductId !== "custom" && (
+                <div className="flex items-center justify-between text-[11px] text-muted-foreground pt-1 px-1">
+                  <span>Vinculado ao produto de estoque.</span>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedMaterialProductId("custom")}
+                    className="text-amber-400 hover:underline text-[10px]"
+                  >
+                    Digitar outro nome
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* NOME DA MATÉRIA-PRIMA */}
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold">Nome da Matéria-Prima *</Label>
+              <Input
+                value={materialName}
+                onChange={(e) => setMaterialName(e.target.value)}
+                placeholder="Ex: Chapa de Metal, Linha, Arame..."
+                className="text-xs rounded-xl"
+              />
+            </div>
             {/* FOTO DA MATÉRIA-PRIMA */}
             <div className="space-y-2">
               <Label className="text-xs font-semibold">Foto da Matéria-Prima (Opcional)</Label>
