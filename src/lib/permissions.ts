@@ -840,20 +840,10 @@ const MEMBER: Permission[] = [
   "view_stock",
   "create_movement",
   "view_baus",
-  "view_sales",
-  "create_sale",
-  "sales.view",
-  "sales.create",
   "productions.view",
   "productions.create",
   "view_productions",
   "create_production",
-  "warehouse.view",
-  "warehouse.transfer",
-  "warehouse.transfer_storage",
-  "warehouse.transfer_sale",
-  "warehouse.history",
-  "view_warehouse",
   "view_products",
   "view_categories",
   "view_members",
@@ -897,12 +887,6 @@ const NOVATO: Permission[] = [
   "request_absence",
   "view_stock",
   "view_baus",
-  "view_sales",
-  "sales.view",
-  "productions.view",
-  "view_productions",
-  "warehouse.view",
-  "view_warehouse",
   "view_products",
   "view_categories",
   "view_members",
@@ -1103,23 +1087,20 @@ export function can(
         list.includes("productions.create") ||
         list.includes("create_production") ||
         list.includes("productions.edit") ||
-        list.includes("productions.delete") ||
-        list.includes("production_management.view") ||
-        list.includes("production_management.productions"))
+        list.includes("productions.delete"))
     ) {
       return true;
     }
     if (
       (permission === "productions.create" || permission === "create_production") &&
       (list.includes("productions.create") ||
-        list.includes("create_production") ||
-        list.includes("production_management.productions"))
+        list.includes("create_production"))
     ) {
       return true;
     }
     if (
       (permission === "productions.edit" || permission === "productions.delete") &&
-      (list.includes("production_management.productions") || list.includes("production_management.view"))
+      (list.includes("productions.delete") || list.includes("production_management.productions"))
     ) {
       return true;
     }
@@ -1133,8 +1114,7 @@ export function can(
         list.includes("warehouse.transfer_storage") ||
         list.includes("warehouse.transfer_sale") ||
         list.includes("warehouse.adjust") ||
-        list.includes("warehouse.history") ||
-        list.includes("production_management.view"))
+        list.includes("warehouse.history"))
     ) {
       return true;
     }
@@ -1154,15 +1134,14 @@ export function can(
       permission === "warehouse.history" &&
       (list.includes("warehouse.view") ||
         list.includes("view_warehouse") ||
-        list.includes("warehouse.transfer") ||
-        list.includes("production_management.view") ||
-        list.includes("production_management.productions"))
+        list.includes("warehouse.transfer"))
     ) {
       return true;
     }
     if (
       permission === "warehouse.adjust" &&
-      (list.includes("production_management.settings") ||
+      (list.includes("warehouse.adjust") ||
+        list.includes("production_management.settings") ||
         list.includes("manage_stock_balance") ||
         list.includes("estoque.corrigir") ||
         list.includes("adjust_stock_balance"))
@@ -1170,7 +1149,7 @@ export function can(
       return true;
     }
 
-    // 3. Gestão de Produção
+    // 3. Gestão de Produção (Acesso administrativo restrito a quem possui permissão explícita)
     if (
       (permission === "production_management.view" || permission === "view_production_management") &&
       (list.includes("production_management.view") ||
@@ -1179,29 +1158,37 @@ export function can(
         list.includes("production_management.raw_materials") ||
         list.includes("production_management.productions") ||
         list.includes("production_management.settings") ||
-        list.includes("production_management.reports") ||
-        list.includes("manage_products"))
+        list.includes("production_management.reports"))
     ) {
       return true;
     }
     if (
       permission === "production_management.products" &&
-      (list.includes("manage_products") || list.includes("production_management.view"))
+      list.includes("production_management.products")
     ) {
       return true;
     }
     if (
-      permission === "manage_products" &&
-      (list.includes("production_management.products") || list.includes("production_management.view"))
+      permission === "production_management.raw_materials" &&
+      list.includes("production_management.raw_materials")
     ) {
       return true;
     }
     if (
-      (permission === "production_management.raw_materials" ||
-        permission === "production_management.productions" ||
-        permission === "production_management.settings" ||
-        permission === "production_management.reports") &&
-      list.includes("production_management.view")
+      permission === "production_management.productions" &&
+      list.includes("production_management.productions")
+    ) {
+      return true;
+    }
+    if (
+      permission === "production_management.settings" &&
+      list.includes("production_management.settings")
+    ) {
+      return true;
+    }
+    if (
+      permission === "production_management.reports" &&
+      (list.includes("production_management.reports") || list.includes("production_management.view"))
     ) {
       return true;
     }
@@ -1242,31 +1229,6 @@ export function can(
       (list.includes("delete_sale") || list.includes("sales.cancel"))
     ) {
       return true;
-    }
-
-    // Fallbacks graciosos modulares (caso papéis no banco tenham sido salvos antes da adição destes módulos)
-    const hasAnyProductionPerm = list.some(
-      (p) => typeof p === "string" && (p.includes("production") || p === "create_production" || p === "view_productions")
-    );
-    if (!hasAnyProductionPerm && (permission.includes("production") || permission === "create_production" || permission === "view_productions")) {
-      const defaultRolePerms = PERMISSIONS[userLevel] || [];
-      if (defaultRolePerms.includes(permission)) return true;
-    }
-
-    const hasAnyWarehousePerm = list.some(
-      (p) => typeof p === "string" && (p.includes("warehouse") || p === "view_warehouse")
-    );
-    if (!hasAnyWarehousePerm && (permission.includes("warehouse") || permission === "view_warehouse")) {
-      const defaultRolePerms = PERMISSIONS[userLevel] || [];
-      if (defaultRolePerms.includes(permission)) return true;
-    }
-
-    const hasAnySalesPerm = list.some(
-      (p) => typeof p === "string" && (p.includes("sale") || p.includes("venda"))
-    );
-    if (!hasAnySalesPerm && (permission.includes("sale") || permission.includes("venda"))) {
-      const defaultRolePerms = PERMISSIONS[userLevel] || [];
-      if (defaultRolePerms.includes(permission)) return true;
     }
 
     // Gestão de Estoque
@@ -1437,20 +1399,10 @@ export function can(
     (rolePerms.includes("production_management.view") ||
       rolePerms.includes("view_production_management") ||
       rolePerms.includes("production_management.products") ||
+      rolePerms.includes("production_management.raw_materials") ||
       rolePerms.includes("production_management.productions") ||
-      rolePerms.includes("manage_products"))
-  ) {
-    return true;
-  }
-  if (
-    permission === "production_management.products" &&
-    (rolePerms.includes("manage_products") || rolePerms.includes("production_management.view"))
-  ) {
-    return true;
-  }
-  if (
-    permission === "manage_products" &&
-    (rolePerms.includes("production_management.products") || rolePerms.includes("production_management.view"))
+      rolePerms.includes("production_management.settings") ||
+      rolePerms.includes("production_management.reports"))
   ) {
     return true;
   }

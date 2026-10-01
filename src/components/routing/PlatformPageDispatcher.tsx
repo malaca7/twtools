@@ -166,7 +166,18 @@ function InnerPageResolver({ page, tab, mode }: { page: string; tab?: string; mo
   }
 
   // Verifica permissão da página se exigida (modo dev possui bypass total para inspeção e governança)
-  const requiredPerm = PAGE_PERMISSION_MAP[normalizedPage];
+  let requiredPerm = PAGE_PERMISSION_MAP[normalizedPage];
+  if (normalizedPage === "producoes") {
+    const normalizedTab = (tab || "").toLowerCase().trim();
+    if (normalizedTab === "armazem") {
+      requiredPerm = "warehouse.view";
+    } else if (normalizedTab === "gestao" || normalizedTab === "gestao-producao") {
+      requiredPerm = "production_management.view";
+    } else {
+      requiredPerm = "productions.view";
+    }
+  }
+
   if (requiredPerm && !hasPermission(requiredPerm) && mode !== "dev") {
     return <NoAccess />;
   }

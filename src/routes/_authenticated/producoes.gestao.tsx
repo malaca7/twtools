@@ -91,31 +91,23 @@ export function GestaoProducaoPage() {
   const canAccess =
     isDevUser ||
     hasPermission("production_management.view") ||
-    hasPermission("view_production_management") ||
-    hasPermission("manage_products") ||
-    hasPermission("productions.view") ||
-    hasPermission("view_productions");
+    hasPermission("view_production_management");
 
   const canManageProducts =
     isDevUser ||
-    hasPermission("production_management.products") ||
-    hasPermission("manage_products") ||
-    canAccess;
+    hasPermission("production_management.products");
 
   const canManageMaterials =
     isDevUser ||
-    hasPermission("production_management.raw_materials") ||
-    canAccess;
+    hasPermission("production_management.raw_materials");
 
   const canAuditProductions =
     isDevUser ||
-    hasPermission("production_management.productions") ||
-    canAccess;
+    hasPermission("production_management.productions");
 
   const canManageSettings =
     isDevUser ||
-    hasPermission("production_management.settings") ||
-    canAccess;
+    hasPermission("production_management.settings");
 
   const [activeTab, setActiveTab] = useState("dashboard");
   const [periodFilter, setPeriodFilter] = useState<"all" | "today" | "7days" | "30days">("all");
@@ -339,24 +331,30 @@ export function GestaoProducaoPage() {
         </div>
 
         <div className="flex items-center gap-2">
-          <Button asChild variant="outline" size="sm" className="h-10 px-3 rounded-xl text-xs gap-1.5">
-            <Link to={`${prefix}/producoes/produzir`}>
-              <Factory className="h-4 w-4 text-amber-400" />
-              <span>Estação Produzir</span>
-            </Link>
-          </Button>
-          <Button asChild variant="outline" size="sm" className="h-10 px-3 rounded-xl text-xs gap-1.5">
-            <Link to={`${prefix}/producoes/armazem`}>
-              <Warehouse className="h-4 w-4 text-emerald-400" />
-              <span>Ver Armazém</span>
-            </Link>
-          </Button>
-          <Button asChild variant="outline" size="sm" className="h-10 px-3 rounded-xl text-xs gap-1.5">
-            <Link to={`${prefix}/vendas`}>
-              <ShoppingCart className="h-4 w-4 text-amber-400" />
-              <span>Ir para Vendas</span>
-            </Link>
-          </Button>
+          {(isDevUser || hasPermission("productions.view") || hasPermission("productions.create")) && (
+            <Button asChild variant="outline" size="sm" className="h-10 px-3 rounded-xl text-xs gap-1.5">
+              <Link to={`${prefix}/producoes/produzir`}>
+                <Factory className="h-4 w-4 text-amber-400" />
+                <span>Estação Produzir</span>
+              </Link>
+            </Button>
+          )}
+          {(isDevUser || hasPermission("warehouse.view")) && (
+            <Button asChild variant="outline" size="sm" className="h-10 px-3 rounded-xl text-xs gap-1.5">
+              <Link to={`${prefix}/producoes/armazem`}>
+                <Warehouse className="h-4 w-4 text-emerald-400" />
+                <span>Ver Armazém</span>
+              </Link>
+            </Button>
+          )}
+          {(isDevUser || hasPermission("view_sales") || hasPermission("sales.view")) && (
+            <Button asChild variant="outline" size="sm" className="h-10 px-3 rounded-xl text-xs gap-1.5">
+              <Link to={`${prefix}/vendas`}>
+                <ShoppingCart className="h-4 w-4 text-amber-400" />
+                <span>Ir para Vendas</span>
+              </Link>
+            </Button>
+          )}
         </div>
       </div>
 

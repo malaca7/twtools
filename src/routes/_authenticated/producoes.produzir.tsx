@@ -247,24 +247,30 @@ export function ProduzirPage() {
         </div>
 
         <div className="flex items-center gap-2">
-          <Button asChild variant="outline" size="sm" className="rounded-xl text-xs gap-1.5">
-            <Link to={`${prefix}/producoes/armazem`}>
-              <Warehouse className="h-4 w-4 text-emerald-400" />
-              <span>Ver Armazém</span>
-            </Link>
-          </Button>
-          <Button asChild variant="outline" size="sm" className="rounded-xl text-xs gap-1.5">
-            <Link to={`${prefix}/producoes/gestao`}>
-              <PackageCheck className="h-4 w-4 text-sky-400" />
-              <span>Gestão Central</span>
-            </Link>
-          </Button>
-          <Button asChild variant="outline" size="sm" className="rounded-xl text-xs gap-1.5">
-            <Link to={`${prefix}/vendas`}>
-              <ShoppingCart className="h-4 w-4 text-amber-400" />
-              <span>Ir para Vendas</span>
-            </Link>
-          </Button>
+          {(isDevUser || hasPermission("warehouse.view") || hasPermission("view_warehouse")) && (
+            <Button asChild variant="outline" size="sm" className="rounded-xl text-xs gap-1.5">
+              <Link to={`${prefix}/producoes/armazem`}>
+                <Warehouse className="h-4 w-4 text-emerald-400" />
+                <span>Ver Armazém</span>
+              </Link>
+            </Button>
+          )}
+          {(isDevUser || hasPermission("production_management.view") || hasPermission("view_production_management")) && (
+            <Button asChild variant="outline" size="sm" className="rounded-xl text-xs gap-1.5">
+              <Link to={`${prefix}/producoes/gestao`}>
+                <PackageCheck className="h-4 w-4 text-sky-400" />
+                <span>Gestão Central</span>
+              </Link>
+            </Button>
+          )}
+          {(isDevUser || hasPermission("view_sales") || hasPermission("sales.view")) && (
+            <Button asChild variant="outline" size="sm" className="rounded-xl text-xs gap-1.5">
+              <Link to={`${prefix}/vendas`}>
+                <ShoppingCart className="h-4 w-4 text-amber-400" />
+                <span>Ir para Vendas</span>
+              </Link>
+            </Button>
+          )}
         </div>
       </div>
 

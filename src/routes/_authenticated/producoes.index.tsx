@@ -16,9 +16,9 @@ function ProducoesIndexRedirect() {
     return <Navigate to="/producoes/armazem" replace />;
   }
 
-  if (hasPermission("production_management.view") || hasPermission("manage_products")) {
+  if (hasPermission("production_management.view") || hasPermission("view_production_management")) {
     return <Navigate to="/producoes/gestao" replace />;
   }
 
-  return <Navigate to="/producoes/produzir" replace />;
+  return <Navigate to="/dashboard" replace />;
 }

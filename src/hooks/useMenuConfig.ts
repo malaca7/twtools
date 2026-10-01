@@ -41,33 +41,33 @@ function subscribe(callback: () => void) {
   return () => listeners.delete(callback);
 }
 
-export const DEFAULT_MENU_CATEGORIES = ["Operação", "Produções", "Gestão", "Administração"];
+export const DEFAULT_MENU_CATEGORIES = ["Produções", "Gestão", "Administração"];
 
 export const DEFAULT_MENU_ITEMS: MenuItemConfig[] = [
-  { id: "dashboard", title: "Dashboard", url: "/dashboard", visible: true, category: "Operação", order: 0 },
-  { id: "movimentacoes", title: "Movimentações", url: "/movimentacoes", visible: true, category: "Operação", order: 1 },
-  { id: "vendas", title: "Vendas", url: "/vendas", visible: true, category: "Operação", order: 2 },
   { id: "produzir", title: "Produzir", url: "/producoes/produzir", visible: true, category: "Produções", order: 0, iconName: "Factory" },
   { id: "armazem", title: "Armazém", url: "/producoes/armazem", visible: true, category: "Produções", order: 1, iconName: "Warehouse" },
   { id: "gestao-producao", title: "Gestão de Produção", url: "/producoes/gestao", visible: true, category: "Produções", order: 2, iconName: "Sliders" },
-  { id: "notificacoes", title: "Notificações", url: "/notificacoes", visible: true, category: "Operação", order: 3, iconName: "Bell" },
-  { id: "tickets", title: "Tickets / Ouvidoria", url: "/tickets", visible: true, category: "Operação", order: 4 },
-  { id: "loja", title: "Loja Twin Wheels", url: "/loja", visible: true, category: "Operação", order: 4.5, iconName: "ShoppingBag" },
-  { id: "estoque", title: "Controle de Estoque", url: "/controledeestoque", visible: true, category: "Gestão", order: 5 },
-  { id: "gestao-estoque", title: "Gestão de Estoque", url: "/gestao-estoque", visible: true, category: "Gestão", order: 6, iconName: "PackageCheck" },
-  { id: "membros", title: "Membros", url: "/membros", visible: true, category: "Gestão", order: 7 },
-  { id: "hierarquia", title: "Hierarquia", url: "/hierarquia", visible: true, category: "Gestão", order: 8 },
-  { id: "fundo-caixa", title: "Fundo de Caixa", url: "/fundo-caixa", visible: true, category: "Gestão", order: 9 },
-  { id: "ausencias", title: "Ausências", url: "/ausencias", visible: true, category: "Gestão", order: 10 },
-  { id: "rankings", title: "Rankings", url: "/rankings", visible: true, category: "Gestão", order: 11 },
-  { id: "desempenho", title: "Meu Desempenho", url: "/desempenho", visible: true, category: "Gestão", order: 12 },
-  { id: "metas", title: "Metas", url: "/metas", visible: true, category: "Gestão", order: 13 },
-  { id: "avisos", title: "Enviar Avisos", url: "/avisos", visible: true, category: "Gestão", order: 14 },
-  { id: "cargos", title: "Gerenciamento de Cargos", url: "/cargos", visible: true, category: "Administração", order: 15 },
-  { id: "permissoes", title: "Permissões", url: "/permissoes", visible: true, category: "Administração", order: 16 },
-  { id: "atualizacoes", title: "Atualizações", url: "/atualizacoes", visible: true, category: "Administração", order: 17 },
-  { id: "perfil", title: "Meu Perfil", url: "/perfil", visible: true, category: "Gestão", order: 18 },
-  { id: "configuracoes", title: "Configurações", url: "/configuracoes", visible: true, category: "Administração", order: 19 },
+  { id: "vendas", title: "Vendas", url: "/vendas", visible: true, category: "Produções", order: 3, iconName: "ShoppingCart" },
+  { id: "dashboard", title: "Dashboard", url: "/dashboard", visible: true, category: "Gestão", order: 4, iconName: "LayoutDashboard" },
+  { id: "movimentacoes", title: "Movimentações", url: "/movimentacoes", visible: true, category: "Gestão", order: 5, iconName: "ArrowLeftRight" },
+  { id: "notificacoes", title: "Notificações", url: "/notificacoes", visible: true, category: "Gestão", order: 6, iconName: "Bell" },
+  { id: "tickets", title: "Tickets / Ouvidoria", url: "/tickets", visible: true, category: "Gestão", order: 7, iconName: "LifeBuoy" },
+  { id: "loja", title: "Loja Twin Wheels", url: "/loja", visible: true, category: "Gestão", order: 8, iconName: "ShoppingBag" },
+  { id: "estoque", title: "Controle de Estoque", url: "/controledeestoque", visible: true, category: "Gestão", order: 9, iconName: "Boxes" },
+  { id: "gestao-estoque", title: "Gestão de Estoque", url: "/gestao-estoque", visible: true, category: "Gestão", order: 10, iconName: "PackageCheck" },
+  { id: "membros", title: "Membros", url: "/membros", visible: true, category: "Gestão", order: 11 },
+  { id: "hierarquia", title: "Hierarquia", url: "/hierarquia", visible: true, category: "Gestão", order: 12 },
+  { id: "fundo-caixa", title: "Fundo de Caixa", url: "/fundo-caixa", visible: true, category: "Gestão", order: 13 },
+  { id: "ausencias", title: "Ausências", url: "/ausencias", visible: true, category: "Gestão", order: 14 },
+  { id: "rankings", title: "Rankings", url: "/rankings", visible: true, category: "Gestão", order: 15 },
+  { id: "desempenho", title: "Meu Desempenho", url: "/desempenho", visible: true, category: "Gestão", order: 16 },
+  { id: "metas", title: "Metas", url: "/metas", visible: true, category: "Gestão", order: 17 },
+  { id: "avisos", title: "Enviar Avisos", url: "/avisos", visible: true, category: "Gestão", order: 18 },
+  { id: "cargos", title: "Gerenciamento de Cargos", url: "/cargos", visible: true, category: "Administração", order: 19 },
+  { id: "permissoes", title: "Permissões", url: "/permissoes", visible: true, category: "Administração", order: 20 },
+  { id: "atualizacoes", title: "Atualizações", url: "/atualizacoes", visible: true, category: "Administração", order: 21 },
+  { id: "perfil", title: "Meu Perfil", url: "/perfil", visible: true, category: "Gestão", order: 22 },
+  { id: "configuracoes", title: "Configurações", url: "/configuracoes", visible: true, category: "Administração", order: 23 },
 ];
 
 export type PlatformSystemModule = {
@@ -80,14 +80,14 @@ export type PlatformSystemModule = {
 };
 
 export const PLATFORM_SYSTEM_MODULES: PlatformSystemModule[] = [
-  { id: "dashboard", title: "Dashboard", url: "/dashboard", defaultCat: "Operação", iconName: "LayoutDashboard", description: "Painel principal e estatísticas operacionais" },
-  { id: "movimentacoes", title: "Movimentações", url: "/movimentacoes", defaultCat: "Operação", iconName: "ArrowLeftRight", description: "Histórico de entradas e saídas de itens" },
-  { id: "vendas", title: "Vendas", url: "/vendas", defaultCat: "Operação", iconName: "ShoppingCart", description: "Registro e conferência de vendas" },
   { id: "produzir", title: "Produzir", url: "/producoes/produzir", defaultCat: "Produções", iconName: "Factory", description: "Estação operacional de manufatura de itens e consumo de matérias-primas" },
   { id: "armazem", title: "Armazém", url: "/producoes/armazem", defaultCat: "Produções", iconName: "Warehouse", description: "Depósito central de produtos produzidos e transferências para baús ou vendas" },
   { id: "gestao-producao", title: "Gestão de Produção", url: "/producoes/gestao", defaultCat: "Produções", iconName: "Sliders", description: "Painel administrativo de controle de catálogo, matérias-primas e auditoria" },
-  { id: "tickets", title: "Tickets / Ouvidoria", url: "/tickets", defaultCat: "Operação", iconName: "LifeBuoy", description: "Atendimento e chamados de membros" },
-  { id: "loja", title: "Loja Twin Wheels", url: "/loja", defaultCat: "Operação", iconName: "ShoppingBag", description: "Mercado oficial da facção com insígnias, vantagens e suprimentos por TW Coins" },
+  { id: "vendas", title: "Vendas", url: "/vendas", defaultCat: "Produções", iconName: "ShoppingCart", description: "Registro e conferência de vendas" },
+  { id: "dashboard", title: "Dashboard", url: "/dashboard", defaultCat: "Gestão", iconName: "LayoutDashboard", description: "Painel principal e estatísticas operacionais" },
+  { id: "movimentacoes", title: "Movimentações", url: "/movimentacoes", defaultCat: "Gestão", iconName: "ArrowLeftRight", description: "Histórico de entradas e saídas de itens" },
+  { id: "tickets", title: "Tickets / Ouvidoria", url: "/tickets", defaultCat: "Gestão", iconName: "LifeBuoy", description: "Atendimento e chamados de membros" },
+  { id: "loja", title: "Loja Twin Wheels", url: "/loja", defaultCat: "Gestão", iconName: "ShoppingBag", description: "Mercado oficial da facção com insígnias, vantagens e suprimentos por TW Coins" },
   { id: "estoque", title: "Controle de Estoque", url: "/controledeestoque", defaultCat: "Gestão", iconName: "Boxes", description: "Controle operacional do estoque e baús" },
   { id: "gestao-estoque", title: "Gestão de Estoque", url: "/gestao-estoque", defaultCat: "Gestão", iconName: "PackageCheck", description: "Painel gerencial de produtos, baús, categorias e saldos" },
   { id: "membros", title: "Membros", url: "/membros", defaultCat: "Gestão", iconName: "Users", description: "Lista e cadastro de membros da facção" },
@@ -140,11 +140,15 @@ export function syncMenuConfig(raw: Partial<MenuConfig> | null | undefined): Men
   };
 
   // Se o usuário especificou uma lista de categorias (mesmo com nomes customizados), respeita estritamente
-  if (savedCats.length > 0) {
-    savedCats.forEach(addCategory);
+  const cleanSavedCats = savedCats.filter((c) => c !== "Operação");
+  if (cleanSavedCats.length > 0) {
+    cleanSavedCats.forEach(addCategory);
   } else {
     // Apenas se não houver nenhuma categoria configurada usa o padrão
     DEFAULT_MENU_CATEGORIES.forEach(addCategory);
+  }
+  if (!categories.includes("Produções")) {
+    categories.unshift("Produções");
   }
 
   // 2. Mapa de itens padrão da plataforma
@@ -193,13 +197,17 @@ export function syncMenuConfig(raw: Partial<MenuConfig> | null | undefined): Men
           ? saved.category.trim()
           : defaultMatch?.category || categories[0] || "Gestão";
 
+      if (category === "Operação") {
+        category = saved.id === "vendas" ? "Produções" : (defaultMatch?.category || "Gestão");
+      }
+
       const visible = typeof saved.visible === "boolean" ? saved.visible : true;
       const iconName = typeof saved.iconName === "string" ? saved.iconName : undefined;
       const isCustom = Boolean(saved.isCustom || !defaultMatch);
 
       // Se o usuário especificou categorias e o item está em categoria inexistente, mapeia para a primeira válida
-      if (savedCats.length > 0 && !categories.includes(category)) {
-        category = categories[0] || "Geral";
+      if (cleanSavedCats.length > 0 && !categories.includes(category)) {
+        category = categories[0] || "Gestão";
       } else {
         addCategory(category);
       }

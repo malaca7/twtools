@@ -138,18 +138,22 @@ export function VendasPage() {
         description="Gestão de vendas do grupo com estorno automático de estoque."
         actions={
           <div className="flex flex-wrap items-center gap-2">
-            <Button asChild variant="outline" size="sm" className="rounded-xl text-xs gap-1.5">
-              <Link to={`${prefix}/producoes/armazem`}>
-                <Warehouse className="h-4 w-4 text-emerald-400" />
-                <span>Armazém</span>
-              </Link>
-            </Button>
-            <Button asChild variant="outline" size="sm" className="rounded-xl text-xs gap-1.5">
-              <Link to={`${prefix}/producoes/produzir`}>
-                <Factory className="h-4 w-4 text-amber-400" />
-                <span>Produzir</span>
-              </Link>
-            </Button>
+            {(isDevUser || hasPermission("warehouse.view") || hasPermission("view_warehouse")) && (
+              <Button asChild variant="outline" size="sm" className="rounded-xl text-xs gap-1.5">
+                <Link to={`${prefix}/producoes/armazem`}>
+                  <Warehouse className="h-4 w-4 text-emerald-400" />
+                  <span>Armazém</span>
+                </Link>
+              </Button>
+            )}
+            {(isDevUser || hasPermission("productions.view") || hasPermission("productions.create")) && (
+              <Button asChild variant="outline" size="sm" className="rounded-xl text-xs gap-1.5">
+                <Link to={`${prefix}/producoes/produzir`}>
+                  <Factory className="h-4 w-4 text-amber-400" />
+                  <span>Produzir</span>
+                </Link>
+              </Button>
+            )}
             {canCreate ? (
               <SaleDialog
                 trigger={

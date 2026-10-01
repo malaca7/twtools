@@ -125,29 +125,29 @@ type MasterNavItem = {
 };
 
 const MASTER_NAV_ITEMS: MasterNavItem[] = [
-  { id: "dashboard", title: "Dashboard", url: "/dashboard", icon: LayoutDashboard, perm: "view_dashboard", defaultCat: "Operação", defaultOrder: 0 },
-  { id: "movimentacoes", title: "Movimentações", url: "/movimentacoes", icon: ArrowLeftRight, perm: "view_movements", defaultCat: "Operação", defaultOrder: 1 },
-  { id: "vendas", title: "Vendas", url: "/vendas", icon: ShoppingCart, perm: "view_sales", defaultCat: "Operação", defaultOrder: 2 },
   { id: "produzir", title: "Produzir", url: "/producoes/produzir", icon: Factory, perm: "productions.view", defaultCat: "Produções", defaultOrder: 0 },
   { id: "armazem", title: "Armazém", url: "/producoes/armazem", icon: Warehouse, perm: "warehouse.view", defaultCat: "Produções", defaultOrder: 1 },
   { id: "gestao-producao", title: "Gestão de Produção", url: "/producoes/gestao", icon: Sliders, perm: "production_management.view", defaultCat: "Produções", defaultOrder: 2 },
-  { id: "tickets", title: "Tickets / Ouvidoria", url: "/tickets", icon: LifeBuoy, perm: "view_tickets", defaultCat: "Operação", defaultOrder: 3 },
-  { id: "loja", title: "Loja Twin Wheels", url: "/loja", icon: ShoppingBag, perm: "view_shop", defaultCat: "Operação", defaultOrder: 4 },
-  { id: "estoque", title: "Controle de Estoque", url: "/controledeestoque", icon: Boxes, perm: "view_stock", defaultCat: "Gestão", defaultOrder: 5 },
-  { id: "gestao-estoque", title: "Gestão de Estoque", url: "/gestao-estoque", icon: PackageCheck, perm: "view_stock_management", defaultCat: "Gestão", defaultOrder: 5 },
-  { id: "membros", title: "Membros", url: "/membros", icon: Users, perm: "view_members", defaultCat: "Gestão", defaultOrder: 6 },
-  { id: "hierarquia", title: "Hierarquia", url: "/hierarquia", icon: Workflow, perm: "view_hierarchy", defaultCat: "Gestão", defaultOrder: 7 },
-  { id: "fundo-caixa", title: "Fundo de Caixa", url: "/fundo-caixa", icon: Landmark, perm: "view_cash_fund", defaultCat: "Gestão", defaultOrder: 8 },
-  { id: "ausencias", title: "Ausências", url: "/ausencias", icon: CalendarOff, perm: "view_absences", defaultCat: "Gestão", defaultOrder: 9 },
-  { id: "rankings", title: "Rankings", url: "/rankings", icon: Trophy, perm: "view_rankings", defaultCat: "Gestão", defaultOrder: 10 },
-  { id: "desempenho", title: "Meu Desempenho", url: "/desempenho", icon: User, perm: "view_performance", defaultCat: "Gestão", defaultOrder: 11 },
-  { id: "metas", title: "Metas", url: "/metas", icon: Target, perm: "view_goals", defaultCat: "Gestão", defaultOrder: 12 },
-  { id: "avisos", title: "Enviar Avisos", url: "/avisos", icon: Megaphone, perm: "manage_announcements", defaultCat: "Gestão", defaultOrder: 13 },
-  { id: "cargos", title: "Gerenciamento de Cargos", url: "/cargos", icon: ShieldCheck, perm: "manage_roles", defaultCat: "Administração", defaultOrder: 14 },
-  { id: "permissoes", title: "Permissões", url: "/permissoes", icon: Settings, perm: "manage_permissions", defaultCat: "Administração", defaultOrder: 15 },
-  { id: "atualizacoes", title: "Atualizações", url: "/atualizacoes", icon: Sparkles, perm: "view_patch_notes", defaultCat: "Administração", defaultOrder: 16 },
-  { id: "perfil", title: "Meu Perfil", url: "/perfil", icon: User, perm: "view_profile", defaultCat: "Gestão", defaultOrder: 17 },
-  { id: "configuracoes", title: "Configurações", url: "/configuracoes", icon: Wrench, perm: "manage_platform_settings", defaultCat: "Administração", defaultOrder: 18 },
+  { id: "vendas", title: "Vendas", url: "/vendas", icon: ShoppingCart, perm: "view_sales", defaultCat: "Produções", defaultOrder: 3 },
+  { id: "dashboard", title: "Dashboard", url: "/dashboard", icon: LayoutDashboard, perm: "view_dashboard", defaultCat: "Gestão", defaultOrder: 4 },
+  { id: "movimentacoes", title: "Movimentações", url: "/movimentacoes", icon: ArrowLeftRight, perm: "view_movements", defaultCat: "Gestão", defaultOrder: 5 },
+  { id: "tickets", title: "Tickets / Ouvidoria", url: "/tickets", icon: LifeBuoy, perm: "view_tickets", defaultCat: "Gestão", defaultOrder: 6 },
+  { id: "loja", title: "Loja Twin Wheels", url: "/loja", icon: ShoppingBag, perm: "view_shop", defaultCat: "Gestão", defaultOrder: 7 },
+  { id: "estoque", title: "Controle de Estoque", url: "/controledeestoque", icon: Boxes, perm: "view_stock", defaultCat: "Gestão", defaultOrder: 8 },
+  { id: "gestao-estoque", title: "Gestão de Estoque", url: "/gestao-estoque", icon: PackageCheck, perm: "view_stock_management", defaultCat: "Gestão", defaultOrder: 9 },
+  { id: "membros", title: "Membros", url: "/membros", icon: Users, perm: "view_members", defaultCat: "Gestão", defaultOrder: 10 },
+  { id: "hierarquia", title: "Hierarquia", url: "/hierarquia", icon: Workflow, perm: "view_hierarchy", defaultCat: "Gestão", defaultOrder: 11 },
+  { id: "fundo-caixa", title: "Fundo de Caixa", url: "/fundo-caixa", icon: Landmark, perm: "view_cash_fund", defaultCat: "Gestão", defaultOrder: 12 },
+  { id: "ausencias", title: "Ausências", url: "/ausencias", icon: CalendarOff, perm: "view_absences", defaultCat: "Gestão", defaultOrder: 13 },
+  { id: "rankings", title: "Rankings", url: "/rankings", icon: Trophy, perm: "view_rankings", defaultCat: "Gestão", defaultOrder: 14 },
+  { id: "desempenho", title: "Meu Desempenho", url: "/desempenho", icon: User, perm: "view_performance", defaultCat: "Gestão", defaultOrder: 15 },
+  { id: "metas", title: "Metas", url: "/metas", icon: Target, perm: "view_goals", defaultCat: "Gestão", defaultOrder: 16 },
+  { id: "avisos", title: "Enviar Avisos", url: "/avisos", icon: Megaphone, perm: "manage_announcements", defaultCat: "Gestão", defaultOrder: 17 },
+  { id: "cargos", title: "Gerenciamento de Cargos", url: "/cargos", icon: ShieldCheck, perm: "manage_roles", defaultCat: "Administração", defaultOrder: 18 },
+  { id: "permissoes", title: "Permissões", url: "/permissoes", icon: Settings, perm: "manage_permissions", defaultCat: "Administração", defaultOrder: 19 },
+  { id: "atualizacoes", title: "Atualizações", url: "/atualizacoes", icon: Sparkles, perm: "view_patch_notes", defaultCat: "Administração", defaultOrder: 20 },
+  { id: "perfil", title: "Meu Perfil", url: "/perfil", icon: User, perm: "view_profile", defaultCat: "Gestão", defaultOrder: 21 },
+  { id: "configuracoes", title: "Configurações", url: "/configuracoes", icon: Wrench, perm: "manage_platform_settings", defaultCat: "Administração", defaultOrder: 22 },
 ];
 
 const URL_TO_PERMISSION_MAP: Record<string, Permission> = {
@@ -314,9 +314,14 @@ function DynamicSidebarNavigation() {
     const deletedSet = new Set<string>(
       Array.isArray(menuConfig?.deletedItemIds) ? menuConfig.deletedItemIds : []
     );
-    const categoryOrder = menuConfig?.categories?.length
-      ? (menuConfig.categories.includes("Produções") ? menuConfig.categories : [menuConfig.categories[0], "Produções", ...menuConfig.categories.slice(1)])
-      : ["Operação", "Produções", "Gestão", "Administração"];
+    const rawCategories = menuConfig?.categories?.length
+      ? menuConfig.categories
+      : ["Produções", "Gestão", "Administração"];
+    const categoryOrder = rawCategories
+      .filter((c) => c !== "Operação")
+      .includes("Produções")
+        ? rawCategories.filter((c) => c !== "Operação")
+        : ["Produções", ...rawCategories.filter((c) => c !== "Operação")];
 
     const masterItemsMap = new Map<string, MasterNavItem>();
     MASTER_NAV_ITEMS.forEach((m) => {
@@ -344,8 +349,11 @@ function DynamicSidebarNavigation() {
 
           // Garante que o item pertença a uma das categorias oficiais configuradas
           let cat = c.category;
+          if (cat === "Operação") {
+            cat = c.id === "vendas" ? "Produções" : "Gestão";
+          }
           if (!cat || !categoryOrder.includes(cat)) {
-            cat = categoryOrder[0] || "Geral";
+            cat = categoryOrder[0] || "Gestão";
           }
 
           return {
@@ -366,7 +374,13 @@ function DynamicSidebarNavigation() {
       MASTER_NAV_ITEMS.forEach((m, idx) => {
         if (!processedIds.has(m.id) && !deletedSet.has(m.id) && !deletedSet.has(m.url)) {
           if (m.id === "chat" || m.id === "logs" || m.url === "/chat" || m.url === "/logs") return;
-          const targetCat = categoryOrder.includes(m.defaultCat) ? m.defaultCat : (categoryOrder[0] || "Geral");
+          let targetCat = m.defaultCat;
+          if (targetCat === "Operação") {
+            targetCat = m.id === "vendas" ? "Produções" : "Gestão";
+          }
+          if (!categoryOrder.includes(targetCat)) {
+            targetCat = categoryOrder[0] || "Gestão";
+          }
           allPlatformItems.push({
             ...m,
             category: targetCat,
@@ -381,12 +395,22 @@ function DynamicSidebarNavigation() {
       allPlatformItems = MASTER_NAV_ITEMS
         .filter((m) => !deletedSet.has(m.id) && !deletedSet.has(m.url))
         .filter((m) => m.id !== "chat" && m.id !== "logs" && m.url !== "/chat" && m.url !== "/logs")
-        .map((m, idx) => ({
-          ...m,
-          category: categoryOrder.includes(m.defaultCat) ? m.defaultCat : (categoryOrder[0] || "Geral"),
-          order: m.defaultOrder ?? idx,
-          visible: true,
-        }));
+        .map((m, idx) => {
+          let cat = m.defaultCat;
+          if (cat === "Operação") {
+            cat = m.id === "vendas" ? "Produções" : "Gestão";
+          }
+          if (!categoryOrder.includes(cat)) {
+            cat = categoryOrder[0] || "Gestão";
+          }
+          return {
+            ...m,
+            category: cat,
+            defaultCat: cat,
+            order: m.defaultOrder ?? idx,
+            visible: true,
+          };
+        });
     }
 
     // Itens da Categoria CEO (dinâmico com base em useCeoMenuConfig e permissões)
