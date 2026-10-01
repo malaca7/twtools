@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQueryClient, useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
@@ -10,6 +10,8 @@ import {
   Search,
   Plus,
   Loader2,
+  Warehouse,
+  Factory,
 } from "lucide-react";
 import { PageHeader, NoAccess, TableSkeleton, EmptyState, ProductThumbnail } from "@/components/ui-kit";
 import { SaleDialog, PAYMENT_LABEL, PAYMENT_METHODS } from "@/components/operations/SaleDialog";
@@ -51,11 +53,12 @@ export const Route = createFileRoute("/_authenticated/vendas")({
 });
 
 export function VendasPage() {
-  const { hasPermission } = useAuth();
+  const { hasPermission, isDevUser, isDevMode, isCeoMode } = useAuth();
   const queryClient = useQueryClient();
-  const canView = hasPermission("view_sales");
-  const canCreate = hasPermission("create_sale");
-  const canReverse = hasPermission("reverse_sale");
+  const prefix = isDevMode ? "/dev" : isCeoMode ? "/ceo" : "";
+  const canView = isDevUser || hasPermission("view_sales") || hasPermission("sales.view");
+  const canCreate = isDevUser || hasPermission("create_sale") || hasPermission("sales.create");
+  const canReverse = isDevUser || hasPermission("reverse_sale") || hasPermission("sales.cancel");
 
   const { data: sales = [], isLoading: loadingSales } = useSales();
   const { data: products = [] } = useProducts();
@@ -93,9 +96,10 @@ export function VendasPage() {
   if (!canView) return <NoAccess />;
 
   // Filtered sales
-  const filteredSales = sales.filter((s) => {
-    const pName = productName(products, s.product_id).toLowerCase();
-    const seller = nameOf(members, s.seller_id).toLowerCase();
+  const filteredSales = (sales || []).filter((s) => {
+    if (!s) return false;
+    const pName = (productName(products, s.product_id) || "").toLowerCase();
+    const seller = (nameOf(members, s.seller_id) || "").toLowerCase();
     const buyer = (s.buyer_name || "").toLowerCase();
     const query = search.toLowerCase();
 
@@ -107,14 +111,14 @@ export function VendasPage() {
   });
 
   // Calculate statistics
-  const activeSales = sales.filter((s) => s.status === "concluida");
-  const totalRevenue = activeSales.reduce((acc, s) => acc + Number(s.total_price), 0);
+  const activeSales = (sales || []).filter((s) => s && s.status === "concluida");
+  const totalRevenue = activeSales.reduce((acc, s) => acc + Number(s.total_price || 0), 0);
   const totalSalesCount = activeSales.length;
   const avgTicket = totalSalesCount > 0 ? totalRevenue / totalSalesCount : 0;
 
   const todayStr = new Date().toISOString().slice(0, 10);
-  const salesToday = activeSales.filter((s) => s.created_at.startsWith(todayStr));
-  const revenueToday = salesToday.reduce((acc, s) => acc + Number(s.total_price), 0);
+  const salesToday = activeSales.filter((s) => typeof s.created_at === "string" && s.created_at.startsWith(todayStr));
+  const revenueToday = salesToday.reduce((acc, s) => acc + Number(s.total_price || 0), 0);
 
   return (
     <div className="mx-auto max-w-7xl space-y-6">
@@ -122,15 +126,29 @@ export function VendasPage() {
         title="Vendas"
         description="Gestão de vendas do grupo com estorno automático de estoque."
         actions={
-          canCreate ? (
-            <SaleDialog
-              trigger={
-                <Button className="bg-gradient-brand text-primary-foreground hover:opacity-90">
-                  <Plus className="mr-2 h-4 w-4" /> Nova venda
-                </Button>
-              }
-            />
-          ) : null
+          <div className="flex flex-wrap items-center gap-2">
+            <Button asChild variant="outline" size="sm" className="rounded-xl text-xs gap-1.5">
+              <Link to={`${prefix}/producoes/armazem`}>
+                <Warehouse className="h-4 w-4 text-emerald-400" />
+                <span>Armazém</span>
+              </Link>
+            </Button>
+            <Button asChild variant="outline" size="sm" className="rounded-xl text-xs gap-1.5">
+              <Link to={`${prefix}/producoes/produzir`}>
+                <Factory className="h-4 w-4 text-amber-400" />
+                <span>Produzir</span>
+              </Link>
+            </Button>
+            {canCreate ? (
+              <SaleDialog
+                trigger={
+                  <Button className="bg-gradient-brand text-primary-foreground hover:opacity-90">
+                    <Plus className="mr-2 h-4 w-4" /> Nova venda
+                  </Button>
+                }
+              />
+            ) : null}
+          </div>
         }
       />
 

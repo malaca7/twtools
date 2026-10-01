@@ -6,6 +6,7 @@ import {
   Factory,
   PackageCheck,
   Warehouse,
+  ShoppingCart,
   Plus,
   Trash2,
   AlertTriangle,
@@ -57,10 +58,12 @@ type MaterialItem = {
 };
 
 export function ProduzirPage() {
-  const { hasPermission, isDevUser } = useAuth();
+  const { hasPermission, isDevUser, isDevMode, isCeoMode } = useAuth();
   const queryClient = useQueryClient();
 
   const canProduce = isDevUser || hasPermission("productions.create") || hasPermission("create_production");
+  const canView = isDevUser || canProduce || hasPermission("productions.view") || hasPermission("view_productions");
+  const prefix = isDevMode ? "/dev" : isCeoMode ? "/ceo" : "";
 
   const { data: products = [], isLoading: loadingProducts } = useProducts();
   const { data: rawMaterials = [], isLoading: loadingMaterials } = useRawMaterials();
@@ -186,8 +189,8 @@ export function ProduzirPage() {
     },
   });
 
-  if (!canProduce) {
-    return <NoAccess message="Você não possui permissão para executar ordens de produção." />;
+  if (!canView && !canProduce) {
+    return <NoAccess message="Você não possui permissão para acessar a Estação de Produção." />;
   }
 
   const numQty = parseFloat(quantity) || 0;
@@ -217,15 +220,21 @@ export function ProduzirPage() {
 
         <div className="flex items-center gap-2">
           <Button asChild variant="outline" size="sm" className="rounded-xl text-xs gap-1.5">
-            <Link to="/producoes/armazem">
+            <Link to={`${prefix}/producoes/armazem`}>
               <Warehouse className="h-4 w-4 text-emerald-400" />
               <span>Ver Armazém</span>
             </Link>
           </Button>
           <Button asChild variant="outline" size="sm" className="rounded-xl text-xs gap-1.5">
-            <Link to="/producoes/gestao">
+            <Link to={`${prefix}/producoes/gestao`}>
               <PackageCheck className="h-4 w-4 text-sky-400" />
               <span>Gestão Central</span>
+            </Link>
+          </Button>
+          <Button asChild variant="outline" size="sm" className="rounded-xl text-xs gap-1.5">
+            <Link to={`${prefix}/vendas`}>
+              <ShoppingCart className="h-4 w-4 text-amber-400" />
+              <span>Ir para Vendas</span>
             </Link>
           </Button>
         </div>

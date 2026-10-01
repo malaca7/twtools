@@ -436,16 +436,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // Avalia a matriz de permissões configurada para a Tag Dev / Desenvolvedor
         const devPerms = customRolePermissions?.["desenvolvedor"] ?? getDevTagPermissionsSync();
         if (Array.isArray(devPerms) && devPerms.length > 0) {
-          return devPerms.includes(permission);
+          if (devPerms.includes(permission)) return true;
+          if (isDevUser) return can("desenvolvedor", permission, customRolePermissions);
         }
+        if (isDevUser) return true;
         return can(level, permission, customRolePermissions);
       }
 
       // 3. Quando estiver operando no PAINEL CEO (ou rota /ceo):
       if (inCeoPanel) {
+        if (isDevUser) return true;
         const ceoPerms = customRolePermissions?.["ceo"] ?? getCeoTagPermissionsSync();
-        if (Array.isArray(ceoPerms)) {
-          return ceoPerms.includes(permission);
+        if (Array.isArray(ceoPerms) && ceoPerms.length > 0) {
+          if (ceoPerms.includes(permission)) return true;
         }
         return can(level, permission, customRolePermissions);
       }

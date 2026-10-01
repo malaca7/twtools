@@ -41,6 +41,9 @@ import { DevCoinsPage } from "@/routes/_authenticated/dev.coins";
 import { GestaoEstoquePage } from "@/routes/_authenticated/gestao-estoque";
 import { LifePage } from "@/routes/_authenticated/life";
 import { ShopPage } from "@/components/shop/ShopPage";
+import { ProduzirPage } from "@/routes/_authenticated/producoes.produzir";
+import { ArmazemPage } from "@/routes/_authenticated/producoes.armazem";
+import { GestaoProducaoPage } from "@/routes/_authenticated/producoes.gestao";
 
 export interface PlatformPageDispatcherProps {
   page: string;
@@ -53,6 +56,11 @@ const PAGE_PERMISSION_MAP: Record<string, Permission | null> = {
   dashboard: "view_dashboard",
   movimentacoes: "view_movements",
   vendas: "view_sales",
+  producoes: "productions.view",
+  produzir: "productions.create",
+  armazem: "warehouse.view",
+  "gestao-producao": "production_management.view",
+  gestao: "production_management.view",
   lives: "view_lives",
   tickets: "view_tickets",
   controledeestoque: "view_stock",
@@ -170,6 +178,23 @@ function InnerPageResolver({ page, tab, mode }: { page: string; tab?: string; mo
       return <MovimentacoesPage />;
     case "vendas":
       return <VendasPage />;
+    case "producoes": {
+      const normalizedTab = (tab || "").toLowerCase().trim();
+      if (normalizedTab === "armazem") {
+        return <ArmazemPage />;
+      }
+      if (normalizedTab === "gestao" || normalizedTab === "gestao-producao") {
+        return <GestaoProducaoPage />;
+      }
+      return <ProduzirPage />;
+    }
+    case "produzir":
+      return <ProduzirPage />;
+    case "armazem":
+      return <ArmazemPage />;
+    case "gestao-producao":
+    case "gestao":
+      return <GestaoProducaoPage />;
     case "lives":
       return <LivesPage />;
     case "chat":

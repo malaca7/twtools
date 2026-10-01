@@ -73,8 +73,9 @@ export const Route = createFileRoute("/_authenticated/producoes/armazem")({
 });
 
 export function ArmazemPage() {
-  const { hasPermission, isDevUser } = useAuth();
+  const { hasPermission, isDevUser, isDevMode, isCeoMode } = useAuth();
   const queryClient = useQueryClient();
+  const prefix = isDevMode ? "/dev" : isCeoMode ? "/ceo" : "";
 
   const canView = isDevUser || hasPermission("warehouse.view") || hasPermission("view_warehouse");
   const canTransfer = isDevUser || hasPermission("warehouse.transfer") || hasPermission("warehouse.transfer_storage") || hasPermission("warehouse.transfer_sale");
@@ -268,13 +269,19 @@ export function ArmazemPage() {
 
         <div className="flex items-center gap-2">
           <Button asChild className="h-10 px-4 bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold rounded-xl gap-2 shadow-lg shadow-amber-500/20 cursor-pointer">
-            <Link to="/producoes/produzir">
+            <Link to={`${prefix}/producoes/produzir`}>
               <Factory className="h-4 w-4" />
               <span>Produzir Itens</span>
             </Link>
           </Button>
           <Button asChild variant="outline" size="sm" className="h-10 px-3 rounded-xl text-xs gap-1.5">
-            <Link to="/vendas">
+            <Link to={`${prefix}/producoes/gestao`}>
+              <PackageCheck className="h-4 w-4 text-sky-400" />
+              <span>Gestão Central</span>
+            </Link>
+          </Button>
+          <Button asChild variant="outline" size="sm" className="h-10 px-3 rounded-xl text-xs gap-1.5">
+            <Link to={`${prefix}/vendas`}>
               <ShoppingCart className="h-4 w-4 text-amber-400" />
               <span>Ir para Vendas</span>
             </Link>

@@ -84,8 +84,9 @@ export const Route = createFileRoute("/_authenticated/producoes/gestao")({
 });
 
 export function GestaoProducaoPage() {
-  const { hasPermission, isDevUser } = useAuth();
+  const { hasPermission, isDevUser, isDevMode, isCeoMode } = useAuth();
   const queryClient = useQueryClient();
+  const prefix = isDevMode ? "/dev" : isCeoMode ? "/ceo" : "";
 
   const canAccess =
     isDevUser ||
@@ -312,15 +313,21 @@ export function GestaoProducaoPage() {
 
         <div className="flex items-center gap-2">
           <Button asChild variant="outline" size="sm" className="h-10 px-3 rounded-xl text-xs gap-1.5">
-            <Link to="/producoes/produzir">
+            <Link to={`${prefix}/producoes/produzir`}>
               <Factory className="h-4 w-4 text-amber-400" />
               <span>Estação Produzir</span>
             </Link>
           </Button>
           <Button asChild variant="outline" size="sm" className="h-10 px-3 rounded-xl text-xs gap-1.5">
-            <Link to="/producoes/armazem">
+            <Link to={`${prefix}/producoes/armazem`}>
               <Warehouse className="h-4 w-4 text-emerald-400" />
               <span>Ver Armazém</span>
+            </Link>
+          </Button>
+          <Button asChild variant="outline" size="sm" className="h-10 px-3 rounded-xl text-xs gap-1.5">
+            <Link to={`${prefix}/vendas`}>
+              <ShoppingCart className="h-4 w-4 text-amber-400" />
+              <span>Ir para Vendas</span>
             </Link>
           </Button>
         </div>

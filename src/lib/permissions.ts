@@ -1110,6 +1110,15 @@ export function can(
     if (permission === "sales.cancel" && list.includes("reverse_sale")) return true;
     if (permission === "reverse_sale" && list.includes("sales.cancel")) return true;
 
+    // Fallback gracioso para Produções e Armazém: se o cargo foi salvo no banco antes de o módulo existir
+    const hasAnyProductionOrWarehousePerm = list.some(
+      (p) => typeof p === "string" && (p.includes("production") || p.includes("warehouse"))
+    );
+    if (!hasAnyProductionOrWarehousePerm && (permission.includes("production") || permission.includes("warehouse"))) {
+      const defaultRolePerms = PERMISSIONS[userLevel] || [];
+      if (defaultRolePerms.includes(permission)) return true;
+    }
+
     // Gestão de Estoque
     if (
       permission === "view_stock_management" &&
