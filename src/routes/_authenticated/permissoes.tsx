@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { createPortal } from "react-dom";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { toast } from "sonner";
@@ -67,9 +68,14 @@ export function PermissoesPage() {
   const [activePermissions, setActivePermissions] = useState<Permission[]>([]);
   const [isSyncing, setIsSyncing] = useState(false);
   const [showFloatingBar, setShowFloatingBar] = useState(false);
+  const [mounted, setMounted] = useState(false);
   const roleCardRef = useRef<HTMLDivElement>(null);
   const isSavingRef = useRef(false);
   const prevLevelRef = useRef<AppLevel>(selectedLevel);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -108,11 +114,13 @@ export function PermissoesPage() {
     }
   }, [dbPermissions, selectedLevel]);
 
-  // Cards exclusivos da plataforma operacional de membros (removendo integralmente ferramentas do Painel Dev e Painel CEO)
+  // Cards exclusivos da plataforma operacional de membros (removendo Painel Dev, Painel CEO, Transmissão e Lives, e Twin Life)
   const platformPageCards = useMemo(() => {
     return PAGE_CARDS.filter((card) => {
       if (card.defaultCat === "DEV" || card.defaultCat === "Ferramentas Dev" || card.defaultCat === "CEO") return false;
       if (card.id.startsWith("dev-") || card.id.startsWith("ceo-") || card.id === "ceo") return false;
+      // Remover expressamente "Transmissão e Lives" e "Twin Life"
+      if (card.id === "lives" || card.id === "life") return false;
       return true;
     });
   }, []);
@@ -132,19 +140,23 @@ export function PermissoesPage() {
 
     const rawCategories = menuConfig?.categories?.length
       ? menuConfig.categories
-      : ["Operação", "Produções", "Gestão", "Administração"];
+      : ["Produções", "Gestão", "Administração"];
     const orderedCategories = rawCategories.includes("Produções")
       ? rawCategories
-      : [rawCategories[0] || "Operação", "Produções", ...rawCategories.slice(1)];
+      : ["Produções", ...rawCategories];
 
+    // Remover categoria "Operação", "DEV", "CEO"
     const categoryOrder = orderedCategories.filter(
-      (c) => c !== "DEV" && c !== "Ferramentas Dev" && c !== "CEO"
+      (c) => c !== "DEV" && c !== "Ferramentas Dev" && c !== "CEO" && c !== "Operação"
     );
 
     const customized = platformPageCards
       .map((card) => {
         const cfg = configMap.get(card.id);
-        const cat = cfg?.category || card.defaultCat;
+        let cat = cfg?.category || card.defaultCat;
+        if (cat === "Operação") {
+          cat = card.id === "vendas" ? "Produções" : "Gestão";
+        }
         return {
           ...card,
           title: cfg?.title || card.title,
@@ -152,7 +164,7 @@ export function PermissoesPage() {
           order: typeof cfg?.order === "number" ? cfg.order : card.defaultOrder,
         };
       })
-      .filter((card) => card.category !== "DEV" && card.category !== "Ferramentas Dev" && card.category !== "CEO");
+      .filter((card) => card.category !== "DEV" && card.category !== "Ferramentas Dev" && card.category !== "CEO" && card.category !== "Operação");
 
     const groups: { category: string; cards: typeof customized }[] = [];
 
@@ -486,9 +498,9 @@ export function PermissoesPage() {
         ))}
       </div>
 
-      {/* FLOATING ACTIVE ROLE SWITCHER BAR */}
-      {showFloatingBar && (
-        <div className="fixed bottom-20 md:bottom-8 left-1/2 -translate-x-1/2 z-[60] flex items-center gap-2 p-1.5 sm:p-2 rounded-2xl bg-card/95 border border-primary/50 backdrop-blur-2xl shadow-2xl shadow-primary/25 ring-1 ring-white/10 animate-in fade-in slide-in-from-bottom-5 duration-200 max-w-[calc(100vw-2rem)]">
+      {/* FLOATING ACTIVE ROLE SWITCHER BAR — TELEPORTADO DIRETAMENTE AO BODY PARA FIXAÇÃO ABSOLUTA E FLUTUAÇÃO PERFEITA */}
+      {mounted && typeof document !== "undefined" && createPortal(
+        <div className="fixed bottom-4 sm:bottom-6 left-1/2 -translate-x-1/2 z-[9999] pointer-events-auto flex items-center gap-1.5 sm:gap-2.5 p-1.5 sm:p-2 rounded-2xl bg-card/95 dark:bg-zinc-950/95 border border-primary/50 backdrop-blur-2xl shadow-[0_15px_50px_rgba(0,0,0,0.65)] ring-1 ring-white/10 animate-in fade-in slide-in-from-bottom-5 duration-200 max-w-[calc(100vw-1.5rem)]">
           {/* Cargo Ativo Atual */}
           <div className="flex items-center gap-2 pl-2 pr-1">
             <ShieldCheck className="h-4 w-4 text-primary shrink-0 animate-pulse" />
@@ -499,81 +511,110 @@ export function PermissoesPage() {
               </Badge>
             </div>
             {isSyncing ? (
-              <Loader2 className="h-3 w-3 animate-spin text-emerald-400 shrink-0 ml-0.5" title="Sincronizando..." />
+              <Loader2 className="h-3.5 w-3.5 animate-spin text-emerald-400 shrink-0 ml-0.5" title="Sincronizando..." />
             ) : (
-              <CheckCircle2 className="h-3 w-3 text-emerald-400 shrink-0 ml-0.5" title="Sincronizado em tempo real" />
+              <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400 shrink-0 ml-0.5" title="Sincronizado em tempo real" />
             )}
           </div>
 
-          {/* Dropdown para Trocar Cargo */}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                type="button"
-                size="sm"
-                variant="default"
-                className="h-8 text-xs font-bold gap-1.5 rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 shadow-md cursor-pointer active:scale-95 transition-all"
-              >
-                <span>Alternar Cargo</span>
-                <ChevronDown className="h-3.5 w-3.5 text-primary-foreground" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="center" className="w-64 p-1.5 animate-in fade-in-50 zoom-in-95 duration-150">
-              <DropdownMenuLabel className="text-[10px] font-mono text-muted-foreground uppercase px-2 py-1 flex items-center justify-between">
-                <span>Alternar Cargo</span>
-                <span className="text-[9px] text-emerald-400 font-bold font-mono">Ao Vivo</span>
-              </DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              {LEVELS.map((lvl) => {
-                const isSelected = selectedLevel === lvl;
-                const count = members.filter((m) => m.nivel === lvl).length;
-                return (
-                  <DropdownMenuItem
-                    key={lvl}
-                    onClick={() => setSelectedLevel(lvl)}
-                    className={cn(
-                      "flex items-center justify-between px-2.5 py-2 rounded-xl text-xs font-bold cursor-pointer transition-all mb-0.5",
-                      isSelected
-                        ? "bg-primary text-primary-foreground font-black shadow-xs"
-                        : "hover:bg-secondary text-foreground"
-                    )}
-                  >
-                    <div className="flex items-center gap-2">
-                      <ShieldCheck className={cn("h-3.5 w-3.5", isSelected ? "text-primary-foreground" : "text-primary")} />
-                      <span>{LEVEL_LABEL[lvl] || lvl}</span>
-                    </div>
-                    <div className="flex items-center gap-1.5">
-                      <Badge
-                        variant="secondary"
-                        className={cn(
-                          "text-[9px] px-1.5 py-0 font-mono font-bold",
-                          isSelected ? "bg-black/30 text-white" : "bg-background text-muted-foreground"
-                        )}
-                      >
-                        {count}
-                      </Badge>
-                      {isSelected && <Check className="h-3.5 w-3.5 stroke-[3]" />}
-                    </div>
-                  </DropdownMenuItem>
-                );
-              })}
-            </DropdownMenuContent>
-          </DropdownMenu>
+          {/* Seletor Rápido de Cargo em Botões (Telas Médias/Grandes) */}
+          <div className="hidden lg:flex items-center gap-1 border-l border-r border-border/60 px-1.5">
+            {LEVELS.map((lvl) => {
+              const isSelected = selectedLevel === lvl;
+              const count = members.filter((m) => m.nivel === lvl).length;
+              return (
+                <button
+                  key={lvl}
+                  type="button"
+                  onClick={() => setSelectedLevel(lvl)}
+                  className={cn(
+                    "flex items-center gap-1 px-2.5 py-1 rounded-xl text-[11px] font-bold transition-all cursor-pointer border",
+                    isSelected
+                      ? "bg-primary text-primary-foreground border-primary shadow-xs"
+                      : "bg-secondary/40 border-transparent hover:bg-secondary/80 text-muted-foreground hover:text-foreground"
+                  )}
+                >
+                  <span>{LEVEL_LABEL[lvl] || lvl}</span>
+                  <span className={cn("text-[9px] px-1 rounded-md", isSelected ? "bg-black/30 text-white" : "text-muted-foreground")}>
+                    {count}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Dropdown para Trocar Cargo (Mobile / Compacto) */}
+          <div className="lg:hidden">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="default"
+                  className="h-8 text-xs font-bold gap-1.5 rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 shadow-md cursor-pointer active:scale-95 transition-all"
+                >
+                  <span>Alternar</span>
+                  <ChevronDown className="h-3.5 w-3.5 text-primary-foreground" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="center" className="w-64 p-1.5 animate-in fade-in-50 zoom-in-95 duration-150 z-[10000]">
+                <DropdownMenuLabel className="text-[10px] font-mono text-muted-foreground uppercase px-2 py-1 flex items-center justify-between">
+                  <span>Alternar Cargo</span>
+                  <span className="text-[9px] text-emerald-400 font-bold font-mono">Ao Vivo</span>
+                </DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                {LEVELS.map((lvl) => {
+                  const isSelected = selectedLevel === lvl;
+                  const count = members.filter((m) => m.nivel === lvl).length;
+                  return (
+                    <DropdownMenuItem
+                      key={lvl}
+                      onClick={() => setSelectedLevel(lvl)}
+                      className={cn(
+                        "flex items-center justify-between px-2.5 py-2 rounded-xl text-xs font-bold cursor-pointer transition-all mb-0.5",
+                        isSelected
+                          ? "bg-primary text-primary-foreground font-black shadow-xs"
+                          : "hover:bg-secondary text-foreground"
+                      )}
+                    >
+                      <div className="flex items-center gap-2">
+                        <ShieldCheck className={cn("h-3.5 w-3.5", isSelected ? "text-primary-foreground" : "text-primary")} />
+                        <span>{LEVEL_LABEL[lvl] || lvl}</span>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <Badge
+                          variant="secondary"
+                          className={cn(
+                            "text-[9px] px-1.5 py-0 font-mono font-bold",
+                            isSelected ? "bg-black/30 text-white" : "bg-background text-muted-foreground"
+                          )}
+                        >
+                          {count}
+                        </Badge>
+                        {isSelected && <Check className="h-3.5 w-3.5 stroke-[3]" />}
+                      </div>
+                    </DropdownMenuItem>
+                  );
+                })}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
 
           {/* Ações Rápidas de Permissões */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button
                 type="button"
-                size="icon"
-                variant="ghost"
-                className="h-8 w-8 rounded-xl text-muted-foreground hover:text-foreground hover:bg-secondary/80 cursor-pointer shrink-0"
+                size="sm"
+                variant="outline"
+                className="h-8 text-xs font-bold gap-1.5 rounded-xl border-border/80 hover:bg-secondary/80 cursor-pointer shrink-0"
                 title="Ações rápidas de permissões"
               >
-                <SlidersHorizontal className="h-3.5 w-3.5" />
+                <SlidersHorizontal className="h-3.5 w-3.5 text-primary" />
+                <span className="hidden sm:inline">Ações</span>
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-48 p-1.5">
+            <DropdownMenuContent align="end" className="w-48 p-1.5 z-[10000]">
               <DropdownMenuItem onClick={setAllPermissions} className="text-xs font-bold cursor-pointer hover:bg-secondary rounded-xl">
                 Marcar Todos
               </DropdownMenuItem>
@@ -598,7 +639,8 @@ export function PermissoesPage() {
           >
             <ArrowUp className="h-4 w-4" />
           </Button>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

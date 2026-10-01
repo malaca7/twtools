@@ -50,10 +50,10 @@ export function SaleDialog({ trigger }: { trigger: ReactNode }) {
   const { data: products } = useProducts();
   const queryClient = useQueryClient();
 
-  // Filtrar estritamente: ativo, can_be_sold habilitado e estoque para venda > 0
+  // Filtrar estritamente: ativo, can_be_sold marcado como habilitado na gestão e estoque disponível > 0
   const activeProducts = (products ?? []).filter((p) => {
     const isActive = p.ativo !== false;
-    const canBeSold = p.can_be_sold !== false;
+    const canBeSold = p.can_be_sold === true;
     const availableStock = Number(p.sale_available_quantity ?? p.estoque_atual ?? 0);
     return isActive && canBeSold && availableStock > 0;
   });

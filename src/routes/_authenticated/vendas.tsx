@@ -57,7 +57,7 @@ export function VendasPage() {
   const { hasPermission, isDevUser, isDevMode, isCeoMode } = useAuth();
   const queryClient = useQueryClient();
   const prefix = isDevMode ? "/dev" : isCeoMode ? "/ceo" : "";
-  const canView = isDevUser || hasPermission("view_sales") || hasPermission("sales.view");
+  const canView = isDevUser || hasPermission("view_sales") || hasPermission("sales.view") || hasPermission("sales.history") || hasPermission("create_sale") || hasPermission("sales.create");
   const canCreate = isDevUser || hasPermission("create_sale") || hasPermission("sales.create");
   const canReverse = isDevUser || hasPermission("reverse_sale") || hasPermission("sales.cancel") || hasPermission("sales.edit") || hasPermission("delete_sale");
 

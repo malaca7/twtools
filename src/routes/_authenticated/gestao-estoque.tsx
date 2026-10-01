@@ -37,6 +37,8 @@ import {
   Tag,
   DollarSign,
   HelpCircle,
+  ShoppingCart,
+  Factory,
 } from "lucide-react";
 import { ProductThumbnail } from "@/components/ui/product-thumbnail";
 import { BauIcon } from "@/components/ui/bau-icon";
@@ -384,6 +386,8 @@ function ProdutosTabContent({ canManage, canAdjustSaldos, onNavigateToAdjust }: 
   const [estoqueMin, setEstoqueMin] = useState(0);
   const [imagemUrl, setImagemUrl] = useState("");
   const [ativo, setAtivo] = useState(true);
+  const [canBeSold, setCanBeSold] = useState(false);
+  const [canBeProduced, setCanBeProduced] = useState(true);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   const productImageInputRef = useRef<HTMLInputElement>(null);
 
@@ -404,6 +408,8 @@ function ProdutosTabContent({ canManage, canAdjustSaldos, onNavigateToAdjust }: 
     setEstoqueMin(0);
     setImagemUrl("");
     setAtivo(true);
+    setCanBeSold(false);
+    setCanBeProduced(true);
     setIsModalOpen(true);
   };
 
@@ -421,6 +427,8 @@ function ProdutosTabContent({ canManage, canAdjustSaldos, onNavigateToAdjust }: 
     setEstoqueMin(prod.estoque_minimo || 0);
     setImagemUrl(prod.imagem_url || "");
     setAtivo(prod.ativo);
+    setCanBeSold(prod.can_be_sold === true);
+    setCanBeProduced(prod.can_be_produced !== false);
     setIsModalOpen(true);
   };
 
@@ -539,6 +547,8 @@ function ProdutosTabContent({ canManage, canAdjustSaldos, onNavigateToAdjust }: 
         estoque_minimo: estoqueMin,
         preco_sugerido: precoSugerido,
         imagem_url: imagemUrl.trim() ? imagemUrl.trim() : null,
+        can_be_sold: canBeSold,
+        can_be_produced: canBeProduced,
       };
 
       if (editingProduct) {
@@ -825,6 +835,24 @@ function ProdutosTabContent({ canManage, canAdjustSaldos, onNavigateToAdjust }: 
                         >
                           {p.ativo ? "Ativo" : "Inativo"}
                         </Badge>
+                        {p.can_be_sold && (
+                          <Badge
+                            variant="outline"
+                            className="text-[9px] uppercase font-bold py-0 px-1.5 border-emerald-500/40 text-emerald-400 bg-emerald-500/10 flex items-center gap-1"
+                          >
+                            <ShoppingCart className="w-2.5 h-2.5" />
+                            <span>Venda</span>
+                          </Badge>
+                        )}
+                        {p.can_be_produced !== false && (
+                          <Badge
+                            variant="outline"
+                            className="text-[9px] uppercase font-bold py-0 px-1.5 border-amber-500/40 text-amber-400 bg-amber-500/10 flex items-center gap-1"
+                          >
+                            <Factory className="w-2.5 h-2.5" />
+                            <span>Produção</span>
+                          </Badge>
+                        )}
                       </div>
                       {p.descricao && (
                         <p className="text-[11px] text-muted-foreground line-clamp-2 mt-0.5">{p.descricao}</p>
@@ -1354,6 +1382,34 @@ function ProdutosTabContent({ canManage, canAdjustSaldos, onNavigateToAdjust }: 
                   <p className="text-[10px] text-muted-foreground">Produtos ativos aparecem nos menus e movimentações</p>
                 </div>
                 <Switch checked={ativo} onCheckedChange={setAtivo} />
+              </div>
+
+              {/* OPÇÃO DE VENDAS */}
+              <div className="flex items-center justify-between p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/30">
+                <div className="space-y-0.5">
+                  <Label className="text-xs font-bold text-emerald-400 cursor-pointer flex items-center gap-1.5">
+                    <ShoppingCart className="w-3.5 h-3.5" />
+                    <span>Liberado para Vendas</span>
+                  </Label>
+                  <p className="text-[10px] text-muted-foreground">
+                    Quando ativado, este produto fica habilitado para cadastro de vendas na página de Vendas
+                  </p>
+                </div>
+                <Switch checked={canBeSold} onCheckedChange={setCanBeSold} />
+              </div>
+
+              {/* OPÇÃO DE PRODUÇÃO */}
+              <div className="flex items-center justify-between p-3 rounded-lg bg-amber-500/10 border border-amber-500/30">
+                <div className="space-y-0.5">
+                  <Label className="text-xs font-bold text-amber-400 cursor-pointer flex items-center gap-1.5">
+                    <Factory className="w-3.5 h-3.5" />
+                    <span>Habilitado para Produção</span>
+                  </Label>
+                  <p className="text-[10px] text-muted-foreground">
+                    Permite que membros fabriquem este produto na Estação de Produção
+                  </p>
+                </div>
+                <Switch checked={canBeProduced} onCheckedChange={setCanBeProduced} />
               </div>
             </div>
 

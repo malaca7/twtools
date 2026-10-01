@@ -92,7 +92,9 @@ export function GestaoProducaoPage() {
     isDevUser ||
     hasPermission("production_management.view") ||
     hasPermission("view_production_management") ||
-    hasPermission("manage_products");
+    hasPermission("manage_products") ||
+    hasPermission("productions.view") ||
+    hasPermission("view_productions");
 
   const canManageProducts =
     isDevUser ||

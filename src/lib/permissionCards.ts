@@ -268,7 +268,7 @@ export const PAGE_CARDS: PageCardConfig[] = [
     icon: LayoutDashboard,
     description: "Tela inicial da plataforma com comunicados em destaque, membros online e resumo geral.",
     color: "border-indigo-500/40 bg-indigo-500/5 text-indigo-400",
-    defaultCat: "Operação",
+    defaultCat: "Gestão",
     defaultOrder: 0,
     permissions: [
       {
@@ -285,7 +285,7 @@ export const PAGE_CARDS: PageCardConfig[] = [
     icon: ArrowLeftRight,
     description: "Histórico completo de entradas e saídas de itens com filtro por baú, membro e data.",
     color: "border-sky-500/40 bg-sky-500/5 text-sky-400",
-    defaultCat: "Operação",
+    defaultCat: "Gestão",
     defaultOrder: 1,
     permissions: [
       {
@@ -337,7 +337,7 @@ export const PAGE_CARDS: PageCardConfig[] = [
     icon: ShoppingCart,
     description: "Lançamento e controle de vendas de produtos com cálculo automático de receita e comissões.",
     color: "border-emerald-500/40 bg-emerald-500/5 text-emerald-400",
-    defaultCat: "Operação",
+    defaultCat: "Produções",
     defaultOrder: 2,
     permissions: [
       {
@@ -371,7 +371,7 @@ export const PAGE_CARDS: PageCardConfig[] = [
     icon: Trophy,
     description: "Classificação dos membros por XP, patentes de honra (1 a 50+), faturamento, avaliações com estrelas e insígnias.",
     color: "border-amber-500/40 bg-amber-500/5 text-amber-400",
-    defaultCat: "Operação",
+    defaultCat: "Gestão",
     defaultOrder: 3,
     permissions: [
       {
@@ -463,7 +463,7 @@ export const PAGE_CARDS: PageCardConfig[] = [
     icon: Radio,
     description: "Central de transmissões ao vivo do grupo, detecção automática de streamers, vinculação de contas e notificações em tempo real.",
     color: "border-rose-500/40 bg-rose-500/5 text-rose-400",
-    defaultCat: "Operação",
+    defaultCat: "Gestão",
     defaultOrder: 3,
     permissions: [
       {
@@ -980,7 +980,7 @@ export const PAGE_CARDS: PageCardConfig[] = [
     icon: Bell,
     description: "Visualização de todas as notificações do membro, histórico, alertas e preferências pessoais de som.",
     color: "border-sky-500/40 bg-sky-500/5 text-sky-400",
-    defaultCat: "Operação",
+    defaultCat: "Gestão",
     defaultOrder: 18,
     permissions: [
       {
@@ -1750,7 +1750,7 @@ export const PAGE_CARDS: PageCardConfig[] = [
     icon: Flame,
     description: "Rede social exclusiva interna com feed de publicações, fotos, vídeos, menções, hashtags, comentários, curtidas e seguidores.",
     color: "border-pink-500/40 bg-pink-500/5 text-pink-400",
-    defaultCat: "Operação",
+    defaultCat: "Gestão",
     defaultOrder: 11,
     permissions: [
       {

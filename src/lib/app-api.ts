@@ -579,7 +579,7 @@ export async function getProducts(): Promise<Product[]> {
   try {
     const { data, error } = await supabase
       .from("products")
-      .select("id, nome, cda_name, descricao, categoria_id, bau_id, unidade, estoque_atual, estoque_minimo, preco_sugerido, imagem_url, ativo, created_at, updated_at")
+      .select("id, nome, cda_name, descricao, categoria_id, bau_id, unidade, estoque_atual, estoque_minimo, preco_sugerido, imagem_url, can_be_produced, can_be_sold, sale_available_quantity, ativo, created_at, updated_at")
       .order("nome");
     if (!error && data && data.length > 0) {
       listData = data;
@@ -599,6 +599,9 @@ export async function getProducts(): Promise<Product[]> {
     estoque_minimo: Number(d.estoque_minimo),
     preco_sugerido: Number(d.preco_sugerido),
     imagem_url: d.imagem_url || null,
+    can_be_produced: d.can_be_produced !== false,
+    can_be_sold: d.can_be_sold === true,
+    sale_available_quantity: Number(d.sale_available_quantity || 0),
     ativo: d.ativo,
     created_at: String(d.created_at),
     updated_at: String(d.updated_at)
@@ -1980,7 +1983,20 @@ export async function uploadBauImage(file: File): Promise<string> {
   });
 }
 
-export async function createProduct(payload: { nome: string; cda_name?: string | null; descricao?: string; categoria_id?: string; bau_id?: string; unidade?: string; estoque_minimo?: number; preco_sugerido?: number; imagem_url?: string }): Promise<Product> {
+export async function createProduct(payload: {
+  nome: string;
+  cda_name?: string | null;
+  descricao?: string;
+  categoria_id?: string;
+  bau_id?: string;
+  unidade?: string;
+  estoque_minimo?: number;
+  preco_sugerido?: number;
+  imagem_url?: string;
+  can_be_produced?: boolean;
+  can_be_sold?: boolean;
+  sale_available_quantity?: number;
+}): Promise<Product> {
   const { data, error } = await supabase
     .from("products")
     .insert({
@@ -1993,6 +2009,9 @@ export async function createProduct(payload: { nome: string; cda_name?: string |
       estoque_minimo: payload.estoque_minimo || 0,
       preco_sugerido: payload.preco_sugerido || 0,
       imagem_url: payload.imagem_url?.trim() || null,
+      can_be_produced: payload.can_be_produced !== undefined ? payload.can_be_produced : true,
+      can_be_sold: payload.can_be_sold !== undefined ? payload.can_be_sold : false,
+      sale_available_quantity: Math.max(0, Number(payload.sale_available_quantity || 0)),
       ativo: true
     })
     .select()
@@ -2016,7 +2035,7 @@ export async function createProduct(payload: { nome: string; cda_name?: string |
     }
   }
 
-  void logAuditAction("create_product", "products", { nome: data.nome, cda_name: data.cda_name, preco: data.preco_sugerido, estoque_minimo: data.estoque_minimo, imagem_url: data.imagem_url }, undefined, data.id);
+  void logAuditAction("create_product", "products", { nome: data.nome, cda_name: data.cda_name, preco: data.preco_sugerido, estoque_minimo: data.estoque_minimo, imagem_url: data.imagem_url, can_be_sold: data.can_be_sold }, undefined, data.id);
 
   return {
     id: data.id,
@@ -2030,14 +2049,32 @@ export async function createProduct(payload: { nome: string; cda_name?: string |
     estoque_minimo: Number(data.estoque_minimo),
     preco_sugerido: Number(data.preco_sugerido),
     imagem_url: data.imagem_url || null,
+    can_be_produced: data.can_be_produced !== false,
+    can_be_sold: data.can_be_sold === true,
+    sale_available_quantity: Number(data.sale_available_quantity || 0),
     ativo: data.ativo,
     created_at: String(data.created_at),
     updated_at: String(data.updated_at)
   };
 }
 
-export async function updateProduct(payload: { id: string; nome?: string; cda_name?: string | null; descricao?: string; categoria_id?: string | null; bau_id?: string | null; unidade?: string; estoque_minimo?: number; preco_sugerido?: number; imagem_url?: string | null; ativo?: boolean }): Promise<void> {
-  const { data: oldProd } = await supabase.from("products").select("nome, cda_name, descricao, preco_sugerido, estoque_minimo, imagem_url, ativo").eq("id", payload.id).maybeSingle();
+export async function updateProduct(payload: {
+  id: string;
+  nome?: string;
+  cda_name?: string | null;
+  descricao?: string;
+  categoria_id?: string | null;
+  bau_id?: string | null;
+  unidade?: string;
+  estoque_minimo?: number;
+  preco_sugerido?: number;
+  imagem_url?: string | null;
+  can_be_produced?: boolean;
+  can_be_sold?: boolean;
+  sale_available_quantity?: number;
+  ativo?: boolean;
+}): Promise<void> {
+  const { data: oldProd } = await supabase.from("products").select("nome, cda_name, descricao, preco_sugerido, estoque_minimo, imagem_url, can_be_produced, can_be_sold, sale_available_quantity, ativo").eq("id", payload.id).maybeSingle();
 
   const updates: any = {};
   if (payload.nome !== undefined) updates.nome = payload.nome.trim();
@@ -2048,6 +2085,9 @@ export async function updateProduct(payload: { id: string; nome?: string; cda_na
   if (payload.unidade !== undefined) updates.unidade = payload.unidade;
   if (payload.estoque_minimo !== undefined) updates.estoque_minimo = payload.estoque_minimo;
   if (payload.preco_sugerido !== undefined) updates.preco_sugerido = payload.preco_sugerido;
+  if (payload.can_be_produced !== undefined) updates.can_be_produced = payload.can_be_produced;
+  if (payload.can_be_sold !== undefined) updates.can_be_sold = payload.can_be_sold;
+  if (payload.sale_available_quantity !== undefined) updates.sale_available_quantity = Math.max(0, Number(payload.sale_available_quantity || 0));
   if (payload.imagem_url !== undefined) {
     const rawImg = payload.imagem_url;
     updates.imagem_url = rawImg && typeof rawImg === "string" ? (rawImg.trim() || null) : null;

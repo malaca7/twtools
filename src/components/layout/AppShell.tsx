@@ -158,6 +158,7 @@ const URL_TO_PERMISSION_MAP: Record<string, Permission> = {
   "/producoes/armazem": "warehouse.view",
   "/producoes/gestao": "production_management.view",
   "/producoes/gestao-producao": "production_management.view",
+  "/gestao-producao": "production_management.view",
   "/producoes": "productions.view",
   "/tickets": "view_tickets",
   "/loja": "view_shop",

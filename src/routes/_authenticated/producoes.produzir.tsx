@@ -90,6 +90,22 @@ export function ProduzirPage() {
     return rawMaterials.filter((m) => m.is_active);
   }, [rawMaterials]);
 
+  // Pré-seleciona primeiro insumo ativo para agilizar o preenchimento pelo membro
+  useEffect(() => {
+    if (materialsUsed.length === 0 && activeRawMaterials.length > 0) {
+      setMaterialsUsed([
+        { raw_material_id: activeRawMaterials[0].id, quantity_used: 1 },
+      ]);
+    }
+  }, [activeRawMaterials, materialsUsed.length]);
+
+  // Se houver apenas 1 produto habilitado, pré-seleciona automaticamente
+  useEffect(() => {
+    if (!selectedProductId && producibleProducts.length === 1) {
+      setSelectedProductId(producibleProducts[0].id);
+    }
+  }, [producibleProducts, selectedProductId]);
+
   // Saldo atual no armazém do produto selecionado
   const currentWarehouseBalance = useMemo(() => {
     if (!selectedProductId) return 0;
@@ -183,7 +199,7 @@ export function ProduzirPage() {
       // Reset
       setIsConfirmOpen(false);
       setQuantity("1");
-      setMaterialsUsed([]);
+      setMaterialsUsed(activeRawMaterials.length > 0 ? [{ raw_material_id: activeRawMaterials[0].id, quantity_used: 1 }] : []);
       setObservation("");
     },
     onError: (err: any) => {

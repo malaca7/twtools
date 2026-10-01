@@ -27,6 +27,7 @@ import { Route as AuthenticatedDesempenhoRouteImport } from './routes/_authentic
 import { Route as AuthenticatedEstoqueRouteImport } from './routes/_authenticated/estoque'
 import { Route as AuthenticatedFundoCaixaRouteImport } from './routes/_authenticated/fundo-caixa'
 import { Route as AuthenticatedGestaoEstoqueRouteImport } from './routes/_authenticated/gestao-estoque'
+import { Route as AuthenticatedGestaoProducaoRouteImport } from './routes/_authenticated/gestao-producao'
 import { Route as AuthenticatedHierarquiaRouteImport } from './routes/_authenticated/hierarquia'
 import { Route as AuthenticatedLifeRouteImport } from './routes/_authenticated/life'
 import { Route as AuthenticatedLivesRouteImport } from './routes/_authenticated/lives'
@@ -76,6 +77,7 @@ import { Route as AuthenticatedPerfilDadosRouteImport } from './routes/_authenti
 import { Route as AuthenticatedProducoesIndexRouteImport } from './routes/_authenticated/producoes.index'
 import { Route as AuthenticatedProducoesArmazemRouteImport } from './routes/_authenticated/producoes.armazem'
 import { Route as AuthenticatedProducoesGestaoRouteImport } from './routes/_authenticated/producoes.gestao'
+import { Route as AuthenticatedProducoesGestaoProducaoRouteImport } from './routes/_authenticated/producoes.gestao-producao'
 import { Route as AuthenticatedProducoesProduzirRouteImport } from './routes/_authenticated/producoes.produzir'
 import { Route as AuthenticatedRankingsTabRouteImport } from './routes/_authenticated/rankings.$tab'
 import { Route as AuthenticatedTicketsTabRouteImport } from './routes/_authenticated/tickets.$tab'
@@ -177,6 +179,12 @@ const AuthenticatedGestaoEstoqueRoute =
   AuthenticatedGestaoEstoqueRouteImport.update({
     id: '/gestao-estoque',
     path: '/gestao-estoque',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedGestaoProducaoRoute =
+  AuthenticatedGestaoProducaoRouteImport.update({
+    id: '/gestao-producao',
+    path: '/gestao-producao',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
 const AuthenticatedHierarquiaRoute = AuthenticatedHierarquiaRouteImport.update({
@@ -447,6 +455,12 @@ const AuthenticatedProducoesGestaoRoute =
     path: '/producoes/gestao',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedProducoesGestaoProducaoRoute =
+  AuthenticatedProducoesGestaoProducaoRouteImport.update({
+    id: '/producoes/gestao-producao',
+    path: '/producoes/gestao-producao',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedProducoesProduzirRoute =
   AuthenticatedProducoesProduzirRouteImport.update({
     id: '/producoes/produzir',
@@ -517,6 +531,7 @@ export interface FileRoutesByFullPath {
   '/estoque': typeof AuthenticatedEstoqueRoute
   '/fundo-caixa': typeof AuthenticatedFundoCaixaRoute
   '/gestao-estoque': typeof AuthenticatedGestaoEstoqueRouteWithChildren
+  '/gestao-producao': typeof AuthenticatedGestaoProducaoRoute
   '/hierarquia': typeof AuthenticatedHierarquiaRouteWithChildren
   '/life': typeof AuthenticatedLifeRoute
   '/lives': typeof AuthenticatedLivesRouteWithChildren
@@ -564,6 +579,7 @@ export interface FileRoutesByFullPath {
   '/perfil/dados': typeof AuthenticatedPerfilDadosRoute
   '/producoes/armazem': typeof AuthenticatedProducoesArmazemRoute
   '/producoes/gestao': typeof AuthenticatedProducoesGestaoRoute
+  '/producoes/gestao-producao': typeof AuthenticatedProducoesGestaoProducaoRoute
   '/producoes/produzir': typeof AuthenticatedProducoesProduzirRoute
   '/rankings/$tab': typeof AuthenticatedRankingsTabRoute
   '/tickets/$tab': typeof AuthenticatedTicketsTabRoute
@@ -594,6 +610,7 @@ export interface FileRoutesByTo {
   '/estoque': typeof AuthenticatedEstoqueRoute
   '/fundo-caixa': typeof AuthenticatedFundoCaixaRoute
   '/gestao-estoque': typeof AuthenticatedGestaoEstoqueRouteWithChildren
+  '/gestao-producao': typeof AuthenticatedGestaoProducaoRoute
   '/hierarquia': typeof AuthenticatedHierarquiaRouteWithChildren
   '/life': typeof AuthenticatedLifeRoute
   '/lives': typeof AuthenticatedLivesRouteWithChildren
@@ -641,6 +658,7 @@ export interface FileRoutesByTo {
   '/perfil/dados': typeof AuthenticatedPerfilDadosRoute
   '/producoes/armazem': typeof AuthenticatedProducoesArmazemRoute
   '/producoes/gestao': typeof AuthenticatedProducoesGestaoRoute
+  '/producoes/gestao-producao': typeof AuthenticatedProducoesGestaoProducaoRoute
   '/producoes/produzir': typeof AuthenticatedProducoesProduzirRoute
   '/rankings/$tab': typeof AuthenticatedRankingsTabRoute
   '/tickets/$tab': typeof AuthenticatedTicketsTabRoute
@@ -673,6 +691,7 @@ export interface FileRoutesById {
   '/_authenticated/estoque': typeof AuthenticatedEstoqueRoute
   '/_authenticated/fundo-caixa': typeof AuthenticatedFundoCaixaRoute
   '/_authenticated/gestao-estoque': typeof AuthenticatedGestaoEstoqueRouteWithChildren
+  '/_authenticated/gestao-producao': typeof AuthenticatedGestaoProducaoRoute
   '/_authenticated/hierarquia': typeof AuthenticatedHierarquiaRouteWithChildren
   '/_authenticated/life': typeof AuthenticatedLifeRoute
   '/_authenticated/lives': typeof AuthenticatedLivesRouteWithChildren
@@ -720,6 +739,7 @@ export interface FileRoutesById {
   '/_authenticated/perfil/dados': typeof AuthenticatedPerfilDadosRoute
   '/_authenticated/producoes/armazem': typeof AuthenticatedProducoesArmazemRoute
   '/_authenticated/producoes/gestao': typeof AuthenticatedProducoesGestaoRoute
+  '/_authenticated/producoes/gestao-producao': typeof AuthenticatedProducoesGestaoProducaoRoute
   '/_authenticated/producoes/produzir': typeof AuthenticatedProducoesProduzirRoute
   '/_authenticated/rankings/$tab': typeof AuthenticatedRankingsTabRoute
   '/_authenticated/tickets/$tab': typeof AuthenticatedTicketsTabRoute
@@ -752,6 +772,7 @@ export interface FileRouteTypes {
     | '/estoque'
     | '/fundo-caixa'
     | '/gestao-estoque'
+    | '/gestao-producao'
     | '/hierarquia'
     | '/life'
     | '/lives'
@@ -799,6 +820,7 @@ export interface FileRouteTypes {
     | '/perfil/dados'
     | '/producoes/armazem'
     | '/producoes/gestao'
+    | '/producoes/gestao-producao'
     | '/producoes/produzir'
     | '/rankings/$tab'
     | '/tickets/$tab'
@@ -829,6 +851,7 @@ export interface FileRouteTypes {
     | '/estoque'
     | '/fundo-caixa'
     | '/gestao-estoque'
+    | '/gestao-producao'
     | '/hierarquia'
     | '/life'
     | '/lives'
@@ -876,6 +899,7 @@ export interface FileRouteTypes {
     | '/perfil/dados'
     | '/producoes/armazem'
     | '/producoes/gestao'
+    | '/producoes/gestao-producao'
     | '/producoes/produzir'
     | '/rankings/$tab'
     | '/tickets/$tab'
@@ -907,6 +931,7 @@ export interface FileRouteTypes {
     | '/_authenticated/estoque'
     | '/_authenticated/fundo-caixa'
     | '/_authenticated/gestao-estoque'
+    | '/_authenticated/gestao-producao'
     | '/_authenticated/hierarquia'
     | '/_authenticated/life'
     | '/_authenticated/lives'
@@ -954,6 +979,7 @@ export interface FileRouteTypes {
     | '/_authenticated/perfil/dados'
     | '/_authenticated/producoes/armazem'
     | '/_authenticated/producoes/gestao'
+    | '/_authenticated/producoes/gestao-producao'
     | '/_authenticated/producoes/produzir'
     | '/_authenticated/rankings/$tab'
     | '/_authenticated/tickets/$tab'
@@ -1103,6 +1129,13 @@ declare module '@tanstack/react-router' {
       path: '/gestao-estoque'
       fullPath: '/gestao-estoque'
       preLoaderRoute: typeof AuthenticatedGestaoEstoqueRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/gestao-producao': {
+      id: '/_authenticated/gestao-producao'
+      path: '/gestao-producao'
+      fullPath: '/gestao-producao'
+      preLoaderRoute: typeof AuthenticatedGestaoProducaoRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/hierarquia': {
@@ -1448,6 +1481,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedProducoesGestaoRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/producoes/gestao-producao': {
+      id: '/_authenticated/producoes/gestao-producao'
+      path: '/producoes/gestao-producao'
+      fullPath: '/producoes/gestao-producao'
+      preLoaderRoute: typeof AuthenticatedProducoesGestaoProducaoRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/producoes/produzir': {
       id: '/_authenticated/producoes/produzir'
       path: '/producoes/produzir'
@@ -1737,6 +1777,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedEstoqueRoute: typeof AuthenticatedEstoqueRoute
   AuthenticatedFundoCaixaRoute: typeof AuthenticatedFundoCaixaRoute
   AuthenticatedGestaoEstoqueRoute: typeof AuthenticatedGestaoEstoqueRouteWithChildren
+  AuthenticatedGestaoProducaoRoute: typeof AuthenticatedGestaoProducaoRoute
   AuthenticatedHierarquiaRoute: typeof AuthenticatedHierarquiaRouteWithChildren
   AuthenticatedLifeRoute: typeof AuthenticatedLifeRoute
   AuthenticatedLivesRoute: typeof AuthenticatedLivesRouteWithChildren
@@ -1768,6 +1809,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedDevXpInsigniasRoute: typeof AuthenticatedDevXpInsigniasRoute
   AuthenticatedProducoesArmazemRoute: typeof AuthenticatedProducoesArmazemRoute
   AuthenticatedProducoesGestaoRoute: typeof AuthenticatedProducoesGestaoRoute
+  AuthenticatedProducoesGestaoProducaoRoute: typeof AuthenticatedProducoesGestaoProducaoRoute
   AuthenticatedProducoesProduzirRoute: typeof AuthenticatedProducoesProduzirRoute
   AuthenticatedDevIndexRoute: typeof AuthenticatedDevIndexRoute
   AuthenticatedProducoesIndexRoute: typeof AuthenticatedProducoesIndexRoute
@@ -1789,6 +1831,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedEstoqueRoute: AuthenticatedEstoqueRoute,
   AuthenticatedFundoCaixaRoute: AuthenticatedFundoCaixaRoute,
   AuthenticatedGestaoEstoqueRoute: AuthenticatedGestaoEstoqueRouteWithChildren,
+  AuthenticatedGestaoProducaoRoute: AuthenticatedGestaoProducaoRoute,
   AuthenticatedHierarquiaRoute: AuthenticatedHierarquiaRouteWithChildren,
   AuthenticatedLifeRoute: AuthenticatedLifeRoute,
   AuthenticatedLivesRoute: AuthenticatedLivesRouteWithChildren,
@@ -1821,6 +1864,8 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedDevXpInsigniasRoute: AuthenticatedDevXpInsigniasRoute,
   AuthenticatedProducoesArmazemRoute: AuthenticatedProducoesArmazemRoute,
   AuthenticatedProducoesGestaoRoute: AuthenticatedProducoesGestaoRoute,
+  AuthenticatedProducoesGestaoProducaoRoute:
+    AuthenticatedProducoesGestaoProducaoRoute,
   AuthenticatedProducoesProduzirRoute: AuthenticatedProducoesProduzirRoute,
   AuthenticatedDevIndexRoute: AuthenticatedDevIndexRoute,
   AuthenticatedProducoesIndexRoute: AuthenticatedProducoesIndexRoute,
