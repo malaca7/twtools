@@ -67,7 +67,7 @@ export const VALID_CEO_TABS: readonly CeoTab[] = ["dashboard", "bot", "webhooks"
 export function CeoPageContent({ initialTab }: { initialTab?: string } = {}) {
   const location = useLocation();
   const navigate = useNavigate();
-  const { user, profile, level, isDevUser, isCeoUser, hasPermission } = useAuth();
+  const { user, profile, level, isCeoUser, hasPermission } = useAuth();
   const { ceoStyle, CeoIcon } = usePanelTheme();
   const { data: members = [], isLoading: loadingMembers } = useMembers();
   const { data: sales = [], isLoading: loadingSales } = useSales();
@@ -182,20 +182,6 @@ export function CeoPageContent({ initialTab }: { initialTab?: string } = {}) {
               <Crown className="h-3.5 w-3.5 text-amber-400" />
               Diretoria Executiva
             </Badge>
-
-            {isDevUser && (
-              <Button
-                asChild
-                variant="outline"
-                size="sm"
-                className="text-xs h-8 font-bold border-rose-500/40 text-rose-400 hover:bg-rose-500/10"
-              >
-                <Link to="/dev/permissoes">
-                  <Sparkles className="h-3 w-3 mr-1" />
-                  Configurar no Painel Dev
-                </Link>
-              </Button>
-            )}
           </div>
         }
       />
@@ -397,7 +383,7 @@ export function CeoPageContent({ initialTab }: { initialTab?: string } = {}) {
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-black text-emerald-400">
-                  {ceoConfig.showRealBalance || isDevUser ? currency(cashBalance) : "••••••••"}
+                  {ceoConfig.showRealBalance || hasPermission("view_ceo_financials") ? currency(cashBalance) : "••••••••"}
                 </div>
                 <p className="text-[0.7rem] text-muted-foreground mt-1 flex items-center gap-1">
                   Reserva estratégica do grupo
@@ -690,7 +676,7 @@ export function CeoPageContent({ initialTab }: { initialTab?: string } = {}) {
                 </CardHeader>
                 <CardContent>
                   <div className="text-2xl font-black text-emerald-400">
-                    {ceoConfig.showRealBalance || isDevUser ? currency(cashBalance) : "••••••••"}
+                    {ceoConfig.showRealBalance || hasPermission("view_ceo_financials") ? currency(cashBalance) : "••••••••"}
                   </div>
                   <p className="text-[0.7rem] text-muted-foreground mt-1">
                     Fundo de reserva disponível

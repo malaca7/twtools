@@ -74,15 +74,15 @@ export const Route = createFileRoute("/_authenticated/producoes/armazem")({
 });
 
 export function ArmazemPage() {
-  const { hasPermission, isDevUser, isDevMode, isCeoMode } = useAuth();
+  const { hasPermission, isDevMode, isCeoMode } = useAuth();
   const queryClient = useQueryClient();
   const prefix = isDevMode ? "/dev" : isCeoMode ? "/ceo" : "";
 
-  const canView = isDevUser || hasPermission("warehouse.view") || hasPermission("view_warehouse");
-  const canTransferStorage = isDevUser || hasPermission("warehouse.transfer_storage") || hasPermission("warehouse.transfer");
-  const canTransferSale = isDevUser || hasPermission("warehouse.transfer_sale") || hasPermission("warehouse.transfer");
+  const canView = hasPermission("warehouse.view") || hasPermission("view_warehouse");
+  const canTransferStorage = hasPermission("warehouse.transfer_storage") || hasPermission("warehouse.transfer");
+  const canTransferSale = hasPermission("warehouse.transfer_sale") || hasPermission("warehouse.transfer");
   const canTransfer = canTransferStorage || canTransferSale;
-  const canAdjust = isDevUser || hasPermission("warehouse.adjust");
+  const canAdjust = hasPermission("warehouse.adjust");
 
   const { data: stockList = [], isLoading: loadingStock } = useWarehouseStock();
   const { data: baus = [] } = useBaus();
@@ -284,7 +284,7 @@ export function ArmazemPage() {
         </div>
 
         <div className="flex items-center gap-2">
-          {(isDevUser || hasPermission("productions.view") || hasPermission("productions.create")) && (
+          {(hasPermission("productions.view") || hasPermission("productions.create")) && (
             <Button asChild className="h-10 px-4 bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold rounded-xl gap-2 shadow-lg shadow-amber-500/20 cursor-pointer">
               <Link to={`${prefix}/producoes/produzir`}>
                 <Factory className="h-4 w-4" />
@@ -292,7 +292,7 @@ export function ArmazemPage() {
               </Link>
             </Button>
           )}
-          {(isDevUser || hasPermission("production_management.view") || hasPermission("view_production_management")) && (
+          {(hasPermission("production_management.view") || hasPermission("view_production_management")) && (
             <Button asChild variant="outline" size="sm" className="h-10 px-3 rounded-xl text-xs gap-1.5">
               <Link to={`${prefix}/producoes/gestao`}>
                 <PackageCheck className="h-4 w-4 text-sky-400" />
@@ -300,7 +300,7 @@ export function ArmazemPage() {
               </Link>
             </Button>
           )}
-          {(isDevUser || hasPermission("view_sales") || hasPermission("sales.view")) && (
+          {(hasPermission("view_sales") || hasPermission("sales.view")) && (
             <Button asChild variant="outline" size="sm" className="h-10 px-3 rounded-xl text-xs gap-1.5">
               <Link to={`${prefix}/vendas`}>
                 <ShoppingCart className="h-4 w-4 text-amber-400" />
@@ -459,7 +459,7 @@ export function ArmazemPage() {
                         const whQty = Number(item.quantity || 0);
                         const saleQty = Number(prod?.sale_available_quantity || 0);
                         const bauQty = Number(prod?.estoque_atual || 0);
-                        const canSell = prod?.can_be_sold !== false;
+                        const canSell = prod?.can_be_sold === true;
 
                         return (
                           <tr key={item.id} className="hover:bg-muted/10 transition-colors">

@@ -110,26 +110,25 @@ export type GestaoEstoqueTab = "produtos" | "categorias" | "baus" | "saldos";
 export const VALID_GESTAO_ESTOQUE_TABS = ["produtos", "categorias", "baus", "saldos"] as const;
 
 export function GestaoEstoquePage({ initialTab }: { initialTab?: GestaoEstoqueTab } = {}) {
-  const { hasPermission, isDevMode, isDevUser: isDevFromAuth } = useAuth();
-  const isDevUser = isDevMode || isDevFromAuth;
+  const { hasPermission, isDevMode } = useAuth();
 
   const { data: products = [], refetch: refetchProducts, isRefetching: isRefetchingProducts } = useProducts();
   const { data: categories = [], refetch: refetchCategories } = useCategories();
   const { data: baus = [], refetch: refetchBaus } = useBaus();
   const { refetch: refetchProductBaus } = useProductBaus();
 
-  // Permissões granulares e isoladas da Gestão de Estoque (com bypass de visualização para Tag Dev)
-  const canManageProdutos = hasPermission("manage_stock_products") || isDevUser;
+  // Permissões granulares da Gestão de Estoque
+  const canManageProdutos = hasPermission("manage_stock_products");
   const canViewProdutos = canManageProdutos;
 
-  const canManageCategorias = hasPermission("manage_stock_categories") || isDevUser;
+  const canManageCategorias = hasPermission("manage_stock_categories");
   const canViewCategorias = canManageCategorias;
 
-  const canManageBaus = hasPermission("manage_stock_baus") || isDevUser;
+  const canManageBaus = hasPermission("manage_stock_baus");
   const canViewBaus = canManageBaus;
 
-  const canManageStockBalance = hasPermission("manage_stock_balance") || isDevUser;
-  const canAdjustSaldos = canManageStockBalance || hasPermission("adjust_stock_balance") || isDevUser;
+  const canManageStockBalance = hasPermission("manage_stock_balance");
+  const canAdjustSaldos = canManageStockBalance || hasPermission("adjust_stock_balance");
   const canViewSaldos = canAdjustSaldos;
 
   const hasBaseManagement =
@@ -137,8 +136,7 @@ export function GestaoEstoquePage({ initialTab }: { initialTab?: GestaoEstoqueTa
     canViewProdutos ||
     canViewCategorias ||
     canViewBaus ||
-    canViewSaldos ||
-    isDevUser;
+    canViewSaldos;
 
   // Lista dinâmica de abas estritamente permitidas (as não permitidas ficam 100% ocultas)
   const visibleTabs = useMemo<{ id: GestaoEstoqueTab; label: string; icon: any; count?: number }[]>(() => {
@@ -237,7 +235,7 @@ export function GestaoEstoquePage({ initialTab }: { initialTab?: GestaoEstoqueTa
               <Badge variant="outline" className="border-primary/40 text-primary bg-primary/10 text-[9px] sm:text-[10px] font-bold py-0.5">
                 Operações & Catálogo
               </Badge>
-              {isDevUser && (
+              {isDevMode && (
                 <Badge variant="outline" className="border-rose-500/40 text-rose-400 bg-rose-500/10 text-[9px] sm:text-[10px] font-bold">
                   Visão Dev
                 </Badge>
@@ -250,7 +248,7 @@ export function GestaoEstoquePage({ initialTab }: { initialTab?: GestaoEstoqueTa
         </div>
 
         <div className="flex items-center gap-2 w-full sm:w-auto shrink-0 pt-1 sm:pt-0">
-          {isDevUser && (
+          {isDevMode && (
             <Button
               asChild
               variant="outline"
@@ -409,7 +407,7 @@ function ProdutosTabContent({ canManage, canAdjustSaldos, onNavigateToAdjust }: 
     setImagemUrl("");
     setAtivo(true);
     setCanBeSold(false);
-    setCanBeProduced(true);
+    setCanBeProduced(false);
     setIsModalOpen(true);
   };
 
@@ -428,7 +426,7 @@ function ProdutosTabContent({ canManage, canAdjustSaldos, onNavigateToAdjust }: 
     setImagemUrl(prod.imagem_url || "");
     setAtivo(prod.ativo);
     setCanBeSold(prod.can_be_sold === true);
-    setCanBeProduced(prod.can_be_produced !== false);
+    setCanBeProduced(prod.can_be_produced === true);
     setIsModalOpen(true);
   };
 
@@ -844,7 +842,7 @@ function ProdutosTabContent({ canManage, canAdjustSaldos, onNavigateToAdjust }: 
                             <span>Venda</span>
                           </Badge>
                         )}
-                        {p.can_be_produced !== false && (
+                        {p.can_be_produced === true && (
                           <Badge
                             variant="outline"
                             className="text-[9px] uppercase font-bold py-0 px-1.5 border-amber-500/40 text-amber-400 bg-amber-500/10 flex items-center gap-1"

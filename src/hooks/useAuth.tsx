@@ -444,8 +444,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       // 3. Quando estiver operando no PAINEL CEO (ou rota /ceo):
+      // Apenas permissões da Tag CEO + permissões do cargo (level) do membro!
       if (inCeoPanel) {
-        if (isDevUser) return true;
         const ceoPerms = customRolePermissions?.["ceo"] ?? getCeoTagPermissionsSync();
         if (Array.isArray(ceoPerms) && ceoPerms.length > 0) {
           if (ceoPerms.includes(permission)) return true;

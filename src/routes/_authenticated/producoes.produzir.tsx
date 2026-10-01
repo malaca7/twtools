@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQueryClient, useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -59,11 +59,11 @@ type MaterialItem = {
 };
 
 export function ProduzirPage() {
-  const { hasPermission, isDevUser, isDevMode, isCeoMode } = useAuth();
+  const { hasPermission, isDevMode, isCeoMode } = useAuth();
   const queryClient = useQueryClient();
 
-  const canProduce = isDevUser || hasPermission("productions.create") || hasPermission("create_production");
-  const canView = isDevUser || canProduce || hasPermission("productions.view") || hasPermission("view_productions");
+  const canProduce = hasPermission("productions.create") || hasPermission("create_production");
+  const canView = canProduce || hasPermission("productions.view") || hasPermission("view_productions");
   const prefix = isDevMode ? "/dev" : isCeoMode ? "/ceo" : "";
 
   const { data: products = [], isLoading: loadingProducts } = useProducts();
@@ -79,7 +79,7 @@ export function ProduzirPage() {
 
   // Produtos habilitados para produção
   const producibleProducts = useMemo(() => {
-    return products.filter((p) => p.ativo && p.can_be_produced !== false);
+    return products.filter((p) => p.ativo && p.can_be_produced === true);
   }, [products]);
 
   const selectedProduct = useMemo(() => {
@@ -247,7 +247,7 @@ export function ProduzirPage() {
         </div>
 
         <div className="flex items-center gap-2">
-          {(isDevUser || hasPermission("warehouse.view") || hasPermission("view_warehouse")) && (
+          {(hasPermission("warehouse.view") || hasPermission("view_warehouse")) && (
             <Button asChild variant="outline" size="sm" className="rounded-xl text-xs gap-1.5">
               <Link to={`${prefix}/producoes/armazem`}>
                 <Warehouse className="h-4 w-4 text-emerald-400" />
@@ -255,7 +255,7 @@ export function ProduzirPage() {
               </Link>
             </Button>
           )}
-          {(isDevUser || hasPermission("production_management.view") || hasPermission("view_production_management")) && (
+          {(hasPermission("production_management.view") || hasPermission("view_production_management")) && (
             <Button asChild variant="outline" size="sm" className="rounded-xl text-xs gap-1.5">
               <Link to={`${prefix}/producoes/gestao`}>
                 <PackageCheck className="h-4 w-4 text-sky-400" />
@@ -263,7 +263,7 @@ export function ProduzirPage() {
               </Link>
             </Button>
           )}
-          {(isDevUser || hasPermission("view_sales") || hasPermission("sales.view")) && (
+          {(hasPermission("view_sales") || hasPermission("sales.view")) && (
             <Button asChild variant="outline" size="sm" className="rounded-xl text-xs gap-1.5">
               <Link to={`${prefix}/vendas`}>
                 <ShoppingCart className="h-4 w-4 text-amber-400" />

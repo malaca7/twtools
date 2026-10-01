@@ -84,29 +84,24 @@ export const Route = createFileRoute("/_authenticated/producoes/gestao")({
 });
 
 export function GestaoProducaoPage() {
-  const { hasPermission, isDevUser, isDevMode, isCeoMode } = useAuth();
+  const { hasPermission, isDevMode, isCeoMode } = useAuth();
   const queryClient = useQueryClient();
   const prefix = isDevMode ? "/dev" : isCeoMode ? "/ceo" : "";
 
   const canAccess =
-    isDevUser ||
     hasPermission("production_management.view") ||
     hasPermission("view_production_management");
 
   const canManageProducts =
-    isDevUser ||
     hasPermission("production_management.products");
 
   const canManageMaterials =
-    isDevUser ||
     hasPermission("production_management.raw_materials");
 
   const canAuditProductions =
-    isDevUser ||
     hasPermission("production_management.productions");
 
   const canManageSettings =
-    isDevUser ||
     hasPermission("production_management.settings");
 
   const [activeTab, setActiveTab] = useState("dashboard");
@@ -144,8 +139,8 @@ export function GestaoProducaoPage() {
 
   // Modal de Produto (Configurações de Produção & Venda)
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
-  const [prodCanProduce, setProdCanProduce] = useState(true);
-  const [prodCanSell, setProdCanSell] = useState(true);
+  const [prodCanProduce, setProdCanProduce] = useState(false);
+  const [prodCanSell, setProdCanSell] = useState(false);
   const [prodIsActive, setProdIsActive] = useState(true);
 
   // Filtro temporal para produções e vendas
@@ -196,8 +191,8 @@ export function GestaoProducaoPage() {
       totalSold,
       totalRawMaterialsConsumed,
       activeProductsCount: products.filter((p) => p.ativo).length,
-      producibleCount: products.filter((p) => p.ativo && p.can_be_produced !== false).length,
-      saleableCount: products.filter((p) => p.ativo && p.can_be_sold !== false).length,
+      producibleCount: products.filter((p) => p.ativo && p.can_be_produced === true).length,
+      saleableCount: products.filter((p) => p.ativo && p.can_be_sold === true).length,
     };
   }, [productions, filteredProductionsByPeriod, warehouseStock, products, sales]);
 
@@ -331,7 +326,7 @@ export function GestaoProducaoPage() {
         </div>
 
         <div className="flex items-center gap-2">
-          {(isDevUser || hasPermission("productions.view") || hasPermission("productions.create")) && (
+          {(hasPermission("productions.view") || hasPermission("productions.create")) && (
             <Button asChild variant="outline" size="sm" className="h-10 px-3 rounded-xl text-xs gap-1.5">
               <Link to={`${prefix}/producoes/produzir`}>
                 <Factory className="h-4 w-4 text-amber-400" />
@@ -339,7 +334,7 @@ export function GestaoProducaoPage() {
               </Link>
             </Button>
           )}
-          {(isDevUser || hasPermission("warehouse.view")) && (
+          {(hasPermission("warehouse.view")) && (
             <Button asChild variant="outline" size="sm" className="h-10 px-3 rounded-xl text-xs gap-1.5">
               <Link to={`${prefix}/producoes/armazem`}>
                 <Warehouse className="h-4 w-4 text-emerald-400" />
@@ -347,7 +342,7 @@ export function GestaoProducaoPage() {
               </Link>
             </Button>
           )}
-          {(isDevUser || hasPermission("view_sales") || hasPermission("sales.view")) && (
+          {(hasPermission("view_sales") || hasPermission("sales.view")) && (
             <Button asChild variant="outline" size="sm" className="h-10 px-3 rounded-xl text-xs gap-1.5">
               <Link to={`${prefix}/vendas`}>
                 <ShoppingCart className="h-4 w-4 text-amber-400" />
@@ -585,8 +580,8 @@ export function GestaoProducaoPage() {
                         !productSearch || p.nome.toLowerCase().includes(productSearch.toLowerCase())
                       )
                       .map((prod) => {
-                        const canProduce = prod.can_be_produced !== false;
-                        const canSell = prod.can_be_sold !== false;
+                        const canProduce = prod.can_be_produced === true;
+                        const canSell = prod.can_be_sold === true;
                         const cat = categories.find((c) => c.id === prod.categoria_id);
 
                         return (
@@ -667,8 +662,8 @@ export function GestaoProducaoPage() {
                                 variant="outline"
                                 onClick={() => {
                                   setEditingProduct(prod);
-                                  setProdCanProduce(prod.can_be_produced !== false);
-                                  setProdCanSell(prod.can_be_sold !== false);
+                                  setProdCanProduce(prod.can_be_produced === true);
+                                  setProdCanSell(prod.can_be_sold === true);
                                   setProdIsActive(prod.ativo !== false);
                                 }}
                                 className="h-7 px-2.5 text-xs rounded-lg gap-1"

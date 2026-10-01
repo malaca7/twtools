@@ -54,12 +54,12 @@ export const Route = createFileRoute("/_authenticated/vendas")({
 });
 
 export function VendasPage() {
-  const { hasPermission, isDevUser, isDevMode, isCeoMode } = useAuth();
+  const { hasPermission, isDevMode, isCeoMode } = useAuth();
   const queryClient = useQueryClient();
   const prefix = isDevMode ? "/dev" : isCeoMode ? "/ceo" : "";
-  const canView = isDevUser || hasPermission("view_sales") || hasPermission("sales.view") || hasPermission("sales.history") || hasPermission("create_sale") || hasPermission("sales.create");
-  const canCreate = isDevUser || hasPermission("create_sale") || hasPermission("sales.create");
-  const canReverse = isDevUser || hasPermission("reverse_sale") || hasPermission("sales.cancel") || hasPermission("sales.edit") || hasPermission("delete_sale");
+  const canView = hasPermission("view_sales") || hasPermission("sales.view") || hasPermission("sales.history") || hasPermission("create_sale") || hasPermission("sales.create");
+  const canCreate = hasPermission("create_sale") || hasPermission("sales.create");
+  const canReverse = hasPermission("reverse_sale") || hasPermission("sales.cancel") || hasPermission("sales.edit") || hasPermission("delete_sale");
 
   const { data: sales = [], isLoading: loadingSales } = useSales();
   const { data: products = [] } = useProducts();
@@ -138,7 +138,7 @@ export function VendasPage() {
         description="Gestão de vendas do grupo com estorno automático de estoque."
         actions={
           <div className="flex flex-wrap items-center gap-2">
-            {(isDevUser || hasPermission("warehouse.view") || hasPermission("view_warehouse")) && (
+            {(hasPermission("warehouse.view") || hasPermission("view_warehouse")) && (
               <Button asChild variant="outline" size="sm" className="rounded-xl text-xs gap-1.5">
                 <Link to={`${prefix}/producoes/armazem`}>
                   <Warehouse className="h-4 w-4 text-emerald-400" />
@@ -146,7 +146,7 @@ export function VendasPage() {
                 </Link>
               </Button>
             )}
-            {(isDevUser || hasPermission("productions.view") || hasPermission("productions.create")) && (
+            {(hasPermission("productions.view") || hasPermission("productions.create")) && (
               <Button asChild variant="outline" size="sm" className="rounded-xl text-xs gap-1.5">
                 <Link to={`${prefix}/producoes/produzir`}>
                   <Factory className="h-4 w-4 text-amber-400" />

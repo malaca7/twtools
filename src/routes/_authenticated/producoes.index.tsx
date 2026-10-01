@@ -6,9 +6,9 @@ export const Route = createFileRoute("/_authenticated/producoes/")({
 });
 
 function ProducoesIndexRedirect() {
-  const { hasPermission, isDevUser } = useAuth();
+  const { hasPermission } = useAuth();
 
-  if (isDevUser || hasPermission("productions.view") || hasPermission("productions.create")) {
+  if (hasPermission("productions.view") || hasPermission("productions.create")) {
     return <Navigate to="/producoes/produzir" replace />;
   }
 

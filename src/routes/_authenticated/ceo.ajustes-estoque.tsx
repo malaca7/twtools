@@ -73,8 +73,8 @@ export function CeoAjustesEstoqueContent() {
   const { data: config } = useDiscordStockConfig();
 
   // Permissões granulares do módulo
-  const canView = isDevUser || isCeoUser || hasPermission("view_ceo_stock_adjustments") || hasPermission("manage_ceo_stock_adjustments");
-  const canManageAll = isDevUser || hasPermission("manage_ceo_stock_adjustments");
+  const canView = hasPermission("view_ceo_stock_adjustments") || hasPermission("manage_ceo_stock_adjustments");
+  const canManageAll = hasPermission("manage_ceo_stock_adjustments");
   const canSetExact = canManageAll || hasPermission("ceo_adjust_stock_balance");
   const canAdd = canManageAll || hasPermission("ceo_stock_add");
   const canRemove = canManageAll || hasPermission("ceo_stock_remove");
