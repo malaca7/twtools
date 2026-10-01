@@ -230,6 +230,16 @@ export function useRawMaterials() {
   });
 }
 
+export function useProductRecipes(productId?: string) {
+  return useQuery({
+    queryKey: ["product_recipes", productId || "all"],
+    queryFn: async () => {
+      const { getProductRecipes } = await import("@/services/productionService");
+      return getProductRecipes(productId);
+    },
+  });
+}
+
 export function useWarehouseStock() {
   return useQuery({
     queryKey: ["warehouse_stock"],

@@ -32,11 +32,15 @@ import {
   Settings,
   Shield,
   HelpCircle,
+  BookOpen,
+  Image as ImageIcon,
+  Upload,
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import {
   useProducts,
   useRawMaterials,
+  useProductRecipes,
   useProductions,
   useWarehouseStock,
   useWarehouseMovements,
@@ -48,7 +52,10 @@ import {
 import {
   createRawMaterial,
   updateRawMaterial,
+  deleteRawMaterial,
   adjustRawMaterialStock,
+  getProductRecipes,
+  saveProductRecipe,
   updateProductProductionSettings,
 } from "@/services/productionService";
 import { createProduct, updateProduct } from "@/lib/app-api";
@@ -90,19 +97,29 @@ export function GestaoProducaoPage() {
   const prefix = isDevMode ? "/dev" : isCeoMode ? "/ceo" : "";
 
   const canAccess =
+    isDevMode ||
+    isCeoMode ||
     hasPermission("production_management.view") ||
     hasPermission("view_production_management");
 
   const canManageProducts =
+    isDevMode ||
+    isCeoMode ||
     hasPermission("production_management.products");
 
   const canManageMaterials =
+    isDevMode ||
+    isCeoMode ||
     hasPermission("production_management.raw_materials");
 
   const canAuditProductions =
+    isDevMode ||
+    isCeoMode ||
     hasPermission("production_management.productions");
 
   const canManageSettings =
+    isDevMode ||
+    isCeoMode ||
     hasPermission("production_management.settings");
 
   const [activeTab, setActiveTab] = useState("dashboard");
@@ -111,6 +128,7 @@ export function GestaoProducaoPage() {
   // Dados
   const { data: products = [], isLoading: loadingProducts } = useProducts();
   const { data: rawMaterials = [], isLoading: loadingMaterials } = useRawMaterials();
+  const { data: allRecipes = [] } = useProductRecipes();
   const { data: productions = [], isLoading: loadingProductions } = useProductions(200);
   const { data: warehouseStock = [] } = useWarehouseStock();
   const { data: movements = [], isLoading: loadingMovements } = useWarehouseMovements(undefined, 200);
@@ -132,17 +150,23 @@ export function GestaoProducaoPage() {
   const [materialDesc, setMaterialDesc] = useState("");
   const [materialUnit, setMaterialUnit] = useState("un");
   const [materialStock, setMaterialStock] = useState("0");
+  const [materialImageUrl, setMaterialImageUrl] = useState("");
+  const [isUploadingMaterialImage, setIsUploadingMaterialImage] = useState(false);
+  const [materialToDelete, setMaterialToDelete] = useState<RawMaterial | null>(null);
 
   // Modal Ajuste de Estoque de Matéria-Prima
   const [adjustingMaterial, setAdjustingMaterial] = useState<RawMaterial | null>(null);
   const [adjustDelta, setAdjustDelta] = useState<string>("10");
   const [adjustReason, setAdjustReason] = useState<string>("");
 
-  // Modal de Produto (Configurações de Produção & Venda)
+  // Modal de Produto (Configurações de Produção, Venda & Ficha Técnica)
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [prodCanProduce, setProdCanProduce] = useState(false);
   const [prodCanSell, setProdCanSell] = useState(false);
   const [prodIsActive, setProdIsActive] = useState(true);
+  const [prodYield, setProdYield] = useState<string>("1");
+  const [recipeItems, setRecipeItems] = useState<Array<{ id: string; raw_material_id: string; quantity_required: string }>>([]);
+  const [isLoadingRecipe, setIsLoadingRecipe] = useState(false);
 
   // Filtro temporal para produções e vendas
   const filteredProductionsByPeriod = useMemo(() => {
@@ -202,13 +226,14 @@ export function GestaoProducaoPage() {
     mutationFn: async () => {
       if (!canManageMaterials) throw new Error("Você não possui permissão para cadastrar ou editar matérias-primas.");
       if (!materialName.trim()) throw new Error("Informe o nome da matéria-prima.");
-      if (!materialUnit.trim()) throw new Error("Informe a unidade da matéria-prima.");
+      if (!materialUnit.trim()) throw new Error("Selecione a unidade da matéria-prima.");
 
       if (editingMaterial) {
         await updateRawMaterial(editingMaterial.id, {
           name: materialName.trim(),
           description: materialDesc.trim() || null,
           unit: materialUnit.trim(),
+          image_url: materialImageUrl.trim() || null,
         });
       } else {
         await createRawMaterial({
@@ -216,6 +241,7 @@ export function GestaoProducaoPage() {
           description: materialDesc.trim() || undefined,
           unit: materialUnit.trim(),
           stock_quantity: Math.max(0, parseFloat(materialStock) || 0),
+          image_url: materialImageUrl.trim() || null,
         });
       }
     },
@@ -230,14 +256,48 @@ export function GestaoProducaoPage() {
       setEditingMaterial(null);
       setMaterialName("");
       setMaterialDesc("");
+      setMaterialUnit("un");
       setMaterialStock("0");
+      setMaterialImageUrl("");
     },
     onError: (err: any) => {
       toast.error(err.message || "Erro ao salvar matéria-prima.");
     },
   });
 
-  // MUTAÇÃO: Ajustar Estoque de Matéria-Prima
+  // MUTAÇÃO: Excluir Matéria-Prima
+  const deleteMaterialMutation = useMutation({
+    mutationFn: async (id: string) => {
+      if (!canManageMaterials) throw new Error("Você não possui permissão para excluir matérias-primas.");
+      return await deleteRawMaterial(id);
+    },
+    onSuccess: (res) => {
+      toast.success(res.message || "Matéria-prima processada com sucesso!");
+      void queryClient.invalidateQueries({ queryKey: ["raw_materials"] });
+      void queryClient.invalidateQueries({ queryKey: ["product_recipes"] });
+      setMaterialToDelete(null);
+    },
+    onError: (err: any) => {
+      toast.error(err.message || "Erro ao excluir matéria-prima.");
+    },
+  });
+
+  // Upload de Foto de Matéria-Prima
+  const handleUploadMaterialImage = async (file: File) => {
+    setIsUploadingMaterialImage(true);
+    try {
+      const { uploadImageToPostimages } = await import("@/services/postimagesService");
+      const url = await uploadImageToPostimages(file, { filename: `mat_${Date.now()}` });
+      setMaterialImageUrl(url);
+      toast.success("Foto da matéria-prima enviada com sucesso!");
+    } catch (err: any) {
+      toast.error(err.message || "Erro ao fazer upload da imagem.");
+    } finally {
+      setIsUploadingMaterialImage(false);
+    }
+  };
+
+  // MUTAÇÃO: Ajustar Estoque de Matéria-Prima (motivo opcional)
   const adjustMaterialMutation = useMutation({
     mutationFn: async () => {
       if (!canManageMaterials) throw new Error("Você não possui permissão para ajustar estoque de matérias-primas.");
@@ -246,9 +306,8 @@ export function GestaoProducaoPage() {
       if (isNaN(numDelta) || numDelta === 0) {
         throw new Error("Informe uma variação de quantidade válida.");
       }
-      if (!adjustReason.trim()) throw new Error("O motivo do ajuste é obrigatório.");
 
-      return adjustRawMaterialStock(adjustingMaterial.id, numDelta, adjustReason.trim());
+      return adjustRawMaterialStock(adjustingMaterial.id, numDelta, adjustReason.trim() || undefined);
     },
     onSuccess: () => {
       toast.success("Estoque de matéria-prima ajustado com sucesso!");
@@ -277,20 +336,82 @@ export function GestaoProducaoPage() {
     },
   });
 
-  // MUTAÇÃO: Salvar Configurações do Produto
+  // Abertura do Modal de Configuração do Produto (Carrega Receita)
+  const handleOpenProductConfig = async (prod: Product) => {
+    setEditingProduct(prod);
+    setProdCanProduce(prod.can_be_produced === true);
+    setProdCanSell(prod.can_be_sold === true);
+    setProdIsActive(prod.ativo !== false);
+    setProdYield(String(prod.production_yield || 1));
+    setIsLoadingRecipe(true);
+    try {
+      const existing = await getProductRecipes(prod.id);
+      if (existing.length > 0) {
+        setRecipeItems(
+          existing.map((e) => ({
+            id: e.id,
+            raw_material_id: e.raw_material_id,
+            quantity_required: String(e.quantity_required),
+          }))
+        );
+      } else {
+        setRecipeItems([]);
+      }
+    } catch (err) {
+      console.error("Erro ao carregar receita:", err);
+      setRecipeItems([]);
+    } finally {
+      setIsLoadingRecipe(false);
+    }
+  };
+
+  const handleAddRecipeItem = () => {
+    const firstMat = rawMaterials[0]?.id || "";
+    setRecipeItems((prev) => [
+      ...prev,
+      { id: `rec-${Date.now()}-${Math.random()}`, raw_material_id: firstMat, quantity_required: "1" },
+    ]);
+  };
+
+  const handleRemoveRecipeItem = (id: string) => {
+    setRecipeItems((prev) => prev.filter((r) => r.id !== id));
+  };
+
+  const handleUpdateRecipeItem = (id: string, updates: Partial<{ raw_material_id: string; quantity_required: string }>) => {
+    setRecipeItems((prev) =>
+      prev.map((r) => (r.id === id ? { ...r, ...updates } : r))
+    );
+  };
+
+  // MUTAÇÃO: Salvar Configurações do Produto e Ficha Técnica / Receita
   const saveProductSettingsMutation = useMutation({
     mutationFn: async () => {
       if (!canManageProducts) throw new Error("Você não possui permissão para configurar produtos.");
       if (!editingProduct) return;
+
+      const numYield = Math.max(1, parseFloat(prodYield) || 1);
+
+      // Salva flags de produção/venda e rendimento
       await updateProductProductionSettings(editingProduct.id, {
         can_be_produced: prodCanProduce,
         can_be_sold: prodCanSell,
         ativo: prodIsActive,
       });
+
+      // Salva itens da receita
+      const validItems = recipeItems
+        .filter((r) => r.raw_material_id && parseFloat(r.quantity_required) > 0)
+        .map((r) => ({
+          raw_material_id: r.raw_material_id,
+          quantity_required: parseFloat(r.quantity_required),
+        }));
+
+      await saveProductRecipe(editingProduct.id, numYield, validItems);
     },
     onSuccess: () => {
-      toast.success("Configurações do produto atualizadas com sucesso!");
+      toast.success("Configurações e receita de produção salvas com sucesso!");
       void queryClient.invalidateQueries({ queryKey: ["products"] });
+      void queryClient.invalidateQueries({ queryKey: ["product_recipes"] });
       void queryClient.invalidateQueries({ queryKey: ["warehouse_stock"] });
       setEditingProduct(null);
     },
@@ -546,6 +667,7 @@ export function GestaoProducaoPage() {
                       <th className="p-3.5">Categoria</th>
                       <th className="p-3.5 text-center">Permite Produção</th>
                       <th className="p-3.5 text-center">Permite Venda</th>
+                      <th className="p-3.5 text-center">Ficha Técnica / Receita</th>
                       <th className="p-3.5 text-center">Status Geral</th>
                       <th className="p-3.5 pr-5 text-right">Configurações</th>
                     </tr>
@@ -559,6 +681,7 @@ export function GestaoProducaoPage() {
                         const canProduce = prod.can_be_produced === true;
                         const canSell = prod.can_be_sold === true;
                         const cat = categories.find((c) => c.id === prod.categoria_id);
+                        const prodRecipes = allRecipes.filter((r) => r.product_id === prod.id);
 
                         return (
                           <tr key={prod.id} className="hover:bg-muted/10 transition-colors">
@@ -619,6 +742,31 @@ export function GestaoProducaoPage() {
                             </td>
 
                             <td className="p-3.5 text-center">
+                              {canProduce ? (
+                                <div className="flex flex-col items-center gap-1">
+                                  <Badge
+                                    variant="outline"
+                                    className={cn(
+                                      "text-[10px] font-mono",
+                                      prodRecipes.length > 0
+                                        ? "bg-sky-500/10 text-sky-300 border-sky-500/30"
+                                        : "bg-amber-500/10 text-amber-400 border-amber-500/30"
+                                    )}
+                                  >
+                                    {prodRecipes.length > 0
+                                      ? `${prodRecipes.length} insumo(s)`
+                                      : "Sem receita definida"}
+                                  </Badge>
+                                  <span className="text-[10px] text-muted-foreground font-mono">
+                                    Rendimento: <strong className="text-foreground">{prod.production_yield || 1}</strong> {prod.unidade}
+                                  </span>
+                                </div>
+                              ) : (
+                                <span className="text-muted-foreground text-[11px]">—</span>
+                              )}
+                            </td>
+
+                            <td className="p-3.5 text-center">
                               {prod.ativo ? (
                                 <span className="inline-flex items-center gap-1 text-emerald-400 font-bold text-[11px]">
                                   <CheckCircle2 className="h-3.5 w-3.5" />
@@ -636,12 +784,7 @@ export function GestaoProducaoPage() {
                               <Button
                                 size="sm"
                                 variant="outline"
-                                onClick={() => {
-                                  setEditingProduct(prod);
-                                  setProdCanProduce(prod.can_be_produced === true);
-                                  setProdCanSell(prod.can_be_sold === true);
-                                  setProdIsActive(prod.ativo !== false);
-                                }}
+                                onClick={() => handleOpenProductConfig(prod)}
                                 className="h-7 px-2.5 text-xs rounded-lg gap-1"
                               >
                                 <Edit2 className="h-3 w-3" />
@@ -678,8 +821,9 @@ export function GestaoProducaoPage() {
                 setEditingMaterial(null);
                 setMaterialName("");
                 setMaterialDesc("");
-                setMaterialUnit("kg");
+                setMaterialUnit("un");
                 setMaterialStock("0");
+                setMaterialImageUrl("");
                 setIsNewMaterialOpen(true);
               }}
               className="h-9 px-3 text-xs bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-bold rounded-xl gap-1.5"
@@ -709,8 +853,20 @@ export function GestaoProducaoPage() {
                       )
                       .map((mat) => (
                         <tr key={mat.id} className="hover:bg-muted/10 transition-colors">
-                          <td className="p-3.5 pl-5 font-bold text-foreground">
-                            {mat.name}
+                          <td className="p-3.5 pl-5">
+                            <div className="flex items-center gap-3">
+                              <ProductThumbnail
+                                src={mat.image_url}
+                                alt={mat.name}
+                                className="h-9 w-9 rounded-xl shrink-0"
+                              />
+                              <div>
+                                <p className="font-bold text-foreground">{mat.name}</p>
+                                <span className="text-[10px] text-muted-foreground font-mono">
+                                  Unidade: {mat.unit}
+                                </span>
+                              </div>
+                            </div>
                           </td>
 
                           <td className="p-3.5 text-muted-foreground max-w-md truncate">
@@ -767,12 +923,25 @@ export function GestaoProducaoPage() {
                                   setEditingMaterial(mat);
                                   setMaterialName(mat.name);
                                   setMaterialDesc(mat.description || "");
-                                  setMaterialUnit(mat.unit);
+                                  setMaterialUnit(mat.unit || "un");
+                                  setMaterialImageUrl(mat.image_url || "");
                                   setIsNewMaterialOpen(true);
                                 }}
+                                title="Editar Matéria-Prima"
                                 className="h-7 w-7 p-0 rounded-lg text-muted-foreground hover:text-foreground"
                               >
-                                <Edit2 className="h-3 w-3" />
+                                <Edit2 className="h-3.5 w-3.5" />
+                              </Button>
+
+                              {/* EXCLUIR */}
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => setMaterialToDelete(mat)}
+                                title="Excluir Matéria-Prima"
+                                className="h-7 w-7 p-0 rounded-lg text-rose-400 hover:text-rose-300 hover:bg-rose-500/10"
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
                               </Button>
                             </div>
                           </td>
@@ -946,9 +1115,72 @@ export function GestaoProducaoPage() {
             <DialogTitle className="text-base font-black text-foreground">
               {editingMaterial ? "Editar Matéria-Prima" : "Cadastrar Nova Matéria-Prima"}
             </DialogTitle>
+            <DialogDescription className="text-xs">
+              Defina os dados, unidade e foto da matéria-prima utilizada na fábrica.
+            </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4 py-2 text-xs">
+            {/* FOTO DA MATÉRIA-PRIMA */}
+            <div className="space-y-2">
+              <Label className="text-xs font-semibold">Foto da Matéria-Prima (Opcional)</Label>
+              <div className="flex items-center gap-3">
+                <ProductThumbnail
+                  src={materialImageUrl}
+                  alt={materialName || "Insumo"}
+                  className="h-16 w-16 rounded-2xl border border-border/70 shrink-0"
+                />
+                <div className="flex-1 space-y-1.5">
+                  <div className="flex items-center gap-2">
+                    <label className="cursor-pointer">
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) void handleUploadMaterialImage(file);
+                        }}
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        disabled={isUploadingMaterialImage}
+                        className="h-7 text-xs rounded-lg gap-1.5 pointer-events-none"
+                      >
+                        {isUploadingMaterialImage ? (
+                          <Loader2 className="h-3 w-3 animate-spin" />
+                        ) : (
+                          <Upload className="h-3 w-3" />
+                        )}
+                        <span>{isUploadingMaterialImage ? "Enviando..." : "Enviar Foto"}</span>
+                      </Button>
+                    </label>
+
+                    {materialImageUrl && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setMaterialImageUrl("")}
+                        className="h-7 px-2 text-xs text-rose-400 hover:text-rose-300 rounded-lg gap-1"
+                      >
+                        <X className="h-3 w-3" />
+                        <span>Remover</span>
+                      </Button>
+                    )}
+                  </div>
+                  <Input
+                    value={materialImageUrl}
+                    onChange={(e) => setMaterialImageUrl(e.target.value)}
+                    placeholder="Ou cole a URL direta da imagem..."
+                    className="text-[11px] h-7 rounded-lg"
+                  />
+                </div>
+              </div>
+            </div>
+
             <div className="space-y-1.5">
               <Label className="text-xs font-semibold">Nome da Matéria-Prima *</Label>
               <Input
@@ -961,12 +1193,26 @@ export function GestaoProducaoPage() {
 
             <div className="space-y-1.5">
               <Label className="text-xs font-semibold">Unidade de Medida *</Label>
-              <Input
-                value={materialUnit}
-                onChange={(e) => setMaterialUnit(e.target.value)}
-                placeholder="Ex: kg, un, L, g"
-                className="text-xs rounded-xl"
-              />
+              <Select value={materialUnit} onValueChange={setMaterialUnit}>
+                <SelectTrigger className="text-xs rounded-xl bg-background/50 border-border/60">
+                  <SelectValue placeholder="Selecione a unidade" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="un">Unidade (un)</SelectItem>
+                  <SelectItem value="kg">Quilograma (kg)</SelectItem>
+                  <SelectItem value="g">Grama (g)</SelectItem>
+                  <SelectItem value="mg">Miligrama (mg)</SelectItem>
+                  <SelectItem value="l">Litro (l)</SelectItem>
+                  <SelectItem value="ml">Mililitro (ml)</SelectItem>
+                  <SelectItem value="pct">Pacote (pct)</SelectItem>
+                  <SelectItem value="cx">Caixa (cx)</SelectItem>
+                  <SelectItem value="fd">Fardo (fd)</SelectItem>
+                  <SelectItem value="m">Metro (m)</SelectItem>
+                  <SelectItem value="cm">Centímetro (cm)</SelectItem>
+                  <SelectItem value="dose">Dose (dose)</SelectItem>
+                  <SelectItem value="barra">Barra (barra)</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
 
             {!editingMaterial && (
@@ -1066,11 +1312,11 @@ export function GestaoProducaoPage() {
             </div>
 
             <div className="space-y-1.5">
-              <Label className="text-xs font-semibold">Motivo Oficial do Ajuste *</Label>
+              <Label className="text-xs font-semibold">Motivo do Ajuste (Opcional)</Label>
               <Input
                 value={adjustReason}
                 onChange={(e) => setAdjustReason(e.target.value)}
-                placeholder="Ex: Compra de matéria-prima ou descarte por validade"
+                placeholder="Ex: Compra de insumos, contagem manual ou descarte (opcional)"
                 className="text-xs rounded-xl"
               />
             </div>
@@ -1090,7 +1336,11 @@ export function GestaoProducaoPage() {
               type="button"
               size="sm"
               onClick={() => adjustMaterialMutation.mutate()}
-              disabled={adjustMaterialMutation.isPending || !adjustReason.trim()}
+              disabled={
+                adjustMaterialMutation.isPending ||
+                isNaN(parseFloat(adjustDelta)) ||
+                parseFloat(adjustDelta) === 0
+              }
               className="text-xs bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold rounded-xl"
             >
               {adjustMaterialMutation.isPending ? "Ajustando..." : "Confirmar Ajuste"}
@@ -1100,61 +1350,262 @@ export function GestaoProducaoPage() {
       </Dialog>
 
       {/* ==================================================== */}
-      {/* MODAL: CONFIGURAR PRODUTO (PRODUÇÃO & VENDA) */}
+      {/* MODAL: CONFIRMAR EXCLUSÃO DE MATÉRIA-PRIMA */}
+      {/* ==================================================== */}
+      <Dialog
+        open={Boolean(materialToDelete)}
+        onOpenChange={(open) => !open && setMaterialToDelete(null)}
+      >
+        <DialogContent className="max-w-md surface-card border-border/80">
+          <DialogHeader>
+            <DialogTitle className="text-base font-black text-rose-400 flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5" />
+              <span>Excluir Matéria-Prima</span>
+            </DialogTitle>
+            <DialogDescription className="text-xs text-muted-foreground pt-1">
+              Tem certeza que deseja excluir a matéria-prima{" "}
+              <strong className="text-foreground">{materialToDelete?.name}</strong>?
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-xs text-rose-300 space-y-1">
+            <p className="font-semibold">Regra de Segurança Histórica:</p>
+            <p className="text-[11px] text-muted-foreground">
+              Se esta matéria-prima já foi utilizada em produções anteriores, o sistema apenas irá <strong>desativá-la</strong> para preservar a auditoria dos lotes. Caso não haja produções vinculadas, ela será excluída permanentemente.
+            </p>
+          </div>
+
+          <DialogFooter className="gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setMaterialToDelete(null)}
+              className="text-xs rounded-xl"
+            >
+              Cancelar
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="destructive"
+              onClick={() => materialToDelete && deleteMaterialMutation.mutate(materialToDelete.id)}
+              disabled={deleteMaterialMutation.isPending}
+              className="text-xs font-bold rounded-xl"
+            >
+              {deleteMaterialMutation.isPending ? "Excluindo..." : "Excluir Matéria-Prima"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ==================================================== */}
+      {/* MODAL: CONFIGURAR PRODUTO (PRODUÇÃO, VENDA & RECEITA) */}
       {/* ==================================================== */}
       <Dialog
         open={Boolean(editingProduct)}
         onOpenChange={(open) => !open && setEditingProduct(null)}
       >
-        <DialogContent className="max-w-md surface-card border-border/80">
+        <DialogContent className="max-w-2xl max-h-[88vh] overflow-y-auto surface-card border-border/80">
           <DialogHeader>
-            <DialogTitle className="text-base font-black text-foreground">
-              Configurações de Produção & Venda
+            <DialogTitle className="text-base font-black text-foreground flex items-center gap-2">
+              <Settings className="h-4 w-4 text-sky-400" />
+              <span>Configurações & Ficha Técnica do Produto</span>
             </DialogTitle>
             <DialogDescription className="text-xs">
-              Produto: <strong className="text-foreground">{editingProduct?.nome}</strong>
+              Item: <strong className="text-foreground">{editingProduct?.nome}</strong> ({editingProduct?.unidade})
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-4 py-2 text-xs">
-            {/* PERMITIR PRODUÇÃO */}
-            <div className="flex items-center justify-between p-3.5 rounded-2xl bg-secondary/30 border border-border/60">
-              <div className="space-y-0.5">
-                <Label className="text-xs font-bold text-foreground cursor-pointer">
-                  Permitir Produção
-                </Label>
-                <p className="text-[11px] text-muted-foreground">
-                  Se ativado, este item aparecerá na tela de Estação de Produção.
-                </p>
+          <div className="space-y-5 py-2 text-xs">
+            {/* PARÂMETROS GERAIS */}
+            <div className="space-y-2">
+              <h4 className="text-xs font-bold text-foreground uppercase tracking-wider text-muted-foreground">
+                Diretrizes de Acesso & Visibilidade
+              </h4>
+              <div className="grid grid-cols-1 gap-2.5">
+                {/* PERMITIR PRODUÇÃO */}
+                <div className="flex items-center justify-between p-3 rounded-2xl bg-secondary/30 border border-border/60">
+                  <div className="space-y-0.5">
+                    <Label className="text-xs font-bold text-foreground cursor-pointer">
+                      Permitir Produção na Fábrica
+                    </Label>
+                    <p className="text-[11px] text-muted-foreground">
+                      Se ativado, este item aparecerá na tela de Estação de Produção.
+                    </p>
+                  </div>
+                  <Switch checked={prodCanProduce} onCheckedChange={setProdCanProduce} />
+                </div>
+
+                {/* PERMITIR VENDA */}
+                <div className="flex items-center justify-between p-3 rounded-2xl bg-secondary/30 border border-border/60">
+                  <div className="space-y-0.5">
+                    <Label className="text-xs font-bold text-foreground cursor-pointer">
+                      Permitir Venda Comercial
+                    </Label>
+                    <p className="text-[11px] text-muted-foreground">
+                      Se ativado, o item poderá ser vendido no balcão quando tiver saldo liberado.
+                    </p>
+                  </div>
+                  <Switch checked={prodCanSell} onCheckedChange={setProdCanSell} />
+                </div>
+
+                {/* ATIVO NO SISTEMA */}
+                <div className="flex items-center justify-between p-3 rounded-2xl bg-secondary/30 border border-border/60">
+                  <div className="space-y-0.5">
+                    <Label className="text-xs font-bold text-foreground cursor-pointer">
+                      Produto Ativo no Catálogo Geral
+                    </Label>
+                    <p className="text-[11px] text-muted-foreground">
+                      Desative para arquivar o produto globalmente na plataforma.
+                    </p>
+                  </div>
+                  <Switch checked={prodIsActive} onCheckedChange={setProdIsActive} />
+                </div>
               </div>
-              <Switch checked={prodCanProduce} onCheckedChange={setProdCanProduce} />
             </div>
 
-            {/* PERMITIR VENDA */}
-            <div className="flex items-center justify-between p-3.5 rounded-2xl bg-secondary/30 border border-border/60">
-              <div className="space-y-0.5">
-                <Label className="text-xs font-bold text-foreground cursor-pointer">
-                  Permitir Venda Comercial
-                </Label>
-                <p className="text-[11px] text-muted-foreground">
-                  Se ativado, o item poderá ser vendido no balcão quando tiver saldo liberado.
-                </p>
-              </div>
-              <Switch checked={prodCanSell} onCheckedChange={setProdCanSell} />
-            </div>
+            {/* SEÇÃO: FICHA TÉCNICA E RECEITA DE PRODUÇÃO */}
+            {prodCanProduce && (
+              <div className="space-y-4 pt-3 border-t border-border/50">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h4 className="text-xs font-bold text-amber-300 flex items-center gap-1.5 uppercase tracking-wider">
+                      <Factory className="h-3.5 w-3.5 text-amber-400" />
+                      <span>Ficha Técnica / Receita de Fabricação</span>
+                    </h4>
+                    <p className="text-[11px] text-muted-foreground">
+                      Defina as matérias-primas e a proporção de rendimento gerada por lote.
+                    </p>
+                  </div>
 
-            {/* ATIVO NO SISTEMA */}
-            <div className="flex items-center justify-between p-3.5 rounded-2xl bg-secondary/30 border border-border/60">
-              <div className="space-y-0.5">
-                <Label className="text-xs font-bold text-foreground cursor-pointer">
-                  Produto Ativo no Catálogo Geral
-                </Label>
-                <p className="text-[11px] text-muted-foreground">
-                  Desative para arquivar o produto globalmente na plataforma.
-                </p>
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={handleAddRecipeItem}
+                    disabled={rawMaterials.length === 0}
+                    className="h-7 text-xs bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 rounded-xl gap-1"
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                    <span>Adicionar Insumo</span>
+                  </Button>
+                </div>
+
+                {/* RENDIMENTO (PRODUCE YIELD) */}
+                <div className="p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/25 space-y-1.5">
+                  <div className="flex items-center justify-between gap-4">
+                    <div className="space-y-0.5">
+                      <Label className="text-xs font-bold text-amber-200">
+                        Rendimento Gerado por Receita *
+                      </Label>
+                      <p className="text-[11px] text-muted-foreground">
+                        Quantidade de <strong>{editingProduct?.nome}</strong> ({editingProduct?.unidade}) que é produzida ao consumir os insumos da lista abaixo:
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <Input
+                        type="number"
+                        min="0.001"
+                        step="any"
+                        value={prodYield}
+                        onChange={(e) => setProdYield(e.target.value)}
+                        placeholder="1"
+                        className="w-24 text-right text-sm font-mono font-bold text-amber-300 rounded-xl"
+                      />
+                      <span className="text-xs font-mono font-bold text-muted-foreground">
+                        {editingProduct?.unidade || "un"}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* LISTA DE MATÉRIAS-PRIMAS DA RECEITA */}
+                <div className="space-y-2">
+                  <Label className="text-xs font-semibold text-foreground">
+                    Matérias-Primas Consumidas por Ciclo
+                  </Label>
+
+                  {isLoadingRecipe ? (
+                    <div className="flex items-center justify-center p-6 text-xs text-muted-foreground gap-2">
+                      <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                      <span>Carregando ingredientes da receita...</span>
+                    </div>
+                  ) : recipeItems.length === 0 ? (
+                    <div className="p-4 rounded-xl border border-dashed border-border/80 text-center text-xs text-muted-foreground">
+                      Nenhuma matéria-prima configurada nesta receita ainda. Clique em <strong>"Adicionar Insumo"</strong> acima para definir os insumos necessários.
+                    </div>
+                  ) : (
+                    <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
+                      {recipeItems.map((item, index) => {
+                        const selectedMat = rawMaterials.find((m) => m.id === item.raw_material_id);
+                        return (
+                          <div
+                            key={item.id}
+                            className="flex items-center gap-2 p-2.5 rounded-xl bg-secondary/30 border border-border/60"
+                          >
+                            <span className="text-[11px] font-mono font-bold text-muted-foreground w-5 shrink-0">
+                              #{index + 1}
+                            </span>
+
+                            {/* SELECT DE MATÉRIA-PRIMA */}
+                            <div className="flex-1">
+                              <Select
+                                value={item.raw_material_id}
+                                onValueChange={(val) =>
+                                  handleUpdateRecipeItem(item.id, { raw_material_id: val })
+                                }
+                              >
+                                <SelectTrigger className="h-8 text-xs rounded-lg bg-background/50 border-border/60">
+                                  <SelectValue placeholder="Selecione o insumo" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {rawMaterials.map((mat) => (
+                                    <SelectItem key={mat.id} value={mat.id}>
+                                      {mat.name} ({mat.unit}) — Disp: {mat.stock_quantity}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+
+                            {/* QUANTIDADE NECESSÁRIA */}
+                            <div className="w-28 shrink-0 flex items-center gap-1.5">
+                              <Input
+                                type="number"
+                                min="0.001"
+                                step="any"
+                                value={item.quantity_required}
+                                onChange={(e) =>
+                                  handleUpdateRecipeItem(item.id, {
+                                    quantity_required: e.target.value,
+                                  })
+                                }
+                                placeholder="Qtd"
+                                className="h-8 text-xs font-mono font-bold rounded-lg text-right"
+                              />
+                              <span className="text-[11px] font-mono text-muted-foreground shrink-0 w-8">
+                                {selectedMat?.unit || "un"}
+                              </span>
+                            </div>
+
+                            {/* BOTÃO REMOVER */}
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleRemoveRecipeItem(item.id)}
+                              className="h-8 w-8 p-0 rounded-lg text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 shrink-0"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
               </div>
-              <Switch checked={prodIsActive} onCheckedChange={setProdIsActive} />
-            </div>
+            )}
           </div>
 
           <DialogFooter className="gap-2">
@@ -1174,7 +1625,7 @@ export function GestaoProducaoPage() {
               disabled={saveProductSettingsMutation.isPending}
               className="text-xs bg-sky-500 hover:bg-sky-600 text-white font-bold rounded-xl"
             >
-              {saveProductSettingsMutation.isPending ? "Salvando..." : "Salvar Configurações"}
+              {saveProductSettingsMutation.isPending ? "Salvando..." : "Salvar Configurações & Receita"}
             </Button>
           </DialogFooter>
         </DialogContent>

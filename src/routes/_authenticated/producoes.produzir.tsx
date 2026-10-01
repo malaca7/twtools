@@ -22,7 +22,7 @@ import {
   ShieldAlert,
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
-import { useProducts, useRawMaterials, useWarehouseStock } from "@/hooks/useData";
+import { useProducts, useRawMaterials, useWarehouseStock, useProductRecipes } from "@/hooks/useData";
 import { executeProduction } from "@/services/productionService";
 import { PageHeader, NoAccess, ProductThumbnail } from "@/components/ui-kit";
 import { ProductionNavHeader } from "@/components/productions/ProductionNavHeader";
@@ -70,6 +70,7 @@ export function ProduzirPage() {
   const { data: products = [], isLoading: loadingProducts } = useProducts();
   const { data: rawMaterials = [], isLoading: loadingMaterials } = useRawMaterials();
   const { data: warehouseStock = [] } = useWarehouseStock();
+  const { data: allRecipes = [] } = useProductRecipes();
 
   // Estados do formulário
   const [selectedProductId, setSelectedProductId] = useState<string>("");
@@ -91,14 +92,44 @@ export function ProduzirPage() {
     return rawMaterials.filter((m) => m.is_active);
   }, [rawMaterials]);
 
-  // Pré-seleciona primeiro insumo ativo para agilizar o preenchimento pelo membro
+  // Receita cadastrada para o produto selecionado
+  const currentProductRecipes = useMemo(() => {
+    if (!selectedProductId) return [];
+    return allRecipes.filter((r) => r.product_id === selectedProductId);
+  }, [allRecipes, selectedProductId]);
+
+  // Função para aplicar a receita cadastrada proporcionalmente à quantidade
+  const applyProductRecipe = (productId: string, targetQtyStr?: string) => {
+    const prod = producibleProducts.find((p) => p.id === productId);
+    const recs = allRecipes.filter((r) => r.product_id === productId);
+    if (recs.length === 0) return false;
+
+    const numQty = parseFloat(targetQtyStr ?? quantity) || 1;
+    const prodYield = Number(prod?.production_yield || 1);
+    const multiplier = numQty / prodYield;
+
+    const mapped: MaterialItem[] = recs.map((r) => ({
+      raw_material_id: r.raw_material_id,
+      quantity_used: Math.max(
+        0.001,
+        Math.round(Number(r.quantity_required) * multiplier * 1000) / 1000
+      ),
+    }));
+
+    setMaterialsUsed(mapped);
+    return true;
+  };
+
+  // Carrega automaticamente a receita ao mudar o produto selecionado
   useEffect(() => {
-    if (materialsUsed.length === 0 && activeRawMaterials.length > 0) {
+    if (!selectedProductId) return;
+    const applied = applyProductRecipe(selectedProductId, quantity);
+    if (!applied && materialsUsed.length === 0 && activeRawMaterials.length > 0) {
       setMaterialsUsed([
         { raw_material_id: activeRawMaterials[0].id, quantity_used: 1 },
       ]);
     }
-  }, [activeRawMaterials, materialsUsed.length]);
+  }, [selectedProductId, allRecipes]);
 
   // Se houver apenas 1 produto habilitado, pré-seleciona automaticamente
   useEffect(() => {
@@ -322,21 +353,31 @@ export function ProduzirPage() {
 
               {/* CARD RESUMO DO PRODUTO SELECIONADO */}
               {selectedProduct && (
-                <div className="p-3.5 rounded-2xl bg-secondary/30 border border-border/60 flex items-center justify-between gap-3 animate-in fade-in duration-200">
+                <div className="p-3.5 rounded-2xl bg-secondary/30 border border-border/60 flex flex-col sm:flex-row sm:items-center justify-between gap-3 animate-in fade-in duration-200">
                   <div className="flex items-center gap-3">
                     <ProductThumbnail
                       src={selectedProduct.imagem_url}
                       alt={selectedProduct.nome}
-                      className="h-12 w-12 rounded-xl"
+                      className="h-12 w-12 rounded-xl shrink-0"
                     />
                     <div>
                       <p className="text-xs font-black text-foreground">{selectedProduct.nome}</p>
-                      <p className="text-[11px] text-muted-foreground">
-                        Unidade: <strong className="text-foreground">{selectedProduct.unidade}</strong>
-                      </p>
+                      <div className="flex items-center gap-2 mt-0.5">
+                        <span className="text-[11px] text-muted-foreground">
+                          Unidade: <strong className="text-foreground">{selectedProduct.unidade}</strong>
+                        </span>
+                        {currentProductRecipes.length > 0 && (
+                          <Badge
+                            variant="outline"
+                            className="bg-sky-500/10 text-sky-300 border-sky-500/30 text-[10px] font-mono"
+                          >
+                            Receita: {currentProductRecipes.length} insumo(s) / {selectedProduct.production_yield || 1} {selectedProduct.unidade}
+                          </Badge>
+                        )}
+                      </div>
                     </div>
                   </div>
-                  <div className="text-right">
+                  <div className="text-right shrink-0">
                     <span className="text-[10px] text-muted-foreground uppercase font-bold">Saldo no Armazém</span>
                     <p className="text-base font-black font-mono text-emerald-400">
                       {currentWarehouseBalance.toLocaleString("pt-BR")} {selectedProduct.unidade}
@@ -358,7 +399,13 @@ export function ProduzirPage() {
                   min="1"
                   step="1"
                   value={quantity}
-                  onChange={(e) => setQuantity(e.target.value)}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setQuantity(val);
+                    if (selectedProductId && currentProductRecipes.length > 0) {
+                      applyProductRecipe(selectedProductId, val);
+                    }
+                  }}
                   placeholder="Ex: 10"
                   className="h-11 text-base font-mono font-bold text-amber-300 rounded-xl bg-background/50 border-border/70"
                 />
@@ -370,7 +417,13 @@ export function ProduzirPage() {
                       type="button"
                       variant="outline"
                       size="sm"
-                      onClick={() => setQuantity(String(amt))}
+                      onClick={() => {
+                        const val = String(amt);
+                        setQuantity(val);
+                        if (selectedProductId && currentProductRecipes.length > 0) {
+                          applyProductRecipe(selectedProductId, val);
+                        }
+                      }}
                       className={cn(
                         "h-6 text-[10px] px-2 font-mono rounded-lg",
                         quantity === String(amt)
@@ -389,7 +442,7 @@ export function ProduzirPage() {
           {/* CARD 2: MATÉRIAS-PRIMAS CONSUMIDAS */}
           <Card className="surface-card border-border/70 overflow-hidden">
             <CardHeader className="border-b border-border/40 pb-4 bg-muted/10">
-              <div className="flex items-center justify-between">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div>
                   <CardTitle className="text-sm sm:text-base font-bold text-foreground flex items-center gap-2">
                     <span className="flex items-center justify-center h-6 w-6 rounded-lg bg-amber-500/20 text-amber-300 font-mono text-xs">
@@ -398,18 +451,33 @@ export function ProduzirPage() {
                     <span>Consumo de Matérias-Primas</span>
                   </CardTitle>
                   <CardDescription className="text-xs">
-                    Adicione os insumos consumidos para este lote de produção
+                    Insumos consumidos para fabricar {quantity || 0} {selectedProduct?.unidade || "un"}
                   </CardDescription>
                 </div>
-                <Button
-                  type="button"
-                  size="sm"
-                  onClick={() => handleAddMaterial()}
-                  className="h-8 px-3 text-xs font-bold bg-amber-500/15 text-amber-300 hover:bg-amber-500/25 border border-amber-500/30 rounded-xl gap-1.5"
-                >
-                  <Plus className="h-3.5 w-3.5" />
-                  <span>Adicionar Matéria-Prima</span>
-                </Button>
+                <div className="flex items-center gap-2">
+                  {currentProductRecipes.length > 0 && (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={() => applyProductRecipe(selectedProductId, quantity)}
+                      className="h-8 px-2.5 text-xs text-sky-300 border-sky-500/30 bg-sky-500/10 hover:bg-sky-500/20 rounded-xl gap-1.5"
+                      title="Recalcular matérias-primas pela receita padrão"
+                    >
+                      <RotateCcw className="h-3 w-3" />
+                      <span>Recalcular Receita</span>
+                    </Button>
+                  )}
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={() => handleAddMaterial()}
+                    className="h-8 px-3 text-xs font-bold bg-amber-500/15 text-amber-300 hover:bg-amber-500/25 border border-amber-500/30 rounded-xl gap-1.5"
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                    <span>Adicionar Insumo</span>
+                  </Button>
+                </div>
               </div>
             </CardHeader>
 

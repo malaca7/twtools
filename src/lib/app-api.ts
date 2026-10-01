@@ -1879,6 +1879,12 @@ export async function updateDiscordStockConfig(payload: Partial<DiscordStockConf
   return resultData as DiscordStockConfig;
 }
 
+export async function sanitizeNegativeStocks(): Promise<{ success: boolean; fixed_baus: number; fixed_products: number }> {
+  const { data, error } = await supabase.rpc("sanitize_negative_stocks");
+  if (error) throw error;
+  return data as any;
+}
+
 export async function getDiscordStockLogs(_limit = 50): Promise<DiscordStockLog[]> {
   // Sistema de logs do Discord desativado para economia de banco de dados
   return [];
@@ -1903,16 +1909,30 @@ export async function adjustStockDev(payload: {
   return data as any;
 }
 
-export async function submitSale({ data }: { data: { productId: string; quantity: number; unitPrice: number; buyerName: string; paymentMethod: string; notes?: string } }): Promise<{ success: boolean }> {
+export async function submitSale({
+  data,
+}: {
+  data: {
+    productId: string;
+    quantity: number;
+    unitPrice: number;
+    buyerName: string;
+    paymentMethod: string;
+    notes?: string;
+    discount?: number;
+  };
+}): Promise<{ success: boolean }> {
   const { data: prod } = await supabase.from("products").select("nome").eq("id", data.productId).maybeSingle();
-  const totalPrice = data.quantity * data.unitPrice;
+  const discount = Math.max(0, Number(data.discount || 0));
+  const totalPrice = Math.max(0, data.quantity * data.unitPrice - discount);
 
-  const args: { _product_id: string; _quantity: number; _unit_price: number; _buyer_name: string; _payment_method?: string; _notes?: string } = {
+  const args: any = {
     _product_id: data.productId,
     _quantity: data.quantity,
     _unit_price: data.unitPrice,
     _buyer_name: data.buyerName,
-    _payment_method: data.paymentMethod || 'dinheiro',
+    _payment_method: data.paymentMethod || "dinheiro",
+    _discount: discount,
   };
   if (data.notes) args._notes = data.notes;
   const { error } = await supabase.rpc("create_sale", args);
@@ -1926,6 +1946,7 @@ export async function submitSale({ data }: { data: { productId: string; quantity
       product_name: prod?.nome || "Produto",
       quantity: data.quantity,
       unit_price: data.unitPrice,
+      discount: discount,
       total_price: totalPrice,
       buyer_name: data.buyerName,
       payment_method: data.paymentMethod || "dinheiro",
@@ -1945,6 +1966,48 @@ export async function submitSale({ data }: { data: { productId: string; quantity
   });
 
   return { success: true };
+}
+
+export async function submitMultiSale({
+  data,
+}: {
+  data: {
+    items: { productId: string; quantity: number; unitPrice: number; discount?: number }[];
+    buyerName: string;
+    paymentMethod: string;
+    notes?: string;
+    totalDiscount?: number;
+  };
+}): Promise<{ success: boolean; group_id: string; items_count: number }> {
+  const totalDiscount = Math.max(0, Number(data.totalDiscount || 0));
+  const { data: rpcRes, error } = await supabase.rpc("create_multi_sale", {
+    p_items: data.items.map((i) => ({
+      product_id: i.productId,
+      quantity: i.quantity,
+      unit_price: i.unitPrice,
+      discount: i.discount || 0,
+    })),
+    p_buyer_name: data.buyerName.trim(),
+    p_payment_method: data.paymentMethod || "dinheiro",
+    p_notes: data.notes?.trim() || null,
+    p_total_discount: totalDiscount,
+  });
+
+  if (error) throw error;
+
+  const totalRaw = data.items.reduce((acc, i) => acc + i.quantity * i.unitPrice, 0);
+  const netTotal = Math.max(0, totalRaw - totalDiscount);
+
+  void createNotification({
+    title: "Nova Venda Multi-Item Registrada",
+    message: `${data.items.length} itens para ${data.buyerName} (R$ ${netTotal.toLocaleString("pt-BR")}).`,
+    type: "sale",
+    category: "success",
+    target_roles: ["01", "02", "gerente", "desenvolvedor"],
+    link: "/vendas",
+  });
+
+  return rpcRes as any;
 }
 
 export async function reverseSale(saleId: string, reason?: string): Promise<void> {

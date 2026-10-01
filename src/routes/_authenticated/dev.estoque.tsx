@@ -73,6 +73,7 @@ import {
   adjustStockDev,
   updateDiscordStockConfig,
   updateBau,
+  sanitizeNegativeStocks,
 } from "@/lib/app-api";
 import { useUrlTab } from "@/hooks/useUrlTab";
 import type { DiscordStockLog, DiscordStockConfig } from "@/lib/app-types";
@@ -234,7 +235,7 @@ function DiscordIntegrationTab() {
       setGuildId((prev) => (prev ? prev : config.guild_id || ""));
       setChannelId((prev) => (prev ? prev : config.channel_id || ""));
       setIsActive(config.is_active ?? true);
-      setAllowNegativeStock(config.allow_negative_stock ?? true);
+      setAllowNegativeStock(config.allow_negative_stock ?? false);
       setDefaultBauId((prev) => (prev ? prev : config.default_bau_id || ""));
       setItemMappings(config.item_mappings || {});
       setBauMappings(config.bau_mappings || {});
@@ -267,9 +268,32 @@ function DiscordIntegrationTab() {
     }
   }, [baus, config]);
 
+  const negativeProductsCount = useMemo(() => {
+    return products.filter((p) => Number(p.estoque_atual || 0) < 0).length;
+  }, [products]);
+
+  const sanitizeMutation = useMutation({
+    mutationFn: async () => {
+      return await sanitizeNegativeStocks();
+    },
+    onSuccess: (data) => {
+      toast.success(
+        data.fixed_products > 0 || data.fixed_baus > 0
+          ? `Saldos normalizados com sucesso! (${data.fixed_baus} baú(s) e ${data.fixed_products} produto(s) zerados)`
+          : "Todos os produtos já estão com saldos consistentes e não-negativos."
+      );
+      void queryClient.invalidateQueries({ queryKey: ["products"] });
+      void queryClient.invalidateQueries({ queryKey: ["product_baus"] });
+      void queryClient.invalidateQueries({ queryKey: ["discord_stock_config"] });
+    },
+    onError: (err: any) => {
+      toast.error(err.message || "Erro ao normalizar saldos.");
+    },
+  });
+
   const saveConfigMutation = useMutation({
     mutationFn: async () => {
-      return await updateDiscordStockConfig({
+      const res = await updateDiscordStockConfig({
         guild_id: guildId.trim() || null,
         channel_id: channelId.trim() || null,
         is_active: isActive,
@@ -278,10 +302,21 @@ function DiscordIntegrationTab() {
         item_mappings: itemMappings,
         bau_mappings: bauMappings,
       });
+
+      if (!allowNegativeStock) {
+        try {
+          await sanitizeNegativeStocks();
+        } catch {
+          // ignora erro silencioso de saneamento secundário
+        }
+      }
+      return res;
     },
     onSuccess: () => {
       toast.success("Configuração de integração do Discord salva com sucesso!");
       void queryClient.invalidateQueries({ queryKey: ["discord_stock_config"] });
+      void queryClient.invalidateQueries({ queryKey: ["products"] });
+      void queryClient.invalidateQueries({ queryKey: ["product_baus"] });
     },
     onError: (err: any) => {
       toast.error(err.message || "Erro ao salvar configuração.");
@@ -756,13 +791,66 @@ function DiscordIntegrationTab() {
                   <Switch checked={isActive} onCheckedChange={setIsActive} />
                 </div>
 
-                <div className="flex items-center justify-between p-2 rounded-lg bg-secondary/40 border border-border/40">
-                  <div className="space-y-0.5">
-                    <Label className="text-xs font-semibold">Permitir Saldo Negativo</Label>
-                    <p className="text-[10px] text-muted-foreground">Permite que saldo fique menor que 0</p>
+                <div className="flex items-center justify-between p-2.5 rounded-lg bg-secondary/40 border border-border/40">
+                  <div className="space-y-0.5 pr-2">
+                    <div className="flex items-center gap-2">
+                      <Label className="text-xs font-semibold">Permitir Saldo Negativo</Label>
+                      {allowNegativeStock ? (
+                        <Badge variant="outline" className="text-[9px] bg-rose-500/10 text-rose-400 border-rose-500/30 px-1.5 py-0 font-bold">
+                          Permissivo (&lt; 0)
+                        </Badge>
+                      ) : (
+                        <Badge variant="outline" className="text-[9px] bg-emerald-500/10 text-emerald-400 border-emerald-500/30 px-1.5 py-0 font-bold">
+                          Travado em 0
+                        </Badge>
+                      )}
+                    </div>
+                    <p className="text-[10px] text-muted-foreground">
+                      {allowNegativeStock
+                        ? "Permite que retiradas deixem o saldo menor que 0."
+                        : "Bloqueia saldos negativos (retiradas acima do saldo limitam o saldo a 0)."}
+                    </p>
                   </div>
                   <Switch checked={allowNegativeStock} onCheckedChange={setAllowNegativeStock} />
                 </div>
+
+                {negativeProductsCount > 0 ? (
+                  <div className="p-2.5 rounded-lg bg-rose-500/10 border border-rose-500/30 flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-1.5 text-rose-400 text-xs">
+                      <AlertTriangle className="w-4 h-4 shrink-0" />
+                      <span><strong>{negativeProductsCount} produto(s)</strong> com saldo negativo detectados.</span>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      disabled={sanitizeMutation.isPending}
+                      onClick={() => sanitizeMutation.mutate()}
+                      className="h-7 text-[11px] font-bold border-rose-500/40 text-rose-400 hover:bg-rose-500/20 shrink-0 cursor-pointer"
+                    >
+                      <CheckCircle2 className="w-3.5 h-3.5 mr-1" />
+                      {sanitizeMutation.isPending ? "Zerando..." : "Zerar Negativos"}
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-between px-2 py-0.5 text-[11px] text-muted-foreground">
+                    <span className="flex items-center gap-1.5 text-emerald-400 font-medium">
+                      <ShieldCheck className="w-3.5 h-3.5" />
+                      Nenhum saldo negativo no banco
+                    </span>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      disabled={sanitizeMutation.isPending}
+                      onClick={() => sanitizeMutation.mutate()}
+                      className="h-6 text-[10px] text-muted-foreground hover:text-foreground px-2 cursor-pointer"
+                    >
+                      <RefreshCw className={cn("w-3 h-3 mr-1", sanitizeMutation.isPending && "animate-spin")} />
+                      Recalibrar Saldos
+                    </Button>
+                  </div>
+                )}
               </div>
             </div>
 

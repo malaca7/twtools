@@ -318,13 +318,29 @@ export function VendasPage() {
                           <span className="font-bold text-foreground">
                             {num(sale.quantity)} {p?.unidade || "un"} · <strong className="text-primary">{currency(sale.total_price)}</strong>
                           </span>
+                          {Number(sale.discount || 0) > 0 && (
+                            <span className="text-[10px] text-amber-400 block font-mono">
+                              (Desc: -{currency(sale.discount || 0)})
+                            </span>
+                          )}
                         </div>
 
                         <div>
                           <span className="text-[10px] text-muted-foreground block">Pagamento</span>
-                          <span className="font-medium text-foreground capitalize">
+                          <Badge
+                            variant="outline"
+                            className={
+                              sale.payment_method === "dinheiro"
+                                ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30 text-[10px]"
+                                : sale.payment_method === "dinheiro_sujo"
+                                ? "bg-amber-500/10 text-amber-400 border-amber-500/30 text-[10px]"
+                                : sale.payment_method === "parceria"
+                                ? "bg-purple-500/10 text-purple-400 border-purple-500/30 text-[10px]"
+                                : "text-[10px]"
+                            }
+                          >
                             {PAYMENT_LABEL[sale.payment_method] || sale.payment_method}
-                          </span>
+                          </Badge>
                         </div>
 
                         <div>
@@ -401,7 +417,12 @@ export function VendasPage() {
                             {currency(sale.unit_price)}
                           </TableCell>
                           <TableCell className="text-right font-semibold text-accent">
-                            {currency(sale.total_price)}
+                            <div>{currency(sale.total_price)}</div>
+                            {Number(sale.discount || 0) > 0 && (
+                              <div className="text-[10px] text-amber-400 font-mono">
+                                -{currency(sale.discount || 0)} desc.
+                              </div>
+                            )}
                           </TableCell>
                           <TableCell className="text-xs">
                             {nameOf(members, sale.seller_id)}
@@ -410,7 +431,18 @@ export function VendasPage() {
                             {sale.buyer_name || "—"}
                           </TableCell>
                           <TableCell className="text-xs">
-                            <Badge variant="outline" className="capitalize">
+                            <Badge
+                              variant="outline"
+                              className={
+                                sale.payment_method === "dinheiro"
+                                  ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30"
+                                  : sale.payment_method === "dinheiro_sujo"
+                                  ? "bg-amber-500/10 text-amber-400 border-amber-500/30"
+                                  : sale.payment_method === "parceria"
+                                  ? "bg-purple-500/10 text-purple-400 border-purple-500/30"
+                                  : "bg-secondary text-muted-foreground"
+                              }
+                            >
                               {PAYMENT_LABEL[sale.payment_method] || sale.payment_method}
                             </Badge>
                           </TableCell>

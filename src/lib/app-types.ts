@@ -120,6 +120,7 @@ export type Product = {
   can_be_produced?: boolean;
   can_be_sold?: boolean;
   sale_available_quantity?: number;
+  production_yield?: number;
   ativo: boolean;
   created_at: string;
   updated_at: string;
@@ -131,9 +132,20 @@ export type RawMaterial = {
   description: string | null;
   unit: string;
   stock_quantity: number;
+  image_url?: string | null;
   is_active: boolean;
   created_at: string;
   updated_at: string;
+};
+
+export type ProductRecipeItem = {
+  id: string;
+  product_id: string;
+  raw_material_id: string;
+  quantity_required: number;
+  created_at: string;
+  updated_at: string;
+  raw_material?: RawMaterial;
 };
 
 export type Production = {
@@ -291,6 +303,8 @@ export type Sale = {
   payment_method: string;
   notes: string | null;
   status: "concluida" | "estornada";
+  discount?: number;
+  group_id?: string | null;
   created_at: string;
 };
 

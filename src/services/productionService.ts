@@ -30,6 +30,7 @@ export async function getRawMaterials(): Promise<RawMaterial[]> {
     description: row.description,
     unit: row.unit || "un",
     stock_quantity: Number(row.stock_quantity || 0),
+    image_url: row.image_url || null,
     is_active: row.is_active !== false,
     created_at: row.created_at,
     updated_at: row.updated_at,
@@ -41,6 +42,7 @@ export async function createRawMaterial(input: {
   description?: string;
   unit: string;
   stock_quantity?: number;
+  image_url?: string | null;
   is_active?: boolean;
 }): Promise<RawMaterial> {
   const { data, error } = await supabase
@@ -50,6 +52,7 @@ export async function createRawMaterial(input: {
       description: input.description?.trim() || null,
       unit: input.unit.trim() || "un",
       stock_quantity: Math.max(0, Number(input.stock_quantity || 0)),
+      image_url: input.image_url?.trim() || null,
       is_active: input.is_active !== false,
     })
     .select()
@@ -65,6 +68,7 @@ export async function createRawMaterial(input: {
     description: (data as any).description,
     unit: (data as any).unit,
     stock_quantity: Number((data as any).stock_quantity || 0),
+    image_url: (data as any).image_url || null,
     is_active: (data as any).is_active,
     created_at: (data as any).created_at,
     updated_at: (data as any).updated_at,
@@ -77,6 +81,7 @@ export async function updateRawMaterial(
     name?: string;
     description?: string | null;
     unit?: string;
+    image_url?: string | null;
     is_active?: boolean;
   }
 ): Promise<void> {
@@ -84,6 +89,7 @@ export async function updateRawMaterial(
   if (input.name !== undefined) payload.name = input.name.trim();
   if (input.description !== undefined) payload.description = input.description?.trim() || null;
   if (input.unit !== undefined) payload.unit = input.unit.trim();
+  if (input.image_url !== undefined) payload.image_url = input.image_url?.trim() || null;
   if (input.is_active !== undefined) payload.is_active = input.is_active;
 
   const { error } = await supabase
@@ -96,19 +102,96 @@ export async function updateRawMaterial(
   }
 }
 
+export async function deleteRawMaterial(
+  id: string
+): Promise<{ success: boolean; action: string; message: string }> {
+  const { data, error } = await supabase.rpc("delete_raw_material_rpc", {
+    p_raw_material_id: id,
+  });
+
+  if (error) {
+    throw new Error(error.message || "Erro ao excluir matéria-prima");
+  }
+
+  return data as any;
+}
+
 export async function adjustRawMaterialStock(
   rawMaterialId: string,
   quantityDelta: number,
-  reason: string
+  reason?: string
 ): Promise<{ success: boolean; new_balance: number }> {
   const { data, error } = await supabase.rpc("adjust_raw_material_stock_rpc", {
     p_raw_material_id: rawMaterialId,
     p_quantity_delta: quantityDelta,
-    p_reason: reason.trim(),
+    p_reason: reason ? reason.trim() : null,
   });
 
   if (error) {
     throw new Error(error.message || "Erro ao ajustar estoque de matéria-prima");
+  }
+
+  return data as any;
+}
+
+// ==========================================
+// 1.1 RECEITAS DE PRODUÇÃO (PRODUCT RECIPES)
+// ==========================================
+
+export async function getProductRecipes(productId?: string): Promise<import("@/lib/app-types").ProductRecipeItem[]> {
+  let query = supabase
+    .from("product_recipes" as any)
+    .select(`
+      *,
+      raw_materials:raw_material_id (id, name, unit, stock_quantity, image_url)
+    `);
+
+  if (productId) {
+    query = query.eq("product_id", productId);
+  }
+
+  const { data, error } = await query;
+  if (error) {
+    console.error("Erro ao carregar receitas de produto:", error);
+    throw new Error(error.message || "Erro ao carregar receitas");
+  }
+
+  return (data || []).map((row: any) => ({
+    id: row.id,
+    product_id: row.product_id,
+    raw_material_id: row.raw_material_id,
+    quantity_required: Number(row.quantity_required || 0),
+    created_at: row.created_at,
+    updated_at: row.updated_at,
+    raw_material: row.raw_materials
+      ? {
+          id: row.raw_materials.id,
+          name: row.raw_materials.name,
+          unit: row.raw_materials.unit,
+          stock_quantity: Number(row.raw_materials.stock_quantity || 0),
+          image_url: row.raw_materials.image_url || null,
+          description: null,
+          is_active: true,
+          created_at: "",
+          updated_at: "",
+        }
+      : undefined,
+  }));
+}
+
+export async function saveProductRecipe(
+  productId: string,
+  productionYield: number,
+  items: { raw_material_id: string; quantity_required: number }[]
+): Promise<{ success: boolean; product_id: string; production_yield: number; items_count: number }> {
+  const { data, error } = await supabase.rpc("save_product_recipe", {
+    p_product_id: productId,
+    p_production_yield: productionYield,
+    p_items: items,
+  });
+
+  if (error) {
+    throw new Error(error.message || "Erro ao salvar receita de produção");
   }
 
   return data as any;
