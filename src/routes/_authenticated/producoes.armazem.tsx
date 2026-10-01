@@ -105,21 +105,27 @@ export function ArmazemPage() {
 
   // Métricas
   const metrics = useMemo(() => {
-    const totalWarehouse = stockList.reduce((sum, s) => sum + Number(s.quantity || 0), 0);
-    const totalSaleAvailable = stockList.reduce(
-      (sum, s) => sum + Number(s.product?.sale_available_quantity || 0),
-      0
+    const totalWarehouse = Math.round(
+      stockList.reduce((sum, s) => sum + Number(s.quantity || 0), 0)
     );
-    const totalGeneralStorage = stockList.reduce(
-      (sum, s) => sum + Number(s.product?.estoque_atual || 0),
-      0
+    const totalSaleAvailable = Math.round(
+      stockList.reduce(
+        (sum, s) => sum + Number(s.product?.sale_available_quantity || 0),
+        0
+      )
     );
-    const inStockCount = stockList.filter((s) => Number(s.quantity || 0) > 0).length;
+    const totalGeneralStorage = Math.round(
+      stockList.reduce(
+        (sum, s) => sum + Number(s.product?.estoque_atual || 0),
+        0
+      )
+    );
+    const inStockCount = stockList.filter((s) => Math.round(Number(s.quantity || 0)) > 0).length;
     const withAnyStockCount = stockList.filter(
       (s) =>
-        Number(s.quantity || 0) > 0 ||
-        Number(s.product?.sale_available_quantity || 0) > 0 ||
-        Number(s.product?.estoque_atual || 0) > 0
+        Math.round(Number(s.quantity || 0)) > 0 ||
+        Math.round(Number(s.product?.sale_available_quantity || 0)) > 0 ||
+        Math.round(Number(s.product?.estoque_atual || 0)) > 0
     ).length;
 
     return {
@@ -135,9 +141,9 @@ export function ArmazemPage() {
   const filteredStock = useMemo(() => {
     return stockList.filter((item) => {
       const prod = item.product;
-      const whQty = Number(item.quantity || 0);
-      const saleQty = Number(prod?.sale_available_quantity || 0);
-      const bauQty = Number(prod?.estoque_atual || 0);
+      const whQty = Math.round(Number(item.quantity || 0));
+      const saleQty = Math.round(Number(prod?.sale_available_quantity || 0));
+      const bauQty = Math.round(Number(prod?.estoque_atual || 0));
 
       // Requisito: mostrar apenas produtos com saldo disponível no armazém, em vendas ou em baús
       const hasAnyStock = whQty > 0 || saleQty > 0 || bauQty > 0;
@@ -166,8 +172,8 @@ export function ArmazemPage() {
     mutationFn: async () => {
       if (!canTransferStorage) throw new Error("Você não possui permissão para transferir produtos para baús.");
       if (!selectedStock) return;
-      const numQ = parseFloat(transferQty);
-      if (!numQ || numQ <= 0) throw new Error("Informe uma quantidade válida.");
+      const numQ = parseInt(transferQty, 10);
+      if (isNaN(numQ) || numQ <= 0) throw new Error("Informe uma quantidade inteira válida (> 0).");
       if (numQ > Number(selectedStock.quantity || 0)) {
         throw new Error("Quantidade informada excede o saldo em armazém.");
       }
@@ -181,7 +187,7 @@ export function ArmazemPage() {
     },
     onSuccess: (res) => {
       toast.success(
-        `${res.transferred}x transferidos com sucesso para ${res.destination}!`
+        `${Math.round(res.transferred)}x transferidos com sucesso para ${res.destination}!`
       );
       void queryClient.invalidateQueries({ queryKey: ["warehouse_stock"] });
       void queryClient.invalidateQueries({ queryKey: ["products"] });
@@ -202,8 +208,8 @@ export function ArmazemPage() {
     mutationFn: async () => {
       if (!canTransferSale) throw new Error("Você não possui permissão para disponibilizar produtos para venda.");
       if (!selectedStock) return;
-      const numQ = parseFloat(transferQty);
-      if (!numQ || numQ <= 0) throw new Error("Informe uma quantidade válida.");
+      const numQ = parseInt(transferQty, 10);
+      if (isNaN(numQ) || numQ <= 0) throw new Error("Informe uma quantidade inteira válida (> 0).");
       if (numQ > Number(selectedStock.quantity || 0)) {
         throw new Error("Quantidade informada excede o saldo em armazém.");
       }
@@ -219,7 +225,7 @@ export function ArmazemPage() {
     },
     onSuccess: (res) => {
       toast.success(
-        `${res.transferred}x liberados para Vendas com sucesso! Saldo para venda: ${res.sale_available_balance}.`
+        `${Math.round(res.transferred)}x liberados para Vendas com sucesso! Saldo para venda: ${Math.round(res.sale_available_balance)}.`
       );
       void queryClient.invalidateQueries({ queryKey: ["warehouse_stock"] });
       void queryClient.invalidateQueries({ queryKey: ["products"] });
@@ -239,8 +245,8 @@ export function ArmazemPage() {
     mutationFn: async () => {
       if (!canAdjust) throw new Error("Você não possui permissão para realizar ajustes de armazém.");
       if (!selectedStock) return;
-      const numQ = parseFloat(transferQty);
-      if (isNaN(numQ) || numQ < 0) throw new Error("Informe um saldo válido (>= 0).");
+      const numQ = parseInt(transferQty, 10);
+      if (isNaN(numQ) || numQ < 0) throw new Error("Informe um saldo inteiro válido (>= 0).");
       if (!transferNotes.trim()) throw new Error("O motivo do ajuste é obrigatório.");
 
       return adjustWarehouseStock(
@@ -448,9 +454,9 @@ export function ArmazemPage() {
                     <tbody className="divide-y divide-border/40">
                       {filteredStock.map((item) => {
                         const prod = item.product;
-                        const whQty = Number(item.quantity || 0);
-                        const saleQty = Number(prod?.sale_available_quantity || 0);
-                        const bauQty = Number(prod?.estoque_atual || 0);
+                        const whQty = Math.round(Number(item.quantity || 0));
+                        const saleQty = Math.round(Number(prod?.sale_available_quantity || 0));
+                        const bauQty = Math.round(Number(prod?.estoque_atual || 0));
                         const canSell = prod?.can_be_sold === true;
 
                         return (
@@ -750,8 +756,9 @@ export function ArmazemPage() {
               <Label className="text-xs font-semibold">Quantidade a Transferir *</Label>
               <Input
                 type="number"
+                step="1"
                 min="1"
-                max={Number(selectedStock?.quantity || 0)}
+                max={Math.floor(Number(selectedStock?.quantity || 0))}
                 value={transferQty}
                 onChange={(e) => setTransferQty(e.target.value)}
                 className="text-base font-mono font-bold text-sky-300 rounded-xl bg-background/50"
@@ -764,7 +771,7 @@ export function ArmazemPage() {
                     variant="outline"
                     size="sm"
                     onClick={() => {
-                      const total = Number(selectedStock?.quantity || 0);
+                      const total = Math.floor(Number(selectedStock?.quantity || 0));
                       const calculated = Math.max(1, Math.floor((total * pct) / 100));
                       setTransferQty(String(calculated));
                     }}
@@ -827,7 +834,7 @@ export function ArmazemPage() {
             <DialogDescription className="text-xs">
               Produto: <strong className="text-foreground">{selectedStock?.product?.nome}</strong> · Saldo no Armazém:{" "}
               <span className="font-mono text-emerald-400 font-bold">
-                {Number(selectedStock?.quantity || 0)} {selectedStock?.product?.unidade}
+                {Math.round(Number(selectedStock?.quantity || 0)).toLocaleString("pt-BR")} {selectedStock?.product?.unidade}
               </span>
             </DialogDescription>
           </DialogHeader>
@@ -848,8 +855,9 @@ export function ArmazemPage() {
               <Label className="text-xs font-semibold">Quantidade a Liberar para Venda *</Label>
               <Input
                 type="number"
+                step="1"
                 min="1"
-                max={Number(selectedStock?.quantity || 0)}
+                max={Math.floor(Number(selectedStock?.quantity || 0))}
                 value={transferQty}
                 onChange={(e) => setTransferQty(e.target.value)}
                 className="text-base font-mono font-bold text-amber-300 rounded-xl bg-background/50"
@@ -862,7 +870,7 @@ export function ArmazemPage() {
                     variant="outline"
                     size="sm"
                     onClick={() => {
-                      const total = Number(selectedStock?.quantity || 0);
+                      const total = Math.floor(Number(selectedStock?.quantity || 0));
                       const calculated = Math.max(1, Math.floor((total * pct) / 100));
                       setTransferQty(String(calculated));
                     }}
@@ -925,7 +933,7 @@ export function ArmazemPage() {
             <DialogDescription className="text-xs">
               Produto: <strong className="text-foreground">{selectedStock?.product?.nome}</strong> · Saldo atual:{" "}
               <span className="font-mono text-foreground font-bold">
-                {Number(selectedStock?.quantity || 0)} {selectedStock?.product?.unidade}
+                {Math.round(Number(selectedStock?.quantity || 0)).toLocaleString("pt-BR")} {selectedStock?.product?.unidade}
               </span>
             </DialogDescription>
           </DialogHeader>
@@ -935,6 +943,7 @@ export function ArmazemPage() {
               <Label className="text-xs font-semibold">Novo Saldo Absoluto (&ge; 0) *</Label>
               <Input
                 type="number"
+                step="1"
                 min="0"
                 value={transferQty}
                 onChange={(e) => setTransferQty(e.target.value)}

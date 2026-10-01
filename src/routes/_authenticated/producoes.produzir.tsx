@@ -98,21 +98,21 @@ export function ProduzirPage() {
     return allRecipes.filter((r) => r.product_id === selectedProductId);
   }, [allRecipes, selectedProductId]);
 
-  // Função para aplicar a receita cadastrada proporcionalmente à quantidade
+  // Função para aplicar a receita cadastrada proporcionalmente à quantidade (sempre números inteiros)
   const applyProductRecipe = (productId: string, targetQtyStr?: string) => {
     const prod = producibleProducts.find((p) => p.id === productId);
     const recs = allRecipes.filter((r) => r.product_id === productId);
     if (recs.length === 0) return false;
 
-    const numQty = parseFloat(targetQtyStr ?? quantity) || 1;
-    const prodYield = Number(prod?.production_yield || 1);
+    const numQty = Math.max(1, Math.round(parseFloat(targetQtyStr ?? quantity) || 1));
+    const prodYield = Math.max(1, Math.round(Number(prod?.production_yield || 1)));
     const multiplier = numQty / prodYield;
 
     const mapped: MaterialItem[] = recs.map((r) => ({
       raw_material_id: r.raw_material_id,
       quantity_used: Math.max(
-        0.001,
-        Math.round(Number(r.quantity_required) * multiplier * 1000) / 1000
+        1,
+        Math.ceil(Math.round(Number(r.quantity_required)) * multiplier)
       ),
     }));
 
@@ -192,7 +192,7 @@ export function ProduzirPage() {
       if (item.quantity_used > mat.stock_quantity) {
         return {
           valid: false,
-          message: `Estoque insuficiente de ${mat.name}: possui ${mat.stock_quantity} ${mat.unit} e necessita de ${item.quantity_used} ${mat.unit}.`,
+          message: `Estoque insuficiente de ${mat.name}: possui ${Math.round(mat.stock_quantity)} ${mat.unit} e necessita de ${Math.round(item.quantity_used)} ${mat.unit}.`,
           insufficientMaterial: mat.name,
         };
       }
@@ -206,13 +206,13 @@ export function ProduzirPage() {
     mutationFn: async () => {
       if (!canProduce) throw new Error("Você não possui permissão para executar produções.");
       if (!validation.valid) throw new Error(validation.message);
-      const numQty = parseFloat(quantity);
+      const numQty = Math.max(1, Math.round(parseFloat(quantity) || 1));
       return executeProduction({
         productId: selectedProductId,
         quantity: numQty,
         rawMaterials: materialsUsed.map((m) => ({
           raw_material_id: m.raw_material_id,
-          quantity_used: Number(m.quantity_used),
+          quantity_used: Math.max(1, Math.round(Number(m.quantity_used) || 1)),
         })),
         observation: observation.trim() || undefined,
       });
@@ -401,9 +401,10 @@ export function ProduzirPage() {
                   value={quantity}
                   onChange={(e) => {
                     const val = e.target.value;
-                    setQuantity(val);
+                    const cleanVal = val ? String(Math.max(1, parseInt(val, 10) || 1)) : "";
+                    setQuantity(cleanVal);
                     if (selectedProductId && currentProductRecipes.length > 0) {
-                      applyProductRecipe(selectedProductId, val);
+                      applyProductRecipe(selectedProductId, cleanVal);
                     }
                   }}
                   placeholder="Ex: 10"
@@ -536,7 +537,7 @@ export function ProduzirPage() {
                                     <div className="flex items-center justify-between gap-3 w-full">
                                       <span>{m.name}</span>
                                       <span className="text-[10px] text-muted-foreground font-mono">
-                                        (Disp: {m.stock_quantity} {m.unit})
+                                        (Disp: {Math.round(m.stock_quantity).toLocaleString("pt-BR")} {m.unit})
                                       </span>
                                     </div>
                                   </SelectItem>
@@ -550,14 +551,15 @@ export function ProduzirPage() {
                             <div className="w-32">
                               <Input
                                 type="number"
-                                min="0.01"
-                                step="any"
-                                value={item.quantity_used || ""}
-                                onChange={(e) =>
+                                min="1"
+                                step="1"
+                                value={item.quantity_used ? Math.round(item.quantity_used) : ""}
+                                onChange={(e) => {
+                                  const parsed = parseInt(e.target.value, 10);
                                   handleUpdateMaterial(index, {
-                                    quantity_used: parseFloat(e.target.value) || 0,
-                                  })
-                                }
+                                    quantity_used: isNaN(parsed) ? 0 : Math.max(0, parsed),
+                                  });
+                                }}
                                 placeholder="Qtd"
                                 className="h-9 text-xs font-mono font-bold text-foreground rounded-xl bg-background/50 border-border/70 text-right"
                               />
@@ -587,7 +589,7 @@ export function ProduzirPage() {
                                 <>
                                   <AlertTriangle className="h-3.5 w-3.5 text-rose-400 shrink-0" />
                                   <span className="text-rose-400 font-bold">
-                                    Estoque insuficiente! Disponível: {mat.stock_quantity} {mat.unit}
+                                    Estoque insuficiente! Disponível: {Math.round(mat.stock_quantity).toLocaleString("pt-BR")} {mat.unit}
                                   </span>
                                 </>
                               ) : (
@@ -596,7 +598,7 @@ export function ProduzirPage() {
                                   <span className="text-muted-foreground">
                                     Estoque disponível:{" "}
                                     <strong className="text-emerald-400 font-mono">
-                                      {mat.stock_quantity} {mat.unit}
+                                      {Math.round(mat.stock_quantity).toLocaleString("pt-BR")} {mat.unit}
                                     </strong>
                                   </span>
                                 </>
@@ -609,7 +611,7 @@ export function ProduzirPage() {
                                   isOverStock ? "text-rose-400" : "text-foreground"
                                 )}
                               >
-                                {Math.max(0, mat.stock_quantity - (item.quantity_used || 0)).toFixed(1)}{" "}
+                                {Math.max(0, Math.round(mat.stock_quantity - (item.quantity_used || 0))).toLocaleString("pt-BR")}{" "}
                                 {mat.unit}
                               </strong>
                             </span>
@@ -709,7 +711,7 @@ export function ProduzirPage() {
                         >
                           <span className="font-medium text-foreground">{mat?.name || "Insumo"}</span>
                           <span className="font-mono font-bold text-rose-400">
-                            -{item.quantity_used} {mat?.unit || "un"}
+                            -{Math.round(item.quantity_used).toLocaleString("pt-BR")} {mat?.unit || "un"}
                           </span>
                         </div>
                       );
@@ -799,7 +801,7 @@ export function ProduzirPage() {
                     <li key={idx} className="flex items-center justify-between text-muted-foreground font-mono">
                       <span>• {mat?.name}</span>
                       <strong className="text-rose-400">
-                        -{item.quantity_used} {mat?.unit}
+                        -{Math.round(item.quantity_used).toLocaleString("pt-BR")} {mat?.unit}
                       </strong>
                     </li>
                   );

@@ -190,9 +190,10 @@ export async function adjustRawMaterialStock(
   quantityDelta: number,
   reason?: string
 ): Promise<{ success: boolean; new_balance: number }> {
+  const cleanDelta = Math.round(Number(quantityDelta) || 0);
   const { data, error } = await supabase.rpc("adjust_raw_material_stock_rpc", {
     p_raw_material_id: rawMaterialId,
-    p_quantity_delta: quantityDelta,
+    p_quantity_delta: cleanDelta,
     p_reason: reason ? reason.trim() : null,
   });
 
@@ -253,10 +254,16 @@ export async function saveProductRecipe(
   productionYield: number,
   items: { raw_material_id: string; quantity_required: number }[]
 ): Promise<{ success: boolean; product_id: string; production_yield: number; items_count: number }> {
+  const cleanYield = Math.max(1, Math.round(Number(productionYield) || 1));
+  const cleanItems = (items || []).map((i) => ({
+    raw_material_id: i.raw_material_id,
+    quantity_required: Math.max(1, Math.round(Number(i.quantity_required) || 1)),
+  }));
+
   const { data, error } = await supabase.rpc("save_product_recipe", {
     p_product_id: productId,
-    p_production_yield: productionYield,
-    p_items: items,
+    p_production_yield: cleanYield,
+    p_items: cleanItems,
   });
 
   if (error) {
@@ -332,10 +339,16 @@ export async function executeProduction(input: {
   product_name: string;
   warehouse_balance: number;
 }> {
+  const cleanQty = Math.max(1, Math.round(Number(input.quantity) || 1));
+  const cleanMats = (input.rawMaterials || []).map((m) => ({
+    raw_material_id: m.raw_material_id,
+    quantity_used: Math.max(1, Math.round(Number(m.quantity_used) || 1)),
+  }));
+
   const { data, error } = await supabase.rpc("execute_production_rpc", {
     p_product_id: input.productId,
-    p_quantity: input.quantity,
-    p_raw_materials: input.rawMaterials,
+    p_quantity: cleanQty,
+    p_raw_materials: cleanMats,
     p_observation: input.observation?.trim() || null,
   });
 
@@ -652,6 +665,11 @@ export async function manageProductionStock(params: {
   chest_orig_balance: number;
   chest_dest_balance: number;
 }> {
+  const cleanQty = Math.max(
+    params.action === "ADJUST" ? 0 : 1,
+    Math.round(Number(params.quantity) || 0)
+  );
+
   const { data, error } = await supabase.rpc("manage_production_stock_rpc", {
     p_product_id: params.productId,
     p_action: params.action,
@@ -659,7 +677,7 @@ export async function manageProductionStock(params: {
     p_destination: params.destination || null,
     p_origin_bau_id: params.originBauId || null,
     p_destination_bau_id: params.destinationBauId || null,
-    p_quantity: params.quantity,
+    p_quantity: cleanQty,
     p_reason: params.reason?.trim() || null,
   });
 

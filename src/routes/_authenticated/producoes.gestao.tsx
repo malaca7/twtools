@@ -381,7 +381,7 @@ export function GestaoProducaoPage() {
     mutationFn: async () => {
       if (!canManageMaterials) throw new Error("Você não possui permissão para ajustar estoque de matérias-primas.");
       if (!adjustingMaterial) return;
-      const numDelta = parseFloat(adjustDelta);
+      const numDelta = parseInt(adjustDelta, 10);
       if (isNaN(numDelta) || numDelta === 0) {
         throw new Error("Informe uma variação de quantidade válida.");
       }
@@ -468,7 +468,7 @@ export function GestaoProducaoPage() {
       if (!canManageProducts) throw new Error("Você não possui permissão para configurar produtos.");
       if (!editingProduct) return;
 
-      const numYield = Math.max(0.001, parseFloat(prodYield) || 1);
+      const numYield = Math.max(1, Math.round(parseFloat(prodYield) || 1));
 
       // Salva flags de produção/venda e rendimento
       await updateProductProductionSettings(editingProduct.id, {
@@ -478,12 +478,12 @@ export function GestaoProducaoPage() {
         production_yield: numYield,
       });
 
-      // Salva itens da receita
+      // Salva itens da receita (sempre números inteiros)
       const validItems = recipeItems
         .filter((r) => r.raw_material_id && parseFloat(r.quantity_required) > 0)
         .map((r) => ({
           raw_material_id: r.raw_material_id,
-          quantity_required: parseFloat(r.quantity_required),
+          quantity_required: Math.max(1, Math.round(parseFloat(r.quantity_required) || 1)),
         }));
 
       await saveProductRecipe(editingProduct.id, numYield, validItems);
@@ -567,7 +567,7 @@ export function GestaoProducaoPage() {
   const manageStockMutation = useMutation({
     mutationFn: async () => {
       if (!managingStockProduct) return;
-      const numQ = parseFloat(stockQuantity);
+      const numQ = Math.max(stockAction === "ADJUST" ? 0 : 1, parseInt(stockQuantity, 10) || 0);
       if (isNaN(numQ) || (stockAction !== "ADJUST" && numQ <= 0) || (stockAction === "ADJUST" && numQ < 0)) {
         throw new Error("Informe uma quantidade válida.");
       }
@@ -1588,16 +1588,6 @@ export function GestaoProducaoPage() {
             </div>
 
             <div className="space-y-1.5">
-              <Label className="text-xs font-semibold">Nome da Matéria-Prima *</Label>
-              <Input
-                value={materialName}
-                onChange={(e) => setMaterialName(e.target.value)}
-                placeholder="Ex: Pólvora Refinada"
-                className="text-xs rounded-xl"
-              />
-            </div>
-
-            <div className="space-y-1.5">
               <Label className="text-xs font-semibold">Unidade de Medida *</Label>
               <Select value={materialUnit} onValueChange={setMaterialUnit}>
                 <SelectTrigger className="text-xs rounded-xl bg-background/50 border-border/60">
@@ -1627,8 +1617,12 @@ export function GestaoProducaoPage() {
                 <Input
                   type="number"
                   min="0"
+                  step="1"
                   value={materialStock}
-                  onChange={(e) => setMaterialStock(e.target.value)}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setMaterialStock(val ? String(Math.max(0, parseInt(val, 10) || 0)) : "");
+                  }}
                   className="text-xs rounded-xl font-mono"
                 />
               </div>
@@ -1695,9 +1689,12 @@ export function GestaoProducaoPage() {
               </Label>
               <Input
                 type="number"
-                step="any"
+                step="1"
                 value={adjustDelta}
-                onChange={(e) => setAdjustDelta(e.target.value)}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setAdjustDelta(val ? String(parseInt(val, 10) || 0) : "");
+                }}
                 placeholder="Ex: 50 ou -20"
                 className="text-base font-mono font-bold text-amber-300 rounded-xl"
               />
@@ -1911,10 +1908,13 @@ export function GestaoProducaoPage() {
                     <div className="flex items-center gap-2 shrink-0">
                       <Input
                         type="number"
-                        min="0.001"
-                        step="any"
+                        min="1"
+                        step="1"
                         value={prodYield}
-                        onChange={(e) => setProdYield(e.target.value)}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setProdYield(val ? String(Math.max(1, parseInt(val, 10) || 1)) : "");
+                        }}
                         placeholder="1"
                         className="w-24 text-right text-sm font-mono font-bold text-amber-300 rounded-xl"
                       />
@@ -1978,14 +1978,15 @@ export function GestaoProducaoPage() {
                             <div className="w-28 shrink-0 flex items-center gap-1.5">
                               <Input
                                 type="number"
-                                min="0.001"
-                                step="any"
+                                min="1"
+                                step="1"
                                 value={item.quantity_required}
-                                onChange={(e) =>
+                                onChange={(e) => {
+                                  const val = e.target.value;
                                   handleUpdateRecipeItem(item.id, {
-                                    quantity_required: e.target.value,
-                                  })
-                                }
+                                    quantity_required: val ? String(Math.max(1, parseInt(val, 10) || 1)) : "",
+                                  });
+                                }}
                                 placeholder="Qtd"
                                 className="h-8 text-xs font-mono font-bold rounded-lg text-right"
                               />
@@ -2269,10 +2270,13 @@ export function GestaoProducaoPage() {
               </div>
               <Input
                 type="number"
-                min={stockAction === "ADJUST" ? "0" : "0.01"}
-                step="any"
+                min={stockAction === "ADJUST" ? "0" : "1"}
+                step="1"
                 value={stockQuantity}
-                onChange={(e) => setStockQuantity(e.target.value)}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setStockQuantity(val ? String(Math.max(stockAction === "ADJUST" ? 0 : 1, parseInt(val, 10) || 0)) : "");
+                }}
                 placeholder="Ex: 10"
                 className="text-base font-mono font-bold text-amber-300 rounded-xl"
               />
