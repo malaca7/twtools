@@ -27,7 +27,7 @@ BEGIN
   -- Check if permissions are customized in role_permissions table
   SELECT permissions INTO _perms FROM public.role_permissions WHERE level = _level OR nivel = _level LIMIT 1;
   IF _perms IS NOT NULL AND jsonb_typeof(_perms) = 'array' THEN
-    IF _perms ? 'create_movement' OR _perms ? 'view_stock' OR _perms ? 'create_sale' THEN
+    IF _perms ? 'create_movement' OR _perms ? 'view_stock' OR _perms ? 'create_sale' OR _perms ? 'sales.create' OR _perms ? 'productions.create' OR _perms ? 'create_production' OR _perms ? 'warehouse.transfer' THEN
       RETURN true;
     END IF;
   END IF;

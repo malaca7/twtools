@@ -172,9 +172,13 @@ function DevPermissoesContent() {
     const validConfigItems = menuConfig?.items?.filter((c) => Boolean(c && (c.id || c.url))) || [];
     const configMap = new Map(validConfigItems.map((c) => [c.id || c.url, c]));
 
-    const baseCategories = menuConfig?.categories?.length
+    const rawCategories = menuConfig?.categories?.length
       ? menuConfig.categories
-      : ["Operação", "Gestão", "Administração"];
+      : ["Operação", "Produções", "Gestão", "Administração"];
+    const baseCategories = rawCategories.includes("Produções")
+      ? rawCategories
+      : [rawCategories[0] || "Operação", "Produções", ...rawCategories.slice(1)];
+
     // Na aba da Tag Dev, colocamos as ferramentas DEV e o Painel CEO no topo absoluto!
     // Na aba da Tag CEO, colocamos "CEO" no topo e filtramos as ferramentas exclusivas de Dev.
     const categoryOrder =

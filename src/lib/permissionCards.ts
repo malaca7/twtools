@@ -72,6 +72,8 @@ export const READ_ONLY_PERMISSIONS: Permission[] = [
   "view_movement_balances",
   "view_movement_baus",
   "view_sales",
+  "sales.view",
+  "sales.history",
   "view_products",
   "view_categories",
   "view_members",

@@ -12,6 +12,7 @@ import {
   Loader2,
   Warehouse,
   Factory,
+  Info,
 } from "lucide-react";
 import { PageHeader, NoAccess, TableSkeleton, EmptyState, ProductThumbnail } from "@/components/ui-kit";
 import { SaleDialog, PAYMENT_LABEL, PAYMENT_METHODS } from "@/components/operations/SaleDialog";
@@ -58,7 +59,7 @@ export function VendasPage() {
   const prefix = isDevMode ? "/dev" : isCeoMode ? "/ceo" : "";
   const canView = isDevUser || hasPermission("view_sales") || hasPermission("sales.view");
   const canCreate = isDevUser || hasPermission("create_sale") || hasPermission("sales.create");
-  const canReverse = isDevUser || hasPermission("reverse_sale") || hasPermission("sales.cancel");
+  const canReverse = isDevUser || hasPermission("reverse_sale") || hasPermission("sales.cancel") || hasPermission("sales.edit") || hasPermission("delete_sale");
 
   const { data: sales = [], isLoading: loadingSales } = useSales();
   const { data: products = [] } = useProducts();
@@ -122,6 +123,16 @@ export function VendasPage() {
 
   return (
     <div className="mx-auto max-w-7xl space-y-6">
+      {/* MODO SOMENTE LEITURA BANNER */}
+      {!canCreate && (
+        <div className="p-3.5 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 flex items-center gap-3 text-xs text-emerald-300">
+          <Info className="h-4 w-4 shrink-0 text-emerald-400" />
+          <span>
+            <strong>Modo de Leitura:</strong> Seu cargo possui permissão para consultar o histórico de vendas, mas não para registrar novas vendas ou estornar transações.
+          </span>
+        </div>
+      )}
+
       <PageHeader
         title="Vendas"
         description="Gestão de vendas do grupo com estorno automático de estoque."

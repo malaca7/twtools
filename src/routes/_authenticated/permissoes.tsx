@@ -130,11 +130,16 @@ export function PermissoesPage() {
     const validConfigItems = menuConfig?.items?.filter((c) => Boolean(c && (c.id || c.url))) || [];
     const configMap = new Map(validConfigItems.map((c) => [c.id || c.url, c]));
 
-    const categoryOrder = (
-      menuConfig?.categories?.length
-        ? menuConfig.categories
-        : ["Operação", "Gestão", "Administração"]
-    ).filter((c) => c !== "DEV" && c !== "Ferramentas Dev" && c !== "CEO");
+    const rawCategories = menuConfig?.categories?.length
+      ? menuConfig.categories
+      : ["Operação", "Produções", "Gestão", "Administração"];
+    const orderedCategories = rawCategories.includes("Produções")
+      ? rawCategories
+      : [rawCategories[0] || "Operação", "Produções", ...rawCategories.slice(1)];
+
+    const categoryOrder = orderedCategories.filter(
+      (c) => c !== "DEV" && c !== "Ferramentas Dev" && c !== "CEO"
+    );
 
     const customized = platformPageCards
       .map((card) => {

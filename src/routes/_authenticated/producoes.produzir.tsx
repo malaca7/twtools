@@ -19,6 +19,7 @@ import {
   Boxes,
   HelpCircle,
   RotateCcw,
+  ShieldAlert,
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useProducts, useRawMaterials, useWarehouseStock } from "@/hooks/useData";
@@ -155,6 +156,7 @@ export function ProduzirPage() {
   // Mutação de Produção
   const productionMutation = useMutation({
     mutationFn: async () => {
+      if (!canProduce) throw new Error("Você não possui permissão para executar produções.");
       if (!validation.valid) throw new Error(validation.message);
       const numQty = parseFloat(quantity);
       return executeProduction({
@@ -197,6 +199,16 @@ export function ProduzirPage() {
 
   return (
     <div className="space-y-6 w-full max-w-full pb-12 animate-in fade-in duration-300">
+      {/* MODO SOMENTE LEITURA BANNER */}
+      {!canProduce && (
+        <div className="p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center gap-3 text-xs text-amber-300">
+          <Info className="h-4 w-4 shrink-0 text-amber-400" />
+          <span>
+            <strong>Modo de Leitura:</strong> Seu cargo possui permissão para visualização da Estação de Produção e receitas de produtos, mas não para emitir novas ordens de fabricação.
+          </span>
+        </div>
+      )}
+
       {/* CABEÇALHO */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border/40 pb-5">
         <div className="flex items-center gap-3">
@@ -644,10 +656,20 @@ export function ProduzirPage() {
               <Button
                 type="button"
                 onClick={() => setIsConfirmOpen(true)}
-                disabled={!validation.valid || productionMutation.isPending}
-                className="w-full h-11 text-xs font-black bg-amber-500 hover:bg-amber-600 text-slate-950 rounded-xl cursor-pointer shadow-lg shadow-amber-500/20 gap-2"
+                disabled={!canProduce || !validation.valid || productionMutation.isPending}
+                className={cn(
+                  "w-full h-11 text-xs font-black rounded-xl gap-2 transition-all",
+                  canProduce
+                    ? "bg-amber-500 hover:bg-amber-600 text-slate-950 cursor-pointer shadow-lg shadow-amber-500/20"
+                    : "bg-muted text-muted-foreground cursor-not-allowed opacity-70"
+                )}
               >
-                {productionMutation.isPending ? (
+                {!canProduce ? (
+                  <>
+                    <ShieldAlert className="h-4 w-4 text-amber-400" />
+                    <span>Sem Permissão para Produzir</span>
+                  </>
+                ) : productionMutation.isPending ? (
                   <>
                     <Loader2 className="h-4 w-4 animate-spin" />
                     <span>Processando Produção...</span>

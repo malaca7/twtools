@@ -22,6 +22,7 @@ import {
   Factory,
   Layers,
   Archive,
+  Info,
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import {
@@ -78,7 +79,9 @@ export function ArmazemPage() {
   const prefix = isDevMode ? "/dev" : isCeoMode ? "/ceo" : "";
 
   const canView = isDevUser || hasPermission("warehouse.view") || hasPermission("view_warehouse");
-  const canTransfer = isDevUser || hasPermission("warehouse.transfer") || hasPermission("warehouse.transfer_storage") || hasPermission("warehouse.transfer_sale");
+  const canTransferStorage = isDevUser || hasPermission("warehouse.transfer_storage") || hasPermission("warehouse.transfer");
+  const canTransferSale = isDevUser || hasPermission("warehouse.transfer_sale") || hasPermission("warehouse.transfer");
+  const canTransfer = canTransferStorage || canTransferSale;
   const canAdjust = isDevUser || hasPermission("warehouse.adjust");
 
   const { data: stockList = [], isLoading: loadingStock } = useWarehouseStock();
@@ -144,6 +147,7 @@ export function ArmazemPage() {
   // Mutação para Transferir para Baú/Estoque
   const transferToStorageMutation = useMutation({
     mutationFn: async () => {
+      if (!canTransferStorage) throw new Error("Você não possui permissão para transferir produtos para baús.");
       if (!selectedStock) return;
       const numQ = parseFloat(transferQty);
       if (!numQ || numQ <= 0) throw new Error("Informe uma quantidade válida.");
@@ -179,6 +183,7 @@ export function ArmazemPage() {
   // Mutação para Transferir para Venda
   const transferToSaleMutation = useMutation({
     mutationFn: async () => {
+      if (!canTransferSale) throw new Error("Você não possui permissão para disponibilizar produtos para venda.");
       if (!selectedStock) return;
       const numQ = parseFloat(transferQty);
       if (!numQ || numQ <= 0) throw new Error("Informe uma quantidade válida.");
@@ -215,6 +220,7 @@ export function ArmazemPage() {
   // Mutação de Ajuste de Armazém
   const adjustStockMutation = useMutation({
     mutationFn: async () => {
+      if (!canAdjust) throw new Error("Você não possui permissão para realizar ajustes de armazém.");
       if (!selectedStock) return;
       const numQ = parseFloat(transferQty);
       if (isNaN(numQ) || numQ < 0) throw new Error("Informe um saldo válido (>= 0).");
@@ -246,6 +252,16 @@ export function ArmazemPage() {
 
   return (
     <div className="space-y-6 w-full max-w-full pb-12 animate-in fade-in duration-300">
+      {/* MODO SOMENTE LEITURA BANNER */}
+      {!canTransfer && !canAdjust && (
+        <div className="p-3.5 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 flex items-center gap-3 text-xs text-emerald-300">
+          <Info className="h-4 w-4 shrink-0 text-emerald-400" />
+          <span>
+            <strong>Modo de Leitura:</strong> Seu cargo possui permissão para consultar os saldos e movimentações do Armazém, mas não para efetuar transferências ou ajustes de inventário.
+          </span>
+        </div>
+      )}
+
       {/* CABEÇALHO */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border/40 pb-5">
         <div className="flex items-center gap-3">
@@ -515,7 +531,7 @@ export function ArmazemPage() {
                                 <Button
                                   size="sm"
                                   variant="outline"
-                                  disabled={whQty <= 0 || !canTransfer}
+                                  disabled={whQty <= 0 || !canTransferStorage}
                                   onClick={() => {
                                     setSelectedStock(item);
                                     setTransferType("storage");
@@ -524,7 +540,7 @@ export function ArmazemPage() {
                                     setTransferNotes("");
                                   }}
                                   className="h-7 px-2.5 text-[11px] font-bold bg-sky-500/10 text-sky-300 hover:bg-sky-500/20 border-sky-500/30 rounded-lg gap-1 cursor-pointer"
-                                  title="Transferir para baú/estoque"
+                                  title={canTransferStorage ? "Transferir para baú/estoque" : "Sem permissão para transferir para baú"}
                                 >
                                   <Boxes className="h-3 w-3" />
                                   <span>Para Baú</span>
@@ -534,7 +550,7 @@ export function ArmazemPage() {
                                 <Button
                                   size="sm"
                                   variant="outline"
-                                  disabled={whQty <= 0 || !canSell || !canTransfer}
+                                  disabled={whQty <= 0 || !canSell || !canTransferSale}
                                   onClick={() => {
                                     setSelectedStock(item);
                                     setTransferType("sale");
@@ -542,7 +558,7 @@ export function ArmazemPage() {
                                     setTransferNotes("");
                                   }}
                                   className="h-7 px-2.5 text-[11px] font-bold bg-amber-500/10 text-amber-300 hover:bg-amber-500/20 border-amber-500/30 rounded-lg gap-1 cursor-pointer"
-                                  title="Transferir para disponibilidade de venda"
+                                  title={canTransferSale ? "Transferir para disponibilidade de venda" : "Sem permissão para disponibilizar para venda"}
                                 >
                                   <ShoppingCart className="h-3 w-3" />
                                   <span>Para Venda</span>

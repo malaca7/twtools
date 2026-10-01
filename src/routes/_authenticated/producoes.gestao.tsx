@@ -94,6 +94,27 @@ export function GestaoProducaoPage() {
     hasPermission("view_production_management") ||
     hasPermission("manage_products");
 
+  const canManageProducts =
+    isDevUser ||
+    hasPermission("production_management.products") ||
+    hasPermission("manage_products") ||
+    canAccess;
+
+  const canManageMaterials =
+    isDevUser ||
+    hasPermission("production_management.raw_materials") ||
+    canAccess;
+
+  const canAuditProductions =
+    isDevUser ||
+    hasPermission("production_management.productions") ||
+    canAccess;
+
+  const canManageSettings =
+    isDevUser ||
+    hasPermission("production_management.settings") ||
+    canAccess;
+
   const [activeTab, setActiveTab] = useState("dashboard");
   const [periodFilter, setPeriodFilter] = useState<"all" | "today" | "7days" | "30days">("all");
 
@@ -189,6 +210,7 @@ export function GestaoProducaoPage() {
   // MUTAÇÃO: Salvar Matéria-Prima (Criar ou Editar)
   const saveMaterialMutation = useMutation({
     mutationFn: async () => {
+      if (!canManageMaterials) throw new Error("Você não possui permissão para cadastrar ou editar matérias-primas.");
       if (!materialName.trim()) throw new Error("Informe o nome da matéria-prima.");
       if (!materialUnit.trim()) throw new Error("Informe a unidade da matéria-prima.");
 
@@ -228,6 +250,7 @@ export function GestaoProducaoPage() {
   // MUTAÇÃO: Ajustar Estoque de Matéria-Prima
   const adjustMaterialMutation = useMutation({
     mutationFn: async () => {
+      if (!canManageMaterials) throw new Error("Você não possui permissão para ajustar estoque de matérias-primas.");
       if (!adjustingMaterial) return;
       const numDelta = parseFloat(adjustDelta);
       if (isNaN(numDelta) || numDelta === 0) {
@@ -252,6 +275,7 @@ export function GestaoProducaoPage() {
   // MUTAÇÃO: Alternar Status Ativo da Matéria-Prima
   const toggleMaterialActiveMutation = useMutation({
     mutationFn: async (mat: RawMaterial) => {
+      if (!canManageMaterials) throw new Error("Você não possui permissão para alterar matérias-primas.");
       await updateRawMaterial(mat.id, { is_active: !mat.is_active });
     },
     onSuccess: () => {
@@ -266,6 +290,7 @@ export function GestaoProducaoPage() {
   // MUTAÇÃO: Salvar Configurações do Produto
   const saveProductSettingsMutation = useMutation({
     mutationFn: async () => {
+      if (!canManageProducts) throw new Error("Você não possui permissão para configurar produtos.");
       if (!editingProduct) return;
       await updateProductProductionSettings(editingProduct.id, {
         can_be_produced: prodCanProduce,

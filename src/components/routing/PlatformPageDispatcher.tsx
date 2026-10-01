@@ -57,7 +57,7 @@ const PAGE_PERMISSION_MAP: Record<string, Permission | null> = {
   movimentacoes: "view_movements",
   vendas: "view_sales",
   producoes: "productions.view",
-  produzir: "productions.create",
+  produzir: "productions.view",
   armazem: "warehouse.view",
   "gestao-producao": "production_management.view",
   gestao: "production_management.view",

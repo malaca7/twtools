@@ -1094,27 +1094,177 @@ export function can(
     if (permission === "view_consolidated_financials" && list.includes("view_financials")) return true;
     if (permission === "approve_requests" && list.includes("manage_members")) return true;
 
-    // Produção, Armazém e Vendas
-    if (permission === "productions.view" && (list.includes("productions.create") || list.includes("productions.edit") || list.includes("production_management.view") || list.includes("view_productions"))) return true;
-    if (permission === "view_productions" && (list.includes("productions.view") || list.includes("productions.create") || list.includes("production_management.view"))) return true;
-    if (permission === "productions.create" && (list.includes("create_production") || list.includes("production_management.productions"))) return true;
-    if (permission === "warehouse.view" && (list.includes("warehouse.transfer") || list.includes("warehouse.transfer_storage") || list.includes("warehouse.transfer_sale") || list.includes("warehouse.adjust") || list.includes("view_warehouse") || list.includes("production_management.view"))) return true;
-    if (permission === "view_warehouse" && (list.includes("warehouse.view") || list.includes("warehouse.transfer") || list.includes("production_management.view"))) return true;
-    if (permission === "warehouse.transfer" && (list.includes("warehouse.transfer_storage") || list.includes("warehouse.transfer_sale"))) return true;
-    if (permission === "production_management.view" && (list.includes("production_management.products") || list.includes("production_management.raw_materials") || list.includes("production_management.productions") || list.includes("view_production_management"))) return true;
-    if (permission === "view_production_management" && list.includes("production_management.view")) return true;
-    if (permission === "sales.view" && (list.includes("view_sales") || list.includes("sales.create") || list.includes("create_sale"))) return true;
-    if (permission === "view_sales" && (list.includes("sales.view") || list.includes("sales.create") || list.includes("create_sale"))) return true;
-    if (permission === "sales.create" && list.includes("create_sale")) return true;
-    if (permission === "create_sale" && list.includes("sales.create")) return true;
-    if (permission === "sales.cancel" && list.includes("reverse_sale")) return true;
-    if (permission === "reverse_sale" && list.includes("sales.cancel")) return true;
+    // Produção, Armazém, Gestão de Produção e Vendas
+    // 1. Produzir / Produção
+    if (
+      (permission === "productions.view" || permission === "view_productions") &&
+      (list.includes("productions.view") ||
+        list.includes("view_productions") ||
+        list.includes("productions.create") ||
+        list.includes("create_production") ||
+        list.includes("productions.edit") ||
+        list.includes("productions.delete") ||
+        list.includes("production_management.view") ||
+        list.includes("production_management.productions"))
+    ) {
+      return true;
+    }
+    if (
+      (permission === "productions.create" || permission === "create_production") &&
+      (list.includes("productions.create") ||
+        list.includes("create_production") ||
+        list.includes("production_management.productions"))
+    ) {
+      return true;
+    }
+    if (
+      (permission === "productions.edit" || permission === "productions.delete") &&
+      (list.includes("production_management.productions") || list.includes("production_management.view"))
+    ) {
+      return true;
+    }
 
-    // Fallback gracioso para Produções e Armazém: se o cargo foi salvo no banco antes de o módulo existir
-    const hasAnyProductionOrWarehousePerm = list.some(
-      (p) => typeof p === "string" && (p.includes("production") || p.includes("warehouse"))
+    // 2. Armazém
+    if (
+      (permission === "warehouse.view" || permission === "view_warehouse") &&
+      (list.includes("warehouse.view") ||
+        list.includes("view_warehouse") ||
+        list.includes("warehouse.transfer") ||
+        list.includes("warehouse.transfer_storage") ||
+        list.includes("warehouse.transfer_sale") ||
+        list.includes("warehouse.adjust") ||
+        list.includes("warehouse.history") ||
+        list.includes("production_management.view"))
+    ) {
+      return true;
+    }
+    if (
+      (permission === "warehouse.transfer_storage" || permission === "warehouse.transfer_sale") &&
+      list.includes("warehouse.transfer")
+    ) {
+      return true;
+    }
+    if (
+      permission === "warehouse.transfer" &&
+      (list.includes("warehouse.transfer_storage") || list.includes("warehouse.transfer_sale"))
+    ) {
+      return true;
+    }
+    if (
+      permission === "warehouse.history" &&
+      (list.includes("warehouse.view") ||
+        list.includes("view_warehouse") ||
+        list.includes("warehouse.transfer") ||
+        list.includes("production_management.view") ||
+        list.includes("production_management.productions"))
+    ) {
+      return true;
+    }
+    if (
+      permission === "warehouse.adjust" &&
+      (list.includes("production_management.settings") ||
+        list.includes("manage_stock_balance") ||
+        list.includes("estoque.corrigir") ||
+        list.includes("adjust_stock_balance"))
+    ) {
+      return true;
+    }
+
+    // 3. Gestão de Produção
+    if (
+      (permission === "production_management.view" || permission === "view_production_management") &&
+      (list.includes("production_management.view") ||
+        list.includes("view_production_management") ||
+        list.includes("production_management.products") ||
+        list.includes("production_management.raw_materials") ||
+        list.includes("production_management.productions") ||
+        list.includes("production_management.settings") ||
+        list.includes("production_management.reports") ||
+        list.includes("manage_products"))
+    ) {
+      return true;
+    }
+    if (
+      permission === "production_management.products" &&
+      (list.includes("manage_products") || list.includes("production_management.view"))
+    ) {
+      return true;
+    }
+    if (
+      permission === "manage_products" &&
+      (list.includes("production_management.products") || list.includes("production_management.view"))
+    ) {
+      return true;
+    }
+    if (
+      (permission === "production_management.raw_materials" ||
+        permission === "production_management.productions" ||
+        permission === "production_management.settings" ||
+        permission === "production_management.reports") &&
+      list.includes("production_management.view")
+    ) {
+      return true;
+    }
+
+    // 4. Vendas
+    if (
+      (permission === "view_sales" || permission === "sales.view" || permission === "sales.history") &&
+      (list.includes("view_sales") ||
+        list.includes("sales.view") ||
+        list.includes("sales.history") ||
+        list.includes("create_sale") ||
+        list.includes("sales.create") ||
+        list.includes("reverse_sale") ||
+        list.includes("sales.cancel") ||
+        list.includes("sales.edit") ||
+        list.includes("delete_sale") ||
+        list.includes("view_all_sales"))
+    ) {
+      return true;
+    }
+    if (
+      (permission === "create_sale" || permission === "sales.create") &&
+      (list.includes("create_sale") || list.includes("sales.create"))
+    ) {
+      return true;
+    }
+    if (
+      (permission === "reverse_sale" || permission === "sales.cancel" || permission === "sales.edit") &&
+      (list.includes("reverse_sale") ||
+        list.includes("sales.cancel") ||
+        list.includes("sales.edit") ||
+        list.includes("delete_sale"))
+    ) {
+      return true;
+    }
+    if (
+      permission === "delete_sale" &&
+      (list.includes("delete_sale") || list.includes("sales.cancel"))
+    ) {
+      return true;
+    }
+
+    // Fallbacks graciosos modulares (caso papéis no banco tenham sido salvos antes da adição destes módulos)
+    const hasAnyProductionPerm = list.some(
+      (p) => typeof p === "string" && (p.includes("production") || p === "create_production" || p === "view_productions")
     );
-    if (!hasAnyProductionOrWarehousePerm && (permission.includes("production") || permission.includes("warehouse"))) {
+    if (!hasAnyProductionPerm && (permission.includes("production") || permission === "create_production" || permission === "view_productions")) {
+      const defaultRolePerms = PERMISSIONS[userLevel] || [];
+      if (defaultRolePerms.includes(permission)) return true;
+    }
+
+    const hasAnyWarehousePerm = list.some(
+      (p) => typeof p === "string" && (p.includes("warehouse") || p === "view_warehouse")
+    );
+    if (!hasAnyWarehousePerm && (permission.includes("warehouse") || permission === "view_warehouse")) {
+      const defaultRolePerms = PERMISSIONS[userLevel] || [];
+      if (defaultRolePerms.includes(permission)) return true;
+    }
+
+    const hasAnySalesPerm = list.some(
+      (p) => typeof p === "string" && (p.includes("sale") || p.includes("venda"))
+    );
+    if (!hasAnySalesPerm && (permission.includes("sale") || permission.includes("venda"))) {
       const defaultRolePerms = PERMISSIONS[userLevel] || [];
       if (defaultRolePerms.includes(permission)) return true;
     }
@@ -1221,7 +1371,89 @@ export function can(
   if (permission === "view_categories" && rolePerms.includes("manage_categories")) return true;
   if (permission === "view_baus" && rolePerms.includes("manage_baus")) return true;
   if (permission === "view_movements" && (rolePerms.includes("create_movement") || rolePerms.includes("reverse_movement") || rolePerms.includes("delete_movement"))) return true;
-  if (permission === "view_sales" && (rolePerms.includes("create_sale") || rolePerms.includes("reverse_sale") || rolePerms.includes("delete_sale"))) return true;
+  if (permission === "view_sales" && (rolePerms.includes("create_sale") || rolePerms.includes("reverse_sale") || rolePerms.includes("delete_sale") || rolePerms.includes("sales.view") || rolePerms.includes("sales.create"))) return true;
+  if (permission === "sales.view" && (rolePerms.includes("view_sales") || rolePerms.includes("create_sale") || rolePerms.includes("sales.create") || rolePerms.includes("sales.history"))) return true;
+  if (permission === "sales.create" && (rolePerms.includes("create_sale") || rolePerms.includes("sales.create"))) return true;
+  if (permission === "create_sale" && (rolePerms.includes("sales.create") || rolePerms.includes("create_sale"))) return true;
+  if ((permission === "sales.cancel" || permission === "sales.edit") && (rolePerms.includes("reverse_sale") || rolePerms.includes("sales.cancel") || rolePerms.includes("delete_sale"))) return true;
+  if (permission === "reverse_sale" && (rolePerms.includes("sales.cancel") || rolePerms.includes("sales.edit") || rolePerms.includes("delete_sale"))) return true;
+  if (permission === "delete_sale" && (rolePerms.includes("sales.cancel") || rolePerms.includes("delete_sale"))) return true;
+
+  // Produções & Armazém (Role Fallback)
+  if (
+    (permission === "productions.view" || permission === "view_productions") &&
+    (rolePerms.includes("productions.view") ||
+      rolePerms.includes("view_productions") ||
+      rolePerms.includes("productions.create") ||
+      rolePerms.includes("create_production") ||
+      rolePerms.includes("production_management.view") ||
+      rolePerms.includes("production_management.productions"))
+  ) {
+    return true;
+  }
+  if (
+    (permission === "productions.create" || permission === "create_production") &&
+    (rolePerms.includes("productions.create") ||
+      rolePerms.includes("create_production") ||
+      rolePerms.includes("production_management.productions"))
+  ) {
+    return true;
+  }
+  if (
+    (permission === "warehouse.view" || permission === "view_warehouse") &&
+    (rolePerms.includes("warehouse.view") ||
+      rolePerms.includes("view_warehouse") ||
+      rolePerms.includes("warehouse.transfer") ||
+      rolePerms.includes("warehouse.transfer_storage") ||
+      rolePerms.includes("warehouse.transfer_sale") ||
+      rolePerms.includes("warehouse.adjust") ||
+      rolePerms.includes("production_management.view"))
+  ) {
+    return true;
+  }
+  if (
+    (permission === "warehouse.transfer_storage" || permission === "warehouse.transfer_sale") &&
+    rolePerms.includes("warehouse.transfer")
+  ) {
+    return true;
+  }
+  if (
+    permission === "warehouse.transfer" &&
+    (rolePerms.includes("warehouse.transfer_storage") || rolePerms.includes("warehouse.transfer_sale"))
+  ) {
+    return true;
+  }
+  if (
+    permission === "warehouse.history" &&
+    (rolePerms.includes("warehouse.view") ||
+      rolePerms.includes("view_warehouse") ||
+      rolePerms.includes("warehouse.transfer") ||
+      rolePerms.includes("production_management.view"))
+  ) {
+    return true;
+  }
+  if (
+    (permission === "production_management.view" || permission === "view_production_management") &&
+    (rolePerms.includes("production_management.view") ||
+      rolePerms.includes("view_production_management") ||
+      rolePerms.includes("production_management.products") ||
+      rolePerms.includes("production_management.productions") ||
+      rolePerms.includes("manage_products"))
+  ) {
+    return true;
+  }
+  if (
+    permission === "production_management.products" &&
+    (rolePerms.includes("manage_products") || rolePerms.includes("production_management.view"))
+  ) {
+    return true;
+  }
+  if (
+    permission === "manage_products" &&
+    (rolePerms.includes("production_management.products") || rolePerms.includes("production_management.view"))
+  ) {
+    return true;
+  }
   if (permission === "estoque.visualizar" && (rolePerms.includes("estoque.ajustar") || rolePerms.includes("estoque.adicionar") || rolePerms.includes("estoque.remover") || rolePerms.includes("estoque.corrigir") || rolePerms.includes("estoque.configurar") || rolePerms.includes("estoque.auditoria"))) return true;
   if (permission === "view_cash_fund" && (rolePerms.includes("manage_cash_fund") || rolePerms.includes("reverse_cash_fund") || rolePerms.includes("delete_cash_movement"))) return true;
   if (permission === "view_absences" && (rolePerms.includes("request_absence") || rolePerms.includes("manage_absences") || rolePerms.includes("view_all_absences"))) return true;
