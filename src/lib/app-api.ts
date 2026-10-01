@@ -580,7 +580,7 @@ export async function getProducts(): Promise<Product[]> {
   try {
     const { data, error } = await supabase
       .from("products")
-      .select("id, nome, cda_name, descricao, categoria_id, bau_id, unidade, estoque_atual, estoque_minimo, preco_sugerido, imagem_url, can_be_produced, can_be_sold, sale_available_quantity, ativo, created_at, updated_at")
+      .select("id, nome, cda_name, descricao, categoria_id, bau_id, unidade, estoque_atual, estoque_minimo, preco_sugerido, imagem_url, can_be_produced, can_be_sold, sale_available_quantity, production_yield, ativo, created_at, updated_at")
       .order("nome");
     if (!error && data && data.length > 0) {
       listData = data;
@@ -603,6 +603,7 @@ export async function getProducts(): Promise<Product[]> {
     can_be_produced: d.can_be_produced === true,
     can_be_sold: d.can_be_sold === true,
     sale_available_quantity: Number(d.sale_available_quantity || 0),
+    production_yield: d.production_yield != null ? Number(d.production_yield) : 1,
     ativo: d.ativo,
     created_at: String(d.created_at),
     updated_at: String(d.updated_at)
@@ -2086,6 +2087,7 @@ export async function createProduct(payload: {
   can_be_produced?: boolean;
   can_be_sold?: boolean;
   sale_available_quantity?: number;
+  production_yield?: number;
 }): Promise<Product> {
   const { data, error } = await supabase
     .from("products")
@@ -2102,6 +2104,7 @@ export async function createProduct(payload: {
       can_be_produced: payload.can_be_produced !== undefined ? payload.can_be_produced : false,
       can_be_sold: payload.can_be_sold !== undefined ? payload.can_be_sold : false,
       sale_available_quantity: Math.max(0, Number(payload.sale_available_quantity || 0)),
+      production_yield: payload.production_yield !== undefined ? Math.max(0.001, Number(payload.production_yield)) : 1,
       ativo: true
     })
     .select()
@@ -2142,6 +2145,7 @@ export async function createProduct(payload: {
     can_be_produced: data.can_be_produced === true,
     can_be_sold: data.can_be_sold === true,
     sale_available_quantity: Number(data.sale_available_quantity || 0),
+    production_yield: data.production_yield != null ? Number(data.production_yield) : 1,
     ativo: data.ativo,
     created_at: String(data.created_at),
     updated_at: String(data.updated_at)
@@ -2162,9 +2166,10 @@ export async function updateProduct(payload: {
   can_be_produced?: boolean;
   can_be_sold?: boolean;
   sale_available_quantity?: number;
+  production_yield?: number;
   ativo?: boolean;
 }): Promise<void> {
-  const { data: oldProd } = await supabase.from("products").select("nome, cda_name, descricao, preco_sugerido, estoque_minimo, imagem_url, can_be_produced, can_be_sold, sale_available_quantity, ativo").eq("id", payload.id).maybeSingle();
+  const { data: oldProd } = await supabase.from("products").select("nome, cda_name, descricao, preco_sugerido, estoque_minimo, imagem_url, can_be_produced, can_be_sold, sale_available_quantity, production_yield, ativo").eq("id", payload.id).maybeSingle();
 
   const updates: any = {};
   if (payload.nome !== undefined) updates.nome = payload.nome.trim();
@@ -2178,6 +2183,7 @@ export async function updateProduct(payload: {
   if (payload.can_be_produced !== undefined) updates.can_be_produced = payload.can_be_produced;
   if (payload.can_be_sold !== undefined) updates.can_be_sold = payload.can_be_sold;
   if (payload.sale_available_quantity !== undefined) updates.sale_available_quantity = Math.max(0, Number(payload.sale_available_quantity || 0));
+  if (payload.production_yield !== undefined) updates.production_yield = Math.max(0.001, Number(payload.production_yield));
   if (payload.imagem_url !== undefined) {
     const rawImg = payload.imagem_url;
     updates.imagem_url = rawImg && typeof rawImg === "string" ? (rawImg.trim() || null) : null;

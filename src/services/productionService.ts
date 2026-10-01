@@ -533,6 +533,7 @@ export async function updateProductProductionSettings(
     can_be_produced?: boolean;
     can_be_sold?: boolean;
     sale_available_quantity?: number;
+    production_yield?: number;
     ativo?: boolean;
     nome?: string;
     descricao?: string | null;
@@ -542,6 +543,7 @@ export async function updateProductProductionSettings(
   if (settings.can_be_produced !== undefined) payload.can_be_produced = settings.can_be_produced;
   if (settings.can_be_sold !== undefined) payload.can_be_sold = settings.can_be_sold;
   if (settings.sale_available_quantity !== undefined) payload.sale_available_quantity = settings.sale_available_quantity;
+  if (settings.production_yield !== undefined) payload.production_yield = Math.max(0.001, Number(settings.production_yield));
   if (settings.ativo !== undefined) payload.ativo = settings.ativo;
   if (settings.nome !== undefined) payload.nome = settings.nome.trim();
   if (settings.descricao !== undefined) payload.descricao = settings.descricao?.trim() || null;

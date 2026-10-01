@@ -367,7 +367,7 @@ export function GestaoProducaoPage() {
     setProdCanProduce(prod.can_be_produced === true);
     setProdCanSell(prod.can_be_sold === true);
     setProdIsActive(prod.ativo !== false);
-    setProdYield(String(prod.production_yield || 1));
+    setProdYield(String(prod.production_yield != null && Number(prod.production_yield) > 0 ? prod.production_yield : 1));
     setIsLoadingRecipe(true);
     try {
       const existing = await getProductRecipes(prod.id);
@@ -414,13 +414,14 @@ export function GestaoProducaoPage() {
       if (!canManageProducts) throw new Error("Você não possui permissão para configurar produtos.");
       if (!editingProduct) return;
 
-      const numYield = Math.max(1, parseFloat(prodYield) || 1);
+      const numYield = Math.max(0.001, parseFloat(prodYield) || 1);
 
       // Salva flags de produção/venda e rendimento
       await updateProductProductionSettings(editingProduct.id, {
         can_be_produced: prodCanProduce,
         can_be_sold: prodCanSell,
         ativo: prodIsActive,
+        production_yield: numYield,
       });
 
       // Salva itens da receita
