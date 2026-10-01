@@ -555,3 +555,47 @@ export async function updateProductProductionSettings(
     throw new Error(error.message || "Erro ao atualizar configurações do produto");
   }
 }
+
+// ==========================================
+// 5. GESTÃO E TRANSFERÊNCIA DE SALDOS (ARMAZÉM / BAÚS / VENDAS)
+// ==========================================
+
+export type ManageStockAction = "TRANSFER" | "REMOVE" | "ADJUST";
+export type StockLocation = "WAREHOUSE" | "SALE" | "BAU";
+
+export async function manageProductionStock(params: {
+  productId: string;
+  action: ManageStockAction;
+  origin: StockLocation;
+  destination?: StockLocation;
+  originBauId?: string | null;
+  destinationBauId?: string | null;
+  quantity: number;
+  reason?: string;
+}): Promise<{
+  success: boolean;
+  product_id: string;
+  action: string;
+  warehouse_balance: number;
+  sale_balance: number;
+  chest_orig_balance: number;
+  chest_dest_balance: number;
+}> {
+  const { data, error } = await supabase.rpc("manage_production_stock_rpc", {
+    p_product_id: params.productId,
+    p_action: params.action,
+    p_origin: params.origin,
+    p_destination: params.destination || null,
+    p_origin_bau_id: params.originBauId || null,
+    p_destination_bau_id: params.destinationBauId || null,
+    p_quantity: params.quantity,
+    p_reason: params.reason?.trim() || null,
+  });
+
+  if (error) {
+    throw new Error(error.message || "Erro ao processar gestão de saldo do produto");
+  }
+
+  return data as any;
+}
+

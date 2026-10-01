@@ -146,7 +146,10 @@ function MovimentacoesContent() {
   const { data: discordConfig } = useDiscordStockConfig();
 
   // Filtragem estrita de baús ativos vs inativos
-  const activeBaus = useMemo(() => baus.filter((b) => b.ativo !== false), [baus]);
+  const activeBaus = useMemo(
+    () => baus.filter((b) => b.ativo !== false && (b as any).is_active !== false),
+    [baus]
+  );
   const inactiveBaus = useMemo(() => baus.filter((b) => b.ativo === false), [baus]);
   const [showInactiveBaus, setShowInactiveBaus] = useState(false);
 
@@ -1793,8 +1796,8 @@ function MovimentacoesContent() {
                 </div>
               </div>
 
-              {/* SELETOR RÁPIDO DE BAÚ (PERMITE NAVEGAR ENTRE BAÚS SEM FECHAR O MODAL) */}
-              {baus.length > 1 && (
+              {/* SELETOR RÁPIDO DE BAÚ (PERMITE NAVEGAR ENTRE BAÚS ATIVOS SEM FECHAR O MODAL) */}
+              {activeBaus.length > 1 && (
                 <div className="flex items-center gap-2 shrink-0">
                   <span className="text-[11px] font-bold text-muted-foreground hidden sm:inline">Baú:</span>
                   <Select
@@ -1809,7 +1812,7 @@ function MovimentacoesContent() {
                       <SelectValue placeholder="Trocar Baú" />
                     </SelectTrigger>
                     <SelectContent>
-                      {baus.map((b) => (
+                      {activeBaus.map((b) => (
                         <SelectItem key={b.id} value={b.id} className="text-xs">
                           <span className="font-bold">{b.nome}</span>
                         </SelectItem>

@@ -35,6 +35,9 @@ import {
   BookOpen,
   Image as ImageIcon,
   Upload,
+  Undo2,
+  ArrowDownLeft,
+  ArrowUpRight,
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import {
@@ -47,6 +50,8 @@ import {
   useSales,
   useCategories,
   useMembers,
+  useBaus,
+  useProductBaus,
   nameOf,
 } from "@/hooks/useData";
 import {
@@ -57,6 +62,9 @@ import {
   getProductRecipes,
   saveProductRecipe,
   updateProductProductionSettings,
+  manageProductionStock,
+  type ManageStockAction,
+  type StockLocation,
 } from "@/services/productionService";
 import { createProduct, updateProduct } from "@/lib/app-api";
 import { PageHeader, NoAccess, ProductThumbnail } from "@/components/ui-kit";
@@ -135,13 +143,30 @@ export function GestaoProducaoPage() {
   const { data: sales = [] } = useSales();
   const { data: categories = [] } = useCategories();
   const { data: members = [] } = useMembers();
+  const { data: baus = [] } = useBaus();
+  const { data: productBaus = [] } = useProductBaus();
+  const activeBaus = useMemo(
+    () => baus.filter((b) => b.ativo !== false && (b as any).is_active !== false),
+    [baus]
+  );
 
   // Estados de Busca e Filtros
   const [productSearch, setProductSearch] = useState("");
+  const [productStockFilter, setProductStockFilter] = useState<"all" | "in_stock" | "producible">("all");
   const [materialSearch, setMaterialSearch] = useState("");
   const [productionSearch, setProductionSearch] = useState("");
   const [movementSearch, setMovementSearch] = useState("");
   const [movementTypeFilter, setMovementTypeFilter] = useState("all");
+
+  // Modal de Gestão e Transferência de Saldos (Armazém / Baús / Vendas)
+  const [managingStockProduct, setManagingStockProduct] = useState<Product | null>(null);
+  const [stockAction, setStockAction] = useState<ManageStockAction | "RETURN_WAREHOUSE">("TRANSFER");
+  const [stockOrigin, setStockOrigin] = useState<StockLocation>("WAREHOUSE");
+  const [stockDestination, setStockDestination] = useState<StockLocation>("BAU");
+  const [stockOriginBauId, setStockOriginBauId] = useState<string>("");
+  const [stockDestinationBauId, setStockDestinationBauId] = useState<string>("");
+  const [stockQuantity, setStockQuantity] = useState<string>("1");
+  const [stockReason, setStockReason] = useState<string>("");
 
   // Modais de Matéria-Prima
   const [isNewMaterialOpen, setIsNewMaterialOpen] = useState(false);
@@ -420,6 +445,122 @@ export function GestaoProducaoPage() {
     },
   });
 
+  // Cálculos de saldo do produto selecionado para o modal de gestão de estoque
+  const managingWhStock = useMemo(() => {
+    if (!managingStockProduct) return 0;
+    const wh = warehouseStock.find((w) => w.product_id === managingStockProduct.id);
+    return Number(wh?.quantity || 0);
+  }, [warehouseStock, managingStockProduct]);
+
+  const managingSaleStock = useMemo(() => {
+    if (!managingStockProduct) return 0;
+    return Number(managingStockProduct.sale_available_quantity || 0);
+  }, [managingStockProduct]);
+
+  const getBauProductStock = (bauId: string) => {
+    if (!managingStockProduct || !bauId) return 0;
+    const pb = productBaus.find(
+      (p) => p.product_id === managingStockProduct.id && p.bau_id === bauId
+    );
+    return Number(pb?.quantidade || 0);
+  };
+
+  const currentOriginStock = useMemo(() => {
+    if (stockOrigin === "WAREHOUSE") return managingWhStock;
+    if (stockOrigin === "SALE") return managingSaleStock;
+    if (stockOrigin === "BAU") return getBauProductStock(stockOriginBauId);
+    return 0;
+  }, [stockOrigin, managingWhStock, managingSaleStock, stockOriginBauId, productBaus, managingStockProduct]);
+
+  const currentDestStock = useMemo(() => {
+    const dest = stockAction === "RETURN_WAREHOUSE" ? "WAREHOUSE" : stockDestination;
+    if (dest === "WAREHOUSE") return managingWhStock;
+    if (dest === "SALE") return managingSaleStock;
+    if (dest === "BAU") return getBauProductStock(stockDestinationBauId);
+    return 0;
+  }, [stockAction, stockDestination, managingWhStock, managingSaleStock, stockDestinationBauId, productBaus, managingStockProduct]);
+
+  const handleOpenStockManager = (prod: Product) => {
+    setManagingStockProduct(prod);
+    setStockAction("TRANSFER");
+    const wh = warehouseStock.find((w) => w.product_id === prod.id);
+    const whQ = Number(wh?.quantity || 0);
+    const saleQ = Number(prod.sale_available_quantity || 0);
+
+    if (whQ > 0) {
+      setStockOrigin("WAREHOUSE");
+      setStockDestination("BAU");
+      setStockQuantity(String(Math.min(10, whQ)));
+    } else if (saleQ > 0) {
+      setStockOrigin("SALE");
+      setStockDestination("WAREHOUSE");
+      setStockQuantity(String(Math.min(10, saleQ)));
+    } else {
+      setStockOrigin("BAU");
+      setStockDestination("WAREHOUSE");
+      setStockQuantity("1");
+    }
+
+    const defaultBau = activeBaus[0]?.id || "";
+    setStockOriginBauId(defaultBau);
+    const otherBau = activeBaus.find((b) => b.id !== defaultBau)?.id || defaultBau;
+    setStockDestinationBauId(otherBau);
+    setStockReason("");
+  };
+
+  // MUTAÇÃO: Mover, Retornar, Remover ou Ajustar Saldo de Produtos
+  const manageStockMutation = useMutation({
+    mutationFn: async () => {
+      if (!managingStockProduct) return;
+      const numQ = parseFloat(stockQuantity);
+      if (isNaN(numQ) || (stockAction !== "ADJUST" && numQ <= 0) || (stockAction === "ADJUST" && numQ < 0)) {
+        throw new Error("Informe uma quantidade válida.");
+      }
+
+      const actualAction: ManageStockAction =
+        stockAction === "RETURN_WAREHOUSE" ? "TRANSFER" : stockAction;
+      const actualDestination: StockLocation =
+        stockAction === "RETURN_WAREHOUSE" ? "WAREHOUSE" : stockDestination;
+
+      if (actualAction === "TRANSFER" && stockOrigin === actualDestination && stockOrigin !== "BAU") {
+        throw new Error("Origem e destino devem ser diferentes.");
+      }
+
+      if (
+        actualAction === "TRANSFER" &&
+        stockOrigin === "BAU" &&
+        actualDestination === "BAU" &&
+        stockOriginBauId === stockDestinationBauId
+      ) {
+        throw new Error("O baú de destino deve ser diferente do baú de origem.");
+      }
+
+      return manageProductionStock({
+        productId: managingStockProduct.id,
+        action: actualAction,
+        origin: stockOrigin,
+        destination: actualAction === "TRANSFER" ? actualDestination : undefined,
+        originBauId: stockOrigin === "BAU" ? stockOriginBauId : undefined,
+        destinationBauId: actualDestination === "BAU" ? stockDestinationBauId : undefined,
+        quantity: numQ,
+        reason: stockReason.trim() || undefined,
+      });
+    },
+    onSuccess: () => {
+      toast.success("Operação de estoque processada com sucesso!");
+      void queryClient.invalidateQueries({ queryKey: ["products"] });
+      void queryClient.invalidateQueries({ queryKey: ["warehouse_stock"] });
+      void queryClient.invalidateQueries({ queryKey: ["product_baus"] });
+      void queryClient.invalidateQueries({ queryKey: ["warehouse_movements"] });
+      void queryClient.invalidateQueries({ queryKey: ["movements"] });
+      void queryClient.invalidateQueries({ queryKey: ["audit_logs"] });
+      setManagingStockProduct(null);
+    },
+    onError: (err: any) => {
+      toast.error(err.message || "Erro ao processar movimentação de estoque.");
+    },
+  });
+
   if (!canAccess) {
     return <NoAccess message="Você não possui permissão para acessar a Gestão de Produção." />;
   }
@@ -652,9 +793,31 @@ export function GestaoProducaoPage() {
                 className="pl-9 h-9 text-xs rounded-xl bg-background/50 border-border/60"
               />
             </div>
-            <p className="text-xs text-muted-foreground">
-              Defina se cada item pode ser <strong>produzido</strong> e se pode ser <strong>vendido</strong>.
-            </p>
+
+            {/* FILTROS RÁPIDOS DE ESTOQUE */}
+            <div className="flex items-center gap-1.5">
+              {[
+                { id: "all", label: "Todos" },
+                { id: "in_stock", label: "Com Saldo" },
+                { id: "producible", label: "Produzíveis" },
+              ].map((f) => (
+                <Button
+                  key={f.id}
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setProductStockFilter(f.id as any)}
+                  className={cn(
+                    "h-8 px-2.5 text-xs rounded-xl transition-all cursor-pointer font-semibold",
+                    productStockFilter === f.id
+                      ? "bg-amber-500/15 text-amber-300 border-amber-500/40"
+                      : "text-muted-foreground hover:text-foreground"
+                  )}
+                >
+                  {f.label}
+                </Button>
+              ))}
+            </div>
           </div>
 
           <Card className="surface-card border-border/70 overflow-hidden">
@@ -664,24 +827,40 @@ export function GestaoProducaoPage() {
                   <thead>
                     <tr className="border-b border-border/60 bg-muted/20 text-muted-foreground font-semibold">
                       <th className="p-3.5 pl-5">Produto</th>
-                      <th className="p-3.5">Categoria</th>
+                      <th className="p-3.5 text-center">Saldos (Armazém / Venda / Baús)</th>
                       <th className="p-3.5 text-center">Permite Produção</th>
                       <th className="p-3.5 text-center">Permite Venda</th>
                       <th className="p-3.5 text-center">Ficha Técnica / Receita</th>
-                      <th className="p-3.5 text-center">Status Geral</th>
-                      <th className="p-3.5 pr-5 text-right">Configurações</th>
+                      <th className="p-3.5 text-center">Status</th>
+                      <th className="p-3.5 pr-5 text-right">Ações de Gestão</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border/40">
                     {products
-                      .filter((p) =>
-                        !productSearch || p.nome.toLowerCase().includes(productSearch.toLowerCase())
-                      )
+                      .filter((prod) => {
+                        if (productSearch && !prod.nome.toLowerCase().includes(productSearch.toLowerCase())) {
+                          return false;
+                        }
+                        const wh = warehouseStock.find((w) => w.product_id === prod.id);
+                        const whQ = Number(wh?.quantity || 0);
+                        const saleQ = Number(prod.sale_available_quantity || 0);
+                        const bauQ = Number(prod.estoque_atual || 0);
+                        const totalQ = whQ + saleQ + bauQ;
+
+                        if (productStockFilter === "in_stock" && totalQ <= 0) return false;
+                        if (productStockFilter === "producible" && !prod.can_be_produced) return false;
+                        return true;
+                      })
                       .map((prod) => {
                         const canProduce = prod.can_be_produced === true;
                         const canSell = prod.can_be_sold === true;
                         const cat = categories.find((c) => c.id === prod.categoria_id);
                         const prodRecipes = allRecipes.filter((r) => r.product_id === prod.id);
+                        const wh = warehouseStock.find((w) => w.product_id === prod.id);
+                        const whQty = Number(wh?.quantity || 0);
+                        const saleQty = Number(prod.sale_available_quantity || 0);
+                        const bauQty = Number(prod.estoque_atual || 0);
+                        const totalStock = whQty + saleQty + bauQty;
 
                         return (
                           <tr key={prod.id} className="hover:bg-muted/10 transition-colors">
@@ -694,15 +873,60 @@ export function GestaoProducaoPage() {
                                 />
                                 <div>
                                   <p className="font-bold text-foreground">{prod.nome}</p>
-                                  <span className="text-[11px] text-muted-foreground font-mono">
-                                    Un: {prod.unidade}
-                                  </span>
+                                  <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground font-mono">
+                                    <span>Un: {prod.unidade}</span>
+                                    <span>·</span>
+                                    <span>{cat?.nome || "Sem Categoria"}</span>
+                                  </div>
                                 </div>
                               </div>
                             </td>
 
-                            <td className="p-3.5 text-muted-foreground">
-                              {cat?.nome || "Sem Categoria"}
+                            {/* SALDOS POR LOCALIZAÇÃO */}
+                            <td className="p-3.5 text-center">
+                              <div className="flex flex-col items-center gap-1">
+                                <div className="flex items-center justify-center gap-1 font-mono text-[10px] flex-wrap">
+                                  <Badge
+                                    variant="outline"
+                                    className={cn(
+                                      "px-1.5 py-0",
+                                      whQty > 0
+                                        ? "bg-sky-500/15 text-sky-300 border-sky-500/30 font-bold"
+                                        : "text-muted-foreground/60 border-border/40"
+                                    )}
+                                    title="Saldo no Armazém da Fábrica"
+                                  >
+                                    Armazém: {whQty}
+                                  </Badge>
+                                  <Badge
+                                    variant="outline"
+                                    className={cn(
+                                      "px-1.5 py-0",
+                                      saleQty > 0
+                                        ? "bg-emerald-500/15 text-emerald-400 border-emerald-500/30 font-bold"
+                                        : "text-muted-foreground/60 border-border/40"
+                                    )}
+                                    title="Disponível para Venda Comercial"
+                                  >
+                                    Venda: {saleQty}
+                                  </Badge>
+                                  <Badge
+                                    variant="outline"
+                                    className={cn(
+                                      "px-1.5 py-0",
+                                      bauQty > 0
+                                        ? "bg-amber-500/15 text-amber-300 border-amber-500/30 font-bold"
+                                        : "text-muted-foreground/60 border-border/40"
+                                    )}
+                                    title="Saldo armazenado em Baús"
+                                  >
+                                    Baús: {bauQty}
+                                  </Badge>
+                                </div>
+                                <span className="text-[10px] text-muted-foreground font-mono">
+                                  Total Geral: <strong className={cn(totalStock > 0 ? "text-foreground font-bold" : "text-muted-foreground")}>{totalStock} {prod.unidade}</strong>
+                                </span>
+                              </div>
                             </td>
 
                             <td className="p-3.5 text-center">
@@ -781,15 +1005,31 @@ export function GestaoProducaoPage() {
                             </td>
 
                             <td className="p-3.5 pr-5 text-right">
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => handleOpenProductConfig(prod)}
-                                className="h-7 px-2.5 text-xs rounded-lg gap-1"
-                              >
-                                <Edit2 className="h-3 w-3" />
-                                <span>Configurar</span>
-                              </Button>
+                              <div className="flex items-center justify-end gap-1.5">
+                                {/* MOVER / GERENCIAR SALDO */}
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => handleOpenStockManager(prod)}
+                                  className="h-7 px-2.5 text-xs rounded-lg gap-1 font-bold text-amber-300 border-amber-500/30 bg-amber-500/10 hover:bg-amber-500/20"
+                                  title="Mover, remover, retornar ou ajustar saldo em baús, armazém e vendas"
+                                >
+                                  <ArrowRightLeft className="h-3 w-3" />
+                                  <span>Mover Saldo</span>
+                                </Button>
+
+                                {/* CONFIGURAR PRODUTO */}
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={() => handleOpenProductConfig(prod)}
+                                  className="h-7 px-2 text-xs rounded-lg gap-1 text-muted-foreground hover:text-foreground"
+                                  title="Configurações e Ficha Técnica"
+                                >
+                                  <Edit2 className="h-3 w-3" />
+                                  <span>Configurar</span>
+                                </Button>
+                              </div>
                             </td>
                           </tr>
                         );
@@ -1626,6 +1866,317 @@ export function GestaoProducaoPage() {
               className="text-xs bg-sky-500 hover:bg-sky-600 text-white font-bold rounded-xl"
             >
               {saveProductSettingsMutation.isPending ? "Salvando..." : "Salvar Configurações & Receita"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ==================================================== */}
+      {/* MODAL: GERENCIADOR DE SALDOS & TRANSFERÊNCIAS */}
+      {/* ==================================================== */}
+      <Dialog
+        open={Boolean(managingStockProduct)}
+        onOpenChange={(open) => !open && setManagingStockProduct(null)}
+      >
+        <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto surface-card border-border/80">
+          <DialogHeader>
+            <DialogTitle className="text-base font-black text-foreground flex items-center gap-2">
+              <ArrowRightLeft className="h-4 w-4 text-amber-400" />
+              <span>Gestão de Saldos & Transferências</span>
+            </DialogTitle>
+            <DialogDescription className="text-xs">
+              Mova, retorne, remova ou ajuste o estoque de{" "}
+              <strong className="text-foreground">{managingStockProduct?.nome}</strong> em qualquer localização.
+            </DialogDescription>
+          </DialogHeader>
+
+          {/* BANNER COM OS SALDOS ATUAIS DO PRODUTO */}
+          {managingStockProduct && (
+            <div className="p-3.5 rounded-2xl bg-secondary/30 border border-border/60 space-y-2 text-xs">
+              <div className="flex items-center gap-3">
+                <ProductThumbnail
+                  src={managingStockProduct.imagem_url}
+                  alt={managingStockProduct.nome}
+                  className="h-12 w-12 rounded-xl shrink-0"
+                />
+                <div className="flex-1 min-w-0">
+                  <h4 className="font-bold text-foreground text-sm truncate">{managingStockProduct.nome}</h4>
+                  <p className="text-[11px] text-muted-foreground">
+                    Unidade de controle: <strong className="text-foreground">{managingStockProduct.unidade}</strong>
+                  </p>
+                </div>
+              </div>
+
+              {/* SALDOS POR LOCAL */}
+              <div className="grid grid-cols-3 gap-2 pt-1 border-t border-border/40">
+                <div className="p-2 rounded-xl bg-sky-500/10 border border-sky-500/20 text-center">
+                  <span className="text-[10px] text-sky-300 font-bold uppercase block">Armazém</span>
+                  <span className="text-sm font-mono font-black text-sky-400">
+                    {managingWhStock} {managingStockProduct.unidade}
+                  </span>
+                </div>
+                <div className="p-2 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-center">
+                  <span className="text-[10px] text-emerald-300 font-bold uppercase block">Venda</span>
+                  <span className="text-sm font-mono font-black text-emerald-400">
+                    {managingSaleStock} {managingStockProduct.unidade}
+                  </span>
+                </div>
+                <div className="p-2 rounded-xl bg-amber-500/10 border border-amber-500/20 text-center">
+                  <span className="text-[10px] text-amber-300 font-bold uppercase block">Em Baús</span>
+                  <span className="text-sm font-mono font-black text-amber-400">
+                    {Number(managingStockProduct.estoque_atual || 0)} {managingStockProduct.unidade}
+                  </span>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* OPERAÇÃO SELECIONADA */}
+          <div className="space-y-4 py-2 text-xs">
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold">Tipo de Operação</Label>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
+                {[
+                  { id: "TRANSFER", label: "Mover / Transferir", icon: ArrowRightLeft },
+                  { id: "RETURN_WAREHOUSE", label: "Retornar ao Armazém", icon: Undo2 },
+                  { id: "REMOVE", label: "Remover / Baixa", icon: Trash2 },
+                  { id: "ADJUST", label: "Ajustar Saldo", icon: Sliders },
+                ].map((act) => {
+                  const Icon = act.icon;
+                  const isSelected = stockAction === act.id;
+                  return (
+                    <button
+                      key={act.id}
+                      type="button"
+                      onClick={() => {
+                        setStockAction(act.id as any);
+                        if (act.id === "RETURN_WAREHOUSE") {
+                          setStockOrigin(managingSaleStock > 0 ? "SALE" : "BAU");
+                          setStockDestination("WAREHOUSE");
+                        }
+                      }}
+                      className={cn(
+                        "flex flex-col items-center justify-center p-2.5 rounded-xl border text-[11px] font-bold gap-1 transition-all cursor-pointer",
+                        isSelected
+                          ? "bg-amber-500/15 text-amber-300 border-amber-500/40 shadow-xs"
+                          : "bg-secondary/20 text-muted-foreground border-border/60 hover:text-foreground hover:bg-secondary/40"
+                      )}
+                    >
+                      <Icon className="h-4 w-4" />
+                      <span>{act.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* SELEÇÃO DE ORIGEM & DESTINO */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3 rounded-2xl bg-secondary/20 border border-border/50">
+              {/* ORIGEM */}
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold flex items-center justify-between">
+                  <span>{stockAction === "ADJUST" ? "Local do Ajuste *" : "Origem (De onde sai) *"}</span>
+                  <span className="text-[10px] text-muted-foreground font-mono">
+                    Disp: <strong className="text-foreground">{currentOriginStock}</strong>
+                  </span>
+                </Label>
+                <Select
+                  value={stockOrigin}
+                  onValueChange={(val: StockLocation) => {
+                    setStockOrigin(val);
+                    if (val === stockDestination && stockAction === "TRANSFER" && val !== "BAU") {
+                      setStockDestination(val === "WAREHOUSE" ? "BAU" : "WAREHOUSE");
+                    }
+                  }}
+                >
+                  <SelectTrigger className="text-xs rounded-xl bg-background/50 border-border/60 font-semibold">
+                    <SelectValue placeholder="Selecione a origem" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {stockAction !== "RETURN_WAREHOUSE" && (
+                      <SelectItem value="WAREHOUSE">
+                        🏭 Armazém da Fábrica ({managingWhStock} un)
+                      </SelectItem>
+                    )}
+                    <SelectItem value="SALE">
+                      🛒 Disponível para Venda ({managingSaleStock} un)
+                    </SelectItem>
+                    <SelectItem value="BAU">
+                      📦 Baú de Estoque ({Number(managingStockProduct?.estoque_atual || 0)} un)
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+
+                {/* SE FOR BAÚ DE ORIGEM, SELECIONA O BAÚ */}
+                {stockOrigin === "BAU" && (
+                  <div className="pt-1.5 space-y-1">
+                    <span className="text-[10px] text-muted-foreground font-semibold">Selecione o Baú de Origem:</span>
+                    <Select value={stockOriginBauId} onValueChange={setStockOriginBauId}>
+                      <SelectTrigger className="text-xs rounded-xl bg-background/50 border-border/60">
+                        <SelectValue placeholder="Selecione o baú" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {activeBaus.map((b) => (
+                          <SelectItem key={b.id} value={b.id}>
+                            {b.nome} (Saldo: {getBauProductStock(b.id)} un)
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+              </div>
+
+              {/* DESTINO (APENAS PARA TRANSFERÊNCIA OU RETORNO) */}
+              {(stockAction === "TRANSFER" || stockAction === "RETURN_WAREHOUSE") && (
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-semibold flex items-center justify-between">
+                    <span>Destino (Para onde vai) *</span>
+                    <span className="text-[10px] text-muted-foreground font-mono">
+                      Atual: <strong className="text-foreground">{currentDestStock}</strong>
+                    </span>
+                  </Label>
+                  <Select
+                    value={stockAction === "RETURN_WAREHOUSE" ? "WAREHOUSE" : stockDestination}
+                    onValueChange={(val: StockLocation) => setStockDestination(val)}
+                    disabled={stockAction === "RETURN_WAREHOUSE"}
+                  >
+                    <SelectTrigger className="text-xs rounded-xl bg-background/50 border-border/60 font-semibold">
+                      <SelectValue placeholder="Selecione o destino" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="WAREHOUSE">
+                        🏭 Armazém da Fábrica ({managingWhStock} un)
+                      </SelectItem>
+                      {managingStockProduct?.can_be_sold && (
+                        <SelectItem value="SALE">
+                          🛒 Disponível para Venda ({managingSaleStock} un)
+                        </SelectItem>
+                      )}
+                      <SelectItem value="BAU">
+                        📦 Baú de Estoque
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+
+                  {/* SE FOR BAÚ DE DESTINO, SELECIONA O BAÚ */}
+                  {stockAction === "TRANSFER" && stockDestination === "BAU" && (
+                    <div className="pt-1.5 space-y-1">
+                      <span className="text-[10px] text-muted-foreground font-semibold">Selecione o Baú de Destino:</span>
+                      <Select value={stockDestinationBauId} onValueChange={setStockDestinationBauId}>
+                        <SelectTrigger className="text-xs rounded-xl bg-background/50 border-border/60">
+                          <SelectValue placeholder="Selecione o baú" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {activeBaus
+                            .filter((b) => stockOrigin !== "BAU" || b.id !== stockOriginBauId)
+                            .map((b) => (
+                              <SelectItem key={b.id} value={b.id}>
+                                {b.nome} (Atual: {getBauProductStock(b.id)} un)
+                              </SelectItem>
+                            ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* QUANTIDADE */}
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <Label className="text-xs font-semibold">
+                  {stockAction === "ADJUST" ? "Novo Saldo Definido *" : "Quantidade a Movimentar / Baixar *"}
+                </Label>
+                {stockAction !== "ADJUST" && currentOriginStock > 0 && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setStockQuantity(String(currentOriginStock))}
+                    className="h-5 px-2 text-[10px] text-amber-300 hover:text-amber-200 font-mono rounded"
+                  >
+                    Usar Máximo ({currentOriginStock})
+                  </Button>
+                )}
+              </div>
+              <Input
+                type="number"
+                min={stockAction === "ADJUST" ? "0" : "0.01"}
+                step="any"
+                value={stockQuantity}
+                onChange={(e) => setStockQuantity(e.target.value)}
+                placeholder="Ex: 10"
+                className="text-base font-mono font-bold text-amber-300 rounded-xl"
+              />
+              {stockAction !== "ADJUST" && (
+                <div className="flex items-center gap-1.5 pt-1">
+                  {[1, 5, 10, 25, 50, 100].map((d) => (
+                    <Button
+                      key={d}
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setStockQuantity(String(d))}
+                      className="h-6 text-[10px] px-2 font-mono rounded-lg"
+                    >
+                      +{d}
+                    </Button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* MOTIVO / OBSERVAÇÃO */}
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold">Motivo / Justificativa (Opcional)</Label>
+              <Input
+                value={stockReason}
+                onChange={(e) => setStockReason(e.target.value)}
+                placeholder="Ex: Transferência de lote, descarte de avaria, retorno de vendas..."
+                className="text-xs rounded-xl"
+              />
+            </div>
+          </div>
+
+          <DialogFooter className="gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setManagingStockProduct(null)}
+              className="text-xs rounded-xl"
+            >
+              Cancelar
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              onClick={() => manageStockMutation.mutate()}
+              disabled={
+                manageStockMutation.isPending ||
+                isNaN(parseFloat(stockQuantity)) ||
+                (stockAction !== "ADJUST" && parseFloat(stockQuantity) <= 0) ||
+                (stockAction === "ADJUST" && parseFloat(stockQuantity) < 0) ||
+                (stockAction !== "ADJUST" && parseFloat(stockQuantity) > currentOriginStock)
+              }
+              className={cn(
+                "text-xs font-bold rounded-xl",
+                stockAction === "REMOVE"
+                  ? "bg-rose-500 hover:bg-rose-600 text-white"
+                  : "bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold"
+              )}
+            >
+              {manageStockMutation.isPending
+                ? "Processando..."
+                : stockAction === "REMOVE"
+                ? "Confirmar Remoção"
+                : stockAction === "ADJUST"
+                ? "Confirmar Ajuste"
+                : stockAction === "RETURN_WAREHOUSE"
+                ? "Confirmar Retorno"
+                : "Confirmar Transferência"}
             </Button>
           </DialogFooter>
         </DialogContent>

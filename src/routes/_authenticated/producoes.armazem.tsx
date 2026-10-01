@@ -115,31 +115,47 @@ export function ArmazemPage() {
       0
     );
     const inStockCount = stockList.filter((s) => Number(s.quantity || 0) > 0).length;
+    const withAnyStockCount = stockList.filter(
+      (s) =>
+        Number(s.quantity || 0) > 0 ||
+        Number(s.product?.sale_available_quantity || 0) > 0 ||
+        Number(s.product?.estoque_atual || 0) > 0
+    ).length;
 
     return {
       totalWarehouse,
       totalSaleAvailable,
       totalGeneralStorage,
       inStockCount,
-      totalProducts: stockList.length,
+      totalProducts: withAnyStockCount,
     };
   }, [stockList]);
 
-  // Lista Filtrada
+  // Lista Filtrada: exibe apenas itens que têm saldo disponível no armazém, em vendas ou em baú
   const filteredStock = useMemo(() => {
     return stockList.filter((item) => {
-      const prodName = item.product?.nome?.toLowerCase() || "";
+      const prod = item.product;
+      const whQty = Number(item.quantity || 0);
+      const saleQty = Number(prod?.sale_available_quantity || 0);
+      const bauQty = Number(prod?.estoque_atual || 0);
+
+      // Requisito: mostrar apenas produtos com saldo disponível no armazém, em vendas ou em baús
+      const hasAnyStock = whQty > 0 || saleQty > 0 || bauQty > 0;
+      if (!hasAnyStock && statusFilter !== "zero_stock") {
+        return false;
+      }
+
+      const prodName = prod?.nome?.toLowerCase() || "";
       const matchesSearch = !search || prodName.includes(search.toLowerCase());
 
       const matchesCat =
-        categoryFilter === "all" || item.product?.categoria_id === categoryFilter;
+        categoryFilter === "all" || prod?.categoria_id === categoryFilter;
 
-      const qty = Number(item.quantity || 0);
       let matchesStatus = true;
-      if (statusFilter === "in_stock") matchesStatus = qty > 0;
-      if (statusFilter === "zero_stock") matchesStatus = qty === 0;
-      if (statusFilter === "can_sell") matchesStatus = item.product?.can_be_sold === true;
-      if (statusFilter === "cannot_sell") matchesStatus = item.product?.can_be_sold === false;
+      if (statusFilter === "in_stock") matchesStatus = whQty > 0;
+      if (statusFilter === "zero_stock") matchesStatus = whQty === 0 && saleQty === 0 && bauQty === 0;
+      if (statusFilter === "can_sell") matchesStatus = prod?.can_be_sold === true;
+      if (statusFilter === "cannot_sell") matchesStatus = prod?.can_be_sold === false;
 
       return matchesSearch && matchesCat && matchesStatus;
     });
@@ -333,14 +349,14 @@ export function ArmazemPage() {
 
         <Card className="surface-card border-border/60 p-4 rounded-2xl">
           <div className="flex items-center justify-between">
-            <span className="text-[11px] font-bold text-muted-foreground uppercase">Catálogo Cadastrado</span>
+            <span className="text-[11px] font-bold text-muted-foreground uppercase">Itens com Saldo</span>
             <PackageCheck className="h-4 w-4 text-violet-400" />
           </div>
           <p className="text-2xl font-black text-foreground font-mono mt-1">
             {metrics.totalProducts}
           </p>
           <span className="text-[10px] text-muted-foreground mt-0.5 block">
-            Itens gerenciados na plataforma
+            Produtos com estoque em armazém, vendas ou baús
           </span>
         </Card>
       </div>
