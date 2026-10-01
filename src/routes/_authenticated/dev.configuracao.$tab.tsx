@@ -21,7 +21,7 @@ function DevConfiguracaoTabRoute() {
 
   return (
     <DeveloperGuard>
-      <DevConfiguracaoContent />
+      <DevConfiguracaoContent defaultTab={tab} />
     </DeveloperGuard>
   );
 }

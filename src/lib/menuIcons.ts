@@ -53,6 +53,7 @@ import {
   Factory,
   Warehouse,
   Hammer,
+  Wallet,
   type LucideIcon,
 } from "lucide-react";
 

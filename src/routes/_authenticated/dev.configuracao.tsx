@@ -132,10 +132,42 @@ function DevConfiguracaoPageWrapper() {
   );
 }
 
-export function DevConfiguracaoContent() {
+export function DevConfiguracaoContent({ defaultTab }: { defaultTab?: string } = {}) {
   const { user, profile, level } = useAuth();
   const queryClient = useQueryClient();
   const { data: allAuditLogs = [] } = useAuditLogs();
+
+  const [activeMainTab, setActiveMainTab] = useState<string>(() => {
+    if (defaultTab && ["plataforma", "rodape", "cores", "dev-tools"].includes(defaultTab)) {
+      return defaultTab;
+    }
+    if (typeof window !== "undefined") {
+      const urlParams = new URLSearchParams(window.location.search);
+      const tabParam = urlParams.get("tab");
+      if (tabParam && ["plataforma", "rodape", "cores", "dev-tools"].includes(tabParam)) {
+        return tabParam;
+      }
+      const parts = window.location.pathname.split("/").filter(Boolean);
+      const lastPart = parts[parts.length - 1];
+      if (["plataforma", "rodape", "cores", "dev-tools"].includes(lastPart)) {
+        return lastPart;
+      }
+    }
+    return "plataforma";
+  });
+
+  useEffect(() => {
+    if (defaultTab && ["plataforma", "rodape", "cores", "dev-tools"].includes(defaultTab)) {
+      setActiveMainTab(defaultTab);
+    }
+  }, [defaultTab]);
+
+  const handleMainTabChange = (val: string) => {
+    setActiveMainTab(val);
+    if (typeof window !== "undefined" && window.history.pushState) {
+      window.history.pushState(null, "", `/dev/configuracao/${val}`);
+    }
+  };
 
   const [config, setConfig] = useState<DevConfiguration>(DEFAULT_DEV_CONFIG);
   const [initialConfig, setInitialConfig] = useState<DevConfiguration>(DEFAULT_DEV_CONFIG);
@@ -738,35 +770,6 @@ export function DevConfiguracaoContent() {
         </Card>
       ) : (
         <div className="space-y-6">
-          {/* BANNER INFORMATIVO: CENTRAL UNIFICADA DO BOT */}
-          <div className="rounded-xl border border-indigo-500/30 bg-gradient-to-r from-indigo-500/10 via-purple-500/10 to-indigo-500/5 p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-sm">
-            <div className="flex items-center gap-3">
-              <div className="p-2.5 rounded-xl bg-indigo-500/15 border border-indigo-500/30 text-indigo-400">
-                <Bot className="w-5 h-5" />
-              </div>
-              <div className="space-y-0.5">
-                <div className="text-sm font-bold text-foreground flex items-center gap-2">
-                  Central Unificada do Bot Discord
-                  <Badge variant="outline" className="text-[10px] bg-indigo-500/10 border-indigo-500/30 text-indigo-400">
-                    Unificado em /dev/bot
-                  </Badge>
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  As abas <strong>Gerenciar Bot</strong>, <strong>Webhooks Discord</strong> e <strong>Canais & Logs</strong> foram unificadas na página dedicada do <strong>Bot</strong> junto ao Studio & Builder.
-                </p>
-              </div>
-            </div>
-            <Button asChild size="sm" className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold gap-1.5 shrink-0">
-              <Link to="/dev/bot">
-                Acessar Central do Bot
-                <ExternalLink className="w-3.5 h-3.5" />
-              </Link>
-            </Button>
-          </div>
-
-          {/* Card de Limpeza Forçada de Cache em Tempo Real */}
-          <DevForcePurgeCard />
-
           {/* Inputs invisíveis para upload de imagem via Postimages API */}
           <input
             type="file"
@@ -802,8 +805,48 @@ export function DevConfiguracaoContent() {
             }}
           />
 
-          {/* CARD 1: INFORMAÇÕES GERAIS DA PLATAFORMA (EXPANDIDO COM TABS E UPLOAD POSTIMAGES) */}
-          <Card className="surface-card border transition-all duration-300">
+          {/* Abas Principais de Configurações DEV */}
+          <Tabs value={activeMainTab} onValueChange={handleMainTabChange} className="space-y-6">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-border/60 pb-3">
+              <TabsList className="bg-secondary/40 border border-border/60 p-1 rounded-xl h-auto flex flex-wrap gap-1">
+                <TabsTrigger
+                  value="plataforma"
+                  className="data-[state=active]:bg-sky-500/20 data-[state=active]:text-sky-400 text-xs font-bold gap-2 py-2 px-3 rounded-lg transition-all"
+                >
+                  <Globe className="h-4 w-4" />
+                  Identidade & Plataforma
+                </TabsTrigger>
+
+                <TabsTrigger
+                  value="rodape"
+                  className="data-[state=active]:bg-emerald-500/20 data-[state=active]:text-emerald-400 text-xs font-bold gap-2 py-2 px-3 rounded-lg transition-all"
+                >
+                  <LayoutTemplate className="h-4 w-4" />
+                  Rodapé
+                </TabsTrigger>
+
+                <TabsTrigger
+                  value="cores"
+                  className="data-[state=active]:bg-primary/20 data-[state=active]:text-primary text-xs font-bold gap-2 py-2 px-3 rounded-lg transition-all"
+                >
+                  <Palette className="h-4 w-4" />
+                  Cores dos Painéis
+                </TabsTrigger>
+
+                <TabsTrigger
+                  value="dev-tools"
+                  className="data-[state=active]:bg-rose-500/20 data-[state=active]:text-rose-400 text-xs font-bold gap-2 py-2 px-3 rounded-lg transition-all"
+                >
+                  <Wrench className="h-4 w-4 text-rose-400" />
+                  Dev Tools
+                </TabsTrigger>
+              </TabsList>
+            </div>
+
+            {/* ABA 1: IDENTIDADE & PLATAFORMA */}
+            <TabsContent value="plataforma" className="space-y-6 m-0 focus-visible:outline-none">
+              {/* CARD 1: INFORMAÇÕES GERAIS DA PLATAFORMA (EXPANDIDO COM TABS E UPLOAD POSTIMAGES) */}
+              <Card className="surface-card border transition-all duration-300">
             <CardHeader className="pb-3 border-b border-border/60">
               <div className="flex items-center justify-between gap-3 flex-wrap">
                 <div className="flex items-center gap-2.5">
@@ -1830,8 +1873,11 @@ export function DevConfiguracaoContent() {
               </div>
             </CardContent>
           </Card>
+        </TabsContent>
 
-          {/* CARD 2: CONFIGURAÇÕES E EDIÇÃO DO RODAPÉ DA PLATAFORMA */}
+        {/* ABA 2: RODAPÉ */}
+            <TabsContent value="rodape" className="space-y-6 m-0 focus-visible:outline-none">
+              {/* CARD 2: CONFIGURAÇÕES E EDIÇÃO DO RODAPÉ DA PLATAFORMA */}
           <Card className="surface-card border transition-all duration-300">
             <CardHeader className="pb-3 border-b border-border/60">
               <div className="flex items-center justify-between gap-3 flex-wrap">
@@ -2149,8 +2195,11 @@ export function DevConfiguracaoContent() {
               </div>
             </CardContent>
           </Card>
+        </TabsContent>
 
-          {/* Card de Cores Padrão dos Painéis Dev, CEO & Membro */}
+        {/* ABA 3: CORES DOS PAINÉIS */}
+            <TabsContent value="cores" className="space-y-6 m-0 focus-visible:outline-none">
+              {/* Card de Cores Padrão dos Painéis Dev, CEO & Membro */}
           <Card className="surface-card border transition-all duration-300">
             <CardHeader className="pb-3 border-b border-border/60">
               <div className="flex items-center justify-between gap-3 flex-wrap">
@@ -2224,9 +2273,15 @@ export function DevConfiguracaoContent() {
               </div>
             </CardContent>
           </Card>
+        </TabsContent>
 
-          {/* Cards de Opções Adicionais do Desenvolvedor */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+            {/* ABA 4: DEV TOOLS */}
+            <TabsContent value="dev-tools" className="space-y-6 m-0 focus-visible:outline-none">
+              {/* Card de Limpeza Forçada de Cache & Recarregar Clientes */}
+              <DevForcePurgeCard />
+
+              {/* Cards de Opções Adicionais do Desenvolvedor */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
             {/* Option 1: Developer Bypass */}
             <Card className="surface-card border transition-all duration-300">
               <CardHeader className="pb-3 border-b border-border/60">
@@ -2313,6 +2368,8 @@ export function DevConfiguracaoContent() {
               </CardContent>
             </Card>
           </div>
+            </TabsContent>
+          </Tabs>
         </div>
       )}
 
