@@ -385,7 +385,7 @@ function ProdutosTabContent({ canManage, canAdjustSaldos, onNavigateToAdjust }: 
   const [imagemUrl, setImagemUrl] = useState("");
   const [ativo, setAtivo] = useState(true);
   const [canBeSold, setCanBeSold] = useState(false);
-  const [canBeProduced, setCanBeProduced] = useState(true);
+  const [canBeProduced, setCanBeProduced] = useState(false);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   const productImageInputRef = useRef<HTMLInputElement>(null);
 

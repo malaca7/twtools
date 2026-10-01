@@ -25,6 +25,8 @@ import {
   Loader2,
   X,
   Crop,
+  ShoppingCart,
+  Factory,
 } from "lucide-react";
 import { UniversalImageAdjusterModal } from "@/components/ui/UniversalImageAdjusterModal";
 import { Badge } from "@/components/ui/badge";
@@ -136,6 +138,8 @@ function EstoqueContent() {
   const [prodPreco, setProdPreco] = useState("0");
   const [prodImagemUrl, setProdImagemUrl] = useState("");
   const [prodAtivo, setProdAtivo] = useState(true);
+  const [prodCanBeSold, setProdCanBeSold] = useState(false);
+  const [prodCanBeProduced, setProdCanBeProduced] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
   const [imageMode, setImageMode] = useState<"upload" | "url">("upload");
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -299,6 +303,8 @@ function EstoqueContent() {
       setProdPreco(formatCurrencyInput(product.preco_sugerido || 0));
       setProdImagemUrl(product.imagem_url || "");
       setProdAtivo(product.ativo);
+      setProdCanBeSold(product.can_be_sold === true);
+      setProdCanBeProduced(product.can_be_produced === true);
     } else {
       setEditingProduct(null);
       setProdName("");
@@ -310,6 +316,8 @@ function EstoqueContent() {
       setProdPreco("");
       setProdImagemUrl("");
       setProdAtivo(true);
+      setProdCanBeSold(false);
+      setProdCanBeProduced(false);
     }
     setProductModalOpen(true);
   };
@@ -345,6 +353,8 @@ function EstoqueContent() {
         estoque_minimo: estoqueMinimo,
         preco_sugerido: precoSugerido,
         imagem_url: prodImagemUrl.trim() || null,
+        can_be_sold: prodCanBeSold,
+        can_be_produced: prodCanBeProduced,
       };
       if (prodDesc.trim()) prodPayload.descricao = prodDesc.trim();
       if (prodCategory) prodPayload.categoria_id = prodCategory;
@@ -730,7 +740,27 @@ function EstoqueContent() {
                         <div className="flex items-center gap-2.5 min-w-0">
                           <ProductThumbnail src={p.imagem_url} name={p.nome} size="sm" />
                           <div className="min-w-0">
-                            <h4 className="font-bold text-xs text-foreground truncate">{p.nome}</h4>
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <h4 className="font-bold text-xs text-foreground truncate">{p.nome}</h4>
+                              {p.can_be_sold && (
+                                <Badge
+                                  variant="outline"
+                                  className="text-[9px] uppercase font-bold py-0 px-1.5 border-emerald-500/40 text-emerald-400 bg-emerald-500/10 flex items-center gap-1"
+                                >
+                                  <ShoppingCart className="w-2.5 h-2.5" />
+                                  <span>Venda</span>
+                                </Badge>
+                              )}
+                              {p.can_be_produced === true && (
+                                <Badge
+                                  variant="outline"
+                                  className="text-[9px] uppercase font-bold py-0 px-1.5 border-amber-500/40 text-amber-400 bg-amber-500/10 flex items-center gap-1"
+                                >
+                                  <Factory className="w-2.5 h-2.5" />
+                                  <span>Produção</span>
+                                </Badge>
+                              )}
+                            </div>
                             {cat && (
                               <Badge variant="outline" className="text-[10px] mt-0.5">
                                 {cat.nome}
@@ -836,7 +866,27 @@ function EstoqueContent() {
                             <div className="flex items-center gap-2.5">
                               <ProductThumbnail src={p.imagem_url} name={p.nome} size="sm" />
                               <div className="min-w-0">
-                                <p className="font-bold text-xs text-foreground leading-snug truncate">{p.nome}</p>
+                                <div className="flex items-center gap-1.5 flex-wrap">
+                                  <p className="font-bold text-xs text-foreground leading-snug truncate">{p.nome}</p>
+                                  {p.can_be_sold && (
+                                    <Badge
+                                      variant="outline"
+                                      className="text-[9px] uppercase font-bold py-0 px-1.5 border-emerald-500/40 text-emerald-400 bg-emerald-500/10 flex items-center gap-1"
+                                    >
+                                      <ShoppingCart className="w-2.5 h-2.5" />
+                                      <span>Venda</span>
+                                    </Badge>
+                                  )}
+                                  {p.can_be_produced === true && (
+                                    <Badge
+                                      variant="outline"
+                                      className="text-[9px] uppercase font-bold py-0 px-1.5 border-amber-500/40 text-amber-400 bg-amber-500/10 flex items-center gap-1"
+                                    >
+                                      <Factory className="w-2.5 h-2.5" />
+                                      <span>Produção</span>
+                                    </Badge>
+                                  )}
+                                </div>
                                 {p.descricao && (
                                   <p className="text-[0.65rem] text-muted-foreground truncate max-w-xs">{p.descricao}</p>
                                 )}
@@ -1183,8 +1233,39 @@ function EstoqueContent() {
             </div>
 
             <div className="flex items-center justify-between pt-2 border-t border-border/50">
-              <Label className="text-xs font-bold text-foreground">Produto Ativo no Catálogo</Label>
+              <div className="space-y-0.5">
+                <Label className="text-xs font-bold text-foreground">Produto Ativo no Catálogo</Label>
+                <p className="text-[10px] text-muted-foreground">Produtos ativos aparecem nos menus e movimentações</p>
+              </div>
               <Switch checked={prodAtivo} onCheckedChange={setProdAtivo} />
+            </div>
+
+            {/* OPÇÃO DE VENDAS */}
+            <div className="flex items-center justify-between p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30">
+              <div className="space-y-0.5">
+                <Label className="text-xs font-bold text-emerald-400 cursor-pointer flex items-center gap-1.5">
+                  <ShoppingCart className="w-3.5 h-3.5" />
+                  <span>Liberado para Vendas</span>
+                </Label>
+                <p className="text-[10px] text-muted-foreground">
+                  Quando ativado, este produto fica habilitado para cadastro de vendas na página de Vendas
+                </p>
+              </div>
+              <Switch checked={prodCanBeSold} onCheckedChange={setProdCanBeSold} />
+            </div>
+
+            {/* OPÇÃO DE PRODUÇÃO */}
+            <div className="flex items-center justify-between p-3 rounded-xl bg-amber-500/10 border border-amber-500/30">
+              <div className="space-y-0.5">
+                <Label className="text-xs font-bold text-amber-400 cursor-pointer flex items-center gap-1.5">
+                  <Factory className="w-3.5 h-3.5" />
+                  <span>Habilitado para Produção</span>
+                </Label>
+                <p className="text-[10px] text-muted-foreground">
+                  Permite que membros fabriquem este produto na Estação de Produção
+                </p>
+              </div>
+              <Switch checked={prodCanBeProduced} onCheckedChange={setProdCanBeProduced} />
             </div>
           </div>
 
