@@ -53,6 +53,7 @@ import {
   Store,
   Factory,
   Warehouse,
+  Zap,
 } from "lucide-react";
 import { resolveMenuIcon } from "@/lib/menuIcons";
 import {
