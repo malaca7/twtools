@@ -35,6 +35,9 @@ import {
   Star,
   ShoppingBag,
   Coins,
+  Factory,
+  Warehouse,
+  Hammer,
 } from "lucide-react";
 import type { Permission } from "@/lib/permissions";
 
@@ -101,9 +104,138 @@ export const READ_ONLY_PERMISSIONS: Permission[] = [
   "view_life",
   "life_view_following",
   "life_view_bookmarks",
+  "productions.view",
+  "view_productions",
+  "warehouse.view",
+  "view_warehouse",
+  "warehouse.history",
+  "production_management.view",
+  "view_production_management",
 ];
 
 export const PAGE_CARDS: PageCardConfig[] = [
+  {
+    id: "produzir",
+    title: "Produzir Itens",
+    route: "/producoes/produzir",
+    icon: Factory,
+    description: "Estação operacional de manufatura de itens, processamento de matérias-primas e fabricação para o armazém.",
+    color: "border-amber-500/40 bg-amber-500/5 text-amber-400",
+    defaultCat: "Produções",
+    defaultOrder: 0,
+    permissions: [
+      {
+        key: "productions.view",
+        label: "Visualizar Estação de Produção",
+        description: "Permite acessar a rota /producoes/produzir e visualizar as opções de produtos e matérias-primas.",
+      },
+      {
+        key: "productions.create",
+        label: "Executar Novas Produções",
+        description: "Permite consumir matérias-primas e fabricar produtos com envio direto ao Armazém.",
+        badge: "Operação Central",
+      },
+      {
+        key: "productions.edit",
+        label: "Editar Registros de Produção",
+        description: "Permite alterar observações ou retificar dados de produções.",
+      },
+      {
+        key: "productions.delete",
+        label: "Excluir / Cancelar Produção",
+        description: "Permite cancelar ordens de produção emitidas.",
+        badge: "Crítico",
+      },
+    ],
+  },
+  {
+    id: "armazem",
+    title: "Armazém da Facção",
+    route: "/producoes/armazem",
+    icon: Warehouse,
+    description: "Depósito central de produtos produzidos, controle de saldos e distribuição para Baús ou Venda.",
+    color: "border-emerald-500/40 bg-emerald-500/5 text-emerald-400",
+    defaultCat: "Produções",
+    defaultOrder: 1,
+    permissions: [
+      {
+        key: "warehouse.view",
+        label: "Visualizar Armazém",
+        description: "Permite acessar a rota /producoes/armazem e consultar os produtos armazenados e seus saldos.",
+      },
+      {
+        key: "warehouse.transfer",
+        label: "Transferir Produtos do Armazém",
+        description: "Permite transferir saldos do armazém para Baús ou Disponibilidade de Venda.",
+        badge: "Logística",
+      },
+      {
+        key: "warehouse.transfer_storage",
+        label: "Transferir para Baús / Estoque Físico",
+        description: "Permite transferir produtos do armazém diretamente para os baús da facção.",
+      },
+      {
+        key: "warehouse.transfer_sale",
+        label: "Transferir para Disponibilidade de Venda",
+        description: "Permite disponibilizar produtos do armazém para lançamento na página de Vendas.",
+        badge: "Comercial",
+      },
+      {
+        key: "warehouse.adjust",
+        label: "Ajuste Manual de Saldo no Armazém",
+        description: "Permite retificar o saldo de itens armazenados em auditoria.",
+        badge: "Gerência",
+      },
+      {
+        key: "warehouse.history",
+        label: "Ver Histórico de Movimentações do Armazém",
+        description: "Permite visualizar todas as entradas, transferências e saídas do armazém.",
+      },
+    ],
+  },
+  {
+    id: "gestao-producao",
+    title: "Gestão de Produção",
+    route: "/producoes/gestao",
+    icon: Sliders,
+    description: "Painel administrativo de controle de catálogo, matérias-primas, auditoria, configurações e dashboard executivo.",
+    color: "border-sky-500/40 bg-sky-500/5 text-sky-400",
+    defaultCat: "Produções",
+    defaultOrder: 2,
+    permissions: [
+      {
+        key: "production_management.view",
+        label: "Acessar Painel de Gestão de Produção",
+        description: "Permite acessar a rota administrativa /producoes/gestao.",
+        badge: "Administração",
+      },
+      {
+        key: "production_management.products",
+        label: "Configurar Produtos (Produção & Venda)",
+        description: "Permite habilitar ou desabilitar permissão de produção e venda de cada produto.",
+      },
+      {
+        key: "production_management.raw_materials",
+        label: "Gerenciar Matérias-Primas",
+        description: "Permite cadastrar matérias-primas, definir unidades e realizar ajustes de estoque de insumos.",
+      },
+      {
+        key: "production_management.productions",
+        label: "Auditar Histórico de Produções",
+        description: "Permite consultar detalhadamente todos os lotes produzidos e consumos de matérias-primas.",
+      },
+      {
+        key: "production_management.settings",
+        label: "Configurar Regras de Produção",
+        description: "Permite gerenciar parâmetros, limites e regras gerais do setor de produção.",
+      },
+      {
+        key: "production_management.reports",
+        label: "Relatórios & Métricas de Produção",
+        description: "Permite exportar relatórios de rendimento, produtividade e consumo.",
+      },
+    ],
+  },
   {
     id: "hierarquia",
     title: "Hierarquia do Grupo",

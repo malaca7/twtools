@@ -49,8 +49,10 @@ import {
   Crown,
   Bot,
   Webhook,
-  Wallet,
   PackageCheck,
+  Factory,
+  Warehouse,
+  Hammer,
   type LucideIcon,
 } from "lucide-react";
 
@@ -111,14 +113,19 @@ export const AVAILABLE_MENU_ICONS: MenuIconDef[] = [
   { name: "Terminal", label: "Terminal / Dev", icon: Terminal },
   { name: "Crown", label: "CEO / Diretoria", icon: Crown },
   { name: "Bot", label: "Bot Discord", icon: Bot },
-  { name: "Webhook", label: "Webhooks Discord", icon: Webhook },
   { name: "Wallet", label: "Carteira / Caixa", icon: Wallet },
+  { name: "Factory", label: "Fábrica / Produção", icon: Factory },
+  { name: "Warehouse", label: "Armazém / Depósito", icon: Warehouse },
+  { name: "Hammer", label: "Produzir / Ferramenta", icon: Hammer },
 ];
 
 export const CANONICAL_URL_ICONS: Record<string, LucideIcon> = {
   "/dashboard": LayoutDashboard,
   "/movimentacoes": ArrowLeftRight,
   "/vendas": ShoppingCart,
+  "/producoes/produzir": Factory,
+  "/producoes/armazem": Warehouse,
+  "/producoes/gestao": Sliders,
   "/life": Flame,
   "/tickets": LifeBuoy,
   "/controledeestoque": Boxes,

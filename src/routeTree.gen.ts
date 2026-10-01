@@ -73,6 +73,10 @@ import { Route as AuthenticatedMovimentacoesTabRouteImport } from './routes/_aut
 import { Route as AuthenticatedPerfilHandleRouteImport } from './routes/_authenticated/perfil.$handle'
 import { Route as AuthenticatedPerfilAparenciaRouteImport } from './routes/_authenticated/perfil.aparencia'
 import { Route as AuthenticatedPerfilDadosRouteImport } from './routes/_authenticated/perfil.dados'
+import { Route as AuthenticatedProducoesIndexRouteImport } from './routes/_authenticated/producoes.index'
+import { Route as AuthenticatedProducoesArmazemRouteImport } from './routes/_authenticated/producoes.armazem'
+import { Route as AuthenticatedProducoesGestaoRouteImport } from './routes/_authenticated/producoes.gestao'
+import { Route as AuthenticatedProducoesProduzirRouteImport } from './routes/_authenticated/producoes.produzir'
 import { Route as AuthenticatedRankingsTabRouteImport } from './routes/_authenticated/rankings.$tab'
 import { Route as AuthenticatedTicketsTabRouteImport } from './routes/_authenticated/tickets.$tab'
 import { Route as DevmlcDiscordidDiscordIdRouteImport } from './routes/devmlc.discordid.$discordId'
@@ -425,6 +429,30 @@ const AuthenticatedPerfilDadosRoute =
     path: '/dados',
     getParentRoute: () => AuthenticatedPerfilRoute,
   } as any)
+const AuthenticatedProducoesIndexRoute =
+  AuthenticatedProducoesIndexRouteImport.update({
+    id: '/producoes/',
+    path: '/producoes/',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedProducoesArmazemRoute =
+  AuthenticatedProducoesArmazemRouteImport.update({
+    id: '/producoes/armazem',
+    path: '/producoes/armazem',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedProducoesGestaoRoute =
+  AuthenticatedProducoesGestaoRouteImport.update({
+    id: '/producoes/gestao',
+    path: '/producoes/gestao',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedProducoesProduzirRoute =
+  AuthenticatedProducoesProduzirRouteImport.update({
+    id: '/producoes/produzir',
+    path: '/producoes/produzir',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedRankingsTabRoute =
   AuthenticatedRankingsTabRouteImport.update({
     id: '/$tab',
@@ -534,10 +562,14 @@ export interface FileRoutesByFullPath {
   '/perfil/$handle': typeof AuthenticatedPerfilHandleRoute
   '/perfil/aparencia': typeof AuthenticatedPerfilAparenciaRoute
   '/perfil/dados': typeof AuthenticatedPerfilDadosRoute
+  '/producoes/armazem': typeof AuthenticatedProducoesArmazemRoute
+  '/producoes/gestao': typeof AuthenticatedProducoesGestaoRoute
+  '/producoes/produzir': typeof AuthenticatedProducoesProduzirRoute
   '/rankings/$tab': typeof AuthenticatedRankingsTabRoute
   '/tickets/$tab': typeof AuthenticatedTicketsTabRoute
   '/devmlc/discordid/$discordId': typeof DevmlcDiscordidDiscordIdRoute
   '/dev/': typeof AuthenticatedDevIndexRoute
+  '/producoes/': typeof AuthenticatedProducoesIndexRoute
   '/ceo/$tab/$subtab': typeof AuthenticatedCeoTabSubtabRoute
   '/dev/$page/$tab': typeof AuthenticatedDevPageTabRoute
   '/dev/bot/$tab': typeof AuthenticatedDevBotTabRoute
@@ -607,10 +639,14 @@ export interface FileRoutesByTo {
   '/perfil/$handle': typeof AuthenticatedPerfilHandleRoute
   '/perfil/aparencia': typeof AuthenticatedPerfilAparenciaRoute
   '/perfil/dados': typeof AuthenticatedPerfilDadosRoute
+  '/producoes/armazem': typeof AuthenticatedProducoesArmazemRoute
+  '/producoes/gestao': typeof AuthenticatedProducoesGestaoRoute
+  '/producoes/produzir': typeof AuthenticatedProducoesProduzirRoute
   '/rankings/$tab': typeof AuthenticatedRankingsTabRoute
   '/tickets/$tab': typeof AuthenticatedTicketsTabRoute
   '/devmlc/discordid/$discordId': typeof DevmlcDiscordidDiscordIdRoute
   '/dev': typeof AuthenticatedDevIndexRoute
+  '/producoes': typeof AuthenticatedProducoesIndexRoute
   '/ceo/$tab/$subtab': typeof AuthenticatedCeoTabSubtabRoute
   '/dev/$page/$tab': typeof AuthenticatedDevPageTabRoute
   '/dev/bot/$tab': typeof AuthenticatedDevBotTabRoute
@@ -682,10 +718,14 @@ export interface FileRoutesById {
   '/_authenticated/perfil/$handle': typeof AuthenticatedPerfilHandleRoute
   '/_authenticated/perfil/aparencia': typeof AuthenticatedPerfilAparenciaRoute
   '/_authenticated/perfil/dados': typeof AuthenticatedPerfilDadosRoute
+  '/_authenticated/producoes/armazem': typeof AuthenticatedProducoesArmazemRoute
+  '/_authenticated/producoes/gestao': typeof AuthenticatedProducoesGestaoRoute
+  '/_authenticated/producoes/produzir': typeof AuthenticatedProducoesProduzirRoute
   '/_authenticated/rankings/$tab': typeof AuthenticatedRankingsTabRoute
   '/_authenticated/tickets/$tab': typeof AuthenticatedTicketsTabRoute
   '/devmlc/discordid/$discordId': typeof DevmlcDiscordidDiscordIdRoute
   '/_authenticated/dev/': typeof AuthenticatedDevIndexRoute
+  '/_authenticated/producoes/': typeof AuthenticatedProducoesIndexRoute
   '/_authenticated/ceo/$tab/$subtab': typeof AuthenticatedCeoTabSubtabRoute
   '/_authenticated/dev/$page/$tab': typeof AuthenticatedDevPageTabRoute
   '/_authenticated/dev/bot/$tab': typeof AuthenticatedDevBotTabRoute
@@ -757,10 +797,14 @@ export interface FileRouteTypes {
     | '/perfil/$handle'
     | '/perfil/aparencia'
     | '/perfil/dados'
+    | '/producoes/armazem'
+    | '/producoes/gestao'
+    | '/producoes/produzir'
     | '/rankings/$tab'
     | '/tickets/$tab'
     | '/devmlc/discordid/$discordId'
     | '/dev/'
+    | '/producoes/'
     | '/ceo/$tab/$subtab'
     | '/dev/$page/$tab'
     | '/dev/bot/$tab'
@@ -830,10 +874,14 @@ export interface FileRouteTypes {
     | '/perfil/$handle'
     | '/perfil/aparencia'
     | '/perfil/dados'
+    | '/producoes/armazem'
+    | '/producoes/gestao'
+    | '/producoes/produzir'
     | '/rankings/$tab'
     | '/tickets/$tab'
     | '/devmlc/discordid/$discordId'
     | '/dev'
+    | '/producoes'
     | '/ceo/$tab/$subtab'
     | '/dev/$page/$tab'
     | '/dev/bot/$tab'
@@ -904,10 +952,14 @@ export interface FileRouteTypes {
     | '/_authenticated/perfil/$handle'
     | '/_authenticated/perfil/aparencia'
     | '/_authenticated/perfil/dados'
+    | '/_authenticated/producoes/armazem'
+    | '/_authenticated/producoes/gestao'
+    | '/_authenticated/producoes/produzir'
     | '/_authenticated/rankings/$tab'
     | '/_authenticated/tickets/$tab'
     | '/devmlc/discordid/$discordId'
     | '/_authenticated/dev/'
+    | '/_authenticated/producoes/'
     | '/_authenticated/ceo/$tab/$subtab'
     | '/_authenticated/dev/$page/$tab'
     | '/_authenticated/dev/bot/$tab'
@@ -1375,6 +1427,34 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedPerfilDadosRouteImport
       parentRoute: typeof AuthenticatedPerfilRoute
     }
+    '/_authenticated/producoes/': {
+      id: '/_authenticated/producoes/'
+      path: '/producoes'
+      fullPath: '/producoes/'
+      preLoaderRoute: typeof AuthenticatedProducoesIndexRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/producoes/armazem': {
+      id: '/_authenticated/producoes/armazem'
+      path: '/producoes/armazem'
+      fullPath: '/producoes/armazem'
+      preLoaderRoute: typeof AuthenticatedProducoesArmazemRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/producoes/gestao': {
+      id: '/_authenticated/producoes/gestao'
+      path: '/producoes/gestao'
+      fullPath: '/producoes/gestao'
+      preLoaderRoute: typeof AuthenticatedProducoesGestaoRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/producoes/produzir': {
+      id: '/_authenticated/producoes/produzir'
+      path: '/producoes/produzir'
+      fullPath: '/producoes/produzir'
+      preLoaderRoute: typeof AuthenticatedProducoesProduzirRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/rankings/$tab': {
       id: '/_authenticated/rankings/$tab'
       path: '/$tab'
@@ -1686,7 +1766,11 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedDevPatchNotesRoute: typeof AuthenticatedDevPatchNotesRoute
   AuthenticatedDevPermissoesRoute: typeof AuthenticatedDevPermissoesRoute
   AuthenticatedDevXpInsigniasRoute: typeof AuthenticatedDevXpInsigniasRoute
+  AuthenticatedProducoesArmazemRoute: typeof AuthenticatedProducoesArmazemRoute
+  AuthenticatedProducoesGestaoRoute: typeof AuthenticatedProducoesGestaoRoute
+  AuthenticatedProducoesProduzirRoute: typeof AuthenticatedProducoesProduzirRoute
   AuthenticatedDevIndexRoute: typeof AuthenticatedDevIndexRoute
+  AuthenticatedProducoesIndexRoute: typeof AuthenticatedProducoesIndexRoute
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
@@ -1735,7 +1819,11 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedDevPatchNotesRoute: AuthenticatedDevPatchNotesRoute,
   AuthenticatedDevPermissoesRoute: AuthenticatedDevPermissoesRoute,
   AuthenticatedDevXpInsigniasRoute: AuthenticatedDevXpInsigniasRoute,
+  AuthenticatedProducoesArmazemRoute: AuthenticatedProducoesArmazemRoute,
+  AuthenticatedProducoesGestaoRoute: AuthenticatedProducoesGestaoRoute,
+  AuthenticatedProducoesProduzirRoute: AuthenticatedProducoesProduzirRoute,
   AuthenticatedDevIndexRoute: AuthenticatedDevIndexRoute,
+  AuthenticatedProducoesIndexRoute: AuthenticatedProducoesIndexRoute,
 }
 
 const AuthenticatedRouteRouteWithChildren =
@@ -1753,3 +1841,13 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}

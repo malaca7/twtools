@@ -218,6 +218,46 @@ export function useCustomRoles() {
   });
 }
 
+export function useRawMaterials() {
+  return useQuery({
+    queryKey: ["raw_materials"],
+    queryFn: async () => {
+      const { getRawMaterials } = await import("@/services/productionService");
+      return getRawMaterials();
+    },
+  });
+}
+
+export function useWarehouseStock() {
+  return useQuery({
+    queryKey: ["warehouse_stock"],
+    queryFn: async () => {
+      const { getWarehouseStock } = await import("@/services/productionService");
+      return getWarehouseStock();
+    },
+  });
+}
+
+export function useProductions(limit = 100) {
+  return useQuery({
+    queryKey: ["productions", limit],
+    queryFn: async () => {
+      const { getProductions } = await import("@/services/productionService");
+      return getProductions(limit);
+    },
+  });
+}
+
+export function useWarehouseMovements(productId?: string, limit = 150) {
+  return useQuery({
+    queryKey: ["warehouse_movements", productId, limit],
+    queryFn: async () => {
+      const { getWarehouseMovements } = await import("@/services/productionService");
+      return getWarehouseMovements(productId, limit);
+    },
+  });
+}
+
 export function nameOf(
   membersOrId: Member[] | string | null | undefined,
   idOrMembers?: string | Member[] | null | undefined

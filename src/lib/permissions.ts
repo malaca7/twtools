@@ -65,9 +65,34 @@ export type Permission =
   | "view_categories"
   | "manage_categories"
   | "view_members"
-  | "view_sensitive_data"
   | "approve_requests"
   | "change_roles"
+  // Permissões do Sistema de Produção, Armazém e Vendas
+  | "productions.view"
+  | "productions.create"
+  | "productions.edit"
+  | "productions.delete"
+  | "view_productions"
+  | "create_production"
+  | "warehouse.view"
+  | "warehouse.transfer"
+  | "warehouse.transfer_storage"
+  | "warehouse.transfer_sale"
+  | "warehouse.adjust"
+  | "warehouse.history"
+  | "view_warehouse"
+  | "production_management.view"
+  | "production_management.products"
+  | "production_management.raw_materials"
+  | "production_management.productions"
+  | "production_management.settings"
+  | "production_management.reports"
+  | "view_production_management"
+  | "sales.view"
+  | "sales.create"
+  | "sales.edit"
+  | "sales.cancel"
+  | "sales.history"
   | "promote_members"
   | "edit_members"
   | "delete_members"
@@ -241,13 +266,36 @@ export type Permission =
   | "life_follow_members"
   | "life_pin_posts"
   | "life_moderate_posts"
-  | "life_moderate_comments"
   | "manage_life";
 
 export const ALL_PERMISSIONS: Permission[] = [
-  "manage_permissions",
-  "view_dashboard",
-  "view_life",
+  // Permissões de Produções e Armazém
+  "productions.view",
+  "productions.create",
+  "productions.edit",
+  "productions.delete",
+  "view_productions",
+  "create_production",
+  "warehouse.view",
+  "warehouse.transfer",
+  "warehouse.transfer_storage",
+  "warehouse.transfer_sale",
+  "warehouse.adjust",
+  "warehouse.history",
+  "view_warehouse",
+  "production_management.view",
+  "production_management.products",
+  "production_management.raw_materials",
+  "production_management.productions",
+  "production_management.settings",
+  "production_management.reports",
+  "view_production_management",
+  "sales.view",
+  "sales.create",
+  "sales.edit",
+  "sales.cancel",
+  "sales.history",
+  "view_stock_management",
   "life_view_following",
   "life_view_bookmarks",
   "post_life",
@@ -572,6 +620,32 @@ const OFFICER: Permission[] = [
   "manage_stock_baus",
   "adjust_stock_balance",
   "manage_stock_balance",
+  // Permissões de Produções e Armazém (Officer)
+  "productions.view",
+  "productions.create",
+  "productions.edit",
+  "productions.delete",
+  "view_productions",
+  "create_production",
+  "warehouse.view",
+  "warehouse.transfer",
+  "warehouse.transfer_storage",
+  "warehouse.transfer_sale",
+  "warehouse.adjust",
+  "warehouse.history",
+  "view_warehouse",
+  "production_management.view",
+  "production_management.products",
+  "production_management.raw_materials",
+  "production_management.productions",
+  "production_management.settings",
+  "production_management.reports",
+  "view_production_management",
+  "sales.view",
+  "sales.create",
+  "sales.edit",
+  "sales.cancel",
+  "sales.history",
   "view_members",
   "approve_requests",
   "change_roles",
@@ -687,6 +761,32 @@ const MANAGER: Permission[] = [
   "manage_stock_products",
   "manage_stock_categories",
   "adjust_stock_balance",
+  // Permissões de Produções e Armazém (Manager)
+  "productions.view",
+  "productions.create",
+  "productions.edit",
+  "productions.delete",
+  "view_productions",
+  "create_production",
+  "warehouse.view",
+  "warehouse.transfer",
+  "warehouse.transfer_storage",
+  "warehouse.transfer_sale",
+  "warehouse.adjust",
+  "warehouse.history",
+  "view_warehouse",
+  "production_management.view",
+  "production_management.products",
+  "production_management.raw_materials",
+  "production_management.productions",
+  "production_management.settings",
+  "production_management.reports",
+  "view_production_management",
+  "sales.view",
+  "sales.create",
+  "sales.edit",
+  "sales.cancel",
+  "sales.history",
   "view_members",
   "approve_requests",
   "change_roles",
@@ -742,6 +842,18 @@ const MEMBER: Permission[] = [
   "view_baus",
   "view_sales",
   "create_sale",
+  "sales.view",
+  "sales.create",
+  "productions.view",
+  "productions.create",
+  "view_productions",
+  "create_production",
+  "warehouse.view",
+  "warehouse.transfer",
+  "warehouse.transfer_storage",
+  "warehouse.transfer_sale",
+  "warehouse.history",
+  "view_warehouse",
   "view_products",
   "view_categories",
   "view_members",
@@ -786,6 +898,11 @@ const NOVATO: Permission[] = [
   "view_stock",
   "view_baus",
   "view_sales",
+  "sales.view",
+  "productions.view",
+  "view_productions",
+  "warehouse.view",
+  "view_warehouse",
   "view_products",
   "view_categories",
   "view_members",
@@ -976,6 +1093,22 @@ export function can(
     if (permission === "view_chat" && (list.includes("create_chat_group") || list.includes("manage_chat_groups"))) return true;
     if (permission === "view_consolidated_financials" && list.includes("view_financials")) return true;
     if (permission === "approve_requests" && list.includes("manage_members")) return true;
+
+    // Produção, Armazém e Vendas
+    if (permission === "productions.view" && (list.includes("productions.create") || list.includes("productions.edit") || list.includes("production_management.view") || list.includes("view_productions"))) return true;
+    if (permission === "view_productions" && (list.includes("productions.view") || list.includes("productions.create") || list.includes("production_management.view"))) return true;
+    if (permission === "productions.create" && (list.includes("create_production") || list.includes("production_management.productions"))) return true;
+    if (permission === "warehouse.view" && (list.includes("warehouse.transfer") || list.includes("warehouse.transfer_storage") || list.includes("warehouse.transfer_sale") || list.includes("warehouse.adjust") || list.includes("view_warehouse") || list.includes("production_management.view"))) return true;
+    if (permission === "view_warehouse" && (list.includes("warehouse.view") || list.includes("warehouse.transfer") || list.includes("production_management.view"))) return true;
+    if (permission === "warehouse.transfer" && (list.includes("warehouse.transfer_storage") || list.includes("warehouse.transfer_sale"))) return true;
+    if (permission === "production_management.view" && (list.includes("production_management.products") || list.includes("production_management.raw_materials") || list.includes("production_management.productions") || list.includes("view_production_management"))) return true;
+    if (permission === "view_production_management" && list.includes("production_management.view")) return true;
+    if (permission === "sales.view" && (list.includes("view_sales") || list.includes("sales.create") || list.includes("create_sale"))) return true;
+    if (permission === "view_sales" && (list.includes("sales.view") || list.includes("sales.create") || list.includes("create_sale"))) return true;
+    if (permission === "sales.create" && list.includes("create_sale")) return true;
+    if (permission === "create_sale" && list.includes("sales.create")) return true;
+    if (permission === "sales.cancel" && list.includes("reverse_sale")) return true;
+    if (permission === "reverse_sale" && list.includes("sales.cancel")) return true;
 
     // Gestão de Estoque
     if (

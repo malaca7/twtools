@@ -49,9 +49,10 @@ import {
   Award,
   ShoppingBag,
   Coins,
-  Zap,
   AlertTriangle,
   Store,
+  Factory,
+  Warehouse,
 } from "lucide-react";
 import { resolveMenuIcon } from "@/lib/menuIcons";
 import {
@@ -126,6 +127,9 @@ const MASTER_NAV_ITEMS: MasterNavItem[] = [
   { id: "dashboard", title: "Dashboard", url: "/dashboard", icon: LayoutDashboard, perm: "view_dashboard", defaultCat: "Operação", defaultOrder: 0 },
   { id: "movimentacoes", title: "Movimentações", url: "/movimentacoes", icon: ArrowLeftRight, perm: "view_movements", defaultCat: "Operação", defaultOrder: 1 },
   { id: "vendas", title: "Vendas", url: "/vendas", icon: ShoppingCart, perm: "view_sales", defaultCat: "Operação", defaultOrder: 2 },
+  { id: "produzir", title: "Produzir", url: "/producoes/produzir", icon: Factory, perm: "productions.create", defaultCat: "Produções", defaultOrder: 0 },
+  { id: "armazem", title: "Armazém", url: "/producoes/armazem", icon: Warehouse, perm: "warehouse.view", defaultCat: "Produções", defaultOrder: 1 },
+  { id: "gestao-producao", title: "Gestão de Produção", url: "/producoes/gestao", icon: Sliders, perm: "production_management.view", defaultCat: "Produções", defaultOrder: 2 },
   { id: "tickets", title: "Tickets / Ouvidoria", url: "/tickets", icon: LifeBuoy, perm: "view_tickets", defaultCat: "Operação", defaultOrder: 3 },
   { id: "loja", title: "Loja Twin Wheels", url: "/loja", icon: ShoppingBag, perm: "view_shop", defaultCat: "Operação", defaultOrder: 4 },
   { id: "estoque", title: "Controle de Estoque", url: "/controledeestoque", icon: Boxes, perm: "view_stock", defaultCat: "Gestão", defaultOrder: 5 },
@@ -149,6 +153,10 @@ const URL_TO_PERMISSION_MAP: Record<string, Permission> = {
   "/dashboard": "view_dashboard",
   "/movimentacoes": "view_movements",
   "/vendas": "view_sales",
+  "/producoes/produzir": "productions.create",
+  "/producoes/armazem": "warehouse.view",
+  "/producoes/gestao": "production_management.view",
+  "/producoes": "productions.view",
   "/tickets": "view_tickets",
   "/loja": "view_shop",
   "/controledeestoque": "view_stock",
@@ -304,8 +312,8 @@ function DynamicSidebarNavigation() {
       Array.isArray(menuConfig?.deletedItemIds) ? menuConfig.deletedItemIds : []
     );
     const categoryOrder = menuConfig?.categories?.length
-      ? menuConfig.categories
-      : ["Operação", "Gestão", "Administração"];
+      ? (menuConfig.categories.includes("Produções") ? menuConfig.categories : [menuConfig.categories[0], "Produções", ...menuConfig.categories.slice(1)])
+      : ["Operação", "Produções", "Gestão", "Administração"];
 
     const masterItemsMap = new Map<string, MasterNavItem>();
     MASTER_NAV_ITEMS.forEach((m) => {

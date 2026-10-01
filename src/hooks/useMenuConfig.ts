@@ -41,12 +41,15 @@ function subscribe(callback: () => void) {
   return () => listeners.delete(callback);
 }
 
-export const DEFAULT_MENU_CATEGORIES = ["Operação", "Gestão", "Administração"];
+export const DEFAULT_MENU_CATEGORIES = ["Operação", "Produções", "Gestão", "Administração"];
 
 export const DEFAULT_MENU_ITEMS: MenuItemConfig[] = [
   { id: "dashboard", title: "Dashboard", url: "/dashboard", visible: true, category: "Operação", order: 0 },
   { id: "movimentacoes", title: "Movimentações", url: "/movimentacoes", visible: true, category: "Operação", order: 1 },
   { id: "vendas", title: "Vendas", url: "/vendas", visible: true, category: "Operação", order: 2 },
+  { id: "produzir", title: "Produzir", url: "/producoes/produzir", visible: true, category: "Produções", order: 0, iconName: "Factory" },
+  { id: "armazem", title: "Armazém", url: "/producoes/armazem", visible: true, category: "Produções", order: 1, iconName: "Warehouse" },
+  { id: "gestao-producao", title: "Gestão de Produção", url: "/producoes/gestao", visible: true, category: "Produções", order: 2, iconName: "Sliders" },
   { id: "notificacoes", title: "Notificações", url: "/notificacoes", visible: true, category: "Operação", order: 3, iconName: "Bell" },
   { id: "tickets", title: "Tickets / Ouvidoria", url: "/tickets", visible: true, category: "Operação", order: 4 },
   { id: "loja", title: "Loja Twin Wheels", url: "/loja", visible: true, category: "Operação", order: 4.5, iconName: "ShoppingBag" },
@@ -80,6 +83,9 @@ export const PLATFORM_SYSTEM_MODULES: PlatformSystemModule[] = [
   { id: "dashboard", title: "Dashboard", url: "/dashboard", defaultCat: "Operação", iconName: "LayoutDashboard", description: "Painel principal e estatísticas operacionais" },
   { id: "movimentacoes", title: "Movimentações", url: "/movimentacoes", defaultCat: "Operação", iconName: "ArrowLeftRight", description: "Histórico de entradas e saídas de itens" },
   { id: "vendas", title: "Vendas", url: "/vendas", defaultCat: "Operação", iconName: "ShoppingCart", description: "Registro e conferência de vendas" },
+  { id: "produzir", title: "Produzir", url: "/producoes/produzir", defaultCat: "Produções", iconName: "Factory", description: "Estação operacional de manufatura de itens e consumo de matérias-primas" },
+  { id: "armazem", title: "Armazém", url: "/producoes/armazem", defaultCat: "Produções", iconName: "Warehouse", description: "Depósito central de produtos produzidos e transferências para baús ou vendas" },
+  { id: "gestao-producao", title: "Gestão de Produção", url: "/producoes/gestao", defaultCat: "Produções", iconName: "Sliders", description: "Painel administrativo de controle de catálogo, matérias-primas e auditoria" },
   { id: "tickets", title: "Tickets / Ouvidoria", url: "/tickets", defaultCat: "Operação", iconName: "LifeBuoy", description: "Atendimento e chamados de membros" },
   { id: "loja", title: "Loja Twin Wheels", url: "/loja", defaultCat: "Operação", iconName: "ShoppingBag", description: "Mercado oficial da facção com insígnias, vantagens e suprimentos por TW Coins" },
   { id: "estoque", title: "Controle de Estoque", url: "/controledeestoque", defaultCat: "Gestão", iconName: "Boxes", description: "Controle operacional do estoque e baús" },

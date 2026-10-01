@@ -81,6 +81,8 @@ export function VendasPage() {
       void queryClient.invalidateQueries({ queryKey: ["sales"] });
       void queryClient.invalidateQueries({ queryKey: ["movements"] });
       void queryClient.invalidateQueries({ queryKey: ["products"] });
+      void queryClient.invalidateQueries({ queryKey: ["warehouse_stock"] });
+      void queryClient.invalidateQueries({ queryKey: ["warehouse_movements"] });
       void queryClient.invalidateQueries({ queryKey: ["audit_logs"] });
       setSaleToReverse(null);
       setReverseReason("");

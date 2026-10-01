@@ -50,11 +50,19 @@ export function SaleDialog({ trigger }: { trigger: ReactNode }) {
   const { data: products } = useProducts();
   const queryClient = useQueryClient();
 
-  const activeProducts = (products ?? []).filter((p) => p.ativo);
+  // Filtrar estritamente: ativo, can_be_sold habilitado e estoque para venda > 0
+  const activeProducts = (products ?? []).filter((p) => {
+    const isActive = p.ativo !== false;
+    const canBeSold = p.can_be_sold !== false;
+    const availableStock = Number(p.sale_available_quantity ?? p.estoque_atual ?? 0);
+    return isActive && canBeSold && availableStock > 0;
+  });
+
   const selected = activeProducts.find((p) => p.id === productId);
+  const availableStock = Number(selected?.sale_available_quantity ?? selected?.estoque_atual ?? 0);
   const parsedUnitPrice = parseCurrencyInput(unitPrice);
   const total = Number(quantity || 0) * parsedUnitPrice;
-  const insufficient = !!selected && Number(quantity || 0) > Number(selected.estoque_atual);
+  const insufficient = !!selected && Number(quantity || 0) > availableStock;
 
   const handleSelectProduct = (id: string) => {
     setProductId(id);
@@ -72,8 +80,12 @@ export function SaleDialog({ trigger }: { trigger: ReactNode }) {
       const qty = Number(quantity);
       const price = parseCurrencyInput(unitPrice);
       if (!productId) throw new Error("Selecione um produto válido.");
+      if (!selected) throw new Error("Produto não encontrado ou indisponível para venda.");
+      if (selected.can_be_sold === false) throw new Error("Este produto não está liberado para venda.");
       if (!Number.isFinite(qty) || qty <= 0)
         throw new Error("A quantidade deve ser um número maior que zero.");
+      if (qty > availableStock)
+        throw new Error(`Estoque para venda insuficiente (${availableStock} ${selected.unidade} disponíveis).`);
       if (!Number.isFinite(price) || price < 0)
         throw new Error("Informe um valor unitário válido.");
       if (!buyer.trim()) throw new Error("Informe o nome do comprador.");
@@ -89,10 +101,12 @@ export function SaleDialog({ trigger }: { trigger: ReactNode }) {
       });
     },
     onSuccess: () => {
-      toast.success("Venda registrada e saída de estoque gerada.");
+      toast.success("Venda registrada e estoque abatido.");
       void queryClient.invalidateQueries({ queryKey: ["sales"] });
       void queryClient.invalidateQueries({ queryKey: ["movements"] });
       void queryClient.invalidateQueries({ queryKey: ["products"] });
+      void queryClient.invalidateQueries({ queryKey: ["warehouse_stock"] });
+      void queryClient.invalidateQueries({ queryKey: ["warehouse_movements"] });
       void queryClient.invalidateQueries({ queryKey: ["audit_logs"] });
       setOpen(false);
       setProductId("");
@@ -111,7 +125,7 @@ export function SaleDialog({ trigger }: { trigger: ReactNode }) {
         <DialogHeader>
           <DialogTitle>Nova venda</DialogTitle>
           <DialogDescription>
-            Lançar venda para gerar registro financeiro. O estoque é abatido automaticamente pelo bot do Discord.
+            Lançar venda direta a partir do estoque disponível para venda.
           </DialogDescription>
         </DialogHeader>
 
@@ -126,14 +140,17 @@ export function SaleDialog({ trigger }: { trigger: ReactNode }) {
                 <SelectValue placeholder="Selecione o produto" />
               </SelectTrigger>
               <SelectContent>
-                {activeProducts.map((p) => (
-                  <SelectItem key={p.id} value={p.id}>
-                    <div className="flex items-center gap-2">
-                      <ProductThumbnail src={p.imagem_url} name={p.nome} size="xs" />
-                      <span>{p.nome} · {num(p.estoque_atual)} {p.unidade}</span>
-                    </div>
-                  </SelectItem>
-                ))}
+                {activeProducts.map((p) => {
+                  const pAvail = Number(p.sale_available_quantity ?? p.estoque_atual ?? 0);
+                  return (
+                    <SelectItem key={p.id} value={p.id}>
+                      <div className="flex items-center gap-2">
+                        <ProductThumbnail src={p.imagem_url} name={p.nome} size="xs" />
+                        <span>{p.nome} · {num(pAvail)} {p.unidade} disp.</span>
+                      </div>
+                    </SelectItem>
+                  );
+                })}
               </SelectContent>
             </Select>
 
@@ -143,7 +160,7 @@ export function SaleDialog({ trigger }: { trigger: ReactNode }) {
                 <div className="min-w-0 flex-1">
                   <p className="text-xs font-bold text-foreground truncate">{selected.nome}</p>
                   <p className="text-[10px] text-muted-foreground font-mono">
-                    Estoque disponível: {num(selected.estoque_atual)} {selected.unidade} · Sugerido: {currency(selected.preco_sugerido || 0)}
+                    Disponível p/ venda: <span className="font-semibold text-emerald-400">{num(availableStock)} {selected.unidade}</span> · Sugerido: {currency(selected.preco_sugerido || 0)}
                   </p>
                 </div>
               </div>
@@ -177,7 +194,7 @@ export function SaleDialog({ trigger }: { trigger: ReactNode }) {
 
           {insufficient ? (
             <p className="text-xs text-destructive">
-              Estoque insuficiente: disponível {num(selected?.estoque_atual)} {selected?.unidade}.
+              Estoque para venda insuficiente: disponível {num(availableStock)} {selected?.unidade}.
             </p>
           ) : null}
 

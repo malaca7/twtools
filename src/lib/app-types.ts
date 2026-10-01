@@ -117,9 +117,88 @@ export type Product = {
   estoque_minimo: number;
   preco_sugerido: number;
   imagem_url: string | null;
+  can_be_produced?: boolean;
+  can_be_sold?: boolean;
+  sale_available_quantity?: number;
   ativo: boolean;
   created_at: string;
   updated_at: string;
+};
+
+export type RawMaterial = {
+  id: string;
+  name: string;
+  description: string | null;
+  unit: string;
+  stock_quantity: number;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+};
+
+export type Production = {
+  id: string;
+  product_id: string;
+  quantity: number;
+  user_id: string;
+  observation: string | null;
+  status: "COMPLETED" | "CANCELLED" | string;
+  created_at: string;
+  updated_at: string;
+  product?: Product;
+  user_name?: string;
+  user_avatar?: string;
+  consumed_materials?: ProductionRawMaterial[];
+};
+
+export type ProductionRawMaterial = {
+  id: string;
+  production_id: string;
+  raw_material_id: string;
+  quantity_used: number;
+  created_at: string;
+  raw_material?: RawMaterial;
+};
+
+export type WarehouseStock = {
+  id: string;
+  product_id: string;
+  quantity: number;
+  created_at: string;
+  updated_at: string;
+  product?: Product;
+};
+
+export type WarehouseMovement = {
+  id: string;
+  product_id: string;
+  type: "PRODUCTION" | "TRANSFER_TO_STORAGE" | "TRANSFER_TO_SALE" | "SALE" | "SALE_CANCEL" | "STOCK_ADJUSTMENT" | string;
+  quantity: number;
+  previous_balance: number;
+  resulting_balance: number;
+  source: string | null;
+  destination: string | null;
+  reference_id: string | null;
+  user_id: string;
+  observation: string | null;
+  created_at: string;
+  product?: Product;
+  user_name?: string;
+};
+
+export type RawMaterialMovement = {
+  id: string;
+  raw_material_id: string;
+  type: "ENTRY" | "CONSUMPTION" | "ADJUSTMENT" | string;
+  quantity: number;
+  previous_balance: number;
+  resulting_balance: number;
+  production_id: string | null;
+  user_id: string;
+  observation: string | null;
+  created_at: string;
+  raw_material?: RawMaterial;
+  user_name?: string;
 };
 
 export type Bau = {
