@@ -49,6 +49,7 @@ import type {
 import { getCategoryInfo, getStatusInfo } from "@/types/tickets";
 import { createNotification } from "./notifications-api";
 import { isDevAuditLogsEnabled } from "@/services/devService";
+import { broadcastPermissionsRealtimeUpdate } from "./permissionsRealtimeSync";
 
 
 export async function getCurrentAuth(): Promise<AuthState> {
@@ -1125,6 +1126,11 @@ export async function updateMemberDetails(payload: {
     is_developer: payload.is_developer,
     is_ceo: payload.is_ceo,
   }, oldProfile || undefined, payload.targetUserId);
+
+  void broadcastPermissionsRealtimeUpdate({
+    type: "profiles",
+    userId: payload.targetUserId,
+  });
 }
 
 export async function deleteMember(targetUserId: string): Promise<void> {
@@ -1149,6 +1155,11 @@ export async function deleteMember(targetUserId: string): Promise<void> {
     undefined,
     targetUserId
   );
+
+  void broadcastPermissionsRealtimeUpdate({
+    type: "profiles",
+    userId: targetUserId,
+  });
 }
 
 export async function getAnnouncements(): Promise<Announcement[]> {
@@ -1327,6 +1338,12 @@ export async function setMemberLevel(targetUserId: string, newLevel: AppLevel | 
     category: "success",
     user_id: targetUserId,
     link: "/perfil",
+  });
+
+  void broadcastPermissionsRealtimeUpdate({
+    type: "user_roles",
+    userId: targetUserId,
+    level: String(newLevel),
   });
 }
 
@@ -1527,6 +1544,11 @@ export async function submitSignupReview({ data }: { data: { requestId: string; 
       await (supabase.from("user_presence" as any)).delete().eq("user_id", targetId);
     }
   }
+
+  void broadcastPermissionsRealtimeUpdate({
+    type: "profiles",
+    userId: targetId || undefined,
+  });
 }
 
 export async function getPendingSignupRequests(enabled?: boolean): Promise<PendingSignupRequest[]> {
@@ -1607,6 +1629,11 @@ export async function saveRolePermissions(level: AppLevel, permissions: Permissi
     level_label: LEVEL_LABEL[level] || level,
     permissions_count: permissions.length,
     permissions,
+  });
+
+  void broadcastPermissionsRealtimeUpdate({
+    type: "role_permissions",
+    level,
   });
 }
 
@@ -2442,6 +2469,11 @@ export async function saveCustomRole(payload: {
     rank: payload.rank || 1,
     module_permissions: payload.module_permissions,
   }, undefined, payload.id);
+
+  void broadcastPermissionsRealtimeUpdate({
+    type: "custom_roles",
+    level: payload.id,
+  });
 }
 
 export async function deleteCustomRole(roleId: string): Promise<void> {
@@ -2461,6 +2493,11 @@ export async function deleteCustomRole(roleId: string): Promise<void> {
     nome: r?.nome || "Cargo",
     rank: r?.rank,
   }, undefined, roleId);
+
+  void broadcastPermissionsRealtimeUpdate({
+    type: "custom_roles",
+    level: roleId,
+  });
 }
 
 export async function reorderCustomRoles(orderedIds: string[]): Promise<void> {
@@ -2472,6 +2509,10 @@ export async function reorderCustomRoles(orderedIds: string[]): Promise<void> {
 
   void logAuditAction("reorder_custom_roles", "custom_roles", {
     total_reordered: orderedIds.length,
+  });
+
+  void broadcastPermissionsRealtimeUpdate({
+    type: "custom_roles",
   });
 }
 

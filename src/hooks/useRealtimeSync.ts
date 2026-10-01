@@ -3,10 +3,14 @@ import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 
 import { fetchRemoteMenuConfig } from "@/hooks/useMenuConfig";
+import { fetchRemoteCeoMenuConfig } from "@/hooks/useCeoMenuConfig";
+import { fetchRemoteDevMenuConfig } from "@/hooks/useDevMenuConfig";
 import { fetchRemotePlatformSettings, getPlatformSettings } from "@/hooks/usePlatformSettings";
 import { playGamerOnlineAlertSound, playGamerSuccessSound } from "@/lib/sound-effects";
+import { getCeoTagPermissions, getCeoConfiguration } from "@/services/devService";
 
 const CROSS_TAB_CHANNEL = "tw_global_realtime_sync";
+const PERMISSIONS_CROSS_TAB_CHANNEL = "tw_permissions_cross_tab_sync";
 
 export function useRealtimeSync() {
   const queryClient = useQueryClient();
@@ -27,13 +31,15 @@ export function useRealtimeSync() {
         pendingInvalidationsRef.current.clear();
 
         for (const key of toInvalidate) {
-          void queryClient.invalidateQueries({ queryKey: [key], refetchType: "active" });
+          void queryClient.invalidateQueries({ queryKey: [key], refetchType: "all" });
         }
-      }, 80);
+      }, 60);
     };
 
     // 1. Cross-tab BroadcastChannel for 0ms local synchronization across open browser tabs
     let bc: BroadcastChannel | null = null;
+    let permBc: BroadcastChannel | null = null;
+
     if (typeof BroadcastChannel !== "undefined") {
       try {
         bc = new BroadcastChannel(CROSS_TAB_CHANNEL);
@@ -41,6 +47,44 @@ export function useRealtimeSync() {
           const keys = event.data?.keys;
           if (Array.isArray(keys) && keys.length > 0) {
             triggerInvalidations(keys);
+          }
+        };
+      } catch {}
+
+      try {
+        permBc = new BroadcastChannel(PERMISSIONS_CROSS_TAB_CHANNEL);
+        permBc.onmessage = (event) => {
+          const p = event.data;
+          if (!p) return;
+
+          if (p.type === "role_permissions" || p.type === "custom_roles") {
+            triggerInvalidations(["role_permissions", "custom_roles"]);
+            if (typeof window !== "undefined") {
+              window.dispatchEvent(new CustomEvent("tw_permissions_synced", { detail: p }));
+            }
+          }
+
+          if (p.type === "user_roles" || p.type === "profiles" || p.type === "custom_roles") {
+            triggerInvalidations(["members", "user_roles", "auth", "auth_session"]);
+            if (typeof window !== "undefined") {
+              window.dispatchEvent(new CustomEvent("tw_auth_reload", { detail: p }));
+            }
+          }
+
+          if (p.type === "menu_config") {
+            if (p.level === "system_ceo_menu_config") {
+              void fetchRemoteCeoMenuConfig();
+            } else if (p.level === "system_dev_menu_config") {
+              void fetchRemoteDevMenuConfig();
+            } else {
+              void fetchRemoteMenuConfig();
+            }
+          }
+
+          if (p.type === "ceo_config") {
+            if (typeof window !== "undefined") {
+              window.dispatchEvent(new CustomEvent("tw_ceo_config_updated", { detail: p }));
+            }
           }
         };
       } catch {}
@@ -94,20 +138,62 @@ export function useRealtimeSync() {
 
         case "profiles":
           keysToInvalidate = ["members", "auth", "auth_session"];
+          if (typeof window !== "undefined") {
+            window.dispatchEvent(new CustomEvent("tw_auth_reload", { detail: payload }));
+          }
           break;
 
         case "user_roles":
           keysToInvalidate = ["members", "user_roles", "auth", "auth_session"];
+          if (typeof window !== "undefined") {
+            window.dispatchEvent(new CustomEvent("tw_auth_reload", { detail: payload }));
+          }
           break;
 
         case "custom_roles":
           keysToInvalidate = ["custom_roles", "role_permissions", "members", "user_roles"];
+          if (typeof window !== "undefined") {
+            window.dispatchEvent(new CustomEvent("tw_permissions_synced", { detail: payload }));
+            window.dispatchEvent(new CustomEvent("tw_auth_reload", { detail: payload }));
+          }
           break;
 
         case "role_permissions": {
           const changedLevel = payload?.new?.level || payload?.old?.level;
-          if (changedLevel === "system_menu_config" || changedLevel === "system_ceo_menu_config" || changedLevel === "system_dev_menu_config") {
+          if (changedLevel === "system_menu_config") {
             void fetchRemoteMenuConfig();
+            return;
+          }
+          if (changedLevel === "system_ceo_menu_config") {
+            void fetchRemoteCeoMenuConfig();
+            return;
+          }
+          if (changedLevel === "system_dev_menu_config") {
+            void fetchRemoteDevMenuConfig();
+            return;
+          }
+          if (changedLevel === "ceo") {
+            void getCeoTagPermissions();
+            if (typeof window !== "undefined") {
+              window.dispatchEvent(new CustomEvent("tw_ceo_config_updated"));
+              window.dispatchEvent(new CustomEvent("tw_permissions_synced", { detail: { level: "ceo" } }));
+            }
+            keysToInvalidate = ["role_permissions"];
+            break;
+          }
+          if (changedLevel === "desenvolvedor") {
+            if (typeof window !== "undefined") {
+              window.dispatchEvent(new CustomEvent("tw_dev_config_updated"));
+              window.dispatchEvent(new CustomEvent("tw_permissions_synced", { detail: { level: "desenvolvedor" } }));
+            }
+            keysToInvalidate = ["role_permissions"];
+            break;
+          }
+          if (changedLevel === "system_ceo_config") {
+            void getCeoConfiguration();
+            if (typeof window !== "undefined") {
+              window.dispatchEvent(new CustomEvent("tw_ceo_config_updated"));
+            }
             return;
           }
           if (changedLevel === "system_platform_settings") {
@@ -154,11 +240,17 @@ export function useRealtimeSync() {
           }
           // Cargo de permissão real
           keysToInvalidate = ["role_permissions"];
+          if (typeof window !== "undefined") {
+            window.dispatchEvent(new CustomEvent("tw_permissions_synced", { detail: { level: changedLevel } }));
+          }
           break;
         }
 
         case "signup_requests":
           keysToInvalidate = ["pending_signup_requests", "members", "auth"];
+          if (typeof window !== "undefined") {
+            window.dispatchEvent(new CustomEvent("tw_auth_reload", { detail: payload }));
+          }
           break;
 
         case "user_presence":
@@ -270,6 +362,54 @@ export function useRealtimeSync() {
       })
       .subscribe();
 
+    // 5. Dedicated broadcast channel for instantaneous permissions & role updates across all online screens
+    const permissionsChannel = supabase
+      .channel("tw_permissions_realtime_sync")
+      .on("broadcast", { event: "permissions_changed" }, (msg: any) => {
+        const p = msg?.payload;
+        if (!p) return;
+
+        if (p.type === "role_permissions" || p.type === "custom_roles") {
+          if (p.level === "ceo") {
+            void getCeoTagPermissions();
+            if (typeof window !== "undefined") {
+              window.dispatchEvent(new CustomEvent("tw_ceo_config_updated"));
+            }
+          }
+          triggerInvalidations(["role_permissions", "custom_roles"]);
+          broadcastCrossTab(["role_permissions", "custom_roles"]);
+          if (typeof window !== "undefined") {
+            window.dispatchEvent(new CustomEvent("tw_permissions_synced", { detail: p }));
+          }
+        }
+
+        if (p.type === "user_roles" || p.type === "profiles" || p.type === "custom_roles") {
+          triggerInvalidations(["members", "user_roles", "auth", "auth_session"]);
+          broadcastCrossTab(["members", "user_roles", "auth", "auth_session"]);
+          if (typeof window !== "undefined") {
+            window.dispatchEvent(new CustomEvent("tw_auth_reload", { detail: p }));
+          }
+        }
+
+        if (p.type === "menu_config") {
+          if (p.level === "system_ceo_menu_config") {
+            void fetchRemoteCeoMenuConfig();
+          } else if (p.level === "system_dev_menu_config") {
+            void fetchRemoteDevMenuConfig();
+          } else {
+            void fetchRemoteMenuConfig();
+          }
+        }
+
+        if (p.type === "ceo_config") {
+          void getCeoConfiguration();
+          if (typeof window !== "undefined") {
+            window.dispatchEvent(new CustomEvent("tw_ceo_config_updated", { detail: p }));
+          }
+        }
+      })
+      .subscribe();
+
     return () => {
       if (debounceTimerRef.current) {
         clearTimeout(debounceTimerRef.current);
@@ -277,9 +417,13 @@ export function useRealtimeSync() {
       if (bc) {
         bc.close();
       }
+      if (permBc) {
+        permBc.close();
+      }
       void supabase.removeChannel(channel);
       void supabase.removeChannel(stockChannel);
       void supabase.removeChannel(settingsChannel);
+      void supabase.removeChannel(permissionsChannel);
     };
   }, [queryClient]);
 }

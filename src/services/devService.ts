@@ -2,6 +2,7 @@ import { supabase } from "@/integrations/supabase/client";
 import type { AppUser, Profile } from "@/lib/app-types";
 import type { AppLevel, Permission } from "@/lib/permissions";
 import type { PanelColor } from "@/lib/panelTheme";
+import { broadcastPermissionsRealtimeUpdate } from "@/lib/permissionsRealtimeSync";
 
 export interface DevPermissionResource {
   id: string;
@@ -384,6 +385,11 @@ export async function saveDevPermissions(
       key: "dev_permissions",
       value: JSON.stringify(permissions),
       updated_at: new Date().toISOString(),
+    });
+
+    void broadcastPermissionsRealtimeUpdate({
+      type: "role_permissions",
+      level: "desenvolvedor",
     });
   } catch (err) {
     console.warn("Salvo localmente (Supabase fallback):", err);
@@ -862,6 +868,11 @@ export async function saveCeoTagPermissions(
     if (error) {
       console.warn("Falha ao salvar permissões da Tag CEO em role_permissions:", error);
     }
+
+    void broadcastPermissionsRealtimeUpdate({
+      type: "role_permissions",
+      level: "ceo",
+    });
   } catch (err) {
     console.error("Erro ao salvar permissões da Tag CEO:", err);
     throw err;
@@ -937,6 +948,10 @@ export async function saveCeoConfiguration(
     if (error) {
       console.warn("Falha ao salvar system_ceo_config no Supabase:", error);
     }
+
+    void broadcastPermissionsRealtimeUpdate({
+      type: "ceo_config",
+    });
   } catch (err) {
     console.error("Erro ao salvar configuração da Tag CEO:", err);
     throw err;
@@ -1033,6 +1048,11 @@ export async function toggleMemberCeoTag(
     console.warn("Falha ao registrar auditoria de CEO:", auditErr);
   }
 
+  void broadcastPermissionsRealtimeUpdate({
+    type: "profiles",
+    userId: targetUserId,
+  });
+
   return { success: true, is_ceo: enable };
 }
 
@@ -1095,6 +1115,11 @@ export async function toggleMemberDevTag(
   } catch (auditErr) {
     console.warn("Falha ao registrar auditoria de Dev:", auditErr);
   }
+
+  void broadcastPermissionsRealtimeUpdate({
+    type: "profiles",
+    userId: targetUserId,
+  });
 
   return { success: true, is_developer: enable };
 }

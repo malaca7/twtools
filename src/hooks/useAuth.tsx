@@ -379,6 +379,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // Sincronização reativa instantânea com as opções de ajuste geral Dev (Bypass, etc.)
   const [devConfigTick, setDevConfigTick] = useState(0);
+  const [permissionsTick, setPermissionsTick] = useState(0);
 
   useEffect(() => {
     const handleConfigUpdate = () => {
@@ -393,6 +394,45 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       window.removeEventListener("storage", handleConfigUpdate);
     };
   }, []);
+
+  // Sincronização reativa instantânea em tempo real de permissões, cargos e autorizações de membros
+  useEffect(() => {
+    const handlePermissionsSynced = () => {
+      setPermissionsTick((t) => t + 1);
+      void queryClient.invalidateQueries({ queryKey: ["role_permissions"], refetchType: "all" });
+      void queryClient.invalidateQueries({ queryKey: ["custom_roles"], refetchType: "all" });
+      void loadAuth();
+    };
+
+    const handleAuthReload = (e?: Event) => {
+      const customEvent = e as CustomEvent;
+      const targetUserId = customEvent?.detail?.userId || customEvent?.detail?.new?.user_id;
+      const currentUserId = profile?.user_id || session?.user?.id;
+      if (!targetUserId || targetUserId === currentUserId) {
+        setPermissionsTick((t) => t + 1);
+        void loadAuth();
+        void queryClient.invalidateQueries({ queryKey: ["auth"], refetchType: "all" });
+        void queryClient.invalidateQueries({ queryKey: ["auth_session"], refetchType: "all" });
+        void queryClient.invalidateQueries({ queryKey: ["members"], refetchType: "all" });
+      }
+    };
+
+    const handleMenuOrCeoUpdate = () => {
+      setPermissionsTick((t) => t + 1);
+    };
+
+    window.addEventListener("tw_permissions_synced", handlePermissionsSynced);
+    window.addEventListener("tw_auth_reload", handleAuthReload);
+    window.addEventListener("tw_menu_updated", handleMenuOrCeoUpdate);
+    window.addEventListener("tw_ceo_config_updated", handleMenuOrCeoUpdate);
+
+    return () => {
+      window.removeEventListener("tw_permissions_synced", handlePermissionsSynced);
+      window.removeEventListener("tw_auth_reload", handleAuthReload);
+      window.removeEventListener("tw_menu_updated", handleMenuOrCeoUpdate);
+      window.removeEventListener("tw_ceo_config_updated", handleMenuOrCeoUpdate);
+    };
+  }, [loadAuth, profile?.user_id, session?.user?.id, queryClient]);
 
   // Garante que membros comuns sem Tag Dev ou Tag CEO nunca fiquem travados em panelMode dev ou ceo
   useEffect(() => {
@@ -456,7 +496,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // Fallback padrão: avalia o cargo do membro
       return can(level, permission, customRolePermissions);
     },
-    [level, isDevUser, isCeoUser, customRolePermissions, devConfigTick, panelMode]
+    [level, isDevUser, isCeoUser, customRolePermissions, devConfigTick, panelMode, permissionsTick]
   );
 
   const value = useMemo<AuthContextValue>(

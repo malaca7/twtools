@@ -1,5 +1,6 @@
 import { useEffect, useCallback, useMemo, useSyncExternalStore } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { broadcastPermissionsRealtimeUpdate } from "@/lib/permissionsRealtimeSync";
 
 export type MenuItemConfig = {
   id: string;
@@ -316,6 +317,11 @@ export async function saveMenuConfig(config: MenuConfig) {
         { onConflict: "level" }
       );
     }
+
+    void broadcastPermissionsRealtimeUpdate({
+      type: "menu_config",
+      level: "system_menu_config",
+    });
   } catch (err) {
     console.error("Erro ao sincronizar menu_config no banco:", err);
   }
@@ -333,6 +339,11 @@ export async function clearMenuConfig() {
     if (rpcErr) {
       await supabase.from("role_permissions").delete().eq("level", "system_menu_config");
     }
+
+    void broadcastPermissionsRealtimeUpdate({
+      type: "menu_config",
+      level: "system_menu_config",
+    });
   } catch {}
 }
 

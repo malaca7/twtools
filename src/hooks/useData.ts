@@ -164,8 +164,8 @@ export function useRolePermissions() {
   return useQuery({
     queryKey: ["role_permissions"],
     queryFn: async (): Promise<Record<AppLevel, Permission[]>> => getRolePermissions(),
-    staleTime: 60000,
-    refetchOnWindowFocus: false,
+    staleTime: 0,
+    refetchOnWindowFocus: true,
   });
 }
 
@@ -215,6 +215,8 @@ export function useCustomRoles() {
       const { getCustomRoles } = await import("@/lib/app-api");
       return getCustomRoles();
     },
+    staleTime: 0,
+    refetchOnWindowFocus: true,
   });
 }
 

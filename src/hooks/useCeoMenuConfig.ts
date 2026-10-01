@@ -1,5 +1,6 @@
 import { useEffect, useCallback, useMemo, useSyncExternalStore } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { broadcastPermissionsRealtimeUpdate } from "@/lib/permissionsRealtimeSync";
 
 export type CeoMenuItemConfig = {
   id: string;
@@ -169,6 +170,11 @@ export async function saveCeoMenuConfig(config: CeoMenuConfig) {
       },
       { onConflict: "level" }
     );
+
+    void broadcastPermissionsRealtimeUpdate({
+      type: "menu_config",
+      level: PERMISSION_LEVEL,
+    });
   } catch (err) {
     console.warn("Falha ao salvar ceo_menu_config remotamente:", err);
   }
