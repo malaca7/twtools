@@ -132,6 +132,8 @@ function DevConfiguracaoPageWrapper() {
   );
 }
 
+const FOOTER_YEAR_OPTIONS = [2035, 2034, 2033, 2032, 2031, 2030, 2029, 2028, 2027, 2026, 2025, 2024, 2023, 2022, 2021, 2020, 2019, 2018];
+
 export function DevConfiguracaoContent({ defaultTab }: { defaultTab?: string } = {}) {
   const { user, profile, level } = useAuth();
   const queryClient = useQueryClient();
@@ -220,6 +222,7 @@ export function DevConfiguracaoContent({ defaultTab }: { defaultTab?: string } =
   const [savingPlatform, setSavingPlatform] = useState(false);
   const [savingFooter, setSavingFooter] = useState(false);
   const [maintenanceModalOpen, setMaintenanceModalOpen] = useState(false);
+  const [isCustomYear, setIsCustomYear] = useState(false);
 
   useEffect(() => {
     setPlatformForm(remotePlatformSettings);
@@ -619,6 +622,8 @@ export function DevConfiguracaoContent({ defaultTab }: { defaultTab?: string } =
           footerDeveloperDiscord: platformForm.footerDeveloperDiscord,
           footerDeveloperRole: platformForm.footerDeveloperRole,
           footerShowDeveloperCredits: platformForm.footerShowDeveloperCredits,
+          footerYear: platformForm.footerYear,
+          footerShowYear: platformForm.footerShowYear,
         },
         {
           footerFactionText: initialPlatformForm.footerFactionText,
@@ -626,6 +631,8 @@ export function DevConfiguracaoContent({ defaultTab }: { defaultTab?: string } =
           footerDeveloperDiscord: initialPlatformForm.footerDeveloperDiscord,
           footerDeveloperRole: initialPlatformForm.footerDeveloperRole,
           footerShowDeveloperCredits: initialPlatformForm.footerShowDeveloperCredits,
+          footerYear: initialPlatformForm.footerYear,
+          footerShowYear: initialPlatformForm.footerShowYear,
         }
       );
       void queryClient.invalidateQueries({ queryKey: ["audit_logs"] });
@@ -688,12 +695,14 @@ export function DevConfiguracaoContent({ defaultTab }: { defaultTab?: string } =
       footerDeveloperRole: DEFAULT_PLATFORM_SETTINGS.footerDeveloperRole,
       footerCustomNote: DEFAULT_PLATFORM_SETTINGS.footerCustomNote,
       footerCopyrightText: DEFAULT_PLATFORM_SETTINGS.footerCopyrightText,
+      footerYear: DEFAULT_PLATFORM_SETTINGS.footerYear,
       footerShowYear: DEFAULT_PLATFORM_SETTINGS.footerShowYear,
       footerShowDeveloperCredits: DEFAULT_PLATFORM_SETTINGS.footerShowDeveloperCredits,
       footerShowDiscordCopy: DEFAULT_PLATFORM_SETTINGS.footerShowDiscordCopy,
       footerShowSupportLink: DEFAULT_PLATFORM_SETTINGS.footerShowSupportLink,
       footerShowVersion: DEFAULT_PLATFORM_SETTINGS.footerShowVersion,
     }));
+    setIsCustomYear(false);
     toast.info("Valores padrão do rodapé restaurados e salvos automaticamente em tempo real.");
   };
 
@@ -2028,20 +2037,73 @@ export function DevConfiguracaoContent({ defaultTab }: { defaultTab?: string } =
                   />
                 </div>
 
-                <div className="p-3 rounded-xl bg-secondary/30 border border-border/40 space-y-2 flex flex-col justify-between">
-                  <div className="space-y-0.5">
-                    <Label htmlFor="footerShowYear" className="text-xs font-bold text-foreground cursor-pointer block">
-                      Ano Atual &copy;
-                    </Label>
-                    <p className="text-[10px] text-muted-foreground">
-                      Incluir o ano corrente ({new Date().getFullYear()}) no copyright.
+                <div className="p-3 rounded-xl bg-secondary/30 border border-border/40 space-y-2.5 flex flex-col justify-between">
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between gap-1.5">
+                      <Label htmlFor="footerShowYear" className="text-xs font-bold text-foreground cursor-pointer block">
+                        Personalizar Ano &copy;
+                      </Label>
+                      <Switch
+                        id="footerShowYear"
+                        checked={platformForm.footerShowYear !== false}
+                        onCheckedChange={(val) => updatePlatformField("footerShowYear", val)}
+                        title={platformForm.footerShowYear !== false ? "Ano ativado no copyright" : "Ano desativado no copyright"}
+                      />
+                    </div>
+                    <p className="text-[10px] text-muted-foreground leading-tight">
+                      Selecione um ano qualquer ou mantenha automático no ano atual.
                     </p>
                   </div>
-                  <Switch
-                    id="footerShowYear"
-                    checked={platformForm.footerShowYear !== false}
-                    onCheckedChange={(val) => updatePlatformField("footerShowYear", val)}
-                  />
+
+                  <div className="space-y-1.5 pt-0.5">
+                    <Select
+                      value={
+                        !platformForm.footerYear || platformForm.footerYear === "Automático"
+                          ? "Automático"
+                          : FOOTER_YEAR_OPTIONS.includes(Number(platformForm.footerYear))
+                          ? String(platformForm.footerYear)
+                          : "custom"
+                      }
+                      onValueChange={(val) => {
+                        if (val === "custom") {
+                          setIsCustomYear(true);
+                          if (!platformForm.footerYear || platformForm.footerYear === "Automático") {
+                            updatePlatformField("footerYear", String(new Date().getFullYear()));
+                          }
+                        } else {
+                          setIsCustomYear(false);
+                          updatePlatformField("footerYear", val);
+                        }
+                      }}
+                      disabled={platformForm.footerShowYear === false}
+                    >
+                      <SelectTrigger className="h-8 text-xs bg-background/60">
+                        <SelectValue placeholder="Selecione o ano..." />
+                      </SelectTrigger>
+                      <SelectContent className="max-h-56 z-50">
+                        <SelectItem value="Automático">Automático ({new Date().getFullYear()})</SelectItem>
+                        {FOOTER_YEAR_OPTIONS.map((y) => (
+                          <SelectItem key={y} value={String(y)}>
+                            {y}
+                          </SelectItem>
+                        ))}
+                        <SelectItem value="custom">Outro ano...</SelectItem>
+                      </SelectContent>
+                    </Select>
+
+                    {(isCustomYear || (Boolean(platformForm.footerYear) && platformForm.footerYear !== "Automático" && !FOOTER_YEAR_OPTIONS.includes(Number(platformForm.footerYear)))) && (
+                      <Input
+                        type="number"
+                        placeholder="Digite o ano (ex: 2026)"
+                        min="1900"
+                        max="2100"
+                        value={platformForm.footerYear === "Automático" ? "" : platformForm.footerYear || ""}
+                        onChange={(e) => updatePlatformField("footerYear", e.target.value)}
+                        className="h-8 text-xs font-mono bg-background/60"
+                        disabled={platformForm.footerShowYear === false}
+                      />
+                    )}
+                  </div>
                 </div>
 
                 <div className="p-3 rounded-xl bg-secondary/30 border border-border/40 space-y-2 flex flex-col justify-between">
@@ -2095,7 +2157,7 @@ export function DevConfiguracaoContent({ defaultTab }: { defaultTab?: string } =
                     <span>
                       {platformForm.footerFactionText || platformForm.factionName || "Twin Wheels"}
                       {platformForm.footerShowYear !== false && (
-                        <> &copy; {new Date().getFullYear()}</>
+                        <> &copy; {(!platformForm.footerYear || platformForm.footerYear === "Automático") ? new Date().getFullYear() : platformForm.footerYear}</>
                       )}
                     </span>
 
