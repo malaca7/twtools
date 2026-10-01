@@ -113,7 +113,20 @@ const PAGE_PERMISSION_MAP: Record<string, Permission | null> = {
 function InnerPageResolver({ page, tab, mode }: { page: string; tab?: string; mode: "dev" | "ceo" | "member" }) {
   const { hasPermission } = useAuth();
   const { settings } = usePlatformSettings();
-  const normalizedPage = (page || "").toLowerCase().trim();
+  
+  let effectivePage = (page || "").toLowerCase().trim();
+  let effectiveTab = (tab || "").toLowerCase().trim();
+
+  // Se a rota vier com barra embutida (ex: producoes/gestao)
+  if (effectivePage.includes("/")) {
+    const parts = effectivePage.split("/").filter(Boolean);
+    effectivePage = parts[0] || "";
+    if (parts[1] && !effectiveTab) {
+      effectiveTab = parts[1];
+    }
+  }
+
+  const normalizedPage = effectivePage;
 
   // CEO Specific modules
   if (mode === "ceo") {
@@ -143,16 +156,16 @@ function InnerPageResolver({ page, tab, mode }: { page: string; tab?: string; mo
       return <Navigate to="/dev/dashboard" replace />;
     }
     if (normalizedPage === "bot") {
-      return <DevBotPageContent initialTab={tab} />;
+      return <DevBotPageContent initialTab={effectiveTab} />;
     }
     if (normalizedPage === "dev-estoque" || (normalizedPage === "estoque" && !window.location.pathname.includes("controledeestoque"))) {
-      return <DevEstoquePageContent initialTab={tab} />;
+      return <DevEstoquePageContent initialTab={effectiveTab} />;
     }
     if (normalizedPage === "notificacoes" || normalizedPage === "dev-notificacoes") {
       return <DevNotificationsPage />;
     }
     if (normalizedPage === "xp-insignias" || normalizedPage === "dev-xp-insignias" || normalizedPage === "gamificacao") {
-      return <DevXpInsigniasPage initialTab={tab} />;
+      return <DevXpInsigniasPage initialTab={effectiveTab} />;
     }
     if (normalizedPage === "gestaoloja" || normalizedPage === "dev-gestaoloja") {
       return <DevShopPage />;
@@ -168,10 +181,9 @@ function InnerPageResolver({ page, tab, mode }: { page: string; tab?: string; mo
   // Verifica permissão da página se exigida (modo dev possui bypass total para inspeção e governança)
   let requiredPerm = PAGE_PERMISSION_MAP[normalizedPage];
   if (normalizedPage === "producoes") {
-    const normalizedTab = (tab || "").toLowerCase().trim();
-    if (normalizedTab === "armazem") {
+    if (effectiveTab === "armazem") {
       requiredPerm = "warehouse.view";
-    } else if (normalizedTab === "gestao" || normalizedTab === "gestao-producao") {
+    } else if (effectiveTab === "gestao" || effectiveTab === "gestao-producao") {
       requiredPerm = "production_management.view";
     } else {
       requiredPerm = "productions.view";
@@ -190,11 +202,22 @@ function InnerPageResolver({ page, tab, mode }: { page: string; tab?: string; mo
     case "vendas":
       return <VendasPage />;
     case "producoes": {
-      const normalizedTab = (tab || "").toLowerCase().trim();
-      if (normalizedTab === "armazem") {
+      if (effectiveTab === "armazem") {
         return <ArmazemPage />;
       }
-      if (normalizedTab === "gestao" || normalizedTab === "gestao-producao") {
+      if (effectiveTab === "gestao" || effectiveTab === "gestao-producao") {
+        return <GestaoProducaoPage />;
+      }
+      if (effectiveTab === "produzir") {
+        return <ProduzirPage />;
+      }
+      if (hasPermission("productions.view") || hasPermission("productions.create") || mode === "dev") {
+        return <ProduzirPage />;
+      }
+      if (hasPermission("warehouse.view") || hasPermission("warehouse.transfer")) {
+        return <ArmazemPage />;
+      }
+      if (hasPermission("production_management.view")) {
         return <GestaoProducaoPage />;
       }
       return <ProduzirPage />;

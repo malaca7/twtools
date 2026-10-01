@@ -1,5 +1,12 @@
 import { createFileRoute, Navigate } from "@tanstack/react-router";
+import { useAuth } from "@/hooks/useAuth";
 
 export const Route = createFileRoute("/_authenticated/producoes/gestao-producao")({
-  component: () => <Navigate to="/producoes/gestao" replace />,
+  component: GestaoProducaoLegacyRedirect,
 });
+
+function GestaoProducaoLegacyRedirect() {
+  const { isDevMode, isCeoMode } = useAuth();
+  const prefix = isDevMode ? "/dev" : isCeoMode ? "/ceo" : "";
+  return <Navigate to={`${prefix}/producoes/gestao`} replace />;
+}

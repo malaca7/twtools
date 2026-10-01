@@ -189,8 +189,18 @@ const URL_TO_PERMISSION_MAP: Record<string, Permission> = {
   "/dev/loja": "view_dev_shop",
   "/dev/coins": "view_dev_coins",
   "/dev/gestao-estoque": "view_stock_management",
+  "/dev/producoes/produzir": "productions.view",
+  "/dev/producoes/armazem": "warehouse.view",
+  "/dev/producoes/gestao": "production_management.view",
+  "/dev/producoes/gestao-producao": "production_management.view",
+  "/dev/producoes": "productions.view",
   "/ceo/notificacoes": "view_ceo_notifications",
   "/ceo/ajustes-estoque": "view_ceo_stock_adjustments",
+  "/ceo/producoes/produzir": "productions.view",
+  "/ceo/producoes/armazem": "warehouse.view",
+  "/ceo/producoes/gestao": "production_management.view",
+  "/ceo/producoes/gestao-producao": "production_management.view",
+  "/ceo/producoes": "productions.view",
 };
 
 const DEV_MODULE_NAV_ITEMS: MasterNavItem[] = [

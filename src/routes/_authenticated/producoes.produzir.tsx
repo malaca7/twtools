@@ -25,6 +25,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useProducts, useRawMaterials, useWarehouseStock } from "@/hooks/useData";
 import { executeProduction } from "@/services/productionService";
 import { PageHeader, NoAccess, ProductThumbnail } from "@/components/ui-kit";
+import { ProductionNavHeader } from "@/components/productions/ProductionNavHeader";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -246,32 +247,7 @@ export function ProduzirPage() {
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
-          {(hasPermission("warehouse.view") || hasPermission("view_warehouse")) && (
-            <Button asChild variant="outline" size="sm" className="rounded-xl text-xs gap-1.5">
-              <Link to={`${prefix}/producoes/armazem`}>
-                <Warehouse className="h-4 w-4 text-emerald-400" />
-                <span>Ver Armazém</span>
-              </Link>
-            </Button>
-          )}
-          {(hasPermission("production_management.view") || hasPermission("view_production_management")) && (
-            <Button asChild variant="outline" size="sm" className="rounded-xl text-xs gap-1.5">
-              <Link to={`${prefix}/producoes/gestao`}>
-                <PackageCheck className="h-4 w-4 text-sky-400" />
-                <span>Gestão Central</span>
-              </Link>
-            </Button>
-          )}
-          {(hasPermission("view_sales") || hasPermission("sales.view")) && (
-            <Button asChild variant="outline" size="sm" className="rounded-xl text-xs gap-1.5">
-              <Link to={`${prefix}/vendas`}>
-                <ShoppingCart className="h-4 w-4 text-amber-400" />
-                <span>Ir para Vendas</span>
-              </Link>
-            </Button>
-          )}
-        </div>
+        <ProductionNavHeader currentTab="produzir" />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
@@ -322,6 +298,26 @@ export function ProduzirPage() {
                     )}
                   </SelectContent>
                 </Select>
+
+                {!loadingProducts && producibleProducts.length === 0 && (
+                  <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/30 space-y-2 mt-2">
+                    <div className="flex items-center gap-2 text-amber-300 font-bold text-xs">
+                      <AlertTriangle className="h-4 w-4 shrink-0 text-amber-400" />
+                      <span>Nenhum produto habilitado para produção</span>
+                    </div>
+                    <p className="text-[11px] text-muted-foreground leading-relaxed">
+                      Todos os produtos cadastrados atualmente possuem a opção <strong>&quot;Habilitado para Produção&quot;</strong> desativada. Para liberar produtos para fabricação, acesse a Gestão de Produção ou Gestão de Estoque.
+                    </p>
+                    <div className="flex items-center gap-2 pt-1">
+                      <Button asChild size="sm" variant="outline" className="h-7 text-xs border-amber-500/40 text-amber-300 hover:bg-amber-500/15 gap-1.5">
+                        <Link to={`${prefix}/producoes/gestao`}>
+                          <PackageCheck className="h-3 w-3" />
+                          <span>Habilitar na Gestão</span>
+                        </Link>
+                      </Button>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* CARD RESUMO DO PRODUTO SELECIONADO */}

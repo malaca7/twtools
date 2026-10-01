@@ -83,10 +83,18 @@ import { Route as AuthenticatedRankingsTabRouteImport } from './routes/_authenti
 import { Route as AuthenticatedTicketsTabRouteImport } from './routes/_authenticated/tickets.$tab'
 import { Route as DevmlcDiscordidDiscordIdRouteImport } from './routes/devmlc.discordid.$discordId'
 import { Route as AuthenticatedCeoTabSubtabRouteImport } from './routes/_authenticated/ceo.$tab.$subtab'
+import { Route as AuthenticatedCeoProducoesIndexRouteImport } from './routes/_authenticated/ceo.producoes.index'
+import { Route as AuthenticatedCeoProducoesArmazemRouteImport } from './routes/_authenticated/ceo.producoes.armazem'
+import { Route as AuthenticatedCeoProducoesGestaoRouteImport } from './routes/_authenticated/ceo.producoes.gestao'
+import { Route as AuthenticatedCeoProducoesProduzirRouteImport } from './routes/_authenticated/ceo.producoes.produzir'
 import { Route as AuthenticatedDevPageTabRouteImport } from './routes/_authenticated/dev.$page.$tab'
 import { Route as AuthenticatedDevBotTabRouteImport } from './routes/_authenticated/dev.bot.$tab'
 import { Route as AuthenticatedDevConfiguracaoTabRouteImport } from './routes/_authenticated/dev.configuracao.$tab'
 import { Route as AuthenticatedDevEstoqueTabRouteImport } from './routes/_authenticated/dev.estoque.$tab'
+import { Route as AuthenticatedDevProducoesIndexRouteImport } from './routes/_authenticated/dev.producoes.index'
+import { Route as AuthenticatedDevProducoesArmazemRouteImport } from './routes/_authenticated/dev.producoes.armazem'
+import { Route as AuthenticatedDevProducoesGestaoRouteImport } from './routes/_authenticated/dev.producoes.gestao'
+import { Route as AuthenticatedDevProducoesProduzirRouteImport } from './routes/_authenticated/dev.producoes.produzir'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -490,6 +498,30 @@ const AuthenticatedCeoTabSubtabRoute =
     path: '/$subtab',
     getParentRoute: () => AuthenticatedCeoTabRoute,
   } as any)
+const AuthenticatedCeoProducoesIndexRoute =
+  AuthenticatedCeoProducoesIndexRouteImport.update({
+    id: '/producoes/',
+    path: '/producoes/',
+    getParentRoute: () => AuthenticatedCeoRoute,
+  } as any)
+const AuthenticatedCeoProducoesArmazemRoute =
+  AuthenticatedCeoProducoesArmazemRouteImport.update({
+    id: '/producoes/armazem',
+    path: '/producoes/armazem',
+    getParentRoute: () => AuthenticatedCeoRoute,
+  } as any)
+const AuthenticatedCeoProducoesGestaoRoute =
+  AuthenticatedCeoProducoesGestaoRouteImport.update({
+    id: '/producoes/gestao',
+    path: '/producoes/gestao',
+    getParentRoute: () => AuthenticatedCeoRoute,
+  } as any)
+const AuthenticatedCeoProducoesProduzirRoute =
+  AuthenticatedCeoProducoesProduzirRouteImport.update({
+    id: '/producoes/produzir',
+    path: '/producoes/produzir',
+    getParentRoute: () => AuthenticatedCeoRoute,
+  } as any)
 const AuthenticatedDevPageTabRoute = AuthenticatedDevPageTabRouteImport.update({
   id: '/$tab',
   path: '/$tab',
@@ -511,6 +543,30 @@ const AuthenticatedDevEstoqueTabRoute =
     id: '/$tab',
     path: '/$tab',
     getParentRoute: () => AuthenticatedDevEstoqueRoute,
+  } as any)
+const AuthenticatedDevProducoesIndexRoute =
+  AuthenticatedDevProducoesIndexRouteImport.update({
+    id: '/dev/producoes/',
+    path: '/dev/producoes/',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedDevProducoesArmazemRoute =
+  AuthenticatedDevProducoesArmazemRouteImport.update({
+    id: '/dev/producoes/armazem',
+    path: '/dev/producoes/armazem',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedDevProducoesGestaoRoute =
+  AuthenticatedDevProducoesGestaoRouteImport.update({
+    id: '/dev/producoes/gestao',
+    path: '/dev/producoes/gestao',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedDevProducoesProduzirRoute =
+  AuthenticatedDevProducoesProduzirRouteImport.update({
+    id: '/dev/producoes/produzir',
+    path: '/dev/producoes/produzir',
+    getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
 
 export interface FileRoutesByFullPath {
@@ -587,10 +643,18 @@ export interface FileRoutesByFullPath {
   '/dev/': typeof AuthenticatedDevIndexRoute
   '/producoes/': typeof AuthenticatedProducoesIndexRoute
   '/ceo/$tab/$subtab': typeof AuthenticatedCeoTabSubtabRoute
+  '/ceo/producoes/armazem': typeof AuthenticatedCeoProducoesArmazemRoute
+  '/ceo/producoes/gestao': typeof AuthenticatedCeoProducoesGestaoRoute
+  '/ceo/producoes/produzir': typeof AuthenticatedCeoProducoesProduzirRoute
   '/dev/$page/$tab': typeof AuthenticatedDevPageTabRoute
   '/dev/bot/$tab': typeof AuthenticatedDevBotTabRoute
   '/dev/configuracao/$tab': typeof AuthenticatedDevConfiguracaoTabRoute
   '/dev/estoque/$tab': typeof AuthenticatedDevEstoqueTabRoute
+  '/dev/producoes/armazem': typeof AuthenticatedDevProducoesArmazemRoute
+  '/dev/producoes/gestao': typeof AuthenticatedDevProducoesGestaoRoute
+  '/dev/producoes/produzir': typeof AuthenticatedDevProducoesProduzirRoute
+  '/ceo/producoes/': typeof AuthenticatedCeoProducoesIndexRoute
+  '/dev/producoes/': typeof AuthenticatedDevProducoesIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -666,10 +730,18 @@ export interface FileRoutesByTo {
   '/dev': typeof AuthenticatedDevIndexRoute
   '/producoes': typeof AuthenticatedProducoesIndexRoute
   '/ceo/$tab/$subtab': typeof AuthenticatedCeoTabSubtabRoute
+  '/ceo/producoes/armazem': typeof AuthenticatedCeoProducoesArmazemRoute
+  '/ceo/producoes/gestao': typeof AuthenticatedCeoProducoesGestaoRoute
+  '/ceo/producoes/produzir': typeof AuthenticatedCeoProducoesProduzirRoute
   '/dev/$page/$tab': typeof AuthenticatedDevPageTabRoute
   '/dev/bot/$tab': typeof AuthenticatedDevBotTabRoute
   '/dev/configuracao/$tab': typeof AuthenticatedDevConfiguracaoTabRoute
   '/dev/estoque/$tab': typeof AuthenticatedDevEstoqueTabRoute
+  '/dev/producoes/armazem': typeof AuthenticatedDevProducoesArmazemRoute
+  '/dev/producoes/gestao': typeof AuthenticatedDevProducoesGestaoRoute
+  '/dev/producoes/produzir': typeof AuthenticatedDevProducoesProduzirRoute
+  '/ceo/producoes': typeof AuthenticatedCeoProducoesIndexRoute
+  '/dev/producoes': typeof AuthenticatedDevProducoesIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -747,10 +819,18 @@ export interface FileRoutesById {
   '/_authenticated/dev/': typeof AuthenticatedDevIndexRoute
   '/_authenticated/producoes/': typeof AuthenticatedProducoesIndexRoute
   '/_authenticated/ceo/$tab/$subtab': typeof AuthenticatedCeoTabSubtabRoute
+  '/_authenticated/ceo/producoes/armazem': typeof AuthenticatedCeoProducoesArmazemRoute
+  '/_authenticated/ceo/producoes/gestao': typeof AuthenticatedCeoProducoesGestaoRoute
+  '/_authenticated/ceo/producoes/produzir': typeof AuthenticatedCeoProducoesProduzirRoute
   '/_authenticated/dev/$page/$tab': typeof AuthenticatedDevPageTabRoute
   '/_authenticated/dev/bot/$tab': typeof AuthenticatedDevBotTabRoute
   '/_authenticated/dev/configuracao/$tab': typeof AuthenticatedDevConfiguracaoTabRoute
   '/_authenticated/dev/estoque/$tab': typeof AuthenticatedDevEstoqueTabRoute
+  '/_authenticated/dev/producoes/armazem': typeof AuthenticatedDevProducoesArmazemRoute
+  '/_authenticated/dev/producoes/gestao': typeof AuthenticatedDevProducoesGestaoRoute
+  '/_authenticated/dev/producoes/produzir': typeof AuthenticatedDevProducoesProduzirRoute
+  '/_authenticated/ceo/producoes/': typeof AuthenticatedCeoProducoesIndexRoute
+  '/_authenticated/dev/producoes/': typeof AuthenticatedDevProducoesIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -828,10 +908,18 @@ export interface FileRouteTypes {
     | '/dev/'
     | '/producoes/'
     | '/ceo/$tab/$subtab'
+    | '/ceo/producoes/armazem'
+    | '/ceo/producoes/gestao'
+    | '/ceo/producoes/produzir'
     | '/dev/$page/$tab'
     | '/dev/bot/$tab'
     | '/dev/configuracao/$tab'
     | '/dev/estoque/$tab'
+    | '/dev/producoes/armazem'
+    | '/dev/producoes/gestao'
+    | '/dev/producoes/produzir'
+    | '/ceo/producoes/'
+    | '/dev/producoes/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -907,10 +995,18 @@ export interface FileRouteTypes {
     | '/dev'
     | '/producoes'
     | '/ceo/$tab/$subtab'
+    | '/ceo/producoes/armazem'
+    | '/ceo/producoes/gestao'
+    | '/ceo/producoes/produzir'
     | '/dev/$page/$tab'
     | '/dev/bot/$tab'
     | '/dev/configuracao/$tab'
     | '/dev/estoque/$tab'
+    | '/dev/producoes/armazem'
+    | '/dev/producoes/gestao'
+    | '/dev/producoes/produzir'
+    | '/ceo/producoes'
+    | '/dev/producoes'
   id:
     | '__root__'
     | '/'
@@ -987,10 +1083,18 @@ export interface FileRouteTypes {
     | '/_authenticated/dev/'
     | '/_authenticated/producoes/'
     | '/_authenticated/ceo/$tab/$subtab'
+    | '/_authenticated/ceo/producoes/armazem'
+    | '/_authenticated/ceo/producoes/gestao'
+    | '/_authenticated/ceo/producoes/produzir'
     | '/_authenticated/dev/$page/$tab'
     | '/_authenticated/dev/bot/$tab'
     | '/_authenticated/dev/configuracao/$tab'
     | '/_authenticated/dev/estoque/$tab'
+    | '/_authenticated/dev/producoes/armazem'
+    | '/_authenticated/dev/producoes/gestao'
+    | '/_authenticated/dev/producoes/produzir'
+    | '/_authenticated/ceo/producoes/'
+    | '/_authenticated/dev/producoes/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -1523,6 +1627,34 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedCeoTabSubtabRouteImport
       parentRoute: typeof AuthenticatedCeoTabRoute
     }
+    '/_authenticated/ceo/producoes/': {
+      id: '/_authenticated/ceo/producoes/'
+      path: '/producoes'
+      fullPath: '/ceo/producoes/'
+      preLoaderRoute: typeof AuthenticatedCeoProducoesIndexRouteImport
+      parentRoute: typeof AuthenticatedCeoRoute
+    }
+    '/_authenticated/ceo/producoes/armazem': {
+      id: '/_authenticated/ceo/producoes/armazem'
+      path: '/producoes/armazem'
+      fullPath: '/ceo/producoes/armazem'
+      preLoaderRoute: typeof AuthenticatedCeoProducoesArmazemRouteImport
+      parentRoute: typeof AuthenticatedCeoRoute
+    }
+    '/_authenticated/ceo/producoes/gestao': {
+      id: '/_authenticated/ceo/producoes/gestao'
+      path: '/producoes/gestao'
+      fullPath: '/ceo/producoes/gestao'
+      preLoaderRoute: typeof AuthenticatedCeoProducoesGestaoRouteImport
+      parentRoute: typeof AuthenticatedCeoRoute
+    }
+    '/_authenticated/ceo/producoes/produzir': {
+      id: '/_authenticated/ceo/producoes/produzir'
+      path: '/producoes/produzir'
+      fullPath: '/ceo/producoes/produzir'
+      preLoaderRoute: typeof AuthenticatedCeoProducoesProduzirRouteImport
+      parentRoute: typeof AuthenticatedCeoRoute
+    }
     '/_authenticated/dev/$page/$tab': {
       id: '/_authenticated/dev/$page/$tab'
       path: '/$tab'
@@ -1550,6 +1682,34 @@ declare module '@tanstack/react-router' {
       fullPath: '/dev/estoque/$tab'
       preLoaderRoute: typeof AuthenticatedDevEstoqueTabRouteImport
       parentRoute: typeof AuthenticatedDevEstoqueRoute
+    }
+    '/_authenticated/dev/producoes/': {
+      id: '/_authenticated/dev/producoes/'
+      path: '/dev/producoes'
+      fullPath: '/dev/producoes/'
+      preLoaderRoute: typeof AuthenticatedDevProducoesIndexRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/dev/producoes/armazem': {
+      id: '/_authenticated/dev/producoes/armazem'
+      path: '/dev/producoes/armazem'
+      fullPath: '/dev/producoes/armazem'
+      preLoaderRoute: typeof AuthenticatedDevProducoesArmazemRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/dev/producoes/gestao': {
+      id: '/_authenticated/dev/producoes/gestao'
+      path: '/dev/producoes/gestao'
+      fullPath: '/dev/producoes/gestao'
+      preLoaderRoute: typeof AuthenticatedDevProducoesGestaoRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/dev/producoes/produzir': {
+      id: '/_authenticated/dev/producoes/produzir'
+      path: '/dev/producoes/produzir'
+      fullPath: '/dev/producoes/produzir'
+      preLoaderRoute: typeof AuthenticatedDevProducoesProduzirRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
     }
   }
 }
@@ -1583,12 +1743,21 @@ interface AuthenticatedCeoRouteChildren {
   AuthenticatedCeoTabRoute: typeof AuthenticatedCeoTabRouteWithChildren
   AuthenticatedCeoAjustesEstoqueRoute: typeof AuthenticatedCeoAjustesEstoqueRoute
   AuthenticatedCeoNotificacoesRoute: typeof AuthenticatedCeoNotificacoesRoute
+  AuthenticatedCeoProducoesArmazemRoute: typeof AuthenticatedCeoProducoesArmazemRoute
+  AuthenticatedCeoProducoesGestaoRoute: typeof AuthenticatedCeoProducoesGestaoRoute
+  AuthenticatedCeoProducoesProduzirRoute: typeof AuthenticatedCeoProducoesProduzirRoute
+  AuthenticatedCeoProducoesIndexRoute: typeof AuthenticatedCeoProducoesIndexRoute
 }
 
 const AuthenticatedCeoRouteChildren: AuthenticatedCeoRouteChildren = {
   AuthenticatedCeoTabRoute: AuthenticatedCeoTabRouteWithChildren,
   AuthenticatedCeoAjustesEstoqueRoute: AuthenticatedCeoAjustesEstoqueRoute,
   AuthenticatedCeoNotificacoesRoute: AuthenticatedCeoNotificacoesRoute,
+  AuthenticatedCeoProducoesArmazemRoute: AuthenticatedCeoProducoesArmazemRoute,
+  AuthenticatedCeoProducoesGestaoRoute: AuthenticatedCeoProducoesGestaoRoute,
+  AuthenticatedCeoProducoesProduzirRoute:
+    AuthenticatedCeoProducoesProduzirRoute,
+  AuthenticatedCeoProducoesIndexRoute: AuthenticatedCeoProducoesIndexRoute,
 }
 
 const AuthenticatedCeoRouteWithChildren =
@@ -1813,6 +1982,10 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedProducoesProduzirRoute: typeof AuthenticatedProducoesProduzirRoute
   AuthenticatedDevIndexRoute: typeof AuthenticatedDevIndexRoute
   AuthenticatedProducoesIndexRoute: typeof AuthenticatedProducoesIndexRoute
+  AuthenticatedDevProducoesArmazemRoute: typeof AuthenticatedDevProducoesArmazemRoute
+  AuthenticatedDevProducoesGestaoRoute: typeof AuthenticatedDevProducoesGestaoRoute
+  AuthenticatedDevProducoesProduzirRoute: typeof AuthenticatedDevProducoesProduzirRoute
+  AuthenticatedDevProducoesIndexRoute: typeof AuthenticatedDevProducoesIndexRoute
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
@@ -1869,6 +2042,11 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedProducoesProduzirRoute: AuthenticatedProducoesProduzirRoute,
   AuthenticatedDevIndexRoute: AuthenticatedDevIndexRoute,
   AuthenticatedProducoesIndexRoute: AuthenticatedProducoesIndexRoute,
+  AuthenticatedDevProducoesArmazemRoute: AuthenticatedDevProducoesArmazemRoute,
+  AuthenticatedDevProducoesGestaoRoute: AuthenticatedDevProducoesGestaoRoute,
+  AuthenticatedDevProducoesProduzirRoute:
+    AuthenticatedDevProducoesProduzirRoute,
+  AuthenticatedDevProducoesIndexRoute: AuthenticatedDevProducoesIndexRoute,
 }
 
 const AuthenticatedRouteRouteWithChildren =

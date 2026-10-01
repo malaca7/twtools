@@ -53,6 +53,7 @@ import {
 } from "@/services/productionService";
 import { createProduct, updateProduct } from "@/lib/app-api";
 import { PageHeader, NoAccess, ProductThumbnail } from "@/components/ui-kit";
+import { ProductionNavHeader } from "@/components/productions/ProductionNavHeader";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -325,32 +326,7 @@ export function GestaoProducaoPage() {
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
-          {(hasPermission("productions.view") || hasPermission("productions.create")) && (
-            <Button asChild variant="outline" size="sm" className="h-10 px-3 rounded-xl text-xs gap-1.5">
-              <Link to={`${prefix}/producoes/produzir`}>
-                <Factory className="h-4 w-4 text-amber-400" />
-                <span>Estação Produzir</span>
-              </Link>
-            </Button>
-          )}
-          {(hasPermission("warehouse.view")) && (
-            <Button asChild variant="outline" size="sm" className="h-10 px-3 rounded-xl text-xs gap-1.5">
-              <Link to={`${prefix}/producoes/armazem`}>
-                <Warehouse className="h-4 w-4 text-emerald-400" />
-                <span>Ver Armazém</span>
-              </Link>
-            </Button>
-          )}
-          {(hasPermission("view_sales") || hasPermission("sales.view")) && (
-            <Button asChild variant="outline" size="sm" className="h-10 px-3 rounded-xl text-xs gap-1.5">
-              <Link to={`${prefix}/vendas`}>
-                <ShoppingCart className="h-4 w-4 text-amber-400" />
-                <span>Ir para Vendas</span>
-              </Link>
-            </Button>
-          )}
-        </div>
+        <ProductionNavHeader currentTab="gestao" />
       </div>
 
       {/* ABAS CENTRAIS */}

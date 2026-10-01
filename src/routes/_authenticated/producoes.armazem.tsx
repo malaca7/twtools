@@ -37,6 +37,7 @@ import {
   adjustWarehouseStock,
 } from "@/services/productionService";
 import { PageHeader, NoAccess, ProductThumbnail } from "@/components/ui-kit";
+import { ProductionNavHeader } from "@/components/productions/ProductionNavHeader";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -283,32 +284,7 @@ export function ArmazemPage() {
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
-          {(hasPermission("productions.view") || hasPermission("productions.create")) && (
-            <Button asChild className="h-10 px-4 bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold rounded-xl gap-2 shadow-lg shadow-amber-500/20 cursor-pointer">
-              <Link to={`${prefix}/producoes/produzir`}>
-                <Factory className="h-4 w-4" />
-                <span>Produzir Itens</span>
-              </Link>
-            </Button>
-          )}
-          {(hasPermission("production_management.view") || hasPermission("view_production_management")) && (
-            <Button asChild variant="outline" size="sm" className="h-10 px-3 rounded-xl text-xs gap-1.5">
-              <Link to={`${prefix}/producoes/gestao`}>
-                <PackageCheck className="h-4 w-4 text-sky-400" />
-                <span>Gestão Central</span>
-              </Link>
-            </Button>
-          )}
-          {(hasPermission("view_sales") || hasPermission("sales.view")) && (
-            <Button asChild variant="outline" size="sm" className="h-10 px-3 rounded-xl text-xs gap-1.5">
-              <Link to={`${prefix}/vendas`}>
-                <ShoppingCart className="h-4 w-4 text-amber-400" />
-                <span>Ir para Vendas</span>
-              </Link>
-            </Button>
-          )}
-        </div>
+        <ProductionNavHeader currentTab="armazem" />
       </div>
 
       {/* CARDS DE MÉTRICAS */}
