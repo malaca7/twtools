@@ -33,6 +33,8 @@ import {
   UserCheck,
   Star,
   Settings,
+  Loader2,
+  AlertTriangle,
   type LucideIcon,
 } from "lucide-react";
 import { DeveloperGuard } from "@/dev/guards/DeveloperGuard";
@@ -298,6 +300,11 @@ export function DevGerenciarTagsPage() {
     }
   };
 
+  // Auto-save state e refs
+  const [autoSaveStatus, setAutoSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
+  const autoSaveTimerRef = React.useRef<NodeJS.Timeout | null>(null);
+  const debounceDiscountRef = React.useRef<NodeJS.Timeout | null>(null);
+
   // Abertura do Modal de Permissões e Regras
   const handleOpenPermsModal = (tag: MemberTag) => {
     setTagForPerms(tag);
@@ -305,43 +312,62 @@ export function DevGerenciarTagsPage() {
     setActiveRules(tag.rules ? { ...tag.rules } : {});
     setPermSearch("");
     setPermSubTab("permissions");
+    setAutoSaveStatus("idle");
+  };
+
+  const autoSavePermsAndRules = async (newPerms: Permission[], newRules: MemberTagRules) => {
+    if (!tagForPerms) return;
+    setAutoSaveStatus("saving");
+    try {
+      await updatePermissionsAndRulesMutation.mutateAsync({
+        tagId: tagForPerms.id,
+        permissions: newPerms,
+        rules: newRules,
+        silent: true,
+      });
+      setAutoSaveStatus("saved");
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new Event("tw_tags_updated"));
+        window.dispatchEvent(new Event("tw_permissions_synced"));
+      }
+      if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
+      autoSaveTimerRef.current = setTimeout(() => {
+        setAutoSaveStatus("idle");
+      }, 2000);
+    } catch (e) {
+      setAutoSaveStatus("error");
+      toast.error("Erro ao salvar permissões e regras da tag automaticamente.");
+    }
   };
 
   const handleTogglePerm = (perm: Permission) => {
-    setActivePerms((prev) => {
-      return prev.includes(perm) ? prev.filter((p) => p !== perm) : [...prev, perm];
-    });
+    const next = activePerms.includes(perm) ? activePerms.filter((p) => p !== perm) : [...activePerms, perm];
+    setActivePerms(next);
+    void autoSavePermsAndRules(next, activeRules);
   };
 
   const handleToggleCardPerms = (card: PageCardConfig) => {
     const cardKeys = card.permissions.map((p) => p.key);
     const allIn = cardKeys.every((k) => activePerms.includes(k));
-    setActivePerms((prev) => {
-      if (allIn) {
-        return prev.filter((k) => !cardKeys.includes(k));
-      } else {
-        const toAdd = cardKeys.filter((k) => !prev.includes(k));
-        return [...prev, ...toAdd];
-      }
-    });
+    const next = allIn
+      ? activePerms.filter((k) => !cardKeys.includes(k))
+      : [...activePerms, ...cardKeys.filter((k) => !activePerms.includes(k))];
+    setActivePerms(next);
+    void autoSavePermsAndRules(next, activeRules);
   };
 
-  const handleSavePermsAndRules = async () => {
-    if (!tagForPerms) return;
-    try {
-      await updatePermissionsAndRulesMutation.mutateAsync({
-        tagId: tagForPerms.id,
-        permissions: activePerms,
-        rules: activeRules,
-      });
-      setTagForPerms(null);
-      if (typeof window !== "undefined") {
-        window.dispatchEvent(new Event("tw_tags_updated"));
-        window.dispatchEvent(new Event("tw_permissions_synced"));
-      }
-    } catch (e) {
-      // Tratado
-    }
+  const handleUpdateRuleValue = (newRules: MemberTagRules) => {
+    setActiveRules(newRules);
+    void autoSavePermsAndRules(activePerms, newRules);
+  };
+
+  const handleDiscountChange = (val: number) => {
+    const newRules = { ...activeRules, max_discount_pct: val };
+    setActiveRules(newRules);
+    if (debounceDiscountRef.current) clearTimeout(debounceDiscountRef.current);
+    debounceDiscountRef.current = setTimeout(() => {
+      void autoSavePermsAndRules(activePerms, newRules);
+    }, 400);
   };
 
   return (
@@ -951,12 +977,40 @@ export function DevGerenciarTagsPage() {
       <Dialog open={Boolean(tagForPerms)} onOpenChange={(open) => !open && setTagForPerms(null)}>
         <DialogContent className="max-w-4xl max-h-[88vh] flex flex-col surface-card border-border/80">
           <DialogHeader>
-            <DialogTitle className="text-base font-black text-foreground flex items-center gap-2">
-              <Sliders className="h-4 w-4 text-amber-400" />
-              <span>Configurações & Regras da Tag: {tagForPerms?.name}</span>
+            <DialogTitle className="text-base font-black text-foreground flex items-center justify-between gap-2 flex-wrap">
+              <div className="flex items-center gap-2">
+                <Sliders className="h-4 w-4 text-amber-400" />
+                <span>Configurações & Regras da Tag: {tagForPerms?.name}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                {autoSaveStatus === "saving" && (
+                  <span className="flex items-center gap-1.5 text-xs text-amber-400 font-mono animate-pulse">
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    <span>Salvando...</span>
+                  </span>
+                )}
+                {autoSaveStatus === "saved" && (
+                  <span className="flex items-center gap-1.5 text-xs text-emerald-400 font-mono">
+                    <CheckCircle2 className="h-3.5 w-3.5" />
+                    <span>Salvo automaticamente</span>
+                  </span>
+                )}
+                {autoSaveStatus === "idle" && (
+                  <span className="flex items-center gap-1.5 text-[11px] text-muted-foreground font-mono">
+                    <Zap className="h-3 w-3 text-amber-400/80" />
+                    <span>Auto-salvamento ativo</span>
+                  </span>
+                )}
+                {autoSaveStatus === "error" && (
+                  <span className="flex items-center gap-1.5 text-xs text-rose-400 font-mono">
+                    <AlertTriangle className="h-3.5 w-3.5" />
+                    <span>Erro ao auto salvar</span>
+                  </span>
+                )}
+              </div>
             </DialogTitle>
             <DialogDescription className="text-xs">
-              Defina as permissões granulares da plataforma e as regras operacionais desta tag.
+              Defina as permissões granulares da plataforma e as regras operacionais desta tag. Qualquer alteração é salva automaticamente.
             </DialogDescription>
           </DialogHeader>
 
@@ -1066,7 +1120,7 @@ export function DevGerenciarTagsPage() {
                   <Switch
                     checked={Boolean(activeRules.is_blocked || activeRules.block_operations)}
                     onCheckedChange={(val) =>
-                      setActiveRules((r) => ({ ...r, is_blocked: val, block_operations: val }))
+                      handleUpdateRuleValue({ ...activeRules, is_blocked: val, block_operations: val })
                     }
                   />
                 </div>
@@ -1084,7 +1138,9 @@ export function DevGerenciarTagsPage() {
                   </div>
                   <Switch
                     checked={Boolean(activeRules.can_sell)}
-                    onCheckedChange={(val) => setActiveRules((r) => ({ ...r, can_sell: val }))}
+                    onCheckedChange={(val) =>
+                      handleUpdateRuleValue({ ...activeRules, can_sell: val })
+                    }
                   />
                 </div>
 
@@ -1107,10 +1163,7 @@ export function DevGerenciarTagsPage() {
                         max="100"
                         value={activeRules.max_discount_pct ?? 20}
                         onChange={(e) =>
-                          setActiveRules((r) => ({
-                            ...r,
-                            max_discount_pct: Math.max(0, Math.min(100, parseInt(e.target.value, 10) || 0)),
-                          }))
+                          handleDiscountChange(Math.max(0, Math.min(100, parseInt(e.target.value, 10) || 0)))
                         }
                         className="w-20 text-right font-mono font-bold text-emerald-400 rounded-xl"
                       />
@@ -1133,7 +1186,7 @@ export function DevGerenciarTagsPage() {
                   <Switch
                     checked={Boolean(activeRules.is_dev_test || activeRules.experimental_features)}
                     onCheckedChange={(val) =>
-                      setActiveRules((r) => ({ ...r, is_dev_test: val, experimental_features: val }))
+                      handleUpdateRuleValue({ ...activeRules, is_dev_test: val, experimental_features: val })
                     }
                   />
                 </div>
@@ -1141,7 +1194,33 @@ export function DevGerenciarTagsPage() {
             )}
           </div>
 
-          <DialogFooter className="gap-2 pt-3 border-t border-border/60">
+          <DialogFooter className="flex items-center justify-between sm:justify-between gap-2 pt-3 border-t border-border/60">
+            <div className="flex items-center gap-2">
+              {autoSaveStatus === "saving" && (
+                <span className="flex items-center gap-1.5 text-xs text-amber-400 font-medium">
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  <span>Salvando permissões...</span>
+                </span>
+              )}
+              {autoSaveStatus === "saved" && (
+                <span className="flex items-center gap-1.5 text-xs text-emerald-400 font-medium">
+                  <CheckCircle2 className="h-3.5 w-3.5" />
+                  <span>Todas as alterações foram salvas</span>
+                </span>
+              )}
+              {autoSaveStatus === "idle" && (
+                <span className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                  <Zap className="h-3.5 w-3.5 text-amber-400/80" />
+                  <span>Qualquer alteração é salva instantaneamente</span>
+                </span>
+              )}
+              {autoSaveStatus === "error" && (
+                <span className="flex items-center gap-1.5 text-xs text-rose-400 font-medium">
+                  <AlertTriangle className="h-3.5 w-3.5" />
+                  <span>Falha ao auto salvar</span>
+                </span>
+              )}
+            </div>
             <Button
               type="button"
               variant="outline"
@@ -1149,16 +1228,7 @@ export function DevGerenciarTagsPage() {
               onClick={() => setTagForPerms(null)}
               className="text-xs rounded-xl"
             >
-              Cancelar
-            </Button>
-            <Button
-              type="button"
-              size="sm"
-              onClick={handleSavePermsAndRules}
-              disabled={updatePermissionsAndRulesMutation.isPending}
-              className="text-xs bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold rounded-xl"
-            >
-              {updatePermissionsAndRulesMutation.isPending ? "Salvando..." : "Salvar Configurações"}
+              Fechar
             </Button>
           </DialogFooter>
         </DialogContent>

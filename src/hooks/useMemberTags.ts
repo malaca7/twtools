@@ -117,9 +117,12 @@ export function useMemberTagMutations() {
       tagId: string;
       permissions: Permission[];
       rules: MemberTagRules;
+      silent?: boolean;
     }) => updateTagPermissionsAndRules(tagId, permissions, rules),
-    onSuccess: () => {
-      toast.success("Permissões e regras da tag atualizadas com sucesso!");
+    onSuccess: (_, variables) => {
+      if (!variables?.silent) {
+        toast.success("Permissões e regras da tag atualizadas com sucesso!");
+      }
       invalidate();
     },
     onError: (err: any) => {

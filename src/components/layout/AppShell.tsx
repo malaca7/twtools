@@ -114,6 +114,7 @@ import { cn } from "@/lib/utils";
 import { MobileBottomNav } from "./MobileBottomNav";
 import { ForceCachePurgeListener } from "@/components/dev/ForceCachePurgeListener";
 import { NotificationCenter } from "@/components/notifications/NotificationCenter";
+import { RealtimeStatusBadge } from "@/components/layout/RealtimeStatusBadge";
 
 type MasterNavItem = {
   id: string;
@@ -1135,6 +1136,9 @@ export function AppShell({ children }: { children: ReactNode }) {
                   </Badge>
                 </div>
               )}
+
+              {/* STATUS DE SINCRONIZAÇÃO EM TEMPO REAL */}
+              <RealtimeStatusBadge />
 
               {/* CENTRAL DE NOTIFICAÇÕES EM TEMPO REAL */}
               <NotificationCenter />
