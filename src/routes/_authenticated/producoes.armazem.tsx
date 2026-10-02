@@ -23,11 +23,16 @@ import {
   Layers,
   Archive,
   Info,
+  RotateCcw,
+  Undo2,
+  Settings2,
+  SlidersHorizontal,
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import {
   useWarehouseStock,
   useBaus,
+  useProductBaus,
   useWarehouseMovements,
   useCategories,
 } from "@/hooks/useData";
@@ -35,6 +40,9 @@ import {
   transferWarehouseToStorage,
   transferWarehouseToSale,
   adjustWarehouseStock,
+  manageProductionStock,
+  ManageStockAction,
+  StockLocation,
 } from "@/services/productionService";
 import { PageHeader, NoAccess, ProductThumbnail } from "@/components/ui-kit";
 import { ProductionNavHeader } from "@/components/productions/ProductionNavHeader";
@@ -68,7 +76,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
-import type { WarehouseStock, Bau } from "@/lib/app-types";
+import type { WarehouseStock, Bau, WarehouseMovement } from "@/lib/app-types";
 
 export const Route = createFileRoute("/_authenticated/producoes/armazem")({
   component: ArmazemPage,
@@ -87,8 +95,20 @@ export function ArmazemPage() {
 
   const { data: stockList = [], isLoading: loadingStock } = useWarehouseStock();
   const { data: baus = [] } = useBaus();
+  const { data: productBaus = [] } = useProductBaus();
   const { data: categories = [] } = useCategories();
   const { data: movements = [], isLoading: loadingMovements } = useWarehouseMovements(undefined, 100);
+
+  // Filtragem estrita de baús ativos (requisito: não mostrar nem permitir baús inativos)
+  const activeBaus = useMemo(
+    () => baus.filter((b) => b.ativo !== false && (b as any).is_active !== false),
+    [baus]
+  );
+
+  const getBauProductStock = (bauId: string, prodId: string) => {
+    const found = productBaus.find((pb) => pb.bau_id === bauId && pb.product_id === prodId);
+    return Math.round(Number(found?.quantidade || 0));
+  };
 
   // Estados de Filtro
   const [search, setSearch] = useState("");
@@ -96,12 +116,35 @@ export function ArmazemPage() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [activeTab, setActiveTab] = useState("stock");
 
-  // Modais de Transferência
+  // Modais de Transferência Básica
   const [transferType, setTransferType] = useState<"storage" | "sale" | "adjust" | null>(null);
   const [selectedStock, setSelectedStock] = useState<WarehouseStock | null>(null);
   const [transferQty, setTransferQty] = useState<string>("");
   const [destinationBauId, setDestinationBauId] = useState<string>("");
   const [transferNotes, setTransferNotes] = useState<string>("");
+
+  // Modal de Retorno Rápido ao Armazém (de Baú ou Vendas)
+  const [returnState, setReturnState] = useState<{
+    product: WarehouseStock["product"];
+    origin: "SALE" | "BAU";
+    bauId?: string;
+    maxQty: number;
+  } | null>(null);
+  const [returnQty, setReturnQty] = useState<string>("");
+  const [returnNotes, setReturnNotes] = useState<string>("");
+
+  // Modal de Estorno de Movimentação
+  const [revertingMovement, setRevertingMovement] = useState<WarehouseMovement | null>(null);
+
+  // Modal de Gestão Completa de Saldo (Ajustar / Retornar / Mover / Descartar)
+  const [managingStockItem, setManagingStockItem] = useState<WarehouseStock | null>(null);
+  const [stockAction, setStockAction] = useState<ManageStockAction | "RETURN_WAREHOUSE">("TRANSFER");
+  const [stockOrigin, setStockOrigin] = useState<StockLocation>("WAREHOUSE");
+  const [stockDestination, setStockDestination] = useState<StockLocation>("SALE");
+  const [stockOriginBauId, setStockOriginBauId] = useState<string>("");
+  const [stockDestinationBauId, setStockDestinationBauId] = useState<string>("");
+  const [stockQuantity, setStockQuantity] = useState<string>("");
+  const [stockReason, setStockReason] = useState<string>("");
 
   // Métricas
   const metrics = useMemo(() => {
@@ -137,29 +180,23 @@ export function ArmazemPage() {
     };
   }, [stockList]);
 
-  // Lista Filtrada: exibe apenas itens que têm saldo disponível no armazém, em vendas ou em baú
+  // Lista Filtrada: exibe APENAS produtos com saldo Em Armazém (> 0)
   const filteredStock = useMemo(() => {
     return stockList.filter((item) => {
       const prod = item.product;
       const whQty = Math.round(Number(item.quantity || 0));
-      const saleQty = Math.round(Number(prod?.sale_available_quantity || 0));
-      const bauQty = Math.round(Number(prod?.estoque_atual || 0));
 
-      // Requisito: mostrar apenas produtos com saldo disponível no armazém, em vendas ou em baús
-      const hasAnyStock = whQty > 0 || saleQty > 0 || bauQty > 0;
-      if (!hasAnyStock && statusFilter !== "zero_stock") {
+      // Requisito: na página Armazém, apenas mostrar produtos com saldo Em Armazém
+      if (whQty <= 0 && statusFilter !== "all_stock") {
         return false;
       }
 
       const prodName = prod?.nome?.toLowerCase() || "";
       const matchesSearch = !search || prodName.includes(search.toLowerCase());
-
-      const matchesCat =
-        categoryFilter === "all" || prod?.categoria_id === categoryFilter;
+      const matchesCat = categoryFilter === "all" || prod?.categoria_id === categoryFilter;
 
       let matchesStatus = true;
       if (statusFilter === "in_stock") matchesStatus = whQty > 0;
-      if (statusFilter === "zero_stock") matchesStatus = whQty === 0 && saleQty === 0 && bauQty === 0;
       if (statusFilter === "can_sell") matchesStatus = prod?.can_be_sold === true;
       if (statusFilter === "cannot_sell") matchesStatus = prod?.can_be_sold === false;
 
@@ -167,11 +204,32 @@ export function ArmazemPage() {
     });
   }, [stockList, search, categoryFilter, statusFilter]);
 
+  // Lista de Produtos Distribuídos (com saldo em Baú ou Vendas)
+  const distributedStock = useMemo(() => {
+    return stockList.filter((item) => {
+      const prod = item.product;
+      const saleQty = Math.round(Number(prod?.sale_available_quantity || 0));
+      const bauQty = Math.round(Number(prod?.estoque_atual || 0));
+
+      // Apenas produtos que possuem saldo em Baús ou Vendas
+      if (saleQty <= 0 && bauQty <= 0) return false;
+
+      const prodName = prod?.nome?.toLowerCase() || "";
+      const matchesSearch = !search || prodName.includes(search.toLowerCase());
+      const matchesCat = categoryFilter === "all" || prod?.categoria_id === categoryFilter;
+
+      return matchesSearch && matchesCat;
+    });
+  }, [stockList, search, categoryFilter]);
+
   // Mutação para Transferir para Baú/Estoque
   const transferToStorageMutation = useMutation({
     mutationFn: async () => {
       if (!canTransferStorage) throw new Error("Você não possui permissão para transferir produtos para baús.");
       if (!selectedStock) return;
+      if (!destinationBauId || !activeBaus.some((b) => b.id === destinationBauId)) {
+        throw new Error("Selecione um baú ativo de destino válido.");
+      }
       const numQ = parseInt(transferQty, 10);
       if (isNaN(numQ) || numQ <= 0) throw new Error("Informe uma quantidade inteira válida (> 0).");
       if (numQ > Number(selectedStock.quantity || 0)) {
@@ -181,7 +239,7 @@ export function ArmazemPage() {
       return transferWarehouseToStorage(
         selectedStock.product_id,
         numQ,
-        destinationBauId || undefined,
+        destinationBauId,
         transferNotes.trim() || undefined
       );
     },
@@ -193,6 +251,7 @@ export function ArmazemPage() {
       void queryClient.invalidateQueries({ queryKey: ["products"] });
       void queryClient.invalidateQueries({ queryKey: ["warehouse_movements"] });
       void queryClient.invalidateQueries({ queryKey: ["movements"] });
+      void queryClient.invalidateQueries({ queryKey: ["product_baus"] });
       setTransferType(null);
       setSelectedStock(null);
       setTransferQty("");
@@ -230,6 +289,7 @@ export function ArmazemPage() {
       void queryClient.invalidateQueries({ queryKey: ["warehouse_stock"] });
       void queryClient.invalidateQueries({ queryKey: ["products"] });
       void queryClient.invalidateQueries({ queryKey: ["warehouse_movements"] });
+      void queryClient.invalidateQueries({ queryKey: ["product_baus"] });
       setTransferType(null);
       setSelectedStock(null);
       setTransferQty("");
@@ -259,6 +319,7 @@ export function ArmazemPage() {
       toast.success("Saldo de armazém ajustado com sucesso.");
       void queryClient.invalidateQueries({ queryKey: ["warehouse_stock"] });
       void queryClient.invalidateQueries({ queryKey: ["warehouse_movements"] });
+      void queryClient.invalidateQueries({ queryKey: ["products"] });
       setTransferType(null);
       setSelectedStock(null);
       setTransferQty("");
@@ -266,6 +327,121 @@ export function ArmazemPage() {
     },
     onError: (err: any) => {
       toast.error(err.message || "Erro ao ajustar saldo.");
+    },
+  });
+
+  // Mutação de Retorno Rápido ao Armazém (de Baú ou Vendas)
+  const returnStockMutation = useMutation({
+    mutationFn: async () => {
+      if (!returnState?.product) return;
+      const numQ = parseInt(returnQty, 10);
+      if (isNaN(numQ) || numQ <= 0) throw new Error("Informe uma quantidade inteira válida (> 0).");
+      if (numQ > returnState.maxQty) throw new Error("Quantidade excede o saldo disponível para retorno.");
+
+      return manageProductionStock({
+        productId: returnState.product.id,
+        action: "TRANSFER",
+        origin: returnState.origin,
+        destination: "WAREHOUSE",
+        originBauId: returnState.origin === "BAU" ? (returnState.bauId || activeBaus[0]?.id || null) : null,
+        quantity: numQ,
+        reason: returnNotes.trim() || `Retorno de ${returnState.origin === "SALE" ? "Vendas" : "Baú"} para o Armazém`,
+      });
+    },
+    onSuccess: () => {
+      toast.success("Saldo retornado ao Armazém com sucesso!");
+      void queryClient.invalidateQueries({ queryKey: ["warehouse_stock"] });
+      void queryClient.invalidateQueries({ queryKey: ["products"] });
+      void queryClient.invalidateQueries({ queryKey: ["warehouse_movements"] });
+      void queryClient.invalidateQueries({ queryKey: ["movements"] });
+      void queryClient.invalidateQueries({ queryKey: ["product_baus"] });
+      setReturnState(null);
+      setReturnQty("");
+      setReturnNotes("");
+    },
+    onError: (err: any) => {
+      toast.error(err.message || "Erro ao retornar saldo ao armazém.");
+    },
+  });
+
+  // Mutação de Estorno de Transferência do Histórico
+  const revertMovementMutation = useMutation({
+    mutationFn: async (mov: WarehouseMovement) => {
+      const isStorage = mov.type === "TRANSFER_TO_STORAGE";
+      const isSale = mov.type === "TRANSFER_TO_SALE";
+      if (!isStorage && !isSale) throw new Error("Apenas transferências para baús ou vendas podem ser estornadas.");
+
+      const numQ = Math.round(Number(mov.quantity || 0));
+      if (numQ <= 0) throw new Error("Quantidade inválida para estorno.");
+
+      const origin: StockLocation = isSale ? "SALE" : "BAU";
+      let originBauId: string | null = null;
+      if (isStorage) {
+        const match = activeBaus.find((b) => b.nome === mov.destination) || activeBaus[0];
+        originBauId = match?.id || null;
+      }
+
+      return manageProductionStock({
+        productId: mov.product_id,
+        action: "TRANSFER",
+        origin,
+        destination: "WAREHOUSE",
+        originBauId,
+        quantity: numQ,
+        reason: `Estorno de transferência (#${mov.id.slice(0, 8)}) para o Armazém`,
+      });
+    },
+    onSuccess: (_, mov) => {
+      toast.success(`Transferência estornada com sucesso! ${Math.round(mov.quantity)}x retornados ao Armazém.`);
+      void queryClient.invalidateQueries({ queryKey: ["warehouse_stock"] });
+      void queryClient.invalidateQueries({ queryKey: ["products"] });
+      void queryClient.invalidateQueries({ queryKey: ["warehouse_movements"] });
+      void queryClient.invalidateQueries({ queryKey: ["movements"] });
+      void queryClient.invalidateQueries({ queryKey: ["product_baus"] });
+      setRevertingMovement(null);
+    },
+    onError: (err: any) => {
+      toast.error(err.message || "Erro ao estornar movimentação.");
+    },
+  });
+
+  // Mutação de Gestão Geral de Saldo (Ajustar / Mover / Descartar)
+  const manageStockMutation = useMutation({
+    mutationFn: async () => {
+      if (!managingStockItem?.product) return;
+      const isAdjust = stockAction === "ADJUST";
+      const numQ = parseInt(stockQuantity, 10);
+      if (isNaN(numQ) || (isAdjust ? numQ < 0 : numQ <= 0)) {
+        throw new Error(isAdjust ? "Informe um saldo inteiro válido (>= 0)." : "Informe uma quantidade inteira válida (> 0).");
+      }
+
+      const effectiveAction: ManageStockAction = stockAction === "RETURN_WAREHOUSE" ? "TRANSFER" : stockAction;
+      const effectiveDest: StockLocation = stockAction === "RETURN_WAREHOUSE" ? "WAREHOUSE" : stockDestination;
+
+      return manageProductionStock({
+        productId: managingStockItem.product.id,
+        action: effectiveAction,
+        origin: stockOrigin,
+        destination: effectiveAction === "TRANSFER" ? effectiveDest : undefined,
+        originBauId: stockOrigin === "BAU" ? (stockOriginBauId || activeBaus[0]?.id || null) : null,
+        destinationBauId: (effectiveAction === "TRANSFER" && effectiveDest === "BAU") ? (stockDestinationBauId || activeBaus[0]?.id || null) : null,
+        quantity: numQ,
+        reason: stockReason.trim() || undefined,
+      });
+    },
+    onSuccess: () => {
+      toast.success("Gestão de saldo executada com sucesso!");
+      void queryClient.invalidateQueries({ queryKey: ["warehouse_stock"] });
+      void queryClient.invalidateQueries({ queryKey: ["products"] });
+      void queryClient.invalidateQueries({ queryKey: ["warehouse_movements"] });
+      void queryClient.invalidateQueries({ queryKey: ["movements"] });
+      void queryClient.invalidateQueries({ queryKey: ["product_baus"] });
+      setManagingStockItem(null);
+      setStockQuantity("");
+      setStockReason("");
+    },
+    onError: (err: any) => {
+      toast.error(err.message || "Erro ao gerenciar saldo.");
     },
   });
 
@@ -367,15 +543,19 @@ export function ArmazemPage() {
         </Card>
       </div>
 
-      {/* ABAS: ESTOQUE vs HISTÓRICO */}
+      {/* ABAS: ESTOQUE vs PRODUTOS DISTRIBUÍDOS vs HISTÓRICO */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-        <TabsList className="bg-secondary/40 border border-border/60 p-1 rounded-2xl h-11">
+        <TabsList className="bg-secondary/40 border border-border/60 p-1 rounded-2xl h-11 flex-wrap sm:flex-nowrap">
           <TabsTrigger value="stock" className="gap-2 rounded-xl text-xs font-bold">
             <Warehouse className="h-4 w-4" />
             <span>Itens no Armazém ({filteredStock.length})</span>
           </TabsTrigger>
+          <TabsTrigger value="distributed" className="gap-2 rounded-xl text-xs font-bold">
+            <ArrowRightLeft className="h-4 w-4 text-sky-400" />
+            <span>Saldos em Baús & Vendas ({distributedStock.length})</span>
+          </TabsTrigger>
           <TabsTrigger value="movements" className="gap-2 rounded-xl text-xs font-bold">
-            <History className="h-4 w-4" />
+            <History className="h-4 w-4 text-violet-400" />
             <span>Movimentações do Armazém ({movements.length})</span>
           </TabsTrigger>
         </TabsList>
@@ -410,13 +590,13 @@ export function ArmazemPage() {
               </Select>
 
               <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="h-9 text-xs w-[160px] rounded-xl bg-background/50 border-border/60">
+                <SelectTrigger className="h-9 text-xs w-[170px] rounded-xl bg-background/50 border-border/60">
                   <SelectValue placeholder="Status de Estoque" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all" className="text-xs">Todos os Status</SelectItem>
-                  <SelectItem value="in_stock" className="text-xs">Com Saldo no Armazém</SelectItem>
-                  <SelectItem value="zero_stock" className="text-xs">Sem Saldo (Zerado)</SelectItem>
+                  <SelectItem value="all" className="text-xs">Com Saldo no Armazém</SelectItem>
+                  <SelectItem value="in_stock" className="text-xs">Saldo Armazém (&gt; 0)</SelectItem>
+                  <SelectItem value="all_stock" className="text-xs">Exibir Também Zerados</SelectItem>
                   <SelectItem value="can_sell" className="text-xs">Habilitado p/ Venda</SelectItem>
                   <SelectItem value="cannot_sell" className="text-xs">Não Habilitado p/ Venda</SelectItem>
                 </SelectContent>
@@ -424,7 +604,7 @@ export function ArmazemPage() {
             </div>
           </div>
 
-          {/* TABELA DE PRODUTOS */}
+          {/* TABELA DE PRODUTOS DO ARMAZÉM */}
           <Card className="surface-card border-border/70 overflow-hidden">
             <CardContent className="p-0">
               {loadingStock ? (
@@ -435,8 +615,8 @@ export function ArmazemPage() {
               ) : filteredStock.length === 0 ? (
                 <div className="p-12 text-center text-xs text-muted-foreground space-y-2">
                   <Warehouse className="h-8 w-8 text-muted-foreground/50 mx-auto" />
-                  <p className="font-bold text-foreground">Nenhum produto encontrado</p>
-                  <p>Tente ajustar os termos de busca ou filtros selecionados.</p>
+                  <p className="font-bold text-foreground">Nenhum produto com saldo no Armazém Central</p>
+                  <p>Todos os produtos foram distribuídos para Baús/Vendas ou ainda não possuem produção registrada.</p>
                 </div>
               ) : (
                 <div className="overflow-x-auto">
@@ -448,7 +628,7 @@ export function ArmazemPage() {
                         <th className="p-3.5 text-right font-mono">Disp. Venda</th>
                         <th className="p-3.5 text-right font-mono">Em Baús</th>
                         <th className="p-3.5 text-center">Status Venda</th>
-                        <th className="p-3.5 pr-5 text-right">Ações de Distribuição</th>
+                        <th className="p-3.5 pr-5 text-right">Ações de Distribuição & Retorno</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-border/40">
@@ -530,21 +710,27 @@ export function ArmazemPage() {
 
                             {/* AÇÕES */}
                             <td className="p-3.5 pr-5 text-right">
-                              <div className="flex items-center justify-end gap-1.5">
+                              <div className="flex items-center justify-end gap-1.5 flex-wrap">
                                 {/* TRANSFERIR PARA BAÚ */}
                                 <Button
                                   size="sm"
                                   variant="outline"
-                                  disabled={whQty <= 0 || !canTransferStorage}
+                                  disabled={whQty <= 0 || !canTransferStorage || activeBaus.length === 0}
                                   onClick={() => {
                                     setSelectedStock(item);
                                     setTransferType("storage");
                                     setTransferQty(String(whQty));
-                                    setDestinationBauId(baus[0]?.id || "");
+                                    setDestinationBauId(activeBaus[0]?.id || "");
                                     setTransferNotes("");
                                   }}
                                   className="h-7 px-2.5 text-[11px] font-bold bg-sky-500/10 text-sky-300 hover:bg-sky-500/20 border-sky-500/30 rounded-lg gap-1 cursor-pointer"
-                                  title={canTransferStorage ? "Transferir para baú/estoque" : "Sem permissão para transferir para baú"}
+                                  title={
+                                    activeBaus.length === 0
+                                      ? "Nenhum baú ativo disponível"
+                                      : canTransferStorage
+                                      ? "Transferir para baú/estoque ativo"
+                                      : "Sem permissão para transferir para baú"
+                                  }
                                 >
                                   <Boxes className="h-3 w-3" />
                                   <span>Para Baú</span>
@@ -568,23 +754,70 @@ export function ArmazemPage() {
                                   <span>Para Venda</span>
                                 </Button>
 
-                                {/* AJUSTE MANUAL (GERÊNCIA) */}
-                                {canAdjust && (
+                                {/* RETORNAR DE BAÚ SE HOUVER SALDO */}
+                                {bauQty > 0 && (
                                   <Button
                                     size="sm"
-                                    variant="ghost"
+                                    variant="outline"
                                     onClick={() => {
-                                      setSelectedStock(item);
-                                      setTransferType("adjust");
-                                      setTransferQty(String(whQty));
-                                      setTransferNotes("Ajuste manual de inventário");
+                                      setReturnState({
+                                        product: prod,
+                                        origin: "BAU",
+                                        bauId: activeBaus[0]?.id || "",
+                                        maxQty: bauQty,
+                                      });
+                                      setReturnQty(String(bauQty));
+                                      setReturnNotes("");
                                     }}
-                                    className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground rounded-lg"
-                                    title="Ajuste de saldo"
+                                    className="h-7 px-2 text-[10px] font-bold bg-sky-500/10 text-sky-300 hover:bg-sky-500/20 border-sky-500/30 rounded-lg gap-1 cursor-pointer"
+                                    title="Retornar produtos de baú para o armazém"
                                   >
-                                    <Sliders className="h-3 w-3" />
+                                    <RotateCcw className="h-3 w-3" />
+                                    <span>De Baú</span>
                                   </Button>
                                 )}
+
+                                {/* RETORNAR DE VENDAS SE HOUVER SALDO */}
+                                {saleQty > 0 && (
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => {
+                                      setReturnState({
+                                        product: prod,
+                                        origin: "SALE",
+                                        maxQty: saleQty,
+                                      });
+                                      setReturnQty(String(saleQty));
+                                      setReturnNotes("");
+                                    }}
+                                    className="h-7 px-2 text-[10px] font-bold bg-amber-500/10 text-amber-300 hover:bg-amber-500/20 border-amber-500/30 rounded-lg gap-1 cursor-pointer"
+                                    title="Retornar produtos de vendas para o armazém"
+                                  >
+                                    <RotateCcw className="h-3 w-3" />
+                                    <span>De Vendas</span>
+                                  </Button>
+                                )}
+
+                                {/* GERENCIAR SALDO COMPLETO */}
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={() => {
+                                    setManagingStockItem(item);
+                                    setStockAction("TRANSFER");
+                                    setStockOrigin("WAREHOUSE");
+                                    setStockDestination("SALE");
+                                    setStockOriginBauId(activeBaus[0]?.id || "");
+                                    setStockDestinationBauId(activeBaus[0]?.id || "");
+                                    setStockQuantity(String(whQty || 1));
+                                    setStockReason("");
+                                  }}
+                                  className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground rounded-lg"
+                                  title="Opções avançadas de gestão e ajuste de estoque"
+                                >
+                                  <SlidersHorizontal className="h-3 w-3 text-primary" />
+                                </Button>
                               </div>
                             </td>
                           </tr>
@@ -598,7 +831,165 @@ export function ArmazemPage() {
           </Card>
         </TabsContent>
 
-        {/* ABA 2: HISTÓRICO DE MOVIMENTAÇÕES DO ARMAZÉM */}
+        {/* ABA 2: PRODUTOS DISTRIBUÍDOS (EM BAÚS E EM VENDAS) */}
+        <TabsContent value="distributed" className="space-y-4">
+          <Card className="surface-card border-border/70 overflow-hidden">
+            <CardHeader className="border-b border-border/40 pb-4 bg-muted/10">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div>
+                  <CardTitle className="text-base font-bold text-foreground flex items-center gap-2">
+                    <Boxes className="h-4 w-4 text-sky-400" />
+                    <span>Produtos Transferidos para Baús e Vendas</span>
+                  </CardTitle>
+                  <CardDescription className="text-xs">
+                    Gerencie, retorne ou ajuste produtos produzidos que estão atualmente distribuídos nos baús operacionais ou disponíveis para vendas
+                  </CardDescription>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="p-0">
+              {distributedStock.length === 0 ? (
+                <div className="p-12 text-center text-xs text-muted-foreground space-y-2">
+                  <Boxes className="h-8 w-8 text-muted-foreground/50 mx-auto" />
+                  <p className="font-bold text-foreground">Nenhum produto distribuído no momento</p>
+                  <p>Todos os produtos produzidos continuam centralizados no armazém ou não possuem saldos externos.</p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse text-xs">
+                    <thead>
+                      <tr className="border-b border-border/60 bg-muted/20 text-muted-foreground font-semibold">
+                        <th className="p-3.5 pl-5">Produto</th>
+                        <th className="p-3.5 text-right font-mono">Em Baús</th>
+                        <th className="p-3.5 text-right font-mono">Disp. Venda</th>
+                        <th className="p-3.5 text-right font-mono">Saldo Armazém</th>
+                        <th className="p-3.5 pr-5 text-right">Ações de Gestão & Retorno</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border/40">
+                      {distributedStock.map((item) => {
+                        const prod = item.product;
+                        const whQty = Math.round(Number(item.quantity || 0));
+                        const saleQty = Math.round(Number(prod?.sale_available_quantity || 0));
+                        const bauQty = Math.round(Number(prod?.estoque_atual || 0));
+
+                        return (
+                          <tr key={item.id} className="hover:bg-muted/10 transition-colors">
+                            <td className="p-3.5 pl-5">
+                              <div className="flex items-center gap-3">
+                                <ProductThumbnail
+                                  src={prod?.imagem_url}
+                                  alt={prod?.nome || "Produto"}
+                                  className="h-10 w-10 rounded-xl shrink-0"
+                                />
+                                <div>
+                                  <p className="font-bold text-foreground">{prod?.nome || "Sem nome"}</p>
+                                  <span className="text-[11px] text-muted-foreground">
+                                    Unidade: <strong className="text-foreground">{prod?.unidade || "un"}</strong>
+                                  </span>
+                                </div>
+                              </div>
+                            </td>
+
+                            <td className="p-3.5 text-right font-mono font-bold text-sky-300">
+                              {bauQty.toLocaleString("pt-BR")}{" "}
+                              <span className="text-[10px] text-muted-foreground font-normal">
+                                {prod?.unidade}
+                              </span>
+                            </td>
+
+                            <td className="p-3.5 text-right font-mono font-bold text-amber-300">
+                              {saleQty.toLocaleString("pt-BR")}{" "}
+                              <span className="text-[10px] text-muted-foreground font-normal">
+                                {prod?.unidade}
+                              </span>
+                            </td>
+
+                            <td className="p-3.5 text-right font-mono text-muted-foreground">
+                              {whQty.toLocaleString("pt-BR")}{" "}
+                              <span className="text-[10px] text-muted-foreground font-normal">
+                                {prod?.unidade}
+                              </span>
+                            </td>
+
+                            <td className="p-3.5 pr-5 text-right">
+                              <div className="flex items-center justify-end gap-1.5 flex-wrap">
+                                {bauQty > 0 && (
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => {
+                                      setReturnState({
+                                        product: prod,
+                                        origin: "BAU",
+                                        bauId: activeBaus[0]?.id || "",
+                                        maxQty: bauQty,
+                                      });
+                                      setReturnQty(String(bauQty));
+                                      setReturnNotes("");
+                                    }}
+                                    className="h-7 px-2.5 text-[11px] font-bold bg-sky-500/10 text-sky-300 hover:bg-sky-500/20 border-sky-500/30 rounded-lg gap-1 cursor-pointer"
+                                    title="Retornar produtos de baús de volta ao armazém"
+                                  >
+                                    <RotateCcw className="h-3 w-3" />
+                                    <span>Retornar do Baú</span>
+                                  </Button>
+                                )}
+
+                                {saleQty > 0 && (
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => {
+                                      setReturnState({
+                                        product: prod,
+                                        origin: "SALE",
+                                        maxQty: saleQty,
+                                      });
+                                      setReturnQty(String(saleQty));
+                                      setReturnNotes("");
+                                    }}
+                                    className="h-7 px-2.5 text-[11px] font-bold bg-amber-500/10 text-amber-300 hover:bg-amber-500/20 border-amber-500/30 rounded-lg gap-1 cursor-pointer"
+                                    title="Retornar produtos disponíveis para venda de volta ao armazém"
+                                  >
+                                    <RotateCcw className="h-3 w-3" />
+                                    <span>Retornar de Vendas</span>
+                                  </Button>
+                                )}
+
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => {
+                                    setManagingStockItem(item);
+                                    setStockAction("TRANSFER");
+                                    setStockOrigin(bauQty > 0 ? "BAU" : "SALE");
+                                    setStockDestination("WAREHOUSE");
+                                    setStockOriginBauId(activeBaus[0]?.id || "");
+                                    setStockDestinationBauId(activeBaus[0]?.id || "");
+                                    setStockQuantity(String(bauQty > 0 ? bauQty : saleQty));
+                                    setStockReason("");
+                                  }}
+                                  className="h-7 px-2.5 text-[11px] font-bold bg-secondary/80 text-foreground hover:bg-secondary rounded-lg gap-1 cursor-pointer"
+                                  title="Opções avançadas de gestão e ajuste de estoque"
+                                >
+                                  <SlidersHorizontal className="h-3 w-3 text-primary" />
+                                  <span>Gerenciar Saldo</span>
+                                </Button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* ABA 3: HISTÓRICO DE MOVIMENTAÇÕES DO ARMAZÉM */}
         <TabsContent value="movements" className="space-y-4">
           <Card className="surface-card border-border/70 overflow-hidden">
             <CardHeader className="border-b border-border/40 pb-4 bg-muted/10">
@@ -607,7 +998,7 @@ export function ArmazemPage() {
                 <span>Auditoria de Movimentações do Armazém</span>
               </CardTitle>
               <CardDescription className="text-xs">
-                Registro cronológico de entradas de produção, saídas para baús e liberações comerciais
+                Registro cronológico de entradas de produção, saídas para baús, liberações comerciais e estornos
               </CardDescription>
             </CardHeader>
 
@@ -632,12 +1023,21 @@ export function ArmazemPage() {
                         <th className="p-3">Origem &rarr; Destino</th>
                         <th className="p-3">Observação</th>
                         <th className="p-3 text-right">Qtd</th>
-                        <th className="p-3 pr-5 text-right font-mono">Saldo Após</th>
+                        <th className="p-3 text-right font-mono">Saldo Após</th>
+                        <th className="p-3 pr-5 text-right">Ação</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-border/40">
                       {movements.map((m) => {
-                        const isEntry = m.type === "PRODUCTION" || m.type === "SALE_CANCEL";
+                        const isEntry =
+                          m.type === "PRODUCTION" ||
+                          m.type === "SALE_CANCEL" ||
+                          m.type === "RETURN_TO_WAREHOUSE" ||
+                          m.type === "ESTORNO_TRANSFERENCIA";
+                        const canRevert =
+                          m.type === "TRANSFER_TO_STORAGE" ||
+                          m.type === "TRANSFER_TO_SALE" ||
+                          m.type === "TRANSFER_OUT";
 
                         return (
                           <tr key={m.id} className="hover:bg-muted/10 transition-colors">
@@ -656,6 +1056,8 @@ export function ArmazemPage() {
                                     ? "border-amber-500/30 text-amber-400 bg-amber-500/10"
                                     : m.type === "TRANSFER_TO_STORAGE"
                                     ? "border-sky-500/30 text-sky-400 bg-sky-500/10"
+                                    : m.type === "RETURN_TO_WAREHOUSE" || m.type === "ESTORNO_TRANSFERENCIA"
+                                    ? "border-emerald-500/30 text-emerald-400 bg-emerald-500/10"
                                     : m.type === "SALE"
                                     ? "border-rose-500/30 text-rose-400 bg-rose-500/10"
                                     : "border-border text-muted-foreground"
@@ -664,9 +1066,13 @@ export function ArmazemPage() {
                                 {m.type === "PRODUCTION"
                                   ? "Produção (+)"
                                   : m.type === "TRANSFER_TO_SALE"
-                                  ? "Para Venda"
+                                  ? "Para Venda (-)"
                                   : m.type === "TRANSFER_TO_STORAGE"
-                                  ? "Para Baú"
+                                  ? "Para Baú (-)"
+                                  : m.type === "RETURN_TO_WAREHOUSE"
+                                  ? "Retorno Armazém (+)"
+                                  : m.type === "ESTORNO_TRANSFERENCIA"
+                                  ? "Estorno (+)"
                                   : m.type === "SALE"
                                   ? "Venda Realizada"
                                   : m.type === "SALE_CANCEL"
@@ -694,11 +1100,29 @@ export function ArmazemPage() {
                                 isEntry ? "text-emerald-400" : "text-amber-400"
                               )}
                             >
-                              {isEntry ? `+${m.quantity}` : `-${m.quantity}`} {m.product?.unidade || "un"}
+                              {isEntry ? `+${Math.round(Number(m.quantity))}` : `-${Math.round(Number(m.quantity))}`} {m.product?.unidade || "un"}
                             </td>
 
-                            <td className="p-3 pr-5 text-right font-mono font-bold text-foreground whitespace-nowrap">
-                              {m.resulting_balance.toLocaleString("pt-BR")}
+                            <td className="p-3 text-right font-mono font-bold text-foreground whitespace-nowrap">
+                              {Math.round(Number(m.resulting_balance)).toLocaleString("pt-BR")}
+                            </td>
+
+                            {/* AÇÃO DE ESTORNO */}
+                            <td className="p-3 pr-5 text-right whitespace-nowrap">
+                              {canRevert ? (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => setRevertingMovement(m)}
+                                  className="h-6 px-2 text-[10px] font-bold bg-rose-500/10 text-rose-300 hover:bg-rose-500/20 border-rose-500/30 rounded-lg gap-1 cursor-pointer"
+                                  title="Estornar esta transferência e devolver o saldo ao Armazém"
+                                >
+                                  <Undo2 className="h-3 w-3" />
+                                  <span>Estornar</span>
+                                </Button>
+                              ) : (
+                                <span className="text-muted-foreground/30 text-[10px]">—</span>
+                              )}
                             </td>
                           </tr>
                         );
@@ -713,7 +1137,7 @@ export function ArmazemPage() {
       </Tabs>
 
       {/* ==================================================== */}
-      {/* MODAL 1: TRANSFERIR PARA BAÚ/ESTOQUE */}
+      {/* MODAL 1: TRANSFERIR PARA BAÚ/ESTOQUE (APENAS ATIVOS) */}
       {/* ==================================================== */}
       <Dialog
         open={transferType === "storage"}
@@ -728,7 +1152,7 @@ export function ArmazemPage() {
             <DialogDescription className="text-xs">
               Produto: <strong className="text-foreground">{selectedStock?.product?.nome}</strong> · Saldo no Armazém:{" "}
               <span className="font-mono text-emerald-400 font-bold">
-                {Number(selectedStock?.quantity || 0)} {selectedStock?.product?.unidade}
+                {Math.round(Number(selectedStock?.quantity || 0)).toLocaleString("pt-BR")} {selectedStock?.product?.unidade}
               </span>
             </DialogDescription>
           </DialogHeader>
@@ -736,19 +1160,26 @@ export function ArmazemPage() {
           <div className="space-y-4 py-2 text-xs">
             {/* BAÚ DESTINO */}
             <div className="space-y-1.5">
-              <Label className="text-xs font-semibold">Baú / Depósito de Destino *</Label>
-              <Select value={destinationBauId} onValueChange={setDestinationBauId}>
-                <SelectTrigger className="h-10 rounded-xl bg-background/50 text-xs font-bold">
-                  <SelectValue placeholder="Selecione o baú..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {baus.map((b) => (
-                    <SelectItem key={b.id} value={b.id} className="text-xs">
-                      {b.nome}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Label className="text-xs font-semibold">Baú / Depósito de Destino (Apenas Baús Ativos) *</Label>
+              {activeBaus.length === 0 ? (
+                <div className="p-3 rounded-xl bg-destructive/10 border border-destructive/30 text-destructive text-xs flex items-center gap-2">
+                  <AlertTriangle className="h-4 w-4 shrink-0" />
+                  <span>Nenhum baú ativo encontrado. Não é possível transferir no momento.</span>
+                </div>
+              ) : (
+                <Select value={destinationBauId} onValueChange={setDestinationBauId}>
+                  <SelectTrigger className="h-10 rounded-xl bg-background/50 text-xs font-bold">
+                    <SelectValue placeholder="Selecione o baú ativo..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {activeBaus.map((b) => (
+                      <SelectItem key={b.id} value={b.id} className="text-xs">
+                        {b.nome}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
             </div>
 
             {/* QUANTIDADE COM ATALHOS */}
@@ -809,7 +1240,7 @@ export function ArmazemPage() {
               type="button"
               size="sm"
               onClick={() => transferToStorageMutation.mutate()}
-              disabled={transferToStorageMutation.isPending || !transferQty}
+              disabled={transferToStorageMutation.isPending || !transferQty || activeBaus.length === 0}
               className="text-xs bg-sky-500 hover:bg-sky-600 text-slate-950 font-bold rounded-xl gap-1.5"
             >
               {transferToStorageMutation.isPending ? "Transferindo..." : "Confirmar Transferência"}
@@ -980,6 +1411,426 @@ export function ArmazemPage() {
               className="text-xs bg-violet-500 hover:bg-violet-600 text-white font-bold rounded-xl gap-1.5"
             >
               {adjustStockMutation.isPending ? "Ajustando..." : "Salvar Novo Saldo"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ==================================================== */}
+      {/* MODAL 4: RETORNAR SALDO AO ARMAZÉM (DE BAÚ OU VENDAS) */}
+      {/* ==================================================== */}
+      <Dialog
+        open={!!returnState}
+        onOpenChange={(open) => !open && setReturnState(null)}
+      >
+        <DialogContent className="max-w-md surface-card border-border/80">
+          <DialogHeader>
+            <DialogTitle className="text-base font-black text-foreground flex items-center gap-2">
+              <RotateCcw className="h-5 w-5 text-emerald-400" />
+              <span>Retornar Saldo ao Armazém Central</span>
+            </DialogTitle>
+            <DialogDescription className="text-xs">
+              Produto: <strong className="text-foreground">{returnState?.product?.nome}</strong> · Origem:{" "}
+              <Badge variant="outline" className="font-bold text-[10px] ml-1">
+                {returnState?.origin === "SALE" ? "Disponível para Venda" : "Baú de Estoque"}
+              </Badge>
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-2 text-xs">
+            <div className="p-3 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 space-y-1">
+              <p className="font-bold flex items-center gap-1.5">
+                <Sparkles className="h-3.5 w-3.5" />
+                <span>Devolução ao Armazém</span>
+              </p>
+              <p className="text-[11px] text-muted-foreground">
+                A quantidade retornada será debitada da origem e incorporada imediatamente ao saldo físico do Armazém Central.
+              </p>
+            </div>
+
+            {/* SE FOR DE BAÚ E TIVER MÚLTIPLOS BAÚS ATIVOS */}
+            {returnState?.origin === "BAU" && (
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold">Baú de Origem *</Label>
+                <Select
+                  value={returnState.bauId || activeBaus[0]?.id || ""}
+                  onValueChange={(val) => setReturnState({ ...returnState, bauId: val })}
+                >
+                  <SelectTrigger className="h-10 rounded-xl bg-background/50 text-xs font-bold">
+                    <SelectValue placeholder="Selecione o baú de origem..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {activeBaus.map((b) => (
+                      <SelectItem key={b.id} value={b.id} className="text-xs">
+                        {b.nome} (Saldo: {returnState.product ? getBauProductStock(b.id, returnState.product.id) : 0} un)
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
+            {/* QUANTIDADE */}
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <Label className="text-xs font-semibold">Quantidade a Retornar *</Label>
+                <span className="text-[10px] text-muted-foreground font-mono">
+                  Disponível: <strong className="text-emerald-400">{returnState?.maxQty || 0}</strong> {returnState?.product?.unidade}
+                </span>
+              </div>
+              <Input
+                type="number"
+                step="1"
+                min="1"
+                max={returnState?.maxQty || 1}
+                value={returnQty}
+                onChange={(e) => setReturnQty(e.target.value)}
+                className="text-base font-mono font-bold text-emerald-400 rounded-xl bg-background/50"
+              />
+              <div className="flex items-center gap-1.5 pt-1">
+                {[25, 50, 75, 100].map((pct) => (
+                  <Button
+                    key={pct}
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      const total = returnState?.maxQty || 0;
+                      const calculated = Math.max(1, Math.floor((total * pct) / 100));
+                      setReturnQty(String(calculated));
+                    }}
+                    className="h-6 text-[10px] px-2 font-mono rounded-lg"
+                  >
+                    {pct}%
+                  </Button>
+                ))}
+              </div>
+            </div>
+
+            {/* MOTIVO */}
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold">Motivo do Retorno (Opcional):</Label>
+              <Input
+                value={returnNotes}
+                onChange={(e) => setReturnNotes(e.target.value)}
+                placeholder="Ex: Devolução de saldo não comercializado / reorganização física"
+                className="text-xs rounded-xl bg-background/50"
+              />
+            </div>
+          </div>
+
+          <DialogFooter className="gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setReturnState(null)}
+              className="text-xs rounded-xl"
+            >
+              Cancelar
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              onClick={() => returnStockMutation.mutate()}
+              disabled={returnStockMutation.isPending || !returnQty}
+              className="text-xs bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-bold rounded-xl gap-1.5"
+            >
+              {returnStockMutation.isPending ? "Retornando..." : "Confirmar Retorno"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ==================================================== */}
+      {/* MODAL 5: CONFIRMAÇÃO DE ESTORNO DE MOVIMENTAÇÃO */}
+      {/* ==================================================== */}
+      <Dialog
+        open={!!revertingMovement}
+        onOpenChange={(open) => !open && setRevertingMovement(null)}
+      >
+        <DialogContent className="max-w-md surface-card border-border/80">
+          <DialogHeader>
+            <DialogTitle className="text-base font-black text-rose-400 flex items-center gap-2">
+              <Undo2 className="h-5 w-5 text-rose-400" />
+              <span>Confirmar Estorno de Transferência</span>
+            </DialogTitle>
+            <DialogDescription className="text-xs">
+              Deseja desfazer a transferência e retornar os itens integralmente ao saldo do armazém?
+            </DialogDescription>
+          </DialogHeader>
+
+          {revertingMovement && (
+            <div className="space-y-3 py-2 text-xs">
+              <div className="p-3.5 rounded-2xl bg-rose-500/10 border border-rose-500/30 text-rose-200 space-y-1.5">
+                <p className="font-bold flex items-center gap-1.5">
+                  <AlertTriangle className="h-4 w-4 text-rose-400" />
+                  <span>Atenção: Ação de Estorno de Saldo</span>
+                </p>
+                <p className="text-[11px] text-muted-foreground">
+                  A quantidade de{" "}
+                  <strong className="text-foreground font-mono">
+                    {Math.round(Number(revertingMovement.quantity))}x {revertingMovement.product?.nome || "itens"}
+                  </strong>{" "}
+                  será retirada de <strong>{revertingMovement.destination}</strong> e voltará imediatamente para o{" "}
+                  <strong>Armazém Central</strong>.
+                </p>
+              </div>
+
+              <div className="p-3 rounded-xl bg-background/50 border border-border/60 space-y-1 text-[11px]">
+                <p><strong>Produto:</strong> {revertingMovement.product?.nome}</p>
+                <p><strong>Data da Transferência:</strong> {new Date(revertingMovement.created_at).toLocaleString("pt-BR")}</p>
+                <p><strong>Destino Anterior:</strong> {revertingMovement.destination}</p>
+                <p><strong>Quantidade:</strong> {Math.round(Number(revertingMovement.quantity))} {revertingMovement.product?.unidade}</p>
+              </div>
+            </div>
+          )}
+
+          <DialogFooter className="gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setRevertingMovement(null)}
+              className="text-xs rounded-xl"
+            >
+              Cancelar
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              onClick={() => revertingMovement && revertMovementMutation.mutate(revertingMovement)}
+              disabled={revertMovementMutation.isPending}
+              className="text-xs bg-rose-500 hover:bg-rose-600 text-white font-bold rounded-xl gap-1.5"
+            >
+              {revertMovementMutation.isPending ? "Estornando..." : "Confirmar Estorno"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ==================================================== */}
+      {/* MODAL 6: GESTÃO AVANÇADA DE SALDO (TRANSFERIR / AJUSTAR / BAIXAR) */}
+      {/* ==================================================== */}
+      <Dialog
+        open={!!managingStockItem}
+        onOpenChange={(open) => !open && setManagingStockItem(null)}
+      >
+        <DialogContent className="max-w-lg surface-card border-border/80">
+          <DialogHeader>
+            <DialogTitle className="text-base font-black text-foreground flex items-center gap-2">
+              <SlidersHorizontal className="h-5 w-5 text-primary" />
+              <span>Gerenciador de Saldos do Produto</span>
+            </DialogTitle>
+            <DialogDescription className="text-xs">
+              Produto: <strong className="text-foreground">{managingStockItem?.product?.nome}</strong> ({managingStockItem?.product?.unidade})
+            </DialogDescription>
+          </DialogHeader>
+
+          {managingStockItem && (
+            <div className="space-y-4 py-2 text-xs">
+              {/* VISÃO GERAL DE SALDOS DO PRODUTO */}
+              <div className="grid grid-cols-3 gap-2 p-3 rounded-2xl bg-secondary/30 border border-border/60">
+                <div className="text-center p-2 rounded-xl bg-background/50">
+                  <span className="text-[10px] text-muted-foreground block font-bold">Armazém</span>
+                  <span className="font-mono text-emerald-400 font-black text-sm">
+                    {Math.round(Number(managingStockItem.quantity || 0))}
+                  </span>
+                </div>
+                <div className="text-center p-2 rounded-xl bg-background/50">
+                  <span className="text-[10px] text-muted-foreground block font-bold">Vendas</span>
+                  <span className="font-mono text-amber-300 font-black text-sm">
+                    {Math.round(Number(managingStockItem.product?.sale_available_quantity || 0))}
+                  </span>
+                </div>
+                <div className="text-center p-2 rounded-xl bg-background/50">
+                  <span className="text-[10px] text-muted-foreground block font-bold">Baús</span>
+                  <span className="font-mono text-sky-400 font-black text-sm">
+                    {Math.round(Number(managingStockItem.product?.estoque_atual || 0))}
+                  </span>
+                </div>
+              </div>
+
+              {/* TIPO DE AÇÃO */}
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold">Ação Desejada *</Label>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant={stockAction === "TRANSFER" ? "default" : "outline"}
+                    onClick={() => setStockAction("TRANSFER")}
+                    className="h-8 text-[11px] font-bold rounded-xl"
+                  >
+                    Transferir
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant={stockAction === "RETURN_WAREHOUSE" ? "default" : "outline"}
+                    onClick={() => setStockAction("RETURN_WAREHOUSE")}
+                    className="h-8 text-[11px] font-bold rounded-xl text-emerald-300"
+                  >
+                    Retornar Armazém
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant={stockAction === "ADJUST" ? "default" : "outline"}
+                    onClick={() => setStockAction("ADJUST")}
+                    className="h-8 text-[11px] font-bold rounded-xl text-violet-300"
+                  >
+                    Ajustar Saldo
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant={stockAction === "REMOVE" ? "destructive" : "outline"}
+                    onClick={() => setStockAction("REMOVE")}
+                    className="h-8 text-[11px] font-bold rounded-xl text-rose-300"
+                  >
+                    Baixar / Descartar
+                  </Button>
+                </div>
+              </div>
+
+              {/* ORIGEM E DESTINO */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {/* ORIGEM */}
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-semibold">Origem (De onde sai) *</Label>
+                  <Select
+                    value={stockOrigin}
+                    onValueChange={(val: StockLocation) => setStockOrigin(val)}
+                  >
+                    <SelectTrigger className="h-9 rounded-xl bg-background/50 text-xs">
+                      <SelectValue placeholder="Origem" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="WAREHOUSE" className="text-xs">Armazém Central</SelectItem>
+                      <SelectItem value="SALE" className="text-xs">Disponível p/ Venda</SelectItem>
+                      <SelectItem value="BAU" className="text-xs">Baú de Estoque</SelectItem>
+                    </SelectContent>
+                  </Select>
+
+                  {stockOrigin === "BAU" && (
+                    <div className="pt-1">
+                      <Select value={stockOriginBauId} onValueChange={setStockOriginBauId}>
+                        <SelectTrigger className="h-9 rounded-xl bg-background/50 text-xs">
+                          <SelectValue placeholder="Selecione o baú de origem" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {activeBaus.map((b) => (
+                            <SelectItem key={b.id} value={b.id} className="text-xs">
+                              {b.nome} ({managingStockItem.product ? getBauProductStock(b.id, managingStockItem.product.id) : 0} un)
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+                </div>
+
+                {/* DESTINO (SE FOR TRANSFERÊNCIA) */}
+                {(stockAction === "TRANSFER" || stockAction === "RETURN_WAREHOUSE") && (
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-semibold">Destino (Para onde vai) *</Label>
+                    <Select
+                      value={stockAction === "RETURN_WAREHOUSE" ? "WAREHOUSE" : stockDestination}
+                      disabled={stockAction === "RETURN_WAREHOUSE"}
+                      onValueChange={(val: StockLocation) => setStockDestination(val)}
+                    >
+                      <SelectTrigger className="h-9 rounded-xl bg-background/50 text-xs">
+                        <SelectValue placeholder="Destino" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="WAREHOUSE" className="text-xs">Armazém Central</SelectItem>
+                        <SelectItem value="SALE" className="text-xs">Disponível p/ Venda</SelectItem>
+                        <SelectItem value="BAU" className="text-xs">Baú de Estoque</SelectItem>
+                      </SelectContent>
+                    </Select>
+
+                    {stockAction === "TRANSFER" && stockDestination === "BAU" && (
+                      <div className="pt-1">
+                        <Select value={stockDestinationBauId} onValueChange={setStockDestinationBauId}>
+                          <SelectTrigger className="h-9 rounded-xl bg-background/50 text-xs">
+                            <SelectValue placeholder="Selecione o baú de destino" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {activeBaus.map((b) => (
+                              <SelectItem key={b.id} value={b.id} className="text-xs">
+                                {b.nome}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* QUANTIDADE */}
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold">
+                  {stockAction === "ADJUST" ? "Novo Saldo Absoluto (&ge; 0) *" : "Quantidade a Movimentar / Baixar *"}
+                </Label>
+                <Input
+                  type="number"
+                  step="1"
+                  min={stockAction === "ADJUST" ? "0" : "1"}
+                  value={stockQuantity}
+                  onChange={(e) => setStockQuantity(e.target.value)}
+                  className="text-base font-mono font-bold text-primary rounded-xl bg-background/50"
+                />
+              </div>
+
+              {/* MOTIVO */}
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold">Motivo / Observação:</Label>
+                <Input
+                  value={stockReason}
+                  onChange={(e) => setStockReason(e.target.value)}
+                  placeholder="Ex: Auditoria interna, lote transferido, descarte de avaria..."
+                  className="text-xs rounded-xl bg-background/50"
+                />
+              </div>
+            </div>
+          )}
+
+          <DialogFooter className="gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setManagingStockItem(null)}
+              className="text-xs rounded-xl"
+            >
+              Cancelar
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              onClick={() => manageStockMutation.mutate()}
+              disabled={manageStockMutation.isPending || !stockQuantity}
+              className={cn(
+                "text-xs font-bold rounded-xl gap-1.5",
+                stockAction === "REMOVE"
+                  ? "bg-rose-500 hover:bg-rose-600 text-white"
+                  : stockAction === "RETURN_WAREHOUSE"
+                  ? "bg-emerald-500 hover:bg-emerald-600 text-slate-950"
+                  : "bg-primary text-primary-foreground hover:bg-primary/90"
+              )}
+            >
+              {manageStockMutation.isPending
+                ? "Processando..."
+                : stockAction === "REMOVE"
+                ? "Confirmar Baixa"
+                : stockAction === "ADJUST"
+                ? "Salvar Ajuste"
+                : stockAction === "RETURN_WAREHOUSE"
+                ? "Confirmar Retorno"
+                : "Confirmar Transferência"}
             </Button>
           </DialogFooter>
         </DialogContent>
