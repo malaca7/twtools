@@ -55,7 +55,6 @@ import { useAuth } from "@/hooks/useAuth";
 import { useMembers } from "@/hooks/useData";
 import { useMemberTags, useMemberTagAssignments, useMemberTagMutations } from "@/hooks/useMemberTags";
 import { useMenuConfig } from "@/hooks/useMenuConfig";
-import { useCeoMenuConfig } from "@/hooks/useCeoMenuConfig";
 import { MemberTagBadge, resolveTagIcon } from "@/components/ui/MemberTagBadge";
 import { PAGE_CARDS, READ_ONLY_PERMISSIONS, type PageCardConfig } from "@/lib/permissionCards";
 import { ALL_PERMISSIONS, type Permission, LEVEL_LABEL, levelBadgeClass } from "@/lib/permissions";
@@ -164,7 +163,6 @@ export function CeoGerenciarTagsPage() {
   const [formIsActive, setFormIsActive] = useState(true);
   const [formIsSystem, setFormIsSystem] = useState(false);
   const { config: menuConfig } = useMenuConfig();
-  const { config: ceoMenuConfig } = useCeoMenuConfig();
 
   // Modal de Vínculo de Membros à Tag
   const [tagForMembers, setTagForMembers] = useState<MemberTag | null>(null);
@@ -194,19 +192,33 @@ export function CeoGerenciarTagsPage() {
     return { totalTags, totalAssignedMembers, activeTags, blockingTags };
   }, [tags, assignments]);
 
-  // Agrupamento e ordenação dinâmica dos PAGE_CARDS pelas categorias do menu (Membro e CEO)
+  // Cards operacionais de membros (removendo Painel DEV, Painel CEO, Transmissão e Lives, e Twin Life)
+  const platformPageCards = useMemo(() => {
+    return PAGE_CARDS.filter((card) => {
+      // Exclui Painel DEV e Ferramentas Dev
+      if (card.defaultCat === "DEV" || card.defaultCat === "Ferramentas Dev") return false;
+      if (card.id.startsWith("dev-") || card.id === "dev" || card.route.startsWith("/dev")) return false;
+      // Exclui Painel CEO
+      if (card.defaultCat === "CEO" || card.defaultCat === "Painel CEO") return false;
+      if (card.id.startsWith("ceo-") || card.id === "ceo" || card.route.startsWith("/ceo")) return false;
+      // Remover expressamente "Transmissão e Lives" e "Twin Life"
+      if (card.id === "lives" || card.id === "life") return false;
+      return true;
+    });
+  }, []);
+
+  const allPlatformPermissions = useMemo(() => {
+    return Array.from(new Set(platformPageCards.flatMap((c) => c.permissions.map((p) => p.key))));
+  }, [platformPageCards]);
+
+  const readOnlyPlatformPermissions = useMemo(() => {
+    return READ_ONLY_PERMISSIONS.filter((p) => allPlatformPermissions.includes(p));
+  }, [allPlatformPermissions]);
+
+  // Agrupamento e ordenação dinâmica dos PAGE_CARDS operacionais pelas categorias do menu de membros
   const groupedPageCards = useMemo(() => {
     const validConfigItems = menuConfig?.items?.filter((c) => Boolean(c && (c.id || c.url))) || [];
     const configMap = new Map(validConfigItems.map((c) => [c.id || c.url, c]));
-
-    const ceoItems = ceoMenuConfig?.items?.filter((c) => Boolean(c && (c.id || c.url))) || [];
-    const ceoConfigMap = new Map(
-      ceoItems.flatMap((c) => [
-        [c.id, c],
-        [c.url, c],
-        ...(c.id === "ceo-dashboard" ? [["ceo", c], ["/ceo", c]] : []),
-      ])
-    );
 
     const rawCategories = menuConfig?.categories?.length
       ? menuConfig.categories
@@ -215,35 +227,33 @@ export function CeoGerenciarTagsPage() {
       ? rawCategories
       : ["Produções", ...rawCategories];
 
-    // Inclui Produções, Gestão, Administração, CEO e outros
+    // Remover categorias "Operação", "DEV", "Ferramentas Dev", "CEO", "Painel CEO"
     const categoryOrder = orderedCategories.filter(
-      (c) => c !== "DEV" && c !== "Ferramentas Dev" && c !== "Operação"
+      (c) => c !== "DEV" && c !== "Ferramentas Dev" && c !== "CEO" && c !== "Painel CEO" && c !== "Operação"
     );
 
-    // Garante que categorias do CEO estejam presentes
-    const ceoCategories = ceoMenuConfig?.categories?.length ? ceoMenuConfig.categories : ["CEO"];
-    ceoCategories.forEach((cat) => {
-      if (!categoryOrder.includes(cat) && cat !== "DEV" && cat !== "Ferramentas Dev") {
-        categoryOrder.push(cat);
-      }
-    });
-
-    const customized = PAGE_CARDS.map((card) => {
-      const isCeo = card.defaultCat === "CEO" || card.id === "ceo" || card.id.startsWith("ceo-") || card.route.startsWith("/ceo");
-      const cfg = isCeo
-        ? (ceoConfigMap.get(card.id) || ceoConfigMap.get(card.route))
-        : (configMap.get(card.id) || configMap.get(card.route));
-      let cat = cfg?.category || card.defaultCat;
-      if (cat === "Operação") {
-        cat = card.id === "vendas" ? "Produções" : "Gestão";
-      }
-      return {
-        ...card,
-        title: cfg?.title || card.title,
-        category: cat,
-        order: typeof cfg?.order === "number" ? cfg.order : card.defaultOrder,
-      };
-    });
+    const customized = platformPageCards
+      .map((card) => {
+        const cfg = configMap.get(card.id) || configMap.get(card.route);
+        let cat = cfg?.category || card.defaultCat;
+        if (cat === "Operação") {
+          cat = card.id === "vendas" ? "Produções" : "Gestão";
+        }
+        return {
+          ...card,
+          title: cfg?.title || card.title,
+          category: cat,
+          order: typeof cfg?.order === "number" ? cfg.order : card.defaultOrder,
+        };
+      })
+      .filter(
+        (card) =>
+          card.category !== "DEV" &&
+          card.category !== "Ferramentas Dev" &&
+          card.category !== "CEO" &&
+          card.category !== "Painel CEO" &&
+          card.category !== "Operação"
+      );
 
     const groups: { category: string; cards: typeof customized }[] = [];
 
@@ -258,7 +268,7 @@ export function CeoGerenciarTagsPage() {
 
     const knownCats = new Set(categoryOrder);
     customized.forEach((card) => {
-      if (!knownCats.has(card.category) && card.category !== "DEV" && card.category !== "Ferramentas Dev") {
+      if (!knownCats.has(card.category)) {
         knownCats.add(card.category);
         const catCards = customized
           .filter((c) => c.category === card.category)
@@ -270,15 +280,7 @@ export function CeoGerenciarTagsPage() {
     });
 
     return groups;
-  }, [menuConfig, ceoMenuConfig]);
-
-  const allPlatformPermissions = useMemo(() => {
-    return Array.from(new Set(PAGE_CARDS.flatMap((c) => c.permissions.map((p) => p.key))));
-  }, []);
-
-  const readOnlyPlatformPermissions = useMemo(() => {
-    return READ_ONLY_PERMISSIONS.filter((p) => allPlatformPermissions.includes(p));
-  }, [allPlatformPermissions]);
+  }, [menuConfig, platformPageCards]);
 
   const operationalBasicPermissions = useMemo<Permission[]>(() => {
     return [
@@ -574,7 +576,9 @@ export function CeoGerenciarTagsPage() {
       return;
     }
     setTagForPerms(tag);
-    setActivePerms(Array.isArray(tag.permissions) ? [...tag.permissions] : []);
+    const rawPerms = Array.isArray(tag.permissions) ? tag.permissions : [];
+    const validPerms = rawPerms.filter((p) => allPlatformPermissions.includes(p));
+    setActivePerms(validPerms);
     setActiveRules(tag.rules ? { ...tag.rules } : {});
     setPermSearch("");
     setPermCategoryFilter("all");
