@@ -54,6 +54,7 @@ import {
   Warehouse,
   Hammer,
   Wallet,
+  Layers,
   type LucideIcon,
 } from "lucide-react";
 
@@ -118,6 +119,7 @@ export const AVAILABLE_MENU_ICONS: MenuIconDef[] = [
   { name: "Factory", label: "Fábrica / Produção", icon: Factory },
   { name: "Warehouse", label: "Armazém / Depósito", icon: Warehouse },
   { name: "Hammer", label: "Produzir / Ferramenta", icon: Hammer },
+  { name: "Layers", label: "Matérias-Primas / Insumos", icon: Layers },
 ];
 
 export const CANONICAL_URL_ICONS: Record<string, LucideIcon> = {
@@ -125,6 +127,8 @@ export const CANONICAL_URL_ICONS: Record<string, LucideIcon> = {
   "/movimentacoes": ArrowLeftRight,
   "/vendas": ShoppingCart,
   "/producoes/produzir": Factory,
+  "/producoes/materias-primas": Layers,
+  "/materias-primas": Layers,
   "/producoes/armazem": Warehouse,
   "/producoes/gestao": Sliders,
   "/life": Flame,

@@ -46,10 +46,11 @@ export const DEFAULT_MENU_CATEGORIES = ["Produções", "Gestão", "Administraç�
 
 export const DEFAULT_MENU_ITEMS: MenuItemConfig[] = [
   { id: "produzir", title: "Produzir", url: "/producoes/produzir", visible: true, category: "Produções", order: 0, iconName: "Factory" },
-  { id: "armazem", title: "Armazém", url: "/producoes/armazem", visible: true, category: "Produções", order: 1, iconName: "Warehouse" },
-  { id: "gestao-producao", title: "Gestão de Produção", url: "/producoes/gestao", visible: true, category: "Produções", order: 2, iconName: "Sliders" },
-  { id: "vendas", title: "Vendas", url: "/vendas", visible: true, category: "Produções", order: 3, iconName: "ShoppingCart" },
-  { id: "dashboard", title: "Dashboard", url: "/dashboard", visible: true, category: "Gestão", order: 4, iconName: "LayoutDashboard" },
+  { id: "materias-primas", title: "Matérias-Primas", url: "/producoes/materias-primas", visible: true, category: "Produções", order: 1, iconName: "Layers" },
+  { id: "armazem", title: "Armazém", url: "/producoes/armazem", visible: true, category: "Produções", order: 2, iconName: "Warehouse" },
+  { id: "gestao-producao", title: "Gestão de Produção", url: "/producoes/gestao", visible: true, category: "Produções", order: 3, iconName: "Sliders" },
+  { id: "vendas", title: "Vendas", url: "/vendas", visible: true, category: "Produções", order: 4, iconName: "ShoppingCart" },
+  { id: "dashboard", title: "Dashboard", url: "/dashboard", visible: true, category: "Gestão", order: 5, iconName: "LayoutDashboard" },
   { id: "movimentacoes", title: "Movimentações", url: "/movimentacoes", visible: true, category: "Gestão", order: 5, iconName: "ArrowLeftRight" },
   { id: "notificacoes", title: "Notificações", url: "/notificacoes", visible: true, category: "Gestão", order: 6, iconName: "Bell" },
   { id: "tickets", title: "Tickets / Ouvidoria", url: "/tickets", visible: true, category: "Gestão", order: 7, iconName: "LifeBuoy" },
@@ -82,6 +83,7 @@ export type PlatformSystemModule = {
 
 export const PLATFORM_SYSTEM_MODULES: PlatformSystemModule[] = [
   { id: "produzir", title: "Produzir", url: "/producoes/produzir", defaultCat: "Produções", iconName: "Factory", description: "Estação operacional de manufatura de itens e consumo de matérias-primas" },
+  { id: "materias-primas", title: "Matérias-Primas", url: "/producoes/materias-primas", defaultCat: "Produções", iconName: "Layers", description: "Gestão completa de matérias-primas e insumos, integração com baús e transferências" },
   { id: "armazem", title: "Armazém", url: "/producoes/armazem", defaultCat: "Produções", iconName: "Warehouse", description: "Depósito central de produtos produzidos e transferências para baús ou vendas" },
   { id: "gestao-producao", title: "Gestão de Produção", url: "/producoes/gestao", defaultCat: "Produções", iconName: "Sliders", description: "Painel administrativo de controle de catálogo, matérias-primas e auditoria" },
   { id: "vendas", title: "Vendas", url: "/vendas", defaultCat: "Produções", iconName: "ShoppingCart", description: "Registro e conferência de vendas" },

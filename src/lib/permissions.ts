@@ -67,6 +67,14 @@ export type Permission =
   | "view_members"
   | "approve_requests"
   | "change_roles"
+  // Permissões do Sistema de Matérias-Primas
+  | "raw_materials.view"
+  | "raw_materials.create"
+  | "raw_materials.edit"
+  | "raw_materials.delete"
+  | "raw_materials.adjust"
+  | "raw_materials.transfer_bau"
+  | "raw_materials.history"
   // Permissões do Sistema de Produção, Armazém e Vendas
   | "productions.view"
   | "productions.create"
@@ -274,6 +282,14 @@ export type Permission =
   | "manage_life";
 
 export const ALL_PERMISSIONS: Permission[] = [
+  // Permissões de Matérias-Primas
+  "raw_materials.view",
+  "raw_materials.create",
+  "raw_materials.edit",
+  "raw_materials.delete",
+  "raw_materials.adjust",
+  "raw_materials.transfer_bau",
+  "raw_materials.history",
   // Permissões de Produções e Armazém
   "productions.view",
   "productions.create",
@@ -636,6 +652,14 @@ const OFFICER: Permission[] = [
   "manage_stock_baus",
   "adjust_stock_balance",
   "manage_stock_balance",
+  // Permissões de Matérias-Primas (Officer)
+  "raw_materials.view",
+  "raw_materials.create",
+  "raw_materials.edit",
+  "raw_materials.delete",
+  "raw_materials.adjust",
+  "raw_materials.transfer_bau",
+  "raw_materials.history",
   // Permissões de Produções e Armazém (Officer)
   "productions.view",
   "productions.create",
@@ -777,6 +801,14 @@ const MANAGER: Permission[] = [
   "manage_stock_products",
   "manage_stock_categories",
   "adjust_stock_balance",
+  // Permissões de Matérias-Primas (Manager)
+  "raw_materials.view",
+  "raw_materials.create",
+  "raw_materials.edit",
+  "raw_materials.delete",
+  "raw_materials.adjust",
+  "raw_materials.transfer_bau",
+  "raw_materials.history",
   // Permissões de Produções e Armazém (Manager)
   "productions.view",
   "productions.create",
@@ -856,6 +888,7 @@ const MEMBER: Permission[] = [
   "view_stock",
   "create_movement",
   "view_baus",
+  "raw_materials.view",
   "productions.view",
   "productions.create",
   "view_productions",

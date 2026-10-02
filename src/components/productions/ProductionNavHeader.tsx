@@ -1,11 +1,11 @@
 import React from "react";
 import { Link, useRouterState } from "@tanstack/react-router";
-import { Factory, Warehouse, Sliders, ShoppingCart } from "lucide-react";
+import { Factory, Warehouse, Sliders, ShoppingCart, Layers } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { cn } from "@/lib/utils";
 
 interface ProductionNavHeaderProps {
-  currentTab: "produzir" | "armazem" | "gestao" | "vendas";
+  currentTab: "produzir" | "materias-primas" | "armazem" | "gestao" | "vendas";
   className?: string;
 }
 
@@ -14,6 +14,7 @@ export function ProductionNavHeader({ currentTab, className }: ProductionNavHead
   const prefix = isDevMode ? "/dev" : isCeoMode ? "/ceo" : "";
 
   const canViewProduzir = isDevMode || hasPermission("productions.view") || hasPermission("productions.create") || hasPermission("view_productions");
+  const canViewMateriasPrimas = isDevMode || hasPermission("raw_materials.view") || hasPermission("production_management.raw_materials") || hasPermission("productions.view");
   const canViewArmazem = isDevMode || hasPermission("warehouse.view") || hasPermission("warehouse.transfer") || hasPermission("view_warehouse");
   const canViewGestao = isDevMode || hasPermission("production_management.view") || hasPermission("view_production_management");
   const canViewVendas = isDevMode || hasPermission("view_sales") || hasPermission("sales.view");
@@ -28,6 +29,16 @@ export function ProductionNavHeader({ currentTab, className }: ProductionNavHead
       visible: canViewProduzir,
       activeColor: "bg-amber-500/20 text-amber-300 border-amber-500/40 shadow-sm shadow-amber-500/10",
       activeIconColor: "text-amber-400",
+    },
+    {
+      id: "materias-primas",
+      label: "Matérias-Primas",
+      shortLabel: "Insumos",
+      href: `${prefix}/producoes/materias-primas`,
+      icon: Layers,
+      visible: canViewMateriasPrimas,
+      activeColor: "bg-orange-500/20 text-orange-300 border-orange-500/40 shadow-sm shadow-orange-500/10",
+      activeIconColor: "text-orange-400",
     },
     {
       id: "armazem",

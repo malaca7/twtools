@@ -35,6 +35,7 @@ import {
   useProductBaus,
   useWarehouseMovements,
   useCategories,
+  useRawMaterials,
 } from "@/hooks/useData";
 import {
   transferWarehouseToStorage,
@@ -93,11 +94,37 @@ export function ArmazemPage() {
   const canTransfer = canTransferStorage || canTransferSale;
   const canAdjust = hasPermission("warehouse.adjust");
 
-  const { data: stockList = [], isLoading: loadingStock } = useWarehouseStock();
+  const { data: rawStockList = [], isLoading: loadingStock } = useWarehouseStock();
+  const { data: rawMaterials = [] } = useRawMaterials();
   const { data: baus = [] } = useBaus();
   const { data: productBaus = [] } = useProductBaus();
   const { data: categories = [] } = useCategories();
-  const { data: movements = [], isLoading: loadingMovements } = useWarehouseMovements(undefined, 100);
+  const { data: rawMovements = [], isLoading: loadingMovements } = useWarehouseMovements(undefined, 100);
+
+  // Requisito: O saldo de matérias-primas NÃO deve mostrar no Armazém
+  const rawMaterialProductIds = useMemo(
+    () => new Set(rawMaterials.map((rm) => rm.product_id).filter(Boolean)),
+    [rawMaterials]
+  );
+  const rawMaterialNames = useMemo(
+    () => new Set(rawMaterials.map((rm) => rm.name.trim().toLowerCase())),
+    [rawMaterials]
+  );
+
+  const isRawMaterial = (productId?: string | null, productName?: string | null) => {
+    if (productId && rawMaterialProductIds.has(productId)) return true;
+    if (productName && rawMaterialNames.has(productName.trim().toLowerCase())) return true;
+    return false;
+  };
+
+  // Lista estrita de produtos finais (oculta matérias-primas do armazém)
+  const stockList = useMemo(() => {
+    return rawStockList.filter((item) => !isRawMaterial(item.product_id, item.product?.nome));
+  }, [rawStockList, rawMaterialProductIds, rawMaterialNames]);
+
+  const movements = useMemo(() => {
+    return rawMovements.filter((m) => !isRawMaterial(m.product_id, (m as any).product?.nome));
+  }, [rawMovements, rawMaterialProductIds, rawMaterialNames]);
 
   // Filtragem estrita de baús ativos (requisito: não mostrar nem permitir baús inativos)
   const activeBaus = useMemo(

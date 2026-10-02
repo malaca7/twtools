@@ -230,6 +230,16 @@ export function useRawMaterials() {
   });
 }
 
+export function useRawMaterialMovements(rawMaterialId?: string, limit = 150) {
+  return useQuery({
+    queryKey: ["raw_material_movements", rawMaterialId || "all", limit],
+    queryFn: async () => {
+      const { getRawMaterialMovements } = await import("@/services/productionService");
+      return getRawMaterialMovements(rawMaterialId, limit);
+    },
+  });
+}
+
 export function useProductRecipes(productId?: string) {
   return useQuery({
     queryKey: ["product_recipes", productId || "all"],

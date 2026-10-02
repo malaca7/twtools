@@ -30,6 +30,7 @@ export async function getRawMaterials(): Promise<RawMaterial[]> {
     description: row.description,
     unit: row.unit || "un",
     stock_quantity: Number(row.stock_quantity || 0),
+    min_stock: Number(row.min_stock || 0),
     image_url: row.image_url || null,
     product_id: row.product_id || null,
     is_active: row.is_active !== false,
@@ -43,6 +44,7 @@ export async function createRawMaterial(input: {
   description?: string;
   unit: string;
   stock_quantity?: number;
+  min_stock?: number;
   image_url?: string | null;
   product_id?: string | null;
   is_active?: boolean;
@@ -54,6 +56,7 @@ export async function createRawMaterial(input: {
       description: input.description?.trim() || null,
       unit: input.unit.trim() || "un",
       stock_quantity: Math.max(0, Number(input.stock_quantity || 0)),
+      min_stock: Math.max(0, Number(input.min_stock || 0)),
       image_url: input.image_url?.trim() || null,
       product_id: input.product_id || null,
       is_active: input.is_active !== false,
@@ -71,6 +74,7 @@ export async function createRawMaterial(input: {
     description: (data as any).description,
     unit: (data as any).unit,
     stock_quantity: Number((data as any).stock_quantity || 0),
+    min_stock: Number((data as any).min_stock || 0),
     image_url: (data as any).image_url || null,
     product_id: (data as any).product_id || null,
     is_active: (data as any).is_active,
@@ -85,6 +89,7 @@ export async function updateRawMaterial(
     name?: string;
     description?: string | null;
     unit?: string;
+    min_stock?: number;
     image_url?: string | null;
     product_id?: string | null;
     is_active?: boolean;
@@ -94,6 +99,7 @@ export async function updateRawMaterial(
   if (input.name !== undefined) payload.name = input.name.trim();
   if (input.description !== undefined) payload.description = input.description?.trim() || null;
   if (input.unit !== undefined) payload.unit = input.unit.trim();
+  if (input.min_stock !== undefined) payload.min_stock = Math.max(0, Number(input.min_stock || 0));
   if (input.image_url !== undefined) payload.image_url = input.image_url?.trim() || null;
   if (input.product_id !== undefined) payload.product_id = input.product_id;
   if (input.is_active !== undefined) payload.is_active = input.is_active;
@@ -162,17 +168,6 @@ export async function syncRawMaterialsAsProducts(): Promise<{ createdCount: numb
 
     if (matched) {
       const prodId = (matched as any).id;
-      // Garante existência de registro em warehouse_stock
-      await supabase
-        .from("warehouse_stock" as any)
-        .upsert(
-          {
-            product_id: prodId,
-            quantity: Number(mat.stock_quantity || 0),
-          },
-          { onConflict: "product_id", ignoreDuplicates: true }
-        );
-
       if (mat.product_id !== prodId) {
         await supabase
           .from("raw_materials" as any)
@@ -213,6 +208,63 @@ export async function adjustRawMaterialStock(
 
   if (error) {
     throw new Error(error.message || "Erro ao ajustar estoque de matéria-prima");
+  }
+
+  return data as any;
+}
+
+export async function pullRawMaterialFromBau(
+  rawMaterialId: string,
+  bauId: string,
+  quantity: number,
+  reason?: string
+): Promise<{
+  success: boolean;
+  is_manual: boolean;
+  bau_nome: string;
+  quantity: number;
+  bau_previous: number;
+  bau_balance: number;
+  raw_material_previous: number;
+  raw_material_balance: number;
+}> {
+  const cleanQty = Math.max(1, Math.round(Number(quantity) || 1));
+  const { data, error } = await supabase.rpc("pull_raw_material_from_bau_rpc", {
+    p_raw_material_id: rawMaterialId,
+    p_bau_id: bauId,
+    p_quantity: cleanQty,
+    p_reason: reason?.trim() || null,
+  });
+
+  if (error) {
+    throw new Error(error.message || "Erro ao puxar matérias-primas do baú");
+  }
+
+  return data as any;
+}
+
+export async function transferRawMaterialToBau(
+  rawMaterialId: string,
+  bauId: string,
+  quantity: number,
+  reason?: string
+): Promise<{
+  success: boolean;
+  bau_nome: string;
+  quantity: number;
+  raw_material_balance: number;
+  bau_balance: number;
+}> {
+  const cleanQty = Math.max(1, Math.round(Number(quantity) || 1));
+  const { data, error } = await supabase.rpc("transfer_raw_material_to_bau_rpc", {
+    p_raw_material_id: rawMaterialId,
+    p_bau_id: bauId,
+    p_quantity: cleanQty,
+    p_reason: reason?.trim() || null,
+  });
+
+  if (error) {
+    throw new Error(error.message || "Erro ao transferir matéria-prima para o baú");
   }
 
   return data as any;

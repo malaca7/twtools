@@ -33,6 +33,7 @@ import { Route as AuthenticatedLifeRouteImport } from './routes/_authenticated/l
 import { Route as AuthenticatedLivesRouteImport } from './routes/_authenticated/lives'
 import { Route as AuthenticatedLogsRouteImport } from './routes/_authenticated/logs'
 import { Route as AuthenticatedLojaRouteImport } from './routes/_authenticated/loja'
+import { Route as AuthenticatedMateriasPrimasRouteImport } from './routes/_authenticated/materias-primas'
 import { Route as AuthenticatedMembrosRouteImport } from './routes/_authenticated/membros'
 import { Route as AuthenticatedMetasRouteImport } from './routes/_authenticated/metas'
 import { Route as AuthenticatedMovimentacoesRouteImport } from './routes/_authenticated/movimentacoes'
@@ -81,6 +82,7 @@ import { Route as AuthenticatedProducoesIndexRouteImport } from './routes/_authe
 import { Route as AuthenticatedProducoesArmazemRouteImport } from './routes/_authenticated/producoes.armazem'
 import { Route as AuthenticatedProducoesGestaoRouteImport } from './routes/_authenticated/producoes.gestao'
 import { Route as AuthenticatedProducoesGestaoProducaoRouteImport } from './routes/_authenticated/producoes.gestao-producao'
+import { Route as AuthenticatedProducoesMateriasPrimasRouteImport } from './routes/_authenticated/producoes.materias-primas'
 import { Route as AuthenticatedProducoesProduzirRouteImport } from './routes/_authenticated/producoes.produzir'
 import { Route as AuthenticatedRankingsTabRouteImport } from './routes/_authenticated/rankings.$tab'
 import { Route as AuthenticatedTicketsTabRouteImport } from './routes/_authenticated/tickets.$tab'
@@ -89,6 +91,7 @@ import { Route as AuthenticatedCeoTabSubtabRouteImport } from './routes/_authent
 import { Route as AuthenticatedCeoProducoesIndexRouteImport } from './routes/_authenticated/ceo.producoes.index'
 import { Route as AuthenticatedCeoProducoesArmazemRouteImport } from './routes/_authenticated/ceo.producoes.armazem'
 import { Route as AuthenticatedCeoProducoesGestaoRouteImport } from './routes/_authenticated/ceo.producoes.gestao'
+import { Route as AuthenticatedCeoProducoesMateriasPrimasRouteImport } from './routes/_authenticated/ceo.producoes.materias-primas'
 import { Route as AuthenticatedCeoProducoesProduzirRouteImport } from './routes/_authenticated/ceo.producoes.produzir'
 import { Route as AuthenticatedDevPageTabRouteImport } from './routes/_authenticated/dev.$page.$tab'
 import { Route as AuthenticatedDevBotTabRouteImport } from './routes/_authenticated/dev.bot.$tab'
@@ -97,6 +100,7 @@ import { Route as AuthenticatedDevEstoqueTabRouteImport } from './routes/_authen
 import { Route as AuthenticatedDevProducoesIndexRouteImport } from './routes/_authenticated/dev.producoes.index'
 import { Route as AuthenticatedDevProducoesArmazemRouteImport } from './routes/_authenticated/dev.producoes.armazem'
 import { Route as AuthenticatedDevProducoesGestaoRouteImport } from './routes/_authenticated/dev.producoes.gestao'
+import { Route as AuthenticatedDevProducoesMateriasPrimasRouteImport } from './routes/_authenticated/dev.producoes.materias-primas'
 import { Route as AuthenticatedDevProducoesProduzirRouteImport } from './routes/_authenticated/dev.producoes.produzir'
 
 const IndexRoute = IndexRouteImport.update({
@@ -223,6 +227,12 @@ const AuthenticatedLojaRoute = AuthenticatedLojaRouteImport.update({
   path: '/loja',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedMateriasPrimasRoute =
+  AuthenticatedMateriasPrimasRouteImport.update({
+    id: '/materias-primas',
+    path: '/materias-primas',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedMembrosRoute = AuthenticatedMembrosRouteImport.update({
   id: '/membros',
   path: '/membros',
@@ -489,6 +499,12 @@ const AuthenticatedProducoesGestaoProducaoRoute =
     path: '/producoes/gestao-producao',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedProducoesMateriasPrimasRoute =
+  AuthenticatedProducoesMateriasPrimasRouteImport.update({
+    id: '/producoes/materias-primas',
+    path: '/producoes/materias-primas',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedProducoesProduzirRoute =
   AuthenticatedProducoesProduzirRouteImport.update({
     id: '/producoes/produzir',
@@ -534,6 +550,12 @@ const AuthenticatedCeoProducoesGestaoRoute =
   AuthenticatedCeoProducoesGestaoRouteImport.update({
     id: '/producoes/gestao',
     path: '/producoes/gestao',
+    getParentRoute: () => AuthenticatedCeoRoute,
+  } as any)
+const AuthenticatedCeoProducoesMateriasPrimasRoute =
+  AuthenticatedCeoProducoesMateriasPrimasRouteImport.update({
+    id: '/producoes/materias-primas',
+    path: '/producoes/materias-primas',
     getParentRoute: () => AuthenticatedCeoRoute,
   } as any)
 const AuthenticatedCeoProducoesProduzirRoute =
@@ -582,6 +604,12 @@ const AuthenticatedDevProducoesGestaoRoute =
     path: '/dev/producoes/gestao',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedDevProducoesMateriasPrimasRoute =
+  AuthenticatedDevProducoesMateriasPrimasRouteImport.update({
+    id: '/dev/producoes/materias-primas',
+    path: '/dev/producoes/materias-primas',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedDevProducoesProduzirRoute =
   AuthenticatedDevProducoesProduzirRouteImport.update({
     id: '/dev/producoes/produzir',
@@ -613,6 +641,7 @@ export interface FileRoutesByFullPath {
   '/lives': typeof AuthenticatedLivesRouteWithChildren
   '/logs': typeof AuthenticatedLogsRoute
   '/loja': typeof AuthenticatedLojaRoute
+  '/materias-primas': typeof AuthenticatedMateriasPrimasRoute
   '/membros': typeof AuthenticatedMembrosRoute
   '/metas': typeof AuthenticatedMetasRouteWithChildren
   '/movimentacoes': typeof AuthenticatedMovimentacoesRouteWithChildren
@@ -659,6 +688,7 @@ export interface FileRoutesByFullPath {
   '/producoes/armazem': typeof AuthenticatedProducoesArmazemRoute
   '/producoes/gestao': typeof AuthenticatedProducoesGestaoRoute
   '/producoes/gestao-producao': typeof AuthenticatedProducoesGestaoProducaoRoute
+  '/producoes/materias-primas': typeof AuthenticatedProducoesMateriasPrimasRoute
   '/producoes/produzir': typeof AuthenticatedProducoesProduzirRoute
   '/rankings/$tab': typeof AuthenticatedRankingsTabRoute
   '/tickets/$tab': typeof AuthenticatedTicketsTabRoute
@@ -668,6 +698,7 @@ export interface FileRoutesByFullPath {
   '/ceo/$tab/$subtab': typeof AuthenticatedCeoTabSubtabRoute
   '/ceo/producoes/armazem': typeof AuthenticatedCeoProducoesArmazemRoute
   '/ceo/producoes/gestao': typeof AuthenticatedCeoProducoesGestaoRoute
+  '/ceo/producoes/materias-primas': typeof AuthenticatedCeoProducoesMateriasPrimasRoute
   '/ceo/producoes/produzir': typeof AuthenticatedCeoProducoesProduzirRoute
   '/dev/$page/$tab': typeof AuthenticatedDevPageTabRoute
   '/dev/bot/$tab': typeof AuthenticatedDevBotTabRoute
@@ -675,6 +706,7 @@ export interface FileRoutesByFullPath {
   '/dev/estoque/$tab': typeof AuthenticatedDevEstoqueTabRoute
   '/dev/producoes/armazem': typeof AuthenticatedDevProducoesArmazemRoute
   '/dev/producoes/gestao': typeof AuthenticatedDevProducoesGestaoRoute
+  '/dev/producoes/materias-primas': typeof AuthenticatedDevProducoesMateriasPrimasRoute
   '/dev/producoes/produzir': typeof AuthenticatedDevProducoesProduzirRoute
   '/ceo/producoes/': typeof AuthenticatedCeoProducoesIndexRoute
   '/dev/producoes/': typeof AuthenticatedDevProducoesIndexRoute
@@ -703,6 +735,7 @@ export interface FileRoutesByTo {
   '/lives': typeof AuthenticatedLivesRouteWithChildren
   '/logs': typeof AuthenticatedLogsRoute
   '/loja': typeof AuthenticatedLojaRoute
+  '/materias-primas': typeof AuthenticatedMateriasPrimasRoute
   '/membros': typeof AuthenticatedMembrosRoute
   '/metas': typeof AuthenticatedMetasRouteWithChildren
   '/movimentacoes': typeof AuthenticatedMovimentacoesRouteWithChildren
@@ -749,6 +782,7 @@ export interface FileRoutesByTo {
   '/producoes/armazem': typeof AuthenticatedProducoesArmazemRoute
   '/producoes/gestao': typeof AuthenticatedProducoesGestaoRoute
   '/producoes/gestao-producao': typeof AuthenticatedProducoesGestaoProducaoRoute
+  '/producoes/materias-primas': typeof AuthenticatedProducoesMateriasPrimasRoute
   '/producoes/produzir': typeof AuthenticatedProducoesProduzirRoute
   '/rankings/$tab': typeof AuthenticatedRankingsTabRoute
   '/tickets/$tab': typeof AuthenticatedTicketsTabRoute
@@ -758,6 +792,7 @@ export interface FileRoutesByTo {
   '/ceo/$tab/$subtab': typeof AuthenticatedCeoTabSubtabRoute
   '/ceo/producoes/armazem': typeof AuthenticatedCeoProducoesArmazemRoute
   '/ceo/producoes/gestao': typeof AuthenticatedCeoProducoesGestaoRoute
+  '/ceo/producoes/materias-primas': typeof AuthenticatedCeoProducoesMateriasPrimasRoute
   '/ceo/producoes/produzir': typeof AuthenticatedCeoProducoesProduzirRoute
   '/dev/$page/$tab': typeof AuthenticatedDevPageTabRoute
   '/dev/bot/$tab': typeof AuthenticatedDevBotTabRoute
@@ -765,6 +800,7 @@ export interface FileRoutesByTo {
   '/dev/estoque/$tab': typeof AuthenticatedDevEstoqueTabRoute
   '/dev/producoes/armazem': typeof AuthenticatedDevProducoesArmazemRoute
   '/dev/producoes/gestao': typeof AuthenticatedDevProducoesGestaoRoute
+  '/dev/producoes/materias-primas': typeof AuthenticatedDevProducoesMateriasPrimasRoute
   '/dev/producoes/produzir': typeof AuthenticatedDevProducoesProduzirRoute
   '/ceo/producoes': typeof AuthenticatedCeoProducoesIndexRoute
   '/dev/producoes': typeof AuthenticatedDevProducoesIndexRoute
@@ -795,6 +831,7 @@ export interface FileRoutesById {
   '/_authenticated/lives': typeof AuthenticatedLivesRouteWithChildren
   '/_authenticated/logs': typeof AuthenticatedLogsRoute
   '/_authenticated/loja': typeof AuthenticatedLojaRoute
+  '/_authenticated/materias-primas': typeof AuthenticatedMateriasPrimasRoute
   '/_authenticated/membros': typeof AuthenticatedMembrosRoute
   '/_authenticated/metas': typeof AuthenticatedMetasRouteWithChildren
   '/_authenticated/movimentacoes': typeof AuthenticatedMovimentacoesRouteWithChildren
@@ -841,6 +878,7 @@ export interface FileRoutesById {
   '/_authenticated/producoes/armazem': typeof AuthenticatedProducoesArmazemRoute
   '/_authenticated/producoes/gestao': typeof AuthenticatedProducoesGestaoRoute
   '/_authenticated/producoes/gestao-producao': typeof AuthenticatedProducoesGestaoProducaoRoute
+  '/_authenticated/producoes/materias-primas': typeof AuthenticatedProducoesMateriasPrimasRoute
   '/_authenticated/producoes/produzir': typeof AuthenticatedProducoesProduzirRoute
   '/_authenticated/rankings/$tab': typeof AuthenticatedRankingsTabRoute
   '/_authenticated/tickets/$tab': typeof AuthenticatedTicketsTabRoute
@@ -850,6 +888,7 @@ export interface FileRoutesById {
   '/_authenticated/ceo/$tab/$subtab': typeof AuthenticatedCeoTabSubtabRoute
   '/_authenticated/ceo/producoes/armazem': typeof AuthenticatedCeoProducoesArmazemRoute
   '/_authenticated/ceo/producoes/gestao': typeof AuthenticatedCeoProducoesGestaoRoute
+  '/_authenticated/ceo/producoes/materias-primas': typeof AuthenticatedCeoProducoesMateriasPrimasRoute
   '/_authenticated/ceo/producoes/produzir': typeof AuthenticatedCeoProducoesProduzirRoute
   '/_authenticated/dev/$page/$tab': typeof AuthenticatedDevPageTabRoute
   '/_authenticated/dev/bot/$tab': typeof AuthenticatedDevBotTabRoute
@@ -857,6 +896,7 @@ export interface FileRoutesById {
   '/_authenticated/dev/estoque/$tab': typeof AuthenticatedDevEstoqueTabRoute
   '/_authenticated/dev/producoes/armazem': typeof AuthenticatedDevProducoesArmazemRoute
   '/_authenticated/dev/producoes/gestao': typeof AuthenticatedDevProducoesGestaoRoute
+  '/_authenticated/dev/producoes/materias-primas': typeof AuthenticatedDevProducoesMateriasPrimasRoute
   '/_authenticated/dev/producoes/produzir': typeof AuthenticatedDevProducoesProduzirRoute
   '/_authenticated/ceo/producoes/': typeof AuthenticatedCeoProducoesIndexRoute
   '/_authenticated/dev/producoes/': typeof AuthenticatedDevProducoesIndexRoute
@@ -887,6 +927,7 @@ export interface FileRouteTypes {
     | '/lives'
     | '/logs'
     | '/loja'
+    | '/materias-primas'
     | '/membros'
     | '/metas'
     | '/movimentacoes'
@@ -933,6 +974,7 @@ export interface FileRouteTypes {
     | '/producoes/armazem'
     | '/producoes/gestao'
     | '/producoes/gestao-producao'
+    | '/producoes/materias-primas'
     | '/producoes/produzir'
     | '/rankings/$tab'
     | '/tickets/$tab'
@@ -942,6 +984,7 @@ export interface FileRouteTypes {
     | '/ceo/$tab/$subtab'
     | '/ceo/producoes/armazem'
     | '/ceo/producoes/gestao'
+    | '/ceo/producoes/materias-primas'
     | '/ceo/producoes/produzir'
     | '/dev/$page/$tab'
     | '/dev/bot/$tab'
@@ -949,6 +992,7 @@ export interface FileRouteTypes {
     | '/dev/estoque/$tab'
     | '/dev/producoes/armazem'
     | '/dev/producoes/gestao'
+    | '/dev/producoes/materias-primas'
     | '/dev/producoes/produzir'
     | '/ceo/producoes/'
     | '/dev/producoes/'
@@ -977,6 +1021,7 @@ export interface FileRouteTypes {
     | '/lives'
     | '/logs'
     | '/loja'
+    | '/materias-primas'
     | '/membros'
     | '/metas'
     | '/movimentacoes'
@@ -1023,6 +1068,7 @@ export interface FileRouteTypes {
     | '/producoes/armazem'
     | '/producoes/gestao'
     | '/producoes/gestao-producao'
+    | '/producoes/materias-primas'
     | '/producoes/produzir'
     | '/rankings/$tab'
     | '/tickets/$tab'
@@ -1032,6 +1078,7 @@ export interface FileRouteTypes {
     | '/ceo/$tab/$subtab'
     | '/ceo/producoes/armazem'
     | '/ceo/producoes/gestao'
+    | '/ceo/producoes/materias-primas'
     | '/ceo/producoes/produzir'
     | '/dev/$page/$tab'
     | '/dev/bot/$tab'
@@ -1039,6 +1086,7 @@ export interface FileRouteTypes {
     | '/dev/estoque/$tab'
     | '/dev/producoes/armazem'
     | '/dev/producoes/gestao'
+    | '/dev/producoes/materias-primas'
     | '/dev/producoes/produzir'
     | '/ceo/producoes'
     | '/dev/producoes'
@@ -1068,6 +1116,7 @@ export interface FileRouteTypes {
     | '/_authenticated/lives'
     | '/_authenticated/logs'
     | '/_authenticated/loja'
+    | '/_authenticated/materias-primas'
     | '/_authenticated/membros'
     | '/_authenticated/metas'
     | '/_authenticated/movimentacoes'
@@ -1114,6 +1163,7 @@ export interface FileRouteTypes {
     | '/_authenticated/producoes/armazem'
     | '/_authenticated/producoes/gestao'
     | '/_authenticated/producoes/gestao-producao'
+    | '/_authenticated/producoes/materias-primas'
     | '/_authenticated/producoes/produzir'
     | '/_authenticated/rankings/$tab'
     | '/_authenticated/tickets/$tab'
@@ -1123,6 +1173,7 @@ export interface FileRouteTypes {
     | '/_authenticated/ceo/$tab/$subtab'
     | '/_authenticated/ceo/producoes/armazem'
     | '/_authenticated/ceo/producoes/gestao'
+    | '/_authenticated/ceo/producoes/materias-primas'
     | '/_authenticated/ceo/producoes/produzir'
     | '/_authenticated/dev/$page/$tab'
     | '/_authenticated/dev/bot/$tab'
@@ -1130,6 +1181,7 @@ export interface FileRouteTypes {
     | '/_authenticated/dev/estoque/$tab'
     | '/_authenticated/dev/producoes/armazem'
     | '/_authenticated/dev/producoes/gestao'
+    | '/_authenticated/dev/producoes/materias-primas'
     | '/_authenticated/dev/producoes/produzir'
     | '/_authenticated/ceo/producoes/'
     | '/_authenticated/dev/producoes/'
@@ -1313,6 +1365,13 @@ declare module '@tanstack/react-router' {
       path: '/loja'
       fullPath: '/loja'
       preLoaderRoute: typeof AuthenticatedLojaRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/materias-primas': {
+      id: '/_authenticated/materias-primas'
+      path: '/materias-primas'
+      fullPath: '/materias-primas'
+      preLoaderRoute: typeof AuthenticatedMateriasPrimasRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/membros': {
@@ -1651,6 +1710,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedProducoesGestaoProducaoRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/producoes/materias-primas': {
+      id: '/_authenticated/producoes/materias-primas'
+      path: '/producoes/materias-primas'
+      fullPath: '/producoes/materias-primas'
+      preLoaderRoute: typeof AuthenticatedProducoesMateriasPrimasRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/producoes/produzir': {
       id: '/_authenticated/producoes/produzir'
       path: '/producoes/produzir'
@@ -1705,6 +1771,13 @@ declare module '@tanstack/react-router' {
       path: '/producoes/gestao'
       fullPath: '/ceo/producoes/gestao'
       preLoaderRoute: typeof AuthenticatedCeoProducoesGestaoRouteImport
+      parentRoute: typeof AuthenticatedCeoRoute
+    }
+    '/_authenticated/ceo/producoes/materias-primas': {
+      id: '/_authenticated/ceo/producoes/materias-primas'
+      path: '/producoes/materias-primas'
+      fullPath: '/ceo/producoes/materias-primas'
+      preLoaderRoute: typeof AuthenticatedCeoProducoesMateriasPrimasRouteImport
       parentRoute: typeof AuthenticatedCeoRoute
     }
     '/_authenticated/ceo/producoes/produzir': {
@@ -1763,6 +1836,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedDevProducoesGestaoRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/dev/producoes/materias-primas': {
+      id: '/_authenticated/dev/producoes/materias-primas'
+      path: '/dev/producoes/materias-primas'
+      fullPath: '/dev/producoes/materias-primas'
+      preLoaderRoute: typeof AuthenticatedDevProducoesMateriasPrimasRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/dev/producoes/produzir': {
       id: '/_authenticated/dev/producoes/produzir'
       path: '/dev/producoes/produzir'
@@ -1805,6 +1885,7 @@ interface AuthenticatedCeoRouteChildren {
   AuthenticatedCeoPermissoesTagsRoute: typeof AuthenticatedCeoPermissoesTagsRoute
   AuthenticatedCeoProducoesArmazemRoute: typeof AuthenticatedCeoProducoesArmazemRoute
   AuthenticatedCeoProducoesGestaoRoute: typeof AuthenticatedCeoProducoesGestaoRoute
+  AuthenticatedCeoProducoesMateriasPrimasRoute: typeof AuthenticatedCeoProducoesMateriasPrimasRoute
   AuthenticatedCeoProducoesProduzirRoute: typeof AuthenticatedCeoProducoesProduzirRoute
   AuthenticatedCeoProducoesIndexRoute: typeof AuthenticatedCeoProducoesIndexRoute
 }
@@ -1816,6 +1897,8 @@ const AuthenticatedCeoRouteChildren: AuthenticatedCeoRouteChildren = {
   AuthenticatedCeoPermissoesTagsRoute: AuthenticatedCeoPermissoesTagsRoute,
   AuthenticatedCeoProducoesArmazemRoute: AuthenticatedCeoProducoesArmazemRoute,
   AuthenticatedCeoProducoesGestaoRoute: AuthenticatedCeoProducoesGestaoRoute,
+  AuthenticatedCeoProducoesMateriasPrimasRoute:
+    AuthenticatedCeoProducoesMateriasPrimasRoute,
   AuthenticatedCeoProducoesProduzirRoute:
     AuthenticatedCeoProducoesProduzirRoute,
   AuthenticatedCeoProducoesIndexRoute: AuthenticatedCeoProducoesIndexRoute,
@@ -2013,6 +2096,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedLivesRoute: typeof AuthenticatedLivesRouteWithChildren
   AuthenticatedLogsRoute: typeof AuthenticatedLogsRoute
   AuthenticatedLojaRoute: typeof AuthenticatedLojaRoute
+  AuthenticatedMateriasPrimasRoute: typeof AuthenticatedMateriasPrimasRoute
   AuthenticatedMembrosRoute: typeof AuthenticatedMembrosRoute
   AuthenticatedMetasRoute: typeof AuthenticatedMetasRouteWithChildren
   AuthenticatedMovimentacoesRoute: typeof AuthenticatedMovimentacoesRouteWithChildren
@@ -2042,11 +2126,13 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedProducoesArmazemRoute: typeof AuthenticatedProducoesArmazemRoute
   AuthenticatedProducoesGestaoRoute: typeof AuthenticatedProducoesGestaoRoute
   AuthenticatedProducoesGestaoProducaoRoute: typeof AuthenticatedProducoesGestaoProducaoRoute
+  AuthenticatedProducoesMateriasPrimasRoute: typeof AuthenticatedProducoesMateriasPrimasRoute
   AuthenticatedProducoesProduzirRoute: typeof AuthenticatedProducoesProduzirRoute
   AuthenticatedDevIndexRoute: typeof AuthenticatedDevIndexRoute
   AuthenticatedProducoesIndexRoute: typeof AuthenticatedProducoesIndexRoute
   AuthenticatedDevProducoesArmazemRoute: typeof AuthenticatedDevProducoesArmazemRoute
   AuthenticatedDevProducoesGestaoRoute: typeof AuthenticatedDevProducoesGestaoRoute
+  AuthenticatedDevProducoesMateriasPrimasRoute: typeof AuthenticatedDevProducoesMateriasPrimasRoute
   AuthenticatedDevProducoesProduzirRoute: typeof AuthenticatedDevProducoesProduzirRoute
   AuthenticatedDevProducoesIndexRoute: typeof AuthenticatedDevProducoesIndexRoute
 }
@@ -2073,6 +2159,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedLivesRoute: AuthenticatedLivesRouteWithChildren,
   AuthenticatedLogsRoute: AuthenticatedLogsRoute,
   AuthenticatedLojaRoute: AuthenticatedLojaRoute,
+  AuthenticatedMateriasPrimasRoute: AuthenticatedMateriasPrimasRoute,
   AuthenticatedMembrosRoute: AuthenticatedMembrosRoute,
   AuthenticatedMetasRoute: AuthenticatedMetasRouteWithChildren,
   AuthenticatedMovimentacoesRoute: AuthenticatedMovimentacoesRouteWithChildren,
@@ -2104,11 +2191,15 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedProducoesGestaoRoute: AuthenticatedProducoesGestaoRoute,
   AuthenticatedProducoesGestaoProducaoRoute:
     AuthenticatedProducoesGestaoProducaoRoute,
+  AuthenticatedProducoesMateriasPrimasRoute:
+    AuthenticatedProducoesMateriasPrimasRoute,
   AuthenticatedProducoesProduzirRoute: AuthenticatedProducoesProduzirRoute,
   AuthenticatedDevIndexRoute: AuthenticatedDevIndexRoute,
   AuthenticatedProducoesIndexRoute: AuthenticatedProducoesIndexRoute,
   AuthenticatedDevProducoesArmazemRoute: AuthenticatedDevProducoesArmazemRoute,
   AuthenticatedDevProducoesGestaoRoute: AuthenticatedDevProducoesGestaoRoute,
+  AuthenticatedDevProducoesMateriasPrimasRoute:
+    AuthenticatedDevProducoesMateriasPrimasRoute,
   AuthenticatedDevProducoesProduzirRoute:
     AuthenticatedDevProducoesProduzirRoute,
   AuthenticatedDevProducoesIndexRoute: AuthenticatedDevProducoesIndexRoute,

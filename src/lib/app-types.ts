@@ -132,6 +132,7 @@ export type RawMaterial = {
   description: string | null;
   unit: string;
   stock_quantity: number;
+  min_stock?: number;
   image_url?: string | null;
   product_id?: string | null;
   is_active: boolean;

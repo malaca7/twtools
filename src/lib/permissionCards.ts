@@ -38,6 +38,7 @@ import {
   Factory,
   Warehouse,
   Hammer,
+  Layers,
 } from "lucide-react";
 import type { Permission } from "@/lib/permissions";
 
@@ -147,6 +148,57 @@ export const PAGE_CARDS: PageCardConfig[] = [
         label: "Excluir / Cancelar Produção",
         description: "Permite cancelar ordens de produção emitidas.",
         badge: "Crítico",
+      },
+    ],
+  },
+  {
+    id: "materias-primas",
+    title: "Matérias-Primas & Insumos",
+    route: "/producoes/materias-primas",
+    icon: Layers,
+    description: "Gestão completa de matérias-primas e insumos, integração com baús da facção, regras de débito manual e auditoria.",
+    color: "border-amber-500/40 bg-amber-500/5 text-amber-400",
+    defaultCat: "Produções",
+    defaultOrder: 1,
+    permissions: [
+      {
+        key: "raw_materials.view",
+        label: "Visualizar Matérias-Primas",
+        description: "Permite acessar a página de Matérias-Primas e consultar saldos, métricas e níveis de estoque.",
+      },
+      {
+        key: "raw_materials.create",
+        label: "Cadastrar Nova Matéria-Prima",
+        description: "Permite adicionar novos tipos de insumos e matérias-primas ao catálogo da facção.",
+        badge: "Gestão",
+      },
+      {
+        key: "raw_materials.edit",
+        label: "Editar Matéria-Prima",
+        description: "Permite alterar nome, descrição, unidade, estoque mínimo e configurações de matérias-primas.",
+      },
+      {
+        key: "raw_materials.delete",
+        label: "Excluir Matéria-Prima",
+        description: "Permite remover matérias-primas não utilizadas do catálogo.",
+        badge: "Crítico",
+      },
+      {
+        key: "raw_materials.adjust",
+        label: "Ajuste Manual de Estoque",
+        description: "Permite retificar o saldo de matérias-primas diretamente no estoque físico.",
+        badge: "Gerência",
+      },
+      {
+        key: "raw_materials.transfer_bau",
+        label: "Puxar / Devolver Saldos dos Baús",
+        description: "Permite transferir insumos entre os baús da facção e o estoque de matérias-primas (respeitando débito apenas para baús manuais).",
+        badge: "Logística",
+      },
+      {
+        key: "raw_materials.history",
+        label: "Auditoria & Histórico de Movimentações",
+        description: "Permite consultar todo o log de entradas, saídas, consumos e transferências de matérias-primas.",
       },
     ],
   },
