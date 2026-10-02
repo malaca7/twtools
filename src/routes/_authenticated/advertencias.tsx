@@ -477,7 +477,7 @@ function AdvertenciasContent() {
         <TableSkeleton rows={6} />
       ) : filteredWarnings.length === 0 ? (
         <EmptyState
-          icon={ShieldAlert}
+          icon={<ShieldAlert className="h-10 w-10 text-muted-foreground" />}
           title="Nenhum registro disciplinar encontrado"
           description={
             searchTerm || statusFilter !== "todos" || typeFilter !== "todos"

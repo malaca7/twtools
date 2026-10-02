@@ -1,4 +1,4 @@
-import { type ReactNode, useEffect, useRef } from "react";
+import React, { type ReactNode, useEffect, useRef } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
@@ -93,11 +93,24 @@ export function EmptyState({
   title: string;
   description?: string;
   action?: ReactNode;
-  icon?: ReactNode;
+  icon?: ReactNode | React.ComponentType<{ className?: string }>;
 }) {
+  const renderIcon = () => {
+    if (!icon) return null;
+    if (React.isValidElement(icon)) return icon;
+    if (
+      typeof icon === "function" ||
+      (typeof icon === "object" && icon !== null && "$$typeof" in icon)
+    ) {
+      const Comp = icon as React.ComponentType<{ className?: string }>;
+      return <Comp className="h-10 w-10 text-muted-foreground" />;
+    }
+    return icon as ReactNode;
+  };
+
   return (
     <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border/80 px-6 py-14 text-center">
-      {icon ? <div className="mb-3 text-muted-foreground">{icon}</div> : null}
+      {icon ? <div className="mb-3 text-muted-foreground">{renderIcon()}</div> : null}
       <p className="text-sm font-medium text-foreground">{title}</p>
       {description ? (
         <p className="mt-1 max-w-sm text-sm text-muted-foreground">{description}</p>

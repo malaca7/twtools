@@ -852,7 +852,7 @@ export function CeoGerenciarTagsPage() {
               ? `Nenhum resultado para "${tagSearch}". Tente outro termo.`
               : "Nenhuma tag cadastrada com os filtros selecionados."
           }
-          icon={TagIcon}
+          icon={<TagIcon className="h-10 w-10 text-muted-foreground" />}
           action={
             canCreateTag ? (
               <Button onClick={handleOpenCreateModal} size="sm" className="rounded-xl gap-2 text-xs">

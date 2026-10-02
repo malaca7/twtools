@@ -1453,11 +1453,11 @@ export function can(
   customRoleMap?: Record<string, Permission[]>
 ): boolean {
   if (!userLevel) return false;
-  if (userLevel === "desenvolvedor") return true;
 
-  // Custom role override check (se permissões customizadas foram salvas no banco para este cargo)
+  // Custom role override check (se permissões customizadas foram salvas no banco para este cargo ou se for desenvolvedor com permissões configuradas)
   if (customRoleMap && customRoleMap[userLevel]) {
     const list = customRoleMap[userLevel];
+    if (satisfiesPermission(list, permission)) return true;
     if (list.includes(permission)) return true;
 
     // Herança e equivalências do sistema de tickets
@@ -1793,6 +1793,8 @@ export function can(
 
     return false;
   }
+
+  if (userLevel === "desenvolvedor") return true;
 
   const rolePerms = PERMISSIONS[userLevel] || [];
   if (rolePerms.includes(permission)) return true;

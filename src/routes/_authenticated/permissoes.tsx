@@ -75,7 +75,14 @@ export function PermissoesPage() {
 
   useEffect(() => {
     setMounted(true);
-  }, []);
+    const handleSync = () => {
+      void queryClient.invalidateQueries({ queryKey: ["role_permissions"] });
+    };
+    window.addEventListener("tw_permissions_synced", handleSync);
+    return () => {
+      window.removeEventListener("tw_permissions_synced", handleSync);
+    };
+  }, [queryClient]);
 
   useEffect(() => {
     const handleScroll = () => {

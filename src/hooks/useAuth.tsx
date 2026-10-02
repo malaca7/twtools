@@ -801,66 +801,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       // 0. Se for Desenvolvedor (isDevUser):
-      // Quando o membro tiver a Tag Dev:
-      // a) No Painel Dev (inDevPanel) ou com bypass: tem acesso TOTAL a tudo (modo desenvolvedor com todas permissões dev)!
-      // b) No Painel CEO (inCeoPanel) ou em qualquer rota de gestão/CEO: tem acesso irrestrito a todos os recursos do CEO e Dev (view_ceo, manage_ceo_*, bot_*, webhook_*, etc.)
+      // Quando o desenvolvedor estiver com Developer Bypass Mode ativo: acesso irrestrito total a tudo!
+      // Caso contrário, as permissões são 100% funcionais de acordo com a matriz configurada em /dev/permissoes.
       if (isDevUser) {
-        if (bypassActive || inDevPanel || inCeoPanel) {
+        if (bypassActive) {
           return true;
         }
-        const permStr = String(permission);
-        if (
-          permStr.startsWith("view_ceo") ||
-          permStr.startsWith("manage_ceo") ||
-          permStr.startsWith("create_ceo") ||
-          permStr.startsWith("edit_ceo") ||
-          permStr.startsWith("delete_ceo") ||
-          permStr.startsWith("toggle_ceo") ||
-          permStr.startsWith("ceo_") ||
-          permStr.includes("_ceo_") ||
-          permStr === "view_ceo" ||
-          permStr.startsWith("bot_") ||
-          permStr.startsWith("webhook_") ||
-          permStr.startsWith("view_dev") ||
-          permStr.startsWith("manage_dev") ||
-          permStr.startsWith("create_dev") ||
-          permStr.startsWith("edit_dev") ||
-          permStr.startsWith("delete_dev") ||
-          permStr.includes("_dev_") ||
-          permStr === "view_dev_hub"
-        ) {
+        if (permission === "view_dev_hub" || permission === "view_dev") {
+          return true;
+        }
+        const devPerms = customRolePermissions?.["desenvolvedor"] ?? getDevTagPermissionsSync();
+        if (satisfiesPermission(devPerms, permission)) {
           return true;
         }
       }
 
       // 0.05. Se for CEO (isCeoUser):
-      // Quando o membro tiver a Tag CEO:
-      // a) No Painel CEO (inCeoPanel): tem acesso TOTAL a todas as funções, menus e recursos do CEO!
-      // b) Em qualquer rota executiva/CEO ou ferramentas do CEO: tem acesso pleno!
+      // Garante acesso à rota base do painel CEO, e avalia a matriz de permissões da Tag CEO configurada.
       if (isCeoUser) {
-        if (inCeoPanel) {
+        if (permission === "view_ceo") {
           return true;
         }
-        const permStr = String(permission);
-        if (
-          permStr.startsWith("view_ceo") ||
-          permStr.startsWith("manage_ceo") ||
-          permStr.startsWith("create_ceo") ||
-          permStr.startsWith("edit_ceo") ||
-          permStr.startsWith("delete_ceo") ||
-          permStr.startsWith("toggle_ceo") ||
-          permStr.startsWith("ceo_") ||
-          permStr.includes("_ceo_") ||
-          permStr === "view_ceo" ||
-          permStr.startsWith("bot_") ||
-          permStr.startsWith("webhook_") ||
-          permStr.startsWith("view_warnings") ||
-          permStr.startsWith("create_warning") ||
-          permStr.startsWith("edit_warning") ||
-          permStr.startsWith("revoke_warning") ||
-          permStr.startsWith("delete_warning") ||
-          permStr.startsWith("manage_warnings")
-        ) {
+        const ceoPerms = customRolePermissions?.["ceo"] ?? getCeoTagPermissionsSync();
+        if (satisfiesPermission(ceoPerms, permission)) {
           return true;
         }
       }
@@ -880,27 +843,37 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           if (satisfiesPermission(devPerms, permission)) {
             return true;
           }
-          if (can("desenvolvedor", permission, customRolePermissions)) return true;
+          if (isDevBypassActive()) return true;
         }
         return can(level, permission, customRolePermissions);
       }
 
       // 2. Quando estiver operando no PAINEL DEV (ou rota /dev):
       if (inDevPanel) {
-        if (isDevUser) return true;
-        const devPerms = customRolePermissions?.["desenvolvedor"] ?? getDevTagPermissionsSync();
-        if (satisfiesPermission(devPerms, permission)) {
-          return true;
+        if (isDevUser) {
+          const devPerms = customRolePermissions?.["desenvolvedor"] ?? getDevTagPermissionsSync();
+          if (satisfiesPermission(devPerms, permission)) {
+            return true;
+          }
+          if (isDevBypassActive()) return true;
         }
         return can(level, permission, customRolePermissions);
       }
 
       // 3. Quando estiver operando no PAINEL CEO (ou rota /ceo):
       if (inCeoPanel) {
-        if (isDevUser || isCeoUser) return true;
-        const ceoPerms = customRolePermissions?.["ceo"] ?? getCeoTagPermissionsSync();
-        if (satisfiesPermission(ceoPerms, permission)) {
-          return true;
+        if (isDevUser) {
+          const devPerms = customRolePermissions?.["desenvolvedor"] ?? getDevTagPermissionsSync();
+          if (satisfiesPermission(devPerms, permission)) {
+            return true;
+          }
+          if (isDevBypassActive()) return true;
+        }
+        if (isCeoUser) {
+          const ceoPerms = customRolePermissions?.["ceo"] ?? getCeoTagPermissionsSync();
+          if (satisfiesPermission(ceoPerms, permission)) {
+            return true;
+          }
         }
         return can(level, permission, customRolePermissions);
       }

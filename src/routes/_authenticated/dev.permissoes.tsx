@@ -10,6 +10,7 @@ import {
   Search,
   Users,
   ShieldAlert,
+  ShieldCheck,
   Sparkles,
   Bot,
   Webhook,
@@ -28,7 +29,7 @@ import { Input } from "@/components/ui/input";
 import { PageHeader, DevBadge, CeoBadge } from "@/components/ui-kit";
 import { usePanelTheme } from "@/lib/panelTheme";
 import { useAuth } from "@/hooks/useAuth";
-import { useMembers } from "@/hooks/useData";
+import { useMembers, useRolePermissions, useCustomRoles } from "@/hooks/useData";
 import { useMenuConfig } from "@/hooks/useMenuConfig";
 import { useCeoMenuConfig } from "@/hooks/useCeoMenuConfig";
 import { useDevMenuConfig } from "@/hooks/useDevMenuConfig";
@@ -46,10 +47,22 @@ import {
   type CeoConfiguration,
   DEFAULT_CEO_CONFIG,
 } from "@/services/devService";
-import { ALL_PERMISSIONS, getLevelLabel, levelBadgeClass, type Permission } from "@/lib/permissions";
+import { saveRolePermissions } from "@/lib/app-api";
+import {
+  LEVELS,
+  LEVEL_LABEL,
+  LEVEL_DESCRIPTION,
+  PERMISSIONS,
+  ALL_PERMISSIONS,
+  levelBadgeClass,
+  getLevelLabel,
+  type AppLevel,
+  type Permission,
+} from "@/lib/permissions";
 import {
   PAGE_CARDS,
   READ_ONLY_PERMISSIONS,
+  type PageCardConfig,
 } from "@/lib/permissionCards";
 import { cn } from "@/lib/utils";
 
@@ -72,10 +85,33 @@ function DevPermissoesContent() {
   const { config: ceoMenuConfig } = useCeoMenuConfig();
   const { config: devMenuConfig } = useDevMenuConfig();
   const { data: members = [], isLoading: loadingMembers } = useMembers();
+  const { data: dbPermissions, isLoading: loadingDbPermissions } = useRolePermissions();
+  const { data: customRoles = [] } = useCustomRoles();
   const queryClient = useQueryClient();
 
-  // Aba ativa: Tag Dev vs Tag CEO
-  const [activeTab, setActiveTab] = useState<"dev" | "ceo">("dev");
+  // Aba ativa: Cargos da Plataforma vs Tag Dev vs Tag CEO
+  const [activeTab, setActiveTab] = useState<"cargos" | "dev" | "ceo">("cargos");
+
+  // Lista unificada de todos os cargos disponíveis (Padrão + Customizados)
+  const allAvailableLevels = useMemo(() => {
+    const list = [...LEVELS];
+    customRoles.forEach((r) => {
+      const id = (r.name || r.id).toLowerCase();
+      if (!list.includes(id as AppLevel)) {
+        list.push(id as AppLevel);
+      }
+    });
+    return list;
+  }, [customRoles]);
+
+  // Estado da aba "cargos"
+  const [selectedCargo, setSelectedCargo] = useState<AppLevel>("01");
+  const [cargoPermSearch, setCargoPermSearch] = useState("");
+  const [cargoCategoryFilter, setCargoCategoryFilter] = useState("all");
+  const [activeCargoPermissions, setActiveCargoPermissions] = useState<Permission[]>([]);
+  const [isCargoSyncing, setIsCargoSyncing] = useState(false);
+  const isSavingCargoRef = useRef(false);
+  const prevCargoRef = useRef<AppLevel>(selectedCargo);
 
   // Filtros de busca de módulos e categorias de permissão
   const [devPermSearch, setDevPermSearch] = useState("");
@@ -110,11 +146,43 @@ function DevPermissoesContent() {
   const [filterCeoOnly, setFilterCeoOnly] = useState<"all" | "ceo_only">("all");
   const [togglingMemberId, setTogglingMemberId] = useState<string | null>(null);
 
-  // 1. Carrega as permissões da Tag Dev ao inicializar sem resetar o layout
+  // 0. Sincronização em tempo real das permissões dos cargos com dbPermissions (/permissoes)
+  useEffect(() => {
+    const cargoChanged = prevCargoRef.current !== selectedCargo;
+    prevCargoRef.current = selectedCargo;
+
+    if (cargoChanged || !isSavingCargoRef.current) {
+      if (dbPermissions && dbPermissions[selectedCargo]) {
+        setActiveCargoPermissions(dbPermissions[selectedCargo]);
+      } else {
+        setActiveCargoPermissions(PERMISSIONS[selectedCargo] || []);
+      }
+    }
+  }, [dbPermissions, selectedCargo]);
+
+  // Listener global de broadcast em tempo real para auto-sincronização com /permissoes
+  useEffect(() => {
+    const handleSync = () => {
+      void queryClient.invalidateQueries({ queryKey: ["role_permissions"] });
+    };
+    window.addEventListener("tw_permissions_synced", handleSync);
+    return () => {
+      window.removeEventListener("tw_permissions_synced", handleSync);
+    };
+  }, [queryClient]);
+
+  // 1. Carrega as permissões da Tag Dev ao inicializar sincronizado com dbPermissions
   useEffect(() => {
     let isMounted = true;
     if (!devInitialLoadedRef.current) {
       setLoadingDev(true);
+    }
+
+    if (dbPermissions && dbPermissions["desenvolvedor"] && Array.isArray(dbPermissions["desenvolvedor"])) {
+      setActiveDevPermissions(dbPermissions["desenvolvedor"]);
+      devInitialLoadedRef.current = true;
+      setLoadingDev(false);
+      return;
     }
 
     getDevPermissions(user, profile, level)
@@ -127,7 +195,7 @@ function DevPermissoesContent() {
               keys.push(val as Permission);
             }
           });
-          setActiveDevPermissions(keys);
+          setActiveDevPermissions(keys.length > 0 ? keys : ALL_PERMISSIONS);
           devInitialLoadedRef.current = true;
         }
       })
@@ -141,13 +209,19 @@ function DevPermissoesContent() {
     return () => {
       isMounted = false;
     };
-  }, [user?.id, level]);
+  }, [user?.id, level, dbPermissions]);
 
-  // 2. Carrega as permissões e configuração da Tag CEO
+  // 2. Carrega as permissões e configuração da Tag CEO sincronizado com dbPermissions
   useEffect(() => {
     let isMounted = true;
     if (!ceoInitialLoadedRef.current) {
       setLoadingCeo(true);
+    }
+
+    if (dbPermissions && dbPermissions["ceo"] && Array.isArray(dbPermissions["ceo"])) {
+      setActiveCeoPermissions(dbPermissions["ceo"]);
+      ceoInitialLoadedRef.current = true;
+      setLoadingCeo(false);
     }
 
     Promise.all([
@@ -156,7 +230,7 @@ function DevPermissoesContent() {
     ])
       .then(([perms, config]) => {
         if (isMounted) {
-          if (Array.isArray(perms) && perms.length > 0) {
+          if (Array.isArray(perms) && perms.length > 0 && (!dbPermissions || !dbPermissions["ceo"])) {
             const valid = perms.filter((p) => ALL_PERMISSIONS.includes(p as Permission)) as Permission[];
             setActiveCeoPermissions(valid.length > 0 ? valid : (DEFAULT_CEO_PERMISSIONS as Permission[]));
           }
@@ -176,11 +250,11 @@ function DevPermissoesContent() {
     return () => {
       isMounted = false;
     };
-  }, [user?.id, level]);
+  }, [user?.id, level, dbPermissions]);
 
   // Agrupa os cards de páginas dinamicamente sincronizado com todos os painéis (DEV, CEO e Membro)
   const getGroupedPageCards = useCallback(
-    (tab: "dev" | "ceo") => {
+    (tab: "cargos" | "dev" | "ceo") => {
       // 1. Mapeamento de itens dos 3 painéis
       const memberItems = menuConfig?.items?.filter((c) => Boolean(c && (c.id || c.url))) || [];
       const memberConfigMap = new Map(memberItems.flatMap((c) => [[c.id, c], [c.url, c]]));
@@ -221,13 +295,22 @@ function DevPermissoesContent() {
 
       // 4. Ordem e lista unificada de categorias para a aba correspondente
       const categoryOrder =
-        tab === "ceo"
+        tab === "cargos"
+          ? rawMemberCats.filter((c) => c !== "DEV" && c !== "Ferramentas Dev" && c !== "CEO" && c !== "Operação")
+          : tab === "ceo"
           ? Array.from(new Set([...rawCeoCats, ...rawMemberCats]))
           : Array.from(new Set([...rawDevCats, ...rawCeoCats, ...rawMemberCats]));
 
       // 5. Customização dos cards com metadados do painel de origem
       const customized = PAGE_CARDS
         .filter((card) => {
+          if (tab === "cargos") {
+            if (isDevCard(card)) return false;
+            if (card.id === "ceo-tags") return true;
+            if (isCeoCard(card)) return false;
+            if (card.id === "lives" || card.id === "life") return false;
+            return true;
+          }
           if (tab === "ceo" && isDevCard(card)) return false;
           return true;
         })
@@ -242,11 +325,15 @@ function DevPermissoesContent() {
           }
 
           let cat = cfg?.category || card.defaultCat;
+          if (tab === "cargos" && card.id === "ceo-tags") {
+            cat = "Administração";
+          }
           if (cat === "Ferramentas Dev") cat = "DEV";
+          if (cat === "Operação") cat = card.id === "vendas" ? "Produções" : "Gestão";
 
           return {
             ...card,
-            title: cfg?.title || card.title,
+            title: tab === "cargos" && card.id === "ceo-tags" ? "Gerenciar Tags" : (cfg?.title || card.title),
             category: cat,
             order: typeof cfg?.order === "number" ? cfg.order : card.defaultOrder,
           };
@@ -283,10 +370,37 @@ function DevPermissoesContent() {
     [menuConfig, ceoMenuConfig, devMenuConfig]
   );
 
-  const groupedPageCards = useMemo(() => getGroupedPageCards(activeTab), [getGroupedPageCards, activeTab]);
+  const cargoGroups = useMemo(() => getGroupedPageCards("cargos"), [getGroupedPageCards]);
+  const cargoCards = useMemo(() => cargoGroups.flatMap((g) => g.cards), [cargoGroups]);
 
+  const filteredCargoGroups = useMemo(() => {
+    return cargoGroups
+      .filter((g) => cargoCategoryFilter === "all" || cargoCategoryFilter === g.category)
+      .map((g) => {
+        if (!cargoPermSearch.trim()) return g;
+        const q = cargoPermSearch.toLowerCase();
+        const matchingCards = g.cards.filter((card) => {
+          return (
+            card.title.toLowerCase().includes(q) ||
+            card.route.toLowerCase().includes(q) ||
+            card.description.toLowerCase().includes(q) ||
+            card.permissions.some(
+              (p) =>
+                p.label.toLowerCase().includes(q) ||
+                p.key.toLowerCase().includes(q) ||
+                p.description.toLowerCase().includes(q) ||
+                (p.badge && p.badge.toLowerCase().includes(q))
+            )
+          );
+        });
+        return { ...g, cards: matchingCards };
+      })
+      .filter((g) => g.cards.length > 0);
+  }, [cargoGroups, cargoCategoryFilter, cargoPermSearch]);
+
+  const devGroups = useMemo(() => getGroupedPageCards("dev"), [getGroupedPageCards]);
   const filteredDevGroups = useMemo(() => {
-    return groupedPageCards
+    return devGroups
       .filter((g) => devCategoryFilter === "all" || devCategoryFilter === g.category)
       .map((g) => {
         if (!devPermSearch.trim()) return g;
@@ -308,10 +422,11 @@ function DevPermissoesContent() {
         return { ...g, cards: matchingCards };
       })
       .filter((g) => g.cards.length > 0);
-  }, [groupedPageCards, devCategoryFilter, devPermSearch]);
+  }, [devGroups, devCategoryFilter, devPermSearch]);
 
+  const ceoGroups = useMemo(() => getGroupedPageCards("ceo"), [getGroupedPageCards]);
   const filteredCeoGroups = useMemo(() => {
-    return groupedPageCards
+    return ceoGroups
       .filter((g) => ceoCategoryFilter === "all" || ceoCategoryFilter === g.category)
       .map((g) => {
         if (!ceoPermSearch.trim()) return g;
@@ -333,22 +448,88 @@ function DevPermissoesContent() {
         return { ...g, cards: matchingCards };
       })
       .filter((g) => g.cards.length > 0);
-  }, [groupedPageCards, ceoCategoryFilter, ceoPermSearch]);
+  }, [ceoGroups, ceoCategoryFilter, ceoPermSearch]);
+
+  // Sincronização e autosave dos Cargos da Plataforma
+  const autoSaveCargoPermissions = useCallback(
+    async (targetCargo: AppLevel, nextPerms: Permission[]) => {
+      setIsCargoSyncing(true);
+      isSavingCargoRef.current = true;
+      try {
+        await saveRolePermissions(targetCargo, nextPerms);
+        queryClient.setQueryData<Record<AppLevel, Permission[]>>(["role_permissions"], (old) => ({
+          ...(old || {}),
+          [targetCargo]: nextPerms,
+        } as Record<AppLevel, Permission[]>));
+      } catch (err) {
+        toast.error("Falha ao salvar permissões do cargo.");
+      } finally {
+        setIsCargoSyncing(false);
+        setTimeout(() => {
+          isSavingCargoRef.current = false;
+        }, 800);
+      }
+    },
+    [queryClient]
+  );
+
+  const toggleCargoPermission = (permKey: Permission) => {
+    const next = activeCargoPermissions.includes(permKey)
+      ? activeCargoPermissions.filter((p) => p !== permKey)
+      : [...activeCargoPermissions, permKey];
+    setActiveCargoPermissions(next);
+    void autoSaveCargoPermissions(selectedCargo, next);
+  };
+
+  const toggleCargoCardPermissions = (card: PageCardConfig) => {
+    const cardPermKeys = card.permissions.map((p) => p.key);
+    const allCardActive = cardPermKeys.every((k) => activeCargoPermissions.includes(k));
+    let next: Permission[];
+    if (allCardActive) {
+      next = activeCargoPermissions.filter((k) => !cardPermKeys.includes(k));
+    } else {
+      next = Array.from(new Set([...activeCargoPermissions, ...cardPermKeys]));
+    }
+    setActiveCargoPermissions(next);
+    void autoSaveCargoPermissions(selectedCargo, next);
+  };
+
+  const setAllCargoPermissions = () => {
+    const allKeys = Array.from(new Set(cargoCards.flatMap((c) => c.permissions.map((p) => p.key))));
+    setActiveCargoPermissions(allKeys);
+    void autoSaveCargoPermissions(selectedCargo, allKeys);
+  };
+
+  const setReadOnlyCargoPermissions = () => {
+    const allKeys = Array.from(new Set(cargoCards.flatMap((c) => c.permissions.map((p) => p.key))));
+    const readOnlyKeys = READ_ONLY_PERMISSIONS.filter((p) => allKeys.includes(p));
+    setActiveCargoPermissions(readOnlyKeys);
+    void autoSaveCargoPermissions(selectedCargo, readOnlyKeys);
+  };
+
+  const clearAllCargoPermissions = () => {
+    setActiveCargoPermissions([]);
+    void autoSaveCargoPermissions(selectedCargo, []);
+  };
 
   // Sincronização e autosave da Tag Dev
   const autoSaveDevTagPermissions = useCallback(
     async (nextPerms: Permission[]) => {
       setIsDevSyncing(true);
       try {
+        await saveRolePermissions("desenvolvedor" as AppLevel, nextPerms);
         await saveDevPermissions(nextPerms, user, profile, level);
-        void queryClient.invalidateQueries({ queryKey: ["role_permissions"] });
+        queryClient.setQueryData<Record<AppLevel, Permission[]>>(["role_permissions"], (old) => ({
+          ...(old || {}),
+          desenvolvedor: nextPerms,
+        } as Record<AppLevel, Permission[]>));
       } catch (err) {
         toast.error("Falha ao sincronizar permissões da Tag Dev.");
       } finally {
         setIsDevSyncing(false);
       }
     },
-    [user, profile, level, queryClient]
+    [queryClient, user, profile, level]
   );
 
   // Sincronização e autosave da Tag CEO
@@ -356,15 +537,19 @@ function DevPermissoesContent() {
     async (nextPerms: Permission[]) => {
       setIsCeoSyncing(true);
       try {
+        await saveRolePermissions("ceo" as AppLevel, nextPerms);
         await saveCeoTagPermissions(nextPerms, user, profile, level);
-        void queryClient.invalidateQueries({ queryKey: ["role_permissions"] });
+        queryClient.setQueryData<Record<AppLevel, Permission[]>>(["role_permissions"], (old) => ({
+          ...(old || {}),
+          ceo: nextPerms,
+        } as Record<AppLevel, Permission[]>));
       } catch (err) {
         toast.error("Falha ao sincronizar permissões da Tag CEO.");
       } finally {
         setIsCeoSyncing(false);
       }
     },
-    [user, profile, level, queryClient]
+    [queryClient, user, profile, level]
   );
 
   // Atualiza e sincroniza as configurações de módulos do Painel CEO
@@ -557,12 +742,16 @@ function DevPermissoesContent() {
       {/* Page Header */}
       <PageHeader
         title={
-          activeTab === "dev"
+          activeTab === "cargos"
+            ? "Dev → Permissões dos Cargos da Plataforma"
+            : activeTab === "dev"
             ? "Dev → Permissões da Tag Desenvolvedor"
             : "Dev → Configuração & Permissões da Tag CEO"
         }
         description={
-          activeTab === "dev"
+          activeTab === "cargos"
+            ? "Gerencie a matriz de permissões de cada cargo da plataforma (01, 02, Gerente, etc.). Sincronizado automaticamente e em tempo real com /permissoes e o banco de dados."
+            : activeTab === "dev"
             ? "Configure as permissões operacionais vinculadas exclusivamente à Tag Desenvolvedor [Dev System 💻] e gerencie os membros com a tag ativa. As permissões se somam às do cargo do membro."
             : "Configure a matriz de permissões da Tag CEO [Diretoria Executiva 👑] e gerencie quais membros possuem a tag. Apenas usuários com a Tag Dev têm autorização para atribuir a Tag CEO."
         }
@@ -571,22 +760,28 @@ function DevPermissoesContent() {
             <Badge
               className={cn(
                 "text-xs py-1.5 px-3 gap-1.5 font-bold transition-all",
-                activeTab === "dev"
+                activeTab === "cargos"
+                  ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30"
+                  : activeTab === "dev"
                   ? "bg-rose-500/10 text-rose-400 border-rose-500/30"
                   : "bg-amber-500/10 text-amber-300 border-amber-500/30"
               )}
             >
-              {(activeTab === "dev" ? isDevSyncing : isCeoSyncing) ? (
+              {(activeTab === "cargos" ? isCargoSyncing : activeTab === "dev" ? isDevSyncing : isCeoSyncing) ? (
                 <Loader2 className="h-3.5 w-3.5 animate-spin" />
               ) : (
                 <CheckCircle2
                   className={cn(
                     "h-3.5 w-3.5",
-                    activeTab === "dev" ? "text-rose-400" : "text-amber-400"
+                    activeTab === "cargos"
+                      ? "text-emerald-400"
+                      : activeTab === "dev"
+                      ? "text-rose-400"
+                      : "text-amber-400"
                   )}
                 />
               )}
-              {(activeTab === "dev" ? isDevSyncing : isCeoSyncing)
+              {(activeTab === "cargos" ? isCargoSyncing : activeTab === "dev" ? isDevSyncing : isCeoSyncing)
                 ? "Sincronizando..."
                 : "Sincronizado em Tempo Real"}
             </Badge>
@@ -594,9 +789,40 @@ function DevPermissoesContent() {
         }
       />
 
-      {/* SELETOR DE ABAS MODERNAS: TAG DEV vs TAG CEO */}
+      {/* SELETOR DE ABAS MODERNAS: CARGOS vs TAG DEV vs TAG CEO */}
       <div className="flex flex-wrap items-center justify-between gap-4 p-2 bg-secondary/40 rounded-2xl border border-border/50 backdrop-blur-md">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          {/* Aba Cargos da Plataforma */}
+          <button
+            type="button"
+            onClick={() => setActiveTab("cargos")}
+            className={cn(
+              "flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-black transition-all cursor-pointer",
+              activeTab !== "cargos" && "text-muted-foreground hover:text-foreground hover:bg-secondary/60"
+            )}
+            style={
+              activeTab === "cargos"
+                ? {
+                    backgroundColor: "rgba(16, 185, 129, 0.15)",
+                    color: "#34d399",
+                    borderColor: "rgba(16, 185, 129, 0.4)",
+                    borderWidth: "1px",
+                    boxShadow: "0 2px 8px rgba(16, 185, 129, 0.15)",
+                  }
+                : undefined
+            }
+          >
+            <ShieldCheck className="h-4 w-4" style={{ color: activeTab === "cargos" ? "#34d399" : undefined }} />
+            Cargos da Plataforma
+            <Badge
+              variant="outline"
+              className="text-[9px] font-mono py-0 px-1.5 ml-1 font-bold border-emerald-500/40 text-emerald-400 bg-emerald-500/10"
+            >
+              /permissoes
+            </Badge>
+          </button>
+
+          {/* Aba Tag Dev */}
           <button
             type="button"
             onClick={() => setActiveTab("dev")}
@@ -631,6 +857,7 @@ function DevPermissoesContent() {
             </Badge>
           </button>
 
+          {/* Aba Tag CEO */}
           <button
             type="button"
             onClick={() => setActiveTab("ceo")}
@@ -671,6 +898,348 @@ function DevPermissoesContent() {
           Acesso e gerenciamento restritos à Tag Dev
         </div>
       </div>
+
+      {/* =========================================================================
+          ABA 0: CARGOS DA PLATAFORMA (Sincronizado com /permissoes)
+          ========================================================================= */}
+      {activeTab === "cargos" && (
+        <div className="space-y-6 animate-in fade-in-50 duration-200">
+          {/* Card Informativo Cargos da Plataforma */}
+          <Card
+            className="surface-card transition-all"
+            style={{
+              borderColor: "rgba(16, 185, 129, 0.35)",
+              background: "linear-gradient(to right, rgba(16, 185, 129, 0.12), rgba(16, 185, 129, 0.03), transparent)",
+            }}
+          >
+            <CardHeader className="pb-3">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div className="flex items-center gap-3.5">
+                  <div
+                    className="p-3 rounded-2xl shadow-sm shrink-0 border"
+                    style={{
+                      backgroundColor: "rgba(16, 185, 129, 0.15)",
+                      color: "#34d399",
+                      borderColor: "rgba(16, 185, 129, 0.35)",
+                    }}
+                  >
+                    <ShieldCheck className="h-6 w-6" />
+                  </div>
+                  <div>
+                    <CardTitle className="text-base font-black text-foreground flex items-center gap-2">
+                      Cargos da Plataforma — Sincronização em Tempo Real
+                      <Badge className="bg-emerald-500/10 text-emerald-400 border-emerald-500/30 text-[10px] font-mono py-0">
+                        /permissoes
+                      </Badge>
+                    </CardTitle>
+                    <CardDescription className="text-xs mt-1">
+                      Configure a matriz operacional de cada cargo na hierarquia da facção. As alterações são salvas na tabela <strong>role_permissions</strong> e refletidas instantaneamente na página <strong>/permissoes</strong>.
+                    </CardDescription>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 shrink-0">
+                  <Link to="/permissoes">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-8 text-xs font-bold border-emerald-500/40 text-emerald-400 hover:bg-emerald-500/10 gap-1.5 cursor-pointer"
+                    >
+                      <ExternalLink className="h-3.5 w-3.5" />
+                      Abrir /permissoes
+                    </Button>
+                  </Link>
+                </div>
+              </div>
+            </CardHeader>
+          </Card>
+
+          {/* SELETOR DE CARGO */}
+          <Card className="surface-card border-border/80">
+            <CardHeader className="pb-3">
+              <div className="space-y-1">
+                <CardTitle className="text-sm font-extrabold flex items-center gap-2">
+                  <ShieldCheck className="h-4 w-4 text-emerald-400" />
+                  Cargo Selecionado para Configuração
+                </CardTitle>
+                <CardDescription className="text-xs">
+                  Selecione um cargo abaixo para carregar e alternar suas permissões ativas.
+                </CardDescription>
+              </div>
+
+              {/* Linha de botões dos cargos */}
+              <div className="flex flex-wrap gap-2 pt-3">
+                {allAvailableLevels.map((lvl) => {
+                  const isSelected = selectedCargo === lvl;
+                  const count = members.filter((m) => m.nivel === lvl).length;
+
+                  return (
+                    <button
+                      key={`cargo-btn-${lvl}`}
+                      type="button"
+                      onClick={() => setSelectedCargo(lvl)}
+                      className={cn(
+                        "flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold transition-all border cursor-pointer",
+                        isSelected
+                          ? "bg-emerald-500/15 border-emerald-500/60 text-emerald-400 shadow-sm shadow-emerald-500/10 scale-[1.02]"
+                          : "bg-secondary/40 border-border/60 hover:bg-secondary/80 text-foreground"
+                      )}
+                    >
+                      <ShieldCheck className="h-3.5 w-3.5" />
+                      <span>{LEVEL_LABEL[lvl] || lvl}</span>
+                      <Badge
+                        variant="secondary"
+                        className={cn(
+                          "text-[9px] px-1.5 py-0 font-mono font-bold",
+                          isSelected
+                            ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/30"
+                            : "bg-background text-muted-foreground"
+                        )}
+                      >
+                        {count}
+                      </Badge>
+                    </button>
+                  );
+                })}
+              </div>
+            </CardHeader>
+
+            <CardContent className="pt-2 border-t border-border/60">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-secondary/30 p-3 rounded-xl border border-border/80">
+                <div className="flex items-center gap-3">
+                  <Badge className={cn("text-xs px-3 py-1 font-bold", levelBadgeClass(selectedCargo))}>
+                    {LEVEL_LABEL[selectedCargo] || selectedCargo}
+                  </Badge>
+                  <div>
+                    <p className="text-xs text-foreground font-semibold">
+                      {LEVEL_DESCRIPTION[selectedCargo] || "Cargo operacional da plataforma."}
+                    </p>
+                    <p className="text-[0.65rem] text-muted-foreground">
+                      {activeCargoPermissions.length} de {cargoCards.reduce((acc, c) => acc + c.permissions.length, 0)} permissões ativas para este cargo.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-1.5 shrink-0">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-7 text-[11px] px-2.5 font-bold border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10"
+                    onClick={setAllCargoPermissions}
+                  >
+                    Marcar Todas
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-7 text-[11px] px-2.5 font-bold border-sky-500/30 text-sky-400 hover:bg-sky-500/10"
+                    onClick={setReadOnlyCargoPermissions}
+                  >
+                    Apenas Leitura
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 text-[11px] px-2.5 font-bold text-destructive hover:bg-destructive/10"
+                    onClick={clearAllCargoPermissions}
+                  >
+                    Limpar Todas
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* BARRA DE BUSCA E FILTRO DE CATEGORIAS (CARGOS) */}
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 p-3 rounded-2xl bg-secondary/20 border border-border/60">
+            <div className="relative w-full sm:w-80">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+              <Input
+                value={cargoPermSearch}
+                onChange={(e) => setCargoPermSearch(e.target.value)}
+                placeholder="Buscar módulo, rota ou permissão nos cargos..."
+                className="pl-8 h-8 text-xs rounded-xl bg-background/60"
+              />
+            </div>
+
+            <div className="flex flex-wrap items-center gap-1.5 w-full sm:w-auto justify-end">
+              <Button
+                type="button"
+                variant={cargoCategoryFilter === "all" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setCargoCategoryFilter("all")}
+                className="h-7 text-xs rounded-xl"
+              >
+                Todas as Categorias
+              </Button>
+              {cargoGroups.map((g) => (
+                <Button
+                  key={`cargo-cat-${g.category}`}
+                  type="button"
+                  variant={cargoCategoryFilter === g.category ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setCargoCategoryFilter(g.category)}
+                  className="h-7 text-xs rounded-xl"
+                >
+                  {g.category} ({g.cards.length})
+                </Button>
+              ))}
+            </div>
+          </div>
+
+          {/* Módulos de Permissões dos Cargos */}
+          {loadingDbPermissions ? (
+            <div className="flex items-center justify-center p-12 text-center">
+              <div className="flex flex-col items-center gap-3">
+                <Loader2 className="h-8 w-8 animate-spin text-emerald-400" />
+                <p className="text-xs text-muted-foreground font-medium">Carregando permissões do cargo...</p>
+              </div>
+            </div>
+          ) : filteredCargoGroups.length === 0 ? (
+            <div className="p-8 text-center border border-dashed rounded-2xl border-border/60 text-muted-foreground text-xs">
+              Nenhum módulo ou permissão encontrado para a busca "{cargoPermSearch}".
+            </div>
+          ) : (
+            <div className="space-y-8">
+              {filteredCargoGroups.map(({ category, cards }) => (
+                <div key={`cargo-cat-group-${category}`} className="space-y-4">
+                  <div className="flex items-center gap-2 border-b border-border/40 pb-2">
+                    <span className="text-xs font-black uppercase tracking-wider text-emerald-400/90">
+                      {category}
+                    </span>
+                    <span className="text-[0.65rem] text-muted-foreground">
+                      ({cards.length} {cards.length === 1 ? "módulo" : "módulos"})
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {cards.map((card) => {
+                      const cardPermKeys = card.permissions.map((p) => p.key);
+                      const activeInCard = cardPermKeys.filter((k) => activeCargoPermissions.includes(k)).length;
+                      const isAllActive = activeInCard === cardPermKeys.length;
+                      const Icon = card.icon;
+
+                      return (
+                        <Card
+                          key={`cargo-card-${card.id}`}
+                          className={cn(
+                            "surface-card transition-all duration-200 border hover:border-emerald-500/30",
+                            activeInCard > 0 ? "border-border/80" : "opacity-80"
+                          )}
+                        >
+                          <CardHeader className="pb-3">
+                            <div className="flex items-center justify-between gap-3">
+                              <div className="flex items-center gap-3">
+                                <div className={cn("p-2 rounded-xl border shrink-0", card.color)}>
+                                  <Icon className="h-4 w-4" />
+                                </div>
+                                <div>
+                                  <CardTitle className="text-sm font-bold text-foreground">
+                                    {card.title}
+                                  </CardTitle>
+                                  <CardDescription className="text-[0.7rem] line-clamp-1">
+                                    {card.description}
+                                  </CardDescription>
+                                </div>
+                              </div>
+
+                              <div className="flex items-center gap-1.5 shrink-0">
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => toggleCargoCardPermissions(card)}
+                                  className={cn(
+                                    "h-6 text-[10px] font-bold px-2 rounded-lg border transition-all cursor-pointer",
+                                    isAllActive
+                                      ? "border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10"
+                                      : "border-border/60 text-muted-foreground hover:text-foreground"
+                                  )}
+                                >
+                                  {isAllActive ? "Desmarcar Módulo" : "Marcar Módulo"}
+                                </Button>
+                                <Badge
+                                  variant={isAllActive ? "default" : activeInCard > 0 ? "outline" : "secondary"}
+                                  className="text-[10px] font-mono shrink-0"
+                                >
+                                  {activeInCard}/{cardPermKeys.length}
+                                </Badge>
+                              </div>
+                            </div>
+                          </CardHeader>
+
+                          <CardContent className="space-y-3 pt-0">
+                            {card.permissions.map((perm) => {
+                              const isChecked = activeCargoPermissions.includes(perm.key);
+
+                              return (
+                                <div
+                                  key={`cargo-perm-${perm.key}`}
+                                  onClick={() => toggleCargoPermission(perm.key)}
+                                  className={cn(
+                                    "flex items-start gap-3 p-2.5 rounded-xl border transition-all cursor-pointer select-none",
+                                    isChecked
+                                      ? "bg-emerald-500/5 border-emerald-500/30 shadow-xs"
+                                      : "bg-transparent border-transparent hover:bg-secondary/40 hover:border-border/50 opacity-75"
+                                  )}
+                                >
+                                  <Checkbox
+                                    checked={isChecked}
+                                    onCheckedChange={() => toggleCargoPermission(perm.key)}
+                                    className="mt-0.5 data-[state=checked]:bg-emerald-500 data-[state=checked]:border-emerald-500"
+                                    onClick={(e) => e.stopPropagation()}
+                                  />
+                                  <div className="space-y-0.5 flex-1 min-w-0">
+                                    <div className="flex items-center gap-2 flex-wrap">
+                                      <span
+                                        className={cn(
+                                          "text-xs font-semibold leading-none",
+                                          isChecked ? "text-foreground font-bold" : "text-muted-foreground"
+                                        )}
+                                      >
+                                        {perm.label}
+                                      </span>
+                                      <code className="text-[10px] font-mono text-muted-foreground/70 bg-secondary/50 px-1 py-0.2 rounded">
+                                        {perm.key}
+                                      </code>
+                                      {perm.badge && (
+                                        <Badge
+                                          variant="outline"
+                                          className="text-[9px] font-mono py-0 px-1.5 border-emerald-500/30 text-emerald-400 shrink-0"
+                                        >
+                                          {perm.badge}
+                                        </Badge>
+                                      )}
+                                      <Badge
+                                        variant={isChecked ? "default" : "outline"}
+                                        className={cn(
+                                          "ml-auto text-[9px] font-mono py-0 px-1.5 shrink-0 transition-colors",
+                                          isChecked
+                                            ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/40"
+                                            : "text-muted-foreground/60 border-border/40"
+                                        )}
+                                      >
+                                        {isChecked ? "Ativo" : "Inativo"}
+                                      </Badge>
+                                    </div>
+                                    <p className="text-[0.68rem] text-muted-foreground leading-snug">
+                                      {perm.description}
+                                    </p>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </CardContent>
+                        </Card>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* =========================================================================
           ABA 1: TAG DESENVOLVEDOR
@@ -963,7 +1532,7 @@ function DevPermissoesContent() {
               >
                 Todas as Categorias
               </Button>
-              {groupedPageCards.map((g) => (
+              {devGroups.map((g) => (
                 <Button
                   key={`dev-cat-${g.category}`}
                   type="button"
@@ -1768,7 +2337,7 @@ function DevPermissoesContent() {
               >
                 Todas as Categorias
               </Button>
-              {groupedPageCards.map((g) => (
+              {ceoGroups.map((g) => (
                 <Button
                   key={`ceo-cat-${g.category}`}
                   type="button"
