@@ -354,6 +354,7 @@ export function ArmazemPage() {
       void queryClient.invalidateQueries({ queryKey: ["products"] });
       void queryClient.invalidateQueries({ queryKey: ["warehouse_movements"] });
       void queryClient.invalidateQueries({ queryKey: ["movements"] });
+      void queryClient.invalidateQueries({ queryKey: ["stock_movements"] });
       void queryClient.invalidateQueries({ queryKey: ["product_baus"] });
       setReturnState(null);
       setReturnQty("");
@@ -1184,33 +1185,74 @@ export function ArmazemPage() {
 
             {/* QUANTIDADE COM ATALHOS */}
             <div className="space-y-1.5">
-              <Label className="text-xs font-semibold">Quantidade a Transferir *</Label>
+              <div className="flex items-center justify-between">
+                <Label className="text-xs font-semibold">Quantidade a Transferir *</Label>
+                {Math.floor(Number(selectedStock?.quantity || 0)) > 0 && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setTransferQty(String(Math.floor(Number(selectedStock?.quantity || 0))))}
+                    className="h-5 px-2 text-[10px] text-sky-400 hover:text-sky-300 font-mono rounded cursor-pointer"
+                  >
+                    Usar Máximo ({Math.floor(Number(selectedStock?.quantity || 0))})
+                  </Button>
+                )}
+              </div>
               <Input
                 type="number"
                 step="1"
                 min="1"
                 max={Math.floor(Number(selectedStock?.quantity || 0))}
                 value={transferQty}
-                onChange={(e) => setTransferQty(e.target.value)}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setTransferQty(val ? String(Math.max(1, parseInt(val, 10) || 0)) : "");
+                }}
                 className="text-base font-mono font-bold text-sky-300 rounded-xl bg-background/50"
               />
-              <div className="flex items-center gap-1.5 pt-1">
-                {[25, 50, 75, 100].map((pct) => (
+              <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                {[1, 5, 10, 25, 50, 100].map((qty) => {
+                  const maxVal = Math.floor(Number(selectedStock?.quantity || 0));
+                  const isAvailable = maxVal >= qty;
+                  const isSelected = Number(transferQty) === qty;
+                  return (
+                    <Button
+                      key={qty}
+                      type="button"
+                      variant={isSelected ? "default" : "outline"}
+                      size="sm"
+                      disabled={!isAvailable}
+                      onClick={() => setTransferQty(String(qty))}
+                      className={cn(
+                        "h-6 text-[10px] px-2.5 font-mono rounded-lg transition-all",
+                        isSelected
+                          ? "bg-sky-600 hover:bg-sky-500 text-white font-bold"
+                          : isAvailable
+                          ? "hover:border-sky-500/50 hover:text-sky-300"
+                          : "opacity-40"
+                      )}
+                    >
+                      {qty} un
+                    </Button>
+                  );
+                })}
+                {Math.floor(Number(selectedStock?.quantity || 0)) > 0 && (
                   <Button
-                    key={pct}
                     type="button"
-                    variant="outline"
+                    variant={Number(transferQty) === Math.floor(Number(selectedStock?.quantity || 0)) ? "default" : "outline"}
                     size="sm"
-                    onClick={() => {
-                      const total = Math.floor(Number(selectedStock?.quantity || 0));
-                      const calculated = Math.max(1, Math.floor((total * pct) / 100));
-                      setTransferQty(String(calculated));
-                    }}
-                    className="h-6 text-[10px] px-2 font-mono rounded-lg"
+                    onClick={() => setTransferQty(String(Math.floor(Number(selectedStock?.quantity || 0))))}
+                    className={cn(
+                      "h-6 text-[10px] px-2.5 font-mono rounded-lg transition-all",
+                      Number(transferQty) === Math.floor(Number(selectedStock?.quantity || 0))
+                        ? "bg-sky-600 hover:bg-sky-500 text-white font-bold"
+                        : "hover:border-sky-500/50 hover:text-sky-300"
+                    )}
                   >
-                    {pct}%
+                    Máx ({Math.floor(Number(selectedStock?.quantity || 0))})
                   </Button>
-                ))}
+                )}
               </div>
             </div>
 
@@ -1283,33 +1325,74 @@ export function ArmazemPage() {
 
             {/* QUANTIDADE COM ATALHOS */}
             <div className="space-y-1.5">
-              <Label className="text-xs font-semibold">Quantidade a Liberar para Venda *</Label>
+              <div className="flex items-center justify-between">
+                <Label className="text-xs font-semibold">Quantidade a Liberar para Venda *</Label>
+                {Math.floor(Number(selectedStock?.quantity || 0)) > 0 && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setTransferQty(String(Math.floor(Number(selectedStock?.quantity || 0))))}
+                    className="h-5 px-2 text-[10px] text-amber-400 hover:text-amber-300 font-mono rounded cursor-pointer"
+                  >
+                    Usar Máximo ({Math.floor(Number(selectedStock?.quantity || 0))})
+                  </Button>
+                )}
+              </div>
               <Input
                 type="number"
                 step="1"
                 min="1"
                 max={Math.floor(Number(selectedStock?.quantity || 0))}
                 value={transferQty}
-                onChange={(e) => setTransferQty(e.target.value)}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setTransferQty(val ? String(Math.max(1, parseInt(val, 10) || 0)) : "");
+                }}
                 className="text-base font-mono font-bold text-amber-300 rounded-xl bg-background/50"
               />
-              <div className="flex items-center gap-1.5 pt-1">
-                {[25, 50, 75, 100].map((pct) => (
+              <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                {[1, 5, 10, 25, 50, 100].map((qty) => {
+                  const maxVal = Math.floor(Number(selectedStock?.quantity || 0));
+                  const isAvailable = maxVal >= qty;
+                  const isSelected = Number(transferQty) === qty;
+                  return (
+                    <Button
+                      key={qty}
+                      type="button"
+                      variant={isSelected ? "default" : "outline"}
+                      size="sm"
+                      disabled={!isAvailable}
+                      onClick={() => setTransferQty(String(qty))}
+                      className={cn(
+                        "h-6 text-[10px] px-2.5 font-mono rounded-lg transition-all",
+                        isSelected
+                          ? "bg-amber-600 hover:bg-amber-500 text-white font-bold"
+                          : isAvailable
+                          ? "hover:border-amber-500/50 hover:text-amber-300"
+                          : "opacity-40"
+                      )}
+                    >
+                      {qty} un
+                    </Button>
+                  );
+                })}
+                {Math.floor(Number(selectedStock?.quantity || 0)) > 0 && (
                   <Button
-                    key={pct}
                     type="button"
-                    variant="outline"
+                    variant={Number(transferQty) === Math.floor(Number(selectedStock?.quantity || 0)) ? "default" : "outline"}
                     size="sm"
-                    onClick={() => {
-                      const total = Math.floor(Number(selectedStock?.quantity || 0));
-                      const calculated = Math.max(1, Math.floor((total * pct) / 100));
-                      setTransferQty(String(calculated));
-                    }}
-                    className="h-6 text-[10px] px-2 font-mono rounded-lg"
+                    onClick={() => setTransferQty(String(Math.floor(Number(selectedStock?.quantity || 0))))}
+                    className={cn(
+                      "h-6 text-[10px] px-2.5 font-mono rounded-lg transition-all",
+                      Number(transferQty) === Math.floor(Number(selectedStock?.quantity || 0))
+                        ? "bg-amber-600 hover:bg-amber-500 text-white font-bold"
+                        : "hover:border-amber-500/50 hover:text-amber-300"
+                    )}
                   >
-                    {pct}%
+                    Máx ({Math.floor(Number(selectedStock?.quantity || 0))})
                   </Button>
-                ))}
+                )}
               </div>
             </div>
 
@@ -1454,7 +1537,13 @@ export function ArmazemPage() {
                 <Label className="text-xs font-semibold">Baú de Origem *</Label>
                 <Select
                   value={returnState.bauId || activeBaus[0]?.id || ""}
-                  onValueChange={(val) => setReturnState({ ...returnState, bauId: val })}
+                  onValueChange={(val) => {
+                    const newMax = returnState.product ? Math.floor(Number(getBauProductStock(val, returnState.product.id))) : 0;
+                    setReturnState({ ...returnState, bauId: val, maxQty: newMax });
+                    if (Number(returnQty) > newMax) {
+                      setReturnQty(newMax > 0 ? String(newMax) : "");
+                    }
+                  }}
                 >
                   <SelectTrigger className="h-10 rounded-xl bg-background/50 text-xs font-bold">
                     <SelectValue placeholder="Selecione o baú de origem..." />
@@ -1474,9 +1563,22 @@ export function ArmazemPage() {
             <div className="space-y-1.5">
               <div className="flex items-center justify-between">
                 <Label className="text-xs font-semibold">Quantidade a Retornar *</Label>
-                <span className="text-[10px] text-muted-foreground font-mono">
-                  Disponível: <strong className="text-emerald-400">{returnState?.maxQty || 0}</strong> {returnState?.product?.unidade}
-                </span>
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] text-muted-foreground font-mono">
+                    Disponível: <strong className="text-emerald-400">{returnState?.maxQty || 0}</strong> {returnState?.product?.unidade}
+                  </span>
+                  {(returnState?.maxQty || 0) > 0 && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setReturnQty(String(returnState?.maxQty || 0))}
+                      className="h-5 px-2 text-[10px] text-emerald-400 hover:text-emerald-300 font-mono rounded cursor-pointer"
+                    >
+                      Usar Máximo ({returnState?.maxQty || 0})
+                    </Button>
+                  )}
+                </div>
               </div>
               <Input
                 type="number"
@@ -1484,26 +1586,53 @@ export function ArmazemPage() {
                 min="1"
                 max={returnState?.maxQty || 1}
                 value={returnQty}
-                onChange={(e) => setReturnQty(e.target.value)}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setReturnQty(val ? String(Math.max(1, parseInt(val, 10) || 0)) : "");
+                }}
                 className="text-base font-mono font-bold text-emerald-400 rounded-xl bg-background/50"
               />
-              <div className="flex items-center gap-1.5 pt-1">
-                {[25, 50, 75, 100].map((pct) => (
+              <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                {[1, 5, 10, 25, 50, 100].map((qty) => {
+                  const isAvailable = (returnState?.maxQty || 0) >= qty;
+                  const isSelected = Number(returnQty) === qty;
+                  return (
+                    <Button
+                      key={qty}
+                      type="button"
+                      variant={isSelected ? "default" : "outline"}
+                      size="sm"
+                      disabled={!isAvailable}
+                      onClick={() => setReturnQty(String(qty))}
+                      className={cn(
+                        "h-6 text-[10px] px-2.5 font-mono rounded-lg transition-all",
+                        isSelected
+                          ? "bg-emerald-600 hover:bg-emerald-500 text-white font-bold"
+                          : isAvailable
+                          ? "hover:border-emerald-500/50 hover:text-emerald-400"
+                          : "opacity-40"
+                      )}
+                    >
+                      {qty} un
+                    </Button>
+                  );
+                })}
+                {(returnState?.maxQty || 0) > 0 && (
                   <Button
-                    key={pct}
                     type="button"
-                    variant="outline"
+                    variant={Number(returnQty) === (returnState?.maxQty || 0) ? "default" : "outline"}
                     size="sm"
-                    onClick={() => {
-                      const total = returnState?.maxQty || 0;
-                      const calculated = Math.max(1, Math.floor((total * pct) / 100));
-                      setReturnQty(String(calculated));
-                    }}
-                    className="h-6 text-[10px] px-2 font-mono rounded-lg"
+                    onClick={() => setReturnQty(String(returnState?.maxQty || 0))}
+                    className={cn(
+                      "h-6 text-[10px] px-2.5 font-mono rounded-lg transition-all",
+                      Number(returnQty) === (returnState?.maxQty || 0)
+                        ? "bg-emerald-600 hover:bg-emerald-500 text-white font-bold"
+                        : "hover:border-emerald-500/50 hover:text-emerald-400"
+                    )}
                   >
-                    {pct}%
+                    Máx ({returnState?.maxQty || 0})
                   </Button>
-                ))}
+                )}
               </div>
             </div>
 
@@ -1772,17 +1901,85 @@ export function ArmazemPage() {
 
               {/* QUANTIDADE */}
               <div className="space-y-1.5">
-                <Label className="text-xs font-semibold">
-                  {stockAction === "ADJUST" ? "Novo Saldo Absoluto (&ge; 0) *" : "Quantidade a Movimentar / Baixar *"}
-                </Label>
+                <div className="flex items-center justify-between">
+                  <Label className="text-xs font-semibold">
+                    {stockAction === "ADJUST" ? "Novo Saldo Absoluto (≥ 0) *" : "Quantidade a Movimentar / Baixar *"}
+                  </Label>
+                  {stockAction !== "ADJUST" && managingStockItem && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        const maxVal = Math.floor(Number(
+                          stockOrigin === "WAREHOUSE"
+                            ? (managingStockItem?.quantity || 0)
+                            : stockOrigin === "SALE"
+                            ? (managingStockItem?.product?.sale_available_quantity || 0)
+                            : (managingStockItem?.product ? getBauProductStock(stockOriginBauId, managingStockItem.product.id) : 0)
+                        ));
+                        if (maxVal > 0) setStockQuantity(String(maxVal));
+                      }}
+                      className="h-5 px-2 text-[10px] text-primary hover:text-primary/80 font-mono rounded cursor-pointer"
+                    >
+                      Usar Máximo (
+                      {Math.floor(Number(
+                        stockOrigin === "WAREHOUSE"
+                          ? (managingStockItem?.quantity || 0)
+                          : stockOrigin === "SALE"
+                          ? (managingStockItem?.product?.sale_available_quantity || 0)
+                          : (managingStockItem?.product ? getBauProductStock(stockOriginBauId, managingStockItem.product.id) : 0)
+                      ))}
+                      )
+                    </Button>
+                  )}
+                </div>
                 <Input
                   type="number"
                   step="1"
                   min={stockAction === "ADJUST" ? "0" : "1"}
                   value={stockQuantity}
-                  onChange={(e) => setStockQuantity(e.target.value)}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setStockQuantity(val ? String(Math.max(stockAction === "ADJUST" ? 0 : 1, parseInt(val, 10) || 0)) : "");
+                  }}
                   className="text-base font-mono font-bold text-primary rounded-xl bg-background/50"
                 />
+                {stockAction !== "ADJUST" && (
+                  <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                    {[1, 5, 10, 25, 50, 100].map((qty) => {
+                      const maxVal = Math.floor(Number(
+                        stockOrigin === "WAREHOUSE"
+                          ? (managingStockItem?.quantity || 0)
+                          : stockOrigin === "SALE"
+                          ? (managingStockItem?.product?.sale_available_quantity || 0)
+                          : (managingStockItem?.product ? getBauProductStock(stockOriginBauId, managingStockItem.product.id) : 0)
+                      ));
+                      const isAvailable = maxVal >= qty;
+                      const isSelected = Number(stockQuantity) === qty;
+                      return (
+                        <Button
+                          key={qty}
+                          type="button"
+                          variant={isSelected ? "default" : "outline"}
+                          size="sm"
+                          disabled={!isAvailable}
+                          onClick={() => setStockQuantity(String(qty))}
+                          className={cn(
+                            "h-6 text-[10px] px-2.5 font-mono rounded-lg transition-all",
+                            isSelected
+                              ? "bg-primary text-primary-foreground font-bold"
+                              : isAvailable
+                              ? "hover:border-primary/50 hover:text-primary"
+                              : "opacity-40"
+                          )}
+                        >
+                          {qty} un
+                        </Button>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
 
               {/* MOTIVO */}
