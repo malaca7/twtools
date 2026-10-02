@@ -614,7 +614,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (baseCeo) return true;
 
     // 2. Concedido por qualquer tag ativa que o membro possua
-    return memberTags.some((t) => {
+    const tagCeo = memberTags.some((t) => {
       if (t.is_active === false) return false;
       const cleanId = t.id.toLowerCase().trim();
       if (cleanId === "ceo") return true;
@@ -627,19 +627,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
       return false;
     });
-  }, [profile, memberTags]);
+    if (tagCeo) return true;
+
+    // 3. Concedido se o membro possui Tag Dev e a Tag Dev possui permissão de CEO
+    if (isDevUser) {
+      const devPerms = customRolePermissions?.["desenvolvedor"] ?? getDevTagPermissionsSync();
+      if (satisfiesPermission(devPerms, "view_ceo") || satisfiesPermission(devPerms, "view_ceo_dashboard")) {
+        return true;
+      }
+    }
+
+    return false;
+  }, [profile, memberTags, isDevUser, customRolePermissions]);
 
   const isDevMode = Boolean(
     isDevUser &&
       (typeof window !== "undefined"
-        ? (window.location.pathname.startsWith("/dev") || window.location.hash.includes("/dev"))
+        ? (window.location.pathname.startsWith("/dev") || window.location.hash.includes("/dev") || (panelMode === "dev" && !window.location.pathname.startsWith("/ceo")))
         : panelMode === "dev")
   );
 
   const isCeoMode = Boolean(
     (isCeoUser || isDevUser) &&
       (typeof window !== "undefined"
-        ? (window.location.pathname.startsWith("/ceo") || window.location.hash.includes("/ceo"))
+        ? (window.location.pathname.startsWith("/ceo") || window.location.hash.includes("/ceo") || (panelMode === "ceo" && !window.location.pathname.startsWith("/dev")))
         : panelMode === "ceo")
   );
 
@@ -738,8 +749,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       // 1. Quando estiver operando no PAINEL MEMBRO:
-      // A soma é: permissões do cargo (level) + permissões de todas as tags (já avaliadas acima!)
+      // A soma é: permissões do cargo (level) + permissões Dev (se dev) + permissões de todas as tags (já avaliadas acima!)
       if (inMemberPanel) {
+        if (isDevUser && bypassActive) {
+          return true;
+        }
+        if (isDevUser) {
+          const devPerms = customRolePermissions?.["desenvolvedor"] ?? getDevTagPermissionsSync();
+          if (satisfiesPermission(devPerms, permission)) {
+            return true;
+          }
+          if (can("desenvolvedor", permission, customRolePermissions)) return true;
+        }
         return can(level, permission, customRolePermissions);
       }
 
@@ -753,8 +774,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (satisfiesPermission(devPerms, permission)) {
           return true;
         }
-        if (isDevUser) {
-          if (can("desenvolvedor", permission, customRolePermissions)) return true;
+        if (isDevUser && can("desenvolvedor", permission, customRolePermissions)) {
           return true;
         }
         return can(level, permission, customRolePermissions);

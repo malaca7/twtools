@@ -199,16 +199,28 @@ const URL_TO_PERMISSION_MAP: Record<string, Permission> = {
   "/dev/producoes/gestao": "production_management.view",
   "/dev/producoes/gestao-producao": "production_management.view",
   "/dev/producoes": "productions.view",
+  "/ceo": "view_ceo",
+  "/ceo/dashboard": "view_ceo",
+  "/ceo/executivo": "view_ceo",
+  "/ceo/bot": "manage_ceo_bot",
+  "/ceo/webhooks": "manage_ceo_webhooks",
+  "/ceo/financas": "view_ceo_financials",
+  "/ceo/financeiro": "view_ceo_financials",
   "/ceo/notificacoes": "view_ceo_notifications",
   "/ceo/ajustes-estoque": "view_ceo_stock_adjustments",
+  "/ceo/membros": "view_members",
+  "/ceo/cargos": "manage_roles",
+  "/ceo/vendas": "view_sales",
   "/ceo/producoes/produzir": "productions.view",
   "/ceo/producoes/materias-primas": "raw_materials.view",
   "/ceo/producoes/armazem": "warehouse.view",
   "/ceo/producoes/gestao": "production_management.view",
   "/ceo/producoes/gestao-producao": "production_management.view",
   "/ceo/producoes": "productions.view",
+  "/ceo/armazem": "warehouse.view",
   "/ceo/tags": "view_ceo_tag_permissions",
   "/ceo/permissoes-tags": "view_ceo_tag_permissions",
+  "/ceo/logs": "view_audit",
   "/dev/tags": "view_dev_tags",
   "/dev/gerenciar-tags": "view_dev_tags",
 };
@@ -476,8 +488,13 @@ function DynamicSidebarNavigation() {
 
     const visibleCeo = canSeeCeo
       ? allCeoItems.filter((item) => {
-          if (!item.visible) return false;
-          if ((item.id === "ceo-dashboard" || item.id === "ceo-executivo") && !hasPermission("view_ceo")) return false;
+          if (
+            (item.id === "ceo-dashboard" || item.id === "ceo-executivo" || item.url === "/ceo" || item.url === "/ceo/dashboard") &&
+            !hasPermission("view_ceo") &&
+            !hasPermission("view_ceo_dashboard")
+          ) {
+            return false;
+          }
           if (item.id === "ceo-bot" && (!hasPermission("manage_ceo_bot") || (ceoConfig.allowManageBot === false && !isDevUser))) return false;
           if (item.id === "ceo-webhooks" && (!hasPermission("manage_ceo_webhooks") || (ceoConfig.allowWebhooks === false && !isDevUser))) return false;
           if (item.id === "ceo-financas" && (!hasPermission("view_ceo_financials") || (ceoConfig.allowFinancials === false && !isDevUser))) return false;
@@ -641,8 +658,8 @@ function DynamicSidebarNavigation() {
         }
       });
 
-      // Isolamento estrito: No modo Dev, aparecem APENAS menus dev e da plataforma dev
-      return [...devGroups, ...platformGroups];
+      // Se o membro com Tag Dev tiver permissão nos menus/módulos do CEO, exibe as categorias e menus do Painel CEO também
+      return [...devGroups, ...(ceoGroups.length > 0 ? ceoGroups : []), ...platformGroups];
     }
 
     // =========================================================================
