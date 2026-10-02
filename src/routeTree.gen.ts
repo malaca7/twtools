@@ -51,6 +51,7 @@ import { Route as AuthenticatedAusenciasTabRouteImport } from './routes/_authent
 import { Route as AuthenticatedCeoTabRouteImport } from './routes/_authenticated/ceo.$tab'
 import { Route as AuthenticatedCeoAjustesEstoqueRouteImport } from './routes/_authenticated/ceo.ajustes-estoque'
 import { Route as AuthenticatedCeoNotificacoesRouteImport } from './routes/_authenticated/ceo.notificacoes'
+import { Route as AuthenticatedCeoPermissoesTagsRouteImport } from './routes/_authenticated/ceo.permissoes-tags'
 import { Route as AuthenticatedConfiguracoesTabRouteImport } from './routes/_authenticated/configuracoes.$tab'
 import { Route as AuthenticatedDevIndexRouteImport } from './routes/_authenticated/dev.index'
 import { Route as AuthenticatedDevPageRouteImport } from './routes/_authenticated/dev.$page'
@@ -59,12 +60,14 @@ import { Route as AuthenticatedDevCoinsRouteImport } from './routes/_authenticat
 import { Route as AuthenticatedDevConfiguracaoRouteImport } from './routes/_authenticated/dev.configuracao'
 import { Route as AuthenticatedDevDesempenhoRouteImport } from './routes/_authenticated/dev.desempenho'
 import { Route as AuthenticatedDevEstoqueRouteImport } from './routes/_authenticated/dev.estoque'
+import { Route as AuthenticatedDevGerenciarTagsRouteImport } from './routes/_authenticated/dev.gerenciar-tags'
 import { Route as AuthenticatedDevGestaolojaRouteImport } from './routes/_authenticated/dev.gestaoloja'
 import { Route as AuthenticatedDevLojaRouteImport } from './routes/_authenticated/dev.loja'
 import { Route as AuthenticatedDevMenuLateralRouteImport } from './routes/_authenticated/dev.menu-lateral'
 import { Route as AuthenticatedDevNotificacoesRouteImport } from './routes/_authenticated/dev.notificacoes'
 import { Route as AuthenticatedDevPatchNotesRouteImport } from './routes/_authenticated/dev.patch-notes'
 import { Route as AuthenticatedDevPermissoesRouteImport } from './routes/_authenticated/dev.permissoes'
+import { Route as AuthenticatedDevTagsRouteImport } from './routes/_authenticated/dev.tags'
 import { Route as AuthenticatedDevXpInsigniasRouteImport } from './routes/_authenticated/dev.xp-insignias'
 import { Route as AuthenticatedGestaoEstoqueTabRouteImport } from './routes/_authenticated/gestao-estoque.$tab'
 import { Route as AuthenticatedHierarquiaTabRouteImport } from './routes/_authenticated/hierarquia.$tab'
@@ -315,6 +318,12 @@ const AuthenticatedCeoNotificacoesRoute =
     path: '/notificacoes',
     getParentRoute: () => AuthenticatedCeoRoute,
   } as any)
+const AuthenticatedCeoPermissoesTagsRoute =
+  AuthenticatedCeoPermissoesTagsRouteImport.update({
+    id: '/permissoes-tags',
+    path: '/permissoes-tags',
+    getParentRoute: () => AuthenticatedCeoRoute,
+  } as any)
 const AuthenticatedConfiguracoesTabRoute =
   AuthenticatedConfiguracoesTabRouteImport.update({
     id: '/$tab',
@@ -358,6 +367,12 @@ const AuthenticatedDevEstoqueRoute = AuthenticatedDevEstoqueRouteImport.update({
   path: '/dev/estoque',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedDevGerenciarTagsRoute =
+  AuthenticatedDevGerenciarTagsRouteImport.update({
+    id: '/dev/gerenciar-tags',
+    path: '/dev/gerenciar-tags',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedDevGestaolojaRoute =
   AuthenticatedDevGestaolojaRouteImport.update({
     id: '/dev/gestaoloja',
@@ -393,6 +408,11 @@ const AuthenticatedDevPermissoesRoute =
     path: '/dev/permissoes',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedDevTagsRoute = AuthenticatedDevTagsRouteImport.update({
+  id: '/dev/tags',
+  path: '/dev/tags',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedDevXpInsigniasRoute =
   AuthenticatedDevXpInsigniasRouteImport.update({
     id: '/dev/xp-insignias',
@@ -611,6 +631,7 @@ export interface FileRoutesByFullPath {
   '/ceo/$tab': typeof AuthenticatedCeoTabRouteWithChildren
   '/ceo/ajustes-estoque': typeof AuthenticatedCeoAjustesEstoqueRoute
   '/ceo/notificacoes': typeof AuthenticatedCeoNotificacoesRoute
+  '/ceo/permissoes-tags': typeof AuthenticatedCeoPermissoesTagsRoute
   '/configuracoes/$tab': typeof AuthenticatedConfiguracoesTabRoute
   '/dev/$page': typeof AuthenticatedDevPageRouteWithChildren
   '/dev/bot': typeof AuthenticatedDevBotRouteWithChildren
@@ -618,12 +639,14 @@ export interface FileRoutesByFullPath {
   '/dev/configuracao': typeof AuthenticatedDevConfiguracaoRouteWithChildren
   '/dev/desempenho': typeof AuthenticatedDevDesempenhoRoute
   '/dev/estoque': typeof AuthenticatedDevEstoqueRouteWithChildren
+  '/dev/gerenciar-tags': typeof AuthenticatedDevGerenciarTagsRoute
   '/dev/gestaoloja': typeof AuthenticatedDevGestaolojaRoute
   '/dev/loja': typeof AuthenticatedDevLojaRoute
   '/dev/menu-lateral': typeof AuthenticatedDevMenuLateralRoute
   '/dev/notificacoes': typeof AuthenticatedDevNotificacoesRoute
   '/dev/patch-notes': typeof AuthenticatedDevPatchNotesRoute
   '/dev/permissoes': typeof AuthenticatedDevPermissoesRoute
+  '/dev/tags': typeof AuthenticatedDevTagsRoute
   '/dev/xp-insignias': typeof AuthenticatedDevXpInsigniasRoute
   '/gestao-estoque/$tab': typeof AuthenticatedGestaoEstoqueTabRoute
   '/hierarquia/$tab': typeof AuthenticatedHierarquiaTabRoute
@@ -698,6 +721,7 @@ export interface FileRoutesByTo {
   '/ceo/$tab': typeof AuthenticatedCeoTabRouteWithChildren
   '/ceo/ajustes-estoque': typeof AuthenticatedCeoAjustesEstoqueRoute
   '/ceo/notificacoes': typeof AuthenticatedCeoNotificacoesRoute
+  '/ceo/permissoes-tags': typeof AuthenticatedCeoPermissoesTagsRoute
   '/configuracoes/$tab': typeof AuthenticatedConfiguracoesTabRoute
   '/dev/$page': typeof AuthenticatedDevPageRouteWithChildren
   '/dev/bot': typeof AuthenticatedDevBotRouteWithChildren
@@ -705,12 +729,14 @@ export interface FileRoutesByTo {
   '/dev/configuracao': typeof AuthenticatedDevConfiguracaoRouteWithChildren
   '/dev/desempenho': typeof AuthenticatedDevDesempenhoRoute
   '/dev/estoque': typeof AuthenticatedDevEstoqueRouteWithChildren
+  '/dev/gerenciar-tags': typeof AuthenticatedDevGerenciarTagsRoute
   '/dev/gestaoloja': typeof AuthenticatedDevGestaolojaRoute
   '/dev/loja': typeof AuthenticatedDevLojaRoute
   '/dev/menu-lateral': typeof AuthenticatedDevMenuLateralRoute
   '/dev/notificacoes': typeof AuthenticatedDevNotificacoesRoute
   '/dev/patch-notes': typeof AuthenticatedDevPatchNotesRoute
   '/dev/permissoes': typeof AuthenticatedDevPermissoesRoute
+  '/dev/tags': typeof AuthenticatedDevTagsRoute
   '/dev/xp-insignias': typeof AuthenticatedDevXpInsigniasRoute
   '/gestao-estoque/$tab': typeof AuthenticatedGestaoEstoqueTabRoute
   '/hierarquia/$tab': typeof AuthenticatedHierarquiaTabRoute
@@ -787,6 +813,7 @@ export interface FileRoutesById {
   '/_authenticated/ceo/$tab': typeof AuthenticatedCeoTabRouteWithChildren
   '/_authenticated/ceo/ajustes-estoque': typeof AuthenticatedCeoAjustesEstoqueRoute
   '/_authenticated/ceo/notificacoes': typeof AuthenticatedCeoNotificacoesRoute
+  '/_authenticated/ceo/permissoes-tags': typeof AuthenticatedCeoPermissoesTagsRoute
   '/_authenticated/configuracoes/$tab': typeof AuthenticatedConfiguracoesTabRoute
   '/_authenticated/dev/$page': typeof AuthenticatedDevPageRouteWithChildren
   '/_authenticated/dev/bot': typeof AuthenticatedDevBotRouteWithChildren
@@ -794,12 +821,14 @@ export interface FileRoutesById {
   '/_authenticated/dev/configuracao': typeof AuthenticatedDevConfiguracaoRouteWithChildren
   '/_authenticated/dev/desempenho': typeof AuthenticatedDevDesempenhoRoute
   '/_authenticated/dev/estoque': typeof AuthenticatedDevEstoqueRouteWithChildren
+  '/_authenticated/dev/gerenciar-tags': typeof AuthenticatedDevGerenciarTagsRoute
   '/_authenticated/dev/gestaoloja': typeof AuthenticatedDevGestaolojaRoute
   '/_authenticated/dev/loja': typeof AuthenticatedDevLojaRoute
   '/_authenticated/dev/menu-lateral': typeof AuthenticatedDevMenuLateralRoute
   '/_authenticated/dev/notificacoes': typeof AuthenticatedDevNotificacoesRoute
   '/_authenticated/dev/patch-notes': typeof AuthenticatedDevPatchNotesRoute
   '/_authenticated/dev/permissoes': typeof AuthenticatedDevPermissoesRoute
+  '/_authenticated/dev/tags': typeof AuthenticatedDevTagsRoute
   '/_authenticated/dev/xp-insignias': typeof AuthenticatedDevXpInsigniasRoute
   '/_authenticated/gestao-estoque/$tab': typeof AuthenticatedGestaoEstoqueTabRoute
   '/_authenticated/hierarquia/$tab': typeof AuthenticatedHierarquiaTabRoute
@@ -876,6 +905,7 @@ export interface FileRouteTypes {
     | '/ceo/$tab'
     | '/ceo/ajustes-estoque'
     | '/ceo/notificacoes'
+    | '/ceo/permissoes-tags'
     | '/configuracoes/$tab'
     | '/dev/$page'
     | '/dev/bot'
@@ -883,12 +913,14 @@ export interface FileRouteTypes {
     | '/dev/configuracao'
     | '/dev/desempenho'
     | '/dev/estoque'
+    | '/dev/gerenciar-tags'
     | '/dev/gestaoloja'
     | '/dev/loja'
     | '/dev/menu-lateral'
     | '/dev/notificacoes'
     | '/dev/patch-notes'
     | '/dev/permissoes'
+    | '/dev/tags'
     | '/dev/xp-insignias'
     | '/gestao-estoque/$tab'
     | '/hierarquia/$tab'
@@ -963,6 +995,7 @@ export interface FileRouteTypes {
     | '/ceo/$tab'
     | '/ceo/ajustes-estoque'
     | '/ceo/notificacoes'
+    | '/ceo/permissoes-tags'
     | '/configuracoes/$tab'
     | '/dev/$page'
     | '/dev/bot'
@@ -970,12 +1003,14 @@ export interface FileRouteTypes {
     | '/dev/configuracao'
     | '/dev/desempenho'
     | '/dev/estoque'
+    | '/dev/gerenciar-tags'
     | '/dev/gestaoloja'
     | '/dev/loja'
     | '/dev/menu-lateral'
     | '/dev/notificacoes'
     | '/dev/patch-notes'
     | '/dev/permissoes'
+    | '/dev/tags'
     | '/dev/xp-insignias'
     | '/gestao-estoque/$tab'
     | '/hierarquia/$tab'
@@ -1051,6 +1086,7 @@ export interface FileRouteTypes {
     | '/_authenticated/ceo/$tab'
     | '/_authenticated/ceo/ajustes-estoque'
     | '/_authenticated/ceo/notificacoes'
+    | '/_authenticated/ceo/permissoes-tags'
     | '/_authenticated/configuracoes/$tab'
     | '/_authenticated/dev/$page'
     | '/_authenticated/dev/bot'
@@ -1058,12 +1094,14 @@ export interface FileRouteTypes {
     | '/_authenticated/dev/configuracao'
     | '/_authenticated/dev/desempenho'
     | '/_authenticated/dev/estoque'
+    | '/_authenticated/dev/gerenciar-tags'
     | '/_authenticated/dev/gestaoloja'
     | '/_authenticated/dev/loja'
     | '/_authenticated/dev/menu-lateral'
     | '/_authenticated/dev/notificacoes'
     | '/_authenticated/dev/patch-notes'
     | '/_authenticated/dev/permissoes'
+    | '/_authenticated/dev/tags'
     | '/_authenticated/dev/xp-insignias'
     | '/_authenticated/gestao-estoque/$tab'
     | '/_authenticated/hierarquia/$tab'
@@ -1403,6 +1441,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedCeoNotificacoesRouteImport
       parentRoute: typeof AuthenticatedCeoRoute
     }
+    '/_authenticated/ceo/permissoes-tags': {
+      id: '/_authenticated/ceo/permissoes-tags'
+      path: '/permissoes-tags'
+      fullPath: '/ceo/permissoes-tags'
+      preLoaderRoute: typeof AuthenticatedCeoPermissoesTagsRouteImport
+      parentRoute: typeof AuthenticatedCeoRoute
+    }
     '/_authenticated/configuracoes/$tab': {
       id: '/_authenticated/configuracoes/$tab'
       path: '/$tab'
@@ -1459,6 +1504,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedDevEstoqueRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/dev/gerenciar-tags': {
+      id: '/_authenticated/dev/gerenciar-tags'
+      path: '/dev/gerenciar-tags'
+      fullPath: '/dev/gerenciar-tags'
+      preLoaderRoute: typeof AuthenticatedDevGerenciarTagsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/dev/gestaoloja': {
       id: '/_authenticated/dev/gestaoloja'
       path: '/dev/gestaoloja'
@@ -1499,6 +1551,13 @@ declare module '@tanstack/react-router' {
       path: '/dev/permissoes'
       fullPath: '/dev/permissoes'
       preLoaderRoute: typeof AuthenticatedDevPermissoesRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/dev/tags': {
+      id: '/_authenticated/dev/tags'
+      path: '/dev/tags'
+      fullPath: '/dev/tags'
+      preLoaderRoute: typeof AuthenticatedDevTagsRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/dev/xp-insignias': {
@@ -1743,6 +1802,7 @@ interface AuthenticatedCeoRouteChildren {
   AuthenticatedCeoTabRoute: typeof AuthenticatedCeoTabRouteWithChildren
   AuthenticatedCeoAjustesEstoqueRoute: typeof AuthenticatedCeoAjustesEstoqueRoute
   AuthenticatedCeoNotificacoesRoute: typeof AuthenticatedCeoNotificacoesRoute
+  AuthenticatedCeoPermissoesTagsRoute: typeof AuthenticatedCeoPermissoesTagsRoute
   AuthenticatedCeoProducoesArmazemRoute: typeof AuthenticatedCeoProducoesArmazemRoute
   AuthenticatedCeoProducoesGestaoRoute: typeof AuthenticatedCeoProducoesGestaoRoute
   AuthenticatedCeoProducoesProduzirRoute: typeof AuthenticatedCeoProducoesProduzirRoute
@@ -1753,6 +1813,7 @@ const AuthenticatedCeoRouteChildren: AuthenticatedCeoRouteChildren = {
   AuthenticatedCeoTabRoute: AuthenticatedCeoTabRouteWithChildren,
   AuthenticatedCeoAjustesEstoqueRoute: AuthenticatedCeoAjustesEstoqueRoute,
   AuthenticatedCeoNotificacoesRoute: AuthenticatedCeoNotificacoesRoute,
+  AuthenticatedCeoPermissoesTagsRoute: AuthenticatedCeoPermissoesTagsRoute,
   AuthenticatedCeoProducoesArmazemRoute: AuthenticatedCeoProducoesArmazemRoute,
   AuthenticatedCeoProducoesGestaoRoute: AuthenticatedCeoProducoesGestaoRoute,
   AuthenticatedCeoProducoesProduzirRoute:
@@ -1969,12 +2030,14 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedDevConfiguracaoRoute: typeof AuthenticatedDevConfiguracaoRouteWithChildren
   AuthenticatedDevDesempenhoRoute: typeof AuthenticatedDevDesempenhoRoute
   AuthenticatedDevEstoqueRoute: typeof AuthenticatedDevEstoqueRouteWithChildren
+  AuthenticatedDevGerenciarTagsRoute: typeof AuthenticatedDevGerenciarTagsRoute
   AuthenticatedDevGestaolojaRoute: typeof AuthenticatedDevGestaolojaRoute
   AuthenticatedDevLojaRoute: typeof AuthenticatedDevLojaRoute
   AuthenticatedDevMenuLateralRoute: typeof AuthenticatedDevMenuLateralRoute
   AuthenticatedDevNotificacoesRoute: typeof AuthenticatedDevNotificacoesRoute
   AuthenticatedDevPatchNotesRoute: typeof AuthenticatedDevPatchNotesRoute
   AuthenticatedDevPermissoesRoute: typeof AuthenticatedDevPermissoesRoute
+  AuthenticatedDevTagsRoute: typeof AuthenticatedDevTagsRoute
   AuthenticatedDevXpInsigniasRoute: typeof AuthenticatedDevXpInsigniasRoute
   AuthenticatedProducoesArmazemRoute: typeof AuthenticatedProducoesArmazemRoute
   AuthenticatedProducoesGestaoRoute: typeof AuthenticatedProducoesGestaoRoute
@@ -2028,12 +2091,14 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
     AuthenticatedDevConfiguracaoRouteWithChildren,
   AuthenticatedDevDesempenhoRoute: AuthenticatedDevDesempenhoRoute,
   AuthenticatedDevEstoqueRoute: AuthenticatedDevEstoqueRouteWithChildren,
+  AuthenticatedDevGerenciarTagsRoute: AuthenticatedDevGerenciarTagsRoute,
   AuthenticatedDevGestaolojaRoute: AuthenticatedDevGestaolojaRoute,
   AuthenticatedDevLojaRoute: AuthenticatedDevLojaRoute,
   AuthenticatedDevMenuLateralRoute: AuthenticatedDevMenuLateralRoute,
   AuthenticatedDevNotificacoesRoute: AuthenticatedDevNotificacoesRoute,
   AuthenticatedDevPatchNotesRoute: AuthenticatedDevPatchNotesRoute,
   AuthenticatedDevPermissoesRoute: AuthenticatedDevPermissoesRoute,
+  AuthenticatedDevTagsRoute: AuthenticatedDevTagsRoute,
   AuthenticatedDevXpInsigniasRoute: AuthenticatedDevXpInsigniasRoute,
   AuthenticatedProducoesArmazemRoute: AuthenticatedProducoesArmazemRoute,
   AuthenticatedProducoesGestaoRoute: AuthenticatedProducoesGestaoRoute,

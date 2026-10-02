@@ -153,6 +153,11 @@ export type Permission =
   | "ceo_adjust_stock_balance"
   | "ceo_stock_add"
   | "ceo_stock_remove"
+  // Permissões do Sistema de Tags de Membros (CEO & DEV)
+  | "view_ceo_tag_permissions"
+  | "manage_ceo_tag_permissions"
+  | "view_dev_tags"
+  | "manage_dev_tags"
   // Permissões da Central de Notificações Dev
   | "view_dev_notifications"
   | "manage_dev_notification_rules"
@@ -405,6 +410,11 @@ export const ALL_PERMISSIONS: Permission[] = [
   "ceo_adjust_stock_balance",
   "ceo_stock_add",
   "ceo_stock_remove",
+  // Permissões de Tags de Membros
+  "view_ceo_tag_permissions",
+  "manage_ceo_tag_permissions",
+  "view_dev_tags",
+  "manage_dev_tags",
   // Permissões da Central de Notificações Dev
   "view_dev_notifications",
   "manage_dev_notification_rules",
@@ -519,6 +529,10 @@ export const DEV_PANEL_PERMISSIONS: Permission[] = [
   "edit_dev_notification",
   "delete_dev_notification",
   "simulate_dev_notification",
+  "view_dev_tags",
+  "manage_dev_tags",
+  "view_ceo_tag_permissions",
+  "manage_ceo_tag_permissions",
   "estoque.configurar",
   "estoque.auditoria",
   "estoque.ajustar",
@@ -566,6 +580,8 @@ export const CEO_PERMISSIONS: Permission[] = [
   "ceo_adjust_stock_balance",
   "ceo_stock_add",
   "ceo_stock_remove",
+  "view_ceo_tag_permissions",
+  "manage_ceo_tag_permissions",
   "view_life",
   "life_view_following",
   "life_view_bookmarks",

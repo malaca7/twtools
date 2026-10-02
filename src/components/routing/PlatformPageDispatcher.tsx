@@ -44,6 +44,8 @@ import { ShopPage } from "@/components/shop/ShopPage";
 import { ProduzirPage } from "@/routes/_authenticated/producoes.produzir";
 import { ArmazemPage } from "@/routes/_authenticated/producoes.armazem";
 import { GestaoProducaoPage } from "@/routes/_authenticated/producoes.gestao";
+import { CeoPermissoesTagsPage } from "@/routes/_authenticated/ceo.permissoes-tags";
+import { DevGerenciarTagsPage } from "@/routes/_authenticated/dev.tags";
 
 export interface PlatformPageDispatcherProps {
   page: string;
@@ -99,6 +101,8 @@ const PAGE_PERMISSION_MAP: Record<string, Permission | null> = {
   "ceo-ajustes-estoque": "view_ceo_stock_adjustments",
   "estoque-ajustes": "view_ceo_stock_adjustments",
   "ceo-notificacoes": "view_ceo_notifications",
+  "permissoes-tags": "view_ceo_tag_permissions",
+  "ceo-permissoes-tags": "view_ceo_tag_permissions",
 
   // Módulos DEV
   "dev-notificacoes": "view_dev_notifications",
@@ -108,6 +112,9 @@ const PAGE_PERMISSION_MAP: Record<string, Permission | null> = {
   "loja-dev": "view_dev_shop",
   "dev-coins": "view_dev_coins",
   "coins-dev": "view_dev_coins",
+  tags: "view_dev_tags",
+  "dev-tags": "view_dev_tags",
+  "gerenciar-tags": "view_dev_tags",
 };
 
 function InnerPageResolver({ page, tab, mode }: { page: string; tab?: string; mode: "dev" | "ceo" | "member" }) {
@@ -148,6 +155,9 @@ function InnerPageResolver({ page, tab, mode }: { page: string; tab?: string; mo
     if (normalizedPage === "notificacoes" || normalizedPage === "ceo-notificacoes") {
       return <CeoNotificationsPage />;
     }
+    if (normalizedPage === "permissoes-tags" || normalizedPage === "ceo-permissoes-tags" || (normalizedPage === "tags" && mode === "ceo")) {
+      return <CeoPermissoesTagsPage />;
+    }
   }
 
   // DEV Specific modules
@@ -175,6 +185,9 @@ function InnerPageResolver({ page, tab, mode }: { page: string; tab?: string; mo
     }
     if (normalizedPage === "coins" || normalizedPage === "dev-coins") {
       return <DevCoinsPage />;
+    }
+    if (normalizedPage === "tags" || normalizedPage === "dev-tags" || normalizedPage === "gerenciar-tags") {
+      return <DevGerenciarTagsPage />;
     }
   }
 

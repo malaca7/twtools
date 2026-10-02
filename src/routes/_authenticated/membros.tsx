@@ -57,6 +57,8 @@ import {
 import { dateTime, errorMessage, formatPhone, formatSessionDuration, formatSecondsToHoursAndMinutes } from "@/lib/format";
 import { LEVEL_LABEL, LEVELS, levelBadgeClass, canPromote, type AppLevel } from "@/lib/permissions";
 import type { Member, PendingSignupRequest } from "@/lib/app-types";
+import { useMemberTagsMap } from "@/hooks/useMemberTags";
+import { MemberTagBadge } from "@/components/ui/MemberTagBadge";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/membros")({
@@ -82,6 +84,7 @@ export function MembrosPage() {
   const { data: members = [], isLoading: membersLoading } = useMembers();
   const { data: pending = [], isLoading: pendingLoading } = usePendingSignupRequests(canApprove);
   const { data: dbCustomRoles = [] } = useCustomRoles();
+  const memberTagsMap = useMemberTagsMap();
 
   // Cargos válidos do grupo (excluindo desenvolvedor, que é tag de sistema)
   const availableLevels = useMemo(() => {
@@ -422,6 +425,13 @@ export function MembrosPage() {
                               {Boolean(m.is_ceo || m.custom_theme?.is_ceo) && <CeoBadge size="xs" />}
                             </div>
                             {m.nickname && <p className="text-xs text-muted-foreground truncate">{m.nome}</p>}
+                            {(memberTagsMap[m.user_id] || []).length > 0 && (
+                              <div className="flex items-center gap-1 flex-wrap pt-1">
+                                {(memberTagsMap[m.user_id] || []).map((tag) => (
+                                  <MemberTagBadge key={tag.id} tag={tag} size="xs" />
+                                ))}
+                              </div>
+                            )}
                           </div>
                         </Link>
 
@@ -532,6 +542,13 @@ export function MembrosPage() {
                                 {m.nickname ? (
                                   <p className="text-[0.65rem] text-muted-foreground">{m.nome}</p>
                                 ) : null}
+                                {(memberTagsMap[m.user_id] || []).length > 0 && (
+                                  <div className="flex items-center gap-1 flex-wrap pt-0.5">
+                                    {(memberTagsMap[m.user_id] || []).map((tag) => (
+                                      <MemberTagBadge key={tag.id} tag={tag} size="xs" />
+                                    ))}
+                                  </div>
+                                )}
                               </div>
                             </Link>
                           </TableCell>

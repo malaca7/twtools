@@ -157,12 +157,15 @@ export const CANONICAL_URL_ICONS: Record<string, LucideIcon> = {
   "/dev/notificacoes": BellRing,
   "/dev/xp-insignias": Award,
   "/dev.xp-insignias": Award,
+  "/dev/tags": Tag,
+  "/dev/gerenciar-tags": Tag,
   "/ceo": Crown,
   "/ceo/dashboard": LayoutDashboard,
   "/ceo/bot": Bot,
   "/ceo/webhooks": Webhook,
   "/ceo/financas": Landmark,
   "/ceo/notificacoes": BellRing,
+  "/ceo/permissoes-tags": Tag,
 };
 
 const ICON_BY_NAME: Record<string, LucideIcon> = AVAILABLE_MENU_ICONS.reduce(

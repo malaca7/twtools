@@ -7,6 +7,7 @@ import type { AppUser, AuthState, Profile, SignupRequestStatus } from "@/lib/app
 import { can, LEVEL_LABEL, type AppLevel, type Permission } from "@/lib/permissions";
 import { useRolePermissions } from "@/hooks/useData";
 import { isUserDeveloper, DEV_DISCORD_IDS, isDevBypassActive, DEV_CONFIG_EVENT, CEO_CONFIG_EVENT, getCeoTagPermissionsSync, getDevTagPermissionsSync, isUserCeo } from "@/services/devService";
+import type { MemberTag } from "@/services/memberTagsService";
 
 type Session = { user: AppUser } | null;
 
@@ -27,6 +28,9 @@ type AuthContextValue = {
   refresh: () => Promise<void>;
   signOut: () => Promise<void>;
   hasPermission: (permission: Permission) => boolean;
+  memberTags: MemberTag[];
+  hasTag: (tagId: string) => boolean;
+  isMemberBlocked: boolean;
 };
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -425,14 +429,66 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     window.addEventListener("tw_auth_reload", handleAuthReload);
     window.addEventListener("tw_menu_updated", handleMenuOrCeoUpdate);
     window.addEventListener("tw_ceo_config_updated", handleMenuOrCeoUpdate);
+    window.addEventListener("tw_tags_updated", handleMenuOrCeoUpdate);
 
     return () => {
       window.removeEventListener("tw_permissions_synced", handlePermissionsSynced);
       window.removeEventListener("tw_auth_reload", handleAuthReload);
       window.removeEventListener("tw_menu_updated", handleMenuOrCeoUpdate);
       window.removeEventListener("tw_ceo_config_updated", handleMenuOrCeoUpdate);
+      window.removeEventListener("tw_tags_updated", handleMenuOrCeoUpdate);
     };
   }, [loadAuth, profile?.user_id, session?.user?.id, queryClient]);
+
+  // Carrega as tags do membro ativo
+  const activeUserId = profile?.user_id || session?.user?.id;
+  const activeProfileId = profile?.id;
+  const [memberTags, setMemberTagsState] = useState<MemberTag[]>([]);
+
+  useEffect(() => {
+    let isCancelled = false;
+    async function loadUserTags() {
+      if (!activeUserId && !activeProfileId) {
+        setMemberTagsState([]);
+        return;
+      }
+      try {
+        const query = supabase
+          .from("member_tag_assignments" as any)
+          .select("tag_id, member_tags (*)")
+          .or(`member_id.eq.${activeUserId}${activeProfileId ? `,member_id.eq.${activeProfileId}` : ""}`);
+
+        const { data, error } = await query;
+        if (!error && Array.isArray(data) && !isCancelled) {
+          const loadedTags: MemberTag[] = data
+            .map((d: any) => d.member_tags)
+            .filter(Boolean)
+            .filter((t: any) => t.is_active !== false);
+          setMemberTagsState(loadedTags);
+        }
+      } catch (e) {
+        console.warn("Aviso ao carregar tags do membro:", e);
+      }
+    }
+    void loadUserTags();
+    return () => {
+      isCancelled = true;
+    };
+  }, [activeUserId, activeProfileId, permissionsTick]);
+
+  const hasTag = useCallback(
+    (tagId: string) => {
+      const clean = tagId.toLowerCase().trim();
+      return memberTags.some((t) => t.id.toLowerCase() === clean && t.is_active !== false);
+    },
+    [memberTags]
+  );
+
+  const isMemberBlocked = useMemo(() => {
+    return memberTags.some(
+      (t) => t.is_active !== false && (t.rules?.is_blocked === true || t.rules?.block_operations === true)
+    );
+  }, [memberTags]);
 
   // Garante que membros comuns sem Tag Dev ou Tag CEO nunca fiquem travados em panelMode dev ou ceo
   useEffect(() => {
@@ -459,6 +515,36 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         (typeof window !== "undefined" &&
           (window.location.pathname.startsWith("/dev") || window.location.hash.includes("/dev")));
       const inMemberPanel = !inCeoPanel && !inDevPanel;
+
+      // 0. Avaliação de Regras Restritivas da Tag (ex: Tag Bloqueado)
+      const hasBlockingTag = memberTags.some(
+        (t) => t.is_active !== false && (t.rules?.is_blocked === true || t.rules?.block_operations === true)
+      );
+      if (hasBlockingTag && !isDevUser) {
+        // Bloqueia ações de alteração e escrita
+        const isOperationalAction =
+          permission.startsWith("create_") ||
+          permission.startsWith("delete_") ||
+          permission.startsWith("reverse_") ||
+          permission.includes(".create") ||
+          permission.includes(".edit") ||
+          permission.includes(".delete") ||
+          permission.includes(".transfer") ||
+          permission.includes(".adjust") ||
+          permission === "manage_cash_fund";
+
+        if (isOperationalAction) {
+          return false;
+        }
+      }
+
+      // 0.1. Permissões concedidas pelas Tags de Membro (Vendedor, Dev Test, etc.)
+      const tagHasPermission = memberTags.some(
+        (t) => t.is_active !== false && Array.isArray(t.permissions) && t.permissions.includes(permission)
+      );
+      if (tagHasPermission) {
+        return true;
+      }
 
       // 1. Quando estiver operando no PAINEL MEMBRO:
       // Apenas permissões que o cargo (level) do membro possui na matriz de permissões!
@@ -523,6 +609,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       refresh,
       signOut,
       hasPermission,
+      memberTags,
+      hasTag,
+      isMemberBlocked,
     }),
     [
       session,
@@ -539,6 +628,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       refresh,
       signOut,
       hasPermission,
+      memberTags,
+      hasTag,
+      isMemberBlocked,
     ]
   );
 
