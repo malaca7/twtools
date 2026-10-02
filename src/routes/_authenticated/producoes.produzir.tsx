@@ -8,6 +8,7 @@ import {
   Warehouse,
   ShoppingCart,
   Plus,
+  Minus,
   Trash2,
   AlertTriangle,
   CheckCircle2,
@@ -98,21 +99,44 @@ export function ProduzirPage() {
     return allRecipes.filter((r) => r.product_id === selectedProductId);
   }, [allRecipes, selectedProductId]);
 
+  // Rendimento definido para a receita deste produto (mínimo 1)
+  const selectedProductYield = useMemo(() => {
+    return Math.max(1, Math.round(Number(selectedProduct?.production_yield || 1)));
+  }, [selectedProduct]);
+
+  const numQty = parseFloat(quantity) || 0;
+
+  // Verifica se a quantidade informada é um múltiplo exato do rendimento gerado por receita
+  const isMultiple = useMemo(() => {
+    if (!selectedProduct || numQty <= 0) return true;
+    return numQty % selectedProductYield === 0;
+  }, [selectedProduct, numQty, selectedProductYield]);
+
+  // Quantidade de ciclos/receitas inteiras correspondentes
+  const recipeCycles = useMemo(() => {
+    if (selectedProductYield <= 0) return 0;
+    return isMultiple
+      ? Math.round(numQty / selectedProductYield)
+      : Math.max(1, Math.round(numQty / selectedProductYield));
+  }, [selectedProductYield, isMultiple, numQty]);
+
   // Função para aplicar a receita cadastrada proporcionalmente à quantidade (sempre números inteiros)
   const applyProductRecipe = (productId: string, targetQtyStr?: string) => {
     const prod = producibleProducts.find((p) => p.id === productId);
     const recs = allRecipes.filter((r) => r.product_id === productId);
     if (recs.length === 0) return false;
 
-    const numQty = Math.max(1, Math.round(parseFloat(targetQtyStr ?? quantity) || 1));
+    const rawQty = Math.max(1, Math.round(parseFloat(targetQtyStr ?? quantity) || 1));
     const prodYield = Math.max(1, Math.round(Number(prod?.production_yield || 1)));
-    const multiplier = numQty / prodYield;
+    
+    // O consumo de matérias-primas é estritamente proporcional aos ciclos completos de receita
+    const cycles = Math.max(1, Math.round(rawQty / prodYield));
 
     const mapped: MaterialItem[] = recs.map((r) => ({
       raw_material_id: r.raw_material_id,
       quantity_used: Math.max(
         1,
-        Math.ceil(Math.round(Number(r.quantity_required)) * multiplier)
+        Math.round(Number(r.quantity_required)) * cycles
       ),
     }));
 
@@ -120,10 +144,91 @@ export function ProduzirPage() {
     return true;
   };
 
-  // Carrega automaticamente a receita ao mudar o produto selecionado
+  // Ao selecionar um produto, garante que a quantidade seja múltiplo do rendimento (ou 1 ciclo)
+  const handleSelectProduct = (newProductId: string) => {
+    setSelectedProductId(newProductId);
+    const nextProd = producibleProducts.find((p) => p.id === newProductId);
+    const nextYield = Math.max(1, Math.round(Number(nextProd?.production_yield || 1)));
+    const currentNum = parseInt(quantity, 10);
+
+    let nextQty = String(nextYield);
+    if (!isNaN(currentNum) && currentNum >= nextYield && currentNum % nextYield === 0) {
+      nextQty = String(currentNum);
+    }
+    setQuantity(nextQty);
+    applyProductRecipe(newProductId, nextQty);
+  };
+
+  // Ajusta por passos de ciclos de receita (+1 ciclo, -1 ciclo, etc.)
+  const handleStepQuantity = (directionMultiplier: number) => {
+    const delta = directionMultiplier * selectedProductYield;
+    const currentVal = parseInt(quantity, 10) || 0;
+    const nextVal = Math.max(selectedProductYield, currentVal + delta);
+    const nextStr = String(nextVal);
+    setQuantity(nextStr);
+    if (selectedProductId) {
+      applyProductRecipe(selectedProductId, nextStr);
+    }
+  };
+
+  // Ajusta diretamente pelo número de ciclos
+  const handleSetCycles = (cyclesCount: number) => {
+    const cleanCycles = Math.max(1, cyclesCount);
+    const targetUnits = cleanCycles * selectedProductYield;
+    const nextStr = String(targetUnits);
+    setQuantity(nextStr);
+    if (selectedProductId) {
+      applyProductRecipe(selectedProductId, nextStr);
+    }
+  };
+
+  // Ao sair do campo (blur), auto-ajusta para o múltiplo mais próximo caso não seja múltiplo
+  const handleQuantityBlur = () => {
+    const parsed = parseInt(quantity, 10);
+    if (isNaN(parsed) || parsed < selectedProductYield) {
+      const snapped = selectedProductYield;
+      setQuantity(String(snapped));
+      if (selectedProductId) applyProductRecipe(selectedProductId, String(snapped));
+      return;
+    }
+    if (parsed % selectedProductYield !== 0) {
+      const snapped = Math.max(
+        selectedProductYield,
+        Math.round(parsed / selectedProductYield) * selectedProductYield
+      );
+      setQuantity(String(snapped));
+      if (selectedProductId) {
+        applyProductRecipe(selectedProductId, String(snapped));
+      }
+      toast.info(
+        `Quantidade ajustada para ${snapped} ${selectedProduct?.unidade || "un"} (${snapped / selectedProductYield} ciclo(s) da receita).`
+      );
+    }
+  };
+
+  // Botão de auto-correção rápida para múltiplo
+  const snapToMultiple = (multipleQty: number) => {
+    const snapped = Math.max(selectedProductYield, multipleQty);
+    setQuantity(String(snapped));
+    if (selectedProductId) {
+      applyProductRecipe(selectedProductId, String(snapped));
+    }
+  };
+
+  // Carrega automaticamente a receita ao mudar o produto selecionado ou carregar as receitas
   useEffect(() => {
     if (!selectedProductId) return;
-    const applied = applyProductRecipe(selectedProductId, quantity);
+    const prod = producibleProducts.find((p) => p.id === selectedProductId);
+    const prodYield = Math.max(1, Math.round(Number(prod?.production_yield || 1)));
+
+    const currentNum = parseInt(quantity, 10);
+    let targetQty = quantity;
+    if (isNaN(currentNum) || currentNum < prodYield || currentNum % prodYield !== 0) {
+      targetQty = String(prodYield);
+      setQuantity(targetQty);
+    }
+
+    const applied = applyProductRecipe(selectedProductId, targetQty);
     if (!applied && materialsUsed.length === 0 && activeRawMaterials.length > 0) {
       setMaterialsUsed([
         { raw_material_id: activeRawMaterials[0].id, quantity_used: 1 },
@@ -131,10 +236,14 @@ export function ProduzirPage() {
     }
   }, [selectedProductId, allRecipes]);
 
-  // Se houver apenas 1 produto habilitado, pré-seleciona automaticamente
+  // Se houver apenas 1 produto habilitado, pré-seleciona automaticamente com seu rendimento
   useEffect(() => {
     if (!selectedProductId && producibleProducts.length === 1) {
-      setSelectedProductId(producibleProducts[0].id);
+      const first = producibleProducts[0];
+      const initialYield = Math.max(1, Math.round(Number(first.production_yield || 1)));
+      setSelectedProductId(first.id);
+      setQuantity(String(initialYield));
+      applyProductRecipe(first.id, String(initialYield));
     }
   }, [producibleProducts, selectedProductId]);
 
@@ -174,11 +283,21 @@ export function ProduzirPage() {
     setMaterialsUsed((prev) => prev.filter((_, i) => i !== index));
   };
 
-  // Validação em tempo real das matérias-primas
+  // Validação em tempo real das matérias-primas e regras de receita
   const validation = useMemo(() => {
-    const numQty = parseFloat(quantity) || 0;
+    const parsedQty = parseFloat(quantity) || 0;
     if (!selectedProductId) return { valid: false, message: "Selecione um produto para produzir." };
-    if (numQty <= 0) return { valid: false, message: "A quantidade a produzir deve ser maior que zero." };
+    if (parsedQty <= 0) return { valid: false, message: "A quantidade a fabricar deve ser maior que zero." };
+
+    // Validação estrita de múltiplo do rendimento da receita
+    if (selectedProductYield > 1 && parsedQty % selectedProductYield !== 0) {
+      return {
+        valid: false,
+        message: `A quantidade a fabricar (${parsedQty} ${selectedProduct?.unidade || "un"}) deve ser múltiplo exato do rendimento da receita (${selectedProductYield} ${selectedProduct?.unidade || "un"} por ciclo).`,
+        isMultipleError: true,
+      };
+    }
+
     if (materialsUsed.length === 0) {
       return { valid: false, message: "Adicione ao menos uma matéria-prima utilizada na produção." };
     }
@@ -199,17 +318,17 @@ export function ProduzirPage() {
     }
 
     return { valid: true, message: "Tudo pronto para produzir!" };
-  }, [selectedProductId, quantity, materialsUsed, rawMaterials]);
+  }, [selectedProductId, quantity, selectedProductYield, selectedProduct, materialsUsed, rawMaterials]);
 
   // Mutação de Produção
   const productionMutation = useMutation({
     mutationFn: async () => {
       if (!canProduce) throw new Error("Você não possui permissão para executar produções.");
       if (!validation.valid) throw new Error(validation.message);
-      const numQty = Math.max(1, Math.round(parseFloat(quantity) || 1));
+      const cleanNum = Math.max(1, Math.round(parseFloat(quantity) || 1));
       return executeProduction({
         productId: selectedProductId,
-        quantity: numQty,
+        quantity: cleanNum,
         rawMaterials: materialsUsed.map((m) => ({
           raw_material_id: m.raw_material_id,
           quantity_used: Math.max(1, Math.round(Number(m.quantity_used) || 1)),
@@ -228,10 +347,19 @@ export function ProduzirPage() {
       void queryClient.invalidateQueries({ queryKey: ["warehouse_movements"] });
       void queryClient.invalidateQueries({ queryKey: ["audit_logs"] });
 
-      // Reset
+      // Reset inteligente para 1 ciclo do produto
       setIsConfirmOpen(false);
-      setQuantity("1");
-      setMaterialsUsed(activeRawMaterials.length > 0 ? [{ raw_material_id: activeRawMaterials[0].id, quantity_used: 1 }] : []);
+      const defaultQty = String(selectedProductYield || 1);
+      setQuantity(defaultQty);
+      if (selectedProductId) {
+        applyProductRecipe(selectedProductId, defaultQty);
+      } else {
+        setMaterialsUsed(
+          activeRawMaterials.length > 0
+            ? [{ raw_material_id: activeRawMaterials[0].id, quantity_used: 1 }]
+            : []
+        );
+      }
       setObservation("");
     },
     onError: (err: any) => {
@@ -242,8 +370,6 @@ export function ProduzirPage() {
   if (!canView && !canProduce) {
     return <NoAccess message="Você não possui permissão para acessar a Estação de Produção." />;
   }
-
-  const numQty = parseFloat(quantity) || 0;
 
   return (
     <div className="space-y-6 w-full max-w-full pb-12 animate-in fade-in duration-300">
@@ -302,7 +428,7 @@ export function ProduzirPage() {
               {/* SELEÇÃO DO PRODUTO */}
               <div className="space-y-1.5">
                 <Label className="text-xs font-semibold">Produto Alvo *</Label>
-                <Select value={selectedProductId} onValueChange={setSelectedProductId}>
+                <Select value={selectedProductId} onValueChange={handleSelectProduct}>
                   <SelectTrigger className="h-11 rounded-xl bg-background/50 border-border/70 text-xs font-medium">
                     <SelectValue placeholder="Selecione o produto a ser fabricado..." />
                   </SelectTrigger>
@@ -362,7 +488,7 @@ export function ProduzirPage() {
                     />
                     <div>
                       <p className="text-xs font-black text-foreground">{selectedProduct.nome}</p>
-                      <div className="flex items-center gap-2 mt-0.5">
+                      <div className="flex flex-wrap items-center gap-2 mt-1">
                         <span className="text-[11px] text-muted-foreground">
                           Unidade: <strong className="text-foreground">{selectedProduct.unidade}</strong>
                         </span>
@@ -371,7 +497,7 @@ export function ProduzirPage() {
                             variant="outline"
                             className="bg-sky-500/10 text-sky-300 border-sky-500/30 text-[10px] font-mono"
                           >
-                            Receita: {currentProductRecipes.length} insumo(s) / {selectedProduct.production_yield || 1} {selectedProduct.unidade}
+                            Receita: {currentProductRecipes.length} insumo(s) • Rendimento: {selectedProductYield} {selectedProduct.unidade}/ciclo
                           </Badge>
                         )}
                       </div>
@@ -386,55 +512,220 @@ export function ProduzirPage() {
                 </div>
               )}
 
-              {/* QUANTIDADE PRODUZIDA */}
-              <div className="space-y-1.5 pt-1">
+              {/* CONTROLES DE QUANTIDADE E LOTES DE PRODUÇÃO */}
+              <div className="space-y-3 pt-1">
                 <div className="flex items-center justify-between">
-                  <Label className="text-xs font-semibold">Quantidade Produzida *</Label>
-                  <span className="text-[11px] font-mono text-muted-foreground">
-                    Total: {numQty} {selectedProduct?.unidade || "un"}
-                  </span>
+                  <Label className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                    <Boxes className="h-3.5 w-3.5 text-amber-400" />
+                    <span>Quantidade a Fabricar *</span>
+                  </Label>
+                  <div className="flex items-center gap-1.5">
+                    <Badge
+                      variant="outline"
+                      className={cn(
+                        "text-[10px] font-mono",
+                        isMultiple
+                          ? "bg-amber-500/10 text-amber-300 border-amber-500/30"
+                          : "bg-rose-500/10 text-rose-300 border-rose-500/30 font-bold"
+                      )}
+                    >
+                      Total: {numQty} {selectedProduct?.unidade || "un"}
+                      {selectedProduct && selectedProductYield > 1 && (
+                        <span>
+                          {isMultiple ? ` (${recipeCycles} ciclo(s))` : " (Inválido: não múltiplo)"}
+                        </span>
+                      )}
+                    </Badge>
+                  </div>
                 </div>
-                <Input
-                  type="number"
-                  min="1"
-                  step="1"
-                  value={quantity}
-                  onChange={(e) => {
-                    const val = e.target.value;
-                    const cleanVal = val ? String(Math.max(1, parseInt(val, 10) || 1)) : "";
-                    setQuantity(cleanVal);
-                    if (selectedProductId && currentProductRecipes.length > 0) {
-                      applyProductRecipe(selectedProductId, cleanVal);
-                    }
-                  }}
-                  placeholder="Ex: 10"
-                  className="h-11 text-base font-mono font-bold text-amber-300 rounded-xl bg-background/50 border-border/70"
-                />
-                <div className="flex flex-wrap items-center gap-1.5 pt-1">
-                  <span className="text-[10px] text-muted-foreground mr-1">Atalhos:</span>
-                  {[1, 5, 10, 25, 50, 100].map((amt) => (
+
+                {/* STEPPER & INPUT PRINCIPAL */}
+                <div className="flex items-center gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    onClick={() => handleStepQuantity(-1)}
+                    disabled={numQty <= selectedProductYield}
+                    className="h-11 w-11 rounded-xl shrink-0 border-border/70 hover:bg-amber-500/10 hover:text-amber-300"
+                    title={`Diminuir 1 ciclo (-${selectedProductYield} ${selectedProduct?.unidade || "un"})`}
+                  >
+                    <Minus className="h-4 w-4" />
+                  </Button>
+
+                  <div className="relative flex-1">
+                    <Input
+                      type="number"
+                      min={selectedProductYield}
+                      step={selectedProductYield}
+                      value={quantity}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        const cleanVal = val ? String(Math.max(1, parseInt(val, 10) || 1)) : "";
+                        setQuantity(cleanVal);
+                        if (selectedProductId) {
+                          applyProductRecipe(selectedProductId, cleanVal);
+                        }
+                      }}
+                      onBlur={handleQuantityBlur}
+                      placeholder={`Múltiplo de ${selectedProductYield}`}
+                      className={cn(
+                        "h-11 text-base font-mono font-black rounded-xl bg-background/50 border-border/70 pr-14 text-center sm:text-left sm:pl-4",
+                        !isMultiple ? "border-rose-500/60 text-rose-300" : "text-amber-300"
+                      )}
+                    />
+                    <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-xs font-mono font-bold text-muted-foreground pointer-events-none">
+                      {selectedProduct?.unidade || "un"}
+                    </span>
+                  </div>
+
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    onClick={() => handleStepQuantity(1)}
+                    className="h-11 w-11 rounded-xl shrink-0 border-border/70 hover:bg-amber-500/10 hover:text-amber-300"
+                    title={`Aumentar 1 ciclo (+${selectedProductYield} ${selectedProduct?.unidade || "un"})`}
+                  >
+                    <Plus className="h-4 w-4" />
+                  </Button>
+                </div>
+
+                {/* BARRA DE CICLOS DE RECEITA E STEPPERS RÁPIDOS */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-2.5 rounded-xl bg-secondary/30 border border-border/50 text-xs">
+                  <div className="flex items-center gap-2">
+                    <Layers className="h-4 w-4 text-sky-400 shrink-0" />
+                    <div>
+                      <span className="text-muted-foreground">Ciclos da Receita: </span>
+                      <strong className="text-foreground font-mono font-bold">
+                        {recipeCycles} ciclo(s)
+                      </strong>
+                      <span className="text-[11px] text-muted-foreground ml-1 font-mono">
+                        ({recipeCycles} × {selectedProductYield} {selectedProduct?.unidade || "un"})
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-1 shrink-0">
+                    <span className="text-[10px] text-muted-foreground mr-1 hidden sm:inline">Passo:</span>
                     <Button
-                      key={amt}
                       type="button"
                       variant="outline"
                       size="sm"
-                      onClick={() => {
-                        const val = String(amt);
-                        setQuantity(val);
-                        if (selectedProductId && currentProductRecipes.length > 0) {
-                          applyProductRecipe(selectedProductId, val);
-                        }
-                      }}
-                      className={cn(
-                        "h-6 text-[10px] px-2 font-mono rounded-lg",
-                        quantity === String(amt)
-                          ? "border-amber-500/50 bg-amber-500/15 text-amber-300"
-                          : "text-muted-foreground"
-                      )}
+                      onClick={() => handleStepQuantity(-1)}
+                      disabled={numQty <= selectedProductYield}
+                      className="h-6 px-2 text-[10px] font-mono rounded-lg border-border/60"
+                      title={`-1 ciclo (-${selectedProductYield})`}
                     >
-                      +{amt}
+                      -1 ciclo
                     </Button>
-                  ))}
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleStepQuantity(1)}
+                      className="h-6 px-2 text-[10px] font-mono rounded-lg border-border/60"
+                      title={`+1 ciclo (+${selectedProductYield})`}
+                    >
+                      +1 ciclo
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleStepQuantity(5)}
+                      className="h-6 px-2 text-[10px] font-mono rounded-lg border-border/60 text-amber-300 bg-amber-500/10"
+                      title={`+5 ciclos (+${5 * selectedProductYield})`}
+                    >
+                      +5 ciclos
+                    </Button>
+                  </div>
+                </div>
+
+                {/* ALERTA DE NÃO-MÚLTIPLO E AUTO-CORREÇÃO RÁPIDA */}
+                {!isMultiple && selectedProduct && selectedProductYield > 1 && (
+                  <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-xs space-y-2 animate-in fade-in duration-200">
+                    <div className="flex items-start gap-2 text-amber-300 font-semibold">
+                      <AlertTriangle className="h-4 w-4 shrink-0 text-amber-400 mt-0.5" />
+                      <div>
+                        <span>
+                          <strong>{numQty} {selectedProduct.unidade}</strong> não é múltiplo do rendimento da receita (<strong>{selectedProductYield} {selectedProduct.unidade}</strong> por ciclo).
+                        </span>
+                        <p className="text-[11px] text-muted-foreground font-normal mt-0.5">
+                          Para garantir o consumo correto das receitas, a fabricação deve ser realizada em múltiplos exatos de {selectedProductYield} {selectedProduct.unidade}.
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-amber-500/20">
+                      <span className="text-[10px] text-amber-300/80 font-bold uppercase">Ajuste rápido:</span>
+                      {Math.floor(numQty / selectedProductYield) * selectedProductYield > 0 && (
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          onClick={() =>
+                            snapToMultiple(Math.floor(numQty / selectedProductYield) * selectedProductYield)
+                          }
+                          className="h-6 text-[11px] px-2.5 border-amber-500/40 text-amber-200 hover:bg-amber-500/20 rounded-lg font-mono"
+                        >
+                          Arredondar para {Math.floor(numQty / selectedProductYield) * selectedProductYield} {selectedProduct.unidade} ({Math.floor(numQty / selectedProductYield)} ciclos)
+                        </Button>
+                      )}
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        onClick={() =>
+                          snapToMultiple(Math.ceil(numQty / selectedProductYield) * selectedProductYield)
+                        }
+                        className="h-6 text-[11px] px-2.5 border-amber-500/40 text-amber-200 hover:bg-amber-500/20 rounded-lg font-mono"
+                      >
+                        Arredondar para {Math.ceil(numQty / selectedProductYield) * selectedProductYield} {selectedProduct.unidade} ({Math.ceil(numQty / selectedProductYield)} ciclos)
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
+                {/* ATALHOS DE LOTES (CICLOS DA RECEITA) */}
+                <div className="space-y-1.5 pt-1">
+                  <div className="flex items-center justify-between text-[11px] text-muted-foreground">
+                    <span className="font-semibold">Atalhos de Lotes de Produção:</span>
+                    <span className="font-mono text-[10px]">
+                      1 ciclo = {selectedProductYield} {selectedProduct?.unidade || "un"}
+                    </span>
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    {[1, 5, 10, 25, 50, 100].map((cycleCount) => {
+                      const targetUnits = cycleCount * selectedProductYield;
+                      const isSelected = numQty === targetUnits;
+
+                      return (
+                        <Button
+                          key={cycleCount}
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleSetCycles(cycleCount)}
+                          className={cn(
+                            "h-7 text-[11px] px-2.5 font-mono rounded-lg transition-all",
+                            isSelected
+                              ? "border-amber-500/60 bg-amber-500/20 text-amber-300 font-bold shadow-sm"
+                              : "text-muted-foreground hover:text-foreground hover:border-border/80"
+                          )}
+                        >
+                          {selectedProductYield === 1 ? (
+                            <span>+{targetUnits}</span>
+                          ) : (
+                            <span>
+                              <strong className="text-foreground">{cycleCount}x</strong> ({targetUnits} {selectedProduct?.unidade || "un"})
+                            </span>
+                          )}
+                        </Button>
+                      );
+                    })}
+                  </div>
                 </div>
               </div>
             </CardContent>
@@ -453,6 +744,9 @@ export function ProduzirPage() {
                   </CardTitle>
                   <CardDescription className="text-xs">
                     Insumos consumidos para fabricar {quantity || 0} {selectedProduct?.unidade || "un"}
+                    {selectedProduct && selectedProductYield > 1 && (
+                      <span> ({recipeCycles} ciclo(s) de receita)</span>
+                    )}
                   </CardDescription>
                 </div>
                 <div className="flex items-center gap-2">
@@ -510,6 +804,7 @@ export function ProduzirPage() {
                   {materialsUsed.map((item, index) => {
                     const mat = rawMaterials.find((m) => m.id === item.raw_material_id);
                     const isOverStock = mat && Number(item.quantity_used) > Number(mat.stock_quantity);
+                    const recipeItem = currentProductRecipes.find((r) => r.raw_material_id === item.raw_material_id);
 
                     return (
                       <div
@@ -548,21 +843,28 @@ export function ProduzirPage() {
 
                           {/* QUANTIDADE UTILIZADA */}
                           <div className="flex items-center gap-2">
-                            <div className="w-32">
-                              <Input
-                                type="number"
-                                min="1"
-                                step="1"
-                                value={item.quantity_used ? Math.round(item.quantity_used) : ""}
-                                onChange={(e) => {
-                                  const parsed = parseInt(e.target.value, 10);
-                                  handleUpdateMaterial(index, {
-                                    quantity_used: isNaN(parsed) ? 0 : Math.max(0, parsed),
-                                  });
-                                }}
-                                placeholder="Qtd"
-                                className="h-9 text-xs font-mono font-bold text-foreground rounded-xl bg-background/50 border-border/70 text-right"
-                              />
+                            <div className="flex flex-col items-end">
+                              <div className="w-32">
+                                <Input
+                                  type="number"
+                                  min="1"
+                                  step="1"
+                                  value={item.quantity_used ? Math.round(item.quantity_used) : ""}
+                                  onChange={(e) => {
+                                    const parsed = parseInt(e.target.value, 10);
+                                    handleUpdateMaterial(index, {
+                                      quantity_used: isNaN(parsed) ? 0 : Math.max(0, parsed),
+                                    });
+                                  }}
+                                  placeholder="Qtd"
+                                  className="h-9 text-xs font-mono font-bold text-foreground rounded-xl bg-background/50 border-border/70 text-right"
+                                />
+                              </div>
+                              {recipeItem && (
+                                <span className="text-[10px] text-muted-foreground font-mono mt-0.5">
+                                  {recipeItem.quantity_required} {mat?.unit || "un"}/ciclo
+                                </span>
+                              )}
                             </div>
                             <span className="text-xs font-mono font-bold text-muted-foreground w-8">
                               {mat?.unit || "un"}
@@ -671,9 +973,16 @@ export function ProduzirPage() {
 
                 <div className="flex items-center justify-between text-xs">
                   <span className="text-muted-foreground">Lote Produzido:</span>
-                  <span className="font-mono font-black text-amber-400 text-sm">
-                    +{numQty} {selectedProduct?.unidade || "un"}
-                  </span>
+                  <div className="text-right">
+                    <span className="font-mono font-black text-amber-400 text-sm">
+                      +{numQty} {selectedProduct?.unidade || "un"}
+                    </span>
+                    {selectedProduct && selectedProductYield > 1 && (
+                      <p className="text-[10px] text-muted-foreground font-mono">
+                        {recipeCycles} ciclo(s) ({selectedProductYield} {selectedProduct.unidade}/ciclo)
+                      </p>
+                    )}
+                  </div>
                 </div>
 
                 <div className="flex items-center justify-between text-xs">
@@ -787,6 +1096,11 @@ export function ProduzirPage() {
               <strong className="text-foreground">
                 {numQty}x {selectedProduct?.nome}
               </strong>
+              {selectedProduct && selectedProductYield > 1 && (
+                <span className="text-muted-foreground font-mono">
+                  {" "}({recipeCycles} ciclo(s) da receita)
+                </span>
+              )}
               ?
             </DialogDescription>
           </DialogHeader>

@@ -2007,7 +2007,7 @@ export function GestaoProducaoPage() {
                         Rendimento Gerado por Receita *
                       </Label>
                       <p className="text-[11px] text-muted-foreground">
-                        Quantidade de <strong>{editingProduct?.nome}</strong> ({editingProduct?.unidade}) que é produzida ao consumir os insumos da lista abaixo:
+                        Quantidade de <strong>{editingProduct?.nome}</strong> ({editingProduct?.unidade}) produzida a cada ciclo completo dos insumos abaixo. Na <strong>Estação de Produção</strong>, as ordens são obrigatoriamente restritas a múltiplos exatos deste rendimento.
                       </p>
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
