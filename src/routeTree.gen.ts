@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as HandleRouteImport } from './routes/$handle'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
+import { Route as AuthenticatedAdvertenciasRouteImport } from './routes/_authenticated/advertencias'
 import { Route as AuthenticatedAtualizacoesRouteImport } from './routes/_authenticated/atualizacoes'
 import { Route as AuthenticatedAusenciasRouteImport } from './routes/_authenticated/ausencias'
 import { Route as AuthenticatedAvisosRouteImport } from './routes/_authenticated/avisos'
@@ -50,6 +51,7 @@ import { Route as DevDiscordIdRouteImport } from './routes/dev.$discordId'
 import { Route as DevmlcDiscordIdRouteImport } from './routes/devmlc.$discordId'
 import { Route as AuthenticatedAusenciasTabRouteImport } from './routes/_authenticated/ausencias.$tab'
 import { Route as AuthenticatedCeoTabRouteImport } from './routes/_authenticated/ceo.$tab'
+import { Route as AuthenticatedCeoAdvertenciasRouteImport } from './routes/_authenticated/ceo.advertencias'
 import { Route as AuthenticatedCeoAjustesEstoqueRouteImport } from './routes/_authenticated/ceo.ajustes-estoque'
 import { Route as AuthenticatedCeoNotificacoesRouteImport } from './routes/_authenticated/ceo.notificacoes'
 import { Route as AuthenticatedCeoPermissoesTagsRouteImport } from './routes/_authenticated/ceo.permissoes-tags'
@@ -118,6 +120,12 @@ const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
   id: '/_authenticated',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthenticatedAdvertenciasRoute =
+  AuthenticatedAdvertenciasRouteImport.update({
+    id: '/advertencias',
+    path: '/advertencias',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedAtualizacoesRoute =
   AuthenticatedAtualizacoesRouteImport.update({
     id: '/atualizacoes',
@@ -317,6 +325,12 @@ const AuthenticatedCeoTabRoute = AuthenticatedCeoTabRouteImport.update({
   path: '/$tab',
   getParentRoute: () => AuthenticatedCeoRoute,
 } as any)
+const AuthenticatedCeoAdvertenciasRoute =
+  AuthenticatedCeoAdvertenciasRouteImport.update({
+    id: '/advertencias',
+    path: '/advertencias',
+    getParentRoute: () => AuthenticatedCeoRoute,
+  } as any)
 const AuthenticatedCeoAjustesEstoqueRoute =
   AuthenticatedCeoAjustesEstoqueRouteImport.update({
     id: '/ajustes-estoque',
@@ -626,6 +640,7 @@ const AuthenticatedDevProducoesProduzirRoute =
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/$handle': typeof HandleRoute
+  '/advertencias': typeof AuthenticatedAdvertenciasRoute
   '/atualizacoes': typeof AuthenticatedAtualizacoesRoute
   '/ausencias': typeof AuthenticatedAusenciasRouteWithChildren
   '/avisos': typeof AuthenticatedAvisosRoute
@@ -664,6 +679,7 @@ export interface FileRoutesByFullPath {
   '/devmlc/$discordId': typeof DevmlcDiscordIdRoute
   '/ausencias/$tab': typeof AuthenticatedAusenciasTabRoute
   '/ceo/$tab': typeof AuthenticatedCeoTabRouteWithChildren
+  '/ceo/advertencias': typeof AuthenticatedCeoAdvertenciasRoute
   '/ceo/ajustes-estoque': typeof AuthenticatedCeoAjustesEstoqueRoute
   '/ceo/notificacoes': typeof AuthenticatedCeoNotificacoesRoute
   '/ceo/permissoes-tags': typeof AuthenticatedCeoPermissoesTagsRoute
@@ -721,6 +737,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/$handle': typeof HandleRoute
+  '/advertencias': typeof AuthenticatedAdvertenciasRoute
   '/atualizacoes': typeof AuthenticatedAtualizacoesRoute
   '/ausencias': typeof AuthenticatedAusenciasRouteWithChildren
   '/avisos': typeof AuthenticatedAvisosRoute
@@ -759,6 +776,7 @@ export interface FileRoutesByTo {
   '/devmlc/$discordId': typeof DevmlcDiscordIdRoute
   '/ausencias/$tab': typeof AuthenticatedAusenciasTabRoute
   '/ceo/$tab': typeof AuthenticatedCeoTabRouteWithChildren
+  '/ceo/advertencias': typeof AuthenticatedCeoAdvertenciasRoute
   '/ceo/ajustes-estoque': typeof AuthenticatedCeoAjustesEstoqueRoute
   '/ceo/notificacoes': typeof AuthenticatedCeoNotificacoesRoute
   '/ceo/permissoes-tags': typeof AuthenticatedCeoPermissoesTagsRoute
@@ -818,6 +836,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/$handle': typeof HandleRoute
+  '/_authenticated/advertencias': typeof AuthenticatedAdvertenciasRoute
   '/_authenticated/atualizacoes': typeof AuthenticatedAtualizacoesRoute
   '/_authenticated/ausencias': typeof AuthenticatedAusenciasRouteWithChildren
   '/_authenticated/avisos': typeof AuthenticatedAvisosRoute
@@ -856,6 +875,7 @@ export interface FileRoutesById {
   '/devmlc/$discordId': typeof DevmlcDiscordIdRoute
   '/_authenticated/ausencias/$tab': typeof AuthenticatedAusenciasTabRoute
   '/_authenticated/ceo/$tab': typeof AuthenticatedCeoTabRouteWithChildren
+  '/_authenticated/ceo/advertencias': typeof AuthenticatedCeoAdvertenciasRoute
   '/_authenticated/ceo/ajustes-estoque': typeof AuthenticatedCeoAjustesEstoqueRoute
   '/_authenticated/ceo/notificacoes': typeof AuthenticatedCeoNotificacoesRoute
   '/_authenticated/ceo/permissoes-tags': typeof AuthenticatedCeoPermissoesTagsRoute
@@ -915,6 +935,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/$handle'
+    | '/advertencias'
     | '/atualizacoes'
     | '/ausencias'
     | '/avisos'
@@ -953,6 +974,7 @@ export interface FileRouteTypes {
     | '/devmlc/$discordId'
     | '/ausencias/$tab'
     | '/ceo/$tab'
+    | '/ceo/advertencias'
     | '/ceo/ajustes-estoque'
     | '/ceo/notificacoes'
     | '/ceo/permissoes-tags'
@@ -1010,6 +1032,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/$handle'
+    | '/advertencias'
     | '/atualizacoes'
     | '/ausencias'
     | '/avisos'
@@ -1048,6 +1071,7 @@ export interface FileRouteTypes {
     | '/devmlc/$discordId'
     | '/ausencias/$tab'
     | '/ceo/$tab'
+    | '/ceo/advertencias'
     | '/ceo/ajustes-estoque'
     | '/ceo/notificacoes'
     | '/ceo/permissoes-tags'
@@ -1106,6 +1130,7 @@ export interface FileRouteTypes {
     | '/'
     | '/_authenticated'
     | '/$handle'
+    | '/_authenticated/advertencias'
     | '/_authenticated/atualizacoes'
     | '/_authenticated/ausencias'
     | '/_authenticated/avisos'
@@ -1144,6 +1169,7 @@ export interface FileRouteTypes {
     | '/devmlc/$discordId'
     | '/_authenticated/ausencias/$tab'
     | '/_authenticated/ceo/$tab'
+    | '/_authenticated/ceo/advertencias'
     | '/_authenticated/ceo/ajustes-estoque'
     | '/_authenticated/ceo/notificacoes'
     | '/_authenticated/ceo/permissoes-tags'
@@ -1231,6 +1257,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/'
       preLoaderRoute: typeof AuthenticatedRouteRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/_authenticated/advertencias': {
+      id: '/_authenticated/advertencias'
+      path: '/advertencias'
+      fullPath: '/advertencias'
+      preLoaderRoute: typeof AuthenticatedAdvertenciasRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/atualizacoes': {
       id: '/_authenticated/atualizacoes'
@@ -1496,6 +1529,13 @@ declare module '@tanstack/react-router' {
       path: '/$tab'
       fullPath: '/ceo/$tab'
       preLoaderRoute: typeof AuthenticatedCeoTabRouteImport
+      parentRoute: typeof AuthenticatedCeoRoute
+    }
+    '/_authenticated/ceo/advertencias': {
+      id: '/_authenticated/ceo/advertencias'
+      path: '/advertencias'
+      fullPath: '/ceo/advertencias'
+      preLoaderRoute: typeof AuthenticatedCeoAdvertenciasRouteImport
       parentRoute: typeof AuthenticatedCeoRoute
     }
     '/_authenticated/ceo/ajustes-estoque': {
@@ -1899,6 +1939,7 @@ const AuthenticatedCeoTabRouteWithChildren =
 
 interface AuthenticatedCeoRouteChildren {
   AuthenticatedCeoTabRoute: typeof AuthenticatedCeoTabRouteWithChildren
+  AuthenticatedCeoAdvertenciasRoute: typeof AuthenticatedCeoAdvertenciasRoute
   AuthenticatedCeoAjustesEstoqueRoute: typeof AuthenticatedCeoAjustesEstoqueRoute
   AuthenticatedCeoNotificacoesRoute: typeof AuthenticatedCeoNotificacoesRoute
   AuthenticatedCeoPermissoesTagsRoute: typeof AuthenticatedCeoPermissoesTagsRoute
@@ -1912,6 +1953,7 @@ interface AuthenticatedCeoRouteChildren {
 
 const AuthenticatedCeoRouteChildren: AuthenticatedCeoRouteChildren = {
   AuthenticatedCeoTabRoute: AuthenticatedCeoTabRouteWithChildren,
+  AuthenticatedCeoAdvertenciasRoute: AuthenticatedCeoAdvertenciasRoute,
   AuthenticatedCeoAjustesEstoqueRoute: AuthenticatedCeoAjustesEstoqueRoute,
   AuthenticatedCeoNotificacoesRoute: AuthenticatedCeoNotificacoesRoute,
   AuthenticatedCeoPermissoesTagsRoute: AuthenticatedCeoPermissoesTagsRoute,
@@ -2096,6 +2138,7 @@ const AuthenticatedDevEstoqueRouteWithChildren =
   )
 
 interface AuthenticatedRouteRouteChildren {
+  AuthenticatedAdvertenciasRoute: typeof AuthenticatedAdvertenciasRoute
   AuthenticatedAtualizacoesRoute: typeof AuthenticatedAtualizacoesRoute
   AuthenticatedAusenciasRoute: typeof AuthenticatedAusenciasRouteWithChildren
   AuthenticatedAvisosRoute: typeof AuthenticatedAvisosRoute
@@ -2159,6 +2202,7 @@ interface AuthenticatedRouteRouteChildren {
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
+  AuthenticatedAdvertenciasRoute: AuthenticatedAdvertenciasRoute,
   AuthenticatedAtualizacoesRoute: AuthenticatedAtualizacoesRoute,
   AuthenticatedAusenciasRoute: AuthenticatedAusenciasRouteWithChildren,
   AuthenticatedAvisosRoute: AuthenticatedAvisosRoute,
@@ -2241,13 +2285,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}

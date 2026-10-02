@@ -373,3 +373,42 @@ export async function setTagMembers(
     }
   }
 }
+
+/**
+ * Atribui uma tag específica a um membro (se ainda não possuir)
+ */
+export async function assignMemberTag(
+  memberId: string,
+  tagId: string,
+  assignedBy?: string
+): Promise<void> {
+  const { data: existing } = await supabase
+    .from("member_tag_assignments" as any)
+    .select("id")
+    .eq("member_id", memberId)
+    .eq("tag_id", tagId)
+    .maybeSingle();
+
+  if (!existing) {
+    await supabase.from("member_tag_assignments" as any).insert({
+      member_id: memberId,
+      tag_id: tagId,
+      assigned_by: assignedBy || null,
+    });
+  }
+}
+
+/**
+ * Remove a atribuição de uma tag de um membro
+ */
+export async function removeMemberTagAssignment(
+  memberId: string,
+  tagId: string
+): Promise<void> {
+  await supabase
+    .from("member_tag_assignments" as any)
+    .delete()
+    .eq("member_id", memberId)
+    .eq("tag_id", tagId);
+}
+

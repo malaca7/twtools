@@ -43,6 +43,7 @@ import { LifePage } from "@/routes/_authenticated/life";
 import { ShopPage } from "@/components/shop/ShopPage";
 import { ProduzirPage } from "@/routes/_authenticated/producoes.produzir";
 import { ArmazemPage } from "@/routes/_authenticated/producoes.armazem";
+import { AdvertenciasPage } from "@/routes/_authenticated/advertencias";
 import { GestaoProducaoPage } from "@/routes/_authenticated/producoes.gestao";
 import { MateriasPrimasPage } from "@/routes/_authenticated/producoes.materias-primas";
 import { CeoGerenciarTagsPage } from "@/routes/_authenticated/ceo.tags";
@@ -108,6 +109,9 @@ const PAGE_PERMISSION_MAP: Record<string, Permission | null> = {
   tags: "view_ceo_tag_permissions",
   "ceo-tags": "view_ceo_tag_permissions",
   "gerenciar-tags": "view_ceo_tag_permissions",
+  advertencias: "view_warnings",
+  "ceo-advertencias": "view_warnings",
+  "dev-advertencias": "view_warnings",
 
   // Módulos DEV
   "dev-notificacoes": "view_dev_notifications",
@@ -361,6 +365,11 @@ function InnerPageResolver({ page, tab, mode }: { page: string; tab?: string; mo
       return <MemberNotificationsPage />;
     case "life":
       return <LifePage />;
+    case "advertencias":
+    case "ceo-advertencias":
+    case "dev-advertencias":
+    case "suspensoes":
+      return <AdvertenciasPage />;
     case "perfil":
       if (!tab || tab === "dados" || tab === "aparencia") {
         return <PerfilPage initialTab={tab as "dados" | "aparencia" | undefined} />;

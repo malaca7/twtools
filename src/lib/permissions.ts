@@ -285,7 +285,14 @@ export type Permission =
   | "life_follow_members"
   | "life_pin_posts"
   | "life_moderate_posts"
-  | "manage_life";
+  | "manage_life"
+  // Permissões do Sistema de Advertências e Suspensões
+  | "view_warnings"
+  | "create_warning"
+  | "edit_warning"
+  | "revoke_warning"
+  | "delete_warning"
+  | "manage_warnings";
 
 export const ALL_PERMISSIONS: Permission[] = [
   // Permissões de Matérias-Primas
@@ -525,6 +532,13 @@ export const ALL_PERMISSIONS: Permission[] = [
   "estoque.corrigir",
   "estoque.configurar",
   "estoque.auditoria",
+  // Permissões de Advertências e Suspensões
+  "view_warnings",
+  "create_warning",
+  "edit_warning",
+  "revoke_warning",
+  "delete_warning",
+  "manage_warnings",
 ];
 
 export const DEV_PANEL_PERMISSIONS: Permission[] = [
@@ -640,6 +654,13 @@ export const CEO_PERMISSIONS: Permission[] = [
   "life_moderate_posts",
   "life_moderate_comments",
   "manage_life",
+  // Permissões de Advertências e Suspensões no CEO
+  "view_warnings",
+  "create_warning",
+  "edit_warning",
+  "revoke_warning",
+  "delete_warning",
+  "manage_warnings",
 ];
 
 const ADMIN: Permission[] = ALL_PERMISSIONS.filter(
@@ -648,6 +669,8 @@ const ADMIN: Permission[] = ALL_PERMISSIONS.filter(
 
 const OFFICER: Permission[] = [
   "view_dashboard",
+  "view_warnings",
+  "create_warning",
   "view_chat",
   "create_chat_group",
   "manage_chat_groups",
@@ -1046,6 +1069,20 @@ export function satisfiesPermission(
       permission === "life_pin_posts" ||
       permission === "life_moderate_posts" ||
       permission === "life_moderate_comments"
+    ) {
+      return true;
+    }
+  }
+
+  // 2.1. Sistema de Advertências e Suspensões
+  if (list.includes("manage_warnings")) {
+    if (
+      permission === "view_warnings" ||
+      permission === "create_warning" ||
+      permission === "edit_warning" ||
+      permission === "revoke_warning" ||
+      permission === "delete_warning" ||
+      permission === "manage_warnings"
     ) {
       return true;
     }

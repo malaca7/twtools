@@ -114,6 +114,7 @@ import { cn } from "@/lib/utils";
 import { MobileBottomNav } from "./MobileBottomNav";
 import { ForceCachePurgeListener } from "@/components/dev/ForceCachePurgeListener";
 import { NotificationCenter } from "@/components/notifications/NotificationCenter";
+import { SuspensionAlertBanner } from "@/components/warnings/SuspensionAlertBanner";
 
 type MasterNavItem = {
   id: string;
@@ -148,6 +149,7 @@ const MASTER_NAV_ITEMS: MasterNavItem[] = [
   { id: "cargos", title: "Gerenciamento de Cargos", url: "/cargos", icon: ShieldCheck, perm: "manage_roles", defaultCat: "Administração", defaultOrder: 19 },
   { id: "permissoes", title: "Permissões", url: "/permissoes", icon: Settings, perm: "manage_permissions", defaultCat: "Administração", defaultOrder: 20 },
   { id: "atualizacoes", title: "Atualizações", url: "/atualizacoes", icon: Sparkles, perm: "view_patch_notes", defaultCat: "Administração", defaultOrder: 21 },
+  { id: "advertencias", title: "Advertências", url: "/advertencias", icon: ShieldAlert, perm: "view_warnings", defaultCat: "Administração", defaultOrder: 21.5 },
   { id: "perfil", title: "Meu Perfil", url: "/perfil", icon: User, perm: "view_profile", defaultCat: "Gestão", defaultOrder: 22 },
   { id: "configuracoes", title: "Configurações", url: "/configuracoes", icon: Wrench, perm: "manage_platform_settings", defaultCat: "Administração", defaultOrder: 23 },
 ];
@@ -235,6 +237,9 @@ const URL_TO_PERMISSION_MAP: Record<string, Permission> = {
   "/dev/ajustes-estoque": "view_ceo_stock_adjustments",
   "/dev/webhooks": "manage_ceo_webhooks",
   "/dev/financas": "view_ceo_financials",
+  "/advertencias": "view_warnings",
+  "/ceo/advertencias": "view_warnings",
+  "/dev/advertencias": "view_warnings",
 };
 
 const DEV_MODULE_NAV_ITEMS: MasterNavItem[] = [
@@ -512,8 +517,8 @@ function DynamicSidebarNavigation() {
     const visibleCeo = canSeeCeo
       ? allCeoItems.filter((item) => {
           if (!item.visible) return false;
-          // Se for Desenvolvedor (isDevUser), tem acesso total a todas as categorias e menus do CEO!
-          if (isDevUser) return true;
+          // Se for Desenvolvedor (isDevUser) ou CEO (isCeoUser), tem acesso total a todas as categorias e menus do CEO!
+          if (isDevUser || isCeoUser) return true;
 
           if (
             (item.id === "ceo-dashboard" || item.id === "ceo-executivo" || item.url === "/ceo" || item.url === "/ceo/dashboard") &&
@@ -725,7 +730,7 @@ function DynamicSidebarNavigation() {
       // B) Agrupa menus da plataforma com URLs prefixadas como /ceo/* (apenas o que o CEO tem permissão)
       const visibleCeoMaster = allPlatformItems
         .filter((item) => item.id !== "dashboard" && item.url !== "/dashboard")
-        .filter((item) => item.visible && (!item.perm || hasPermission(item.perm)))
+        .filter((item) => item.visible && (isCeoUser || isDevUser || !item.perm || hasPermission(item.perm)))
         .map((item) => {
           let ceoUrl = item.url;
           if (ceoUrl.startsWith("/") && !ceoUrl.startsWith("/ceo")) {
@@ -1333,7 +1338,10 @@ export function AppShell({ children }: { children: ReactNode }) {
                 </div>
               </div>
             )}
-            <div className="w-full max-w-7xl mx-auto">{children}</div>
+            <div className="w-full max-w-7xl mx-auto">
+              <SuspensionAlertBanner />
+              {children}
+            </div>
 
             {/* RODAPÉ DINÂMICO E TOTALMENTE PERSONALIZÁVEL */}
             <footer className="py-6 mt-12 border-t border-border/40 text-center text-xs text-muted-foreground/80 space-y-1.5 w-full max-w-7xl mx-auto">

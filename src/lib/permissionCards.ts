@@ -40,6 +40,7 @@ import {
   Hammer,
   Layers,
   Tags,
+  ShieldAlert,
 } from "lucide-react";
 import type { Permission } from "@/lib/permissions";
 
@@ -116,6 +117,7 @@ export const READ_ONLY_PERMISSIONS: Permission[] = [
   "warehouse.history",
   "production_management.view",
   "view_production_management",
+  "view_warnings",
 ];
 
 export const PAGE_CARDS: PageCardConfig[] = [
@@ -1956,6 +1958,54 @@ export const PAGE_CARDS: PageCardConfig[] = [
         label: "Gerenciamento Completo do Twin Life",
         description: "Acesso administrativo irrestrito à moderação, fixação, gestão de publicações e configurações do feed.",
         badge: "Acesso Administrativo",
+      },
+    ],
+  },
+  {
+    id: "advertencias",
+    title: "Advertências & Suspensões",
+    route: "/advertencias",
+    icon: ShieldAlert,
+    description: "Sistema disciplinar: aplicação de advertências, suspensões temporárias e permanentes, bloqueios funcionais e auditoria.",
+    color: "border-rose-500/40 bg-rose-500/5 text-rose-400",
+    defaultCat: "Gestão",
+    defaultOrder: 12,
+    permissions: [
+      {
+        key: "view_warnings",
+        label: "Visualizar Painel de Advertências",
+        description: "Permite acessar a rota /advertencias e consultar histórico de advertências e suspensões aplicadas.",
+        badge: "Acesso à Rota",
+      },
+      {
+        key: "create_warning",
+        label: "Aplicar Advertências & Suspensões",
+        description: "Permite registrar novas advertências e suspensões para integrantes com duração e bloqueios funcionais.",
+        badge: "Aplicação",
+      },
+      {
+        key: "edit_warning",
+        label: "Editar Registros de Advertências",
+        description: "Permite editar o motivo, descrição, severidade e datas de advertências existentes.",
+        badge: "Edição",
+      },
+      {
+        key: "revoke_warning",
+        label: "Revogar / Cancelar Suspensões",
+        description: "Permite cancelar antecipadamente uma suspensão ou advertência com registro obrigatório de justificativa.",
+        badge: "Revogação",
+      },
+      {
+        key: "delete_warning",
+        label: "Excluir Registros de Advertências",
+        description: "Permite apagar permanentemente um registro disciplinar da plataforma.",
+        badge: "Ação Crítica",
+      },
+      {
+        key: "manage_warnings",
+        label: "Gerenciamento Completo de Advertências",
+        description: "Acesso irrestrito a todas as operações disciplinares, configurações de bloqueios e anistias.",
+        badge: "Administração",
       },
     ],
   },

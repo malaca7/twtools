@@ -8,6 +8,8 @@ import { can, satisfiesPermission, LEVEL_LABEL, type AppLevel, type Permission }
 import { useRolePermissions } from "@/hooks/useData";
 import { isUserDeveloper, DEV_DISCORD_IDS, isDevBypassActive, DEV_CONFIG_EVENT, CEO_CONFIG_EVENT, getCeoTagPermissionsSync, getDevTagPermissionsSync, isUserCeo } from "@/services/devService";
 import type { MemberTag } from "@/services/memberTagsService";
+import type { MemberWarning } from "@/types/warnings";
+import { getWarnings, WARNINGS_REALTIME_EVENT } from "@/services/warningsService";
 
 type Session = { user: AppUser } | null;
 
@@ -32,6 +34,8 @@ type AuthContextValue = {
   tagPermissions: Permission[];
   hasTag: (tagId: string) => boolean;
   isMemberBlocked: boolean;
+  activeSuspension: MemberWarning | null;
+  isSuspended: boolean;
 };
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -478,6 +482,48 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, [activeUserId, activeProfileId, permissionsTick]);
 
+  // Carrega e monitora a suspensão ativa do membro logado
+  const [activeSuspension, setActiveSuspension] = useState<MemberWarning | null>(null);
+
+  useEffect(() => {
+    let isCancelled = false;
+    async function checkSuspension() {
+      if (!activeUserId && !activeProfileId) {
+        setActiveSuspension(null);
+        return;
+      }
+      try {
+        const all = await getWarnings();
+        if (isCancelled) return;
+        const now = new Date().toISOString();
+        const active = all.find((w) => {
+          if (w.status !== "ativo") return false;
+          if (!w.is_suspension && w.type !== "suspensao") return false;
+          if (w.member_id !== activeUserId && w.member_id !== activeProfileId) return false;
+          if (w.ends_at && w.ends_at <= now) return false;
+          return true;
+        });
+        setActiveSuspension(active || null);
+      } catch {
+        if (!isCancelled) setActiveSuspension(null);
+      }
+    }
+
+    void checkSuspension();
+
+    const handleUpdate = () => {
+      void checkSuspension();
+    };
+
+    window.addEventListener(WARNINGS_REALTIME_EVENT, handleUpdate);
+    return () => {
+      isCancelled = true;
+      window.removeEventListener(WARNINGS_REALTIME_EVENT, handleUpdate);
+    };
+  }, [activeUserId, activeProfileId]);
+
+  const isSuspended = Boolean(activeSuspension);
+
   // Coleta a soma universal de todas as permissões de todas as tags ativas do membro
   const allTagPermissions = useMemo<Permission[]>(() => {
     const permsSet = new Set<Permission>();
@@ -496,6 +542,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const cleanId = tag.id.toLowerCase().trim();
       if (rules.can_access_ceo || rules.is_ceo || cleanId === "ceo") {
         permsSet.add("view_ceo" as Permission);
+        const ceoPerms = getCeoTagPermissionsSync();
+        for (const p of ceoPerms) {
+          if (p) permsSet.add(p as Permission);
+        }
       }
       if (
         rules.can_access_dev ||
@@ -700,12 +750,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           (window.location.pathname.startsWith("/dev") || window.location.hash.includes("/dev")));
       const inMemberPanel = !inCeoPanel && !inDevPanel;
 
-      // 0. Avaliação de Regras Restritivas da Tag (ex: Tag Bloqueado ou Bloqueios Granulares)
+      // 0. Avaliação de Suspensões Ativas & Regras Restritivas
       if (!isDevUser) {
-        const hasBlockingTag = memberTags.some(
-          (t) => t.is_active !== false && (t.rules?.is_blocked === true || t.rules?.block_operations === true)
-        );
-
         const isOperationalAction =
           permission.startsWith("create_") ||
           permission.startsWith("delete_") ||
@@ -720,16 +766,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           permission === "adjust_stock_balance" ||
           permission === "manage_stock_balance";
 
-        if (hasBlockingTag && isOperationalAction) {
-          return false;
-        }
-
-        // Checa bloqueios específicos adicionais de regras da tag
         const isSalesAction = permission.startsWith("sales.") || permission.includes("sale");
         const isCashAction = permission.includes("cash_fund");
         const isMovementAction = permission.includes("movement");
         const isProdAction = permission.startsWith("productions.") || permission.includes("production");
 
+        // Bloqueios disciplinares durante suspensão ativa
+        if (activeSuspension) {
+          const blocks = activeSuspension.blocks;
+          if (blocks?.block_login) return false;
+          if (blocks?.block_all_operations && isOperationalAction) return false;
+          if (blocks?.block_sales && isSalesAction && isOperationalAction) return false;
+          if (blocks?.block_movements && isMovementAction && isOperationalAction) return false;
+          if (blocks?.block_productions && isProdAction && isOperationalAction) return false;
+          if (blocks?.block_cash_fund && isCashAction && isOperationalAction) return false;
+        }
+
+        const hasBlockingTag = memberTags.some(
+          (t) => t.is_active !== false && (t.rules?.is_blocked === true || t.rules?.block_operations === true)
+        );
+
+        if (hasBlockingTag && isOperationalAction) {
+          return false;
+        }
+
+        // Checa bloqueios específicos adicionais de regras da tag
         for (const t of memberTags) {
           if (t.is_active === false) continue;
           if (t.rules?.block_sales && isSalesAction && isOperationalAction) return false;
@@ -772,6 +833,38 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
       }
 
+      // 0.05. Se for CEO (isCeoUser):
+      // Quando o membro tiver a Tag CEO:
+      // a) No Painel CEO (inCeoPanel): tem acesso TOTAL a todas as funções, menus e recursos do CEO!
+      // b) Em qualquer rota executiva/CEO ou ferramentas do CEO: tem acesso pleno!
+      if (isCeoUser) {
+        if (inCeoPanel) {
+          return true;
+        }
+        const permStr = String(permission);
+        if (
+          permStr.startsWith("view_ceo") ||
+          permStr.startsWith("manage_ceo") ||
+          permStr.startsWith("create_ceo") ||
+          permStr.startsWith("edit_ceo") ||
+          permStr.startsWith("delete_ceo") ||
+          permStr.startsWith("toggle_ceo") ||
+          permStr.startsWith("ceo_") ||
+          permStr.includes("_ceo_") ||
+          permStr === "view_ceo" ||
+          permStr.startsWith("bot_") ||
+          permStr.startsWith("webhook_") ||
+          permStr.startsWith("view_warnings") ||
+          permStr.startsWith("create_warning") ||
+          permStr.startsWith("edit_warning") ||
+          permStr.startsWith("revoke_warning") ||
+          permStr.startsWith("delete_warning") ||
+          permStr.startsWith("manage_warnings")
+        ) {
+          return true;
+        }
+      }
+
       // 0.1. SOMA UNIVERSAL DAS TAGS:
       // Se qualquer tag ativa do membro possui a permissão (exata ou por herança/equivalência),
       // essa permissão é SOMADA e está plenamente ativa em QUALQUER painel (Membro, CEO ou DEV)!
@@ -804,12 +897,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       // 3. Quando estiver operando no PAINEL CEO (ou rota /ceo):
       if (inCeoPanel) {
-        if (isDevUser) return true;
-        if (level === "ceo" || memberTags.some((t) => t.id.toLowerCase() === "ceo" && t.is_active !== false)) {
-          const ceoPerms = customRolePermissions?.["ceo"] ?? getCeoTagPermissionsSync();
-          if (satisfiesPermission(ceoPerms, permission)) {
-            return true;
-          }
+        if (isDevUser || isCeoUser) return true;
+        const ceoPerms = customRolePermissions?.["ceo"] ?? getCeoTagPermissionsSync();
+        if (satisfiesPermission(ceoPerms, permission)) {
+          return true;
         }
         return can(level, permission, customRolePermissions);
       }
@@ -858,6 +949,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       tagPermissions: allTagPermissions,
       hasTag,
       isMemberBlocked,
+      activeSuspension,
+      isSuspended,
     }),
     [
       session,
@@ -878,6 +971,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       allTagPermissions,
       hasTag,
       isMemberBlocked,
+      activeSuspension,
+      isSuspended,
     ]
   );
 
