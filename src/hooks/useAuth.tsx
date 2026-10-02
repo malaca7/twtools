@@ -529,6 +529,54 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         permsSet.add("view_productions" as Permission);
         permsSet.add("warehouse.view" as Permission);
       }
+      if (rules.can_transfer_warehouse) {
+        permsSet.add("warehouse.view" as Permission);
+        permsSet.add("warehouse.transfer" as Permission);
+        permsSet.add("warehouse.transfer_storage" as Permission);
+        permsSet.add("warehouse.transfer_sale" as Permission);
+      }
+      if (rules.can_adjust_warehouse_stock) {
+        permsSet.add("warehouse.view" as Permission);
+        permsSet.add("warehouse.adjust" as Permission);
+      }
+      if (rules.can_manage_production_recipes) {
+        permsSet.add("production_management.view" as Permission);
+        permsSet.add("production_management.products" as Permission);
+        permsSet.add("production_management.raw_materials" as Permission);
+        permsSet.add("production_management.productions" as Permission);
+        permsSet.add("production_management.settings" as Permission);
+      }
+      if (rules.can_manage_members) {
+        permsSet.add("view_members" as Permission);
+        permsSet.add("approve_requests" as Permission);
+        permsSet.add("promote_members" as Permission);
+        permsSet.add("edit_members" as Permission);
+      }
+      if (rules.can_view_sensitive_data) {
+        permsSet.add("view_sensitive_data" as Permission);
+      }
+      if (rules.can_view_all_tickets) {
+        permsSet.add("view_tickets" as Permission);
+        permsSet.add("view_all_tickets" as Permission);
+      }
+      if (rules.can_create_announcements) {
+        permsSet.add("create_announcements" as Permission);
+        permsSet.add("manage_announcements" as Permission);
+      }
+      if (rules.can_reverse_sales) {
+        permsSet.add("reverse_sale" as Permission);
+        permsSet.add("sales.cancel" as Permission);
+      }
+      if (rules.can_view_all_sales) {
+        permsSet.add("view_all_sales" as Permission);
+      }
+      if (rules.can_deposit_cash_fund || rules.can_withdraw_cash_fund) {
+        permsSet.add("view_cash_fund" as Permission);
+        permsSet.add("manage_cash_fund" as Permission);
+      }
+      if (rules.can_view_financial_reports) {
+        permsSet.add("view_consolidated_financials" as Permission);
+      }
     }
     return Array.from(permsSet);
   }, [memberTags]);
@@ -643,12 +691,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           (window.location.pathname.startsWith("/dev") || window.location.hash.includes("/dev")));
       const inMemberPanel = !inCeoPanel && !inDevPanel;
 
-      // 0. Avaliação de Regras Restritivas da Tag (ex: Tag Bloqueado)
-      const hasBlockingTag = memberTags.some(
-        (t) => t.is_active !== false && (t.rules?.is_blocked === true || t.rules?.block_operations === true)
-      );
-      if (hasBlockingTag && !isDevUser) {
-        // Bloqueia ações de alteração e escrita
+      // 0. Avaliação de Regras Restritivas da Tag (ex: Tag Bloqueado ou Bloqueios Granulares)
+      if (!isDevUser) {
+        const hasBlockingTag = memberTags.some(
+          (t) => t.is_active !== false && (t.rules?.is_blocked === true || t.rules?.block_operations === true)
+        );
+
         const isOperationalAction =
           permission.startsWith("create_") ||
           permission.startsWith("delete_") ||
@@ -663,7 +711,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           permission === "adjust_stock_balance" ||
           permission === "manage_stock_balance";
 
-        if (isOperationalAction) {
+        if (hasBlockingTag && isOperationalAction) {
           return false;
         }
 

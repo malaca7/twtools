@@ -207,6 +207,7 @@ const URL_TO_PERMISSION_MAP: Record<string, Permission> = {
   "/ceo/producoes/gestao": "production_management.view",
   "/ceo/producoes/gestao-producao": "production_management.view",
   "/ceo/producoes": "productions.view",
+  "/ceo/tags": "view_ceo_tag_permissions",
   "/ceo/permissoes-tags": "view_ceo_tag_permissions",
   "/dev/tags": "view_dev_tags",
   "/dev/gerenciar-tags": "view_dev_tags",
@@ -222,7 +223,6 @@ const DEV_MODULE_NAV_ITEMS: MasterNavItem[] = [
   { id: "dev-loja-oficial", title: "Loja", url: "/dev/loja", icon: Store, defaultCat: "DEV", defaultOrder: 6.5 },
   { id: "dev-coins", title: "Gestão de Coins", url: "/dev/coins", icon: Coins, defaultCat: "DEV", defaultOrder: 7 },
   { id: "dev-permissoes", title: "Permissões Tag Dev", url: "/dev/permissoes", icon: KeyRound, defaultCat: "DEV", defaultOrder: 8 },
-  { id: "dev-tags", title: "Gerenciar Tags", url: "/dev/tags", icon: Tags, defaultCat: "DEV", defaultOrder: 8.5 },
   { id: "dev-configuracao", title: "Configurações Dev", url: "/dev/configuracao", icon: Code2, defaultCat: "DEV", defaultOrder: 9 },
   { id: "dev-menu-lateral", title: "Menu Lateral Dev", url: "/dev/menu-lateral", icon: Sliders, defaultCat: "DEV", defaultOrder: 10 },
   { id: "dev-notificacoes", title: "Central de Notificações", url: "/dev/notificacoes", icon: BellRing, defaultCat: "DEV", defaultOrder: 11 },
@@ -235,7 +235,7 @@ const CEO_MODULE_NAV_ITEMS: MasterNavItem[] = [
   { id: "ceo-financas", title: "Fundo de Caixa & Finanças", url: "/ceo/financas", icon: Landmark, defaultCat: "CEO", defaultOrder: 3 },
   { id: "ceo-ajustes-estoque", title: "Ajustes de Estoque", url: "/ceo/ajustes-estoque", icon: Sliders, defaultCat: "CEO", defaultOrder: 4 },
   { id: "ceo-notificacoes", title: "Central de Notificações", url: "/ceo/notificacoes", icon: BellRing, defaultCat: "CEO", defaultOrder: 5 },
-  { id: "ceo-permissoes-tags", title: "Permissões Tags", url: "/ceo/permissoes-tags", icon: Tags, defaultCat: "CEO", defaultOrder: 6 },
+  { id: "ceo-tags", title: "Gerenciar Tags", url: "/ceo/tags", icon: Tags, defaultCat: "CEO", defaultOrder: 6 },
 ];
 
 function DynamicSidebarNavigation() {

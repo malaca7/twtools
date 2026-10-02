@@ -2,18 +2,50 @@ import { supabase } from "@/integrations/supabase/client";
 import type { Permission } from "@/lib/permissions";
 
 export type MemberTagRules = {
+  // Bloqueios & Restrições Operacionais
   is_blocked?: boolean;
   block_operations?: boolean;
   block_sales?: boolean;
   block_movements?: boolean;
   block_productions?: boolean;
   block_cash_fund?: boolean;
+
+  // Comercial & Vendas
   can_sell?: boolean;
-  max_discount_pct?: number;
   allow_sales_counter?: boolean;
+  max_discount_pct?: number;
+  can_reverse_sales?: boolean;
+  can_view_all_sales?: boolean;
+
+  // Produções, Armazém & Matérias-Primas
+  can_manage_productions?: boolean;
+  can_manage_raw_materials?: boolean;
+  can_transfer_warehouse?: boolean;
+  can_adjust_warehouse_stock?: boolean;
+  can_manage_production_recipes?: boolean;
+
+  // Fundo de Caixa & Finanças
+  can_deposit_cash_fund?: boolean;
+  can_withdraw_cash_fund?: boolean;
+  can_view_financial_reports?: boolean;
+
+  // Gestão de Membros & Equipe
+  can_manage_members?: boolean;
+  can_view_sensitive_data?: boolean;
+  can_view_all_tickets?: boolean;
+  can_create_announcements?: boolean;
+
+  // Acesso a Painéis Executivos
+  can_access_ceo?: boolean;
+  can_access_dev?: boolean;
+  priority_badge?: boolean;
+
+  // Modo Avançado & Experimental
   is_dev_test?: boolean;
   experimental_features?: boolean;
   show_test_tools?: boolean;
+  auto_claim_rewards?: boolean;
+
   [key: string]: any;
 };
 

@@ -28,6 +28,7 @@ export const DEFAULT_CEO_MENU_ITEMS: CeoMenuItemConfig[] = [
   { id: "ceo-financas", title: "Fundo de Caixa & Finanças", url: "/ceo/financas", iconName: "Landmark", visible: true, category: "CEO", order: 3 },
   { id: "ceo-ajustes-estoque", title: "Ajustes de Estoque", url: "/ceo/ajustes-estoque", iconName: "Sliders", visible: true, category: "CEO", order: 4 },
   { id: "ceo-notificacoes", title: "Central de Notificações", url: "/ceo/notificacoes", iconName: "BellRing", visible: true, category: "CEO", order: 5 },
+  { id: "ceo-tags", title: "Gerenciar Tags", url: "/ceo/tags", iconName: "Tags", visible: true, category: "CEO", order: 6 },
 ];
 
 const STORAGE_KEY = "tw_ceo_menu_config";
@@ -66,18 +67,12 @@ export function sanitizeCeoConfig(parsed: any): CeoMenuConfig {
   });
 
   const merged = DEFAULT_CEO_MENU_ITEMS.map((def, defaultIdx) => {
-    const saved = savedMap.get(def.id);
+    const saved = savedMap.get(def.id) || (def.id === "ceo-tags" ? savedMap.get("ceo-permissoes-tags") : undefined);
     if (!saved) return def;
     return {
       id: def.id,
-      title:
-        saved.title && typeof saved.title === "string" && saved.title.trim().length > 0
-          ? saved.title.trim()
-          : def.title,
-      url:
-        saved.url && typeof saved.url === "string" && saved.url.trim().length > 1 && saved.url !== "/"
-          ? saved.url.trim()
-          : def.url,
+      title: def.id === "ceo-tags" ? "Gerenciar Tags" : (saved.title && typeof saved.title === "string" && saved.title.trim().length > 0 ? saved.title.trim() : def.title),
+      url: def.id === "ceo-tags" ? "/ceo/tags" : (saved.url && typeof saved.url === "string" && saved.url.trim().length > 1 && saved.url !== "/" ? saved.url.trim() : def.url),
       iconName: saved.iconName || def.iconName,
       visible: typeof saved.visible === "boolean" ? saved.visible : def.visible,
       category:

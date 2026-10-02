@@ -45,8 +45,7 @@ import { ProduzirPage } from "@/routes/_authenticated/producoes.produzir";
 import { ArmazemPage } from "@/routes/_authenticated/producoes.armazem";
 import { GestaoProducaoPage } from "@/routes/_authenticated/producoes.gestao";
 import { MateriasPrimasPage } from "@/routes/_authenticated/producoes.materias-primas";
-import { CeoPermissoesTagsPage } from "@/routes/_authenticated/ceo.permissoes-tags";
-import { DevGerenciarTagsPage } from "@/routes/_authenticated/dev.tags";
+import { CeoGerenciarTagsPage } from "@/routes/_authenticated/ceo.tags";
 
 export interface PlatformPageDispatcherProps {
   page: string;
@@ -106,6 +105,9 @@ const PAGE_PERMISSION_MAP: Record<string, Permission | null> = {
   "ceo-notificacoes": "view_ceo_notifications",
   "permissoes-tags": "view_ceo_tag_permissions",
   "ceo-permissoes-tags": "view_ceo_tag_permissions",
+  tags: "view_ceo_tag_permissions",
+  "ceo-tags": "view_ceo_tag_permissions",
+  "gerenciar-tags": "view_ceo_tag_permissions",
 
   // Módulos DEV
   "dev-notificacoes": "view_dev_notifications",
@@ -158,8 +160,14 @@ function InnerPageResolver({ page, tab, mode }: { page: string; tab?: string; mo
     if (normalizedPage === "notificacoes" || normalizedPage === "ceo-notificacoes") {
       return <CeoNotificationsPage />;
     }
-    if (normalizedPage === "permissoes-tags" || normalizedPage === "ceo-permissoes-tags" || (normalizedPage === "tags" && mode === "ceo")) {
-      return <CeoPermissoesTagsPage />;
+    if (
+      normalizedPage === "tags" ||
+      normalizedPage === "gerenciar-tags" ||
+      normalizedPage === "ceo-tags" ||
+      normalizedPage === "permissoes-tags" ||
+      normalizedPage === "ceo-permissoes-tags"
+    ) {
+      return <CeoGerenciarTagsPage />;
     }
   }
 
@@ -190,7 +198,7 @@ function InnerPageResolver({ page, tab, mode }: { page: string; tab?: string; mo
       return <DevCoinsPage />;
     }
     if (normalizedPage === "tags" || normalizedPage === "dev-tags" || normalizedPage === "gerenciar-tags") {
-      return <DevGerenciarTagsPage />;
+      return <Navigate to="/ceo/tags" replace />;
     }
   }
 

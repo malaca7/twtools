@@ -53,6 +53,7 @@ import { Route as AuthenticatedCeoTabRouteImport } from './routes/_authenticated
 import { Route as AuthenticatedCeoAjustesEstoqueRouteImport } from './routes/_authenticated/ceo.ajustes-estoque'
 import { Route as AuthenticatedCeoNotificacoesRouteImport } from './routes/_authenticated/ceo.notificacoes'
 import { Route as AuthenticatedCeoPermissoesTagsRouteImport } from './routes/_authenticated/ceo.permissoes-tags'
+import { Route as AuthenticatedCeoTagsRouteImport } from './routes/_authenticated/ceo.tags'
 import { Route as AuthenticatedConfiguracoesTabRouteImport } from './routes/_authenticated/configuracoes.$tab'
 import { Route as AuthenticatedDevIndexRouteImport } from './routes/_authenticated/dev.index'
 import { Route as AuthenticatedDevPageRouteImport } from './routes/_authenticated/dev.$page'
@@ -334,6 +335,11 @@ const AuthenticatedCeoPermissoesTagsRoute =
     path: '/permissoes-tags',
     getParentRoute: () => AuthenticatedCeoRoute,
   } as any)
+const AuthenticatedCeoTagsRoute = AuthenticatedCeoTagsRouteImport.update({
+  id: '/tags',
+  path: '/tags',
+  getParentRoute: () => AuthenticatedCeoRoute,
+} as any)
 const AuthenticatedConfiguracoesTabRoute =
   AuthenticatedConfiguracoesTabRouteImport.update({
     id: '/$tab',
@@ -661,6 +667,7 @@ export interface FileRoutesByFullPath {
   '/ceo/ajustes-estoque': typeof AuthenticatedCeoAjustesEstoqueRoute
   '/ceo/notificacoes': typeof AuthenticatedCeoNotificacoesRoute
   '/ceo/permissoes-tags': typeof AuthenticatedCeoPermissoesTagsRoute
+  '/ceo/tags': typeof AuthenticatedCeoTagsRoute
   '/configuracoes/$tab': typeof AuthenticatedConfiguracoesTabRoute
   '/dev/$page': typeof AuthenticatedDevPageRouteWithChildren
   '/dev/bot': typeof AuthenticatedDevBotRouteWithChildren
@@ -755,6 +762,7 @@ export interface FileRoutesByTo {
   '/ceo/ajustes-estoque': typeof AuthenticatedCeoAjustesEstoqueRoute
   '/ceo/notificacoes': typeof AuthenticatedCeoNotificacoesRoute
   '/ceo/permissoes-tags': typeof AuthenticatedCeoPermissoesTagsRoute
+  '/ceo/tags': typeof AuthenticatedCeoTagsRoute
   '/configuracoes/$tab': typeof AuthenticatedConfiguracoesTabRoute
   '/dev/$page': typeof AuthenticatedDevPageRouteWithChildren
   '/dev/bot': typeof AuthenticatedDevBotRouteWithChildren
@@ -851,6 +859,7 @@ export interface FileRoutesById {
   '/_authenticated/ceo/ajustes-estoque': typeof AuthenticatedCeoAjustesEstoqueRoute
   '/_authenticated/ceo/notificacoes': typeof AuthenticatedCeoNotificacoesRoute
   '/_authenticated/ceo/permissoes-tags': typeof AuthenticatedCeoPermissoesTagsRoute
+  '/_authenticated/ceo/tags': typeof AuthenticatedCeoTagsRoute
   '/_authenticated/configuracoes/$tab': typeof AuthenticatedConfiguracoesTabRoute
   '/_authenticated/dev/$page': typeof AuthenticatedDevPageRouteWithChildren
   '/_authenticated/dev/bot': typeof AuthenticatedDevBotRouteWithChildren
@@ -947,6 +956,7 @@ export interface FileRouteTypes {
     | '/ceo/ajustes-estoque'
     | '/ceo/notificacoes'
     | '/ceo/permissoes-tags'
+    | '/ceo/tags'
     | '/configuracoes/$tab'
     | '/dev/$page'
     | '/dev/bot'
@@ -1041,6 +1051,7 @@ export interface FileRouteTypes {
     | '/ceo/ajustes-estoque'
     | '/ceo/notificacoes'
     | '/ceo/permissoes-tags'
+    | '/ceo/tags'
     | '/configuracoes/$tab'
     | '/dev/$page'
     | '/dev/bot'
@@ -1136,6 +1147,7 @@ export interface FileRouteTypes {
     | '/_authenticated/ceo/ajustes-estoque'
     | '/_authenticated/ceo/notificacoes'
     | '/_authenticated/ceo/permissoes-tags'
+    | '/_authenticated/ceo/tags'
     | '/_authenticated/configuracoes/$tab'
     | '/_authenticated/dev/$page'
     | '/_authenticated/dev/bot'
@@ -1505,6 +1517,13 @@ declare module '@tanstack/react-router' {
       path: '/permissoes-tags'
       fullPath: '/ceo/permissoes-tags'
       preLoaderRoute: typeof AuthenticatedCeoPermissoesTagsRouteImport
+      parentRoute: typeof AuthenticatedCeoRoute
+    }
+    '/_authenticated/ceo/tags': {
+      id: '/_authenticated/ceo/tags'
+      path: '/tags'
+      fullPath: '/ceo/tags'
+      preLoaderRoute: typeof AuthenticatedCeoTagsRouteImport
       parentRoute: typeof AuthenticatedCeoRoute
     }
     '/_authenticated/configuracoes/$tab': {
@@ -1883,6 +1902,7 @@ interface AuthenticatedCeoRouteChildren {
   AuthenticatedCeoAjustesEstoqueRoute: typeof AuthenticatedCeoAjustesEstoqueRoute
   AuthenticatedCeoNotificacoesRoute: typeof AuthenticatedCeoNotificacoesRoute
   AuthenticatedCeoPermissoesTagsRoute: typeof AuthenticatedCeoPermissoesTagsRoute
+  AuthenticatedCeoTagsRoute: typeof AuthenticatedCeoTagsRoute
   AuthenticatedCeoProducoesArmazemRoute: typeof AuthenticatedCeoProducoesArmazemRoute
   AuthenticatedCeoProducoesGestaoRoute: typeof AuthenticatedCeoProducoesGestaoRoute
   AuthenticatedCeoProducoesMateriasPrimasRoute: typeof AuthenticatedCeoProducoesMateriasPrimasRoute
@@ -1895,6 +1915,7 @@ const AuthenticatedCeoRouteChildren: AuthenticatedCeoRouteChildren = {
   AuthenticatedCeoAjustesEstoqueRoute: AuthenticatedCeoAjustesEstoqueRoute,
   AuthenticatedCeoNotificacoesRoute: AuthenticatedCeoNotificacoesRoute,
   AuthenticatedCeoPermissoesTagsRoute: AuthenticatedCeoPermissoesTagsRoute,
+  AuthenticatedCeoTagsRoute: AuthenticatedCeoTagsRoute,
   AuthenticatedCeoProducoesArmazemRoute: AuthenticatedCeoProducoesArmazemRoute,
   AuthenticatedCeoProducoesGestaoRoute: AuthenticatedCeoProducoesGestaoRoute,
   AuthenticatedCeoProducoesMateriasPrimasRoute:
