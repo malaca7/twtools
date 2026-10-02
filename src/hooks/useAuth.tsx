@@ -805,9 +805,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // 3. Quando estiver operando no PAINEL CEO (ou rota /ceo):
       if (inCeoPanel) {
         if (isDevUser) return true;
-        const ceoPerms = customRolePermissions?.["ceo"] ?? getCeoTagPermissionsSync();
-        if (satisfiesPermission(ceoPerms, permission)) {
-          return true;
+        if (level === "ceo" || memberTags.some((t) => t.id.toLowerCase() === "ceo" && t.is_active !== false)) {
+          const ceoPerms = customRolePermissions?.["ceo"] ?? getCeoTagPermissionsSync();
+          if (satisfiesPermission(ceoPerms, permission)) {
+            return true;
+          }
         }
         return can(level, permission, customRolePermissions);
       }

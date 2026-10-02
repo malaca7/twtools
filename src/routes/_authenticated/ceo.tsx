@@ -67,7 +67,7 @@ export const VALID_CEO_TABS: readonly CeoTab[] = ["dashboard", "bot", "webhooks"
 export function CeoPageContent({ initialTab }: { initialTab?: string } = {}) {
   const location = useLocation();
   const navigate = useNavigate();
-  const { user, profile, level, isCeoUser, hasPermission } = useAuth();
+  const { user, profile, level, isCeoUser, isDevUser, hasPermission } = useAuth();
   const { ceoStyle, CeoIcon } = usePanelTheme();
   const { data: members = [], isLoading: loadingMembers } = useMembers();
   const { data: sales = [], isLoading: loadingSales } = useSales();

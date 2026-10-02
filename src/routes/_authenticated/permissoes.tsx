@@ -114,11 +114,15 @@ export function PermissoesPage() {
     }
   }, [dbPermissions, selectedLevel]);
 
-  // Cards exclusivos da plataforma operacional de membros (removendo Painel Dev, Painel CEO, Transmissão e Lives, e Twin Life)
+  // Cards exclusivos da plataforma operacional de membros (removendo Painel Dev, Painel CEO, Transmissão e Lives, e Twin Life, mantendo Gerenciar Tags sob Administração)
   const platformPageCards = useMemo(() => {
     return PAGE_CARDS.filter((card) => {
-      if (card.defaultCat === "DEV" || card.defaultCat === "Ferramentas Dev" || card.defaultCat === "CEO") return false;
-      if (card.id.startsWith("dev-") || card.id.startsWith("ceo-") || card.id === "ceo") return false;
+      if (card.defaultCat === "DEV" || card.defaultCat === "Ferramentas Dev") return false;
+      if (card.id.startsWith("dev-") || card.id === "dev") return false;
+      // Permite expressamente o card "ceo-tags" (Gerenciar Tags) sob Administração
+      if (card.id === "ceo-tags") return true;
+      if (card.defaultCat === "CEO") return false;
+      if (card.id.startsWith("ceo-") || card.id === "ceo") return false;
       // Remover expressamente "Transmissão e Lives" e "Twin Life"
       if (card.id === "lives" || card.id === "life") return false;
       return true;
@@ -157,9 +161,12 @@ export function PermissoesPage() {
         if (cat === "Operação") {
           cat = card.id === "vendas" ? "Produções" : "Gestão";
         }
+        if (card.id === "ceo-tags") {
+          cat = "Administração";
+        }
         return {
           ...card,
-          title: cfg?.title || card.title,
+          title: card.id === "ceo-tags" ? "Gerenciar Tags" : (cfg?.title || card.title),
           category: cat,
           order: typeof cfg?.order === "number" ? cfg.order : card.defaultOrder,
         };

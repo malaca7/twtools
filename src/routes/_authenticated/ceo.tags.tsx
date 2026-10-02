@@ -50,7 +50,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { CeoGuard } from "@/guards/CeoGuard";
-import { PageHeader, CeoBadge, TableSkeleton, EmptyState } from "@/components/ui-kit";
+import { PageHeader, CeoBadge, TableSkeleton, EmptyState, NoAccess } from "@/components/ui-kit";
 import { useAuth } from "@/hooks/useAuth";
 import { useMembers } from "@/hooks/useData";
 import { useMemberTags, useMemberTagAssignments, useMemberTagMutations } from "@/hooks/useMemberTags";
@@ -129,14 +129,31 @@ const AVAILABLE_ICONS = [
 ];
 
 export function CeoGerenciarTagsPage() {
-  const { isDevUser, isCeoUser, hasPermission } = useAuth();
+  const { isDevUser, hasPermission } = useAuth();
 
-  const canCreateTag = Boolean(isDevUser || isCeoUser || hasPermission("create_ceo_tag") || hasPermission("manage_ceo_tag_permissions"));
-  const canEditTag = Boolean(isDevUser || isCeoUser || hasPermission("edit_ceo_tag") || hasPermission("manage_ceo_tag_permissions"));
-  const canDeleteTag = Boolean(isDevUser || isCeoUser || hasPermission("delete_ceo_tag") || hasPermission("manage_ceo_tag_permissions"));
-  const canManagePerms = Boolean(isDevUser || isCeoUser || hasPermission("manage_ceo_tag_permissions_detail") || hasPermission("manage_ceo_tag_permissions"));
-  const canManageRules = Boolean(isDevUser || isCeoUser || hasPermission("manage_ceo_tag_rules") || hasPermission("manage_ceo_tag_permissions"));
-  const canAssignTag = Boolean(isDevUser || isCeoUser || hasPermission("assign_ceo_tag") || hasPermission("manage_ceo_tag_permissions"));
+  const canViewTags = Boolean(
+    isDevUser ||
+    hasPermission("view_ceo_tag_permissions") ||
+    hasPermission("manage_ceo_tag_permissions") ||
+    hasPermission("create_ceo_tag") ||
+    hasPermission("edit_ceo_tag") ||
+    hasPermission("delete_ceo_tag") ||
+    hasPermission("assign_ceo_tag")
+  );
+  const canCreateTag = Boolean(isDevUser || hasPermission("create_ceo_tag"));
+  const canEditTag = Boolean(isDevUser || hasPermission("edit_ceo_tag"));
+  const canDeleteTag = Boolean(isDevUser || hasPermission("delete_ceo_tag"));
+  const canManagePerms = Boolean(
+    isDevUser ||
+    hasPermission("manage_ceo_tag_permissions") ||
+    hasPermission("manage_ceo_tag_permissions_detail")
+  );
+  const canManageRules = Boolean(
+    isDevUser ||
+    hasPermission("manage_ceo_tag_permissions") ||
+    hasPermission("manage_ceo_tag_rules")
+  );
+  const canAssignTag = Boolean(isDevUser || hasPermission("assign_ceo_tag"));
 
   const { data: tags = [], isLoading: loadingTags, refetch: refetchTags } = useMemberTags();
   const { data: assignments = [], isLoading: loadingAssignments, refetch: refetchAssignments } = useMemberTagAssignments();
@@ -192,12 +209,14 @@ export function CeoGerenciarTagsPage() {
     return { totalTags, totalAssignedMembers, activeTags, blockingTags };
   }, [tags, assignments]);
 
-  // Cards operacionais de membros (removendo Painel DEV, Painel CEO, Transmissão e Lives, e Twin Life)
+  // Cards operacionais de membros (removendo Painel DEV e Painel CEO, mantendo Gerenciar Tags sob Administração)
   const platformPageCards = useMemo(() => {
     return PAGE_CARDS.filter((card) => {
       // Exclui Painel DEV e Ferramentas Dev
       if (card.defaultCat === "DEV" || card.defaultCat === "Ferramentas Dev") return false;
       if (card.id.startsWith("dev-") || card.id === "dev" || card.route.startsWith("/dev")) return false;
+      // Permite expressamente o card "ceo-tags" (Gerenciar Tags) para permitir concessão granular de Gerenciar, Criar, Apagar e Editar
+      if (card.id === "ceo-tags") return true;
       // Exclui Painel CEO
       if (card.defaultCat === "CEO" || card.defaultCat === "Painel CEO") return false;
       if (card.id.startsWith("ceo-") || card.id === "ceo" || card.route.startsWith("/ceo")) return false;
@@ -239,9 +258,12 @@ export function CeoGerenciarTagsPage() {
         if (cat === "Operação") {
           cat = card.id === "vendas" ? "Produções" : "Gestão";
         }
+        if (card.id === "ceo-tags") {
+          cat = "Administração";
+        }
         return {
           ...card,
-          title: cfg?.title || card.title,
+          title: card.id === "ceo-tags" ? "Gerenciar Tags" : (cfg?.title || card.title),
           category: cat,
           order: typeof cfg?.order === "number" ? cfg.order : card.defaultOrder,
         };
@@ -657,6 +679,10 @@ export function CeoGerenciarTagsPage() {
     }, 400);
   };
 
+  if (!canViewTags) {
+    return <NoAccess />;
+  }
+
   return (
     <div className="space-y-6 pb-12">
       {/* HEADER DA PÁGINA */}
@@ -963,66 +989,68 @@ export function CeoGerenciarTagsPage() {
                   </CardContent>
                 </div>
 
-                <div className="p-3 border-t border-border/50 bg-secondary/10 flex items-center justify-between gap-1.5">
-                  <div className="flex items-center gap-1">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleOpenPermsModal(tag)}
-                      className="h-8 text-xs font-semibold rounded-xl gap-1.5 border-primary/30 text-primary hover:bg-primary/10"
-                    >
-                      <ShieldCheck className="h-3.5 w-3.5" />
-                      <span>Permissões & Regras</span>
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleOpenAssignMembersModal(tag)}
-                      className={cn(
-                        "h-8 text-xs font-medium rounded-xl gap-1 text-muted-foreground hover:text-foreground",
-                        !canAssignTag && "opacity-60 cursor-not-allowed"
+                {(canManagePerms || canManageRules || canAssignTag || canEditTag || (!tag.is_system && canDeleteTag)) && (
+                  <div className="p-3 border-t border-border/50 bg-secondary/10 flex items-center justify-between gap-1.5">
+                    <div className="flex items-center gap-1">
+                      {(canManagePerms || canManageRules) && (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleOpenPermsModal(tag)}
+                          className="h-8 text-xs font-semibold rounded-xl gap-1.5 border-primary/30 text-primary hover:bg-primary/10"
+                        >
+                          <ShieldCheck className="h-3.5 w-3.5" />
+                          <span>Permissões & Regras</span>
+                        </Button>
                       )}
-                      disabled={!canAssignTag}
-                      title={canAssignTag ? "Vincular Membros" : "Sem permissão para vincular membros"}
-                    >
-                      <Users className="h-3.5 w-3.5" />
-                      <span>Membros ({assignedCount})</span>
-                    </Button>
-                  </div>
+                      {canAssignTag && (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleOpenAssignMembersModal(tag)}
+                          className="h-8 text-xs font-medium rounded-xl gap-1 text-muted-foreground hover:text-foreground"
+                          title="Vincular Membros"
+                        >
+                          <Users className="h-3.5 w-3.5" />
+                          <span>Membros ({assignedCount})</span>
+                        </Button>
+                      )}
+                    </div>
 
-                  <div className="flex items-center gap-0.5">
-                    {canEditTag && (
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => handleOpenEditModal(tag)}
-                        className="h-8 w-8 rounded-lg text-muted-foreground hover:text-foreground"
-                        title="Editar Tag"
-                      >
-                        <Edit2 className="h-3.5 w-3.5" />
-                      </Button>
-                    )}
-                    {!tag.is_system && canDeleteTag && (
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => {
-                          if (confirm(`Deseja realmente apagar a tag "${tag.name}"? Ela será desvinculada de todos os membros.`)) {
-                            void deleteTagMutation.mutateAsync(tag.id);
-                          }
-                        }}
-                        className="h-8 w-8 rounded-lg text-muted-foreground hover:text-rose-400 hover:bg-rose-500/10"
-                        title="Excluir Tag"
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </Button>
-                    )}
+                    <div className="flex items-center gap-0.5">
+                      {canEditTag && (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleOpenEditModal(tag)}
+                          className="h-8 w-8 rounded-lg text-muted-foreground hover:text-foreground"
+                          title="Editar Tag"
+                        >
+                          <Edit2 className="h-3.5 w-3.5" />
+                        </Button>
+                      )}
+                      {!tag.is_system && canDeleteTag && (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => {
+                            if (confirm(`Deseja realmente apagar a tag "${tag.name}"? Ela será desvinculada de todos os membros.`)) {
+                              void deleteTagMutation.mutateAsync(tag.id);
+                            }
+                          }}
+                          className="h-8 w-8 rounded-lg text-muted-foreground hover:text-rose-400 hover:bg-rose-500/10"
+                          title="Excluir Tag"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      )}
+                    </div>
                   </div>
-                </div>
+                )}
               </Card>
             );
           })}
@@ -1406,26 +1434,30 @@ export function CeoGerenciarTagsPage() {
 
             {/* SELETOR DE SUB-ABAS */}
             <div className="mt-4 flex items-center gap-2">
-              <Button
-                type="button"
-                variant={permSubTab === "permissions" ? "default" : "outline"}
-                size="sm"
-                onClick={() => setPermSubTab("permissions")}
-                className="h-8 text-xs rounded-xl gap-2 font-bold"
-              >
-                <ShieldCheck className="h-3.5 w-3.5" />
-                <span>Permissões de Módulos ({activePerms.length} ativas)</span>
-              </Button>
-              <Button
-                type="button"
-                variant={permSubTab === "rules" ? "default" : "outline"}
-                size="sm"
-                onClick={() => setPermSubTab("rules")}
-                className="h-8 text-xs rounded-xl gap-2 font-bold"
-              >
-                <Sliders className="h-3.5 w-3.5" />
-                <span>Regras Operacionais & Limitações</span>
-              </Button>
+              {canManagePerms && (
+                <Button
+                  type="button"
+                  variant={permSubTab === "permissions" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setPermSubTab("permissions")}
+                  className="h-8 text-xs rounded-xl gap-2 font-bold"
+                >
+                  <ShieldCheck className="h-3.5 w-3.5" />
+                  <span>Permissões de Módulos ({activePerms.length} ativas)</span>
+                </Button>
+              )}
+              {canManageRules && (
+                <Button
+                  type="button"
+                  variant={permSubTab === "rules" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setPermSubTab("rules")}
+                  className="h-8 text-xs rounded-xl gap-2 font-bold"
+                >
+                  <Sliders className="h-3.5 w-3.5" />
+                  <span>Regras Operacionais & Limitações</span>
+                </Button>
+              )}
             </div>
           </div>
 
@@ -1451,60 +1483,57 @@ export function CeoGerenciarTagsPage() {
                     />
                   </div>
 
-                  <div className="flex flex-wrap items-center gap-1.5 w-full lg:w-auto justify-end">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      disabled={!canManagePerms}
-                      className="h-7 text-xs px-2.5 font-bold border-primary/30 text-primary hover:bg-primary/10 rounded-xl"
-                      onClick={setAllPermissions}
-                    >
-                      Todas as Permissões
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      disabled={!canManagePerms}
-                      className="h-7 text-xs px-2.5 font-medium border-border/60 hover:bg-secondary rounded-xl gap-1"
-                      onClick={setOperationalPermissions}
-                    >
-                      <Factory className="h-3 w-3 text-amber-400" />
-                      <span>Operacional Básico</span>
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      disabled={!canManagePerms}
-                      className="h-7 text-xs px-2.5 font-medium border-border/60 hover:bg-secondary rounded-xl gap-1"
-                      onClick={setWarehousePermissions}
-                    >
-                      <Warehouse className="h-3 w-3 text-emerald-400" />
-                      <span>Logística & Armazém</span>
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      disabled={!canManagePerms}
-                      className="h-7 text-xs px-2.5 font-medium border-border/60 hover:bg-secondary rounded-xl"
-                      onClick={setReadOnlyPermissions}
-                    >
-                      Apenas Leitura
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      disabled={!canManagePerms}
-                      className="h-7 text-xs px-2.5 text-rose-400 hover:bg-rose-500/10 rounded-xl"
-                      onClick={clearAllPermissions}
-                    >
-                      Limpar
-                    </Button>
-                  </div>
+                  {canManagePerms && (
+                    <div className="flex flex-wrap items-center gap-1.5 w-full lg:w-auto justify-end">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="h-7 text-xs px-2.5 font-bold border-primary/30 text-primary hover:bg-primary/10 rounded-xl"
+                        onClick={setAllPermissions}
+                      >
+                        Todas as Permissões
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="h-7 text-xs px-2.5 font-medium border-border/60 hover:bg-secondary rounded-xl gap-1"
+                        onClick={setOperationalPermissions}
+                      >
+                        <Factory className="h-3 w-3 text-amber-400" />
+                        <span>Operacional Básico</span>
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="h-7 text-xs px-2.5 font-medium border-border/60 hover:bg-secondary rounded-xl gap-1"
+                        onClick={setWarehousePermissions}
+                      >
+                        <Warehouse className="h-3 w-3 text-emerald-400" />
+                        <span>Logística & Armazém</span>
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="h-7 text-xs px-2.5 font-medium border-border/60 hover:bg-secondary rounded-xl"
+                        onClick={setReadOnlyPermissions}
+                      >
+                        Apenas Leitura
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 text-xs px-2.5 text-rose-400 hover:bg-rose-500/10 rounded-xl"
+                        onClick={clearAllPermissions}
+                      >
+                        Limpar
+                      </Button>
+                    </div>
+                  )}
                 </div>
 
                 {/* FILTRO DE CATEGORIAS DO MENU */}
@@ -2171,80 +2200,12 @@ export function CeoGerenciarTagsPage() {
                   </div>
                 </div>
 
-                {/* SEÇÃO 6: ACESSO A PAINÉIS EXECUTIVOS */}
-                <div className="space-y-3">
-                  <div className="flex items-center gap-2 pb-1.5 border-b border-border/50">
-                    <Crown className="h-4 w-4 text-purple-400" />
-                    <h3 className="text-xs uppercase tracking-wider font-bold text-purple-400">
-                      6. Acesso aos Painéis Executivos & Governança
-                    </h3>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    <div className="flex items-center justify-between p-3.5 rounded-2xl bg-purple-500/5 border border-purple-500/30">
-                      <div className="space-y-0.5 pr-2">
-                        <Label className="text-xs font-bold text-foreground flex items-center gap-1.5 text-purple-400">
-                          <Crown className="h-3.5 w-3.5" />
-                          <span>Conceder Acesso ao Painel CEO</span>
-                        </Label>
-                        <p className="text-[11px] text-muted-foreground">
-                          Habilita visão executiva, fundos de caixa e configurações do bot para o portador desta tag.
-                        </p>
-                      </div>
-                      <Switch
-                        checked={Boolean(activeRules.can_access_ceo || activeRules.is_ceo)}
-                        onCheckedChange={(val) =>
-                          handleUpdateRuleValue({ ...activeRules, can_access_ceo: val, is_ceo: val })
-                        }
-                      />
-                    </div>
-
-                    <div className="flex items-center justify-between p-3.5 rounded-2xl bg-secondary/20 border border-border/60">
-                      <div className="space-y-0.5 pr-2">
-                        <Label className="text-xs font-bold text-foreground flex items-center gap-1.5">
-                          <Award className="h-3.5 w-3.5 text-amber-400" />
-                          <span>Destaque de Distintivo de Honra</span>
-                        </Label>
-                        <p className="text-[11px] text-muted-foreground">
-                          Exibe a tag com destaque prioritário e borda luminosa nos perfis.
-                        </p>
-                      </div>
-                      <Switch
-                        checked={Boolean(activeRules.priority_badge)}
-                        onCheckedChange={(val) =>
-                          handleUpdateRuleValue({ ...activeRules, priority_badge: val })
-                        }
-                      />
-                    </div>
-
-                    {isDevUser && (
-                      <div className="flex items-center justify-between p-3.5 rounded-2xl bg-rose-500/5 border border-rose-500/30 md:col-span-2">
-                        <div className="space-y-0.5 pr-2">
-                          <Label className="text-xs font-bold text-foreground flex items-center gap-1.5 text-rose-400">
-                            <Code2 className="h-3.5 w-3.5" />
-                            <span>Conceder Acesso ao Painel Dev</span>
-                          </Label>
-                          <p className="text-[11px] text-muted-foreground">
-                            Concede acesso irrestrito às ferramentas técnicas de desenvolvedor.
-                          </p>
-                        </div>
-                        <Switch
-                          checked={Boolean(activeRules.can_access_dev || activeRules.is_dev_test)}
-                          onCheckedChange={(val) =>
-                            handleUpdateRuleValue({ ...activeRules, can_access_dev: val, is_dev_test: val })
-                          }
-                        />
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* SEÇÃO 7: MODO AVANÇADO & EXPERIMENTAL */}
+                {/* SEÇÃO 6: RECURSOS EXPERIMENTAIS & OTIMIZAÇÕES */}
                 <div className="space-y-3">
                   <div className="flex items-center gap-2 pb-1.5 border-b border-border/50">
                     <Sparkles className="h-4 w-4 text-sky-400" />
                     <h3 className="text-xs uppercase tracking-wider font-bold text-sky-400">
-                      7. Recursos Experimentais & Otimizações
+                      6. Recursos Experimentais & Otimizações
                     </h3>
                   </div>
 

@@ -1336,12 +1336,8 @@ export function satisfiesPermission(
   if (
     list.includes("manage_ceo_tag_permissions") &&
     (permission === "view_ceo_tag_permissions" ||
-      permission === "create_ceo_tag" ||
-      permission === "edit_ceo_tag" ||
-      permission === "delete_ceo_tag" ||
       permission === "manage_ceo_tag_permissions_detail" ||
-      permission === "manage_ceo_tag_rules" ||
-      permission === "assign_ceo_tag")
+      permission === "manage_ceo_tag_rules")
   ) {
     return true;
   }
@@ -1350,6 +1346,7 @@ export function satisfiesPermission(
     (list.includes("create_ceo_tag") ||
       list.includes("edit_ceo_tag") ||
       list.includes("delete_ceo_tag") ||
+      list.includes("manage_ceo_tag_permissions") ||
       list.includes("manage_ceo_tag_permissions_detail") ||
       list.includes("manage_ceo_tag_rules") ||
       list.includes("assign_ceo_tag"))
@@ -1989,12 +1986,8 @@ export function can(
   if (
     rolePerms.includes("manage_ceo_tag_permissions") &&
     (permission === "view_ceo_tag_permissions" ||
-      permission === "create_ceo_tag" ||
-      permission === "edit_ceo_tag" ||
-      permission === "delete_ceo_tag" ||
       permission === "manage_ceo_tag_permissions_detail" ||
-      permission === "manage_ceo_tag_rules" ||
-      permission === "assign_ceo_tag")
+      permission === "manage_ceo_tag_rules")
   ) {
     return true;
   }
@@ -2003,6 +1996,7 @@ export function can(
     (rolePerms.includes("create_ceo_tag") ||
       rolePerms.includes("edit_ceo_tag") ||
       rolePerms.includes("delete_ceo_tag") ||
+      rolePerms.includes("manage_ceo_tag_permissions") ||
       rolePerms.includes("manage_ceo_tag_permissions_detail") ||
       rolePerms.includes("manage_ceo_tag_rules") ||
       rolePerms.includes("assign_ceo_tag"))
