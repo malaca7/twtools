@@ -1085,12 +1085,12 @@ export function ConfiguracoesPage() {
 
   const canAccess = canManagePlatform || canManageMenu;
 
-  // Sincronização da aba ativa com a URL (?tab=plataforma | menu | notificacoes | lives | aparencia | perfil)
-  const [activeTab, setActiveTab] = useUrlTab<"plataforma" | "menu" | "notificacoes" | "lives" | "aparencia" | "perfil">(
+  // Sincronização da aba ativa com a URL (?tab=plataforma | menu | notificacoes | aparencia | perfil)
+  const [activeTab, setActiveTab] = useUrlTab<"plataforma" | "menu" | "notificacoes" | "aparencia" | "perfil">(
     "plataforma",
     {
       paramName: "tab",
-      allowedTabs: ["plataforma", "menu", "notificacoes", "lives", "aparencia", "perfil"],
+      allowedTabs: ["plataforma", "menu", "notificacoes", "aparencia", "perfil"],
     }
   );
 
@@ -1128,13 +1128,6 @@ export function ConfiguracoesPage() {
               Notificações
             </TabsTrigger>
             <TabsTrigger
-              value="lives"
-              className="gap-1.5 text-xs font-bold data-[state=active]:bg-primary/15 data-[state=active]:text-primary data-[state=active]:border-primary/30 rounded-lg px-4 py-2"
-            >
-              <Radio className="h-3.5 w-3.5 text-rose-400" />
-              Lives & Alertas
-            </TabsTrigger>
-            <TabsTrigger
               value="perfil"
               className="gap-1.5 text-xs font-bold data-[state=active]:bg-primary/15 data-[state=active]:text-primary data-[state=active]:border-primary/30 rounded-lg px-4 py-2"
             >
@@ -1163,10 +1156,6 @@ export function ConfiguracoesPage() {
 
         <TabsContent value="notificacoes">
           <NotificationsTab canEdit={canManagePlatform} />
-        </TabsContent>
-
-        <TabsContent value="lives">
-          <LivesTab />
         </TabsContent>
 
         <TabsContent value="perfil">

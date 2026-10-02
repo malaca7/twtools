@@ -35,6 +35,7 @@ import {
   Settings,
   Loader2,
   AlertTriangle,
+  FolderTree,
   type LucideIcon,
 } from "lucide-react";
 import { DeveloperGuard } from "@/dev/guards/DeveloperGuard";
@@ -42,11 +43,13 @@ import { PageHeader, DevBadge, TableSkeleton, EmptyState } from "@/components/ui
 import { useAuth } from "@/hooks/useAuth";
 import { useMembers } from "@/hooks/useData";
 import { useMemberTags, useMemberTagAssignments, useMemberTagMutations } from "@/hooks/useMemberTags";
+import { useMenuConfig } from "@/hooks/useMenuConfig";
 import { MemberTagBadge, resolveTagIcon } from "@/components/ui/MemberTagBadge";
-import { PAGE_CARDS, type PageCardConfig } from "@/lib/permissionCards";
+import { PAGE_CARDS, READ_ONLY_PERMISSIONS, type PageCardConfig } from "@/lib/permissionCards";
 import { ALL_PERMISSIONS, type Permission, LEVEL_LABEL, levelBadgeClass } from "@/lib/permissions";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
@@ -131,6 +134,8 @@ export function DevGerenciarTagsPage() {
   const [formColor, setFormColor] = useState("#3b82f6");
   const [formIcon, setFormIcon] = useState("Tag");
   const [formIsActive, setFormIsActive] = useState(true);
+  const [formIsSystem, setFormIsSystem] = useState(false);
+  const { config: menuConfig } = useMenuConfig();
 
   // Modal de Vínculo de Membros à Tag
   const [tagForMembers, setTagForMembers] = useState<MemberTag | null>(null);
@@ -152,6 +157,87 @@ export function DevGerenciarTagsPage() {
     const blockingTags = tags.filter((t) => t.rules?.is_blocked).length;
     return { totalTags, totalAssignedMembers, systemTags, blockingTags };
   }, [tags, assignments]);
+
+  // Agrupamento e ordenação dinâmica dos PAGE_CARDS pelas categorias do menu (idêntico a Permissões de Cargos)
+  const groupedPageCards = useMemo(() => {
+    const validConfigItems = menuConfig?.items?.filter((c) => Boolean(c && (c.id || c.url))) || [];
+    const configMap = new Map(validConfigItems.map((c) => [c.id || c.url, c]));
+
+    const rawCategories = menuConfig?.categories?.length
+      ? menuConfig.categories
+      : ["Produções", "Gestão", "Administração"];
+    const orderedCategories = rawCategories.includes("Produções")
+      ? rawCategories
+      : ["Produções", ...rawCategories];
+
+    const categoryOrder = orderedCategories.filter(
+      (c) => c !== "DEV" && c !== "Ferramentas Dev" && c !== "CEO" && c !== "Operação"
+    );
+
+    const customized = PAGE_CARDS.map((card) => {
+      const cfg = configMap.get(card.id);
+      let cat = cfg?.category || card.defaultCat;
+      if (cat === "Operação") {
+        cat = card.id === "vendas" ? "Produções" : "Gestão";
+      }
+      return {
+        ...card,
+        title: cfg?.title || card.title,
+        category: cat,
+        order: typeof cfg?.order === "number" ? cfg.order : card.defaultOrder,
+      };
+    });
+
+    const groups: { category: string; cards: typeof customized }[] = [];
+
+    categoryOrder.forEach((cat) => {
+      const catCards = customized
+        .filter((c) => c.category === cat)
+        .sort((a, b) => a.order - b.order);
+      if (catCards.length > 0) {
+        groups.push({ category: cat, cards: catCards });
+      }
+    });
+
+    const knownCats = new Set(categoryOrder);
+    customized.forEach((card) => {
+      if (!knownCats.has(card.category)) {
+        knownCats.add(card.category);
+        const catCards = customized
+          .filter((c) => c.category === card.category)
+          .sort((a, b) => a.order - b.order);
+        if (catCards.length > 0) {
+          groups.push({ category: card.category, cards: catCards });
+        }
+      }
+    });
+
+    return groups;
+  }, [menuConfig]);
+
+  const allPlatformPermissions = useMemo(() => {
+    return Array.from(new Set(PAGE_CARDS.flatMap((c) => c.permissions.map((p) => p.key))));
+  }, []);
+
+  const readOnlyPlatformPermissions = useMemo(() => {
+    return READ_ONLY_PERMISSIONS.filter((p) => allPlatformPermissions.includes(p));
+  }, [allPlatformPermissions]);
+
+  const setAllPermissions = () => {
+    setActivePerms([...allPlatformPermissions]);
+    void autoSavePermsAndRules([...allPlatformPermissions], activeRules);
+  };
+
+  const setReadOnlyPermissions = () => {
+    setActivePerms([...readOnlyPlatformPermissions]);
+    void autoSavePermsAndRules([...readOnlyPlatformPermissions], activeRules);
+  };
+
+  const clearAllPermissions = () => {
+    const next: Permission[] = [];
+    setActivePerms(next);
+    void autoSavePermsAndRules(next, activeRules);
+  };
 
   // Lista de tags filtrada
   const filteredTags = useMemo(() => {
@@ -181,6 +267,7 @@ export function DevGerenciarTagsPage() {
     setFormColor("#10b981");
     setFormIcon("Tag");
     setFormIsActive(true);
+    setFormIsSystem(false);
     setIsTagModalOpen(true);
   };
 
@@ -192,6 +279,7 @@ export function DevGerenciarTagsPage() {
     setFormColor(tag.color || "#3b82f6");
     setFormIcon(tag.icon || "Tag");
     setFormIsActive(tag.is_active !== false);
+    setFormIsSystem(Boolean(tag.is_system));
     setIsTagModalOpen(true);
   };
 
@@ -222,7 +310,7 @@ export function DevGerenciarTagsPage() {
         is_active: formIsActive,
         permissions: editingTag ? editingTag.permissions : [],
         rules: editingTag ? editingTag.rules : {},
-        is_system: editingTag ? editingTag.is_system : false,
+        is_system: formIsSystem,
       });
       setIsTagModalOpen(false);
       if (typeof window !== "undefined") {
@@ -619,22 +707,24 @@ export function DevGerenciarTagsPage() {
                     </Button>
 
                     {/* EXCLUIR */}
-                    {!tag.is_system && (
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => {
-                          if (confirm(`Tem certeza que deseja excluir a tag "${tag.name}"? Todos os membros vinculados a ela perderão suas permissões.`)) {
-                            deleteTagMutation.mutate(tag.id);
-                          }
-                        }}
-                        disabled={deleteTagMutation.isPending}
-                        className="h-7 w-7 p-0 rounded-lg text-rose-400 hover:text-rose-300 hover:bg-rose-500/10"
-                        title="Remover tag"
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </Button>
-                    )}
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => {
+                        if (
+                          confirm(
+                            `Tem certeza que deseja excluir a tag "${tag.name}"? Todos os membros vinculados a ela perderão suas permissões.`
+                          )
+                        ) {
+                          deleteTagMutation.mutate(tag.id);
+                        }
+                      }}
+                      disabled={deleteTagMutation.isPending}
+                      className="h-7 w-7 p-0 rounded-lg text-rose-400 hover:text-rose-300 hover:bg-rose-500/10"
+                      title="Remover tag"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
                   </div>
                 </div>
               </Card>
@@ -793,6 +883,17 @@ export function DevGerenciarTagsPage() {
                 </p>
               </div>
               <Switch checked={formIsActive} onCheckedChange={setFormIsActive} />
+            </div>
+
+            {/* SWITCH TAG DE SISTEMA */}
+            <div className="flex items-center justify-between p-3 rounded-xl bg-secondary/20 border border-border/60">
+              <div className="space-y-0.5">
+                <Label className="text-xs font-bold text-foreground">Tag de Sistema</Label>
+                <p className="text-[10px] text-muted-foreground">
+                  Define a tag como estrutural da plataforma (identificador especial).
+                </p>
+              </div>
+              <Switch checked={formIsSystem} onCheckedChange={setFormIsSystem} />
             </div>
           </div>
 
@@ -1031,75 +1132,182 @@ export function DevGerenciarTagsPage() {
 
           <div className="flex-1 overflow-y-auto space-y-4 pr-1">
             {permSubTab === "permissions" && (
-              <div className="space-y-4">
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    placeholder="Buscar permissões..."
-                    value={permSearch}
-                    onChange={(e) => setPermSearch(e.target.value)}
-                    className="pl-9 h-9 text-xs rounded-xl bg-background/50 border-border/60"
-                  />
+              <div className="space-y-6">
+                {/* QUICK ACTIONS & SEARCH (IDÊNTICO A PERMISSÕES DE CARGOS) */}
+                <div className="p-3.5 rounded-2xl bg-secondary/20 border border-border/60 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+                  <div className="relative flex-1 min-w-[200px]">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      placeholder="Buscar módulo ou permissão..."
+                      value={permSearch}
+                      onChange={(e) => setPermSearch(e.target.value)}
+                      className="pl-9 h-9 text-xs rounded-xl bg-background/50 border-border/60"
+                    />
+                  </div>
+
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-8 text-xs px-2.5 font-bold border-primary/30 text-primary hover:bg-primary/10 rounded-xl"
+                      onClick={setAllPermissions}
+                    >
+                      Todas as Permissões
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-8 text-xs px-2.5 font-medium border-border/60 hover:bg-secondary rounded-xl"
+                      onClick={setReadOnlyPermissions}
+                    >
+                      Apenas Leitura
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 text-xs px-2.5 text-rose-400 hover:bg-rose-500/10 rounded-xl"
+                      onClick={clearAllPermissions}
+                    >
+                      Limpar
+                    </Button>
+                  </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  {PAGE_CARDS.filter((c) => {
-                    if (!permSearch) return true;
-                    const q = permSearch.toLowerCase();
-                    return (
-                      c.title.toLowerCase().includes(q) ||
-                      c.permissions.some((p) => p.label.toLowerCase().includes(q) || p.key.toLowerCase().includes(q))
-                    );
-                  }).map((card) => {
-                    const CardIcon = card.icon;
-                    const cardKeys = card.permissions.map((p) => p.key);
-                    const allIn = cardKeys.every((k) => activePerms.includes(k));
-                    const countIn = cardKeys.filter((k) => activePerms.includes(k)).length;
+                {/* DYNAMICALLY GROUPED & ORDERED PERMISSION CARDS BY MENU CATEGORIES (IGUAL PERMISSÕES DE CARGOS) */}
+                <div className="space-y-8 pr-1">
+                  {groupedPageCards
+                    .map(({ category, cards }) => {
+                      const filteredCards = cards.filter((card) => {
+                        if (!permSearch) return true;
+                        const q = permSearch.toLowerCase();
+                        return (
+                          card.title.toLowerCase().includes(q) ||
+                          card.route.toLowerCase().includes(q) ||
+                          card.description.toLowerCase().includes(q) ||
+                          card.permissions.some(
+                            (p) =>
+                              p.label.toLowerCase().includes(q) ||
+                              p.key.toLowerCase().includes(q) ||
+                              p.description.toLowerCase().includes(q)
+                          )
+                        );
+                      });
 
-                    return (
-                      <div
-                        key={card.id}
-                        className="p-3.5 rounded-2xl bg-secondary/15 border border-border/60 space-y-2.5"
-                      >
-                        <div className="flex items-center justify-between pb-2 border-b border-border/40">
-                          <div className="flex items-center gap-2">
-                            <CardIcon className="h-4 w-4 text-primary" />
-                            <span className="font-bold text-xs text-foreground">{card.title}</span>
+                      if (filteredCards.length === 0) return null;
+
+                      return (
+                        <div key={category} className="space-y-4">
+                          <div className="flex items-center justify-between gap-2 pb-2 border-b border-border/60">
+                            <div className="flex items-center gap-2">
+                              <FolderTree className="h-4 w-4 text-primary" />
+                              <h3 className="text-xs uppercase tracking-widest font-bold text-foreground">
+                                Categoria do Menu: <span className="text-primary font-extrabold">{category}</span>
+                              </h3>
+                            </div>
+                            <Badge variant="outline" className="text-[10px] font-mono border-primary/30 text-primary bg-primary/5">
+                              {filteredCards.length} {filteredCards.length === 1 ? "módulo" : "módulos"}
+                            </Badge>
                           </div>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleToggleCardPerms(card)}
-                            className="h-6 text-[10px] px-2 font-mono"
-                          >
-                            {allIn ? "Desmarcar" : "Marcar todas"} ({countIn}/{cardKeys.length})
-                          </Button>
-                        </div>
 
-                        <div className="space-y-1.5 divide-y divide-border/30">
-                          {card.permissions.map((p) => {
-                            const isChecked = activePerms.includes(p.key);
-                            return (
-                              <div
-                                key={p.key}
-                                onClick={() => handleTogglePerm(p.key)}
-                                className="flex items-start justify-between gap-2 pt-1.5 cursor-pointer hover:bg-muted/10 p-1 rounded-lg"
-                              >
-                                <div className="min-w-0 flex-1">
-                                  <p className={cn("text-xs", isChecked ? "font-bold text-foreground" : "text-muted-foreground")}>
-                                    {p.label}
-                                  </p>
-                                  <p className="text-[10px] text-muted-foreground leading-snug">{p.description}</p>
-                                </div>
-                                <Switch checked={isChecked} onCheckedChange={() => handleTogglePerm(p.key)} className="shrink-0" />
-                              </div>
-                            );
-                          })}
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {filteredCards.map((pageCard) => {
+                              const PageIcon = pageCard.icon;
+                              const cardPermKeys = pageCard.permissions.map((p) => p.key);
+                              const allIn = cardPermKeys.every((k) => activePerms.includes(k));
+                              const countIn = cardPermKeys.filter((k) => activePerms.includes(k)).length;
+
+                              return (
+                                <Card key={pageCard.id} className="surface-card flex flex-col justify-between border-border/70 shadow-sm">
+                                  <div>
+                                    <CardHeader className="pb-3 border-b border-border/50">
+                                      <div className="flex items-center justify-between gap-2">
+                                        <div className="flex items-center gap-2.5 min-w-0">
+                                          <div className={cn("p-2 rounded-lg border shrink-0", pageCard.color)}>
+                                            <PageIcon className="h-4 w-4" />
+                                          </div>
+                                          <div className="min-w-0">
+                                            <CardTitle className="text-sm font-bold text-foreground flex items-center gap-2 truncate">
+                                              <span>{pageCard.title}</span>
+                                              <span className="text-[10px] text-muted-foreground font-mono font-normal truncate">
+                                                ({pageCard.route})
+                                              </span>
+                                            </CardTitle>
+                                            <CardDescription className="text-[0.7rem] line-clamp-1">
+                                              {pageCard.description}
+                                            </CardDescription>
+                                          </div>
+                                        </div>
+
+                                        <Button
+                                          type="button"
+                                          variant="ghost"
+                                          size="sm"
+                                          onClick={() => handleToggleCardPerms(pageCard)}
+                                          className={cn(
+                                            "h-7 text-[10px] font-bold px-2 rounded-lg border transition-all shrink-0 cursor-pointer",
+                                            allIn
+                                              ? "border-rose-500/30 text-rose-400 hover:bg-rose-500/10 hover:text-rose-300"
+                                              : "border-primary/30 text-primary hover:bg-primary/10"
+                                          )}
+                                        >
+                                          {allIn ? "Desmarcar Módulo" : "Marcar Módulo"} ({countIn}/{cardPermKeys.length})
+                                        </Button>
+                                      </div>
+                                    </CardHeader>
+
+                                    <CardContent className="pt-3 space-y-2">
+                                      {pageCard.permissions.map((perm) => {
+                                        const isChecked = activePerms.includes(perm.key);
+                                        return (
+                                          <div
+                                            key={`${pageCard.id}-${perm.key}`}
+                                            role="checkbox"
+                                            aria-checked={isChecked}
+                                            tabIndex={0}
+                                            onClick={() => handleTogglePerm(perm.key)}
+                                            onKeyDown={(e) => {
+                                              if (e.key === " " || e.key === "Enter") {
+                                                e.preventDefault();
+                                                handleTogglePerm(perm.key);
+                                              }
+                                            }}
+                                            className={cn(
+                                              "p-2.5 rounded-xl border transition-all duration-150 flex items-start gap-3 cursor-pointer select-none outline-none focus-visible:ring-2 focus-visible:ring-primary/50 hover:scale-[1.005] active:scale-[0.99]",
+                                              isChecked
+                                                ? "border-primary/50 bg-primary/10 shadow-sm shadow-primary/15 text-foreground"
+                                                : "border-border/50 bg-background/40 hover:bg-secondary/30 hover:border-primary/30 text-muted-foreground"
+                                            )}
+                                          >
+                                            <Checkbox
+                                              id={`perm-${pageCard.id}-${perm.key}`}
+                                              checked={isChecked}
+                                              tabIndex={-1}
+                                              className="mt-0.5 pointer-events-none rounded data-[state=checked]:bg-primary data-[state=checked]:border-primary"
+                                            />
+                                            <div className="flex-1 min-w-0">
+                                              <p className={cn("text-xs font-semibold leading-tight", isChecked ? "text-foreground font-bold" : "text-foreground/90")}>
+                                                {perm.label}
+                                              </p>
+                                              <p className="text-[11px] text-muted-foreground leading-snug mt-0.5">
+                                                {perm.description}
+                                              </p>
+                                            </div>
+                                          </div>
+                                        );
+                                      })}
+                                    </CardContent>
+                                  </div>
+                                </Card>
+                              );
+                            })}
+                          </div>
                         </div>
-                      </div>
-                    );
-                  })}
+                      );
+                    })
+                    .filter(Boolean)}
                 </div>
               </div>
             )}
