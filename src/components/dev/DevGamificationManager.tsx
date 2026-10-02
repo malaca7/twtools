@@ -32,6 +32,10 @@ import {
   Layers,
   HelpCircle,
   ExternalLink,
+  Copy,
+  PlusCircle,
+  Filter,
+  Lock,
 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -81,6 +85,8 @@ import {
   devGetAllInsignias,
   devGetXpRules,
   devUpdateXpRule,
+  devDeleteXpRule,
+  devSaveXpRule,
   devGetAllXpTransactions,
   saveInsignia,
   devUpdateMemberInsigniaReason,
@@ -106,6 +112,81 @@ function formatCooldown(secs: number): string {
   if (secs % 60 === 0 && secs > 0) return `${secs / 60} min(s)`;
   return `${secs} seg(s)`;
 }
+
+function getCategoryBadgeColor(cat: string): string {
+  const c = (cat || "").toLowerCase();
+  if (c.includes("venda")) return "bg-emerald-500/15 text-emerald-400 border-emerald-500/30";
+  if (c.includes("prod")) return "bg-amber-500/15 text-amber-400 border-amber-500/30";
+  if (c.includes("estoque") || c.includes("bau")) return "bg-sky-500/15 text-sky-400 border-sky-500/30";
+  if (c.includes("meta")) return "bg-indigo-500/15 text-indigo-400 border-indigo-500/30";
+  if (c.includes("presen") || c.includes("live")) return "bg-rose-500/15 text-rose-400 border-rose-500/30";
+  if (c.includes("suporte") || c.includes("ticket")) return "bg-purple-500/15 text-purple-400 border-purple-500/30";
+  if (c.includes("social") || c.includes("feed") || c.includes("life")) return "bg-pink-500/15 text-pink-400 border-pink-500/30";
+  return "bg-secondary text-muted-foreground border-border/50";
+}
+
+const RULE_TEMPLATES: { label: string; action_type: string; name: string; category: string; xp_reward: number; cooldown_seconds: number; daily_cap: number; description: string }[] = [
+  {
+    label: "Produção de Item",
+    action_type: "production_completed",
+    name: "Produção de Item Concluída",
+    category: "producao",
+    xp_reward: 2,
+    cooldown_seconds: 120,
+    daily_cap: 10,
+    description: "Concedido ao fabricar um lote de produtos na Estação de Produção.",
+  },
+  {
+    label: "Matéria-Prima Registrada",
+    action_type: "raw_material_collected",
+    name: "Entrada de Matérias-Primas",
+    category: "producao",
+    xp_reward: 1,
+    cooldown_seconds: 300,
+    daily_cap: 5,
+    description: "Concedido ao dar entrada de insumos ou puxar de baús manuais para a facção.",
+  },
+  {
+    label: "Transferência de Armazém",
+    action_type: "warehouse_transfer",
+    name: "Logística do Armazém",
+    category: "producao",
+    xp_reward: 1,
+    cooldown_seconds: 300,
+    daily_cap: 5,
+    description: "Concedido ao transferir itens do armazém central para os baús ou venda.",
+  },
+  {
+    label: "Venda no Balcão",
+    action_type: "counter_sale",
+    name: "Venda no Balcão Comercial",
+    category: "vendas",
+    xp_reward: 2,
+    cooldown_seconds: 180,
+    daily_cap: 8,
+    description: "Concedido ao registrar uma venda de produtos a clientes.",
+  },
+  {
+    label: "Depósito no Fundo de Caixa",
+    action_type: "cash_fund_deposit",
+    name: "Aporte Financeiro no Caixa",
+    category: "vendas",
+    xp_reward: 2,
+    cooldown_seconds: 600,
+    daily_cap: 6,
+    description: "Concedido ao realizar aportes em dinheiro no fundo de caixa da facção.",
+  },
+  {
+    label: "Meta Semanal Concluída",
+    action_type: "weekly_goal_completed",
+    name: "Meta Semanal Batida",
+    category: "metas",
+    xp_reward: 5,
+    cooldown_seconds: 86400,
+    daily_cap: 5,
+    description: "Bônus por alcançar a cota semanal estipulada pela diretoria.",
+  },
+];
 
 export function DevGamificationManager({ initialTab = "membros" }: { initialTab?: string }) {
   const { devStyle, DevIcon } = usePanelTheme();
@@ -162,16 +243,39 @@ export function DevGamificationManager({ initialTab = "membros" }: { initialTab?
   const [insigniaSubmitting, setInsigniaSubmitting] = useState(false);
   const [colorTab, setColorTab] = useState<"icon" | "bg" | "border">("icon");
 
-  // Modal 6: Editar Regra de XP
+  // Modal 6: Editar / Criar Regra de XP
   const [ruleEditorOpen, setRuleEditorOpen] = useState(false);
+  const [isCreatingRule, setIsCreatingRule] = useState(false);
   const [editingRule, setEditingRule] = useState<Partial<XpRuleConfig> | null>(null);
   const [editRewardStr, setEditRewardStr] = useState("0");
   const [editCapStr, setEditCapStr] = useState("0");
   const [editCooldownStr, setEditCooldownStr] = useState("0");
   const [ruleSubmitting, setRuleSubmitting] = useState(false);
   const [cooldownUnit, setCooldownUnit] = useState<number>(1);
+  const [ruleSearch, setRuleSearch] = useState("");
+  const [ruleCategoryFilter, setRuleCategoryFilter] = useState("all");
+  const [ruleStatusFilter, setRuleStatusFilter] = useState<"all" | "active" | "inactive">("all");
+  const [ruleToDelete, setRuleToDelete] = useState<XpRuleConfig | null>(null);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+
+  const openCreateRule = (template?: Partial<XpRuleConfig>) => {
+    setIsCreatingRule(true);
+    setEditingRule({
+      action_type: template?.action_type || "",
+      name: template?.name || "",
+      category: template?.category || "geral",
+      description: template?.description || "",
+      enabled: template?.enabled !== false,
+    });
+    setEditRewardStr(String(template?.xp_reward ?? 1));
+    setEditCapStr(String(template?.daily_cap ?? 5));
+    setEditCooldownStr(String(template?.cooldown_seconds ?? 60));
+    setCooldownUnit(1);
+    setRuleEditorOpen(true);
+  };
 
   const openRuleEditor = (r: XpRuleConfig) => {
+    setIsCreatingRule(false);
     let secs = r.cooldown_seconds || 0;
     let unit = 1;
     let val = secs;
@@ -187,9 +291,87 @@ export function DevGamificationManager({ initialTab = "membros" }: { initialTab?
     setEditCooldownStr(String(val));
     setEditRewardStr(String(r.xp_reward || 0));
     setEditCapStr(String(r.daily_cap || 0));
-    setEditingRule(r);
+    setEditingRule({ ...r });
     setRuleEditorOpen(true);
   };
+
+  const handleDuplicateRule = (r: XpRuleConfig) => {
+    openCreateRule({
+      ...r,
+      action_type: `${r.action_type}_copia`,
+      name: `${r.name} (Cópia)`,
+    });
+  };
+
+  const handlePromptDeleteRule = (r: XpRuleConfig) => {
+    setRuleToDelete(r);
+    setDeleteConfirmOpen(true);
+  };
+
+  const handleConfirmDeleteRule = async () => {
+    if (!ruleToDelete) return;
+    setRuleSubmitting(true);
+    try {
+      await devDeleteXpRule(ruleToDelete.action_type);
+      toast.success(`Regra "${ruleToDelete.name}" excluída com sucesso!`);
+      setRuleToDelete(null);
+      setDeleteConfirmOpen(false);
+      loadData();
+    } catch (err: any) {
+      toast.error(err.message || "Erro ao excluir regra de XP.");
+    } finally {
+      setRuleSubmitting(false);
+    }
+  };
+
+  const handleToggleRuleStatus = async (r: XpRuleConfig) => {
+    try {
+      await devUpdateXpRule({
+        ...r,
+        enabled: !r.enabled,
+      });
+      toast.success(`Regra "${r.name}" ${!r.enabled ? "ativada" : "desativada"} com sucesso!`);
+      loadData();
+    } catch (err: any) {
+      toast.error("Erro ao alternar status da regra.");
+    }
+  };
+
+  const availableCategories = useMemo(() => {
+    const set = new Set<string>();
+    rules.forEach((r) => {
+      if (r.category) set.add(r.category);
+    });
+    ["vendas", "producao", "estoque", "metas", "presenca", "suporte", "social", "geral"].forEach((c) => set.add(c));
+    return Array.from(set);
+  }, [rules]);
+
+  const filteredRules = useMemo(() => {
+    return rules.filter((r) => {
+      if (ruleStatusFilter === "active" && !r.enabled) return false;
+      if (ruleStatusFilter === "inactive" && r.enabled) return false;
+      if (ruleCategoryFilter !== "all" && r.category?.toLowerCase() !== ruleCategoryFilter.toLowerCase()) return false;
+
+      if (ruleSearch) {
+        const q = ruleSearch.toLowerCase();
+        const matchAction = r.action_type.toLowerCase().includes(q);
+        const matchName = r.name.toLowerCase().includes(q);
+        const matchDesc = (r.description || "").toLowerCase().includes(q);
+        const matchCat = (r.category || "").toLowerCase().includes(q);
+        if (!matchAction && !matchName && !matchDesc && !matchCat) return false;
+      }
+
+      return true;
+    });
+  }, [rules, ruleSearch, ruleCategoryFilter, ruleStatusFilter]);
+
+  const ruleStats = useMemo(() => {
+    const total = rules.length;
+    const active = rules.filter((r) => r.enabled).length;
+    const inactive = total - active;
+    const avgXp = total > 0 ? Math.round(rules.reduce((acc, r) => acc + (r.xp_reward || 0), 0) / total) : 0;
+    return { total, active, inactive, avgXp };
+  }, [rules]);
 
   // Carregar dados gerais
   const loadData = useCallback(async () => {
@@ -462,9 +644,28 @@ export function DevGamificationManager({ initialTab = "membros" }: { initialTab?
     }
   };
 
-  // 8. Salvar Regra de XP
+  // 8. Salvar Regra de XP (Criar ou Editar)
   const handleSaveXpRule = async () => {
-    if (!editingRule?.action_type || !editingRule?.name) return;
+    if (!editingRule?.action_type?.trim()) {
+      toast.error("Informe o identificador do gatilho (action_type).");
+      return;
+    }
+    if (!editingRule?.name?.trim()) {
+      toast.error("Informe o nome amigável da regra de XP.");
+      return;
+    }
+
+    const cleanActionType = editingRule.action_type
+      .toLowerCase()
+      .trim()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^a-z0-9_-]/g, "_");
+
+    if (!cleanActionType) {
+      toast.error("Gatilho inválido. Use letras, números e underline.");
+      return;
+    }
 
     const finalReward = Number(editRewardStr.replace(',', '.')) || 0;
     const finalCap = Number(editCapStr.replace(',', '.')) || 0;
@@ -474,22 +675,27 @@ export function DevGamificationManager({ initialTab = "membros" }: { initialTab?
     setRuleSubmitting(true);
     try {
       await devUpdateXpRule({
-        action_type: editingRule.action_type,
-        name: editingRule.name,
+        action_type: cleanActionType,
+        name: editingRule.name.trim(),
         xp_reward: finalReward,
         cooldown_seconds: finalCooldownSeconds,
         daily_cap: finalCap,
-        category: editingRule.category || "geral",
-        description: editingRule.description || "",
+        category: (editingRule.category || "geral").toLowerCase().trim(),
+        description: editingRule.description?.trim() || "",
         enabled: editingRule.enabled !== false,
       });
 
-      toast.success(`Regra "${editingRule.name}" atualizada com sucesso!`);
+      toast.success(
+        isCreatingRule
+          ? `Nova regra "${editingRule.name.trim()}" criada com sucesso!`
+          : `Regra "${editingRule.name.trim()}" atualizada com sucesso!`
+      );
       setRuleEditorOpen(false);
       setEditingRule(null);
+      setIsCreatingRule(false);
       loadData();
     } catch (err: any) {
-      toast.error(err.message || "Erro ao atualizar regra de XP.");
+      toast.error(err.message || "Erro ao salvar regra de XP.");
     } finally {
       setRuleSubmitting(false);
     }
@@ -1064,121 +1270,420 @@ export function DevGamificationManager({ initialTab = "membros" }: { initialTab?
             TAB 3: REGRAS DE XP & LIMITES DIÁRIOS
             ========================================================================= */}
         <TabsContent value="regras" className="space-y-4">
+          {/* Header Card com Título e Ações */}
           <Card className="border-border/60 bg-card/40 backdrop-blur-sm">
             <CardHeader className="p-4 sm:p-5 pb-3">
-              <CardTitle className="text-base sm:text-lg font-extrabold flex items-center gap-2">
-                <Sliders className="w-5 h-5 text-primary shrink-0" />
-                <span>Matriz de Regras de XP, Cooldowns e Limites</span>
-              </CardTitle>
-              <CardDescription className="text-xs">
-                Regras ativas de combate a spam e concessão backend de XP por ações reais dentro do sistema.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="p-3 sm:p-5 pt-2">
-              {/* VISUALIZAÇÃO MOBILE (CARDS RESPONSIVOS SEM SCROLL LATERAL) */}
-              <div className="md:hidden space-y-3">
-                {rules.map((r) => (
-                  <Card key={r.action_type} className="border border-border/60 bg-background/80 p-3.5 rounded-xl shadow-xs space-y-2.5">
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="min-w-0">
-                        <div className="font-mono text-xs font-bold text-primary truncate">{r.action_type}</div>
-                        <h4 className="font-bold text-foreground text-sm">{r.name}</h4>
-                        <p className="text-xs text-muted-foreground leading-relaxed">{r.description}</p>
-                      </div>
-                      <Badge className="bg-purple-500/15 text-purple-300 border-purple-500/30 font-mono font-bold text-xs shrink-0">
-                        +{r.xp_reward} XP
-                      </Badge>
-                    </div>
-
-                    <div className="flex items-center justify-between gap-2 pt-2 border-t border-border/40 text-xs">
-                      <div className="flex items-center gap-2 text-muted-foreground text-[11px] font-mono">
-                        <span>{formatCooldown(r.cooldown_seconds || 0)} cooldown</span>
-                        <span>•</span>
-                        <span className="text-foreground font-bold">{r.daily_cap} XP/dia</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        {r.enabled ? (
-                          <Badge className="bg-emerald-500/15 text-emerald-400 border-emerald-500/30 text-[10px]">Ativo</Badge>
-                        ) : (
-                          <Badge variant="destructive" className="text-[10px]">Inativo</Badge>
-                        )}
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => openRuleEditor(r)}
-                          className="h-7 px-2 text-xs font-bold gap-1"
-                        >
-                          <Edit3 className="w-3 h-3" />
-                          Editar
-                        </Button>
-                      </div>
-                    </div>
-                  </Card>
-                ))}
-              </div>
-
-              {/* VISUALIZAÇÃO DESKTOP (TABELA) */}
-              <div className="hidden md:block rounded-xl border border-border/60 overflow-hidden bg-background/50">
-                <div className="overflow-x-auto w-full">
-                  <table className="w-full text-sm text-left border-collapse">
-                    <thead>
-                      <tr className="border-b border-border/60 bg-muted/40 text-xs font-bold text-muted-foreground uppercase tracking-wider">
-                        <th className="py-3 px-4">Gatilho de Ação</th>
-                        <th className="py-3 px-4">Nome da Ação</th>
-                        <th className="py-3 px-4 text-center">Recompensa</th>
-                        <th className="py-3 px-4 text-center">Cooldown</th>
-                        <th className="py-3 px-4 text-center">Limite Diário (Cap)</th>
-                        <th className="py-3 px-4 text-center">Status</th>
-                        <th className="py-3 px-4 text-right">Ação</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-border/40">
-                      {rules.map((r) => (
-                        <tr key={r.action_type} className="hover:bg-accent/20 transition-colors">
-                          <td className="py-3 px-4 font-mono text-xs font-bold text-primary">{r.action_type}</td>
-                          <td className="py-3 px-4">
-                            <div className="font-bold text-foreground">{r.name}</div>
-                            <div className="text-xs text-muted-foreground">{r.description}</div>
-                          </td>
-                          <td className="py-3 px-4 text-center">
-                            <Badge className="bg-purple-500/15 text-purple-300 border-purple-500/30 font-mono font-bold">
-                              +{r.xp_reward} XP
-                            </Badge>
-                          </td>
-                          <td className="py-3 px-4 text-center font-mono text-xs text-muted-foreground">
-                            {formatCooldown(r.cooldown_seconds || 0)}
-                          </td>
-                          <td className="py-3 px-4 text-center font-mono text-xs font-bold text-foreground">
-                            {r.daily_cap} XP / dia
-                          </td>
-                          <td className="py-3 px-4 text-center">
-                            {r.enabled ? (
-                              <Badge className="bg-emerald-500/15 text-emerald-400 border-emerald-500/30 text-[10px]">
-                                Ativo
-                              </Badge>
-                            ) : (
-                              <Badge variant="destructive" className="text-[10px]">
-                                Inativo
-                              </Badge>
-                            )}
-                          </td>
-                          <td className="py-3 px-4 text-right">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => openRuleEditor(r)}
-                              className="h-8 px-2.5 text-xs font-bold gap-1 hover:bg-accent"
-                            >
-                              <Edit3 className="w-3.5 h-3.5" />
-                              Editar
-                            </Button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                <div>
+                  <CardTitle className="text-base sm:text-lg font-extrabold flex items-center gap-2">
+                    <Sliders className="w-5 h-5 text-primary shrink-0" />
+                    <span>Matriz de Regras de XP, Cooldowns e Limites</span>
+                  </CardTitle>
+                  <CardDescription className="text-xs mt-1">
+                    Crie, edite, duplique ou exclua regras de concessão de XP e combate a spam por ações operacionais no sistema.
+                  </CardDescription>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={loadData}
+                    disabled={loading}
+                    className="h-8 px-2.5 text-xs font-bold gap-1.5"
+                    title="Recarregar regras"
+                  >
+                    <RefreshCw className={cn("w-3.5 h-3.5", loading && "animate-spin")} />
+                    <span>Sincronizar</span>
+                  </Button>
+                  <Button
+                    size="sm"
+                    onClick={() => openCreateRule()}
+                    className="h-8 px-3 text-xs font-extrabold gap-1.5 bg-primary text-primary-foreground hover:bg-primary/90 shadow-xs"
+                  >
+                    <PlusCircle className="w-4 h-4" />
+                    <span>Nova Regra de XP</span>
+                  </Button>
                 </div>
               </div>
+            </CardHeader>
+            <CardContent className="p-4 sm:p-5 pt-0 space-y-4">
+              {/* CARDS DE RESUMO OPERACIONAL */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-3">
+                <div className="p-3 rounded-xl border border-border/50 bg-background/60 flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0">
+                    <Sliders className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <div className="text-[11px] font-semibold text-muted-foreground">Total de Regras</div>
+                    <div className="text-lg font-black text-foreground">{ruleStats.total}</div>
+                  </div>
+                </div>
+
+                <div className="p-3 rounded-xl border border-border/50 bg-background/60 flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-lg bg-emerald-500/10 text-emerald-400 flex items-center justify-center shrink-0">
+                    <CheckCircle2 className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <div className="text-[11px] font-semibold text-muted-foreground">Regras Ativas</div>
+                    <div className="text-lg font-black text-emerald-400">{ruleStats.active}</div>
+                  </div>
+                </div>
+
+                <div className="p-3 rounded-xl border border-border/50 bg-background/60 flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-lg bg-amber-500/10 text-amber-400 flex items-center justify-center shrink-0">
+                    <AlertTriangle className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <div className="text-[11px] font-semibold text-muted-foreground">Pausadas / Inativas</div>
+                    <div className="text-lg font-black text-amber-400">{ruleStats.inactive}</div>
+                  </div>
+                </div>
+
+                <div className="p-3 rounded-xl border border-border/50 bg-background/60 flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-lg bg-purple-500/10 text-purple-400 flex items-center justify-center shrink-0">
+                    <Zap className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <div className="text-[11px] font-semibold text-muted-foreground">Recompensa Média</div>
+                    <div className="text-lg font-black text-purple-400">+{ruleStats.avgXp} XP</div>
+                  </div>
+                </div>
+              </div>
+
+              {/* ATALHOS DE CRIAÇÃO RÁPIDA (TEMPLATES) */}
+              <div className="p-3 rounded-xl border border-border/40 bg-muted/20 space-y-2">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="font-bold text-muted-foreground flex items-center gap-1.5">
+                    <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+                    Modelos Rápidos de Regra (Clique para pré-preencher):
+                  </span>
+                  <span className="text-[11px] text-muted-foreground">Gatilhos comuns de Facção</span>
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {RULE_TEMPLATES.map((tpl) => (
+                    <Button
+                      key={tpl.action_type}
+                      variant="outline"
+                      size="sm"
+                      onClick={() => openCreateRule(tpl)}
+                      className="h-7 text-xs px-2.5 rounded-lg border-border/60 hover:border-primary/50 hover:bg-primary/5 font-semibold gap-1"
+                    >
+                      <Plus className="w-3 h-3 text-primary" />
+                      <span>{tpl.label}</span>
+                      <Badge variant="secondary" className="text-[9px] px-1 py-0 ml-0.5">
+                        +{tpl.xp_reward}XP
+                      </Badge>
+                    </Button>
+                  ))}
+                </div>
+              </div>
+
+              {/* BARRA DE FILTROS & BUSCA */}
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5 pt-1">
+                <div className="relative flex-1">
+                  <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    placeholder="Buscar por gatilho, nome amigável ou descrição..."
+                    value={ruleSearch}
+                    onChange={(e) => setRuleSearch(e.target.value)}
+                    className="pl-9 h-9 text-xs"
+                  />
+                  {ruleSearch && (
+                    <button
+                      onClick={() => setRuleSearch("")}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground text-xs"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-2 shrink-0">
+                  <Select value={ruleCategoryFilter} onValueChange={setRuleCategoryFilter}>
+                    <SelectTrigger className="w-[140px] sm:w-[160px] h-9 text-xs">
+                      <Filter className="w-3.5 h-3.5 mr-1 text-muted-foreground" />
+                      <SelectValue placeholder="Categoria" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todas Categorias</SelectItem>
+                      {availableCategories.map((c) => (
+                        <SelectItem key={c} value={c} className="capitalize">
+                          {c}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+
+                  <Select
+                    value={ruleStatusFilter}
+                    onValueChange={(val: "all" | "active" | "inactive") => setRuleStatusFilter(val)}
+                  >
+                    <SelectTrigger className="w-[120px] sm:w-[130px] h-9 text-xs">
+                      <SelectValue placeholder="Status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todos Status</SelectItem>
+                      <SelectItem value="active">Apenas Ativas</SelectItem>
+                      <SelectItem value="inactive">Apenas Inativas</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              {/* TOTAL FILTRADO */}
+              <div className="flex items-center justify-between text-xs text-muted-foreground px-1">
+                <span>
+                  Exibindo <strong className="text-foreground">{filteredRules.length}</strong> de{" "}
+                  <strong className="text-foreground">{rules.length}</strong> regras configuradas
+                </span>
+                {(ruleSearch || ruleCategoryFilter !== "all" || ruleStatusFilter !== "all") && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      setRuleSearch("");
+                      setRuleCategoryFilter("all");
+                      setRuleStatusFilter("all");
+                    }}
+                    className="h-6 px-2 text-[11px] text-muted-foreground hover:text-foreground"
+                  >
+                    Limpar filtros
+                  </Button>
+                )}
+              </div>
+
+              {/* LISTAGEM VAZIA */}
+              {filteredRules.length === 0 && (
+                <div className="text-center py-10 px-4 rounded-xl border border-dashed border-border/60 bg-muted/10 space-y-3">
+                  <Sliders className="w-8 h-8 text-muted-foreground mx-auto opacity-50" />
+                  <div>
+                    <h4 className="font-bold text-foreground text-sm">Nenhuma regra de XP encontrada</h4>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      {ruleSearch || ruleCategoryFilter !== "all" || ruleStatusFilter !== "all"
+                        ? "Tente ajustar os termos de busca ou remover os filtros aplicados."
+                        : "Você ainda não possui regras de XP cadastradas."}
+                    </p>
+                  </div>
+                  <Button
+                    size="sm"
+                    onClick={() => openCreateRule()}
+                    className="h-8 px-3 text-xs font-bold gap-1.5"
+                  >
+                    <PlusCircle className="w-3.5 h-3.5" />
+                    Criar Nova Regra
+                  </Button>
+                </div>
+              )}
+
+              {/* VISUALIZAÇÃO MOBILE (CARDS RESPONSIVOS SEM SCROLL LATERAL) */}
+              {filteredRules.length > 0 && (
+                <div className="md:hidden space-y-3">
+                  {filteredRules.map((r) => (
+                    <Card
+                      key={r.action_type}
+                      className={cn(
+                        "border bg-background/80 p-3.5 rounded-xl shadow-xs space-y-2.5 transition-all",
+                        r.enabled ? "border-border/60" : "border-border/30 opacity-70 bg-background/40"
+                      )}
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className="font-mono text-xs font-bold text-primary truncate">
+                              {r.action_type}
+                            </span>
+                            {r.category && (
+                              <Badge className={cn("text-[9px] font-bold px-1.5 py-0 capitalize", getCategoryBadgeColor(r.category))}>
+                                {r.category}
+                              </Badge>
+                            )}
+                          </div>
+                          <h4 className="font-bold text-foreground text-sm mt-0.5">{r.name}</h4>
+                          {r.description && (
+                            <p className="text-xs text-muted-foreground leading-relaxed mt-0.5">{r.description}</p>
+                          )}
+                        </div>
+                        <Badge className="bg-purple-500/15 text-purple-300 border-purple-500/30 font-mono font-bold text-xs shrink-0">
+                          +{r.xp_reward} XP
+                        </Badge>
+                      </div>
+
+                      <div className="flex items-center justify-between gap-2 pt-2 border-t border-border/40 text-xs">
+                        <div className="flex items-center gap-1.5 text-muted-foreground text-[11px] font-mono flex-wrap">
+                          <span>{formatCooldown(r.cooldown_seconds || 0)}</span>
+                          <span>•</span>
+                          <span className="text-foreground font-bold">{r.daily_cap > 0 ? `${r.daily_cap} XP/dia` : "Sem cap"}</span>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          <div className="flex items-center gap-1.5 mr-1">
+                            <Switch
+                              id={`switch-mobile-${r.action_type}`}
+                              checked={r.enabled}
+                              onCheckedChange={() => handleToggleRuleStatus(r)}
+                              className="scale-75"
+                            />
+                            <Label
+                              htmlFor={`switch-mobile-${r.action_type}`}
+                              className="text-[10px] font-bold cursor-pointer"
+                            >
+                              {r.enabled ? (
+                                <span className="text-emerald-400">Ativo</span>
+                              ) : (
+                                <span className="text-muted-foreground">Inativo</span>
+                              )}
+                            </Label>
+                          </div>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleDuplicateRule(r)}
+                            className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground"
+                            title="Duplicar regra"
+                          >
+                            <Copy className="w-3.5 h-3.5" />
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => openRuleEditor(r)}
+                            className="h-7 px-2 text-xs font-bold gap-1"
+                          >
+                            <Edit3 className="w-3 h-3" />
+                            Editar
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handlePromptDeleteRule(r)}
+                            className="h-7 w-7 p-0 text-red-400 hover:text-red-300 hover:bg-red-500/10"
+                            title="Excluir regra"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </Button>
+                        </div>
+                      </div>
+                    </Card>
+                  ))}
+                </div>
+              )}
+
+              {/* VISUALIZAÇÃO DESKTOP (TABELA) */}
+              {filteredRules.length > 0 && (
+                <div className="hidden md:block rounded-xl border border-border/60 overflow-hidden bg-background/50">
+                  <div className="overflow-x-auto w-full">
+                    <table className="w-full text-sm text-left border-collapse">
+                      <thead>
+                        <tr className="border-b border-border/60 bg-muted/40 text-xs font-bold text-muted-foreground uppercase tracking-wider">
+                          <th className="py-3 px-4">Gatilho de Ação</th>
+                          <th className="py-3 px-3">Categoria</th>
+                          <th className="py-3 px-4">Nome da Ação & Descrição</th>
+                          <th className="py-3 px-3 text-center">Recompensa</th>
+                          <th className="py-3 px-3 text-center">Cooldown</th>
+                          <th className="py-3 px-3 text-center">Limite Diário</th>
+                          <th className="py-3 px-3 text-center">Status</th>
+                          <th className="py-3 px-4 text-right">Ações</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-border/40">
+                        {filteredRules.map((r) => (
+                          <tr
+                            key={r.action_type}
+                            className={cn(
+                              "hover:bg-accent/20 transition-colors",
+                              !r.enabled && "opacity-60 bg-muted/5"
+                            )}
+                          >
+                            <td className="py-3 px-4 font-mono text-xs font-bold text-primary">
+                              <span className="bg-primary/10 px-2 py-0.5 rounded border border-primary/20">
+                                {r.action_type}
+                              </span>
+                            </td>
+                            <td className="py-3 px-3">
+                              {r.category ? (
+                                <Badge className={cn("text-[10px] font-bold px-2 py-0.5 capitalize", getCategoryBadgeColor(r.category))}>
+                                  {r.category}
+                                </Badge>
+                              ) : (
+                                <span className="text-xs text-muted-foreground italic">geral</span>
+                              )}
+                            </td>
+                            <td className="py-3 px-4">
+                              <div className="font-bold text-foreground text-sm">{r.name}</div>
+                              {r.description ? (
+                                <div className="text-xs text-muted-foreground line-clamp-1">{r.description}</div>
+                              ) : (
+                                <div className="text-xs text-muted-foreground/60 italic">Sem descrição</div>
+                              )}
+                            </td>
+                            <td className="py-3 px-3 text-center">
+                              <Badge className="bg-purple-500/15 text-purple-300 border-purple-500/30 font-mono font-bold">
+                                +{r.xp_reward} XP
+                              </Badge>
+                            </td>
+                            <td className="py-3 px-3 text-center font-mono text-xs text-muted-foreground">
+                              {formatCooldown(r.cooldown_seconds || 0)}
+                            </td>
+                            <td className="py-3 px-3 text-center font-mono text-xs font-bold text-foreground">
+                              {r.daily_cap > 0 ? `${r.daily_cap} XP/dia` : "Sem limite"}
+                            </td>
+                            <td className="py-3 px-3 text-center">
+                              <div className="flex items-center justify-center gap-1.5">
+                                <Switch
+                                  id={`switch-table-${r.action_type}`}
+                                  checked={r.enabled}
+                                  onCheckedChange={() => handleToggleRuleStatus(r)}
+                                  className="scale-75"
+                                />
+                                <Label
+                                  htmlFor={`switch-table-${r.action_type}`}
+                                  className="text-[11px] font-bold cursor-pointer"
+                                >
+                                  {r.enabled ? (
+                                    <span className="text-emerald-400">Ativo</span>
+                                  ) : (
+                                    <span className="text-muted-foreground">Inativo</span>
+                                  )}
+                                </Label>
+                              </div>
+                            </td>
+                            <td className="py-3 px-4 text-right">
+                              <div className="flex items-center justify-end gap-1">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handleDuplicateRule(r)}
+                                  className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground"
+                                  title="Duplicar regra"
+                                >
+                                  <Copy className="w-3.5 h-3.5" />
+                                </Button>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => openRuleEditor(r)}
+                                  className="h-8 px-2.5 text-xs font-bold gap-1 hover:bg-accent"
+                                >
+                                  <Edit3 className="w-3.5 h-3.5" />
+                                  <span>Editar</span>
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handlePromptDeleteRule(r)}
+                                  className="h-8 w-8 p-0 text-red-400 hover:text-red-300 hover:bg-red-500/10"
+                                  title="Excluir regra"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </Button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
@@ -2104,34 +2609,132 @@ export function DevGamificationManager({ initialTab = "membros" }: { initialTab?
       </Dialog>
 
       {/* =========================================================================
-          MODAL 6: EDITAR REGRA DE XP
+          MODAL 6: CRIAR OU EDITAR REGRA DE XP
           ========================================================================= */}
       <Dialog open={ruleEditorOpen} onOpenChange={setRuleEditorOpen}>
-        <DialogContent className="max-h-[90vh] overflow-y-auto w-[95vw] sm:max-w-md bg-card/95 border-border backdrop-blur-md">
+        <DialogContent className="max-h-[90vh] overflow-y-auto w-[95vw] sm:max-w-lg bg-card/95 border-border backdrop-blur-md">
           <DialogHeader>
             <DialogTitle className="text-lg font-extrabold flex items-center gap-2">
-              <Sliders className="w-5 h-5 text-primary" />
-              Editar Regra de XP & Cooldown
+              {isCreatingRule ? (
+                <>
+                  <PlusCircle className="w-5 h-5 text-primary" />
+                  <span>Criar Nova Regra de XP</span>
+                </>
+              ) : (
+                <>
+                  <Sliders className="w-5 h-5 text-primary" />
+                  <span>Editar Regra de XP & Cooldown</span>
+                </>
+              )}
             </DialogTitle>
-            <DialogDescription>
-              Gatilho: <strong className="font-mono text-primary">{editingRule?.action_type}</strong>
+            <DialogDescription className="text-xs">
+              {isCreatingRule ? (
+                "Configure uma nova regra de pontuação para recompensar ações de membros no sistema."
+              ) : (
+                <span>
+                  Gatilho: <strong className="font-mono text-primary">{editingRule?.action_type}</strong>
+                </span>
+              )}
             </DialogDescription>
           </DialogHeader>
 
           {editingRule && (
             <div className="space-y-4 py-2">
-              <div className="space-y-1.5">
-                <Label htmlFor="rule-name" className="text-xs font-bold">
-                  Nome Amigável
-                </Label>
-                <Input
-                  id="rule-name"
-                  value={editingRule.name || ""}
-                  onChange={(e) => setEditingRule({ ...editingRule, name: e.target.value })}
-                  className="text-xs font-bold"
-                />
+              {/* CAMPO GATILHO (action_type) */}
+              {isCreatingRule ? (
+                <div className="space-y-1.5 p-3 rounded-xl border border-primary/20 bg-primary/5">
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="rule-action-type" className="text-xs font-bold flex items-center gap-1.5">
+                      <Sparkles className="w-3.5 h-3.5 text-primary" />
+                      Identificador do Gatilho (action_type)
+                    </Label>
+                    <span className="text-[10px] text-muted-foreground">slug único</span>
+                  </div>
+                  <Input
+                    id="rule-action-type"
+                    placeholder="ex: producao_coca, entrega_maleta, plantao_hq"
+                    value={editingRule.action_type || ""}
+                    onChange={(e) => {
+                      const slug = e.target.value
+                        .toLowerCase()
+                        .normalize("NFD")
+                        .replace(/[\u0300-\u036f]/g, "")
+                        .replace(/[^a-z0-9_-]/g, "_");
+                      setEditingRule({ ...editingRule, action_type: slug });
+                    }}
+                    className="font-mono text-xs font-bold"
+                  />
+                  <p className="text-[10px] text-muted-foreground leading-relaxed">
+                    Identificador de sistema chamado pelos serviços backend ao concluir ações. Sem espaços ou acentos.
+                  </p>
+                  {/* Sugestões de prefixo */}
+                  <div className="flex items-center gap-1.5 pt-1 flex-wrap">
+                    <span className="text-[10px] text-muted-foreground">Prefixos:</span>
+                    {["producao_", "venda_", "entrega_", "coleta_", "evento_", "meta_"].map((pref) => (
+                      <button
+                        key={pref}
+                        type="button"
+                        onClick={() => {
+                          const cur = editingRule.action_type || "";
+                          if (!cur.startsWith(pref)) {
+                            setEditingRule({ ...editingRule, action_type: pref + cur.replace(/^[a-z]+_/, "") });
+                          }
+                        }}
+                        className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-background border border-border/60 hover:border-primary/50 text-foreground cursor-pointer transition-colors"
+                      >
+                        +{pref}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <div className="p-2.5 rounded-lg border border-border/60 bg-muted/20 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Lock className="w-3.5 h-3.5 text-muted-foreground" />
+                    <span className="text-xs font-semibold text-muted-foreground">Gatilho do Sistema:</span>
+                  </div>
+                  <code className="font-mono text-xs font-bold text-primary">{editingRule.action_type}</code>
+                </div>
+              )}
+
+              {/* NOME AMIGÁVEL & CATEGORIA */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="sm:col-span-2 space-y-1.5">
+                  <Label htmlFor="rule-name" className="text-xs font-bold">
+                    Nome Amigável da Regra
+                  </Label>
+                  <Input
+                    id="rule-name"
+                    placeholder="Ex: Entrega de Carga Pesada"
+                    value={editingRule.name || ""}
+                    onChange={(e) => setEditingRule({ ...editingRule, name: e.target.value })}
+                    className="text-xs font-bold"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label htmlFor="rule-category" className="text-xs font-bold">
+                    Categoria
+                  </Label>
+                  <div className="space-y-1">
+                    <Input
+                      id="rule-category"
+                      placeholder="vendas, producao..."
+                      value={editingRule.category || ""}
+                      onChange={(e) => setEditingRule({ ...editingRule, category: e.target.value.toLowerCase() })}
+                      className="text-xs font-semibold lowercase"
+                      list="categories-datalist"
+                    />
+                    <datalist id="categories-datalist">
+                      {availableCategories.map((c) => (
+                        <option key={c} value={c} />
+                      ))}
+                    </datalist>
+                  </div>
+                </div>
               </div>
 
+              {/* RECOMPENSA, COOLDOWN, LIMITE DIÁRIO */}
               <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
                 <div className="space-y-1.5">
                   <Label htmlFor="rule-reward" className="text-xs font-bold">
@@ -2151,7 +2754,7 @@ export function DevGamificationManager({ initialTab = "membros" }: { initialTab?
                 </div>
 
                 <div className="col-span-1 sm:col-span-2 space-y-1.5">
-                  <Label className="text-xs font-bold">Cooldown</Label>
+                  <Label className="text-xs font-bold">Cooldown (Intervalo)</Label>
                   <div className="flex gap-2">
                     <Input
                       type="text"
@@ -2188,7 +2791,7 @@ export function DevGamificationManager({ initialTab = "membros" }: { initialTab?
 
                 <div className="space-y-1.5">
                   <Label htmlFor="rule-cap" className="text-xs font-bold">
-                    Limite Diário
+                    Limite Diário (Cap)
                   </Label>
                   <Input
                     id="rule-cap"
@@ -2201,15 +2804,18 @@ export function DevGamificationManager({ initialTab = "membros" }: { initialTab?
                     }}
                     className="font-mono text-xs font-bold"
                   />
+                  <p className="text-[10px] text-muted-foreground">0 = sem limite</p>
                 </div>
               </div>
 
+              {/* DESCRIÇÃO */}
               <div className="space-y-1.5">
                 <Label htmlFor="rule-desc" className="text-xs font-bold">
-                  Descrição Operacional
+                  Descrição Operacional da Regra
                 </Label>
                 <Textarea
                   id="rule-desc"
+                  placeholder="Explique quando o membro ganha este XP e detalhes da regra..."
                   value={editingRule.description || ""}
                   onChange={(e) => setEditingRule({ ...editingRule, description: e.target.value })}
                   rows={2}
@@ -2217,10 +2823,16 @@ export function DevGamificationManager({ initialTab = "membros" }: { initialTab?
                 />
               </div>
 
+              {/* STATUS ATIVO / INATIVO */}
               <div className="flex items-center justify-between p-3 rounded-xl border border-border/80 bg-background/50">
-                <Label htmlFor="rule-enabled" className="text-xs font-bold cursor-pointer">
-                  Regra Ativa no Sistema
-                </Label>
+                <div>
+                  <Label htmlFor="rule-enabled" className="text-xs font-bold cursor-pointer">
+                    Regra Ativa no Sistema
+                  </Label>
+                  <p className="text-[11px] text-muted-foreground">
+                    Quando desativada, nenhuma pontuação de XP será concedida para esta ação.
+                  </p>
+                </div>
                 <Switch
                   id="rule-enabled"
                   checked={editingRule.enabled !== false}
@@ -2239,7 +2851,83 @@ export function DevGamificationManager({ initialTab = "membros" }: { initialTab?
               disabled={ruleSubmitting}
               className="font-extrabold bg-primary text-primary-foreground"
             >
-              {ruleSubmitting ? "Salvando..." : "Salvar Parâmetros"}
+              {ruleSubmitting
+                ? "Salvando..."
+                : isCreatingRule
+                ? "Criar Regra de XP"
+                : "Salvar Alterações"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* =========================================================================
+          MODAL 7: CONFIRMAR EXCLUSÃO DE REGRA DE XP
+          ========================================================================= */}
+      <Dialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
+        <DialogContent className="w-[95vw] sm:max-w-md bg-card/95 border-border backdrop-blur-md">
+          <DialogHeader>
+            <DialogTitle className="text-lg font-extrabold flex items-center gap-2 text-destructive">
+              <Trash2 className="w-5 h-5 text-destructive" />
+              <span>Excluir Regra de XP</span>
+            </DialogTitle>
+            <DialogDescription className="text-xs">
+              Tem certeza que deseja excluir esta regra de concessão de XP?
+            </DialogDescription>
+          </DialogHeader>
+
+          {ruleToDelete && (
+            <div className="space-y-3 py-2">
+              <div className="p-3 rounded-xl border border-destructive/30 bg-destructive/10 space-y-1.5">
+                <div className="font-bold text-foreground text-sm flex items-center justify-between">
+                  <span>{ruleToDelete.name}</span>
+                  <Badge variant="destructive" className="font-mono text-xs">
+                    +{ruleToDelete.xp_reward} XP
+                  </Badge>
+                </div>
+                <div className="font-mono text-xs text-primary font-bold">
+                  Gatilho: {ruleToDelete.action_type}
+                </div>
+                {ruleToDelete.description && (
+                  <p className="text-xs text-muted-foreground">{ruleToDelete.description}</p>
+                )}
+              </div>
+
+              <div className="text-xs text-muted-foreground space-y-1 bg-muted/20 p-2.5 rounded-lg border border-border/50">
+                <div className="font-semibold text-foreground flex items-center gap-1.5">
+                  <AlertTriangle className="w-3.5 h-3.5 text-amber-400" />
+                  Impacto da exclusão:
+                </div>
+                <p>
+                  A partir do momento em que for excluída, ações do sistema associadas ao gatilho{" "}
+                  <code className="text-primary font-bold font-mono">{ruleToDelete.action_type}</code> não concederão mais XP.
+                </p>
+                <p className="text-[11px] text-muted-foreground/80">
+                  O histórico de transações já recebidas por membros no passado não será perdido.
+                </p>
+              </div>
+            </div>
+          )}
+
+          <DialogFooter className="gap-2">
+            <Button
+              variant="ghost"
+              onClick={() => {
+                setDeleteConfirmOpen(false);
+                setRuleToDelete(null);
+              }}
+              disabled={ruleSubmitting}
+            >
+              Cancelar
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleConfirmDeleteRule}
+              disabled={ruleSubmitting}
+              className="font-extrabold gap-1.5"
+            >
+              <Trash2 className="w-4 h-4" />
+              {ruleSubmitting ? "Excluindo..." : "Confirmar Exclusão"}
             </Button>
           </DialogFooter>
         </DialogContent>

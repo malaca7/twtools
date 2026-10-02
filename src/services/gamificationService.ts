@@ -654,22 +654,95 @@ export async function devGetXpRules(): Promise<XpRuleConfig[]> {
 }
 
 /**
- * Atualiza parâmetros de uma regra de XP
+ * Cria ou atualiza parâmetros de uma regra de XP no sistema
  */
 export async function devUpdateXpRule(rule: Partial<XpRuleConfig> & { action_type: string; name: string }): Promise<void> {
-  const { error } = await supabase.rpc("dev_update_xp_rule_rpc", {
-    p_action_type: rule.action_type,
-    p_name: rule.name,
-    p_xp_reward: Number(rule.xp_reward || 0),
-    p_cooldown_seconds: Number(rule.cooldown_seconds || 0),
-    p_daily_cap: Number(rule.daily_cap || 0),
-    p_category: rule.category || "geral",
-    p_description: rule.description || "",
-    p_enabled: rule.enabled !== false,
-  });
+  const cleanActionType = (rule.action_type || "").trim();
+  const cleanName = (rule.name || "").trim();
 
-  if (error) {
-    throw new Error(error.message || "Falha ao salvar regra de XP.");
+  if (!cleanActionType) {
+    throw new Error("O identificador do gatilho (action_type) é obrigatório.");
+  }
+  if (!cleanName) {
+    throw new Error("O nome da regra de XP é obrigatório.");
+  }
+
+  // Tenta via RPC dev_update_xp_rule_rpc
+  try {
+    const { error: rpcErr } = await supabase.rpc("dev_update_xp_rule_rpc", {
+      p_action_type: cleanActionType,
+      p_name: cleanName,
+      p_xp_reward: Number(rule.xp_reward || 0),
+      p_cooldown_seconds: Number(rule.cooldown_seconds || 0),
+      p_daily_cap: Number(rule.daily_cap || 0),
+      p_category: rule.category || "geral",
+      p_description: rule.description || "",
+      p_enabled: rule.enabled !== false,
+    });
+
+    if (!rpcErr) {
+      return;
+    }
+    console.warn("dev_update_xp_rule_rpc falhou, tentando upsert direto:", rpcErr);
+  } catch (e) {
+    console.warn("Erro ao chamar dev_update_xp_rule_rpc:", e);
+  }
+
+  // Fallback: upsert direto na tabela xp_rules_config (permitido para admin e developer por RLS)
+  const { error: directErr } = await supabase
+    .from("xp_rules_config" as any)
+    .upsert(
+      {
+        action_type: cleanActionType,
+        name: cleanName,
+        xp_reward: Number(rule.xp_reward || 0),
+        cooldown_seconds: Number(rule.cooldown_seconds || 0),
+        daily_cap: Number(rule.daily_cap || 0),
+        category: rule.category || "geral",
+        description: rule.description || "",
+        enabled: rule.enabled !== false,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "action_type" }
+    );
+
+  if (directErr) {
+    throw new Error(directErr.message || "Falha ao salvar regra de XP.");
+  }
+}
+
+export const devSaveXpRule = devUpdateXpRule;
+
+/**
+ * Apaga permanentemente uma regra de XP do sistema
+ */
+export async function devDeleteXpRule(actionType: string): Promise<void> {
+  const cleanActionType = (actionType || "").trim();
+  if (!cleanActionType) {
+    throw new Error("Gatilho da regra inválido.");
+  }
+
+  // Tenta via RPC se existir
+  try {
+    const { error: rpcErr } = await supabase.rpc("dev_delete_xp_rule_rpc" as any, {
+      p_action_type: cleanActionType,
+    });
+    if (!rpcErr) {
+      return;
+    }
+  } catch {
+    // Continua para o delete direto
+  }
+
+  // Delete direto na tabela xp_rules_config (permitido por RLS para admin/dev)
+  const { error: directErr } = await supabase
+    .from("xp_rules_config" as any)
+    .delete()
+    .eq("action_type", cleanActionType);
+
+  if (directErr) {
+    console.error("Erro ao apagar regra de XP:", directErr);
+    throw new Error(directErr.message || "Falha ao excluir regra de XP.");
   }
 }
 
