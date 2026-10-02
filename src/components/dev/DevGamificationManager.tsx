@@ -36,6 +36,9 @@ import {
   PlusCircle,
   Filter,
   Lock,
+  Check,
+  CheckSquare,
+  ListChecks,
 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -45,6 +48,8 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Progress } from "@/components/ui/progress";
 import {
   Dialog,
   DialogContent,
@@ -188,6 +193,397 @@ const RULE_TEMPLATES: { label: string; action_type: string; name: string; catego
   },
 ];
 
+export interface PlatformTriggerItem {
+  action_type: string;
+  name: string;
+  category: string;
+  category_label: string;
+  description: string;
+  default_xp: number;
+  default_cooldown: number; // segundos
+  default_cap: number;
+}
+
+export const ALL_PLATFORM_TRIGGERS: PlatformTriggerItem[] = [
+  // VENDAS & COMERCIAL
+  {
+    action_type: "sale_completed",
+    name: "Venda Comercial Concluída",
+    category: "vendas",
+    category_label: "Vendas & Comercial",
+    description: "Disparado quando uma negociação ou venda de produtos/insumos é concluída e auditada.",
+    default_xp: 3,
+    default_cooldown: 60,
+    default_cap: 15,
+  },
+  {
+    action_type: "counter_sale",
+    name: "Venda Rápida de Balcão",
+    category: "vendas",
+    category_label: "Vendas & Comercial",
+    description: "Disparado ao realizar vendas diretas de balcão para clientes ou membros da facção.",
+    default_xp: 2,
+    default_cooldown: 180,
+    default_cap: 8,
+  },
+  {
+    action_type: "sale_order_created",
+    name: "Pedido de Venda Registrado",
+    category: "vendas",
+    category_label: "Vendas & Comercial",
+    description: "Disparado ao cadastrar e formalizar um novo pedido de carga/encomenda no sistema.",
+    default_xp: 1,
+    default_cooldown: 120,
+    default_cap: 10,
+  },
+  {
+    action_type: "sale_dispatched",
+    name: "Entrega de Carga Comercial",
+    category: "vendas",
+    category_label: "Vendas & Comercial",
+    description: "Disparado ao concluir a entrega e confirmação de recebimento de uma carga comercial.",
+    default_xp: 3,
+    default_cooldown: 300,
+    default_cap: 6,
+  },
+  {
+    action_type: "cash_fund_deposit",
+    name: "Depósito no Fundo de Caixa",
+    category: "vendas",
+    category_label: "Financeiro & Caixa",
+    description: "Disparado ao registrar um aporte financeiro em dinheiro ou transferência no caixa da facção.",
+    default_xp: 2,
+    default_cooldown: 600,
+    default_cap: 6,
+  },
+  {
+    action_type: "cash_fund_withdraw",
+    name: "Prestação de Contas / Retirada",
+    category: "vendas",
+    category_label: "Financeiro & Caixa",
+    description: "Disparado em operações com fluxo de saída e prestação de contas no fundo de caixa.",
+    default_xp: 1,
+    default_cooldown: 600,
+    default_cap: 4,
+  },
+
+  // PRODUÇÃO & OFICINAS
+  {
+    action_type: "production_completed",
+    name: "Produção de Item Concluída",
+    category: "producao",
+    category_label: "Produção & Oficinas",
+    description: "Disparado ao fabricar com êxito um lote de insumos ou produtos na bancada.",
+    default_xp: 2,
+    default_cooldown: 120,
+    default_cap: 10,
+  },
+  {
+    action_type: "raw_material_collected",
+    name: "Entrada de Matérias-Primas",
+    category: "producao",
+    category_label: "Produção & Oficinas",
+    description: "Disparado ao recolher ou registrar entrada de insumos brutos para refino e processo.",
+    default_xp: 1,
+    default_cooldown: 300,
+    default_cap: 5,
+  },
+  {
+    action_type: "production_batch_finished",
+    name: "Lote Industrial Concluído",
+    category: "producao",
+    category_label: "Produção & Oficinas",
+    description: "Disparado ao finalizar uma carga industrial de grande volume de produtos.",
+    default_xp: 4,
+    default_cooldown: 600,
+    default_cap: 4,
+  },
+  {
+    action_type: "recipe_crafted",
+    name: "Receita Especial Forjada",
+    category: "producao",
+    category_label: "Produção & Oficinas",
+    description: "Disparado ao sintetizar ou forjar itens especiais ou receitas secretas da facção.",
+    default_xp: 3,
+    default_cooldown: 300,
+    default_cap: 6,
+  },
+  {
+    action_type: "machinery_maintenance",
+    name: "Manutenção de Maquinário",
+    category: "producao",
+    category_label: "Produção & Oficinas",
+    description: "Disparado ao calibrar e fazer reparos preventivos nas bancadas operacionais.",
+    default_xp: 2,
+    default_cooldown: 1800,
+    default_cap: 3,
+  },
+
+  // LOGÍSTICA & BAÚS
+  {
+    action_type: "stock_movement",
+    name: "Movimentação em Baú",
+    category: "estoque",
+    category_label: "Logística & Baús",
+    description: "Disparado em depósitos e recolhimentos conferidos em baús físicos ou cofres da facção.",
+    default_xp: 1,
+    default_cooldown: 120,
+    default_cap: 5,
+  },
+  {
+    action_type: "warehouse_transfer",
+    name: "Transferência de Armazém",
+    category: "estoque",
+    category_label: "Logística & Baús",
+    description: "Disparado ao transferir suprimentos e lotes do armazém central para sub-baús ou veículos.",
+    default_xp: 1,
+    default_cooldown: 300,
+    default_cap: 5,
+  },
+  {
+    action_type: "warehouse_stock_in",
+    name: "Recebimento no Armazém",
+    category: "estoque",
+    category_label: "Logística & Baús",
+    description: "Disparado ao protocolar entrada e conferência de carregamento no armazém central.",
+    default_xp: 2,
+    default_cooldown: 300,
+    default_cap: 5,
+  },
+  {
+    action_type: "trunk_audit_completed",
+    name: "Auditoria de Baú Concluída",
+    category: "estoque",
+    category_label: "Logística & Baús",
+    description: "Disparado ao executar verificação e batimento de inventário em baú ou porta-malas.",
+    default_xp: 3,
+    default_cooldown: 1800,
+    default_cap: 3,
+  },
+
+  // METAS & DESEMPENHO
+  {
+    action_type: "weekly_goal_completed",
+    name: "Meta Semanal Concluída",
+    category: "metas",
+    category_label: "Metas & Desempenho",
+    description: "Disparado ao atingir a cota individual ou coletiva da semana fixada pela diretoria.",
+    default_xp: 5,
+    default_cooldown: 86400,
+    default_cap: 5,
+  },
+  {
+    action_type: "goal_milestone",
+    name: "Marco Operacional de Meta",
+    category: "metas",
+    category_label: "Metas & Desempenho",
+    description: "Disparado ao bater marcos parciais de cotas operacionais e produção estipuladas.",
+    default_xp: 3,
+    default_cooldown: 3600,
+    default_cap: 4,
+  },
+  {
+    action_type: "monthly_goal_completed",
+    name: "Meta Mensal Superada",
+    category: "metas",
+    category_label: "Metas & Desempenho",
+    description: "Grande bonificação ao cumprir e consagrar o desempenho total mensal da facção.",
+    default_xp: 15,
+    default_cooldown: 604800,
+    default_cap: 1,
+  },
+  {
+    action_type: "top_ranking_award",
+    name: "Destaque no Ranking Semanal",
+    category: "metas",
+    category_label: "Metas & Desempenho",
+    description: "Premiação de prestígio para membros que figuram no Top 3 de produtividade e XP.",
+    default_xp: 10,
+    default_cooldown: 604800,
+    default_cap: 1,
+  },
+
+  // PRESENÇA, RONDAS & OPERAÇÕES
+  {
+    action_type: "daily_presence",
+    name: "Presença Ativa Diária",
+    category: "presenca",
+    category_label: "Presença & Operações",
+    description: "Bônus diário conferido por engajamento e presença contínua auditada na plataforma.",
+    default_xp: 2,
+    default_cooldown: 86400,
+    default_cap: 1,
+  },
+  {
+    action_type: "event_attendance",
+    name: "Participação em Reunião Geral",
+    category: "presenca",
+    category_label: "Presença & Operações",
+    description: "Disparado ao confirmar presença em alinhamentos táticos ou assembleias gerais.",
+    default_xp: 3,
+    default_cooldown: 86400,
+    default_cap: 2,
+  },
+  {
+    action_type: "patrol_completed",
+    name: "Ronda / Patrulhamento Concluído",
+    category: "presenca",
+    category_label: "Presença & Operações",
+    description: "Disparado ao cumprir a rota de ronda e proteção de perímetro da facção.",
+    default_xp: 3,
+    default_cooldown: 1800,
+    default_cap: 4,
+  },
+  {
+    action_type: "tactical_action_completed",
+    name: "Ação Tática / Comboio Concluído",
+    category: "presenca",
+    category_label: "Presença & Operações",
+    description: "Disparado ao concluir com sucesso escolta armada, comboio ou ação tática coletiva.",
+    default_xp: 4,
+    default_cooldown: 3600,
+    default_cap: 3,
+  },
+
+  // SUPORTE & TICKETS
+  {
+    action_type: "ticket_resolved",
+    name: "Atendimento / Ticket Resolvido",
+    category: "suporte",
+    category_label: "Suporte & Ouvidoria",
+    description: "Disparado quando um chamado, dúvida ou suporte interno de membro é solucionado.",
+    default_xp: 2,
+    default_cooldown: 300,
+    default_cap: 4,
+  },
+  {
+    action_type: "ticket_escalated",
+    name: "Triagem de Ocorrência Técnica",
+    category: "suporte",
+    category_label: "Suporte & Ouvidoria",
+    description: "Disparado ao abrir relatório formal e qualificar chamado para resolução da liderança.",
+    default_xp: 1,
+    default_cooldown: 600,
+    default_cap: 4,
+  },
+  {
+    action_type: "newbie_onboarding",
+    name: "Onboarding / Treinamento de Recruta",
+    category: "suporte",
+    category_label: "Suporte & Ouvidoria",
+    description: "Disparado ao instruir e integrar novos recrutas aos procedimentos da facção.",
+    default_xp: 4,
+    default_cooldown: 3600,
+    default_cap: 3,
+  },
+
+  // AVALIAÇÕES & LIDERANÇA
+  {
+    action_type: "peer_eval_given",
+    name: "Avaliação de Colega Realizada",
+    category: "lideranca",
+    category_label: "Avaliações & Liderança",
+    description: "Disparado quando um líder ou colega envia feedback e notas de desempenho.",
+    default_xp: 1,
+    default_cooldown: 1800,
+    default_cap: 2,
+  },
+  {
+    action_type: "peer_eval_received",
+    name: "Destaque em Avaliação Recebida",
+    category: "lideranca",
+    category_label: "Avaliações & Liderança",
+    description: "Disparado quando o membro recebe avaliação positiva (4 ou 5 estrelas) por conduta exemplar.",
+    default_xp: 2,
+    default_cooldown: 3600,
+    default_cap: 4,
+  },
+  {
+    action_type: "promotion_granted",
+    name: "Promoção Hierárquica Conquistada",
+    category: "lideranca",
+    category_label: "Avaliações & Liderança",
+    description: "Disparado ao receber promoção formal para cargo ou patente superior.",
+    default_xp: 10,
+    default_cooldown: 604800,
+    default_cap: 1,
+  },
+
+  // SOCIAL & LIFE FEED
+  {
+    action_type: "post_published",
+    name: "Publicação Oficial no Life / Feed",
+    category: "social",
+    category_label: "Social & Mural",
+    description: "Disparado ao publicar comunicados, fotos ou avisos operacionais no feed social.",
+    default_xp: 1,
+    default_cooldown: 1800,
+    default_cap: 2,
+  },
+  {
+    action_type: "comment_interaction",
+    name: "Comentário no Mural da Facção",
+    category: "social",
+    category_label: "Social & Mural",
+    description: "Disparado ao interagir de forma construtiva nos informes e publicações da facção.",
+    default_xp: 1,
+    default_cooldown: 600,
+    default_cap: 3,
+  },
+  {
+    action_type: "community_highlight",
+    name: "Post em Destaque da Semana",
+    category: "social",
+    category_label: "Social & Mural",
+    description: "Disparado quando uma postagem atinge alto engajamento e reconhecimento da comunidade.",
+    default_xp: 3,
+    default_cooldown: 86400,
+    default_cap: 1,
+  },
+
+  // SISTEMA & GERAL
+  {
+    action_type: "insignia_acquired",
+    name: "Insígnia Desbloqueada",
+    category: "geral",
+    category_label: "Sistema & Gamificação",
+    description: "Bônus especial de prestígio gerado quando o membro conquista nova condecoração.",
+    default_xp: 5,
+    default_cooldown: 3600,
+    default_cap: 3,
+  },
+  {
+    action_type: "level_milestone",
+    name: "Marco de Evolução de Nível",
+    category: "geral",
+    category_label: "Sistema & Gamificação",
+    description: "Disparado ao subir de escalão nos patamares matemáticos de graduação.",
+    default_xp: 8,
+    default_cooldown: 86400,
+    default_cap: 2,
+  },
+  {
+    action_type: "manual_dev_grant",
+    name: "Atribuição Manual de XP",
+    category: "geral",
+    category_label: "Sistema & Gamificação",
+    description: "Ajuste ou bonificação direta concedida por desenvolvedor ou liderança executiva.",
+    default_xp: 5,
+    default_cooldown: 60,
+    default_cap: 10,
+  },
+  {
+    action_type: "special_event_bonus",
+    name: "Bônus de Evento Especial",
+    category: "geral",
+    category_label: "Sistema & Gamificação",
+    description: "Bonificação especial em eventos comemorativos, ações de guerra ou aniversários da facção.",
+    default_xp: 10,
+    default_cooldown: 86400,
+    default_cap: 2,
+  },
+];
+
 export function DevGamificationManager({ initialTab = "membros" }: { initialTab?: string }) {
   const { devStyle, DevIcon } = usePanelTheme();
   const { isDevUser, user } = useAuth();
@@ -257,6 +653,34 @@ export function DevGamificationManager({ initialTab = "membros" }: { initialTab?
   const [ruleStatusFilter, setRuleStatusFilter] = useState<"all" | "active" | "inactive">("all");
   const [ruleToDelete, setRuleToDelete] = useState<XpRuleConfig | null>(null);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+
+  // Modal 7: Pesquisar e Selecionar Gatilhos da Plataforma
+  const [triggerSelectorOpen, setTriggerSelectorOpen] = useState(false);
+  const [triggerSearch, setTriggerSearch] = useState("");
+  const [triggerCategoryFilter, setTriggerCategoryFilter] = useState("all");
+
+  // Estados de Ações em Massa (Membros)
+  const [selectedMemberIds, setSelectedMemberIds] = useState<Set<string>>(new Set());
+
+  // Modais de Ações em Massa
+  const [bulkXpModalOpen, setBulkXpModalOpen] = useState(false);
+  const [bulkXpMode, setBulkXpMode] = useState<"add" | "set">("add");
+  const [bulkXpAmount, setBulkXpAmount] = useState<number>(50);
+  const [bulkXpReason, setBulkXpReason] = useState("");
+  const [bulkXpSubmitting, setBulkXpSubmitting] = useState(false);
+
+  const [bulkLevelModalOpen, setBulkLevelModalOpen] = useState(false);
+  const [bulkTargetLevel, setBulkTargetLevel] = useState<number>(1);
+  const [bulkSyncXp, setBulkSyncXp] = useState(true);
+  const [bulkLevelReason, setBulkLevelReason] = useState("");
+  const [bulkLevelSubmitting, setBulkLevelSubmitting] = useState(false);
+
+  const [bulkInsigniaModalOpen, setBulkInsigniaModalOpen] = useState(false);
+  const [bulkSelectedInsigniaId, setBulkSelectedInsigniaId] = useState("");
+  const [bulkInsigniaReason, setBulkInsigniaReason] = useState("");
+  const [bulkInsigniaSubmitting, setBulkInsigniaSubmitting] = useState(false);
+
+  const [bulkProgress, setBulkProgress] = useState<{ current: number; total: number; percent: number } | null>(null);
 
   const openCreateRule = (template?: Partial<XpRuleConfig>) => {
     setIsCreatingRule(true);
@@ -420,6 +844,302 @@ export function DevGamificationManager({ initialTab = "membros" }: { initialTab?
     const totalTransactions = transactions.length;
     return { totalMembers, totalXp, activeInsignias, totalTransactions };
   }, [members, insignias, transactions]);
+
+  // Lista e Helpers de Membros Selecionados
+  const selectedMembersList = useMemo(() => {
+    return members.filter((m) => selectedMemberIds.has(m.user_id));
+  }, [members, selectedMemberIds]);
+
+  const toggleSelectMember = (userId: string) => {
+    setSelectedMemberIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(userId)) next.delete(userId);
+      else next.add(userId);
+      return next;
+    });
+  };
+
+  const handleSelectAllFiltered = () => {
+    if (filteredMembers.length === 0) return;
+    const allFilteredSelected = filteredMembers.every((m) => selectedMemberIds.has(m.user_id));
+    if (allFilteredSelected) {
+      setSelectedMemberIds((prev) => {
+        const next = new Set(prev);
+        filteredMembers.forEach((m) => next.delete(m.user_id));
+        return next;
+      });
+    } else {
+      setSelectedMemberIds((prev) => {
+        const next = new Set(prev);
+        filteredMembers.forEach((m) => next.add(m.user_id));
+        return next;
+      });
+    }
+  };
+
+  const handleClearSelection = () => {
+    setSelectedMemberIds(new Set());
+  };
+
+  // Catálogo Completo de Gatilhos da Plataforma (União estática + dinâmica)
+  const allPlatformTriggers = useMemo(() => {
+    const list = [...ALL_PLATFORM_TRIGGERS];
+    const knownActions = new Set(list.map((t) => t.action_type));
+
+    rules.forEach((r) => {
+      if (!knownActions.has(r.action_type)) {
+        list.push({
+          action_type: r.action_type,
+          name: r.name,
+          category: r.category || "geral",
+          category_label: r.category ? r.category.toUpperCase() : "Personalizado",
+          description: r.description || `Gatilho do sistema configurado (${r.action_type})`,
+          default_xp: r.xp_reward || 1,
+          default_cooldown: r.cooldown_seconds || 60,
+          default_cap: r.daily_cap || 5,
+        });
+        knownActions.add(r.action_type);
+      }
+    });
+
+    transactions.forEach((tx) => {
+      if (tx.action_type && !knownActions.has(tx.action_type)) {
+        list.push({
+          action_type: tx.action_type,
+          name: tx.action_type.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()),
+          category: tx.category || "geral",
+          category_label: tx.category ? tx.category.toUpperCase() : "Geral",
+          description: `Gatilho registrado em histórico (${tx.action_type})`,
+          default_xp: 2,
+          default_cooldown: 120,
+          default_cap: 5,
+        });
+        knownActions.add(tx.action_type);
+      }
+    });
+
+    return list;
+  }, [rules, transactions]);
+
+  const filteredTriggers = useMemo(() => {
+    let result = allPlatformTriggers;
+    if (triggerCategoryFilter !== "all") {
+      result = result.filter((t) => t.category.toLowerCase() === triggerCategoryFilter.toLowerCase());
+    }
+    if (triggerSearch.trim()) {
+      const q = triggerSearch.toLowerCase();
+      result = result.filter(
+        (t) =>
+          t.action_type.toLowerCase().includes(q) ||
+          t.name.toLowerCase().includes(q) ||
+          t.description.toLowerCase().includes(q) ||
+          t.category_label.toLowerCase().includes(q) ||
+          t.category.toLowerCase().includes(q)
+      );
+    }
+    return result;
+  }, [allPlatformTriggers, triggerCategoryFilter, triggerSearch]);
+
+  const handleSelectPlatformTrigger = (trigger: PlatformTriggerItem) => {
+    setEditingRule((prev) => ({
+      ...prev,
+      action_type: trigger.action_type,
+      name: (!prev?.name || prev.name.trim() === "" || prev.name === "Nova Regra") ? trigger.name : prev.name,
+      category: trigger.category,
+      description: (!prev?.description || prev.description.trim() === "") ? trigger.description : prev.description,
+    }));
+
+    if (isCreatingRule) {
+      setEditRewardStr(String(trigger.default_xp));
+      setEditCapStr(String(trigger.default_cap));
+      let secs = trigger.default_cooldown;
+      let unit = 1;
+      let val = secs;
+      if (secs > 0) {
+        if (secs % 31536000 === 0) { unit = 31536000; val = secs / 31536000; }
+        else if (secs % 2592000 === 0) { unit = 2592000; val = secs / 2592000; }
+        else if (secs % 604800 === 0) { unit = 604800; val = secs / 604800; }
+        else if (secs % 86400 === 0) { unit = 86400; val = secs / 86400; }
+        else if (secs % 3600 === 0) { unit = 3600; val = secs / 3600; }
+        else if (secs % 60 === 0) { unit = 60; val = secs / 60; }
+      }
+      setCooldownUnit(unit);
+      setEditCooldownStr(String(val));
+    }
+
+    setTriggerSelectorOpen(false);
+    toast.success(`Gatilho "${trigger.name}" (${trigger.action_type}) selecionado com sucesso!`);
+  };
+
+  // =========================================================================
+  // HANDLERS DE AÇÕES EM MASSA (MEMBROS)
+  // =========================================================================
+
+  // Executar Concessão / Ajuste de XP em Massa
+  const handleExecuteBulkXp = async () => {
+    if (selectedMemberIds.size === 0) return;
+    if (!bulkXpReason.trim()) {
+      toast.error("Informe a justificativa obrigatória para auditoria de XP em massa.");
+      return;
+    }
+    const targetMembers = selectedMembersList;
+    setBulkXpSubmitting(true);
+    setBulkProgress({ current: 0, total: targetMembers.length, percent: 0 });
+
+    let successCount = 0;
+    let failCount = 0;
+
+    for (let i = 0; i < targetMembers.length; i++) {
+      const m = targetMembers[i];
+      try {
+        await devManageMemberXp({
+          memberId: m.user_id,
+          mode: bulkXpMode,
+          amount: Number(bulkXpAmount),
+          reason: `[AÇÃO EM MASSA] ${bulkXpReason.trim()}`,
+        });
+        successCount++;
+      } catch (err) {
+        console.error(`Falha ao conceder XP para ${m.nome}:`, err);
+        failCount++;
+      }
+      const current = i + 1;
+      setBulkProgress({
+        current,
+        total: targetMembers.length,
+        percent: Math.round((current / targetMembers.length) * 100),
+      });
+    }
+
+    setBulkXpSubmitting(false);
+    setBulkProgress(null);
+    setBulkXpModalOpen(false);
+    setBulkXpReason("");
+    setSelectedMemberIds(new Set());
+    await loadData();
+
+    if (failCount === 0) {
+      toast.success(`XP ${bulkXpMode === "add" ? (bulkXpAmount >= 0 ? "concedido" : "debitado") : "definido"} com sucesso para ${successCount} membro(s)!`);
+    } else {
+      toast.info(`Operação em massa concluída: ${successCount} com sucesso, ${failCount} falharam.`);
+    }
+  };
+
+  // Executar Definição de Nível em Massa
+  const handleExecuteBulkLevel = async () => {
+    if (selectedMemberIds.size === 0) return;
+    if (!bulkLevelReason.trim()) {
+      toast.error("Informe a justificativa obrigatória para alteração de nível em massa.");
+      return;
+    }
+    const targetMembers = selectedMembersList;
+    setBulkLevelSubmitting(true);
+    setBulkProgress({ current: 0, total: targetMembers.length, percent: 0 });
+
+    let successCount = 0;
+    let failCount = 0;
+
+    for (let i = 0; i < targetMembers.length; i++) {
+      const m = targetMembers[i];
+      try {
+        await devSetMemberLevel({
+          memberId: m.user_id,
+          level: Number(bulkTargetLevel),
+          syncXp: bulkSyncXp,
+          reason: `[AÇÃO EM MASSA] ${bulkLevelReason.trim()}`,
+        });
+        successCount++;
+      } catch (err) {
+        console.error(`Falha ao definir nível para ${m.nome}:`, err);
+        failCount++;
+      }
+      const current = i + 1;
+      setBulkProgress({
+        current,
+        total: targetMembers.length,
+        percent: Math.round((current / targetMembers.length) * 100),
+      });
+    }
+
+    setBulkLevelSubmitting(false);
+    setBulkProgress(null);
+    setBulkLevelModalOpen(false);
+    setBulkLevelReason("");
+    setSelectedMemberIds(new Set());
+    await loadData();
+
+    if (failCount === 0) {
+      toast.success(`Nível ${bulkTargetLevel} aplicado com sucesso para ${successCount} membro(s)!`);
+    } else {
+      toast.info(`Operação em massa concluída: ${successCount} com sucesso, ${failCount} falharam.`);
+    }
+  };
+
+  // Executar Concessão de Insígnia em Massa
+  const handleExecuteBulkInsignia = async () => {
+    if (selectedMemberIds.size === 0) return;
+    if (!bulkSelectedInsigniaId) {
+      toast.error("Selecione a condecoração/insígnia a ser concedida.");
+      return;
+    }
+    if (!bulkInsigniaReason.trim()) {
+      toast.error("Informe a justificativa/motivo para condecoração em massa.");
+      return;
+    }
+    const targetBadge = insignias.find((b) => b.id === bulkSelectedInsigniaId);
+    const targetMembers = selectedMembersList;
+    setBulkInsigniaSubmitting(true);
+    setBulkProgress({ current: 0, total: targetMembers.length, percent: 0 });
+
+    let successCount = 0;
+    let alreadyOwnedCount = 0;
+    let failCount = 0;
+
+    for (let i = 0; i < targetMembers.length; i++) {
+      const m = targetMembers[i];
+      try {
+        await devGrantInsignia({
+          memberId: m.user_id,
+          insigniaId: bulkSelectedInsigniaId,
+          reason: `[CONCESSÃO EM MASSA] ${bulkInsigniaReason.trim()}`,
+        });
+        successCount++;
+      } catch (err: any) {
+        const msg = String(err?.message || "").toLowerCase();
+        if (msg.includes("já possui") || msg.includes("already") || msg.includes("unique")) {
+          alreadyOwnedCount++;
+        } else {
+          console.error(`Falha ao conceder insígnia para ${m.nome}:`, err);
+          failCount++;
+        }
+      }
+      const current = i + 1;
+      setBulkProgress({
+        current,
+        total: targetMembers.length,
+        percent: Math.round((current / targetMembers.length) * 100),
+      });
+    }
+
+    setBulkInsigniaSubmitting(false);
+    setBulkProgress(null);
+    setBulkInsigniaModalOpen(false);
+    setBulkInsigniaReason("");
+    setBulkSelectedInsigniaId("");
+    setSelectedMemberIds(new Set());
+    await loadData();
+
+    const badgeName = targetBadge?.name || bulkSelectedInsigniaId;
+    if (failCount === 0 && alreadyOwnedCount === 0) {
+      toast.success(`Insígnia "${badgeName}" concedida com sucesso para todos os ${successCount} membros!`);
+    } else {
+      toast.info(
+        `Insígnia "${badgeName}": ${successCount} concedida(s)` +
+        (alreadyOwnedCount > 0 ? `, ${alreadyOwnedCount} já possuíam` : "") +
+        (failCount > 0 ? `, ${failCount} falharam.` : ".")
+      );
+    }
+  };
 
   // =========================================================================
   // HANDLERS DE AÇÕES DEV
@@ -844,7 +1564,102 @@ export function DevGamificationManager({ initialTab = "membros" }: { initialTab?
                 </div>
               </div>
             </CardHeader>
-            <CardContent className="p-3 sm:p-5 pt-2">
+            <CardContent className="p-3 sm:p-5 pt-2 space-y-3">
+              {/* BARRA FLUTUANTE / FIXA DE AÇÕES EM MASSA */}
+              {selectedMemberIds.size > 0 && (
+                <div className="p-3 sm:p-3.5 rounded-xl border border-primary/40 bg-primary/10 backdrop-blur-md flex flex-col md:flex-row md:items-center justify-between gap-3 shadow-lg animate-in fade-in slide-in-from-top-2">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-lg bg-primary/20 flex items-center justify-center text-primary shrink-0">
+                      <Users className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <div className="font-extrabold text-foreground text-xs sm:text-sm flex items-center gap-1.5">
+                        <span>{selectedMemberIds.size}</span>
+                        <span>membro(s) selecionado(s)</span>
+                        <Badge variant="outline" className="text-[10px] border-primary/40 bg-background/50">
+                          de {filteredMembers.length}
+                        </Badge>
+                      </div>
+                      <p className="text-[11px] text-muted-foreground">
+                        Execute alterações e condecorações simultâneas para todos os membros marcados.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <Button
+                      size="sm"
+                      onClick={() => {
+                        setBulkXpMode("add");
+                        setBulkXpAmount(50);
+                        setBulkXpReason("");
+                        setBulkXpModalOpen(true);
+                      }}
+                      className="h-8 px-2.5 text-xs font-bold gap-1.5 bg-purple-600 hover:bg-purple-700 text-white shadow-xs cursor-pointer"
+                    >
+                      <Sparkles className="w-3.5 h-3.5" />
+                      <span>Conceder XP</span>
+                    </Button>
+
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        setBulkTargetLevel(1);
+                        setBulkSyncXp(true);
+                        setBulkLevelReason("");
+                        setBulkLevelModalOpen(true);
+                      }}
+                      className="h-8 px-2.5 text-xs font-bold gap-1.5 border-border hover:bg-accent/40 text-foreground cursor-pointer"
+                    >
+                      <Layers className="w-3.5 h-3.5 text-primary" />
+                      <span>Definir Nível</span>
+                    </Button>
+
+                    <Button
+                      size="sm"
+                      onClick={() => {
+                        setBulkSelectedInsigniaId("");
+                        setBulkInsigniaReason("");
+                        setBulkInsigniaModalOpen(true);
+                      }}
+                      className="h-8 px-2.5 text-xs font-bold gap-1.5 bg-amber-500 hover:bg-amber-600 text-black shadow-xs cursor-pointer"
+                    >
+                      <Award className="w-3.5 h-3.5" />
+                      <span>Conceder Insígnia</span>
+                    </Button>
+
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={handleClearSelection}
+                      className="h-8 px-2 text-xs text-muted-foreground hover:text-foreground cursor-pointer"
+                    >
+                      <X className="w-3.5 h-3.5 mr-1" />
+                      Desmarcar
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              {/* BARRA DE SELEÇÃO RÁPIDA NO MOBILE */}
+              {filteredMembers.length > 0 && (
+                <div className="md:hidden flex items-center justify-between p-2 rounded-lg bg-muted/20 border border-border/50 text-xs">
+                  <label className="flex items-center gap-2 cursor-pointer font-bold select-none">
+                    <Checkbox
+                      checked={filteredMembers.length > 0 && filteredMembers.every((m) => selectedMemberIds.has(m.user_id))}
+                      onCheckedChange={handleSelectAllFiltered}
+                    />
+                    <span>Selecionar Todos ({filteredMembers.length})</span>
+                  </label>
+                  {selectedMemberIds.size > 0 && (
+                    <span className="text-[11px] font-extrabold text-primary">
+                      {selectedMemberIds.size} selecionado(s)
+                    </span>
+                  )}
+                </div>
+              )}
+
               {/* VISUALIZAÇÃO MOBILE (CARDS RESPONSIVOS - SEM BARRA DE ROLAGEM LATERAL) */}
               <div className="md:hidden space-y-3">
                 {filteredMembers.length === 0 ? (
@@ -854,10 +1669,24 @@ export function DevGamificationManager({ initialTab = "membros" }: { initialTab?
                 ) : (
                   filteredMembers.map((m) => {
                     const lvlInfo = getLevelInfo(m.xp);
+                    const isSelected = selectedMemberIds.has(m.user_id);
                     return (
-                      <Card key={m.user_id} className="border border-border/60 bg-background/80 p-3.5 rounded-xl shadow-xs space-y-3">
+                      <Card
+                        key={m.user_id}
+                        className={cn(
+                          "border p-3.5 rounded-xl shadow-xs space-y-3 transition-colors",
+                          isSelected
+                            ? "bg-primary/10 border-primary/50 ring-1 ring-primary/40"
+                            : "border-border/60 bg-background/80"
+                        )}
+                      >
                         <div className="flex items-start justify-between gap-2.5">
                           <div className="flex items-center gap-2.5 min-w-0">
+                            <Checkbox
+                              checked={isSelected}
+                              onCheckedChange={() => toggleSelectMember(m.user_id)}
+                              className="mt-0.5 shrink-0"
+                            />
                             <span className="font-mono font-extrabold text-xs text-muted-foreground shrink-0 w-5">
                               #{m.rank_position}
                             </span>
@@ -966,6 +1795,13 @@ export function DevGamificationManager({ initialTab = "membros" }: { initialTab?
                   <table className="w-full text-sm text-left border-collapse">
                     <thead>
                       <tr className="border-b border-border/60 bg-muted/40 text-xs font-bold text-muted-foreground uppercase tracking-wider">
+                        <th className="py-3 px-3 w-10 text-center">
+                          <Checkbox
+                            checked={filteredMembers.length > 0 && filteredMembers.every((m) => selectedMemberIds.has(m.user_id))}
+                            onCheckedChange={handleSelectAllFiltered}
+                            aria-label="Selecionar todos os membros"
+                          />
+                        </th>
                         <th className="py-3 px-4">Pos / Membro</th>
                         <th className="py-3 px-4">Cargo & Tags</th>
                         <th className="py-3 px-4 text-center">Nível Atual</th>
@@ -978,15 +1814,29 @@ export function DevGamificationManager({ initialTab = "membros" }: { initialTab?
                     <tbody className="divide-y divide-border/40">
                       {filteredMembers.length === 0 ? (
                         <tr>
-                          <td colSpan={7} className="text-center py-8 text-muted-foreground">
+                          <td colSpan={8} className="text-center py-8 text-muted-foreground">
                             Nenhum membro encontrado.
                           </td>
                         </tr>
                       ) : (
                         filteredMembers.map((m) => {
                           const lvlInfo = getLevelInfo(m.xp);
+                          const isSelected = selectedMemberIds.has(m.user_id);
                           return (
-                            <tr key={m.user_id} className="hover:bg-accent/20 transition-colors group">
+                            <tr
+                              key={m.user_id}
+                              className={cn(
+                                "hover:bg-accent/20 transition-colors group",
+                                isSelected && "bg-primary/10 hover:bg-primary/15"
+                              )}
+                            >
+                              <td className="py-3 px-3 w-10 text-center">
+                                <Checkbox
+                                  checked={isSelected}
+                                  onCheckedChange={() => toggleSelectMember(m.user_id)}
+                                  aria-label={`Selecionar ${m.nome}`}
+                                />
+                              </td>
                               <td className="py-3 px-4">
                                 <div className="flex items-center gap-3">
                                   <span className="font-extrabold text-xs text-muted-foreground w-6 text-center">
@@ -1294,6 +2144,20 @@ export function DevGamificationManager({ initialTab = "membros" }: { initialTab?
                   >
                     <RefreshCw className={cn("w-3.5 h-3.5", loading && "animate-spin")} />
                     <span>Sincronizar</span>
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setTriggerSelectorOpen(true)}
+                    className="h-8 px-2.5 text-xs font-bold gap-1.5 border-amber-500/40 text-amber-300 hover:bg-amber-500/10 shadow-xs cursor-pointer"
+                    title="Pesquisar e selecionar todos os gatilhos da plataforma"
+                  >
+                    <Zap className="w-3.5 h-3.5 text-amber-400" />
+                    <span className="hidden sm:inline">Gatilhos da Plataforma</span>
+                    <span className="sm:hidden">Gatilhos</span>
+                    <Badge variant="secondary" className="text-[9px] px-1 py-0 bg-amber-500/15 text-amber-300 border-amber-500/30">
+                      {allPlatformTriggers.length}
+                    </Badge>
                   </Button>
                   <Button
                     size="sm"
@@ -2642,33 +3506,115 @@ export function DevGamificationManager({ initialTab = "membros" }: { initialTab?
             <div className="space-y-4 py-2">
               {/* CAMPO GATILHO (action_type) */}
               {isCreatingRule ? (
-                <div className="space-y-1.5 p-3 rounded-xl border border-primary/20 bg-primary/5">
-                  <div className="flex items-center justify-between">
+                <div className="space-y-2.5 p-3.5 rounded-xl border border-primary/20 bg-primary/5">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5">
                     <Label htmlFor="rule-action-type" className="text-xs font-bold flex items-center gap-1.5">
                       <Sparkles className="w-3.5 h-3.5 text-primary" />
-                      Identificador do Gatilho (action_type)
+                      Identificador do Gatilho (action_type) *
                     </Label>
-                    <span className="text-[10px] text-muted-foreground">slug único</span>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setTriggerSelectorOpen(true)}
+                      className="h-7 text-[11px] font-bold gap-1.5 border-primary/40 bg-background text-primary hover:bg-primary/10 shadow-xs cursor-pointer"
+                    >
+                      <Search className="w-3 h-3 text-primary" />
+                      <span>Pesquisar e Selecionar Gatilhos</span>
+                      <Badge variant="secondary" className="text-[9px] px-1 py-0 bg-primary/15 text-primary border-primary/30">
+                        {allPlatformTriggers.length}
+                      </Badge>
+                    </Button>
                   </div>
-                  <Input
-                    id="rule-action-type"
-                    placeholder="ex: producao_coca, entrega_maleta, plantao_hq"
-                    value={editingRule.action_type || ""}
-                    onChange={(e) => {
-                      const slug = e.target.value
-                        .toLowerCase()
-                        .normalize("NFD")
-                        .replace(/[\u0300-\u036f]/g, "")
-                        .replace(/[^a-z0-9_-]/g, "_");
-                      setEditingRule({ ...editingRule, action_type: slug });
-                    }}
-                    className="font-mono text-xs font-bold"
-                  />
+
+                  {/* Seleção rápida em lista suspensa */}
+                  <div className="space-y-1">
+                    <span className="text-[10px] text-muted-foreground font-semibold">Escolha rápida da plataforma:</span>
+                    <Select
+                      value={allPlatformTriggers.some((t) => t.action_type === editingRule.action_type) ? (editingRule.action_type || "") : ""}
+                      onValueChange={(val) => {
+                        const match = allPlatformTriggers.find((t) => t.action_type === val);
+                        if (match) handleSelectPlatformTrigger(match);
+                        else setEditingRule({ ...editingRule, action_type: val });
+                      }}
+                    >
+                      <SelectTrigger className="h-8 text-xs bg-background/90">
+                        <SelectValue placeholder="Ou selecione um evento oficial da lista suspensa..." />
+                      </SelectTrigger>
+                      <SelectContent className="max-h-64">
+                        {allPlatformTriggers.map((t) => (
+                          <SelectItem key={t.action_type} value={t.action_type} className="text-xs">
+                            <div className="flex items-center gap-2">
+                              <span className="font-semibold">{t.name}</span>
+                              <code className="text-[10px] font-mono text-muted-foreground">({t.action_type})</code>
+                            </div>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* Input direto / custom slug */}
+                  <div className="space-y-1">
+                    <span className="text-[10px] text-muted-foreground font-semibold">Identificador Slug (ou digite personalizado):</span>
+                    <div className="relative">
+                      <Input
+                        id="rule-action-type"
+                        placeholder="ex: producao_coca, entrega_maleta, sale_completed"
+                        value={editingRule.action_type || ""}
+                        onChange={(e) => {
+                          const slug = e.target.value
+                            .toLowerCase()
+                            .normalize("NFD")
+                            .replace(/[\u0300-\u036f]/g, "")
+                            .replace(/[^a-z0-9_-]/g, "_");
+                          setEditingRule({ ...editingRule, action_type: slug });
+                        }}
+                        className="font-mono text-xs font-bold pl-3 pr-20"
+                      />
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setTriggerSelectorOpen(true)}
+                        className="absolute right-1 top-1/2 -translate-y-1/2 h-6 px-2 text-[10px] font-bold text-muted-foreground hover:text-primary gap-1"
+                      >
+                        <Zap className="w-3 h-3 text-amber-400" />
+                        <span>Catálogo</span>
+                      </Button>
+                    </div>
+                  </div>
+
+                  {/* Detalhes do gatilho se detectado */}
+                  {(() => {
+                    const matched = allPlatformTriggers.find((t) => t.action_type === editingRule.action_type);
+                    if (matched) {
+                      return (
+                        <div className="p-2.5 rounded-lg bg-background/80 border border-primary/30 text-[11px] space-y-1">
+                          <div className="flex items-center justify-between font-semibold">
+                            <span className="text-foreground flex items-center gap-1.5 font-bold">
+                              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                              {matched.name}
+                            </span>
+                            <Badge variant="outline" className={cn("text-[9px] capitalize", getCategoryBadgeColor(matched.category))}>
+                              {matched.category_label || matched.category}
+                            </Badge>
+                          </div>
+                          <p className="text-[10px] text-muted-foreground leading-relaxed">
+                            {matched.description}
+                          </p>
+                        </div>
+                      );
+                    }
+                    return null;
+                  })()}
+
                   <p className="text-[10px] text-muted-foreground leading-relaxed">
-                    Identificador de sistema chamado pelos serviços backend ao concluir ações. Sem espaços ou acentos.
+                    Slug do sistema disparado pelos eventos de backend e painéis. Clique em <strong>Pesquisar e Selecionar Gatilhos</strong> para escolher com busca e filtros.
                   </p>
+
                   {/* Sugestões de prefixo */}
-                  <div className="flex items-center gap-1.5 pt-1 flex-wrap">
+                  <div className="flex items-center gap-1.5 pt-0.5 flex-wrap">
                     <span className="text-[10px] text-muted-foreground">Prefixos:</span>
                     {["producao_", "venda_", "entrega_", "coleta_", "evento_", "meta_"].map((pref) => (
                       <button
@@ -2688,12 +3634,25 @@ export function DevGamificationManager({ initialTab = "membros" }: { initialTab?
                   </div>
                 </div>
               ) : (
-                <div className="p-2.5 rounded-lg border border-border/60 bg-muted/20 flex items-center justify-between">
+                <div className="p-3 rounded-lg border border-border/60 bg-muted/20 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                   <div className="flex items-center gap-2">
                     <Lock className="w-3.5 h-3.5 text-muted-foreground" />
                     <span className="text-xs font-semibold text-muted-foreground">Gatilho do Sistema:</span>
+                    <code className="font-mono text-xs font-bold text-primary">{editingRule.action_type}</code>
                   </div>
-                  <code className="font-mono text-xs font-bold text-primary">{editingRule.action_type}</code>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setTriggerSearch(editingRule.action_type || "");
+                      setTriggerSelectorOpen(true);
+                    }}
+                    className="h-6 text-[10px] px-2 text-muted-foreground hover:text-primary gap-1 shrink-0"
+                  >
+                    <Search className="w-3 h-3" />
+                    Ver no Catálogo de Gatilhos
+                  </Button>
                 </div>
               )}
 
@@ -2928,6 +3887,656 @@ export function DevGamificationManager({ initialTab = "membros" }: { initialTab?
             >
               <Trash2 className="w-4 h-4" />
               {ruleSubmitting ? "Excluindo..." : "Confirmar Exclusão"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* =========================================================================
+          MODAL: PESQUISAR E SELECIONAR GATILHOS DA PLATAFORMA
+          ========================================================================= */}
+      <Dialog open={triggerSelectorOpen} onOpenChange={setTriggerSelectorOpen}>
+        <DialogContent className="max-h-[90vh] overflow-hidden flex flex-col w-[95vw] sm:max-w-3xl bg-card/95 border-border backdrop-blur-md p-0">
+          <DialogHeader className="p-4 sm:p-6 pb-3 border-b border-border/60">
+            <DialogTitle className="text-lg font-extrabold flex items-center gap-2">
+              <Zap className="w-5 h-5 text-amber-400" />
+              <span>Gatilhos da Plataforma Twin Wheels</span>
+              <Badge className="bg-primary/20 text-primary border-primary/30 text-xs ml-1">
+                {allPlatformTriggers.length} disponíveis
+              </Badge>
+            </DialogTitle>
+            <DialogDescription className="text-xs">
+              Pesquise e selecione qualquer evento da plataforma para preencher e vincular automaticamente a sua regra de XP.
+            </DialogDescription>
+
+            {/* Barra de Busca de Gatilhos */}
+            <div className="pt-2 relative">
+              <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                placeholder="Pesquisar por slug (ex: sale_completed), nome amigável ou categoria..."
+                value={triggerSearch}
+                onChange={(e) => setTriggerSearch(e.target.value)}
+                className="pl-9 h-9 text-xs"
+                autoFocus
+              />
+              {triggerSearch && (
+                <button
+                  type="button"
+                  onClick={() => setTriggerSearch("")}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground text-xs"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+
+            {/* Categorias Pills */}
+            <div className="flex items-center gap-1.5 pt-2 overflow-x-auto pb-1 text-xs no-scrollbar">
+              {[
+                { id: "all", label: "Todos" },
+                { id: "vendas", label: "Vendas & Comercial" },
+                { id: "producao", label: "Produção & Oficinas" },
+                { id: "estoque", label: "Logística & Baús" },
+                { id: "metas", label: "Metas & Desempenho" },
+                { id: "presenca", label: "Presença & Operações" },
+                { id: "suporte", label: "Suporte & Tickets" },
+                { id: "lideranca", label: "Liderança & Avaliações" },
+                { id: "social", label: "Social & Mural" },
+                { id: "geral", label: "Sistema & Gamificação" },
+              ].map((cat) => (
+                <button
+                  key={cat.id}
+                  type="button"
+                  onClick={() => setTriggerCategoryFilter(cat.id)}
+                  className={cn(
+                    "px-2.5 py-1 rounded-full text-[11px] font-bold whitespace-nowrap transition-colors cursor-pointer border",
+                    triggerCategoryFilter === cat.id
+                      ? "bg-primary text-primary-foreground border-primary shadow-xs"
+                      : "bg-muted/40 text-muted-foreground border-border/60 hover:text-foreground hover:bg-muted"
+                  )}
+                >
+                  {cat.label}
+                </button>
+              ))}
+            </div>
+          </DialogHeader>
+
+          {/* Lista de Gatilhos com Scroll */}
+          <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-2.5 max-h-[60vh]">
+            {filteredTriggers.length === 0 ? (
+              <div className="text-center py-12 text-muted-foreground space-y-2">
+                <Search className="w-8 h-8 mx-auto opacity-40" />
+                <p className="text-xs">Nenhum gatilho encontrado para "{triggerSearch}".</p>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setTriggerSearch("");
+                    setTriggerCategoryFilter("all");
+                  }}
+                  className="h-7 text-xs"
+                >
+                  Limpar Busca
+                </Button>
+              </div>
+            ) : (
+              filteredTriggers.map((t) => {
+                const isConfigured = rules.some((r) => r.action_type === t.action_type);
+                const isSelected = editingRule?.action_type === t.action_type;
+
+                return (
+                  <div
+                    key={t.action_type}
+                    className={cn(
+                      "p-3.5 rounded-xl border transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3",
+                      isSelected
+                        ? "bg-primary/10 border-primary/50 shadow-xs ring-1 ring-primary/40"
+                        : "bg-background/60 border-border/60 hover:border-primary/40 hover:bg-accent/20"
+                    )}
+                  >
+                    <div className="space-y-1 min-w-0 flex-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-extrabold text-foreground text-xs sm:text-sm">
+                          {t.name}
+                        </span>
+                        <code className="text-[10px] font-mono font-bold bg-muted/80 text-primary px-1.5 py-0.5 rounded border border-border/60">
+                          {t.action_type}
+                        </code>
+                        <Badge variant="outline" className={cn("text-[9px] px-1.5 py-0 border", getCategoryBadgeColor(t.category))}>
+                          {t.category_label || t.category}
+                        </Badge>
+                        {isConfigured ? (
+                          <Badge className="bg-emerald-500/15 text-emerald-400 border-emerald-500/30 text-[9px] px-1.5 py-0">
+                            ✓ Regra Ativa
+                          </Badge>
+                        ) : (
+                          <Badge variant="secondary" className="text-[9px] px-1.5 py-0 text-muted-foreground">
+                            Disponível
+                          </Badge>
+                        )}
+                      </div>
+
+                      <p className="text-xs text-muted-foreground leading-relaxed">
+                        {t.description}
+                      </p>
+
+                      <div className="flex items-center gap-3 text-[10px] text-muted-foreground font-mono pt-0.5 flex-wrap">
+                        <span>Sugerido: <strong className="text-foreground">+{t.default_xp} XP</strong></span>
+                        <span>•</span>
+                        <span>Cooldown: <strong className="text-foreground">{formatCooldown(t.default_cooldown)}</strong></span>
+                        <span>•</span>
+                        <span>Limite Diário: <strong className="text-foreground">{t.default_cap}x</strong></span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2 shrink-0">
+                      <Button
+                        type="button"
+                        size="sm"
+                        onClick={() => {
+                          if (!ruleEditorOpen) {
+                            openCreateRule({
+                              action_type: t.action_type,
+                              name: t.name,
+                              category: t.category,
+                              description: t.description,
+                              xp_reward: t.default_xp,
+                              cooldown_seconds: t.default_cooldown,
+                              daily_cap: t.default_cap,
+                            });
+                            setTriggerSelectorOpen(false);
+                          } else {
+                            handleSelectPlatformTrigger(t);
+                          }
+                        }}
+                        className={cn(
+                          "h-8 px-3 text-xs font-bold gap-1.5 cursor-pointer",
+                          isSelected
+                            ? "bg-primary text-primary-foreground"
+                            : "bg-primary/90 hover:bg-primary text-primary-foreground"
+                        )}
+                      >
+                        <Check className="w-3.5 h-3.5" />
+                        <span>{isSelected ? "Selecionado" : "Selecionar Gatilho"}</span>
+                      </Button>
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+
+          <DialogFooter className="p-3 sm:p-4 border-t border-border/60 bg-muted/20 flex flex-row items-center justify-between">
+            <span className="text-[11px] text-muted-foreground">
+              Mostrando {filteredTriggers.length} de {allPlatformTriggers.length} gatilhos
+            </span>
+            <Button variant="ghost" size="sm" onClick={() => setTriggerSelectorOpen(false)} className="h-8 text-xs cursor-pointer">
+              Fechar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* =========================================================================
+          MODAL AÇÕES EM MASSA 1: AJUSTAR XP EM MASSA
+          ========================================================================= */}
+      <Dialog open={bulkXpModalOpen} onOpenChange={(open) => !bulkXpSubmitting && setBulkXpModalOpen(open)}>
+        <DialogContent className="max-h-[90vh] overflow-y-auto w-[95vw] sm:max-w-lg bg-card/95 border-border backdrop-blur-md">
+          <DialogHeader>
+            <DialogTitle className="text-lg font-extrabold flex items-center gap-2">
+              <Sparkles className="w-5 h-5 text-purple-400" />
+              <span>Conceder / Ajustar XP em Massa</span>
+            </DialogTitle>
+            <DialogDescription className="text-xs">
+              Aplique bonificações ou correções de saldo de XP para múltiplos membros simultaneamente.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-2">
+            {/* Lista dos Membros Selecionados */}
+            <div className="p-3 rounded-xl border border-primary/30 bg-primary/5 space-y-2">
+              <div className="flex items-center justify-between text-xs font-bold text-foreground">
+                <span className="flex items-center gap-1.5">
+                  <Users className="w-3.5 h-3.5 text-primary" />
+                  Membros Selecionados ({selectedMembersList.length})
+                </span>
+                <span className="text-[10px] text-muted-foreground">Todos receberão esta alteração</span>
+              </div>
+              <div className="flex flex-wrap gap-1.5 max-h-28 overflow-y-auto pr-1">
+                {selectedMembersList.map((m) => (
+                  <Badge key={m.user_id} variant="secondary" className="text-[11px] gap-1 px-2 py-0.5 font-semibold">
+                    <img
+                      src={m.avatar_url || "/placeholder-avatar.png"}
+                      alt={m.nome}
+                      className="w-3.5 h-3.5 rounded-full object-cover"
+                      onError={(e) => { (e.target as HTMLElement).style.display = "none"; }}
+                    />
+                    <span>{m.nickname || m.nome}</span>
+                    <span className="text-[9px] text-muted-foreground font-mono">({(m.xp || 0).toLocaleString()} XP)</span>
+                  </Badge>
+                ))}
+              </div>
+            </div>
+
+            {/* Modo de Ajuste */}
+            <div className="grid grid-cols-2 gap-2">
+              <Button
+                type="button"
+                variant={bulkXpMode === "add" ? "default" : "outline"}
+                onClick={() => setBulkXpMode("add")}
+                className="font-bold text-xs h-9 gap-1.5 cursor-pointer"
+                disabled={bulkXpSubmitting}
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>Adicionar / Subtrair XP</span>
+              </Button>
+              <Button
+                type="button"
+                variant={bulkXpMode === "set" ? "default" : "outline"}
+                onClick={() => setBulkXpMode("set")}
+                className="font-bold text-xs h-9 gap-1.5 cursor-pointer"
+                disabled={bulkXpSubmitting}
+              >
+                <Sliders className="w-3.5 h-3.5" />
+                <span>Definir XP Fixo</span>
+              </Button>
+            </div>
+
+            {/* Quantidade de XP */}
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <Label htmlFor="bulk-xp-amount" className="text-xs font-bold">
+                  {bulkXpMode === "add" ? "Quantidade de XP a Conceder/Deduzir" : "Novo Saldo Fixo de XP"}
+                </Label>
+                <span className="text-[10px] text-muted-foreground">
+                  {bulkXpMode === "add" ? "use valor negativo para deduzir (ex: -50)" : "substitui o saldo atual"}
+                </span>
+              </div>
+              <Input
+                id="bulk-xp-amount"
+                type="number"
+                value={bulkXpAmount}
+                onChange={(e) => setBulkXpAmount(Number(e.target.value))}
+                placeholder="50"
+                className="font-mono text-base font-extrabold"
+                disabled={bulkXpSubmitting}
+              />
+              {/* Botões Rápidos */}
+              {bulkXpMode === "add" && (
+                <div className="flex items-center gap-1.5 flex-wrap pt-1">
+                  {[10, 25, 50, 100, 250, 500, 1000].map((val) => (
+                    <Button
+                      key={val}
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setBulkXpAmount(val)}
+                      disabled={bulkXpSubmitting}
+                      className="h-6 px-2 text-[10px] font-mono font-bold cursor-pointer"
+                    >
+                      +{val} XP
+                    </Button>
+                  ))}
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setBulkXpAmount(-50)}
+                    disabled={bulkXpSubmitting}
+                    className="h-6 px-2 text-[10px] font-mono font-bold text-destructive hover:text-destructive cursor-pointer"
+                  >
+                    -50 XP
+                  </Button>
+                </div>
+              )}
+            </div>
+
+            {/* Justificativa Obrigatória */}
+            <div className="space-y-1.5">
+              <Label htmlFor="bulk-xp-reason" className="text-xs font-bold">
+                Justificativa Obrigatória (Auditoria Dev) *
+              </Label>
+              <Textarea
+                id="bulk-xp-reason"
+                value={bulkXpReason}
+                onChange={(e) => setBulkXpReason(e.target.value)}
+                placeholder="Ex: Bonificação semanal por meta batida coletiva da facção."
+                rows={3}
+                className="text-xs"
+                disabled={bulkXpSubmitting}
+              />
+            </div>
+
+            {/* Barra de Progresso durante Execução */}
+            {bulkProgress && (
+              <div className="p-3 rounded-xl border border-primary/30 bg-primary/10 space-y-2 animate-in fade-in">
+                <div className="flex items-center justify-between text-xs font-bold text-foreground">
+                  <span className="flex items-center gap-1.5">
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin text-primary" />
+                    Processando membros ({bulkProgress.current} de {bulkProgress.total})...
+                  </span>
+                  <span className="font-mono text-primary">{bulkProgress.percent}%</span>
+                </div>
+                <Progress value={bulkProgress.percent} className="h-2" />
+              </div>
+            )}
+          </div>
+
+          <DialogFooter className="gap-2">
+            <Button
+              variant="ghost"
+              onClick={() => setBulkXpModalOpen(false)}
+              disabled={bulkXpSubmitting}
+              className="cursor-pointer"
+            >
+              Cancelar
+            </Button>
+            <Button
+              onClick={handleExecuteBulkXp}
+              disabled={bulkXpSubmitting || !bulkXpReason.trim() || selectedMembersList.length === 0}
+              className="font-extrabold bg-purple-600 hover:bg-purple-700 text-white shadow-xs gap-1.5 cursor-pointer"
+            >
+              {bulkXpSubmitting ? (
+                <>
+                  <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                  <span>Aplicando ({bulkProgress?.current || 0}/{selectedMembersList.length})...</span>
+                </>
+              ) : (
+                <>
+                  <Sparkles className="w-3.5 h-3.5" />
+                  <span>Aplicar XP para {selectedMembersList.length} Membros</span>
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* =========================================================================
+          MODAL AÇÕES EM MASSA 2: DEFINIR NÍVEL EM MASSA
+          ========================================================================= */}
+      <Dialog open={bulkLevelModalOpen} onOpenChange={(open) => !bulkLevelSubmitting && setBulkLevelModalOpen(open)}>
+        <DialogContent className="max-h-[90vh] overflow-y-auto w-[95vw] sm:max-w-lg bg-card/95 border-border backdrop-blur-md">
+          <DialogHeader>
+            <DialogTitle className="text-lg font-extrabold flex items-center gap-2">
+              <Layers className="w-5 h-5 text-primary" />
+              <span>Definir Nível em Massa</span>
+            </DialogTitle>
+            <DialogDescription className="text-xs">
+              Atualize a graduação gamificada de múltiplos membros com recalibração de patamar.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-2">
+            {/* Lista dos Membros Selecionados */}
+            <div className="p-3 rounded-xl border border-primary/30 bg-primary/5 space-y-2">
+              <div className="flex items-center justify-between text-xs font-bold text-foreground">
+                <span className="flex items-center gap-1.5">
+                  <Users className="w-3.5 h-3.5 text-primary" />
+                  Membros Selecionados ({selectedMembersList.length})
+                </span>
+                <span className="text-[10px] text-muted-foreground">Todos receberão este nível</span>
+              </div>
+              <div className="flex flex-wrap gap-1.5 max-h-28 overflow-y-auto pr-1">
+                {selectedMembersList.map((m) => (
+                  <Badge key={m.user_id} variant="secondary" className="text-[11px] gap-1 px-2 py-0.5 font-semibold">
+                    <img
+                      src={m.avatar_url || "/placeholder-avatar.png"}
+                      alt={m.nome}
+                      className="w-3.5 h-3.5 rounded-full object-cover"
+                      onError={(e) => { (e.target as HTMLElement).style.display = "none"; }}
+                    />
+                    <span>{m.nickname || m.nome}</span>
+                    <span className="text-[9px] text-muted-foreground font-mono">(Nvl {m.gamification_level || 1})</span>
+                  </Badge>
+                ))}
+              </div>
+            </div>
+
+            {/* Seleção do Nível Alvo */}
+            <div className="space-y-1.5">
+              <Label htmlFor="bulk-target-level" className="text-xs font-bold">
+                Nível Alvo Desejado (1 a 50+)
+              </Label>
+              <Input
+                id="bulk-target-level"
+                type="number"
+                min={1}
+                max={50}
+                value={bulkTargetLevel}
+                onChange={(e) => setBulkTargetLevel(Math.max(1, Math.min(50, Number(e.target.value))))}
+                className="font-mono text-base font-extrabold"
+                disabled={bulkLevelSubmitting}
+              />
+              {/* Preview do Nível Escolhido */}
+              {(() => {
+                const targetTier = LEVEL_THRESHOLDS.find((t) => t.level === bulkTargetLevel) || LEVEL_THRESHOLDS[0];
+                return (
+                  <div className="p-2.5 rounded-lg border border-purple-500/30 bg-purple-500/10 flex items-center justify-between text-xs">
+                    <div>
+                      <span className="text-muted-foreground">Título de Graduação:</span>{" "}
+                      <strong className="text-purple-300 font-bold">{targetTier.title}</strong>
+                    </div>
+                    <div className="font-mono font-bold text-foreground">
+                      XP Base: {targetTier.xp.toLocaleString()} XP
+                    </div>
+                  </div>
+                );
+              })()}
+            </div>
+
+            {/* Checkbox Sincronizar XP */}
+            <div className="p-3.5 rounded-xl border border-border/80 bg-background/50 flex items-center justify-between gap-3">
+              <div className="space-y-0.5">
+                <Label htmlFor="bulk-sync-xp" className="text-xs font-bold cursor-pointer">
+                  Sincronizar XP com a marca mínima do nível
+                </Label>
+                <p className="text-[11px] text-muted-foreground">
+                  Atualiza automaticamente o saldo de XP de cada membro caso seu XP atual seja inferior ao patamar mínimo do nível.
+                </p>
+              </div>
+              <Switch
+                id="bulk-sync-xp"
+                checked={bulkSyncXp}
+                onCheckedChange={setBulkSyncXp}
+                disabled={bulkLevelSubmitting}
+              />
+            </div>
+
+            {/* Justificativa Obrigatória */}
+            <div className="space-y-1.5">
+              <Label htmlFor="bulk-level-reason" className="text-xs font-bold">
+                Justificativa Obrigatória (Auditoria Dev) *
+              </Label>
+              <Textarea
+                id="bulk-level-reason"
+                value={bulkLevelReason}
+                onChange={(e) => setBulkLevelReason(e.target.value)}
+                placeholder="Ex: Enquadramento geral de nível para nova patente de liderança ou reestruturação de cargos."
+                rows={3}
+                className="text-xs"
+                disabled={bulkLevelSubmitting}
+              />
+            </div>
+
+            {/* Progresso */}
+            {bulkProgress && (
+              <div className="p-3 rounded-xl border border-primary/30 bg-primary/10 space-y-2 animate-in fade-in">
+                <div className="flex items-center justify-between text-xs font-bold text-foreground">
+                  <span className="flex items-center gap-1.5">
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin text-primary" />
+                    Aplicando nível ({bulkProgress.current} de {bulkProgress.total})...
+                  </span>
+                  <span className="font-mono text-primary">{bulkProgress.percent}%</span>
+                </div>
+                <Progress value={bulkProgress.percent} className="h-2" />
+              </div>
+            )}
+          </div>
+
+          <DialogFooter className="gap-2">
+            <Button
+              variant="ghost"
+              onClick={() => setBulkLevelModalOpen(false)}
+              disabled={bulkLevelSubmitting}
+              className="cursor-pointer"
+            >
+              Cancelar
+            </Button>
+            <Button
+              onClick={handleExecuteBulkLevel}
+              disabled={bulkLevelSubmitting || !bulkLevelReason.trim() || selectedMembersList.length === 0}
+              className="font-extrabold bg-primary text-primary-foreground shadow-xs gap-1.5 cursor-pointer"
+            >
+              {bulkLevelSubmitting ? (
+                <>
+                  <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                  <span>Aplicando ({bulkProgress?.current || 0}/{selectedMembersList.length})...</span>
+                </>
+              ) : (
+                <>
+                  <Layers className="w-3.5 h-3.5" />
+                  <span>Definir Nível para {selectedMembersList.length} Membros</span>
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* =========================================================================
+          MODAL AÇÕES EM MASSA 3: CONCEDER INSÍGNIA EM MASSA
+          ========================================================================= */}
+      <Dialog open={bulkInsigniaModalOpen} onOpenChange={(open) => !bulkInsigniaSubmitting && setBulkInsigniaModalOpen(open)}>
+        <DialogContent className="max-h-[90vh] overflow-y-auto w-[95vw] sm:max-w-lg bg-card/95 border-border backdrop-blur-md">
+          <DialogHeader>
+            <DialogTitle className="text-lg font-extrabold flex items-center gap-2">
+              <Award className="w-5 h-5 text-amber-400" />
+              <span>Conceder Insígnia em Massa</span>
+            </DialogTitle>
+            <DialogDescription className="text-xs">
+              Conceda uma mesma insígnia ou condecoração para múltiplos membros selecionados (Bypass Dev).
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-2">
+            {/* Lista dos Membros Selecionados */}
+            <div className="p-3 rounded-xl border border-amber-500/30 bg-amber-500/5 space-y-2">
+              <div className="flex items-center justify-between text-xs font-bold text-foreground">
+                <span className="flex items-center gap-1.5">
+                  <Users className="w-3.5 h-3.5 text-amber-400" />
+                  Beneficiários Selecionados ({selectedMembersList.length})
+                </span>
+                <span className="text-[10px] text-muted-foreground">Receberão a condecoração</span>
+              </div>
+              <div className="flex flex-wrap gap-1.5 max-h-28 overflow-y-auto pr-1">
+                {selectedMembersList.map((m) => (
+                  <Badge key={m.user_id} variant="secondary" className="text-[11px] gap-1 px-2 py-0.5 font-semibold">
+                    <img
+                      src={m.avatar_url || "/placeholder-avatar.png"}
+                      alt={m.nome}
+                      className="w-3.5 h-3.5 rounded-full object-cover"
+                      onError={(e) => { (e.target as HTMLElement).style.display = "none"; }}
+                    />
+                    <span>{m.nickname || m.nome}</span>
+                  </Badge>
+                ))}
+              </div>
+            </div>
+
+            {/* Seleção da Insígnia */}
+            <div className="space-y-1.5">
+              <Label className="text-xs font-bold">Selecione a Insígnia do Catálogo *</Label>
+              <Select
+                value={bulkSelectedInsigniaId}
+                onValueChange={setBulkSelectedInsigniaId}
+                disabled={bulkInsigniaSubmitting}
+              >
+                <SelectTrigger className="w-full h-10">
+                  <SelectValue placeholder="Escolha a condecoração a conceder..." />
+                </SelectTrigger>
+                <SelectContent className="max-h-72">
+                  {insignias
+                    .filter((b) => b.active)
+                    .map((badge) => {
+                      const rarity = RARITY_CONFIG[badge.rarity] || RARITY_CONFIG.comum;
+                      return (
+                        <SelectItem key={badge.id} value={badge.id}>
+                          <div className="flex items-center gap-2">
+                            <span className={cn("font-bold text-[11px]", rarity.textClass)}>[{rarity.label}]</span>
+                            <span className="font-semibold">{badge.name}</span>
+                            <span className="text-xs text-muted-foreground font-mono">({badge.xp_cost} XP)</span>
+                          </div>
+                        </SelectItem>
+                      );
+                    })}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="p-3 rounded-xl border border-amber-500/30 bg-amber-500/10 text-xs text-amber-300 flex items-center gap-2.5">
+              <CheckCircle2 className="w-4 h-4 shrink-0 text-amber-400" />
+              <span>
+                <strong>Isenção Dev Bypass:</strong> Não há débito de XP dos membros ou do administrador. Membros que já possuem esta condecoração serão preservados sem erro.
+              </span>
+            </div>
+
+            {/* Justificativa Obrigatória */}
+            <div className="space-y-1.5">
+              <Label htmlFor="bulk-grant-reason" className="text-xs font-bold">
+                Motivo / Justificativa da Condecoração *
+              </Label>
+              <Textarea
+                id="bulk-grant-reason"
+                value={bulkInsigniaReason}
+                onChange={(e) => setBulkInsigniaReason(e.target.value)}
+                placeholder="Ex: Condecoração coletiva por vitória em operação estratégica e participação no comboio de segurança."
+                rows={3}
+                className="text-xs"
+                disabled={bulkInsigniaSubmitting}
+              />
+            </div>
+
+            {/* Progresso */}
+            {bulkProgress && (
+              <div className="p-3 rounded-xl border border-amber-500/30 bg-amber-500/10 space-y-2 animate-in fade-in">
+                <div className="flex items-center justify-between text-xs font-bold text-foreground">
+                  <span className="flex items-center gap-1.5">
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin text-amber-400" />
+                    Concedendo insígnias ({bulkProgress.current} de {bulkProgress.total})...
+                  </span>
+                  <span className="font-mono text-amber-400">{bulkProgress.percent}%</span>
+                </div>
+                <Progress value={bulkProgress.percent} className="h-2" />
+              </div>
+            )}
+          </div>
+
+          <DialogFooter className="gap-2">
+            <Button
+              variant="ghost"
+              onClick={() => setBulkInsigniaModalOpen(false)}
+              disabled={bulkInsigniaSubmitting}
+              className="cursor-pointer"
+            >
+              Cancelar
+            </Button>
+            <Button
+              onClick={handleExecuteBulkInsignia}
+              disabled={bulkInsigniaSubmitting || !bulkSelectedInsigniaId || !bulkInsigniaReason.trim() || selectedMembersList.length === 0}
+              className="font-extrabold bg-amber-500 hover:bg-amber-600 text-black shadow-xs gap-1.5 cursor-pointer"
+            >
+              {bulkInsigniaSubmitting ? (
+                <>
+                  <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                  <span>Concedendo ({bulkProgress?.current || 0}/{selectedMembersList.length})...</span>
+                </>
+              ) : (
+                <>
+                  <Award className="w-3.5 h-3.5" />
+                  <span>Conceder para {selectedMembersList.length} Membros</span>
+                </>
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>

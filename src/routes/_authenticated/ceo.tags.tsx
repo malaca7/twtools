@@ -55,6 +55,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useMembers } from "@/hooks/useData";
 import { useMemberTags, useMemberTagAssignments, useMemberTagMutations } from "@/hooks/useMemberTags";
 import { useMenuConfig } from "@/hooks/useMenuConfig";
+import { useCeoMenuConfig } from "@/hooks/useCeoMenuConfig";
 import { MemberTagBadge, resolveTagIcon } from "@/components/ui/MemberTagBadge";
 import { PAGE_CARDS, READ_ONLY_PERMISSIONS, type PageCardConfig } from "@/lib/permissionCards";
 import { ALL_PERMISSIONS, type Permission, LEVEL_LABEL, levelBadgeClass } from "@/lib/permissions";
@@ -129,7 +130,15 @@ const AVAILABLE_ICONS = [
 ];
 
 export function CeoGerenciarTagsPage() {
-  const { isDevUser } = useAuth();
+  const { isDevUser, isCeoUser, hasPermission } = useAuth();
+
+  const canCreateTag = Boolean(isDevUser || isCeoUser || hasPermission("create_ceo_tag") || hasPermission("manage_ceo_tag_permissions"));
+  const canEditTag = Boolean(isDevUser || isCeoUser || hasPermission("edit_ceo_tag") || hasPermission("manage_ceo_tag_permissions"));
+  const canDeleteTag = Boolean(isDevUser || isCeoUser || hasPermission("delete_ceo_tag") || hasPermission("manage_ceo_tag_permissions"));
+  const canManagePerms = Boolean(isDevUser || isCeoUser || hasPermission("manage_ceo_tag_permissions_detail") || hasPermission("manage_ceo_tag_permissions"));
+  const canManageRules = Boolean(isDevUser || isCeoUser || hasPermission("manage_ceo_tag_rules") || hasPermission("manage_ceo_tag_permissions"));
+  const canAssignTag = Boolean(isDevUser || isCeoUser || hasPermission("assign_ceo_tag") || hasPermission("manage_ceo_tag_permissions"));
+
   const { data: tags = [], isLoading: loadingTags, refetch: refetchTags } = useMemberTags();
   const { data: assignments = [], isLoading: loadingAssignments, refetch: refetchAssignments } = useMemberTagAssignments();
   const { data: members = [], isLoading: loadingMembers } = useMembers();
@@ -155,6 +164,7 @@ export function CeoGerenciarTagsPage() {
   const [formIsActive, setFormIsActive] = useState(true);
   const [formIsSystem, setFormIsSystem] = useState(false);
   const { config: menuConfig } = useMenuConfig();
+  const { config: ceoMenuConfig } = useCeoMenuConfig();
 
   // Modal de Vínculo de Membros à Tag
   const [tagForMembers, setTagForMembers] = useState<MemberTag | null>(null);
@@ -184,10 +194,19 @@ export function CeoGerenciarTagsPage() {
     return { totalTags, totalAssignedMembers, activeTags, blockingTags };
   }, [tags, assignments]);
 
-  // Agrupamento e ordenação dinâmica dos PAGE_CARDS pelas categorias do menu
+  // Agrupamento e ordenação dinâmica dos PAGE_CARDS pelas categorias do menu (Membro e CEO)
   const groupedPageCards = useMemo(() => {
     const validConfigItems = menuConfig?.items?.filter((c) => Boolean(c && (c.id || c.url))) || [];
     const configMap = new Map(validConfigItems.map((c) => [c.id || c.url, c]));
+
+    const ceoItems = ceoMenuConfig?.items?.filter((c) => Boolean(c && (c.id || c.url))) || [];
+    const ceoConfigMap = new Map(
+      ceoItems.flatMap((c) => [
+        [c.id, c],
+        [c.url, c],
+        ...(c.id === "ceo-dashboard" ? [["ceo", c], ["/ceo", c]] : []),
+      ])
+    );
 
     const rawCategories = menuConfig?.categories?.length
       ? menuConfig.categories
@@ -201,13 +220,19 @@ export function CeoGerenciarTagsPage() {
       (c) => c !== "DEV" && c !== "Ferramentas Dev" && c !== "Operação"
     );
 
-    // Garante que CEO esteja presente se existirem cards de CEO
-    if (!categoryOrder.includes("CEO")) {
-      categoryOrder.push("CEO");
-    }
+    // Garante que categorias do CEO estejam presentes
+    const ceoCategories = ceoMenuConfig?.categories?.length ? ceoMenuConfig.categories : ["CEO"];
+    ceoCategories.forEach((cat) => {
+      if (!categoryOrder.includes(cat) && cat !== "DEV" && cat !== "Ferramentas Dev") {
+        categoryOrder.push(cat);
+      }
+    });
 
     const customized = PAGE_CARDS.map((card) => {
-      const cfg = configMap.get(card.id);
+      const isCeo = card.defaultCat === "CEO" || card.id === "ceo" || card.id.startsWith("ceo-") || card.route.startsWith("/ceo");
+      const cfg = isCeo
+        ? (ceoConfigMap.get(card.id) || ceoConfigMap.get(card.route))
+        : (configMap.get(card.id) || configMap.get(card.route));
       let cat = cfg?.category || card.defaultCat;
       if (cat === "Operação") {
         cat = card.id === "vendas" ? "Produções" : "Gestão";
@@ -245,7 +270,7 @@ export function CeoGerenciarTagsPage() {
     });
 
     return groups;
-  }, [menuConfig]);
+  }, [menuConfig, ceoMenuConfig]);
 
   const allPlatformPermissions = useMemo(() => {
     return Array.from(new Set(PAGE_CARDS.flatMap((c) => c.permissions.map((p) => p.key))));
@@ -305,26 +330,46 @@ export function CeoGerenciarTagsPage() {
   }, [allPlatformPermissions]);
 
   const setAllPermissions = () => {
+    if (!canManagePerms) {
+      toast.error("Você não tem permissão para alterar permissões de tags.");
+      return;
+    }
     setActivePerms([...allPlatformPermissions]);
     void autoSavePermsAndRules([...allPlatformPermissions], activeRules);
   };
 
   const setReadOnlyPermissions = () => {
+    if (!canManagePerms) {
+      toast.error("Você não tem permissão para alterar permissões de tags.");
+      return;
+    }
     setActivePerms([...readOnlyPlatformPermissions]);
     void autoSavePermsAndRules([...readOnlyPlatformPermissions], activeRules);
   };
 
   const setOperationalPermissions = () => {
+    if (!canManagePerms) {
+      toast.error("Você não tem permissão para alterar permissões de tags.");
+      return;
+    }
     setActivePerms([...operationalBasicPermissions]);
     void autoSavePermsAndRules([...operationalBasicPermissions], activeRules);
   };
 
   const setWarehousePermissions = () => {
+    if (!canManagePerms) {
+      toast.error("Você não tem permissão para alterar permissões de tags.");
+      return;
+    }
     setActivePerms([...warehouseLogisticsPermissions]);
     void autoSavePermsAndRules([...warehouseLogisticsPermissions], activeRules);
   };
 
   const clearAllPermissions = () => {
+    if (!canManagePerms) {
+      toast.error("Você não tem permissão para alterar permissões de tags.");
+      return;
+    }
     const next: Permission[] = [];
     setActivePerms(next);
     void autoSavePermsAndRules(next, activeRules);
@@ -353,6 +398,10 @@ export function CeoGerenciarTagsPage() {
 
   // Abertura do Modal de Criação / Edição
   const handleOpenCreateModal = () => {
+    if (!canCreateTag) {
+      toast.error("Você não possui permissão para criar tags.");
+      return;
+    }
     setEditingTag(null);
     setFormId("");
     setFormName("");
@@ -365,6 +414,10 @@ export function CeoGerenciarTagsPage() {
   };
 
   const handleOpenEditModal = (tag: MemberTag) => {
+    if (!canEditTag) {
+      toast.error("Você não possui permissão para editar tags.");
+      return;
+    }
     setEditingTag(tag);
     setFormId(tag.id);
     setFormName(tag.name);
@@ -377,6 +430,14 @@ export function CeoGerenciarTagsPage() {
   };
 
   const handleSaveTagForm = async () => {
+    if (editingTag && !canEditTag) {
+      toast.error("Você não possui permissão para editar tags.");
+      return;
+    }
+    if (!editingTag && !canCreateTag) {
+      toast.error("Você não possui permissão para criar tags.");
+      return;
+    }
     if (!formName.trim()) {
       toast.error("Informe o nome da tag.");
       return;
@@ -416,6 +477,10 @@ export function CeoGerenciarTagsPage() {
 
   // Abertura do Modal de Vínculo de Membros
   const handleOpenAssignMembersModal = (tag: MemberTag) => {
+    if (!canAssignTag) {
+      toast.error("Você não possui permissão para vincular membros a tags.");
+      return;
+    }
     setTagForMembers(tag);
     const existing = new Set(
       assignments.filter((a) => a.tag_id === tag.id).map((a) => a.member_id)
@@ -442,6 +507,10 @@ export function CeoGerenciarTagsPage() {
   }, [members, memberAssignSearch, memberAssignFilter, selectedMemberIds]);
 
   const handleToggleMember = (userId: string) => {
+    if (!canAssignTag) {
+      toast.error("Você não possui permissão para alterar vínculos de membros.");
+      return;
+    }
     setSelectedMemberIds((prev) => {
       const next = new Set(prev);
       if (next.has(userId)) {
@@ -454,6 +523,10 @@ export function CeoGerenciarTagsPage() {
   };
 
   const handleSelectAllFilteredMembers = () => {
+    if (!canAssignTag) {
+      toast.error("Você não possui permissão para alterar vínculos de membros.");
+      return;
+    }
     setSelectedMemberIds((prev) => {
       const next = new Set(prev);
       filteredMembersForAssign.forEach((m) => next.add(m.user_id));
@@ -462,6 +535,10 @@ export function CeoGerenciarTagsPage() {
   };
 
   const handleClearAllFilteredMembers = () => {
+    if (!canAssignTag) {
+      toast.error("Você não possui permissão para alterar vínculos de membros.");
+      return;
+    }
     setSelectedMemberIds((prev) => {
       const next = new Set(prev);
       filteredMembersForAssign.forEach((m) => next.delete(m.user_id));
@@ -471,6 +548,10 @@ export function CeoGerenciarTagsPage() {
 
   const handleSaveMemberAssignments = async () => {
     if (!tagForMembers) return;
+    if (!canAssignTag) {
+      toast.error("Você não possui permissão para salvar vínculos de membros.");
+      return;
+    }
     try {
       await setTagMembersMutation.mutateAsync({
         tagId: tagForMembers.id,
@@ -488,12 +569,16 @@ export function CeoGerenciarTagsPage() {
 
   // Abertura do Modal de Permissões e Regras
   const handleOpenPermsModal = (tag: MemberTag) => {
+    if (!canManagePerms && !canManageRules && !hasPermission("view_ceo_tag_permissions")) {
+      toast.error("Você não possui permissão para acessar permissões e regras da tag.");
+      return;
+    }
     setTagForPerms(tag);
     setActivePerms(Array.isArray(tag.permissions) ? [...tag.permissions] : []);
     setActiveRules(tag.rules ? { ...tag.rules } : {});
     setPermSearch("");
     setPermCategoryFilter("all");
-    setPermSubTab("permissions");
+    setPermSubTab(canManagePerms || !canManageRules ? "permissions" : "rules");
     setAutoSaveStatus("idle");
   };
 
@@ -523,12 +608,20 @@ export function CeoGerenciarTagsPage() {
   };
 
   const handleTogglePerm = (perm: Permission) => {
+    if (!canManagePerms) {
+      toast.error("Você não tem permissão para alterar permissões de tags.");
+      return;
+    }
     const next = activePerms.includes(perm) ? activePerms.filter((p) => p !== perm) : [...activePerms, perm];
     setActivePerms(next);
     void autoSavePermsAndRules(next, activeRules);
   };
 
   const handleToggleCardPerms = (card: PageCardConfig) => {
+    if (!canManagePerms) {
+      toast.error("Você não tem permissão para alterar permissões de tags.");
+      return;
+    }
     const cardKeys = card.permissions.map((p) => p.key);
     const allIn = cardKeys.every((k) => activePerms.includes(k));
     const next = allIn
@@ -539,11 +632,19 @@ export function CeoGerenciarTagsPage() {
   };
 
   const handleUpdateRuleValue = (newRules: MemberTagRules) => {
+    if (!canManageRules) {
+      toast.error("Você não tem permissão para alterar regras operacionais de tags.");
+      return;
+    }
     setActiveRules(newRules);
     void autoSavePermsAndRules(activePerms, newRules);
   };
 
   const handleDiscountChange = (val: number) => {
+    if (!canManageRules) {
+      toast.error("Você não tem permissão para alterar regras operacionais de tags.");
+      return;
+    }
     const nextRules = { ...activeRules, max_discount_pct: val };
     setActiveRules(nextRules);
     if (debounceDiscountRef.current) clearTimeout(debounceDiscountRef.current);
@@ -575,14 +676,16 @@ export function CeoGerenciarTagsPage() {
             <RefreshCw className="h-3.5 w-3.5" />
             <span>Sincronizar</span>
           </Button>
-          <Button
-            type="button"
-            onClick={handleOpenCreateModal}
-            className="rounded-xl gap-2 h-9 text-xs font-bold bg-primary text-primary-foreground hover:bg-primary/90 shadow-md shadow-primary/20"
-          >
-            <Plus className="h-4 w-4" />
-            <span>Criar Nova Tag</span>
-          </Button>
+          {canCreateTag && (
+            <Button
+              type="button"
+              onClick={handleOpenCreateModal}
+              className="rounded-xl gap-2 h-9 text-xs font-bold bg-primary text-primary-foreground hover:bg-primary/90 shadow-md shadow-primary/20"
+            >
+              <Plus className="h-4 w-4" />
+              <span>Criar Nova Tag</span>
+            </Button>
+          )}
         </div>
       </PageHeader>
 
@@ -721,10 +824,12 @@ export function CeoGerenciarTagsPage() {
           }
           icon={TagIcon}
           action={
-            <Button onClick={handleOpenCreateModal} size="sm" className="rounded-xl gap-2 text-xs">
-              <Plus className="h-4 w-4" />
-              <span>Criar Primeira Tag</span>
-            </Button>
+            canCreateTag ? (
+              <Button onClick={handleOpenCreateModal} size="sm" className="rounded-xl gap-2 text-xs">
+                <Plus className="h-4 w-4" />
+                <span>Criar Primeira Tag</span>
+              </Button>
+            ) : undefined
           }
         />
       ) : (
@@ -871,7 +976,12 @@ export function CeoGerenciarTagsPage() {
                       variant="ghost"
                       size="sm"
                       onClick={() => handleOpenAssignMembersModal(tag)}
-                      className="h-8 text-xs font-medium rounded-xl gap-1 text-muted-foreground hover:text-foreground"
+                      className={cn(
+                        "h-8 text-xs font-medium rounded-xl gap-1 text-muted-foreground hover:text-foreground",
+                        !canAssignTag && "opacity-60 cursor-not-allowed"
+                      )}
+                      disabled={!canAssignTag}
+                      title={canAssignTag ? "Vincular Membros" : "Sem permissão para vincular membros"}
                     >
                       <Users className="h-3.5 w-3.5" />
                       <span>Membros ({assignedCount})</span>
@@ -879,17 +989,19 @@ export function CeoGerenciarTagsPage() {
                   </div>
 
                   <div className="flex items-center gap-0.5">
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => handleOpenEditModal(tag)}
-                      className="h-8 w-8 rounded-lg text-muted-foreground hover:text-foreground"
-                      title="Editar Tag"
-                    >
-                      <Edit2 className="h-3.5 w-3.5" />
-                    </Button>
-                    {!tag.is_system && (
+                    {canEditTag && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => handleOpenEditModal(tag)}
+                        className="h-8 w-8 rounded-lg text-muted-foreground hover:text-foreground"
+                        title="Editar Tag"
+                      >
+                        <Edit2 className="h-3.5 w-3.5" />
+                      </Button>
+                    )}
+                    {!tag.is_system && canDeleteTag && (
                       <Button
                         type="button"
                         variant="ghost"
@@ -1065,7 +1177,7 @@ export function CeoGerenciarTagsPage() {
               type="button"
               size="sm"
               onClick={handleSaveTagForm}
-              disabled={saveTagMutation.isPending}
+              disabled={saveTagMutation.isPending || (editingTag ? !canEditTag : !canCreateTag)}
               className="text-xs rounded-xl font-bold bg-primary text-primary-foreground hover:bg-primary/90"
             >
               {saveTagMutation.isPending ? "Salvando..." : editingTag ? "Salvar Alterações" : "Criar Tag"}
@@ -1224,7 +1336,7 @@ export function CeoGerenciarTagsPage() {
                 type="button"
                 size="sm"
                 onClick={handleSaveMemberAssignments}
-                disabled={setTagMembersMutation.isPending}
+                disabled={setTagMembersMutation.isPending || !canAssignTag}
                 className="text-xs rounded-xl font-bold bg-primary text-primary-foreground hover:bg-primary/90"
               >
                 {setTagMembersMutation.isPending ? "Salvando..." : "Salvar Vínculos"}
@@ -1317,6 +1429,12 @@ export function CeoGerenciarTagsPage() {
           <div className="flex-1 overflow-y-auto p-4 sm:p-5">
             {permSubTab === "permissions" && (
               <div className="space-y-6">
+                {!canManagePerms && (
+                  <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center gap-2 text-amber-300 font-medium text-xs">
+                    <ShieldAlert className="h-4 w-4 shrink-0 text-amber-400" />
+                    <span>Modo Somente Leitura: Você possui permissão para visualizar as permissões da tag, mas não para alterá-las.</span>
+                  </div>
+                )}
                 {/* BARRA DE PRESETS E BUSCA */}
                 <div className="flex flex-col lg:flex-row items-center justify-between gap-3 p-3 rounded-2xl bg-secondary/20 border border-border/60">
                   <div className="relative w-full lg:w-72">
@@ -1334,6 +1452,7 @@ export function CeoGerenciarTagsPage() {
                       type="button"
                       variant="outline"
                       size="sm"
+                      disabled={!canManagePerms}
                       className="h-7 text-xs px-2.5 font-bold border-primary/30 text-primary hover:bg-primary/10 rounded-xl"
                       onClick={setAllPermissions}
                     >
@@ -1343,6 +1462,7 @@ export function CeoGerenciarTagsPage() {
                       type="button"
                       variant="outline"
                       size="sm"
+                      disabled={!canManagePerms}
                       className="h-7 text-xs px-2.5 font-medium border-border/60 hover:bg-secondary rounded-xl gap-1"
                       onClick={setOperationalPermissions}
                     >
@@ -1353,6 +1473,7 @@ export function CeoGerenciarTagsPage() {
                       type="button"
                       variant="outline"
                       size="sm"
+                      disabled={!canManagePerms}
                       className="h-7 text-xs px-2.5 font-medium border-border/60 hover:bg-secondary rounded-xl gap-1"
                       onClick={setWarehousePermissions}
                     >
@@ -1363,6 +1484,7 @@ export function CeoGerenciarTagsPage() {
                       type="button"
                       variant="outline"
                       size="sm"
+                      disabled={!canManagePerms}
                       className="h-7 text-xs px-2.5 font-medium border-border/60 hover:bg-secondary rounded-xl"
                       onClick={setReadOnlyPermissions}
                     >
@@ -1372,6 +1494,7 @@ export function CeoGerenciarTagsPage() {
                       type="button"
                       variant="ghost"
                       size="sm"
+                      disabled={!canManagePerms}
                       className="h-7 text-xs px-2.5 text-rose-400 hover:bg-rose-500/10 rounded-xl"
                       onClick={clearAllPermissions}
                     >
@@ -1475,6 +1598,7 @@ export function CeoGerenciarTagsPage() {
                                           type="button"
                                           variant="ghost"
                                           size="sm"
+                                          disabled={!canManagePerms}
                                           onClick={() => handleToggleCardPerms(pageCard)}
                                           className={cn(
                                             "h-7 text-[10px] font-bold px-2 rounded-lg border transition-all shrink-0 cursor-pointer",
@@ -1508,7 +1632,8 @@ export function CeoGerenciarTagsPage() {
                                               "p-2.5 rounded-xl border transition-all duration-150 flex items-start gap-3 cursor-pointer select-none outline-none focus-visible:ring-2 focus-visible:ring-primary/50 hover:scale-[1.005] active:scale-[0.99]",
                                               isChecked
                                                 ? "border-primary/50 bg-primary/10 shadow-sm shadow-primary/15 text-foreground"
-                                                : "border-border/50 bg-background/40 hover:bg-secondary/30 hover:border-primary/30 text-muted-foreground"
+                                                : "border-border/50 bg-background/40 hover:bg-secondary/30 hover:border-primary/30 text-muted-foreground",
+                                              !canManagePerms && "pointer-events-none opacity-60"
                                             )}
                                           >
                                             <Checkbox
@@ -1555,8 +1680,15 @@ export function CeoGerenciarTagsPage() {
             {/* ABA DE REGRAS OPERACIONAIS & LIMITAÇÕES (TOTALMENTE EXPANDIDA) */}
             {permSubTab === "rules" && (
               <div className="space-y-6 max-w-4xl py-2 text-xs">
-                {/* SEÇÃO 1: BLOQUEIOS & RESTRIÇÕES */}
-                <div className="space-y-3">
+                {!canManageRules && (
+                  <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center gap-2 text-amber-300 font-medium text-xs">
+                    <ShieldAlert className="h-4 w-4 shrink-0 text-amber-400" />
+                    <span>Modo Somente Leitura: Você possui permissão para visualizar as regras da tag, mas não para alterá-las.</span>
+                  </div>
+                )}
+                <div className={cn("space-y-6", !canManageRules && "opacity-75 pointer-events-none")}>
+                  {/* SEÇÃO 1: BLOQUEIOS & RESTRIÇÕES */}
+                  <div className="space-y-3">
                   <div className="flex items-center gap-2 pb-1.5 border-b border-border/50">
                     <ShieldAlert className="h-4 w-4 text-rose-400" />
                     <h3 className="text-xs uppercase tracking-wider font-bold text-rose-400">
@@ -2149,6 +2281,7 @@ export function CeoGerenciarTagsPage() {
                       />
                     </div>
                   </div>
+                </div>
                 </div>
               </div>
             )}

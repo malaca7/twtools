@@ -30,6 +30,8 @@ import { usePanelTheme } from "@/lib/panelTheme";
 import { useAuth } from "@/hooks/useAuth";
 import { useMembers } from "@/hooks/useData";
 import { useMenuConfig } from "@/hooks/useMenuConfig";
+import { useCeoMenuConfig } from "@/hooks/useCeoMenuConfig";
+import { useDevMenuConfig } from "@/hooks/useDevMenuConfig";
 import { DeveloperGuard } from "@/dev/guards/DeveloperGuard";
 import {
   getDevPermissions,
@@ -67,11 +69,20 @@ function DevPermissoesContent() {
   const { user, profile, level, isDevUser } = useAuth();
   const { devStyle, ceoStyle, DevIcon, CeoIcon } = usePanelTheme();
   const { config: menuConfig } = useMenuConfig();
+  const { config: ceoMenuConfig } = useCeoMenuConfig();
+  const { config: devMenuConfig } = useDevMenuConfig();
   const { data: members = [], isLoading: loadingMembers } = useMembers();
   const queryClient = useQueryClient();
 
   // Aba ativa: Tag Dev vs Tag CEO
   const [activeTab, setActiveTab] = useState<"dev" | "ceo">("dev");
+
+  // Filtros de busca de módulos e categorias de permissão
+  const [devPermSearch, setDevPermSearch] = useState("");
+  const [devCategoryFilter, setDevCategoryFilter] = useState("all");
+
+  const [ceoPermSearch, setCeoPermSearch] = useState("");
+  const [ceoCategoryFilter, setCeoCategoryFilter] = useState("all");
 
   // Refs para evitar recarregamento repetido e piscadas da tela
   const devInitialLoadedRef = useRef(false);
@@ -167,70 +178,162 @@ function DevPermissoesContent() {
     };
   }, [user?.id, level]);
 
-  // Agrupa os cards de páginas dinamicamente seguindo a ordem do menu
-  const getGroupedPageCards = useCallback((tab: "dev" | "ceo") => {
-    const validConfigItems = menuConfig?.items?.filter((c) => Boolean(c && (c.id || c.url))) || [];
-    const configMap = new Map(validConfigItems.map((c) => [c.id || c.url, c]));
+  // Agrupa os cards de páginas dinamicamente sincronizado com todos os painéis (DEV, CEO e Membro)
+  const getGroupedPageCards = useCallback(
+    (tab: "dev" | "ceo") => {
+      // 1. Mapeamento de itens dos 3 painéis
+      const memberItems = menuConfig?.items?.filter((c) => Boolean(c && (c.id || c.url))) || [];
+      const memberConfigMap = new Map(memberItems.flatMap((c) => [[c.id, c], [c.url, c]]));
 
-    const rawCategories = menuConfig?.categories?.length
-      ? menuConfig.categories
-      : ["Operação", "Produções", "Gestão", "Administração"];
-    const baseCategories = rawCategories.includes("Produções")
-      ? rawCategories
-      : [rawCategories[0] || "Operação", "Produções", ...rawCategories.slice(1)];
+      const ceoItems = ceoMenuConfig?.items?.filter((c) => Boolean(c && (c.id || c.url))) || [];
+      const ceoConfigMap = new Map(
+        ceoItems.flatMap((c) => [
+          [c.id, c],
+          [c.url, c],
+          ...(c.id === "ceo-dashboard" ? [["ceo", c], ["/ceo", c]] : []),
+        ])
+      );
 
-    // Na aba da Tag Dev, colocamos as ferramentas DEV e o Painel CEO no topo absoluto!
-    // Na aba da Tag CEO, colocamos "CEO" no topo e filtramos as ferramentas exclusivas de Dev.
-    const categoryOrder =
-      tab === "ceo"
-        ? ["CEO", ...baseCategories.filter((c) => c !== "CEO" && c !== "DEV" && c !== "Ferramentas Dev")]
-        : ["DEV", "CEO", ...baseCategories.filter((c) => c !== "DEV" && c !== "Ferramentas Dev" && c !== "CEO")];
+      const devItems = devMenuConfig?.items?.filter((c) => Boolean(c && (c.id || c.url))) || [];
+      const devConfigMap = new Map(devItems.flatMap((c) => [[c.id, c], [c.url, c]]));
 
-    const customized = PAGE_CARDS
-      .filter((card) => {
-        if (tab === "ceo" && (card.defaultCat === "DEV" || card.defaultCat === "Ferramentas Dev")) return false;
-        return true;
-      })
-      .map((card) => {
-        const cfg = configMap.get(card.id);
-        let cat = cfg?.category || card.defaultCat;
-        if (cat === "Ferramentas Dev") cat = "DEV";
-        return {
-          ...card,
-          title: cfg?.title || card.title,
-          category: cat,
-          order: typeof cfg?.order === "number" ? cfg.order : card.defaultOrder,
-        };
-      });
+      // 2. Identificação de escopo de cada card
+      const isDevCard = (card: PageCardConfig) =>
+        card.defaultCat === "DEV" ||
+        card.defaultCat === "Ferramentas Dev" ||
+        card.id.startsWith("dev-") ||
+        card.route.startsWith("/dev");
 
-    const groups: { category: string; cards: typeof customized }[] = [];
+      const isCeoCard = (card: PageCardConfig) =>
+        card.defaultCat === "CEO" ||
+        card.id === "ceo" ||
+        card.id.startsWith("ceo-") ||
+        card.route.startsWith("/ceo");
 
-    categoryOrder.forEach((cat) => {
-      const catCards = customized
-        .filter((c) => c.category === cat)
-        .sort((a, b) => a.order - b.order);
-      if (catCards.length > 0) {
-        groups.push({ category: cat, cards: catCards });
-      }
-    });
+      // 3. Categorias configuradas em cada painel
+      const rawDevCats = (devMenuConfig?.categories?.length ? devMenuConfig.categories : ["DEV"]).map((c) =>
+        c === "Ferramentas Dev" ? "DEV" : c
+      );
+      const rawCeoCats = ceoMenuConfig?.categories?.length ? ceoMenuConfig.categories : ["CEO"];
+      const rawMemberCats = menuConfig?.categories?.length
+        ? menuConfig.categories
+        : ["Operação", "Produções", "Gestão", "Administração"];
 
-    const knownCats = new Set(categoryOrder);
-    customized.forEach((card) => {
-      if (!knownCats.has(card.category)) {
-        knownCats.add(card.category);
+      // 4. Ordem e lista unificada de categorias para a aba correspondente
+      const categoryOrder =
+        tab === "ceo"
+          ? Array.from(new Set([...rawCeoCats, ...rawMemberCats]))
+          : Array.from(new Set([...rawDevCats, ...rawCeoCats, ...rawMemberCats]));
+
+      // 5. Customização dos cards com metadados do painel de origem
+      const customized = PAGE_CARDS
+        .filter((card) => {
+          if (tab === "ceo" && isDevCard(card)) return false;
+          return true;
+        })
+        .map((card) => {
+          let cfg: any = null;
+          if (isDevCard(card)) {
+            cfg = devConfigMap.get(card.id) || devConfigMap.get(card.route);
+          } else if (isCeoCard(card)) {
+            cfg = ceoConfigMap.get(card.id) || ceoConfigMap.get(card.route);
+          } else {
+            cfg = memberConfigMap.get(card.id) || memberConfigMap.get(card.route);
+          }
+
+          let cat = cfg?.category || card.defaultCat;
+          if (cat === "Ferramentas Dev") cat = "DEV";
+
+          return {
+            ...card,
+            title: cfg?.title || card.title,
+            category: cat,
+            order: typeof cfg?.order === "number" ? cfg.order : card.defaultOrder,
+          };
+        });
+
+      // 6. Agrupamento dinâmico ordenado
+      const groups: { category: string; cards: typeof customized }[] = [];
+
+      categoryOrder.forEach((cat) => {
         const catCards = customized
-          .filter((c) => c.category === card.category)
+          .filter((c) => c.category === cat)
           .sort((a, b) => a.order - b.order);
         if (catCards.length > 0) {
-          groups.push({ category: card.category, cards: catCards });
+          groups.push({ category: cat, cards: catCards });
         }
-      }
-    });
+      });
 
-    return groups;
-  }, [menuConfig]);
+      // 7. Inclui quaisquer categorias não mapeadas para que nenhum card seja omitido
+      const knownCats = new Set(categoryOrder);
+      customized.forEach((card) => {
+        if (!knownCats.has(card.category)) {
+          knownCats.add(card.category);
+          const catCards = customized
+            .filter((c) => c.category === card.category)
+            .sort((a, b) => a.order - b.order);
+          if (catCards.length > 0) {
+            groups.push({ category: card.category, cards: catCards });
+          }
+        }
+      });
+
+      return groups;
+    },
+    [menuConfig, ceoMenuConfig, devMenuConfig]
+  );
 
   const groupedPageCards = useMemo(() => getGroupedPageCards(activeTab), [getGroupedPageCards, activeTab]);
+
+  const filteredDevGroups = useMemo(() => {
+    return groupedPageCards
+      .filter((g) => devCategoryFilter === "all" || devCategoryFilter === g.category)
+      .map((g) => {
+        if (!devPermSearch.trim()) return g;
+        const q = devPermSearch.toLowerCase();
+        const matchingCards = g.cards.filter((card) => {
+          return (
+            card.title.toLowerCase().includes(q) ||
+            card.route.toLowerCase().includes(q) ||
+            card.description.toLowerCase().includes(q) ||
+            card.permissions.some(
+              (p) =>
+                p.label.toLowerCase().includes(q) ||
+                p.key.toLowerCase().includes(q) ||
+                p.description.toLowerCase().includes(q) ||
+                (p.badge && p.badge.toLowerCase().includes(q))
+            )
+          );
+        });
+        return { ...g, cards: matchingCards };
+      })
+      .filter((g) => g.cards.length > 0);
+  }, [groupedPageCards, devCategoryFilter, devPermSearch]);
+
+  const filteredCeoGroups = useMemo(() => {
+    return groupedPageCards
+      .filter((g) => ceoCategoryFilter === "all" || ceoCategoryFilter === g.category)
+      .map((g) => {
+        if (!ceoPermSearch.trim()) return g;
+        const q = ceoPermSearch.toLowerCase();
+        const matchingCards = g.cards.filter((card) => {
+          return (
+            card.title.toLowerCase().includes(q) ||
+            card.route.toLowerCase().includes(q) ||
+            card.description.toLowerCase().includes(q) ||
+            card.permissions.some(
+              (p) =>
+                p.label.toLowerCase().includes(q) ||
+                p.key.toLowerCase().includes(q) ||
+                p.description.toLowerCase().includes(q) ||
+                (p.badge && p.badge.toLowerCase().includes(q))
+            )
+          );
+        });
+        return { ...g, cards: matchingCards };
+      })
+      .filter((g) => g.cards.length > 0);
+  }, [groupedPageCards, ceoCategoryFilter, ceoPermSearch]);
 
   // Sincronização e autosave da Tag Dev
   const autoSaveDevTagPermissions = useCallback(
@@ -838,6 +941,43 @@ function DevPermissoesContent() {
             </div>
           </Card>
 
+          {/* BARRA DE BUSCA E FILTRO DE CATEGORIAS (DEV) */}
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 p-3 rounded-2xl bg-secondary/20 border border-border/60">
+            <div className="relative w-full sm:w-80">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+              <Input
+                value={devPermSearch}
+                onChange={(e) => setDevPermSearch(e.target.value)}
+                placeholder="Buscar módulo, rota ou permissão na Tag Dev..."
+                className="pl-8 h-8 text-xs rounded-xl bg-background/60"
+              />
+            </div>
+
+            <div className="flex flex-wrap items-center gap-1.5 w-full sm:w-auto justify-end">
+              <Button
+                type="button"
+                variant={devCategoryFilter === "all" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setDevCategoryFilter("all")}
+                className="h-7 text-xs rounded-xl"
+              >
+                Todas as Categorias
+              </Button>
+              {groupedPageCards.map((g) => (
+                <Button
+                  key={`dev-cat-${g.category}`}
+                  type="button"
+                  variant={devCategoryFilter === g.category ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setDevCategoryFilter(g.category)}
+                  className="h-7 text-xs rounded-xl"
+                >
+                  {g.category} ({g.cards.length})
+                </Button>
+              ))}
+            </div>
+          </div>
+
           {/* Módulos de Permissões Tag Dev */}
           {loadingDev ? (
             <div className="flex items-center justify-center p-12 text-center">
@@ -846,9 +986,13 @@ function DevPermissoesContent() {
                 <p className="text-xs text-muted-foreground font-medium">Carregando permissões da Tag Dev...</p>
               </div>
             </div>
+          ) : filteredDevGroups.length === 0 ? (
+            <div className="p-8 text-center border border-dashed rounded-2xl border-border/60 text-muted-foreground text-xs">
+              Nenhum módulo ou permissão encontrado para a busca "{devPermSearch}".
+            </div>
           ) : (
             <div className="space-y-8">
-              {groupedPageCards.map(({ category, cards }) => (
+              {filteredDevGroups.map(({ category, cards }) => (
                 <div key={category} className="space-y-4">
                   <div className="flex items-center gap-2 border-b border-border/40 pb-2">
                     <span className="text-xs font-black uppercase tracking-wider text-rose-400/90">
@@ -890,12 +1034,35 @@ function DevPermissoesContent() {
                                 </div>
                               </div>
 
-                              <Badge
-                                variant={isAllActive ? "default" : activeInCard > 0 ? "outline" : "secondary"}
-                                className="text-[10px] font-mono shrink-0"
-                              >
-                                {activeInCard}/{cardPermKeys.length}
-                              </Badge>
+                              <div className="flex items-center gap-1.5 shrink-0">
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => {
+                                    const allIn = cardPermKeys.every((k) => activeDevPermissions.includes(k));
+                                    const next = allIn
+                                      ? activeDevPermissions.filter((k) => !cardPermKeys.includes(k))
+                                      : [...activeDevPermissions, ...cardPermKeys.filter((k) => !activeDevPermissions.includes(k))];
+                                    setActiveDevPermissions(next);
+                                    void autoSaveDevTagPermissions(next);
+                                  }}
+                                  className={cn(
+                                    "h-6 text-[10px] font-bold px-2 rounded-lg border transition-all cursor-pointer",
+                                    isAllActive
+                                      ? "border-rose-500/30 text-rose-400 hover:bg-rose-500/10"
+                                      : "border-border/60 text-muted-foreground hover:text-foreground"
+                                  )}
+                                >
+                                  {isAllActive ? "Desmarcar Módulo" : "Marcar Módulo"}
+                                </Button>
+                                <Badge
+                                  variant={isAllActive ? "default" : activeInCard > 0 ? "outline" : "secondary"}
+                                  className="text-[10px] font-mono shrink-0"
+                                >
+                                  {activeInCard}/{cardPermKeys.length}
+                                </Badge>
+                              </div>
                             </div>
                           </CardHeader>
 
@@ -1579,6 +1746,43 @@ function DevPermissoesContent() {
             </div>
           </Card>
 
+          {/* BARRA DE BUSCA E FILTRO DE CATEGORIAS (CEO) */}
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 p-3 rounded-2xl bg-secondary/20 border border-border/60">
+            <div className="relative w-full sm:w-80">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+              <Input
+                value={ceoPermSearch}
+                onChange={(e) => setCeoPermSearch(e.target.value)}
+                placeholder="Buscar módulo, rota ou permissão na Tag CEO..."
+                className="pl-8 h-8 text-xs rounded-xl bg-background/60"
+              />
+            </div>
+
+            <div className="flex flex-wrap items-center gap-1.5 w-full sm:w-auto justify-end">
+              <Button
+                type="button"
+                variant={ceoCategoryFilter === "all" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setCeoCategoryFilter("all")}
+                className="h-7 text-xs rounded-xl"
+              >
+                Todas as Categorias
+              </Button>
+              {groupedPageCards.map((g) => (
+                <Button
+                  key={`ceo-cat-${g.category}`}
+                  type="button"
+                  variant={ceoCategoryFilter === g.category ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setCeoCategoryFilter(g.category)}
+                  className="h-7 text-xs rounded-xl"
+                >
+                  {g.category} ({g.cards.length})
+                </Button>
+              ))}
+            </div>
+          </div>
+
           {/* MÓDULOS DE PERMISSÕES DA TAG CEO */}
           {loadingCeo ? (
             <div className="flex items-center justify-center p-12 text-center">
@@ -1587,9 +1791,13 @@ function DevPermissoesContent() {
                 <p className="text-xs text-muted-foreground font-medium">Carregando permissões da Tag CEO...</p>
               </div>
             </div>
+          ) : filteredCeoGroups.length === 0 ? (
+            <div className="p-8 text-center border border-dashed rounded-2xl border-border/60 text-muted-foreground text-xs">
+              Nenhum módulo ou permissão encontrado para a busca "{ceoPermSearch}".
+            </div>
           ) : (
             <div className="space-y-8">
-              {groupedPageCards.map(({ category, cards }) => (
+              {filteredCeoGroups.map(({ category, cards }) => (
                 <div key={category} className="space-y-4">
                   <div className="flex items-center gap-2 border-b border-border/40 pb-2">
                     <span className="text-xs font-black uppercase tracking-wider text-amber-400/90 flex items-center gap-1.5">
@@ -1632,19 +1840,42 @@ function DevPermissoesContent() {
                                 </div>
                               </div>
 
-                              <Badge
-                                variant={isAllActive ? "default" : activeInCard > 0 ? "outline" : "secondary"}
-                                className={cn(
-                                  "text-[10px] font-mono shrink-0",
-                                  isAllActive
-                                    ? "bg-amber-500 text-black font-bold"
-                                    : activeInCard > 0
-                                    ? "border-amber-500/40 text-amber-300"
-                                    : ""
-                                )}
-                              >
-                                {activeInCard}/{cardPermKeys.length}
-                              </Badge>
+                              <div className="flex items-center gap-1.5 shrink-0">
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => {
+                                    const allIn = cardPermKeys.every((k) => activeCeoPermissions.includes(k));
+                                    const next = allIn
+                                      ? activeCeoPermissions.filter((k) => !cardPermKeys.includes(k))
+                                      : [...activeCeoPermissions, ...cardPermKeys.filter((k) => !activeCeoPermissions.includes(k))];
+                                    setActiveCeoPermissions(next);
+                                    void autoSaveCeoTagPermissions(next);
+                                  }}
+                                  className={cn(
+                                    "h-6 text-[10px] font-bold px-2 rounded-lg border transition-all cursor-pointer",
+                                    isAllActive
+                                      ? "border-amber-500/30 text-amber-300 hover:bg-amber-500/10"
+                                      : "border-border/60 text-muted-foreground hover:text-foreground"
+                                  )}
+                                >
+                                  {isAllActive ? "Desmarcar Módulo" : "Marcar Módulo"}
+                                </Button>
+                                <Badge
+                                  variant={isAllActive ? "default" : activeInCard > 0 ? "outline" : "secondary"}
+                                  className={cn(
+                                    "text-[10px] font-mono shrink-0",
+                                    isAllActive
+                                      ? "bg-amber-500 text-black font-bold"
+                                      : activeInCard > 0
+                                      ? "border-amber-500/40 text-amber-300"
+                                      : ""
+                                  )}
+                                >
+                                  {activeInCard}/{cardPermKeys.length}
+                                </Badge>
+                              </div>
                             </div>
                           </CardHeader>
 

@@ -164,6 +164,12 @@ export type Permission =
   // Permissões do Sistema de Tags de Membros (CEO & DEV)
   | "view_ceo_tag_permissions"
   | "manage_ceo_tag_permissions"
+  | "create_ceo_tag"
+  | "edit_ceo_tag"
+  | "delete_ceo_tag"
+  | "manage_ceo_tag_permissions_detail"
+  | "manage_ceo_tag_rules"
+  | "assign_ceo_tag"
   | "view_dev_tags"
   | "manage_dev_tags"
   // Permissões da Central de Notificações Dev
@@ -429,6 +435,12 @@ export const ALL_PERMISSIONS: Permission[] = [
   // Permissões de Tags de Membros
   "view_ceo_tag_permissions",
   "manage_ceo_tag_permissions",
+  "create_ceo_tag",
+  "edit_ceo_tag",
+  "delete_ceo_tag",
+  "manage_ceo_tag_permissions_detail",
+  "manage_ceo_tag_rules",
+  "assign_ceo_tag",
   "view_dev_tags",
   "manage_dev_tags",
   // Permissões da Central de Notificações Dev
@@ -549,6 +561,12 @@ export const DEV_PANEL_PERMISSIONS: Permission[] = [
   "manage_dev_tags",
   "view_ceo_tag_permissions",
   "manage_ceo_tag_permissions",
+  "create_ceo_tag",
+  "edit_ceo_tag",
+  "delete_ceo_tag",
+  "manage_ceo_tag_permissions_detail",
+  "manage_ceo_tag_rules",
+  "assign_ceo_tag",
   "estoque.configurar",
   "estoque.auditoria",
   "estoque.ajustar",
@@ -598,6 +616,12 @@ export const CEO_PERMISSIONS: Permission[] = [
   "ceo_stock_remove",
   "view_ceo_tag_permissions",
   "manage_ceo_tag_permissions",
+  "create_ceo_tag",
+  "edit_ceo_tag",
+  "delete_ceo_tag",
+  "manage_ceo_tag_permissions_detail",
+  "manage_ceo_tag_rules",
+  "assign_ceo_tag",
   "view_life",
   "life_view_following",
   "life_view_bookmarks",
@@ -1309,7 +1333,29 @@ export function satisfiesPermission(
   if (list.includes("manage_ceo_stock_adjustments") && (permission === "ceo_adjust_stock_balance" || permission === "ceo_stock_add" || permission === "ceo_stock_remove" || permission === "view_ceo_stock_adjustments")) return true;
 
   // 15. Permissões de Tags (CEO e DEV)
-  if (permission === "view_ceo_tag_permissions" && list.includes("manage_ceo_tag_permissions")) return true;
+  if (
+    list.includes("manage_ceo_tag_permissions") &&
+    (permission === "view_ceo_tag_permissions" ||
+      permission === "create_ceo_tag" ||
+      permission === "edit_ceo_tag" ||
+      permission === "delete_ceo_tag" ||
+      permission === "manage_ceo_tag_permissions_detail" ||
+      permission === "manage_ceo_tag_rules" ||
+      permission === "assign_ceo_tag")
+  ) {
+    return true;
+  }
+  if (
+    permission === "view_ceo_tag_permissions" &&
+    (list.includes("create_ceo_tag") ||
+      list.includes("edit_ceo_tag") ||
+      list.includes("delete_ceo_tag") ||
+      list.includes("manage_ceo_tag_permissions_detail") ||
+      list.includes("manage_ceo_tag_rules") ||
+      list.includes("assign_ceo_tag"))
+  ) {
+    return true;
+  }
   if (permission === "view_dev_tags" && list.includes("manage_dev_tags")) return true;
 
   // 16. Hub Dev e Hub CEO
@@ -1337,6 +1383,13 @@ export function satisfiesPermission(
       list.includes("view_ceo_stock_adjustments") ||
       list.includes("view_ceo_financials") ||
       list.includes("view_ceo_tag_permissions") ||
+      list.includes("manage_ceo_tag_permissions") ||
+      list.includes("create_ceo_tag") ||
+      list.includes("edit_ceo_tag") ||
+      list.includes("delete_ceo_tag") ||
+      list.includes("manage_ceo_tag_permissions_detail") ||
+      list.includes("manage_ceo_tag_rules") ||
+      list.includes("assign_ceo_tag") ||
       list.includes("manage_ceo_webhooks"))
   ) {
     return true;
@@ -1931,6 +1984,32 @@ export function can(
   ) {
     return true;
   }
+
+  // Tags de Membros (CEO & DEV)
+  if (
+    rolePerms.includes("manage_ceo_tag_permissions") &&
+    (permission === "view_ceo_tag_permissions" ||
+      permission === "create_ceo_tag" ||
+      permission === "edit_ceo_tag" ||
+      permission === "delete_ceo_tag" ||
+      permission === "manage_ceo_tag_permissions_detail" ||
+      permission === "manage_ceo_tag_rules" ||
+      permission === "assign_ceo_tag")
+  ) {
+    return true;
+  }
+  if (
+    permission === "view_ceo_tag_permissions" &&
+    (rolePerms.includes("create_ceo_tag") ||
+      rolePerms.includes("edit_ceo_tag") ||
+      rolePerms.includes("delete_ceo_tag") ||
+      rolePerms.includes("manage_ceo_tag_permissions_detail") ||
+      rolePerms.includes("manage_ceo_tag_rules") ||
+      rolePerms.includes("assign_ceo_tag"))
+  ) {
+    return true;
+  }
+  if (permission === "view_dev_tags" && rolePerms.includes("manage_dev_tags")) return true;
 
   return false;
 }

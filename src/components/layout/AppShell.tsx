@@ -318,14 +318,14 @@ function DynamicSidebarNavigation() {
     if (pathname.startsWith("/dev")) {
       if (isDevUser && !isDevMode) setPanelMode("dev");
     } else if (pathname.startsWith("/ceo")) {
-      if ((isCeoUser || isDevUser) && !isCeoMode) setPanelMode("ceo");
+      if ((isCeoUser || isDevUser || hasPermission("view_ceo")) && !isCeoMode) setPanelMode("ceo");
     } else {
       // Qualquer rota regular de membro (/dashboard, /estoque, /membros, etc.)
       if (isDevMode || isCeoMode) {
         setPanelMode("member");
       }
     }
-  }, [pathname, isDevUser, isCeoUser, isDevMode, isCeoMode, setPanelMode]);
+  }, [pathname, isDevUser, isCeoUser, isDevMode, isCeoMode, setPanelMode, hasPermission]);
 
   const grouped = useMemo(() => {
     // 1. Configuração do menu da plataforma (Membros / Geral)
@@ -472,13 +472,21 @@ function DynamicSidebarNavigation() {
 
     const allCeoItems = [...customizedCeo, ...customCeoItems];
 
-    const visibleCeo = (isCeoUser || isDevUser)
+    const canSeeCeo = Boolean(isCeoUser || isDevUser || hasPermission("view_ceo"));
+
+    const visibleCeo = canSeeCeo
       ? allCeoItems.filter((item) => {
           if (!item.visible) return false;
-          if (item.id === "ceo-dashboard" && !hasPermission("view_ceo")) return false;
-          if (item.id === "ceo-bot" && (!hasPermission("manage_ceo_bot") || ceoConfig.allowManageBot === false)) return false;
-          if (item.id === "ceo-webhooks" && (!hasPermission("manage_ceo_webhooks") || ceoConfig.allowWebhooks === false)) return false;
-          if (item.id === "ceo-financas" && (!hasPermission("view_ceo_financials") || ceoConfig.allowFinancials === false)) return false;
+          if ((item.id === "ceo-dashboard" || item.id === "ceo-executivo") && !hasPermission("view_ceo")) return false;
+          if (item.id === "ceo-bot" && (!hasPermission("manage_ceo_bot") || (ceoConfig.allowManageBot === false && !isDevUser))) return false;
+          if (item.id === "ceo-webhooks" && (!hasPermission("manage_ceo_webhooks") || (ceoConfig.allowWebhooks === false && !isDevUser))) return false;
+          if (item.id === "ceo-financas" && (!hasPermission("view_ceo_financials") || (ceoConfig.allowFinancials === false && !isDevUser))) return false;
+          if (item.id === "ceo-ajustes-estoque" && !hasPermission("view_ceo_stock_adjustments")) return false;
+          if (item.id === "ceo-notificacoes" && !hasPermission("view_ceo_notifications")) return false;
+          if (item.id === "ceo-tags" && !hasPermission("view_ceo_tag_permissions")) return false;
+          const cleanUrl = (item.url || "").split("?")[0].toLowerCase();
+          const reqPerm = URL_TO_PERMISSION_MAP[cleanUrl];
+          if (reqPerm && !hasPermission(reqPerm)) return false;
           return true;
         })
       : [];
@@ -640,7 +648,7 @@ function DynamicSidebarNavigation() {
     // =========================================================================
     // MODO 2: CEO (Apenas membros com tag CEO em modo CEO)
     // =========================================================================
-    if ((isCeoUser || isDevUser) && isCeoMode) {
+    if ((isCeoUser || isDevUser || hasPermission("view_ceo")) && isCeoMode) {
       // A) Ferramentas CEO (ceoGroups)
       // B) Agrupa menus da plataforma com URLs prefixadas como /ceo/* (apenas o que o CEO tem permissão)
       const visibleCeoMaster = allPlatformItems
@@ -910,12 +918,12 @@ function DynamicSidebarNavigation() {
 }
 
 export function AppShell({ children }: { children: ReactNode }) {
-  const { profile, level, signOut, user, isCeoUser, isDevUser, setPanelMode } = useAuth();
+  const { profile, level, signOut, user, isCeoUser, isDevUser, setPanelMode, hasPermission } = useAuth();
   const navigate = useNavigate();
   const pathname = useRouterState({ select: (r) => r.location.pathname });
 
   // Permissões e cálculo de acesso a múltiplos painéis
-  const canAccessCeo = isCeoUser || isDevUser;
+  const canAccessCeo = isCeoUser || isDevUser || hasPermission("view_ceo");
   const canAccessDev = isDevUser;
   const hasMultiplePanels = canAccessCeo || canAccessDev;
 

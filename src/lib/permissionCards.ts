@@ -39,6 +39,7 @@ import {
   Warehouse,
   Hammer,
   Layers,
+  Tags,
 } from "lucide-react";
 import type { Permission } from "@/lib/permissions";
 
@@ -102,6 +103,7 @@ export const READ_ONLY_PERMISSIONS: Permission[] = [
   "view_ceo_notifications",
   "view_dev_notifications",
   "view_ceo_stock_adjustments",
+  "view_ceo_tag_permissions",
   "view_lives",
   "view_stream_logs",
   "view_life",
@@ -1762,6 +1764,67 @@ export const PAGE_CARDS: PageCardConfig[] = [
         label: "Remover Quantidade (-) do Baú",
         description: "Permite dar baixa manual em quantidades de itens nos depósitos.",
         badge: "Saída (-)",
+      },
+    ],
+  },
+  {
+    id: "ceo-tags",
+    title: "Gerenciar Tags (CEO)",
+    route: "/ceo/tags",
+    icon: Tags,
+    description: "Criação, edição e exclusão de tags de membros, concessão de permissões operacionais aditivas, regras de bloqueio e vinculação direta aos integrantes.",
+    color: "border-amber-500/40 bg-amber-500/5 text-amber-400",
+    defaultCat: "CEO",
+    defaultOrder: 6,
+    permissions: [
+      {
+        key: "view_ceo_tag_permissions",
+        label: "Acesso à Página Gerenciar Tags (/ceo/tags)",
+        description: "Permite acessar a rota /ceo/tags e visualizar a listagem de tags cadastradas, membros vinculados e estatísticas.",
+        badge: "Acesso Base",
+      },
+      {
+        key: "manage_ceo_tag_permissions",
+        label: "Gestão Completa de Tags de Membros",
+        description: "Controle executivo irrestrito sobre tags: criar, editar metadados, configurar permissões herdadas, definir regras e vincular integrantes.",
+        badge: "Super Acesso",
+        importantNote: "Concede automaticamente todas as permissões detalhadas da página.",
+      },
+      {
+        key: "create_ceo_tag",
+        label: "Criar Novas Tags de Membros",
+        description: "Permite criar novas tags no catálogo da organização, definindo nome, cor, ícone e prioridade visual.",
+        badge: "Criação",
+      },
+      {
+        key: "edit_ceo_tag",
+        label: "Editar Metadados & Visual das Tags",
+        description: "Permite alterar nome, cores temáticas, ícones e ordem de precedência de tags já existentes.",
+        badge: "Edição",
+      },
+      {
+        key: "delete_ceo_tag",
+        label: "Excluir Tags do Catálogo",
+        description: "Permite remover permanentemente tags do sistema, desvinculando-as de todos os integrantes de forma auditada.",
+        badge: "Exclusão",
+      },
+      {
+        key: "manage_ceo_tag_permissions_detail",
+        label: "Configurar Permissões Aditivas da Tag",
+        description: "Permite marcar ou desmarcar a matriz de privilégios de acesso que os membros portadores da tag herdam automaticamente.",
+        badge: "Permissões da Tag",
+      },
+      {
+        key: "manage_ceo_tag_rules",
+        label: "Configurar Regras & Bloqueios da Tag",
+        description: "Permite ativar restrições operacionais (bloquear vendas, caixa, baús, movimentações, produções), descontos na loja e bônus de rendimento.",
+        badge: "Regras da Tag",
+      },
+      {
+        key: "assign_ceo_tag",
+        label: "Atribuir & Desatribuir Tags aos Membros",
+        description: "Permite vincular integrantes às tags disponíveis e remover tags atribuídas com 1 clique.",
+        badge: "Atribuição",
       },
     ],
   },

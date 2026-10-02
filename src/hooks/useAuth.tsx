@@ -761,8 +761,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       // 3. Quando estiver operando no PAINEL CEO (ou rota /ceo):
-      // A soma é: permissões CEO + permissões do cargo (level) + todas as tags!
+      // A soma é: Bypass Dev (se ativo) OU permissões Dev (se dev) + permissões CEO + permissões do cargo (level) + todas as tags!
       if (inCeoPanel) {
+        if (isDevUser && bypassActive) {
+          return true;
+        }
+        if (isDevUser) {
+          const devPerms = customRolePermissions?.["desenvolvedor"] ?? getDevTagPermissionsSync();
+          if (satisfiesPermission(devPerms, permission)) {
+            return true;
+          }
+          if (can("desenvolvedor", permission, customRolePermissions)) return true;
+        }
         const ceoPerms = customRolePermissions?.["ceo"] ?? getCeoTagPermissionsSync();
         if (satisfiesPermission(ceoPerms, permission)) {
           return true;
