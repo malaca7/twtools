@@ -140,6 +140,39 @@ function InnerPageResolver({ page, tab, mode }: { page: string; tab?: string; mo
 
   const normalizedPage = effectivePage;
 
+  // Módulos CEO acessados diretamente ou via rota Dev (/dev/ceo, /dev/ceo/dashboard, /dev/ceo/tags, etc.)
+  if (normalizedPage === "ceo") {
+    const sub = effectiveTab || "dashboard";
+    if (sub === "dashboard" || sub === "executivo") {
+      return <CeoPageContent initialTab="dashboard" />;
+    }
+    if (sub === "bot") {
+      return <CeoPageContent initialTab="bot" />;
+    }
+    if (sub === "webhooks") {
+      return <CeoPageContent initialTab="webhooks" />;
+    }
+    if (sub === "financas") {
+      return <CeoPageContent initialTab="financas" />;
+    }
+    if (sub === "ajustes-estoque" || sub === "ceo-ajustes-estoque" || sub === "estoque-ajustes") {
+      return <CeoAjustesEstoqueContent />;
+    }
+    if (sub === "notificacoes" || sub === "ceo-notificacoes") {
+      return <CeoNotificationsPage />;
+    }
+    if (
+      sub === "tags" ||
+      sub === "gerenciar-tags" ||
+      sub === "ceo-tags" ||
+      sub === "permissoes-tags" ||
+      sub === "ceo-permissoes-tags"
+    ) {
+      return <CeoGerenciarTagsPage />;
+    }
+    return <CeoPageContent initialTab={sub} />;
+  }
+
   // CEO Specific modules
   if (mode === "ceo") {
     if (normalizedPage === "executivo" || normalizedPage === "dashboard") {
@@ -198,7 +231,16 @@ function InnerPageResolver({ page, tab, mode }: { page: string; tab?: string; mo
       return <DevCoinsPage />;
     }
     if (normalizedPage === "tags" || normalizedPage === "dev-tags" || normalizedPage === "gerenciar-tags") {
-      return <Navigate to="/ceo/tags" replace />;
+      return <CeoGerenciarTagsPage />;
+    }
+    if (normalizedPage === "ajustes-estoque" || normalizedPage === "ceo-ajustes-estoque" || normalizedPage === "estoque-ajustes") {
+      return <CeoAjustesEstoqueContent />;
+    }
+    if (normalizedPage === "webhooks" || normalizedPage === "ceo-webhooks") {
+      return <CeoPageContent initialTab="webhooks" />;
+    }
+    if (normalizedPage === "financas" || normalizedPage === "ceo-financas") {
+      return <CeoPageContent initialTab="financas" />;
     }
   }
 

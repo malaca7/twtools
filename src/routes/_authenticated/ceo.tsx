@@ -28,7 +28,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { PageHeader, CeoBadge } from "@/components/ui-kit";
+import { PageHeader, CeoBadge, DevBadge } from "@/components/ui-kit";
 import { usePanelTheme } from "@/lib/panelTheme";
 import { useAuth } from "@/hooks/useAuth";
 import { useMembers, useSales, useCashMovements } from "@/hooks/useData";
@@ -161,9 +161,9 @@ export function CeoPageContent({ initialTab }: { initialTab?: string } = {}) {
   }, [members]);
 
   // Permissões granulares de módulos do Painel CEO (integradas com /dev/permissoes)
-  const canManageBot = hasPermission("manage_ceo_bot") && ceoConfig.allowManageBot !== false;
-  const canUseWebhooks = hasPermission("manage_ceo_webhooks") && ceoConfig.allowWebhooks !== false;
-  const canViewFinancials = hasPermission("view_ceo_financials") && ceoConfig.allowFinancials !== false;
+  const canManageBot = isDevUser || (hasPermission("manage_ceo_bot") && ceoConfig.allowManageBot !== false);
+  const canUseWebhooks = isDevUser || (hasPermission("manage_ceo_webhooks") && ceoConfig.allowWebhooks !== false);
+  const canViewFinancials = isDevUser || (hasPermission("view_ceo_financials") && ceoConfig.allowFinancials !== false);
 
   const filteredMovements = useMemo(() => {
     if (financeFilter === "all") return cashMovements;
@@ -178,6 +178,7 @@ export function CeoPageContent({ initialTab }: { initialTab?: string } = {}) {
         description="Centro de comando da diretoria da Twin Wheels. Gerenciamento do bot, webhooks do Discord, fundo de caixa e operações estratégicas."
         actions={
           <div className="flex items-center gap-2">
+            {isDevUser && <DevBadge text="Acesso Dev Master" />}
             <Badge className="bg-amber-500/20 text-amber-300 border-amber-500/40 text-xs py-1.5 px-3 font-black gap-1.5 shadow-sm shadow-amber-500/10">
               <Crown className="h-3.5 w-3.5 text-amber-400" />
               Diretoria Executiva

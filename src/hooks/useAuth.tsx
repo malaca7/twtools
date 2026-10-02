@@ -629,28 +629,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
     if (tagCeo) return true;
 
-    // 3. Concedido se o membro possui Tag Dev e a Tag Dev possui permissão de CEO
+    // 3. Concedido se o membro possui Tag Dev (acesso como dev com todas as permissões dev)
     if (isDevUser) {
-      const devPerms = customRolePermissions?.["desenvolvedor"] ?? getDevTagPermissionsSync();
-      if (satisfiesPermission(devPerms, "view_ceo") || satisfiesPermission(devPerms, "view_ceo_dashboard")) {
-        return true;
-      }
+      return true;
     }
 
     return false;
-  }, [profile, memberTags, isDevUser, customRolePermissions]);
+  }, [profile, memberTags, isDevUser]);
 
   const isDevMode = Boolean(
     isDevUser &&
       (typeof window !== "undefined"
-        ? (window.location.pathname.startsWith("/dev") || window.location.hash.includes("/dev") || (panelMode === "dev" && !window.location.pathname.startsWith("/ceo")))
+        ? (window.location.pathname.startsWith("/dev") || window.location.hash.includes("/dev") || panelMode === "dev")
         : panelMode === "dev")
   );
 
   const isCeoMode = Boolean(
     (isCeoUser || isDevUser) &&
+      !isDevMode &&
       (typeof window !== "undefined"
-        ? (window.location.pathname.startsWith("/ceo") || window.location.hash.includes("/ceo") || (panelMode === "ceo" && !window.location.pathname.startsWith("/dev")))
+        ? (window.location.pathname.startsWith("/ceo") || window.location.hash.includes("/ceo") || panelMode === "ceo")
         : panelMode === "ceo")
   );
 
@@ -741,6 +739,39 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
       }
 
+      // 0. Se for Desenvolvedor (isDevUser):
+      // Quando o membro tiver a Tag Dev:
+      // a) No Painel Dev (inDevPanel) ou com bypass: tem acesso TOTAL a tudo (modo desenvolvedor com todas permissões dev)!
+      // b) No Painel CEO (inCeoPanel) ou em qualquer rota de gestão/CEO: tem acesso irrestrito a todos os recursos do CEO e Dev (view_ceo, manage_ceo_*, bot_*, webhook_*, etc.)
+      if (isDevUser) {
+        if (bypassActive || inDevPanel || inCeoPanel) {
+          return true;
+        }
+        const permStr = String(permission);
+        if (
+          permStr.startsWith("view_ceo") ||
+          permStr.startsWith("manage_ceo") ||
+          permStr.startsWith("create_ceo") ||
+          permStr.startsWith("edit_ceo") ||
+          permStr.startsWith("delete_ceo") ||
+          permStr.startsWith("toggle_ceo") ||
+          permStr.startsWith("ceo_") ||
+          permStr.includes("_ceo_") ||
+          permStr === "view_ceo" ||
+          permStr.startsWith("bot_") ||
+          permStr.startsWith("webhook_") ||
+          permStr.startsWith("view_dev") ||
+          permStr.startsWith("manage_dev") ||
+          permStr.startsWith("create_dev") ||
+          permStr.startsWith("edit_dev") ||
+          permStr.startsWith("delete_dev") ||
+          permStr.includes("_dev_") ||
+          permStr === "view_dev_hub"
+        ) {
+          return true;
+        }
+      }
+
       // 0.1. SOMA UNIVERSAL DAS TAGS:
       // Se qualquer tag ativa do membro possui a permissão (exata ou por herança/equivalência),
       // essa permissão é SOMADA e está plenamente ativa em QUALQUER painel (Membro, CEO ou DEV)!
@@ -751,9 +782,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // 1. Quando estiver operando no PAINEL MEMBRO:
       // A soma é: permissões do cargo (level) + permissões Dev (se dev) + permissões de todas as tags (já avaliadas acima!)
       if (inMemberPanel) {
-        if (isDevUser && bypassActive) {
-          return true;
-        }
         if (isDevUser) {
           const devPerms = customRolePermissions?.["desenvolvedor"] ?? getDevTagPermissionsSync();
           if (satisfiesPermission(devPerms, permission)) {
@@ -765,34 +793,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       // 2. Quando estiver operando no PAINEL DEV (ou rota /dev):
-      // A soma é: Bypass Dev (se ativo) OU permissões Dev + permissões do cargo (level) + todas as tags!
       if (inDevPanel) {
-        if (isDevUser && bypassActive) {
-          return true;
-        }
+        if (isDevUser) return true;
         const devPerms = customRolePermissions?.["desenvolvedor"] ?? getDevTagPermissionsSync();
         if (satisfiesPermission(devPerms, permission)) {
-          return true;
-        }
-        if (isDevUser && can("desenvolvedor", permission, customRolePermissions)) {
           return true;
         }
         return can(level, permission, customRolePermissions);
       }
 
       // 3. Quando estiver operando no PAINEL CEO (ou rota /ceo):
-      // A soma é: Bypass Dev (se ativo) OU permissões Dev (se dev) + permissões CEO + permissões do cargo (level) + todas as tags!
       if (inCeoPanel) {
-        if (isDevUser && bypassActive) {
-          return true;
-        }
-        if (isDevUser) {
-          const devPerms = customRolePermissions?.["desenvolvedor"] ?? getDevTagPermissionsSync();
-          if (satisfiesPermission(devPerms, permission)) {
-            return true;
-          }
-          if (can("desenvolvedor", permission, customRolePermissions)) return true;
-        }
+        if (isDevUser) return true;
         const ceoPerms = customRolePermissions?.["ceo"] ?? getCeoTagPermissionsSync();
         if (satisfiesPermission(ceoPerms, permission)) {
           return true;

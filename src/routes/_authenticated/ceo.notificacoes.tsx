@@ -19,9 +19,9 @@ function CeoNotificationsRoute() {
 }
 
 export function CeoNotificationsPage() {
-  const { hasPermission } = useAuth();
+  const { hasPermission, isDevUser } = useAuth();
 
-  if (!hasPermission("view_ceo_notifications")) {
+  if (!isDevUser && !hasPermission("view_ceo_notifications")) {
     return <NoAccess />;
   }
 

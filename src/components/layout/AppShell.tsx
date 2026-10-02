@@ -223,6 +223,18 @@ const URL_TO_PERMISSION_MAP: Record<string, Permission> = {
   "/ceo/logs": "view_audit",
   "/dev/tags": "view_dev_tags",
   "/dev/gerenciar-tags": "view_dev_tags",
+  "/dev/ceo": "view_ceo",
+  "/dev/ceo/dashboard": "view_ceo",
+  "/dev/ceo/executivo": "view_ceo",
+  "/dev/ceo/bot": "manage_ceo_bot",
+  "/dev/ceo/webhooks": "manage_ceo_webhooks",
+  "/dev/ceo/financas": "view_ceo_financials",
+  "/dev/ceo/ajustes-estoque": "view_ceo_stock_adjustments",
+  "/dev/ceo/notificacoes": "view_ceo_notifications",
+  "/dev/ceo/tags": "view_ceo_tag_permissions",
+  "/dev/ajustes-estoque": "view_ceo_stock_adjustments",
+  "/dev/webhooks": "manage_ceo_webhooks",
+  "/dev/financas": "view_ceo_financials",
 };
 
 const DEV_MODULE_NAV_ITEMS: MasterNavItem[] = [
@@ -294,6 +306,14 @@ function DynamicSidebarNavigation() {
       if (targetUrl === "/ceo" && (pathname === "/ceo" || pathname === "/ceo/")) return true;
       if (pathname === targetUrl) return true;
       if (targetUrl !== "/dev" && targetUrl !== "/ceo" && targetUrl !== "/" && pathname.startsWith(targetUrl + "/")) return true;
+
+      // Equivalência entre rotas /dev/ceo/* e /ceo/* ou /dev/tags e /ceo/tags
+      const cleanPath = pathname.replace(/^\/dev/, "");
+      const cleanTarget = targetUrl.replace(/^\/dev/, "");
+      if (cleanPath && cleanTarget && cleanPath === cleanTarget) return true;
+      if ((cleanPath === "/ceo/tags" || cleanPath === "/tags") && (cleanTarget === "/ceo/tags" || cleanTarget === "/tags")) return true;
+      if ((cleanPath === "/ceo" || cleanPath === "/ceo/dashboard") && (cleanTarget === "/ceo" || cleanTarget === "/ceo/dashboard")) return true;
+
       return false;
     },
     [pathname, routerState.location.search]
@@ -327,13 +347,16 @@ function DynamicSidebarNavigation() {
 
   // Sincroniza o modo de painel com base na rota acessada
   useEffect(() => {
+    const storedPanel = typeof window !== "undefined" ? localStorage.getItem("tw_panel_mode") : null;
     if (pathname.startsWith("/dev")) {
       if (isDevUser && !isDevMode) setPanelMode("dev");
     } else if (pathname.startsWith("/ceo")) {
-      if ((isCeoUser || isDevUser || hasPermission("view_ceo")) && !isCeoMode) setPanelMode("ceo");
+      if ((isCeoUser || isDevUser || hasPermission("view_ceo")) && !isCeoMode && storedPanel !== "dev") {
+        setPanelMode("ceo");
+      }
     } else {
       // Qualquer rota regular de membro (/dashboard, /estoque, /membros, etc.)
-      if (isDevMode || isCeoMode) {
+      if (storedPanel !== "dev" && storedPanel !== "ceo" && (isDevMode || isCeoMode)) {
         setPanelMode("member");
       }
     }
@@ -488,6 +511,10 @@ function DynamicSidebarNavigation() {
 
     const visibleCeo = canSeeCeo
       ? allCeoItems.filter((item) => {
+          if (!item.visible) return false;
+          // Se for Desenvolvedor (isDevUser), tem acesso total a todas as categorias e menus do CEO!
+          if (isDevUser) return true;
+
           if (
             (item.id === "ceo-dashboard" || item.id === "ceo-executivo" || item.url === "/ceo" || item.url === "/ceo/dashboard") &&
             !hasPermission("view_ceo") &&
@@ -495,9 +522,9 @@ function DynamicSidebarNavigation() {
           ) {
             return false;
           }
-          if (item.id === "ceo-bot" && (!hasPermission("manage_ceo_bot") || (ceoConfig.allowManageBot === false && !isDevUser))) return false;
-          if (item.id === "ceo-webhooks" && (!hasPermission("manage_ceo_webhooks") || (ceoConfig.allowWebhooks === false && !isDevUser))) return false;
-          if (item.id === "ceo-financas" && (!hasPermission("view_ceo_financials") || (ceoConfig.allowFinancials === false && !isDevUser))) return false;
+          if (item.id === "ceo-bot" && (!hasPermission("manage_ceo_bot") || ceoConfig.allowManageBot === false)) return false;
+          if (item.id === "ceo-webhooks" && (!hasPermission("manage_ceo_webhooks") || ceoConfig.allowWebhooks === false)) return false;
+          if (item.id === "ceo-financas" && (!hasPermission("view_ceo_financials") || ceoConfig.allowFinancials === false)) return false;
           if (item.id === "ceo-ajustes-estoque" && !hasPermission("view_ceo_stock_adjustments")) return false;
           if (item.id === "ceo-notificacoes" && !hasPermission("view_ceo_notifications")) return false;
           if (item.id === "ceo-tags" && !hasPermission("view_ceo_tag_permissions")) return false;
@@ -658,8 +685,36 @@ function DynamicSidebarNavigation() {
         }
       });
 
-      // Se o membro com Tag Dev tiver permissão nos menus/módulos do CEO, exibe as categorias e menus do Painel CEO também
-      return [...devGroups, ...(ceoGroups.length > 0 ? ceoGroups : []), ...platformGroups];
+      // Se o membro com Tag Dev estiver no painel dev, exibe as categorias e menus do Painel CEO para acessar como dev com todas as permissões dev!
+      const devCeoGroups = ceoGroups.map((group) => ({
+        ...group,
+        items: group.items.map((item) => {
+          let devUrl = item.url;
+          if (item.id === "ceo-tags" || item.id === "tags" || item.url === "/ceo/tags") {
+            devUrl = "/dev/tags";
+          } else if (item.id === "ceo-bot" || item.url === "/ceo/bot") {
+            devUrl = "/dev/bot";
+          } else if (item.id === "ceo-notificacoes" || item.url === "/ceo/notificacoes") {
+            devUrl = "/dev/notificacoes";
+          } else if (item.id === "ceo-ajustes-estoque" || item.url === "/ceo/ajustes-estoque") {
+            devUrl = "/dev/ajustes-estoque";
+          } else if (item.id === "ceo-webhooks" || item.url === "/ceo/webhooks") {
+            devUrl = "/dev/webhooks";
+          } else if (item.id === "ceo-financas" || item.url === "/ceo/financas") {
+            devUrl = "/dev/financas";
+          } else if (item.id === "ceo-dashboard" || item.url === "/ceo" || item.url === "/ceo/dashboard") {
+            devUrl = "/dev/ceo";
+          } else if (devUrl.startsWith("/ceo") && !devUrl.startsWith("/dev")) {
+            devUrl = `/dev${devUrl}`;
+          }
+          return {
+            ...item,
+            url: devUrl,
+          };
+        }),
+      }));
+
+      return [...devGroups, ...(devCeoGroups.length > 0 ? devCeoGroups : []), ...platformGroups];
     }
 
     // =========================================================================
