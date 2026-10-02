@@ -12,6 +12,9 @@ import {
   PackageCheck,
   Plus,
   ArrowUpRight,
+  ArrowDownLeft,
+  PackagePlus,
+  HandMetal,
   TrendingUp,
   History,
   AlertTriangle,
@@ -36,15 +39,19 @@ import {
   useWarehouseMovements,
   useCategories,
   useRawMaterials,
+  useProducts,
 } from "@/hooks/useData";
 import {
   transferWarehouseToStorage,
   transferWarehouseToSale,
   adjustWarehouseStock,
   manageProductionStock,
+  pullRawMaterialFromBau,
+  adjustRawMaterialStock,
   ManageStockAction,
   StockLocation,
 } from "@/services/productionService";
+import type { RawMaterial } from "@/lib/app-types";
 import { PageHeader, NoAccess, ProductThumbnail } from "@/components/ui-kit";
 import { ProductionNavHeader } from "@/components/productions/ProductionNavHeader";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -95,13 +102,14 @@ export function ArmazemPage() {
   const canAdjust = hasPermission("warehouse.adjust");
 
   const { data: rawStockList = [], isLoading: loadingStock } = useWarehouseStock();
-  const { data: rawMaterials = [] } = useRawMaterials();
+  const { data: rawMaterials = [], isLoading: loadingRawMaterials } = useRawMaterials();
+  const { data: products = [] } = useProducts();
   const { data: baus = [] } = useBaus();
   const { data: productBaus = [] } = useProductBaus();
   const { data: categories = [] } = useCategories();
   const { data: rawMovements = [], isLoading: loadingMovements } = useWarehouseMovements(undefined, 100);
 
-  // Requisito: O saldo de matérias-primas NÃO deve mostrar no Armazém
+  // Requisito: O saldo de matérias-primas NÃO deve misturar na tabela de produtos acabados
   const rawMaterialProductIds = useMemo(
     () => new Set(rawMaterials.map((rm) => rm.product_id).filter(Boolean)),
     [rawMaterials]
@@ -117,7 +125,7 @@ export function ArmazemPage() {
     return false;
   };
 
-  // Lista estrita de produtos finais (oculta matérias-primas do armazém)
+  // Lista estrita de produtos finais (oculta matérias-primas da aba de produtos do armazém)
   const stockList = useMemo(() => {
     return rawStockList.filter((item) => !isRawMaterial(item.product_id, item.product?.nome));
   }, [rawStockList, rawMaterialProductIds, rawMaterialNames]);
@@ -132,9 +140,41 @@ export function ArmazemPage() {
     [baus]
   );
 
+  // Baús em Modo de Movimentação MANUAL
+  const manualBaus = useMemo(
+    () =>
+      activeBaus.filter(
+        (b) =>
+          (b as any).tipo_gestao?.toLowerCase() === "manual" ||
+          !(b as any).discord_channel_id
+      ),
+    [activeBaus]
+  );
+
   const getBauProductStock = (bauId: string, prodId: string) => {
     const found = productBaus.find((pb) => pb.bau_id === bauId && pb.product_id === prodId);
     return Math.round(Number(found?.quantidade || 0));
+  };
+
+  // Saldo de Matéria-Prima em Baú Específico
+  const getMaterialStockInBau = (mat: RawMaterial, bauId: string): number => {
+    let prodId = mat.product_id;
+    if (!prodId) {
+      const match = products.find((p) => p.nome.trim().toLowerCase() === mat.name.trim().toLowerCase());
+      prodId = match?.id;
+    }
+    if (!prodId) return 0;
+    const found = productBaus.find((pb) => pb.bau_id === bauId && pb.product_id === prodId);
+    return Math.round(Number(found?.quantidade || 0));
+  };
+
+  // Saldo de Matéria-Prima no somatório de todos os baús manuais
+  const getMaterialTotalInManualBaus = (mat: RawMaterial): number => {
+    let total = 0;
+    for (const b of manualBaus) {
+      total += getMaterialStockInBau(mat, b.id);
+    }
+    return total;
   };
 
   // Estados de Filtro
@@ -172,6 +212,93 @@ export function ArmazemPage() {
   const [stockDestinationBauId, setStockDestinationBauId] = useState<string>("");
   const [stockQuantity, setStockQuantity] = useState<string>("");
   const [stockReason, setStockReason] = useState<string>("");
+
+  // Modais de Entrada de Matéria-Prima no Armazém
+  const [pullRawModalOpen, setPullRawModalOpen] = useState(false);
+  const [selectedMaterialForPull, setSelectedMaterialForPull] = useState<RawMaterial | null>(null);
+  const [selectedBauForPull, setSelectedBauForPull] = useState<string>("");
+  const [pullQuantity, setPullQuantity] = useState<string>("10");
+  const [pullReason, setPullReason] = useState<string>("");
+
+  const [manualEntryModalOpen, setManualEntryModalOpen] = useState(false);
+  const [selectedMaterialForEntry, setSelectedMaterialForEntry] = useState<RawMaterial | null>(null);
+  const [manualEntryQuantity, setManualEntryQuantity] = useState<string>("50");
+  const [manualEntryReason, setManualEntryReason] = useState<string>("");
+
+  const [rawMaterialSearch, setRawMaterialSearch] = useState("");
+
+  const filteredRawMaterials = useMemo(() => {
+    if (!rawMaterialSearch.trim()) return rawMaterials;
+    const q = rawMaterialSearch.toLowerCase();
+    return rawMaterials.filter((m) => m.name.toLowerCase().includes(q));
+  }, [rawMaterials, rawMaterialSearch]);
+
+  const availableInSelectedBau = useMemo(() => {
+    if (!selectedMaterialForPull || !selectedBauForPull) return 0;
+    return getMaterialStockInBau(selectedMaterialForPull, selectedBauForPull);
+  }, [selectedMaterialForPull, selectedBauForPull, productBaus]);
+
+  const pullRawMutation = useMutation({
+    mutationFn: async () => {
+      if (!selectedMaterialForPull) throw new Error("Selecione uma matéria-prima.");
+      if (!selectedBauForPull) throw new Error("Selecione o baú manual de origem.");
+      const qty = parseInt(pullQuantity, 10);
+      if (isNaN(qty) || qty <= 0) throw new Error("Informe uma quantidade válida maior que zero.");
+
+      if (qty > availableInSelectedBau) {
+        throw new Error(
+          `Saldo insuficiente no baú manual: possui ${availableInSelectedBau} e tentou transferir ${qty}.`
+        );
+      }
+
+      return pullRawMaterialFromBau(
+        selectedMaterialForPull.id,
+        selectedBauForPull,
+        qty,
+        pullReason.trim() || undefined
+      );
+    },
+    onSuccess: (res) => {
+      toast.success(
+        `${res.quantity}x ${selectedMaterialForPull?.name} transferidos do Baú Manual para o estoque!`
+      );
+      setPullRawModalOpen(false);
+      setPullReason("");
+      void queryClient.invalidateQueries({ queryKey: ["raw_materials"] });
+      void queryClient.invalidateQueries({ queryKey: ["product_baus"] });
+      void queryClient.invalidateQueries({ queryKey: ["raw_material_movements"] });
+      void queryClient.invalidateQueries({ queryKey: ["movements"] });
+    },
+    onError: (err: any) => {
+      toast.error(err?.message || "Erro ao transferir matérias-primas do baú manual");
+    },
+  });
+
+  const manualEntryRawMutation = useMutation({
+    mutationFn: async () => {
+      if (!selectedMaterialForEntry) throw new Error("Selecione uma matéria-prima.");
+      const qty = parseInt(manualEntryQuantity, 10);
+      if (isNaN(qty) || qty <= 0) throw new Error("Informe uma quantidade inteira positiva.");
+      return adjustRawMaterialStock(
+        selectedMaterialForEntry.id,
+        qty,
+        manualEntryReason.trim() || "Entrada manual de matéria-prima no armazém"
+      );
+    },
+    onSuccess: (res) => {
+      toast.success(
+        `Entrada manual realizada: +${manualEntryQuantity}x ${selectedMaterialForEntry?.name}! Novo saldo: ${res?.new_balance}`
+      );
+      setManualEntryModalOpen(false);
+      setManualEntryReason("");
+      setManualEntryQuantity("50");
+      void queryClient.invalidateQueries({ queryKey: ["raw_materials"] });
+      void queryClient.invalidateQueries({ queryKey: ["raw_material_movements"] });
+    },
+    onError: (err: any) => {
+      toast.error(err?.message || "Erro ao realizar entrada manual");
+    },
+  });
 
   // Métricas
   const metrics = useMemo(() => {
@@ -510,7 +637,46 @@ export function ArmazemPage() {
           </div>
         </div>
 
-        <ProductionNavHeader currentTab="armazem" />
+        <div className="flex flex-wrap items-center gap-2">
+          {canTransfer && (
+            <Button
+              onClick={() => {
+                if (rawMaterials.length > 0) setSelectedMaterialForPull(rawMaterials[0]);
+                if (manualBaus.length > 0) setSelectedBauForPull(manualBaus[0].id);
+                setPullQuantity("10");
+                setPullReason("");
+                setPullRawModalOpen(true);
+              }}
+              variant="outline"
+              size="sm"
+              className="bg-amber-500/10 border-amber-500/40 text-amber-300 hover:bg-amber-500/20 text-xs font-semibold gap-1.5 shadow-sm rounded-xl"
+              title="Transferir matérias-primas de um baú manual para o armazém"
+            >
+              <ArrowDownLeft className="h-4 w-4 text-amber-400" />
+              Transferir de Baú Manual
+            </Button>
+          )}
+
+          {canAdjust && (
+            <Button
+              onClick={() => {
+                if (rawMaterials.length > 0) setSelectedMaterialForEntry(rawMaterials[0]);
+                setManualEntryQuantity("50");
+                setManualEntryReason("");
+                setManualEntryModalOpen(true);
+              }}
+              variant="outline"
+              size="sm"
+              className="bg-emerald-500/10 border-emerald-500/40 text-emerald-300 hover:bg-emerald-500/20 text-xs font-semibold gap-1.5 shadow-sm rounded-xl"
+              title="Dar entrada manual de matéria-prima no armazém"
+            >
+              <PackagePlus className="h-4 w-4 text-emerald-400" />
+              Entrada Manual
+            </Button>
+          )}
+
+          <ProductionNavHeader currentTab="armazem" />
+        </div>
       </div>
 
       {/* CARDS DE MÉTRICAS */}
@@ -571,7 +737,7 @@ export function ArmazemPage() {
         </Card>
       </div>
 
-      {/* ABAS: ESTOQUE vs PRODUTOS DISTRIBUÍDOS vs HISTÓRICO */}
+      {/* ABAS: ESTOQUE vs PRODUTOS DISTRIBUÍDOS vs MATÉRIAS-PRIMAS vs HISTÓRICO */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
         <TabsList className="bg-secondary/40 border border-border/60 p-1 rounded-2xl h-11 flex-wrap sm:flex-nowrap">
           <TabsTrigger value="stock" className="gap-2 rounded-xl text-xs font-bold">
@@ -581,6 +747,10 @@ export function ArmazemPage() {
           <TabsTrigger value="distributed" className="gap-2 rounded-xl text-xs font-bold">
             <ArrowRightLeft className="h-4 w-4 text-sky-400" />
             <span>Saldos em Baús & Vendas ({distributedStock.length})</span>
+          </TabsTrigger>
+          <TabsTrigger value="raw-materials" className="gap-2 rounded-xl text-xs font-bold">
+            <Layers className="h-4 w-4 text-amber-400" />
+            <span>Matérias-Primas ({rawMaterials.length})</span>
           </TabsTrigger>
           <TabsTrigger value="movements" className="gap-2 rounded-xl text-xs font-bold">
             <History className="h-4 w-4 text-violet-400" />
@@ -1017,7 +1187,198 @@ export function ArmazemPage() {
           </Card>
         </TabsContent>
 
-        {/* ABA 3: HISTÓRICO DE MOVIMENTAÇÕES DO ARMAZÉM */}
+        {/* ABA: MATÉRIAS-PRIMAS DO ARMAZÉM */}
+        <TabsContent value="raw-materials" className="space-y-4">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 p-3.5 rounded-2xl bg-secondary/20 border border-border/60">
+            <div className="relative flex-1 max-w-md">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Buscar matéria-prima por nome..."
+                value={rawMaterialSearch}
+                onChange={(e) => setRawMaterialSearch(e.target.value)}
+                className="pl-9 h-9 text-xs rounded-xl bg-background/50 border-border/60"
+              />
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => {
+                  if (rawMaterials.length > 0) setSelectedMaterialForPull(rawMaterials[0]);
+                  if (manualBaus.length > 0) setSelectedBauForPull(manualBaus[0].id);
+                  setPullQuantity("10");
+                  setPullReason("");
+                  setPullRawModalOpen(true);
+                }}
+                className="h-9 text-xs font-semibold gap-1.5 bg-amber-500/10 border-amber-500/40 text-amber-300 hover:bg-amber-500/20 rounded-xl"
+              >
+                <ArrowDownLeft className="h-3.5 w-3.5 text-amber-400" />
+                Transferir de Baú Manual
+              </Button>
+
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => {
+                  if (rawMaterials.length > 0) setSelectedMaterialForEntry(rawMaterials[0]);
+                  setManualEntryQuantity("50");
+                  setManualEntryReason("");
+                  setManualEntryModalOpen(true);
+                }}
+                className="h-9 text-xs font-semibold gap-1.5 bg-emerald-500/10 border-emerald-500/40 text-emerald-300 hover:bg-emerald-500/20 rounded-xl"
+              >
+                <PackagePlus className="h-3.5 w-3.5 text-emerald-400" />
+                Entrada Manual
+              </Button>
+
+              <Button
+                asChild
+                size="sm"
+                variant="ghost"
+                className="h-9 text-xs font-semibold gap-1 text-muted-foreground hover:text-foreground rounded-xl"
+              >
+                <Link to={`${prefix}/producoes/materias-primas`}>
+                  <span>Ver Todos os Insumos</span>
+                  <ArrowUpRight className="h-3.5 w-3.5" />
+                </Link>
+              </Button>
+            </div>
+          </div>
+
+          <Card className="surface-card border-border/70 overflow-hidden">
+            <CardContent className="p-0">
+              {loadingRawMaterials ? (
+                <div className="p-12 text-center text-xs text-muted-foreground flex items-center justify-center gap-2">
+                  <Loader2 className="h-5 w-5 animate-spin text-primary" />
+                  <span>Carregando matérias-primas...</span>
+                </div>
+              ) : filteredRawMaterials.length === 0 ? (
+                <div className="p-12 text-center text-xs text-muted-foreground space-y-2">
+                  <Layers className="h-8 w-8 text-muted-foreground/50 mx-auto" />
+                  <p className="font-bold text-foreground">Nenhuma matéria-prima cadastrada ou encontrada</p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse text-xs">
+                    <thead>
+                      <tr className="border-b border-border/60 bg-muted/20 text-muted-foreground font-semibold">
+                        <th className="p-3.5 pl-5">Matéria-Prima</th>
+                        <th className="p-3.5 text-right font-mono">Saldo em Estoque</th>
+                        <th className="p-3.5 text-right font-mono">Saldo em Baús Manuais</th>
+                        <th className="p-3.5 text-center">Status</th>
+                        <th className="p-3.5 pr-5 text-right">Ações de Abastecimento</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border/40">
+                      {filteredRawMaterials.map((mat) => {
+                        const stockInManualBaus = getMaterialTotalInManualBaus(mat);
+                        const isCritical = mat.is_active && mat.stock_quantity <= (mat.min_stock || 0);
+
+                        return (
+                          <tr key={mat.id} className="hover:bg-muted/10 transition-colors">
+                            <td className="p-3.5 pl-5">
+                              <div className="flex items-center gap-3">
+                                <ProductThumbnail
+                                  src={mat.image_url}
+                                  alt={mat.name}
+                                  className="h-10 w-10 rounded-xl shrink-0"
+                                />
+                                <div>
+                                  <p className="font-bold text-foreground">{mat.name}</p>
+                                  <span className="text-[11px] text-muted-foreground">
+                                    Unidade: <strong className="text-foreground">{mat.unit}</strong>
+                                    {mat.min_stock ? ` · Mínimo: ${mat.min_stock}` : ""}
+                                  </span>
+                                </div>
+                              </div>
+                            </td>
+
+                            <td className="p-3.5 text-right">
+                              <span
+                                className={cn(
+                                  "font-mono font-black text-sm",
+                                  mat.stock_quantity > 0 ? "text-emerald-400" : "text-muted-foreground/60"
+                                )}
+                              >
+                                {mat.stock_quantity.toLocaleString("pt-BR")}{" "}
+                                <span className="text-[10px] text-muted-foreground font-normal">
+                                  {mat.unit}
+                                </span>
+                              </span>
+                            </td>
+
+                            <td className="p-3.5 text-right font-mono font-medium text-sky-300">
+                              {stockInManualBaus.toLocaleString("pt-BR")}{" "}
+                              <span className="text-[10px] text-muted-foreground font-normal">
+                                {mat.unit}
+                              </span>
+                            </td>
+
+                            <td className="p-3.5 text-center">
+                              {mat.stock_quantity === 0 ? (
+                                <Badge variant="outline" className="text-[10px] border-rose-500/30 bg-rose-500/10 text-rose-300">
+                                  Zerado
+                                </Badge>
+                              ) : isCritical ? (
+                                <Badge variant="outline" className="text-[10px] border-amber-500/40 bg-amber-500/10 text-amber-300 font-semibold animate-pulse">
+                                  Reposição
+                                </Badge>
+                              ) : (
+                                <Badge variant="outline" className="text-[10px] border-emerald-500/30 bg-emerald-500/10 text-emerald-300">
+                                  Adequado
+                                </Badge>
+                              )}
+                            </td>
+
+                            <td className="p-3.5 pr-5 text-right">
+                              <div className="flex items-center justify-end gap-1.5">
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => {
+                                    setSelectedMaterialForPull(mat);
+                                    if (manualBaus.length > 0) setSelectedBauForPull(manualBaus[0].id);
+                                    setPullQuantity("10");
+                                    setPullReason("");
+                                    setPullRawModalOpen(true);
+                                  }}
+                                  className="h-7 px-2 text-[11px] gap-1 bg-amber-500/10 border-amber-500/30 text-amber-300 hover:bg-amber-500/20"
+                                  title="Transferir saldo de baú manual para o estoque"
+                                >
+                                  <ArrowDownLeft className="h-3 w-3" />
+                                  Puxar Baú
+                                </Button>
+
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => {
+                                    setSelectedMaterialForEntry(mat);
+                                    setManualEntryQuantity("50");
+                                    setManualEntryReason("");
+                                    setManualEntryModalOpen(true);
+                                  }}
+                                  className="h-7 px-2 text-[11px] gap-1 bg-emerald-500/10 border-emerald-500/30 text-emerald-300 hover:bg-emerald-500/20"
+                                  title="Dar entrada manual neste insumo"
+                                >
+                                  <PackagePlus className="h-3 w-3 text-emerald-400" />
+                                  Entrada
+                                </Button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* ABA 4: HISTÓRICO DE MOVIMENTAÇÕES DO ARMAZÉM */}
         <TabsContent value="movements" className="space-y-4">
           <Card className="surface-card border-border/70 overflow-hidden">
             <CardHeader className="border-b border-border/40 pb-4 bg-muted/10">
@@ -2055,6 +2416,300 @@ export function ArmazemPage() {
                 : stockAction === "RETURN_WAREHOUSE"
                 ? "Confirmar Retorno"
                 : "Confirmar Transferência"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ==================================================== */}
+      {/* MODAL: TRANSFERIR MATÉRIA-PRIMA DE BAÚ MANUAL */}
+      {/* ==================================================== */}
+      <Dialog open={pullRawModalOpen} onOpenChange={setPullRawModalOpen}>
+        <DialogContent className="sm:max-w-md bg-card/95 backdrop-blur-xl border-border/80">
+          <DialogHeader>
+            <DialogTitle className="text-base font-bold flex items-center gap-2 text-foreground">
+              <ArrowDownLeft className="h-5 w-5 text-amber-400" />
+              Transferir Matéria-Prima de Baú Manual
+            </DialogTitle>
+            <DialogDescription className="text-xs text-muted-foreground">
+              Transfira insumos de um baú com modo de movimentação manual diretamente para o estoque do armazém.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-2">
+            {/* 1. Selecionar Matéria-Prima */}
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold">Matéria-Prima</Label>
+              <Select
+                value={selectedMaterialForPull?.id || ""}
+                onValueChange={(val) => {
+                  const found = rawMaterials.find((m) => m.id === val);
+                  setSelectedMaterialForPull(found || null);
+                }}
+              >
+                <SelectTrigger className="h-9 text-xs rounded-xl bg-background/60">
+                  <SelectValue placeholder="Selecione a matéria-prima" />
+                </SelectTrigger>
+                <SelectContent>
+                  {rawMaterials.map((m) => (
+                    <SelectItem key={m.id} value={m.id} className="text-xs">
+                      {m.name} (Saldo atual: {m.stock_quantity} {m.unit})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* 2. Selecionar Baú de Origem (Apenas Manuais) */}
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <Label className="text-xs font-semibold">Baú de Origem (Modo Manual)</Label>
+                <span className="text-[10px] text-amber-400/90 font-mono font-bold">
+                  {manualBaus.length} baú(s) manual(is)
+                </span>
+              </div>
+              {manualBaus.length === 0 ? (
+                <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-xs text-rose-300">
+                  ⚠️ Nenhum baú ativo em modo de movimentação manual foi encontrado. Apenas baús manuais permitem transferência de insumos para o armazém.
+                </div>
+              ) : (
+                <Select value={selectedBauForPull} onValueChange={setSelectedBauForPull}>
+                  <SelectTrigger className="h-9 text-xs rounded-xl bg-background/60">
+                    <SelectValue placeholder="Selecione o baú manual" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {manualBaus.map((b) => {
+                      const stockInB = selectedMaterialForPull
+                        ? getMaterialStockInBau(selectedMaterialForPull, b.id)
+                        : 0;
+                      return (
+                        <SelectItem key={b.id} value={b.id} className="text-xs">
+                          {b.nome} · [MODO MANUAL] · Disp: {stockInB} {selectedMaterialForPull?.unit || "un"}
+                        </SelectItem>
+                      );
+                    })}
+                  </SelectContent>
+                </Select>
+              )}
+            </div>
+
+            {/* 3. Destaque Visual */}
+            {selectedBauForPull && (
+              <div className="p-3 rounded-xl border text-xs space-y-1.5 bg-amber-500/10 border-amber-500/30 text-amber-200">
+                <div className="flex items-center justify-between font-bold">
+                  <span className="flex items-center gap-1.5">
+                    <HandMetal className="h-4 w-4 text-amber-400" />
+                    Baú em Modo de Movimentação MANUAL
+                  </span>
+                  <Badge variant="outline" className="text-[10px] font-mono border-amber-500/40 text-amber-300">
+                    Disponível no Baú: {availableInSelectedBau} {selectedMaterialForPull?.unit || "un"}
+                  </Badge>
+                </div>
+
+                <p className="text-[11px] leading-relaxed text-muted-foreground">
+                  ⚠️ <strong>Regra de Transferência Manual:</strong> A quantidade será debitada do baú manual e creditada no estoque de matérias-primas do armazém.
+                </p>
+              </div>
+            )}
+
+            {/* 4. Quantidade */}
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <Label className="text-xs font-semibold">Quantidade a Transferir</Label>
+                <div className="flex items-center gap-1">
+                  {["10", "50", "100"].map((qty) => (
+                    <button
+                      key={qty}
+                      type="button"
+                      onClick={() => setPullQuantity(qty)}
+                      className="text-[10px] px-1.5 py-0.5 rounded bg-secondary hover:bg-secondary/80 font-mono"
+                    >
+                      {qty}
+                    </button>
+                  ))}
+                  {availableInSelectedBau > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setPullQuantity(String(availableInSelectedBau))}
+                      className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 font-bold font-mono"
+                    >
+                      TUDO ({availableInSelectedBau})
+                    </button>
+                  )}
+                </div>
+              </div>
+              <Input
+                type="number"
+                min="1"
+                max={availableInSelectedBau || undefined}
+                value={pullQuantity}
+                onChange={(e) => setPullQuantity(e.target.value)}
+                placeholder="Ex: 50"
+                className="h-9 text-xs rounded-xl bg-background/60 font-mono"
+              />
+            </div>
+
+            {/* 5. Motivo */}
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold">Motivo / Observação (Opcional)</Label>
+              <Input
+                value={pullReason}
+                onChange={(e) => setPullReason(e.target.value)}
+                placeholder="Ex: Abastecimento de linha de manufatura"
+                className="h-9 text-xs rounded-xl bg-background/60"
+              />
+            </div>
+          </div>
+
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setPullRawModalOpen(false)}
+              className="text-xs rounded-xl"
+            >
+              Cancelar
+            </Button>
+            <Button
+              size="sm"
+              disabled={
+                pullRawMutation.isPending ||
+                !selectedMaterialForPull ||
+                !selectedBauForPull ||
+                availableInSelectedBau <= 0
+              }
+              onClick={() => pullRawMutation.mutate()}
+              className="text-xs rounded-xl font-bold bg-amber-600 hover:bg-amber-500 text-white gap-1.5 shadow-md shadow-amber-600/20"
+            >
+              {pullRawMutation.isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <ArrowDownLeft className="h-4 w-4" />
+              )}
+              Confirmar Transferência
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ==================================================== */}
+      {/* MODAL: ENTRADA MANUAL DE MATÉRIA-PRIMA */}
+      {/* ==================================================== */}
+      <Dialog open={manualEntryModalOpen} onOpenChange={setManualEntryModalOpen}>
+        <DialogContent className="sm:max-w-md bg-card/95 backdrop-blur-xl border-border/80">
+          <DialogHeader>
+            <DialogTitle className="text-base font-bold flex items-center gap-2 text-foreground">
+              <PackagePlus className="h-5 w-5 text-emerald-400" />
+              Entrada Manual de Matéria-Prima
+            </DialogTitle>
+            <DialogDescription className="text-xs text-muted-foreground">
+              Adicione insumos diretamente ao estoque do armazém com registro completo em auditoria.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-2">
+            {/* 1. Selecionar Matéria-Prima */}
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold">Matéria-Prima</Label>
+              <Select
+                value={selectedMaterialForEntry?.id || ""}
+                onValueChange={(val) => {
+                  const found = rawMaterials.find((m) => m.id === val);
+                  setSelectedMaterialForEntry(found || null);
+                }}
+              >
+                <SelectTrigger className="h-9 text-xs rounded-xl bg-background/60">
+                  <SelectValue placeholder="Selecione a matéria-prima" />
+                </SelectTrigger>
+                <SelectContent>
+                  {rawMaterials.map((m) => (
+                    <SelectItem key={m.id} value={m.id} className="text-xs">
+                      {m.name} (Saldo atual: {m.stock_quantity} {m.unit})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Previsão de Saldo */}
+            {selectedMaterialForEntry && (
+              <div className="p-3 rounded-xl bg-muted/20 border border-border/40 flex items-center justify-between text-xs">
+                <div>
+                  <span className="text-muted-foreground block text-[11px]">Saldo Atual:</span>
+                  <span className="font-mono text-sm font-bold text-foreground">
+                    {selectedMaterialForEntry.stock_quantity} {selectedMaterialForEntry.unit}
+                  </span>
+                </div>
+                <div className="text-right">
+                  <span className="text-muted-foreground block text-[11px]">Saldo Projetado:</span>
+                  <span className="font-mono text-sm font-bold text-emerald-400">
+                    {selectedMaterialForEntry.stock_quantity + (parseInt(manualEntryQuantity, 10) || 0)}{" "}
+                    {selectedMaterialForEntry.unit}
+                  </span>
+                </div>
+              </div>
+            )}
+
+            {/* Quantidade a Adicionar */}
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <Label className="text-xs font-semibold">Quantidade da Entrada</Label>
+                <div className="flex items-center gap-1">
+                  {["10", "50", "100", "500"].map((qty) => (
+                    <button
+                      key={qty}
+                      type="button"
+                      onClick={() => setManualEntryQuantity(qty)}
+                      className="text-[10px] px-1.5 py-0.5 rounded bg-secondary hover:bg-secondary/80 font-mono"
+                    >
+                      +{qty}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <Input
+                type="number"
+                min="1"
+                value={manualEntryQuantity}
+                onChange={(e) => setManualEntryQuantity(e.target.value)}
+                placeholder="Ex: 50"
+                className="h-9 text-xs rounded-xl bg-background/60 font-mono"
+              />
+            </div>
+
+            {/* Motivo / Observação */}
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold">Motivo / Observação (Opcional)</Label>
+              <Input
+                value={manualEntryReason}
+                onChange={(e) => setManualEntryReason(e.target.value)}
+                placeholder="Ex: Coleta externa, compra avulsa, doação de membro..."
+                className="h-9 text-xs rounded-xl bg-background/60"
+              />
+            </div>
+          </div>
+
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setManualEntryModalOpen(false)}
+              className="text-xs rounded-xl"
+            >
+              Cancelar
+            </Button>
+            <Button
+              size="sm"
+              disabled={manualEntryRawMutation.isPending || !selectedMaterialForEntry || !manualEntryQuantity}
+              onClick={() => manualEntryRawMutation.mutate()}
+              className="text-xs rounded-xl font-bold bg-emerald-600 hover:bg-emerald-500 text-white gap-1.5 shadow-md shadow-emerald-600/20"
+            >
+              {manualEntryRawMutation.isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <PackagePlus className="h-4 w-4" />
+              )}
+              Confirmar Entrada Manual
             </Button>
           </DialogFooter>
         </DialogContent>

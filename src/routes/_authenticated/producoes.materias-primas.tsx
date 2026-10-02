@@ -142,6 +142,17 @@ export function MateriasPrimasPage() {
     [baus]
   );
 
+  // Baús em Modo de Movimentação MANUAL
+  const manualBaus = useMemo(
+    () =>
+      activeBaus.filter(
+        (b) =>
+          (b as any).tipo_gestao?.toLowerCase() === "manual" ||
+          !(b as any).discord_channel_id
+      ),
+    [activeBaus]
+  );
+
   // Estados de Filtro
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | "in_stock" | "zero_stock" | "critical" | "inactive">("all");
@@ -175,7 +186,7 @@ export function MateriasPrimasPage() {
   // MODAIS & OPERAÇÕES
   // ----------------------------------------------------
 
-  // 1. Modal "Puxar de Baú para Estoque"
+  // 1. Modal "Transferir de Baú Manual para Estoque"
   const [pullModalOpen, setPullModalOpen] = useState(false);
   const [selectedMaterialForPull, setSelectedMaterialForPull] = useState<RawMaterial | null>(null);
   const [selectedBauForPull, setSelectedBauForPull] = useState<string>("");
@@ -183,8 +194,8 @@ export function MateriasPrimasPage() {
   const [pullReason, setPullReason] = useState<string>("");
 
   const activeBauSelectedForPull = useMemo(
-    () => activeBaus.find((b) => b.id === selectedBauForPull),
-    [activeBaus, selectedBauForPull]
+    () => manualBaus.find((b) => b.id === selectedBauForPull) || activeBaus.find((b) => b.id === selectedBauForPull),
+    [manualBaus, activeBaus, selectedBauForPull]
   );
 
   const isSelectedBauManual = useMemo(() => {
@@ -203,13 +214,16 @@ export function MateriasPrimasPage() {
   const pullMutation = useMutation({
     mutationFn: async () => {
       if (!selectedMaterialForPull) throw new Error("Selecione uma matéria-prima.");
-      if (!selectedBauForPull) throw new Error("Selecione o baú de origem.");
+      if (!selectedBauForPull) throw new Error("Selecione o baú manual de origem.");
+      if (!isSelectedBauManual) {
+        throw new Error("Apenas baús com modo de movimentação manual permitem transferência para o estoque.");
+      }
       const qty = parseInt(pullQuantity, 10);
       if (isNaN(qty) || qty <= 0) throw new Error("Informe uma quantidade válida maior que zero.");
 
-      if (isSelectedBauManual && qty > availableInSelectedBau) {
+      if (qty > availableInSelectedBau) {
         throw new Error(
-          `Saldo insuficiente no baú manual: possui ${availableInSelectedBau} e tentou puxar ${qty}.`
+          `Saldo insuficiente no baú manual: possui ${availableInSelectedBau} e tentou transferir ${qty}.`
         );
       }
 
@@ -221,11 +235,8 @@ export function MateriasPrimasPage() {
       );
     },
     onSuccess: (res) => {
-      const modeText = res.is_manual
-        ? "Baú Manual (saldo debitado do baú)"
-        : "Baú Automático (saldo do baú mantido)";
       toast.success(
-        `${res.quantity}x ${selectedMaterialForPull?.name} puxados para o estoque! [${modeText}]`
+        `${res.quantity}x ${selectedMaterialForPull?.name} transferidos do Baú Manual para o estoque!`
       );
       setPullModalOpen(false);
       setPullReason("");
@@ -235,7 +246,39 @@ export function MateriasPrimasPage() {
       void queryClient.invalidateQueries({ queryKey: ["movements"] });
     },
     onError: (err: any) => {
-      toast.error(err?.message || "Erro ao puxar matérias-primas do baú");
+      toast.error(err?.message || "Erro ao transferir matérias-primas do baú manual");
+    },
+  });
+
+  // Modal "Entrada Manual no Estoque"
+  const [manualEntryModalOpen, setManualEntryModalOpen] = useState(false);
+  const [selectedMaterialForEntry, setSelectedMaterialForEntry] = useState<RawMaterial | null>(null);
+  const [manualEntryQuantity, setManualEntryQuantity] = useState<string>("50");
+  const [manualEntryReason, setManualEntryReason] = useState<string>("");
+
+  const manualEntryMutation = useMutation({
+    mutationFn: async () => {
+      if (!selectedMaterialForEntry) throw new Error("Selecione uma matéria-prima.");
+      const qty = parseInt(manualEntryQuantity, 10);
+      if (isNaN(qty) || qty <= 0) throw new Error("Informe uma quantidade inteira positiva.");
+      return adjustRawMaterialStock(
+        selectedMaterialForEntry.id,
+        qty,
+        manualEntryReason.trim() || "Entrada manual de matéria-prima"
+      );
+    },
+    onSuccess: (res) => {
+      toast.success(
+        `Entrada manual realizada: +${manualEntryQuantity}x ${selectedMaterialForEntry?.name}! Novo saldo: ${res?.new_balance}`
+      );
+      setManualEntryModalOpen(false);
+      setManualEntryReason("");
+      setManualEntryQuantity("50");
+      void queryClient.invalidateQueries({ queryKey: ["raw_materials"] });
+      void queryClient.invalidateQueries({ queryKey: ["raw_material_movements"] });
+    },
+    onError: (err: any) => {
+      toast.error(err?.message || "Erro ao realizar entrada manual");
     },
   });
 
@@ -479,23 +522,41 @@ export function MateriasPrimasPage() {
       {/* Cabeçalho Principal */}
       <PageHeader
         title="Matérias-Primas & Insumos"
-        description="Gestão exclusiva de estoque de matérias-primas, integração e transferências entre baús da facção."
+        description="Gestão exclusiva de estoque de matérias-primas: transfira de baú manual ou dê entrada manual para abastecer a produção."
       >
         <div className="flex flex-wrap items-center gap-2">
           {canTransferBau && (
             <Button
               onClick={() => {
                 if (rawMaterials.length > 0) setSelectedMaterialForPull(rawMaterials[0]);
-                if (activeBaus.length > 0) setSelectedBauForPull(activeBaus[0].id);
+                if (manualBaus.length > 0) setSelectedBauForPull(manualBaus[0].id);
                 setPullQuantity("10");
                 setPullReason("");
                 setPullModalOpen(true);
               }}
               variant="outline"
               className="bg-amber-500/10 border-amber-500/40 text-amber-300 hover:bg-amber-500/20 text-xs font-semibold gap-2 shadow-sm"
+              title="Transferir matérias-primas de um baú com modo de movimentação manual"
             >
               <ArrowDownLeft className="h-4 w-4 text-amber-400" />
-              Puxar de Baú
+              Transferir de Baú Manual
+            </Button>
+          )}
+
+          {canAdjust && (
+            <Button
+              onClick={() => {
+                if (rawMaterials.length > 0) setSelectedMaterialForEntry(rawMaterials[0]);
+                setManualEntryQuantity("50");
+                setManualEntryReason("");
+                setManualEntryModalOpen(true);
+              }}
+              variant="outline"
+              className="bg-emerald-500/10 border-emerald-500/40 text-emerald-300 hover:bg-emerald-500/20 text-xs font-semibold gap-2 shadow-sm"
+              title="Adicionar saldo de matéria-prima diretamente via entrada manual"
+            >
+              <PackagePlus className="h-4 w-4 text-emerald-400" />
+              Entrada Manual
             </Button>
           )}
 
@@ -826,23 +887,42 @@ export function MateriasPrimasPage() {
                             {/* Ações */}
                             <TableCell className="p-3.5 pr-5 text-right">
                               <div className="flex items-center justify-end gap-1.5">
-                                {/* Puxar do Baú */}
+                                {/* Puxar do Baú Manual */}
                                 {canTransferBau && (
                                   <Button
                                     size="sm"
                                     variant="outline"
                                     onClick={() => {
                                       setSelectedMaterialForPull(mat);
-                                      if (activeBaus.length > 0) setSelectedBauForPull(activeBaus[0].id);
+                                      if (manualBaus.length > 0) setSelectedBauForPull(manualBaus[0].id);
                                       setPullQuantity("10");
                                       setPullReason("");
                                       setPullModalOpen(true);
                                     }}
                                     className="h-7 px-2 text-[11px] gap-1 bg-amber-500/10 border-amber-500/30 text-amber-300 hover:bg-amber-500/20"
-                                    title="Puxar saldo de baú para o estoque"
+                                    title="Transferir saldo de baú manual para o estoque"
                                   >
                                     <ArrowDownLeft className="h-3 w-3" />
-                                    Puxar
+                                    Puxar Baú
+                                  </Button>
+                                )}
+
+                                {/* Entrada Manual */}
+                                {canAdjust && (
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => {
+                                      setSelectedMaterialForEntry(mat);
+                                      setManualEntryQuantity("50");
+                                      setManualEntryReason("");
+                                      setManualEntryModalOpen(true);
+                                    }}
+                                    className="h-7 px-2 text-[11px] gap-1 bg-emerald-500/10 border-emerald-500/30 text-emerald-300 hover:bg-emerald-500/20"
+                                    title="Dar entrada manual no estoque desta matéria-prima"
+                                  >
+                                    <PackagePlus className="h-3 w-3 text-emerald-400" />
+                                    Entrada
                                   </Button>
                                 )}
 
@@ -1188,17 +1268,17 @@ export function MateriasPrimasPage() {
       </Tabs>
 
       {/* ============================================================== */}
-      {/* MODAL 1: PUXAR DE BAÚ PARA ESTOQUE */}
+      {/* MODAL 1: TRANSFERIR DE BAÚ MANUAL PARA ESTOQUE */}
       {/* ============================================================== */}
       <Dialog open={pullModalOpen} onOpenChange={setPullModalOpen}>
         <DialogContent className="sm:max-w-md bg-card/95 backdrop-blur-xl border-border/80">
           <DialogHeader>
             <DialogTitle className="text-base font-bold flex items-center gap-2 text-foreground">
               <ArrowDownLeft className="h-5 w-5 text-amber-400" />
-              Puxar Saldo de Baú para Estoque
+              Transferir de Baú (Modo Manual) para Estoque
             </DialogTitle>
             <DialogDescription className="text-xs text-muted-foreground">
-              Transfira insumos dos baús da facção diretamente para o estoque de matérias-primas.
+              Transfira matérias-primas de um baú com modo de movimentação manual diretamente para o armazém.
             </DialogDescription>
           </DialogHeader>
 
@@ -1227,81 +1307,64 @@ export function MateriasPrimasPage() {
               </Select>
             </div>
 
-            {/* 2. Selecionar Baú de Origem */}
+            {/* 2. Selecionar Baú de Origem (Apenas Manuais) */}
             <div className="space-y-1.5">
-              <Label className="text-xs font-semibold">Baú de Origem</Label>
-              <Select value={selectedBauForPull} onValueChange={setSelectedBauForPull}>
-                <SelectTrigger className="h-9 text-xs rounded-xl bg-background/60">
-                  <SelectValue placeholder="Selecione o baú" />
-                </SelectTrigger>
-                <SelectContent>
-                  {activeBaus.map((b) => {
-                    const isM =
-                      (b as any).tipo_gestao?.toLowerCase() === "manual" || !(b as any).discord_channel_id;
-                    const stockInB = selectedMaterialForPull
-                      ? getMaterialStockInBau(selectedMaterialForPull, b.id)
-                      : 0;
-                    return (
-                      <SelectItem key={b.id} value={b.id} className="text-xs">
-                        {b.nome} · [{isM ? "MANUAL" : "AUTOMÁTICO"}] · Disp: {stockInB}
-                      </SelectItem>
-                    );
-                  })}
-                </SelectContent>
-              </Select>
+              <div className="flex items-center justify-between">
+                <Label className="text-xs font-semibold">Baú de Origem (Modo Manual)</Label>
+                <span className="text-[10px] text-amber-400/90 font-mono font-bold">
+                  {manualBaus.length} baú(s) manual(is)
+                </span>
+              </div>
+              {manualBaus.length === 0 ? (
+                <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-xs text-rose-300">
+                  ⚠️ Nenhum baú ativo em modo de movimentação manual foi encontrado. Apenas baús manuais permitem transferência de insumos para o estoque.
+                </div>
+              ) : (
+                <Select value={selectedBauForPull} onValueChange={setSelectedBauForPull}>
+                  <SelectTrigger className="h-9 text-xs rounded-xl bg-background/60">
+                    <SelectValue placeholder="Selecione o baú manual" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {manualBaus.map((b) => {
+                      const stockInB = selectedMaterialForPull
+                        ? getMaterialStockInBau(selectedMaterialForPull, b.id)
+                        : 0;
+                      return (
+                        <SelectItem key={b.id} value={b.id} className="text-xs">
+                          {b.nome} · [MODO MANUAL] · Disp: {stockInB} {selectedMaterialForPull?.unit || "un"}
+                        </SelectItem>
+                      );
+                    })}
+                  </SelectContent>
+                </Select>
+              )}
             </div>
 
             {/* 3. Destaque Visual da Regra de Negócio */}
             {activeBauSelectedForPull && (
-              <div
-                className={cn(
-                  "p-3 rounded-xl border text-xs space-y-1.5 transition-all",
-                  isSelectedBauManual
-                    ? "bg-amber-500/10 border-amber-500/30 text-amber-200"
-                    : "bg-sky-500/10 border-sky-500/30 text-sky-200"
-                )}
-              >
+              <div className="p-3 rounded-xl border text-xs space-y-1.5 bg-amber-500/10 border-amber-500/30 text-amber-200">
                 <div className="flex items-center justify-between font-bold">
                   <span className="flex items-center gap-1.5">
-                    {isSelectedBauManual ? (
-                      <>
-                        <HandMetal className="h-4 w-4 text-amber-400" />
-                        Baú em Modo MANUAL
-                      </>
-                    ) : (
-                      <>
-                        <Zap className="h-4 w-4 text-sky-400" />
-                        Baú em Modo AUTOMÁTICO
-                      </>
-                    )}
+                    <HandMetal className="h-4 w-4 text-amber-400" />
+                    Baú em Modo de Movimentação MANUAL
                   </span>
-                  <Badge variant="outline" className="text-[10px] font-mono">
+                  <Badge variant="outline" className="text-[10px] font-mono border-amber-500/40 text-amber-300">
                     Disponível no Baú: {availableInSelectedBau} {selectedMaterialForPull?.unit || "un"}
                   </Badge>
                 </div>
 
                 <p className="text-[11px] leading-relaxed text-muted-foreground">
-                  {isSelectedBauManual ? (
-                    <>
-                      ⚠️ <strong>Regra de Débito Ativa:</strong> Como este baú é <em>Manual</em>, a
-                      quantidade puxada será <strong>debitada do saldo do baú</strong> e incorporada
-                      ao estoque de matérias-primas.
-                    </>
-                  ) : (
-                    <>
-                      ⚡ <strong>Regra de Sincronia:</strong> Como este baú é <em>Automático</em> (Discord),
-                      conforme a diretriz da facção, o baú <strong>NÃO sofrerá dedução</strong>; o
-                      saldo será creditado diretamente no estoque de matérias-primas.
-                    </>
-                  )}
+                  ⚠️ <strong>Regra de Transferência Manual:</strong> A quantidade informada será{" "}
+                  <strong>debitada do saldo do baú manual</strong> com registro de saída e creditada
+                  no estoque de matérias-primas do armazém.
                 </p>
               </div>
             )}
 
-            {/* 4. Quantidade a Puxar */}
+            {/* 4. Quantidade a Transferir */}
             <div className="space-y-1.5">
               <div className="flex items-center justify-between">
-                <Label className="text-xs font-semibold">Quantidade</Label>
+                <Label className="text-xs font-semibold">Quantidade a Transferir</Label>
                 <div className="flex items-center gap-1">
                   <button
                     type="button"
@@ -1338,6 +1401,7 @@ export function MateriasPrimasPage() {
               <Input
                 type="number"
                 min="1"
+                max={availableInSelectedBau || undefined}
                 value={pullQuantity}
                 onChange={(e) => setPullQuantity(e.target.value)}
                 placeholder="Ex: 50"
@@ -1368,7 +1432,12 @@ export function MateriasPrimasPage() {
             </Button>
             <Button
               size="sm"
-              disabled={pullMutation.isPending || !selectedMaterialForPull || !selectedBauForPull}
+              disabled={
+                pullMutation.isPending ||
+                !selectedMaterialForPull ||
+                !selectedBauForPull ||
+                availableInSelectedBau <= 0
+              }
               onClick={() => pullMutation.mutate()}
               className="text-xs rounded-xl font-bold bg-amber-600 hover:bg-amber-500 text-white gap-1.5 shadow-md shadow-amber-600/20"
             >
@@ -1377,7 +1446,130 @@ export function MateriasPrimasPage() {
               ) : (
                 <ArrowDownLeft className="h-4 w-4" />
               )}
-              Confirmar e Puxar
+              Confirmar Transferência
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ============================================================== */}
+      {/* MODAL: ENTRADA MANUAL NO ESTOQUE */}
+      {/* ============================================================== */}
+      <Dialog open={manualEntryModalOpen} onOpenChange={setManualEntryModalOpen}>
+        <DialogContent className="sm:max-w-md bg-card/95 backdrop-blur-xl border-border/80">
+          <DialogHeader>
+            <DialogTitle className="text-base font-bold flex items-center gap-2 text-foreground">
+              <PackagePlus className="h-5 w-5 text-emerald-400" />
+              Entrada Manual de Matéria-Prima
+            </DialogTitle>
+            <DialogDescription className="text-xs text-muted-foreground">
+              Adicione insumos diretamente ao estoque do armazém com registro completo em auditoria.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-2">
+            {/* 1. Selecionar Matéria-Prima */}
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold">Matéria-Prima</Label>
+              <Select
+                value={selectedMaterialForEntry?.id || ""}
+                onValueChange={(val) => {
+                  const found = rawMaterials.find((m) => m.id === val);
+                  setSelectedMaterialForEntry(found || null);
+                }}
+              >
+                <SelectTrigger className="h-9 text-xs rounded-xl bg-background/60">
+                  <SelectValue placeholder="Selecione a matéria-prima" />
+                </SelectTrigger>
+                <SelectContent>
+                  {rawMaterials.map((m) => (
+                    <SelectItem key={m.id} value={m.id} className="text-xs">
+                      {m.name} (Saldo atual: {m.stock_quantity} {m.unit})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Previsão de Saldo */}
+            {selectedMaterialForEntry && (
+              <div className="p-3 rounded-xl bg-muted/20 border border-border/40 flex items-center justify-between text-xs">
+                <div>
+                  <span className="text-muted-foreground block text-[11px]">Saldo Atual:</span>
+                  <span className="font-mono text-sm font-bold text-foreground">
+                    {selectedMaterialForEntry.stock_quantity} {selectedMaterialForEntry.unit}
+                  </span>
+                </div>
+                <div className="text-right">
+                  <span className="text-muted-foreground block text-[11px]">Saldo Projetado:</span>
+                  <span className="font-mono text-sm font-bold text-emerald-400">
+                    {selectedMaterialForEntry.stock_quantity + (parseInt(manualEntryQuantity, 10) || 0)}{" "}
+                    {selectedMaterialForEntry.unit}
+                  </span>
+                </div>
+              </div>
+            )}
+
+            {/* Quantidade a Adicionar */}
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <Label className="text-xs font-semibold">Quantidade da Entrada</Label>
+                <div className="flex items-center gap-1">
+                  {["10", "50", "100", "500"].map((qty) => (
+                    <button
+                      key={qty}
+                      type="button"
+                      onClick={() => setManualEntryQuantity(qty)}
+                      className="text-[10px] px-1.5 py-0.5 rounded bg-secondary hover:bg-secondary/80 font-mono"
+                    >
+                      +{qty}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <Input
+                type="number"
+                min="1"
+                value={manualEntryQuantity}
+                onChange={(e) => setManualEntryQuantity(e.target.value)}
+                placeholder="Ex: 50"
+                className="h-9 text-xs rounded-xl bg-background/60 font-mono"
+              />
+            </div>
+
+            {/* Motivo / Observação */}
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold">Motivo / Observação (Opcional)</Label>
+              <Input
+                value={manualEntryReason}
+                onChange={(e) => setManualEntryReason(e.target.value)}
+                placeholder="Ex: Coleta externa, compra avulsa, doação de membro..."
+                className="h-9 text-xs rounded-xl bg-background/60"
+              />
+            </div>
+          </div>
+
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setManualEntryModalOpen(false)}
+              className="text-xs rounded-xl"
+            >
+              Cancelar
+            </Button>
+            <Button
+              size="sm"
+              disabled={manualEntryMutation.isPending || !selectedMaterialForEntry || !manualEntryQuantity}
+              onClick={() => manualEntryMutation.mutate()}
+              className="text-xs rounded-xl font-bold bg-emerald-600 hover:bg-emerald-500 text-white gap-1.5 shadow-md shadow-emerald-600/20"
+            >
+              {manualEntryMutation.isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <PackagePlus className="h-4 w-4" />
+              )}
+              Confirmar Entrada Manual
             </Button>
           </DialogFooter>
         </DialogContent>
