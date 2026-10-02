@@ -160,11 +160,25 @@ export async function syncRawMaterialsAsProducts(): Promise<{ createdCount: numb
       }
     }
 
-    if (matched && mat.product_id !== (matched as any).id) {
+    if (matched) {
+      const prodId = (matched as any).id;
+      // Garante existência de registro em warehouse_stock
       await supabase
-        .from("raw_materials" as any)
-        .update({ product_id: (matched as any).id, updated_at: new Date().toISOString() })
-        .eq("id", mat.id);
+        .from("warehouse_stock" as any)
+        .upsert(
+          {
+            product_id: prodId,
+            quantity: Number(mat.stock_quantity || 0),
+          },
+          { onConflict: "product_id", ignoreDuplicates: true }
+        );
+
+      if (mat.product_id !== prodId) {
+        await supabase
+          .from("raw_materials" as any)
+          .update({ product_id: prodId, updated_at: new Date().toISOString() })
+          .eq("id", mat.id);
+      }
     }
   }
 
@@ -619,6 +633,7 @@ export async function updateProductProductionSettings(
     ativo?: boolean;
     nome?: string;
     descricao?: string | null;
+    preco_sugerido?: number;
   }
 ): Promise<void> {
   const payload: any = { updated_at: new Date().toISOString() };
@@ -629,6 +644,7 @@ export async function updateProductProductionSettings(
   if (settings.ativo !== undefined) payload.ativo = settings.ativo;
   if (settings.nome !== undefined) payload.nome = settings.nome.trim();
   if (settings.descricao !== undefined) payload.descricao = settings.descricao?.trim() || null;
+  if (settings.preco_sugerido !== undefined) payload.preco_sugerido = Math.max(0, Number(settings.preco_sugerido));
 
   const { error } = await supabase
     .from("products")

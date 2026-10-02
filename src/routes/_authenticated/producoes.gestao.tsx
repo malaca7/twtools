@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQueryClient, useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -95,6 +95,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
+import { currency } from "@/lib/format";
 import type { RawMaterial, Product, Production, WarehouseMovement } from "@/lib/app-types";
 
 export const Route = createFileRoute("/_authenticated/producoes/gestao")({
@@ -102,34 +103,44 @@ export const Route = createFileRoute("/_authenticated/producoes/gestao")({
 });
 
 export function GestaoProducaoPage() {
-  const { hasPermission, isDevMode, isCeoMode } = useAuth();
+  const { hasPermission, isDevMode, isCeoMode, isDevUser, isCeoUser } = useAuth();
   const queryClient = useQueryClient();
   const prefix = isDevMode ? "/dev" : isCeoMode ? "/ceo" : "";
 
   const canAccess =
     isDevMode ||
     isCeoMode ||
+    isDevUser ||
+    isCeoUser ||
     hasPermission("production_management.view") ||
     hasPermission("view_production_management");
 
   const canManageProducts =
     isDevMode ||
     isCeoMode ||
+    isDevUser ||
+    isCeoUser ||
     hasPermission("production_management.products");
 
   const canManageMaterials =
     isDevMode ||
     isCeoMode ||
+    isDevUser ||
+    isCeoUser ||
     hasPermission("production_management.raw_materials");
 
   const canAuditProductions =
     isDevMode ||
     isCeoMode ||
+    isDevUser ||
+    isCeoUser ||
     hasPermission("production_management.productions");
 
   const canManageSettings =
     isDevMode ||
     isCeoMode ||
+    isDevUser ||
+    isCeoUser ||
     hasPermission("production_management.settings");
 
   const [activeTab, setActiveTab] = useState("dashboard");
@@ -193,8 +204,25 @@ export function GestaoProducaoPage() {
   const [prodCanSell, setProdCanSell] = useState(false);
   const [prodIsActive, setProdIsActive] = useState(true);
   const [prodYield, setProdYield] = useState<string>("1");
+  const [prodUnitPrice, setProdUnitPrice] = useState<string>("0");
   const [recipeItems, setRecipeItems] = useState<Array<{ id: string; raw_material_id: string; quantity_required: string }>>([]);
   const [isLoadingRecipe, setIsLoadingRecipe] = useState(false);
+
+  // Auto-sincronização transparente de matérias-primas com produtos e armazém
+  useEffect(() => {
+    if (rawMaterials.length > 0) {
+      const hasUnlinked = rawMaterials.some((m) => !m.product_id);
+      if (hasUnlinked) {
+        void syncRawMaterialsAsProducts().then((res) => {
+          if (res?.createdCount > 0) {
+            void queryClient.invalidateQueries({ queryKey: ["raw_materials"] });
+            void queryClient.invalidateQueries({ queryKey: ["products"] });
+            void queryClient.invalidateQueries({ queryKey: ["warehouse_stock"] });
+          }
+        });
+      }
+    }
+  }, [rawMaterials, queryClient]);
 
   // Filtro temporal para produções e vendas
   const filteredProductionsByPeriod = useMemo(() => {
@@ -310,6 +338,7 @@ export function GestaoProducaoPage() {
       );
       void queryClient.invalidateQueries({ queryKey: ["raw_materials"] });
       void queryClient.invalidateQueries({ queryKey: ["products"] });
+      void queryClient.invalidateQueries({ queryKey: ["warehouse_stock"] });
       setIsNewMaterialOpen(false);
       setEditingMaterial(null);
       setSelectedMaterialProductId("");
@@ -391,6 +420,9 @@ export function GestaoProducaoPage() {
     onSuccess: () => {
       toast.success("Estoque de matéria-prima ajustado com sucesso!");
       void queryClient.invalidateQueries({ queryKey: ["raw_materials"] });
+      void queryClient.invalidateQueries({ queryKey: ["warehouse_stock"] });
+      void queryClient.invalidateQueries({ queryKey: ["products"] });
+      void queryClient.invalidateQueries({ queryKey: ["warehouse_movements"] });
       setAdjustingMaterial(null);
       setAdjustDelta("10");
       setAdjustReason("");
@@ -422,6 +454,7 @@ export function GestaoProducaoPage() {
     setProdCanSell(prod.can_be_sold === true);
     setProdIsActive(prod.ativo !== false);
     setProdYield(String(prod.production_yield != null && Number(prod.production_yield) > 0 ? prod.production_yield : 1));
+    setProdUnitPrice(String(prod.preco_sugerido ?? 0));
     setIsLoadingRecipe(true);
     try {
       const existing = await getProductRecipes(prod.id);
@@ -469,13 +502,15 @@ export function GestaoProducaoPage() {
       if (!editingProduct) return;
 
       const numYield = Math.max(1, Math.round(parseFloat(prodYield) || 1));
+      const numUnitPrice = Math.max(0, parseFloat(prodUnitPrice) || 0);
 
-      // Salva flags de produção/venda e rendimento
+      // Salva flags de produção/venda, rendimento e preço unitário sugerido
       await updateProductProductionSettings(editingProduct.id, {
         can_be_produced: prodCanProduce,
         can_be_sold: prodCanSell,
         ativo: prodIsActive,
         production_yield: numYield,
+        preco_sugerido: numUnitPrice,
       });
 
       // Salva itens da receita (sempre números inteiros)
@@ -882,6 +917,7 @@ export function GestaoProducaoPage() {
                   <thead>
                     <tr className="border-b border-border/60 bg-muted/20 text-muted-foreground font-semibold">
                       <th className="p-3.5 pl-5">Produto</th>
+                      <th className="p-3.5 text-center">Preço Unitário</th>
                       <th className="p-3.5 text-center">Saldos (Armazém / Venda / Baús)</th>
                       <th className="p-3.5 text-center">Permite Produção</th>
                       <th className="p-3.5 text-center">Permite Venda</th>
@@ -935,6 +971,15 @@ export function GestaoProducaoPage() {
                                   </div>
                                 </div>
                               </div>
+                            </td>
+
+                            {/* PREÇO UNITÁRIO SUGERIDO */}
+                            <td className="p-3.5 text-center font-mono font-bold text-emerald-400">
+                              {prod.preco_sugerido && Number(prod.preco_sugerido) > 0 ? (
+                                currency(Number(prod.preco_sugerido))
+                              ) : (
+                                <span className="text-muted-foreground/60 font-normal text-[11px]">Não def.</span>
+                              )}
                             </td>
 
                             {/* SALDOS POR LOCALIZAÇÃO */}
@@ -1113,18 +1158,6 @@ export function GestaoProducaoPage() {
 
             <div className="flex items-center gap-2">
               <Button
-                variant="outline"
-                size="sm"
-                onClick={() => syncMaterialsMutation.mutate()}
-                disabled={syncMaterialsMutation.isPending}
-                className="h-9 px-3 text-xs rounded-xl gap-1.5 border-border/70 hover:bg-secondary/40 text-muted-foreground hover:text-foreground"
-                title="Cadastra automaticamente no estoque qualquer matéria-prima que ainda não for produto"
-              >
-                <RefreshCw className={cn("h-3.5 w-3.5", syncMaterialsMutation.isPending && "animate-spin text-amber-400")} />
-                <span className="hidden sm:inline">Sincronizar com Estoque</span>
-              </Button>
-
-              <Button
                 onClick={() => {
                   setEditingMaterial(null);
                   setSelectedMaterialProductId("");
@@ -1151,7 +1184,7 @@ export function GestaoProducaoPage() {
                     <tr className="border-b border-border/60 bg-muted/20 text-muted-foreground font-semibold">
                       <th className="p-3.5 pl-5">Matéria-Prima</th>
                       <th className="p-3.5">Descrição</th>
-                      <th className="p-3.5 text-right font-mono">Estoque Atual</th>
+                      <th className="p-3.5 text-right font-mono">Saldo em Armazém</th>
                       <th className="p-3.5 text-center">Status</th>
                       <th className="p-3.5 pr-5 text-right">Ações</th>
                     </tr>
@@ -1195,7 +1228,11 @@ export function GestaoProducaoPage() {
                           </td>
 
                           <td className="p-3.5 text-right font-mono font-black text-emerald-400">
-                            {mat.stock_quantity.toLocaleString("pt-BR")}{" "}
+                            {(() => {
+                              const wh = warehouseStock.find((w) => w.product_id === mat.product_id);
+                              const qty = wh ? Number(wh.quantity || 0) : Number(mat.stock_quantity || 0);
+                              return qty.toLocaleString("pt-BR");
+                            })()}{" "}
                             <span className="text-[10px] text-muted-foreground font-normal">
                               {mat.unit}
                             </span>
@@ -1675,9 +1712,15 @@ export function GestaoProducaoPage() {
               Ajustar Estoque de Insumo
             </DialogTitle>
             <DialogDescription className="text-xs">
-              Item: <strong className="text-foreground">{adjustingMaterial?.name}</strong> · Estoque atual:{" "}
+              Item: <strong className="text-foreground">{adjustingMaterial?.name}</strong> · Saldo em Armazém:{" "}
               <span className="font-mono text-emerald-400 font-bold">
-                {adjustingMaterial?.stock_quantity} {adjustingMaterial?.unit}
+                {(() => {
+                  if (!adjustingMaterial) return 0;
+                  const wh = warehouseStock.find((w) => w.product_id === adjustingMaterial.product_id);
+                  const qty = wh ? Number(wh.quantity || 0) : Number(adjustingMaterial.stock_quantity || 0);
+                  return qty.toLocaleString("pt-BR");
+                })()}{" "}
+                {adjustingMaterial?.unit}
               </span>
             </DialogDescription>
           </DialogHeader>
@@ -1698,20 +1741,38 @@ export function GestaoProducaoPage() {
                 placeholder="Ex: 50 ou -20"
                 className="text-base font-mono font-bold text-amber-300 rounded-xl"
               />
-              <div className="flex items-center gap-1.5 pt-1">
-                {[10, 50, 100, -10, -50].map((d) => (
+              <div className="flex items-center gap-1.5 pt-1 flex-wrap">
+                {[1, 5, 10, 50, 100, -1, -5, -10, -50].map((d) => (
                   <Button
                     key={d}
                     type="button"
                     variant="outline"
                     size="sm"
                     onClick={() => setAdjustDelta(String(d))}
-                    className="h-6 text-[10px] px-2 font-mono rounded-lg"
+                    className={cn(
+                      "h-6 text-[10px] px-2 font-mono rounded-lg cursor-pointer",
+                      d > 0 ? "hover:text-emerald-400 hover:border-emerald-500/50" : "hover:text-rose-400 hover:border-rose-500/50"
+                    )}
                   >
                     {d > 0 ? `+${d}` : d}
                   </Button>
                 ))}
               </div>
+              {(() => {
+                if (!adjustingMaterial) return null;
+                const wh = warehouseStock.find((w) => w.product_id === adjustingMaterial.product_id);
+                const cur = wh ? Number(wh.quantity || 0) : Number(adjustingMaterial.stock_quantity || 0);
+                const delta = parseInt(adjustDelta, 10) || 0;
+                const proj = cur + delta;
+                return (
+                  <p className="text-[11px] text-muted-foreground font-mono pt-1">
+                    Saldo após o ajuste:{" "}
+                    <strong className={cn(proj < 0 ? "text-rose-400" : "text-emerald-400", "font-bold")}>
+                      {proj.toLocaleString("pt-BR")} {adjustingMaterial.unit}
+                    </strong>
+                  </p>
+                );
+              })()}
             </div>
 
             <div className="space-y-1.5">
@@ -1868,6 +1929,50 @@ export function GestaoProducaoPage() {
               </div>
             </div>
 
+            {/* SEÇÃO: PREÇO UNITÁRIO DE VENDA */}
+            <div className="p-3.5 rounded-2xl bg-secondary/30 border border-border/60 space-y-2.5">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <div className="space-y-0.5">
+                  <Label className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                    <Tag className="h-3.5 w-3.5 text-emerald-400" />
+                    <span>Preço Unitário Sugerido (R$)</span>
+                  </Label>
+                  <p className="text-[11px] text-muted-foreground">
+                    Valor base por unidade de <strong>{editingProduct?.nome}</strong> utilizado no registro de vendas e balcão.
+                  </p>
+                </div>
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <span className="text-xs font-mono font-bold text-emerald-400">R$</span>
+                  <Input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={prodUnitPrice}
+                    onChange={(e) => setProdUnitPrice(e.target.value)}
+                    placeholder="0.00"
+                    className="w-32 text-right text-sm font-mono font-bold text-emerald-400 rounded-xl"
+                  />
+                </div>
+              </div>
+
+              {/* Atalhos rápidos de preço */}
+              <div className="flex items-center gap-1.5 flex-wrap pt-1 border-t border-border/40">
+                <span className="text-[10px] text-muted-foreground font-semibold">Atalhos:</span>
+                {[10, 50, 100, 250, 500, 1000, 2500, 5000].map((v) => (
+                  <Button
+                    key={v}
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setProdUnitPrice(String(v))}
+                    className="h-6 text-[10px] px-2 font-mono rounded-lg hover:border-emerald-500/50 hover:text-emerald-300"
+                  >
+                    R$ {v}
+                  </Button>
+                ))}
+              </div>
+            </div>
+
             {/* SEÇÃO: FICHA TÉCNICA E RECEITA DE PRODUÇÃO */}
             {prodCanProduce && (
               <div className="space-y-4 pt-3 border-t border-border/50">
@@ -1965,11 +2070,15 @@ export function GestaoProducaoPage() {
                                   <SelectValue placeholder="Selecione o insumo" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                  {rawMaterials.map((mat) => (
-                                    <SelectItem key={mat.id} value={mat.id}>
-                                      {mat.name} ({mat.unit}) — Disp: {mat.stock_quantity}
-                                    </SelectItem>
-                                  ))}
+                                  {rawMaterials.map((mat) => {
+                                    const wh = warehouseStock.find((w) => w.product_id === mat.product_id);
+                                    const disp = wh ? Number(wh.quantity || 0) : Number(mat.stock_quantity || 0);
+                                    return (
+                                      <SelectItem key={mat.id} value={mat.id}>
+                                        {mat.name} ({mat.unit}) — Armazém: {disp.toLocaleString("pt-BR")}
+                                      </SelectItem>
+                                    );
+                                  })}
                                 </SelectContent>
                               </Select>
                             </div>
