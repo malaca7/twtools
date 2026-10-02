@@ -44,6 +44,7 @@ import { ShopPage } from "@/components/shop/ShopPage";
 import { ProduzirPage } from "@/routes/_authenticated/producoes.produzir";
 import { ArmazemPage } from "@/routes/_authenticated/producoes.armazem";
 import { GestaoProducaoPage } from "@/routes/_authenticated/producoes.gestao";
+import { MateriasPrimasPage } from "@/routes/_authenticated/producoes.materias-primas";
 import { CeoPermissoesTagsPage } from "@/routes/_authenticated/ceo.permissoes-tags";
 import { DevGerenciarTagsPage } from "@/routes/_authenticated/dev.tags";
 
@@ -59,6 +60,8 @@ const PAGE_PERMISSION_MAP: Record<string, Permission | null> = {
   movimentacoes: "view_movements",
   vendas: "view_sales",
   producoes: "productions.view",
+  "materias-primas": "raw_materials.view",
+  materiasprimas: "raw_materials.view",
   produzir: "productions.view",
   armazem: "warehouse.view",
   "gestao-producao": "production_management.view",
@@ -215,6 +218,9 @@ function InnerPageResolver({ page, tab, mode }: { page: string; tab?: string; mo
     case "vendas":
       return <VendasPage />;
     case "producoes": {
+      if (effectiveTab === "materias-primas" || effectiveTab === "materiasprimas") {
+        return <MateriasPrimasPage />;
+      }
       if (effectiveTab === "armazem") {
         return <ArmazemPage />;
       }
@@ -223,6 +229,9 @@ function InnerPageResolver({ page, tab, mode }: { page: string; tab?: string; mo
       }
       if (effectiveTab === "produzir") {
         return <ProduzirPage />;
+      }
+      if (hasPermission("raw_materials.view")) {
+        return <MateriasPrimasPage />;
       }
       if (hasPermission("productions.view") || hasPermission("productions.create") || mode === "dev") {
         return <ProduzirPage />;
@@ -235,6 +244,9 @@ function InnerPageResolver({ page, tab, mode }: { page: string; tab?: string; mo
       }
       return <ProduzirPage />;
     }
+    case "materias-primas":
+    case "materiasprimas":
+      return <MateriasPrimasPage />;
     case "produzir":
       return <ProduzirPage />;
     case "armazem":

@@ -976,6 +976,390 @@ export const PERMISSIONS: Record<AppLevel, Permission[]> = {
   novato: NOVATO,
 };
 
+/**
+ * Avalia se uma lista de permissões arbitrária (ex: de tags, de painéis ou de cargos)
+ * satisfaz a permissão solicitada, considerando correspondência exata, heranças,
+ * equivalências estruturais e permissões de guarda-chuva.
+ */
+export function satisfiesPermission(
+  list: Permission[] | string[] | undefined | null,
+  permission: Permission
+): boolean {
+  if (!list || !Array.isArray(list) || list.length === 0) return false;
+  if (list.includes(permission)) return true;
+
+  // 1. Sistema de Tickets
+  if (list.includes("manage_tickets")) {
+    if (
+      permission === "view_all_tickets" ||
+      permission === "view_tickets" ||
+      permission === "create_ticket"
+    ) {
+      return true;
+    }
+  }
+  if (list.includes("view_all_tickets") && permission === "view_tickets") {
+    return true;
+  }
+
+  // 2. Sistema Life
+  if (list.includes("manage_life")) {
+    if (
+      permission === "view_life" ||
+      permission === "life_view_following" ||
+      permission === "life_view_bookmarks" ||
+      permission === "post_life" ||
+      permission === "life_post_image" ||
+      permission === "life_post_video" ||
+      permission === "life_mention_members" ||
+      permission === "life_use_hashtags" ||
+      permission === "life_like_posts" ||
+      permission === "life_bookmark_posts" ||
+      permission === "life_comment_posts" ||
+      permission === "life_delete_own_comment" ||
+      permission === "life_delete_own_post" ||
+      permission === "life_follow_members" ||
+      permission === "life_pin_posts" ||
+      permission === "life_moderate_posts" ||
+      permission === "life_moderate_comments"
+    ) {
+      return true;
+    }
+  }
+  if (list.includes("life_moderate_posts") && (permission === "life_delete_own_post" || permission === "view_life")) return true;
+  if (list.includes("life_moderate_comments") && (permission === "life_delete_own_comment" || permission === "view_life")) return true;
+  if (list.includes("life_pin_posts") && permission === "view_life") return true;
+  if (list.includes("post_life") && permission === "view_life") return true;
+  if (
+    (list.includes("life_post_image") ||
+      list.includes("life_post_video") ||
+      list.includes("life_mention_members") ||
+      list.includes("life_use_hashtags")) &&
+    (permission === "post_life" || permission === "view_life")
+  ) {
+    return true;
+  }
+  if (
+    (list.includes("life_like_posts") ||
+      list.includes("life_bookmark_posts") ||
+      list.includes("life_comment_posts") ||
+      list.includes("life_follow_members") ||
+      list.includes("life_view_following") ||
+      list.includes("life_view_bookmarks")) &&
+    permission === "view_life"
+  ) {
+    return true;
+  }
+
+  // 3. Sistema de Lives
+  if (list.includes("manage_lives")) {
+    if (
+      permission === "view_lives" ||
+      permission === "link_stream_account" ||
+      permission === "manage_stream_accounts" ||
+      permission === "force_end_live_session" ||
+      permission === "simulate_live_stream" ||
+      permission === "view_stream_logs"
+    ) {
+      return true;
+    }
+  }
+  if (list.includes("configure_stream_api") && permission === "view_lives") return true;
+
+  // 4. Notificações
+  if (list.includes("manage_notifications") && permission === "view_notifications") return true;
+  if (list.includes("send_notifications") && permission === "view_notifications") return true;
+  if (list.includes("view_dev_notifications") && permission === "view_notifications") return true;
+  if (list.includes("view_ceo_notifications") && permission === "view_notifications") return true;
+  if (list.includes("manage_dev_notification_rules") && permission === "view_dev_notifications") return true;
+  if (list.includes("create_ceo_notification") && permission === "view_ceo_notifications") return true;
+  if (list.includes("edit_ceo_notification") && permission === "view_ceo_notifications") return true;
+  if (list.includes("create_dev_notification") && permission === "view_dev_notifications") return true;
+  if (list.includes("edit_dev_notification") && permission === "view_dev_notifications") return true;
+  if (list.includes("delete_dev_notification") && permission === "view_dev_notifications") return true;
+  if (list.includes("simulate_dev_notification") && permission === "view_dev_notifications") return true;
+  if (list.includes("toggle_dev_notification_active") && permission === "view_dev_notifications") return true;
+  if (list.includes("purge_dev_notifications") && permission === "view_dev_notifications") return true;
+  if (list.includes("inspect_dev_notification_payload") && permission === "view_dev_notifications") return true;
+  if (list.includes("export_dev_notifications") && permission === "view_dev_notifications") return true;
+  if (list.includes("manage_dev_notification_sounds") && permission === "view_dev_notifications") return true;
+  if (list.includes("broadcast_dev_emergency_alert") && permission === "view_dev_notifications") return true;
+
+  // 5. Bot & Discord
+  if (permission === "bot_add_app" && list.includes("bot_invite")) return true;
+  if (permission === "bot_invite" && list.includes("bot_add_app")) return true;
+
+  // 6. Estoque, Baús, Categorias e Produtos
+  if (permission === "view_stock" && (list.includes("manage_products") || list.includes("manage_categories") || list.includes("manage_baus") || list.includes("view_baus") || list.includes("create_movement") || list.includes("reverse_movement") || list.includes("delete_movement"))) return true;
+  if (permission === "view_products" && (list.includes("manage_products") || list.includes("create_sale") || list.includes("sales.create"))) return true;
+  if (permission === "view_categories" && list.includes("manage_categories")) return true;
+  if (permission === "view_baus" && list.includes("manage_baus")) return true;
+  if (permission === "view_movements" && (list.includes("create_movement") || list.includes("reverse_movement") || list.includes("delete_movement") || list.includes("view_all_movements"))) return true;
+  if (permission === "estoque.visualizar" && (list.includes("estoque.ajustar") || list.includes("estoque.adicionar") || list.includes("estoque.remover") || list.includes("estoque.corrigir") || list.includes("estoque.configurar") || list.includes("estoque.auditoria"))) return true;
+
+  // 7. Financeiro, Fundo de Caixa, Ausências, Metas e Hierarquia
+  if (permission === "view_cash_fund" && (list.includes("manage_cash_fund") || list.includes("reverse_cash_fund") || list.includes("delete_cash_movement"))) return true;
+  if (permission === "view_absences" && (list.includes("request_absence") || list.includes("manage_absences") || list.includes("view_all_absences"))) return true;
+  if (permission === "view_all_absences" && list.includes("manage_absences")) return true;
+  if (permission === "view_goals" && list.includes("manage_goals")) return true;
+  if (permission === "view_hierarchy" && (list.includes("manage_hierarchy") || list.includes("manage_roles"))) return true;
+  if (permission === "view_members" && (list.includes("edit_members") || list.includes("delete_members") || list.includes("promote_members") || list.includes("change_roles") || list.includes("approve_requests") || list.includes("manage_members"))) return true;
+  if (permission === "view_chat" && (list.includes("create_chat_group") || list.includes("manage_chat_groups"))) return true;
+  if (permission === "view_consolidated_financials" && (list.includes("view_financials") || list.includes("view_ceo_financials"))) return true;
+  if (permission === "approve_requests" && list.includes("manage_members")) return true;
+
+  // 8. Produções
+  if (
+    (permission === "productions.view" || permission === "view_productions") &&
+    (list.includes("productions.view") ||
+      list.includes("view_productions") ||
+      list.includes("productions.create") ||
+      list.includes("create_production") ||
+      list.includes("productions.edit") ||
+      list.includes("productions.delete") ||
+      list.includes("production_management.productions") ||
+      list.includes("production_management.view"))
+  ) {
+    return true;
+  }
+  if (
+    (permission === "productions.create" || permission === "create_production") &&
+    (list.includes("productions.create") ||
+      list.includes("create_production") ||
+      list.includes("production_management.productions"))
+  ) {
+    return true;
+  }
+  if (
+    (permission === "productions.edit" || permission === "productions.delete") &&
+    (list.includes("productions.delete") || list.includes("production_management.productions"))
+  ) {
+    return true;
+  }
+
+  // 9. Matérias-Primas
+  if (
+    permission === "raw_materials.view" &&
+    (list.includes("raw_materials.view") ||
+      list.includes("raw_materials.create") ||
+      list.includes("raw_materials.edit") ||
+      list.includes("raw_materials.delete") ||
+      list.includes("raw_materials.adjust") ||
+      list.includes("raw_materials.transfer_bau") ||
+      list.includes("raw_materials.history") ||
+      list.includes("production_management.raw_materials") ||
+      list.includes("production_management.view"))
+  ) {
+    return true;
+  }
+  if (
+    permission === "raw_materials.history" &&
+    (list.includes("raw_materials.history") ||
+      list.includes("raw_materials.view") ||
+      list.includes("raw_materials.transfer_bau") ||
+      list.includes("raw_materials.adjust"))
+  ) {
+    return true;
+  }
+
+  // 10. Armazém
+  if (
+    (permission === "warehouse.view" || permission === "view_warehouse") &&
+    (list.includes("warehouse.view") ||
+      list.includes("view_warehouse") ||
+      list.includes("warehouse.transfer") ||
+      list.includes("warehouse.transfer_storage") ||
+      list.includes("warehouse.transfer_sale") ||
+      list.includes("warehouse.adjust") ||
+      list.includes("warehouse.history") ||
+      list.includes("production_management.view"))
+  ) {
+    return true;
+  }
+  if (
+    (permission === "warehouse.transfer_storage" || permission === "warehouse.transfer_sale") &&
+    list.includes("warehouse.transfer")
+  ) {
+    return true;
+  }
+  if (
+    permission === "warehouse.transfer" &&
+    (list.includes("warehouse.transfer_storage") || list.includes("warehouse.transfer_sale"))
+  ) {
+    return true;
+  }
+  if (
+    permission === "warehouse.history" &&
+    (list.includes("warehouse.view") ||
+      list.includes("view_warehouse") ||
+      list.includes("warehouse.transfer") ||
+      list.includes("production_management.view"))
+  ) {
+    return true;
+  }
+  if (
+    permission === "warehouse.adjust" &&
+    (list.includes("warehouse.adjust") ||
+      list.includes("production_management.settings") ||
+      list.includes("manage_stock_balance") ||
+      list.includes("estoque.corrigir") ||
+      list.includes("adjust_stock_balance"))
+  ) {
+    return true;
+  }
+
+  // 11. Gestão de Produção
+  if (
+    (permission === "production_management.view" || permission === "view_production_management") &&
+    (list.includes("production_management.view") ||
+      list.includes("view_production_management") ||
+      list.includes("production_management.products") ||
+      list.includes("production_management.raw_materials") ||
+      list.includes("production_management.productions") ||
+      list.includes("production_management.settings") ||
+      list.includes("production_management.reports"))
+  ) {
+    return true;
+  }
+  if (
+    permission === "production_management.products" &&
+    list.includes("production_management.products")
+  ) {
+    return true;
+  }
+  if (
+    permission === "production_management.raw_materials" &&
+    list.includes("production_management.raw_materials")
+  ) {
+    return true;
+  }
+  if (
+    permission === "production_management.productions" &&
+    list.includes("production_management.productions")
+  ) {
+    return true;
+  }
+  if (
+    permission === "production_management.settings" &&
+    list.includes("production_management.settings")
+  ) {
+    return true;
+  }
+  if (
+    permission === "production_management.reports" &&
+    (list.includes("production_management.reports") || list.includes("production_management.view"))
+  ) {
+    return true;
+  }
+
+  // 12. Vendas
+  if (
+    (permission === "view_sales" || permission === "sales.view" || permission === "sales.history") &&
+    (list.includes("view_sales") ||
+      list.includes("sales.view") ||
+      list.includes("sales.history") ||
+      list.includes("create_sale") ||
+      list.includes("sales.create") ||
+      list.includes("reverse_sale") ||
+      list.includes("sales.cancel") ||
+      list.includes("sales.edit") ||
+      list.includes("delete_sale") ||
+      list.includes("view_all_sales"))
+  ) {
+    return true;
+  }
+  if (
+    (permission === "create_sale" || permission === "sales.create") &&
+    (list.includes("create_sale") || list.includes("sales.create"))
+  ) {
+    return true;
+  }
+  if (
+    (permission === "reverse_sale" || permission === "sales.cancel" || permission === "sales.edit") &&
+    (list.includes("reverse_sale") ||
+      list.includes("sales.cancel") ||
+      list.includes("sales.edit") ||
+      list.includes("delete_sale"))
+  ) {
+    return true;
+  }
+  if (
+    permission === "delete_sale" &&
+    (list.includes("delete_sale") || list.includes("sales.cancel"))
+  ) {
+    return true;
+  }
+
+  // 13. Gestão de Estoque Avançado
+  if (
+    permission === "view_stock_management" &&
+    (list.includes("manage_stock_products") ||
+      list.includes("manage_stock_categories") ||
+      list.includes("manage_stock_baus") ||
+      list.includes("adjust_stock_balance") ||
+      list.includes("manage_stock_balance"))
+  ) {
+    return true;
+  }
+  if (permission === "adjust_stock_balance" && (list.includes("estoque.ajustar") || list.includes("estoque.corrigir"))) return true;
+  if (permission === "manage_stock_balance" && list.includes("estoque.corrigir")) return true;
+
+  // 14. Ajustes de Estoque CEO
+  if (permission === "view_ceo_stock_adjustments" && (list.includes("manage_ceo_stock_adjustments") || list.includes("ceo_adjust_stock_balance") || list.includes("ceo_stock_add") || list.includes("ceo_stock_remove"))) return true;
+  if (list.includes("manage_ceo_stock_adjustments") && (permission === "ceo_adjust_stock_balance" || permission === "ceo_stock_add" || permission === "ceo_stock_remove" || permission === "view_ceo_stock_adjustments")) return true;
+
+  // 15. Permissões de Tags (CEO e DEV)
+  if (permission === "view_ceo_tag_permissions" && list.includes("manage_ceo_tag_permissions")) return true;
+  if (permission === "view_dev_tags" && list.includes("manage_dev_tags")) return true;
+
+  // 16. Hub Dev e Hub CEO
+  if (
+    permission === "view_dev_hub" &&
+    (list.includes("manage_dev_bot") ||
+      list.includes("manage_dev_patch_notes") ||
+      list.includes("manage_dev_performance") ||
+      list.includes("manage_dev_permissions") ||
+      list.includes("manage_dev_config") ||
+      list.includes("manage_dev_menu") ||
+      list.includes("manage_dev_gamification") ||
+      list.includes("view_dev_shop") ||
+      list.includes("view_dev_coins") ||
+      list.includes("view_dev_notifications") ||
+      list.includes("view_dev_tags") ||
+      list.includes("manage_dev_tags"))
+  ) {
+    return true;
+  }
+  if (
+    permission === "view_ceo" &&
+    (list.includes("manage_ceo_bot") ||
+      list.includes("view_ceo_notifications") ||
+      list.includes("view_ceo_stock_adjustments") ||
+      list.includes("view_ceo_financials") ||
+      list.includes("view_ceo_tag_permissions") ||
+      list.includes("manage_ceo_webhooks"))
+  ) {
+    return true;
+  }
+
+  // 17. Rankings, Insígnias e Gamificação (XP)
+  if (list.includes("manage_insignias_catalog") && permission === "view_insignias") return true;
+  if (list.includes("grant_insignia") && permission === "view_insignias") return true;
+  if (list.includes("manage_xp_rules") && (permission === "view_rankings_xp" || permission === "view_member_xp")) return true;
+  if (list.includes("adjust_member_xp") && permission === "view_member_xp") return true;
+  if (
+    (list.includes("view_rankings_xp") ||
+      list.includes("view_rankings_financial") ||
+      list.includes("view_rankings_movements") ||
+      list.includes("evaluate_member")) &&
+    permission === "view_rankings"
+  ) {
+    return true;
+  }
+
+  return false;
+}
+
 export function can(
   userLevel: AppLevel | null | undefined,
   permission: Permission,

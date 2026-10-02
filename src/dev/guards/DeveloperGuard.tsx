@@ -12,7 +12,7 @@ interface DeveloperGuardProps {
 }
 
 export function DeveloperGuard({ children }: DeveloperGuardProps) {
-  const { user, profile, level, loading } = useAuth();
+  const { user, profile, level, isDevUser, loading } = useAuth();
 
   if (loading) {
     return (
@@ -25,7 +25,7 @@ export function DeveloperGuard({ children }: DeveloperGuardProps) {
     );
   }
 
-  const isDev = isUserDeveloper(user, profile, level);
+  const isDev = Boolean(isDevUser || isUserDeveloper(user, profile, level));
 
   if (!isDev) {
     return (

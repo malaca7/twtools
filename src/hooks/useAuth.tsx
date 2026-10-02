@@ -4,7 +4,7 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { getCurrentAuth, logoutFromApp } from "@/lib/app-api";
 import type { AppUser, AuthState, Profile, SignupRequestStatus } from "@/lib/app-types";
-import { can, LEVEL_LABEL, type AppLevel, type Permission } from "@/lib/permissions";
+import { can, satisfiesPermission, LEVEL_LABEL, type AppLevel, type Permission } from "@/lib/permissions";
 import { useRolePermissions } from "@/hooks/useData";
 import { isUserDeveloper, DEV_DISCORD_IDS, isDevBypassActive, DEV_CONFIG_EVENT, CEO_CONFIG_EVENT, getCeoTagPermissionsSync, getDevTagPermissionsSync, isUserCeo } from "@/services/devService";
 import type { MemberTag } from "@/services/memberTagsService";
@@ -29,6 +29,7 @@ type AuthContextValue = {
   signOut: () => Promise<void>;
   hasPermission: (permission: Permission) => boolean;
   memberTags: MemberTag[];
+  tagPermissions: Permission[];
   hasTag: (tagId: string) => boolean;
   isMemberBlocked: boolean;
 };
@@ -351,36 +352,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
   }, [profile, session, applyState]);
 
-  const isDevUser = isUserDeveloper(
-    session?.user ? { id: session.user.id, email: session.user.email ?? null } : null,
-    profile,
-    level
-  );
-
-  const isCeoUser = isUserCeo(profile);
-
-  const isDevMode = Boolean(
-    isDevUser &&
-      (typeof window !== "undefined"
-        ? (window.location.pathname.startsWith("/dev") || window.location.hash.includes("/dev"))
-        : panelMode === "dev")
-  );
-
-  const isCeoMode = Boolean(
-    (isCeoUser || isDevUser) &&
-      (typeof window !== "undefined"
-        ? (window.location.pathname.startsWith("/ceo") || window.location.hash.includes("/ceo"))
-        : panelMode === "ceo")
-  );
-
-  const setPanelMode = useCallback((mode: "member" | "dev" | "ceo") => {
-    setPanelModeState(mode);
-    try {
-      localStorage.setItem("tw_panel_mode", mode);
-      sessionStorage.setItem("tw_panel_mode", mode);
-    } catch {}
-  }, []);
-
   // Sincronização reativa instantânea com as opções de ajuste geral Dev (Bypass, etc.)
   const [devConfigTick, setDevConfigTick] = useState(0);
   const [permissionsTick, setPermissionsTick] = useState(0);
@@ -440,6 +411,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, [loadAuth, profile?.user_id, session?.user?.id, queryClient]);
 
+  // Realtime subscription para tags de membros e atribuições
+  useEffect(() => {
+    const channel = supabase
+      .channel("member_tags_realtime_auth")
+      .on("postgres_changes", { event: "*", schema: "public", table: "member_tags" }, () => {
+        setPermissionsTick((t) => t + 1);
+        void queryClient.invalidateQueries({ queryKey: ["member_tags"] });
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "member_tag_assignments" }, () => {
+        setPermissionsTick((t) => t + 1);
+        void queryClient.invalidateQueries({ queryKey: ["member_tag_assignments"] });
+      })
+      .subscribe();
+
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, [queryClient]);
+
   // Carrega as tags do membro ativo
   const activeUserId = profile?.user_id || session?.user?.id;
   const activeProfileId = profile?.id;
@@ -453,10 +443,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return;
       }
       try {
+        const idFilters = [
+          activeUserId ? `member_id.eq.${activeUserId}` : null,
+          activeProfileId && activeProfileId !== activeUserId ? `member_id.eq.${activeProfileId}` : null,
+        ].filter(Boolean).join(",");
+
         const query = supabase
           .from("member_tag_assignments" as any)
-          .select("tag_id, member_tags (*)")
-          .or(`member_id.eq.${activeUserId}${activeProfileId ? `,member_id.eq.${activeProfileId}` : ""}`);
+          .select("tag_id, member_tags (*)");
+
+        if (idFilters.includes(",")) {
+          query.or(idFilters);
+        } else if (activeUserId) {
+          query.eq("member_id", activeUserId);
+        } else if (activeProfileId) {
+          query.eq("member_id", activeProfileId);
+        }
 
         const { data, error } = await query;
         if (!error && Array.isArray(data) && !isCancelled) {
@@ -475,6 +477,131 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isCancelled = true;
     };
   }, [activeUserId, activeProfileId, permissionsTick]);
+
+  // Coleta a soma universal de todas as permissões de todas as tags ativas do membro
+  const allTagPermissions = useMemo<Permission[]>(() => {
+    const permsSet = new Set<Permission>();
+    for (const tag of memberTags) {
+      if (tag.is_active === false) continue;
+      // Permissões explícitas no array permissions
+      if (Array.isArray(tag.permissions)) {
+        for (const p of tag.permissions) {
+          if (p && typeof p === "string") {
+            permsSet.add(p as Permission);
+          }
+        }
+      }
+      // Regras e permissões implícitas da tag
+      const rules = tag.rules || {};
+      const cleanId = tag.id.toLowerCase().trim();
+      if (rules.can_access_ceo || rules.is_ceo || cleanId === "ceo") {
+        permsSet.add("view_ceo" as Permission);
+      }
+      if (
+        rules.can_access_dev ||
+        rules.is_dev_test ||
+        cleanId === "dev_test" ||
+        cleanId === "desenvolvedor"
+      ) {
+        permsSet.add("view_dev_hub" as Permission);
+      }
+      if (rules.can_sell || cleanId === "vendedor") {
+        permsSet.add("sales.view" as Permission);
+        permsSet.add("sales.create" as Permission);
+        permsSet.add("sales.history" as Permission);
+        permsSet.add("view_sales" as Permission);
+        permsSet.add("create_sale" as Permission);
+        permsSet.add("view_products" as Permission);
+        permsSet.add("view_baus" as Permission);
+        permsSet.add("view_stock" as Permission);
+      }
+      if (rules.can_manage_raw_materials) {
+        permsSet.add("raw_materials.view" as Permission);
+        permsSet.add("raw_materials.create" as Permission);
+        permsSet.add("raw_materials.edit" as Permission);
+        permsSet.add("raw_materials.transfer_bau" as Permission);
+        permsSet.add("raw_materials.history" as Permission);
+      }
+      if (rules.can_manage_productions) {
+        permsSet.add("productions.view" as Permission);
+        permsSet.add("productions.create" as Permission);
+        permsSet.add("productions.edit" as Permission);
+        permsSet.add("view_productions" as Permission);
+        permsSet.add("warehouse.view" as Permission);
+      }
+    }
+    return Array.from(permsSet);
+  }, [memberTags]);
+
+  // Checagem se o membro é Desenvolvedor (base ou concedido por tag ativa)
+  const isDevUser = useMemo(() => {
+    // 1. Base (flag is_developer no perfil ou cargo desenvolvedor)
+    const baseDev = isUserDeveloper(
+      session?.user ? { id: session.user.id, email: session.user.email ?? null } : null,
+      profile,
+      level
+    );
+    if (baseDev) return true;
+
+    // 2. Concedido por qualquer tag ativa que o membro possua
+    return memberTags.some((t) => {
+      if (t.is_active === false) return false;
+      const cleanId = t.id.toLowerCase().trim();
+      if (cleanId === "desenvolvedor" || cleanId === "dev_test") return true;
+      if (t.rules?.can_access_dev === true || t.rules?.is_dev_test === true) return true;
+      if (
+        Array.isArray(t.permissions) &&
+        (t.permissions.includes("view_dev_hub") || t.permissions.includes("manage_dev_config"))
+      ) {
+        return true;
+      }
+      return false;
+    });
+  }, [session?.user, profile, level, memberTags]);
+
+  // Checagem se o membro é CEO (base ou concedido por tag ativa)
+  const isCeoUser = useMemo(() => {
+    // 1. Base (flag is_ceo no perfil)
+    const baseCeo = isUserCeo(profile);
+    if (baseCeo) return true;
+
+    // 2. Concedido por qualquer tag ativa que o membro possua
+    return memberTags.some((t) => {
+      if (t.is_active === false) return false;
+      const cleanId = t.id.toLowerCase().trim();
+      if (cleanId === "ceo") return true;
+      if (t.rules?.can_access_ceo === true || t.rules?.is_ceo === true) return true;
+      if (
+        Array.isArray(t.permissions) &&
+        (t.permissions.includes("view_ceo") || t.permissions.includes("manage_ceo_bot"))
+      ) {
+        return true;
+      }
+      return false;
+    });
+  }, [profile, memberTags]);
+
+  const isDevMode = Boolean(
+    isDevUser &&
+      (typeof window !== "undefined"
+        ? (window.location.pathname.startsWith("/dev") || window.location.hash.includes("/dev"))
+        : panelMode === "dev")
+  );
+
+  const isCeoMode = Boolean(
+    (isCeoUser || isDevUser) &&
+      (typeof window !== "undefined"
+        ? (window.location.pathname.startsWith("/ceo") || window.location.hash.includes("/ceo"))
+        : panelMode === "ceo")
+  );
+
+  const setPanelMode = useCallback((mode: "member" | "dev" | "ceo") => {
+    setPanelModeState(mode);
+    try {
+      localStorage.setItem("tw_panel_mode", mode);
+      sessionStorage.setItem("tw_panel_mode", mode);
+    } catch {}
+  }, []);
 
   const hasTag = useCallback(
     (tagId: string) => {
@@ -531,50 +658,66 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           permission.includes(".delete") ||
           permission.includes(".transfer") ||
           permission.includes(".adjust") ||
-          permission === "manage_cash_fund";
+          permission.includes(".cancel") ||
+          permission === "manage_cash_fund" ||
+          permission === "adjust_stock_balance" ||
+          permission === "manage_stock_balance";
 
         if (isOperationalAction) {
           return false;
         }
+
+        // Checa bloqueios específicos adicionais de regras da tag
+        const isSalesAction = permission.startsWith("sales.") || permission.includes("sale");
+        const isCashAction = permission.includes("cash_fund");
+        const isMovementAction = permission.includes("movement");
+        const isProdAction = permission.startsWith("productions.") || permission.includes("production");
+
+        for (const t of memberTags) {
+          if (t.is_active === false) continue;
+          if (t.rules?.block_sales && isSalesAction && isOperationalAction) return false;
+          if (t.rules?.block_cash_fund && isCashAction && isOperationalAction) return false;
+          if (t.rules?.block_movements && isMovementAction && isOperationalAction) return false;
+          if (t.rules?.block_productions && isProdAction && isOperationalAction) return false;
+        }
       }
 
-      // 0.1. Permissões concedidas pelas Tags de Membro (Vendedor, Dev Test, etc.)
-      const tagHasPermission = memberTags.some(
-        (t) => t.is_active !== false && Array.isArray(t.permissions) && t.permissions.includes(permission)
-      );
-      if (tagHasPermission) {
+      // 0.1. SOMA UNIVERSAL DAS TAGS:
+      // Se qualquer tag ativa do membro possui a permissão (exata ou por herança/equivalência),
+      // essa permissão é SOMADA e está plenamente ativa em QUALQUER painel (Membro, CEO ou DEV)!
+      if (satisfiesPermission(allTagPermissions, permission)) {
         return true;
       }
 
       // 1. Quando estiver operando no PAINEL MEMBRO:
-      // Apenas permissões que o cargo (level) do membro possui na matriz de permissões!
-      // Nenhum bypass ou herança Dev/CEO se aplica ao painel do membro.
+      // A soma é: permissões do cargo (level) + permissões de todas as tags (já avaliadas acima!)
       if (inMemberPanel) {
         return can(level, permission, customRolePermissions);
       }
 
       // 2. Quando estiver operando no PAINEL DEV (ou rota /dev):
+      // A soma é: Bypass Dev (se ativo) OU permissões Dev + permissões do cargo (level) + todas as tags!
       if (inDevPanel) {
-        // Se o Bypass de Autorização Dev estiver explicitamente ATIVADO pelo desenvolvedor nas configurações:
         if (isDevUser && bypassActive) {
           return true;
         }
-        // Avalia a matriz de permissões configurada para a Tag Dev / Desenvolvedor
         const devPerms = customRolePermissions?.["desenvolvedor"] ?? getDevTagPermissionsSync();
-        if (Array.isArray(devPerms) && devPerms.length > 0) {
-          if (devPerms.includes(permission)) return true;
-          if (isDevUser) return can("desenvolvedor", permission, customRolePermissions);
+        if (satisfiesPermission(devPerms, permission)) {
+          return true;
         }
-        if (isDevUser) return true;
+        if (isDevUser) {
+          if (can("desenvolvedor", permission, customRolePermissions)) return true;
+          return true;
+        }
         return can(level, permission, customRolePermissions);
       }
 
       // 3. Quando estiver operando no PAINEL CEO (ou rota /ceo):
-      // Apenas permissões da Tag CEO + permissões do cargo (level) do membro!
+      // A soma é: permissões CEO + permissões do cargo (level) + todas as tags!
       if (inCeoPanel) {
         const ceoPerms = customRolePermissions?.["ceo"] ?? getCeoTagPermissionsSync();
-        if (Array.isArray(ceoPerms) && ceoPerms.length > 0) {
-          if (ceoPerms.includes(permission)) return true;
+        if (satisfiesPermission(ceoPerms, permission)) {
+          return true;
         }
         return can(level, permission, customRolePermissions);
       }
@@ -582,7 +725,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // Fallback padrão: avalia o cargo do membro
       return can(level, permission, customRolePermissions);
     },
-    [level, isDevUser, isCeoUser, customRolePermissions, devConfigTick, panelMode, permissionsTick]
+    [
+      level,
+      isDevUser,
+      isCeoUser,
+      memberTags,
+      allTagPermissions,
+      customRolePermissions,
+      devConfigTick,
+      panelMode,
+      permissionsTick,
+    ]
   );
 
   const value = useMemo<AuthContextValue>(
@@ -610,6 +763,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       signOut,
       hasPermission,
       memberTags,
+      tagPermissions: allTagPermissions,
       hasTag,
       isMemberBlocked,
     }),
@@ -629,6 +783,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       signOut,
       hasPermission,
       memberTags,
+      allTagPermissions,
       hasTag,
       isMemberBlocked,
     ]

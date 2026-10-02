@@ -241,7 +241,7 @@ const CEO_MODULE_NAV_ITEMS: MasterNavItem[] = [
 function DynamicSidebarNavigation() {
   const routerState = useRouterState();
   const pathname = routerState.location.pathname;
-  const { hasPermission, user, profile, level, isDevMode, isCeoMode, setPanelMode, isCeoUser } = useAuth();
+  const { hasPermission, user, profile, level, isDevMode, isCeoMode, setPanelMode, isCeoUser, isDevUser } = useAuth();
   const { config: menuConfig } = useMenuConfig();
   const { config: devMenuConfig } = useDevMenuConfig();
   const { config: ceoMenuConfig } = useCeoMenuConfig();
@@ -312,8 +312,6 @@ function DynamicSidebarNavigation() {
     },
     [storageKey]
   );
-
-  const isDevUser = isUserDeveloper(user, profile, level);
 
   // Sincroniza o modo de painel com base na rota acessada
   useEffect(() => {
