@@ -57,9 +57,24 @@ import {
   Bookmark,
   Link2,
   Square,
-  PlusCircle,
   Sliders,
   History,
+  LayoutDashboard,
+  Factory,
+  Warehouse,
+  Boxes,
+  ShoppingCart,
+  Workflow,
+  TrendingUp,
+  Trophy,
+  Target,
+  Tags,
+  Webhook,
+  Landmark,
+  BellRing,
+  Coins,
+  Award,
+  KeyRound,
 } from "lucide-react";
 import { DevMaintenanceManagerModal } from "@/components/maintenance/DevMaintenanceManagerModal";
 import {
@@ -140,27 +155,38 @@ export function DevConfiguracaoContent({ defaultTab }: { defaultTab?: string } =
   const { data: allAuditLogs = [] } = useAuditLogs();
 
   const [activeMainTab, setActiveMainTab] = useState<string>(() => {
-    if (defaultTab && ["plataforma", "rodape", "cores", "dev-tools"].includes(defaultTab)) {
-      return defaultTab;
+    const normalizeTab = (t?: string | null) => {
+      if (!t) return null;
+      if (t === "cores" || t === "paineis") return "paineis";
+      if (["plataforma", "rodape", "paineis", "dev-tools"].includes(t)) return t;
+      return null;
+    };
+
+    if (defaultTab) {
+      const norm = normalizeTab(defaultTab);
+      if (norm) return norm;
     }
     if (typeof window !== "undefined") {
       const urlParams = new URLSearchParams(window.location.search);
       const tabParam = urlParams.get("tab");
-      if (tabParam && ["plataforma", "rodape", "cores", "dev-tools"].includes(tabParam)) {
-        return tabParam;
-      }
+      const normParam = normalizeTab(tabParam);
+      if (normParam) return normParam;
+
       const parts = window.location.pathname.split("/").filter(Boolean);
       const lastPart = parts[parts.length - 1];
-      if (["plataforma", "rodape", "cores", "dev-tools"].includes(lastPart)) {
-        return lastPart;
-      }
+      const normPath = normalizeTab(lastPart);
+      if (normPath) return normPath;
     }
     return "plataforma";
   });
 
   useEffect(() => {
-    if (defaultTab && ["plataforma", "rodape", "cores", "dev-tools"].includes(defaultTab)) {
-      setActiveMainTab(defaultTab);
+    if (defaultTab) {
+      if (defaultTab === "cores" || defaultTab === "paineis") {
+        setActiveMainTab("paineis");
+      } else if (["plataforma", "rodape", "dev-tools"].includes(defaultTab)) {
+        setActiveMainTab(defaultTab);
+      }
     }
   }, [defaultTab]);
 
@@ -835,11 +861,11 @@ export function DevConfiguracaoContent({ defaultTab }: { defaultTab?: string } =
                 </TabsTrigger>
 
                 <TabsTrigger
-                  value="cores"
+                  value="paineis"
                   className="data-[state=active]:bg-primary/20 data-[state=active]:text-primary text-xs font-bold gap-2 py-2 px-3 rounded-lg transition-all"
                 >
-                  <Palette className="h-4 w-4" />
-                  Cores dos Painéis
+                  <Sliders className="h-4 w-4" />
+                  Configurações de Painéis
                 </TabsTrigger>
 
                 <TabsTrigger
@@ -2259,9 +2285,317 @@ export function DevConfiguracaoContent({ defaultTab }: { defaultTab?: string } =
           </Card>
         </TabsContent>
 
-        {/* ABA 3: CORES DOS PAINÉIS */}
-            <TabsContent value="cores" className="space-y-6 m-0 focus-visible:outline-none">
-              {/* Card de Cores Padrão dos Painéis Dev, CEO & Membro */}
+        {/* ABA 3: CONFIGURAÇÕES DE PAINÉIS (PÁGINAS DE INÍCIO & CORES) */}
+        <TabsContent value="paineis" className="space-y-6 m-0 focus-visible:outline-none">
+          {/* CARD 1: PÁGINAS DE INÍCIO PADRÃO DE CADA PAINEL (LANDING PAGES) */}
+          <Card className="surface-card border transition-all duration-300">
+            <CardHeader className="pb-3 border-b border-border/60">
+              <div className="flex items-center justify-between gap-3 flex-wrap">
+                <div className="flex items-center gap-2.5">
+                  <div className="p-2 rounded-lg bg-primary/10 text-primary border border-primary/20">
+                    <Compass className="h-4 w-4" />
+                  </div>
+                  <div>
+                    <CardTitle className="text-sm font-extrabold text-foreground">
+                      Páginas de Início Padrão dos Painéis (Landing Pages)
+                    </CardTitle>
+                    <CardDescription className="text-xs">
+                      Escolha a página inicial padrão que será aberta automaticamente para cada tipo de painel ao alternar ou fazer login.
+                    </CardDescription>
+                  </div>
+                </div>
+                <Badge variant="outline" className="text-[10px] font-mono border-primary/40 text-primary">
+                  Navegação & Roteamento
+                </Badge>
+              </div>
+            </CardHeader>
+            <CardContent className="p-5 space-y-6">
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                {/* 1. Página Inicial - Painel Membro */}
+                <div className="p-4 rounded-xl bg-secondary/20 border border-border/60 space-y-3.5 flex flex-col justify-between">
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <div className="p-2 rounded-lg bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 shrink-0">
+                          <Users className="h-4 w-4" />
+                        </div>
+                        <div className="min-w-0">
+                          <h4 className="text-xs font-black uppercase tracking-wider text-foreground truncate">
+                            Painel Membro
+                          </h4>
+                          <span className="text-[10.5px] text-muted-foreground truncate block">
+                            Plataforma Geral / Usuários Regulares
+                          </span>
+                        </div>
+                      </div>
+                      <Badge variant="outline" className="text-[10px] font-mono border-cyan-500/40 text-cyan-400 shrink-0">
+                        Geral
+                      </Badge>
+                    </div>
+
+                    <p className="text-[0.7rem] text-muted-foreground">
+                      Define a página padrão que será aberta ao entrar na plataforma ou clicar no botão Membro.
+                    </p>
+
+                    <div className="space-y-1.5 pt-1">
+                      <Label htmlFor="startPageUser" className="text-xs font-bold text-foreground">
+                        Página de Início Selecionada:
+                      </Label>
+                      <Select
+                        value={
+                          [
+                            "/dashboard",
+                            "/producoes/produzir",
+                            "/producoes/materias-primas",
+                            "/producoes/armazem",
+                            "/vendas",
+                            "/controledeestoque",
+                            "/membros",
+                            "/hierarquia",
+                            "/desempenho",
+                            "/loja",
+                            "/fundo-caixa",
+                            "/rankings",
+                            "/metas",
+                            "/avisos",
+                          ].includes(platformForm.startPageUser || "/dashboard")
+                            ? platformForm.startPageUser || "/dashboard"
+                            : "custom"
+                        }
+                        onValueChange={(val) => {
+                          if (val !== "custom") {
+                            updatePlatformField("startPageUser", val);
+                            toast.success(`Painel Membro: Página inicial definida para "${val}"!`);
+                          }
+                        }}
+                      >
+                        <SelectTrigger id="startPageUser" className="h-9 text-xs rounded-xl bg-background/80">
+                          <SelectValue placeholder="Selecione a página de início..." />
+                        </SelectTrigger>
+                        <SelectContent className="max-h-72">
+                          <SelectItem value="/dashboard">📊 Dashboard Geral (/dashboard)</SelectItem>
+                          <SelectItem value="/producoes/produzir">🏭 Produzir — Fábrica (/producoes/produzir)</SelectItem>
+                          <SelectItem value="/producoes/materias-primas">📦 Matérias-Primas (/producoes/materias-primas)</SelectItem>
+                          <SelectItem value="/producoes/armazem">🏢 Armazém (/producoes/armazem)</SelectItem>
+                          <SelectItem value="/vendas">🛒 Balcão de Vendas (/vendas)</SelectItem>
+                          <SelectItem value="/controledeestoque">🗄️ Controle de Estoque (/controledeestoque)</SelectItem>
+                          <SelectItem value="/membros">👥 Lista de Membros (/membros)</SelectItem>
+                          <SelectItem value="/hierarquia">👑 Hierarquia da Organização (/hierarquia)</SelectItem>
+                          <SelectItem value="/desempenho">⚡ Meu Desempenho & XP (/desempenho)</SelectItem>
+                          <SelectItem value="/loja">🛍️ Loja Twin Wheels (/loja)</SelectItem>
+                          <SelectItem value="/fundo-caixa">🏦 Fundo de Caixa (/fundo-caixa)</SelectItem>
+                          <SelectItem value="/rankings">🏆 Rankings (/rankings)</SelectItem>
+                          <SelectItem value="/metas">🎯 Metas (/metas)</SelectItem>
+                          <SelectItem value="/avisos">📢 Enviar Avisos (/avisos)</SelectItem>
+                          <SelectItem value="custom">✏️ Outra rota personalizada...</SelectItem>
+                        </SelectContent>
+                      </Select>
+
+                      <div className="pt-1">
+                        <Input
+                          placeholder="Rota (ex: /dashboard)"
+                          value={platformForm.startPageUser || "/dashboard"}
+                          onChange={(e) => updatePlatformField("startPageUser", e.target.value)}
+                          className="h-8 text-xs font-mono bg-background/60 rounded-lg"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between pt-2 border-t border-border/40 text-[11px] text-muted-foreground">
+                    <span>Rota ativa:</span>
+                    <span className="font-mono font-bold text-cyan-400 truncate max-w-[170px]">
+                      {platformForm.startPageUser || "/dashboard"}
+                    </span>
+                  </div>
+                </div>
+
+                {/* 2. Página Inicial - Painel CEO */}
+                <div className="p-4 rounded-xl bg-secondary/20 border border-border/60 space-y-3.5 flex flex-col justify-between">
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <div className="p-2 rounded-lg bg-amber-500/10 text-amber-400 border border-amber-500/20 shrink-0">
+                          <Crown className="h-4 w-4" />
+                        </div>
+                        <div className="min-w-0">
+                          <h4 className="text-xs font-black uppercase tracking-wider text-foreground truncate">
+                            Painel CEO
+                          </h4>
+                          <span className="text-[10.5px] text-muted-foreground truncate block">
+                            Executivo / Diretoria & Liderança
+                          </span>
+                        </div>
+                      </div>
+                      <Badge variant="outline" className="text-[10px] font-mono border-amber-500/40 text-amber-400 shrink-0">
+                        CEO
+                      </Badge>
+                    </div>
+
+                    <p className="text-[0.7rem] text-muted-foreground">
+                      Define a página padrão que será aberta ao alternar para o Painel CEO.
+                    </p>
+
+                    <div className="space-y-1.5 pt-1">
+                      <Label htmlFor="startPageCeo" className="text-xs font-bold text-foreground">
+                        Página de Início Selecionada:
+                      </Label>
+                      <Select
+                        value={
+                          [
+                            "/ceo/dashboard",
+                            "/ceo/financas",
+                            "/ceo/tags",
+                            "/ceo/ajustes-estoque",
+                            "/ceo/bot",
+                            "/ceo/webhooks",
+                            "/ceo/notificacoes",
+                            "/dashboard",
+                          ].includes(platformForm.startPageCeo || "/ceo/dashboard")
+                            ? platformForm.startPageCeo || "/ceo/dashboard"
+                            : "custom"
+                        }
+                        onValueChange={(val) => {
+                          if (val !== "custom") {
+                            updatePlatformField("startPageCeo", val);
+                            toast.success(`Painel CEO: Página inicial definida para "${val}"!`);
+                          }
+                        }}
+                      >
+                        <SelectTrigger id="startPageCeo" className="h-9 text-xs rounded-xl bg-background/80">
+                          <SelectValue placeholder="Selecione a página de início..." />
+                        </SelectTrigger>
+                        <SelectContent className="max-h-72">
+                          <SelectItem value="/ceo/dashboard">👑 Visão Executiva & Métricas (/ceo/dashboard)</SelectItem>
+                          <SelectItem value="/ceo/financas">🏦 Fundo de Caixa & Finanças (/ceo/financas)</SelectItem>
+                          <SelectItem value="/ceo/tags">🏷️ Gerenciar Tags & Permissões (/ceo/tags)</SelectItem>
+                          <SelectItem value="/ceo/ajustes-estoque">⚖️ Ajustes de Estoque (/ceo/ajustes-estoque)</SelectItem>
+                          <SelectItem value="/ceo/bot">🤖 Gerenciar Bot Discord (/ceo/bot)</SelectItem>
+                          <SelectItem value="/ceo/webhooks">🔗 WebHooks Discord (/ceo/webhooks)</SelectItem>
+                          <SelectItem value="/ceo/notificacoes">🔔 Central de Notificações CEO (/ceo/notificacoes)</SelectItem>
+                          <SelectItem value="/dashboard">📊 Dashboard Geral (/dashboard)</SelectItem>
+                          <SelectItem value="custom">✏️ Outra rota personalizada...</SelectItem>
+                        </SelectContent>
+                      </Select>
+
+                      <div className="pt-1">
+                        <Input
+                          placeholder="Rota (ex: /ceo/dashboard)"
+                          value={platformForm.startPageCeo || "/ceo/dashboard"}
+                          onChange={(e) => updatePlatformField("startPageCeo", e.target.value)}
+                          className="h-8 text-xs font-mono bg-background/60 rounded-lg"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between pt-2 border-t border-border/40 text-[11px] text-muted-foreground">
+                    <span>Rota ativa:</span>
+                    <span className="font-mono font-bold text-amber-400 truncate max-w-[170px]">
+                      {platformForm.startPageCeo || "/ceo/dashboard"}
+                    </span>
+                  </div>
+                </div>
+
+                {/* 3. Página Inicial - Painel Dev */}
+                <div className="p-4 rounded-xl bg-secondary/20 border border-border/60 space-y-3.5 flex flex-col justify-between">
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <div className="p-2 rounded-lg bg-rose-500/10 text-rose-400 border border-rose-500/20 shrink-0">
+                          <Code2 className="h-4 w-4" />
+                        </div>
+                        <div className="min-w-0">
+                          <h4 className="text-xs font-black uppercase tracking-wider text-foreground truncate">
+                            Painel Dev
+                          </h4>
+                          <span className="text-[10.5px] text-muted-foreground truncate block">
+                            Desenvolvedor / Administração Técnica
+                          </span>
+                        </div>
+                      </div>
+                      <Badge variant="outline" className="text-[10px] font-mono border-rose-500/40 text-rose-400 shrink-0">
+                        Dev
+                      </Badge>
+                    </div>
+
+                    <p className="text-[0.7rem] text-muted-foreground">
+                      Define a página padrão que será aberta ao alternar para o Painel Dev.
+                    </p>
+
+                    <div className="space-y-1.5 pt-1">
+                      <Label htmlFor="startPageDev" className="text-xs font-bold text-foreground">
+                        Página de Início Selecionada:
+                      </Label>
+                      <Select
+                        value={
+                          [
+                            "/dev/configuracao",
+                            "/dev/permissoes",
+                            "/dev/bot",
+                            "/dev/estoque",
+                            "/dev/menu-lateral",
+                            "/dev/patch-notes",
+                            "/dev/desempenho",
+                            "/dev/xp-insignias",
+                            "/dev/gestaoloja",
+                            "/dev/coins",
+                            "/dev/notificacoes",
+                            "/dev",
+                          ].includes(platformForm.startPageDev || "/dev/configuracao")
+                            ? platformForm.startPageDev || "/dev/configuracao"
+                            : "custom"
+                        }
+                        onValueChange={(val) => {
+                          if (val !== "custom") {
+                            updatePlatformField("startPageDev", val);
+                            toast.success(`Painel Dev: Página inicial definida para "${val}"!`);
+                          }
+                        }}
+                      >
+                        <SelectTrigger id="startPageDev" className="h-9 text-xs rounded-xl bg-background/80">
+                          <SelectValue placeholder="Selecione a página de início..." />
+                        </SelectTrigger>
+                        <SelectContent className="max-h-72">
+                          <SelectItem value="/dev/configuracao">💻 Configurações Dev (/dev/configuracao)</SelectItem>
+                          <SelectItem value="/dev/permissoes">🔑 Permissões Tag Dev (/dev/permissoes)</SelectItem>
+                          <SelectItem value="/dev/bot">🤖 Gestão do Bot Discord (/dev/bot)</SelectItem>
+                          <SelectItem value="/dev/estoque">📦 Hub de Estoque Dev (/dev/estoque)</SelectItem>
+                          <SelectItem value="/dev/menu-lateral">📑 Menu Lateral Dev (/dev/menu-lateral)</SelectItem>
+                          <SelectItem value="/dev/patch-notes">✨ Patch Notes & Releases (/dev/patch-notes)</SelectItem>
+                          <SelectItem value="/dev/desempenho">📈 Gestão de Desempenho (/dev/desempenho)</SelectItem>
+                          <SelectItem value="/dev/xp-insignias">🏅 XP e Insígnias (/dev/xp-insignias)</SelectItem>
+                          <SelectItem value="/dev/gestaoloja">🛍️ Gestão da Loja (/dev/gestaoloja)</SelectItem>
+                          <SelectItem value="/dev/coins">🪙 Gestão de Coins (/dev/coins)</SelectItem>
+                          <SelectItem value="/dev/notificacoes">🔔 Central de Notificações Dev (/dev/notificacoes)</SelectItem>
+                          <SelectItem value="/dev">⚡ Hub Desenvolvedor (/dev)</SelectItem>
+                          <SelectItem value="custom">✏️ Outra rota personalizada...</SelectItem>
+                        </SelectContent>
+                      </Select>
+
+                      <div className="pt-1">
+                        <Input
+                          placeholder="Rota (ex: /dev/configuracao)"
+                          value={platformForm.startPageDev || "/dev/configuracao"}
+                          onChange={(e) => updatePlatformField("startPageDev", e.target.value)}
+                          className="h-8 text-xs font-mono bg-background/60 rounded-lg"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between pt-2 border-t border-border/40 text-[11px] text-muted-foreground">
+                    <span>Rota ativa:</span>
+                    <span className="font-mono font-bold text-rose-400 truncate max-w-[170px]">
+                      {platformForm.startPageDev || "/dev/configuracao"}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* CARD 2: CORES & IDENTIDADE VISUAL DOS PAINÉIS (DEV, CEO & MEMBRO) */}
           <Card className="surface-card border transition-all duration-300">
             <CardHeader className="pb-3 border-b border-border/60">
               <div className="flex items-center justify-between gap-3 flex-wrap">
@@ -2271,7 +2605,7 @@ export function DevConfiguracaoContent({ defaultTab }: { defaultTab?: string } =
                   </div>
                   <div>
                     <CardTitle className="text-sm font-extrabold text-foreground">
-                      Cores Padrão dos Painéis (Dev, CEO & Membro)
+                      Cores & Identidade Visual dos Painéis (Dev, CEO & Membro)
                     </CardTitle>
                     <CardDescription className="text-xs">
                       Configure a identidade visual oficial dos menus, categorias e ícones de cada painel. Ao selecionar uma cor, todas as categorias, ícones e itens do painel passam a adotá-la automaticamente.

@@ -55,6 +55,7 @@ import {
   Warehouse,
   Zap,
   Layers,
+  Lock,
 } from "lucide-react";
 import { resolveMenuIcon } from "@/lib/menuIcons";
 import {
@@ -90,6 +91,7 @@ import {
 import { Brand } from "@/components/Brand";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   DropdownMenu,
@@ -116,6 +118,8 @@ import { ForceCachePurgeListener } from "@/components/dev/ForceCachePurgeListene
 import { DevToolsMenu } from "@/components/dev/DevToolsMenu";
 import { NotificationCenter } from "@/components/notifications/NotificationCenter";
 import { SuspensionAlertBanner } from "@/components/warnings/SuspensionAlertBanner";
+import { useMyMemberTags } from "@/hooks/useMemberTags";
+import { MemberTagBadge } from "@/components/ui/MemberTagBadge";
 
 type MasterNavItem = {
   id: string;
@@ -341,7 +345,7 @@ function resolveRequiredPermission(id?: string, url?: string): Permission | unde
 function DynamicSidebarNavigation() {
   const routerState = useRouterState();
   const pathname = routerState.location.pathname;
-  const { hasPermission, user, profile, level, isDevMode, isCeoMode, setPanelMode, isCeoUser, isDevUser } = useAuth();
+  const { hasPermission, user, profile, level, isDevMode, isCeoMode, setPanelMode, isCeoUser, isDevUser, isPlatformLocked } = useAuth();
   const { config: menuConfig } = useMenuConfig();
   const { config: devMenuConfig } = useDevMenuConfig();
   const { config: ceoMenuConfig } = useCeoMenuConfig();
@@ -915,6 +919,18 @@ function DynamicSidebarNavigation() {
     }
   }, [pathname, isItemActive, grouped]);
 
+  if (isPlatformLocked) {
+    return (
+      <div className="p-4 mx-2 my-4 rounded-2xl bg-rose-500/10 border border-rose-500/30 text-center space-y-2">
+        <Lock className="h-5 w-5 text-rose-400 mx-auto" />
+        <p className="text-xs font-bold text-rose-400">Navegação Travada</p>
+        <p className="text-[10px] text-muted-foreground">
+          Chave mestra ativa: acesso à plataforma bloqueado pela liderança.
+        </p>
+      </div>
+    );
+  }
+
   return (
     <>
       {grouped.map(({ category, items }) => {
@@ -1080,7 +1096,8 @@ function DynamicSidebarNavigation() {
 }
 
 export function AppShell({ children }: { children: ReactNode }) {
-  const { profile, level, signOut, user, isCeoUser, isDevUser, setPanelMode, hasPermission } = useAuth();
+  const { profile, level, signOut, user, isCeoUser, isDevUser, setPanelMode, hasPermission, isPlatformLocked, platformLockedTags } = useAuth();
+  const myTags = useMyMemberTags();
   const navigate = useNavigate();
   const pathname = useRouterState({ select: (r) => r.location.pathname });
 
@@ -1292,6 +1309,24 @@ export function AppShell({ children }: { children: ReactNode }) {
                 </div>
               )}
 
+              {/* TAGS DO INTEGRANTE NA BARRA DE TOPO */}
+              {user && myTags.length > 0 && (
+                <div className="hidden lg:flex items-center gap-1 mr-1 max-w-[260px] xl:max-w-[360px] overflow-x-auto scrollbar-none py-0.5">
+                  {myTags.slice(0, 3).map((tag) => (
+                    <MemberTagBadge key={tag.id} tag={tag} size="xs" />
+                  ))}
+                  {myTags.length > 3 && (
+                    <Badge
+                      variant="outline"
+                      className="text-[9px] font-mono px-1.5 py-0 h-4 border-border/60 text-muted-foreground shrink-0 cursor-default"
+                      title={myTags.slice(3).map((t) => t.name).join(", ")}
+                    >
+                      +{myTags.length - 3}
+                    </Badge>
+                  )}
+                </div>
+              )}
+
               {/* Indicador de Manutenção Ativa */}
               {(settings.maintenanceActive || settings.showSystemStatusNotice) && (
                 <div className="flex items-center">
@@ -1343,10 +1378,22 @@ export function AppShell({ children }: { children: ReactNode }) {
                   </Button>
                 </DropdownMenuTrigger>
 
-                <DropdownMenuContent align="end" className="w-56">
-                  <DropdownMenuLabel className="space-y-1">
-                    <p className="text-xs font-bold text-foreground">{mainName}</p>
-                    {subName ? <p className="text-[0.65rem] text-muted-foreground">{subName}</p> : null}
+                <DropdownMenuContent align="end" className="w-64">
+                  <DropdownMenuLabel className="space-y-1.5">
+                    <div className="flex items-center justify-between gap-1.5">
+                      <p className="text-xs font-bold text-foreground truncate">{mainName}</p>
+                      <Badge variant="outline" className={cn("text-[9px] font-mono px-1 py-0", levelBadgeClass(level || "membro"))}>
+                        {level ? LEVEL_LABEL[level] : "Membro"}
+                      </Badge>
+                    </div>
+                    {subName ? <p className="text-[0.65rem] text-muted-foreground truncate">{subName}</p> : null}
+                    {myTags.length > 0 && (
+                      <div className="flex flex-wrap items-center gap-1 pt-1">
+                        {myTags.map((tag) => (
+                          <MemberTagBadge key={tag.id} tag={tag} size="xs" />
+                        ))}
+                      </div>
+                    )}
                   </DropdownMenuLabel>
                   <DropdownMenuSeparator />
 
@@ -1393,43 +1440,101 @@ export function AppShell({ children }: { children: ReactNode }) {
           </header>
 
           <main className="flex-1 px-2.5 py-4 sm:px-6 lg:px-8 pb-8 flex flex-col justify-between">
-            {settings.showSystemStatusNotice && settings.systemStatusNotice && (
-              <div className="w-full max-w-7xl mx-auto mb-4">
-                <div
-                  className={cn(
-                    "p-3 rounded-2xl border text-xs flex items-center justify-between gap-3 shadow-xs transition-all",
-                    settings.systemStatusType === "destructive"
-                      ? "bg-rose-500/10 border-rose-500/30 text-rose-200"
-                      : settings.systemStatusType === "info"
-                      ? "bg-sky-500/10 border-sky-500/30 text-sky-200"
-                      : "bg-amber-500/10 border-amber-500/30 text-amber-200"
-                  )}
-                >
-                  <div className="flex items-center gap-2.5 min-w-0">
-                    <AlertTriangle
-                      className={cn(
-                        "w-4 h-4 shrink-0",
-                        settings.systemStatusType === "destructive"
-                          ? "text-rose-400"
-                          : settings.systemStatusType === "info"
-                          ? "text-sky-400"
-                          : "text-amber-400"
-                      )}
-                    />
-                    <span className="font-semibold leading-relaxed truncate">{settings.systemStatusNotice}</span>
-                  </div>
-                  {settings.cityRpName && (
-                    <span className="hidden sm:inline-block font-mono text-[10px] px-2 py-0.5 rounded-full bg-background/50 border border-current opacity-80 shrink-0">
-                      {settings.cityRpName}
-                    </span>
-                  )}
-                </div>
+            {isPlatformLocked ? (
+              <div className="w-full max-w-3xl mx-auto my-auto py-12 px-4 animate-in fade-in-50 duration-300">
+                <Card className="border-2 border-rose-500/40 bg-card/95 shadow-2xl backdrop-blur-xl overflow-hidden rounded-3xl">
+                  <div className="h-2 bg-gradient-to-r from-rose-600 via-rose-500 to-amber-500" />
+                  <CardHeader className="text-center pb-4 pt-8 px-6 sm:px-10">
+                    <div className="mx-auto w-16 h-16 rounded-2xl bg-rose-500/15 border-2 border-rose-500/40 flex items-center justify-center text-rose-400 mb-4 shadow-lg shadow-rose-500/20 animate-pulse">
+                      <Lock className="h-8 w-8" />
+                    </div>
+                    <CardTitle className="text-xl sm:text-2xl font-black text-rose-400 uppercase tracking-tight">
+                      Acesso à Plataforma Bloqueado
+                    </CardTitle>
+                    <CardDescription className="text-sm text-foreground/80 font-medium max-w-md mx-auto pt-2">
+                      Uma tag restritiva com <span className="text-rose-400 font-bold">Chave Mestra de Bloqueio</span> foi atribuída ao seu perfil pela liderança.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="px-6 sm:px-10 pb-8 space-y-6 text-center">
+                    <div className="p-4 rounded-2xl bg-rose-500/10 border border-rose-500/25 text-left space-y-2 text-xs text-rose-200">
+                      <p className="font-bold flex items-center gap-1.5 text-rose-300">
+                        <ShieldAlert className="h-4 w-4 shrink-0 text-rose-400" />
+                        Restrições ativas no seu acesso:
+                      </p>
+                      <ul className="list-disc list-inside space-y-1 text-muted-foreground text-[11px] leading-relaxed pl-1">
+                        <li>Navegação de menus, abas e módulos travada.</li>
+                        <li>Visualização de registros e lançamentos operacionais suspensa.</li>
+                        <li>Ações de vendas, movimentação de baú, armazém e caixa desabilitadas.</li>
+                      </ul>
+                    </div>
+
+                    {platformLockedTags.length > 0 && (
+                      <div className="space-y-2">
+                        <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider block">
+                          Tag(s) causadora(s) do bloqueio:
+                        </span>
+                        <div className="flex flex-wrap items-center justify-center gap-2">
+                          {platformLockedTags.map((tag) => (
+                            <MemberTagBadge key={tag.id} tag={tag} size="sm" showIcon />
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={handleSignOut}
+                        className="w-full sm:w-auto h-10 px-6 rounded-xl border-rose-500/40 text-rose-300 hover:bg-rose-500/15 font-bold gap-2 cursor-pointer"
+                      >
+                        <LogOut className="h-4 w-4" /> Desconectar da Conta
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
               </div>
+            ) : (
+              <>
+                {settings.showSystemStatusNotice && settings.systemStatusNotice && (
+                  <div className="w-full max-w-7xl mx-auto mb-4">
+                    <div
+                      className={cn(
+                        "p-3 rounded-2xl border text-xs flex items-center justify-between gap-3 shadow-xs transition-all",
+                        settings.systemStatusType === "destructive"
+                          ? "bg-rose-500/10 border-rose-500/30 text-rose-200"
+                          : settings.systemStatusType === "info"
+                          ? "bg-sky-500/10 border-sky-500/30 text-sky-200"
+                          : "bg-amber-500/10 border-amber-500/30 text-amber-200"
+                      )}
+                    >
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <AlertTriangle
+                          className={cn(
+                            "w-4 h-4 shrink-0",
+                            settings.systemStatusType === "destructive"
+                              ? "text-rose-400"
+                              : settings.systemStatusType === "info"
+                              ? "text-sky-400"
+                              : "text-amber-400"
+                          )}
+                        />
+                        <span className="font-semibold leading-relaxed truncate">{settings.systemStatusNotice}</span>
+                      </div>
+                      {settings.cityRpName && (
+                        <span className="hidden sm:inline-block font-mono text-[10px] px-2 py-0.5 rounded-full bg-background/50 border border-current opacity-80 shrink-0">
+                          {settings.cityRpName}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                )}
+                <div className="w-full max-w-7xl mx-auto">
+                  <SuspensionAlertBanner />
+                  {children}
+                </div>
+              </>
             )}
-            <div className="w-full max-w-7xl mx-auto">
-              <SuspensionAlertBanner />
-              {children}
-            </div>
 
             {/* RODAPÉ DINÂMICO E TOTALMENTE PERSONALIZÁVEL */}
             <footer className="py-6 mt-12 border-t border-border/40 text-center text-xs text-muted-foreground/80 space-y-1.5 w-full max-w-7xl mx-auto">

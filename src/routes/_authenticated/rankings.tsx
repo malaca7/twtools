@@ -48,8 +48,9 @@ import {
 } from "@/services/gamificationService";
 import { InsigniaGrantModal } from "@/components/gamification/InsigniaGrantModal";
 import { MemberEvaluationModal } from "@/components/gamification/MemberEvaluationModal";
-import { InsigniaCatalogManagerModal } from "@/components/gamification/InsigniaCatalogManagerModal";
 import { MemberInsigniasListModal } from "@/components/gamification/MemberInsigniasListModal";
+import { useMemberTagsMap } from "@/hooks/useMemberTags";
+import { MemberTagBadge } from "@/components/ui/MemberTagBadge";
 
 export const Route = createFileRoute("/_authenticated/rankings")({
   component: RankingsWrapper,
@@ -83,6 +84,7 @@ export function RankingsPage() {
 
 function RankingsContent() {
   const { user, profile, level, isDevUser, isCeoUser, hasPermission } = useAuth();
+  const memberTagsMap = useMemberTagsMap();
   const canView = hasPermission("view_rankings");
   const canViewXp = hasPermission("view_rankings_xp");
   const canViewFinancial = hasPermission("view_rankings_financial");
@@ -706,7 +708,7 @@ function RankingsContent() {
                                         </Badge>
                                       )}
                                     </div>
-                                    <div className="flex items-center gap-1 pt-0.5">
+                                    <div className="flex items-center gap-1 pt-0.5 flex-wrap">
                                       {m.nivel && (
                                         <Badge variant="outline" className={cn("text-[9px] px-1 py-0", levelBadgeClass(m.nivel as any))}>
                                           {getLevelLabel(m.nivel)}
@@ -715,6 +717,9 @@ function RankingsContent() {
                                       <span className="text-[10px] text-muted-foreground font-semibold">
                                         Nv. {m.gamification_level}
                                       </span>
+                                      {(memberTagsMap[m.user_id] || []).map((tag) => (
+                                        <MemberTagBadge key={tag.id} tag={tag} size="xs" />
+                                      ))}
                                     </div>
                                   </div>
                                 </div>
@@ -842,9 +847,14 @@ function RankingsContent() {
                                             </Badge>
                                           )}
                                         </div>
-                                        <span className="text-[11px] text-muted-foreground">
-                                          {m.nome}
-                                        </span>
+                                        <div className="flex items-center gap-1.5 flex-wrap">
+                                          <span className="text-[11px] text-muted-foreground">
+                                            {m.nome}
+                                          </span>
+                                          {(memberTagsMap[m.user_id] || []).map((tag) => (
+                                            <MemberTagBadge key={tag.id} tag={tag} size="xs" />
+                                          ))}
+                                        </div>
                                       </div>
                                     </div>
                                   </TableCell>

@@ -1263,11 +1263,11 @@ export function CeoGerenciarTagsPage() {
                   />
                 </div>
 
-                {/* BLOQUEAR LOGIN / PLATAFORMA */}
-                <div className="flex items-center justify-between p-2 rounded-xl bg-background/60 border border-border/70">
+                {/* BLOQUEAR ACESSO À PLATAFORMA (CHAVE MESTRA) */}
+                <div className="flex items-center justify-between p-2 rounded-xl bg-rose-500/10 border border-rose-500/30">
                   <div className="space-y-0.5 pr-2">
-                    <span className="text-[11px] font-semibold text-foreground block">Bloquear Plataforma / Login</span>
-                    <span className="text-[10px] text-muted-foreground">Bloqueia acesso e navegação</span>
+                    <span className="text-[11px] font-bold text-rose-400 block">Bloquear Acesso à Plataforma</span>
+                    <span className="text-[10px] text-muted-foreground">Chave mestra: trava 100% dos menus, páginas e abas</span>
                   </div>
                   <Switch
                     checked={Boolean(formRules.block_login)}
@@ -1961,15 +1961,18 @@ export function CeoGerenciarTagsPage() {
                         />
                       </div>
 
-                      {/* BLOQUEAR LOGIN / PLATAFORMA */}
-                      <div className="flex items-center justify-between p-3.5 rounded-2xl bg-secondary/20 border border-border/60">
+                      {/* BLOQUEAR ACESSO À PLATAFORMA (CHAVE MESTRA) */}
+                      <div className="flex items-center justify-between p-3.5 rounded-2xl bg-rose-500/10 border border-rose-500/40">
                         <div className="space-y-0.5 pr-2">
-                          <Label className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                          <Label className="text-xs font-bold text-rose-400 flex items-center gap-1.5 flex-wrap">
                             <Lock className="h-3.5 w-3.5 text-rose-400" />
-                            <span>Bloquear Acesso à Plataforma (Login)</span>
+                            <span>Bloquear Acesso à Plataforma</span>
+                            <Badge variant="outline" className="text-[9px] font-mono border-rose-500/50 text-rose-300 bg-rose-500/20 py-0 px-1">
+                              Chave Mestra
+                            </Badge>
                           </Label>
                           <p className="text-[11px] text-muted-foreground">
-                            Bloqueia o acesso e a navegação em todo o sistema.
+                            Bloqueia todo acesso à plataforma para quem possuir esta tag. Todos os menus, páginas e abas ficam travados e sem conseguir interagir.
                           </p>
                         </div>
                         <Switch

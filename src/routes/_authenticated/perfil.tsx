@@ -54,6 +54,8 @@ import { SocialNetworksConfigCard } from "@/components/profile/SocialNetworksCon
 import { getProxiedImageUrl } from "@/services/postimagesService";
 import { MemberGamificationCard } from "@/components/gamification/MemberGamificationCard";
 import { useMemberWarnings, useAcknowledgeWarningMutation } from "@/hooks/useWarnings";
+import { useMyMemberTags } from "@/hooks/useMemberTags";
+import { MemberTagBadge } from "@/components/ui/MemberTagBadge";
 
 export const Route = createFileRoute("/_authenticated/perfil")({
   component: PerfilWrapper,
@@ -96,6 +98,7 @@ function PerfilContent({ initialTab }: { initialTab?: "perfil" | "dados" | "publ
   const { profile, level, refresh, user, hasPermission } = useAuth();
   const { data: members = [] } = useMembers();
   const myMember = members.find((m) => m.user_id === user?.id);
+  const myTags = useMyMemberTags();
   const queryClient = useQueryClient();
 
   const { data: myWarnings = [] } = useMemberWarnings(user?.id);
@@ -520,6 +523,14 @@ function PerfilContent({ initialTab }: { initialTab?: "perfil" | "dados" | "publ
                     <span>Foto do Discord</span>
                   </div>
                 </div>
+
+                {myTags.length > 0 && (
+                  <div className="flex flex-wrap items-center justify-center gap-1.5 pt-1">
+                    {myTags.map((tag) => (
+                      <MemberTagBadge key={tag.id} tag={tag} size="sm" showIcon />
+                    ))}
+                  </div>
+                )}
 
                 <div className="w-full pt-3 border-t border-border/50 space-y-2 text-xs text-left">
                   <p className="text-muted-foreground">

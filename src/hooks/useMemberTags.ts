@@ -33,45 +33,80 @@ export function useMemberTagAssignments() {
   });
 }
 
+import { useMembers } from "@/hooks/useData";
+
 /**
- * Retorna um Map de member_id -> MemberTag[] para renderização rápida e enriquecimento de listas de membros
+ * Retorna um Map de member_id / user_id -> MemberTag[] para renderização rápida e enriquecimento de listas de membros
  */
 export function useMemberTagsMap() {
   const { data: tags = [] } = useMemberTags();
   const { data: assignments = [] } = useMemberTagAssignments();
+  const { data: members = [] } = useMembers();
 
   return useMemo(() => {
     const tagMap = new Map<string, MemberTag>();
     tags.forEach((t) => tagMap.set(t.id, t));
+
+    const memberIdToUserId = new Map<string, string>();
+    const userIdToMemberId = new Map<string, string>();
+    members.forEach((m) => {
+      if (m.id && m.user_id) {
+        memberIdToUserId.set(m.id, m.user_id);
+        userIdToMemberId.set(m.user_id, m.id);
+      }
+    });
 
     const memberTagsMap: Record<string, MemberTag[]> = {};
 
     assignments.forEach((a) => {
       const tag = tagMap.get(a.tag_id);
       if (tag) {
-        if (!memberTagsMap[a.member_id]) {
-          memberTagsMap[a.member_id] = [];
+        const ids = new Set<string>();
+        if (a.member_id) {
+          ids.add(a.member_id);
+          const alt1 = memberIdToUserId.get(a.member_id);
+          if (alt1) ids.add(alt1);
+          const alt2 = userIdToMemberId.get(a.member_id);
+          if (alt2) ids.add(alt2);
         }
-        memberTagsMap[a.member_id].push(tag);
+
+        ids.forEach((id) => {
+          if (!memberTagsMap[id]) {
+            memberTagsMap[id] = [];
+          }
+          if (!memberTagsMap[id].some((t) => t.id === tag.id)) {
+            memberTagsMap[id].push(tag);
+          }
+        });
       }
     });
 
     return memberTagsMap;
-  }, [tags, assignments]);
+  }, [tags, assignments, members]);
 }
 
 /**
  * Retorna as tags do usuário atualmente logado
  */
-export function useMyMemberTags() {
+export function useMyMemberTags(): MemberTag[] {
   const { profile, user } = useAuth();
   const tagsMap = useMemberTagsMap();
 
   return useMemo(() => {
-    const memberId = profile?.id || user?.id;
-    if (!memberId) return [];
-    return tagsMap[memberId] || [];
-  }, [tagsMap, profile?.id, user?.id]);
+    const candidateIds = [
+      profile?.id,
+      user?.id,
+      profile?.user_id,
+      (profile as any)?.member_id,
+    ].filter(Boolean) as string[];
+
+    for (const id of candidateIds) {
+      if (tagsMap[id] && tagsMap[id].length > 0) {
+        return tagsMap[id];
+      }
+    }
+    return [];
+  }, [tagsMap, profile?.id, user?.id, profile?.user_id]);
 }
 
 /**

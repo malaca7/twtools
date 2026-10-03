@@ -46,6 +46,8 @@ import {
 import { getProxiedImageUrl } from "@/services/postimagesService";
 import { MemberGamificationCard } from "@/components/gamification/MemberGamificationCard";
 import { MemberInsigniasCardsSection } from "@/components/gamification/MemberInsigniasCardsSection";
+import { useMemberTagsMap } from "@/hooks/useMemberTags";
+import { MemberTagBadge } from "@/components/ui/MemberTagBadge";
 
 export interface PublicProfilePageProps {
   handleOverride?: string;
@@ -75,6 +77,7 @@ function PublicProfileContent({ cleanHandle, isRootRoute }: { cleanHandle: strin
   const navigate = useNavigate();
   const { user } = useAuth();
   const { data: members = [] } = useMembers();
+  const memberTagsMap = useMemberTagsMap();
 
   const [copiedLink, setCopiedLink] = useState(false);
   const [startingChat, setStartingChat] = useState(false);
@@ -479,6 +482,19 @@ function PublicProfileContent({ cleanHandle, isRootRoute }: { cleanHandle: strin
                 <span>“{customStatus}”</span>
               </div>
             )}
+
+            {/* TAGS DO INTEGRANTE */}
+            {(() => {
+              const tags = memberTagsMap[userId] || memberTagsMap[memberData.user_id] || memberTagsMap[memberData.id] || [];
+              if (tags.length === 0) return null;
+              return (
+                <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
+                  {tags.map((tag) => (
+                    <MemberTagBadge key={tag.id} tag={tag} size="sm" showIcon />
+                  ))}
+                </div>
+              );
+            })()}
 
             {/* IDENTIFICADORES & CHIPS HUD */}
             <div className="flex flex-wrap items-center gap-2.5 pt-1 text-xs text-muted-foreground">

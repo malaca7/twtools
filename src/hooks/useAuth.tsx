@@ -34,6 +34,8 @@ type AuthContextValue = {
   tagPermissions: Permission[];
   hasTag: (tagId: string) => boolean;
   isMemberBlocked: boolean;
+  isPlatformLocked: boolean;
+  platformLockedTags: MemberTag[];
   activeSuspension: MemberWarning | null;
   isSuspended: boolean;
 };
@@ -882,8 +884,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [memberTags]
   );
 
+  const platformLockedTags = useMemo(() => {
+    return memberTags.filter((t) => t.is_active !== false && t.rules?.block_login === true);
+  }, [memberTags]);
+
+  const isPlatformLocked = useMemo(() => {
+    if (isDevUser && isDevBypassActive()) return false;
+    return platformLockedTags.length > 0 || Boolean(activeSuspension?.blocks?.block_login);
+  }, [platformLockedTags, activeSuspension, isDevUser]);
+
   const isMemberBlocked = useMemo(() => {
     return (
+      isPlatformLocked ||
       memberTags.some(
         (t) =>
           t.is_active !== false &&
@@ -896,7 +908,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           (activeSuspension.blocks?.block_all_operations || activeSuspension.blocks?.block_login)
       )
     );
-  }, [memberTags, activeSuspension]);
+  }, [memberTags, activeSuspension, isPlatformLocked]);
 
   // Garante que membros comuns sem Tag Dev ou Tag CEO nunca fiquem travados em panelMode dev ou ceo
   useEffect(() => {
@@ -1163,6 +1175,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       tagPermissions: allTagPermissions,
       hasTag,
       isMemberBlocked,
+      isPlatformLocked,
+      platformLockedTags,
       activeSuspension,
       isSuspended,
     }),
@@ -1185,6 +1199,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       allTagPermissions,
       hasTag,
       isMemberBlocked,
+      isPlatformLocked,
+      platformLockedTags,
       activeSuspension,
       isSuspended,
     ]
