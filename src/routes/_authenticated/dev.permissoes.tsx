@@ -369,7 +369,7 @@ function DevPermissoesContent() {
       const rawCeoCats = ceoMenuConfig?.categories?.length ? ceoMenuConfig.categories : ["CEO"];
       const rawMemberCats = menuConfig?.categories?.length
         ? menuConfig.categories
-        : ["Operação", "Produções", "Gestão", "Administração"];
+        : ["Produções", "Gestão", "Administração"];
 
       // 4. Ordem e lista unificada de categorias para a aba correspondente
       const categoryOrder =

@@ -242,9 +242,7 @@ export function CeoGerenciarTagsPage() {
     const rawCategories = menuConfig?.categories?.length
       ? menuConfig.categories
       : ["Produções", "Gestão", "Administração"];
-    const orderedCategories = rawCategories.includes("Produções")
-      ? rawCategories
-      : ["Produções", ...rawCategories];
+    const orderedCategories = rawCategories;
 
     // Remover categorias "Operação", "DEV", "Ferramentas Dev", "CEO", "Painel CEO"
     const categoryOrder = orderedCategories.filter(

@@ -152,9 +152,7 @@ export function PermissoesPage() {
     const rawCategories = menuConfig?.categories?.length
       ? menuConfig.categories
       : ["Produções", "Gestão", "Administração"];
-    const orderedCategories = rawCategories.includes("Produções")
-      ? rawCategories
-      : ["Produções", ...rawCategories];
+    const orderedCategories = rawCategories;
 
     // Remover categoria "Operação", "DEV", "CEO"
     const categoryOrder = orderedCategories.filter(

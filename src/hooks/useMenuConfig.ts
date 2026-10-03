@@ -152,9 +152,6 @@ export function syncMenuConfig(raw: Partial<MenuConfig> | null | undefined): Men
     // Apenas se não houver nenhuma categoria configurada usa o padrão
     DEFAULT_MENU_CATEGORIES.forEach(addCategory);
   }
-  if (!categories.includes("Produções")) {
-    categories.unshift("Produções");
-  }
 
   // 2. Mapa de itens padrão da plataforma
   const defaultItemsMap = new Map<string, MenuItemConfig>();

@@ -388,11 +388,7 @@ function DynamicSidebarNavigation() {
     const rawCategories = menuConfig?.categories?.length
       ? menuConfig.categories
       : ["Produções", "Gestão", "Administração"];
-    const categoryOrder = rawCategories
-      .filter((c) => c !== "Operação")
-      .includes("Produções")
-        ? rawCategories.filter((c) => c !== "Operação")
-        : ["Produções", ...rawCategories.filter((c) => c !== "Operação")];
+    const categoryOrder = rawCategories.filter((c) => c !== "Operação");
 
     const masterItemsMap = new Map<string, MasterNavItem>();
     MASTER_NAV_ITEMS.forEach((m) => {
