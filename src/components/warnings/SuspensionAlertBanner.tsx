@@ -46,7 +46,11 @@ export function SuspensionAlertBanner() {
               <div className="space-y-1">
                 <div className="flex flex-wrap items-center gap-2">
                   <Badge variant="destructive" className="font-bold uppercase tracking-wider text-[10px] px-2 py-0.5">
-                    🚫 {activeSuspension.suspension_type === "permanente" ? "Suspensão Permanente" : "Suspensão Temporária"}
+                    {activeSuspension.type === "advertencia"
+                      ? "⚠️ Advertência com Restrições Ativas"
+                      : activeSuspension.suspension_type === "permanente"
+                      ? "🚫 Suspensão Permanente"
+                      : "🚫 Suspensão Temporária"}
                   </Badge>
                   <span className="text-xs font-semibold text-rose-300">
                     Motivo: {activeSuspension.reason}
@@ -78,6 +82,11 @@ export function SuspensionAlertBanner() {
                     {activeSuspension.blocks.block_all_operations && (
                       <Badge variant="outline" className="text-[10px] border-rose-500/40 text-rose-300 bg-rose-500/10">
                         Operações Totais
+                      </Badge>
+                    )}
+                    {activeSuspension.blocks.block_login && (
+                      <Badge variant="outline" className="text-[10px] border-rose-500/40 text-rose-300 bg-rose-500/10">
+                        Acesso Plataforma
                       </Badge>
                     )}
                     {activeSuspension.blocks.block_sales && (

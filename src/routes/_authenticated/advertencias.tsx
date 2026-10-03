@@ -460,7 +460,7 @@ function AdvertenciasContent() {
   // Reset do Formulário de Criação
   const resetCreateForm = () => {
     setSelectedMemberId("");
-    setNewType(canCreateSuspension ? "advertencia" : "advertencia");
+    setNewType("advertencia");
     setNewSeverity("media");
     setSelectedPreset(WARNING_REASON_PRESETS[0]);
     setCustomReason("");
@@ -469,7 +469,7 @@ function AdvertenciasContent() {
     setDurationDays(3);
     setDurationHours(0);
     setAppliedTagId("none");
-    setBlockAllOperations(true);
+    setBlockAllOperations(false);
     setBlockLogin(false);
     setBlockSales(false);
     setBlockMovements(false);
@@ -494,7 +494,7 @@ function AdvertenciasContent() {
     }
     setEditDescription(warn.description || "");
     setEditSuspensionType(warn.suspension_type || "temporaria");
-    setEditDurationDays(warn.duration_days ?? 3);
+    setEditDurationDays(warn.duration_days ?? (warn.type === "suspensao" ? 3 : 7));
     setEditDurationHours(warn.duration_hours ?? 0);
     setEditAppliedTagId(warn.applied_tag_id || "none");
 
@@ -522,6 +522,14 @@ function AdvertenciasContent() {
       ? customReason.trim()
       : selectedPreset;
 
+    const hasAnyBlock =
+      blockAllOperations ||
+      blockLogin ||
+      blockSales ||
+      blockMovements ||
+      blockProductions ||
+      blockCashFund;
+
     const payload: CreateWarningPayload = {
       member_id: targetMember?.user_id || targetMember?.id || selectedMemberId,
       member_name: memberName,
@@ -546,7 +554,7 @@ function AdvertenciasContent() {
 
       is_suspension: isSusp,
       suspension_type: isSusp ? suspensionType : null,
-      blocks: isSusp
+      blocks: hasAnyBlock
         ? {
             block_all_operations: blockAllOperations,
             block_login: blockLogin,
@@ -557,7 +565,7 @@ function AdvertenciasContent() {
           }
         : undefined,
 
-      applied_tag_id: isSusp && appliedTagId !== "none" ? appliedTagId : null,
+      applied_tag_id: appliedTagId !== "none" ? appliedTagId : null,
     };
 
     await createMutation.mutateAsync(payload);
@@ -573,6 +581,14 @@ function AdvertenciasContent() {
       ? editCustomReason.trim()
       : editPreset;
 
+    const hasAnyEditBlock =
+      editBlockAllOperations ||
+      editBlockLogin ||
+      editBlockSales ||
+      editBlockMovements ||
+      editBlockProductions ||
+      editBlockCashFund;
+
     await updateMutation.mutateAsync({
       id: editingWarning.id,
       payload: {
@@ -582,7 +598,7 @@ function AdvertenciasContent() {
         duration_days: editDurationDays > 0 ? editDurationDays : null,
         duration_hours: editDurationHours > 0 ? editDurationHours : null,
         suspension_type: isSusp ? editSuspensionType : null,
-        blocks: isSusp
+        blocks: hasAnyEditBlock
           ? {
               block_all_operations: editBlockAllOperations,
               block_login: editBlockLogin,
@@ -592,7 +608,7 @@ function AdvertenciasContent() {
               block_cash_fund: editBlockCashFund,
             }
           : undefined,
-        applied_tag_id: isSusp && editAppliedTagId !== "none" ? editAppliedTagId : null,
+        applied_tag_id: editAppliedTagId !== "none" ? editAppliedTagId : null,
       },
     });
 
@@ -998,6 +1014,12 @@ function AdvertenciasContent() {
                         <span className="text-xs font-semibold text-foreground/90">
                           {warn.reason}
                         </span>
+                        {warn.applied_tag_id && (
+                          <Badge variant="secondary" className="text-[10px] font-medium bg-primary/10 text-primary border border-primary/30 flex items-center gap-1">
+                            <Tag className="h-2.5 w-2.5" />
+                            Tag: {tags.find((t) => t.id === warn.applied_tag_id)?.name || warn.applied_tag_id}
+                          </Badge>
+                        )}
                       </div>
 
                       {/* DESCRIÇÃO RESUMIDA */}
@@ -1006,7 +1028,7 @@ function AdvertenciasContent() {
                       </p>
 
                       {/* BLOQUEIOS FUNCIONAIS */}
-                      {isSusp && warn.blocks && Object.values(warn.blocks).some(Boolean) && (
+                      {warn.blocks && Object.values(warn.blocks).some(Boolean) && (
                         <div className="flex flex-wrap items-center gap-1.5 pt-1.5">
                           <span className="text-[10px] font-bold text-muted-foreground uppercase flex items-center gap-1">
                             <Lock className="h-2.5 w-2.5" /> Bloqueios:
@@ -1269,13 +1291,13 @@ function AdvertenciasContent() {
               />
             </div>
 
-            {/* 5. CONFIGURAÇÕES ESPECÍFICAS DE SUSPENSÃO */}
-            {newType === "suspensao" ? (
-              <div className="p-4 rounded-xl bg-rose-950/20 border border-rose-500/30 space-y-4">
-                <div className="flex items-center gap-2 text-rose-300 font-bold text-xs uppercase tracking-wider">
-                  <Ban className="h-4 w-4" /> Parâmetros da Suspensão
-                </div>
+            {/* 5. VIGÊNCIA E DURAÇÃO DA PENALIDADE */}
+            <div className="p-4 rounded-xl bg-secondary/30 border border-border space-y-3">
+              <div className="flex items-center gap-2 text-foreground font-bold text-xs uppercase tracking-wider">
+                <Clock className="h-4 w-4 text-primary" /> Vigência & Duração
+              </div>
 
+              {newType === "suspensao" ? (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <Label className="text-xs font-semibold">Tipo de Duração</Label>
@@ -1316,89 +1338,125 @@ function AdvertenciasContent() {
                     </div>
                   )}
                 </div>
-
-                {/* BLOQUEIOS FUNCIONAIS */}
-                <div className="space-y-2 pt-2 border-t border-rose-500/20">
-                  <Label className="text-xs font-bold text-rose-200 flex items-center gap-1.5">
-                    <Lock className="h-3.5 w-3.5 text-rose-400" />
-                    Bloquear Automaticamente Durante a Suspensão:
-                  </Label>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs pt-1">
-                    <label className="flex items-center gap-2 p-2 rounded-lg bg-background/50 border border-border cursor-pointer hover:bg-background">
-                      <Switch checked={blockAllOperations} onCheckedChange={setBlockAllOperations} />
-                      <span className="font-semibold text-rose-300">Bloqueio Total Operacional</span>
-                    </label>
-
-                    <label className="flex items-center gap-2 p-2 rounded-lg bg-background/50 border border-border cursor-pointer hover:bg-background">
-                      <Switch checked={blockLogin} onCheckedChange={setBlockLogin} />
-                      <span>Bloquear Acesso à Plataforma</span>
-                    </label>
-
-                    <label className="flex items-center gap-2 p-2 rounded-lg bg-background/50 border border-border cursor-pointer hover:bg-background">
-                      <Switch checked={blockSales} onCheckedChange={setBlockSales} />
-                      <span>Bloquear Vendas de Produtos</span>
-                    </label>
-
-                    <label className="flex items-center gap-2 p-2 rounded-lg bg-background/50 border border-border cursor-pointer hover:bg-background">
-                      <Switch checked={blockMovements} onCheckedChange={setBlockMovements} />
-                      <span>Bloquear Retiradas / Baús</span>
-                    </label>
-
-                    <label className="flex items-center gap-2 p-2 rounded-lg bg-background/50 border border-border cursor-pointer hover:bg-background">
-                      <Switch checked={blockProductions} onCheckedChange={setBlockProductions} />
-                      <span>Bloquear Produções & Armazém</span>
-                    </label>
-
-                    <label className="flex items-center gap-2 p-2 rounded-lg bg-background/50 border border-border cursor-pointer hover:bg-background">
-                      <Switch checked={blockCashFund} onCheckedChange={setBlockCashFund} />
-                      <span>Bloquear Fundo de Caixa</span>
-                    </label>
+              ) : (
+                <div>
+                  <Label className="text-xs font-semibold text-foreground">Validade da Advertência no Prontuário</Label>
+                  <div className="grid grid-cols-2 gap-2 mt-1">
+                    <div>
+                      <Label className="text-[10px] text-muted-foreground">Dias</Label>
+                      <Input
+                        type="number"
+                        min={0}
+                        value={durationDays}
+                        onChange={(e) => setDurationDays(Number(e.target.value))}
+                        className="h-9 text-xs"
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-[10px] text-muted-foreground">Horas</Label>
+                      <Input
+                        type="number"
+                        min={0}
+                        max={23}
+                        value={durationHours}
+                        onChange={(e) => setDurationHours(Number(e.target.value))}
+                        className="h-9 text-xs"
+                      />
+                    </div>
                   </div>
-                </div>
-
-                {/* ATRIBUIÇÃO AUTOMÁTICA DE TAG */}
-                <div className="pt-2 border-t border-rose-500/20">
-                  <Label className="text-xs font-semibold text-rose-200 flex items-center gap-1.5">
-                    <Tag className="h-3.5 w-3.5 text-primary" />
-                    Atribuir Tag Automática de Punição (Opcional):
-                  </Label>
-                  <Select value={appliedTagId} onValueChange={setAppliedTagId}>
-                    <SelectTrigger className="mt-1 h-9 text-xs">
-                      <SelectValue placeholder="Nenhuma tag adicional" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="none">Nenhuma tag adicional</SelectItem>
-                      {tags.map((t) => (
-                        <SelectItem key={t.id} value={t.id}>
-                          🏷️ {t.name} ({t.id})
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
                   <p className="text-[10px] text-muted-foreground mt-1">
-                    Se selecionada, a tag será atribuída ao membro e desvinculada automaticamente quando a suspensão expirar ou for revogada.
+                    Após esse período de vigência, a advertência passa automaticamente para o status de "expirado".
                   </p>
                 </div>
+              )}
+            </div>
+
+            {/* 6. BLOQUEIOS & RESTRIÇÕES OPERACIONAIS */}
+            <div className="p-4 rounded-xl bg-rose-950/20 border border-rose-500/30 space-y-3">
+              <div>
+                <Label className="text-xs font-bold text-rose-200 flex items-center gap-1.5">
+                  <Lock className="h-4 w-4 text-rose-400" />
+                  Bloquear Automaticamente (Segurança & Disciplina):
+                </Label>
+                <p className="text-[11px] text-rose-300/70 mt-0.5">
+                  Selecione as restrições operacionais imediatas que serão impostas ao membro durante a vigência da penalidade.
+                </p>
               </div>
-            ) : (
-              // SE FOR ADVERTÊNCIA SIMPLES
-              <div className="p-3 rounded-xl bg-amber-950/20 border border-amber-500/30">
-                <Label className="text-xs font-semibold text-amber-300">Validade da Advertência no Prontuário</Label>
-                <div className="flex items-center gap-2 mt-1">
-                  <Input
-                    type="number"
-                    min={1}
-                    value={durationDays}
-                    onChange={(e) => setDurationDays(Number(e.target.value))}
-                    className="h-9 text-xs w-28"
-                  />
-                  <span className="text-xs text-muted-foreground">
-                    dias (após esse período, o status se torna "expirado")
-                  </span>
-                </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs pt-1">
+                <label className="flex items-center gap-2 p-2 rounded-lg bg-background/50 border border-rose-500/30 cursor-pointer hover:bg-background/80 transition-colors">
+                  <Switch checked={blockAllOperations} onCheckedChange={setBlockAllOperations} />
+                  <div>
+                    <span className="font-bold text-rose-300 block">Bloqueio Total Operacional</span>
+                    <span className="text-[10px] text-muted-foreground">Impede qualquer ação/modificação no sistema</span>
+                  </div>
+                </label>
+
+                <label className="flex items-center gap-2 p-2 rounded-lg bg-background/50 border border-border cursor-pointer hover:bg-background/80 transition-colors">
+                  <Switch checked={blockLogin} onCheckedChange={setBlockLogin} />
+                  <div>
+                    <span className="font-semibold text-foreground block">Bloquear Acesso à Plataforma</span>
+                    <span className="text-[10px] text-muted-foreground">Bloqueia navegação e login</span>
+                  </div>
+                </label>
+
+                <label className="flex items-center gap-2 p-2 rounded-lg bg-background/50 border border-border cursor-pointer hover:bg-background/80 transition-colors">
+                  <Switch checked={blockSales} onCheckedChange={setBlockSales} />
+                  <div>
+                    <span className="font-semibold text-foreground block">Bloquear Vendas de Produtos</span>
+                    <span className="text-[10px] text-muted-foreground">Impede registrar ou estornar vendas</span>
+                  </div>
+                </label>
+
+                <label className="flex items-center gap-2 p-2 rounded-lg bg-background/50 border border-border cursor-pointer hover:bg-background/80 transition-colors">
+                  <Switch checked={blockMovements} onCheckedChange={setBlockMovements} />
+                  <div>
+                    <span className="font-semibold text-foreground block">Bloquear Retiradas / Baús</span>
+                    <span className="text-[10px] text-muted-foreground">Impede retiradas e transferências</span>
+                  </div>
+                </label>
+
+                <label className="flex items-center gap-2 p-2 rounded-lg bg-background/50 border border-border cursor-pointer hover:bg-background/80 transition-colors">
+                  <Switch checked={blockProductions} onCheckedChange={setBlockProductions} />
+                  <div>
+                    <span className="font-semibold text-foreground block">Bloquear Produções & Armazém</span>
+                    <span className="text-[10px] text-muted-foreground">Impede ordens de produção e estoque</span>
+                  </div>
+                </label>
+
+                <label className="flex items-center gap-2 p-2 rounded-lg bg-background/50 border border-border cursor-pointer hover:bg-background/80 transition-colors">
+                  <Switch checked={blockCashFund} onCheckedChange={setBlockCashFund} />
+                  <div>
+                    <span className="font-semibold text-foreground block">Bloquear Fundo de Caixa</span>
+                    <span className="text-[10px] text-muted-foreground">Impede depósitos e saques de caixa</span>
+                  </div>
+                </label>
               </div>
-            )}
+            </div>
+
+            {/* 7. ATRIBUIÇÃO AUTOMÁTICA DE TAG DE PUNIÇÃO */}
+            <div className="p-4 rounded-xl bg-secondary/30 border border-border space-y-2">
+              <Label className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+                <Tag className="h-4 w-4 text-primary" />
+                Atribuir Tag Automática de Punição (Opcional):
+              </Label>
+              <Select value={appliedTagId} onValueChange={setAppliedTagId}>
+                <SelectTrigger className="mt-1 h-9 text-xs">
+                  <SelectValue placeholder="Nenhuma tag adicional" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Nenhuma tag adicional</SelectItem>
+                  {tags.map((t) => (
+                    <SelectItem key={t.id} value={t.id}>
+                      🏷️ {t.name} ({t.id})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-[10px] text-muted-foreground mt-1">
+                Se selecionada, a tag será atribuída ao membro e desvinculada automaticamente quando a penalidade expirar ou for revogada.
+              </p>
+            </div>
 
             <DialogFooter className="pt-3 gap-2">
               <Button
@@ -1507,13 +1565,13 @@ function AdvertenciasContent() {
                 />
               </div>
 
-              {/* SE FOR SUSPENSÃO */}
-              {(editingWarning.is_suspension || editingWarning.type === "suspensao") ? (
-                <div className="p-4 rounded-xl bg-rose-950/20 border border-rose-500/30 space-y-4">
-                  <div className="flex items-center gap-2 text-rose-300 font-bold text-xs uppercase tracking-wider">
-                    <Ban className="h-4 w-4" /> Parâmetros da Suspensão
-                  </div>
+              {/* VIGÊNCIA E DURAÇÃO */}
+              <div className="p-4 rounded-xl bg-secondary/30 border border-border space-y-3">
+                <div className="flex items-center gap-2 text-foreground font-bold text-xs uppercase tracking-wider">
+                  <Clock className="h-4 w-4 text-primary" /> Vigência & Duração
+                </div>
 
+                {(editingWarning.is_suspension || editingWarning.type === "suspensao") ? (
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
                       <Label className="text-xs font-semibold">Tipo de Duração</Label>
@@ -1554,61 +1612,122 @@ function AdvertenciasContent() {
                       </div>
                     )}
                   </div>
-
-                  {/* BLOQUEIOS FUNCIONAIS */}
-                  <div className="space-y-2 pt-2 border-t border-rose-500/20">
-                    <Label className="text-xs font-bold text-rose-200 flex items-center gap-1.5">
-                      <Lock className="h-3.5 w-3.5 text-rose-400" />
-                      Bloquear Automaticamente:
-                    </Label>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs pt-1">
-                      <label className="flex items-center gap-2 p-2 rounded-lg bg-background/50 border border-border cursor-pointer hover:bg-background">
-                        <Switch checked={editBlockAllOperations} onCheckedChange={setEditBlockAllOperations} />
-                        <span className="font-semibold text-rose-300">Bloqueio Total Operacional</span>
-                      </label>
-
-                      <label className="flex items-center gap-2 p-2 rounded-lg bg-background/50 border border-border cursor-pointer hover:bg-background">
-                        <Switch checked={editBlockLogin} onCheckedChange={setEditBlockLogin} />
-                        <span>Bloquear Acesso à Plataforma</span>
-                      </label>
-
-                      <label className="flex items-center gap-2 p-2 rounded-lg bg-background/50 border border-border cursor-pointer hover:bg-background">
-                        <Switch checked={editBlockSales} onCheckedChange={setEditBlockSales} />
-                        <span>Bloquear Vendas</span>
-                      </label>
-
-                      <label className="flex items-center gap-2 p-2 rounded-lg bg-background/50 border border-border cursor-pointer hover:bg-background">
-                        <Switch checked={editBlockMovements} onCheckedChange={setEditBlockMovements} />
-                        <span>Bloquear Baú</span>
-                      </label>
-
-                      <label className="flex items-center gap-2 p-2 rounded-lg bg-background/50 border border-border cursor-pointer hover:bg-background">
-                        <Switch checked={editBlockProductions} onCheckedChange={setEditBlockProductions} />
-                        <span>Bloquear Produções</span>
-                      </label>
-
-                      <label className="flex items-center gap-2 p-2 rounded-lg bg-background/50 border border-border cursor-pointer hover:bg-background">
-                        <Switch checked={editBlockCashFund} onCheckedChange={setEditBlockCashFund} />
-                        <span>Bloquear Fundo de Caixa</span>
-                      </label>
+                ) : (
+                  <div>
+                    <Label className="text-xs font-semibold text-foreground">Validade da Advertência (Dias & Horas)</Label>
+                    <div className="grid grid-cols-2 gap-2 mt-1">
+                      <div>
+                        <Label className="text-[10px] text-muted-foreground">Dias</Label>
+                        <Input
+                          type="number"
+                          min={0}
+                          value={editDurationDays}
+                          onChange={(e) => setEditDurationDays(Number(e.target.value))}
+                          className="h-9 text-xs"
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-[10px] text-muted-foreground">Horas</Label>
+                        <Input
+                          type="number"
+                          min={0}
+                          max={23}
+                          value={editDurationHours}
+                          onChange={(e) => setEditDurationHours(Number(e.target.value))}
+                          className="h-9 text-xs"
+                        />
+                      </div>
                     </div>
                   </div>
+                )}
+              </div>
+
+              {/* BLOQUEIOS FUNCIONAIS */}
+              <div className="p-4 rounded-xl bg-rose-950/20 border border-rose-500/30 space-y-3">
+                <div>
+                  <Label className="text-xs font-bold text-rose-200 flex items-center gap-1.5">
+                    <Lock className="h-4 w-4 text-rose-400" />
+                    Bloquear Automaticamente:
+                  </Label>
+                  <p className="text-[11px] text-rose-300/70 mt-0.5">
+                    Defina as restrições operacionais ativas para este registro disciplinar.
+                  </p>
                 </div>
-              ) : (
-                <div className="p-3 rounded-xl bg-amber-950/20 border border-amber-500/30">
-                  <Label className="text-xs font-semibold text-amber-300">Validade da Advertência (Dias)</Label>
-                  <div className="flex items-center gap-2 mt-1">
-                    <Input
-                      type="number"
-                      min={1}
-                      value={editDurationDays}
-                      onChange={(e) => setEditDurationDays(Number(e.target.value))}
-                      className="h-9 text-xs w-28"
-                    />
-                  </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs pt-1">
+                  <label className="flex items-center gap-2 p-2 rounded-lg bg-background/50 border border-rose-500/30 cursor-pointer hover:bg-background/80 transition-colors">
+                    <Switch checked={editBlockAllOperations} onCheckedChange={setEditBlockAllOperations} />
+                    <div>
+                      <span className="font-bold text-rose-300 block">Bloqueio Total Operacional</span>
+                      <span className="text-[10px] text-muted-foreground">Impede qualquer ação/modificação</span>
+                    </div>
+                  </label>
+
+                  <label className="flex items-center gap-2 p-2 rounded-lg bg-background/50 border border-border cursor-pointer hover:bg-background/80 transition-colors">
+                    <Switch checked={editBlockLogin} onCheckedChange={setEditBlockLogin} />
+                    <div>
+                      <span className="font-semibold text-foreground block">Bloquear Acesso à Plataforma</span>
+                      <span className="text-[10px] text-muted-foreground">Bloqueia navegação e login</span>
+                    </div>
+                  </label>
+
+                  <label className="flex items-center gap-2 p-2 rounded-lg bg-background/50 border border-border cursor-pointer hover:bg-background/80 transition-colors">
+                    <Switch checked={editBlockSales} onCheckedChange={setEditBlockSales} />
+                    <div>
+                      <span className="font-semibold text-foreground block">Bloquear Vendas</span>
+                      <span className="text-[10px] text-muted-foreground">Impede registrar vendas</span>
+                    </div>
+                  </label>
+
+                  <label className="flex items-center gap-2 p-2 rounded-lg bg-background/50 border border-border cursor-pointer hover:bg-background/80 transition-colors">
+                    <Switch checked={editBlockMovements} onCheckedChange={setEditBlockMovements} />
+                    <div>
+                      <span className="font-semibold text-foreground block">Bloquear Baú</span>
+                      <span className="text-[10px] text-muted-foreground">Impede retiradas de baú</span>
+                    </div>
+                  </label>
+
+                  <label className="flex items-center gap-2 p-2 rounded-lg bg-background/50 border border-border cursor-pointer hover:bg-background/80 transition-colors">
+                    <Switch checked={editBlockProductions} onCheckedChange={setEditBlockProductions} />
+                    <div>
+                      <span className="font-semibold text-foreground block">Bloquear Produções</span>
+                      <span className="text-[10px] text-muted-foreground">Impede ordens de produção</span>
+                    </div>
+                  </label>
+
+                  <label className="flex items-center gap-2 p-2 rounded-lg bg-background/50 border border-border cursor-pointer hover:bg-background/80 transition-colors">
+                    <Switch checked={editBlockCashFund} onCheckedChange={setEditBlockCashFund} />
+                    <div>
+                      <span className="font-semibold text-foreground block">Bloquear Fundo de Caixa</span>
+                      <span className="text-[10px] text-muted-foreground">Impede movimentações de caixa</span>
+                    </div>
+                  </label>
                 </div>
-              )}
+              </div>
+
+              {/* ATRIBUIÇÃO AUTOMÁTICA DE TAG */}
+              <div className="p-4 rounded-xl bg-secondary/30 border border-border space-y-2">
+                <Label className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+                  <Tag className="h-4 w-4 text-primary" />
+                  Atribuir Tag Automática de Punição (Opcional):
+                </Label>
+                <Select value={editAppliedTagId} onValueChange={setEditAppliedTagId}>
+                  <SelectTrigger className="mt-1 h-9 text-xs">
+                    <SelectValue placeholder="Nenhuma tag adicional" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Nenhuma tag adicional</SelectItem>
+                    {tags.map((t) => (
+                      <SelectItem key={t.id} value={t.id}>
+                        🏷️ {t.name} ({t.id})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-[10px] text-muted-foreground mt-1">
+                  Se selecionada, a tag será atribuída ao membro e desvinculada automaticamente quando a penalidade expirar ou for revogada.
+                </p>
+              </div>
 
               <DialogFooter className="pt-3 gap-2">
                 <Button

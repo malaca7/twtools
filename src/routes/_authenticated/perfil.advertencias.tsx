@@ -474,7 +474,12 @@ export function PerfilAdvertenciasPage() {
                       </h3>
                     </div>
 
-                    <div className="flex items-center gap-2 shrink-0">
+                    <div className="flex items-center gap-2 shrink-0 flex-wrap">
+                      {warn.applied_tag_id && (
+                        <Badge variant="secondary" className="text-[10px] font-medium bg-primary/10 text-primary border border-primary/30 flex items-center gap-1">
+                          <Tag className="h-2.5 w-2.5" /> Tag: {warn.applied_tag_id}
+                        </Badge>
+                      )}
                       {warn.status === "ativo" ? (
                         <Badge variant="outline" className="text-[10px] font-bold border-emerald-500/40 text-emerald-400 bg-emerald-500/10 gap-1 py-0.5">
                           <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
@@ -498,7 +503,7 @@ export function PerfilAdvertenciasPage() {
                   </p>
 
                   {/* BLOQUEIOS OPERACIONAIS ATIVOS */}
-                  {isSusp && warn.blocks && Object.values(warn.blocks).some(Boolean) && (
+                  {warn.blocks && Object.values(warn.blocks).some(Boolean) && (
                     <div className="flex flex-wrap items-center gap-1.5 pt-1">
                       <span className="text-[10px] font-bold text-rose-400 uppercase flex items-center gap-1">
                         <Lock className="h-3 w-3" /> Bloqueios Aplicados:
@@ -506,6 +511,11 @@ export function PerfilAdvertenciasPage() {
                       {warn.blocks.block_all_operations && (
                         <Badge variant="outline" className="text-[10px] border-rose-500/40 text-rose-300 bg-rose-500/10">
                           Operações Totais
+                        </Badge>
+                      )}
+                      {warn.blocks.block_login && (
+                        <Badge variant="outline" className="text-[10px] border-rose-500/40 text-rose-300 bg-rose-500/10">
+                          Acesso Plataforma
                         </Badge>
                       )}
                       {warn.blocks.block_sales && (

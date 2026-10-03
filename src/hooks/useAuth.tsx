@@ -500,13 +500,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, [activeUserId, activeProfileId, activeDiscordId, permissionsTick]);
 
-  // Carrega e monitora a suspensão ativa do membro logado
+  // Carrega e monitora a suspensão ou penalidade com bloqueios do membro logado
   const [activeSuspension, setActiveSuspension] = useState<MemberWarning | null>(null);
 
   useEffect(() => {
     let isCancelled = false;
     async function checkSuspension() {
-      if (!activeUserId && !activeProfileId) {
+      if (!activeUserId && !activeProfileId && !activeDiscordId) {
         setActiveSuspension(null);
         return;
       }
@@ -514,14 +514,63 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const all = await getWarnings();
         if (isCancelled) return;
         const now = new Date().toISOString();
-        const active = all.find((w) => {
+
+        const matchMember = (w: MemberWarning) => {
+          const mId = (w.member_id || "").toLowerCase().trim();
+          const mGameId = (w.member_game_id || "").toLowerCase().trim();
+          const mName = (w.member_name || "").toLowerCase().trim();
+          const mNick = (w.member_nickname || "").toLowerCase().trim();
+
+          const uId = (activeUserId || "").toLowerCase().trim();
+          const pId = (activeProfileId || "").toLowerCase().trim();
+          const pUserId = (profile?.user_id || "").toLowerCase().trim();
+          const pGameId = (profile?.game_id || "").toLowerCase().trim();
+          const pName = (profile?.nome || "").toLowerCase().trim();
+          const pNick = (profile?.nickname || "").toLowerCase().trim();
+
+          if (uId && mId === uId) return true;
+          if (pId && mId === pId) return true;
+          if (pUserId && mId === pUserId) return true;
+          if (pGameId && mGameId && mGameId === pGameId) return true;
+          if (pName && mName && mName === pName) return true;
+          if (pNick && mNick && mNick === pNick) return true;
+          return false;
+        };
+
+        const activeList = all.filter((w) => {
           if (w.status !== "ativo") return false;
-          if (!w.is_suspension && w.type !== "suspensao") return false;
-          if (w.member_id !== activeUserId && w.member_id !== activeProfileId) return false;
           if (w.ends_at && w.ends_at <= now) return false;
-          return true;
+          return matchMember(w);
         });
-        setActiveSuspension(active || null);
+
+        // Mescla todos os bloqueios funcionais das penalidades ativas do membro
+        const mergedBlocks = activeList.reduce<SuspensionFunctionalBlocks>((acc, curr) => {
+          if (!curr.blocks) return acc;
+          return {
+            block_all_operations: Boolean(acc.block_all_operations || curr.blocks.block_all_operations),
+            block_login: Boolean(acc.block_login || curr.blocks.block_login),
+            block_sales: Boolean(acc.block_sales || curr.blocks.block_sales),
+            block_movements: Boolean(acc.block_movements || curr.blocks.block_movements),
+            block_productions: Boolean(acc.block_productions || curr.blocks.block_productions),
+            block_cash_fund: Boolean(acc.block_cash_fund || curr.blocks.block_cash_fund),
+          };
+        }, {});
+
+        // Prioriza suspensões formais ou advertências com bloqueios
+        const primary =
+          activeList.find((w) => w.is_suspension || w.type === "suspensao") ||
+          activeList.find((w) => w.blocks && Object.values(w.blocks).some(Boolean)) ||
+          activeList[0] ||
+          null;
+
+        if (primary) {
+          setActiveSuspension({
+            ...primary,
+            blocks: mergedBlocks,
+          });
+        } else {
+          setActiveSuspension(null);
+        }
       } catch {
         if (!isCancelled) setActiveSuspension(null);
       }
@@ -538,9 +587,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isCancelled = true;
       window.removeEventListener(WARNINGS_REALTIME_EVENT, handleUpdate);
     };
-  }, [activeUserId, activeProfileId]);
+  }, [activeUserId, activeProfileId, activeDiscordId, profile?.user_id, profile?.game_id, profile?.nome, profile?.nickname, permissionsTick]);
 
-  const isSuspended = Boolean(activeSuspension);
+  const isSuspended = Boolean(
+    activeSuspension &&
+    (activeSuspension.is_suspension || activeSuspension.type === "suspensao" || (activeSuspension.blocks && Object.values(activeSuspension.blocks).some(Boolean)))
+  );
 
   // Helpers de identificação de tags especiais
   const isDevTagItem = useCallback((t: { id?: string; name?: string; rules?: any; permissions?: any }) => {

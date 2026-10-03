@@ -131,6 +131,9 @@ function normalizeWarningsStatus(warnings: MemberWarning[]): { list: MemberWarni
     // Se está ativo, tem data de término e a data já passou, expira automaticamente
     if (w.status === "ativo" && w.ends_at && w.ends_at <= now) {
       hasChanges = true;
+      if (w.applied_tag_id && w.member_id) {
+        void removeMemberTagAssignment(w.member_id, w.applied_tag_id);
+      }
       return {
         ...w,
         status: "expirado" as const,
@@ -213,21 +216,21 @@ export async function createWarning(
   const all = await getWarnings();
   const now = new Date().toISOString();
 
-  // Calcular data de expiração se for temporária
+  // Calcular data de expiração se houver duração configurada (dias ou horas)
   let endsAt = payload.ends_at || null;
-  if (payload.is_suspension && payload.suspension_type === "temporaria") {
-    if (payload.duration_days && payload.duration_days > 0) {
-      const d = new Date(payload.starts_at || now);
-      d.setDate(d.getDate() + payload.duration_days);
-      endsAt = d.toISOString();
-    } else if (payload.duration_hours && payload.duration_hours > 0) {
-      const d = new Date(payload.starts_at || now);
-      d.setHours(d.getHours() + payload.duration_hours);
-      endsAt = d.toISOString();
-    }
-  } else if (!payload.is_suspension && payload.duration_days && payload.duration_days > 0) {
+  const hasDurationDays = payload.duration_days && payload.duration_days > 0;
+  const hasDurationHours = payload.duration_hours && payload.duration_hours > 0;
+
+  if (payload.is_suspension && payload.suspension_type === "permanente") {
+    endsAt = null;
+  } else if (hasDurationDays || hasDurationHours) {
     const d = new Date(payload.starts_at || now);
-    d.setDate(d.getDate() + payload.duration_days);
+    if (hasDurationDays) {
+      d.setDate(d.getDate() + Number(payload.duration_days));
+    }
+    if (hasDurationHours) {
+      d.setHours(d.getHours() + Number(payload.duration_hours));
+    }
     endsAt = d.toISOString();
   }
 
@@ -244,7 +247,7 @@ export async function createWarning(
   const updatedList = [newWarning, ...all];
   await persistWarnings(updatedList);
 
-  // Integração com Tags: Se foi selecionada uma tag para aplicação automática (ex: "bloqueado")
+  // Integração com Tags: Se foi selecionada uma tag para aplicação automática (ex: "bloqueado", "suspenso", etc.)
   if (payload.applied_tag_id && payload.member_id) {
     try {
       await assignMemberTag(payload.member_id, payload.applied_tag_id, adminUser?.id);
@@ -261,7 +264,7 @@ export async function createWarning(
       : `⚠️ Você recebeu uma Advertência Disciplinar (${newWarning.severity.toUpperCase()})`;
 
     const durationInfo = newWarning.ends_at
-      ? `Válida até ${new Date(newWarning.ends_at).toLocaleDateString("pt-BR")}`
+      ? `Válida até ${new Date(newWarning.ends_at).toLocaleString("pt-BR")}`
       : (isSusp && newWarning.suspension_type === "permanente" ? "Duração: Permanente" : "");
 
     await createNotification({
@@ -288,6 +291,8 @@ export async function createWarning(
       reason: newWarning.reason,
       is_suspension: newWarning.is_suspension,
       ends_at: newWarning.ends_at,
+      applied_tag_id: newWarning.applied_tag_id,
+      blocks: newWarning.blocks,
     });
   } catch {}
 
@@ -313,10 +318,38 @@ export async function updateWarning(
   const now = new Date().toISOString();
 
   let endsAt = payload.ends_at !== undefined ? payload.ends_at : current.ends_at;
-  if (payload.duration_days && payload.duration_days > 0) {
-    const d = new Date(payload.starts_at || current.starts_at);
-    d.setDate(d.getDate() + payload.duration_days);
+  const isSusp = payload.is_suspension !== undefined ? payload.is_suspension : current.is_suspension;
+  const suspType = payload.suspension_type !== undefined ? payload.suspension_type : current.suspension_type;
+
+  if (isSusp && suspType === "permanente") {
+    endsAt = null;
+  } else if ((payload.duration_days && payload.duration_days > 0) || (payload.duration_hours && payload.duration_hours > 0)) {
+    const d = new Date(payload.starts_at || current.starts_at || now);
+    if (payload.duration_days && payload.duration_days > 0) {
+      d.setDate(d.getDate() + Number(payload.duration_days));
+    }
+    if (payload.duration_hours && payload.duration_hours > 0) {
+      d.setHours(d.getHours() + Number(payload.duration_hours));
+    }
     endsAt = d.toISOString();
+  }
+
+  // Sincronização de Tags se houver alteração
+  if (payload.applied_tag_id !== undefined && payload.applied_tag_id !== current.applied_tag_id) {
+    if (current.applied_tag_id && current.member_id) {
+      try {
+        await removeMemberTagAssignment(current.member_id, current.applied_tag_id);
+      } catch (err) {
+        console.warn("Aviso ao remover tag de punição antiga:", err);
+      }
+    }
+    if (payload.applied_tag_id && (payload.member_id || current.member_id)) {
+      try {
+        await assignMemberTag(payload.member_id || current.member_id, payload.applied_tag_id, adminUser?.id);
+      } catch (err) {
+        console.warn("Aviso ao atribuir nova tag de punição:", err);
+      }
+    }
   }
 
   const updated: MemberWarning = {
