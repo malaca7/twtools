@@ -124,8 +124,22 @@ export function ForceCachePurgeListener() {
       })
       .subscribe();
 
+    // 3. Escuta evento local disparado pelo DevForcePurgeCard
+    //    para que o próprio dev que acionou a limpeza também receba o processo.
+    const handleSelfPurge = (e: Event) => {
+      const detail = (e as CustomEvent).detail as ForceCachePurgeRecord | undefined;
+      if (!detail || !detail.timestamp) return;
+      // Breve delay para dar tempo ao toast de exibir antes do overlay aparecer
+      setTimeout(() => {
+        void executePurgeAndReload(detail);
+      }, 800);
+    };
+
+    window.addEventListener("tw_force_cache_purge_self", handleSelfPurge);
+
     return () => {
       void supabase.removeChannel(channel);
+      window.removeEventListener("tw_force_cache_purge_self", handleSelfPurge);
     };
   }, []);
 

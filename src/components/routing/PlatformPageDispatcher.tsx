@@ -174,6 +174,9 @@ function InnerPageResolver({ page, tab, mode }: { page: string; tab?: string; mo
     ) {
       return <CeoGerenciarTagsPage />;
     }
+    if (sub === "advertencias" || sub === "ceo-advertencias" || sub === "suspensoes") {
+      return <AdvertenciasPage />;
+    }
     return <CeoPageContent initialTab={sub} />;
   }
 
@@ -205,6 +208,9 @@ function InnerPageResolver({ page, tab, mode }: { page: string; tab?: string; mo
       normalizedPage === "ceo-permissoes-tags"
     ) {
       return <CeoGerenciarTagsPage />;
+    }
+    if (normalizedPage === "advertencias" || normalizedPage === "ceo-advertencias" || normalizedPage === "suspensoes") {
+      return <AdvertenciasPage />;
     }
   }
 
@@ -260,7 +266,7 @@ function InnerPageResolver({ page, tab, mode }: { page: string; tab?: string; mo
     }
   }
 
-  if (requiredPerm && !hasPermission(requiredPerm) && mode !== "dev") {
+  if (requiredPerm && !hasPermission(requiredPerm, mode) && mode !== "dev") {
     return <NoAccess />;
   }
 

@@ -131,6 +131,13 @@ export type Permission =
   | "manage_platform_settings"
   | "manage_menu_settings"
   | "view_profile"
+  | "edit_profile_data"
+  | "edit_profile_banner"
+  | "edit_profile_bio"
+  | "edit_profile_custom_url"
+  | "edit_profile_appearance"
+  | "view_profile_warnings"
+  | "acknowledge_profile_warning"
   | "view_chat"
   | "create_chat_group"
   | "manage_chat_groups"
@@ -288,11 +295,19 @@ export type Permission =
   | "manage_life"
   // Permissões do Sistema de Advertências e Suspensões
   | "view_warnings"
+  | "view_all_warnings"
   | "create_warning"
+  | "create_suspension"
   | "edit_warning"
   | "revoke_warning"
   | "delete_warning"
-  | "manage_warnings";
+  | "view_warning_details"
+  | "export_warnings"
+  | "manage_warnings"
+  | "view_ceo_warnings"
+  | "manage_ceo_warnings"
+  | "view_dev_warnings"
+  | "manage_dev_warnings";
 
 export const ALL_PERMISSIONS: Permission[] = [
   // Permissões de Matérias-Primas
@@ -433,6 +448,9 @@ export const ALL_PERMISSIONS: Permission[] = [
   "edit_ceo_notification",
   "delete_ceo_notification",
   "toggle_ceo_notification_active",
+  // Permissões de Advertências CEO
+  "view_ceo_warnings",
+  "manage_ceo_warnings",
   // Permissões de Ajustes de Estoque CEO
   "view_ceo_stock_adjustments",
   "manage_ceo_stock_adjustments",
@@ -450,6 +468,9 @@ export const ALL_PERMISSIONS: Permission[] = [
   "assign_ceo_tag",
   "view_dev_tags",
   "manage_dev_tags",
+  // Permissões de Advertências Dev
+  "view_dev_warnings",
+  "manage_dev_warnings",
   // Permissões da Central de Notificações Dev
   "view_dev_notifications",
   "manage_dev_notification_rules",
@@ -472,6 +493,13 @@ export const ALL_PERMISSIONS: Permission[] = [
   "configure_stream_api",
   "view_stream_logs",
   "view_profile",
+  "edit_profile_data",
+  "edit_profile_banner",
+  "edit_profile_bio",
+  "edit_profile_custom_url",
+  "edit_profile_appearance",
+  "view_profile_warnings",
+  "acknowledge_profile_warning",
   // Dev Panel Permissions
   "view_dev_hub",
   "manage_dev_bot",
@@ -534,10 +562,14 @@ export const ALL_PERMISSIONS: Permission[] = [
   "estoque.auditoria",
   // Permissões de Advertências e Suspensões
   "view_warnings",
+  "view_all_warnings",
   "create_warning",
+  "create_suspension",
   "edit_warning",
   "revoke_warning",
   "delete_warning",
+  "view_warning_details",
+  "export_warnings",
   "manage_warnings",
 ];
 
@@ -573,6 +605,8 @@ export const DEV_PANEL_PERMISSIONS: Permission[] = [
   "simulate_dev_notification",
   "view_dev_tags",
   "manage_dev_tags",
+  "view_dev_warnings",
+  "manage_dev_warnings",
   "view_ceo_tag_permissions",
   "manage_ceo_tag_permissions",
   "create_ceo_tag",
@@ -592,6 +626,8 @@ export const DEV_PANEL_PERMISSIONS: Permission[] = [
 export const CEO_PERMISSIONS: Permission[] = [
   "view_ceo",
   "manage_ceo_bot",
+  "view_ceo_warnings",
+  "manage_ceo_warnings",
   "view_ceo_notifications",
   "create_ceo_notification",
   "edit_ceo_notification",
@@ -657,9 +693,12 @@ export const CEO_PERMISSIONS: Permission[] = [
   // Permissões de Advertências e Suspensões no CEO
   "view_warnings",
   "create_warning",
+  "create_suspension",
   "edit_warning",
   "revoke_warning",
   "delete_warning",
+  "view_warning_details",
+  "export_warnings",
   "manage_warnings",
 ];
 
@@ -670,7 +709,13 @@ const ADMIN: Permission[] = ALL_PERMISSIONS.filter(
 const OFFICER: Permission[] = [
   "view_dashboard",
   "view_warnings",
+  "view_all_warnings",
   "create_warning",
+  "create_suspension",
+  "edit_warning",
+  "revoke_warning",
+  "view_warning_details",
+  "export_warnings",
   "view_chat",
   "create_chat_group",
   "manage_chat_groups",
@@ -782,6 +827,13 @@ const OFFICER: Permission[] = [
   "force_end_live_session",
   "view_stream_logs",
   "view_profile",
+  "edit_profile_data",
+  "edit_profile_banner",
+  "edit_profile_bio",
+  "edit_profile_custom_url",
+  "edit_profile_appearance",
+  "view_profile_warnings",
+  "acknowledge_profile_warning",
   "view_life",
   "life_view_following",
   "life_view_bookmarks",
@@ -804,6 +856,14 @@ const OFFICER: Permission[] = [
 
 const MANAGER: Permission[] = [
   "view_dashboard",
+  "view_warnings",
+  "view_all_warnings",
+  "create_warning",
+  "create_suspension",
+  "edit_warning",
+  "revoke_warning",
+  "view_warning_details",
+  "export_warnings",
   "view_life",
   "life_view_following",
   "life_view_bookmarks",
@@ -924,10 +984,18 @@ const MANAGER: Permission[] = [
   "force_end_live_session",
   "view_stream_logs",
   "view_profile",
+  "edit_profile_data",
+  "edit_profile_banner",
+  "edit_profile_bio",
+  "edit_profile_custom_url",
+  "edit_profile_appearance",
+  "view_profile_warnings",
+  "acknowledge_profile_warning",
 ];
 
 const MEMBER: Permission[] = [
   "view_dashboard",
+  "view_warnings",
   "view_chat",
   "create_chat_group",
   "view_absences",
@@ -960,6 +1028,13 @@ const MEMBER: Permission[] = [
   "view_lives",
   "link_stream_account",
   "view_profile",
+  "edit_profile_data",
+  "edit_profile_banner",
+  "edit_profile_bio",
+  "edit_profile_custom_url",
+  "edit_profile_appearance",
+  "view_profile_warnings",
+  "acknowledge_profile_warning",
   "view_life",
   "life_view_following",
   "life_view_bookmarks",
@@ -978,6 +1053,7 @@ const MEMBER: Permission[] = [
 
 const NOVATO: Permission[] = [
   "view_dashboard",
+  "view_warnings",
   "view_chat",
   "view_absences",
   "request_absence",
@@ -1001,6 +1077,13 @@ const NOVATO: Permission[] = [
   "view_lives",
   "link_stream_account",
   "view_profile",
+  "edit_profile_data",
+  "edit_profile_banner",
+  "edit_profile_bio",
+  "edit_profile_custom_url",
+  "edit_profile_appearance",
+  "view_profile_warnings",
+  "acknowledge_profile_warning",
   "view_life",
   "life_view_following",
   "life_view_bookmarks",
@@ -1075,17 +1158,53 @@ export function satisfiesPermission(
   }
 
   // 2.1. Sistema de Advertências e Suspensões
-  if (list.includes("manage_warnings")) {
+  if (
+    list.includes("manage_warnings") ||
+    list.includes("manage_ceo_warnings") ||
+    list.includes("manage_dev_warnings")
+  ) {
     if (
       permission === "view_warnings" ||
+      permission === "view_all_warnings" ||
       permission === "create_warning" ||
+      permission === "create_suspension" ||
       permission === "edit_warning" ||
       permission === "revoke_warning" ||
       permission === "delete_warning" ||
-      permission === "manage_warnings"
+      permission === "view_warning_details" ||
+      permission === "export_warnings" ||
+      permission === "manage_warnings" ||
+      permission === "view_ceo_warnings" ||
+      permission === "manage_ceo_warnings" ||
+      permission === "view_dev_warnings" ||
+      permission === "manage_dev_warnings"
     ) {
       return true;
     }
+  }
+
+  if (
+    (list.includes("view_all_warnings") ||
+      list.includes("view_ceo_warnings") ||
+      list.includes("view_dev_warnings")) &&
+    (permission === "view_warnings" ||
+      permission === "view_warning_details")
+  ) {
+    return true;
+  }
+
+  if (
+    (list.includes("create_warning") ||
+      list.includes("create_suspension") ||
+      list.includes("edit_warning") ||
+      list.includes("revoke_warning") ||
+      list.includes("delete_warning") ||
+      list.includes("view_warning_details") ||
+      list.includes("export_warnings")) &&
+    (permission === "view_warnings" ||
+      permission === "view_warning_details")
+  ) {
+    return true;
   }
   if (list.includes("life_moderate_posts") && (permission === "life_delete_own_post" || permission === "view_life")) return true;
   if (list.includes("life_moderate_comments") && (permission === "life_delete_own_comment" || permission === "view_life")) return true;
@@ -1374,7 +1493,11 @@ export function satisfiesPermission(
     list.includes("manage_ceo_tag_permissions") &&
     (permission === "view_ceo_tag_permissions" ||
       permission === "manage_ceo_tag_permissions_detail" ||
-      permission === "manage_ceo_tag_rules")
+      permission === "manage_ceo_tag_rules" ||
+      permission === "create_ceo_tag" ||
+      permission === "edit_ceo_tag" ||
+      permission === "delete_ceo_tag" ||
+      permission === "assign_ceo_tag")
   ) {
     return true;
   }
@@ -1575,6 +1698,56 @@ export function can(
     if (!hasAnySavedLivePerm && (permission.includes("live") || permission.includes("stream"))) {
       const defaultRolePerms = PERMISSIONS[userLevel] || [];
       if (defaultRolePerms.includes(permission)) return true;
+    }
+
+    // Equivalências e herança do sistema de advertências e suspensões
+    if (
+      list.includes("manage_warnings") ||
+      list.includes("manage_ceo_warnings") ||
+      list.includes("manage_dev_warnings")
+    ) {
+      if (
+        permission === "view_warnings" ||
+        permission === "view_all_warnings" ||
+        permission === "create_warning" ||
+        permission === "create_suspension" ||
+        permission === "edit_warning" ||
+        permission === "revoke_warning" ||
+        permission === "delete_warning" ||
+        permission === "view_warning_details" ||
+        permission === "export_warnings" ||
+        permission === "manage_warnings" ||
+        permission === "view_ceo_warnings" ||
+        permission === "manage_ceo_warnings" ||
+        permission === "view_dev_warnings" ||
+        permission === "manage_dev_warnings"
+      ) {
+        return true;
+      }
+    }
+
+    if (
+      (list.includes("view_all_warnings") ||
+        list.includes("view_ceo_warnings") ||
+        list.includes("view_dev_warnings")) &&
+      (permission === "view_warnings" ||
+        permission === "view_warning_details")
+    ) {
+      return true;
+    }
+
+    if (
+      (list.includes("create_warning") ||
+        list.includes("create_suspension") ||
+        list.includes("edit_warning") ||
+        list.includes("revoke_warning") ||
+        list.includes("delete_warning") ||
+        list.includes("view_warning_details") ||
+        list.includes("export_warnings")) &&
+      (permission === "view_warnings" ||
+        permission === "view_warning_details")
+    ) {
+      return true;
     }
 
     // Equivalências de bot
@@ -1828,6 +2001,55 @@ export function can(
   }
   if (rolePerms.includes("configure_stream_api") && permission === "view_lives") return true;
 
+  if (
+    rolePerms.includes("manage_warnings") ||
+    rolePerms.includes("manage_ceo_warnings") ||
+    rolePerms.includes("manage_dev_warnings")
+  ) {
+    if (
+      permission === "view_warnings" ||
+      permission === "view_all_warnings" ||
+      permission === "create_warning" ||
+      permission === "create_suspension" ||
+      permission === "edit_warning" ||
+      permission === "revoke_warning" ||
+      permission === "delete_warning" ||
+      permission === "view_warning_details" ||
+      permission === "export_warnings" ||
+      permission === "manage_warnings" ||
+      permission === "view_ceo_warnings" ||
+      permission === "manage_ceo_warnings" ||
+      permission === "view_dev_warnings" ||
+      permission === "manage_dev_warnings"
+    ) {
+      return true;
+    }
+  }
+
+  if (
+    (rolePerms.includes("view_all_warnings") ||
+      rolePerms.includes("view_ceo_warnings") ||
+      rolePerms.includes("view_dev_warnings")) &&
+    (permission === "view_warnings" ||
+      permission === "view_warning_details")
+  ) {
+    return true;
+  }
+
+  if (
+    (rolePerms.includes("create_warning") ||
+      rolePerms.includes("create_suspension") ||
+      rolePerms.includes("edit_warning") ||
+      rolePerms.includes("revoke_warning") ||
+      rolePerms.includes("delete_warning") ||
+      rolePerms.includes("view_warning_details") ||
+      rolePerms.includes("export_warnings")) &&
+    (permission === "view_warnings" ||
+      permission === "view_warning_details")
+  ) {
+    return true;
+  }
+
   // Herança e equivalências de notificações
   if (rolePerms.includes("manage_notifications") && permission === "view_notifications") return true;
   if (rolePerms.includes("send_notifications") && permission === "view_notifications") return true;
@@ -2026,7 +2248,11 @@ export function can(
     rolePerms.includes("manage_ceo_tag_permissions") &&
     (permission === "view_ceo_tag_permissions" ||
       permission === "manage_ceo_tag_permissions_detail" ||
-      permission === "manage_ceo_tag_rules")
+      permission === "manage_ceo_tag_rules" ||
+      permission === "create_ceo_tag" ||
+      permission === "edit_ceo_tag" ||
+      permission === "delete_ceo_tag" ||
+      permission === "assign_ceo_tag")
   ) {
     return true;
   }

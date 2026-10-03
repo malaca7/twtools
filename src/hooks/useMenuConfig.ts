@@ -70,6 +70,7 @@ export const DEFAULT_MENU_ITEMS: MenuItemConfig[] = [
   { id: "atualizacoes", title: "Atualizações", url: "/atualizacoes", visible: true, category: "Administração", order: 21 },
   { id: "perfil", title: "Meu Perfil", url: "/perfil", visible: true, category: "Gestão", order: 22 },
   { id: "configuracoes", title: "Configurações", url: "/configuracoes", visible: true, category: "Administração", order: 23 },
+  { id: "advertencias", title: "Advertências", url: "/advertencias", visible: true, category: "Administração", order: 24, iconName: "ShieldAlert" },
 ];
 
 export type PlatformSystemModule = {
@@ -106,6 +107,7 @@ export const PLATFORM_SYSTEM_MODULES: PlatformSystemModule[] = [
   { id: "atualizacoes", title: "Atualizações", url: "/atualizacoes", defaultCat: "Administração", iconName: "Sparkles", description: "Notas de atualização e novidades" },
   { id: "perfil", title: "Meu Perfil", url: "/perfil", defaultCat: "Gestão", iconName: "User", description: "Perfil público e dados do membro" },
   { id: "configuracoes", title: "Configurações", url: "/configuracoes", defaultCat: "Administração", iconName: "Wrench", description: "Configurações gerais do sistema" },
+  { id: "advertencias", title: "Advertências", url: "/advertencias", defaultCat: "Administração", iconName: "ShieldAlert", description: "Sistema disciplinar de advertências e suspensões" },
 ];
 
 /**

@@ -59,6 +59,7 @@ import { Route as AuthenticatedCeoTagsRouteImport } from './routes/_authenticate
 import { Route as AuthenticatedConfiguracoesTabRouteImport } from './routes/_authenticated/configuracoes.$tab'
 import { Route as AuthenticatedDevIndexRouteImport } from './routes/_authenticated/dev.index'
 import { Route as AuthenticatedDevPageRouteImport } from './routes/_authenticated/dev.$page'
+import { Route as AuthenticatedDevAdvertenciasRouteImport } from './routes/_authenticated/dev.advertencias'
 import { Route as AuthenticatedDevBotRouteImport } from './routes/_authenticated/dev.bot'
 import { Route as AuthenticatedDevCoinsRouteImport } from './routes/_authenticated/dev.coins'
 import { Route as AuthenticatedDevConfiguracaoRouteImport } from './routes/_authenticated/dev.configuracao'
@@ -79,8 +80,10 @@ import { Route as AuthenticatedLivesTabRouteImport } from './routes/_authenticat
 import { Route as AuthenticatedMetasTabRouteImport } from './routes/_authenticated/metas.$tab'
 import { Route as AuthenticatedMovimentacoesTabRouteImport } from './routes/_authenticated/movimentacoes.$tab'
 import { Route as AuthenticatedPerfilHandleRouteImport } from './routes/_authenticated/perfil.$handle'
+import { Route as AuthenticatedPerfilAdvertenciasRouteImport } from './routes/_authenticated/perfil.advertencias'
 import { Route as AuthenticatedPerfilAparenciaRouteImport } from './routes/_authenticated/perfil.aparencia'
 import { Route as AuthenticatedPerfilDadosRouteImport } from './routes/_authenticated/perfil.dados'
+import { Route as AuthenticatedPerfilDisciplinarRouteImport } from './routes/_authenticated/perfil.disciplinar'
 import { Route as AuthenticatedProducoesIndexRouteImport } from './routes/_authenticated/producoes.index'
 import { Route as AuthenticatedProducoesArmazemRouteImport } from './routes/_authenticated/producoes.armazem'
 import { Route as AuthenticatedProducoesGestaoRouteImport } from './routes/_authenticated/producoes.gestao'
@@ -370,6 +373,12 @@ const AuthenticatedDevPageRoute = AuthenticatedDevPageRouteImport.update({
   path: '/dev/$page',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedDevAdvertenciasRoute =
+  AuthenticatedDevAdvertenciasRouteImport.update({
+    id: '/dev/advertencias',
+    path: '/dev/advertencias',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedDevBotRoute = AuthenticatedDevBotRouteImport.update({
   id: '/dev/bot',
   path: '/dev/bot',
@@ -483,6 +492,12 @@ const AuthenticatedPerfilHandleRoute =
     path: '/$handle',
     getParentRoute: () => AuthenticatedPerfilRoute,
   } as any)
+const AuthenticatedPerfilAdvertenciasRoute =
+  AuthenticatedPerfilAdvertenciasRouteImport.update({
+    id: '/advertencias',
+    path: '/advertencias',
+    getParentRoute: () => AuthenticatedPerfilRoute,
+  } as any)
 const AuthenticatedPerfilAparenciaRoute =
   AuthenticatedPerfilAparenciaRouteImport.update({
     id: '/aparencia',
@@ -493,6 +508,12 @@ const AuthenticatedPerfilDadosRoute =
   AuthenticatedPerfilDadosRouteImport.update({
     id: '/dados',
     path: '/dados',
+    getParentRoute: () => AuthenticatedPerfilRoute,
+  } as any)
+const AuthenticatedPerfilDisciplinarRoute =
+  AuthenticatedPerfilDisciplinarRouteImport.update({
+    id: '/disciplinar',
+    path: '/disciplinar',
     getParentRoute: () => AuthenticatedPerfilRoute,
   } as any)
 const AuthenticatedProducoesIndexRoute =
@@ -686,6 +707,7 @@ export interface FileRoutesByFullPath {
   '/ceo/tags': typeof AuthenticatedCeoTagsRoute
   '/configuracoes/$tab': typeof AuthenticatedConfiguracoesTabRoute
   '/dev/$page': typeof AuthenticatedDevPageRouteWithChildren
+  '/dev/advertencias': typeof AuthenticatedDevAdvertenciasRoute
   '/dev/bot': typeof AuthenticatedDevBotRouteWithChildren
   '/dev/coins': typeof AuthenticatedDevCoinsRoute
   '/dev/configuracao': typeof AuthenticatedDevConfiguracaoRouteWithChildren
@@ -706,8 +728,10 @@ export interface FileRoutesByFullPath {
   '/metas/$tab': typeof AuthenticatedMetasTabRoute
   '/movimentacoes/$tab': typeof AuthenticatedMovimentacoesTabRoute
   '/perfil/$handle': typeof AuthenticatedPerfilHandleRoute
+  '/perfil/advertencias': typeof AuthenticatedPerfilAdvertenciasRoute
   '/perfil/aparencia': typeof AuthenticatedPerfilAparenciaRoute
   '/perfil/dados': typeof AuthenticatedPerfilDadosRoute
+  '/perfil/disciplinar': typeof AuthenticatedPerfilDisciplinarRoute
   '/producoes/armazem': typeof AuthenticatedProducoesArmazemRoute
   '/producoes/gestao': typeof AuthenticatedProducoesGestaoRoute
   '/producoes/gestao-producao': typeof AuthenticatedProducoesGestaoProducaoRoute
@@ -783,6 +807,7 @@ export interface FileRoutesByTo {
   '/ceo/tags': typeof AuthenticatedCeoTagsRoute
   '/configuracoes/$tab': typeof AuthenticatedConfiguracoesTabRoute
   '/dev/$page': typeof AuthenticatedDevPageRouteWithChildren
+  '/dev/advertencias': typeof AuthenticatedDevAdvertenciasRoute
   '/dev/bot': typeof AuthenticatedDevBotRouteWithChildren
   '/dev/coins': typeof AuthenticatedDevCoinsRoute
   '/dev/configuracao': typeof AuthenticatedDevConfiguracaoRouteWithChildren
@@ -803,8 +828,10 @@ export interface FileRoutesByTo {
   '/metas/$tab': typeof AuthenticatedMetasTabRoute
   '/movimentacoes/$tab': typeof AuthenticatedMovimentacoesTabRoute
   '/perfil/$handle': typeof AuthenticatedPerfilHandleRoute
+  '/perfil/advertencias': typeof AuthenticatedPerfilAdvertenciasRoute
   '/perfil/aparencia': typeof AuthenticatedPerfilAparenciaRoute
   '/perfil/dados': typeof AuthenticatedPerfilDadosRoute
+  '/perfil/disciplinar': typeof AuthenticatedPerfilDisciplinarRoute
   '/producoes/armazem': typeof AuthenticatedProducoesArmazemRoute
   '/producoes/gestao': typeof AuthenticatedProducoesGestaoRoute
   '/producoes/gestao-producao': typeof AuthenticatedProducoesGestaoProducaoRoute
@@ -882,6 +909,7 @@ export interface FileRoutesById {
   '/_authenticated/ceo/tags': typeof AuthenticatedCeoTagsRoute
   '/_authenticated/configuracoes/$tab': typeof AuthenticatedConfiguracoesTabRoute
   '/_authenticated/dev/$page': typeof AuthenticatedDevPageRouteWithChildren
+  '/_authenticated/dev/advertencias': typeof AuthenticatedDevAdvertenciasRoute
   '/_authenticated/dev/bot': typeof AuthenticatedDevBotRouteWithChildren
   '/_authenticated/dev/coins': typeof AuthenticatedDevCoinsRoute
   '/_authenticated/dev/configuracao': typeof AuthenticatedDevConfiguracaoRouteWithChildren
@@ -902,8 +930,10 @@ export interface FileRoutesById {
   '/_authenticated/metas/$tab': typeof AuthenticatedMetasTabRoute
   '/_authenticated/movimentacoes/$tab': typeof AuthenticatedMovimentacoesTabRoute
   '/_authenticated/perfil/$handle': typeof AuthenticatedPerfilHandleRoute
+  '/_authenticated/perfil/advertencias': typeof AuthenticatedPerfilAdvertenciasRoute
   '/_authenticated/perfil/aparencia': typeof AuthenticatedPerfilAparenciaRoute
   '/_authenticated/perfil/dados': typeof AuthenticatedPerfilDadosRoute
+  '/_authenticated/perfil/disciplinar': typeof AuthenticatedPerfilDisciplinarRoute
   '/_authenticated/producoes/armazem': typeof AuthenticatedProducoesArmazemRoute
   '/_authenticated/producoes/gestao': typeof AuthenticatedProducoesGestaoRoute
   '/_authenticated/producoes/gestao-producao': typeof AuthenticatedProducoesGestaoProducaoRoute
@@ -981,6 +1011,7 @@ export interface FileRouteTypes {
     | '/ceo/tags'
     | '/configuracoes/$tab'
     | '/dev/$page'
+    | '/dev/advertencias'
     | '/dev/bot'
     | '/dev/coins'
     | '/dev/configuracao'
@@ -1001,8 +1032,10 @@ export interface FileRouteTypes {
     | '/metas/$tab'
     | '/movimentacoes/$tab'
     | '/perfil/$handle'
+    | '/perfil/advertencias'
     | '/perfil/aparencia'
     | '/perfil/dados'
+    | '/perfil/disciplinar'
     | '/producoes/armazem'
     | '/producoes/gestao'
     | '/producoes/gestao-producao'
@@ -1078,6 +1111,7 @@ export interface FileRouteTypes {
     | '/ceo/tags'
     | '/configuracoes/$tab'
     | '/dev/$page'
+    | '/dev/advertencias'
     | '/dev/bot'
     | '/dev/coins'
     | '/dev/configuracao'
@@ -1098,8 +1132,10 @@ export interface FileRouteTypes {
     | '/metas/$tab'
     | '/movimentacoes/$tab'
     | '/perfil/$handle'
+    | '/perfil/advertencias'
     | '/perfil/aparencia'
     | '/perfil/dados'
+    | '/perfil/disciplinar'
     | '/producoes/armazem'
     | '/producoes/gestao'
     | '/producoes/gestao-producao'
@@ -1176,6 +1212,7 @@ export interface FileRouteTypes {
     | '/_authenticated/ceo/tags'
     | '/_authenticated/configuracoes/$tab'
     | '/_authenticated/dev/$page'
+    | '/_authenticated/dev/advertencias'
     | '/_authenticated/dev/bot'
     | '/_authenticated/dev/coins'
     | '/_authenticated/dev/configuracao'
@@ -1196,8 +1233,10 @@ export interface FileRouteTypes {
     | '/_authenticated/metas/$tab'
     | '/_authenticated/movimentacoes/$tab'
     | '/_authenticated/perfil/$handle'
+    | '/_authenticated/perfil/advertencias'
     | '/_authenticated/perfil/aparencia'
     | '/_authenticated/perfil/dados'
+    | '/_authenticated/perfil/disciplinar'
     | '/_authenticated/producoes/armazem'
     | '/_authenticated/producoes/gestao'
     | '/_authenticated/producoes/gestao-producao'
@@ -1587,6 +1626,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedDevPageRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/dev/advertencias': {
+      id: '/_authenticated/dev/advertencias'
+      path: '/dev/advertencias'
+      fullPath: '/dev/advertencias'
+      preLoaderRoute: typeof AuthenticatedDevAdvertenciasRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/dev/bot': {
       id: '/_authenticated/dev/bot'
       path: '/dev/bot'
@@ -1727,6 +1773,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedPerfilHandleRouteImport
       parentRoute: typeof AuthenticatedPerfilRoute
     }
+    '/_authenticated/perfil/advertencias': {
+      id: '/_authenticated/perfil/advertencias'
+      path: '/advertencias'
+      fullPath: '/perfil/advertencias'
+      preLoaderRoute: typeof AuthenticatedPerfilAdvertenciasRouteImport
+      parentRoute: typeof AuthenticatedPerfilRoute
+    }
     '/_authenticated/perfil/aparencia': {
       id: '/_authenticated/perfil/aparencia'
       path: '/aparencia'
@@ -1739,6 +1792,13 @@ declare module '@tanstack/react-router' {
       path: '/dados'
       fullPath: '/perfil/dados'
       preLoaderRoute: typeof AuthenticatedPerfilDadosRouteImport
+      parentRoute: typeof AuthenticatedPerfilRoute
+    }
+    '/_authenticated/perfil/disciplinar': {
+      id: '/_authenticated/perfil/disciplinar'
+      path: '/disciplinar'
+      fullPath: '/perfil/disciplinar'
+      preLoaderRoute: typeof AuthenticatedPerfilDisciplinarRouteImport
       parentRoute: typeof AuthenticatedPerfilRoute
     }
     '/_authenticated/producoes/': {
@@ -2050,14 +2110,18 @@ const AuthenticatedMovimentacoesRouteWithChildren =
 
 interface AuthenticatedPerfilRouteChildren {
   AuthenticatedPerfilHandleRoute: typeof AuthenticatedPerfilHandleRoute
+  AuthenticatedPerfilAdvertenciasRoute: typeof AuthenticatedPerfilAdvertenciasRoute
   AuthenticatedPerfilAparenciaRoute: typeof AuthenticatedPerfilAparenciaRoute
   AuthenticatedPerfilDadosRoute: typeof AuthenticatedPerfilDadosRoute
+  AuthenticatedPerfilDisciplinarRoute: typeof AuthenticatedPerfilDisciplinarRoute
 }
 
 const AuthenticatedPerfilRouteChildren: AuthenticatedPerfilRouteChildren = {
   AuthenticatedPerfilHandleRoute: AuthenticatedPerfilHandleRoute,
+  AuthenticatedPerfilAdvertenciasRoute: AuthenticatedPerfilAdvertenciasRoute,
   AuthenticatedPerfilAparenciaRoute: AuthenticatedPerfilAparenciaRoute,
   AuthenticatedPerfilDadosRoute: AuthenticatedPerfilDadosRoute,
+  AuthenticatedPerfilDisciplinarRoute: AuthenticatedPerfilDisciplinarRoute,
 }
 
 const AuthenticatedPerfilRouteWithChildren =
@@ -2173,6 +2237,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedTicketsRoute: typeof AuthenticatedTicketsRouteWithChildren
   AuthenticatedVendasRoute: typeof AuthenticatedVendasRoute
   AuthenticatedDevPageRoute: typeof AuthenticatedDevPageRouteWithChildren
+  AuthenticatedDevAdvertenciasRoute: typeof AuthenticatedDevAdvertenciasRoute
   AuthenticatedDevBotRoute: typeof AuthenticatedDevBotRouteWithChildren
   AuthenticatedDevCoinsRoute: typeof AuthenticatedDevCoinsRoute
   AuthenticatedDevConfiguracaoRoute: typeof AuthenticatedDevConfiguracaoRouteWithChildren
@@ -2237,6 +2302,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedTicketsRoute: AuthenticatedTicketsRouteWithChildren,
   AuthenticatedVendasRoute: AuthenticatedVendasRoute,
   AuthenticatedDevPageRoute: AuthenticatedDevPageRouteWithChildren,
+  AuthenticatedDevAdvertenciasRoute: AuthenticatedDevAdvertenciasRoute,
   AuthenticatedDevBotRoute: AuthenticatedDevBotRouteWithChildren,
   AuthenticatedDevCoinsRoute: AuthenticatedDevCoinsRoute,
   AuthenticatedDevConfiguracaoRoute:

@@ -34,6 +34,7 @@ export const DEFAULT_DEV_MENU_ITEMS: DevMenuItemConfig[] = [
   { id: "dev-configuracao", title: "Configurações Dev", url: "/dev/configuracao", iconName: "Code2", visible: true, category: "DEV", order: 8 },
   { id: "dev-menu-lateral", title: "Menu Lateral Dev", url: "/dev/menu-lateral", iconName: "Sliders", visible: true, category: "DEV", order: 9 },
   { id: "dev-notificacoes", title: "Central de Notificações", url: "/dev/notificacoes", iconName: "BellRing", visible: true, category: "DEV", order: 10 },
+  { id: "dev-advertencias", title: "Advertências & Suspensões", url: "/dev/advertencias", iconName: "ShieldAlert", visible: true, category: "DEV", order: 11 },
 ];
 
 const STORAGE_KEY = "tw_dev_menu_config";
@@ -56,13 +57,16 @@ function subscribe(callback: () => void) {
 }
 
 export function normalizeDevMenuConfig(cfg: DevMenuConfig): DevMenuConfig {
-  let cats = cfg.categories && Array.isArray(cfg.categories) && cfg.categories.length > 0
-    ? cfg.categories.map((c) => (c.toLowerCase() === "ferramentas dev" || c.toLowerCase() === "ferramenta dev" ? "DEV" : c))
-    : ["DEV"];
+  let cats =
+    cfg.categories && Array.isArray(cfg.categories) && cfg.categories.length > 0
+      ? cfg.categories
+          .map((c) => (typeof c === "string" ? c.trim() : ""))
+          .filter((c) => Boolean(c && c.length > 0))
+      : [];
 
   cats = Array.from(new Set(cats));
-  if (!cats.includes("DEV")) {
-    cats.unshift("DEV");
+  if (cats.length === 0) {
+    cats = [...DEFAULT_DEV_CATEGORIES];
   }
 
   const defaultIds = new Set(DEFAULT_DEV_MENU_ITEMS.map((d) => d.id));
@@ -78,15 +82,33 @@ export function normalizeDevMenuConfig(cfg: DevMenuConfig): DevMenuConfig {
 
   const merged = DEFAULT_DEV_MENU_ITEMS.map((def, defaultIdx) => {
     const saved = savedMap.get(def.id);
-    if (!saved) return def;
-    let cat = saved.category || def.category;
-    if (cat.toLowerCase() === "ferramentas dev" || cat.toLowerCase() === "ferramenta dev") {
-      cat = "DEV";
+    if (!saved) {
+      return {
+        ...def,
+        category: cats.includes(def.category) ? def.category : cats[0] || "DEV",
+      };
     }
+
+    let cat =
+      saved.category && typeof saved.category === "string" && saved.category.trim().length > 0
+        ? saved.category.trim()
+        : def.category;
+
+    // Se a categoria do item foi deletada e não está mais em cats, transfere para a primeira categoria válida
+    if (!cats.includes(cat)) {
+      cat = cats[0] || "DEV";
+    }
+
     return {
       id: def.id,
-      title: saved.title && typeof saved.title === "string" && saved.title.trim().length > 0 ? saved.title.trim() : def.title,
-      url: saved.url && typeof saved.url === "string" && saved.url.trim().length > 0 ? saved.url.trim() : def.url,
+      title:
+        saved.title && typeof saved.title === "string" && saved.title.trim().length > 0
+          ? saved.title.trim()
+          : def.title,
+      url:
+        saved.url && typeof saved.url === "string" && saved.url.trim().length > 0
+          ? saved.url.trim()
+          : def.url,
       iconName: saved.iconName || def.iconName,
       visible: typeof saved.visible === "boolean" ? saved.visible : def.visible,
       category: cat,
@@ -97,16 +119,26 @@ export function normalizeDevMenuConfig(cfg: DevMenuConfig): DevMenuConfig {
   // Preserva itens customizados adicionados pelo usuário
   const customItems: DevMenuItemConfig[] = rawItems
     .filter((i: any) => i && typeof i === "object" && i.id && !defaultIds.has(i.id))
-    .map((i: any, idx: number) => ({
-      id: i.id,
-      title: i.title && typeof i.title === "string" ? i.title.trim() : "Novo Item Dev",
-      url: i.url && typeof i.url === "string" ? i.url.trim() : "/dev",
-      iconName: i.iconName || "Terminal",
-      visible: typeof i.visible === "boolean" ? i.visible : true,
-      category: i.category || cats[0] || "DEV",
-      order: typeof i.order === "number" ? i.order : 50 + idx,
-      isCustom: true,
-    }));
+    .map((i: any, idx: number) => {
+      let itemCat =
+        i.category && typeof i.category === "string" && i.category.trim().length > 0
+          ? i.category.trim()
+          : cats[0] || "DEV";
+      if (!cats.includes(itemCat)) {
+        itemCat = cats[0] || "DEV";
+      }
+
+      return {
+        id: i.id,
+        title: i.title && typeof i.title === "string" ? i.title.trim() : "Novo Item Dev",
+        url: i.url && typeof i.url === "string" ? i.url.trim() : "/dev",
+        iconName: i.iconName || "Terminal",
+        visible: typeof i.visible === "boolean" ? i.visible : true,
+        category: itemCat,
+        order: typeof i.order === "number" ? i.order : 50 + idx,
+        isCustom: true,
+      };
+    });
 
   return {
     ...cfg,

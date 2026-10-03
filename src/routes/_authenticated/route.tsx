@@ -20,7 +20,17 @@ function AuthenticatedLayout() {
   // Verifica se o visitante está acessando um perfil público (/perfil/:handle ou similar)
   const isPublicProfilePath = (() => {
     const p = (location.pathname || "").toLowerCase().trim();
-    return p.startsWith("/perfil/") && p !== "/perfil/dados" && p !== "/perfil/aparencia" && p !== "/perfil/publico";
+    return (
+      p.startsWith("/perfil/") &&
+      p !== "/perfil/dados" &&
+      p !== "/perfil/meu-perfil" &&
+      p !== "/perfil/aparencia" &&
+      p !== "/perfil/tema" &&
+      p !== "/perfil/estilo" &&
+      p !== "/perfil/advertencias" &&
+      p !== "/perfil/disciplinar" &&
+      p !== "/perfil/publico"
+    );
   })();
 
   useEffect(() => {

@@ -44,6 +44,7 @@ import {
   Bell,
   BellRing,
   Shield,
+  ShieldAlert,
   Terminal,
   TrendingUp,
   Crown,
@@ -82,6 +83,7 @@ export const AVAILABLE_MENU_ICONS: MenuIconDef[] = [
   { name: "Target", label: "Metas", icon: Target },
   { name: "Megaphone", label: "Avisos / Anúncios", icon: Megaphone },
   { name: "ShieldCheck", label: "Cargos / Segurança", icon: ShieldCheck },
+  { name: "ShieldAlert", label: "Advertências & Suspensões", icon: ShieldAlert },
   { name: "Settings", label: "Permissões", icon: Settings },
   { name: "ScrollText", label: "Logs", icon: ScrollText },
   { name: "Sparkles", label: "Atualizações", icon: Sparkles },
@@ -148,6 +150,7 @@ export const CANONICAL_URL_ICONS: Record<string, LucideIcon> = {
   "/permissoes": Settings,
   "/avisos": Megaphone,
   "/atualizacoes": Sparkles,
+  "/advertencias": ShieldAlert,
   "/perfil": User,
   "/configuracoes": Wrench,
   "/notificacoes": Bell,
@@ -163,6 +166,7 @@ export const CANONICAL_URL_ICONS: Record<string, LucideIcon> = {
   "/dev.xp-insignias": Award,
   "/dev/tags": Tag,
   "/dev/gerenciar-tags": Tag,
+  "/dev/advertencias": ShieldAlert,
   "/ceo": Crown,
   "/ceo/dashboard": LayoutDashboard,
   "/ceo/bot": Bot,
@@ -170,6 +174,7 @@ export const CANONICAL_URL_ICONS: Record<string, LucideIcon> = {
   "/ceo/financas": Landmark,
   "/ceo/notificacoes": BellRing,
   "/ceo/permissoes-tags": Tag,
+  "/ceo/advertencias": ShieldAlert,
 };
 
 const ICON_BY_NAME: Record<string, LucideIcon> = AVAILABLE_MENU_ICONS.reduce(

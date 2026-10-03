@@ -112,7 +112,9 @@ import {
 import { LEVEL_LABEL, levelBadgeClass, type Permission } from "@/lib/permissions";
 import { cn } from "@/lib/utils";
 import { MobileBottomNav } from "./MobileBottomNav";
+import { ScrollToTopButton } from "./ScrollToTopButton";
 import { ForceCachePurgeListener } from "@/components/dev/ForceCachePurgeListener";
+import { DevToolsMenu } from "@/components/dev/DevToolsMenu";
 import { NotificationCenter } from "@/components/notifications/NotificationCenter";
 import { SuspensionAlertBanner } from "@/components/warnings/SuspensionAlertBanner";
 
@@ -188,6 +190,10 @@ const URL_TO_PERMISSION_MAP: Record<string, Permission> = {
   "/permissoes-gerais": "manage_permissions",
   "/atualizacoes": "view_patch_notes",
   "/perfil": "view_profile",
+  "/perfil/dados": "view_profile",
+  "/perfil/aparencia": "edit_profile_appearance",
+  "/perfil/advertencias": "view_profile_warnings",
+  "/perfil/disciplinar": "view_profile_warnings",
   "/configuracoes": "manage_platform_settings",
   "/dev/notificacoes": "view_dev_notifications",
   "/dev/xp-insignias": "manage_dev_gamification",
@@ -234,12 +240,20 @@ const URL_TO_PERMISSION_MAP: Record<string, Permission> = {
   "/dev/ceo/ajustes-estoque": "view_ceo_stock_adjustments",
   "/dev/ceo/notificacoes": "view_ceo_notifications",
   "/dev/ceo/tags": "view_ceo_tag_permissions",
+  "/dev/ceo/advertencias": "view_ceo_warnings",
   "/dev/ajustes-estoque": "view_ceo_stock_adjustments",
   "/dev/webhooks": "manage_ceo_webhooks",
   "/dev/financas": "view_ceo_financials",
   "/advertencias": "view_warnings",
-  "/ceo/advertencias": "view_warnings",
-  "/dev/advertencias": "view_warnings",
+  "/ceo/advertencias": "view_ceo_warnings",
+  "/dev/advertencias": "view_dev_warnings",
+  "/dev/bot": "manage_dev_bot",
+  "/dev/patch-notes": "manage_dev_patch_notes",
+  "/dev/desempenho": "manage_dev_performance",
+  "/dev/permissoes": "manage_dev_permissions",
+  "/dev/configuracao": "manage_dev_config",
+  "/dev/menu-lateral": "manage_dev_menu",
+  "/dev/estoque": "view_dev_hub",
 };
 
 const DEV_MODULE_NAV_ITEMS: MasterNavItem[] = [
@@ -352,16 +366,15 @@ function DynamicSidebarNavigation() {
 
   // Sincroniza o modo de painel com base na rota acessada
   useEffect(() => {
-    const storedPanel = typeof window !== "undefined" ? localStorage.getItem("tw_panel_mode") : null;
     if (pathname.startsWith("/dev")) {
       if (isDevUser && !isDevMode) setPanelMode("dev");
     } else if (pathname.startsWith("/ceo")) {
-      if ((isCeoUser || isDevUser || hasPermission("view_ceo")) && !isCeoMode && storedPanel !== "dev") {
+      if ((isCeoUser || isDevUser || hasPermission("view_ceo")) && !isCeoMode) {
         setPanelMode("ceo");
       }
     } else {
       // Qualquer rota regular de membro (/dashboard, /estoque, /membros, etc.)
-      if (storedPanel !== "dev" && storedPanel !== "ceo" && (isDevMode || isCeoMode)) {
+      if (isDevMode || isCeoMode) {
         setPanelMode("member");
       }
     }
@@ -517,25 +530,24 @@ function DynamicSidebarNavigation() {
     const visibleCeo = canSeeCeo
       ? allCeoItems.filter((item) => {
           if (!item.visible) return false;
-          // Se for Desenvolvedor (isDevUser) ou CEO (isCeoUser), tem acesso total a todas as categorias e menus do CEO!
-          if (isDevUser || isCeoUser) return true;
+          // Remove bypass: relies on granular hasPermission checks below
 
           if (
             (item.id === "ceo-dashboard" || item.id === "ceo-executivo" || item.url === "/ceo" || item.url === "/ceo/dashboard") &&
-            !hasPermission("view_ceo") &&
-            !hasPermission("view_ceo_dashboard")
+            !hasPermission("view_ceo", "ceo") &&
+            !hasPermission("view_ceo_dashboard", "ceo")
           ) {
             return false;
           }
-          if (item.id === "ceo-bot" && (!hasPermission("manage_ceo_bot") || ceoConfig.allowManageBot === false)) return false;
-          if (item.id === "ceo-webhooks" && (!hasPermission("manage_ceo_webhooks") || ceoConfig.allowWebhooks === false)) return false;
-          if (item.id === "ceo-financas" && (!hasPermission("view_ceo_financials") || ceoConfig.allowFinancials === false)) return false;
-          if (item.id === "ceo-ajustes-estoque" && !hasPermission("view_ceo_stock_adjustments")) return false;
-          if (item.id === "ceo-notificacoes" && !hasPermission("view_ceo_notifications")) return false;
-          if (item.id === "ceo-tags" && !hasPermission("view_ceo_tag_permissions")) return false;
+          if (item.id === "ceo-bot" && (!hasPermission("manage_ceo_bot", "ceo") || ceoConfig.allowManageBot === false)) return false;
+          if (item.id === "ceo-webhooks" && (!hasPermission("manage_ceo_webhooks", "ceo") || ceoConfig.allowWebhooks === false)) return false;
+          if (item.id === "ceo-financas" && (!hasPermission("view_ceo_financials", "ceo") || ceoConfig.allowFinancials === false)) return false;
+          if (item.id === "ceo-ajustes-estoque" && !hasPermission("view_ceo_stock_adjustments", "ceo")) return false;
+          if (item.id === "ceo-notificacoes" && !hasPermission("view_ceo_notifications", "ceo")) return false;
+          if (item.id === "ceo-tags" && !hasPermission("view_ceo_tag_permissions", "ceo")) return false;
           const cleanUrl = (item.url || "").split("?")[0].toLowerCase();
           const reqPerm = URL_TO_PERMISSION_MAP[cleanUrl];
-          if (reqPerm && !hasPermission(reqPerm)) return false;
+          if (reqPerm && !hasPermission(reqPerm, "ceo")) return false;
           return true;
         })
       : [];
@@ -577,20 +589,19 @@ function DynamicSidebarNavigation() {
       const devCategoryOrder = Array.from(
         new Set(
           rawDevCats.map((c) =>
-            c.toLowerCase() === "ferramentas dev" || c.toLowerCase() === "ferramenta dev" ? "DEV" : c
+            c.toLowerCase() === "ferramentas dev" || c.toLowerCase() === "ferramenta dev"
+              ? (rawDevCats.includes("DEV") ? "DEV" : rawDevCats[0] || "DEV")
+              : c
           )
         )
       );
-      if (!devCategoryOrder.includes("DEV")) {
-        devCategoryOrder.unshift("DEV");
-      }
 
       const defaultDevIds = new Set(DEV_MODULE_NAV_ITEMS.map((d) => d.id));
       const customizedDev = DEV_MODULE_NAV_ITEMS.map((item, defaultIdx) => {
         const cfg = devConfigMap.get(item.id) || devConfigMap.get(item.url);
         let cat = cfg?.category || item.defaultCat;
-        if (!cat || cat.toLowerCase() === "ferramentas dev" || cat.toLowerCase() === "ferramenta dev") {
-          cat = "DEV";
+        if (!cat || !devCategoryOrder.includes(cat)) {
+          cat = devCategoryOrder[0] || "DEV";
         }
         return {
           ...item,
@@ -605,21 +616,33 @@ function DynamicSidebarNavigation() {
 
       const customDevItems: MasterNavItem[] = devValidItems
         .filter((c) => !defaultDevIds.has(c.id) && c.id !== "dev-hub" && c.url !== "/dev")
-        .map((c, idx) => ({
-          id: c.id,
-          title: c.title,
-          url: c.url,
-          icon: resolveMenuIcon(c.iconName, c.url) as typeof LayoutDashboard,
-          category: c.category || devCategoryOrder[0] || "DEV",
-          defaultCat: c.category || devCategoryOrder[0] || "DEV",
-          defaultOrder: typeof c.order === "number" ? c.order : 50 + idx,
-          order: typeof c.order === "number" ? c.order : 50 + idx,
-          visible: c.visible !== false,
-          isCustom: true,
-        }));
+        .map((c, idx) => {
+          let itemCat = c.category || devCategoryOrder[0] || "DEV";
+          if (!devCategoryOrder.includes(itemCat)) {
+            itemCat = devCategoryOrder[0] || "DEV";
+          }
+          return {
+            id: c.id,
+            title: c.title,
+            url: c.url,
+            icon: resolveMenuIcon(c.iconName, c.url) as typeof LayoutDashboard,
+            category: itemCat,
+            defaultCat: itemCat,
+            defaultOrder: typeof c.order === "number" ? c.order : 50 + idx,
+            order: typeof c.order === "number" ? c.order : 50 + idx,
+            visible: c.visible !== false,
+            isCustom: true,
+          };
+        });
 
       const allDevItems = [...customizedDev, ...customDevItems];
-      const visibleDev = allDevItems.filter((item) => item.visible);
+      const visibleDev = allDevItems.filter((item) => {
+        if (!item.visible) return false;
+        const cleanUrl = (item.url || "").split("?")[0].toLowerCase();
+        const reqPerm = URL_TO_PERMISSION_MAP[cleanUrl];
+        if (reqPerm && !hasPermission(reqPerm, "dev")) return false;
+        return true;
+      });
       const devGroups: { category: string; items: typeof visibleDev }[] = [];
 
       devCategoryOrder.forEach((cat) => {
@@ -646,7 +669,7 @@ function DynamicSidebarNavigation() {
 
       // B) Agrupa menus da plataforma com URLs prefixadas como /dev/* (apenas o que o Dev tem permissão)
       const visibleMaster = allPlatformItems
-        .filter((item) => item.visible && (!item.perm || hasPermission(item.perm)))
+        .filter((item) => item.visible && (!item.perm || hasPermission(item.perm, "dev")))
         .map((item) => {
           let devUrl = item.url;
           if (item.id === "desempenho") {
@@ -707,6 +730,8 @@ function DynamicSidebarNavigation() {
             devUrl = "/dev/webhooks";
           } else if (item.id === "ceo-financas" || item.url === "/ceo/financas") {
             devUrl = "/dev/financas";
+          } else if (item.id === "ceo-advertencias" || item.url === "/ceo/advertencias") {
+            devUrl = "/dev/advertencias";
           } else if (item.id === "ceo-dashboard" || item.url === "/ceo" || item.url === "/ceo/dashboard") {
             devUrl = "/dev/ceo";
           } else if (devUrl.startsWith("/ceo") && !devUrl.startsWith("/dev")) {
@@ -730,7 +755,7 @@ function DynamicSidebarNavigation() {
       // B) Agrupa menus da plataforma com URLs prefixadas como /ceo/* (apenas o que o CEO tem permissão)
       const visibleCeoMaster = allPlatformItems
         .filter((item) => item.id !== "dashboard" && item.url !== "/dashboard")
-        .filter((item) => item.visible && (isCeoUser || isDevUser || !item.perm || hasPermission(item.perm)))
+        .filter((item) => item.visible && (isCeoUser || isDevUser || !item.perm || hasPermission(item.perm, "ceo")))
         .map((item) => {
           let ceoUrl = item.url;
           if (ceoUrl.startsWith("/") && !ceoUrl.startsWith("/ceo")) {
@@ -782,7 +807,7 @@ function DynamicSidebarNavigation() {
       // 3. Verifica estritamente a permissão exigida pelo cargo do membro
       const cleanPath = item.url.split("?")[0].toLowerCase();
       const requiredPerm = item.perm || URL_TO_PERMISSION_MAP[cleanPath];
-      if (requiredPerm && !hasPermission(requiredPerm)) {
+      if (requiredPerm && !hasPermission(requiredPerm, "member")) {
         return false;
       }
       return true;
@@ -1221,6 +1246,9 @@ export function AppShell({ children }: { children: ReactNode }) {
                 </div>
               )}
 
+              {/* DEV TOOLS (VISÍVEL APENAS PARA DEVS) */}
+              <DevToolsMenu />
+
               {/* CENTRAL DE NOTIFICAÇÕES EM TEMPO REAL */}
               <NotificationCenter />
 
@@ -1424,6 +1452,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
       <MobileBottomNav />
       <ForceCachePurgeListener />
+      <ScrollToTopButton />
     </SidebarProvider>
   );
 }

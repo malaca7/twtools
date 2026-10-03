@@ -82,7 +82,7 @@ async function uploadImageFile(file: File, prefix: string, userId: string): Prom
   return cdnUrl;
 }
 
-export function PerfilPage({ initialTab }: { initialTab?: "perfil" | "dados" | "publico" | "aparencia" | "disciplinar" } = {}) {
+export function PerfilPage({ initialTab }: { initialTab?: "perfil" | "dados" | "publico" | "aparencia" | "disciplinar" | "advertencias" } = {}) {
   const { hasPermission } = useAuth();
 
   if (!hasPermission("view_profile")) {
@@ -92,8 +92,8 @@ export function PerfilPage({ initialTab }: { initialTab?: "perfil" | "dados" | "
   return <PerfilContent initialTab={initialTab} />;
 }
 
-function PerfilContent({ initialTab }: { initialTab?: "perfil" | "dados" | "publico" | "aparencia" | "disciplinar" } = {}) {
-  const { profile, level, refresh, user } = useAuth();
+function PerfilContent({ initialTab }: { initialTab?: "perfil" | "dados" | "publico" | "aparencia" | "disciplinar" | "advertencias" } = {}) {
+  const { profile, level, refresh, user, hasPermission } = useAuth();
   const { data: members = [] } = useMembers();
   const myMember = members.find((m) => m.user_id === user?.id);
   const queryClient = useQueryClient();
@@ -102,42 +102,63 @@ function PerfilContent({ initialTab }: { initialTab?: "perfil" | "dados" | "publ
   const acknowledgeMutation = useAcknowledgeWarningMutation();
   const activeWarningsCount = myWarnings.filter((w) => w.status === "ativo").length;
 
+  // Permissões granulares do módulo de Perfil e Advertências
+  const canEditData = hasPermission("edit_profile_data");
+  const canEditBanner = hasPermission("edit_profile_banner");
+  const canEditBio = hasPermission("edit_profile_bio");
+  const canEditCustomUrl = hasPermission("edit_profile_custom_url");
+  const canViewAppearance = hasPermission("edit_profile_appearance");
+  const canViewWarnings = hasPermission("view_profile_warnings") || hasPermission("view_warnings");
+  const canAcknowledge = hasPermission("acknowledge_profile_warning");
+
   const readInitialTab = (): "perfil" | "aparencia" | "disciplinar" => {
-    if (initialTab && (initialTab === "aparencia" || initialTab === "disciplinar")) {
-      return initialTab;
-    }
-    if (typeof window !== "undefined") {
+    let candidate: "perfil" | "aparencia" | "disciplinar" = "perfil";
+    if (initialTab && (initialTab === "aparencia" || initialTab === "disciplinar" || initialTab === "advertencias")) {
+      candidate = initialTab === "advertencias" ? "disciplinar" : initialTab;
+    } else if (typeof window !== "undefined") {
       const parts = window.location.pathname.split("/").filter(Boolean);
       const last = parts[parts.length - 1];
-      if (last === "aparencia") return "aparencia";
-      if (last === "disciplinar") return "disciplinar";
-      const q = new URLSearchParams(window.location.search).get("tab");
-      if (q === "aparencia") return "aparencia";
-      if (q === "disciplinar") return "disciplinar";
+      if (last === "aparencia" || last === "tema" || last === "estilo") candidate = "aparencia";
+      else if (last === "disciplinar" || last === "advertencias") candidate = "disciplinar";
+      else if (last === "dados" || last === "meu-perfil" || last === "perfil") candidate = "perfil";
+      else {
+        const q = new URLSearchParams(window.location.search).get("tab");
+        if (q === "aparencia" || q === "tema" || q === "estilo") candidate = "aparencia";
+        else if (q === "disciplinar" || q === "advertencias") candidate = "disciplinar";
+      }
     }
-    return "perfil";
+
+    if (candidate === "aparencia" && !canViewAppearance) return "perfil";
+    if (candidate === "disciplinar" && !canViewWarnings) return "perfil";
+    return candidate;
   };
 
   const [activeTab, setActiveTabState] = useState<"perfil" | "aparencia" | "disciplinar">(readInitialTab);
 
   useEffect(() => {
-    if (initialTab === "aparencia" || initialTab === "disciplinar") {
-      setActiveTabState(initialTab);
-    } else if (initialTab) {
-      setActiveTabState("perfil");
-    }
-  }, [initialTab]);
+    const nextTab = readInitialTab();
+    setActiveTabState(nextTab);
+  }, [initialTab, canViewAppearance, canViewWarnings]);
 
   const setActiveTab = (newTab: "perfil" | "aparencia" | "disciplinar") => {
+    if (newTab === "aparencia" && !canViewAppearance) {
+      toast.error("Você não possui permissão para acessar a aba de Tema & Estilo.");
+      return;
+    }
+    if (newTab === "disciplinar" && !canViewWarnings) {
+      toast.error("Você não possui permissão para acessar a aba de Advertências.");
+      return;
+    }
+
     setActiveTabState(newTab);
     if (typeof window !== "undefined") {
-      const url = new URL(window.location.href);
-      if (url.pathname.startsWith("/perfil")) {
-        window.history.replaceState(null, "", newTab === "aparencia" ? "/perfil/aparencia" : newTab === "disciplinar" ? "/perfil?tab=disciplinar" : "/perfil");
-      } else {
-        url.searchParams.set("tab", newTab);
-        window.history.replaceState(null, "", url.toString());
-      }
+      const targetPath =
+        newTab === "aparencia"
+          ? "/perfil/aparencia"
+          : newTab === "disciplinar"
+          ? "/perfil/advertencias"
+          : "/perfil";
+      window.history.replaceState(null, "", targetPath);
     }
   };
 
@@ -405,24 +426,37 @@ function PerfilContent({ initialTab }: { initialTab?: "perfil" | "dados" | "publ
       />
 
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)} className="w-full space-y-6">
-        <TabsList className="grid w-full grid-cols-3 max-w-lg h-10 p-1 bg-secondary/60 rounded-xl border border-border/60">
+        <TabsList
+          className={cn(
+            "grid w-full h-10 p-1 bg-secondary/60 rounded-xl border border-border/60",
+            canViewAppearance && canViewWarnings
+              ? "grid-cols-3 max-w-lg"
+              : canViewAppearance || canViewWarnings
+              ? "grid-cols-2 max-w-md"
+              : "grid-cols-1 max-w-xs"
+          )}
+        >
           <TabsTrigger value="perfil" className="text-xs font-bold gap-2 rounded-lg cursor-pointer">
             <User className="h-4 w-4 text-primary" />
             <span>Meu Perfil</span>
           </TabsTrigger>
-          <TabsTrigger value="aparencia" className="text-xs font-bold gap-2 rounded-lg cursor-pointer">
-            <Palette className="h-4 w-4 text-purple-400" />
-            <span>Tema & Estilo</span>
-          </TabsTrigger>
-          <TabsTrigger value="disciplinar" className="text-xs font-bold gap-1.5 rounded-lg cursor-pointer relative">
-            <ShieldAlert className="h-4 w-4 text-rose-400" />
-            <span>Advertências</span>
-            {activeWarningsCount > 0 && (
-              <span className="ml-1 px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-rose-500 text-white">
-                {activeWarningsCount}
-              </span>
-            )}
-          </TabsTrigger>
+          {canViewAppearance && (
+            <TabsTrigger value="aparencia" className="text-xs font-bold gap-2 rounded-lg cursor-pointer">
+              <Palette className="h-4 w-4 text-purple-400" />
+              <span>Tema & Estilo</span>
+            </TabsTrigger>
+          )}
+          {canViewWarnings && (
+            <TabsTrigger value="disciplinar" className="text-xs font-bold gap-1.5 rounded-lg cursor-pointer relative">
+              <ShieldAlert className="h-4 w-4 text-rose-400" />
+              <span>Advertências</span>
+              {activeWarningsCount > 0 && (
+                <span className="ml-1 px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-rose-500 text-white">
+                  {activeWarningsCount}
+                </span>
+              )}
+            </TabsTrigger>
+          )}
         </TabsList>
 
         {/* ABA UNIFICADA: MEU PERFIL */}
@@ -449,15 +483,17 @@ function PerfilContent({ initialTab }: { initialTab?: "perfil" | "dados" | "publ
                 }}
               >
                 {/* Botão de alterar banner direto pelo card */}
-                <button
-                  type="button"
-                  onClick={() => bannerInputRef.current?.click()}
-                  className="absolute top-2 right-2 px-2.5 py-1 rounded-lg bg-black/70 hover:bg-black/90 text-white/90 hover:text-white flex items-center gap-1.5 text-[10px] font-bold backdrop-blur-md border border-white/10 transition-all cursor-pointer opacity-90 group-hover:opacity-100 shadow-md"
-                  title="Alterar imagem do banner"
-                >
-                  <Camera className="h-3 w-3 text-emerald-400" />
-                  <span>Banner</span>
-                </button>
+                {canEditBanner && (
+                  <button
+                    type="button"
+                    onClick={() => bannerInputRef.current?.click()}
+                    className="absolute top-2 right-2 px-2.5 py-1 rounded-lg bg-black/70 hover:bg-black/90 text-white/90 hover:text-white flex items-center gap-1.5 text-[10px] font-bold backdrop-blur-md border border-white/10 transition-all cursor-pointer opacity-90 group-hover:opacity-100 shadow-md"
+                    title="Alterar imagem do banner"
+                  >
+                    <Camera className="h-3 w-3 text-emerald-400" />
+                    <span>Banner</span>
+                  </button>
+                )}
               </div>
 
               <CardContent className="p-6 pt-0 flex flex-col items-center text-center space-y-4 relative">
@@ -562,6 +598,7 @@ function PerfilContent({ initialTab }: { initialTab?: "perfil" | "dados" | "publ
                         value={nome}
                         onChange={(e) => setNome(e.target.value)}
                         className="mt-1 h-9 text-xs"
+                        disabled={!canEditData}
                         required
                       />
                     </div>
@@ -575,6 +612,7 @@ function PerfilContent({ initialTab }: { initialTab?: "perfil" | "dados" | "publ
                         value={nickname}
                         onChange={(e) => setNickname(e.target.value)}
                         className="mt-1 h-9 text-xs"
+                        disabled={!canEditData}
                       />
                     </div>
 
@@ -588,6 +626,7 @@ function PerfilContent({ initialTab }: { initialTab?: "perfil" | "dados" | "publ
                         onChange={(e) => setTelefone(formatPhone(e.target.value))}
                         className="mt-1 h-9 text-xs font-mono font-bold"
                         maxLength={7}
+                        disabled={!canEditData}
                         required
                       />
                     </div>
@@ -601,6 +640,7 @@ function PerfilContent({ initialTab }: { initialTab?: "perfil" | "dados" | "publ
                         value={gameId}
                         onChange={(e) => setGameId(e.target.value)}
                         className="mt-1 h-9 text-xs font-mono font-bold"
+                        disabled={!canEditData}
                         required
                       />
                     </div>
@@ -684,6 +724,7 @@ function PerfilContent({ initialTab }: { initialTab?: "perfil" | "dados" | "publ
                           type="button"
                           variant="outline"
                           size="sm"
+                          disabled={!canEditBanner}
                           onClick={() => bannerInputRef.current?.click()}
                           className="w-full text-xs font-bold gap-1.5 rounded-xl border-primary/30 hover:bg-primary/10 text-primary cursor-pointer h-9"
                         >
@@ -695,6 +736,7 @@ function PerfilContent({ initialTab }: { initialTab?: "perfil" | "dados" | "publ
                           type="button"
                           variant="outline"
                           size="sm"
+                          disabled={!canEditBanner}
                           onClick={handleReadjustCurrentBanner}
                           className="w-full text-xs font-bold gap-1.5 rounded-xl border-emerald-500/40 hover:bg-emerald-500/10 text-emerald-400 cursor-pointer h-9"
                         >
@@ -741,6 +783,7 @@ function PerfilContent({ initialTab }: { initialTab?: "perfil" | "dados" | "publ
                       value={customStatus}
                       onChange={(e) => setCustomStatus(e.target.value.slice(0, 80))}
                       maxLength={80}
+                      disabled={!canEditBio}
                       className="h-9 text-xs"
                     />
                     <p className="text-[11px] text-muted-foreground">
@@ -756,6 +799,7 @@ function PerfilContent({ initialTab }: { initialTab?: "perfil" | "dados" | "publ
                       onChange={(e) => setBio(e.target.value.slice(0, 500))}
                       className="min-h-[100px] text-xs resize-y rounded-xl leading-relaxed"
                       maxLength={500}
+                      disabled={!canEditBio}
                     />
                     <div className="flex justify-between text-[11px] text-muted-foreground font-mono">
                       <span>Quebras de linha são preservadas</span>
@@ -843,6 +887,7 @@ function PerfilContent({ initialTab }: { initialTab?: "perfil" | "dados" | "publ
                           const sanitized = e.target.value.toLowerCase().replace(/[^a-z0-9_.-]/g, "").slice(0, 30);
                           setCustomUrl(sanitized);
                         }}
+                        disabled={!canEditCustomUrl}
                         className="h-9 pl-9 text-xs font-mono font-bold"
                         maxLength={30}
                       />
@@ -1082,7 +1127,7 @@ function PerfilContent({ initialTab }: { initialTab?: "perfil" | "dados" | "publ
                             <span>Aplicado por: <strong className="text-foreground">{warn.admin_name}</strong></span>
                           </div>
 
-                          {isUnacknowledged ? (
+                          {isUnacknowledged && canAcknowledge ? (
                             <Button
                               size="sm"
                               onClick={() => acknowledgeMutation.mutate(warn.id)}
@@ -1092,6 +1137,10 @@ function PerfilContent({ initialTab }: { initialTab?: "perfil" | "dados" | "publ
                               <CheckCircle2 className="h-3.5 w-3.5" />
                               <span>Confirmar Ciência</span>
                             </Button>
+                          ) : isUnacknowledged && !canAcknowledge ? (
+                            <Badge variant="outline" className="text-[10px] text-amber-400 border-amber-500/40">
+                              Pendente de Ciência
+                            </Badge>
                           ) : warn.acknowledged_at ? (
                             <span className="text-emerald-400 font-medium inline-flex items-center gap-1">
                               <CheckCircle2 className="h-3 w-3" />

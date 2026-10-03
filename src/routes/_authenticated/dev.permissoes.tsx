@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { createPortal } from "react-dom";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -12,13 +13,11 @@ import {
   ShieldAlert,
   ShieldCheck,
   Sparkles,
-  Bot,
-  Webhook,
-  Landmark,
-  Megaphone,
-  Wallet,
-  Sliders,
   ExternalLink,
+  ChevronDown,
+  ArrowUp,
+  SlidersHorizontal,
+  Check,
 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -26,6 +25,14 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { PageHeader, DevBadge, CeoBadge } from "@/components/ui-kit";
 import { usePanelTheme } from "@/lib/panelTheme";
 import { useAuth } from "@/hooks/useAuth";
@@ -39,13 +46,9 @@ import {
   saveDevPermissions,
   getCeoTagPermissions,
   saveCeoTagPermissions,
-  getCeoConfiguration,
-  saveCeoConfiguration,
   toggleMemberCeoTag,
   toggleMemberDevTag,
   DEFAULT_CEO_PERMISSIONS,
-  type CeoConfiguration,
-  DEFAULT_CEO_CONFIG,
 } from "@/services/devService";
 import { saveRolePermissions } from "@/lib/app-api";
 import {
@@ -92,17 +95,62 @@ function DevPermissoesContent() {
   // Aba ativa: Cargos da Plataforma vs Tag Dev vs Tag CEO
   const [activeTab, setActiveTab] = useState<"cargos" | "dev" | "ceo">("cargos");
 
-  // Lista unificada de todos os cargos disponíveis (Padrão + Customizados)
-  const allAvailableLevels = useMemo(() => {
-    const list = [...LEVELS];
-    customRoles.forEach((r) => {
-      const id = (r.name || r.id).toLowerCase();
-      if (!list.includes(id as AppLevel)) {
-        list.push(id as AppLevel);
+  // Lista de cargos ativos configurados no Gerenciamento de Cargos (/cargos)
+  const activeRolesList = useMemo(() => {
+    if (customRoles && customRoles.length > 0) {
+      const filtered = customRoles
+        .filter((r) => {
+          const id = (r.id || "").toLowerCase();
+          const name = (r.nome || (r as any).name || "").toLowerCase();
+          return id !== "desenvolvedor" && id !== "dev" && name !== "desenvolvedor" && name !== "dev";
+        })
+        .sort((a, b) => (b.rank || 0) - (a.rank || 0)); // maior rank no topo
+
+      if (filtered.length > 0) {
+        return filtered.map((r) => {
+          const id = (r.id || "").toLowerCase() as AppLevel;
+          const label = r.nome || (r as any).name || LEVEL_LABEL[id] || r.id;
+          const description = r.descricao || LEVEL_DESCRIPTION[id] || "Cargo configurado na plataforma.";
+          return {
+            id,
+            nome: label,
+            descricao: description,
+            rank: r.rank || 0,
+          };
+        });
       }
-    });
-    return list;
+    }
+
+    // Fallback padrão se custom_roles ainda não tiver registros
+    return LEVELS.map((lvl) => ({
+      id: lvl,
+      nome: LEVEL_LABEL[lvl] || lvl,
+      descricao: LEVEL_DESCRIPTION[lvl] || "Cargo operacional do grupo.",
+      rank: 0,
+    }));
   }, [customRoles]);
+
+  // Lista unificada de todos os cargos disponíveis (Apenas ativos no gerenciamento de cargos)
+  const allAvailableLevels = useMemo(() => {
+    return activeRolesList.map((r) => r.id);
+  }, [activeRolesList]);
+
+  const getCargoDisplayInfo = useCallback(
+    (lvl: AppLevel) => {
+      const found = activeRolesList.find((r) => r.id === lvl);
+      if (found) {
+        return {
+          label: found.nome,
+          description: found.descricao,
+        };
+      }
+      return {
+        label: LEVEL_LABEL[lvl] || lvl,
+        description: LEVEL_DESCRIPTION[lvl] || "Cargo operacional da plataforma.",
+      };
+    },
+    [activeRolesList]
+  );
 
   // Estado da aba "cargos"
   const [selectedCargo, setSelectedCargo] = useState<AppLevel>("01");
@@ -112,6 +160,43 @@ function DevPermissoesContent() {
   const [isCargoSyncing, setIsCargoSyncing] = useState(false);
   const isSavingCargoRef = useRef(false);
   const prevCargoRef = useRef<AppLevel>(selectedCargo);
+  const roleCardRef = useRef<HTMLDivElement>(null);
+  const [mounted, setMounted] = useState(false);
+  const [showFloatingBar, setShowFloatingBar] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  // Garante que o cargo selecionado seja sempre um dos cargos ativos
+  useEffect(() => {
+    if (allAvailableLevels.length > 0 && !allAvailableLevels.includes(selectedCargo)) {
+      setSelectedCargo(allAvailableLevels[0] || "01");
+    }
+  }, [allAvailableLevels, selectedCargo]);
+
+  // Listener de scroll para exibição suave do balão flutuante
+  useEffect(() => {
+    const handleScroll = () => {
+      const scrollY = window.scrollY || document.documentElement.scrollTop || document.body.scrollTop || 0;
+      if (roleCardRef.current) {
+        const rect = roleCardRef.current.getBoundingClientRect();
+        setShowFloatingBar(rect.top < 80 || scrollY > 90);
+      } else {
+        setShowFloatingBar(scrollY > 90);
+      }
+    };
+
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    document.addEventListener("scroll", handleScroll, { passive: true });
+    window.addEventListener("resize", handleScroll, { passive: true });
+    handleScroll();
+    return () => {
+      window.removeEventListener("scroll", handleScroll);
+      document.removeEventListener("scroll", handleScroll);
+      window.removeEventListener("resize", handleScroll);
+    };
+  }, []);
 
   // Filtros de busca de módulos e categorias de permissão
   const [devPermSearch, setDevPermSearch] = useState("");
@@ -133,7 +218,6 @@ function DevPermissoesContent() {
   const [activeCeoPermissions, setActiveCeoPermissions] = useState<Permission[]>(
     DEFAULT_CEO_PERMISSIONS as Permission[]
   );
-  const [ceoConfig, setCeoConfig] = useState<CeoConfiguration>(DEFAULT_CEO_CONFIG);
   const [isCeoSyncing, setIsCeoSyncing] = useState(false);
   const [loadingCeo, setLoadingCeo] = useState(true);
 
@@ -211,7 +295,7 @@ function DevPermissoesContent() {
     };
   }, [user?.id, level, dbPermissions]);
 
-  // 2. Carrega as permissões e configuração da Tag CEO sincronizado com dbPermissions
+  // 2. Carrega as permissões da Tag CEO sincronizado com dbPermissions
   useEffect(() => {
     let isMounted = true;
     if (!ceoInitialLoadedRef.current) {
@@ -224,18 +308,12 @@ function DevPermissoesContent() {
       setLoadingCeo(false);
     }
 
-    Promise.all([
-      getCeoTagPermissions(user, profile, level),
-      getCeoConfiguration(user, profile, level),
-    ])
-      .then(([perms, config]) => {
+    getCeoTagPermissions(user, profile, level)
+      .then((perms) => {
         if (isMounted) {
           if (Array.isArray(perms) && perms.length > 0 && (!dbPermissions || !dbPermissions["ceo"])) {
             const valid = perms.filter((p) => ALL_PERMISSIONS.includes(p as Permission)) as Permission[];
             setActiveCeoPermissions(valid.length > 0 ? valid : (DEFAULT_CEO_PERMISSIONS as Permission[]));
-          }
-          if (config) {
-            setCeoConfig(config);
           }
           ceoInitialLoadedRef.current = true;
         }
@@ -286,7 +364,7 @@ function DevPermissoesContent() {
 
       // 3. Categorias configuradas em cada painel
       const rawDevCats = (devMenuConfig?.categories?.length ? devMenuConfig.categories : ["DEV"]).map((c) =>
-        c === "Ferramentas Dev" ? "DEV" : c
+        c === "Ferramentas Dev" ? (devMenuConfig?.categories?.includes("DEV") ? "DEV" : devMenuConfig?.categories?.[0] || "DEV") : c
       );
       const rawCeoCats = ceoMenuConfig?.categories?.length ? ceoMenuConfig.categories : ["CEO"];
       const rawMemberCats = menuConfig?.categories?.length
@@ -328,7 +406,9 @@ function DevPermissoesContent() {
           if (tab === "cargos" && card.id === "ceo-tags") {
             cat = "Administração";
           }
-          if (cat === "Ferramentas Dev") cat = "DEV";
+          if (isDevCard(card) && !rawDevCats.includes(cat)) {
+            cat = rawDevCats[0] || "DEV";
+          }
           if (cat === "Operação") cat = card.id === "vendas" ? "Produções" : "Gestão";
 
           return {
@@ -496,20 +576,26 @@ function DevPermissoesContent() {
 
   const setAllCargoPermissions = () => {
     const allKeys = Array.from(new Set(cargoCards.flatMap((c) => c.permissions.map((p) => p.key))));
-    setActiveCargoPermissions(allKeys);
-    void autoSaveCargoPermissions(selectedCargo, allKeys);
+    const otherPermissions = activeCargoPermissions.filter((p) => !allKeys.includes(p));
+    const next = Array.from(new Set([...otherPermissions, ...allKeys]));
+    setActiveCargoPermissions(next);
+    void autoSaveCargoPermissions(selectedCargo, next);
   };
 
   const setReadOnlyCargoPermissions = () => {
     const allKeys = Array.from(new Set(cargoCards.flatMap((c) => c.permissions.map((p) => p.key))));
     const readOnlyKeys = READ_ONLY_PERMISSIONS.filter((p) => allKeys.includes(p));
-    setActiveCargoPermissions(readOnlyKeys);
-    void autoSaveCargoPermissions(selectedCargo, readOnlyKeys);
+    const otherPermissions = activeCargoPermissions.filter((p) => !allKeys.includes(p));
+    const next = Array.from(new Set([...otherPermissions, ...readOnlyKeys]));
+    setActiveCargoPermissions(next);
+    void autoSaveCargoPermissions(selectedCargo, next);
   };
 
   const clearAllCargoPermissions = () => {
-    setActiveCargoPermissions([]);
-    void autoSaveCargoPermissions(selectedCargo, []);
+    const allKeys = Array.from(new Set(cargoCards.flatMap((c) => c.permissions.map((p) => p.key))));
+    const next = activeCargoPermissions.filter((p) => !allKeys.includes(p));
+    setActiveCargoPermissions(next);
+    void autoSaveCargoPermissions(selectedCargo, next);
   };
 
   // Sincronização e autosave da Tag Dev
@@ -552,28 +638,6 @@ function DevPermissoesContent() {
     [queryClient, user, profile, level]
   );
 
-  // Atualiza e sincroniza as configurações de módulos do Painel CEO
-  const handleUpdateCeoConfig = useCallback(
-    async (partial: Partial<CeoConfiguration>) => {
-      const updated: CeoConfiguration = {
-        ...ceoConfig,
-        ...partial,
-        updatedAt: new Date().toISOString(),
-      };
-      setCeoConfig(updated);
-      setIsCeoSyncing(true);
-      try {
-        await saveCeoConfiguration(updated, user, profile, level);
-        void queryClient.invalidateQueries({ queryKey: ["role_permissions"] });
-        toast.success("Configuração do Painel CEO atualizada com sucesso! 👑");
-      } catch (err: any) {
-        toast.error(err?.message || "Falha ao salvar configuração do Painel CEO.");
-      } finally {
-        setIsCeoSyncing(false);
-      }
-    },
-    [ceoConfig, user, profile, level, queryClient]
-  );
 
   // Handlers para Tag Dev
   const toggleDevPermission = (permKey: Permission) => {
@@ -955,7 +1019,7 @@ function DevPermissoesContent() {
           </Card>
 
           {/* SELETOR DE CARGO */}
-          <Card className="surface-card border-border/80">
+          <Card ref={roleCardRef} className="surface-card border-border/80">
             <CardHeader className="pb-3">
               <div className="space-y-1">
                 <CardTitle className="text-sm font-extrabold flex items-center gap-2">
@@ -963,21 +1027,21 @@ function DevPermissoesContent() {
                   Cargo Selecionado para Configuração
                 </CardTitle>
                 <CardDescription className="text-xs">
-                  Selecione um cargo abaixo para carregar e alternar suas permissões ativas.
+                  Selecione um cargo ativo abaixo para carregar e alternar suas permissões em tempo real.
                 </CardDescription>
               </div>
 
               {/* Linha de botões dos cargos */}
               <div className="flex flex-wrap gap-2 pt-3">
-                {allAvailableLevels.map((lvl) => {
-                  const isSelected = selectedCargo === lvl;
-                  const count = members.filter((m) => m.nivel === lvl).length;
+                {activeRolesList.map((role) => {
+                  const isSelected = selectedCargo === role.id;
+                  const count = members.filter((m) => m.nivel === role.id).length;
 
                   return (
                     <button
-                      key={`cargo-btn-${lvl}`}
+                      key={`cargo-btn-${role.id}`}
                       type="button"
-                      onClick={() => setSelectedCargo(lvl)}
+                      onClick={() => setSelectedCargo(role.id)}
                       className={cn(
                         "flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold transition-all border cursor-pointer",
                         isSelected
@@ -986,7 +1050,7 @@ function DevPermissoesContent() {
                       )}
                     >
                       <ShieldCheck className="h-3.5 w-3.5" />
-                      <span>{LEVEL_LABEL[lvl] || lvl}</span>
+                      <span>{role.nome}</span>
                       <Badge
                         variant="secondary"
                         className={cn(
@@ -1008,14 +1072,14 @@ function DevPermissoesContent() {
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-secondary/30 p-3 rounded-xl border border-border/80">
                 <div className="flex items-center gap-3">
                   <Badge className={cn("text-xs px-3 py-1 font-bold", levelBadgeClass(selectedCargo))}>
-                    {LEVEL_LABEL[selectedCargo] || selectedCargo}
+                    {getCargoDisplayInfo(selectedCargo).label}
                   </Badge>
                   <div>
                     <p className="text-xs text-foreground font-semibold">
-                      {LEVEL_DESCRIPTION[selectedCargo] || "Cargo operacional da plataforma."}
+                      {getCargoDisplayInfo(selectedCargo).description}
                     </p>
                     <p className="text-[0.65rem] text-muted-foreground">
-                      {activeCargoPermissions.length} de {cargoCards.reduce((acc, c) => acc + c.permissions.length, 0)} permissões ativas para este cargo.
+                      {activeCargoPermissions.length} de {cargoCards.reduce((acc, c) => acc + c.permissions.length, 0)} permissões ativas para este cargo ({members.filter((m) => m.nivel === selectedCargo).length} {members.filter((m) => m.nivel === selectedCargo).length === 1 ? "membro ativo" : "membros ativos"}).
                     </p>
                   </div>
                 </div>
@@ -1024,7 +1088,7 @@ function DevPermissoesContent() {
                   <Button
                     variant="outline"
                     size="sm"
-                    className="h-7 text-[11px] px-2.5 font-bold border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10"
+                    className="h-7 text-[11px] px-2.5 font-bold border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10 cursor-pointer"
                     onClick={setAllCargoPermissions}
                   >
                     Marcar Todas
@@ -1032,7 +1096,7 @@ function DevPermissoesContent() {
                   <Button
                     variant="outline"
                     size="sm"
-                    className="h-7 text-[11px] px-2.5 font-bold border-sky-500/30 text-sky-400 hover:bg-sky-500/10"
+                    className="h-7 text-[11px] px-2.5 font-bold border-sky-500/30 text-sky-400 hover:bg-sky-500/10 cursor-pointer"
                     onClick={setReadOnlyCargoPermissions}
                   >
                     Apenas Leitura
@@ -1040,7 +1104,7 @@ function DevPermissoesContent() {
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="h-7 text-[11px] px-2.5 font-bold text-destructive hover:bg-destructive/10"
+                    className="h-7 text-[11px] px-2.5 font-bold text-destructive hover:bg-destructive/10 cursor-pointer"
                     onClick={clearAllCargoPermissions}
                   >
                     Limpar Todas
@@ -1237,6 +1301,151 @@ function DevPermissoesContent() {
                 </div>
               ))}
             </div>
+          )}
+
+          {/* FLOATING ACTIVE ROLE SWITCHER BAR — TELEPORTADO DIRETAMENTE AO BODY PARA FIXAÇÃO ABSOLUTA E FLUTUAÇÃO PERFEITA */}
+          {activeTab === "cargos" && mounted && typeof document !== "undefined" && createPortal(
+            <div className="fixed bottom-4 sm:bottom-6 left-1/2 -translate-x-1/2 z-[9999] pointer-events-auto flex items-center gap-1.5 sm:gap-2.5 p-1.5 sm:p-2 rounded-2xl bg-card/95 dark:bg-zinc-950/95 border border-emerald-500/50 backdrop-blur-2xl shadow-[0_15px_50px_rgba(0,0,0,0.65)] ring-1 ring-white/10 animate-in fade-in slide-in-from-bottom-5 duration-200 max-w-[calc(100vw-1.5rem)]">
+              {/* Cargo Ativo Atual */}
+              <div className="flex items-center gap-2 pl-2 pr-1">
+                <ShieldCheck className="h-4 w-4 text-emerald-400 shrink-0 animate-pulse" />
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[11px] font-bold text-muted-foreground hidden sm:inline">Cargo:</span>
+                  <Badge className={cn("text-xs px-2.5 py-0.5 font-bold shadow-xs", levelBadgeClass(selectedCargo))}>
+                    {getCargoDisplayInfo(selectedCargo).label}
+                  </Badge>
+                </div>
+                {isCargoSyncing ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin text-emerald-400 shrink-0 ml-0.5" title="Sincronizando..." />
+                ) : (
+                  <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400 shrink-0 ml-0.5" title="Sincronizado em tempo real" />
+                )}
+              </div>
+
+              {/* Seletor Rápido de Cargo em Botões (Telas Médias/Grandes) */}
+              <div className="hidden lg:flex items-center gap-1 border-l border-r border-border/60 px-1.5">
+                {activeRolesList.map((role) => {
+                  const isSelected = selectedCargo === role.id;
+                  const count = members.filter((m) => m.nivel === role.id).length;
+                  return (
+                    <button
+                      key={`float-cargo-btn-${role.id}`}
+                      type="button"
+                      onClick={() => setSelectedCargo(role.id)}
+                      className={cn(
+                        "flex items-center gap-1 px-2.5 py-1 rounded-xl text-[11px] font-bold transition-all cursor-pointer border",
+                        isSelected
+                          ? "bg-emerald-600 text-white border-emerald-500 shadow-xs"
+                          : "bg-secondary/40 border-transparent hover:bg-secondary/80 text-muted-foreground hover:text-foreground"
+                      )}
+                    >
+                      <span>{role.nome}</span>
+                      <span className={cn("text-[9px] px-1 rounded-md", isSelected ? "bg-black/30 text-white" : "text-muted-foreground")}>
+                        {count}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Dropdown para Trocar Cargo (Mobile / Compacto) */}
+              <div className="lg:hidden">
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="default"
+                      className="h-8 text-xs font-bold gap-1.5 rounded-xl bg-emerald-600 text-white hover:bg-emerald-500 shadow-md cursor-pointer active:scale-95 transition-all"
+                    >
+                      <span>Alternar</span>
+                      <ChevronDown className="h-3.5 w-3.5 text-white" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="center" className="w-64 p-1.5 animate-in fade-in-50 zoom-in-95 duration-150 z-[10000]">
+                    <DropdownMenuLabel className="text-[10px] font-mono text-muted-foreground uppercase px-2 py-1 flex items-center justify-between">
+                      <span>Alternar Cargo</span>
+                      <span className="text-[9px] text-emerald-400 font-bold font-mono">Ao Vivo</span>
+                    </DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    {activeRolesList.map((role) => {
+                      const isSelected = selectedCargo === role.id;
+                      const count = members.filter((m) => m.nivel === role.id).length;
+                      return (
+                        <DropdownMenuItem
+                          key={`float-dd-cargo-${role.id}`}
+                          onClick={() => setSelectedCargo(role.id)}
+                          className={cn(
+                            "flex items-center justify-between px-2.5 py-2 rounded-xl text-xs font-bold cursor-pointer transition-all mb-0.5",
+                            isSelected
+                              ? "bg-emerald-600 text-white font-black shadow-xs"
+                              : "hover:bg-secondary text-foreground"
+                          )}
+                        >
+                          <div className="flex items-center gap-2">
+                            <ShieldCheck className={cn("h-3.5 w-3.5", isSelected ? "text-white" : "text-emerald-400")} />
+                            <span>{role.nome}</span>
+                          </div>
+                          <div className="flex items-center gap-1.5">
+                            <Badge
+                              variant="secondary"
+                              className={cn(
+                                "text-[9px] px-1.5 py-0 font-mono font-bold",
+                                isSelected ? "bg-black/30 text-white" : "bg-background text-muted-foreground"
+                              )}
+                            >
+                              {count}
+                            </Badge>
+                            {isSelected && <Check className="h-3.5 w-3.5 stroke-[3]" />}
+                          </div>
+                        </DropdownMenuItem>
+                      );
+                    })}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
+
+              {/* Ações Rápidas de Permissões */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className="h-8 text-xs font-bold gap-1.5 rounded-xl border-border/80 hover:bg-secondary/80 cursor-pointer shrink-0"
+                    title="Ações rápidas de permissões"
+                  >
+                    <SlidersHorizontal className="h-3.5 w-3.5 text-emerald-400" />
+                    <span className="hidden sm:inline">Ações</span>
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-48 p-1.5 z-[10000]">
+                  <DropdownMenuItem onClick={setAllCargoPermissions} className="text-xs font-bold cursor-pointer hover:bg-secondary rounded-xl">
+                    Marcar Todas
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={setReadOnlyCargoPermissions} className="text-xs font-bold cursor-pointer hover:bg-secondary rounded-xl">
+                    Apenas Leitura
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={clearAllCargoPermissions} className="text-xs font-bold text-rose-400 hover:bg-rose-500/10 cursor-pointer rounded-xl">
+                    Limpar Todas
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+
+              {/* Botão de Voltar ao Topo */}
+              <Button
+                type="button"
+                size="icon"
+                variant="ghost"
+                onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
+                className="h-8 w-8 rounded-xl text-muted-foreground hover:text-foreground hover:bg-secondary/80 cursor-pointer shrink-0"
+                title="Voltar ao topo da página"
+              >
+                <ArrowUp className="h-4 w-4" />
+              </Button>
+            </div>,
+            document.body
           )}
         </div>
       )}
@@ -1930,332 +2139,7 @@ function DevPermissoesContent() {
             </CardContent>
           </Card>
 
-          {/* SEÇÃO 2 (CEO): MÓDULOS E RECURSOS DO PAINEL CEO */}
-          <Card
-            className="surface-card shadow-sm transition-all"
-            style={{
-              borderColor: `${ceoStyle.primaryHex}35`,
-              background: `linear-gradient(to bottom, ${ceoStyle.primaryHex}0a, transparent)`,
-            }}
-          >
-            <CardHeader className="pb-4">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                <div className="flex items-center gap-3.5">
-                  <div
-                    className="p-3 rounded-2xl shadow-xs shrink-0"
-                    style={{
-                      backgroundColor: `${ceoStyle.primaryHex}20`,
-                      color: ceoStyle.primaryHex,
-                      borderColor: `${ceoStyle.primaryHex}40`,
-                      borderWidth: "1px",
-                    }}
-                  >
-                    <Sliders className="h-6 w-6" />
-                  </div>
-                  <div>
-                    <CardTitle className="text-base font-black text-foreground flex items-center gap-2">
-                      Módulos & Recursos do Painel CEO (/ceo)
-                      <CeoBadge size="xs" />
-                    </CardTitle>
-                    <CardDescription className="text-xs mt-1">
-                      Controle quais funcionalidades avançadas e módulos os membros com a Tag CEO podem acessar no Painel Executivo.
-                      Apenas Desenvolvedores têm permissão para ativar ou desativar esses recursos.
-                    </CardDescription>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-2 shrink-0">
-                  <Button
-                    asChild
-                    variant="outline"
-                    size="sm"
-                    className="text-xs h-8 font-bold border-amber-500/40 text-amber-300 hover:bg-amber-500/10 gap-1.5"
-                  >
-                    <Link to="/ceo" target="_blank">
-                      <ExternalLink className="h-3.5 w-3.5" />
-                      Visualizar Painel CEO
-                    </Link>
-                  </Button>
-                </div>
-              </div>
-            </CardHeader>
-
-            <CardContent className="space-y-4 pt-0">
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
-                {/* Switch 1: Gerenciar Bot */}
-                <div
-                  role="button"
-                  tabIndex={0}
-                  onClick={() => handleUpdateCeoConfig({ allowManageBot: !(ceoConfig.allowManageBot !== false) })}
-                  onKeyDown={(e) => {
-                    if (e.key === " " || e.key === "Enter") {
-                      e.preventDefault();
-                      handleUpdateCeoConfig({ allowManageBot: !(ceoConfig.allowManageBot !== false) });
-                    }
-                  }}
-                  className={cn(
-                    "flex flex-col justify-between p-3.5 rounded-xl border transition-all duration-150 cursor-pointer select-none outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/50 hover:scale-[1.008] active:scale-[0.99]",
-                    ceoConfig.allowManageBot !== false
-                      ? "bg-indigo-500/10 border-indigo-500/50 shadow-sm shadow-indigo-500/15"
-                      : "bg-secondary/20 border-border/40 hover:bg-secondary/40 hover:border-indigo-500/30 opacity-75"
-                  )}
-                >
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <div className="p-2 rounded-lg bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
-                          <Bot className="h-4 w-4" />
-                        </div>
-                        <span className="text-xs font-black text-foreground">Gerenciar Bot VPS</span>
-                      </div>
-                      <Switch
-                        id="ceo-cfg-bot"
-                        checked={ceoConfig.allowManageBot !== false}
-                        tabIndex={-1}
-                        className="pointer-events-none data-[state=checked]:bg-indigo-500 data-[state=checked]:border-indigo-400"
-                      />
-                    </div>
-                    <p className="text-[0.7rem] text-muted-foreground leading-relaxed">
-                      Permite ao CEO monitorar status da instância no servidor VPS, visualizar servidores mútuos e reiniciar o bot em contingências.
-                    </p>
-                  </div>
-                  <div className="mt-3 pt-2 border-t border-border/40 flex items-center justify-between text-[0.68rem]">
-                    <span className="text-muted-foreground font-mono">Aba: /ceo?tab=bot</span>
-                    <Badge variant="outline" className={cn("text-[9px] font-bold py-0", ceoConfig.allowManageBot !== false ? "text-indigo-400 border-indigo-500/40" : "text-muted-foreground")}>
-                      {ceoConfig.allowManageBot !== false ? "Ativado" : "Desativado"}
-                    </Badge>
-                  </div>
-                </div>
-
-                {/* Switch 2: WebHook Discord */}
-                <div
-                  role="button"
-                  tabIndex={0}
-                  onClick={() => handleUpdateCeoConfig({ allowWebhooks: !(ceoConfig.allowWebhooks !== false) })}
-                  onKeyDown={(e) => {
-                    if (e.key === " " || e.key === "Enter") {
-                      e.preventDefault();
-                      handleUpdateCeoConfig({ allowWebhooks: !(ceoConfig.allowWebhooks !== false) });
-                    }
-                  }}
-                  className={cn(
-                    "flex flex-col justify-between p-3.5 rounded-xl border transition-all duration-150 cursor-pointer select-none outline-none focus-visible:ring-2 focus-visible:ring-violet-500/50 hover:scale-[1.008] active:scale-[0.99]",
-                    ceoConfig.allowWebhooks !== false
-                      ? "bg-violet-500/10 border-violet-500/50 shadow-sm shadow-violet-500/15"
-                      : "bg-secondary/20 border-border/40 hover:bg-secondary/40 hover:border-violet-500/30 opacity-75"
-                  )}
-                >
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <div className="p-2 rounded-lg bg-violet-500/20 text-violet-300 border border-violet-500/30">
-                          <Webhook className="h-4 w-4" />
-                        </div>
-                        <span className="text-xs font-black text-foreground">WebHook Discord</span>
-                      </div>
-                      <Switch
-                        id="ceo-cfg-webhooks"
-                        checked={ceoConfig.allowWebhooks !== false}
-                        tabIndex={-1}
-                        className="pointer-events-none data-[state=checked]:bg-violet-500 data-[state=checked]:border-violet-400"
-                      />
-                    </div>
-                    <p className="text-[0.7rem] text-muted-foreground leading-relaxed">
-                      Permite ao CEO gerenciar canais de webhook, testar integrações e disparar anúncios ricos e comunicados diretamente pelo Discord.
-                    </p>
-                  </div>
-                  <div className="mt-3 pt-2 border-t border-border/40 flex items-center justify-between text-[0.68rem]">
-                    <span className="text-muted-foreground font-mono">Aba: /ceo?tab=webhooks</span>
-                    <Badge variant="outline" className={cn("text-[9px] font-bold py-0", ceoConfig.allowWebhooks !== false ? "text-violet-400 border-violet-500/40" : "text-muted-foreground")}>
-                      {ceoConfig.allowWebhooks !== false ? "Ativado" : "Desativado"}
-                    </Badge>
-                  </div>
-                </div>
-
-                {/* Switch 3: Fundo de Caixa & Finanças */}
-                <div
-                  role="button"
-                  tabIndex={0}
-                  onClick={() => handleUpdateCeoConfig({ allowFinancials: !(ceoConfig.allowFinancials !== false) })}
-                  onKeyDown={(e) => {
-                    if (e.key === " " || e.key === "Enter") {
-                      e.preventDefault();
-                      handleUpdateCeoConfig({ allowFinancials: !(ceoConfig.allowFinancials !== false) });
-                    }
-                  }}
-                  className={cn(
-                    "flex flex-col justify-between p-3.5 rounded-xl border transition-all duration-150 cursor-pointer select-none outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/50 hover:scale-[1.008] active:scale-[0.99]",
-                    ceoConfig.allowFinancials !== false
-                      ? "bg-emerald-500/10 border-emerald-500/50 shadow-sm shadow-emerald-500/15"
-                      : "bg-secondary/20 border-border/40 hover:bg-secondary/40 hover:border-emerald-500/30 opacity-75"
-                  )}
-                >
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <div className="p-2 rounded-lg bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
-                          <Landmark className="h-4 w-4" />
-                        </div>
-                        <span className="text-xs font-black text-foreground">Fundo de Caixa & Finanças</span>
-                      </div>
-                      <Switch
-                        id="ceo-cfg-financials"
-                        checked={ceoConfig.allowFinancials !== false}
-                        tabIndex={-1}
-                        className="pointer-events-none data-[state=checked]:bg-emerald-500 data-[state=checked]:border-emerald-400"
-                      />
-                    </div>
-                    <p className="text-[0.7rem] text-muted-foreground leading-relaxed">
-                      Permite ao CEO auditar o extrato consolidado de movimentações financeiras, entradas, saídas e o saldo global do grupo.
-                    </p>
-                  </div>
-                  <div className="mt-3 pt-2 border-t border-border/40 flex items-center justify-between text-[0.68rem]">
-                    <span className="text-muted-foreground font-mono">Aba: /ceo?tab=financas</span>
-                    <Badge variant="outline" className={cn("text-[9px] font-bold py-0", ceoConfig.allowFinancials !== false ? "text-emerald-400 border-emerald-500/40" : "text-muted-foreground")}>
-                      {ceoConfig.allowFinancials !== false ? "Ativado" : "Desativado"}
-                    </Badge>
-                  </div>
-                </div>
-
-                {/* Switch 4: Ações Rápidas & Comunicados */}
-                <div
-                  role="button"
-                  tabIndex={0}
-                  onClick={() => handleUpdateCeoConfig({ allowAnnouncements: !(ceoConfig.allowAnnouncements !== false) })}
-                  onKeyDown={(e) => {
-                    if (e.key === " " || e.key === "Enter") {
-                      e.preventDefault();
-                      handleUpdateCeoConfig({ allowAnnouncements: !(ceoConfig.allowAnnouncements !== false) });
-                    }
-                  }}
-                  className={cn(
-                    "flex flex-col justify-between p-3.5 rounded-xl border transition-all duration-150 cursor-pointer select-none outline-none focus-visible:ring-2 focus-visible:ring-amber-500/50 hover:scale-[1.008] active:scale-[0.99]",
-                    ceoConfig.allowAnnouncements !== false
-                      ? "bg-amber-500/10 border-amber-500/50 shadow-sm shadow-amber-500/15"
-                      : "bg-secondary/20 border-border/40 hover:bg-secondary/40 hover:border-amber-500/30 opacity-75"
-                  )}
-                >
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <div className="p-2 rounded-lg bg-amber-500/20 text-amber-300 border border-amber-500/30">
-                          <Megaphone className="h-4 w-4" />
-                        </div>
-                        <span className="text-xs font-black text-foreground">Ações Rápidas Executivas</span>
-                      </div>
-                      <Switch
-                        id="ceo-cfg-announcements"
-                        checked={ceoConfig.allowAnnouncements !== false}
-                        tabIndex={-1}
-                        className="pointer-events-none data-[state=checked]:bg-amber-500 data-[state=checked]:border-amber-400"
-                      />
-                    </div>
-                    <p className="text-[0.7rem] text-muted-foreground leading-relaxed">
-                      Habilita os botões de atalho no dashboard do CEO para disparo de anúncios rápidos e alertas prioritários à grupo.
-                    </p>
-                  </div>
-                  <div className="mt-3 pt-2 border-t border-border/40 flex items-center justify-between text-[0.68rem]">
-                    <span className="text-muted-foreground font-mono">Dashboard Executivo</span>
-                    <Badge variant="outline" className={cn("text-[9px] font-bold py-0", ceoConfig.allowAnnouncements !== false ? "text-amber-400 border-amber-500/40" : "text-muted-foreground")}>
-                      {ceoConfig.allowAnnouncements !== false ? "Ativado" : "Desativado"}
-                    </Badge>
-                  </div>
-                </div>
-
-                {/* Switch 5: Exibição de Saldo Real */}
-                <div
-                  role="button"
-                  tabIndex={0}
-                  onClick={() => handleUpdateCeoConfig({ showRealBalance: !(ceoConfig.showRealBalance !== false) })}
-                  onKeyDown={(e) => {
-                    if (e.key === " " || e.key === "Enter") {
-                      e.preventDefault();
-                      handleUpdateCeoConfig({ showRealBalance: !(ceoConfig.showRealBalance !== false) });
-                    }
-                  }}
-                  className={cn(
-                    "flex flex-col justify-between p-3.5 rounded-xl border transition-all duration-150 cursor-pointer select-none outline-none focus-visible:ring-2 focus-visible:ring-teal-500/50 hover:scale-[1.008] active:scale-[0.99]",
-                    ceoConfig.showRealBalance !== false
-                      ? "bg-teal-500/10 border-teal-500/50 shadow-sm shadow-teal-500/15"
-                      : "bg-secondary/20 border-border/40 hover:bg-secondary/40 hover:border-teal-500/30 opacity-75"
-                  )}
-                >
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <div className="p-2 rounded-lg bg-teal-500/20 text-teal-300 border border-teal-500/30">
-                          <Wallet className="h-4 w-4" />
-                        </div>
-                        <span className="text-xs font-black text-foreground">Exibir Saldo Real</span>
-                      </div>
-                      <Switch
-                        id="ceo-cfg-balance"
-                        checked={ceoConfig.showRealBalance !== false}
-                        tabIndex={-1}
-                        className="pointer-events-none data-[state=checked]:bg-teal-500 data-[state=checked]:border-teal-400"
-                      />
-                    </div>
-                    <p className="text-[0.7rem] text-muted-foreground leading-relaxed">
-                      Quando ativado, exibe o saldo exato em Reais (R$) no card do Fundo de Caixa. Se desativado, oculta por privacidade (••••••).
-                    </p>
-                  </div>
-                  <div className="mt-3 pt-2 border-t border-border/40 flex items-center justify-between text-[0.68rem]">
-                    <span className="text-muted-foreground font-mono">Privacidade de Saldo</span>
-                    <Badge variant="outline" className={cn("text-[9px] font-bold py-0", ceoConfig.showRealBalance !== false ? "text-teal-400 border-teal-500/40" : "text-muted-foreground")}>
-                      {ceoConfig.showRealBalance !== false ? "Visível" : "Oculto"}
-                    </Badge>
-                  </div>
-                </div>
-
-                {/* Switch 6: Ajustes de Estoque */}
-                <div
-                  role="button"
-                  tabIndex={0}
-                  onClick={() => handleUpdateCeoConfig({ allowStockAdjustments: !(ceoConfig.allowStockAdjustments !== false) })}
-                  onKeyDown={(e) => {
-                    if (e.key === " " || e.key === "Enter") {
-                      e.preventDefault();
-                      handleUpdateCeoConfig({ allowStockAdjustments: !(ceoConfig.allowStockAdjustments !== false) });
-                    }
-                  }}
-                  className={cn(
-                    "flex flex-col justify-between p-3.5 rounded-xl border transition-all duration-150 cursor-pointer select-none outline-none focus-visible:ring-2 focus-visible:ring-amber-500/50 hover:scale-[1.008] active:scale-[0.99]",
-                    ceoConfig.allowStockAdjustments !== false
-                      ? "bg-amber-500/10 border-amber-500/50 shadow-sm shadow-amber-500/15"
-                      : "bg-secondary/20 border-border/40 hover:bg-secondary/40 hover:border-amber-500/30 opacity-75"
-                  )}
-                >
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <div className="p-2 rounded-lg bg-amber-500/20 text-amber-300 border border-amber-500/30">
-                          <Sliders className="h-4 w-4" />
-                        </div>
-                        <span className="text-xs font-black text-foreground">Ajustes de Estoque</span>
-                      </div>
-                      <Switch
-                        id="ceo-cfg-stock-adj"
-                        checked={ceoConfig.allowStockAdjustments !== false}
-                        tabIndex={-1}
-                        className="pointer-events-none data-[state=checked]:bg-amber-500 data-[state=checked]:border-amber-400"
-                      />
-                    </div>
-                    <p className="text-[0.7rem] text-muted-foreground leading-relaxed">
-                      Habilita o terminal de ajustes manuais de estoque e recalibração de saldos de baús no Painel CEO (/ceo/ajustes-estoque).
-                    </p>
-                  </div>
-                  <div className="mt-3 pt-2 border-t border-border/40 flex items-center justify-between text-[0.68rem]">
-                    <span className="text-muted-foreground font-mono">Aba: /ceo/ajustes-estoque</span>
-                    <Badge variant="outline" className={cn("text-[9px] font-bold py-0", ceoConfig.allowStockAdjustments !== false ? "text-amber-400 border-amber-500/40" : "text-muted-foreground")}>
-                      {ceoConfig.allowStockAdjustments !== false ? "Ativado" : "Desativado"}
-                    </Badge>
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* SEÇÃO 3 (CEO): BARRA DE CONTROLES RÁPIDOS DA MATRIZ DA TAG CEO */}
+          {/* SEÇÃO 2 (CEO): BARRA DE CONTROLES RÁPIDOS DA MATRIZ DA TAG CEO */}
           <Card className="surface-card p-4 border-amber-500/30">
             <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
               <div className="flex items-center gap-3">

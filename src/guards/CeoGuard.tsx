@@ -13,7 +13,7 @@ interface CeoGuardProps {
 }
 
 export function CeoGuard({ children }: CeoGuardProps) {
-  const { isCeoUser, isDevUser, loading } = useAuth();
+  const { isCeoUser, isDevUser, loading, hasPermission } = useAuth();
   const { ceoStyle, devStyle, CeoIcon, DevIcon } = usePanelTheme();
 
   if (loading) {
@@ -30,7 +30,28 @@ export function CeoGuard({ children }: CeoGuardProps) {
     );
   }
 
-  const hasAccess = Boolean(isCeoUser || isDevUser);
+  const hasAccess = Boolean(
+    isCeoUser ||
+    isDevUser ||
+    hasPermission("view_ceo") ||
+    hasPermission("view_ceo_tag_permissions") ||
+    hasPermission("manage_ceo_tag_permissions") ||
+    hasPermission("create_ceo_tag") ||
+    hasPermission("edit_ceo_tag") ||
+    hasPermission("delete_ceo_tag") ||
+    hasPermission("assign_ceo_tag") ||
+    hasPermission("manage_ceo_tag_rules") ||
+    hasPermission("manage_ceo_tag_permissions_detail") ||
+    hasPermission("view_warnings") ||
+    hasPermission("manage_warnings") ||
+    hasPermission("view_ceo_warnings") ||
+    hasPermission("manage_ceo_warnings") ||
+    hasPermission("view_ceo_financials") ||
+    hasPermission("manage_ceo_bot") ||
+    hasPermission("manage_ceo_webhooks") ||
+    hasPermission("view_ceo_stock_adjustments") ||
+    hasPermission("view_ceo_notifications")
+  );
 
   if (!hasAccess) {
     return (

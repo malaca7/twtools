@@ -173,7 +173,7 @@ function DevToolsMenuEditor() {
   const [isAddItemOpen, setIsAddItemOpen] = useState(false);
   const [newItemTitle, setNewItemTitle] = useState("");
   const [newItemUrl, setNewItemUrl] = useState("");
-  const [newItemCategory, setNewItemCategory] = useState("DEV");
+  const [newItemCategory, setNewItemCategory] = useState(() => categories[0] || "DEV");
   const [newItemIcon, setNewItemIcon] = useState("Terminal");
 
   // Edit Item Modal State
@@ -470,8 +470,9 @@ function DevToolsMenuEditor() {
       const currentItem = items.find((i) => i.id === id);
       if (!currentItem) return;
 
-      const cat = currentItem.category || "DEV";
-      const catItems = items.filter((i) => (i.category || "DEV") === cat);
+      const fallback = categories[0] || "DEV";
+      const cat = currentItem.category || fallback;
+      const catItems = items.filter((i) => (i.category || fallback) === cat);
       const indexInCat = catItems.findIndex((i) => i.id === id);
       if (indexInCat < 0) return;
 
@@ -538,9 +539,10 @@ function DevToolsMenuEditor() {
     const nextItems = items.filter((i) => i.id !== draggedItemId);
     const targetIdx = nextItems.findIndex((i) => i.id === targetId);
 
+    const fallback = categories[0] || "DEV";
     const updatedDraggedItem = {
       ...draggedItem,
-      category: targetItem.category || "DEV",
+      category: targetItem.category || fallback,
     };
 
     nextItems.splice(targetIdx, 0, updatedDraggedItem);
@@ -553,12 +555,13 @@ function DevToolsMenuEditor() {
 
   // Group items by category for preview
   const grouped = useMemo(() => {
+    const fallback = categories[0] || "DEV";
     const groups: Record<string, DevMenuItemConfig[]> = {};
     categories.forEach((cat) => {
-      groups[cat] = items.filter((item) => (item.category || "DEV") === cat);
+      groups[cat] = items.filter((item) => (item.category || fallback) === cat);
     });
     items.forEach((item) => {
-      const cat = item.category || "DEV";
+      const cat = item.category || fallback;
       if (!groups[cat]) groups[cat] = [item];
     });
     return groups;
@@ -674,7 +677,8 @@ function DevToolsMenuEditor() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
             {categories.map((cat, idx) => {
               const isEditing = editingCatIndex === idx;
-              const itemCount = items.filter((i) => (i.category || "DEV") === cat).length;
+              const fallback = categories[0] || "DEV";
+              const itemCount = items.filter((i) => (i.category || fallback) === cat).length;
               const isDraggingCat = draggedCatIdx === idx;
               const isOverCat = dragOverCatIdx === idx;
               const CatIcon = resolveCategoryIcon(categoryIcons[cat], Terminal);
@@ -859,8 +863,9 @@ function DevToolsMenuEditor() {
           </div>
 
           {categories.map((cat) => {
+            const fallback = categories[0] || "DEV";
             const catItems = items
-              .filter((i) => (i.category || "DEV") === cat)
+              .filter((i) => (i.category || fallback) === cat)
               .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
             const CatIcon = resolveCategoryIcon(categoryIcons[cat], Terminal);
 
@@ -1011,7 +1016,7 @@ function DevToolsMenuEditor() {
                               <div className="flex items-center gap-1.5">
                                 <span className="text-[10px] text-muted-foreground font-medium hidden sm:inline">Cat:</span>
                                 <Select
-                                  value={item.category || "DEV"}
+                                  value={categories.includes(item.category) ? item.category : categories[0] || "DEV"}
                                   onValueChange={(val) => updateItem(item.id, { category: val })}
                                 >
                                   <SelectTrigger className="h-8 w-24 sm:w-28 text-xs font-bold border-border/70 bg-secondary/40 rounded-lg shrink-0">

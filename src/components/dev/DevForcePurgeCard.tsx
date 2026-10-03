@@ -70,9 +70,17 @@ export function DevForcePurgeCard() {
       setReason("");
 
       toast.success("🚀 Instrução global de limpeza de cache transmitida com sucesso!", {
-        description: "Todos os membros online terão o cache limpo e a página recarregada em instantes.",
+        description: "Todos os membros online (incluindo você) terão o cache limpo e a página recarregada em instantes.",
         duration: 6000,
       });
+
+      // Dispara o evento localmente para que o ForceCachePurgeListener também
+      // execute a limpeza no navegador do próprio dev que acionou a função.
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(
+          new CustomEvent("tw_force_cache_purge_self", { detail: record })
+        );
+      }
     } catch (err: any) {
       toast.error(`Falha ao disparar ordem de limpeza: ${err.message || err}`);
     } finally {

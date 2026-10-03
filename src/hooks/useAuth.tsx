@@ -29,7 +29,7 @@ type AuthContextValue = {
   setPanelMode: (mode: "member" | "dev" | "ceo") => void;
   refresh: () => Promise<void>;
   signOut: () => Promise<void>;
-  hasPermission: (permission: Permission) => boolean;
+  hasPermission: (permission: Permission, panelOverride?: "member" | "dev" | "ceo") => boolean;
   memberTags: MemberTag[];
   tagPermissions: Permission[];
   hasTag: (tagId: string) => boolean;
@@ -524,11 +524,44 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const isSuspended = Boolean(activeSuspension);
 
-  // Coleta a soma universal de todas as permissões de todas as tags ativas do membro
-  const allTagPermissions = useMemo<Permission[]>(() => {
+  // Helpers de identificação de tags especiais
+  const isDevTagItem = useCallback((t: { id?: string; name?: string; rules?: any; permissions?: any }) => {
+    const cleanId = (t.id || "").toLowerCase().trim();
+    const cleanName = (t.name || "").toLowerCase().trim();
+    return (
+      cleanId === "desenvolvedor" ||
+      cleanId === "dev" ||
+      cleanId.startsWith("dev_") ||
+      cleanName === "desenvolvedor" ||
+      cleanName === "dev" ||
+      t.rules?.can_access_dev === true ||
+      t.rules?.is_dev_test === true ||
+      (Array.isArray(t.permissions) && (t.permissions.includes("view_dev_hub") || t.permissions.includes("manage_dev_config") || t.permissions.includes("view_dev")))
+    );
+  }, []);
+
+  const isCeoTagItem = useCallback((t: { id?: string; name?: string; rules?: any; permissions?: any }) => {
+    const cleanId = (t.id || "").toLowerCase().trim();
+    const cleanName = (t.name || "").toLowerCase().trim();
+    return (
+      cleanId === "ceo" ||
+      cleanId.startsWith("ceo_") ||
+      cleanName === "ceo" ||
+      cleanName === "diretoria" ||
+      t.rules?.can_access_ceo === true ||
+      t.rules?.is_ceo === true ||
+      (Array.isArray(t.permissions) && (t.permissions.includes("view_ceo") || t.permissions.includes("manage_ceo_bot") || t.permissions.includes("view_ceo_dashboard")))
+    );
+  }, []);
+
+  // Coleta as permissões exclusivamente das TAGS DO SISTEMA (exclui Tag Dev e Tag CEO)
+  const systemTagPermissions = useMemo<Permission[]>(() => {
     const permsSet = new Set<Permission>();
     for (const tag of memberTags) {
       if (tag.is_active === false) continue;
+      // Exclui explicitamente tags de Dev e de CEO das tags do sistema
+      if (isDevTagItem(tag) || isCeoTagItem(tag)) continue;
+
       // Permissões explícitas no array permissions
       if (Array.isArray(tag.permissions)) {
         for (const p of tag.permissions) {
@@ -537,24 +570,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           }
         }
       }
-      // Regras e permissões implícitas da tag
+      // Regras e permissões implícitas da tag do sistema
       const rules = tag.rules || {};
       const cleanId = tag.id.toLowerCase().trim();
-      if (rules.can_access_ceo || rules.is_ceo || cleanId === "ceo") {
-        permsSet.add("view_ceo" as Permission);
-        const ceoPerms = getCeoTagPermissionsSync();
-        for (const p of ceoPerms) {
-          if (p) permsSet.add(p as Permission);
-        }
-      }
-      if (
-        rules.can_access_dev ||
-        rules.is_dev_test ||
-        cleanId === "dev_test" ||
-        cleanId === "desenvolvedor"
-      ) {
-        permsSet.add("view_dev_hub" as Permission);
-      }
       if (rules.can_sell || cleanId === "vendedor") {
         permsSet.add("sales.view" as Permission);
         permsSet.add("sales.create" as Permission);
@@ -629,7 +647,45 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     }
     return Array.from(permsSet);
-  }, [memberTags]);
+  }, [memberTags, isDevTagItem, isCeoTagItem]);
+
+  // Permissões específicas da TAG CEO
+  const ceoTagPermissions = useMemo<Permission[]>(() => {
+    const permsSet = new Set<Permission>();
+    const ceoPerms = customRolePermissions?.["ceo"] ?? getCeoTagPermissionsSync();
+    for (const p of ceoPerms) {
+      if (p) permsSet.add(p as Permission);
+    }
+    for (const tag of memberTags) {
+      if (tag.is_active === false) continue;
+      if (!isCeoTagItem(tag)) continue;
+      if (Array.isArray(tag.permissions)) {
+        for (const p of tag.permissions) {
+          if (p && typeof p === "string") permsSet.add(p as Permission);
+        }
+      }
+    }
+    return Array.from(permsSet);
+  }, [memberTags, customRolePermissions, isCeoTagItem]);
+
+  // Permissões específicas da TAG DEV
+  const devTagPermissions = useMemo<Permission[]>(() => {
+    const permsSet = new Set<Permission>();
+    const devPerms = customRolePermissions?.["desenvolvedor"] ?? getDevTagPermissionsSync();
+    for (const p of devPerms) {
+      if (p) permsSet.add(p as Permission);
+    }
+    for (const tag of memberTags) {
+      if (tag.is_active === false) continue;
+      if (!isDevTagItem(tag)) continue;
+      if (Array.isArray(tag.permissions)) {
+        for (const p of tag.permissions) {
+          if (p && typeof p === "string") permsSet.add(p as Permission);
+        }
+      }
+    }
+    return Array.from(permsSet);
+  }, [memberTags, customRolePermissions, isDevTagItem]);
 
   // Checagem se o membro é Desenvolvedor (base ou concedido por tag ativa)
   const isDevUser = useMemo(() => {
@@ -687,6 +743,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return false;
   }, [profile, memberTags, isDevUser]);
 
+  // Permissões ativas agregadas
+  const allTagPermissions = useMemo<Permission[]>(() => {
+    return Array.from(new Set([
+      ...systemTagPermissions,
+      ...(isCeoUser ? ceoTagPermissions : []),
+      ...(isDevUser ? devTagPermissions : []),
+    ]));
+  }, [systemTagPermissions, ceoTagPermissions, devTagPermissions, isCeoUser, isDevUser]);
+
   const isDevMode = Boolean(
     isDevUser &&
       (typeof window !== "undefined"
@@ -738,20 +803,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [loading, isDevUser, isCeoUser, panelMode]);
 
   const hasPermission = useCallback(
-    (permission: Permission) => {
+    (permission: Permission, panelOverride?: "member" | "dev" | "ceo") => {
       const bypassActive = isDevBypassActive();
-      const inCeoPanel =
-        panelMode === "ceo" ||
-        (typeof window !== "undefined" &&
-          (window.location.pathname.startsWith("/ceo") || window.location.hash.includes("/ceo")));
-      const inDevPanel =
-        panelMode === "dev" ||
-        (typeof window !== "undefined" &&
-          (window.location.pathname.startsWith("/dev") || window.location.hash.includes("/dev")));
-      const inMemberPanel = !inCeoPanel && !inDevPanel;
+
+      // Determinação do painel ativo:
+      // Se panelOverride for informado (ex: do Dispatcher), usa-o diretamente.
+      // Caso contrário, avalia pela rota atual do navegador (pathname / hash).
+      let activePanel: "member" | "dev" | "ceo" = panelOverride ?? "member";
+      if (!panelOverride && typeof window !== "undefined") {
+        const pathname = window.location.pathname.toLowerCase();
+        const hash = window.location.hash.toLowerCase();
+        if (pathname.startsWith("/dev") || hash.includes("/dev")) {
+          activePanel = "dev";
+        } else if (pathname.startsWith("/ceo") || hash.includes("/ceo")) {
+          activePanel = "ceo";
+        } else {
+          activePanel = "member";
+        }
+      } else if (!panelOverride) {
+        activePanel = panelMode;
+      }
 
       // 0. Avaliação de Suspensões Ativas & Regras Restritivas
-      if (!isDevUser) {
+      if (!isDevUser || activePanel !== "dev" || !bypassActive) {
         const isOperationalAction =
           permission.startsWith("create_") ||
           permission.startsWith("delete_") ||
@@ -800,82 +874,65 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
       }
 
-      // 0. Se for Desenvolvedor (isDevUser):
-      // Quando o desenvolvedor estiver com Developer Bypass Mode ativo: acesso irrestrito total a tudo!
-      // Caso contrário, as permissões são 100% funcionais de acordo com a matriz configurada em /dev/permissoes.
-      if (isDevUser) {
-        if (bypassActive) {
+      // REGRA 1: NO PAINEL MEMBRO
+      // apenas usar a permissão do cargo do membro e das tag do sistema,
+      // porém NÃO usar permissão da tag dev e ceo
+      if (activePanel === "member") {
+        // 1. Cargo do membro
+        if (can(level, permission, customRolePermissions)) {
           return true;
         }
-        if (permission === "view_dev_hub" || permission === "view_dev") {
+        // 2. Tags do sistema
+        if (satisfiesPermission(systemTagPermissions, permission)) {
           return true;
         }
-        const devPerms = customRolePermissions?.["desenvolvedor"] ?? getDevTagPermissionsSync();
-        if (satisfiesPermission(devPerms, permission)) {
-          return true;
-        }
+        // NÃO usar permissão da tag dev e ceo!
+        return false;
       }
 
-      // 0.05. Se for CEO (isCeoUser):
-      // Garante acesso à rota base do painel CEO, e avalia a matriz de permissões da Tag CEO configurada.
-      if (isCeoUser) {
-        if (permission === "view_ceo") {
+      // REGRA 2: NO PAINEL CEO
+      // apenas usar a permissão da tag ceo e das tag do sistema,
+      // porém NÃO usar permissão da tag dev
+      if (activePanel === "ceo") {
+        // 1. Tag CEO (se o usuário for CEO ou Dev acessando painel CEO)
+        if (isCeoUser || isDevUser) {
+          if (permission === "view_ceo") {
+            return true;
+          }
+          if (satisfiesPermission(ceoTagPermissions, permission)) {
+            return true;
+          }
+        }
+        // 2. Tags do sistema
+        if (satisfiesPermission(systemTagPermissions, permission)) {
           return true;
         }
-        const ceoPerms = customRolePermissions?.["ceo"] ?? getCeoTagPermissionsSync();
-        if (satisfiesPermission(ceoPerms, permission)) {
-          return true;
-        }
+        // NÃO usar permissão da tag dev!
+        return false;
       }
 
-      // 0.1. SOMA UNIVERSAL DAS TAGS:
-      // Se qualquer tag ativa do membro possui a permissão (exata ou por herança/equivalência),
-      // essa permissão é SOMADA e está plenamente ativa em QUALQUER painel (Membro, CEO ou DEV)!
-      if (satisfiesPermission(allTagPermissions, permission)) {
-        return true;
-      }
-
-      // 1. Quando estiver operando no PAINEL MEMBRO:
-      // A soma é: permissões do cargo (level) + permissões Dev (se dev) + permissões de todas as tags (já avaliadas acima!)
-      if (inMemberPanel) {
+      // REGRA 3: NO PAINEL DEV
+      // apenas usar a permissão da tag dev e das tag do sistema,
+      // porém NÃO usar permissão da tag ceo
+      if (activePanel === "dev") {
+        // 1. Tag DEV (se o usuário for Desenvolvedor)
         if (isDevUser) {
-          const devPerms = customRolePermissions?.["desenvolvedor"] ?? getDevTagPermissionsSync();
-          if (satisfiesPermission(devPerms, permission)) {
+          if (bypassActive) {
             return true;
           }
-          if (isDevBypassActive()) return true;
-        }
-        return can(level, permission, customRolePermissions);
-      }
-
-      // 2. Quando estiver operando no PAINEL DEV (ou rota /dev):
-      if (inDevPanel) {
-        if (isDevUser) {
-          const devPerms = customRolePermissions?.["desenvolvedor"] ?? getDevTagPermissionsSync();
-          if (satisfiesPermission(devPerms, permission)) {
+          if (permission === "view_dev_hub" || permission === "view_dev") {
             return true;
           }
-          if (isDevBypassActive()) return true;
-        }
-        return can(level, permission, customRolePermissions);
-      }
-
-      // 3. Quando estiver operando no PAINEL CEO (ou rota /ceo):
-      if (inCeoPanel) {
-        if (isDevUser) {
-          const devPerms = customRolePermissions?.["desenvolvedor"] ?? getDevTagPermissionsSync();
-          if (satisfiesPermission(devPerms, permission)) {
-            return true;
-          }
-          if (isDevBypassActive()) return true;
-        }
-        if (isCeoUser) {
-          const ceoPerms = customRolePermissions?.["ceo"] ?? getCeoTagPermissionsSync();
-          if (satisfiesPermission(ceoPerms, permission)) {
+          if (satisfiesPermission(devTagPermissions, permission)) {
             return true;
           }
         }
-        return can(level, permission, customRolePermissions);
+        // 2. Tags do sistema
+        if (satisfiesPermission(systemTagPermissions, permission)) {
+          return true;
+        }
+        // NÃO usar permissão da tag ceo!
+        return false;
       }
 
       // Fallback padrão: avalia o cargo do membro
@@ -886,10 +943,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isDevUser,
       isCeoUser,
       memberTags,
-      allTagPermissions,
+      activeSuspension,
+      systemTagPermissions,
+      ceoTagPermissions,
+      devTagPermissions,
       customRolePermissions,
-      devConfigTick,
       panelMode,
+      devConfigTick,
       permissionsTick,
     ]
   );

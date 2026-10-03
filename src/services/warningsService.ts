@@ -183,7 +183,7 @@ export async function persistWarnings(warnings: MemberWarning[]): Promise<void> 
   try {
     const { error: rpcError } = await supabase.rpc("save_role_permissions", {
       _level: WARNINGS_DB_LEVEL,
-      _permissions: { warnings },
+      _permissions: { warnings } as any,
     });
     if (!rpcError) return;
   } catch {}
@@ -193,7 +193,7 @@ export async function persistWarnings(warnings: MemberWarning[]): Promise<void> 
       {
         level: WARNINGS_DB_LEVEL,
         nivel: WARNINGS_DB_LEVEL,
-        permissions: { warnings },
+        permissions: { warnings } as any,
         updated_at: new Date().toISOString(),
       },
       { onConflict: "level" }
@@ -305,11 +305,11 @@ export async function updateWarning(
 ): Promise<MemberWarning> {
   const all = await getWarnings();
   const index = all.findIndex((w) => w.id === id);
-  if (index === -1) {
+  if (index === -1 || !all[index]) {
     throw new Error("Advertência não encontrada.");
   }
 
-  const current = all[index];
+  const current = all[index]!;
   const now = new Date().toISOString();
 
   let endsAt = payload.ends_at !== undefined ? payload.ends_at : current.ends_at;
@@ -324,7 +324,7 @@ export async function updateWarning(
     ...payload,
     ends_at: endsAt,
     updated_at: now,
-  };
+  } as MemberWarning;
 
   all[index] = updated;
   await persistWarnings(all);
@@ -352,11 +352,11 @@ export async function revokeWarning(
 ): Promise<MemberWarning> {
   const all = await getWarnings();
   const index = all.findIndex((w) => w.id === id);
-  if (index === -1) {
+  if (index === -1 || !all[index]) {
     throw new Error("Advertência não encontrada.");
   }
 
-  const current = all[index];
+  const current = all[index]!;
   const now = new Date().toISOString();
 
   const updated: MemberWarning = {
@@ -367,7 +367,7 @@ export async function revokeWarning(
     revoked_by_name: adminUser?.name || null,
     revocation_reason: revocationReason.trim() || "Suspensão revogada pela administração",
     updated_at: now,
-  };
+  } as MemberWarning;
 
   all[index] = updated;
   await persistWarnings(all);
@@ -444,11 +444,11 @@ export async function deleteWarning(
 export async function acknowledgeWarning(id: string, memberUserId: string): Promise<MemberWarning> {
   const all = await getWarnings();
   const index = all.findIndex((w) => w.id === id);
-  if (index === -1) {
+  if (index === -1 || !all[index]) {
     throw new Error("Advertência não encontrada.");
   }
 
-  const current = all[index];
+  const current = all[index]!;
   if (current.member_id !== memberUserId) {
     throw new Error("Apenas o membro destinatário pode confirmar ciência.");
   }
@@ -458,7 +458,7 @@ export async function acknowledgeWarning(id: string, memberUserId: string): Prom
     ...current,
     acknowledged_at: now,
     updated_at: now,
-  };
+  } as MemberWarning;
 
   all[index] = updated;
   await persistWarnings(all);

@@ -1,5 +1,6 @@
 import { useState, useMemo } from "react";
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
+import { toast } from "sonner";
 import {
   ShieldAlert,
   AlertTriangle,
@@ -26,6 +27,12 @@ import {
   AlertOctagon,
   Shield,
   HelpCircle,
+  Download,
+  Copy,
+  FileSpreadsheet,
+  FileText,
+  Check,
+  ArrowLeft,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -42,6 +49,14 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
   Select,
   SelectContent,
@@ -78,26 +93,208 @@ export const Route = createFileRoute("/_authenticated/advertencias")({
 });
 
 export function AdvertenciasPage() {
-  const { hasPermission, isDevUser, isCeoUser } = useAuth();
+  const { hasPermission, isDevUser, loading } = useAuth();
 
-  const canView = hasPermission("view_warnings") || isDevUser || isCeoUser;
-  if (!canView) {
-    return <NoAccess />;
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <PageHeader
+          title="Advertências & Suspensões"
+          description="Carregando permissões disciplinares..."
+        />
+        <TableSkeleton rows={6} />
+      </div>
+    );
+  }
+
+  const canAccess =
+    hasPermission("view_warnings") ||
+    hasPermission("view_all_warnings") ||
+    hasPermission("view_warning_details") ||
+    hasPermission("manage_warnings") ||
+    hasPermission("create_warning") ||
+    hasPermission("create_suspension") ||
+    hasPermission("edit_warning") ||
+    hasPermission("revoke_warning") ||
+    hasPermission("delete_warning") ||
+    hasPermission("export_warnings") ||
+    hasPermission("view_ceo_warnings") ||
+    hasPermission("manage_ceo_warnings") ||
+    hasPermission("view_dev_warnings") ||
+    hasPermission("manage_dev_warnings") ||
+    isDevUser;
+
+  if (!canAccess) {
+    return (
+      <div className="space-y-6 animate-in fade-in-50 duration-300">
+        <PageHeader
+          title="Advertências & Suspensões"
+          description="Sistema disciplinar e controle de penalidades da organização."
+        />
+        <div className="flex min-h-[420px] items-center justify-center p-4">
+          <Card className="max-w-md w-full surface-card text-center p-6 sm:p-8 space-y-5 border-rose-500/30 bg-rose-500/[0.03] shadow-lg shadow-rose-950/20">
+            <div className="mx-auto h-16 w-16 rounded-2xl flex items-center justify-center bg-rose-500/10 text-rose-400 border border-rose-500/30 shadow-inner">
+              <ShieldAlert className="h-8 w-8" />
+            </div>
+            <div className="space-y-2">
+              <h3 className="text-lg font-bold text-foreground">Acesso Restrito</h3>
+              <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed">
+                Você não possui a permissão <strong>"Visualizar Página / Menu de Advertências"</strong>.
+                O acesso a esta área é restrito aos cargos e tags autorizados pela liderança.
+              </p>
+            </div>
+            <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3">
+              <Button
+                asChild
+                variant="outline"
+                size="sm"
+                className="w-full sm:w-auto border-border/60 hover:bg-secondary/60 text-xs"
+              >
+                <Link to="/dashboard">
+                  <ArrowLeft className="h-3.5 w-3.5 mr-1.5" />
+                  Ir ao Dashboard
+                </Link>
+              </Button>
+              <Button
+                asChild
+                variant="default"
+                size="sm"
+                className="w-full sm:w-auto bg-rose-600 hover:bg-rose-500 text-white text-xs font-semibold"
+              >
+                <Link to="/perfil/advertencias">
+                  <User className="h-3.5 w-3.5 mr-1.5" />
+                  Minhas Advertências
+                </Link>
+              </Button>
+            </div>
+          </Card>
+        </div>
+      </div>
+    );
   }
 
   return <AdvertenciasContent />;
 }
 
 function AdvertenciasContent() {
-  const { hasPermission, isDevUser, isCeoUser, user, profile } = useAuth();
+  const { hasPermission, isDevUser, isCeoUser, user, profile, loading } = useAuth();
+
+  const canAccess =
+    hasPermission("view_warnings") ||
+    hasPermission("view_all_warnings") ||
+    hasPermission("view_warning_details") ||
+    hasPermission("manage_warnings") ||
+    hasPermission("create_warning") ||
+    hasPermission("create_suspension") ||
+    hasPermission("edit_warning") ||
+    hasPermission("revoke_warning") ||
+    hasPermission("delete_warning") ||
+    hasPermission("export_warnings") ||
+    hasPermission("view_ceo_warnings") ||
+    hasPermission("manage_ceo_warnings") ||
+    hasPermission("view_dev_warnings") ||
+    hasPermission("manage_dev_warnings") ||
+    isDevUser;
+
+  if (!loading && !canAccess) {
+    return (
+      <div className="space-y-6 animate-in fade-in-50 duration-300">
+        <PageHeader
+          title="Advertências & Suspensões"
+          description="Sistema disciplinar e controle de penalidades da organização."
+        />
+        <div className="flex min-h-[420px] items-center justify-center p-4">
+          <Card className="max-w-md w-full surface-card text-center p-6 sm:p-8 space-y-5 border-rose-500/30 bg-rose-500/[0.03] shadow-lg shadow-rose-950/20">
+            <div className="mx-auto h-16 w-16 rounded-2xl flex items-center justify-center bg-rose-500/10 text-rose-400 border border-rose-500/30 shadow-inner">
+              <ShieldAlert className="h-8 w-8" />
+            </div>
+            <div className="space-y-2">
+              <h3 className="text-lg font-bold text-foreground">Acesso Restrito</h3>
+              <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed">
+                Você não possui a permissão <strong>"Visualizar Página / Menu de Advertências"</strong>.
+                O acesso a esta área é restrito aos cargos e tags autorizados pela liderança.
+              </p>
+            </div>
+            <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3">
+              <Button
+                asChild
+                variant="outline"
+                size="sm"
+                className="w-full sm:w-auto border-border/60 hover:bg-secondary/60 text-xs"
+              >
+                <Link to="/dashboard">
+                  <ArrowLeft className="h-3.5 w-3.5 mr-1.5" />
+                  Ir ao Dashboard
+                </Link>
+              </Button>
+              <Button
+                asChild
+                variant="default"
+                size="sm"
+                className="w-full sm:w-auto bg-rose-600 hover:bg-rose-500 text-white text-xs font-semibold"
+              >
+                <Link to="/perfil/advertencias">
+                  <User className="h-3.5 w-3.5 mr-1.5" />
+                  Minhas Advertências
+                </Link>
+              </Button>
+            </div>
+          </Card>
+        </div>
+      </div>
+    );
+  }
+
   const { data: warnings = [], isLoading, refetch, isRefetching } = useWarnings();
   const { data: members = [] } = useMembers();
   const { data: tags = [] } = useMemberTags();
 
-  const canCreate = hasPermission("create_warning") || hasPermission("manage_warnings") || isDevUser || isCeoUser;
-  const canEdit = hasPermission("edit_warning") || hasPermission("manage_warnings") || isDevUser || isCeoUser;
-  const canRevoke = hasPermission("revoke_warning") || hasPermission("manage_warnings") || isDevUser || isCeoUser;
-  const canDelete = hasPermission("delete_warning") || hasPermission("manage_warnings") || isDevUser || isCeoUser;
+  // Permissões granulares
+  const canCreateWarning =
+    hasPermission("create_warning") ||
+    hasPermission("manage_warnings") ||
+    hasPermission("manage_ceo_warnings") ||
+    hasPermission("manage_dev_warnings");
+
+  const canCreateSuspension =
+    hasPermission("create_suspension") ||
+    hasPermission("manage_warnings") ||
+    hasPermission("manage_ceo_warnings") ||
+    hasPermission("manage_dev_warnings");
+
+  const canCreate = canCreateWarning || canCreateSuspension;
+
+  const canEdit =
+    hasPermission("edit_warning") ||
+    hasPermission("manage_warnings") ||
+    hasPermission("manage_ceo_warnings") ||
+    hasPermission("manage_dev_warnings");
+
+  const canRevoke =
+    hasPermission("revoke_warning") ||
+    hasPermission("manage_warnings") ||
+    hasPermission("manage_ceo_warnings") ||
+    hasPermission("manage_dev_warnings");
+
+  const canDelete =
+    hasPermission("delete_warning") ||
+    hasPermission("manage_warnings") ||
+    hasPermission("manage_ceo_warnings") ||
+    hasPermission("manage_dev_warnings");
+
+  const canViewDetails =
+    hasPermission("view_warning_details") ||
+    hasPermission("view_all_warnings") ||
+    hasPermission("view_warnings") ||
+    hasPermission("view_ceo_warnings") ||
+    hasPermission("view_dev_warnings") ||
+    hasPermission("manage_warnings");
+
+  const canExport =
+    hasPermission("export_warnings") ||
+    hasPermission("manage_warnings") ||
+    hasPermission("manage_ceo_warnings") ||
+    hasPermission("manage_dev_warnings");
 
   // Mutations
   const createMutation = useCreateWarningMutation();
@@ -131,7 +328,7 @@ function AdvertenciasContent() {
   const [durationHours, setDurationHours] = useState<number>(0);
   const [appliedTagId, setAppliedTagId] = useState<string>("none");
 
-  // Bloqueios Funcionais
+  // Bloqueios Funcionais Criação
   const [blockAllOperations, setBlockAllOperations] = useState(true);
   const [blockLogin, setBlockLogin] = useState(false);
   const [blockSales, setBlockSales] = useState(false);
@@ -139,22 +336,93 @@ function AdvertenciasContent() {
   const [blockProductions, setBlockProductions] = useState(false);
   const [blockCashFund, setBlockCashFund] = useState(false);
 
+  // Formulário de Edição
+  const [editSeverity, setEditSeverity] = useState<WarningSeverity>("media");
+  const [editPreset, setEditPreset] = useState<string>(WARNING_REASON_PRESETS[0]);
+  const [editCustomReason, setEditCustomReason] = useState("");
+  const [editDescription, setEditDescription] = useState("");
+  const [editSuspensionType, setEditSuspensionType] = useState<SuspensionType>("temporaria");
+  const [editDurationDays, setEditDurationDays] = useState<number>(3);
+  const [editDurationHours, setEditDurationHours] = useState<number>(0);
+  const [editAppliedTagId, setEditAppliedTagId] = useState<string>("none");
+
+  // Bloqueios Funcionais Edição
+  const [editBlockAllOperations, setEditBlockAllOperations] = useState(true);
+  const [editBlockLogin, setEditBlockLogin] = useState(false);
+  const [editBlockSales, setEditBlockSales] = useState(false);
+  const [editBlockMovements, setEditBlockMovements] = useState(false);
+  const [editBlockProductions, setEditBlockProductions] = useState(false);
+  const [editBlockCashFund, setEditBlockCashFund] = useState(false);
+
+  // Permissão de Visualização Global (apenas membros autorizados com view_all_warnings ou gerenciamento)
+  const canViewGlobal = useMemo(() => {
+    if (isDevUser) return true;
+    return Boolean(
+      hasPermission("view_all_warnings") ||
+      hasPermission("manage_warnings") ||
+      hasPermission("view_ceo_warnings") ||
+      hasPermission("view_dev_warnings") ||
+      hasPermission("manage_ceo_warnings") ||
+      hasPermission("manage_dev_warnings")
+    );
+  }, [hasPermission, isDevUser]);
+
+  // Lista base (filtrada estritamente por membro caso não tenha permissão global)
+  const baseWarnings = useMemo(() => {
+    if (canViewGlobal) {
+      return warnings;
+    }
+
+    const currentUserId = user?.id ? String(user.id).trim().toLowerCase() : "";
+    const currentProfileId = profile?.id ? String(profile.id).trim().toLowerCase() : "";
+    const currentProfileUserId = profile?.user_id ? String(profile.user_id).trim().toLowerCase() : "";
+    const currentGameId = profile?.game_id ? String(profile.game_id).trim().toLowerCase() : "";
+    const currentProfileName = profile?.nome ? String(profile.nome).trim().toLowerCase() : "";
+    const currentProfileNick = profile?.nickname ? String(profile.nickname).trim().toLowerCase() : "";
+
+    // Se nenhum identificador for encontrado, por segurança não expõe advertências globais
+    if (!currentUserId && !currentProfileId && !currentProfileUserId && !currentGameId && !currentProfileName) {
+      return [];
+    }
+
+    return warnings.filter((w) => {
+      const warnMemberId = w.member_id ? String(w.member_id).trim().toLowerCase() : "";
+      const warnGameId = w.member_game_id ? String(w.member_game_id).trim().toLowerCase() : "";
+      const warnName = w.member_name ? String(w.member_name).trim().toLowerCase() : "";
+      const warnNick = w.member_nickname ? String(w.member_nickname).trim().toLowerCase() : "";
+
+      const matchId = Boolean(
+        (currentUserId && warnMemberId === currentUserId) ||
+        (currentProfileId && warnMemberId === currentProfileId) ||
+        (currentProfileUserId && warnMemberId === currentProfileUserId)
+      );
+
+      const matchGameId = Boolean(currentGameId && warnGameId === currentGameId);
+      const matchName = Boolean(
+        (currentProfileName && warnName === currentProfileName) ||
+        (currentProfileNick && warnNick && warnNick === currentProfileNick)
+      );
+
+      return matchId || matchGameId || matchName;
+    });
+  }, [warnings, canViewGlobal, user?.id, profile?.id, profile?.user_id, profile?.game_id, profile?.nome, profile?.nickname]);
+
   // Estatísticas Rápidas
   const stats = useMemo(() => {
-    const total = warnings.length;
-    const activeSuspensions = warnings.filter(
+    const total = baseWarnings.length;
+    const activeSuspensions = baseWarnings.filter(
       (w) => w.status === "ativo" && (w.is_suspension || w.type === "suspensao")
     ).length;
-    const activeWarnings = warnings.filter(
+    const activeWarnings = baseWarnings.filter(
       (w) => w.status === "ativo" && !w.is_suspension && w.type === "advertencia"
     ).length;
-    const revoked = warnings.filter((w) => w.status === "revogado").length;
+    const revoked = baseWarnings.filter((w) => w.status === "revogado").length;
     return { total, activeSuspensions, activeWarnings, revoked };
-  }, [warnings]);
+  }, [baseWarnings]);
 
-  // Lista Filtrada
+  // Lista Filtrada por filtros e busca
   const filteredWarnings = useMemo(() => {
-    return warnings.filter((w) => {
+    return baseWarnings.filter((w) => {
       // Busca
       if (searchTerm.trim()) {
         const query = searchTerm.toLowerCase();
@@ -187,12 +455,12 @@ function AdvertenciasContent() {
 
       return true;
     });
-  }, [warnings, searchTerm, statusFilter, typeFilter, severityFilter]);
+  }, [baseWarnings, searchTerm, statusFilter, typeFilter, severityFilter]);
 
-  // Reset do Formulário
+  // Reset do Formulário de Criação
   const resetCreateForm = () => {
     setSelectedMemberId("");
-    setNewType("advertencia");
+    setNewType(canCreateSuspension ? "advertencia" : "advertencia");
     setNewSeverity("media");
     setSelectedPreset(WARNING_REASON_PRESETS[0]);
     setCustomReason("");
@@ -212,6 +480,30 @@ function AdvertenciasContent() {
   const handleOpenCreateModal = () => {
     resetCreateForm();
     setIsCreateModalOpen(true);
+  };
+
+  const handleOpenEditModal = (warn: MemberWarning) => {
+    setEditingWarning(warn);
+    setEditSeverity(warn.severity || "media");
+    if (WARNING_REASON_PRESETS.includes(warn.reason as any)) {
+      setEditPreset(warn.reason);
+      setEditCustomReason("");
+    } else {
+      setEditPreset(WARNING_REASON_PRESETS[WARNING_REASON_PRESETS.length - 1]);
+      setEditCustomReason(warn.reason || "");
+    }
+    setEditDescription(warn.description || "");
+    setEditSuspensionType(warn.suspension_type || "temporaria");
+    setEditDurationDays(warn.duration_days ?? 3);
+    setEditDurationHours(warn.duration_hours ?? 0);
+    setEditAppliedTagId(warn.applied_tag_id || "none");
+
+    setEditBlockAllOperations(Boolean(warn.blocks?.block_all_operations));
+    setEditBlockLogin(Boolean(warn.blocks?.block_login));
+    setEditBlockSales(Boolean(warn.blocks?.block_sales));
+    setEditBlockMovements(Boolean(warn.blocks?.block_movements));
+    setEditBlockProductions(Boolean(warn.blocks?.block_productions));
+    setEditBlockCashFund(Boolean(warn.blocks?.block_cash_fund));
   };
 
   const handleCreateSubmit = async (e: React.FormEvent) => {
@@ -272,6 +564,41 @@ function AdvertenciasContent() {
     setIsCreateModalOpen(false);
   };
 
+  const handleEditSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingWarning) return;
+
+    const isSusp = editingWarning.is_suspension || editingWarning.type === "suspensao";
+    const finalReason = editPreset.includes("Outro") && editCustomReason.trim()
+      ? editCustomReason.trim()
+      : editPreset;
+
+    await updateMutation.mutateAsync({
+      id: editingWarning.id,
+      payload: {
+        severity: editSeverity,
+        reason: finalReason,
+        description: editDescription.trim(),
+        duration_days: editDurationDays > 0 ? editDurationDays : null,
+        duration_hours: editDurationHours > 0 ? editDurationHours : null,
+        suspension_type: isSusp ? editSuspensionType : null,
+        blocks: isSusp
+          ? {
+              block_all_operations: editBlockAllOperations,
+              block_login: editBlockLogin,
+              block_sales: editBlockSales,
+              block_movements: editBlockMovements,
+              block_productions: editBlockProductions,
+              block_cash_fund: editBlockCashFund,
+            }
+          : undefined,
+        applied_tag_id: isSusp && editAppliedTagId !== "none" ? editAppliedTagId : null,
+      },
+    });
+
+    setEditingWarning(null);
+  };
+
   const handleRevokeSubmit = async () => {
     if (!revokingWarning) return;
     await revokeMutation.mutateAsync({
@@ -286,6 +613,77 @@ function AdvertenciasContent() {
     if (!deletingWarningId) return;
     await deleteMutation.mutateAsync(deletingWarningId);
     setDeletingWarningId(null);
+  };
+
+  // Exportar Relatório CSV
+  const handleExportCsv = () => {
+    if (filteredWarnings.length === 0) {
+      toast.warning("Nenhum registro para exportar.");
+      return;
+    }
+    const headers = [
+      "ID",
+      "Data Início",
+      "Data Término",
+      "Status",
+      "Tipo",
+      "Gravidade",
+      "Membro",
+      "Nickname",
+      "Game ID",
+      "Cargo",
+      "Motivo",
+      "Descrição",
+      "Aplicado Por",
+      "Ciente",
+      "Revogado Por",
+      "Justificativa Revogação",
+    ];
+    const rows = filteredWarnings.map((w) => [
+      w.id,
+      new Date(w.starts_at).toLocaleString("pt-BR"),
+      w.ends_at ? new Date(w.ends_at).toLocaleString("pt-BR") : "Permanente",
+      w.status,
+      w.type,
+      w.severity,
+      w.member_name,
+      w.member_nickname || "",
+      w.member_game_id || "",
+      w.member_level || "",
+      `"${(w.reason || "").replace(/"/g, '""')}"`,
+      `"${(w.description || "").replace(/"/g, '""')}"`,
+      w.admin_name,
+      w.acknowledged_at ? new Date(w.acknowledged_at).toLocaleString("pt-BR") : "Não",
+      w.revoked_by_name || "",
+      w.revocation_reason ? `"${w.revocation_reason.replace(/"/g, '""')}"` : "",
+    ]);
+    const csvContent = "\uFEFF" + [headers.join(","), ...rows.map((r) => r.join(","))].join("\n");
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `advertencias_tw_${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    toast.success("Relatório CSV exportado com sucesso!");
+  };
+
+  // Copiar Relatório Formatado
+  const handleCopyReport = () => {
+    if (filteredWarnings.length === 0) {
+      toast.warning("Nenhum registro para copiar.");
+      return;
+    }
+    const text = filteredWarnings
+      .map((w, idx) => {
+        return `${idx + 1}. [${w.type.toUpperCase()}] ${w.member_name} (${w.member_level || "Membro"}) - ${w.reason}\nGravidade: ${w.severity.toUpperCase()} | Status: ${w.status.toUpperCase()} | Aplicado por: ${w.admin_name} em ${new Date(w.starts_at).toLocaleDateString("pt-BR")}\nDescrição: ${w.description}\n`;
+      })
+      .join("\n--------------------------\n\n");
+
+    navigator.clipboard.writeText(text);
+    toast.success("Relatório copiado para a área de transferência!");
   };
 
   const getSeverityBadge = (sev: WarningSeverity) => {
@@ -336,11 +734,22 @@ function AdvertenciasContent() {
               <ShieldAlert className="h-5 w-5" />
             </div>
             <div>
-              <h1 className="text-xl sm:text-2xl font-black tracking-tight text-foreground flex items-center gap-2">
+              <h1 className="text-xl sm:text-2xl font-black tracking-tight text-foreground flex flex-wrap items-center gap-2">
                 Advertências & Suspensões
+                {!canViewGlobal ? (
+                  <Badge variant="outline" className="text-[10px] font-bold border-amber-500/40 text-amber-300 bg-amber-500/10 py-0.5">
+                    Visualização Pessoal
+                  </Badge>
+                ) : (
+                  <Badge variant="outline" className="text-[10px] font-bold border-rose-500/40 text-rose-300 bg-rose-500/10 py-0.5">
+                    Acesso Global
+                  </Badge>
+                )}
               </h1>
               <p className="text-xs text-muted-foreground">
-                Painel disciplinar para aplicação de penalidades, suspensões temporárias ou permanentes e bloqueios automáticos.
+                {!canViewGlobal
+                  ? "Visualizando apenas o seu histórico disciplinar individual e eventuais bloqueios."
+                  : "Painel disciplinar para aplicação de penalidades, suspensões temporárias ou permanentes e auditoria global."}
               </p>
             </div>
           </div>
@@ -358,6 +767,34 @@ function AdvertenciasContent() {
             <RefreshCw className={cn("h-3.5 w-3.5", isRefetching && "animate-spin")} />
             <span className="hidden sm:inline">Atualizar</span>
           </Button>
+
+          {canExport && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-9 gap-1.5 text-xs font-semibold rounded-xl border-border/80 hover:bg-secondary/60 cursor-pointer"
+                  title="Exportar dados do painel disciplinar"
+                >
+                  <Download className="h-3.5 w-3.5 text-primary" />
+                  <span className="hidden sm:inline">Exportar</span>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-48">
+                <DropdownMenuLabel className="text-xs">Exportação de Dados</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={handleExportCsv} className="text-xs gap-2 cursor-pointer">
+                  <FileSpreadsheet className="h-3.5 w-3.5 text-emerald-400" />
+                  <span>Exportar Planilha (CSV)</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={handleCopyReport} className="text-xs gap-2 cursor-pointer">
+                  <Copy className="h-3.5 w-3.5 text-sky-400" />
+                  <span>Copiar Relatório Texto</span>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
 
           {canCreate && (
             <Button
@@ -652,16 +1089,18 @@ function AdvertenciasContent() {
 
                   {/* AÇÕES ADMINISTRATIVAS */}
                   <div className="flex flex-wrap items-center gap-1.5 self-end lg:self-center shrink-0">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => setViewingWarning(warn)}
-                      className="h-8 px-2.5 text-xs font-semibold rounded-lg gap-1 border-border/80 cursor-pointer"
-                      title="Ver detalhes completos"
-                    >
-                      <Eye className="h-3.5 w-3.5" />
-                      <span>Detalhes</span>
-                    </Button>
+                    {canViewDetails && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setViewingWarning(warn)}
+                        className="h-8 px-2.5 text-xs font-semibold rounded-lg gap-1 border-border/80 cursor-pointer"
+                        title="Ver detalhes completos"
+                      >
+                        <Eye className="h-3.5 w-3.5" />
+                        <span>Detalhes</span>
+                      </Button>
+                    )}
 
                     {canRevoke && warn.status === "ativo" && (
                       <Button
@@ -683,11 +1122,12 @@ function AdvertenciasContent() {
                       <Button
                         size="sm"
                         variant="outline"
-                        onClick={() => setEditingWarning(warn)}
+                        onClick={() => handleOpenEditModal(warn)}
                         className="h-8 px-2.5 text-xs font-semibold rounded-lg gap-1 border-border/80 cursor-pointer"
                         title="Editar penalidade"
                       >
                         <Edit2 className="h-3.5 w-3.5" />
+                        <span>Editar</span>
                       </Button>
                     )}
 
@@ -747,15 +1187,26 @@ function AdvertenciasContent() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <Label className="text-xs font-semibold text-foreground">Tipo de Penalidade</Label>
-                <Select value={newType} onValueChange={(v: any) => setNewType(v)}>
+                <Select
+                  value={newType}
+                  onValueChange={(v: any) => setNewType(v)}
+                  disabled={!canCreateSuspension && canCreateWarning}
+                >
                   <SelectTrigger className="mt-1 h-9 text-xs">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="advertencia">⚠️ Advertência Disciplinar</SelectItem>
-                    <SelectItem value="suspensao">🚫 Suspensão de Membro</SelectItem>
+                    {canCreateSuspension && (
+                      <SelectItem value="suspensao">🚫 Suspensão de Membro</SelectItem>
+                    )}
                   </SelectContent>
                 </Select>
+                {!canCreateSuspension && canCreateWarning && (
+                  <p className="text-[10px] text-muted-foreground mt-0.5">
+                    Seu cargo possui permissão apenas para aplicar advertências simples.
+                  </p>
+                )}
               </div>
 
               <div>
@@ -906,7 +1357,7 @@ function AdvertenciasContent() {
                   </div>
                 </div>
 
-                {/* ATRIBUIÇÃO AUTOMÁTICA DE TAG (INTEGRAÇÃO COM TAGS) */}
+                {/* ATRIBUIÇÃO AUTOMÁTICA DE TAG */}
                 <div className="pt-2 border-t border-rose-500/20">
                   <Label className="text-xs font-semibold text-rose-200 flex items-center gap-1.5">
                     <Tag className="h-3.5 w-3.5 text-primary" />
@@ -970,7 +1421,218 @@ function AdvertenciasContent() {
         </DialogContent>
       </Dialog>
 
-      {/* MODAL 2: REVOGAR / CANCELAR SUSPENSÃO */}
+      {/* MODAL 2: EDITAR PENALIDADE */}
+      <Dialog open={Boolean(editingWarning)} onOpenChange={(open) => !open && setEditingWarning(null)}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-lg font-bold text-foreground">
+              <Edit2 className="h-5 w-5 text-primary" />
+              Editar Registro Disciplinar
+            </DialogTitle>
+            <DialogDescription className="text-xs text-muted-foreground">
+              Retifique detalhes, motivo, gravidade ou configurações de bloqueio da penalidade.
+            </DialogDescription>
+          </DialogHeader>
+
+          {editingWarning && (
+            <form onSubmit={handleEditSubmit} className="space-y-4 pt-2">
+              <div className="p-3 rounded-lg bg-secondary/40 border border-border text-xs flex items-center justify-between">
+                <div>
+                  <span className="text-muted-foreground">Membro:</span>{" "}
+                  <strong className="text-foreground">{editingWarning.member_nickname || editingWarning.member_name}</strong>
+                </div>
+                <div>
+                  <span className="text-muted-foreground">Tipo:</span>{" "}
+                  <Badge variant="outline" className="text-[10px] uppercase">{editingWarning.type}</Badge>
+                </div>
+              </div>
+
+              {/* GRAVIDADE */}
+              <div>
+                <Label className="text-xs font-semibold text-foreground">Gravidade da Infração</Label>
+                <Select value={editSeverity} onValueChange={(v: any) => setEditSeverity(v)}>
+                  <SelectTrigger className="mt-1 h-9 text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="leve">Leve</SelectItem>
+                    <SelectItem value="media">Média</SelectItem>
+                    <SelectItem value="grave">Grave</SelectItem>
+                    <SelectItem value="critica">Crítica</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* MOTIVO */}
+              <div>
+                <Label className="text-xs font-semibold text-foreground">
+                  Motivo da Infração <span className="text-rose-500">*</span>
+                </Label>
+                <Select value={editPreset} onValueChange={setEditPreset}>
+                  <SelectTrigger className="mt-1 h-9 text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {WARNING_REASON_PRESETS.map((p) => (
+                      <SelectItem key={p} value={p}>{p}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {editPreset.includes("Outro") && (
+                <div>
+                  <Label className="text-xs font-semibold text-foreground">Especificar Motivo Personalizado</Label>
+                  <Input
+                    placeholder="Descreva o motivo sintético..."
+                    value={editCustomReason}
+                    onChange={(e) => setEditCustomReason(e.target.value)}
+                    className="mt-1 h-9 text-xs"
+                    required
+                  />
+                </div>
+              )}
+
+              {/* DESCRIÇÃO */}
+              <div>
+                <Label className="text-xs font-semibold text-foreground">
+                  Descrição dos Fatos & Evidências <span className="text-rose-500">*</span>
+                </Label>
+                <Textarea
+                  placeholder="Detalhe o ocorrido..."
+                  value={editDescription}
+                  onChange={(e) => setEditDescription(e.target.value)}
+                  className="mt-1 text-xs min-h-[90px]"
+                  required
+                />
+              </div>
+
+              {/* SE FOR SUSPENSÃO */}
+              {(editingWarning.is_suspension || editingWarning.type === "suspensao") ? (
+                <div className="p-4 rounded-xl bg-rose-950/20 border border-rose-500/30 space-y-4">
+                  <div className="flex items-center gap-2 text-rose-300 font-bold text-xs uppercase tracking-wider">
+                    <Ban className="h-4 w-4" /> Parâmetros da Suspensão
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <Label className="text-xs font-semibold">Tipo de Duração</Label>
+                      <Select value={editSuspensionType} onValueChange={(v: any) => setEditSuspensionType(v)}>
+                        <SelectTrigger className="mt-1 h-9 text-xs">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="temporaria">Temporária</SelectItem>
+                          <SelectItem value="permanente">Permanente</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    {editSuspensionType === "temporaria" && (
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <Label className="text-xs font-semibold">Dias</Label>
+                          <Input
+                            type="number"
+                            min={0}
+                            value={editDurationDays}
+                            onChange={(e) => setEditDurationDays(Number(e.target.value))}
+                            className="mt-1 h-9 text-xs"
+                          />
+                        </div>
+                        <div>
+                          <Label className="text-xs font-semibold">Horas</Label>
+                          <Input
+                            type="number"
+                            min={0}
+                            max={23}
+                            value={editDurationHours}
+                            onChange={(e) => setEditDurationHours(Number(e.target.value))}
+                            className="mt-1 h-9 text-xs"
+                          />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* BLOQUEIOS FUNCIONAIS */}
+                  <div className="space-y-2 pt-2 border-t border-rose-500/20">
+                    <Label className="text-xs font-bold text-rose-200 flex items-center gap-1.5">
+                      <Lock className="h-3.5 w-3.5 text-rose-400" />
+                      Bloquear Automaticamente:
+                    </Label>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs pt-1">
+                      <label className="flex items-center gap-2 p-2 rounded-lg bg-background/50 border border-border cursor-pointer hover:bg-background">
+                        <Switch checked={editBlockAllOperations} onCheckedChange={setEditBlockAllOperations} />
+                        <span className="font-semibold text-rose-300">Bloqueio Total Operacional</span>
+                      </label>
+
+                      <label className="flex items-center gap-2 p-2 rounded-lg bg-background/50 border border-border cursor-pointer hover:bg-background">
+                        <Switch checked={editBlockLogin} onCheckedChange={setEditBlockLogin} />
+                        <span>Bloquear Acesso à Plataforma</span>
+                      </label>
+
+                      <label className="flex items-center gap-2 p-2 rounded-lg bg-background/50 border border-border cursor-pointer hover:bg-background">
+                        <Switch checked={editBlockSales} onCheckedChange={setEditBlockSales} />
+                        <span>Bloquear Vendas</span>
+                      </label>
+
+                      <label className="flex items-center gap-2 p-2 rounded-lg bg-background/50 border border-border cursor-pointer hover:bg-background">
+                        <Switch checked={editBlockMovements} onCheckedChange={setEditBlockMovements} />
+                        <span>Bloquear Baú</span>
+                      </label>
+
+                      <label className="flex items-center gap-2 p-2 rounded-lg bg-background/50 border border-border cursor-pointer hover:bg-background">
+                        <Switch checked={editBlockProductions} onCheckedChange={setEditBlockProductions} />
+                        <span>Bloquear Produções</span>
+                      </label>
+
+                      <label className="flex items-center gap-2 p-2 rounded-lg bg-background/50 border border-border cursor-pointer hover:bg-background">
+                        <Switch checked={editBlockCashFund} onCheckedChange={setEditBlockCashFund} />
+                        <span>Bloquear Fundo de Caixa</span>
+                      </label>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="p-3 rounded-xl bg-amber-950/20 border border-amber-500/30">
+                  <Label className="text-xs font-semibold text-amber-300">Validade da Advertência (Dias)</Label>
+                  <div className="flex items-center gap-2 mt-1">
+                    <Input
+                      type="number"
+                      min={1}
+                      value={editDurationDays}
+                      onChange={(e) => setEditDurationDays(Number(e.target.value))}
+                      className="h-9 text-xs w-28"
+                    />
+                  </div>
+                </div>
+              )}
+
+              <DialogFooter className="pt-3 gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setEditingWarning(null)}
+                  className="h-9 text-xs cursor-pointer"
+                >
+                  Cancelar
+                </Button>
+                <Button
+                  type="submit"
+                  disabled={updateMutation.isPending}
+                  className="h-9 text-xs font-bold bg-primary hover:bg-primary/90 text-primary-foreground cursor-pointer"
+                >
+                  {updateMutation.isPending ? "Salvando..." : "Salvar Alterações"}
+                </Button>
+              </DialogFooter>
+            </form>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* MODAL 3: REVOGAR / CANCELAR SUSPENSÃO */}
       <Dialog open={Boolean(revokingWarning)} onOpenChange={(open) => !open && setRevokingWarning(null)}>
         <DialogContent className="max-w-md">
           <DialogHeader>
@@ -1029,7 +1691,7 @@ function AdvertenciasContent() {
         </DialogContent>
       </Dialog>
 
-      {/* MODAL 3: EXCLUIR PERMANENTEMENTE */}
+      {/* MODAL 4: EXCLUIR PERMANENTEMENTE */}
       <Dialog open={Boolean(deletingWarningId)} onOpenChange={(open) => !open && setDeletingWarningId(null)}>
         <DialogContent className="max-w-sm">
           <DialogHeader>
@@ -1065,7 +1727,7 @@ function AdvertenciasContent() {
         </DialogContent>
       </Dialog>
 
-      {/* MODAL 4: DETALHES COMPLETOS DO REGISTRO */}
+      {/* MODAL 5: DETALHES COMPLETOS DO REGISTRO */}
       <Dialog open={Boolean(viewingWarning)} onOpenChange={(open) => !open && setViewingWarning(null)}>
         <DialogContent className="max-w-lg">
           <DialogHeader>

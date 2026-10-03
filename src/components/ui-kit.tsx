@@ -7,22 +7,58 @@ export function PageHeader({
   title,
   description,
   actions,
+  icon,
+  children,
 }: {
   title: string;
   description?: string;
   actions?: ReactNode;
+  icon?: ReactNode | React.ComponentType<{ className?: string }>;
+  children?: ReactNode;
 }) {
+  const renderIcon = () => {
+    if (!icon) return null;
+    if (React.isValidElement(icon)) return icon;
+    if (typeof icon === "function") {
+      const Comp = icon as React.ComponentType<{ className?: string }>;
+      return <Comp className="h-6 w-6 text-primary" />;
+    }
+    if (typeof icon === "object" && icon !== null) {
+      if ("render" in icon || "$$typeof" in icon) {
+        try {
+          const Comp = icon as React.ComponentType<{ className?: string }>;
+          return <Comp className="h-6 w-6 text-primary" />;
+        } catch {
+          return null;
+        }
+      }
+      return null;
+    }
+    if (typeof icon === "string" || typeof icon === "number") {
+      return icon;
+    }
+    return null;
+  };
+
   return (
     <div className="mb-4 sm:mb-6 flex flex-col gap-2.5 sm:flex-row sm:items-end sm:justify-between">
-      <div>
-        <h1 className="text-xl font-bold tracking-tight text-foreground sm:text-3xl">
-          {title}
-        </h1>
-        {description ? (
-          <p className="mt-0.5 max-w-2xl text-xs sm:text-sm text-muted-foreground">{description}</p>
+      <div className="flex items-start gap-3">
+        {icon ? (
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 border border-primary/20 text-primary mt-0.5">
+            {renderIcon()}
+          </div>
         ) : null}
+        <div>
+          <h1 className="text-xl font-bold tracking-tight text-foreground sm:text-3xl">
+            {title}
+          </h1>
+          {description ? (
+            <p className="mt-0.5 max-w-2xl text-xs sm:text-sm text-muted-foreground">{description}</p>
+          ) : null}
+        </div>
       </div>
       {actions ? <div className="flex flex-wrap gap-2 pt-1 sm:pt-0">{actions}</div> : null}
+      {children}
     </div>
   );
 }
@@ -39,7 +75,7 @@ export function KpiCard({
   label: string;
   value: ReactNode;
   hint?: ReactNode;
-  icon?: ReactNode;
+  icon?: ReactNode | React.ComponentType<{ className?: string }>;
   trend?: number | null;
   loading?: boolean;
   accent?: "primary" | "accent" | "success" | "warning" | "destructive";
@@ -51,6 +87,30 @@ export function KpiCard({
     warning: "text-warning bg-warning/10",
     destructive: "text-destructive bg-destructive/10",
   }[accent];
+
+  const renderIcon = () => {
+    if (!icon) return null;
+    if (React.isValidElement(icon)) return icon;
+    if (typeof icon === "function") {
+      const Comp = icon as React.ComponentType<{ className?: string }>;
+      return <Comp className="h-5 w-5" />;
+    }
+    if (typeof icon === "object" && icon !== null) {
+      if ("render" in icon || "$$typeof" in icon) {
+        try {
+          const Comp = icon as React.ComponentType<{ className?: string }>;
+          return <Comp className="h-5 w-5" />;
+        } catch {
+          return null;
+        }
+      }
+      return null;
+    }
+    if (typeof icon === "string" || typeof icon === "number") {
+      return icon;
+    }
+    return null;
+  };
 
   return (
     <Card className="surface-card overflow-hidden transition-transform duration-200 hover:-translate-y-0.5">
@@ -76,7 +136,7 @@ export function KpiCard({
             ) : null}
           </div>
           {icon ? (
-            <span className={cn("rounded-xl p-2.5", accentRing)}>{icon}</span>
+            <span className={cn("rounded-xl p-2.5", accentRing)}>{renderIcon()}</span>
           ) : null}
         </div>
       </CardContent>
@@ -98,14 +158,25 @@ export function EmptyState({
   const renderIcon = () => {
     if (!icon) return null;
     if (React.isValidElement(icon)) return icon;
-    if (
-      typeof icon === "function" ||
-      (typeof icon === "object" && icon !== null && "$$typeof" in icon)
-    ) {
+    if (typeof icon === "function") {
       const Comp = icon as React.ComponentType<{ className?: string }>;
       return <Comp className="h-10 w-10 text-muted-foreground" />;
     }
-    return icon as ReactNode;
+    if (typeof icon === "object" && icon !== null) {
+      if ("render" in icon || "$$typeof" in icon) {
+        try {
+          const Comp = icon as React.ComponentType<{ className?: string }>;
+          return <Comp className="h-10 w-10 text-muted-foreground" />;
+        } catch {
+          return null;
+        }
+      }
+      return null;
+    }
+    if (typeof icon === "string" || typeof icon === "number") {
+      return icon;
+    }
+    return null;
   };
 
   return (
@@ -130,7 +201,19 @@ export function TableSkeleton({ rows = 5 }: { rows?: number }) {
   );
 }
 
-export function NoAccess() {
+export function NoAccess({
+  title = "Acesso restrito",
+  description,
+  message,
+  icon,
+  action,
+}: {
+  title?: string;
+  description?: string;
+  message?: string;
+  icon?: ReactNode | React.ComponentType<{ className?: string }>;
+  action?: ReactNode;
+} = {}) {
   const hasLoggedRef = useRef(false);
 
   useEffect(() => {
@@ -146,8 +229,10 @@ export function NoAccess() {
 
   return (
     <EmptyState
-      title="Acesso restrito"
-      description="Seu nível hierárquico não permite visualizar esta área. Fale com um administrador (01/02)."
+      icon={icon}
+      title={title}
+      description={message || description || "Seu nível hierárquico não permite visualizar esta área. Fale com um administrador (01/02)."}
+      action={action}
     />
   );
 }

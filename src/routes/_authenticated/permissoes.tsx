@@ -147,7 +147,7 @@ export function PermissoesPage() {
   // Dynamically group & order PAGE_CARDS according to the exact menu configuration
   const groupedPageCards = useMemo(() => {
     const validConfigItems = menuConfig?.items?.filter((c) => Boolean(c && (c.id || c.url))) || [];
-    const configMap = new Map(validConfigItems.map((c) => [c.id || c.url, c]));
+    const configMap = new Map(validConfigItems.flatMap((c) => [[c.id, c], [c.url, c]]));
 
     const rawCategories = menuConfig?.categories?.length
       ? menuConfig.categories
@@ -163,7 +163,7 @@ export function PermissoesPage() {
 
     const customized = platformPageCards
       .map((card) => {
-        const cfg = configMap.get(card.id);
+        const cfg = configMap.get(card.id) || configMap.get(card.route);
         let cat = cfg?.category || card.defaultCat;
         if (cat === "Operação") {
           cat = card.id === "vendas" ? "Produções" : "Gestão";
@@ -259,17 +259,21 @@ export function PermissoesPage() {
   };
 
   const setAllPermissions = () => {
-    setActivePermissions([...allPlatformPermissions]);
-    void autoSavePermissions(selectedLevel, [...allPlatformPermissions]);
+    const otherPermissions = activePermissions.filter(p => !allPlatformPermissions.includes(p));
+    const next = Array.from(new Set([...otherPermissions, ...allPlatformPermissions]));
+    setActivePermissions(next);
+    void autoSavePermissions(selectedLevel, next);
   };
 
   const setReadOnlyPermissions = () => {
-    setActivePermissions([...readOnlyPlatformPermissions]);
-    void autoSavePermissions(selectedLevel, [...readOnlyPlatformPermissions]);
+    const otherPermissions = activePermissions.filter(p => !allPlatformPermissions.includes(p));
+    const next = Array.from(new Set([...otherPermissions, ...readOnlyPlatformPermissions]));
+    setActivePermissions(next);
+    void autoSavePermissions(selectedLevel, next);
   };
 
   const clearAllPermissions = () => {
-    const next: Permission[] = [];
+    const next = activePermissions.filter(p => !allPlatformPermissions.includes(p));
     setActivePermissions(next);
     void autoSavePermissions(selectedLevel, next);
   };
