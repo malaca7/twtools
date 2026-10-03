@@ -7,7 +7,7 @@ import type { AppUser, AuthState, Profile, SignupRequestStatus } from "@/lib/app
 import { can, satisfiesPermission, LEVEL_LABEL, type AppLevel, type Permission } from "@/lib/permissions";
 import { useRolePermissions } from "@/hooks/useData";
 import { isUserDeveloper, DEV_DISCORD_IDS, isDevBypassActive, DEV_CONFIG_EVENT, CEO_CONFIG_EVENT, getCeoTagPermissionsSync, getDevTagPermissionsSync, isUserCeo } from "@/services/devService";
-import type { MemberTag } from "@/services/memberTagsService";
+import { parseMemberTagRules, type MemberTag } from "@/services/memberTagsService";
 import type { MemberWarning } from "@/types/warnings";
 import { getWarnings, WARNINGS_REALTIME_EVENT } from "@/services/warningsService";
 
@@ -405,6 +405,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     window.addEventListener("tw_menu_updated", handleMenuOrCeoUpdate);
     window.addEventListener("tw_ceo_config_updated", handleMenuOrCeoUpdate);
     window.addEventListener("tw_tags_updated", handleMenuOrCeoUpdate);
+    window.addEventListener("tw_member_tags_updated", handleMenuOrCeoUpdate);
 
     return () => {
       window.removeEventListener("tw_permissions_synced", handlePermissionsSynced);
@@ -412,6 +413,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       window.removeEventListener("tw_menu_updated", handleMenuOrCeoUpdate);
       window.removeEventListener("tw_ceo_config_updated", handleMenuOrCeoUpdate);
       window.removeEventListener("tw_tags_updated", handleMenuOrCeoUpdate);
+      window.removeEventListener("tw_member_tags_updated", handleMenuOrCeoUpdate);
     };
   }, [loadAuth, profile?.user_id, session?.user?.id, queryClient]);
 
@@ -473,7 +475,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           let loadedTags: MemberTag[] = data
             .map((d: any) => d.member_tags)
             .filter(Boolean)
-            .filter((t: any) => t.is_active !== false);
+            .filter((t: any) => t.is_active !== false)
+            .map((t: any) => ({
+              id: t.id,
+              name: t.name,
+              description: t.description || null,
+              color: t.color || "#3b82f6",
+              icon: t.icon || "Tag",
+              is_system: Boolean(t.is_system),
+              is_active: t.is_active !== false,
+              permissions: Array.isArray(t.permissions) ? t.permissions : [],
+              rules: parseMemberTagRules(t.rules),
+              created_at: t.created_at,
+              updated_at: t.updated_at,
+            }));
 
           if (loadedTags.length === 0 && data.length > 0) {
             const tagIds = Array.from(new Set(data.map((d: any) => d.tag_id).filter(Boolean)));
@@ -483,7 +498,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 .select("*")
                 .in("id", tagIds);
               if (Array.isArray(directTags)) {
-                loadedTags = directTags.filter((t: any) => t.is_active !== false);
+                loadedTags = directTags
+                  .filter((t: any) => t.is_active !== false)
+                  .map((t: any) => ({
+                    id: t.id,
+                    name: t.name,
+                    description: t.description || null,
+                    color: t.color || "#3b82f6",
+                    icon: t.icon || "Tag",
+                    is_system: Boolean(t.is_system),
+                    is_active: t.is_active !== false,
+                    permissions: Array.isArray(t.permissions) ? t.permissions : [],
+                    rules: parseMemberTagRules(t.rules),
+                    created_at: t.created_at,
+                    updated_at: t.updated_at,
+                  }));
               }
             }
           }
@@ -854,10 +883,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 
   const isMemberBlocked = useMemo(() => {
-    return memberTags.some(
-      (t) => t.is_active !== false && (t.rules?.is_blocked === true || t.rules?.block_operations === true)
+    return (
+      memberTags.some(
+        (t) =>
+          t.is_active !== false &&
+          (t.rules?.is_blocked === true ||
+            t.rules?.block_operations === true ||
+            t.rules?.block_login === true)
+      ) ||
+      Boolean(
+        activeSuspension &&
+          (activeSuspension.blocks?.block_all_operations || activeSuspension.blocks?.block_login)
+      )
     );
-  }, [memberTags]);
+  }, [memberTags, activeSuspension]);
 
   // Garante que membros comuns sem Tag Dev ou Tag CEO nunca fiquem travados em panelMode dev ou ceo
   useEffect(() => {
@@ -966,39 +1005,52 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (activeSuspension) {
           const blocks = activeSuspension.blocks;
           if (blocks?.block_login) return false;
-          if (blocks?.block_all_operations && isOperationalAction) return false;
-          if (blocks?.block_sales && isSalesAction && isOperationalAction) return false;
-          if (blocks?.block_movements && isMovementAction && isOperationalAction) return false;
-          if (blocks?.block_productions && isProdAction && isOperationalAction) return false;
-          if (blocks?.block_cash_fund && isCashAction && isOperationalAction) return false;
+          if (blocks?.block_all_operations && (isOperationalAction || isSalesAction || isMovementAction || isProdAction || isCashAction)) return false;
+          if (blocks?.block_sales && (isSalesAction || permission.includes("sale"))) return false;
+          if (blocks?.block_movements && (isMovementAction || permission.includes("movement") || permission === "manage_baus")) return false;
+          if (blocks?.block_productions && (isProdAction || permission.includes("production") || permission.includes("warehouse") || permission.includes("raw_material"))) return false;
+          if (blocks?.block_cash_fund && (isCashAction || permission.includes("cash"))) return false;
         }
 
-        // Bloqueio Total Operacional por Tags Ativas (is_blocked ou block_operations)
-        const hasBlockingTag = memberTags.some(
-          (t) => t.is_active !== false && (t.rules?.is_blocked === true || t.rules?.block_operations === true)
-        );
-        if (hasBlockingTag && isOperationalAction) {
+        // Regras de Bloqueio por Tags Ativas do Membro:
+        // 1. Bloqueio de Acesso / Login
+        const hasLoginBlock = memberTags.some((t) => t.is_active !== false && t.rules?.block_login === true);
+        if (hasLoginBlock) {
           return false;
         }
 
-        // Bloqueios Específicos Operacionais por Tags Ativas
+        // 2. Bloqueio Total Operacional por Tags Ativas (is_blocked ou block_operations)
+        const hasBlockingTag = memberTags.some(
+          (t) => t.is_active !== false && (t.rules?.is_blocked === true || t.rules?.block_operations === true)
+        );
+        if (hasBlockingTag && (isOperationalAction || isSalesAction || isMovementAction || isProdAction || isCashAction)) {
+          return false;
+        }
+
+        // 3. Bloqueios Específicos Operacionais por Tags Ativas
         const hasSalesBlock = memberTags.some((t) => t.is_active !== false && t.rules?.block_sales === true);
-        if (hasSalesBlock && isSalesAction && isOperationalAction) {
+        if (hasSalesBlock && (isSalesAction || permission.includes("sale"))) {
           return false;
         }
 
         const hasMovementsBlock = memberTags.some((t) => t.is_active !== false && t.rules?.block_movements === true);
-        if (hasMovementsBlock && isMovementAction && isOperationalAction) {
+        if (hasMovementsBlock && (isMovementAction || permission.includes("movement") || permission === "manage_baus")) {
           return false;
         }
 
         const hasProductionsBlock = memberTags.some((t) => t.is_active !== false && t.rules?.block_productions === true);
-        if (hasProductionsBlock && isProdAction && isOperationalAction) {
+        if (
+          hasProductionsBlock &&
+          (isProdAction ||
+            permission.includes("production") ||
+            permission.includes("warehouse") ||
+            permission.includes("raw_material"))
+        ) {
           return false;
         }
 
         const hasCashBlock = memberTags.some((t) => t.is_active !== false && t.rules?.block_cash_fund === true);
-        if (hasCashBlock && isCashAction && isOperationalAction) {
+        if (hasCashBlock && (isCashAction || permission.includes("cash"))) {
           return false;
         }
       }

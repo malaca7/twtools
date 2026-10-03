@@ -2,9 +2,10 @@ import { supabase } from "@/integrations/supabase/client";
 import type { Permission } from "@/lib/permissions";
 
 export type MemberTagRules = {
-  // Bloqueios & Restrições Operacionais
+  // Bloqueios & Restrições Operacionais (Segurança)
   is_blocked?: boolean;
   block_operations?: boolean;
+  block_login?: boolean;
   block_sales?: boolean;
   block_movements?: boolean;
   block_productions?: boolean;
@@ -48,6 +49,23 @@ export type MemberTagRules = {
 
   [key: string]: any;
 };
+
+/**
+ * Converte de forma segura o campo rules recebido do Supabase (JSONB ou string) para MemberTagRules
+ */
+export function parseMemberTagRules(raw: any): MemberTagRules {
+  if (!raw) return {};
+  if (typeof raw === "object" && !Array.isArray(raw)) return raw;
+  if (typeof raw === "string") {
+    try {
+      const parsed = JSON.parse(raw);
+      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) return parsed;
+    } catch {
+      return {};
+    }
+  }
+  return {};
+}
 
 export type MemberTag = {
   id: string; // slug / identifier
@@ -108,7 +126,7 @@ export async function getMemberTags(): Promise<MemberTag[]> {
     is_system: Boolean(t.is_system),
     is_active: t.is_active !== false,
     permissions: Array.isArray(t.permissions) ? t.permissions : [],
-    rules: t.rules && typeof t.rules === "object" ? t.rules : {},
+    rules: parseMemberTagRules(t.rules),
     created_at: t.created_at,
     updated_at: t.updated_at,
     assigned_count: counts[t.id] || 0,
@@ -179,7 +197,7 @@ export async function getMemberTagsForMember(memberId: string): Promise<MemberTa
       is_system: Boolean(t.is_system),
       is_active: t.is_active !== false,
       permissions: Array.isArray(t.permissions) ? t.permissions : [],
-      rules: t.rules && typeof t.rules === "object" ? t.rules : {},
+      rules: parseMemberTagRules(t.rules),
       created_at: t.created_at,
       updated_at: t.updated_at,
     }));
@@ -203,6 +221,8 @@ export async function saveMemberTag(tag: {
   if (!cleanId) throw new Error("Identificador (slug) da tag é obrigatório.");
   if (!tag.name.trim()) throw new Error("Nome da tag é obrigatório.");
 
+  const safeRules = parseMemberTagRules(tag.rules);
+
   const payload: any = {
     id: cleanId,
     name: tag.name.trim(),
@@ -214,7 +234,7 @@ export async function saveMemberTag(tag: {
 
   if (tag.is_active !== undefined) payload.is_active = tag.is_active;
   if (tag.permissions !== undefined) payload.permissions = tag.permissions;
-  if (tag.rules !== undefined) payload.rules = tag.rules;
+  if (tag.rules !== undefined) payload.rules = safeRules;
   if (tag.is_system !== undefined) payload.is_system = tag.is_system;
 
   const { data, error } = await supabase
@@ -237,7 +257,7 @@ export async function saveMemberTag(tag: {
     is_system: Boolean((data as any).is_system),
     is_active: (data as any).is_active !== false,
     permissions: Array.isArray((data as any).permissions) ? (data as any).permissions : [],
-    rules: (data as any).rules || {},
+    rules: parseMemberTagRules((data as any).rules),
     created_at: (data as any).created_at,
     updated_at: (data as any).updated_at,
   };
@@ -251,11 +271,12 @@ export async function updateTagPermissionsAndRules(
   permissions: Permission[],
   rules: MemberTagRules
 ): Promise<void> {
+  const safeRules = parseMemberTagRules(rules);
   const { error } = await supabase
     .from("member_tags" as any)
     .update({
       permissions,
-      rules,
+      rules: safeRules,
       updated_at: new Date().toISOString(),
     })
     .eq("id", tagId);

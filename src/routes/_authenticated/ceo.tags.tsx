@@ -77,7 +77,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
-import type { MemberTag, MemberTagRules } from "@/services/memberTagsService";
+import { parseMemberTagRules, type MemberTag, type MemberTagRules } from "@/services/memberTagsService";
 
 export const Route = createFileRoute("/_authenticated/ceo/tags")({
   component: CeoGerenciarTagsPageWrapper,
@@ -179,6 +179,7 @@ export function CeoGerenciarTagsPage() {
   const [formIcon, setFormIcon] = useState("Tag");
   const [formIsActive, setFormIsActive] = useState(true);
   const [formIsSystem, setFormIsSystem] = useState(false);
+  const [formRules, setFormRules] = useState<MemberTagRules>({});
   const { config: menuConfig } = useMenuConfig();
 
   // Modal de Vínculo de Membros à Tag
@@ -205,7 +206,16 @@ export function CeoGerenciarTagsPage() {
     const totalTags = tags.length;
     const totalAssignedMembers = new Set(assignments.map((a) => a.member_id)).size;
     const activeTags = tags.filter((t) => t.is_active !== false).length;
-    const blockingTags = tags.filter((t) => t.rules?.is_blocked || t.rules?.block_operations).length;
+    const blockingTags = tags.filter(
+      (t) =>
+        t.rules?.is_blocked ||
+        t.rules?.block_operations ||
+        t.rules?.block_login ||
+        t.rules?.block_sales ||
+        t.rules?.block_movements ||
+        t.rules?.block_productions ||
+        t.rules?.block_cash_fund
+    ).length;
     return { totalTags, totalAssignedMembers, activeTags, blockingTags };
   }, [tags, assignments]);
 
@@ -409,7 +419,17 @@ export function CeoGerenciarTagsPage() {
       }
 
       if (tagFilter === "active" && !tag.is_active) return false;
-      if (tagFilter === "blocking" && !tag.rules?.is_blocked && !tag.rules?.block_operations) return false;
+      if (
+        tagFilter === "blocking" &&
+        !tag.rules?.is_blocked &&
+        !tag.rules?.block_operations &&
+        !tag.rules?.block_login &&
+        !tag.rules?.block_sales &&
+        !tag.rules?.block_movements &&
+        !tag.rules?.block_productions &&
+        !tag.rules?.block_cash_fund
+      )
+        return false;
       if (tagFilter === "sales" && !tag.rules?.can_sell && tag.id !== "vendedor") return false;
       if (tagFilter === "productions" && !tag.rules?.can_manage_productions && !tag.rules?.can_manage_raw_materials) return false;
       if (tagFilter === "system" && !tag.is_system) return false;
@@ -432,6 +452,7 @@ export function CeoGerenciarTagsPage() {
     setFormIcon("Tag");
     setFormIsActive(true);
     setFormIsSystem(false);
+    setFormRules({});
     setIsTagModalOpen(true);
   };
 
@@ -448,6 +469,7 @@ export function CeoGerenciarTagsPage() {
     setFormIcon(tag.icon || "Tag");
     setFormIsActive(tag.is_active !== false);
     setFormIsSystem(Boolean(tag.is_system));
+    setFormRules(parseMemberTagRules(tag.rules));
     setIsTagModalOpen(true);
   };
 
@@ -477,6 +499,10 @@ export function CeoGerenciarTagsPage() {
     }
 
     try {
+      const mergedRules = editingTag
+        ? { ...parseMemberTagRules(editingTag.rules), ...formRules }
+        : formRules;
+
       await saveTagMutation.mutateAsync({
         id: editingTag ? editingTag.id : cleanId,
         name: formName.trim(),
@@ -485,12 +511,14 @@ export function CeoGerenciarTagsPage() {
         icon: formIcon,
         is_active: formIsActive,
         permissions: editingTag ? editingTag.permissions : [],
-        rules: editingTag ? editingTag.rules : {},
+        rules: mergedRules,
         is_system: formIsSystem,
       });
       setIsTagModalOpen(false);
       if (typeof window !== "undefined") {
         window.dispatchEvent(new Event("tw_tags_updated"));
+        window.dispatchEvent(new Event("tw_permissions_synced"));
+        window.dispatchEvent(new CustomEvent("tw_member_tags_updated"));
       }
     } catch (e) {
       // Já tratado na mutation
@@ -587,6 +615,7 @@ export function CeoGerenciarTagsPage() {
       if (typeof window !== "undefined") {
         window.dispatchEvent(new Event("tw_tags_updated"));
         window.dispatchEvent(new Event("tw_permissions_synced"));
+        window.dispatchEvent(new CustomEvent("tw_member_tags_updated"));
       }
     } catch (e) {
       // Já tratado
@@ -603,7 +632,7 @@ export function CeoGerenciarTagsPage() {
     const rawPerms = Array.isArray(tag.permissions) ? tag.permissions : [];
     const validPerms = rawPerms.filter((p) => allPlatformPermissions.includes(p));
     setActivePerms(validPerms);
-    setActiveRules(tag.rules ? { ...tag.rules } : {});
+    setActiveRules(parseMemberTagRules(tag.rules));
     setPermSearch("");
     setPermCategoryFilter("all");
     setPermSubTab(canManagePerms || !canManageRules ? "permissions" : "rules");
@@ -614,16 +643,18 @@ export function CeoGerenciarTagsPage() {
     if (!tagForPerms) return;
     setAutoSaveStatus("saving");
     try {
+      const safeRules = parseMemberTagRules(newRules);
       await updatePermissionsAndRulesMutation.mutateAsync({
         tagId: tagForPerms.id,
         permissions: newPerms,
-        rules: newRules,
+        rules: safeRules,
         silent: true,
       });
       setAutoSaveStatus("saved");
       if (typeof window !== "undefined") {
         window.dispatchEvent(new Event("tw_tags_updated"));
         window.dispatchEvent(new Event("tw_permissions_synced"));
+        window.dispatchEvent(new CustomEvent("tw_member_tags_updated"));
       }
       if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
       autoSaveTimerRef.current = setTimeout(() => {
@@ -930,6 +961,12 @@ export function CeoGerenciarTagsPage() {
                         </Badge>
                       ) : (
                         <>
+                          {tag.rules?.block_login && (
+                            <Badge className="text-[10px] py-0 px-2 font-medium bg-rose-500/15 text-rose-400 border border-rose-500/30 gap-1">
+                              <Lock className="h-3 w-3" />
+                              <span>Bloqueio Login</span>
+                            </Badge>
+                          )}
                           {tag.rules?.block_sales && (
                             <Badge className="text-[10px] py-0 px-2 font-medium bg-rose-500/15 text-rose-400 border border-rose-500/30 gap-1">
                               <ShieldAlert className="h-3 w-3" />
@@ -1193,6 +1230,108 @@ export function CeoGerenciarTagsPage() {
                     </button>
                   );
                 })}
+              </div>
+            </div>
+
+            {/* BLOQUEIOS AUTOMÁTICOS & RESTRIÇÕES OPERACIONAIS */}
+            <div className="p-3.5 rounded-2xl bg-rose-950/20 border border-rose-500/30 space-y-2.5">
+              <div className="flex items-center justify-between">
+                <Label className="text-xs font-bold text-rose-200 flex items-center gap-1.5">
+                  <ShieldAlert className="h-4 w-4 text-rose-400" />
+                  <span>Bloquear Automaticamente (Segurança & Disciplina)</span>
+                </Label>
+                <Badge variant="outline" className="text-[10px] border-rose-500/40 text-rose-300 bg-rose-500/10">
+                  Restrições
+                </Badge>
+              </div>
+              <p className="text-[11px] text-rose-300/70">
+                Se ativado, qualquer integrante que possuir esta tag terá suas ações bloqueadas imediatamente pelo sistema.
+              </p>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
+                {/* BLOQUEIO TOTAL */}
+                <div className="flex items-center justify-between p-2 rounded-xl bg-background/60 border border-rose-500/40">
+                  <div className="space-y-0.5 pr-2">
+                    <span className="text-[11px] font-bold text-rose-300 block">Bloqueio Total Operacional</span>
+                    <span className="text-[10px] text-muted-foreground">Impede qualquer modificação</span>
+                  </div>
+                  <Switch
+                    checked={Boolean(formRules.is_blocked || formRules.block_operations)}
+                    onCheckedChange={(val) =>
+                      setFormRules((prev) => ({ ...prev, is_blocked: val, block_operations: val }))
+                    }
+                  />
+                </div>
+
+                {/* BLOQUEAR LOGIN / PLATAFORMA */}
+                <div className="flex items-center justify-between p-2 rounded-xl bg-background/60 border border-border/70">
+                  <div className="space-y-0.5 pr-2">
+                    <span className="text-[11px] font-semibold text-foreground block">Bloquear Plataforma / Login</span>
+                    <span className="text-[10px] text-muted-foreground">Bloqueia acesso e navegação</span>
+                  </div>
+                  <Switch
+                    checked={Boolean(formRules.block_login)}
+                    onCheckedChange={(val) =>
+                      setFormRules((prev) => ({ ...prev, block_login: val }))
+                    }
+                  />
+                </div>
+
+                {/* BLOQUEAR VENDAS */}
+                <div className="flex items-center justify-between p-2 rounded-xl bg-background/60 border border-border/70">
+                  <div className="space-y-0.5 pr-2">
+                    <span className="text-[11px] font-semibold text-foreground block">Bloquear Balcão de Vendas</span>
+                    <span className="text-[10px] text-muted-foreground">Impede lançar ordens de venda</span>
+                  </div>
+                  <Switch
+                    checked={Boolean(formRules.block_sales)}
+                    onCheckedChange={(val) =>
+                      setFormRules((prev) => ({ ...prev, block_sales: val }))
+                    }
+                  />
+                </div>
+
+                {/* BLOQUEAR BAÚS */}
+                <div className="flex items-center justify-between p-2 rounded-xl bg-background/60 border border-border/70">
+                  <div className="space-y-0.5 pr-2">
+                    <span className="text-[11px] font-semibold text-foreground block">Bloquear Retiradas / Baús</span>
+                    <span className="text-[10px] text-muted-foreground">Impede retiradas nos baús</span>
+                  </div>
+                  <Switch
+                    checked={Boolean(formRules.block_movements)}
+                    onCheckedChange={(val) =>
+                      setFormRules((prev) => ({ ...prev, block_movements: val }))
+                    }
+                  />
+                </div>
+
+                {/* BLOQUEAR PRODUÇÕES */}
+                <div className="flex items-center justify-between p-2 rounded-xl bg-background/60 border border-border/70">
+                  <div className="space-y-0.5 pr-2">
+                    <span className="text-[11px] font-semibold text-foreground block">Bloquear Produção & Armazém</span>
+                    <span className="text-[10px] text-muted-foreground">Impede ordens e fabricação</span>
+                  </div>
+                  <Switch
+                    checked={Boolean(formRules.block_productions)}
+                    onCheckedChange={(val) =>
+                      setFormRules((prev) => ({ ...prev, block_productions: val }))
+                    }
+                  />
+                </div>
+
+                {/* BLOQUEAR CAIXA */}
+                <div className="flex items-center justify-between p-2 rounded-xl bg-background/60 border border-border/70">
+                  <div className="space-y-0.5 pr-2">
+                    <span className="text-[11px] font-semibold text-foreground block">Bloquear Fundo de Caixa</span>
+                    <span className="text-[10px] text-muted-foreground">Impede saques e depósitos</span>
+                  </div>
+                  <Switch
+                    checked={Boolean(formRules.block_cash_fund)}
+                    onCheckedChange={(val) =>
+                      setFormRules((prev) => ({ ...prev, block_cash_fund: val }))
+                    }
+                  />
+                </div>
               </div>
             </div>
 
@@ -1751,110 +1890,173 @@ export function CeoGerenciarTagsPage() {
                 <div className={cn("space-y-6", !canManageRules && "opacity-75 pointer-events-none")}>
                   {/* SEÇÃO 1: BLOQUEIOS & RESTRIÇÕES */}
                   <div className="space-y-3">
-                  <div className="flex items-center gap-2 pb-1.5 border-b border-border/50">
-                    <ShieldAlert className="h-4 w-4 text-rose-400" />
-                    <h3 className="text-xs uppercase tracking-wider font-bold text-rose-400">
-                      1. Bloqueios & Restrições Operacionais (Segurança)
-                    </h3>
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-1.5 border-b border-border/50">
+                      <div className="flex items-center gap-2">
+                        <ShieldAlert className="h-4 w-4 text-rose-400" />
+                        <h3 className="text-xs uppercase tracking-wider font-bold text-rose-400">
+                          1. Bloqueios & Restrições Operacionais (Segurança)
+                        </h3>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() =>
+                            handleUpdateRuleValue({
+                              ...activeRules,
+                              is_blocked: true,
+                              block_operations: true,
+                              block_login: true,
+                              block_sales: true,
+                              block_movements: true,
+                              block_productions: true,
+                              block_cash_fund: true,
+                            })
+                          }
+                          className="h-6 text-[10px] px-2 rounded-lg border-rose-500/30 text-rose-400 hover:bg-rose-500/10"
+                        >
+                          Ativar Todos
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() =>
+                            handleUpdateRuleValue({
+                              ...activeRules,
+                              is_blocked: false,
+                              block_operations: false,
+                              block_login: false,
+                              block_sales: false,
+                              block_movements: false,
+                              block_productions: false,
+                              block_cash_fund: false,
+                            })
+                          }
+                          className="h-6 text-[10px] px-2 rounded-lg text-muted-foreground hover:bg-secondary"
+                        >
+                          Limpar Bloqueios
+                        </Button>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      {/* BLOQUEAR TUDO */}
+                      <div className="flex items-center justify-between p-3.5 rounded-2xl bg-rose-500/5 border border-rose-500/30">
+                        <div className="space-y-0.5 pr-2">
+                          <Label className="text-xs font-bold text-foreground flex items-center gap-1.5 text-rose-400">
+                            <ShieldAlert className="h-3.5 w-3.5" />
+                            <span>Bloqueio Total de Operações</span>
+                          </Label>
+                          <p className="text-[11px] text-muted-foreground">
+                            Impede qualquer movimentação, venda, baú, aporte ou produção do integrante.
+                          </p>
+                        </div>
+                        <Switch
+                          checked={Boolean(activeRules.is_blocked || activeRules.block_operations)}
+                          onCheckedChange={(val) =>
+                            handleUpdateRuleValue({ ...activeRules, is_blocked: val, block_operations: val })
+                          }
+                        />
+                      </div>
+
+                      {/* BLOQUEAR LOGIN / PLATAFORMA */}
+                      <div className="flex items-center justify-between p-3.5 rounded-2xl bg-secondary/20 border border-border/60">
+                        <div className="space-y-0.5 pr-2">
+                          <Label className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                            <Lock className="h-3.5 w-3.5 text-rose-400" />
+                            <span>Bloquear Acesso à Plataforma (Login)</span>
+                          </Label>
+                          <p className="text-[11px] text-muted-foreground">
+                            Bloqueia o acesso e a navegação em todo o sistema.
+                          </p>
+                        </div>
+                        <Switch
+                          checked={Boolean(activeRules.block_login)}
+                          onCheckedChange={(val) =>
+                            handleUpdateRuleValue({ ...activeRules, block_login: val })
+                          }
+                        />
+                      </div>
+
+                      {/* BLOQUEAR VENDAS */}
+                      <div className="flex items-center justify-between p-3.5 rounded-2xl bg-secondary/20 border border-border/60">
+                        <div className="space-y-0.5 pr-2">
+                          <Label className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                            <ShoppingCart className="h-3.5 w-3.5 text-rose-400" />
+                            <span>Bloquear Balcão de Vendas</span>
+                          </Label>
+                          <p className="text-[11px] text-muted-foreground">
+                            Impede lançamento de novas ordens e operações no módulo de Vendas.
+                          </p>
+                        </div>
+                        <Switch
+                          checked={Boolean(activeRules.block_sales)}
+                          onCheckedChange={(val) =>
+                            handleUpdateRuleValue({ ...activeRules, block_sales: val })
+                          }
+                        />
+                      </div>
+
+                      {/* BLOQUEAR BAÚS */}
+                      <div className="flex items-center justify-between p-3.5 rounded-2xl bg-secondary/20 border border-border/60">
+                        <div className="space-y-0.5 pr-2">
+                          <Label className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                            <SlidersHorizontal className="h-3.5 w-3.5 text-rose-400" />
+                            <span>Bloquear Movimentações de Baú</span>
+                          </Label>
+                          <p className="text-[11px] text-muted-foreground">
+                            Bloqueia retiradas e transferências manuais de baús da facção.
+                          </p>
+                        </div>
+                        <Switch
+                          checked={Boolean(activeRules.block_movements)}
+                          onCheckedChange={(val) =>
+                            handleUpdateRuleValue({ ...activeRules, block_movements: val })
+                          }
+                        />
+                      </div>
+
+                      {/* BLOQUEAR PRODUÇÕES */}
+                      <div className="flex items-center justify-between p-3.5 rounded-2xl bg-secondary/20 border border-border/60">
+                        <div className="space-y-0.5 pr-2">
+                          <Label className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                            <Factory className="h-3.5 w-3.5 text-rose-400" />
+                            <span>Bloquear Estação de Produção & Armazém</span>
+                          </Label>
+                          <p className="text-[11px] text-muted-foreground">
+                            Impede execução de novas receitas ou fabricação de produtos.
+                          </p>
+                        </div>
+                        <Switch
+                          checked={Boolean(activeRules.block_productions)}
+                          onCheckedChange={(val) =>
+                            handleUpdateRuleValue({ ...activeRules, block_productions: val })
+                          }
+                        />
+                      </div>
+
+                      {/* BLOQUEAR FUNDO DE CAIXA */}
+                      <div className="flex items-center justify-between p-3.5 rounded-2xl bg-secondary/20 border border-border/60">
+                        <div className="space-y-0.5 pr-2">
+                          <Label className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                            <Landmark className="h-3.5 w-3.5 text-rose-400" />
+                            <span>Bloquear Fundo de Caixa</span>
+                          </Label>
+                          <p className="text-[11px] text-muted-foreground">
+                            Proíbe lançamentos de depósitos, retiradas e saques no caixa.
+                          </p>
+                        </div>
+                        <Switch
+                          checked={Boolean(activeRules.block_cash_fund)}
+                          onCheckedChange={(val) =>
+                            handleUpdateRuleValue({ ...activeRules, block_cash_fund: val })
+                          }
+                        />
+                      </div>
+                    </div>
                   </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    {/* BLOQUEAR TUDO */}
-                    <div className="flex items-center justify-between p-3.5 rounded-2xl bg-rose-500/5 border border-rose-500/30">
-                      <div className="space-y-0.5 pr-2">
-                        <Label className="text-xs font-bold text-foreground flex items-center gap-1.5 text-rose-400">
-                          <ShieldAlert className="h-3.5 w-3.5" />
-                          <span>Bloqueio Total de Operações</span>
-                        </Label>
-                        <p className="text-[11px] text-muted-foreground">
-                          Impede qualquer movimentação, venda, baú, aporte ou produção do integrante.
-                        </p>
-                      </div>
-                      <Switch
-                        checked={Boolean(activeRules.is_blocked || activeRules.block_operations)}
-                        onCheckedChange={(val) =>
-                          handleUpdateRuleValue({ ...activeRules, is_blocked: val, block_operations: val })
-                        }
-                      />
-                    </div>
-
-                    {/* BLOQUEAR VENDAS */}
-                    <div className="flex items-center justify-between p-3.5 rounded-2xl bg-secondary/20 border border-border/60">
-                      <div className="space-y-0.5 pr-2">
-                        <Label className="text-xs font-bold text-foreground flex items-center gap-1.5">
-                          <ShoppingCart className="h-3.5 w-3.5 text-rose-400" />
-                          <span>Bloquear Balcão de Vendas</span>
-                        </Label>
-                        <p className="text-[11px] text-muted-foreground">
-                          Impede lançamento de novas ordens e operações no módulo de Vendas.
-                        </p>
-                      </div>
-                      <Switch
-                        checked={Boolean(activeRules.block_sales)}
-                        onCheckedChange={(val) =>
-                          handleUpdateRuleValue({ ...activeRules, block_sales: val })
-                        }
-                      />
-                    </div>
-
-                    {/* BLOQUEAR BAÚS */}
-                    <div className="flex items-center justify-between p-3.5 rounded-2xl bg-secondary/20 border border-border/60">
-                      <div className="space-y-0.5 pr-2">
-                        <Label className="text-xs font-bold text-foreground flex items-center gap-1.5">
-                          <SlidersHorizontal className="h-3.5 w-3.5 text-rose-400" />
-                          <span>Bloquear Movimentações de Baú</span>
-                        </Label>
-                        <p className="text-[11px] text-muted-foreground">
-                          Bloqueia retiradas e transferências manuais de baús da facção.
-                        </p>
-                      </div>
-                      <Switch
-                        checked={Boolean(activeRules.block_movements)}
-                        onCheckedChange={(val) =>
-                          handleUpdateRuleValue({ ...activeRules, block_movements: val })
-                        }
-                      />
-                    </div>
-
-                    {/* BLOQUEAR PRODUÇÕES */}
-                    <div className="flex items-center justify-between p-3.5 rounded-2xl bg-secondary/20 border border-border/60">
-                      <div className="space-y-0.5 pr-2">
-                        <Label className="text-xs font-bold text-foreground flex items-center gap-1.5">
-                          <Factory className="h-3.5 w-3.5 text-rose-400" />
-                          <span>Bloquear Estação de Produção</span>
-                        </Label>
-                        <p className="text-[11px] text-muted-foreground">
-                          Impede execução de novas receitas ou fabricação de produtos.
-                        </p>
-                      </div>
-                      <Switch
-                        checked={Boolean(activeRules.block_productions)}
-                        onCheckedChange={(val) =>
-                          handleUpdateRuleValue({ ...activeRules, block_productions: val })
-                        }
-                      />
-                    </div>
-
-                    {/* BLOQUEAR FUNDO DE CAIXA */}
-                    <div className="flex items-center justify-between p-3.5 rounded-2xl bg-secondary/20 border border-border/60">
-                      <div className="space-y-0.5 pr-2">
-                        <Label className="text-xs font-bold text-foreground flex items-center gap-1.5">
-                          <Landmark className="h-3.5 w-3.5 text-rose-400" />
-                          <span>Bloquear Fundo de Caixa</span>
-                        </Label>
-                        <p className="text-[11px] text-muted-foreground">
-                          Proíbe lançamentos de depósitos, retiradas e saques no caixa.
-                        </p>
-                      </div>
-                      <Switch
-                        checked={Boolean(activeRules.block_cash_fund)}
-                        onCheckedChange={(val) =>
-                          handleUpdateRuleValue({ ...activeRules, block_cash_fund: val })
-                        }
-                      />
-                    </div>
-                  </div>
-                </div>
 
                 {/* SEÇÃO 2: VENDAS & COMERCIAL */}
                 <div className="space-y-3">
@@ -2282,24 +2484,24 @@ export function CeoGerenciarTagsPage() {
           </div>
 
           {/* RODAPÉ DO MODAL */}
-          <DialogFooter className="flex items-center justify-between sm:justify-between gap-2 p-3 sm:p-4 border-t border-border/60 bg-secondary/15">
+          <DialogFooter className="flex flex-col sm:flex-row items-center justify-between gap-3 p-3 sm:p-4 border-t border-border/60 bg-secondary/15">
             <div className="flex items-center gap-2">
               {autoSaveStatus === "saving" && (
                 <span className="flex items-center gap-1.5 text-xs text-amber-400 font-medium">
                   <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                  <span>Salvando permissões...</span>
+                  <span>Salvando automaticamente...</span>
                 </span>
               )}
               {autoSaveStatus === "saved" && (
                 <span className="flex items-center gap-1.5 text-xs text-emerald-400 font-medium">
                   <CheckCircle2 className="h-3.5 w-3.5" />
-                  <span>Todas as alterações foram salvas com sucesso</span>
+                  <span>Todas as alterações foram salvas</span>
                 </span>
               )}
               {autoSaveStatus === "idle" && (
                 <span className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
                   <Zap className="h-3.5 w-3.5 text-amber-400/80" />
-                  <span>Qualquer alteração em permissões ou regras é salva automaticamente</span>
+                  <span>Alterações em permissões e regras são salvas automaticamente</span>
                 </span>
               )}
               {autoSaveStatus === "error" && (
@@ -2309,15 +2511,45 @@ export function CeoGerenciarTagsPage() {
                 </span>
               )}
             </div>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => setTagForPerms(null)}
-              className="text-xs rounded-xl"
-            >
-              Fechar
-            </Button>
+
+            <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setTagForPerms(null)}
+                className="text-xs rounded-xl"
+              >
+                Fechar
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                onClick={async () => {
+                  if (!tagForPerms) return;
+                  try {
+                    const safeRules = parseMemberTagRules(activeRules);
+                    await updatePermissionsAndRulesMutation.mutateAsync({
+                      tagId: tagForPerms.id,
+                      permissions: activePerms,
+                      rules: safeRules,
+                    });
+                    if (typeof window !== "undefined") {
+                      window.dispatchEvent(new Event("tw_tags_updated"));
+                      window.dispatchEvent(new Event("tw_permissions_synced"));
+                      window.dispatchEvent(new CustomEvent("tw_member_tags_updated"));
+                    }
+                  } catch (e) {
+                    // Já tratado na mutation
+                  }
+                }}
+                disabled={updatePermissionsAndRulesMutation.isPending || (!canManagePerms && !canManageRules)}
+                className="text-xs rounded-xl font-bold bg-primary text-primary-foreground hover:bg-primary/90 gap-1.5 shadow-sm"
+              >
+                <Save className="h-3.5 w-3.5" />
+                <span>{updatePermissionsAndRulesMutation.isPending ? "Salvando..." : "Salvar Alterações"}</span>
+              </Button>
+            </div>
           </DialogFooter>
         </DialogContent>
       </Dialog>
