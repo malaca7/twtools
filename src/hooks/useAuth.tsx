@@ -437,12 +437,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Carrega as tags do membro ativo
   const activeUserId = profile?.user_id || session?.user?.id;
   const activeProfileId = profile?.id;
+  const activeDiscordId = profile?.discord_id;
   const [memberTags, setMemberTagsState] = useState<MemberTag[]>([]);
 
   useEffect(() => {
     let isCancelled = false;
     async function loadUserTags() {
-      if (!activeUserId && !activeProfileId) {
+      if (!activeUserId && !activeProfileId && !activeDiscordId) {
         setMemberTagsState([]);
         return;
       }
@@ -450,11 +451,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const idFilters = [
           activeUserId ? `member_id.eq.${activeUserId}` : null,
           activeProfileId && activeProfileId !== activeUserId ? `member_id.eq.${activeProfileId}` : null,
+          activeDiscordId ? `member_id.eq.${activeDiscordId}` : null,
         ].filter(Boolean).join(",");
 
         const query = supabase
           .from("member_tag_assignments" as any)
-          .select("tag_id, member_tags (*)");
+          .select("tag_id, member_id, member_tags (*)");
 
         if (idFilters.includes(",")) {
           query.or(idFilters);
@@ -462,14 +464,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           query.eq("member_id", activeUserId);
         } else if (activeProfileId) {
           query.eq("member_id", activeProfileId);
+        } else if (activeDiscordId) {
+          query.eq("member_id", activeDiscordId);
         }
 
         const { data, error } = await query;
         if (!error && Array.isArray(data) && !isCancelled) {
-          const loadedTags: MemberTag[] = data
+          let loadedTags: MemberTag[] = data
             .map((d: any) => d.member_tags)
             .filter(Boolean)
             .filter((t: any) => t.is_active !== false);
+
+          if (loadedTags.length === 0 && data.length > 0) {
+            const tagIds = Array.from(new Set(data.map((d: any) => d.tag_id).filter(Boolean)));
+            if (tagIds.length > 0) {
+              const { data: directTags } = await supabase
+                .from("member_tags" as any)
+                .select("*")
+                .in("id", tagIds);
+              if (Array.isArray(directTags)) {
+                loadedTags = directTags.filter((t: any) => t.is_active !== false);
+              }
+            }
+          }
+
           setMemberTagsState(loadedTags);
         }
       } catch (e) {
@@ -480,7 +498,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => {
       isCancelled = true;
     };
-  }, [activeUserId, activeProfileId, permissionsTick]);
+  }, [activeUserId, activeProfileId, activeDiscordId, permissionsTick]);
 
   // Carrega e monitora a suspensão ativa do membro logado
   const [activeSuspension, setActiveSuspension] = useState<MemberWarning | null>(null);
@@ -572,8 +590,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
       // Regras e permissões implícitas da tag do sistema
       const rules = tag.rules || {};
+      const isBlocked = Boolean(rules.is_blocked || rules.block_operations);
       const cleanId = tag.id.toLowerCase().trim();
-      if (rules.can_sell || cleanId === "vendedor") {
+
+      if (!isBlocked && !rules.block_sales && (rules.can_sell || cleanId === "vendedor")) {
         permsSet.add("sales.view" as Permission);
         permsSet.add("sales.create" as Permission);
         permsSet.add("sales.history" as Permission);
@@ -583,66 +603,66 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         permsSet.add("view_baus" as Permission);
         permsSet.add("view_stock" as Permission);
       }
-      if (rules.can_manage_raw_materials) {
+      if (!isBlocked && !rules.block_productions && rules.can_manage_raw_materials) {
         permsSet.add("raw_materials.view" as Permission);
         permsSet.add("raw_materials.create" as Permission);
         permsSet.add("raw_materials.edit" as Permission);
         permsSet.add("raw_materials.transfer_bau" as Permission);
         permsSet.add("raw_materials.history" as Permission);
       }
-      if (rules.can_manage_productions) {
+      if (!isBlocked && !rules.block_productions && rules.can_manage_productions) {
         permsSet.add("productions.view" as Permission);
         permsSet.add("productions.create" as Permission);
         permsSet.add("productions.edit" as Permission);
         permsSet.add("view_productions" as Permission);
         permsSet.add("warehouse.view" as Permission);
       }
-      if (rules.can_transfer_warehouse) {
+      if (!isBlocked && !rules.block_productions && rules.can_transfer_warehouse) {
         permsSet.add("warehouse.view" as Permission);
         permsSet.add("warehouse.transfer" as Permission);
         permsSet.add("warehouse.transfer_storage" as Permission);
         permsSet.add("warehouse.transfer_sale" as Permission);
       }
-      if (rules.can_adjust_warehouse_stock) {
+      if (!isBlocked && !rules.block_productions && rules.can_adjust_warehouse_stock) {
         permsSet.add("warehouse.view" as Permission);
         permsSet.add("warehouse.adjust" as Permission);
       }
-      if (rules.can_manage_production_recipes) {
+      if (!isBlocked && !rules.block_productions && rules.can_manage_production_recipes) {
         permsSet.add("production_management.view" as Permission);
         permsSet.add("production_management.products" as Permission);
         permsSet.add("production_management.raw_materials" as Permission);
         permsSet.add("production_management.productions" as Permission);
         permsSet.add("production_management.settings" as Permission);
       }
-      if (rules.can_manage_members) {
+      if (!isBlocked && rules.can_manage_members) {
         permsSet.add("view_members" as Permission);
         permsSet.add("approve_requests" as Permission);
         permsSet.add("promote_members" as Permission);
         permsSet.add("edit_members" as Permission);
       }
-      if (rules.can_view_sensitive_data) {
+      if (!isBlocked && rules.can_view_sensitive_data) {
         permsSet.add("view_sensitive_data" as Permission);
       }
-      if (rules.can_view_all_tickets) {
+      if (!isBlocked && rules.can_view_all_tickets) {
         permsSet.add("view_tickets" as Permission);
         permsSet.add("view_all_tickets" as Permission);
       }
-      if (rules.can_create_announcements) {
+      if (!isBlocked && rules.can_create_announcements) {
         permsSet.add("create_announcements" as Permission);
         permsSet.add("manage_announcements" as Permission);
       }
-      if (rules.can_reverse_sales) {
+      if (!isBlocked && !rules.block_sales && rules.can_reverse_sales) {
         permsSet.add("reverse_sale" as Permission);
         permsSet.add("sales.cancel" as Permission);
       }
-      if (rules.can_view_all_sales) {
+      if (!isBlocked && !rules.block_sales && rules.can_view_all_sales) {
         permsSet.add("view_all_sales" as Permission);
       }
-      if (rules.can_deposit_cash_fund || rules.can_withdraw_cash_fund) {
+      if (!isBlocked && !rules.block_cash_fund && (rules.can_deposit_cash_fund || rules.can_withdraw_cash_fund)) {
         permsSet.add("view_cash_fund" as Permission);
         permsSet.add("manage_cash_fund" as Permission);
       }
-      if (rules.can_view_financial_reports) {
+      if (!isBlocked && rules.can_view_financial_reports) {
         permsSet.add("view_consolidated_financials" as Permission);
       }
     }
@@ -830,6 +850,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           permission.startsWith("create_") ||
           permission.startsWith("delete_") ||
           permission.startsWith("reverse_") ||
+          permission.startsWith("edit_") ||
+          permission.startsWith("manage_") ||
           permission.includes(".create") ||
           permission.includes(".edit") ||
           permission.includes(".delete") ||
@@ -837,13 +859,58 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           permission.includes(".adjust") ||
           permission.includes(".cancel") ||
           permission === "manage_cash_fund" ||
+          permission === "reverse_cash_fund" ||
+          permission === "delete_cash_movement" ||
+          permission === "manage_baus" ||
+          permission === "manage_products" ||
+          permission === "manage_categories" ||
+          permission === "buy_shop_items" ||
+          permission === "manage_shop" ||
           permission === "adjust_stock_balance" ||
-          permission === "manage_stock_balance";
+          permission === "manage_stock_balance" ||
+          permission === "request_absence" ||
+          permission === "manage_absences" ||
+          permission === "create_ticket" ||
+          permission === "manage_goals" ||
+          permission === "manage_performance" ||
+          permission === "approve_requests" ||
+          permission === "promote_members" ||
+          permission === "edit_members" ||
+          permission === "delete_members" ||
+          permission === "change_roles" ||
+          permission === "manage_roles" ||
+          permission === "manage_permissions";
 
-        const isSalesAction = permission.startsWith("sales.") || permission.includes("sale");
-        const isCashAction = permission.includes("cash_fund");
-        const isMovementAction = permission.includes("movement");
-        const isProdAction = permission.startsWith("productions.") || permission.includes("production");
+        const isSalesAction =
+          permission.startsWith("sales.") ||
+          permission.includes("sale") ||
+          permission === "create_sale" ||
+          permission === "reverse_sale" ||
+          permission === "delete_sale";
+
+        const isMovementAction =
+          permission.includes("movement") ||
+          permission === "create_movement" ||
+          permission === "reverse_movement" ||
+          permission === "delete_movement" ||
+          permission === "manage_baus" ||
+          permission === "raw_materials.transfer_bau";
+
+        const isProdAction =
+          permission.startsWith("productions.") ||
+          permission.startsWith("raw_materials.") ||
+          permission.startsWith("warehouse.") ||
+          permission.startsWith("production_management.") ||
+          permission.includes("production") ||
+          permission.includes("raw_material") ||
+          permission.includes("warehouse");
+
+        const isCashAction =
+          permission.includes("cash_fund") ||
+          permission.includes("cash_movement") ||
+          permission === "manage_cash_fund" ||
+          permission === "reverse_cash_fund" ||
+          permission === "delete_cash_movement";
 
         // Bloqueios disciplinares durante suspensão ativa
         if (activeSuspension) {
@@ -856,21 +923,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           if (blocks?.block_cash_fund && isCashAction && isOperationalAction) return false;
         }
 
+        // Bloqueio Total Operacional por Tags Ativas (is_blocked ou block_operations)
         const hasBlockingTag = memberTags.some(
           (t) => t.is_active !== false && (t.rules?.is_blocked === true || t.rules?.block_operations === true)
         );
-
         if (hasBlockingTag && isOperationalAction) {
           return false;
         }
 
-        // Checa bloqueios específicos adicionais de regras da tag
-        for (const t of memberTags) {
-          if (t.is_active === false) continue;
-          if (t.rules?.block_sales && isSalesAction && isOperationalAction) return false;
-          if (t.rules?.block_cash_fund && isCashAction && isOperationalAction) return false;
-          if (t.rules?.block_movements && isMovementAction && isOperationalAction) return false;
-          if (t.rules?.block_productions && isProdAction && isOperationalAction) return false;
+        // Bloqueios Específicos Operacionais por Tags Ativas
+        const hasSalesBlock = memberTags.some((t) => t.is_active !== false && t.rules?.block_sales === true);
+        if (hasSalesBlock && isSalesAction && isOperationalAction) {
+          return false;
+        }
+
+        const hasMovementsBlock = memberTags.some((t) => t.is_active !== false && t.rules?.block_movements === true);
+        if (hasMovementsBlock && isMovementAction && isOperationalAction) {
+          return false;
+        }
+
+        const hasProductionsBlock = memberTags.some((t) => t.is_active !== false && t.rules?.block_productions === true);
+        if (hasProductionsBlock && isProdAction && isOperationalAction) {
+          return false;
+        }
+
+        const hasCashBlock = memberTags.some((t) => t.is_active !== false && t.rules?.block_cash_fund === true);
+        if (hasCashBlock && isCashAction && isOperationalAction) {
+          return false;
         }
       }
 

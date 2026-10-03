@@ -280,6 +280,64 @@ const CEO_MODULE_NAV_ITEMS: MasterNavItem[] = [
   { id: "ceo-tags", title: "Gerenciar Tags", url: "/ceo/tags", icon: Tags, defaultCat: "CEO", defaultOrder: 6 },
 ];
 
+/**
+ * Resolve de forma determinística e resiliente a permissão necessária para qualquer item de menu ou rota
+ */
+function resolveRequiredPermission(id?: string, url?: string): Permission | undefined {
+  if (id) {
+    const cleanId = id.toLowerCase().trim();
+    const masterById = MASTER_NAV_ITEMS.find((m) => m.id.toLowerCase() === cleanId);
+    if (masterById?.perm) return masterById.perm;
+  }
+
+  if (url) {
+    const rawPath = url.split("?")[0].toLowerCase().trim();
+    const cleanPath = rawPath.replace(/\/+$/, "") || "/";
+    const withoutPrefix = cleanPath.replace(/^\/(?:dev|ceo)/, "") || "/";
+
+    if (URL_TO_PERMISSION_MAP[cleanPath]) return URL_TO_PERMISSION_MAP[cleanPath];
+    if (URL_TO_PERMISSION_MAP[withoutPrefix]) return URL_TO_PERMISSION_MAP[withoutPrefix];
+
+    // Resolução robusta baseada em prefixo de rotas
+    if (withoutPrefix.startsWith("/producoes/materias-primas") || withoutPrefix.startsWith("/materias-primas")) return "raw_materials.view";
+    if (withoutPrefix.startsWith("/producoes/armazem") || withoutPrefix.startsWith("/armazem")) return "warehouse.view";
+    if (withoutPrefix.startsWith("/producoes/gestao") || withoutPrefix.startsWith("/gestao-producao")) return "production_management.view";
+    if (withoutPrefix.startsWith("/producoes") || withoutPrefix.startsWith("/produzir")) return "productions.view";
+    if (withoutPrefix.startsWith("/gestao-estoque")) return "view_stock_management";
+    if (
+      withoutPrefix.startsWith("/controledeestoque") ||
+      withoutPrefix.startsWith("/estoque") ||
+      withoutPrefix.startsWith("/baus") ||
+      withoutPrefix.startsWith("/categorias") ||
+      withoutPrefix.startsWith("/produtos") ||
+      withoutPrefix.startsWith("/saldos")
+    ) {
+      return "view_stock";
+    }
+    if (withoutPrefix.startsWith("/movimentacoes")) return "view_movements";
+    if (withoutPrefix.startsWith("/vendas")) return "view_sales";
+    if (withoutPrefix.startsWith("/fundo-caixa")) return "view_cash_fund";
+    if (withoutPrefix.startsWith("/membros")) return "view_members";
+    if (withoutPrefix.startsWith("/hierarquia")) return "view_hierarchy";
+    if (withoutPrefix.startsWith("/ausencias")) return "view_absences";
+    if (withoutPrefix.startsWith("/rankings")) return "view_rankings";
+    if (withoutPrefix.startsWith("/desempenho") || withoutPrefix.startsWith("/meu-desempenho")) return "view_performance";
+    if (withoutPrefix.startsWith("/metas")) return "view_goals";
+    if (withoutPrefix.startsWith("/avisos")) return "manage_announcements";
+    if (withoutPrefix.startsWith("/cargos")) return "manage_roles";
+    if (withoutPrefix.startsWith("/permissoes")) return "manage_permissions";
+    if (withoutPrefix.startsWith("/advertencias")) return "view_warnings";
+    if (withoutPrefix.startsWith("/configuracoes")) return "manage_platform_settings";
+    if (withoutPrefix.startsWith("/atualizacoes")) return "view_patch_notes";
+    if (withoutPrefix.startsWith("/tickets")) return "view_tickets";
+    if (withoutPrefix.startsWith("/loja")) return "view_shop";
+    if (withoutPrefix.startsWith("/dashboard")) return "view_dashboard";
+    if (withoutPrefix.startsWith("/perfil")) return "view_profile";
+  }
+
+  return undefined;
+}
+
 function DynamicSidebarNavigation() {
   const routerState = useRouterState();
   const pathname = routerState.location.pathname;
@@ -408,8 +466,7 @@ function DynamicSidebarNavigation() {
         .map((c, idx) => {
           processedIds.add(c.id);
           const master = masterItemsMap.get(c.id) || masterItemsMap.get(c.url);
-          const cleanPath = (c.url || "").split("?")[0].toLowerCase();
-          const autoPerm = master?.perm || URL_TO_PERMISSION_MAP[cleanPath];
+          const autoPerm = master?.perm || resolveRequiredPermission(c.id, c.url);
           const icon = c.iconName
             ? (resolveMenuIcon(c.iconName, c.url) as typeof LayoutDashboard)
             : (master?.icon || (resolveMenuIcon(undefined, c.url) as typeof LayoutDashboard));
@@ -450,6 +507,7 @@ function DynamicSidebarNavigation() {
           }
           allPlatformItems.push({
             ...m,
+            perm: m.perm || resolveRequiredPermission(m.id, m.url),
             category: targetCat,
             defaultCat: targetCat,
             order: allPlatformItems.length + idx,
@@ -472,6 +530,7 @@ function DynamicSidebarNavigation() {
           }
           return {
             ...m,
+            perm: m.perm || resolveRequiredPermission(m.id, m.url),
             category: cat,
             defaultCat: cat,
             order: m.defaultOrder ?? idx,
@@ -525,7 +584,6 @@ function DynamicSidebarNavigation() {
     const visibleCeo = canSeeCeo
       ? allCeoItems.filter((item) => {
           if (!item.visible) return false;
-          // Remove bypass: relies on granular hasPermission checks below
 
           if (
             (item.id === "ceo-dashboard" || item.id === "ceo-executivo" || item.url === "/ceo" || item.url === "/ceo/dashboard") &&
@@ -540,8 +598,7 @@ function DynamicSidebarNavigation() {
           if (item.id === "ceo-ajustes-estoque" && !hasPermission("view_ceo_stock_adjustments", "ceo")) return false;
           if (item.id === "ceo-notificacoes" && !hasPermission("view_ceo_notifications", "ceo")) return false;
           if (item.id === "ceo-tags" && !hasPermission("view_ceo_tag_permissions", "ceo")) return false;
-          const cleanUrl = (item.url || "").split("?")[0].toLowerCase();
-          const reqPerm = URL_TO_PERMISSION_MAP[cleanUrl];
+          const reqPerm = item.perm || resolveRequiredPermission(item.id, item.url);
           if (reqPerm && !hasPermission(reqPerm, "ceo")) return false;
           return true;
         })
@@ -633,8 +690,7 @@ function DynamicSidebarNavigation() {
       const allDevItems = [...customizedDev, ...customDevItems];
       const visibleDev = allDevItems.filter((item) => {
         if (!item.visible) return false;
-        const cleanUrl = (item.url || "").split("?")[0].toLowerCase();
-        const reqPerm = URL_TO_PERMISSION_MAP[cleanUrl];
+        const reqPerm = item.perm || resolveRequiredPermission(item.id, item.url);
         if (reqPerm && !hasPermission(reqPerm, "dev")) return false;
         return true;
       });
@@ -664,7 +720,12 @@ function DynamicSidebarNavigation() {
 
       // B) Agrupa menus da plataforma com URLs prefixadas como /dev/* (apenas o que o Dev tem permissão)
       const visibleMaster = allPlatformItems
-        .filter((item) => item.visible && (!item.perm || hasPermission(item.perm, "dev")))
+        .filter((item) => {
+          if (!item.visible) return false;
+          const reqPerm = item.perm || resolveRequiredPermission(item.id, item.url);
+          if (reqPerm && !hasPermission(reqPerm, "dev")) return false;
+          return true;
+        })
         .map((item) => {
           let devUrl = item.url;
           if (item.id === "desempenho") {
@@ -750,7 +811,12 @@ function DynamicSidebarNavigation() {
       // B) Agrupa menus da plataforma com URLs prefixadas como /ceo/* (apenas o que o CEO tem permissão)
       const visibleCeoMaster = allPlatformItems
         .filter((item) => item.id !== "dashboard" && item.url !== "/dashboard")
-        .filter((item) => item.visible && (isCeoUser || isDevUser || !item.perm || hasPermission(item.perm, "ceo")))
+        .filter((item) => {
+          if (!item.visible) return false;
+          const reqPerm = item.perm || resolveRequiredPermission(item.id, item.url);
+          if (reqPerm && !hasPermission(reqPerm, "ceo")) return false;
+          return true;
+        })
         .map((item) => {
           let ceoUrl = item.url;
           if (ceoUrl.startsWith("/") && !ceoUrl.startsWith("/ceo")) {
@@ -800,8 +866,7 @@ function DynamicSidebarNavigation() {
       // 2. Se foi desmarcado/ocultado na configuração do menu
       if (!item.visible) return false;
       // 3. Verifica estritamente a permissão exigida pelo cargo do membro
-      const cleanPath = item.url.split("?")[0].toLowerCase();
-      const requiredPerm = item.perm || URL_TO_PERMISSION_MAP[cleanPath];
+      const requiredPerm = item.perm || resolveRequiredPermission(item.id, item.url);
       if (requiredPerm && !hasPermission(requiredPerm, "member")) {
         return false;
       }

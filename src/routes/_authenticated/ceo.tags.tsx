@@ -514,7 +514,8 @@ export function CeoGerenciarTagsPage() {
 
   const filteredMembersForAssign = useMemo(() => {
     return members.filter((m) => {
-      const isAssigned = selectedMemberIds.has(m.user_id);
+      const memId = m.user_id || m.id;
+      const isAssigned = selectedMemberIds.has(memId) || (m.user_id && selectedMemberIds.has(m.user_id)) || (m.id && selectedMemberIds.has(m.id));
       if (memberAssignFilter === "assigned" && !isAssigned) return false;
       if (memberAssignFilter === "unassigned" && isAssigned) return false;
 
@@ -551,7 +552,7 @@ export function CeoGerenciarTagsPage() {
     }
     setSelectedMemberIds((prev) => {
       const next = new Set(prev);
-      filteredMembersForAssign.forEach((m) => next.add(m.user_id));
+      filteredMembersForAssign.forEach((m) => next.add(m.user_id || m.id));
       return next;
     });
   };
@@ -563,7 +564,10 @@ export function CeoGerenciarTagsPage() {
     }
     setSelectedMemberIds((prev) => {
       const next = new Set(prev);
-      filteredMembersForAssign.forEach((m) => next.delete(m.user_id));
+      filteredMembersForAssign.forEach((m) => {
+        if (m.user_id) next.delete(m.user_id);
+        if (m.id) next.delete(m.id);
+      });
       return next;
     });
   };
@@ -919,37 +923,64 @@ export function CeoGerenciarTagsPage() {
 
                     {/* BADGES DE REGRAS ATIVAS */}
                     <div className="flex flex-wrap items-center gap-1.5 mt-3">
-                      {isBlocked && (
+                      {isBlocked ? (
                         <Badge className="text-[10px] py-0 px-2 font-medium bg-rose-500/15 text-rose-400 border border-rose-500/30 gap-1">
                           <ShieldAlert className="h-3 w-3" />
                           <span>Bloqueio Total</span>
                         </Badge>
+                      ) : (
+                        <>
+                          {tag.rules?.block_sales && (
+                            <Badge className="text-[10px] py-0 px-2 font-medium bg-rose-500/15 text-rose-400 border border-rose-500/30 gap-1">
+                              <ShieldAlert className="h-3 w-3" />
+                              <span>Bloqueio Vendas</span>
+                            </Badge>
+                          )}
+                          {tag.rules?.block_movements && (
+                            <Badge className="text-[10px] py-0 px-2 font-medium bg-rose-500/15 text-rose-400 border border-rose-500/30 gap-1">
+                              <ShieldAlert className="h-3 w-3" />
+                              <span>Bloqueio Baús</span>
+                            </Badge>
+                          )}
+                          {tag.rules?.block_productions && (
+                            <Badge className="text-[10px] py-0 px-2 font-medium bg-rose-500/15 text-rose-400 border border-rose-500/30 gap-1">
+                              <ShieldAlert className="h-3 w-3" />
+                              <span>Bloqueio Produções</span>
+                            </Badge>
+                          )}
+                          {tag.rules?.block_cash_fund && (
+                            <Badge className="text-[10px] py-0 px-2 font-medium bg-rose-500/15 text-rose-400 border border-rose-500/30 gap-1">
+                              <ShieldAlert className="h-3 w-3" />
+                              <span>Bloqueio Caixa</span>
+                            </Badge>
+                          )}
+                        </>
                       )}
-                      {canSell && (
+                      {canSell && !tag.rules?.block_sales && !isBlocked && (
                         <Badge className="text-[10px] py-0 px-2 font-medium bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 gap-1">
                           <ShoppingCart className="h-3 w-3" />
                           <span>Vendas</span>
                         </Badge>
                       )}
-                      {tag.rules?.max_discount_pct !== undefined && (
+                      {tag.rules?.max_discount_pct !== undefined && !tag.rules?.block_sales && !isBlocked && (
                         <Badge className="text-[10px] py-0 px-2 font-medium bg-sky-500/15 text-sky-400 border border-sky-500/30 gap-1 font-mono">
                           <Percent className="h-3 w-3" />
                           <span>Max {tag.rules.max_discount_pct}%</span>
                         </Badge>
                       )}
-                      {canProduce && (
+                      {canProduce && !tag.rules?.block_productions && !isBlocked && (
                         <Badge className="text-[10px] py-0 px-2 font-medium bg-amber-500/15 text-amber-400 border border-amber-500/30 gap-1">
                           <Factory className="h-3 w-3" />
                           <span>Produção</span>
                         </Badge>
                       )}
-                      {canRaw && (
+                      {canRaw && !tag.rules?.block_productions && !isBlocked && (
                         <Badge className="text-[10px] py-0 px-2 font-medium bg-orange-500/15 text-orange-400 border border-orange-500/30 gap-1">
                           <Layers className="h-3 w-3" />
                           <span>Insumos</span>
                         </Badge>
                       )}
-                      {canWarehouse && (
+                      {canWarehouse && !tag.rules?.block_productions && !isBlocked && (
                         <Badge className="text-[10px] py-0 px-2 font-medium bg-teal-500/15 text-teal-400 border border-teal-500/30 gap-1">
                           <Warehouse className="h-3 w-3" />
                           <span>Armazém</span>

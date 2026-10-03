@@ -147,13 +147,29 @@ export async function getMemberTagsForMember(memberId: string): Promise<MemberTa
     .select("tag_id, member_tags (*)")
     .eq("member_id", memberId);
 
-  if (error || !data) {
+  if (error || !data || !Array.isArray(data)) {
     return [];
   }
 
-  return data
+  let mappedTags = data
     .map((d: any) => d.member_tags)
-    .filter(Boolean)
+    .filter(Boolean);
+
+  if (mappedTags.length === 0 && data.length > 0) {
+    const tagIds = Array.from(new Set(data.map((d: any) => d.tag_id).filter(Boolean)));
+    if (tagIds.length > 0) {
+      const { data: directTags } = await supabase
+        .from("member_tags" as any)
+        .select("*")
+        .in("id", tagIds);
+      if (Array.isArray(directTags)) {
+        mappedTags = directTags;
+      }
+    }
+  }
+
+  return mappedTags
+    .filter((t: any) => t.is_active !== false)
     .map((t: any) => ({
       id: t.id,
       name: t.name,
