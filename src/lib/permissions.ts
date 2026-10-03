@@ -136,8 +136,6 @@ export type Permission =
   | "edit_profile_bio"
   | "edit_profile_custom_url"
   | "edit_profile_appearance"
-  | "view_profile_warnings"
-  | "acknowledge_profile_warning"
   | "view_chat"
   | "create_chat_group"
   | "manage_chat_groups"
@@ -498,8 +496,6 @@ export const ALL_PERMISSIONS: Permission[] = [
   "edit_profile_bio",
   "edit_profile_custom_url",
   "edit_profile_appearance",
-  "view_profile_warnings",
-  "acknowledge_profile_warning",
   // Dev Panel Permissions
   "view_dev_hub",
   "manage_dev_bot",
@@ -832,8 +828,6 @@ const OFFICER: Permission[] = [
   "edit_profile_bio",
   "edit_profile_custom_url",
   "edit_profile_appearance",
-  "view_profile_warnings",
-  "acknowledge_profile_warning",
   "view_life",
   "life_view_following",
   "life_view_bookmarks",
@@ -989,8 +983,6 @@ const MANAGER: Permission[] = [
   "edit_profile_bio",
   "edit_profile_custom_url",
   "edit_profile_appearance",
-  "view_profile_warnings",
-  "acknowledge_profile_warning",
 ];
 
 const MEMBER: Permission[] = [
@@ -1033,8 +1025,6 @@ const MEMBER: Permission[] = [
   "edit_profile_bio",
   "edit_profile_custom_url",
   "edit_profile_appearance",
-  "view_profile_warnings",
-  "acknowledge_profile_warning",
   "view_life",
   "life_view_following",
   "life_view_bookmarks",
@@ -1082,8 +1072,6 @@ const NOVATO: Permission[] = [
   "edit_profile_bio",
   "edit_profile_custom_url",
   "edit_profile_appearance",
-  "view_profile_warnings",
-  "acknowledge_profile_warning",
   "view_life",
   "life_view_following",
   "life_view_bookmarks",

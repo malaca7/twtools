@@ -761,8 +761,6 @@ export const DEFAULT_CEO_PERMISSIONS: string[] = [
   "edit_profile_bio",
   "edit_profile_custom_url",
   "edit_profile_appearance",
-  "view_profile_warnings",
-  "acknowledge_profile_warning",
   "view_financials",
   "manage_members",
   "view_all_sales",

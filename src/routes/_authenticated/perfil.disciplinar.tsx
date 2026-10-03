@@ -1,10 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { PerfilPage } from "./perfil";
+import { PerfilAdvertenciasPage } from "./perfil.advertencias";
 
 export const Route = createFileRoute("/_authenticated/perfil/disciplinar")({
   component: PerfilDisciplinarRoute,
 });
 
 function PerfilDisciplinarRoute() {
-  return <PerfilPage initialTab="disciplinar" />;
+  return <PerfilAdvertenciasPage />;
 }

@@ -106,7 +106,7 @@ export function SuspensionAlertBanner() {
             </div>
 
             <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
-              <Link to="/perfil">
+              <Link to="/perfil/advertencias">
                 <Button size="sm" variant="outline" className="h-8 text-xs font-bold border-rose-500/40 bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 gap-1.5 rounded-lg">
                   <span>Ver Histórico</span>
                   <ChevronRight className="h-3.5 w-3.5" />
@@ -158,7 +158,7 @@ export function SuspensionAlertBanner() {
                 <span>Confirmar Ciência</span>
               </Button>
 
-              <Link to="/perfil">
+              <Link to="/perfil/advertencias">
                 <Button size="sm" variant="ghost" className="h-8 text-xs text-muted-foreground hover:text-foreground">
                   Detalhes
                 </Button>

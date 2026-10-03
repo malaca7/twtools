@@ -99,65 +99,50 @@ function PerfilContent({ initialTab }: { initialTab?: "perfil" | "dados" | "publ
   const queryClient = useQueryClient();
 
   const { data: myWarnings = [] } = useMemberWarnings(user?.id);
-  const acknowledgeMutation = useAcknowledgeWarningMutation();
   const activeWarningsCount = myWarnings.filter((w) => w.status === "ativo").length;
 
-  // Permissões granulares do módulo de Perfil e Advertências
+  // Permissões granulares do módulo de Perfil
   const canEditData = hasPermission("edit_profile_data");
   const canEditBanner = hasPermission("edit_profile_banner");
   const canEditBio = hasPermission("edit_profile_bio");
   const canEditCustomUrl = hasPermission("edit_profile_custom_url");
   const canViewAppearance = hasPermission("edit_profile_appearance");
-  const canViewWarnings = hasPermission("view_profile_warnings") || hasPermission("view_warnings");
-  const canAcknowledge = hasPermission("acknowledge_profile_warning");
 
-  const readInitialTab = (): "perfil" | "aparencia" | "disciplinar" => {
-    let candidate: "perfil" | "aparencia" | "disciplinar" = "perfil";
-    if (initialTab && (initialTab === "aparencia" || initialTab === "disciplinar" || initialTab === "advertencias")) {
-      candidate = initialTab === "advertencias" ? "disciplinar" : initialTab;
+  const readInitialTab = (): "perfil" | "aparencia" => {
+    let candidate: "perfil" | "aparencia" = "perfil";
+    if (initialTab && initialTab === "aparencia") {
+      candidate = "aparencia";
     } else if (typeof window !== "undefined") {
       const parts = window.location.pathname.split("/").filter(Boolean);
       const last = parts[parts.length - 1];
       if (last === "aparencia" || last === "tema" || last === "estilo") candidate = "aparencia";
-      else if (last === "disciplinar" || last === "advertencias") candidate = "disciplinar";
       else if (last === "dados" || last === "meu-perfil" || last === "perfil") candidate = "perfil";
       else {
         const q = new URLSearchParams(window.location.search).get("tab");
         if (q === "aparencia" || q === "tema" || q === "estilo") candidate = "aparencia";
-        else if (q === "disciplinar" || q === "advertencias") candidate = "disciplinar";
       }
     }
 
     if (candidate === "aparencia" && !canViewAppearance) return "perfil";
-    if (candidate === "disciplinar" && !canViewWarnings) return "perfil";
     return candidate;
   };
 
-  const [activeTab, setActiveTabState] = useState<"perfil" | "aparencia" | "disciplinar">(readInitialTab);
+  const [activeTab, setActiveTabState] = useState<"perfil" | "aparencia">(readInitialTab);
 
   useEffect(() => {
     const nextTab = readInitialTab();
     setActiveTabState(nextTab);
-  }, [initialTab, canViewAppearance, canViewWarnings]);
+  }, [initialTab, canViewAppearance]);
 
-  const setActiveTab = (newTab: "perfil" | "aparencia" | "disciplinar") => {
+  const setActiveTab = (newTab: "perfil" | "aparencia") => {
     if (newTab === "aparencia" && !canViewAppearance) {
       toast.error("Você não possui permissão para acessar a aba de Tema & Estilo.");
-      return;
-    }
-    if (newTab === "disciplinar" && !canViewWarnings) {
-      toast.error("Você não possui permissão para acessar a aba de Advertências.");
       return;
     }
 
     setActiveTabState(newTab);
     if (typeof window !== "undefined") {
-      const targetPath =
-        newTab === "aparencia"
-          ? "/perfil/aparencia"
-          : newTab === "disciplinar"
-          ? "/perfil/advertencias"
-          : "/perfil";
+      const targetPath = newTab === "aparencia" ? "/perfil/aparencia" : "/perfil";
       window.history.replaceState(null, "", targetPath);
     }
   };
@@ -426,38 +411,48 @@ function PerfilContent({ initialTab }: { initialTab?: "perfil" | "dados" | "publ
       />
 
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)} className="w-full space-y-6">
-        <TabsList
-          className={cn(
-            "grid w-full h-10 p-1 bg-secondary/60 rounded-xl border border-border/60",
-            canViewAppearance && canViewWarnings
-              ? "grid-cols-3 max-w-lg"
-              : canViewAppearance || canViewWarnings
-              ? "grid-cols-2 max-w-md"
-              : "grid-cols-1 max-w-xs"
-          )}
-        >
-          <TabsTrigger value="perfil" className="text-xs font-bold gap-2 rounded-lg cursor-pointer">
-            <User className="h-4 w-4 text-primary" />
-            <span>Meu Perfil</span>
-          </TabsTrigger>
-          {canViewAppearance && (
-            <TabsTrigger value="aparencia" className="text-xs font-bold gap-2 rounded-lg cursor-pointer">
-              <Palette className="h-4 w-4 text-purple-400" />
-              <span>Tema & Estilo</span>
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+          <TabsList
+            className={cn(
+              "grid w-full h-10 p-1 bg-secondary/60 rounded-xl border border-border/60",
+              canViewAppearance ? "grid-cols-2 max-w-md" : "grid-cols-1 max-w-xs"
+            )}
+          >
+            <TabsTrigger value="perfil" className="text-xs font-bold gap-2 rounded-lg cursor-pointer">
+              <User className="h-4 w-4 text-primary" />
+              <span>Meu Perfil</span>
             </TabsTrigger>
-          )}
-          {canViewWarnings && (
-            <TabsTrigger value="disciplinar" className="text-xs font-bold gap-1.5 rounded-lg cursor-pointer relative">
-              <ShieldAlert className="h-4 w-4 text-rose-400" />
-              <span>Advertências</span>
-              {activeWarningsCount > 0 && (
-                <span className="ml-1 px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-rose-500 text-white">
-                  {activeWarningsCount}
-                </span>
+            {canViewAppearance && (
+              <TabsTrigger value="aparencia" className="text-xs font-bold gap-2 rounded-lg cursor-pointer">
+                <Palette className="h-4 w-4 text-purple-400" />
+                <span>Tema & Estilo</span>
+              </TabsTrigger>
+            )}
+          </TabsList>
+
+          <Link to="/perfil/advertencias" className="shrink-0">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className={cn(
+                "h-10 text-xs font-bold gap-2 rounded-xl border transition-all cursor-pointer",
+                activeWarningsCount > 0
+                  ? "border-rose-500/50 bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 animate-pulse"
+                  : "border-border/70 bg-secondary/40 hover:bg-secondary text-muted-foreground hover:text-foreground"
               )}
-            </TabsTrigger>
-          )}
-        </TabsList>
+              title="Acessar Prontuário Disciplinar & Advertências"
+            >
+              <ShieldAlert className={cn("h-4 w-4", activeWarningsCount > 0 ? "text-rose-400" : "text-primary")} />
+              <span>Prontuário Disciplinar</span>
+              {activeWarningsCount > 0 && (
+                <Badge variant="destructive" className="text-[10px] px-1.5 py-0 font-bold">
+                  {activeWarningsCount}
+                </Badge>
+              )}
+            </Button>
+          </Link>
+        </div>
 
         {/* ABA UNIFICADA: MEU PERFIL */}
         <TabsContent value="perfil" className="space-y-6 animate-in fade-in-50 duration-200">
@@ -570,6 +565,24 @@ function PerfilContent({ initialTab }: { initialTab?: "perfil" | "dados" | "publ
                     <ExternalLink className="h-3.5 w-3.5" />
                     <span>Ver Perfil Público</span>
                   </Button>
+
+                  <Link to="/perfil/advertencias" className="w-full block">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="w-full text-xs font-bold border-rose-500/30 bg-rose-500/5 hover:bg-rose-500/15 text-rose-400 hover:text-rose-300 gap-1.5 cursor-pointer rounded-xl h-9"
+                      title="Acessar prontuário disciplinar e histórico de advertências"
+                    >
+                      <ShieldAlert className="h-3.5 w-3.5 text-rose-400" />
+                      <span>Prontuário Disciplinar</span>
+                      {activeWarningsCount > 0 && (
+                        <Badge variant="destructive" className="ml-auto text-[9px] px-1.5 py-0">
+                          {activeWarningsCount}
+                        </Badge>
+                      )}
+                    </Button>
+                  </Link>
                 </div>
               </CardContent>
             </Card>
@@ -985,182 +998,6 @@ function PerfilContent({ initialTab }: { initialTab?: "perfil" | "dados" | "publ
         {/* ABA 2: TEMA & ESTILO */}
         <TabsContent value="aparencia" className="space-y-6 animate-in fade-in-50 duration-200">
           <UserAppearanceSettings />
-        </TabsContent>
-
-        {/* ABA 3: PRONTUÁRIO DISCIPLINAR & ADVERTÊNCIAS */}
-        <TabsContent value="disciplinar" className="space-y-6 animate-in fade-in-50 duration-200">
-          <Card className="surface-card">
-            <CardHeader className="pb-3 border-b border-border/50">
-              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-                <div>
-                  <CardTitle className="text-base font-bold text-foreground flex items-center gap-2">
-                    <ShieldAlert className="h-5 w-5 text-rose-500" />
-                    Seu Prontuário Disciplinar
-                  </CardTitle>
-                  <CardDescription className="text-xs">
-                    Histórico oficial de advertências, termos de conduta e suspensões aplicadas pela liderança.
-                  </CardDescription>
-                </div>
-
-                <Badge
-                  variant={activeWarningsCount > 0 ? "destructive" : "outline"}
-                  className={cn(
-                    "text-xs font-bold px-2.5 py-1",
-                    activeWarningsCount === 0 && "border-emerald-500/40 text-emerald-400 bg-emerald-500/10"
-                  )}
-                >
-                  {activeWarningsCount > 0
-                    ? `⚠️ ${activeWarningsCount} Penalidade(s) Ativa(s)`
-                    : "✅ Situação Regular / Ficha Limpa"}
-                </Badge>
-              </div>
-            </CardHeader>
-
-            <CardContent className="pt-4 space-y-4">
-              {myWarnings.length === 0 ? (
-                <div className="p-8 text-center flex flex-col items-center justify-center space-y-3">
-                  <div className="h-12 w-12 rounded-full bg-emerald-500/10 text-emerald-400 flex items-center justify-center border border-emerald-500/30">
-                    <CheckCircle2 className="h-6 w-6" />
-                  </div>
-                  <div>
-                    <h4 className="text-sm font-bold text-foreground">Parabéns! Nenhuma advertência registrada</h4>
-                    <p className="text-xs text-muted-foreground mt-1 max-w-sm">
-                      Você não possui advertências ou suspensões na organização. Continue respeitando as diretrizes e a hierarquia da facção!
-                    </p>
-                  </div>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {myWarnings.map((warn) => {
-                    const isSusp = warn.is_suspension || warn.type === "suspensao";
-                    const isUnacknowledged = warn.status === "ativo" && !warn.acknowledged_at;
-
-                    return (
-                      <div
-                        key={warn.id}
-                        className={cn(
-                          "p-4 rounded-xl border transition-all text-xs space-y-2",
-                          warn.status === "ativo" && isSusp && "border-rose-500/50 bg-rose-950/10",
-                          warn.status === "ativo" && !isSusp && "border-amber-500/50 bg-amber-950/10",
-                          warn.status !== "ativo" && "border-border/60 bg-secondary/20 opacity-80"
-                        )}
-                      >
-                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <Badge
-                              variant={isSusp ? "destructive" : "outline"}
-                              className={cn(
-                                "text-[10px] font-bold uppercase",
-                                !isSusp && "border-amber-500/50 text-amber-400 bg-amber-500/10"
-                              )}
-                            >
-                              {isSusp ? "🚫 Suspensão" : "⚠️ Advertência"}
-                            </Badge>
-
-                            <Badge variant="outline" className="text-[10px] uppercase font-bold">
-                              {warn.severity}
-                            </Badge>
-
-                            <span className="font-bold text-foreground text-sm">
-                              {warn.reason}
-                            </span>
-                          </div>
-
-                          <div className="flex items-center gap-2">
-                            {warn.status === "ativo" ? (
-                              <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-400">
-                                <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                                Ativa
-                              </span>
-                            ) : warn.status === "expirado" ? (
-                              <span className="text-[10px] font-bold text-muted-foreground">Expirada</span>
-                            ) : (
-                              <span className="text-[10px] font-bold text-purple-400">Revogada / Anistiada</span>
-                            )}
-                          </div>
-                        </div>
-
-                        <p className="text-muted-foreground whitespace-pre-wrap leading-relaxed">
-                          {warn.description}
-                        </p>
-
-                        {/* BLOQUEIOS FUNCIONAIS */}
-                        {isSusp && warn.blocks && Object.values(warn.blocks).some(Boolean) && (
-                          <div className="flex flex-wrap items-center gap-1 pt-1">
-                            <span className="text-[10px] font-bold text-rose-400 uppercase">Bloqueios ativos:</span>
-                            {warn.blocks.block_all_operations && (
-                              <Badge variant="outline" className="text-[10px] border-rose-500/40 text-rose-300">
-                                Operações Totais
-                              </Badge>
-                            )}
-                            {warn.blocks.block_sales && (
-                              <Badge variant="outline" className="text-[10px] border-rose-500/40 text-rose-300">
-                                Vendas
-                              </Badge>
-                            )}
-                            {warn.blocks.block_movements && (
-                              <Badge variant="outline" className="text-[10px] border-rose-500/40 text-rose-300">
-                                Retiradas de Baú
-                              </Badge>
-                            )}
-                            {warn.blocks.block_productions && (
-                              <Badge variant="outline" className="text-[10px] border-rose-500/40 text-rose-300">
-                                Produções
-                              </Badge>
-                            )}
-                            {warn.blocks.block_cash_fund && (
-                              <Badge variant="outline" className="text-[10px] border-rose-500/40 text-rose-300">
-                                Fundo de Caixa
-                              </Badge>
-                            )}
-                          </div>
-                        )}
-
-                        <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-border/40 text-[11px] text-muted-foreground">
-                          <div className="flex items-center gap-3 flex-wrap">
-                            <span>Data: {new Date(warn.starts_at).toLocaleDateString("pt-BR")}</span>
-                            {warn.ends_at && (
-                              <span className="font-mono text-foreground/80">
-                                Expira em: {new Date(warn.ends_at).toLocaleString("pt-BR")}
-                              </span>
-                            )}
-                            <span>Aplicado por: <strong className="text-foreground">{warn.admin_name}</strong></span>
-                          </div>
-
-                          {isUnacknowledged && canAcknowledge ? (
-                            <Button
-                              size="sm"
-                              onClick={() => acknowledgeMutation.mutate(warn.id)}
-                              disabled={acknowledgeMutation.isPending}
-                              className="h-7 px-3 text-xs font-bold bg-amber-500 hover:bg-amber-600 text-black cursor-pointer shadow-xs gap-1"
-                            >
-                              <CheckCircle2 className="h-3.5 w-3.5" />
-                              <span>Confirmar Ciência</span>
-                            </Button>
-                          ) : isUnacknowledged && !canAcknowledge ? (
-                            <Badge variant="outline" className="text-[10px] text-amber-400 border-amber-500/40">
-                              Pendente de Ciência
-                            </Badge>
-                          ) : warn.acknowledged_at ? (
-                            <span className="text-emerald-400 font-medium inline-flex items-center gap-1">
-                              <CheckCircle2 className="h-3 w-3" />
-                              Ciência confirmada em {new Date(warn.acknowledged_at).toLocaleDateString("pt-BR")}
-                            </span>
-                          ) : null}
-                        </div>
-
-                        {warn.status === "revogado" && warn.revocation_reason && (
-                          <div className="mt-2 p-2 rounded-lg bg-purple-500/10 border border-purple-500/30 text-[11px] text-purple-200">
-                            <strong>Motivo da Revogação:</strong> {warn.revocation_reason}
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </CardContent>
-          </Card>
         </TabsContent>
       </Tabs>
     </div>
