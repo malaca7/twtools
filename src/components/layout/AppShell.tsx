@@ -111,7 +111,6 @@ import {
 } from "@/hooks/useCeoMenuConfig";
 import { LEVEL_LABEL, levelBadgeClass, type Permission } from "@/lib/permissions";
 import { cn } from "@/lib/utils";
-import { MobileBottomNav } from "./MobileBottomNav";
 import { ScrollToTopButton } from "./ScrollToTopButton";
 import { ForceCachePurgeListener } from "@/components/dev/ForceCachePurgeListener";
 import { DevToolsMenu } from "@/components/dev/DevToolsMenu";
@@ -1332,7 +1331,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             </div>
           </header>
 
-          <main className="flex-1 px-2.5 py-4 sm:px-6 lg:px-8 pb-28 md:pb-8 flex flex-col justify-between">
+          <main className="flex-1 px-2.5 py-4 sm:px-6 lg:px-8 pb-8 flex flex-col justify-between">
             {settings.showSystemStatusNotice && settings.systemStatusNotice && (
               <div className="w-full max-w-7xl mx-auto mb-4">
                 <div
@@ -1450,7 +1449,6 @@ export function AppShell({ children }: { children: ReactNode }) {
         </div>
       </div>
 
-      <MobileBottomNav />
       <ForceCachePurgeListener />
       <ScrollToTopButton />
     </SidebarProvider>
