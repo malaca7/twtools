@@ -376,36 +376,21 @@ function AdvertenciasContent() {
     const currentUserId = user?.id ? String(user.id).trim().toLowerCase() : "";
     const currentProfileId = profile?.id ? String(profile.id).trim().toLowerCase() : "";
     const currentProfileUserId = profile?.user_id ? String(profile.user_id).trim().toLowerCase() : "";
-    const currentGameId = profile?.game_id ? String(profile.game_id).trim().toLowerCase() : "";
-    const currentProfileName = profile?.nome ? String(profile.nome).trim().toLowerCase() : "";
-    const currentProfileNick = profile?.nickname ? String(profile.nickname).trim().toLowerCase() : "";
 
     // Se nenhum identificador for encontrado, por segurança não expõe advertências globais
-    if (!currentUserId && !currentProfileId && !currentProfileUserId && !currentGameId && !currentProfileName) {
+    if (!currentUserId && !currentProfileId && !currentProfileUserId) {
       return [];
     }
 
     return warnings.filter((w) => {
       const warnMemberId = w.member_id ? String(w.member_id).trim().toLowerCase() : "";
-      const warnGameId = w.member_game_id ? String(w.member_game_id).trim().toLowerCase() : "";
-      const warnName = w.member_name ? String(w.member_name).trim().toLowerCase() : "";
-      const warnNick = w.member_nickname ? String(w.member_nickname).trim().toLowerCase() : "";
-
-      const matchId = Boolean(
+      return Boolean(
         (currentUserId && warnMemberId === currentUserId) ||
         (currentProfileId && warnMemberId === currentProfileId) ||
         (currentProfileUserId && warnMemberId === currentProfileUserId)
       );
-
-      const matchGameId = Boolean(currentGameId && warnGameId === currentGameId);
-      const matchName = Boolean(
-        (currentProfileName && warnName === currentProfileName) ||
-        (currentProfileNick && warnNick && warnNick === currentProfileNick)
-      );
-
-      return matchId || matchGameId || matchName;
     });
-  }, [warnings, canViewGlobal, user?.id, profile?.id, profile?.user_id, profile?.game_id, profile?.nome, profile?.nickname]);
+  }, [warnings, canViewGlobal, user?.id, profile?.id, profile?.user_id]);
 
   // Estatísticas Rápidas
   const stats = useMemo(() => {

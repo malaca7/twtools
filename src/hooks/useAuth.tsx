@@ -515,26 +515,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (isCancelled) return;
         const now = new Date().toISOString();
 
+        const currentUserId = (activeUserId || "").trim().toLowerCase();
+        const currentProfileId = (activeProfileId || "").trim().toLowerCase();
+        const currentProfileUserId = (profile?.user_id || "").trim().toLowerCase();
+        const currentProfileDbId = (profile?.id || "").trim().toLowerCase();
+
         const matchMember = (w: MemberWarning) => {
-          const mId = (w.member_id || "").toLowerCase().trim();
-          const mGameId = (w.member_game_id || "").toLowerCase().trim();
-          const mName = (w.member_name || "").toLowerCase().trim();
-          const mNick = (w.member_nickname || "").toLowerCase().trim();
+          if (!w.member_id) return false;
+          const targetMemberId = String(w.member_id).trim().toLowerCase();
+          if (!targetMemberId) return false;
 
-          const uId = (activeUserId || "").toLowerCase().trim();
-          const pId = (activeProfileId || "").toLowerCase().trim();
-          const pUserId = (profile?.user_id || "").toLowerCase().trim();
-          const pGameId = (profile?.game_id || "").toLowerCase().trim();
-          const pName = (profile?.nome || "").toLowerCase().trim();
-          const pNick = (profile?.nickname || "").toLowerCase().trim();
+          // Confirmação estrita por ID único do membro punido (NUNCA por nome/admin)
+          const isTarget =
+            (currentUserId && targetMemberId === currentUserId) ||
+            (currentProfileId && targetMemberId === currentProfileId) ||
+            (currentProfileUserId && targetMemberId === currentProfileUserId) ||
+            (currentProfileDbId && targetMemberId === currentProfileDbId);
 
-          if (uId && mId === uId) return true;
-          if (pId && mId === pId) return true;
-          if (pUserId && mId === pUserId) return true;
-          if (pGameId && mGameId && mGameId === pGameId) return true;
-          if (pName && mName && mName === pName) return true;
-          if (pNick && mNick && mNick === pNick) return true;
-          return false;
+          return isTarget;
         };
 
         const activeList = all.filter((w) => {
@@ -543,7 +541,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           return matchMember(w);
         });
 
-        // Mescla todos os bloqueios funcionais das penalidades ativas do membro
+        // Mescla todos os bloqueios funcionais das penalidades ativas do membro punido
         const mergedBlocks = activeList.reduce<SuspensionFunctionalBlocks>((acc, curr) => {
           if (!curr.blocks) return acc;
           return {
@@ -587,7 +585,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isCancelled = true;
       window.removeEventListener(WARNINGS_REALTIME_EVENT, handleUpdate);
     };
-  }, [activeUserId, activeProfileId, activeDiscordId, profile?.user_id, profile?.game_id, profile?.nome, profile?.nickname, permissionsTick]);
+  }, [activeUserId, activeProfileId, profile?.user_id, profile?.id, permissionsTick]);
 
   const isSuspended = Boolean(
     activeSuspension &&
