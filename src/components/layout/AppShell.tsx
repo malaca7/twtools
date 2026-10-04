@@ -56,6 +56,7 @@ import {
   Zap,
   Layers,
   Lock,
+  Swords,
 } from "lucide-react";
 import { resolveMenuIcon } from "@/lib/menuIcons";
 import {
@@ -139,6 +140,7 @@ const MASTER_NAV_ITEMS: MasterNavItem[] = [
   { id: "gestao-producao", title: "Gestão de Produção", url: "/producoes/gestao", icon: Sliders, perm: "production_management.view", defaultCat: "Produções", defaultOrder: 3 },
   { id: "vendas", title: "Vendas", url: "/vendas", icon: ShoppingCart, perm: "view_sales", defaultCat: "Produções", defaultOrder: 4 },
   { id: "dashboard", title: "Dashboard", url: "/dashboard", icon: LayoutDashboard, perm: "view_dashboard", defaultCat: "Gestão", defaultOrder: 5 },
+  { id: "escalas", title: "Escala de Ação", url: "/escalas", icon: Swords, perm: "escalas.view", defaultCat: "Gestão", defaultOrder: 5.5 },
   { id: "movimentacoes", title: "Movimentações", url: "/movimentacoes", icon: ArrowLeftRight, perm: "view_movements", defaultCat: "Gestão", defaultOrder: 6 },
   { id: "tickets", title: "Tickets / Ouvidoria", url: "/tickets", icon: LifeBuoy, perm: "view_tickets", defaultCat: "Gestão", defaultOrder: 7 },
   { id: "loja", title: "Loja Twin Wheels", url: "/loja", icon: ShoppingBag, perm: "view_shop", defaultCat: "Gestão", defaultOrder: 8 },
@@ -162,6 +164,7 @@ const MASTER_NAV_ITEMS: MasterNavItem[] = [
 
 const URL_TO_PERMISSION_MAP: Record<string, Permission> = {
   "/dashboard": "view_dashboard",
+  "/escalas": "escalas.view",
   "/movimentacoes": "view_movements",
   "/vendas": "view_sales",
   "/producoes/produzir": "productions.view",

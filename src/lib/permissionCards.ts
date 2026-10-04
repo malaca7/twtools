@@ -41,6 +41,7 @@ import {
   Layers,
   Tags,
   ShieldAlert,
+  Swords,
 } from "lucide-react";
 import type { Permission } from "@/lib/permissions";
 
@@ -122,9 +123,111 @@ export const READ_ONLY_PERMISSIONS: Permission[] = [
   "export_warnings",
   "view_ceo_warnings",
   "view_dev_warnings",
+  // Escala de Ação
+  "escalas.view",
+  "escalas.details",
+  "escalas.history",
 ];
 
 export const PAGE_CARDS: PageCardConfig[] = [
+  {
+    id: "escalas",
+    title: "Escala de Ação",
+    route: "/escalas",
+    icon: Swords,
+    description: "Central tática e operacional de escalas de ações da facção, agendamento com data/horário, convocação de membros, controle de vagas, confirmação de presença e substituições em tempo real.",
+    color: "border-rose-500/40 bg-rose-500/5 text-rose-400",
+    defaultCat: "Gestão",
+    defaultOrder: 4.5,
+    permissions: [
+      {
+        key: "escalas.view",
+        label: "Acessar e Visualizar Escalas",
+        description: "Permite acessar a página de Escalas de Ação e visualizar as escalas ativas e agendadas.",
+        badge: "Leitura",
+      },
+      {
+        key: "escalas.details",
+        label: "Visualizar Detalhes Táticos",
+        description: "Permite abrir os detalhes da escala, incluindo instruções, pontos de encontro, frequências de rádio e armamento.",
+      },
+      {
+        key: "escalas.create",
+        label: "Criar Nova Escala",
+        description: "Permite criar novas convocações e escalas de ação para a facção.",
+        badge: "Comando",
+      },
+      {
+        key: "escalas.edit",
+        label: "Editar Escala",
+        description: "Permite alterar título, data, horário, concentração, local/posto e instruções da ação.",
+        badge: "Comando",
+      },
+      {
+        key: "escalas.delete",
+        label: "Excluir Escala",
+        description: "Permite remover escalas de ação do sistema permanentemente.",
+        badge: "Crítico",
+      },
+      {
+        key: "escalas.publish",
+        label: "Publicar Escala",
+        description: "Permite oficializar e publicar escalas em rascunho para que fiquem visíveis para convocação e confirmação dos membros.",
+        badge: "Comando",
+      },
+      {
+        key: "escalas.cancel",
+        label: "Cancelar Escala",
+        description: "Permite cancelar uma escala oficial com justificativa de cancelamento.",
+        badge: "Comando",
+      },
+      {
+        key: "escalas.manage_members",
+        label: "Gerenciar Membros da Escala",
+        description: "Permite gerenciar a lista de participantes, alocar postos/funções e aprovar escalações.",
+        badge: "Gestão",
+      },
+      {
+        key: "escalas.add_participants",
+        label: "Adicionar Participantes",
+        description: "Permite escalar novos membros para vagas titulares e reservas da ação.",
+      },
+      {
+        key: "escalas.remove_participants",
+        label: "Remover Participantes",
+        description: "Permite desescalar membros de uma escala de ação.",
+      },
+      {
+        key: "escalas.confirm_presence",
+        label: "Confirmar Presença Própria",
+        description: "Permite ao membro reagir e confirmar presença (Vou) ou justificar ausência na escala convocada.",
+        badge: "Membro",
+      },
+      {
+        key: "escalas.manage_slots",
+        label: "Gerenciar Vagas da Ação",
+        description: "Permite definir e alterar o limite de vagas titulares e vagas reservas da escala.",
+        badge: "Gestão",
+      },
+      {
+        key: "escalas.substitute",
+        label: "Realizar Substituições",
+        description: "Permite substituir membros ausentes por suplentes ou novos operadores em tempo real.",
+        badge: "Tático",
+      },
+      {
+        key: "escalas.history",
+        label: "Visualizar Histórico de Escalas",
+        description: "Permite acessar a aba de histórico de ações passadas, concluídas e canceladas com timeline de auditoria.",
+      },
+      {
+        key: "escalas.settings",
+        label: "Gerenciar Configurações de Escalas",
+        description: "Permite gerenciar configurações táticas, tipos de ação, funções pré-definidas e automações.",
+        badge: "Admin",
+      },
+    ],
+  },
   {
     id: "produzir",
     title: "Produzir Itens",

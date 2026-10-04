@@ -589,4 +589,77 @@ export type SubmitGoalPayload = {
   notes?: string;
   delivered_at?: string;
 };
+
+// ==============================================================================
+// SISTEMA DE ESCALA DE AÇÃO
+// ==============================================================================
+
+export type ActionScaleStatus = "rascunho" | "publicada" | "em_andamento" | "concluida" | "cancelada";
+
+export type ActionScaleMemberStatus = "pendente" | "confirmado" | "ausente" | "substituido";
+
+export type ActionScale = {
+  id: string;
+  titulo: string;
+  tipo_acao: string;
+  descricao: string | null;
+  data_hora: string;
+  data_hora_chamada: string | null;
+  local_posto: string;
+  vagas_limite: number;
+  vagas_reservas: number;
+  status: ActionScaleStatus;
+  publicado_em: string | null;
+  cancelado_em: string | null;
+  motivo_cancelamento: string | null;
+  criado_por: string | null;
+  criado_por_nome: string | null;
+  metadata: Record<string, any>;
+  criado_em: string;
+  atualizado_em: string;
+  total_titulares?: number;
+  total_reservas?: number;
+  confirmados_titulares?: number;
+  ausentes_titulares?: number;
+  pendentes_titulares?: number;
+  confirmados_reservas?: number;
+  substituidos_count?: number;
+  user_member_status?: ActionScaleMemberStatus | null;
+  user_is_escalado?: boolean;
+  membros?: ActionScaleMember[];
+};
+
+export type ActionScaleMember = {
+  id: string;
+  scale_id: string;
+  member_id: string;
+  user_id: string | null;
+  nome: string;
+  nickname: string | null;
+  avatar_url: string | null;
+  cargo: string | null;
+  posto_funcao: string;
+  tipo_vaga: "titular" | "reserva";
+  status_presenca: ActionScaleMemberStatus;
+  reacao: string | null;
+  confirmado_em: string | null;
+  justificativa_ausencia: string | null;
+  substituido_por_id: string | null;
+  substituido_por_nome: string | null;
+  substituicao_motivo: string | null;
+  adicionado_por: string | null;
+  criado_em: string;
+  atualizado_em: string;
+};
+
+export type ActionScaleHistory = {
+  id: string;
+  scale_id: string;
+  actor_id: string | null;
+  actor_name: string;
+  action_type: string;
+  details: string;
+  metadata: Record<string, any>;
+  created_at: string;
+};
 

@@ -101,6 +101,22 @@ export type Permission =
   | "sales.edit"
   | "sales.cancel"
   | "sales.history"
+  // Permissões do Sistema de Escala de Ação
+  | "escalas.view"
+  | "escalas.details"
+  | "escalas.create"
+  | "escalas.edit"
+  | "escalas.delete"
+  | "escalas.publish"
+  | "escalas.cancel"
+  | "escalas.manage_members"
+  | "escalas.add_participants"
+  | "escalas.remove_participants"
+  | "escalas.confirm_presence"
+  | "escalas.manage_slots"
+  | "escalas.substitute"
+  | "escalas.history"
+  | "escalas.settings"
   | "promote_members"
   | "edit_members"
   | "delete_members"
@@ -342,6 +358,22 @@ export const ALL_PERMISSIONS: Permission[] = [
   "sales.edit",
   "sales.cancel",
   "sales.history",
+  // Permissões de Escala de Ação
+  "escalas.view",
+  "escalas.details",
+  "escalas.create",
+  "escalas.edit",
+  "escalas.delete",
+  "escalas.publish",
+  "escalas.cancel",
+  "escalas.manage_members",
+  "escalas.add_participants",
+  "escalas.remove_participants",
+  "escalas.confirm_presence",
+  "escalas.manage_slots",
+  "escalas.substitute",
+  "escalas.history",
+  "escalas.settings",
   "view_stock_management",
   "life_view_following",
   "life_view_bookmarks",
@@ -801,6 +833,22 @@ const OFFICER: Permission[] = [
   "view_hierarchy",
   "manage_hierarchy",
   "view_audit",
+  // Permissões de Escala de Ação (Officer)
+  "escalas.view",
+  "escalas.details",
+  "escalas.create",
+  "escalas.edit",
+  "escalas.delete",
+  "escalas.publish",
+  "escalas.cancel",
+  "escalas.manage_members",
+  "escalas.add_participants",
+  "escalas.remove_participants",
+  "escalas.confirm_presence",
+  "escalas.manage_slots",
+  "escalas.substitute",
+  "escalas.history",
+  "escalas.settings",
   "estoque.visualizar",
   "estoque.auditoria",
   "manage_platform_settings",
@@ -936,6 +984,20 @@ const MANAGER: Permission[] = [
   "sales.edit",
   "sales.cancel",
   "sales.history",
+  // Permissões de Escala de Ação (Manager)
+  "escalas.view",
+  "escalas.details",
+  "escalas.create",
+  "escalas.edit",
+  "escalas.publish",
+  "escalas.cancel",
+  "escalas.manage_members",
+  "escalas.add_participants",
+  "escalas.remove_participants",
+  "escalas.confirm_presence",
+  "escalas.manage_slots",
+  "escalas.substitute",
+  "escalas.history",
   "view_members",
   "approve_requests",
   "change_roles",
@@ -988,6 +1050,12 @@ const MANAGER: Permission[] = [
 const MEMBER: Permission[] = [
   "view_dashboard",
   "view_warnings",
+  // Permissões de Escala de Ação (Member)
+  "escalas.view",
+  "escalas.details",
+  "escalas.confirm_presence",
+  "escalas.substitute",
+  "escalas.history",
   "view_chat",
   "create_chat_group",
   "view_absences",
@@ -1043,6 +1111,9 @@ const MEMBER: Permission[] = [
 
 const NOVATO: Permission[] = [
   "view_dashboard",
+  // Permissões de Escala de Ação (Novato)
+  "escalas.view",
+  "escalas.details",
   "view_warnings",
   "view_chat",
   "view_absences",
@@ -1551,6 +1622,42 @@ export function satisfiesPermission(
       list.includes("view_rankings_movements") ||
       list.includes("evaluate_member")) &&
     permission === "view_rankings"
+  ) {
+    return true;
+  }
+
+  // 17. Escala de Ação
+  if (
+    (permission === "escalas.view" || permission === "escalas.details") &&
+    (list.includes("escalas.view") ||
+      list.includes("escalas.details") ||
+      list.includes("escalas.create") ||
+      list.includes("escalas.edit") ||
+      list.includes("escalas.delete") ||
+      list.includes("escalas.publish") ||
+      list.includes("escalas.cancel") ||
+      list.includes("escalas.manage_members") ||
+      list.includes("escalas.add_participants") ||
+      list.includes("escalas.remove_participants") ||
+      list.includes("escalas.confirm_presence") ||
+      list.includes("escalas.manage_slots") ||
+      list.includes("escalas.substitute") ||
+      list.includes("escalas.history") ||
+      list.includes("escalas.settings"))
+  ) {
+    return true;
+  }
+  if (
+    (permission === "escalas.add_participants" ||
+      permission === "escalas.remove_participants" ||
+      permission === "escalas.substitute") &&
+    list.includes("escalas.manage_members")
+  ) {
+    return true;
+  }
+  if (
+    (permission === "escalas.edit" || permission === "escalas.cancel") &&
+    list.includes("escalas.create")
   ) {
     return true;
   }
@@ -2256,6 +2363,42 @@ export function can(
   ) {
     return true;
   }
+  // Escala de Ação (Role Fallback)
+  if (
+    (permission === "escalas.view" || permission === "escalas.details") &&
+    (rolePerms.includes("escalas.view") ||
+      rolePerms.includes("escalas.details") ||
+      rolePerms.includes("escalas.create") ||
+      rolePerms.includes("escalas.edit") ||
+      rolePerms.includes("escalas.delete") ||
+      rolePerms.includes("escalas.publish") ||
+      rolePerms.includes("escalas.cancel") ||
+      rolePerms.includes("escalas.manage_members") ||
+      rolePerms.includes("escalas.add_participants") ||
+      rolePerms.includes("escalas.remove_participants") ||
+      rolePerms.includes("escalas.confirm_presence") ||
+      rolePerms.includes("escalas.manage_slots") ||
+      rolePerms.includes("escalas.substitute") ||
+      rolePerms.includes("escalas.history") ||
+      rolePerms.includes("escalas.settings"))
+  ) {
+    return true;
+  }
+  if (
+    (permission === "escalas.add_participants" ||
+      permission === "escalas.remove_participants" ||
+      permission === "escalas.substitute") &&
+    rolePerms.includes("escalas.manage_members")
+  ) {
+    return true;
+  }
+  if (
+    (permission === "escalas.edit" || permission === "escalas.cancel") &&
+    rolePerms.includes("escalas.create")
+  ) {
+    return true;
+  }
+
   if (permission === "view_dev_tags" && rolePerms.includes("manage_dev_tags")) return true;
 
   return false;

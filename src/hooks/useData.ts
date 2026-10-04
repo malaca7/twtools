@@ -31,6 +31,9 @@ import type {
   Product,
   Sale,
   UserPresence,
+  ActionScale,
+  ActionScaleMember,
+  ActionScaleHistory,
 } from "@/lib/app-types";
 import type { AppLevel, Permission } from "@/lib/permissions";
 
@@ -277,6 +280,102 @@ export function useWarehouseMovements(productId?: string, limit = 150) {
       const { getWarehouseMovements } = await import("@/services/productionService");
       return getWarehouseMovements(productId, limit);
     },
+  });
+}
+
+export function useActionScales(status?: string) {
+  const queryClient = useQueryClient();
+
+  useEffect(() => {
+    const channel = supabase
+      .channel("action_scales_realtime_data")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "action_scales" },
+        () => {
+          void queryClient.invalidateQueries({ queryKey: ["action_scales"] });
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "action_scale_members" },
+        () => {
+          void queryClient.invalidateQueries({ queryKey: ["action_scales"] });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, [queryClient]);
+
+  return useQuery({
+    queryKey: ["action_scales", status || "all"],
+    queryFn: async (): Promise<ActionScale[]> => {
+      const { getActionScales } = await import("@/lib/app-api");
+      return getActionScales(status);
+    },
+  });
+}
+
+export function useActionScale(id?: string) {
+  const queryClient = useQueryClient();
+
+  useEffect(() => {
+    if (!id) return;
+    const channel = supabase
+      .channel(`action_scale_detail_${id}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "action_scales", filter: `id=eq.${id}` },
+        () => {
+          void queryClient.invalidateQueries({ queryKey: ["action_scale", id] });
+          void queryClient.invalidateQueries({ queryKey: ["action_scales"] });
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "action_scale_members", filter: `scale_id=eq.${id}` },
+        () => {
+          void queryClient.invalidateQueries({ queryKey: ["action_scale", id] });
+          void queryClient.invalidateQueries({ queryKey: ["action_scales"] });
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "action_scale_history", filter: `scale_id=eq.${id}` },
+        () => {
+          void queryClient.invalidateQueries({ queryKey: ["action_scale_history", id] });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, [id, queryClient]);
+
+  return useQuery({
+    queryKey: ["action_scale", id],
+    queryFn: async (): Promise<ActionScale | null> => {
+      if (!id) return null;
+      const { getActionScale } = await import("@/lib/app-api");
+      return getActionScale(id);
+    },
+    enabled: Boolean(id),
+  });
+}
+
+export function useActionScaleHistory(id?: string) {
+  return useQuery({
+    queryKey: ["action_scale_history", id],
+    queryFn: async (): Promise<ActionScaleHistory[]> => {
+      if (!id) return [];
+      const { getActionScaleHistory } = await import("@/lib/app-api");
+      return getActionScaleHistory(id);
+    },
+    enabled: Boolean(id),
   });
 }
 

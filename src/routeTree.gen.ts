@@ -25,6 +25,7 @@ import { Route as AuthenticatedConfiguracoesRouteImport } from './routes/_authen
 import { Route as AuthenticatedControledeestoqueRouteImport } from './routes/_authenticated/controledeestoque'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedDesempenhoRouteImport } from './routes/_authenticated/desempenho'
+import { Route as AuthenticatedEscalasRouteImport } from './routes/_authenticated/escalas'
 import { Route as AuthenticatedEstoqueRouteImport } from './routes/_authenticated/estoque'
 import { Route as AuthenticatedFundoCaixaRouteImport } from './routes/_authenticated/fundo-caixa'
 import { Route as AuthenticatedGestaoEstoqueRouteImport } from './routes/_authenticated/gestao-estoque'
@@ -190,6 +191,11 @@ const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
 const AuthenticatedDesempenhoRoute = AuthenticatedDesempenhoRouteImport.update({
   id: '/desempenho',
   path: '/desempenho',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedEscalasRoute = AuthenticatedEscalasRouteImport.update({
+  id: '/escalas',
+  path: '/escalas',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedEstoqueRoute = AuthenticatedEstoqueRouteImport.update({
@@ -674,6 +680,7 @@ export interface FileRoutesByFullPath {
   '/controledeestoque': typeof AuthenticatedControledeestoqueRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/desempenho': typeof AuthenticatedDesempenhoRoute
+  '/escalas': typeof AuthenticatedEscalasRoute
   '/estoque': typeof AuthenticatedEstoqueRoute
   '/fundo-caixa': typeof AuthenticatedFundoCaixaRoute
   '/gestao-estoque': typeof AuthenticatedGestaoEstoqueRouteWithChildren
@@ -774,6 +781,7 @@ export interface FileRoutesByTo {
   '/controledeestoque': typeof AuthenticatedControledeestoqueRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/desempenho': typeof AuthenticatedDesempenhoRoute
+  '/escalas': typeof AuthenticatedEscalasRoute
   '/estoque': typeof AuthenticatedEstoqueRoute
   '/fundo-caixa': typeof AuthenticatedFundoCaixaRoute
   '/gestao-estoque': typeof AuthenticatedGestaoEstoqueRouteWithChildren
@@ -876,6 +884,7 @@ export interface FileRoutesById {
   '/_authenticated/controledeestoque': typeof AuthenticatedControledeestoqueRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/_authenticated/desempenho': typeof AuthenticatedDesempenhoRoute
+  '/_authenticated/escalas': typeof AuthenticatedEscalasRoute
   '/_authenticated/estoque': typeof AuthenticatedEstoqueRoute
   '/_authenticated/fundo-caixa': typeof AuthenticatedFundoCaixaRoute
   '/_authenticated/gestao-estoque': typeof AuthenticatedGestaoEstoqueRouteWithChildren
@@ -978,6 +987,7 @@ export interface FileRouteTypes {
     | '/controledeestoque'
     | '/dashboard'
     | '/desempenho'
+    | '/escalas'
     | '/estoque'
     | '/fundo-caixa'
     | '/gestao-estoque'
@@ -1078,6 +1088,7 @@ export interface FileRouteTypes {
     | '/controledeestoque'
     | '/dashboard'
     | '/desempenho'
+    | '/escalas'
     | '/estoque'
     | '/fundo-caixa'
     | '/gestao-estoque'
@@ -1179,6 +1190,7 @@ export interface FileRouteTypes {
     | '/_authenticated/controledeestoque'
     | '/_authenticated/dashboard'
     | '/_authenticated/desempenho'
+    | '/_authenticated/escalas'
     | '/_authenticated/estoque'
     | '/_authenticated/fundo-caixa'
     | '/_authenticated/gestao-estoque'
@@ -1386,6 +1398,13 @@ declare module '@tanstack/react-router' {
       path: '/desempenho'
       fullPath: '/desempenho'
       preLoaderRoute: typeof AuthenticatedDesempenhoRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/escalas': {
+      id: '/_authenticated/escalas'
+      path: '/escalas'
+      fullPath: '/escalas'
+      preLoaderRoute: typeof AuthenticatedEscalasRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/estoque': {
@@ -2215,6 +2234,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedControledeestoqueRoute: typeof AuthenticatedControledeestoqueRoute
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
   AuthenticatedDesempenhoRoute: typeof AuthenticatedDesempenhoRoute
+  AuthenticatedEscalasRoute: typeof AuthenticatedEscalasRoute
   AuthenticatedEstoqueRoute: typeof AuthenticatedEstoqueRoute
   AuthenticatedFundoCaixaRoute: typeof AuthenticatedFundoCaixaRoute
   AuthenticatedGestaoEstoqueRoute: typeof AuthenticatedGestaoEstoqueRouteWithChildren
@@ -2280,6 +2300,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedControledeestoqueRoute: AuthenticatedControledeestoqueRoute,
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
   AuthenticatedDesempenhoRoute: AuthenticatedDesempenhoRoute,
+  AuthenticatedEscalasRoute: AuthenticatedEscalasRoute,
   AuthenticatedEstoqueRoute: AuthenticatedEstoqueRoute,
   AuthenticatedFundoCaixaRoute: AuthenticatedFundoCaixaRoute,
   AuthenticatedGestaoEstoqueRoute: AuthenticatedGestaoEstoqueRouteWithChildren,
