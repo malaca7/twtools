@@ -457,195 +457,9 @@ function DynamicSidebarNavigation() {
   );
 
   const grouped = useMemo(() => {
-    // =========================================================================
-    // CASO 1: PAINEL DEV (Apenas dentro de rotas /dev/*)
-    // =========================================================================
-    if (isDevArea) {
-      const devValidItems = devMenuConfig?.items?.filter((c) => Boolean(c && (c.id || c.url))) || [];
-      const devConfigMap = new Map(devValidItems.map((c) => [c.id || c.url, c]));
-      const rawDevCats = devMenuConfig?.categories?.length
-        ? devMenuConfig.categories
-        : ["DEV"];
-      const devCategoryOrder = Array.from(
-        new Set(
-          rawDevCats.map((c) =>
-            c.toLowerCase() === "ferramentas dev" || c.toLowerCase() === "ferramenta dev"
-              ? (rawDevCats.includes("DEV") ? "DEV" : rawDevCats[0] || "DEV")
-              : c
-          )
-        )
-      );
-
-      const defaultDevIds = new Set(DEV_MODULE_NAV_ITEMS.map((d) => d.id));
-      const customizedDev = DEV_MODULE_NAV_ITEMS.map((item, defaultIdx) => {
-        const cfg = devConfigMap.get(item.id) || devConfigMap.get(item.url);
-        let cat = cfg?.category || item.defaultCat;
-        if (!cat || !devCategoryOrder.includes(cat)) {
-          cat = devCategoryOrder[0] || "DEV";
-        }
-        return {
-          ...item,
-          title: cfg?.title || item.title,
-          url: cfg?.url || item.url,
-          icon: (cfg?.iconName ? resolveMenuIcon(cfg.iconName, item.url) : item.icon) as typeof LayoutDashboard,
-          visible: cfg ? cfg.visible !== false : true,
-          category: cat,
-          order: typeof cfg?.order === "number" ? cfg.order : item.defaultOrder ?? defaultIdx,
-        };
-      });
-
-      const customDevItems: MasterNavItem[] = devValidItems
-        .filter((c) => !defaultDevIds.has(c.id) && c.id !== "dev-hub" && c.url !== "/dev")
-        .map((c, idx) => {
-          let itemCat = c.category || devCategoryOrder[0] || "DEV";
-          if (!devCategoryOrder.includes(itemCat)) {
-            itemCat = devCategoryOrder[0] || "DEV";
-          }
-          return {
-            id: c.id,
-            title: c.title,
-            url: c.url,
-            icon: resolveMenuIcon(c.iconName, c.url) as typeof LayoutDashboard,
-            category: itemCat,
-            defaultCat: itemCat,
-            defaultOrder: typeof c.order === "number" ? c.order : 50 + idx,
-            order: typeof c.order === "number" ? c.order : 50 + idx,
-            visible: c.visible !== false,
-            isCustom: true,
-          };
-        });
-
-      const allDevItems = [...customizedDev, ...customDevItems];
-      const visibleDev = allDevItems.filter((item) => {
-        if (!item.visible) return false;
-        const reqPerm = item.perm || resolveRequiredPermission(item.id, item.url);
-        if (reqPerm && !hasPermission(reqPerm, "dev")) return false;
-        return true;
-      });
-      const devGroups: { category: string; items: typeof visibleDev }[] = [];
-
-      devCategoryOrder.forEach((cat) => {
-        const catItems = visibleDev
-          .filter((i) => i.category === cat)
-          .sort((a, b) => a.order - b.order);
-        if (catItems.length > 0) {
-          devGroups.push({ category: cat, items: catItems });
-        }
-      });
-
-      const knownDevCats = new Set(devCategoryOrder);
-      visibleDev.forEach((item) => {
-        if (!knownDevCats.has(item.category)) {
-          knownDevCats.add(item.category);
-          const catItems = visibleDev
-            .filter((i) => i.category === item.category)
-            .sort((a, b) => a.order - b.order);
-          if (catItems.length > 0) {
-            devGroups.push({ category: item.category, items: catItems });
-          }
-        }
-      });
-
-      return devGroups;
-    }
-
-    // =========================================================================
-    // CASO 2: PAINEL CEO (Apenas dentro de rotas /ceo/*)
-    // =========================================================================
-    if (isCeoArea) {
-      const ceoValidItems = ceoMenuConfig?.items?.filter((c) => Boolean(c && (c.id || c.url))) || [];
-      const ceoConfigMap = new Map(ceoValidItems.map((c) => [c.id || c.url, c]));
-      const ceoCategoryOrder = ceoMenuConfig?.categories?.length
-        ? ceoMenuConfig.categories
-        : ["CEO"];
-
-      const defaultCeoIds = new Set(DEFAULT_CEO_MENU_ITEMS.map((d) => d.id));
-      const customizedCeo: MasterNavItem[] = DEFAULT_CEO_MENU_ITEMS.map((item, defaultIdx) => {
-        const cfg = ceoConfigMap.get(item.id) || ceoConfigMap.get(item.url);
-        return {
-          id: item.id,
-          title: cfg?.title || item.title,
-          url: cfg?.url || item.url,
-          icon: (cfg?.iconName ? resolveMenuIcon(cfg.iconName, item.url) : resolveMenuIcon(item.iconName, item.url)) as typeof LayoutDashboard,
-          visible: cfg ? cfg.visible !== false : item.visible !== false,
-          defaultCat: item.category || "CEO",
-          category: cfg?.category || item.category || "CEO",
-          defaultOrder: item.order ?? defaultIdx,
-          order: typeof cfg?.order === "number" ? cfg.order : item.order ?? defaultIdx,
-        };
-      });
-
-      const customCeoItems: MasterNavItem[] = ceoValidItems
-        .filter((c) => !defaultCeoIds.has(c.id))
-        .map((c, idx) => ({
-          id: c.id,
-          title: c.title,
-          url: c.url,
-          icon: resolveMenuIcon(c.iconName, c.url) as typeof LayoutDashboard,
-          visible: c.visible !== false,
-          defaultCat: c.category || ceoCategoryOrder[0] || "CEO",
-          category: c.category || ceoCategoryOrder[0] || "CEO",
-          defaultOrder: typeof c.order === "number" ? c.order : 50 + idx,
-          order: typeof c.order === "number" ? c.order : 50 + idx,
-          isCustom: true,
-        }));
-
-      const allCeoItems = [...customizedCeo, ...customCeoItems];
-      const canSeeCeo = Boolean(isCeoUser || isDevUser || hasPermission("view_ceo"));
-
-      const visibleCeo = canSeeCeo
-        ? allCeoItems.filter((item) => {
-            if (!item.visible) return false;
-            if (
-              (item.id === "ceo-dashboard" || item.id === "ceo-executivo" || item.url === "/ceo" || item.url === "/ceo/dashboard") &&
-              !hasPermission("view_ceo", "ceo") &&
-              !hasPermission("view_ceo_dashboard", "ceo")
-            ) {
-              return false;
-            }
-            if (item.id === "ceo-bot" && (!hasPermission("manage_ceo_bot", "ceo") || ceoConfig.allowManageBot === false)) return false;
-            if (item.id === "ceo-webhooks" && (!hasPermission("manage_ceo_webhooks", "ceo") || ceoConfig.allowWebhooks === false)) return false;
-            if (item.id === "ceo-financas" && (!hasPermission("view_ceo_financials", "ceo") || ceoConfig.allowFinancials === false)) return false;
-            if (item.id === "ceo-ajustes-estoque" && !hasPermission("view_ceo_stock_adjustments", "ceo")) return false;
-            if (item.id === "ceo-notificacoes" && !hasPermission("view_ceo_notifications", "ceo")) return false;
-            if (item.id === "ceo-tags" && !hasPermission("view_ceo_tag_permissions", "ceo")) return false;
-            const reqPerm = item.perm || resolveRequiredPermission(item.id, item.url);
-            if (reqPerm && !hasPermission(reqPerm, "ceo")) return false;
-            return true;
-          })
-        : [];
-
-      const ceoGroups: { category: string; items: typeof visibleCeo }[] = [];
-      ceoCategoryOrder.forEach((cat) => {
-        const catItems = visibleCeo
-          .filter((i) => (i.category || "CEO") === cat)
-          .sort((a, b) => a.order - b.order);
-        if (catItems.length > 0) {
-          ceoGroups.push({ category: cat, items: catItems });
-        }
-      });
-
-      const knownCeoCats = new Set(ceoCategoryOrder);
-      visibleCeo.forEach((item) => {
-        const cat = item.category || "CEO";
-        if (!knownCeoCats.has(cat)) {
-          knownCeoCats.add(cat);
-          const catItems = visibleCeo
-            .filter((i) => (i.category || "CEO") === cat)
-            .sort((a, b) => a.order - b.order);
-          if (catItems.length > 0) {
-            ceoGroups.push({ category: cat, items: catItems });
-          }
-        }
-      });
-
-      return ceoGroups;
-    }
-
-    // =========================================================================
-    // CASO 3: PLATAFORMA / MEMBRO (Rotas regulares da aplicação)
-    // Fonte da verdade: Apenas as categorias e menus configurados em "Menu Lateral"!
-    // =========================================================================
+    // -------------------------------------------------------------------------
+    // BASE DE MENUS DA PLATAFORMA / ADMIN (Configuração de Menu Lateral Global)
+    // -------------------------------------------------------------------------
     const validConfigItems = menuConfig?.items?.filter((c) => Boolean(c && (c.id || c.url))) || [];
     const deletedSet = new Set<string>(
       Array.isArray(menuConfig?.deletedItemIds) ? menuConfig.deletedItemIds : []
@@ -746,6 +560,258 @@ function DynamicSidebarNavigation() {
         });
     }
 
+    // =========================================================================
+    // CASO 1: PAINEL DEV (Apenas dentro de rotas /dev/*)
+    // =========================================================================
+    if (isDevArea) {
+      const devValidItems = devMenuConfig?.items?.filter((c) => Boolean(c && (c.id || c.url))) || [];
+      const devConfigMap = new Map(devValidItems.map((c) => [c.id || c.url, c]));
+      const rawDevCats = devMenuConfig?.categories?.length
+        ? devMenuConfig.categories
+        : ["DEV"];
+      const devCategoryOrder = Array.from(
+        new Set(
+          rawDevCats.map((c) =>
+            c.toLowerCase() === "ferramentas dev" || c.toLowerCase() === "ferramenta dev"
+              ? (rawDevCats.includes("DEV") ? "DEV" : rawDevCats[0] || "DEV")
+              : c
+          )
+        )
+      );
+
+      const defaultDevIds = new Set(DEV_MODULE_NAV_ITEMS.map((d) => d.id));
+      const customizedDev = DEV_MODULE_NAV_ITEMS.map((item, defaultIdx) => {
+        const cfg = devConfigMap.get(item.id) || devConfigMap.get(item.url);
+        let cat = cfg?.category || item.defaultCat;
+        if (!cat || !devCategoryOrder.includes(cat)) {
+          cat = devCategoryOrder[0] || "DEV";
+        }
+        return {
+          ...item,
+          title: cfg?.title || item.title,
+          url: cfg?.url || item.url,
+          icon: (cfg?.iconName ? resolveMenuIcon(cfg.iconName, item.url) : item.icon) as typeof LayoutDashboard,
+          visible: cfg ? cfg.visible !== false : true,
+          category: cat,
+          order: typeof cfg?.order === "number" ? cfg.order : item.defaultOrder ?? defaultIdx,
+        };
+      });
+
+      const customDevItems: MasterNavItem[] = devValidItems
+        .filter((c) => !defaultDevIds.has(c.id) && c.id !== "dev-hub" && c.url !== "/dev")
+        .map((c, idx) => {
+          let itemCat = c.category || devCategoryOrder[0] || "DEV";
+          if (!devCategoryOrder.includes(itemCat)) {
+            itemCat = devCategoryOrder[0] || "DEV";
+          }
+          return {
+            id: c.id,
+            title: c.title,
+            url: c.url,
+            icon: resolveMenuIcon(c.iconName, c.url) as typeof LayoutDashboard,
+            category: itemCat,
+            defaultCat: itemCat,
+            defaultOrder: typeof c.order === "number" ? c.order : 50 + idx,
+            order: typeof c.order === "number" ? c.order : 50 + idx,
+            visible: c.visible !== false,
+            isCustom: true,
+          };
+        });
+
+      const allDevItems = [...customizedDev, ...customDevItems];
+      const visibleDev = allDevItems.filter((item) => {
+        if (!item.visible) return false;
+        const reqPerm = item.perm || resolveRequiredPermission(item.id, item.url);
+        if (reqPerm && !hasPermission(reqPerm, "dev")) return false;
+        return true;
+      });
+      const devGroups: { category: string; items: typeof visibleDev }[] = [];
+
+      devCategoryOrder.forEach((cat) => {
+        const catItems = visibleDev
+          .filter((i) => i.category === cat)
+          .sort((a, b) => a.order - b.order);
+        if (catItems.length > 0) {
+          devGroups.push({ category: cat, items: catItems });
+        }
+      });
+
+      const knownDevCats = new Set(devCategoryOrder);
+      visibleDev.forEach((item) => {
+        if (!knownDevCats.has(item.category)) {
+          knownDevCats.add(item.category);
+          const catItems = visibleDev
+            .filter((i) => i.category === item.category)
+            .sort((a, b) => a.order - b.order);
+          if (catItems.length > 0) {
+            devGroups.push({ category: item.category, items: catItems });
+          }
+        }
+      });
+
+      // Menus do painel admin / plataforma que o membro possui permissão na TAG DEV
+      const visibleDevPlatform = allPlatformItems.filter((item) => {
+        if (item.url.startsWith("/dev") || item.url.startsWith("/ceo")) return false;
+        if (!item.visible) return false;
+        const reqPerm = item.perm || resolveRequiredPermission(item.id, item.url);
+        if (reqPerm && !hasPermission(reqPerm, "dev")) return false;
+        return true;
+      });
+
+      const devPlatformGroups: { category: string; items: typeof visibleDevPlatform }[] = [];
+      categoryOrder.forEach((cat) => {
+        const catItems = visibleDevPlatform
+          .filter((i) => i.category === cat)
+          .sort((a, b) => a.order - b.order);
+        if (catItems.length > 0) {
+          devPlatformGroups.push({ category: cat, items: catItems });
+        }
+      });
+
+      const knownDevPlatformCats = new Set(categoryOrder);
+      visibleDevPlatform.forEach((item) => {
+        if (!knownDevPlatformCats.has(item.category)) {
+          knownDevPlatformCats.add(item.category);
+          const catItems = visibleDevPlatform
+            .filter((i) => i.category === item.category)
+            .sort((a, b) => a.order - b.order);
+          if (catItems.length > 0) {
+            devPlatformGroups.push({ category: item.category, items: catItems });
+          }
+        }
+      });
+
+      return [...devGroups, ...devPlatformGroups];
+    }
+
+    // =========================================================================
+    // CASO 2: PAINEL CEO (Apenas dentro de rotas /ceo/*)
+    // =========================================================================
+    if (isCeoArea) {
+      const ceoValidItems = ceoMenuConfig?.items?.filter((c) => Boolean(c && (c.id || c.url))) || [];
+      const ceoConfigMap = new Map(ceoValidItems.map((c) => [c.id || c.url, c]));
+      const ceoCategoryOrder = ceoMenuConfig?.categories?.length
+        ? ceoMenuConfig.categories
+        : ["CEO"];
+
+      const defaultCeoIds = new Set(DEFAULT_CEO_MENU_ITEMS.map((d) => d.id));
+      const customizedCeo: MasterNavItem[] = DEFAULT_CEO_MENU_ITEMS.map((item, defaultIdx) => {
+        const cfg = ceoConfigMap.get(item.id) || ceoConfigMap.get(item.url);
+        return {
+          id: item.id,
+          title: cfg?.title || item.title,
+          url: cfg?.url || item.url,
+          icon: (cfg?.iconName ? resolveMenuIcon(cfg.iconName, item.url) : resolveMenuIcon(item.iconName, item.url)) as typeof LayoutDashboard,
+          visible: cfg ? cfg.visible !== false : item.visible !== false,
+          defaultCat: item.category || "CEO",
+          category: cfg?.category || item.category || "CEO",
+          defaultOrder: item.order ?? defaultIdx,
+          order: typeof cfg?.order === "number" ? cfg.order : item.order ?? defaultIdx,
+        };
+      });
+
+      const customCeoItems: MasterNavItem[] = ceoValidItems
+        .filter((c) => !defaultCeoIds.has(c.id))
+        .map((c, idx) => ({
+          id: c.id,
+          title: c.title,
+          url: c.url,
+          icon: resolveMenuIcon(c.iconName, c.url) as typeof LayoutDashboard,
+          visible: c.visible !== false,
+          defaultCat: c.category || ceoCategoryOrder[0] || "CEO",
+          category: c.category || ceoCategoryOrder[0] || "CEO",
+          defaultOrder: typeof c.order === "number" ? c.order : 50 + idx,
+          order: typeof c.order === "number" ? c.order : 50 + idx,
+          isCustom: true,
+        }));
+
+      const allCeoItems = [...customizedCeo, ...customCeoItems];
+      const canSeeCeo = Boolean(isCeoUser || isDevUser || hasPermission("view_ceo"));
+
+      const visibleCeo = canSeeCeo
+        ? allCeoItems.filter((item) => {
+            if (!item.visible) return false;
+            if (
+              (item.id === "ceo-dashboard" || item.id === "ceo-executivo" || item.url === "/ceo" || item.url === "/ceo/dashboard") &&
+              !hasPermission("view_ceo", "ceo") &&
+              !hasPermission("view_ceo_dashboard", "ceo")
+            ) {
+              return false;
+            }
+            if (item.id === "ceo-bot" && (!hasPermission("manage_ceo_bot", "ceo") || ceoConfig.allowManageBot === false)) return false;
+            if (item.id === "ceo-webhooks" && (!hasPermission("manage_ceo_webhooks", "ceo") || ceoConfig.allowWebhooks === false)) return false;
+            if (item.id === "ceo-financas" && (!hasPermission("view_ceo_financials", "ceo") || ceoConfig.allowFinancials === false)) return false;
+            if (item.id === "ceo-ajustes-estoque" && !hasPermission("view_ceo_stock_adjustments", "ceo")) return false;
+            if (item.id === "ceo-notificacoes" && !hasPermission("view_ceo_notifications", "ceo")) return false;
+            if (item.id === "ceo-tags" && !hasPermission("view_ceo_tag_permissions", "ceo")) return false;
+            const reqPerm = item.perm || resolveRequiredPermission(item.id, item.url);
+            if (reqPerm && !hasPermission(reqPerm, "ceo")) return false;
+            return true;
+          })
+        : [];
+
+      const ceoGroups: { category: string; items: typeof visibleCeo }[] = [];
+      ceoCategoryOrder.forEach((cat) => {
+        const catItems = visibleCeo
+          .filter((i) => (i.category || "CEO") === cat)
+          .sort((a, b) => a.order - b.order);
+        if (catItems.length > 0) {
+          ceoGroups.push({ category: cat, items: catItems });
+        }
+      });
+
+      const knownCeoCats = new Set(ceoCategoryOrder);
+      visibleCeo.forEach((item) => {
+        const cat = item.category || "CEO";
+        if (!knownCeoCats.has(cat)) {
+          knownCeoCats.add(cat);
+          const catItems = visibleCeo
+            .filter((i) => (i.category || "CEO") === cat)
+            .sort((a, b) => a.order - b.order);
+          if (catItems.length > 0) {
+            ceoGroups.push({ category: cat, items: catItems });
+          }
+        }
+      });
+
+      // Menus do painel admin / plataforma que o membro possui permissão na TAG CEO
+      const visibleCeoPlatform = allPlatformItems.filter((item) => {
+        if (item.url.startsWith("/dev") || item.url.startsWith("/ceo")) return false;
+        if (!item.visible) return false;
+        const reqPerm = item.perm || resolveRequiredPermission(item.id, item.url);
+        if (reqPerm && !hasPermission(reqPerm, "ceo")) return false;
+        return true;
+      });
+
+      const ceoPlatformGroups: { category: string; items: typeof visibleCeoPlatform }[] = [];
+      categoryOrder.forEach((cat) => {
+        const catItems = visibleCeoPlatform
+          .filter((i) => i.category === cat)
+          .sort((a, b) => a.order - b.order);
+        if (catItems.length > 0) {
+          ceoPlatformGroups.push({ category: cat, items: catItems });
+        }
+      });
+
+      const knownCeoPlatformCats = new Set(categoryOrder);
+      visibleCeoPlatform.forEach((item) => {
+        if (!knownCeoPlatformCats.has(item.category)) {
+          knownCeoPlatformCats.add(item.category);
+          const catItems = visibleCeoPlatform
+            .filter((i) => i.category === item.category)
+            .sort((a, b) => a.order - b.order);
+          if (catItems.length > 0) {
+            ceoPlatformGroups.push({ category: item.category, items: catItems });
+          }
+        }
+      });
+
+      return [...ceoGroups, ...ceoPlatformGroups];
+    }
+
+    // =========================================================================
+    // CASO 3: PLATAFORMA / MEMBRO (Rotas regulares da aplicação)
+    // =========================================================================
     const visibleMember = allPlatformItems.filter((item) => {
       // 1. Nunca exibir links de dev ou de ceo no painel plataforma
       if (item.url.startsWith("/dev") || item.url.startsWith("/ceo")) return false;

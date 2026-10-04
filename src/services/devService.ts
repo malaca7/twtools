@@ -811,6 +811,30 @@ export const DEFAULT_CEO_PERMISSIONS: string[] = [
   "life_moderate_posts",
   "life_moderate_comments",
   "manage_life",
+  // Escala de Ação
+  "escalas.view",
+  "escalas.details",
+  "escalas.create",
+  "escalas.edit",
+  "escalas.delete",
+  "escalas.publish",
+  "escalas.cancel",
+  "escalas.manage_members",
+  "escalas.add_participants",
+  "escalas.remove_participants",
+  "escalas.confirm_presence",
+  "escalas.manage_slots",
+  "escalas.substitute",
+  "escalas.history",
+  "escalas.settings",
+  // Matérias-Primas
+  "raw_materials.view",
+  "raw_materials.create",
+  "raw_materials.edit",
+  "raw_materials.delete",
+  "raw_materials.adjust",
+  "raw_materials.transfer_bau",
+  "raw_materials.history",
 ];
 
 /**

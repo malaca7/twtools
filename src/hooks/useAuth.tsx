@@ -1133,18 +1133,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       // REGRA 2: NO PAINEL CEO
       if (activePanel === "ceo") {
-        // 1. Desenvolvedor tem acesso total no Painel CEO
+        // 1. Desenvolvedor no Painel CEO
         if (isDevUser) {
           if (bypassActive) return true;
           if (permission === "view_ceo") return true;
-          if (satisfiesPermission(devTagPermissions, permission)) return true;
+          if (satisfiesPermission(ceoTagPermissions, permission) || satisfiesPermission(devTagPermissions, permission)) return true;
+          return false;
         }
-        // 2. Tag CEO
+        // 2. Tag CEO (se o usuário for CEO, as permissões da TAG CEO determinam seu acesso no painel CEO)
         if (isCeoUser) {
           if (permission === "view_ceo") return true;
           if (satisfiesPermission(ceoTagPermissions, permission)) return true;
+          return false;
         }
-        // 3. Cargo do membro
+        // 3. Cargo do membro (para quem não tem tag CEO mas acessa com permissão delegada de cargo)
         if (can(level, permission, customRolePermissions)) {
           return true;
         }
@@ -1157,11 +1159,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       // REGRA 3: NO PAINEL DEV
       if (activePanel === "dev") {
-        // 1. Tag DEV (se o usuário for Desenvolvedor)
+        // 1. Tag DEV (se o usuário for Desenvolvedor, as permissões da TAG DEV determinam seu acesso no painel DEV)
         if (isDevUser) {
           if (bypassActive) return true;
           if (permission === "view_dev_hub" || permission === "view_dev") return true;
           if (satisfiesPermission(devTagPermissions, permission)) return true;
+          return false;
         }
         // 2. Tag CEO acessando governança integrada
         if (isCeoUser) {
