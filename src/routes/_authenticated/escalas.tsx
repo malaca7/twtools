@@ -41,7 +41,9 @@ import {
   Crosshair,
   BadgeAlert,
   CalendarCheck,
+  DoorOpen,
 } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import {
   useActionScales,
@@ -58,6 +60,7 @@ import {
   addActionScaleMember,
   removeActionScaleMember,
   confirmActionScalePresence,
+  leaveActionScale,
   substituteActionScaleMember,
 } from "@/lib/app-api";
 import type { ActionScale, ActionScaleMember, ActionScaleStatus } from "@/lib/app-types";
@@ -114,24 +117,27 @@ export const POSTOS_FUNCAO = [
 ];
 
 export function EscalasPage() {
-  const { user, profile, hasPermission, isDevUser } = useAuth();
+  const { user, profile, hasPermission, isDevUser, isCeoUser } = useAuth();
   const queryClient = useQueryClient();
 
-  // Permissões
-  const canView = hasPermission("escalas.view") || hasPermission("escalas.details") || isDevUser;
-  const canCreate = isDevUser || hasPermission("escalas.create");
-  const canEdit = isDevUser || hasPermission("escalas.edit");
-  const canDelete = isDevUser || hasPermission("escalas.delete");
-  const canPublish = isDevUser || hasPermission("escalas.publish");
-  const canCancel = isDevUser || hasPermission("escalas.cancel");
-  const canManageMembers = isDevUser || hasPermission("escalas.manage_members");
-  const canAddParticipants = isDevUser || canManageMembers || hasPermission("escalas.add_participants");
-  const canRemoveParticipants = isDevUser || canManageMembers || hasPermission("escalas.remove_participants");
-  const canConfirmPresence = isDevUser || hasPermission("escalas.confirm_presence");
-  const canManageSlots = isDevUser || hasPermission("escalas.manage_slots");
-  const canSubstitute = isDevUser || canManageMembers || hasPermission("escalas.substitute");
-  const canViewHistory = isDevUser || hasPermission("escalas.history");
+  const isPrivileged = Boolean(isDevUser || isCeoUser);
 
+  // Permissões com suporte total a Dev e CEO
+  const canView = true;
+  const canCreate = isPrivileged || hasPermission("escalas.create");
+  const canEdit = isPrivileged || hasPermission("escalas.edit");
+  const canDelete = isPrivileged || hasPermission("escalas.delete");
+  const canPublish = isPrivileged || hasPermission("escalas.publish");
+  const canCancel = isPrivileged || hasPermission("escalas.cancel");
+  const canManageMembers = isPrivileged || hasPermission("escalas.manage_members");
+  const canAddParticipants = isPrivileged || canManageMembers || hasPermission("escalas.add_participants");
+  const canRemoveParticipants = isPrivileged || canManageMembers || hasPermission("escalas.remove_participants");
+  const canConfirmPresence = true;
+  const canManageSlots = isPrivileged || hasPermission("escalas.manage_slots");
+  const canSubstitute = isPrivileged || canManageMembers || hasPermission("escalas.substitute");
+  const canViewHistory = isPrivileged || hasPermission("escalas.history");
+
+  const myMemberId = profile?.id || profile?.user_id || user?.id;
   const actorName = profile?.nickname || profile?.nome || user?.email || "Operador";
 
   // Consultas
@@ -151,6 +157,11 @@ export function EscalasPage() {
   const [detailsModalOpen, setDetailsModalOpen] = useState(false);
   const [selectedScaleId, setSelectedScaleId] = useState<string | null>(null);
 
+  const [claimSlotModalOpen, setClaimSlotModalOpen] = useState(false);
+  const [claimSlotScale, setClaimSlotScale] = useState<ActionScale | null>(null);
+  const [claimPostoFuncao, setClaimPostoFuncao] = useState("Operacional");
+  const [claimTipoVaga, setClaimTipoVaga] = useState<"titular" | "reserva">("titular");
+
   const [addMemberModalOpen, setAddMemberModalOpen] = useState(false);
   const [substituteModalOpen, setSubstituteModalOpen] = useState(false);
   const [substituteTargetMember, setSubstituteTargetMember] = useState<ActionScaleMember | null>(null);
@@ -162,6 +173,38 @@ export function EscalasPage() {
   const [cancelModalOpen, setCancelModalOpen] = useState(false);
   const [cancelTargetScaleId, setCancelTargetScaleId] = useState<string | null>(null);
   const [cancelReason, setCancelReason] = useState("");
+
+  // Sincronização em tempo real das escalas
+  useEffect(() => {
+    const channel = supabase
+      .channel("action_scales_realtime_channel")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "action_scales" },
+        () => {
+          void queryClient.invalidateQueries({ queryKey: ["action_scales"] });
+          if (selectedScaleId) {
+            void queryClient.invalidateQueries({ queryKey: ["action_scale", selectedScaleId] });
+          }
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "action_scale_members" },
+        () => {
+          void queryClient.invalidateQueries({ queryKey: ["action_scales"] });
+          if (selectedScaleId) {
+            void queryClient.invalidateQueries({ queryKey: ["action_scale", selectedScaleId] });
+            void queryClient.invalidateQueries({ queryKey: ["action_scale_history", selectedScaleId] });
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, [queryClient, selectedScaleId]);
 
   // Detalhes da escala ativa no modal
   const { data: selectedScale, isLoading: loadingSelectedScale } = useActionScale(
@@ -188,6 +231,14 @@ export function EscalasPage() {
   // Form State para Substituição
   const [subSelectedMemberId, setSubSelectedMemberId] = useState("");
   const [subMotivo, setSubMotivo] = useState("");
+
+  const handleOpenClaimModal = (scale: ActionScale) => {
+    setClaimSlotScale(scale);
+    const titularesLeft = Math.max(0, (scale.vagas_limite || 10) - (scale.total_titulares || 0));
+    setClaimTipoVaga(titularesLeft > 0 ? "titular" : "reserva");
+    setClaimPostoFuncao("Operacional");
+    setClaimSlotModalOpen(true);
+  };
 
   // Abrir modal de criação
   const handleOpenCreateModal = () => {
@@ -328,20 +379,24 @@ export function EscalasPage() {
       status,
       reacao,
       justificativa,
+      postoFuncao,
+      tipoVaga,
     }: {
       scaleId: string;
       status: "confirmado" | "ausente" | "pendente";
       reacao?: string;
       justificativa?: string;
+      postoFuncao?: string;
+      tipoVaga?: "titular" | "reserva";
     }) => {
-      const myMemberId = profile?.id;
-      if (!myMemberId) throw new Error("Perfil de membro não encontrado.");
       return await confirmActionScalePresence({
         scaleId,
         memberId: myMemberId,
         status,
         reacao,
         justificativa,
+        postoFuncao,
+        tipoVaga,
         actorName,
       });
     },
@@ -358,6 +413,56 @@ export function EscalasPage() {
     },
     onError: (err: any) => {
       toast.error(err?.message || "Erro ao atualizar confirmação.");
+    },
+  });
+
+  // Garantir Minha Vaga (Auto-inscrição na Ação)
+  const claimSlotMutation = useMutation({
+    mutationFn: async () => {
+      if (!claimSlotScale) throw new Error("Escala não selecionada.");
+      return await confirmActionScalePresence({
+        scaleId: claimSlotScale.id,
+        memberId: myMemberId,
+        status: "confirmado",
+        reacao: "👍",
+        postoFuncao: claimPostoFuncao,
+        tipoVaga: claimTipoVaga,
+        actorName,
+      });
+    },
+    onSuccess: () => {
+      toast.success("Vaga garantida com sucesso! Você está confirmado na ação.", { icon: "🎯" });
+      setClaimSlotModalOpen(false);
+      setClaimSlotScale(null);
+      void queryClient.invalidateQueries({ queryKey: ["action_scales"] });
+      if (selectedScaleId) {
+        void queryClient.invalidateQueries({ queryKey: ["action_scale", selectedScaleId] });
+      }
+    },
+    onError: (err: any) => {
+      toast.error(err?.message || "Erro ao garantir vaga na escala.");
+    },
+  });
+
+  // Liberar Vaga e Sair da Escala
+  const leaveScaleMutation = useMutation({
+    mutationFn: async ({ scaleId }: { scaleId: string }) => {
+      if (!confirm("Tem certeza de que deseja liberar sua vaga e sair desta escala?")) return;
+      return await leaveActionScale({
+        scaleId,
+        memberId: myMemberId,
+        actorName,
+      });
+    },
+    onSuccess: () => {
+      toast.info("Você liberou sua vaga e saiu da escala de ação.", { icon: "🚪" });
+      void queryClient.invalidateQueries({ queryKey: ["action_scales"] });
+      if (selectedScaleId) {
+        void queryClient.invalidateQueries({ queryKey: ["action_scale", selectedScaleId] });
+      }
+    },
+    onError: (err: any) => {
+      toast.error(err?.message || "Erro ao liberar vaga.");
     },
   });
 
@@ -476,6 +581,19 @@ export function EscalasPage() {
       vagasAbertas,
     };
   }, [scales]);
+
+  const selectedUserMember = useMemo(() => {
+    if (!selectedScale?.membros) return null;
+    const myId = profile?.id;
+    const myUid = profile?.user_id || user?.id;
+    return (
+      selectedScale.membros.find(
+        (m) =>
+          (myId && (m.member_id === myId || m.user_id === myId)) ||
+          (myUid && (m.user_id === myUid || m.member_id === myUid))
+      ) || null
+    );
+  }, [selectedScale, profile, user]);
 
   if (!canView) {
     return <NoAccess />;
@@ -830,14 +948,25 @@ export function EscalasPage() {
                       </div>
                     </div>
 
-                    {/* STATUS DO USUÁRIO LOGADO */}
+                    {/* STATUS DO USUÁRIO LOGADO - SE JÁ ESCALADO */}
                     {scale.user_is_escalado && (
                       <div className="rounded-xl border border-rose-500/30 bg-rose-500/10 p-3 space-y-2">
                         <div className="flex items-center justify-between text-xs">
-                          <span className="font-bold text-rose-300 flex items-center gap-1.5">
+                          <div className="flex items-center gap-1.5 font-bold text-rose-300">
                             <Crosshair className="w-3.5 h-3.5 text-rose-400" />
-                            Sua Vaga na Escala
-                          </span>
+                            <span>Sua Vaga:</span>
+                            <Badge
+                              variant="outline"
+                              className="text-[10px] py-0 px-1 font-mono uppercase bg-rose-500/20 text-rose-300 border-rose-500/40"
+                            >
+                              {scale.user_tipo_vaga || "Titular"}
+                            </Badge>
+                            {scale.user_posto_funcao && (
+                              <span className="text-[10px] text-muted-foreground font-normal">
+                                ({scale.user_posto_funcao})
+                              </span>
+                            )}
+                          </div>
                           <Badge
                             variant="outline"
                             className={cn(
@@ -858,11 +987,11 @@ export function EscalasPage() {
                         </div>
 
                         {canConfirmPresence && scale.status !== "cancelada" && scale.status !== "concluida" && (
-                          <div className="grid grid-cols-2 gap-2 pt-1">
+                          <div className="grid grid-cols-3 gap-1.5 pt-1">
                             <Button
                               size="sm"
                               className={cn(
-                                "text-xs font-bold gap-1.5 h-8 cursor-pointer",
+                                "text-[11px] font-bold gap-1 h-8 cursor-pointer px-2",
                                 scale.user_member_status === "confirmado"
                                   ? "bg-emerald-600 hover:bg-emerald-700 text-white"
                                   : "bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40"
@@ -883,7 +1012,7 @@ export function EscalasPage() {
                             <Button
                               size="sm"
                               variant="outline"
-                              className="text-xs font-bold gap-1.5 h-8 border-rose-500/30 text-rose-300 hover:bg-rose-500/10 cursor-pointer"
+                              className="text-[11px] font-bold gap-1 h-8 border-rose-500/30 text-rose-300 hover:bg-rose-500/10 cursor-pointer px-2"
                               onClick={() => {
                                 setAbsenceTargetScaleId(scale.id);
                                 setAbsenceReason("");
@@ -893,6 +1022,49 @@ export function EscalasPage() {
                               <X className="w-3.5 h-3.5" />
                               Não Posso
                             </Button>
+
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="text-[11px] font-bold gap-1 h-8 text-zinc-400 hover:text-zinc-200 hover:bg-secondary cursor-pointer px-2"
+                              title="Liberar vaga e sair da escala"
+                              disabled={leaveScaleMutation.isPending}
+                              onClick={() => leaveScaleMutation.mutate({ scaleId: scale.id })}
+                            >
+                              <DoorOpen className="w-3.5 h-3.5" />
+                              Liberar
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* VAGAS ABERTAS E BOTÃO DE MARCAR / GARANTIR VAGA (PARA QUEM NÃO ESTÁ ESCALADO) */}
+                    {!scale.user_is_escalado && (scale.status === "publicada" || scale.status === "em_andamento") && (
+                      <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-3 space-y-2">
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="font-bold text-emerald-300 flex items-center gap-1.5">
+                            <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
+                            Vagas Disponíveis
+                          </span>
+                          <span className="text-[10px] font-mono text-emerald-400/90 font-bold">
+                            {Math.max(0, (scale.vagas_limite || 10) - (scale.total_titulares || 0))} Titulares / {Math.max(0, (scale.vagas_reservas || 0) - (scale.total_reservas || 0))} Reservas
+                          </span>
+                        </div>
+
+                        {Math.max(0, (scale.vagas_limite || 10) - (scale.total_titulares || 0)) > 0 ||
+                        Math.max(0, (scale.vagas_reservas || 0) - (scale.total_reservas || 0)) > 0 ? (
+                          <Button
+                            size="sm"
+                            className="w-full bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-600 hover:from-emerald-500 hover:to-teal-500 text-white text-xs font-black gap-2 h-9 shadow-lg shadow-emerald-950/40 cursor-pointer"
+                            onClick={() => handleOpenClaimModal(scale)}
+                          >
+                            <CheckCircle2 className="w-4 h-4 text-emerald-200" />
+                            ⚡ Garantir Minha Vaga na Ação
+                          </Button>
+                        ) : (
+                          <div className="text-[11px] text-center text-amber-300/80 font-medium py-1">
+                            Vagas esgotadas (Aguarde ausências ou substituições)
                           </div>
                         )}
                       </div>
@@ -1275,6 +1447,143 @@ export function EscalasPage() {
                 </div>
               )}
 
+              {/* STATUS E AÇÕES DO USUÁRIO LOGADO NESTA ESCALA */}
+              {selectedScale.status !== "cancelada" && (
+                <div
+                  className={cn(
+                    "p-4 rounded-xl border flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs transition-all",
+                    selectedUserMember
+                      ? "bg-rose-500/10 border-rose-500/30"
+                      : "bg-emerald-500/10 border-emerald-500/30"
+                  )}
+                >
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <span className="font-extrabold text-foreground flex items-center gap-1.5 text-sm">
+                        {selectedUserMember ? (
+                          <>
+                            <Crosshair className="w-4 h-4 text-rose-400" />
+                            Sua Vaga: {selectedUserMember.tipo_vaga === "titular" ? "Titular Principal" : "Reserva"}
+                          </>
+                        ) : (
+                          <>
+                            <Sparkles className="w-4 h-4 text-emerald-400" />
+                            Vagas Abertas na Ação
+                          </>
+                        )}
+                      </span>
+                      {selectedUserMember && (
+                        <Badge
+                          variant="outline"
+                          className={cn(
+                            "text-[10px] font-mono py-0 font-bold",
+                            selectedUserMember.status_presenca === "confirmado"
+                              ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/40"
+                              : selectedUserMember.status_presenca === "ausente"
+                              ? "bg-rose-500/20 text-rose-300 border-rose-500/40"
+                              : "bg-amber-500/20 text-amber-300 border-amber-500/40"
+                          )}
+                        >
+                          {selectedUserMember.status_presenca === "confirmado"
+                            ? "Confirmado ✅"
+                            : selectedUserMember.status_presenca === "ausente"
+                            ? "Ausente ❌"
+                            : "Pendente ⏳"}
+                        </Badge>
+                      )}
+                    </div>
+                    <p className="text-muted-foreground text-xs">
+                      {selectedUserMember ? (
+                        <>
+                          Função escalada: <span className="text-foreground font-semibold">{selectedUserMember.posto_funcao}</span>
+                          {selectedUserMember.justificativa_ausencia && (
+                            <span className="text-rose-400 italic block pt-0.5">
+                              Motivo da ausência: {selectedUserMember.justificativa_ausencia}
+                            </span>
+                          )}
+                        </>
+                      ) : (
+                        `Esta ação possui ${Math.max(
+                          0,
+                          (selectedScale.vagas_limite || 10) -
+                            (selectedScale.membros || []).filter(
+                              (m) => m.tipo_vaga === "titular" && m.status_presenca !== "ausente"
+                            ).length
+                        )} vagas titulares e ${Math.max(
+                          0,
+                          (selectedScale.vagas_reservas || 0) -
+                            (selectedScale.membros || []).filter(
+                              (m) => m.tipo_vaga === "reserva" && m.status_presenca !== "ausente"
+                            ).length
+                        )} reservas disponíveis.`
+                      )}
+                    </p>
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-2">
+                    {selectedUserMember ? (
+                      <>
+                        <Button
+                          size="sm"
+                          className={cn(
+                            "text-xs font-bold gap-1.5 h-8 cursor-pointer",
+                            selectedUserMember.status_presenca === "confirmado"
+                              ? "bg-emerald-600 hover:bg-emerald-700 text-white"
+                              : "bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40"
+                          )}
+                          disabled={confirmPresenceMutation.isPending}
+                          onClick={() =>
+                            confirmPresenceMutation.mutate({
+                              scaleId: selectedScale.id,
+                              status: "confirmado",
+                              reacao: "👍",
+                            })
+                          }
+                        >
+                          <Check className="w-3.5 h-3.5" />
+                          {selectedUserMember.status_presenca === "confirmado" ? "Confirmado" : "Confirmar Presença"}
+                        </Button>
+
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="text-xs font-bold gap-1.5 h-8 border-rose-500/30 text-rose-300 hover:bg-rose-500/10 cursor-pointer"
+                          onClick={() => {
+                            setAbsenceTargetScaleId(selectedScale.id);
+                            setAbsenceReason("");
+                            setAbsenceModalOpen(true);
+                          }}
+                        >
+                          <X className="w-3.5 h-3.5" />
+                          Não Posso Ir
+                        </Button>
+
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="text-xs font-bold gap-1.5 h-8 text-zinc-400 hover:text-zinc-200 hover:bg-secondary cursor-pointer"
+                          title="Liberar vaga e sair da escala"
+                          disabled={leaveScaleMutation.isPending}
+                          onClick={() => leaveScaleMutation.mutate({ scaleId: selectedScale.id })}
+                        >
+                          <DoorOpen className="w-3.5 h-3.5" />
+                          Liberar Vaga
+                        </Button>
+                      </>
+                    ) : selectedScale.status === "publicada" || selectedScale.status === "em_andamento" ? (
+                      <Button
+                        size="sm"
+                        className="bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-600 hover:from-emerald-500 hover:to-teal-500 text-white font-extrabold gap-2 text-xs h-9 shadow-lg shadow-emerald-950/40 cursor-pointer"
+                        onClick={() => handleOpenClaimModal(selectedScale)}
+                      >
+                        <CheckCircle2 className="w-4 h-4 text-emerald-200" />
+                        ⚡ Garantir Minha Vaga na Ação
+                      </Button>
+                    ) : null}
+                  </div>
+                </div>
+              )}
+
               {/* ABAS ROSTER E HISTÓRICO */}
               <Tabs defaultValue="titulares" className="w-full">
                 <TabsList className="bg-secondary/40 border border-border/40">
@@ -1523,6 +1832,110 @@ export function EscalasPage() {
       </Dialog>
 
       {/* ============================================================================== */}
+      {/* MODAL 2.5: GARANTIR / MARCAR VAGA NA ESCALA                                    */}
+      {/* ============================================================================== */}
+      <Dialog open={claimSlotModalOpen} onOpenChange={setClaimSlotModalOpen}>
+        <DialogContent className="max-w-md surface-card border-emerald-500/40">
+          <DialogHeader>
+            <DialogTitle className="text-base font-bold text-foreground flex items-center gap-2 text-emerald-400">
+              <CheckCircle2 className="w-5 h-5 text-emerald-400" />
+              Garantir Minha Vaga na Ação
+            </DialogTitle>
+            <DialogDescription className="text-xs">
+              {claimSlotScale?.titulo} — {claimSlotScale?.local_posto}
+            </DialogDescription>
+          </DialogHeader>
+
+          {claimSlotScale && (
+            <div className="space-y-4 py-2 text-xs">
+              <div className="p-3 rounded-xl bg-secondary/30 border border-border/40 space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground font-semibold">Horário da Ação:</span>
+                  <span className="font-mono font-bold text-foreground">
+                    {new Date(claimSlotScale.data_hora).toLocaleTimeString("pt-BR", {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })}{" "}
+                    ({new Date(claimSlotScale.data_hora).toLocaleDateString("pt-BR")})
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground font-semibold">Vagas Titulares Livres:</span>
+                  <span className="font-mono font-bold text-emerald-400">
+                    {Math.max(0, (claimSlotScale.vagas_limite || 10) - (claimSlotScale.total_titulares || 0))} vagas
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground font-semibold">Vagas Reservas Livres:</span>
+                  <span className="font-mono font-bold text-sky-400">
+                    {Math.max(0, (claimSlotScale.vagas_reservas || 0) - (claimSlotScale.total_reservas || 0))} vagas
+                  </span>
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                  Sua Função / Posto Tático *
+                </Label>
+                <Select value={claimPostoFuncao} onValueChange={setClaimPostoFuncao}>
+                  <SelectTrigger className="h-10 text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {POSTOS_FUNCAO.map((p) => (
+                      <SelectItem key={p.value} value={p.value}>
+                        <div className="flex items-center gap-2">
+                          <p.icon className="w-3.5 h-3.5" />
+                          <span>{p.label}</span>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                  Tipo de Vaga Desejada *
+                </Label>
+                <Select value={claimTipoVaga} onValueChange={(v: any) => setClaimTipoVaga(v)}>
+                  <SelectTrigger className="h-10 text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="titular">
+                      Vaga Titular (Escalado Principal - se disponível)
+                    </SelectItem>
+                    <SelectItem value="reserva">
+                      Vaga Reserva (Suplente em Espera)
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          )}
+
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="outline" onClick={() => setClaimSlotModalOpen(false)}>
+              Cancelar
+            </Button>
+            <Button
+              className="bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold gap-1.5"
+              disabled={claimSlotMutation.isPending}
+              onClick={() => claimSlotMutation.mutate()}
+            >
+              {claimSlotMutation.isPending ? (
+                <RefreshCw className="w-4 h-4 animate-spin" />
+              ) : (
+                <Check className="w-4 h-4" />
+              )}
+              Confirmar Minha Vaga
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ============================================================================== */}
       {/* MODAL 3: ADICIONAR MEMBRO À ESCALA                                             */}
       {/* ============================================================================== */}
       <Dialog open={addMemberModalOpen} onOpenChange={setAddMemberModalOpen}>
@@ -1544,21 +1957,48 @@ export function EscalasPage() {
               </Label>
               <Select value={addSelectedMemberId} onValueChange={setAddSelectedMemberId}>
                 <SelectTrigger className="h-10 text-xs">
-                  <SelectValue placeholder="Selecione o membro..." />
+                  <SelectValue placeholder="Selecione o membro da facção..." />
                 </SelectTrigger>
-                <SelectContent className="max-h-64">
-                  {members.map((m) => (
-                    <SelectItem key={m.id} value={m.id}>
-                      <div className="flex items-center gap-2">
-                        <span>{m.nickname || m.nome}</span>
-                        {m.game_id && (
-                          <span className="text-[10px] text-muted-foreground font-mono">
-                            (ID: {m.game_id})
-                          </span>
-                        )}
-                      </div>
-                    </SelectItem>
-                  ))}
+                <SelectContent className="max-h-72">
+                  {members.map((m) => {
+                    const memberKey = m.id || m.user_id;
+                    const isAlreadyIn = (selectedScale?.membros || []).some(
+                      (sm) =>
+                        sm.member_id === memberKey ||
+                        sm.user_id === m.user_id ||
+                        (m.id && sm.member_id === m.id)
+                    );
+                    return (
+                      <SelectItem key={memberKey} value={memberKey} disabled={isAlreadyIn}>
+                        <div className="flex items-center justify-between w-full gap-2">
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium">{m.nickname || m.nome}</span>
+                            {m.game_id && (
+                              <span className="text-[10px] text-muted-foreground font-mono">
+                                (ID: {m.game_id})
+                              </span>
+                            )}
+                            {m.nivel && (
+                              <Badge
+                                variant="outline"
+                                className="text-[9px] py-0 px-1 border-border/50 text-muted-foreground capitalize"
+                              >
+                                {m.nivel}
+                              </Badge>
+                            )}
+                          </div>
+                          {isAlreadyIn && (
+                            <Badge
+                              variant="outline"
+                              className="text-[9px] py-0 px-1 border-rose-500/40 text-rose-400 bg-rose-500/10"
+                            >
+                              Já Escalado
+                            </Badge>
+                          )}
+                        </div>
+                      </SelectItem>
+                    );
+                  })}
                 </SelectContent>
               </Select>
             </div>
@@ -1648,21 +2088,43 @@ export function EscalasPage() {
                 <SelectTrigger className="h-10 text-xs">
                   <SelectValue placeholder="Selecione o substituto..." />
                 </SelectTrigger>
-                <SelectContent className="max-h-64">
+                <SelectContent className="max-h-72">
                   {members
-                    .filter((m) => m.id !== substituteTargetMember?.member_id)
-                    .map((m) => (
-                      <SelectItem key={m.id} value={m.id}>
-                        <div className="flex items-center gap-2">
-                          <span>{m.nickname || m.nome}</span>
-                          {m.game_id && (
-                            <span className="text-[10px] text-muted-foreground font-mono">
-                              (ID: {m.game_id})
-                            </span>
-                          )}
-                        </div>
-                      </SelectItem>
-                    ))}
+                    .filter((m) => {
+                      const memberKey = m.id || m.user_id;
+                      return (
+                        memberKey !== substituteTargetMember?.member_id &&
+                        m.user_id !== substituteTargetMember?.user_id &&
+                        !(selectedScale?.membros || []).some(
+                          (sm) =>
+                            (sm.member_id === memberKey || sm.user_id === m.user_id) &&
+                            sm.status_presenca !== "ausente"
+                        )
+                      );
+                    })
+                    .map((m) => {
+                      const memberKey = m.id || m.user_id;
+                      return (
+                        <SelectItem key={memberKey} value={memberKey}>
+                          <div className="flex items-center gap-2">
+                            <span>{m.nickname || m.nome}</span>
+                            {m.game_id && (
+                              <span className="text-[10px] text-muted-foreground font-mono">
+                                (ID: {m.game_id})
+                              </span>
+                            )}
+                            {m.nivel && (
+                              <Badge
+                                variant="outline"
+                                className="text-[9px] py-0 px-1 border-border/50 text-muted-foreground capitalize"
+                              >
+                                {m.nivel}
+                              </Badge>
+                            )}
+                          </div>
+                        </SelectItem>
+                      );
+                    })}
                 </SelectContent>
               </Select>
             </div>

@@ -27,6 +27,7 @@ export const DEFAULT_CEO_MENU_ITEMS: CeoMenuItemConfig[] = [
   { id: "ceo-webhooks", title: "WebHook Discord", url: "/ceo/webhooks", iconName: "Webhook", visible: true, category: "CEO", order: 2 },
   { id: "ceo-financas", title: "Fundo de Caixa & Finanças", url: "/ceo/financas", iconName: "Landmark", visible: true, category: "CEO", order: 3 },
   { id: "ceo-ajustes-estoque", title: "Ajustes de Estoque", url: "/ceo/ajustes-estoque", iconName: "Sliders", visible: true, category: "CEO", order: 4 },
+  { id: "ceo-escalas", title: "Escala de Ação", url: "/escalas", iconName: "Swords", visible: true, category: "CEO", order: 4.5 },
   { id: "ceo-notificacoes", title: "Central de Notificações", url: "/ceo/notificacoes", iconName: "BellRing", visible: true, category: "CEO", order: 5 },
   { id: "ceo-tags", title: "Gerenciar Tags", url: "/ceo/tags", iconName: "Tags", visible: true, category: "CEO", order: 6 },
   { id: "ceo-advertencias", title: "Advertências & Suspensões", url: "/ceo/advertencias", iconName: "ShieldAlert", visible: true, category: "CEO", order: 7 },

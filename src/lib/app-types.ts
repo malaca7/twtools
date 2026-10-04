@@ -333,6 +333,7 @@ export type UserPresence = {
 };
 
 export type Member = {
+  id?: string;
   user_id: string;
   nome: string;
   nickname: string | null;
@@ -625,6 +626,9 @@ export type ActionScale = {
   confirmados_reservas?: number;
   substituidos_count?: number;
   user_member_status?: ActionScaleMemberStatus | null;
+  user_tipo_vaga?: "titular" | "reserva" | null;
+  user_posto_funcao?: string | null;
+  user_reacao?: string | null;
   user_is_escalado?: boolean;
   membros?: ActionScaleMember[];
 };

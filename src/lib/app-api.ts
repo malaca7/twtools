@@ -740,7 +740,7 @@ export async function getMembers(): Promise<Member[]> {
   try {
     const [profilesRes, rolesRes, signupReqsRes] = await Promise.all([
       (supabase.from("profiles" as any))
-        .select("user_id, nome, nickname, telefone, game_id, status, data_entrada, created_at, discord_id, discord_username, discord_avatar_url, avatar_url, discord_email, is_developer, is_ceo, custom_theme, xp, gamification_level, stars_rating, stars_count, tw_coins")
+        .select("id, user_id, nome, nickname, telefone, game_id, status, data_entrada, created_at, discord_id, discord_username, discord_avatar_url, avatar_url, discord_email, is_developer, is_ceo, custom_theme, xp, gamification_level, stars_rating, stars_count, tw_coins")
         .order("created_at", { ascending: true }),
       supabase
         .from("user_roles")
@@ -778,6 +778,7 @@ export async function getMembers(): Promise<Member[]> {
       const roleNivel = rolesMap.get(d.user_id) || "novato";
 
       return {
+        id: d.id || d.user_id,
         user_id: d.user_id,
         nome: d.nome,
         nickname: d.nickname,
@@ -4571,22 +4572,40 @@ export async function removeActionScaleMember(scaleId: string, memberId: string,
 
 export async function confirmActionScalePresence(payload: {
   scaleId: string;
-  memberId: string;
+  memberId?: string | null;
   status: "confirmado" | "ausente" | "pendente";
   reacao?: string;
   justificativa?: string;
+  postoFuncao?: string;
+  tipoVaga?: "titular" | "reserva" | null;
   actorName: string;
 }): Promise<ActionScaleMember> {
   const { data, error } = await supabase.rpc("confirm_action_scale_presence", {
     p_scale_id: payload.scaleId,
-    p_member_id: payload.memberId,
+    p_member_id: payload.memberId || null,
     p_status_presenca: payload.status,
     p_reacao: payload.reacao || (payload.status === "confirmado" ? "👍" : "❌"),
     p_justificativa: payload.justificativa || "",
     p_actor_name: payload.actorName,
+    p_posto_funcao: payload.postoFuncao || "Operacional",
+    p_tipo_vaga: payload.tipoVaga || null,
   });
   if (error) throw error;
   return data as ActionScaleMember;
+}
+
+export async function leaveActionScale(payload: {
+  scaleId: string;
+  memberId?: string | null;
+  actorName: string;
+}): Promise<any> {
+  const { data, error } = await supabase.rpc("leave_action_scale", {
+    p_scale_id: payload.scaleId,
+    p_member_id: payload.memberId || null,
+    p_actor_name: payload.actorName,
+  });
+  if (error) throw error;
+  return data;
 }
 
 export async function substituteActionScaleMember(payload: {

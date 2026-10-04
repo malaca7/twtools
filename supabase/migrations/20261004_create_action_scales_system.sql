@@ -182,7 +182,10 @@ BEGIN
       'pendentes_titulares', coalesce(m.pendentes_titulares, 0),
       'confirmados_reservas', coalesce(m.confirmados_reservas, 0),
       'substituidos_count', coalesce(m.substituidos_count, 0),
-      'user_member_status', coalesce(u.status_presenca, NULL),
+      'user_member_status', u.status_presenca,
+      'user_tipo_vaga', u.tipo_vaga,
+      'user_posto_funcao', u.posto_funcao,
+      'user_reacao', u.reacao,
       'user_is_escalado', (u.member_id IS NOT NULL)
     ) ORDER BY s.data_hora ASC
   ), '[]'::jsonb) INTO v_result
@@ -200,12 +203,16 @@ BEGIN
     FROM public.action_scale_members
     GROUP BY scale_id
   ) m ON m.scale_id = s.id
-  LEFT JOIN (
-    SELECT scale_id, member_id, status_presenca
-    FROM public.action_scale_members
-    WHERE user_id = auth.uid() OR member_id IN (SELECT id FROM public.profiles WHERE user_id = auth.uid())
+  LEFT JOIN LATERAL (
+    SELECT asm.scale_id, asm.member_id, asm.status_presenca, asm.tipo_vaga, asm.posto_funcao, asm.reacao
+    FROM public.action_scale_members asm
+    WHERE asm.scale_id = s.id 
+      AND (
+        asm.user_id = auth.uid() 
+        OR asm.member_id IN (SELECT p.id FROM public.profiles p WHERE p.user_id = auth.uid())
+      )
     LIMIT 1
-  ) u ON u.scale_id = s.id
+  ) u ON true
   WHERE (p_status IS NULL OR s.status = p_status);
 
   RETURN v_result;
@@ -375,7 +382,7 @@ BEGIN
 END;
 $$;
 
--- 5. Adicionar Membro Escalado
+-- 5. Adicionar Membro Escalado (Busca flexível por id ou user_id)
 CREATE OR REPLACE FUNCTION public.add_action_scale_member(
   p_scale_id uuid,
   p_member_id uuid,
@@ -393,10 +400,11 @@ DECLARE
 BEGIN
   SELECT id, user_id, nome, nickname, avatar_url INTO v_prof 
   FROM public.profiles 
-  WHERE id = p_member_id;
+  WHERE id = p_member_id OR user_id = p_member_id
+  LIMIT 1;
 
   IF NOT FOUND THEN
-    RAISE EXCEPTION 'Perfil de membro não encontrado.';
+    RAISE EXCEPTION 'Perfil de membro não encontrado com ID: %', p_member_id;
   END IF;
 
   INSERT INTO public.action_scale_members (
@@ -458,10 +466,11 @@ DECLARE
 BEGIN
   SELECT coalesce(nickname, nome) INTO v_nome
   FROM public.action_scale_members
-  WHERE scale_id = p_scale_id AND member_id = p_member_id;
+  WHERE scale_id = p_scale_id AND (member_id = p_member_id OR user_id = p_member_id)
+  LIMIT 1;
 
   DELETE FROM public.action_scale_members
-  WHERE scale_id = p_scale_id AND member_id = p_member_id;
+  WHERE scale_id = p_scale_id AND (member_id = p_member_id OR user_id = p_member_id);
 
   INSERT INTO public.action_scale_history (
     scale_id, actor_id, actor_name, action_type, details
@@ -477,47 +486,227 @@ BEGIN
 END;
 $$;
 
--- 7. Confirmar Presença ou Ausência (Reação/Status)
+-- 7. Confirmar / Marcar Presença ou Vaga (Suporta Auto-Inscrição de Membros e Atualização de Status)
 CREATE OR REPLACE FUNCTION public.confirm_action_scale_presence(
   p_scale_id uuid,
-  p_member_id uuid,
-  p_status_presenca text,
-  p_reacao text,
-  p_justificativa text,
-  p_actor_name text
+  p_member_id uuid DEFAULT NULL,
+  p_status_presenca text DEFAULT 'confirmado',
+  p_reacao text DEFAULT NULL,
+  p_justificativa text DEFAULT NULL,
+  p_actor_name text DEFAULT NULL,
+  p_posto_funcao text DEFAULT 'Operacional',
+  p_tipo_vaga text DEFAULT NULL
 )
 RETURNS jsonb
 LANGUAGE plpgsql
 SECURITY DEFINER
 AS $$
 DECLARE
+  v_prof record;
+  v_scale record;
+  v_existing record;
   v_rec record;
+  v_counts record;
+  v_final_tipo_vaga text;
+  v_final_status text;
+  v_final_reacao text;
 BEGIN
-  UPDATE public.action_scale_members SET
-    status_presenca = p_status_presenca,
-    reacao = p_reacao,
-    justificativa_ausencia = p_justificativa,
-    confirmado_em = CASE WHEN p_status_presenca = 'confirmado' THEN timezone('utc'::text, now()) ELSE confirmado_em END,
-    atualizado_em = timezone('utc'::text, now())
-  WHERE scale_id = p_scale_id AND (member_id = p_member_id OR user_id = auth.uid())
-  RETURNING * INTO v_rec;
+  -- 1. Identificar o perfil
+  IF p_member_id IS NOT NULL THEN
+    SELECT id, user_id, nome, nickname, avatar_url INTO v_prof
+    FROM public.profiles
+    WHERE id = p_member_id OR user_id = p_member_id
+    LIMIT 1;
+  END IF;
 
-  INSERT INTO public.action_scale_history (
-    scale_id, actor_id, actor_name, action_type, details
-  ) VALUES (
-    p_scale_id,
-    auth.uid(),
-    p_actor_name,
-    'status_presenca',
-    coalesce(v_rec.nickname, v_rec.nome, p_actor_name) || ' definiu presença como ' || p_status_presenca || 
-    CASE WHEN p_justificativa IS NOT NULL AND length(trim(p_justificativa)) > 0 THEN ' (Motivo: ' || p_justificativa || ')' ELSE '' END
-  );
+  IF v_prof.id IS NULL AND auth.uid() IS NOT NULL THEN
+    SELECT id, user_id, nome, nickname, avatar_url INTO v_prof
+    FROM public.profiles
+    WHERE user_id = auth.uid()
+    LIMIT 1;
+  END IF;
 
-  RETURN to_jsonb(v_rec);
+  IF v_prof.id IS NULL THEN
+    RAISE EXCEPTION 'Perfil de membro não encontrado para registrar presença.';
+  END IF;
+
+  -- 2. Verificar se o membro já está na escala
+  SELECT * INTO v_existing
+  FROM public.action_scale_members
+  WHERE scale_id = p_scale_id AND (member_id = v_prof.id OR user_id = v_prof.user_id);
+
+  v_final_status := coalesce(p_status_presenca, 'confirmado');
+  v_final_reacao := coalesce(p_reacao, CASE WHEN v_final_status = 'confirmado' THEN '👍' WHEN v_final_status = 'ausente' THEN '❌' ELSE '⏳' END);
+
+  IF FOUND THEN
+    -- Atualizar membro existente
+    UPDATE public.action_scale_members SET
+      status_presenca = v_final_status,
+      reacao = v_final_reacao,
+      justificativa_ausencia = p_justificativa,
+      posto_funcao = coalesce(p_posto_funcao, action_scale_members.posto_funcao),
+      tipo_vaga = coalesce(p_tipo_vaga, action_scale_members.tipo_vaga),
+      confirmado_em = CASE WHEN v_final_status = 'confirmado' THEN coalesce(confirmado_em, timezone('utc'::text, now())) ELSE confirmado_em END,
+      atualizado_em = timezone('utc'::text, now())
+    WHERE id = v_existing.id
+    RETURNING * INTO v_rec;
+
+    INSERT INTO public.action_scale_history (
+      scale_id, actor_id, actor_name, action_type, details
+    ) VALUES (
+      p_scale_id,
+      auth.uid(),
+      coalesce(p_actor_name, v_prof.nickname, v_prof.nome, 'Membro'),
+      'status_presenca',
+      coalesce(v_rec.nickname, v_rec.nome, p_actor_name) || ' definiu presença como ' || v_final_status || 
+      CASE WHEN p_justificativa IS NOT NULL AND length(trim(p_justificativa)) > 0 THEN ' (Motivo: ' || p_justificativa || ')' ELSE '' END
+    );
+
+    RETURN to_jsonb(v_rec);
+  ELSE
+    -- Membro NÃO estava na escala: Inscrição / Marcação de Vaga na Ação!
+    SELECT * INTO v_scale FROM public.action_scales WHERE id = p_scale_id;
+    IF NOT FOUND THEN
+      RAISE EXCEPTION 'Escala de ação não encontrada.';
+    END IF;
+
+    IF v_scale.status NOT IN ('publicada', 'em_andamento', 'rascunho') THEN
+      RAISE EXCEPTION 'Esta escala não está disponível para confirmação de presença (Status: %).', v_scale.status;
+    END IF;
+
+    -- Contagem de vagas ocupadas
+    SELECT 
+      count(*) FILTER (WHERE tipo_vaga = 'titular' AND status_presenca != 'ausente') AS count_titulares,
+      count(*) FILTER (WHERE tipo_vaga = 'reserva' AND status_presenca != 'ausente') AS count_reservas
+    INTO v_counts
+    FROM public.action_scale_members
+    WHERE scale_id = p_scale_id;
+
+    -- Determinar se entra como titular ou reserva
+    IF p_tipo_vaga IS NOT NULL AND p_tipo_vaga IN ('titular', 'reserva') THEN
+      v_final_tipo_vaga := p_tipo_vaga;
+      IF v_final_tipo_vaga = 'titular' AND v_counts.count_titulares >= v_scale.vagas_limite THEN
+        IF v_counts.count_reservas < v_scale.vagas_reservas THEN
+          v_final_tipo_vaga := 'reserva';
+        ELSE
+          RAISE EXCEPTION 'Vagas esgotadas (titulares e reservas preenchidos).';
+        END IF;
+      ELSIF v_final_tipo_vaga = 'reserva' AND v_counts.count_reservas >= v_scale.vagas_reservas THEN
+        IF v_counts.count_titulares < v_scale.vagas_limite THEN
+          v_final_tipo_vaga := 'titular';
+        ELSE
+          RAISE EXCEPTION 'Vagas de reservas esgotadas.';
+        END IF;
+      END IF;
+    ELSE
+      IF v_counts.count_titulares < v_scale.vagas_limite THEN
+        v_final_tipo_vaga := 'titular';
+      ELSIF v_counts.count_reservas < v_scale.vagas_reservas THEN
+        v_final_tipo_vaga := 'reserva';
+      ELSE
+        RAISE EXCEPTION 'Todas as vagas (titulares e reservas) para esta ação já estão preenchidas.';
+      END IF;
+    END IF;
+
+    INSERT INTO public.action_scale_members (
+      scale_id,
+      member_id,
+      user_id,
+      nome,
+      nickname,
+      avatar_url,
+      posto_funcao,
+      tipo_vaga,
+      status_presenca,
+      reacao,
+      justificativa_ausencia,
+      confirmado_em,
+      adicionado_por
+    ) VALUES (
+      p_scale_id,
+      v_prof.id,
+      v_prof.user_id,
+      v_prof.nome,
+      v_prof.nickname,
+      v_prof.avatar_url,
+      coalesce(p_posto_funcao, 'Operacional'),
+      v_final_tipo_vaga,
+      v_final_status,
+      v_final_reacao,
+      p_justificativa,
+      CASE WHEN v_final_status = 'confirmado' THEN timezone('utc'::text, now()) ELSE NULL END,
+      auth.uid()
+    )
+    RETURNING * INTO v_rec;
+
+    INSERT INTO public.action_scale_history (
+      scale_id, actor_id, actor_name, action_type, details
+    ) VALUES (
+      p_scale_id,
+      auth.uid(),
+      coalesce(p_actor_name, v_prof.nickname, v_prof.nome, 'Membro'),
+      'inscricao_vaga',
+      coalesce(v_prof.nickname, v_prof.nome) || ' garantiu vaga como ' || v_rec.posto_funcao || ' (' || v_rec.tipo_vaga || ') - Status: ' || v_final_status
+    );
+
+    RETURN to_jsonb(v_rec);
+  END IF;
 END;
 $$;
 
--- 8. Substituição de Membro Ausente
+-- 8. Liberar Vaga / Sair da Escala Voluntariamente
+CREATE OR REPLACE FUNCTION public.leave_action_scale(
+  p_scale_id uuid,
+  p_member_id uuid DEFAULT NULL,
+  p_actor_name text DEFAULT NULL
+)
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+  v_prof record;
+  v_member_rec record;
+BEGIN
+  IF p_member_id IS NOT NULL THEN
+    SELECT id, user_id, nome, nickname INTO v_prof
+    FROM public.profiles
+    WHERE id = p_member_id OR user_id = p_member_id
+    LIMIT 1;
+  END IF;
+
+  IF v_prof.id IS NULL AND auth.uid() IS NOT NULL THEN
+    SELECT id, user_id, nome, nickname INTO v_prof
+    FROM public.profiles
+    WHERE user_id = auth.uid()
+    LIMIT 1;
+  END IF;
+
+  IF v_prof.id IS NULL THEN
+    RAISE EXCEPTION 'Perfil não encontrado.';
+  END IF;
+
+  DELETE FROM public.action_scale_members
+  WHERE scale_id = p_scale_id AND (member_id = v_prof.id OR user_id = v_prof.user_id)
+  RETURNING * INTO v_member_rec;
+
+  IF FOUND THEN
+    INSERT INTO public.action_scale_history (
+      scale_id, actor_id, actor_name, action_type, details
+    ) VALUES (
+      p_scale_id,
+      auth.uid(),
+      coalesce(p_actor_name, v_prof.nickname, v_prof.nome, 'Membro'),
+      'liberacao_vaga',
+      'Membro ' || coalesce(v_prof.nickname, v_prof.nome) || ' liberou sua vaga (' || v_member_rec.tipo_vaga || ') e saiu da escala.'
+    );
+  END IF;
+
+  RETURN jsonb_build_object('success', true, 'scale_id', p_scale_id);
+END;
+$$;
+
+-- 9. Substituição de Membro Ausente (Flexível)
 CREATE OR REPLACE FUNCTION public.substitute_action_scale_member(
   p_scale_id uuid,
   p_original_member_id uuid,
@@ -536,7 +725,7 @@ DECLARE
 BEGIN
   -- Dados do membro original
   SELECT * INTO v_orig FROM public.action_scale_members
-  WHERE scale_id = p_scale_id AND member_id = p_original_member_id;
+  WHERE scale_id = p_scale_id AND (member_id = p_original_member_id OR user_id = p_original_member_id);
 
   IF NOT FOUND THEN
     RAISE EXCEPTION 'Membro original não encontrado na escala.';
@@ -547,7 +736,8 @@ BEGIN
   -- Dados do substituto
   SELECT id, user_id, nome, nickname, avatar_url INTO v_sub
   FROM public.profiles
-  WHERE id = p_substituto_id;
+  WHERE id = p_substituto_id OR user_id = p_substituto_id
+  LIMIT 1;
 
   IF NOT FOUND THEN
     RAISE EXCEPTION 'Perfil do substituto não encontrado.';
@@ -560,7 +750,7 @@ BEGIN
     substituido_por_nome = coalesce(v_sub.nickname, v_sub.nome),
     substituicao_motivo = p_motivo,
     atualizado_em = timezone('utc'::text, now())
-  WHERE scale_id = p_scale_id AND member_id = p_original_member_id;
+  WHERE id = v_orig.id;
 
   -- Insere o substituto como titular ou reserva conforme o posto original
   INSERT INTO public.action_scale_members (
