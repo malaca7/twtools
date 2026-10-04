@@ -1704,12 +1704,7 @@ export function can(
       return true;
     }
 
-    // Fallback gracioso: se o cargo foi salvo no banco antes do módulo de tickets existir (aplica-se SOMENTE a tickets)
-    const hasAnySavedTicketPerm = list.some((p) => typeof p === "string" && p.includes("ticket"));
-    if (!hasAnySavedTicketPerm && permission.includes("ticket")) {
-      const defaultRolePerms = PERMISSIONS[userLevel] || [];
-      if (defaultRolePerms.includes(permission)) return true;
-    }
+    // Tickets são configuráveis na matriz de cargos: somente permissões marcadas são concedidas.
 
     // Equivalências e herança do sistema Life
     if (list.includes("manage_life")) {
@@ -2064,17 +2059,11 @@ export function can(
       return true;
     }
 
-    // Fallback gracioso: se o cargo foi salvo no banco antes das novas sub-permissões de ranking existirem
-    const hasAnyGamificationPerm = list.some((p) => typeof p === "string" && (p.includes("insignia") || p.includes("xp") || p === "view_rankings_xp" || p === "evaluate_member"));
-    if (!hasAnyGamificationPerm && (permission.includes("ranking") || permission.includes("insignia") || permission.includes("xp") || permission === "evaluate_member")) {
-      const defaultRolePerms = PERMISSIONS[userLevel] || [];
-      if (defaultRolePerms.includes(permission)) return true;
-    }
-
+    // Rankings/XP/Insígnias são configuráveis na matriz de cargos: somente permissões marcadas são concedidas.
     return false;
   }
 
-  if (userLevel === "desenvolvedor") return true;
+  // Sem registro salvo no banco para este cargo: usa a matriz padrão do código (inclusive para "desenvolvedor").
 
   const rolePerms = PERMISSIONS[userLevel] || [];
   if (rolePerms.includes(permission)) return true;

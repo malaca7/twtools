@@ -1863,6 +1863,9 @@ export function DevConfiguracaoContent({ defaultTab }: { defaultTab?: string } =
                                   durationMinutes: platformForm.maintenanceDurationMinutes || 30,
                                   severity: platformForm.maintenanceSeverity || "warning",
                                   authorName: profile?.nome || "Dev",
+                                  targetType: platformForm.maintenanceTargetType || "all",
+                                  targetRoles: platformForm.maintenanceTargetRoles || [],
+                                  targetTags: platformForm.maintenanceTargetTags || [],
                                 });
                                 toast.success("Manutenção iniciada com sucesso!");
                               }}

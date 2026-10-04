@@ -132,7 +132,6 @@ export function CeoGerenciarTagsPage() {
   const { isDevUser, hasPermission } = useAuth();
 
   const canViewTags = Boolean(
-    isDevUser ||
     hasPermission("view_ceo_tag_permissions") ||
     hasPermission("manage_ceo_tag_permissions") ||
     hasPermission("create_ceo_tag") ||
@@ -140,20 +139,18 @@ export function CeoGerenciarTagsPage() {
     hasPermission("delete_ceo_tag") ||
     hasPermission("assign_ceo_tag")
   );
-  const canCreateTag = Boolean(isDevUser || hasPermission("create_ceo_tag"));
-  const canEditTag = Boolean(isDevUser || hasPermission("edit_ceo_tag"));
-  const canDeleteTag = Boolean(isDevUser || hasPermission("delete_ceo_tag"));
+  const canCreateTag = Boolean(hasPermission("create_ceo_tag"));
+  const canEditTag = Boolean(hasPermission("edit_ceo_tag"));
+  const canDeleteTag = Boolean(hasPermission("delete_ceo_tag"));
   const canManagePerms = Boolean(
-    isDevUser ||
     hasPermission("manage_ceo_tag_permissions") ||
     hasPermission("manage_ceo_tag_permissions_detail")
   );
   const canManageRules = Boolean(
-    isDevUser ||
     hasPermission("manage_ceo_tag_permissions") ||
     hasPermission("manage_ceo_tag_rules")
   );
-  const canAssignTag = Boolean(isDevUser || hasPermission("assign_ceo_tag"));
+  const canAssignTag = Boolean(hasPermission("assign_ceo_tag"));
 
   const { data: tags = [], isLoading: loadingTags, refetch: refetchTags } = useMemberTags();
   const { data: assignments = [], isLoading: loadingAssignments, refetch: refetchAssignments } = useMemberTagAssignments();

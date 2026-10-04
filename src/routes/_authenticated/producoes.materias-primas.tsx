@@ -93,38 +93,26 @@ export function MateriasPrimasPage() {
 
   // Permissões
   const canView =
-    isDevMode ||
-    isCeoMode ||
     hasPermission("raw_materials.view") ||
     hasPermission("production_management.raw_materials") ||
     hasPermission("productions.view");
 
   const canCreate =
-    isDevMode ||
-    isCeoMode ||
     hasPermission("raw_materials.create") ||
     hasPermission("production_management.raw_materials");
 
   const canEdit =
-    isDevMode ||
-    isCeoMode ||
     hasPermission("raw_materials.edit") ||
     hasPermission("production_management.raw_materials");
 
   const canDelete =
-    isDevMode ||
-    isCeoMode ||
     hasPermission("raw_materials.delete");
 
   const canAdjust =
-    isDevMode ||
-    isCeoMode ||
     hasPermission("raw_materials.adjust") ||
     hasPermission("production_management.raw_materials");
 
   const canTransferBau =
-    isDevMode ||
-    isCeoMode ||
     hasPermission("raw_materials.transfer_bau") ||
     hasPermission("production_management.raw_materials");
 

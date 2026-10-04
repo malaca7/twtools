@@ -22,11 +22,6 @@ export function useManagementPendingActions() {
   const { level, isDevUser, hasPermission } = useAuth();
 
   const isManager = Boolean(
-    isDevUser ||
-      level === "desenvolvedor" ||
-      level === "01" ||
-      level === "02" ||
-      level === "gerente" ||
       hasPermission("approve_requests") ||
       hasPermission("manage_tickets") ||
       hasPermission("manage_absences") ||

@@ -161,12 +161,12 @@ export function DevShopManager() {
   const [refundReason, setRefundReason] = useState("");
 
   // Permissões
-  const canCreate = isDevUser || hasPermission("create_dev_shop_item");
-  const canEdit = isDevUser || hasPermission("edit_dev_shop_item");
-  const canDelete = isDevUser || hasPermission("delete_dev_shop_item");
-  const canManageOrders = isDevUser || hasPermission("manage_dev_shop_orders");
-  const canDeliver = isDevUser || hasPermission("deliver_dev_shop_order");
-  const canRefund = isDevUser || hasPermission("refund_dev_shop_order");
+  const canCreate = hasPermission("create_dev_shop_item");
+  const canEdit = hasPermission("edit_dev_shop_item");
+  const canDelete = hasPermission("delete_dev_shop_item");
+  const canManageOrders = hasPermission("manage_dev_shop_orders");
+  const canDeliver = hasPermission("deliver_dev_shop_order");
+  const canRefund = hasPermission("refund_dev_shop_order");
 
   // Queries
   const { data: shopItems = [], isLoading: isLoadingItems } = useQuery({

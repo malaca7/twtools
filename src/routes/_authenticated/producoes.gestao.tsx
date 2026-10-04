@@ -108,39 +108,19 @@ export function GestaoProducaoPage() {
   const prefix = isDevMode ? "/dev" : isCeoMode ? "/ceo" : "";
 
   const canAccess =
-    isDevMode ||
-    isCeoMode ||
-    isDevUser ||
-    isCeoUser ||
     hasPermission("production_management.view") ||
     hasPermission("view_production_management");
 
   const canManageProducts =
-    isDevMode ||
-    isCeoMode ||
-    isDevUser ||
-    isCeoUser ||
     hasPermission("production_management.products");
 
   const canManageMaterials =
-    isDevMode ||
-    isCeoMode ||
-    isDevUser ||
-    isCeoUser ||
     hasPermission("production_management.raw_materials");
 
   const canAuditProductions =
-    isDevMode ||
-    isCeoMode ||
-    isDevUser ||
-    isCeoUser ||
     hasPermission("production_management.productions");
 
   const canManageSettings =
-    isDevMode ||
-    isCeoMode ||
-    isDevUser ||
-    isCeoUser ||
     hasPermission("production_management.settings");
 
   const [activeTab, setActiveTab] = useState("dashboard");

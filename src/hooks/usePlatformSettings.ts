@@ -89,6 +89,9 @@ export type PlatformSettings = {
   maintenanceStartedAt: string; // ISO string
   maintenanceSeverity: "warning" | "destructive" | "info";
   maintenanceAllowDevAccess: boolean;
+  maintenanceTargetType?: "all" | "selected";
+  maintenanceTargetRoles?: string[];
+  maintenanceTargetTags?: string[];
   maintenanceHistory: MaintenanceHistoryItem[];
 
   systemStatusNotice?: string;
@@ -186,6 +189,9 @@ export const DEFAULT_PLATFORM_SETTINGS: PlatformSettings = {
   maintenanceStartedAt: "",
   maintenanceSeverity: "warning",
   maintenanceAllowDevAccess: true,
+  maintenanceTargetType: "all",
+  maintenanceTargetRoles: [],
+  maintenanceTargetTags: [],
   maintenanceHistory: [],
 
   systemStatusNotice: "",
@@ -327,6 +333,9 @@ export async function startPlatformMaintenance(params: {
   severity?: "warning" | "destructive" | "info";
   authorName?: string;
   allowDevAccess?: boolean;
+  targetType?: "all" | "selected";
+  targetRoles?: string[];
+  targetTags?: string[];
 }) {
   const current = getPlatformSettings();
   const now = new Date();
@@ -345,6 +354,9 @@ export async function startPlatformMaintenance(params: {
     maintenanceEstimatedEnd: estimatedEnd,
     maintenanceSeverity: params.severity || current.maintenanceSeverity || "warning",
     maintenanceAllowDevAccess: params.allowDevAccess ?? true,
+    maintenanceTargetType: params.targetType ?? current.maintenanceTargetType ?? "all",
+    maintenanceTargetRoles: params.targetRoles ?? current.maintenanceTargetRoles ?? [],
+    maintenanceTargetTags: params.targetTags ?? current.maintenanceTargetTags ?? [],
     // Sincroniza também o notice para retrocompatibilidade
     showSystemStatusNotice: true,
     systemStatusNotice: params.message || current.maintenanceMessage || "Sistema em manutenção programada.",

@@ -82,11 +82,11 @@ export function DevCoinsManager() {
   const [batchReason, setBatchReason] = useState<string>("");
 
   // Permissões
-  const canGrant = isDevUser || hasPermission("grant_dev_coins");
-  const canDeduct = isDevUser || hasPermission("deduct_dev_coins");
-  const canViewTransactions = isDevUser || hasPermission("view_dev_coins_transactions");
-  const canBatch = isDevUser || hasPermission("manage_dev_coins_batch");
-  const canManageConfig = isDevUser || hasPermission("grant_dev_coins") || hasPermission("manage_dev_coins_config");
+  const canGrant = hasPermission("grant_dev_coins");
+  const canDeduct = hasPermission("deduct_dev_coins");
+  const canViewTransactions = hasPermission("view_dev_coins_transactions");
+  const canBatch = hasPermission("manage_dev_coins_batch");
+  const canManageConfig = hasPermission("grant_dev_coins") || hasPermission("manage_dev_coins_config");
 
   // Query de Transações Globais
   const { data: transactions = [], isLoading: isLoadingTransactions } = useQuery({

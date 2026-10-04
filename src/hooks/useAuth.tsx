@@ -738,14 +738,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return Array.from(permsSet);
   }, [memberTags, isDevTagItem, isCeoTagItem]);
 
-  // Permissões específicas da TAG CEO
+  // Permissões específicas da TAG CEO (somente as marcadas em role_permissions["ceo"] + tags CEO ativas)
   const ceoTagPermissions = useMemo<Permission[]>(() => {
     const permsSet = new Set<Permission>();
     const rawCeoPerms = customRolePermissions?.["ceo"];
-    const ceoPerms =
-      Array.isArray(rawCeoPerms) && rawCeoPerms.length > 0
-        ? rawCeoPerms
-        : getCeoTagPermissionsSync();
+    // Se existe registro salvo no banco, ele é a fonte única da verdade (mesmo que vazio).
+    // Caso contrário (ainda carregando / nunca salvo), usa o cache local ou o padrão.
+    const ceoPerms = Array.isArray(rawCeoPerms) ? rawCeoPerms : getCeoTagPermissionsSync();
 
     for (const p of ceoPerms) {
       if (p) permsSet.add(p as Permission);
@@ -759,20 +758,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
       }
     }
-    if (permsSet.size === 0) {
-      DEFAULT_CEO_PERMISSIONS.forEach((p) => permsSet.add(p as Permission));
-    }
     return Array.from(permsSet);
   }, [memberTags, customRolePermissions, isCeoTagItem]);
 
-  // Permissões específicas da TAG DEV
+  // Permissões específicas da TAG DEV (somente as marcadas em role_permissions["desenvolvedor"] + tags DEV ativas)
   const devTagPermissions = useMemo<Permission[]>(() => {
     const permsSet = new Set<Permission>();
     const rawDevPerms = customRolePermissions?.["desenvolvedor"];
-    const devPerms =
-      Array.isArray(rawDevPerms) && rawDevPerms.length > 0
-        ? rawDevPerms
-        : getDevTagPermissionsSync();
+    const devPerms = Array.isArray(rawDevPerms) ? rawDevPerms : getDevTagPermissionsSync();
 
     for (const p of devPerms) {
       if (p) permsSet.add(p as Permission);
@@ -785,9 +778,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           if (p && typeof p === "string") permsSet.add(p as Permission);
         }
       }
-    }
-    if (permsSet.size === 0) {
-      ALL_PERMISSIONS.forEach((p) => permsSet.add(p as Permission));
     }
     return Array.from(permsSet);
   }, [memberTags, customRolePermissions, isDevTagItem]);
@@ -840,13 +830,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
     if (tagCeo) return true;
 
-    // 3. Concedido se o membro possui Tag Dev (acesso como dev com todas as permissões dev)
-    if (isDevUser) {
-      return true;
-    }
-
+    // Observação: possuir a Tag Dev NÃO torna o membro CEO automaticamente.
+    // O desenvolvedor só recebe permissões da Tag CEO se realmente possuir a Tag CEO.
     return false;
-  }, [profile, memberTags, isDevUser]);
+  }, [profile, memberTags]);
 
   // Permissões ativas agregadas
   const allTagPermissions = useMemo<Permission[]>(() => {
@@ -1115,82 +1102,44 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
       }
 
+      // Avaliação base de membro: SOMENTE permissões marcadas no cargo + tags do sistema
+      const evaluateAsMember = () =>
+        can(level, permission, customRolePermissions) ||
+        satisfiesPermission(systemTagPermissions, permission);
+
       // REGRA 1: NO PAINEL MEMBRO
+      // Apenas o cargo do membro e suas tags de sistema definem o acesso.
+      // Tag Dev / Tag CEO não concedem permissões extras aqui (exceto bypass Dev ativado explicitamente).
       if (activePanel === "member") {
-        // 1. Tag DEV: Concede acesso às ferramentas e páginas da plataforma
-        if (isDevUser) {
-          if (bypassActive) return true;
-          if (satisfiesPermission(devTagPermissions, permission)) return true;
-        }
-        // 2. Tag CEO: Concede acesso executivo às páginas e governança da plataforma
-        if (isCeoUser) {
-          if (satisfiesPermission(ceoTagPermissions, permission)) return true;
-        }
-        // 3. Cargo do membro
-        if (can(level, permission, customRolePermissions)) {
-          return true;
-        }
-        // 4. Tags do sistema
-        if (satisfiesPermission(systemTagPermissions, permission)) {
-          return true;
-        }
-        return false;
+        if (isDevUser && bypassActive) return true;
+        return evaluateAsMember();
       }
 
       // REGRA 2: NO PAINEL CEO
+      // Apenas as permissões marcadas para a Tag CEO definem o acesso.
       if (activePanel === "ceo") {
-        // 1. Desenvolvedor no Painel CEO
-        if (isDevUser) {
-          if (bypassActive) return true;
+        if (isDevUser && bypassActive) return true;
+        if (isCeoUser || isDevUser) {
           if (permission === "view_ceo") return true;
-          if (satisfiesPermission(ceoTagPermissions, permission) || satisfiesPermission(devTagPermissions, permission)) return true;
-          return false;
+          return satisfiesPermission(ceoTagPermissions, permission);
         }
-        // 2. Tag CEO (se o usuário for CEO, as permissões da TAG CEO determinam seu acesso no painel CEO)
-        if (isCeoUser) {
-          if (permission === "view_ceo") return true;
-          if (satisfiesPermission(ceoTagPermissions, permission)) return true;
-          return false;
-        }
-        // 3. Cargo do membro (para quem não tem tag CEO mas acessa com permissão delegada de cargo)
-        if (can(level, permission, customRolePermissions)) {
-          return true;
-        }
-        // 4. Tags do sistema
-        if (satisfiesPermission(systemTagPermissions, permission)) {
-          return true;
-        }
-        return false;
+        // Sem Tag CEO: permissão delegada via cargo/tags do sistema
+        return evaluateAsMember();
       }
 
       // REGRA 3: NO PAINEL DEV
+      // Apenas as permissões marcadas para a Tag Dev definem o acesso.
       if (activePanel === "dev") {
-        // 1. Tag DEV (se o usuário for Desenvolvedor, as permissões da TAG DEV determinam seu acesso no painel DEV)
         if (isDevUser) {
           if (bypassActive) return true;
           if (permission === "view_dev_hub" || permission === "view_dev") return true;
-          if (satisfiesPermission(devTagPermissions, permission)) return true;
-          // Se o desenvolvedor também possuir a TAG CEO, herda as permissões da TAG CEO no painel DEV
-          if (isCeoUser && satisfiesPermission(ceoTagPermissions, permission)) return true;
-          return false;
+          return satisfiesPermission(devTagPermissions, permission);
         }
-        // 2. Tag CEO acessando governança integrada
-        if (isCeoUser) {
-          if (satisfiesPermission(ceoTagPermissions, permission)) return true;
-        }
-        // 3. Cargo do membro
-        if (can(level, permission, customRolePermissions)) {
-          return true;
-        }
-        // 4. Tags do sistema
-        if (satisfiesPermission(systemTagPermissions, permission)) {
-          return true;
-        }
-        return false;
+        return evaluateAsMember();
       }
 
       // Fallback padrão: avalia o cargo do membro
-      return can(level, permission, customRolePermissions);
+      return evaluateAsMember();
     },
     [
       level,

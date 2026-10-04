@@ -184,17 +184,17 @@ function renderTypeIconHelper(type: NotificationType | string, className = "h-4 
 export function DevNotificationsManager() {
   const { user, profile, hasPermission, isDevUser } = useAuth();
 
-  const canManageRules = isDevUser || hasPermission("manage_dev_notification_rules");
-  const canCreate = isDevUser || hasPermission("create_dev_notification");
-  const canEdit = isDevUser || hasPermission("edit_dev_notification");
-  const canDelete = isDevUser || hasPermission("delete_dev_notification");
-  const canSimulate = isDevUser || hasPermission("simulate_dev_notification");
-  const canToggle = isDevUser || hasPermission("toggle_dev_notification_active");
-  const canPurge = isDevUser || hasPermission("purge_dev_notifications");
-  const canInspect = isDevUser || hasPermission("inspect_dev_notification_payload");
-  const canExport = isDevUser || hasPermission("export_dev_notifications");
-  const canManageSounds = isDevUser || hasPermission("manage_dev_notification_sounds");
-  const canEmergencyAlert = isDevUser || hasPermission("broadcast_dev_emergency_alert");
+  const canManageRules = hasPermission("manage_dev_notification_rules");
+  const canCreate = hasPermission("create_dev_notification");
+  const canEdit = hasPermission("edit_dev_notification");
+  const canDelete = hasPermission("delete_dev_notification");
+  const canSimulate = hasPermission("simulate_dev_notification");
+  const canToggle = hasPermission("toggle_dev_notification_active");
+  const canPurge = hasPermission("purge_dev_notifications");
+  const canInspect = hasPermission("inspect_dev_notification_payload");
+  const canExport = hasPermission("export_dev_notifications");
+  const canManageSounds = hasPermission("manage_dev_notification_sounds");
+  const canEmergencyAlert = hasPermission("broadcast_dev_emergency_alert");
 
   const [activeTab, setActiveTab] = useState<"matrix" | "manager" | "simulator" | "purge" | "telemetry">("matrix");
 

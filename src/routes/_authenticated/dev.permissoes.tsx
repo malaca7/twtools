@@ -210,7 +210,7 @@ function DevPermissoesContent() {
   const ceoInitialLoadedRef = useRef(false);
 
   // Estado das Permissões da Tag Dev
-  const [activeDevPermissions, setActiveDevPermissions] = useState<Permission[]>(ALL_PERMISSIONS);
+  const [activeDevPermissions, setActiveDevPermissions] = useState<Permission[]>([]);
   const [isDevSyncing, setIsDevSyncing] = useState(false);
   const [loadingDev, setLoadingDev] = useState(true);
 
@@ -279,12 +279,12 @@ function DevPermissoesContent() {
               keys.push(val as Permission);
             }
           });
-          setActiveDevPermissions(keys.length > 0 ? keys : ALL_PERMISSIONS);
+          setActiveDevPermissions(keys);
           devInitialLoadedRef.current = true;
         }
       })
       .catch(() => {
-        if (isMounted) setActiveDevPermissions(ALL_PERMISSIONS);
+        if (isMounted) setActiveDevPermissions([]);
       })
       .finally(() => {
         if (isMounted) setLoadingDev(false);
@@ -311,9 +311,9 @@ function DevPermissoesContent() {
     getCeoTagPermissions(user, profile, level)
       .then((perms) => {
         if (isMounted) {
-          if (Array.isArray(perms) && perms.length > 0 && (!dbPermissions || !dbPermissions["ceo"])) {
+          if (Array.isArray(perms) && (!dbPermissions || !dbPermissions["ceo"])) {
             const valid = perms.filter((p) => ALL_PERMISSIONS.includes(p as Permission)) as Permission[];
-            setActiveCeoPermissions(valid.length > 0 ? valid : (DEFAULT_CEO_PERMISSIONS as Permission[]));
+            setActiveCeoPermissions(valid);
           }
           ceoInitialLoadedRef.current = true;
         }

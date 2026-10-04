@@ -326,7 +326,8 @@ export async function getDevPermissions(
       } catch {}
     }
 
-    if (!error && data && Array.isArray(rawPerms) && rawPerms.length > 0) {
+    // Registro existente no banco é a fonte única da verdade (mesmo vazio = nenhuma permissão marcada)
+    if (!error && data && Array.isArray(rawPerms)) {
       const perms = rawPerms.map(String);
       if (typeof window !== "undefined") {
         localStorage.setItem(DEV_PERMS_KEY, JSON.stringify(perms));
@@ -361,7 +362,7 @@ export function getDevTagPermissionsSync(): string[] {
       const local = localStorage.getItem(DEV_PERMS_KEY);
       if (local) {
         const parsed = JSON.parse(local);
-        if (Array.isArray(parsed) && parsed.length > 0) {
+        if (Array.isArray(parsed)) {
           return parsed.map((item: any) => (typeof item === "string" ? item : item.id || item.name));
         }
       }
@@ -872,7 +873,7 @@ export async function getCeoTagPermissions(
       } catch {}
     }
 
-    if (!error && data && Array.isArray(rawPerms) && rawPerms.length > 0) {
+    if (!error && data && Array.isArray(rawPerms)) {
       const perms = rawPerms.map(String);
       if (typeof window !== "undefined") {
         localStorage.setItem(CEO_PERMS_KEY, JSON.stringify(perms));

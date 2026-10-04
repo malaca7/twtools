@@ -13,11 +13,11 @@ export function ProductionNavHeader({ currentTab, className }: ProductionNavHead
   const { hasPermission, isDevMode, isCeoMode } = useAuth();
   const prefix = isDevMode ? "/dev" : isCeoMode ? "/ceo" : "";
 
-  const canViewProduzir = isDevMode || hasPermission("productions.view") || hasPermission("productions.create") || hasPermission("view_productions");
-  const canViewMateriasPrimas = isDevMode || hasPermission("raw_materials.view") || hasPermission("production_management.raw_materials") || hasPermission("productions.view");
-  const canViewArmazem = isDevMode || hasPermission("warehouse.view") || hasPermission("warehouse.transfer") || hasPermission("view_warehouse");
-  const canViewGestao = isDevMode || hasPermission("production_management.view") || hasPermission("view_production_management");
-  const canViewVendas = isDevMode || hasPermission("view_sales") || hasPermission("sales.view");
+  const canViewProduzir = hasPermission("productions.view") || hasPermission("productions.create") || hasPermission("view_productions");
+  const canViewMateriasPrimas = hasPermission("raw_materials.view") || hasPermission("production_management.raw_materials") || hasPermission("productions.view");
+  const canViewArmazem = hasPermission("warehouse.view") || hasPermission("warehouse.transfer") || hasPermission("view_warehouse");
+  const canViewGestao = hasPermission("production_management.view") || hasPermission("view_production_management");
+  const canViewVendas = hasPermission("view_sales") || hasPermission("sales.view");
 
   const items = [
     {
