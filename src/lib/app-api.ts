@@ -4497,6 +4497,8 @@ export async function saveActionScale(payload: {
   vagas_limite?: number;
   vagas_reservas?: number;
   status?: string;
+  gerenteId?: string | null;
+  gerenteNome?: string | null;
   actor_name: string;
   metadata?: Record<string, any>;
 }): Promise<ActionScale> {
@@ -4513,6 +4515,8 @@ export async function saveActionScale(payload: {
     p_status: payload.status || "rascunho",
     p_actor_name: payload.actor_name,
     p_metadata: payload.metadata || {},
+    p_gerente_id: payload.gerenteId || null,
+    p_gerente_nome: payload.gerenteNome || null,
   });
 
   if (error) throw error;
@@ -4624,5 +4628,23 @@ export async function substituteActionScaleMember(payload: {
   });
   if (error) throw error;
   return data;
+}
+
+export async function reviewActionScaleMember(payload: {
+  scaleId: string;
+  memberId: string;
+  statusAprovacao: "aprovado" | "reprovado" | "pendente";
+  motivo?: string;
+  actorName: string;
+}): Promise<ActionScaleMember> {
+  const { data, error } = await supabase.rpc("review_action_scale_member", {
+    p_scale_id: payload.scaleId,
+    p_member_id: payload.memberId,
+    p_status_aprovacao: payload.statusAprovacao,
+    p_motivo: payload.motivo || null,
+    p_actor_name: payload.actorName,
+  });
+  if (error) throw error;
+  return data as ActionScaleMember;
 }
 

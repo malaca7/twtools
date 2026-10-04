@@ -42,6 +42,8 @@ import {
   BadgeAlert,
   CalendarCheck,
   DoorOpen,
+  ThumbsUp,
+  ThumbsDown,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -62,8 +64,9 @@ import {
   confirmActionScalePresence,
   leaveActionScale,
   substituteActionScaleMember,
+  reviewActionScaleMember,
 } from "@/lib/app-api";
-import type { ActionScale, ActionScaleMember, ActionScaleStatus } from "@/lib/app-types";
+import type { ActionScale, ActionScaleMember, ActionScaleStatus, ActionScaleApprovalStatus } from "@/lib/app-types";
 import { PageHeader, NoAccess, EmptyState } from "@/components/ui-kit";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -140,6 +143,17 @@ export function EscalasPage() {
   const myMemberId = profile?.id || profile?.user_id || user?.id;
   const actorName = profile?.nickname || profile?.nome || user?.email || "Operador";
 
+  // Verificar se o usuário atual é Gerente desta escala (ou liderança/admin)
+  const isScaleManager = useCallback((scale?: ActionScale | null) => {
+    if (!scale) return false;
+    if (isPrivileged || canManageMembers) return true;
+    const myPId = profile?.id;
+    const myUId = profile?.user_id || user?.id;
+    if (scale.gerente_id && (scale.gerente_id === myPId || scale.gerente_id === myUId)) return true;
+    if (scale.criado_por && (scale.criado_por === myUId || scale.criado_por === myPId)) return true;
+    return false;
+  }, [isPrivileged, canManageMembers, profile, user]);
+
   // Consultas
   const { data: scales = [], isLoading } = useActionScales();
   const { data: members = [] } = useMembers();
@@ -165,6 +179,10 @@ export function EscalasPage() {
   const [addMemberModalOpen, setAddMemberModalOpen] = useState(false);
   const [substituteModalOpen, setSubstituteModalOpen] = useState(false);
   const [substituteTargetMember, setSubstituteTargetMember] = useState<ActionScaleMember | null>(null);
+
+  const [reproveModalOpen, setReproveModalOpen] = useState(false);
+  const [reproveTargetMember, setReproveTargetMember] = useState<ActionScaleMember | null>(null);
+  const [reproveMotivo, setReproveMotivo] = useState("");
 
   const [absenceModalOpen, setAbsenceModalOpen] = useState(false);
   const [absenceTargetScaleId, setAbsenceTargetScaleId] = useState<string | null>(null);
@@ -220,6 +238,7 @@ export function EscalasPage() {
   const [formLocalPosto, setFormLocalPosto] = useState("");
   const [formVagasLimite, setFormVagasLimite] = useState("10");
   const [formVagasReservas, setFormVagasReservas] = useState("2");
+  const [formGerenteId, setFormGerenteId] = useState<string>("");
   const [formDescricao, setFormDescricao] = useState("");
   const [formStatus, setFormStatus] = useState<ActionScaleStatus>("publicada");
 
@@ -262,6 +281,7 @@ export function EscalasPage() {
     setFormLocalPosto("");
     setFormVagasLimite("10");
     setFormVagasReservas("2");
+    setFormGerenteId(profile?.id || "");
     setFormDescricao("");
     setFormStatus("publicada");
     setCreateModalOpen(true);
@@ -279,6 +299,7 @@ export function EscalasPage() {
     setFormLocalPosto(scale.local_posto);
     setFormVagasLimite(String(scale.vagas_limite || 10));
     setFormVagasReservas(String(scale.vagas_reservas || 2));
+    setFormGerenteId(scale.gerente_id || "none");
     setFormDescricao(scale.descricao || "");
     setFormStatus(scale.status);
     setCreateModalOpen(true);
@@ -291,6 +312,10 @@ export function EscalasPage() {
       if (!formLocalPosto.trim()) throw new Error("Informe o local ou posto de encontro.");
       if (!formDataHora) throw new Error("Informe a data e horário da ação.");
 
+      const targetGerente = formGerenteId && formGerenteId !== "none"
+        ? members.find((m) => m.id === formGerenteId || m.user_id === formGerenteId)
+        : null;
+
       return await saveActionScale({
         id: editScaleData?.id || null,
         titulo: formTitulo.trim(),
@@ -302,6 +327,8 @@ export function EscalasPage() {
         vagas_limite: parseInt(formVagasLimite, 10) || 10,
         vagas_reservas: parseInt(formVagasReservas, 10) || 0,
         status: formStatus,
+        gerenteId: targetGerente ? (targetGerente.id || targetGerente.user_id) : null,
+        gerenteNome: targetGerente ? (targetGerente.nickname || targetGerente.nome) : null,
         actor_name: actorName,
       });
     },
@@ -533,6 +560,47 @@ export function EscalasPage() {
     },
     onError: (err: any) => {
       toast.error(err?.message || "Erro ao realizar substituição.");
+    },
+  });
+
+  // Avaliar / Aprovar / Reprovar Membro (Gerente da Escala ou Comando)
+  const reviewMemberMutation = useMutation({
+    mutationFn: async ({
+      scaleId,
+      memberId,
+      statusAprovacao,
+      motivo,
+    }: {
+      scaleId: string;
+      memberId: string;
+      statusAprovacao: "aprovado" | "reprovado";
+      motivo?: string;
+    }) => {
+      return await reviewActionScaleMember({
+        scaleId,
+        memberId,
+        statusAprovacao,
+        motivo,
+        actorName,
+      });
+    },
+    onSuccess: (_, vars) => {
+      if (vars.statusAprovacao === "aprovado") {
+        toast.success("Membro APROVADO na ação com sucesso!", { icon: "✅" });
+      } else {
+        toast.info("Membro REPROVADO na ação.", { icon: "❌" });
+        setReproveModalOpen(false);
+        setReproveTargetMember(null);
+        setReproveMotivo("");
+      }
+      void queryClient.invalidateQueries({ queryKey: ["action_scales"] });
+      if (selectedScaleId) {
+        void queryClient.invalidateQueries({ queryKey: ["action_scale", selectedScaleId] });
+        void queryClient.invalidateQueries({ queryKey: ["action_scale_history", selectedScaleId] });
+      }
+    },
+    onError: (err: any) => {
+      toast.error(err?.message || "Erro ao registrar avaliação do membro.");
     },
   });
 
@@ -855,6 +923,18 @@ export function EscalasPage() {
                       {scale.titulo}
                     </CardTitle>
 
+                    {/* GERENTE DA ESCALA */}
+                    <div className="flex items-center gap-1.5 text-[11px] text-amber-300 font-semibold bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 rounded-lg w-fit mt-1">
+                      <Crown className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                      <span className="text-muted-foreground font-normal">Gerente:</span>
+                      <span className="truncate">{scale.gerente_nome || "Não Definido"}</span>
+                      {isScaleManager(scale) && (
+                        <span className="text-[9px] text-emerald-400 font-mono font-bold bg-emerald-500/20 px-1 rounded ml-1">
+                          Você
+                        </span>
+                      )}
+                    </div>
+
                     {scale.descricao && (
                       <CardDescription className="text-xs line-clamp-2 pt-0.5">
                         {scale.descricao}
@@ -863,6 +943,27 @@ export function EscalasPage() {
                   </CardHeader>
 
                   <CardContent className="space-y-4 pt-4 flex-1">
+                    {/* ALERTA DE PENDÊNCIA DE APROVAÇÃO (VISÍVEL PARA GERENTE / COMANDO) */}
+                    {isScaleManager(scale) && (scale.pendentes_aprovacao_count || 0) > 0 && (
+                      <div
+                        className="flex items-center justify-between text-xs px-2.5 py-1.5 rounded-lg bg-amber-500/15 border border-amber-500/35 text-amber-300 font-bold animate-pulse cursor-pointer hover:bg-amber-500/25 transition-colors"
+                        onClick={() => {
+                          setSelectedScaleId(scale.id);
+                          setDetailsModalOpen(true);
+                        }}
+                      >
+                        <span className="flex items-center gap-1.5">
+                          <ShieldAlert className="w-4 h-4 text-amber-400 shrink-0" />
+                          <span>
+                            {scale.pendentes_aprovacao_count} {scale.pendentes_aprovacao_count === 1 ? "membro aguardando" : "membros aguardando"} aprovação
+                          </span>
+                        </span>
+                        <span className="text-[10px] uppercase font-mono underline">
+                          Avaliar
+                        </span>
+                      </div>
+                    )}
+
                     {/* DATA, HORÁRIO E LOCAL */}
                     <div className="grid grid-cols-2 gap-2 text-xs">
                       <div className="flex items-center gap-2 p-2 rounded-lg bg-secondary/30 border border-border/40">
@@ -985,6 +1086,49 @@ export function EscalasPage() {
                               : "Pendente ⏳"}
                           </Badge>
                         </div>
+
+                        {/* Status de Aprovação do Gerente */}
+                        <div className="flex items-center justify-between text-xs pt-0.5">
+                          <span className="text-[11px] text-muted-foreground font-medium">Status de Aprovação:</span>
+                          <Badge
+                            variant="outline"
+                            className={cn(
+                              "text-[10px] font-mono py-0 font-bold",
+                              scale.user_status_aprovacao === "aprovado"
+                                ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/40"
+                                : scale.user_status_aprovacao === "reprovado"
+                                ? "bg-rose-500/20 text-rose-300 border-rose-500/40"
+                                : "bg-amber-500/20 text-amber-300 border-amber-500/40 animate-pulse"
+                            )}
+                          >
+                            {scale.user_status_aprovacao === "aprovado"
+                              ? "Aprovado pelo Gerente ✅"
+                              : scale.user_status_aprovacao === "reprovado"
+                              ? "Reprovado pelo Gerente ❌"
+                              : "Aguardando Aprovação ⏳"}
+                          </Badge>
+                        </div>
+
+                        {scale.user_status_aprovacao === "pendente" && (
+                          <div className="text-[11px] text-amber-300/90 bg-amber-500/10 border border-amber-500/25 p-2 rounded-lg flex items-center gap-1.5">
+                            <Clock className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                            <span>
+                              Sua vaga foi solicitada e aguarda validação do Gerente da Escala ({scale.gerente_nome || "Comando"}).
+                            </span>
+                          </div>
+                        )}
+
+                        {scale.user_status_aprovacao === "reprovado" && (
+                          <div className="text-[11px] text-rose-300/90 bg-rose-500/10 border border-rose-500/25 p-2 rounded-lg flex items-start gap-1.5">
+                            <XCircle className="w-3.5 h-3.5 text-rose-400 shrink-0 mt-0.5" />
+                            <div>
+                              <span>Sua participação nesta ação foi <strong>reprovada</strong> pelo Gerente da Escala.</span>
+                              {scale.user_motivo_reprovacao && (
+                                <p className="text-[10px] text-rose-400 italic pt-0.5">Motivo: {scale.user_motivo_reprovacao}</p>
+                              )}
+                            </div>
+                          </div>
+                        )}
 
                         {canConfirmPresence && scale.status !== "cancelada" && scale.status !== "concluida" && (
                           <div className="grid grid-cols-3 gap-1.5 pt-1">
@@ -1268,6 +1412,49 @@ export function EscalasPage() {
               </div>
 
               <div className="space-y-1.5 sm:col-span-2">
+                <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                  <Crown className="w-4 h-4 text-amber-400" />
+                  Gerente / Líder da Escala (Responsável por Aprovar / Reprovar Membros)
+                </Label>
+                <Select value={formGerenteId} onValueChange={setFormGerenteId}>
+                  <SelectTrigger className="h-10 text-xs">
+                    <SelectValue placeholder="Selecione o gerente da escala..." />
+                  </SelectTrigger>
+                  <SelectContent className="max-h-72">
+                    <SelectItem value="none">
+                      Nenhum gerente designado (Somente Comando / Liderança)
+                    </SelectItem>
+                    {members.map((m) => {
+                      const memberKey = m.id || m.user_id;
+                      return (
+                        <SelectItem key={memberKey} value={memberKey}>
+                          <div className="flex items-center gap-2">
+                            <span className="font-semibold">{m.nickname || m.nome}</span>
+                            {m.game_id && (
+                              <span className="text-[10px] text-muted-foreground font-mono">
+                                (ID: {m.game_id})
+                              </span>
+                            )}
+                            {m.cargo && (
+                              <Badge
+                                variant="outline"
+                                className="text-[9px] py-0 px-1 border-border/50 text-muted-foreground"
+                              >
+                                {m.cargo}
+                              </Badge>
+                            )}
+                          </div>
+                        </SelectItem>
+                      );
+                    })}
+                  </SelectContent>
+                </Select>
+                <p className="text-[11px] text-muted-foreground">
+                  O Gerente designado terá autoridade tática direta nesta operação para aprovar ou reprovar a inscrição e presença dos membros na ação.
+                </p>
+              </div>
+
+              <div className="space-y-1.5 sm:col-span-2">
                 <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
                   Status da Escala
                 </Label>
@@ -1379,7 +1566,20 @@ export function EscalasPage() {
               </DialogHeader>
 
               {/* DADOS LOGÍSTICOS DA AÇÃO */}
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3 text-xs">
+                <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 space-y-1">
+                  <span className="text-[10px] uppercase font-bold text-amber-300 flex items-center gap-1 block">
+                    <Crown className="w-3.5 h-3.5 text-amber-400" />
+                    Gerente da Escala
+                  </span>
+                  <span className="font-bold text-foreground truncate text-sm block">
+                    {selectedScale.gerente_nome || "Não Definido"}
+                  </span>
+                  <span className="text-[11px] text-muted-foreground">
+                    {isScaleManager(selectedScale) ? "👑 Você é o Gerente" : "Líder da Ação"}
+                  </span>
+                </div>
+
                 <div className="p-3 rounded-xl bg-secondary/30 border border-border/40 space-y-1">
                   <span className="text-[10px] uppercase font-bold text-muted-foreground block">
                     Horário da Ação
@@ -1425,7 +1625,7 @@ export function EscalasPage() {
                     Quadro de Vagas
                   </span>
                   <span className="font-bold text-rose-400 font-mono text-sm block">
-                    {(selectedScale.membros || []).filter((m) => m.tipo_vaga === "titular").length} /{" "}
+                    {(selectedScale.membros || []).filter((m) => m.tipo_vaga === "titular" && m.status_aprovacao !== "reprovado").length} /{" "}
                     {selectedScale.vagas_limite}
                   </span>
                   <span className="text-[11px] text-muted-foreground">
@@ -1433,6 +1633,25 @@ export function EscalasPage() {
                   </span>
                 </div>
               </div>
+
+              {/* ALERTA DE MEMBROS AGUARDANDO AVALIAÇÃO DO GERENTE DA ESCALA */}
+              {(selectedScale.membros || []).filter((m) => m.status_aprovacao === "pendente").length > 0 && (
+                <div className="p-4 rounded-xl bg-amber-500/15 border border-amber-500/35 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+                  <div className="flex items-center gap-2.5">
+                    <ShieldAlert className="w-5 h-5 text-amber-400 shrink-0 animate-pulse" />
+                    <div>
+                      <span className="font-extrabold text-amber-300 block text-sm">
+                        {(selectedScale.membros || []).filter((m) => m.status_aprovacao === "pendente").length} operador(es) aguardando aprovação na ação!
+                      </span>
+                      <span className="text-muted-foreground text-[11px]">
+                        {isScaleManager(selectedScale)
+                          ? "Você é o Gerente responsável. Utilize os botões [Aprovar] ou [Reprovar] no roster abaixo para validar a equipe."
+                          : `As inscrições aguardam avaliação pelo Gerente da Escala (${selectedScale.gerente_nome || "Comando"}).`}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* INSTRUÇÕES TÁTICAS */}
               {selectedScale.descricao && (
@@ -1458,7 +1677,7 @@ export function EscalasPage() {
                   )}
                 >
                   <div className="space-y-1">
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
                       <span className="font-extrabold text-foreground flex items-center gap-1.5 text-sm">
                         {selectedUserMember ? (
                           <>
@@ -1473,25 +1692,58 @@ export function EscalasPage() {
                         )}
                       </span>
                       {selectedUserMember && (
-                        <Badge
-                          variant="outline"
-                          className={cn(
-                            "text-[10px] font-mono py-0 font-bold",
-                            selectedUserMember.status_presenca === "confirmado"
-                              ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/40"
+                        <>
+                          <Badge
+                            variant="outline"
+                            className={cn(
+                              "text-[10px] font-mono py-0 font-bold",
+                              selectedUserMember.status_presenca === "confirmado"
+                                ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/40"
+                                : selectedUserMember.status_presenca === "ausente"
+                                ? "bg-rose-500/20 text-rose-300 border-rose-500/40"
+                                : "bg-amber-500/20 text-amber-300 border-amber-500/40"
+                            )}
+                          >
+                            {selectedUserMember.status_presenca === "confirmado"
+                              ? "Confirmado ✅"
                               : selectedUserMember.status_presenca === "ausente"
-                              ? "bg-rose-500/20 text-rose-300 border-rose-500/40"
-                              : "bg-amber-500/20 text-amber-300 border-amber-500/40"
-                          )}
-                        >
-                          {selectedUserMember.status_presenca === "confirmado"
-                            ? "Confirmado ✅"
-                            : selectedUserMember.status_presenca === "ausente"
-                            ? "Ausente ❌"
-                            : "Pendente ⏳"}
-                        </Badge>
+                              ? "Ausente ❌"
+                              : "Pendente ⏳"}
+                          </Badge>
+
+                          <Badge
+                            variant="outline"
+                            className={cn(
+                              "text-[10px] font-mono py-0 font-bold",
+                              selectedUserMember.status_aprovacao === "aprovado"
+                                ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/40"
+                                : selectedUserMember.status_aprovacao === "reprovado"
+                                ? "bg-rose-500/20 text-rose-300 border-rose-500/40"
+                                : "bg-amber-500/20 text-amber-300 border-amber-500/40 animate-pulse"
+                            )}
+                          >
+                            {selectedUserMember.status_aprovacao === "aprovado"
+                              ? "Aprovado pelo Gerente ✅"
+                              : selectedUserMember.status_aprovacao === "reprovado"
+                              ? "Reprovado pelo Gerente ❌"
+                              : "Aguardando Aprovação ⏳"}
+                          </Badge>
+                        </>
                       )}
                     </div>
+
+                    {selectedUserMember?.status_aprovacao === "pendente" && (
+                      <p className="text-[11px] text-amber-300/90 font-medium">
+                        ⏳ Sua inscrição foi registrada e aguarda aprovação do Gerente da Escala ({selectedScale.gerente_nome || "Comando"}).
+                      </p>
+                    )}
+
+                    {selectedUserMember?.status_aprovacao === "reprovado" && (
+                      <p className="text-[11px] text-rose-300/90 font-medium">
+                        ❌ Sua participação nesta ação foi reprovada pelo Gerente da Escala.
+                        {selectedUserMember.motivo_reprovacao && ` Motivo: ${selectedUserMember.motivo_reprovacao}`}
+                      </p>
+                    )}
                     <p className="text-muted-foreground text-xs">
                       {selectedUserMember ? (
                         <>
@@ -1638,13 +1890,14 @@ export function EscalasPage() {
                                   <span>{member.nickname || member.nome}</span>
                                   {member.reacao && <span>{member.reacao}</span>}
                                 </div>
-                                <div className="flex items-center gap-1.5 text-[10px]">
+                                <div className="flex items-center gap-1.5 flex-wrap text-[10px]">
                                   <Badge
                                     variant="outline"
                                     className="text-[9px] py-0 px-1 border-rose-500/30 text-rose-400"
                                   >
                                     {member.posto_funcao}
                                   </Badge>
+
                                   <span
                                     className={cn(
                                       "font-medium",
@@ -1665,10 +1918,35 @@ export function EscalasPage() {
                                       ? "Substituído"
                                       : "Pendente"}
                                   </span>
+
+                                  <Badge
+                                    variant="outline"
+                                    className={cn(
+                                      "text-[9px] py-0 px-1 font-mono uppercase font-bold",
+                                      member.status_aprovacao === "aprovado"
+                                        ? "bg-emerald-500/15 text-emerald-300 border-emerald-500/30"
+                                        : member.status_aprovacao === "reprovado"
+                                        ? "bg-rose-500/15 text-rose-300 border-rose-500/30"
+                                        : "bg-amber-500/15 text-amber-300 border-amber-500/30 animate-pulse"
+                                    )}
+                                  >
+                                    {member.status_aprovacao === "aprovado"
+                                      ? "Aprovado ✅"
+                                      : member.status_aprovacao === "reprovado"
+                                      ? "Reprovado ❌"
+                                      : "Aguardando Avaliação ⏳"}
+                                  </Badge>
                                 </div>
+
+                                {member.status_aprovacao === "reprovado" && member.motivo_reprovacao && (
+                                  <p className="text-[10px] text-rose-400 italic truncate max-w-[220px]">
+                                    Motivo: {member.motivo_reprovacao}
+                                  </p>
+                                )}
+
                                 {member.justificativa_ausencia && (
-                                  <p className="text-[10px] text-rose-400 italic truncate max-w-[200px]">
-                                    Motivo: {member.justificativa_ausencia}
+                                  <p className="text-[10px] text-rose-400 italic truncate max-w-[220px]">
+                                    Ausência: {member.justificativa_ausencia}
                                   </p>
                                 )}
                               </div>
@@ -1676,6 +1954,47 @@ export function EscalasPage() {
 
                             {/* Botões do Membro */}
                             <div className="flex items-center gap-1 shrink-0">
+                              {/* Ações de Aprovação do Gerente da Escala */}
+                              {isScaleManager(selectedScale) && selectedScale.status !== "cancelada" && (
+                                <>
+                                  {member.status_aprovacao !== "aprovado" && (
+                                    <Button
+                                      size="sm"
+                                      className="h-7 text-[10px] bg-emerald-600 hover:bg-emerald-700 text-white font-bold gap-1 px-2 cursor-pointer shadow-sm"
+                                      title="Aprovar operador na ação"
+                                      disabled={reviewMemberMutation.isPending}
+                                      onClick={() =>
+                                        reviewMemberMutation.mutate({
+                                          scaleId: selectedScale.id,
+                                          memberId: member.member_id,
+                                          statusAprovacao: "aprovado",
+                                        })
+                                      }
+                                    >
+                                      <Check className="w-3 h-3" />
+                                      Aprovar
+                                    </Button>
+                                  )}
+
+                                  {member.status_aprovacao !== "reprovado" && (
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      className="h-7 text-[10px] border-rose-500/40 text-rose-300 hover:bg-rose-500/10 font-bold gap-1 px-2 cursor-pointer"
+                                      title="Reprovar operador na ação"
+                                      onClick={() => {
+                                        setReproveTargetMember(member);
+                                        setReproveMotivo("");
+                                        setReproveModalOpen(true);
+                                      }}
+                                    >
+                                      <X className="w-3 h-3" />
+                                      Reprovar
+                                    </Button>
+                                  )}
+                                </>
+                              )}
+
                               {canSubstitute && member.status_presenca === "ausente" && (
                                 <Button
                                   size="sm"
@@ -1753,37 +2072,104 @@ export function EscalasPage() {
                                     Reserva
                                   </Badge>
                                 </div>
-                                <div className="flex items-center gap-1.5 text-[10px]">
+                                <div className="flex items-center gap-1.5 flex-wrap text-[10px]">
                                   <span className="text-muted-foreground">{member.posto_funcao}</span>
                                   <span>•</span>
                                   <span
                                     className={
                                       member.status_presenca === "confirmado"
-                                        ? "text-emerald-400"
-                                        : "text-amber-400"
+                                        ? "text-emerald-400 font-medium"
+                                        : "text-amber-400 font-medium"
                                     }
                                   >
                                     {member.status_presenca}
                                   </span>
+
+                                  <Badge
+                                    variant="outline"
+                                    className={cn(
+                                      "text-[9px] py-0 px-1 font-mono uppercase font-bold",
+                                      member.status_aprovacao === "aprovado"
+                                        ? "bg-emerald-500/15 text-emerald-300 border-emerald-500/30"
+                                        : member.status_aprovacao === "reprovado"
+                                        ? "bg-rose-500/15 text-rose-300 border-rose-500/30"
+                                        : "bg-amber-500/15 text-amber-300 border-amber-500/30 animate-pulse"
+                                    )}
+                                  >
+                                    {member.status_aprovacao === "aprovado"
+                                      ? "Aprovado ✅"
+                                      : member.status_aprovacao === "reprovado"
+                                      ? "Reprovado ❌"
+                                      : "Aguardando Avaliação ⏳"}
+                                  </Badge>
                                 </div>
+
+                                {member.status_aprovacao === "reprovado" && member.motivo_reprovacao && (
+                                  <p className="text-[10px] text-rose-400 italic truncate max-w-[220px]">
+                                    Motivo: {member.motivo_reprovacao}
+                                  </p>
+                                )}
                               </div>
                             </div>
 
-                            {canRemoveParticipants && (
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive"
-                                onClick={() =>
-                                  removeMemberMutation.mutate({
-                                    scaleId: selectedScale.id,
-                                    memberId: member.member_id,
-                                  })
-                                }
-                              >
-                                <X className="w-3.5 h-3.5" />
-                              </Button>
-                            )}
+                            <div className="flex items-center gap-1 shrink-0">
+                              {/* Ações de Aprovação do Gerente da Escala para Reservas */}
+                              {isScaleManager(selectedScale) && selectedScale.status !== "cancelada" && (
+                                <>
+                                  {member.status_aprovacao !== "aprovado" && (
+                                    <Button
+                                      size="sm"
+                                      className="h-7 text-[10px] bg-emerald-600 hover:bg-emerald-700 text-white font-bold gap-1 px-2 cursor-pointer shadow-sm"
+                                      title="Aprovar reserva na ação"
+                                      disabled={reviewMemberMutation.isPending}
+                                      onClick={() =>
+                                        reviewMemberMutation.mutate({
+                                          scaleId: selectedScale.id,
+                                          memberId: member.member_id,
+                                          statusAprovacao: "aprovado",
+                                        })
+                                      }
+                                    >
+                                      <Check className="w-3 h-3" />
+                                      Aprovar
+                                    </Button>
+                                  )}
+
+                                  {member.status_aprovacao !== "reprovado" && (
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      className="h-7 text-[10px] border-rose-500/40 text-rose-300 hover:bg-rose-500/10 font-bold gap-1 px-2 cursor-pointer"
+                                      title="Reprovar reserva na ação"
+                                      onClick={() => {
+                                        setReproveTargetMember(member);
+                                        setReproveMotivo("");
+                                        setReproveModalOpen(true);
+                                      }}
+                                    >
+                                      <X className="w-3 h-3" />
+                                      Reprovar
+                                    </Button>
+                                  )}
+                                </>
+                              )}
+
+                              {canRemoveParticipants && (
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive"
+                                  onClick={() =>
+                                    removeMemberMutation.mutate({
+                                      scaleId: selectedScale.id,
+                                      memberId: member.member_id,
+                                    })
+                                  }
+                                >
+                                  <X className="w-3.5 h-3.5" />
+                                </Button>
+                              )}
+                            </div>
                           </div>
                         ))}
                     </div>
@@ -2265,6 +2651,70 @@ export function EscalasPage() {
                 <AlertTriangle className="w-4 h-4" />
               )}
               Confirmar Cancelamento
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ============================================================================== */}
+      {/* MODAL 7: REPROVAR MEMBRO DA ESCALA (GERENTE DA ESCALA OU COMANDO)              */}
+      {/* ============================================================================== */}
+      <Dialog open={reproveModalOpen} onOpenChange={setReproveModalOpen}>
+        <DialogContent className="max-w-md surface-card border-rose-500/40">
+          <DialogHeader>
+            <DialogTitle className="text-base font-bold text-foreground flex items-center gap-2 text-rose-400">
+              <UserX className="w-5 h-5 text-rose-400" />
+              Reprovar Participação na Ação
+            </DialogTitle>
+            <DialogDescription className="text-xs">
+              Você está definindo como <strong>reprovado</strong> o operador{" "}
+              <strong>{reproveTargetMember?.nickname || reproveTargetMember?.nome}</strong>{" "}
+              ({reproveTargetMember?.posto_funcao}) para esta ação.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-3 py-2 text-xs">
+            <div className="space-y-1.5">
+              <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                Motivo da Reprovação (Opcional)
+              </Label>
+              <Textarea
+                placeholder="Informe o motivo para o operador (ex: Falta de armamento/colete exigido, conduta recente, vaga priorizada para outra função)..."
+                rows={3}
+                value={reproveMotivo}
+                onChange={(e) => setReproveMotivo(e.target.value)}
+                className="text-xs resize-none"
+              />
+              <p className="text-[10px] text-muted-foreground">
+                O motivo informado ficará registrado no histórico da escala e visível para o membro.
+              </p>
+            </div>
+          </div>
+
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="outline" onClick={() => setReproveModalOpen(false)}>
+              Cancelar
+            </Button>
+            <Button
+              className="bg-rose-600 hover:bg-rose-700 text-white font-extrabold gap-1.5 cursor-pointer"
+              disabled={reviewMemberMutation.isPending}
+              onClick={() => {
+                if (selectedScaleId && reproveTargetMember) {
+                  reviewMemberMutation.mutate({
+                    scaleId: selectedScaleId,
+                    memberId: reproveTargetMember.member_id,
+                    statusAprovacao: "reprovado",
+                    motivo: reproveMotivo.trim(),
+                  });
+                }
+              }}
+            >
+              {reviewMemberMutation.isPending ? (
+                <RefreshCw className="w-4 h-4 animate-spin" />
+              ) : (
+                <X className="w-4 h-4" />
+              )}
+              Confirmar Reprovação
             </Button>
           </DialogFooter>
         </DialogContent>

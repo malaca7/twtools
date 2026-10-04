@@ -14,6 +14,8 @@ CREATE TABLE IF NOT EXISTS public.action_scales (
   vagas_limite integer NOT NULL DEFAULT 10,
   vagas_reservas integer NOT NULL DEFAULT 2,
   status text NOT NULL DEFAULT 'rascunho' CHECK (status IN ('rascunho', 'publicada', 'em_andamento', 'concluida', 'cancelada')),
+  gerente_id uuid REFERENCES public.profiles(id) ON DELETE SET NULL,
+  gerente_nome text,
   publicado_em timestamptz,
   cancelado_em timestamptz,
   motivo_cancelamento text,
@@ -37,6 +39,11 @@ CREATE TABLE IF NOT EXISTS public.action_scale_members (
   posto_funcao text NOT NULL DEFAULT 'Operacional',
   tipo_vaga text NOT NULL DEFAULT 'titular' CHECK (tipo_vaga IN ('titular', 'reserva')),
   status_presenca text NOT NULL DEFAULT 'pendente' CHECK (status_presenca IN ('pendente', 'confirmado', 'ausente', 'substituido')),
+  status_aprovacao text NOT NULL DEFAULT 'aprovado' CHECK (status_aprovacao IN ('pendente', 'aprovado', 'reprovado')),
+  aprovado_por uuid REFERENCES auth.users(id) ON DELETE SET NULL,
+  aprovado_por_nome text,
+  aprovado_em timestamptz,
+  motivo_reprovacao text,
   reacao text,
   confirmado_em timestamptz,
   justificativa_ausencia text,
@@ -167,6 +174,8 @@ BEGIN
       'vagas_limite', s.vagas_limite,
       'vagas_reservas', s.vagas_reservas,
       'status', s.status,
+      'gerente_id', s.gerente_id,
+      'gerente_nome', s.gerente_nome,
       'publicado_em', s.publicado_em,
       'cancelado_em', s.cancelado_em,
       'motivo_cancelamento', s.motivo_cancelamento,
@@ -182,7 +191,10 @@ BEGIN
       'pendentes_titulares', coalesce(m.pendentes_titulares, 0),
       'confirmados_reservas', coalesce(m.confirmados_reservas, 0),
       'substituidos_count', coalesce(m.substituidos_count, 0),
+      'pendentes_aprovacao_count', coalesce(m.pendentes_aprovacao_count, 0),
       'user_member_status', u.status_presenca,
+      'user_status_aprovacao', u.status_aprovacao,
+      'user_motivo_reprovacao', u.motivo_reprovacao,
       'user_tipo_vaga', u.tipo_vaga,
       'user_posto_funcao', u.posto_funcao,
       'user_reacao', u.reacao,
@@ -193,18 +205,19 @@ BEGIN
   LEFT JOIN (
     SELECT 
       scale_id,
-      count(*) FILTER (WHERE tipo_vaga = 'titular') AS total_titulares,
-      count(*) FILTER (WHERE tipo_vaga = 'reserva') AS total_reservas,
-      count(*) FILTER (WHERE tipo_vaga = 'titular' AND status_presenca = 'confirmado') AS confirmados_titulares,
-      count(*) FILTER (WHERE tipo_vaga = 'titular' AND status_presenca = 'ausente') AS ausentes_titulares,
-      count(*) FILTER (WHERE tipo_vaga = 'titular' AND status_presenca = 'pendente') AS pendentes_titulares,
-      count(*) FILTER (WHERE tipo_vaga = 'reserva' AND status_presenca = 'confirmado') AS confirmados_reservas,
-      count(*) FILTER (WHERE status_presenca = 'substituido') AS substituidos_count
+      count(*) FILTER (WHERE tipo_vaga = 'titular' AND status_aprovacao != 'reprovado') AS total_titulares,
+      count(*) FILTER (WHERE tipo_vaga = 'reserva' AND status_aprovacao != 'reprovado') AS total_reservas,
+      count(*) FILTER (WHERE tipo_vaga = 'titular' AND status_presenca = 'confirmado' AND status_aprovacao = 'aprovado') AS confirmados_titulares,
+      count(*) FILTER (WHERE tipo_vaga = 'titular' AND (status_presenca = 'ausente' OR status_aprovacao = 'reprovado')) AS ausentes_titulares,
+      count(*) FILTER (WHERE tipo_vaga = 'titular' AND (status_presenca = 'pendente' OR status_aprovacao = 'pendente')) AS pendentes_titulares,
+      count(*) FILTER (WHERE tipo_vaga = 'reserva' AND status_presenca = 'confirmado' AND status_aprovacao = 'aprovado') AS confirmados_reservas,
+      count(*) FILTER (WHERE status_presenca = 'substituido') AS substituidos_count,
+      count(*) FILTER (WHERE status_aprovacao = 'pendente') AS pendentes_aprovacao_count
     FROM public.action_scale_members
     GROUP BY scale_id
   ) m ON m.scale_id = s.id
   LEFT JOIN LATERAL (
-    SELECT asm.scale_id, asm.member_id, asm.status_presenca, asm.tipo_vaga, asm.posto_funcao, asm.reacao
+    SELECT asm.scale_id, asm.member_id, asm.status_presenca, asm.status_aprovacao, asm.motivo_reprovacao, asm.tipo_vaga, asm.posto_funcao, asm.reacao
     FROM public.action_scale_members asm
     WHERE asm.scale_id = s.id 
       AND (
@@ -232,7 +245,9 @@ CREATE OR REPLACE FUNCTION public.save_action_scale(
   p_vagas_reservas integer,
   p_status text,
   p_actor_name text,
-  p_metadata jsonb DEFAULT '{}'::jsonb
+  p_metadata jsonb DEFAULT '{}'::jsonb,
+  p_gerente_id uuid DEFAULT NULL,
+  p_gerente_nome text DEFAULT NULL
 )
 RETURNS jsonb
 LANGUAGE plpgsql
@@ -255,6 +270,8 @@ BEGIN
       status,
       criado_por,
       criado_por_nome,
+      gerente_id,
+      gerente_nome,
       metadata,
       publicado_em
     ) VALUES (
@@ -269,6 +286,8 @@ BEGIN
       coalesce(p_status, 'rascunho'),
       auth.uid(),
       p_actor_name,
+      p_gerente_id,
+      p_gerente_nome,
       coalesce(p_metadata, '{}'::jsonb),
       CASE WHEN p_status = 'publicada' THEN timezone('utc'::text, now()) ELSE NULL END
     ) RETURNING id INTO v_scale_id;
@@ -281,7 +300,8 @@ BEGIN
       auth.uid(),
       p_actor_name,
       'criacao',
-      'Escala criada com status ' || coalesce(p_status, 'rascunho')
+      'Escala criada com status ' || coalesce(p_status, 'rascunho') || 
+      CASE WHEN p_gerente_nome IS NOT NULL THEN ' (Gerente: ' || p_gerente_nome || ')' ELSE '' END
     );
   ELSE
     v_scale_id := p_id;
@@ -295,6 +315,8 @@ BEGIN
       vagas_limite = coalesce(p_vagas_limite, vagas_limite),
       vagas_reservas = coalesce(p_vagas_reservas, vagas_reservas),
       status = coalesce(p_status, status),
+      gerente_id = coalesce(p_gerente_id, gerente_id),
+      gerente_nome = coalesce(p_gerente_nome, gerente_nome),
       metadata = coalesce(p_metadata, metadata),
       publicado_em = CASE 
         WHEN p_status = 'publicada' AND status = 'rascunho' THEN timezone('utc'::text, now())
@@ -417,6 +439,10 @@ BEGIN
     posto_funcao,
     tipo_vaga,
     status_presenca,
+    status_aprovacao,
+    aprovado_por,
+    aprovado_por_nome,
+    aprovado_em,
     adicionado_por
   ) VALUES (
     p_scale_id,
@@ -427,13 +453,21 @@ BEGIN
     v_prof.avatar_url,
     coalesce(p_posto_funcao, 'Operacional'),
     coalesce(p_tipo_vaga, 'titular'),
-    'pendente',
+    'confirmado',
+    'aprovado',
+    auth.uid(),
+    p_actor_name,
+    timezone('utc'::text, now()),
     auth.uid()
   )
   ON CONFLICT (scale_id, member_id) 
   DO UPDATE SET
     posto_funcao = coalesce(p_posto_funcao, action_scale_members.posto_funcao),
     tipo_vaga = coalesce(p_tipo_vaga, action_scale_members.tipo_vaga),
+    status_aprovacao = 'aprovado',
+    aprovado_por = auth.uid(),
+    aprovado_por_nome = p_actor_name,
+    aprovado_em = timezone('utc'::text, now()),
     atualizado_em = timezone('utc'::text, now())
   RETURNING * INTO v_member_rec;
 
@@ -444,7 +478,7 @@ BEGIN
     auth.uid(),
     p_actor_name,
     'adicao_membro',
-    'Membro ' || coalesce(v_prof.nickname, v_prof.nome) || ' adicionado como ' || coalesce(p_posto_funcao, 'Operacional') || ' (' || coalesce(p_tipo_vaga, 'titular') || ')'
+    'Membro ' || coalesce(v_prof.nickname, v_prof.nome) || ' escalado como ' || coalesce(p_posto_funcao, 'Operacional') || ' (' || coalesce(p_tipo_vaga, 'titular') || ') e aprovado por ' || p_actor_name
   );
 
   RETURN to_jsonb(v_member_rec);
@@ -510,6 +544,7 @@ DECLARE
   v_final_tipo_vaga text;
   v_final_status text;
   v_final_reacao text;
+  v_final_aprovacao text;
 BEGIN
   -- 1. Identificar o perfil
   IF p_member_id IS NOT NULL THEN
@@ -539,7 +574,7 @@ BEGIN
   v_final_reacao := coalesce(p_reacao, CASE WHEN v_final_status = 'confirmado' THEN '👍' WHEN v_final_status = 'ausente' THEN '❌' ELSE '⏳' END);
 
   IF FOUND THEN
-    -- Atualizar membro existente
+    -- Atualizar membro existente (mantém status de aprovação anterior)
     UPDATE public.action_scale_members SET
       status_presenca = v_final_status,
       reacao = v_final_reacao,
@@ -574,10 +609,17 @@ BEGIN
       RAISE EXCEPTION 'Esta escala não está disponível para confirmação de presença (Status: %).', v_scale.status;
     END IF;
 
-    -- Contagem de vagas ocupadas
+    -- Se quem está marcando é o próprio gerente da escala ou quem a criou, já é aprovado
+    IF (v_scale.gerente_id IS NOT NULL AND v_scale.gerente_id = v_prof.id) OR v_scale.criado_por = auth.uid() THEN
+      v_final_aprovacao := 'aprovado';
+    ELSE
+      v_final_aprovacao := 'pendente';
+    END IF;
+
+    -- Contagem de vagas ocupadas (desconsidera reprovados)
     SELECT 
-      count(*) FILTER (WHERE tipo_vaga = 'titular' AND status_presenca != 'ausente') AS count_titulares,
-      count(*) FILTER (WHERE tipo_vaga = 'reserva' AND status_presenca != 'ausente') AS count_reservas
+      count(*) FILTER (WHERE tipo_vaga = 'titular' AND status_presenca != 'ausente' AND status_aprovacao != 'reprovado') AS count_titulares,
+      count(*) FILTER (WHERE tipo_vaga = 'reserva' AND status_presenca != 'ausente' AND status_aprovacao != 'reprovado') AS count_reservas
     INTO v_counts
     FROM public.action_scale_members
     WHERE scale_id = p_scale_id;
@@ -618,6 +660,10 @@ BEGIN
       posto_funcao,
       tipo_vaga,
       status_presenca,
+      status_aprovacao,
+      aprovado_por,
+      aprovado_por_nome,
+      aprovado_em,
       reacao,
       justificativa_ausencia,
       confirmado_em,
@@ -632,6 +678,10 @@ BEGIN
       coalesce(p_posto_funcao, 'Operacional'),
       v_final_tipo_vaga,
       v_final_status,
+      v_final_aprovacao,
+      CASE WHEN v_final_aprovacao = 'aprovado' THEN auth.uid() ELSE NULL END,
+      CASE WHEN v_final_aprovacao = 'aprovado' THEN coalesce(p_actor_name, 'Gerente da Escala') ELSE NULL END,
+      CASE WHEN v_final_aprovacao = 'aprovado' THEN timezone('utc'::text, now()) ELSE NULL END,
       v_final_reacao,
       p_justificativa,
       CASE WHEN v_final_status = 'confirmado' THEN timezone('utc'::text, now()) ELSE NULL END,
@@ -646,7 +696,7 @@ BEGIN
       auth.uid(),
       coalesce(p_actor_name, v_prof.nickname, v_prof.nome, 'Membro'),
       'inscricao_vaga',
-      coalesce(v_prof.nickname, v_prof.nome) || ' garantiu vaga como ' || v_rec.posto_funcao || ' (' || v_rec.tipo_vaga || ') - Status: ' || v_final_status
+      coalesce(v_prof.nickname, v_prof.nome) || ' candidatou-se à vaga ' || v_rec.tipo_vaga || ' (' || v_rec.posto_funcao || ') - Status Aprovação: ' || v_final_aprovacao
     );
 
     RETURN to_jsonb(v_rec);
@@ -800,5 +850,74 @@ BEGIN
   );
 
   RETURN jsonb_build_object('success', true);
+END;
+$$;
+
+-- 11. Aprovar / Reprovar Membro pelo Gerente da Escala
+CREATE OR REPLACE FUNCTION public.review_action_scale_member(
+  p_scale_id uuid,
+  p_member_id uuid,
+  p_status_aprovacao text,
+  p_motivo text DEFAULT NULL,
+  p_actor_name text DEFAULT NULL
+)
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+  v_scale record;
+  v_mem record;
+  v_updated record;
+BEGIN
+  SELECT * INTO v_scale FROM public.action_scales WHERE id = p_scale_id;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Escala de ação não encontrada.';
+  END IF;
+
+  SELECT * INTO v_mem 
+  FROM public.action_scale_members
+  WHERE scale_id = p_scale_id AND (member_id = p_member_id OR user_id = p_member_id);
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Membro não encontrado nesta escala.';
+  END IF;
+
+  IF p_status_aprovacao NOT IN ('aprovado', 'reprovado', 'pendente') THEN
+    RAISE EXCEPTION 'Status de aprovação inválido: %', p_status_aprovacao;
+  END IF;
+
+  UPDATE public.action_scale_members SET
+    status_aprovacao = p_status_aprovacao,
+    aprovado_por = auth.uid(),
+    aprovado_por_nome = p_actor_name,
+    aprovado_em = timezone('utc'::text, now()),
+    motivo_reprovacao = p_motivo,
+    status_presenca = CASE 
+      WHEN p_status_aprovacao = 'aprovado' THEN 'confirmado'
+      WHEN p_status_aprovacao = 'reprovado' THEN 'ausente'
+      ELSE status_presenca 
+    END,
+    atualizado_em = timezone('utc'::text, now())
+  WHERE id = v_mem.id
+  RETURNING * INTO v_updated;
+
+  -- Histórico
+  INSERT INTO public.action_scale_history (
+    scale_id, actor_id, actor_name, action_type, details
+  ) VALUES (
+    p_scale_id,
+    auth.uid(),
+    coalesce(p_actor_name, 'Gerente da Escala'),
+    'aprovacao_membro',
+    'Membro ' || coalesce(v_mem.nickname, v_mem.nome) || 
+    CASE 
+      WHEN p_status_aprovacao = 'aprovado' THEN ' foi APROVADO na ação como ' || v_mem.posto_funcao || ' (' || v_mem.tipo_vaga || ').'
+      WHEN p_status_aprovacao = 'reprovado' THEN ' foi REPROVADO na ação.' || CASE WHEN p_motivo IS NOT NULL AND length(trim(p_motivo)) > 0 THEN ' Motivo: ' || p_motivo ELSE '' END
+      ELSE ' teve seu status redefinido para pendente.'
+    END
+  );
+
+  RETURN to_jsonb(v_updated);
 END;
 $$;

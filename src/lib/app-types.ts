@@ -599,6 +599,8 @@ export type ActionScaleStatus = "rascunho" | "publicada" | "em_andamento" | "con
 
 export type ActionScaleMemberStatus = "pendente" | "confirmado" | "ausente" | "substituido";
 
+export type ActionScaleApprovalStatus = "pendente" | "aprovado" | "reprovado";
+
 export type ActionScale = {
   id: string;
   titulo: string;
@@ -610,6 +612,8 @@ export type ActionScale = {
   vagas_limite: number;
   vagas_reservas: number;
   status: ActionScaleStatus;
+  gerente_id?: string | null;
+  gerente_nome?: string | null;
   publicado_em: string | null;
   cancelado_em: string | null;
   motivo_cancelamento: string | null;
@@ -625,7 +629,10 @@ export type ActionScale = {
   pendentes_titulares?: number;
   confirmados_reservas?: number;
   substituidos_count?: number;
+  pendentes_aprovacao_count?: number;
   user_member_status?: ActionScaleMemberStatus | null;
+  user_status_aprovacao?: ActionScaleApprovalStatus | null;
+  user_motivo_reprovacao?: string | null;
   user_tipo_vaga?: "titular" | "reserva" | null;
   user_posto_funcao?: string | null;
   user_reacao?: string | null;
@@ -645,6 +652,11 @@ export type ActionScaleMember = {
   posto_funcao: string;
   tipo_vaga: "titular" | "reserva";
   status_presenca: ActionScaleMemberStatus;
+  status_aprovacao?: ActionScaleApprovalStatus;
+  aprovado_por?: string | null;
+  aprovado_por_nome?: string | null;
+  aprovado_em?: string | null;
+  motivo_reprovacao?: string | null;
   reacao: string | null;
   confirmado_em: string | null;
   justificativa_ausencia: string | null;
