@@ -137,7 +137,7 @@ export function EscalasPage() {
   const canAddParticipants = isPrivileged || canManageMembers || hasPermission("escalas.add_participants");
   const canRemoveParticipants = isPrivileged || canManageMembers || hasPermission("escalas.remove_participants");
   const canConfirmPresence = isPrivileged || hasPermission("escalas.confirm_presence");
-  const canManageSlots = isPrivileged || hasPermission("escalas.manage_slots");
+  const canManageSlots = isPrivileged || hasPermission("escalas.manage_slots") || canCreate || canManageMembers;
   const canSubstitute = isPrivileged || canManageMembers || hasPermission("escalas.substitute");
   const canViewHistory = isPrivileged || hasPermission("escalas.history");
   const canManageSettings = isPrivileged || hasPermission("escalas.settings");
@@ -1273,7 +1273,7 @@ export function EscalasPage() {
 
                     {/* Ações Rápidas de Gestão */}
                     {(((canPublish || isScaleManager(scale)) && scale.status === "rascunho") ||
-                      canEdit || isScaleManager(scale) ||
+                      ((canEdit || isScaleManager(scale)) && scale.status !== "cancelada" && scale.status !== "concluida") ||
                       ((canCancel || isScaleManager(scale)) && scale.status !== "cancelada" && scale.status !== "concluida") ||
                       canDelete) && (
                       <div className="flex items-center gap-1">
@@ -1290,7 +1290,7 @@ export function EscalasPage() {
                           </Button>
                         )}
 
-                        {(canEdit || isScaleManager(scale)) && (
+                        {(canEdit || isScaleManager(scale)) && scale.status !== "cancelada" && scale.status !== "concluida" && (
                           <Button
                             size="sm"
                             variant="ghost"
@@ -1431,106 +1431,102 @@ export function EscalasPage() {
                 />
               </div>
 
-              <div className="space-y-1.5">
-                <div className="flex items-center justify-between">
-                  <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                    Limite de Vagas Titulares
+              {(canManageSlots || (editScaleData && isScaleManager(editScaleData))) && (
+                <>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                      Limite de Vagas Titulares
+                    </Label>
+                    <Input
+                      type="number"
+                      min="1"
+                      max="100"
+                      value={formVagasLimite}
+                      onChange={(e) => setFormVagasLimite(e.target.value)}
+                      className="font-mono text-xs"
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                      Vagas Reservas (Suplentes)
+                    </Label>
+                    <Input
+                      type="number"
+                      min="0"
+                      max="50"
+                      value={formVagasReservas}
+                      onChange={(e) => setFormVagasReservas(e.target.value)}
+                      className="font-mono text-xs"
+                    />
+                  </div>
+                </>
+              )}
+
+              {(canManageMembers || canCreate || isPrivileged) && (
+                <div className="space-y-1.5 sm:col-span-2">
+                  <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                    <Crown className="w-4 h-4 text-amber-400" />
+                    Gerente / Líder da Escala (Responsável por Aprovar / Reprovar Membros)
                   </Label>
-                  {!canManageSlots && !isPrivileged && (
-                    <span className="text-[10px] text-amber-400 font-medium">Requer Permissão</span>
-                  )}
+                  <Select value={formGerenteId} onValueChange={setFormGerenteId}>
+                    <SelectTrigger className="h-10 text-xs">
+                      <SelectValue placeholder="Selecione o gerente da escala..." />
+                    </SelectTrigger>
+                    <SelectContent className="max-h-72">
+                      <SelectItem value="none">
+                        Nenhum gerente designado (Somente Comando / Liderança)
+                      </SelectItem>
+                      {members.map((m) => {
+                        const memberKey = m.id || m.user_id;
+                        return (
+                          <SelectItem key={memberKey} value={memberKey}>
+                            <div className="flex items-center gap-2">
+                              <span className="font-semibold">{m.nickname || m.nome}</span>
+                              {m.game_id && (
+                                <span className="text-[10px] text-muted-foreground font-mono">
+                                  (ID: {m.game_id})
+                                </span>
+                              )}
+                              {m.cargo && (
+                                <Badge
+                                  variant="outline"
+                                  className="text-[9px] py-0 px-1 border-border/50 text-muted-foreground"
+                                >
+                                  {m.cargo}
+                                </Badge>
+                              )}
+                            </div>
+                          </SelectItem>
+                        );
+                      })}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-[11px] text-muted-foreground">
+                    O Gerente designado terá autoridade tática direta nesta operação para aprovar ou reprovar a inscrição e presença dos membros na ação.
+                  </p>
                 </div>
-                <Input
-                  type="number"
-                  min="1"
-                  max="100"
-                  value={formVagasLimite}
-                  onChange={(e) => setFormVagasLimite(e.target.value)}
-                  className="font-mono text-xs"
-                  disabled={!canManageSlots && !isPrivileged}
-                />
-              </div>
+              )}
 
-              <div className="space-y-1.5">
-                <div className="flex items-center justify-between">
+              {(canPublish || canCancel || canCreate || canManageMembers || (editScaleData && isScaleManager(editScaleData))) && (
+                <div className="space-y-1.5 sm:col-span-2">
                   <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                    Vagas Reservas (Suplentes)
+                    Status da Escala
                   </Label>
-                  {!canManageSlots && !isPrivileged && (
-                    <span className="text-[10px] text-amber-400 font-medium">Requer Permissão</span>
-                  )}
+                  <Select value={formStatus} onValueChange={(v: any) => setFormStatus(v)}>
+                    <SelectTrigger className="h-10 text-xs">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="rascunho">Rascunho (Privado para Gestores)</SelectItem>
+                      <SelectItem value="publicada">Publicada (Visível para Convocação)</SelectItem>
+                      <SelectItem value="em_andamento">Em Andamento (Operação Ativa)</SelectItem>
+                      <SelectItem value="concluida">Concluída (Finalizada)</SelectItem>
+                      <SelectItem value="cancelada">Cancelada</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
-                <Input
-                  type="number"
-                  min="0"
-                  max="50"
-                  value={formVagasReservas}
-                  onChange={(e) => setFormVagasReservas(e.target.value)}
-                  className="font-mono text-xs"
-                  disabled={!canManageSlots && !isPrivileged}
-                />
-              </div>
-
-              <div className="space-y-1.5 sm:col-span-2">
-                <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-                  <Crown className="w-4 h-4 text-amber-400" />
-                  Gerente / Líder da Escala (Responsável por Aprovar / Reprovar Membros)
-                </Label>
-                <Select value={formGerenteId} onValueChange={setFormGerenteId}>
-                  <SelectTrigger className="h-10 text-xs">
-                    <SelectValue placeholder="Selecione o gerente da escala..." />
-                  </SelectTrigger>
-                  <SelectContent className="max-h-72">
-                    <SelectItem value="none">
-                      Nenhum gerente designado (Somente Comando / Liderança)
-                    </SelectItem>
-                    {members.map((m) => {
-                      const memberKey = m.id || m.user_id;
-                      return (
-                        <SelectItem key={memberKey} value={memberKey}>
-                          <div className="flex items-center gap-2">
-                            <span className="font-semibold">{m.nickname || m.nome}</span>
-                            {m.game_id && (
-                              <span className="text-[10px] text-muted-foreground font-mono">
-                                (ID: {m.game_id})
-                              </span>
-                            )}
-                            {m.cargo && (
-                              <Badge
-                                variant="outline"
-                                className="text-[9px] py-0 px-1 border-border/50 text-muted-foreground"
-                              >
-                                {m.cargo}
-                              </Badge>
-                            )}
-                          </div>
-                        </SelectItem>
-                      );
-                    })}
-                  </SelectContent>
-                </Select>
-                <p className="text-[11px] text-muted-foreground">
-                  O Gerente designado terá autoridade tática direta nesta operação para aprovar ou reprovar a inscrição e presença dos membros na ação.
-                </p>
-              </div>
-
-              <div className="space-y-1.5 sm:col-span-2">
-                <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                  Status da Escala
-                </Label>
-                <Select value={formStatus} onValueChange={(v: any) => setFormStatus(v)}>
-                  <SelectTrigger className="h-10 text-xs">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="rascunho">Rascunho (Privado para Gestores)</SelectItem>
-                    <SelectItem value="publicada">Publicada (Visível para Convocação)</SelectItem>
-                    <SelectItem value="em_andamento">Em Andamento (Operação Ativa)</SelectItem>
-                    <SelectItem value="concluida">Concluída (Finalizada)</SelectItem>
-                    <SelectItem value="cancelada">Cancelada</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+              )}
 
               <div className="space-y-1.5 sm:col-span-2">
                 <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
@@ -1606,7 +1602,7 @@ export function EscalasPage() {
                   </div>
 
                   <div className="flex items-center gap-2">
-                    {(canAddParticipants || isScaleManager(selectedScale)) && selectedScale.status !== "cancelada" && (
+                    {(canAddParticipants || isScaleManager(selectedScale)) && selectedScale.status !== "cancelada" && selectedScale.status !== "concluida" && (
                       <Button
                         size="sm"
                         className="bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold gap-1.5 cursor-pointer"
@@ -1694,8 +1690,11 @@ export function EscalasPage() {
                 </div>
               </div>
 
-              {/* ALERTA DE MEMBROS AGUARDANDO AVALIAÇÃO DO GERENTE DA ESCALA */}
-              {(selectedScale.membros || []).filter((m) => m.status_aprovacao === "pendente").length > 0 && (
+              {/* ALERTA DE MEMBROS AGUARDANDO AVALIAÇÃO DO GERENTE DA ESCALA (SOMENTE GERENTES / LIDERANÇA) */}
+              {(isScaleManager(selectedScale) || canManageMembers) &&
+                (selectedScale.membros || []).filter((m) => m.status_aprovacao === "pendente").length > 0 &&
+                selectedScale.status !== "cancelada" &&
+                selectedScale.status !== "concluida" && (
                 <div className="p-4 rounded-xl bg-amber-500/15 border border-amber-500/35 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
                   <div className="flex items-center gap-2.5">
                     <ShieldAlert className="w-5 h-5 text-amber-400 shrink-0 animate-pulse" />
@@ -1727,7 +1726,7 @@ export function EscalasPage() {
               )}
 
               {/* STATUS E AÇÕES DO USUÁRIO LOGADO NESTA ESCALA */}
-              {selectedScale.status !== "cancelada" && (
+              {selectedScale.status !== "cancelada" && selectedScale.status !== "concluida" && (
                 <div
                   className={cn(
                     "p-4 rounded-xl border flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs transition-all",
@@ -2017,7 +2016,7 @@ export function EscalasPage() {
                             {/* Botões do Membro */}
                             <div className="flex items-center gap-1 shrink-0">
                               {/* Ações de Aprovação do Gerente da Escala */}
-                              {(isScaleManager(selectedScale) || canManageMembers) && selectedScale.status !== "cancelada" && (
+                              {(isScaleManager(selectedScale) || canManageMembers) && selectedScale.status !== "cancelada" && selectedScale.status !== "concluida" && (
                                 <>
                                   {member.status_aprovacao !== "aprovado" && (
                                     <Button
@@ -2057,7 +2056,7 @@ export function EscalasPage() {
                                 </>
                               )}
 
-                              {(canSubstitute || isScaleManager(selectedScale)) && member.status_presenca === "ausente" && (
+                              {(canSubstitute || isScaleManager(selectedScale)) && member.status_presenca === "ausente" && selectedScale.status !== "cancelada" && selectedScale.status !== "concluida" && (
                                 <Button
                                   size="sm"
                                   variant="outline"
@@ -2073,7 +2072,7 @@ export function EscalasPage() {
                                 </Button>
                               )}
 
-                              {(canRemoveParticipants || isScaleManager(selectedScale)) && (
+                              {(canRemoveParticipants || isScaleManager(selectedScale)) && selectedScale.status !== "cancelada" && selectedScale.status !== "concluida" && (
                                 <Button
                                   size="sm"
                                   variant="ghost"
@@ -2176,7 +2175,7 @@ export function EscalasPage() {
 
                             <div className="flex items-center gap-1 shrink-0">
                               {/* Ações de Aprovação do Gerente da Escala para Reservas */}
-                              {(isScaleManager(selectedScale) || canManageMembers) && selectedScale.status !== "cancelada" && (
+                              {(isScaleManager(selectedScale) || canManageMembers) && selectedScale.status !== "cancelada" && selectedScale.status !== "concluida" && (
                                 <>
                                   {member.status_aprovacao !== "aprovado" && (
                                     <Button
@@ -2216,7 +2215,7 @@ export function EscalasPage() {
                                 </>
                               )}
 
-                              {(canRemoveParticipants || isScaleManager(selectedScale)) && (
+                              {(canRemoveParticipants || isScaleManager(selectedScale)) && selectedScale.status !== "cancelada" && selectedScale.status !== "concluida" && (
                                 <Button
                                   size="sm"
                                   variant="ghost"

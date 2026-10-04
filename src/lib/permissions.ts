@@ -1054,7 +1054,6 @@ const MEMBER: Permission[] = [
   "escalas.view",
   "escalas.details",
   "escalas.confirm_presence",
-  "escalas.substitute",
   "escalas.history",
   "view_chat",
   "create_chat_group",
@@ -1630,6 +1629,7 @@ export function satisfiesPermission(
   if (
     permission === "escalas.view" &&
     (list.includes("escalas.view") ||
+      list.includes("escalas.details") ||
       list.includes("escalas.create") ||
       list.includes("escalas.manage_members") ||
       list.includes("escalas.settings"))
@@ -1648,14 +1648,28 @@ export function satisfiesPermission(
   if (
     (permission === "escalas.add_participants" ||
       permission === "escalas.remove_participants" ||
-      permission === "escalas.substitute") &&
+      permission === "escalas.substitute" ||
+      permission === "escalas.manage_slots" ||
+      permission === "escalas.confirm_presence") &&
     list.includes("escalas.manage_members")
   ) {
     return true;
   }
   if (
-    (permission === "escalas.edit" || permission === "escalas.cancel") &&
+    (permission === "escalas.edit" ||
+      permission === "escalas.cancel" ||
+      permission === "escalas.publish" ||
+      permission === "escalas.manage_slots") &&
     list.includes("escalas.create")
+  ) {
+    return true;
+  }
+  if (
+    permission === "escalas.history" &&
+    (list.includes("escalas.history") ||
+      list.includes("escalas.manage_members") ||
+      list.includes("escalas.create") ||
+      list.includes("escalas.settings"))
   ) {
     return true;
   }
@@ -2365,6 +2379,7 @@ export function can(
   if (
     permission === "escalas.view" &&
     (rolePerms.includes("escalas.view") ||
+      rolePerms.includes("escalas.details") ||
       rolePerms.includes("escalas.create") ||
       rolePerms.includes("escalas.manage_members") ||
       rolePerms.includes("escalas.settings"))
@@ -2383,14 +2398,28 @@ export function can(
   if (
     (permission === "escalas.add_participants" ||
       permission === "escalas.remove_participants" ||
-      permission === "escalas.substitute") &&
+      permission === "escalas.substitute" ||
+      permission === "escalas.manage_slots" ||
+      permission === "escalas.confirm_presence") &&
     rolePerms.includes("escalas.manage_members")
   ) {
     return true;
   }
   if (
-    (permission === "escalas.edit" || permission === "escalas.cancel") &&
+    (permission === "escalas.edit" ||
+      permission === "escalas.cancel" ||
+      permission === "escalas.publish" ||
+      permission === "escalas.manage_slots") &&
     rolePerms.includes("escalas.create")
+  ) {
+    return true;
+  }
+  if (
+    permission === "escalas.history" &&
+    (rolePerms.includes("escalas.history") ||
+      rolePerms.includes("escalas.manage_members") ||
+      rolePerms.includes("escalas.create") ||
+      rolePerms.includes("escalas.settings"))
   ) {
     return true;
   }

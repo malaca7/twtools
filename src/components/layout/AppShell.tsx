@@ -751,9 +751,7 @@ function DynamicSidebarNavigation() {
       if (item.url.startsWith("/dev") || item.url.startsWith("/ceo")) return false;
       // 2. Se foi desmarcado/ocultado na configuração do menu
       if (!item.visible) return false;
-      // 3. Usuários com tag Dev ou CEO têm acesso pleno a todos os menus visíveis da plataforma
-      if (isDevUser || isCeoUser) return true;
-      // 4. Verifica estritamente a permissão exigida pelo cargo do membro
+      // 3. Verifica estritamente a permissão exigida pelo item do menu (respeitando bloqueios de tag e cargo)
       const requiredPerm = item.perm || resolveRequiredPermission(item.id, item.url);
       if (requiredPerm && !hasPermission(requiredPerm, "member")) {
         return false;
