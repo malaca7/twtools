@@ -30,6 +30,7 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
+import { BauIcon } from "@/components/ui/bau-icon";
 import {
   Dialog,
   DialogContent,
@@ -267,7 +268,12 @@ export function CeoAjustesEstoqueContent() {
                     {activeBaus.map((b) => (
                       <SelectItem key={b.id} value={b.id}>
                         <div className="flex items-center gap-2">
-                          <BauIcon icon={b.icone} className="w-4 h-4 text-amber-400 shrink-0" />
+                          <BauIcon
+                            foto_url={b.foto_url || b.imagem_url}
+                            icone={b.icone}
+                            nome={b.nome}
+                            className="w-4 h-4 object-cover rounded shrink-0"
+                          />
                           <span>{b.nome}</span>
                           <Badge
                             variant="outline"
@@ -391,7 +397,13 @@ export function CeoAjustesEstoqueContent() {
                     <Sparkles className="w-3.5 h-3.5 text-amber-400" />
                     Demonstrativo Pré-Ajuste
                   </span>
-                  <span className="font-mono text-[11px] text-foreground font-semibold">
+                  <span className="font-mono text-[11px] text-foreground font-semibold flex items-center gap-1.5">
+                    <BauIcon
+                      foto_url={selectedBau.foto_url || selectedBau.imagem_url}
+                      icone={selectedBau.icone}
+                      nome={selectedBau.nome}
+                      className="w-3.5 h-3.5 object-cover rounded shrink-0"
+                    />
                     {selectedBau.nome}
                   </span>
                 </div>
@@ -546,6 +558,14 @@ export function CeoAjustesEstoqueContent() {
                             )}
                           </div>
                           <div className="text-[11px] text-muted-foreground flex items-center gap-1.5">
+                            {chest && (
+                              <BauIcon
+                                foto_url={chest.foto_url || chest.imagem_url}
+                                icone={chest.icone}
+                                nome={chest.nome}
+                                className="w-3.5 h-3.5 object-cover rounded shrink-0"
+                              />
+                            )}
                             <span className="font-medium text-foreground/80">{chest?.nome || "Baú"}</span>
                             <span>•</span>
                             <span>{formatDate(m.created_at)}</span>
@@ -607,7 +627,15 @@ export function CeoAjustesEstoqueContent() {
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-muted-foreground font-medium">Baú Alvo:</span>
-                <span className="font-bold text-foreground">{selectedBau?.nome}</span>
+                <span className="font-bold text-foreground flex items-center gap-1.5">
+                  <BauIcon
+                    foto_url={selectedBau?.foto_url || selectedBau?.imagem_url}
+                    icone={selectedBau?.icone}
+                    nome={selectedBau?.nome}
+                    className="w-4 h-4 object-cover rounded shrink-0"
+                  />
+                  {selectedBau?.nome}
+                </span>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-muted-foreground font-medium">Item / Insumo:</span>

@@ -29,6 +29,8 @@ import {
   Ban,
   AlertTriangle,
   Clock,
+  Eye,
+  Edit3,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
@@ -53,9 +55,9 @@ import { UniversalImageAdjusterModal } from "@/components/ui/UniversalImageAdjus
 import { SocialNetworksConfigCard } from "@/components/profile/SocialNetworksConfigCard";
 import { getProxiedImageUrl } from "@/services/postimagesService";
 import { MemberGamificationCard } from "@/components/gamification/MemberGamificationCard";
-import { useMemberWarnings, useAcknowledgeWarningMutation } from "@/hooks/useWarnings";
 import { useMyMemberTags } from "@/hooks/useMemberTags";
 import { MemberTagBadge } from "@/components/ui/MemberTagBadge";
+import { PublicProfilePage } from "@/components/profile/PublicProfilePage";
 
 export const Route = createFileRoute("/_authenticated/perfil")({
   component: PerfilWrapper,
@@ -84,7 +86,7 @@ async function uploadImageFile(file: File, prefix: string, userId: string): Prom
   return cdnUrl;
 }
 
-export function PerfilPage({ initialTab }: { initialTab?: "perfil" | "dados" | "publico" | "aparencia" | "disciplinar" | "advertencias" } = {}) {
+export function PerfilPage({ initialTab }: { initialTab?: "perfil" | "dados" | "publico" | "aparencia" } = {}) {
   const { hasPermission } = useAuth();
 
   if (!hasPermission("view_profile")) {
@@ -94,15 +96,12 @@ export function PerfilPage({ initialTab }: { initialTab?: "perfil" | "dados" | "
   return <PerfilContent initialTab={initialTab} />;
 }
 
-function PerfilContent({ initialTab }: { initialTab?: "perfil" | "dados" | "publico" | "aparencia" | "disciplinar" | "advertencias" } = {}) {
+function PerfilContent({ initialTab }: { initialTab?: "perfil" | "dados" | "publico" | "aparencia" } = {}) {
   const { profile, level, refresh, user, hasPermission } = useAuth();
   const { data: members = [] } = useMembers();
   const myMember = members.find((m) => m.user_id === user?.id);
   const myTags = useMyMemberTags();
   const queryClient = useQueryClient();
-
-  const { data: myWarnings = [] } = useMemberWarnings(user?.id);
-  const activeWarningsCount = myWarnings.filter((w) => w.status === "ativo").length;
 
   // Permissões granulares do módulo de Perfil
   const canEditData = hasPermission("edit_profile_data");
@@ -166,6 +165,7 @@ function PerfilContent({ initialTab }: { initialTab?: "perfil" | "dados" | "publ
   const [customUrl, setCustomUrl] = useState("");
   const [publicProfileEnabled, setPublicProfileEnabled] = useState(true);
   const [copiedLink, setCopiedLink] = useState(false);
+  const [isEditingProfile, setIsEditingProfile] = useState(false);
 
   // Redes Sociais
   const [socialLinks, setSocialLinks] = useState<SocialLinks>({});
@@ -336,6 +336,7 @@ function PerfilContent({ initialTab }: { initialTab?: "perfil" | "dados" | "publ
     },
     onSuccess: async () => {
       toast.success("Perfil atualizado com sucesso!");
+      setIsEditingProfile(false);
       await refresh();
       void queryClient.invalidateQueries({ queryKey: ["auth"] });
       void queryClient.invalidateQueries({ queryKey: ["members"] });
@@ -432,42 +433,132 @@ function PerfilContent({ initialTab }: { initialTab?: "perfil" | "dados" | "publ
               </TabsTrigger>
             )}
           </TabsList>
-
-          <Link to="/perfil/advertencias" className="shrink-0">
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className={cn(
-                "h-10 text-xs font-bold gap-2 rounded-xl border transition-all cursor-pointer",
-                activeWarningsCount > 0
-                  ? "border-rose-500/50 bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 animate-pulse"
-                  : "border-border/70 bg-secondary/40 hover:bg-secondary text-muted-foreground hover:text-foreground"
-              )}
-              title="Acessar Prontuário Disciplinar & Advertências"
-            >
-              <ShieldAlert className={cn("h-4 w-4", activeWarningsCount > 0 ? "text-rose-400" : "text-primary")} />
-              <span>Prontuário Disciplinar</span>
-              {activeWarningsCount > 0 && (
-                <Badge variant="destructive" className="text-[10px] px-1.5 py-0 font-bold">
-                  {activeWarningsCount}
-                </Badge>
-              )}
-            </Button>
-          </Link>
         </div>
 
         {/* ABA UNIFICADA: MEU PERFIL */}
         <TabsContent value="perfil" className="space-y-6 animate-in fade-in-50 duration-200">
-          {/* GAMIFICAÇÃO, XP, NÍVEL E INSÍGNIAS DO MEMBRO */}
-          <MemberGamificationCard
-            userId={user?.id || ""}
-            totalXp={profile?.xp || 0}
-            starsRating={profile?.stars_rating}
-            starsCount={profile?.stars_count}
-          />
+          {!isEditingProfile ? (
+            <div className="space-y-6">
+              {/* BARRA DE AÇÕES SUPERIOR DA PRÉVIA */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 sm:p-5 rounded-2xl border border-primary/25 bg-gradient-to-r from-primary/10 via-background/90 to-secondary/40 shadow-lg backdrop-blur-md">
+                <div className="flex items-center gap-3.5">
+                  <div className="h-11 w-11 rounded-2xl bg-primary/20 border border-primary/40 flex items-center justify-center text-primary shrink-0 shadow-inner">
+                    <Eye className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h3 className="text-sm font-bold text-foreground">Prévia do Perfil Público</h3>
+                      <Badge variant="outline" className="border-emerald-500/40 text-emerald-400 bg-emerald-500/10 text-[10px] font-mono">
+                        ✨ Ao Vivo
+                      </Badge>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      Esta é a visualização oficial e interativa do seu perfil para outros membros e visitantes.
+                    </p>
+                  </div>
+                </div>
 
-          <div className="grid gap-6 md:grid-cols-3">
+                <div className="flex flex-wrap items-center gap-2 shrink-0">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={handleCopyLink}
+                    className="h-9 px-3 text-xs font-bold border-border/80 hover:bg-secondary rounded-xl gap-1.5 cursor-pointer shadow-xs"
+                    title="Copiar link público direto"
+                  >
+                    {copiedLink ? <Check className="h-3.5 w-3.5 text-emerald-400" /> : <Copy className="h-3.5 w-3.5" />}
+                    <span>{copiedLink ? "Copiado!" : "Copiar Link"}</span>
+                  </Button>
+
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={handleOpenPublicProfile}
+                    className="h-9 px-3 text-xs font-bold border-primary/30 text-primary hover:bg-primary/10 rounded-xl gap-1.5 cursor-pointer"
+                    title="Abrir em nova aba do navegador"
+                  >
+                    <ExternalLink className="h-3.5 w-3.5" />
+                    <span className="hidden sm:inline">Nova Aba</span>
+                  </Button>
+
+                  <Button
+                    type="button"
+                    onClick={() => setIsEditingProfile(true)}
+                    className="h-9 px-4 text-xs font-bold bg-gradient-brand text-primary-foreground hover:opacity-90 rounded-xl gap-2 cursor-pointer shadow-md shadow-primary/25 transition-all hover:scale-[1.02]"
+                  >
+                    <Edit3 className="h-4 w-4" />
+                    <span>Editar Meu Perfil</span>
+                  </Button>
+                </div>
+              </div>
+
+              {/* PRÉVIA EMBARCADA DO PERFIL PÚBLICO */}
+              <PublicProfilePage
+                handleOverride={currentSlug}
+                hideBackNav={true}
+                onEditClick={() => setIsEditingProfile(true)}
+              />
+            </div>
+          ) : (
+            <div className="space-y-6 animate-in fade-in-50 duration-200">
+              {/* BARRA SUPERIOR DO MODO DE EDIÇÃO */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 sm:p-5 rounded-2xl border border-amber-500/30 bg-gradient-to-r from-amber-500/10 via-background/90 to-secondary/40 shadow-lg backdrop-blur-md">
+                <div className="flex items-center gap-3.5">
+                  <div className="h-11 w-11 rounded-2xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-400 shrink-0 shadow-inner">
+                    <Edit3 className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h3 className="text-sm font-bold text-foreground">Modo de Edição do Perfil</h3>
+                      <Badge variant="outline" className="border-amber-500/40 text-amber-400 bg-amber-500/10 text-[10px] font-mono">
+                        ✏️ Editando
+                      </Badge>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      Altere seus dados, banner e redes sociais. Clique em salvar para atualizar seu perfil público.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 shrink-0">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setIsEditingProfile(false)}
+                    className="h-9 px-3.5 text-xs font-bold border-border/80 hover:bg-secondary rounded-xl gap-1.5 cursor-pointer shadow-xs"
+                  >
+                    <Eye className="h-3.5 w-3.5 text-primary" />
+                    <span>Voltar para Prévia</span>
+                  </Button>
+
+                  <Button
+                    type="button"
+                    onClick={() => saveMutation.mutate()}
+                    disabled={saveMutation.isPending}
+                    className="h-9 px-4 text-xs font-bold bg-gradient-brand text-primary-foreground hover:opacity-90 rounded-xl gap-2 cursor-pointer shadow-md shadow-primary/25"
+                  >
+                    {saveMutation.isPending ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <Save className="h-3.5 w-3.5" />
+                    )}
+                    <span>Salvar Alterações</span>
+                  </Button>
+                </div>
+              </div>
+
+              {/* GAMIFICAÇÃO, XP, NÍVEL E INSÍGNIAS DO MEMBRO */}
+              <MemberGamificationCard
+                userId={user?.id || ""}
+                totalXp={profile?.xp || 0}
+                starsRating={profile?.stars_rating}
+                starsCount={profile?.stars_count}
+              />
+
+              <div className="grid gap-6 md:grid-cols-3">
             {/* COLUNA ESQUERDA: RESUMO DO USUÁRIO & FOTO COM STUDIO */}
             <Card className="surface-card md:col-span-1 h-fit overflow-hidden p-0 border border-border/80 shadow-md">
               {/* BANNER DE CABEÇALHO DO PERFIL NO CARD DE RESUMO */}
@@ -576,24 +667,6 @@ function PerfilContent({ initialTab }: { initialTab?: "perfil" | "dados" | "publ
                     <ExternalLink className="h-3.5 w-3.5" />
                     <span>Ver Perfil Público</span>
                   </Button>
-
-                  <Link to="/perfil/advertencias" className="w-full block">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      className="w-full text-xs font-bold border-rose-500/30 bg-rose-500/5 hover:bg-rose-500/15 text-rose-400 hover:text-rose-300 gap-1.5 cursor-pointer rounded-xl h-9"
-                      title="Acessar prontuário disciplinar e histórico de advertências"
-                    >
-                      <ShieldAlert className="h-3.5 w-3.5 text-rose-400" />
-                      <span>Prontuário Disciplinar</span>
-                      {activeWarningsCount > 0 && (
-                        <Badge variant="destructive" className="ml-auto text-[9px] px-1.5 py-0">
-                          {activeWarningsCount}
-                        </Badge>
-                      )}
-                    </Button>
-                  </Link>
                 </div>
               </CardContent>
             </Card>
@@ -1004,7 +1077,9 @@ function PerfilContent({ initialTab }: { initialTab?: "perfil" | "dados" | "publ
               </div>
             </div>
           </div>
-        </TabsContent>
+        </div>
+      )}
+    </TabsContent>
 
         {/* ABA 2: TEMA & ESTILO */}
         <TabsContent value="aparencia" className="space-y-6 animate-in fade-in-50 duration-200">

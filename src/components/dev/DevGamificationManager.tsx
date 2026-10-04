@@ -100,13 +100,17 @@ import {
   getInsigniaIconStyles,
   getInsigniaCardStyles,
   ColorPickerField,
+  SHAPE_OPTIONS,
+  MATERIAL_OPTIONS,
+  BORDER_OPTIONS,
+  GLOSS_OPTIONS,
 } from "@/components/gamification/InsigniaCatalogManagerModal";
 
 import * as LucideIcons from "lucide-react";
 import { IconPicker } from "./IconPicker";
 
-import { DynamicInsigniaIcon } from "@/components/gamification/InsigniaIcon";
-export { DynamicInsigniaIcon };
+import { DynamicInsigniaIcon, InsigniaEmblem } from "@/components/gamification/InsigniaIcon";
+export { DynamicInsigniaIcon, InsigniaEmblem };
 
 function formatCooldown(secs: number): string {
   if (secs % 31536000 === 0 && secs > 0) return `${secs / 31536000} ano(s)`;
@@ -1335,6 +1339,10 @@ export function DevGamificationManager({ initialTab = "membros" }: { initialTab?
         color: editingInsignia.color || null,
         bg_color: editingInsignia.bg_color || null,
         border_color: editingInsignia.border_color || null,
+        shape_3d: editingInsignia.shape_3d || "rosette",
+        material_3d: editingInsignia.material_3d || "safira_blue",
+        border_style_3d: editingInsignia.border_style_3d || "metallic_chamfer",
+        gloss_effect: editingInsignia.gloss_effect || "ultra_glass",
       });
 
       toast.success("Insígnia salva no catálogo com sucesso!");
@@ -1974,15 +1982,19 @@ export function DevGamificationManager({ initialTab = "membros" }: { initialTab?
                     setEditingInsignia({
                       id: "",
                       name: "",
-                      icon: "Award",
+                      icon: "CheckCircle2",
                       description: "",
-                      rarity: "comum",
+                      rarity: "raro",
                       xp_cost: 0,
                       category: "honra",
                       active: true,
                       color: null,
                       bg_color: null,
                       border_color: null,
+                      shape_3d: "rosette",
+                      material_3d: "safira_blue",
+                      border_style_3d: "metallic_chamfer",
+                      gloss_effect: "ultra_glass",
                     });
                     setColorTab("icon");
                     setInsigniaEditorOpen(true);
@@ -1990,7 +2002,7 @@ export function DevGamificationManager({ initialTab = "membros" }: { initialTab?
                   className="font-extrabold gap-1.5 bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm w-full sm:w-auto text-xs h-9"
                 >
                   <Plus className="w-4 h-4" />
-                  Nova Insígnia
+                  Nova Insígnia 3D
                 </Button>
               </div>
             </CardHeader>
@@ -1998,7 +2010,6 @@ export function DevGamificationManager({ initialTab = "membros" }: { initialTab?
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {insignias.map((badge) => {
                   const rarityStyle = RARITY_CONFIG[badge.rarity] || RARITY_CONFIG.comum;
-                  const iconStyle = getInsigniaIconStyles(badge);
                   const cardStyle = getInsigniaCardStyles(badge);
                   const hasCustomColors = Boolean(badge.color || badge.bg_color || badge.border_color);
                   return (
@@ -2015,16 +2026,22 @@ export function DevGamificationManager({ initialTab = "membros" }: { initialTab?
                       <CardContent className="p-4 space-y-3">
                         <div className="flex items-start justify-between gap-3">
                           <div className="flex items-center gap-3">
-                            <div
-                              className={cn(
-                                "w-11 h-11 rounded-xl flex items-center justify-center border shadow-inner shrink-0",
-                                !iconStyle && rarityStyle.borderClass,
-                                !iconStyle && rarityStyle.bgClass,
-                                !iconStyle && rarityStyle.textClass
-                              )}
-                              style={iconStyle}
-                            >
-                              <DynamicInsigniaIcon name={badge.icon} className="w-6 h-6" />
+                            <div className="shrink-0 pt-0.5">
+                              <InsigniaEmblem
+                                icon={badge.icon}
+                                name={badge.name}
+                                rarity={badge.rarity}
+                                shape_3d={badge.shape_3d}
+                                material_3d={badge.material_3d}
+                                border_style_3d={badge.border_style_3d}
+                                gloss_effect={badge.gloss_effect}
+                                size="sm"
+                                color={badge.color}
+                                bgColor={badge.bg_color}
+                                borderColor={badge.border_color}
+                                interactive={false}
+                                showStar={true}
+                              />
                             </div>
                             <div>
                               <h4 className="font-extrabold text-sm text-foreground tracking-tight">{badge.name}</h4>
@@ -3056,16 +3073,22 @@ export function DevGamificationManager({ initialTab = "membros" }: { initialTab?
                     <div className="flex flex-col gap-2 w-full">
                       <div className="flex items-start justify-between w-full">
                         <div className="flex items-start gap-3 w-full">
-                          <div
-                            className={cn(
-                              "w-10 h-10 rounded-xl border flex items-center justify-center shrink-0 shadow-inner mt-1",
-                              !iconStyle && rarityStyle.borderClass,
-                              !iconStyle && rarityStyle.bgClass,
-                              !iconStyle && rarityStyle.textClass
-                            )}
-                            style={iconStyle}
-                          >
-                            <DynamicInsigniaIcon name={b?.icon || "Award"} className="w-5 h-5" />
+                          <div className="shrink-0 pt-0.5">
+                            <InsigniaEmblem
+                              icon={b?.icon || "Award"}
+                              name={b?.name || grant.insignia_id}
+                              rarity={b?.rarity || "comum"}
+                              shape_3d={b?.shape_3d}
+                              material_3d={b?.material_3d}
+                              border_style_3d={b?.border_style_3d}
+                              gloss_effect={b?.gloss_effect}
+                              size="sm"
+                              color={b?.color}
+                              bgColor={b?.bg_color}
+                              borderColor={b?.border_color}
+                              interactive={false}
+                              showStar={true}
+                            />
                           </div>
                           <div className="flex-1 min-w-0 pr-2">
                             <div className="flex items-center gap-2">
@@ -3182,127 +3205,202 @@ export function DevGamificationManager({ initialTab = "membros" }: { initialTab?
 
           {editingInsignia && (() => {
             const previewRarity = RARITY_CONFIG[(editingInsignia.rarity as InsigniaRarity) || "comum"] || RARITY_CONFIG.comum;
-            const previewStyle = getInsigniaIconStyles(editingInsignia);
-            const previewCardStyle = getInsigniaCardStyles(editingInsignia);
             const hasCustomColor = Boolean(editingInsignia.color || editingInsignia.bg_color || editingInsignia.border_color);
 
             return (
               <div className="space-y-4 py-2">
-                {/* ── PREVIEW AO VIVO ── */}
-                <div
-                  className={cn(
-                    "flex items-center gap-4 p-3.5 rounded-2xl border transition-all duration-200",
-                    !previewCardStyle && "bg-secondary/30 border-border/60"
-                  )}
-                  style={previewCardStyle}
-                >
-                  <div
-                    className={cn(
-                      "h-14 w-14 rounded-xl flex items-center justify-center shrink-0 border-2 shadow-inner transition-all duration-200",
-                      !previewStyle && previewRarity.bgClass,
-                      !previewStyle && previewRarity.borderClass,
-                      !previewStyle && previewRarity.textClass
-                    )}
-                    style={previewStyle}
-                  >
-                    <DynamicInsigniaIcon name={editingInsignia.icon || "Award"} className="h-7 w-7" />
-                  </div>
+                {/* ── PREVIEW AO VIVO 3D ── */}
+                <div className="p-4 rounded-3xl bg-gradient-to-b from-secondary/40 via-background/60 to-secondary/30 border border-border/80 shadow-md relative overflow-hidden">
+                  <div className="flex flex-col sm:flex-row items-center gap-4 justify-between">
+                    <div className="flex items-center gap-4">
+                      <div className="relative flex items-center justify-center p-3 rounded-2xl bg-black/40 border border-white/10 shadow-2xl backdrop-blur-md">
+                        <InsigniaEmblem
+                          icon={editingInsignia.icon || "CheckCircle2"}
+                          name={editingInsignia.name || "Prévia do Emblema"}
+                          rarity={editingInsignia.rarity || "comum"}
+                          shape_3d={editingInsignia.shape_3d}
+                          material_3d={editingInsignia.material_3d}
+                          border_style_3d={editingInsignia.border_style_3d}
+                          gloss_effect={editingInsignia.gloss_effect}
+                          color={editingInsignia.color}
+                          bgColor={editingInsignia.bg_color}
+                          borderColor={editingInsignia.border_color}
+                          size="xl"
+                          showStar={true}
+                        />
+                      </div>
 
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-black text-foreground truncate">
-                        {editingInsignia.name || "Nome da Insígnia"}
-                      </span>
-                      <Badge className={cn("text-[9px] font-extrabold uppercase px-1.5 py-0 border", previewRarity.borderClass, previewRarity.bgClass, previewRarity.textClass)}>
-                        {previewRarity.label}
-                      </Badge>
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2">
+                          <h3 className="text-sm font-black text-foreground">
+                            {editingInsignia.name || "Nome da Insígnia"}
+                          </h3>
+                          <Badge className={cn("text-[9px] font-black uppercase px-2 py-0.5 border", previewRarity.borderClass, previewRarity.bgClass, previewRarity.textClass)}>
+                            {previewRarity.label}
+                          </Badge>
+                        </div>
+                        <p className="text-[11px] text-muted-foreground line-clamp-2 max-w-sm">
+                          {editingInsignia.description || "Configure os parâmetros 3D e detalhes da condecoração."}
+                        </p>
+                        <div className="flex items-center gap-2 text-[10px] font-mono text-amber-400 font-bold">
+                          <span>{editingInsignia.xp_cost ? `${editingInsignia.xp_cost} XP de Concessão` : "Sem Custo de XP"}</span>
+                          {hasCustomColor && <span className="text-purple-300">• Cores Customizadas Ativas</span>}
+                        </div>
+                      </div>
                     </div>
-                    <p className="text-[11px] text-muted-foreground mt-0.5">
-                      {hasCustomColor ? "Cores personalizadas ativas (Fundo / Borda / Ícone)" : `Cores padrão da raridade (${previewRarity.label})`}
-                    </p>
 
-                    <div className="flex items-center gap-2 mt-1.5 flex-wrap">
-                      {editingInsignia.bg_color && (
-                        <div className="flex items-center gap-1 text-[10px] text-muted-foreground font-mono bg-background/60 px-1.5 py-0.5 rounded border border-border/40">
-                          <div className="h-2.5 w-2.5 rounded-sm border border-white/20" style={{ backgroundColor: editingInsignia.bg_color }} />
-                          <span>Fundo: {editingInsignia.bg_color}</span>
+                    <div className="flex items-center gap-2 bg-black/30 p-2 rounded-2xl border border-white/5">
+                      {(["xs", "sm", "md", "lg"] as const).map((s) => (
+                        <div key={s} className="flex flex-col items-center gap-1">
+                          <InsigniaEmblem
+                            icon={editingInsignia.icon || "CheckCircle2"}
+                            rarity={editingInsignia.rarity || "comum"}
+                            shape_3d={editingInsignia.shape_3d}
+                            material_3d={editingInsignia.material_3d}
+                            border_style_3d={editingInsignia.border_style_3d}
+                            gloss_effect={editingInsignia.gloss_effect}
+                            color={editingInsignia.color}
+                            bgColor={editingInsignia.bg_color}
+                            borderColor={editingInsignia.border_color}
+                            size={s}
+                            showStar={s !== "xs"}
+                          />
+                          <span className="text-[8px] font-mono text-muted-foreground uppercase">{s}</span>
                         </div>
-                      )}
-                      {editingInsignia.border_color && (
-                        <div className="flex items-center gap-1 text-[10px] text-muted-foreground font-mono bg-background/60 px-1.5 py-0.5 rounded border border-border/40">
-                          <div className="h-2.5 w-2.5 rounded-sm border-2" style={{ borderColor: editingInsignia.border_color }} />
-                          <span>Borda: {editingInsignia.border_color}</span>
-                        </div>
-                      )}
-                      {editingInsignia.color && (
-                        <div className="flex items-center gap-1 text-[10px] text-muted-foreground font-mono bg-background/60 px-1.5 py-0.5 rounded border border-border/40">
-                          <div className="h-2.5 w-2.5 rounded-sm" style={{ backgroundColor: editingInsignia.color }} />
-                          <span>Ícone: {editingInsignia.color}</span>
-                        </div>
-                      )}
+                      ))}
                     </div>
                   </div>
+                </div>
 
-                  {hasCustomColor && (
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      onClick={() =>
-                        setEditingInsignia({
-                          ...editingInsignia,
-                          color: null,
-                          bg_color: null,
-                          border_color: null,
-                        })
-                      }
-                      className="h-7 text-[10px] text-muted-foreground hover:text-rose-400 gap-1 shrink-0"
+                {/* ── FORMATO GEOMÉTRICO 3D ── */}
+                <div className="space-y-1.5">
+                  <label className="text-xs font-black text-foreground flex items-center justify-between">
+                    <span>Formato Geométrico 3D:</span>
+                    <span className="text-[10px] text-muted-foreground font-normal">
+                      {SHAPE_OPTIONS.find((s) => s.id === (editingInsignia.shape_3d || "rosette"))?.label}
+                    </span>
+                  </label>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                    {SHAPE_OPTIONS.map((shape) => {
+                      const isSelected = (editingInsignia.shape_3d || "rosette") === shape.id;
+                      return (
+                        <button
+                          key={shape.id}
+                          type="button"
+                          onClick={() => setEditingInsignia({ ...editingInsignia, shape_3d: shape.id })}
+                          className={cn(
+                            "p-2 rounded-xl border text-left transition-all flex items-center gap-2 relative",
+                            isSelected
+                              ? "bg-sky-500/20 border-sky-400 text-sky-200 shadow-sm ring-1 ring-sky-400/50"
+                              : "bg-secondary/20 border-border/60 hover:bg-secondary/40 text-muted-foreground hover:text-foreground"
+                          )}
+                        >
+                          <span className="text-lg shrink-0">{shape.icon}</span>
+                          <span className="text-xs font-bold truncate">{shape.label}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* ── MATERIAL & ACABAMENTO 3D ── */}
+                <div className="space-y-1.5">
+                  <label className="text-xs font-black text-foreground flex items-center justify-between">
+                    <span>Material Precioso &amp; Acabamento 3D:</span>
+                    <span className="text-[10px] text-muted-foreground font-normal">
+                      {MATERIAL_OPTIONS.find((m) => m.id === (editingInsignia.material_3d || "safira_blue"))?.label}
+                    </span>
+                  </label>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                    {MATERIAL_OPTIONS.map((mat) => {
+                      const isSelected = (editingInsignia.material_3d || "safira_blue") === mat.id;
+                      return (
+                        <button
+                          key={mat.id}
+                          type="button"
+                          onClick={() => setEditingInsignia({ ...editingInsignia, material_3d: mat.id })}
+                          className={cn(
+                            "p-2 rounded-xl border text-left transition-all flex items-center gap-2 relative",
+                            isSelected
+                              ? "bg-amber-500/15 border-amber-400 text-amber-200 shadow-sm ring-1 ring-amber-400/50"
+                              : "bg-secondary/20 border-border/60 hover:bg-secondary/40 text-muted-foreground hover:text-foreground"
+                          )}
+                        >
+                          <div className="h-5 w-5 rounded-md shrink-0 border border-white/20" style={{ background: mat.gradient }} />
+                          <span className="text-xs font-bold truncate">{mat.label}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* ── BORDA & VIDRO ── */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-foreground">Moldura / Borda 3D:</label>
+                    <Select
+                      value={editingInsignia.border_style_3d || "metallic_chamfer"}
+                      onValueChange={(val: any) => setEditingInsignia({ ...editingInsignia, border_style_3d: val })}
                     >
-                      <RefreshCw className="h-3 w-3" /> Resetar
-                    </Button>
-                  )}
+                      <SelectTrigger className="h-8 text-xs bg-background/50"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        {BORDER_OPTIONS.map((b) => (
+                          <SelectItem key={b.id} value={b.id}>{b.label}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-foreground">Efeito de Vidro &amp; Reflexo:</label>
+                    <Select
+                      value={editingInsignia.gloss_effect || "ultra_glass"}
+                      onValueChange={(val: any) => setEditingInsignia({ ...editingInsignia, gloss_effect: val })}
+                    >
+                      <SelectTrigger className="h-8 text-xs bg-background/50"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        {GLOSS_OPTIONS.map((g) => (
+                          <SelectItem key={g.id} value={g.id}>{g.label}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
 
                 {/* ── IDENTIFICADOR E NOME ── */}
                 <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1.5">
-                    <Label htmlFor="badge-id" className="text-xs font-bold">
-                      Identificador (ID) *
-                    </Label>
+                  <div className="space-y-1">
+                    <Label htmlFor="badge-id" className="text-xs font-bold">Identificador (ID) *</Label>
                     <Input
                       id="badge-id"
                       disabled={Boolean(insignias.some((i) => i.id === editingInsignia.id))}
                       value={editingInsignia.id || ""}
                       onChange={(e) => setEditingInsignia({ ...editingInsignia, id: e.target.value })}
-                      placeholder="ex: guardiao_asfalto"
-                      className="font-mono text-xs"
+                      placeholder="ex: verified_oficial"
+                      className="font-mono text-xs h-8 bg-background/50"
                     />
                   </div>
-                  <div className="space-y-1.5">
-                    <Label htmlFor="badge-name" className="text-xs font-bold">
-                      Nome Oficial *
-                    </Label>
+                  <div className="space-y-1">
+                    <Label htmlFor="badge-name" className="text-xs font-bold">Nome Oficial *</Label>
                     <Input
                       id="badge-name"
                       value={editingInsignia.name || ""}
                       onChange={(e) => setEditingInsignia({ ...editingInsignia, name: e.target.value })}
-                      placeholder="Ex: Guardião do Asfalto"
-                      className="text-xs font-bold"
+                      placeholder="Ex: Selo Verified Oficial"
+                      className="text-xs font-bold h-8 bg-background/50"
                     />
                   </div>
                 </div>
 
                 {/* ── RARIDADE, CUSTO E ÍCONE ── */}
                 <div className="grid grid-cols-3 gap-3">
-                  <div className="space-y-1.5">
+                  <div className="space-y-1">
                     <Label className="text-xs font-bold">Raridade</Label>
                     <Select
                       value={editingInsignia.rarity || "comum"}
                       onValueChange={(val: any) => setEditingInsignia({ ...editingInsignia, rarity: val })}
                     >
-                      <SelectTrigger className="h-9 text-xs">
-                        <SelectValue />
-                      </SelectTrigger>
+                      <SelectTrigger className="h-8 text-xs bg-background/50"><SelectValue /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="comum">Comum</SelectItem>
                         <SelectItem value="raro">Raro</SelectItem>
@@ -3313,31 +3411,27 @@ export function DevGamificationManager({ initialTab = "membros" }: { initialTab?
                     </Select>
                   </div>
 
-                  <div className="space-y-1.5">
-                    <Label htmlFor="badge-cost" className="text-xs font-bold">
-                      Custo em XP
-                    </Label>
+                  <div className="space-y-1">
+                    <Label htmlFor="badge-cost" className="text-xs font-bold">Custo em XP</Label>
                     <Input
                       id="badge-cost"
                       type="number"
                       min={0}
                       value={editingInsignia.xp_cost || 0}
                       onChange={(e) => setEditingInsignia({ ...editingInsignia, xp_cost: Number(e.target.value) })}
-                      className="h-9 text-xs font-mono font-bold"
+                      className="h-8 text-xs font-mono font-bold bg-background/50"
                     />
                   </div>
 
-                  <div className="space-y-1.5 flex flex-col items-start justify-center">
-                    <Label htmlFor="badge-icon" className="text-xs font-bold">
-                      Ícone Lucide
-                    </Label>
+                  <div className="space-y-1">
+                    <Label htmlFor="badge-icon" className="text-xs font-bold">Ícone Lucide</Label>
                     <IconPicker
                       value={editingInsignia.icon || "Award"}
                       onChange={(val) => setEditingInsignia({ ...editingInsignia, icon: val })}
                     >
-                      <Button variant="outline" className="w-full justify-start h-9 text-xs px-3">
+                      <Button variant="outline" className="w-full justify-start h-8 text-xs px-2.5 bg-background/50">
                         <div className="flex items-center gap-2 overflow-hidden text-ellipsis">
-                          <DynamicInsigniaIcon name={editingInsignia.icon || "Award"} className="w-4 h-4 shrink-0 text-primary" />
+                          <DynamicInsigniaIcon name={editingInsignia.icon || "Award"} className="w-3.5 h-3.5 shrink-0 text-primary" />
                           <span className="truncate">{editingInsignia.icon || "Award"}</span>
                         </div>
                       </Button>
@@ -3345,20 +3439,20 @@ export function DevGamificationManager({ initialTab = "membros" }: { initialTab?
                   </div>
                 </div>
 
-                {/* ── SELETOR DE CORES INDEPENDENTES (FUNDO / BORDA / ÍCONE) ── */}
+                {/* ── SELETOR DE CORES CUSTOMIZADAS (OPCIONAL) ── */}
                 <div className="rounded-2xl border border-border/70 overflow-hidden bg-background/40">
                   <div className="flex border-b border-border/60 bg-muted/30">
                     {([
-                      { id: "bg" as const, label: "Fundo", color: editingInsignia.bg_color },
-                      { id: "border" as const, label: "Borda", color: editingInsignia.border_color },
-                      { id: "icon" as const, label: "Ícone", color: editingInsignia.color },
+                      { id: "bg" as const, label: "Fundo 3D", color: editingInsignia.bg_color },
+                      { id: "border" as const, label: "Borda Chanfro", color: editingInsignia.border_color },
+                      { id: "icon" as const, label: "Ícone Central", color: editingInsignia.color },
                     ]).map((tab) => (
                       <button
                         key={tab.id}
                         type="button"
                         onClick={() => setColorTab(tab.id)}
                         className={cn(
-                          "flex-1 py-2 px-3 text-xs font-extrabold flex items-center justify-center gap-2 border-b-2 transition-all cursor-pointer",
+                          "flex-1 py-1.5 px-3 text-xs font-extrabold flex items-center justify-center gap-2 border-b-2 transition-all cursor-pointer",
                           colorTab === tab.id
                             ? "border-primary text-foreground bg-accent/40"
                             : "border-transparent text-muted-foreground hover:text-foreground hover:bg-accent/20"
@@ -3366,84 +3460,62 @@ export function DevGamificationManager({ initialTab = "membros" }: { initialTab?
                       >
                         <span>{tab.label}</span>
                         {tab.color ? (
-                          <span
-                            className="h-2.5 w-2.5 rounded-full border border-white/40 shrink-0"
-                            style={{ backgroundColor: tab.color }}
-                          />
+                          <span className="h-2 w-2 rounded-full border border-white/40 shrink-0" style={{ backgroundColor: tab.color }} />
                         ) : (
-                          <span className="text-[10px] font-normal text-muted-foreground/60">(padrão)</span>
+                          <span className="text-[10px] font-normal text-muted-foreground/60">(material)</span>
                         )}
                       </button>
                     ))}
                   </div>
 
-                  <div className="p-3.5 space-y-2">
+                  <div className="p-3 space-y-2">
                     {colorTab === "bg" && (
-                      <div>
-                        <p className="text-[11px] text-muted-foreground mb-2">
-                          Cor de preenchimento do escudo/fundo do emblema. Deixe vazio para usar a cor padrão da raridade.
-                        </p>
-                        <ColorPickerField
-                          label="Cor de Fundo do Emblema"
-                          value={editingInsignia.bg_color}
-                          onChange={(val) => setEditingInsignia({ ...editingInsignia, bg_color: val })}
-                          placeholder="#1e1b4b ou rgba(30,27,75,0.8)"
-                        />
-                      </div>
+                      <ColorPickerField
+                        label="Cor de Fundo do Emblema"
+                        value={editingInsignia.bg_color}
+                        onChange={(val) => setEditingInsignia({ ...editingInsignia, bg_color: val })}
+                        placeholder="#0284c7 ou #1e1b4b"
+                      />
                     )}
-
                     {colorTab === "border" && (
-                      <div>
-                        <p className="text-[11px] text-muted-foreground mb-2">
-                          Cor do contorno/borda do emblema e do card. Deixe vazio para usar o contorno padrão da raridade.
-                        </p>
-                        <ColorPickerField
-                          label="Cor da Borda do Emblema"
-                          value={editingInsignia.border_color}
-                          onChange={(val) => setEditingInsignia({ ...editingInsignia, border_color: val })}
-                          placeholder="#a855f7 ou #eab308"
-                        />
-                      </div>
+                      <ColorPickerField
+                        label="Cor da Borda do Emblema"
+                        value={editingInsignia.border_color}
+                        onChange={(val) => setEditingInsignia({ ...editingInsignia, border_color: val })}
+                        placeholder="#38bdf8 ou #eab308"
+                      />
                     )}
-
                     {colorTab === "icon" && (
-                      <div>
-                        <p className="text-[11px] text-muted-foreground mb-2">
-                          Cor do símbolo/ícone Lucide no centro do emblema. Deixe vazio para usar a cor padrão da raridade.
-                        </p>
-                        <ColorPickerField
-                          label="Cor do Ícone / Símbolo"
-                          value={editingInsignia.color}
-                          onChange={(val) => setEditingInsignia({ ...editingInsignia, color: val })}
-                          placeholder="#facc15 ou #38bdf8"
-                        />
-                      </div>
+                      <ColorPickerField
+                        label="Cor do Ícone / Símbolo"
+                        value={editingInsignia.color}
+                        onChange={(val) => setEditingInsignia({ ...editingInsignia, color: val })}
+                        placeholder="#ffffff ou #facc15"
+                      />
                     )}
                   </div>
                 </div>
 
                 {/* ── DESCRIÇÃO ── */}
-                <div className="space-y-1.5">
-                  <Label htmlFor="badge-desc" className="text-xs font-bold">
-                    Descrição / Critério de Conquista
-                  </Label>
+                <div className="space-y-1">
+                  <Label htmlFor="badge-desc" className="text-xs font-bold">Descrição / Critério de Conquista</Label>
                   <Textarea
                     id="badge-desc"
                     value={editingInsignia.description || ""}
                     onChange={(e) => setEditingInsignia({ ...editingInsignia, description: e.target.value })}
                     placeholder="Critérios exigidos para que a diretoria conceda esta distinção..."
                     rows={2}
-                    className="text-xs"
+                    className="text-xs bg-background/50 resize-none"
                   />
                 </div>
 
                 {/* ── ATIVA/INATIVA ── */}
-                <div className="flex items-center justify-between p-3 rounded-xl border border-border/80 bg-background/50">
+                <div className="flex items-center justify-between p-2.5 rounded-xl border border-border/80 bg-background/50">
                   <div className="space-y-0.5">
                     <Label htmlFor="badge-active" className="text-xs font-bold cursor-pointer">
                       Insígnia Ativa para Concessão
                     </Label>
-                    <p className="text-[11px] text-muted-foreground">
+                    <p className="text-[10px] text-muted-foreground">
                       Quando desativada, não aparece na lista de condecoração para novos membros.
                     </p>
                   </div>

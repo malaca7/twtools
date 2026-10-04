@@ -36,16 +36,21 @@ export function useMemberTagAssignments() {
 import { useMembers } from "@/hooks/useData";
 
 /**
- * Retorna um Map de member_id / user_id -> MemberTag[] para renderização rápida e enriquecimento de listas de membros
+ * Retorna um Map de member_id / user_id -> MemberTag[] para renderização rápida e enriquecimento de listas de membros.
+ * Por padrão, apenas tags configuradas com "Tag de Sistema" (is_system === true) e ativas são exibidas visualmente vinculadas aos membros.
  */
-export function useMemberTagsMap() {
+export function useMemberTagsMap(options: { onlySystem?: boolean } = { onlySystem: true }) {
   const { data: tags = [] } = useMemberTags();
   const { data: assignments = [] } = useMemberTagAssignments();
   const { data: members = [] } = useMembers();
 
   return useMemo(() => {
     const tagMap = new Map<string, MemberTag>();
-    tags.forEach((t) => tagMap.set(t.id, t));
+    tags.forEach((t) => {
+      if (t.is_active === false) return;
+      if (options.onlySystem && !t.is_system) return;
+      tagMap.set(t.id, t);
+    });
 
     const memberIdToUserId = new Map<string, string>();
     const userIdToMemberId = new Map<string, string>();
@@ -82,7 +87,7 @@ export function useMemberTagsMap() {
     });
 
     return memberTagsMap;
-  }, [tags, assignments, members]);
+  }, [tags, assignments, members, options.onlySystem]);
 }
 
 /**

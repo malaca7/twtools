@@ -43,7 +43,7 @@ import {
 import { getInsigniaIconStyles, getInsigniaCardStyles } from "@/components/gamification/InsigniaCatalogManagerModal";
 import { cn } from "@/lib/utils";
 
-import { renderInsigniaIcon, DynamicInsigniaIcon } from "@/components/gamification/InsigniaIcon";
+import { renderInsigniaIcon, DynamicInsigniaIcon, InsigniaEmblem } from "@/components/gamification/InsigniaIcon";
 
 interface InsigniaGrantModalProps {
   open: boolean;
@@ -287,16 +287,22 @@ export function InsigniaGrantModal({
                       style={!isSelected && !isOwned ? cardStyle : undefined}
                     >
                       <div className="flex items-start gap-2.5">
-                        <div
-                          className={cn(
-                            "h-9 w-9 rounded-xl flex items-center justify-center shrink-0 border",
-                            !iconStyle && rarity.bgClass,
-                            !iconStyle && rarity.borderClass,
-                            !iconStyle && rarity.textClass
-                          )}
-                          style={iconStyle}
-                        >
-                          {renderInsigniaIcon(insignia.icon)}
+                        <div className="shrink-0 pt-0.5">
+                          <InsigniaEmblem
+                            icon={insignia.icon}
+                            name={insignia.name}
+                            rarity={insignia.rarity}
+                            shape_3d={insignia.shape_3d}
+                            material_3d={insignia.material_3d}
+                            border_style_3d={insignia.border_style_3d}
+                            gloss_effect={insignia.gloss_effect}
+                            size="sm"
+                            color={insignia.color}
+                            bgColor={insignia.bg_color}
+                            borderColor={insignia.border_color}
+                            interactive={false}
+                            showStar={false}
+                          />
                         </div>
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center justify-between gap-1">

@@ -2,6 +2,41 @@ import { supabase } from "@/integrations/supabase/client";
 
 export type InsigniaRarity = "comum" | "raro" | "epico" | "lendario" | "mitico";
 
+export type InsigniaShape3D =
+  | "rosette"   // 🏵️ Roseta Dentada 3D (Estilo Verified da Imagem)
+  | "medal"     // 🎖️ Medalha Circular 3D
+  | "shield"    // 🛡️ Escudo Nobre 3D
+  | "diamond"   // 💎 Diamante / Joia Lapidada 3D
+  | "hexagon"   // ⬡ Hexágono Tático 3D
+  | "octagon"   // 🛑 Octógono Imperial 3D
+  | "square"    // ⏹️ Broche Quadrado Chanfrado 3D
+  | "star";     // ⭐ Estrela Real 3D
+
+export type InsigniaMaterial3D =
+  | "safira_blue"      // 💎 Safira Azul 3D (Verified Oficial da Imagem)
+  | "gold_24k"          // 🏆 Ouro Nobre 24k
+  | "ruby_red"          // 🔮 Rubi Imperial 3D
+  | "platinum_chrome"   // 👑 Platina & Cromo Espelhado
+  | "amethyst_purple"   // 🌌 Ametista Cósmica
+  | "emerald_green"     // 🌿 Esmeralda Real 3D
+  | "obsidian_black"    // 🌑 Obsidiana & Ouro Negro
+  | "cyber_neon"        // ⚡ Holográfico / Cyber Neon
+  | "custom";           // 🎨 Cores Personalizadas
+
+export type InsigniaBorderStyle3D =
+  | "metallic_chamfer"  // Borda Metálica Chanfrada
+  | "gold_trim"         // Moldura Ouro 24k
+  | "silver_trim"       // Moldura Prata Espelhada
+  | "neon_glow"         // Borda Neon Glow
+  | "glass_rim"         // Borda de Vidro Cristalino
+  | "none";             // Sem Borda Adicional
+
+export type InsigniaGlossEffect =
+  | "ultra_glass"       // Efeito Vidro Convexo Ultra 3D (com Arco Especular)
+  | "specular_sheen"    // Brilho Esmaltado Metálico
+  | "radial_dome"       // Domo 3D Curvado
+  | "holographic";      // Reflexo Holográfico Furta-cor
+
 export interface InsigniaItem {
   id: string;
   name: string;
@@ -14,6 +49,10 @@ export interface InsigniaItem {
   color?: string | null;       // cor do ícone (foreground)
   bg_color?: string | null;    // cor de fundo do emblema
   border_color?: string | null; // cor da borda do emblema
+  shape_3d?: InsigniaShape3D;
+  material_3d?: InsigniaMaterial3D;
+  border_style_3d?: InsigniaBorderStyle3D;
+  gloss_effect?: InsigniaGlossEffect;
   created_at?: string;
   updated_at?: string;
 }
@@ -360,7 +399,11 @@ export async function getMemberInsignias(memberId: string): Promise<MemberInsign
         category,
         color,
         bg_color,
-        border_color
+        border_color,
+        shape_3d,
+        material_3d,
+        border_style_3d,
+        gloss_effect
       ),
       grantor:granted_by (
         nome,
@@ -389,6 +432,69 @@ export async function getMemberInsignias(memberId: string): Promise<MemberInsign
     grantor_name: item.grantor?.nickname || item.grantor?.nome || "Comandante",
     grantor_avatar: item.grantor?.avatar_url || item.grantor?.discord_avatar_url,
   }));
+}
+
+/**
+ * Busca todas as insígnias concedidas a todos os membros no sistema (para visualizações globais como Hierarquia)
+ */
+export async function getAllMemberInsignias(): Promise<MemberInsigniaGrant[]> {
+  try {
+    const { data, error } = await supabase
+      .from("member_insignias" as any)
+      .select(`
+        id,
+        member_id,
+        insignia_id,
+        granted_by,
+        xp_cost_paid,
+        reason,
+        granted_at,
+        insignias:insignia_id (
+          id,
+          name,
+          icon,
+          description,
+          rarity,
+          xp_cost,
+          category,
+          color,
+          bg_color,
+          border_color,
+          shape_3d,
+          material_3d,
+          border_style_3d,
+          gloss_effect
+        ),
+        grantor:granted_by (
+          nome,
+          nickname,
+          avatar_url,
+          discord_avatar_url
+        )
+      `)
+      .order("granted_at", { ascending: false });
+
+    if (error || !data) {
+      console.warn("Falha ao buscar todas as insígnias dos membros:", error);
+      return [];
+    }
+
+    return data.map((item: any) => ({
+      id: item.id,
+      member_id: item.member_id,
+      insignia_id: item.insignia_id,
+      granted_by: item.granted_by,
+      xp_cost_paid: Number(item.xp_cost_paid || 0),
+      reason: item.reason,
+      granted_at: item.granted_at,
+      insignia: item.insignias as InsigniaItem,
+      grantor_name: item.grantor?.nickname || item.grantor?.nome || "Comandante",
+      grantor_avatar: item.grantor?.avatar_url || item.grantor?.discord_avatar_url,
+    }));
+  } catch (err) {
+    console.error("Erro ao carregar insígnias globais:", err);
+    return [];
+  }
 }
 
 /**
@@ -465,10 +571,38 @@ export async function saveInsignia(insignia: Partial<InsigniaItem> & { id: strin
     p_color: insignia.color || null,
     p_bg_color: insignia.bg_color || null,
     p_border_color: insignia.border_color || null,
+    p_shape_3d: insignia.shape_3d || "rosette",
+    p_material_3d: insignia.material_3d || "safira_blue",
+    p_border_style_3d: insignia.border_style_3d || "metallic_chamfer",
+    p_gloss_effect: insignia.gloss_effect || "ultra_glass",
   });
 
   if (error) {
-    throw new Error(error.message || "Falha ao salvar insígnia no catálogo.");
+    // Fallback direto via Supabase se RPC falhar
+    const { error: directErr } = await supabase
+      .from("insignias" as any)
+      .upsert({
+        id: insignia.id,
+        name: insignia.name,
+        icon: insignia.icon || "Award",
+        description: insignia.description || "",
+        rarity: insignia.rarity || "comum",
+        xp_cost: Number(insignia.xp_cost || 0),
+        category: insignia.category || "geral",
+        active: insignia.active !== false,
+        color: insignia.color || null,
+        bg_color: insignia.bg_color || null,
+        border_color: insignia.border_color || null,
+        shape_3d: insignia.shape_3d || "rosette",
+        material_3d: insignia.material_3d || "safira_blue",
+        border_style_3d: insignia.border_style_3d || "metallic_chamfer",
+        gloss_effect: insignia.gloss_effect || "ultra_glass",
+        updated_at: new Date().toISOString(),
+      }, { onConflict: "id" });
+
+    if (directErr) {
+      throw new Error(directErr.message || error.message || "Falha ao salvar insígnia no catálogo.");
+    }
   }
 }
 
@@ -798,8 +932,6 @@ export async function devGetAllXpTransactions(limit = 100, memberId?: string): P
     description: row.description,
     metadata: row.metadata,
     created_at: row.created_at,
-    member_name: row.profiles?.nome,
-    member_nickname: row.profiles?.nickname,
     avatar_url: row.profiles?.avatar_url || row.profiles?.discord_avatar_url,
   }));
 }
@@ -808,21 +940,28 @@ export async function devGetAllXpTransactions(limit = 100, memberId?: string): P
 // TIPOS E SERVIÇOS DA LOJA E MOEDA TW COINS
 // ==========================================
 
+export type ShopItemType = "insignia" | "tag" | "servico" | "recurso" | "veiculo" | "custom" | string;
+
 export interface ShopItem {
   id: string;
   title: string;
   description: string;
   icon: string;
-  category: "insignias" | "vantagens" | "recursos" | "veiculos" | "personalizacao" | string;
+  category: "insignias" | "tags" | "servicos" | "vantagens" | "recursos" | "veiculos" | "personalizacao" | string;
   price_coins: number;
   price_xp: number;
   rarity: InsigniaRarity;
   stock: number | null;
+  item_type?: ShopItemType;
   insignia_id?: string | null;
+  tag_id?: string | null;
+  badge_color?: string | null;
+  instructions?: string | null;
   active: boolean;
   display_order: number;
   created_at: string;
   insignia?: InsigniaItem;
+  tag?: any;
 }
 
 export interface ShopPurchase {
@@ -850,8 +989,8 @@ export interface TwCoinTransaction {
   created_at: string;
 }
 
-export async function getShopItems(): Promise<ShopItem[]> {
-  const { data, error } = await supabase
+export async function getShopItems(includeInactive: boolean = false): Promise<ShopItem[]> {
+  let query = supabase
     .from("shop_items" as any)
     .select(`
       *,
@@ -864,11 +1003,29 @@ export async function getShopItems(): Promise<ShopItem[]> {
         xp_cost,
         color,
         bg_color,
-        border_color
+        border_color,
+        shape_3d,
+        material_3d,
+        border_style_3d,
+        gloss_effect
+      ),
+      tag:member_tags (
+        id,
+        name,
+        description,
+        color,
+        icon,
+        is_system,
+        is_active
       )
     `)
-    .eq("active", true)
     .order("display_order", { ascending: true });
+
+  if (!includeInactive) {
+    query = query.eq("active", true);
+  }
+
+  const { data, error } = await query;
 
   if (error) {
     console.error("Erro ao carregar itens da loja:", error);
@@ -885,11 +1042,16 @@ export async function getShopItems(): Promise<ShopItem[]> {
     price_xp: Number(row.price_xp || 0),
     rarity: (row.rarity || "comum") as InsigniaRarity,
     stock: row.stock !== null ? Number(row.stock) : null,
+    item_type: row.item_type || (row.insignia_id ? "insignia" : row.tag_id ? "tag" : "custom"),
     insignia_id: row.insignia_id,
+    tag_id: row.tag_id,
+    badge_color: row.badge_color,
+    instructions: row.instructions,
     active: row.active,
     display_order: Number(row.display_order || 0),
     created_at: row.created_at,
     insignia: row.insignia,
+    tag: row.tag,
   }));
 }
 
@@ -1079,7 +1241,11 @@ export async function createShopItem(payload: {
   price_xp?: number;
   rarity?: InsigniaRarity;
   stock?: number | null;
+  item_type?: ShopItemType;
   insignia_id?: string | null;
+  tag_id?: string | null;
+  badge_color?: string | null;
+  instructions?: string | null;
   active?: boolean;
   display_order?: number;
 }): Promise<ShopItem> {
@@ -1094,7 +1260,11 @@ export async function createShopItem(payload: {
       price_xp: Math.max(0, Math.floor(payload.price_xp || 0)),
       rarity: payload.rarity || "comum",
       stock: payload.stock !== undefined ? payload.stock : null,
+      item_type: payload.item_type || (payload.insignia_id ? "insignia" : payload.tag_id ? "tag" : "custom"),
       insignia_id: payload.insignia_id || null,
+      tag_id: payload.tag_id || null,
+      badge_color: payload.badge_color || null,
+      instructions: payload.instructions || null,
       active: payload.active !== undefined ? payload.active : true,
       display_order: payload.display_order || 0,
     })
@@ -1115,7 +1285,11 @@ export async function createShopItem(payload: {
     price_xp: Number(data.price_xp || 0),
     rarity: data.rarity,
     stock: data.stock !== null ? Number(data.stock) : null,
+    item_type: data.item_type,
     insignia_id: data.insignia_id,
+    tag_id: data.tag_id,
+    badge_color: data.badge_color,
+    instructions: data.instructions,
     active: data.active,
     display_order: Number(data.display_order || 0),
     created_at: data.created_at,
@@ -1133,7 +1307,11 @@ export async function updateShopItem(
     price_xp: number;
     rarity: InsigniaRarity;
     stock: number | null;
+    item_type: ShopItemType;
     insignia_id: string | null;
+    tag_id: string | null;
+    badge_color: string | null;
+    instructions: string | null;
     active: boolean;
     display_order: number;
   }>
@@ -1147,7 +1325,11 @@ export async function updateShopItem(
   if (payload.price_xp !== undefined) updateData.price_xp = Math.max(0, Math.floor(payload.price_xp));
   if (payload.rarity !== undefined) updateData.rarity = payload.rarity;
   if (payload.stock !== undefined) updateData.stock = payload.stock;
+  if (payload.item_type !== undefined) updateData.item_type = payload.item_type;
   if (payload.insignia_id !== undefined) updateData.insignia_id = payload.insignia_id;
+  if (payload.tag_id !== undefined) updateData.tag_id = payload.tag_id;
+  if (payload.badge_color !== undefined) updateData.badge_color = payload.badge_color;
+  if (payload.instructions !== undefined) updateData.instructions = payload.instructions;
   if (payload.active !== undefined) updateData.active = payload.active;
   if (payload.display_order !== undefined) updateData.display_order = payload.display_order;
 

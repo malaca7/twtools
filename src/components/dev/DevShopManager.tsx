@@ -23,6 +23,15 @@ import {
   Clock,
   Shield,
   Award,
+  Tag as TagIcon,
+  Crown,
+  Briefcase,
+  Boxes,
+  Truck,
+  Wrench,
+  Palette,
+  Check,
+  Info,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -58,6 +67,9 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useAuth } from "@/hooks/useAuth";
+import { useMemberTags } from "@/hooks/useMemberTags";
+import { MemberTagBadge } from "@/components/ui/MemberTagBadge";
+import { InsigniaEmblem } from "@/components/gamification/InsigniaIcon";
 import { renderInsigniaIcon } from "@/components/gamification/MemberGamificationCard";
 import {
   getShopItems,
@@ -71,6 +83,7 @@ import {
   RARITY_CONFIG,
   type ShopItem,
   type ShopPurchase,
+  type ShopItemType,
   type InsigniaRarity,
 } from "@/services/gamificationService";
 import { cn } from "@/lib/utils";
@@ -78,11 +91,55 @@ import { cn } from "@/lib/utils";
 const SHOP_CATEGORIES = [
   { id: "todas", label: "Todas as Categorias" },
   { id: "insignias", label: "Insígnias Oficiais" },
-  { id: "vantagens", label: "Vantagens & Cargos" },
+  { id: "tags", label: "Tags & Cargos" },
+  { id: "servicos", label: "Serviços VIP" },
   { id: "recursos", label: "Recursos & Suprimentos" },
   { id: "veiculos", label: "Veículos & Garagem" },
-  { id: "personalizacao", label: "Personalização VIP" },
+  { id: "personalizacao", label: "Personalização" },
+  { id: "vantagens", label: "Vantagens" },
   { id: "geral", label: "Geral" },
+];
+
+const ITEM_TYPES: {
+  id: ShopItemType;
+  label: string;
+  desc: string;
+  icon: React.ElementType;
+  colorClass: string;
+  badgeBg: string;
+}[] = [
+  {
+    id: "insignia",
+    label: "Insígnia Oficial (3D)",
+    desc: "Emblema 3D realista com concessão automática imediata ao perfil do membro.",
+    icon: Award,
+    colorClass: "text-amber-400 border-amber-500/40 bg-amber-500/10",
+    badgeBg: "bg-amber-500/20 text-amber-300 border-amber-500/40",
+  },
+  {
+    id: "tag",
+    label: "Tag do Sistema / Cargo",
+    desc: "Tag de membro vinculada automaticamente ao cargo e perfil do comprador.",
+    icon: TagIcon,
+    colorClass: "text-blue-400 border-blue-500/40 bg-blue-500/10",
+    badgeBg: "bg-blue-500/20 text-blue-300 border-blue-500/40",
+  },
+  {
+    id: "servico",
+    label: "Serviço Personalizado / VIP",
+    desc: "Serviço sob demanda (placas, pinturas, VIP) para entrega operacional pela liderança.",
+    icon: Briefcase,
+    colorClass: "text-purple-400 border-purple-500/40 bg-purple-500/10",
+    badgeBg: "bg-purple-500/20 text-purple-300 border-purple-500/40",
+  },
+  {
+    id: "recurso",
+    label: "Item / Recurso do RP",
+    desc: "Itens físicos, armas, suprimentos ou veículos com entrega operacional no jogo.",
+    icon: Boxes,
+    colorClass: "text-emerald-400 border-emerald-500/40 bg-emerald-500/10",
+    badgeBg: "bg-emerald-500/20 text-emerald-300 border-emerald-500/40",
+  },
 ];
 
 export function DevShopManager() {
@@ -91,8 +148,10 @@ export function DevShopManager() {
 
   const [activeTab, setActiveTab] = useState<string>("catalog");
   const [selectedCategory, setSelectedCategory] = useState<string>("todas");
+  const [selectedType, setSelectedType] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [ordersStatusFilter, setOrdersStatusFilter] = useState<string>("all");
 
   // Estados dos Modais
   const [isItemModalOpen, setIsItemModalOpen] = useState(false);
@@ -112,13 +171,15 @@ export function DevShopManager() {
   // Queries
   const { data: shopItems = [], isLoading: isLoadingItems } = useQuery({
     queryKey: ["shop_items"],
-    queryFn: () => getShopItems(false), // traz todos inclusive inativos
+    queryFn: () => getShopItems(true), // inclui inativos para gestão
   });
 
   const { data: insigniasCatalog = [] } = useQuery({
     queryKey: ["insignias_catalog"],
     queryFn: () => getInsigniasCatalog(),
   });
+
+  const { data: memberTags = [] } = useMemberTags();
 
   const { data: allPurchases = [], isLoading: isLoadingPurchases } = useQuery({
     queryKey: ["all_shop_purchases"],
@@ -131,28 +192,69 @@ export function DevShopManager() {
     const totalItems = shopItems.length;
     const activeItems = shopItems.filter((i) => i.active).length;
     const totalPurchases = allPurchases.length;
+    const pendingDeliveries = allPurchases.filter((p) => p.status === "pendente_entrega").length;
     const totalCoinsSpent = allPurchases
       .filter((p) => p.status !== "estornado")
       .reduce((sum, p) => sum + p.price_coins_paid, 0);
 
-    return { totalItems, activeItems, totalPurchases, totalCoinsSpent };
+    const insigniasCount = shopItems.filter(
+      (i) => i.item_type === "insignia" || Boolean(i.insignia_id)
+    ).length;
+    const tagsCount = shopItems.filter(
+      (i) => i.item_type === "tag" || Boolean(i.tag_id)
+    ).length;
+    const customCount = shopItems.filter(
+      (i) => !i.insignia_id && !i.tag_id
+    ).length;
+
+    return {
+      totalItems,
+      activeItems,
+      totalPurchases,
+      pendingDeliveries,
+      totalCoinsSpent,
+      insigniasCount,
+      tagsCount,
+      customCount,
+    };
   }, [shopItems, allPurchases]);
 
   // Itens filtrados
   const filteredItems = useMemo(() => {
     return shopItems.filter((item) => {
-      const matchCat = selectedCategory === "todas" || item.category === selectedCategory;
+      const matchCat =
+        selectedCategory === "todas" ||
+        item.category === selectedCategory ||
+        (selectedCategory === "insignias" && (item.item_type === "insignia" || Boolean(item.insignia_id))) ||
+        (selectedCategory === "tags" && (item.item_type === "tag" || Boolean(item.tag_id)));
+
+      const matchType =
+        selectedType === "all" ||
+        item.item_type === selectedType ||
+        (selectedType === "insignia" && Boolean(item.insignia_id)) ||
+        (selectedType === "tag" && Boolean(item.tag_id));
+
       const matchSearch =
         item.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (item.description && item.description.toLowerCase().includes(searchQuery.toLowerCase()));
+        (item.description && item.description.toLowerCase().includes(searchQuery.toLowerCase())) ||
+        (item.instructions && item.instructions.toLowerCase().includes(searchQuery.toLowerCase()));
+
       const matchStatus =
         statusFilter === "all" ||
         (statusFilter === "active" && item.active) ||
         (statusFilter === "inactive" && !item.active);
 
-      return matchCat && matchSearch && matchStatus;
+      return matchCat && matchType && matchSearch && matchStatus;
     });
-  }, [shopItems, selectedCategory, searchQuery, statusFilter]);
+  }, [shopItems, selectedCategory, selectedType, searchQuery, statusFilter]);
+
+  // Pedidos filtrados
+  const filteredPurchases = useMemo(() => {
+    return allPurchases.filter((purchase) => {
+      if (ordersStatusFilter === "all") return true;
+      return purchase.status === ordersStatusFilter;
+    });
+  }, [allPurchases, ordersStatusFilter]);
 
   // Mutations
   const toggleActiveMutation = useMutation({
@@ -218,15 +320,18 @@ export function DevShopManager() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border/40 pb-5">
         <div>
           <div className="flex items-center gap-2.5">
-            <div className="p-2.5 rounded-2xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
+            <div className="p-2.5 rounded-2xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 shadow-md shadow-emerald-500/10">
               <ShoppingBag className="h-6 w-6" />
             </div>
             <div>
-              <h1 className="text-xl sm:text-2xl font-black text-foreground tracking-tight">
-                Gestão da Loja Oficial Twin Wheels
+              <h1 className="text-xl sm:text-2xl font-black text-foreground tracking-tight flex items-center gap-2">
+                <span>Gestão da Loja Oficial Twin Wheels</span>
+                <Badge variant="outline" className="bg-emerald-500/10 text-emerald-400 border-emerald-500/30 text-[10px] uppercase font-bold py-0.5">
+                  Catálogo & Recompensas
+                </Badge>
               </h1>
-              <p className="text-xs text-muted-foreground">
-                Painel administrativo de catálogo, itens, precificação em TW Coins, estoque e entregas
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Crie e gerencie Insígnias 3D, Tags do Sistema, Itens RP e Serviços VIP personalizados com precificação em TW Coins
               </p>
             </div>
           </div>
@@ -238,16 +343,16 @@ export function DevShopManager() {
               setEditingItem(null);
               setIsItemModalOpen(true);
             }}
-            className="h-10 px-4 bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-bold gap-2 rounded-xl shadow-lg shadow-emerald-500/20 cursor-pointer self-start sm:self-auto"
+            className="h-10 px-4 bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-bold gap-2 rounded-xl shadow-lg shadow-emerald-500/20 cursor-pointer self-start sm:self-auto transition-transform active:scale-95"
           >
             <Plus className="h-4 w-4" />
-            <span>Novo Item na Loja</span>
+            <span>Adicionar Produto à Loja</span>
           </Button>
         )}
       </div>
 
       {/* CARDS DE MÉTRICAS */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-4">
         <Card className="surface-card border-border/60 p-4 rounded-2xl">
           <div className="flex items-center justify-between">
             <span className="text-[11px] font-bold text-muted-foreground uppercase">Itens Ativos</span>
@@ -269,7 +374,17 @@ export function DevShopManager() {
 
         <Card className="surface-card border-border/60 p-4 rounded-2xl">
           <div className="flex items-center justify-between">
-            <span className="text-[11px] font-bold text-muted-foreground uppercase">Arrecadação TW Coins</span>
+            <span className="text-[11px] font-bold text-muted-foreground uppercase">Pendentes Entrega</span>
+            <Clock className="h-4 w-4 text-amber-400" />
+          </div>
+          <p className="text-2xl font-black text-amber-300 font-mono mt-1">
+            {metrics.pendingDeliveries}
+          </p>
+        </Card>
+
+        <Card className="surface-card border-border/60 p-4 rounded-2xl">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-bold text-muted-foreground uppercase">Arrecadação TW</span>
             <Coins className="h-4 w-4 text-amber-400" />
           </div>
           <p className="text-2xl font-black text-amber-300 font-mono mt-1">
@@ -277,12 +392,16 @@ export function DevShopManager() {
           </p>
         </Card>
 
-        <Card className="surface-card border-border/60 p-4 rounded-2xl">
+        <Card className="surface-card border-border/60 p-4 rounded-2xl col-span-2 md:col-span-1">
           <div className="flex items-center justify-between">
-            <span className="text-[11px] font-bold text-muted-foreground uppercase">Categorias</span>
+            <span className="text-[11px] font-bold text-muted-foreground uppercase">Composição</span>
             <Layers className="h-4 w-4 text-violet-400" />
           </div>
-          <p className="text-2xl font-black text-foreground mt-1">6</p>
+          <p className="text-xs font-mono text-muted-foreground mt-2 space-y-0.5">
+            <span className="block text-amber-300 font-bold">{metrics.insigniasCount} Insígnias 3D</span>
+            <span className="block text-blue-300 font-bold">{metrics.tagsCount} Tags</span>
+            <span className="block text-foreground font-bold">{metrics.customCount} Itens & Serviços</span>
+          </p>
         </Card>
       </div>
 
@@ -294,9 +413,14 @@ export function DevShopManager() {
             <span>Catálogo de Produtos ({shopItems.length})</span>
           </TabsTrigger>
           {canManageOrders && (
-            <TabsTrigger value="orders" className="gap-2 rounded-xl text-xs font-bold">
+            <TabsTrigger value="orders" className="gap-2 rounded-xl text-xs font-bold relative">
               <History className="h-4 w-4" />
               <span>Histórico de Pedidos & Entregas ({allPurchases.length})</span>
+              {metrics.pendingDeliveries > 0 && (
+                <span className="ml-1 px-1.5 py-0.2 rounded-full bg-amber-500 text-black text-[10px] font-black animate-pulse">
+                  {metrics.pendingDeliveries}
+                </span>
+              )}
             </TabsTrigger>
           )}
         </TabsList>
@@ -306,11 +430,11 @@ export function DevShopManager() {
         {/* ==================================================== */}
         <TabsContent value="catalog" className="space-y-4">
           {/* BARRA DE FILTROS */}
-          <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 p-3 rounded-2xl bg-secondary/20 border border-border/60">
+          <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 p-3.5 rounded-2xl bg-secondary/20 border border-border/60">
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Buscar por nome ou descrição..."
+                placeholder="Buscar por nome, descrição ou instruções..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="pl-9 h-9 text-xs rounded-xl bg-background/50 border-border/60"
@@ -318,8 +442,23 @@ export function DevShopManager() {
             </div>
 
             <div className="flex items-center gap-2 flex-wrap">
+              {/* Filtro de Tipo */}
+              <Select value={selectedType} onValueChange={setSelectedType}>
+                <SelectTrigger className="h-9 text-xs w-[160px] rounded-xl bg-background/50 border-border/60 font-medium">
+                  <SelectValue placeholder="Tipo de Recompensa" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all" className="text-xs">Todos os Tipos</SelectItem>
+                  <SelectItem value="insignia" className="text-xs">🏵️ Insígnias 3D</SelectItem>
+                  <SelectItem value="tag" className="text-xs">🏷️ Tags do Sistema</SelectItem>
+                  <SelectItem value="servico" className="text-xs">💼 Serviços VIP</SelectItem>
+                  <SelectItem value="recurso" className="text-xs">📦 Itens do RP</SelectItem>
+                </SelectContent>
+              </Select>
+
+              {/* Filtro de Categoria */}
               <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-                <SelectTrigger className="h-9 text-xs w-[170px] rounded-xl bg-background/50 border-border/60 font-medium">
+                <SelectTrigger className="h-9 text-xs w-[160px] rounded-xl bg-background/50 border-border/60 font-medium">
                   <SelectValue placeholder="Categoria" />
                 </SelectTrigger>
                 <SelectContent>
@@ -331,8 +470,9 @@ export function DevShopManager() {
                 </SelectContent>
               </Select>
 
+              {/* Filtro de Status */}
               <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="h-9 text-xs w-[130px] rounded-xl bg-background/50 border-border/60 font-medium">
+                <SelectTrigger className="h-9 text-xs w-[120px] rounded-xl bg-background/50 border-border/60 font-medium">
                   <SelectValue placeholder="Status" />
                 </SelectTrigger>
                 <SelectContent>
@@ -355,51 +495,64 @@ export function DevShopManager() {
               <Package className="h-10 w-10 text-muted-foreground/50 mx-auto mb-2" />
               <h4 className="text-sm font-bold text-foreground">Nenhum item encontrado</h4>
               <p className="text-xs text-muted-foreground mt-0.5">
-                Altere os filtros de pesquisa ou cadastre um novo produto.
+                Altere os filtros de pesquisa ou cadastre um novo produto na loja.
               </p>
             </Card>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {filteredItems.map((item) => {
                 const rarity = RARITY_CONFIG[item.rarity] || RARITY_CONFIG.comum;
+                const isLinkedInsignia = item.item_type === "insignia" || Boolean(item.insignia_id);
+                const isLinkedTag = item.item_type === "tag" || Boolean(item.tag_id);
+                const isService = item.item_type === "servico";
+                const isRpItem = item.item_type === "recurso" || item.item_type === "veiculo";
+
+                // Obter dados vinculados de insígnia ou tag
+                const linkedInsigniaData = item.insignia || insigniasCatalog.find((i) => i.id === item.insignia_id);
+                const linkedTagData = item.tag || memberTags.find((t) => t.id === item.tag_id);
 
                 return (
                   <Card
                     key={item.id}
                     className={cn(
-                      "surface-card border-2 p-5 rounded-3xl flex flex-col justify-between transition-all duration-200 relative overflow-hidden group",
+                      "surface-card border-2 p-5 rounded-3xl flex flex-col justify-between transition-all duration-200 relative overflow-hidden group hover:shadow-xl",
                       item.active ? rarity.borderClass : "border-border/40 opacity-70 bg-card/40"
                     )}
                   >
                     <div className="space-y-4">
-                      {/* TOPO COM ÍCONE E BADGES */}
+                      {/* TOPO: BADGE DO TIPO DE PRODUTO E STATUS */}
                       <div className="flex items-start justify-between gap-3">
-                        <div className="flex items-center gap-3">
-                          <div
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          {isLinkedInsignia && (
+                            <Badge className="bg-amber-500/20 text-amber-300 border-amber-500/40 text-[9px] font-black uppercase tracking-wider py-0.5 gap-1">
+                              <Award className="h-3 w-3" /> Insígnia 3D
+                            </Badge>
+                          )}
+                          {isLinkedTag && (
+                            <Badge className="bg-blue-500/20 text-blue-300 border-blue-500/40 text-[9px] font-black uppercase tracking-wider py-0.5 gap-1">
+                              <TagIcon className="h-3 w-3" /> Tag do Sistema
+                            </Badge>
+                          )}
+                          {isService && (
+                            <Badge className="bg-purple-500/20 text-purple-300 border-purple-500/40 text-[9px] font-black uppercase tracking-wider py-0.5 gap-1">
+                              <Briefcase className="h-3 w-3" /> Serviço VIP
+                            </Badge>
+                          )}
+                          {isRpItem && (
+                            <Badge className="bg-emerald-500/20 text-emerald-300 border-emerald-500/40 text-[9px] font-black uppercase tracking-wider py-0.5 gap-1">
+                              <Boxes className="h-3 w-3" /> Item do RP
+                            </Badge>
+                          )}
+                          <span
                             className={cn(
-                              "h-12 w-12 rounded-2xl border-2 shadow-md flex items-center justify-center shrink-0",
+                              "text-[9px] font-black uppercase px-2 py-0.5 rounded-full border inline-block",
                               rarity.bgClass,
                               rarity.borderClass,
                               rarity.textClass
                             )}
                           >
-                            {renderInsigniaIcon(item.icon, "h-6 w-6")}
-                          </div>
-                          <div>
-                            <span
-                              className={cn(
-                                "text-[9px] font-black uppercase px-2 py-0.5 rounded-full border inline-block mb-1",
-                                rarity.bgClass,
-                                rarity.borderClass,
-                                rarity.textClass
-                              )}
-                            >
-                              {rarity.label}
-                            </span>
-                            <h4 className="font-bold text-sm text-foreground leading-tight group-hover:text-primary transition-colors">
-                              {item.title}
-                            </h4>
-                          </div>
+                            {rarity.label}
+                          </span>
                         </div>
 
                         {canEdit && (
@@ -416,11 +569,66 @@ export function DevShopManager() {
                         )}
                       </div>
 
-                      {/* DESCRIÇÃO */}
+                      {/* APRESENTAÇÃO VISUAL: INSÍGNIA 3D / TAG / ÍCONE */}
+                      <div className="flex items-center gap-3.5 pt-1">
+                        {isLinkedInsignia ? (
+                          <div className="shrink-0 group-hover:scale-105 transition-transform">
+                            <InsigniaEmblem
+                              icon={linkedInsigniaData?.icon || item.icon || "Award"}
+                              name={linkedInsigniaData?.name || item.title}
+                              rarity={linkedInsigniaData?.rarity || item.rarity}
+                              shape_3d={linkedInsigniaData?.shape_3d}
+                              material_3d={linkedInsigniaData?.material_3d}
+                              border_style_3d={linkedInsigniaData?.border_style_3d}
+                              gloss_effect={linkedInsigniaData?.gloss_effect}
+                              color={linkedInsigniaData?.color}
+                              bgColor={linkedInsigniaData?.bg_color}
+                              borderColor={linkedInsigniaData?.border_color}
+                              size="md"
+                            />
+                          </div>
+                        ) : isLinkedTag && linkedTagData ? (
+                          <div className="shrink-0 flex flex-col items-center justify-center p-2 rounded-2xl bg-secondary/60 border border-border/80 group-hover:scale-105 transition-transform">
+                            <MemberTagBadge tag={linkedTagData} size="md" />
+                          </div>
+                        ) : (
+                          <div
+                            className={cn(
+                              "h-12 w-12 rounded-2xl border-2 shadow-md flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform",
+                              rarity.bgClass,
+                              rarity.borderClass,
+                              rarity.textClass
+                            )}
+                            style={item.badge_color ? { borderColor: item.badge_color } : undefined}
+                          >
+                            {renderInsigniaIcon(item.icon, "h-6 w-6")}
+                          </div>
+                        )}
+
+                        <div className="min-w-0 flex-1">
+                          <h4 className="font-bold text-sm text-foreground leading-snug group-hover:text-primary transition-colors truncate">
+                            {item.title}
+                          </h4>
+                          <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider capitalize">
+                            {item.category}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* DESCRIÇÃO E INSTRUÇÕES */}
                       {item.description && (
                         <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed">
                           {item.description}
                         </p>
+                      )}
+
+                      {item.instructions && (
+                        <div className="p-2.5 rounded-xl bg-purple-500/10 border border-purple-500/25 text-[11px] text-purple-300 flex items-start gap-1.5">
+                          <Info className="h-3.5 w-3.5 shrink-0 mt-0.5 text-purple-400" />
+                          <span className="line-clamp-2 leading-snug">
+                            <strong>Instruções:</strong> {item.instructions}
+                          </span>
+                        </div>
                       )}
 
                       {/* DETALHES DE PREÇO E ESTOQUE */}
@@ -463,10 +671,10 @@ export function DevShopManager() {
                           </Badge>
                         </div>
 
-                        <div className="flex items-center justify-between text-[10px] text-muted-foreground pt-0.5">
-                          <span>Categoria:</span>
-                          <span className="capitalize font-sans font-bold text-foreground">
-                            {item.category}
+                        <div className="flex items-center justify-between text-[10px] text-muted-foreground pt-0.5 font-sans">
+                          <span>Modo de Entrega:</span>
+                          <span className={cn("font-bold", isLinkedInsignia || isLinkedTag ? "text-emerald-400" : "text-amber-400")}>
+                            {isLinkedInsignia || isLinkedTag ? "⚡ Automática Imediata" : "📦 Operacional Liderança"}
                           </span>
                         </div>
                       </div>
@@ -521,20 +729,31 @@ export function DevShopManager() {
           <TabsContent value="orders" className="space-y-4">
             <Card className="surface-card border-border/60 rounded-3xl overflow-hidden">
               <CardHeader className="p-5 border-b border-border/50">
-                <div className="flex items-center justify-between">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                   <div>
                     <CardTitle className="text-base font-bold text-foreground flex items-center gap-2">
                       <History className="h-5 w-5 text-emerald-400" />
-                      <span>Extrato de Pedidos Realizados</span>
+                      <span>Extrato de Pedidos & Entregas Operacionais</span>
                     </CardTitle>
                     <CardDescription className="text-xs">
-                      Gerencie as compras dos membros, confirme entregas operacionais ou realize estornos
+                      Gerencie as compras dos membros, confirme entregas operacionais de itens/serviços ou realize estornos auditados
                     </CardDescription>
                   </div>
 
-                  <Badge variant="outline" className="font-mono text-xs font-bold px-3 py-1">
-                    {allPurchases.length} compras registradas
-                  </Badge>
+                  <div className="flex items-center gap-2">
+                    <Select value={ordersStatusFilter} onValueChange={setOrdersStatusFilter}>
+                      <SelectTrigger className="h-8 text-xs w-[170px] rounded-xl bg-background/50 border-border/60">
+                        <SelectValue placeholder="Filtrar Status" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all" className="text-xs">Todos os Status</SelectItem>
+                        <SelectItem value="pendente_entrega" className="text-xs">⏳ Pendente Entrega</SelectItem>
+                        <SelectItem value="concluido" className="text-xs">⚡ Concluído (Auto)</SelectItem>
+                        <SelectItem value="entregue" className="text-xs">✅ Entregue</SelectItem>
+                        <SelectItem value="estornado" className="text-xs">↩️ Estornado</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
               </CardHeader>
 
@@ -544,9 +763,9 @@ export function DevShopManager() {
                     <div className="h-8 w-8 animate-spin rounded-full border-2 border-emerald-500 border-t-transparent" />
                     <p className="text-xs text-muted-foreground font-mono">Carregando pedidos...</p>
                   </div>
-                ) : allPurchases.length === 0 ? (
+                ) : filteredPurchases.length === 0 ? (
                   <div className="py-16 text-center text-muted-foreground text-xs">
-                    Nenhuma compra realizada ainda na loja.
+                    Nenhum pedido encontrado com os filtros selecionados.
                   </div>
                 ) : (
                   <div className="overflow-x-auto">
@@ -556,14 +775,14 @@ export function DevShopManager() {
                           <th className="p-3.5 pl-5">Data</th>
                           <th className="p-3.5">Membro</th>
                           <th className="p-3.5">Item Adquirido</th>
-                          <th className="p-3.5">Categoria</th>
+                          <th className="p-3.5">Categoria / Tipo</th>
                           <th className="p-3.5">Valor Pago</th>
                           <th className="p-3.5">Status</th>
                           <th className="p-3.5 pr-5 text-right">Ações</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-border/40">
-                        {allPurchases.map((purchase) => {
+                        {filteredPurchases.map((purchase) => {
                           const isRefunded = purchase.status === "estornado";
                           const isPending = purchase.status === "pendente_entrega";
 
@@ -613,12 +832,12 @@ export function DevShopManager() {
                                   )}
                                 >
                                   {purchase.status === "concluido"
-                                    ? "Concluído"
+                                    ? "Concluído (Automático)"
                                     : purchase.status === "entregue"
-                                    ? "Entregue"
+                                    ? "Entregue pela Liderança"
                                     : purchase.status === "pendente_entrega"
-                                    ? "Pendente Entrega"
-                                    : "Estornado"}
+                                    ? "⏳ Pendente Entrega"
+                                    : "↩️ Estornado"}
                                 </Badge>
                               </td>
 
@@ -629,10 +848,10 @@ export function DevShopManager() {
                                       size="sm"
                                       onClick={() => deliverMutation.mutate(purchase.id)}
                                       disabled={deliverMutation.isPending}
-                                      className="h-7 px-2.5 text-[11px] font-bold bg-blue-500 hover:bg-blue-600 text-white rounded-lg gap-1 cursor-pointer"
+                                      className="h-7 px-2.5 text-[11px] font-bold bg-emerald-500 hover:bg-emerald-600 text-slate-950 rounded-lg gap-1 cursor-pointer"
                                     >
                                       <CheckCircle2 className="h-3 w-3" />
-                                      <span>Entregar</span>
+                                      <span>Marcar Entregue</span>
                                     </Button>
                                   )}
 
@@ -673,6 +892,7 @@ export function DevShopManager() {
         onOpenChange={setIsItemModalOpen}
         editingItem={editingItem}
         insigniasCatalog={insigniasCatalog}
+        memberTags={memberTags}
       />
 
       {/* DIÁLOGO DE CONFIRMAÇÃO DE EXCLUSÃO */}
@@ -781,29 +1001,39 @@ function ItemFormDialog({
   onOpenChange,
   editingItem,
   insigniasCatalog,
+  memberTags,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   editingItem: ShopItem | null;
   insigniasCatalog: any[];
+  memberTags: any[];
 }) {
   const queryClient = useQueryClient();
 
+  const [itemType, setItemType] = useState<ShopItemType>("insignia");
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
-  const [category, setCategory] = useState("vantagens");
-  const [icon, setIcon] = useState("Gift");
+  const [category, setCategory] = useState("insignias");
+  const [icon, setIcon] = useState("Award");
   const [rarity, setRarity] = useState<InsigniaRarity>("comum");
   const [priceCoins, setPriceCoins] = useState("50");
   const [priceXp, setPriceXp] = useState("0");
   const [hasLimitedStock, setHasLimitedStock] = useState(false);
   const [stock, setStock] = useState("10");
   const [insigniaId, setInsigniaId] = useState<string>("none");
+  const [tagId, setTagId] = useState<string>("none");
+  const [badgeColor, setBadgeColor] = useState<string>("#3b82f6");
+  const [instructions, setInstructions] = useState<string>("");
   const [active, setActive] = useState(true);
   const [displayOrder, setDisplayOrder] = useState("0");
 
   React.useEffect(() => {
     if (editingItem) {
+      const type: ShopItemType =
+        editingItem.item_type ||
+        (editingItem.insignia_id ? "insignia" : editingItem.tag_id ? "tag" : "servico");
+      setItemType(type);
       setTitle(editingItem.title);
       setDescription(editingItem.description || "");
       setCategory(editingItem.category);
@@ -814,23 +1044,54 @@ function ItemFormDialog({
       setHasLimitedStock(editingItem.stock !== null);
       setStock(editingItem.stock !== null ? String(editingItem.stock) : "10");
       setInsigniaId(editingItem.insignia_id || "none");
+      setTagId(editingItem.tag_id || "none");
+      setBadgeColor(editingItem.badge_color || "#3b82f6");
+      setInstructions(editingItem.instructions || "");
       setActive(editingItem.active);
       setDisplayOrder(String(editingItem.display_order || 0));
     } else {
+      setItemType("insignia");
       setTitle("");
       setDescription("");
-      setCategory("vantagens");
-      setIcon("Gift");
+      setCategory("insignias");
+      setIcon("Award");
       setRarity("comum");
       setPriceCoins("50");
       setPriceXp("0");
       setHasLimitedStock(false);
       setStock("10");
       setInsigniaId("none");
+      setTagId("none");
+      setBadgeColor("#3b82f6");
+      setInstructions("");
       setActive(true);
       setDisplayOrder("0");
     }
   }, [editingItem, open]);
+
+  // Se trocar de tipo de item, ajustar sugestões padrão
+  const handleTypeChange = (newType: ShopItemType) => {
+    setItemType(newType);
+    if (newType === "insignia") {
+      setCategory("insignias");
+      setIcon("Award");
+      setTagId("none");
+    } else if (newType === "tag") {
+      setCategory("tags");
+      setIcon("Tag");
+      setInsigniaId("none");
+    } else if (newType === "servico") {
+      setCategory("servicos");
+      setIcon("Briefcase");
+      setInsigniaId("none");
+      setTagId("none");
+    } else if (newType === "recurso") {
+      setCategory("recursos");
+      setIcon("Boxes");
+      setInsigniaId("none");
+      setTagId("none");
+    }
+  };
 
   // Se selecionar uma insígnia oficial, preencher automaticamente dados sugeridos
   const handleInsigniaSelect = (id: string) => {
@@ -848,13 +1109,40 @@ function ItemFormDialog({
     }
   };
 
+  // Se selecionar uma tag de membro, preencher automaticamente dados sugeridos
+  const handleTagSelect = (id: string) => {
+    setTagId(id);
+    if (id !== "none") {
+      const tag = memberTags.find((t) => t.id === id);
+      if (tag) {
+        setTitle(`Tag: ${tag.name}`);
+        setDescription(tag.description || `Adquira a tag oficial de membro ${tag.name}`);
+        setIcon(tag.icon || "Tag");
+        setBadgeColor(tag.color || "#3b82f6");
+        setCategory("tags");
+        setRarity("raro");
+      }
+    }
+  };
+
+  // Obter objetos selecionados para live preview
+  const selectedInsignia = useMemo(
+    () => insigniasCatalog.find((i) => i.id === insigniaId),
+    [insigniasCatalog, insigniaId]
+  );
+  const selectedTag = useMemo(
+    () => memberTags.find((t) => t.id === tagId),
+    [memberTags, tagId]
+  );
+
   const saveMutation = useMutation({
     mutationFn: async () => {
       const parsedCoins = Math.max(0, parseInt(priceCoins || "0", 10) || 0);
       const parsedXp = Math.max(0, parseInt(priceXp || "0", 10) || 0);
       const parsedStock = hasLimitedStock ? Math.max(0, parseInt(stock || "0", 10) || 0) : null;
       const parsedOrder = parseInt(displayOrder || "0", 10) || 0;
-      const linkedInsignia = insigniaId === "none" ? null : insigniaId;
+      const linkedInsignia = itemType === "insignia" && insigniaId !== "none" ? insigniaId : null;
+      const linkedTag = itemType === "tag" && tagId !== "none" ? tagId : null;
 
       if (!title.trim()) {
         throw new Error("O título do item é obrigatório.");
@@ -870,7 +1158,11 @@ function ItemFormDialog({
           price_coins: parsedCoins,
           price_xp: parsedXp,
           stock: parsedStock,
+          item_type: itemType,
           insignia_id: linkedInsignia,
+          tag_id: linkedTag,
+          badge_color: badgeColor.trim() || null,
+          instructions: instructions.trim() || null,
           active,
           display_order: parsedOrder,
         });
@@ -884,7 +1176,11 @@ function ItemFormDialog({
           price_coins: parsedCoins,
           price_xp: parsedXp,
           stock: parsedStock,
+          item_type: itemType,
           insignia_id: linkedInsignia,
+          tag_id: linkedTag,
+          badge_color: badgeColor.trim() || undefined,
+          instructions: instructions.trim() || undefined,
           active,
           display_order: parsedOrder,
         });
@@ -902,68 +1198,194 @@ function ItemFormDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-xl surface-card border-border/80 max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-2xl surface-card border-border/80 max-h-[92vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="text-base font-black text-foreground flex items-center gap-2">
             <ShoppingBag className="h-5 w-5 text-emerald-400" />
-            <span>{editingItem ? "Editar Item da Loja" : "Cadastrar Novo Item na Loja"}</span>
+            <span>{editingItem ? "Editar Item da Loja" : "Cadastrar Novo Produto na Loja"}</span>
           </DialogTitle>
           <DialogDescription className="text-xs">
-            Configure os parâmetros de venda, precificação em moedas e vinculação de condecorações.
+            Escolha o tipo de recompensa (Insígnia 3D, Tag, Serviço Personalizado ou Item RP) e defina preços e estoque.
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4 py-2 text-xs">
-          {/* SELEÇÃO OPCIONAL DE VÍNCULO COM INSÍGNIA */}
-          <div className="p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/25 space-y-2">
-            <Label className="text-xs font-bold text-amber-300 flex items-center gap-1.5">
-              <Award className="h-4 w-4" />
-              <span>Vincular a uma Insígnia Oficial existente?</span>
+          {/* SELETOR DE TIPO DE PRODUTO / RECOMPENSA */}
+          <div className="space-y-2">
+            <Label className="text-xs font-bold text-foreground">
+              Selecione o Tipo de Produto / Recompensa:
             </Label>
-            <p className="text-[11px] text-muted-foreground">
-              Se vinculado, ao comprar este item o membro receberá a insígnia correspondente em seu perfil.
-            </p>
-            <Select value={insigniaId} onValueChange={handleInsigniaSelect}>
-              <SelectTrigger className="h-9 text-xs rounded-xl bg-background/80 border-amber-500/30">
-                <SelectValue placeholder="Selecione uma insígnia (ou nenhuma)" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="none" className="text-xs">
-                  Nenhuma (Item comum / Vantagem / Recurso)
-                </SelectItem>
-                {insigniasCatalog.map((ins) => (
-                  <SelectItem key={ins.id} value={ins.id} className="text-xs">
-                    ★ {ins.name} ({ins.rarity})
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+              {ITEM_TYPES.map((type) => {
+                const IconComp = type.icon;
+                const isSelected = itemType === type.id;
+
+                return (
+                  <button
+                    key={type.id}
+                    type="button"
+                    onClick={() => handleTypeChange(type.id)}
+                    className={cn(
+                      "p-3 rounded-2xl border-2 text-left flex flex-col justify-between transition-all cursor-pointer relative",
+                      isSelected
+                        ? "border-emerald-500 bg-emerald-500/10 shadow-md shadow-emerald-500/10"
+                        : "border-border/60 bg-secondary/30 hover:bg-secondary/60 opacity-80"
+                    )}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className={cn("p-2 rounded-xl border", type.colorClass)}>
+                        <IconComp className="h-4 w-4" />
+                      </div>
+                      {isSelected && (
+                        <div className="h-5 w-5 rounded-full bg-emerald-500 text-slate-950 flex items-center justify-center font-bold">
+                          <Check className="h-3 w-3 stroke-[3]" />
+                        </div>
+                      )}
+                    </div>
+                    <div className="mt-2.5">
+                      <span className="font-bold text-xs text-foreground block leading-tight">
+                        {type.label}
+                      </span>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
           </div>
+
+          {/* ==================================================== */}
+          {/* SEÇÃO 1: INSÍGNIA OFICIAL 3D */}
+          {/* ==================================================== */}
+          {itemType === "insignia" && (
+            <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 space-y-3 animate-in fade-in-50 duration-200">
+              <div className="flex items-start justify-between gap-3">
+                <div className="space-y-1">
+                  <Label className="text-xs font-bold text-amber-300 flex items-center gap-1.5">
+                    <Award className="h-4 w-4" />
+                    <span>Vincular Insígnia do Catálogo Oficial</span>
+                  </Label>
+                  <p className="text-[11px] text-muted-foreground">
+                    Ao comprar este item, o membro receberá a insígnia 3D automaticamente em seu perfil.
+                  </p>
+                </div>
+                {selectedInsignia && (
+                  <div className="shrink-0">
+                    <InsigniaEmblem
+                      icon={selectedInsignia.icon}
+                      name={selectedInsignia.name}
+                      rarity={selectedInsignia.rarity}
+                      shape_3d={selectedInsignia.shape_3d}
+                      material_3d={selectedInsignia.material_3d}
+                      border_style_3d={selectedInsignia.border_style_3d}
+                      gloss_effect={selectedInsignia.gloss_effect}
+                      color={selectedInsignia.color}
+                      bgColor={selectedInsignia.bg_color}
+                      borderColor={selectedInsignia.border_color}
+                      size="lg"
+                    />
+                  </div>
+                )}
+              </div>
+
+              <Select value={insigniaId} onValueChange={handleInsigniaSelect}>
+                <SelectTrigger className="h-9 text-xs rounded-xl bg-background/80 border-amber-500/30 font-medium">
+                  <SelectValue placeholder="Selecione uma insígnia oficial..." />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none" className="text-xs">
+                    -- Nenhuma (Preencher manualmente) --
+                  </SelectItem>
+                  {insigniasCatalog.map((ins) => (
+                    <SelectItem key={ins.id} value={ins.id} className="text-xs">
+                      ★ {ins.name} ({ins.rarity}) — {ins.xp_cost || 50} XP sugerido
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
+          {/* ==================================================== */}
+          {/* SEÇÃO 2: TAG DO SISTEMA / CARGO */}
+          {/* ==================================================== */}
+          {itemType === "tag" && (
+            <div className="p-4 rounded-2xl bg-blue-500/10 border border-blue-500/30 space-y-3 animate-in fade-in-50 duration-200">
+              <div className="flex items-start justify-between gap-3">
+                <div className="space-y-1">
+                  <Label className="text-xs font-bold text-blue-300 flex items-center gap-1.5">
+                    <TagIcon className="h-4 w-4" />
+                    <span>Vincular Tag de Membro do Sistema</span>
+                  </Label>
+                  <p className="text-[11px] text-muted-foreground">
+                    Ao comprar este item, a tag será atribuída instantaneamente ao membro e liberará suas regras de acesso.
+                  </p>
+                </div>
+                {selectedTag && (
+                  <div className="shrink-0 p-2 rounded-xl bg-secondary/80 border border-border/80">
+                    <MemberTagBadge tag={selectedTag} size="md" />
+                  </div>
+                )}
+              </div>
+
+              <Select value={tagId} onValueChange={handleTagSelect}>
+                <SelectTrigger className="h-9 text-xs rounded-xl bg-background/80 border-blue-500/30 font-medium">
+                  <SelectValue placeholder="Selecione uma tag do sistema..." />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none" className="text-xs">
+                    -- Nenhuma (Preencher manualmente) --
+                  </SelectItem>
+                  {memberTags.map((tag) => (
+                    <SelectItem key={tag.id} value={tag.id} className="text-xs">
+                      🏷️ {tag.name} {tag.is_system ? "(Sistema)" : ""}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
+          {/* ==================================================== */}
+          {/* SEÇÃO 3: SERVIÇO PERSONALIZADO OU ITEM RP */}
+          {/* ==================================================== */}
+          {(itemType === "servico" || itemType === "recurso") && (
+            <div className="p-4 rounded-2xl bg-purple-500/10 border border-purple-500/30 space-y-2 animate-in fade-in-50 duration-200">
+              <div className="flex items-center gap-2 text-purple-300 font-bold">
+                <Briefcase className="h-4 w-4" />
+                <span>Fluxo de Entrega Operacional pela Liderança</span>
+              </div>
+              <p className="text-[11px] text-muted-foreground leading-relaxed">
+                Ao ser comprado, o pedido ficará marcado como <strong>Pendente de Entrega</strong> no painel administrativo até que a liderança realize a entrega no RP e confirme o pedido.
+              </p>
+            </div>
+          )}
 
           {/* TÍTULO E CATEGORIA */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <Label className="text-xs font-semibold">Título do Item *</Label>
+              <Label className="text-xs font-semibold">Título do Item / Produto *</Label>
               <Input
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                placeholder="Ex: Tag VIP Discord ou Kit Assalto"
+                placeholder="Ex: Emblema Asfalto Lendário, Tag VIP, Kit Assalto..."
                 className="text-xs rounded-xl"
               />
             </div>
 
             <div className="space-y-1.5">
-              <Label className="text-xs font-semibold">Categoria *</Label>
+              <Label className="text-xs font-semibold">Categoria na Loja *</Label>
               <Select value={category} onValueChange={setCategory}>
                 <SelectTrigger className="h-9 text-xs rounded-xl">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="insignias" className="text-xs">Insígnias</SelectItem>
-                  <SelectItem value="vantagens" className="text-xs">Vantagens & Cargos</SelectItem>
-                  <SelectItem value="recursos" className="text-xs">Recursos & Baú</SelectItem>
-                  <SelectItem value="veiculos" className="text-xs">Veículos & Mecânica</SelectItem>
-                  <SelectItem value="personalizacao" className="text-xs">Personalização VIP</SelectItem>
+                  <SelectItem value="tags" className="text-xs">Tags & Cargos</SelectItem>
+                  <SelectItem value="servicos" className="text-xs">Serviços VIP</SelectItem>
+                  <SelectItem value="recursos" className="text-xs">Recursos & Suprimentos</SelectItem>
+                  <SelectItem value="veiculos" className="text-xs">Veículos & Garagem</SelectItem>
+                  <SelectItem value="personalizacao" className="text-xs">Personalização</SelectItem>
+                  <SelectItem value="vantagens" className="text-xs">Vantagens</SelectItem>
                   <SelectItem value="geral" className="text-xs">Geral</SelectItem>
                 </SelectContent>
               </Select>
@@ -972,24 +1394,38 @@ function ItemFormDialog({
 
           {/* DESCRIÇÃO */}
           <div className="space-y-1.5">
-            <Label className="text-xs font-semibold">Descrição Comercial</Label>
+            <Label className="text-xs font-semibold">Descrição do Item</Label>
             <Textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Explique o que o membro ganha ao adquirir este item..."
-              rows={3}
+              rows={2}
               className="text-xs rounded-xl resize-none"
             />
           </div>
 
-          {/* ÍCONE, RARIDADE E ORDEM */}
+          {/* INSTRUÇÕES ESPECÍFICAS / OBSERVAÇÕES DE ENTREGA */}
+          <div className="space-y-1.5">
+            <Label className="text-xs font-semibold flex items-center gap-1">
+              <span>Instruções de Entrega / Procedimento</span>
+              <span className="text-[10px] text-muted-foreground font-normal">(Opcional)</span>
+            </Label>
+            <Input
+              value={instructions}
+              onChange={(e) => setInstructions(e.target.value)}
+              placeholder="Ex: Abrir ticket no Discord informando ID do jogo e placa desejada"
+              className="text-xs rounded-xl"
+            />
+          </div>
+
+          {/* ÍCONE, RARIDADE E COR DO BADGE */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div className="space-y-1.5">
               <Label className="text-xs font-semibold">Ícone Lucide</Label>
               <Input
                 value={icon}
                 onChange={(e) => setIcon(e.target.value)}
-                placeholder="Ex: Gift, Crown, Award, Boxes"
+                placeholder="Ex: Award, Crown, Tag, Gift, Boxes"
                 className="text-xs rounded-xl font-mono"
               />
             </div>
@@ -1114,7 +1550,7 @@ function ItemFormDialog({
             disabled={saveMutation.isPending || !title.trim()}
             className="text-xs bg-emerald-500 hover:bg-emerald-600 text-slate-950 rounded-xl font-bold cursor-pointer"
           >
-            {saveMutation.isPending ? "Salvando..." : editingItem ? "Salvar Alterações" : "Criar Item"}
+            {saveMutation.isPending ? "Salvando..." : editingItem ? "Salvar Alterações" : "Criar Produto"}
           </Button>
         </DialogFooter>
       </DialogContent>

@@ -33,6 +33,8 @@ import {
   FileText,
   Check,
   ArrowLeft,
+  FileSignature,
+  Flame,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -65,7 +67,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { PageHeader, NoAccess, TableSkeleton, EmptyState } from "@/components/ui-kit";
+import { PageHeader, TableSkeleton, EmptyState } from "@/components/ui-kit";
 import { useAuth } from "@/hooks/useAuth";
 import { useMembers } from "@/hooks/useData";
 import { useMemberTags } from "@/hooks/useMemberTags";
@@ -75,6 +77,7 @@ import {
   useUpdateWarningMutation,
   useRevokeWarningMutation,
   useDeleteWarningMutation,
+  useAcknowledgeWarningMutation,
 } from "@/hooks/useWarnings";
 import {
   type MemberWarning,
@@ -93,82 +96,16 @@ export const Route = createFileRoute("/_authenticated/advertencias")({
 });
 
 export function AdvertenciasPage() {
-  const { hasPermission, isDevUser, loading } = useAuth();
+  const { loading } = useAuth();
 
   if (loading) {
     return (
       <div className="space-y-6">
         <PageHeader
-          title="Advertências & Suspensões"
-          description="Carregando permissões disciplinares..."
+          title="Prontuário Disciplinar & Advertências"
+          description="Carregando informações disciplinares..."
         />
         <TableSkeleton rows={6} />
-      </div>
-    );
-  }
-
-  const canAccess =
-    hasPermission("view_warnings") ||
-    hasPermission("view_all_warnings") ||
-    hasPermission("view_warning_details") ||
-    hasPermission("manage_warnings") ||
-    hasPermission("create_warning") ||
-    hasPermission("create_suspension") ||
-    hasPermission("edit_warning") ||
-    hasPermission("revoke_warning") ||
-    hasPermission("delete_warning") ||
-    hasPermission("export_warnings") ||
-    hasPermission("view_ceo_warnings") ||
-    hasPermission("manage_ceo_warnings") ||
-    hasPermission("view_dev_warnings") ||
-    hasPermission("manage_dev_warnings") ||
-    isDevUser;
-
-  if (!canAccess) {
-    return (
-      <div className="space-y-6 animate-in fade-in-50 duration-300">
-        <PageHeader
-          title="Advertências & Suspensões"
-          description="Sistema disciplinar e controle de penalidades da organização."
-        />
-        <div className="flex min-h-[420px] items-center justify-center p-4">
-          <Card className="max-w-md w-full surface-card text-center p-6 sm:p-8 space-y-5 border-rose-500/30 bg-rose-500/[0.03] shadow-lg shadow-rose-950/20">
-            <div className="mx-auto h-16 w-16 rounded-2xl flex items-center justify-center bg-rose-500/10 text-rose-400 border border-rose-500/30 shadow-inner">
-              <ShieldAlert className="h-8 w-8" />
-            </div>
-            <div className="space-y-2">
-              <h3 className="text-lg font-bold text-foreground">Acesso Restrito</h3>
-              <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed">
-                Você não possui a permissão <strong>"Visualizar Página / Menu de Advertências"</strong>.
-                O acesso a esta área é restrito aos cargos e tags autorizados pela liderança.
-              </p>
-            </div>
-            <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3">
-              <Button
-                asChild
-                variant="outline"
-                size="sm"
-                className="w-full sm:w-auto border-border/60 hover:bg-secondary/60 text-xs"
-              >
-                <Link to="/dashboard">
-                  <ArrowLeft className="h-3.5 w-3.5 mr-1.5" />
-                  Ir ao Dashboard
-                </Link>
-              </Button>
-              <Button
-                asChild
-                variant="default"
-                size="sm"
-                className="w-full sm:w-auto bg-rose-600 hover:bg-rose-500 text-white text-xs font-semibold"
-              >
-                <Link to="/perfil/advertencias">
-                  <User className="h-3.5 w-3.5 mr-1.5" />
-                  Minhas Advertências
-                </Link>
-              </Button>
-            </div>
-          </Card>
-        </div>
       </div>
     );
   }
@@ -177,90 +114,47 @@ export function AdvertenciasPage() {
 }
 
 function AdvertenciasContent() {
-  const { hasPermission, isDevUser, isCeoUser, user, profile, loading } = useAuth();
+  const { hasPermission, isDevUser, isCeoUser, user, profile } = useAuth();
 
-  const canAccess =
-    hasPermission("view_warnings") ||
-    hasPermission("view_all_warnings") ||
-    hasPermission("view_warning_details") ||
-    hasPermission("manage_warnings") ||
-    hasPermission("create_warning") ||
-    hasPermission("create_suspension") ||
-    hasPermission("edit_warning") ||
-    hasPermission("revoke_warning") ||
-    hasPermission("delete_warning") ||
-    hasPermission("export_warnings") ||
-    hasPermission("view_ceo_warnings") ||
-    hasPermission("manage_ceo_warnings") ||
-    hasPermission("view_dev_warnings") ||
-    hasPermission("manage_dev_warnings") ||
-    isDevUser;
-
-  if (!loading && !canAccess) {
-    return (
-      <div className="space-y-6 animate-in fade-in-50 duration-300">
-        <PageHeader
-          title="Advertências & Suspensões"
-          description="Sistema disciplinar e controle de penalidades da organização."
-        />
-        <div className="flex min-h-[420px] items-center justify-center p-4">
-          <Card className="max-w-md w-full surface-card text-center p-6 sm:p-8 space-y-5 border-rose-500/30 bg-rose-500/[0.03] shadow-lg shadow-rose-950/20">
-            <div className="mx-auto h-16 w-16 rounded-2xl flex items-center justify-center bg-rose-500/10 text-rose-400 border border-rose-500/30 shadow-inner">
-              <ShieldAlert className="h-8 w-8" />
-            </div>
-            <div className="space-y-2">
-              <h3 className="text-lg font-bold text-foreground">Acesso Restrito</h3>
-              <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed">
-                Você não possui a permissão <strong>"Visualizar Página / Menu de Advertências"</strong>.
-                O acesso a esta área é restrito aos cargos e tags autorizados pela liderança.
-              </p>
-            </div>
-            <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3">
-              <Button
-                asChild
-                variant="outline"
-                size="sm"
-                className="w-full sm:w-auto border-border/60 hover:bg-secondary/60 text-xs"
-              >
-                <Link to="/dashboard">
-                  <ArrowLeft className="h-3.5 w-3.5 mr-1.5" />
-                  Ir ao Dashboard
-                </Link>
-              </Button>
-              <Button
-                asChild
-                variant="default"
-                size="sm"
-                className="w-full sm:w-auto bg-rose-600 hover:bg-rose-500 text-white text-xs font-semibold"
-              >
-                <Link to="/perfil/advertencias">
-                  <User className="h-3.5 w-3.5 mr-1.5" />
-                  Minhas Advertências
-                </Link>
-              </Button>
-            </div>
-          </Card>
-        </div>
-      </div>
-    );
-  }
-
+  // Queries
   const { data: warnings = [], isLoading, refetch, isRefetching } = useWarnings();
   const { data: members = [] } = useMembers();
   const { data: tags = [] } = useMemberTags();
 
+  // Mutations
+  const createMutation = useCreateWarningMutation();
+  const updateMutation = useUpdateWarningMutation();
+  const revokeMutation = useRevokeWarningMutation();
+  const deleteMutation = useDeleteWarningMutation();
+  const acknowledgeMutation = useAcknowledgeWarningMutation();
+
   // Permissões granulares
+  const canViewGlobal = useMemo(() => {
+    if (isDevUser) return true;
+    return Boolean(
+      hasPermission("view_all_warnings") ||
+      hasPermission("view_warnings") ||
+      hasPermission("manage_warnings") ||
+      hasPermission("view_ceo_warnings") ||
+      hasPermission("view_dev_warnings") ||
+      hasPermission("manage_ceo_warnings") ||
+      hasPermission("manage_dev_warnings")
+    );
+  }, [hasPermission, isDevUser]);
+
   const canCreateWarning =
     hasPermission("create_warning") ||
     hasPermission("manage_warnings") ||
     hasPermission("manage_ceo_warnings") ||
-    hasPermission("manage_dev_warnings");
+    hasPermission("manage_dev_warnings") ||
+    isDevUser;
 
   const canCreateSuspension =
     hasPermission("create_suspension") ||
     hasPermission("manage_warnings") ||
     hasPermission("manage_ceo_warnings") ||
-    hasPermission("manage_dev_warnings");
+    hasPermission("manage_dev_warnings") ||
+    isDevUser;
 
   const canCreate = canCreateWarning || canCreateSuspension;
 
@@ -268,45 +162,88 @@ function AdvertenciasContent() {
     hasPermission("edit_warning") ||
     hasPermission("manage_warnings") ||
     hasPermission("manage_ceo_warnings") ||
-    hasPermission("manage_dev_warnings");
+    hasPermission("manage_dev_warnings") ||
+    isDevUser;
 
   const canRevoke =
     hasPermission("revoke_warning") ||
     hasPermission("manage_warnings") ||
     hasPermission("manage_ceo_warnings") ||
-    hasPermission("manage_dev_warnings");
+    hasPermission("manage_dev_warnings") ||
+    isDevUser;
 
   const canDelete =
     hasPermission("delete_warning") ||
     hasPermission("manage_warnings") ||
     hasPermission("manage_ceo_warnings") ||
-    hasPermission("manage_dev_warnings");
+    hasPermission("manage_dev_warnings") ||
+    isDevUser;
 
-  const canViewDetails =
-    hasPermission("view_warning_details") ||
-    hasPermission("view_all_warnings") ||
-    hasPermission("view_warnings") ||
-    hasPermission("view_ceo_warnings") ||
-    hasPermission("view_dev_warnings") ||
-    hasPermission("manage_warnings");
+  const canViewDetails = true;
 
   const canExport =
     hasPermission("export_warnings") ||
     hasPermission("manage_warnings") ||
     hasPermission("manage_ceo_warnings") ||
-    hasPermission("manage_dev_warnings");
+    hasPermission("manage_dev_warnings") ||
+    isDevUser;
 
-  // Mutations
-  const createMutation = useCreateWarningMutation();
-  const updateMutation = useUpdateWarningMutation();
-  const revokeMutation = useRevokeWarningMutation();
-  const deleteMutation = useDeleteWarningMutation();
+  // Aba principal ("gestao" para admins/líderes, "prontuario" para histórico pessoal)
+  const [mainTab, setMainTab] = useState<"gestao" | "prontuario">("gestao");
 
-  // Estados de Filtros e Busca
+  // Se o usuário não tiver permissão global, fixa em seu prontuário
+  const currentTab = canViewGlobal ? mainTab : "prontuario";
+
+  // Identificadores do membro atual
+  const currentUserId = user?.id ? String(user.id).trim().toLowerCase() : "";
+  const currentProfileId = profile?.id ? String(profile.id).trim().toLowerCase() : "";
+  const currentProfileUserId = profile?.user_id ? String(profile.user_id).trim().toLowerCase() : "";
+  const currentGameId = profile?.game_id ? String(profile.game_id).trim().toLowerCase() : "";
+  const currentDiscordId = profile?.discord_id ? String(profile.discord_id).trim().toLowerCase() : "";
+
+  // Prontuário pessoal do usuário logado
+  const myWarnings = useMemo(() => {
+    if (!currentUserId && !currentProfileId && !currentProfileUserId && !currentGameId && !currentDiscordId) {
+      return [];
+    }
+
+    return warnings.filter((w) => {
+      const warnMemberId = w.member_id ? String(w.member_id).trim().toLowerCase() : "";
+      const warnGameId = w.member_game_id ? String(w.member_game_id).trim().toLowerCase() : "";
+      return Boolean(
+        (currentUserId && warnMemberId === currentUserId) ||
+        (currentProfileId && warnMemberId === currentProfileId) ||
+        (currentProfileUserId && warnMemberId === currentProfileUserId) ||
+        (currentGameId && (warnMemberId === currentGameId || warnGameId === currentGameId))
+      );
+    }).sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+  }, [warnings, currentUserId, currentProfileId, currentProfileUserId, currentGameId, currentDiscordId]);
+
+  // Advertências ativas pendentes de ciência
+  const pendingScienceWarnings = useMemo(() => {
+    return myWarnings.filter((w) => w.status === "ativo" && !w.acknowledged_at);
+  }, [myWarnings]);
+
+  // Suspensão pessoal ativa
+  const myActiveSuspension = useMemo(() => {
+    const now = new Date().toISOString();
+    return myWarnings.find((w) => {
+      if (w.status !== "ativo") return false;
+      if (!w.is_suspension && w.type !== "suspensao") return false;
+      if (w.ends_at && w.ends_at <= now) return false;
+      return true;
+    });
+  }, [myWarnings]);
+
+  // Estados de Filtros e Busca (Gestão Global)
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("todos");
   const [typeFilter, setTypeFilter] = useState<string>("todos");
   const [severityFilter, setSeverityFilter] = useState<string>("todos");
+
+  // Estados de Filtros e Busca (Meu Prontuário)
+  const [mySearchTerm, setMySearchTerm] = useState("");
+  const [myStatusFilter, setMyStatusFilter] = useState<string>("todos");
 
   // Modais
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -354,61 +291,38 @@ function AdvertenciasContent() {
   const [editBlockProductions, setEditBlockProductions] = useState(false);
   const [editBlockCashFund, setEditBlockCashFund] = useState(false);
 
-  // Permissão de Visualização Global (apenas membros autorizados com view_all_warnings ou gerenciamento)
-  const canViewGlobal = useMemo(() => {
-    if (isDevUser) return true;
-    return Boolean(
-      hasPermission("view_all_warnings") ||
-      hasPermission("manage_warnings") ||
-      hasPermission("view_ceo_warnings") ||
-      hasPermission("view_dev_warnings") ||
-      hasPermission("manage_ceo_warnings") ||
-      hasPermission("manage_dev_warnings")
-    );
-  }, [hasPermission, isDevUser]);
-
-  // Lista base (filtrada estritamente por membro caso não tenha permissão global)
-  const baseWarnings = useMemo(() => {
-    if (canViewGlobal) {
-      return warnings;
-    }
-
-    const currentUserId = user?.id ? String(user.id).trim().toLowerCase() : "";
-    const currentProfileId = profile?.id ? String(profile.id).trim().toLowerCase() : "";
-    const currentProfileUserId = profile?.user_id ? String(profile.user_id).trim().toLowerCase() : "";
-
-    // Se nenhum identificador for encontrado, por segurança não expõe advertências globais
-    if (!currentUserId && !currentProfileId && !currentProfileUserId) {
-      return [];
-    }
-
-    return warnings.filter((w) => {
-      const warnMemberId = w.member_id ? String(w.member_id).trim().toLowerCase() : "";
-      return Boolean(
-        (currentUserId && warnMemberId === currentUserId) ||
-        (currentProfileId && warnMemberId === currentProfileId) ||
-        (currentProfileUserId && warnMemberId === currentProfileUserId)
-      );
-    });
-  }, [warnings, canViewGlobal, user?.id, profile?.id, profile?.user_id]);
-
-  // Estatísticas Rápidas
-  const stats = useMemo(() => {
-    const total = baseWarnings.length;
-    const activeSuspensions = baseWarnings.filter(
+  // Estatísticas Globais
+  const globalStats = useMemo(() => {
+    const total = warnings.length;
+    const activeSuspensions = warnings.filter(
       (w) => w.status === "ativo" && (w.is_suspension || w.type === "suspensao")
     ).length;
-    const activeWarnings = baseWarnings.filter(
+    const activeWarnings = warnings.filter(
       (w) => w.status === "ativo" && !w.is_suspension && w.type === "advertencia"
     ).length;
-    const revoked = baseWarnings.filter((w) => w.status === "revogado").length;
+    const revoked = warnings.filter((w) => w.status === "revogado").length;
     return { total, activeSuspensions, activeWarnings, revoked };
-  }, [baseWarnings]);
+  }, [warnings]);
 
-  // Lista Filtrada por filtros e busca
-  const filteredWarnings = useMemo(() => {
-    return baseWarnings.filter((w) => {
-      // Busca
+  // Estatísticas Pessoais (Meu Prontuário)
+  const myStats = useMemo(() => {
+    const total = myWarnings.length;
+    const activeSuspensions = myWarnings.filter(
+      (w) => w.status === "ativo" && (w.is_suspension || w.type === "suspensao")
+    ).length;
+    const activeWarnings = myWarnings.filter(
+      (w) => w.status === "ativo" && !w.is_suspension && w.type === "advertencia"
+    ).length;
+    const expiredOrRevoked = myWarnings.filter(
+      (w) => w.status === "expirado" || w.status === "revogado"
+    ).length;
+    const pendingScience = pendingScienceWarnings.length;
+    return { total, activeSuspensions, activeWarnings, expiredOrRevoked, pendingScience };
+  }, [myWarnings, pendingScienceWarnings]);
+
+  // Lista Filtrada Global
+  const filteredGlobalWarnings = useMemo(() => {
+    return warnings.filter((w) => {
       if (searchTerm.trim()) {
         const query = searchTerm.toLowerCase();
         const memberMatch =
@@ -423,24 +337,42 @@ function AdvertenciasContent() {
         }
       }
 
-      // Filtro Status
       if (statusFilter !== "todos" && w.status !== statusFilter) {
         return false;
       }
 
-      // Filtro Tipo
       if (typeFilter !== "todos" && w.type !== typeFilter) {
         return false;
       }
 
-      // Filtro Severidade
       if (severityFilter !== "todos" && w.severity !== severityFilter) {
         return false;
       }
 
       return true;
     });
-  }, [baseWarnings, searchTerm, statusFilter, typeFilter, severityFilter]);
+  }, [warnings, searchTerm, statusFilter, typeFilter, severityFilter]);
+
+  // Lista Filtrada Pessoal (Meu Prontuário)
+  const filteredMyWarnings = useMemo(() => {
+    return myWarnings.filter((w) => {
+      if (mySearchTerm.trim()) {
+        const query = mySearchTerm.toLowerCase();
+        const reasonMatch = w.reason.toLowerCase().includes(query);
+        const adminMatch = w.admin_name.toLowerCase().includes(query);
+        const descMatch = w.description.toLowerCase().includes(query);
+        if (!reasonMatch && !adminMatch && !descMatch) {
+          return false;
+        }
+      }
+
+      if (myStatusFilter !== "todos" && w.status !== myStatusFilter) {
+        return false;
+      }
+
+      return true;
+    });
+  }, [myWarnings, mySearchTerm, myStatusFilter]);
 
   // Reset do Formulário de Criação
   const resetCreateForm = () => {
@@ -616,9 +548,13 @@ function AdvertenciasContent() {
     setDeletingWarningId(null);
   };
 
+  const handleAcknowledgeWarning = async (warnId: string) => {
+    await acknowledgeMutation.mutateAsync(warnId);
+  };
+
   // Exportar Relatório CSV
   const handleExportCsv = () => {
-    if (filteredWarnings.length === 0) {
+    if (filteredGlobalWarnings.length === 0) {
       toast.warning("Nenhum registro para exportar.");
       return;
     }
@@ -640,7 +576,7 @@ function AdvertenciasContent() {
       "Revogado Por",
       "Justificativa Revogação",
     ];
-    const rows = filteredWarnings.map((w) => [
+    const rows = filteredGlobalWarnings.map((w) => [
       w.id,
       new Date(w.starts_at).toLocaleString("pt-BR"),
       w.ends_at ? new Date(w.ends_at).toLocaleString("pt-BR") : "Permanente",
@@ -673,11 +609,11 @@ function AdvertenciasContent() {
 
   // Copiar Relatório Formatado
   const handleCopyReport = () => {
-    if (filteredWarnings.length === 0) {
+    if (filteredGlobalWarnings.length === 0) {
       toast.warning("Nenhum registro para copiar.");
       return;
     }
-    const text = filteredWarnings
+    const text = filteredGlobalWarnings
       .map((w, idx) => {
         return `${idx + 1}. [${w.type.toUpperCase()}] ${w.member_name} (${w.member_level || "Membro"}) - ${w.reason}\nGravidade: ${w.severity.toUpperCase()} | Status: ${w.status.toUpperCase()} | Aplicado por: ${w.admin_name} em ${new Date(w.starts_at).toLocaleDateString("pt-BR")}\nDescrição: ${w.description}\n`;
       })
@@ -736,21 +672,17 @@ function AdvertenciasContent() {
             </div>
             <div>
               <h1 className="text-xl sm:text-2xl font-black tracking-tight text-foreground flex flex-wrap items-center gap-2">
-                Advertências & Suspensões
-                {!canViewGlobal ? (
-                  <Badge variant="outline" className="text-[10px] font-bold border-amber-500/40 text-amber-300 bg-amber-500/10 py-0.5">
-                    Visualização Pessoal
-                  </Badge>
-                ) : (
+                Prontuário Disciplinar & Advertências
+                {canViewGlobal && (
                   <Badge variant="outline" className="text-[10px] font-bold border-rose-500/40 text-rose-300 bg-rose-500/10 py-0.5">
-                    Acesso Global
+                    Liderança & Gestão
                   </Badge>
                 )}
               </h1>
               <p className="text-xs text-muted-foreground">
-                {!canViewGlobal
-                  ? "Visualizando apenas o seu histórico disciplinar individual e eventuais bloqueios."
-                  : "Painel disciplinar para aplicação de penalidades, suspensões temporárias ou permanentes e auditoria global."}
+                {canViewGlobal
+                  ? "Painel disciplinar para aplicação de advertências, controle de suspensões e acompanhamento de prontuários individuais."
+                  : "Seu prontuário individual, histórico de ocorrências, restrições ativas e confirmação de ciência."}
               </p>
             </div>
           </div>
@@ -769,7 +701,7 @@ function AdvertenciasContent() {
             <span className="hidden sm:inline">Atualizar</span>
           </Button>
 
-          {canExport && (
+          {canExport && currentTab === "gestao" && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button
@@ -797,7 +729,7 @@ function AdvertenciasContent() {
             </DropdownMenu>
           )}
 
-          {canCreate && (
+          {canCreate && currentTab === "gestao" && (
             <Button
               size="sm"
               onClick={handleOpenCreateModal}
@@ -810,350 +742,733 @@ function AdvertenciasContent() {
         </div>
       </div>
 
-      {/* CARDS DE MÉTRICAS / KPIS */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-        <Card className="surface-card border-border/70 p-4 relative overflow-hidden">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-muted-foreground">Total de Registros</span>
-            <div className="p-2 rounded-lg bg-primary/10 text-primary">
-              <Shield className="h-4 w-4" />
-            </div>
-          </div>
-          <div className="mt-2 text-2xl font-black font-mono text-foreground">{stats.total}</div>
-          <p className="text-[10px] text-muted-foreground mt-0.5">Histórico disciplinar acumulado</p>
-        </Card>
+      {/* TABS DE NAVEGAÇÃO PARA QUEM TEM PERMISSÃO GLOBAL */}
+      {canViewGlobal && (
+        <div className="flex items-center gap-2 p-1 rounded-xl bg-secondary/40 border border-border/60 w-fit">
+          <button
+            type="button"
+            onClick={() => setMainTab("gestao")}
+            className={cn(
+              "flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer",
+              mainTab === "gestao"
+                ? "bg-background text-foreground shadow-sm border border-border/70"
+                : "text-muted-foreground hover:text-foreground"
+            )}
+          >
+            <ShieldAlert className="h-4 w-4 text-rose-400" />
+            <span>📋 Gestão de Penalidades (Geral)</span>
+            <Badge variant="secondary" className="text-[10px] px-1.5 py-0 font-mono">
+              {globalStats.total}
+            </Badge>
+          </button>
 
-        <Card className="surface-card border-rose-500/30 bg-rose-950/10 p-4 relative overflow-hidden">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-rose-300">Suspensões Ativas</span>
-            <div className="p-2 rounded-lg bg-rose-500/20 text-rose-400">
-              <Ban className="h-4 w-4 animate-pulse" />
-            </div>
-          </div>
-          <div className="mt-2 text-2xl font-black font-mono text-rose-400">{stats.activeSuspensions}</div>
-          <p className="text-[10px] text-rose-300/80 mt-0.5">Membros com bloqueio funcional ativo</p>
-        </Card>
-
-        <Card className="surface-card border-amber-500/30 bg-amber-950/10 p-4 relative overflow-hidden">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-amber-300">Advertências Ativas</span>
-            <div className="p-2 rounded-lg bg-amber-500/20 text-amber-400">
-              <AlertTriangle className="h-4 w-4" />
-            </div>
-          </div>
-          <div className="mt-2 text-2xl font-black font-mono text-amber-400">{stats.activeWarnings}</div>
-          <p className="text-[10px] text-amber-300/80 mt-0.5">Membros notificados e sob observação</p>
-        </Card>
-
-        <Card className="surface-card border-purple-500/30 bg-purple-950/10 p-4 relative overflow-hidden">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-purple-300">Punições Revogadas</span>
-            <div className="p-2 rounded-lg bg-purple-500/20 text-purple-400">
-              <Undo2 className="h-4 w-4" />
-            </div>
-          </div>
-          <div className="mt-2 text-2xl font-black font-mono text-purple-400">{stats.revoked}</div>
-          <p className="text-[10px] text-purple-300/80 mt-0.5">Canceladas manualmente com anistia</p>
-        </Card>
-      </div>
-
-      {/* BARRA DE FILTROS E BUSCA */}
-      <Card className="surface-card border-border/80 p-3 sm:p-4">
-        <div className="flex flex-col md:flex-row gap-3 items-stretch md:items-center justify-between">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Buscar por membro, ID, motivo ou administrador..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-9 h-9 text-xs"
-            />
-          </div>
-
-          <div className="flex flex-wrap items-center gap-2">
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="h-9 text-xs w-[130px]">
-                <SelectValue placeholder="Status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="todos">Todos Status</SelectItem>
-                <SelectItem value="ativo">Apenas Ativos</SelectItem>
-                <SelectItem value="expirado">Expirados</SelectItem>
-                <SelectItem value="revogado">Revogados</SelectItem>
-              </SelectContent>
-            </Select>
-
-            <Select value={typeFilter} onValueChange={setTypeFilter}>
-              <SelectTrigger className="h-9 text-xs w-[130px]">
-                <SelectValue placeholder="Tipo" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="todos">Todos Tipos</SelectItem>
-                <SelectItem value="advertencia">Advertências</SelectItem>
-                <SelectItem value="suspensao">Suspensões</SelectItem>
-              </SelectContent>
-            </Select>
-
-            <Select value={severityFilter} onValueChange={setSeverityFilter}>
-              <SelectTrigger className="h-9 text-xs w-[130px]">
-                <SelectValue placeholder="Gravidade" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="todos">Todas Gravidades</SelectItem>
-                <SelectItem value="leve">Leve</SelectItem>
-                <SelectItem value="media">Média</SelectItem>
-                <SelectItem value="grave">Grave</SelectItem>
-                <SelectItem value="critica">Crítica</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+          <button
+            type="button"
+            onClick={() => setMainTab("prontuario")}
+            className={cn(
+              "flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer",
+              mainTab === "prontuario"
+                ? "bg-background text-foreground shadow-sm border border-border/70"
+                : "text-muted-foreground hover:text-foreground"
+            )}
+          >
+            <User className="h-4 w-4 text-primary" />
+            <span>🛡️ Meu Prontuário Disciplinar</span>
+            {pendingScienceWarnings.length > 0 ? (
+              <Badge variant="destructive" className="text-[10px] px-1.5 py-0 font-bold bg-amber-600 animate-pulse">
+                {pendingScienceWarnings.length} pendente(s)
+              </Badge>
+            ) : (
+              <Badge variant="outline" className="text-[10px] px-1.5 py-0 font-mono">
+                {myWarnings.length}
+              </Badge>
+            )}
+          </button>
         </div>
-      </Card>
+      )}
 
-      {/* LISTAGEM DE ADVERTÊNCIAS & SUSPENSÕES */}
-      {isLoading ? (
-        <TableSkeleton rows={6} />
-      ) : filteredWarnings.length === 0 ? (
-        <EmptyState
-          icon={<ShieldAlert className="h-10 w-10 text-muted-foreground" />}
-          title="Nenhum registro disciplinar encontrado"
-          description={
-            searchTerm || statusFilter !== "todos" || typeFilter !== "todos"
-              ? "Tente ajustar os filtros ou termo de busca acima."
-              : "Nenhuma advertência ou suspensão foi aplicada ainda. O histórico da organização está limpo!"
-          }
-          action={
-            canCreate ? (
-              <Button size="sm" onClick={handleOpenCreateModal} className="mt-4 gap-1.5 text-xs font-bold bg-rose-600 hover:bg-rose-700 text-white">
-                <Plus className="h-4 w-4" />
-                <span>Aplicar Primeira Advertência</span>
-              </Button>
-            ) : undefined
-          }
-        />
-      ) : (
-        <div className="space-y-3">
-          {filteredWarnings.map((warn) => {
-            const isSusp = warn.is_suspension || warn.type === "suspensao";
-            const isTerminated = warn.status === "expirado" || warn.status === "revogado";
-
-            return (
-              <Card
-                key={warn.id}
-                className={cn(
-                  "surface-card border transition-all hover:border-border/90 p-4",
-                  warn.status === "ativo" && isSusp && "border-rose-500/40 bg-rose-950/5 shadow-xs",
-                  warn.status === "ativo" && !isSusp && "border-amber-500/40 bg-amber-950/5 shadow-xs",
-                  isTerminated && "opacity-75"
-                )}
-              >
-                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-                  {/* MEMBRO & DADOS PRINCIPAIS */}
-                  <div className="flex items-start gap-3.5">
-                    <Avatar className="h-11 w-11 border-2 border-border/80 shadow-xs shrink-0 mt-0.5">
-                      <AvatarImage src={getProxiedImageUrl(warn.member_avatar || "") || undefined} />
-                      <AvatarFallback className="font-bold text-xs bg-primary/20 text-primary">
-                        {warn.member_name.substring(0, 2).toUpperCase()}
-                      </AvatarFallback>
-                    </Avatar>
-
-                    <div className="space-y-1">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <span className="font-bold text-sm text-foreground">
-                          {warn.member_nickname || warn.member_name}
-                        </span>
-                        {warn.member_nickname && (
-                          <span className="text-xs text-muted-foreground font-normal">
-                            ({warn.member_name})
-                          </span>
-                        )}
-                        {warn.member_game_id && (
-                          <span className="font-mono text-[10px] px-1.5 py-0.2 rounded bg-secondary text-muted-foreground">
-                            ID: {warn.member_game_id}
-                          </span>
-                        )}
-                        {warn.member_level && (
-                          <Badge variant="outline" className="text-[10px] font-semibold py-0">
-                            {warn.member_level}
-                          </Badge>
-                        )}
-                        {getStatusBadge(warn.status)}
-                      </div>
-
-                      {/* TÍTULO E MOTIVO */}
-                      <div className="flex flex-wrap items-center gap-2 pt-0.5">
-                        <Badge
-                          variant={isSusp ? "destructive" : "outline"}
-                          className={cn(
-                            "font-bold text-[10px] uppercase",
-                            !isSusp && "border-amber-500/50 text-amber-400 bg-amber-500/10"
-                          )}
-                        >
-                          {isSusp
-                            ? warn.suspension_type === "permanente"
-                              ? "🚫 Suspensão Permanente"
-                              : "🚫 Suspensão Temporária"
-                            : "⚠️ Advertência"}
-                        </Badge>
-                        {getSeverityBadge(warn.severity)}
-                        <span className="text-xs font-semibold text-foreground/90">
-                          {warn.reason}
-                        </span>
-                        {warn.applied_tag_id && (
-                          <Badge variant="secondary" className="text-[10px] font-medium bg-primary/10 text-primary border border-primary/30 flex items-center gap-1">
-                            <Tag className="h-2.5 w-2.5" />
-                            Tag: {tags.find((t) => t.id === warn.applied_tag_id)?.name || warn.applied_tag_id}
-                          </Badge>
-                        )}
-                      </div>
-
-                      {/* DESCRIÇÃO RESUMIDA */}
-                      <p className="text-xs text-muted-foreground line-clamp-2 pt-0.5">
-                        {warn.description}
-                      </p>
-
-                      {/* BLOQUEIOS FUNCIONAIS */}
-                      {warn.blocks && Object.values(warn.blocks).some(Boolean) && (
-                        <div className="flex flex-wrap items-center gap-1.5 pt-1.5">
-                          <span className="text-[10px] font-bold text-muted-foreground uppercase flex items-center gap-1">
-                            <Lock className="h-2.5 w-2.5" /> Bloqueios:
-                          </span>
-                          {warn.blocks.block_all_operations && (
-                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-rose-500/10 border border-rose-500/30 text-rose-300 font-medium">
-                              Operações Gerais
-                            </span>
-                          )}
-                          {warn.blocks.block_login && (
-                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-rose-500/10 border border-rose-500/30 text-rose-300 font-medium">
-                              Acesso Plataforma
-                            </span>
-                          )}
-                          {warn.blocks.block_sales && (
-                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/10 border border-amber-500/30 text-amber-300 font-medium">
-                              Vendas
-                            </span>
-                          )}
-                          {warn.blocks.block_movements && (
-                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/10 border border-amber-500/30 text-amber-300 font-medium">
-                              Baú / Movimentações
-                            </span>
-                          )}
-                          {warn.blocks.block_productions && (
-                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/10 border border-amber-500/30 text-amber-300 font-medium">
-                              Produção
-                            </span>
-                          )}
-                          {warn.blocks.block_cash_fund && (
-                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/10 border border-amber-500/30 text-amber-300 font-medium">
-                              Fundo de Caixa
-                            </span>
-                          )}
-                        </div>
-                      )}
-
-                      {/* METADADOS DE DATA, ADMIN E CIÊNCIA */}
-                      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 pt-1 text-[11px] text-muted-foreground">
-                        <span className="flex items-center gap-1">
-                          <Calendar className="h-3 w-3" />
-                          Início: {new Date(warn.starts_at).toLocaleDateString("pt-BR")}
-                        </span>
-
-                        {warn.ends_at ? (
-                          <span className="flex items-center gap-1 font-mono text-foreground/80">
-                            <Clock className="h-3 w-3 text-primary" />
-                            Término: {new Date(warn.ends_at).toLocaleString("pt-BR")}
-                          </span>
-                        ) : isSusp ? (
-                          <span className="text-rose-400 font-semibold">Permanente</span>
-                        ) : null}
-
-                        <span>
-                          Aplicado por: <strong className="text-foreground">{warn.admin_name}</strong>
-                        </span>
-
-                        {warn.acknowledged_at ? (
-                          <span className="text-emerald-400 font-medium inline-flex items-center gap-1">
-                            <CheckCircle2 className="h-3 w-3" />
-                            Ciente em {new Date(warn.acknowledged_at).toLocaleDateString("pt-BR")}
-                          </span>
-                        ) : (
-                          <span className="text-amber-400 font-medium inline-flex items-center gap-1">
-                            <AlertTriangle className="h-3 w-3" />
-                            Pendente de ciência
-                          </span>
-                        )}
-                      </div>
-
-                      {/* MOTIVO DA REVOGAÇÃO SE HOUVER */}
-                      {warn.status === "revogado" && warn.revocation_reason && (
-                        <div className="mt-2 p-2 rounded-lg bg-purple-500/10 border border-purple-500/30 text-[11px] text-purple-200">
-                          <strong className="text-purple-300">Justificativa da Revogação:</strong> {warn.revocation_reason}
-                          {warn.revoked_by_name && ` (por ${warn.revoked_by_name})`}
-                        </div>
-                      )}
-                    </div>
+      {/* ========================================================= */}
+      {/* MODO 1: MEU PRONTUÁRIO DISCIPLINAR (PESSOAL)             */}
+      {/* ========================================================= */}
+      {currentTab === "prontuario" && (
+        <div className="space-y-5">
+          {/* BANNER DO MEMBRO */}
+          <Card className="surface-card border-border/80 p-4 sm:p-5 relative overflow-hidden">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+              <div className="flex items-center gap-3.5">
+                <Avatar className="h-14 w-14 border-2 border-primary/40 shadow-md">
+                  <AvatarImage src={getProxiedImageUrl(profile?.avatar_url || user?.user_metadata?.avatar_url || "") || undefined} />
+                  <AvatarFallback className="font-bold text-base bg-primary/20 text-primary">
+                    {(profile?.nome || user?.email || "EU").substring(0, 2).toUpperCase()}
+                  </AvatarFallback>
+                </Avatar>
+                <div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h2 className="text-base sm:text-lg font-bold text-foreground">
+                      {profile?.nickname || profile?.nome || user?.email}
+                    </h2>
+                    {profile?.game_id && (
+                      <Badge variant="outline" className="font-mono text-[10px] py-0">
+                        ID: {profile.game_id}
+                      </Badge>
+                    )}
+                    {profile?.cargo && (
+                      <Badge variant="secondary" className="text-[10px] py-0 font-semibold">
+                        {profile.cargo}
+                      </Badge>
+                    )}
                   </div>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Histórico funcional disciplinar individual e acompanhamento de registros operacionais.
+                  </p>
+                </div>
+              </div>
 
-                  {/* AÇÕES ADMINISTRATIVAS */}
-                  <div className="flex flex-wrap items-center gap-1.5 self-end lg:self-center shrink-0">
-                    {canViewDetails && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => setViewingWarning(warn)}
-                        className="h-8 px-2.5 text-xs font-semibold rounded-lg gap-1 border-border/80 cursor-pointer"
-                        title="Ver detalhes completos"
-                      >
-                        <Eye className="h-3.5 w-3.5" />
-                        <span>Detalhes</span>
-                      </Button>
-                    )}
+              <div>
+                {myActiveSuspension ? (
+                  <Badge variant="destructive" className="px-3 py-1.5 text-xs font-bold gap-1.5 bg-rose-600 animate-pulse">
+                    <Ban className="h-3.5 w-3.5" /> Suspensão Ativa
+                  </Badge>
+                ) : myStats.activeWarnings > 0 ? (
+                  <Badge variant="outline" className="px-3 py-1.5 text-xs font-bold gap-1.5 border-amber-500/50 text-amber-400 bg-amber-500/10">
+                    <AlertTriangle className="h-3.5 w-3.5" /> Sob Advertência Ativa ({myStats.activeWarnings})
+                  </Badge>
+                ) : (
+                  <Badge variant="outline" className="px-3 py-1.5 text-xs font-bold gap-1.5 border-emerald-500/50 text-emerald-400 bg-emerald-500/10">
+                    <CheckCircle2 className="h-3.5 w-3.5" /> Prontuário Regular
+                  </Badge>
+                )}
+              </div>
+            </div>
+          </Card>
 
-                    {canRevoke && warn.status === "ativo" && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => {
-                          setRevokingWarning(warn);
-                          setRevocationReasonInput("");
-                        }}
-                        className="h-8 px-2.5 text-xs font-semibold rounded-lg gap-1 border-purple-500/40 text-purple-400 hover:bg-purple-500/10 cursor-pointer"
-                        title="Revogar / Cancelar penalidade"
-                      >
-                        <Undo2 className="h-3.5 w-3.5" />
-                        <span>Revogar</span>
-                      </Button>
-                    )}
-
-                    {canEdit && warn.status === "ativo" && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => handleOpenEditModal(warn)}
-                        className="h-8 px-2.5 text-xs font-semibold rounded-lg gap-1 border-border/80 cursor-pointer"
-                        title="Editar penalidade"
-                      >
-                        <Edit2 className="h-3.5 w-3.5" />
-                        <span>Editar</span>
-                      </Button>
-                    )}
-
-                    {canDelete && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => setDeletingWarningId(warn.id)}
-                        className="h-8 px-2.5 text-xs font-semibold rounded-lg gap-1 border-rose-500/30 text-rose-400 hover:bg-rose-500/10 cursor-pointer"
-                        title="Excluir registro permanentemente"
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </Button>
-                    )}
+          {/* ALERTA DE CIÊNCIA PENDENTE */}
+          {pendingScienceWarnings.length > 0 && (
+            <Card className="border-amber-500/60 bg-amber-500/[0.08] p-4 sm:p-5 shadow-lg shadow-amber-950/20 relative overflow-hidden">
+              <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                <div className="flex items-start gap-3">
+                  <div className="p-2.5 rounded-xl bg-amber-500/20 text-amber-400 border border-amber-500/40 shrink-0 mt-0.5">
+                    <AlertOctagon className="h-6 w-6 animate-bounce" />
+                  </div>
+                  <div className="space-y-1">
+                    <h3 className="text-sm sm:text-base font-bold text-amber-200">
+                      Confirmação de Leitura & Ciência Obrigatória ({pendingScienceWarnings.length} pendente{pendingScienceWarnings.length > 1 ? "s" : ""})
+                    </h3>
+                    <p className="text-xs text-amber-300/80 leading-relaxed">
+                      Você possui penalidade(s) disciplinar(es) ativa(s) que requerem sua confirmação expressa de leitura. Clique no botão de confirmação em cada registro abaixo para registrar sua ciência aos termos.
+                    </p>
                   </div>
                 </div>
-              </Card>
-            );
-          })}
+
+                <div className="shrink-0 w-full md:w-auto">
+                  <Button
+                    size="sm"
+                    onClick={async () => {
+                      for (const pw of pendingScienceWarnings) {
+                        await acknowledgeMutation.mutateAsync(pw.id);
+                      }
+                    }}
+                    disabled={acknowledgeMutation.isPending}
+                    className="w-full md:w-auto text-xs font-bold bg-amber-500 hover:bg-amber-600 text-amber-950 gap-1.5 shadow-md cursor-pointer"
+                  >
+                    <FileSignature className="h-4 w-4" />
+                    <span>Confirmar Ciência de Todas ({pendingScienceWarnings.length})</span>
+                  </Button>
+                </div>
+              </div>
+            </Card>
+          )}
+
+          {/* RESTRIÇÕES ATIVAS SE HOUVER SUSPENSÃO */}
+          {myActiveSuspension?.blocks && Object.values(myActiveSuspension.blocks).some(Boolean) && (
+            <Card className="border-rose-500/40 bg-rose-950/15 p-4 space-y-2">
+              <div className="flex items-center gap-2 text-rose-300 font-bold text-xs">
+                <Lock className="h-4 w-4 text-rose-400" />
+                <span>Restrições Operacionais em Vigor para sua Conta:</span>
+              </div>
+              <div className="flex flex-wrap items-center gap-2 pt-1">
+                {myActiveSuspension.blocks.block_all_operations && (
+                  <Badge variant="destructive" className="text-[10px] uppercase font-bold bg-rose-600">
+                    Bloqueio Total Operacional
+                  </Badge>
+                )}
+                {myActiveSuspension.blocks.block_login && (
+                  <Badge variant="destructive" className="text-[10px] uppercase font-bold bg-rose-700">
+                    Acesso à Plataforma Bloqueado
+                  </Badge>
+                )}
+                {myActiveSuspension.blocks.block_sales && (
+                  <Badge variant="outline" className="text-[10px] uppercase font-bold border-amber-500/60 text-amber-300 bg-amber-500/10">
+                    Vendas Bloqueadas
+                  </Badge>
+                )}
+                {myActiveSuspension.blocks.block_movements && (
+                  <Badge variant="outline" className="text-[10px] uppercase font-bold border-amber-500/60 text-amber-300 bg-amber-500/10">
+                    Baú Bloqueado
+                  </Badge>
+                )}
+                {myActiveSuspension.blocks.block_productions && (
+                  <Badge variant="outline" className="text-[10px] uppercase font-bold border-amber-500/60 text-amber-300 bg-amber-500/10">
+                    Produção Bloqueada
+                  </Badge>
+                )}
+                {myActiveSuspension.blocks.block_cash_fund && (
+                  <Badge variant="outline" className="text-[10px] uppercase font-bold border-amber-500/60 text-amber-300 bg-amber-500/10">
+                    Fundo de Caixa Bloqueado
+                  </Badge>
+                )}
+              </div>
+            </Card>
+          )}
+
+          {/* KPIS PESSOAIS */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <Card className="surface-card border-border/70 p-3.5">
+              <span className="text-[11px] font-medium text-muted-foreground block">Total de Ocorrências</span>
+              <div className="mt-1 text-2xl font-black font-mono text-foreground">{myStats.total}</div>
+              <span className="text-[10px] text-muted-foreground">Histórico acumulado</span>
+            </Card>
+
+            <Card className="surface-card border-rose-500/30 bg-rose-950/10 p-3.5">
+              <span className="text-[11px] font-medium text-rose-300 block">Suspensões Ativas</span>
+              <div className="mt-1 text-2xl font-black font-mono text-rose-400">{myStats.activeSuspensions}</div>
+              <span className="text-[10px] text-rose-300/80">Com bloqueio temporário</span>
+            </Card>
+
+            <Card className="surface-card border-amber-500/30 bg-amber-950/10 p-3.5">
+              <span className="text-[11px] font-medium text-amber-300 block">Advertências Ativas</span>
+              <div className="mt-1 text-2xl font-black font-mono text-amber-400">{myStats.activeWarnings}</div>
+              <span className="text-[10px] text-amber-300/80">Registros em observação</span>
+            </Card>
+
+            <Card className="surface-card border-emerald-500/30 bg-emerald-950/10 p-3.5">
+              <span className="text-[11px] font-medium text-emerald-300 block">Cumpridas / Anistiadas</span>
+              <div className="mt-1 text-2xl font-black font-mono text-emerald-400">{myStats.expiredOrRevoked}</div>
+              <span className="text-[10px] text-emerald-300/80">Penalidades arquivadas</span>
+            </Card>
+          </div>
+
+          {/* FILTROS PESSOAIS */}
+          <Card className="surface-card border-border/80 p-3">
+            <div className="flex flex-col sm:flex-row gap-2.5 items-stretch sm:items-center justify-between">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                <Input
+                  placeholder="Buscar em minhas penalidades por motivo ou autor..."
+                  value={mySearchTerm}
+                  onChange={(e) => setMySearchTerm(e.target.value)}
+                  className="pl-8 h-8 text-xs"
+                />
+              </div>
+
+              <Select value={myStatusFilter} onValueChange={setMyStatusFilter}>
+                <SelectTrigger className="h-8 text-xs w-full sm:w-[140px]">
+                  <SelectValue placeholder="Status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="todos">Todos Status</SelectItem>
+                  <SelectItem value="ativo">Apenas Ativos</SelectItem>
+                  <SelectItem value="expirado">Expirados</SelectItem>
+                  <SelectItem value="revogado">Revogados</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </Card>
+
+          {/* LISTAGEM PESSOAL */}
+          {isLoading ? (
+            <TableSkeleton rows={4} />
+          ) : filteredMyWarnings.length === 0 ? (
+            <EmptyState
+              icon={<CheckCircle2 className="h-10 w-10 text-emerald-400" />}
+              title="Nenhuma ocorrência disciplinar encontrada"
+              description={
+                mySearchTerm || myStatusFilter !== "todos"
+                  ? "Nenhum registro corresponde aos filtros selecionados."
+                  : "Seu prontuário individual está limpo e você não possui registros de advertência ou suspensão ativos!"
+              }
+            />
+          ) : (
+            <div className="space-y-3">
+              {filteredMyWarnings.map((warn) => {
+                const isSusp = warn.is_suspension || warn.type === "suspensao";
+                const isTerminated = warn.status === "expirado" || warn.status === "revogado";
+                const isPendingMyScience = warn.status === "ativo" && !warn.acknowledged_at;
+
+                return (
+                  <Card
+                    key={warn.id}
+                    className={cn(
+                      "surface-card border transition-all hover:border-border/90 p-4",
+                      isPendingMyScience && "border-amber-500/60 bg-amber-950/10 ring-1 ring-amber-500/30",
+                      warn.status === "ativo" && !isPendingMyScience && isSusp && "border-rose-500/40 bg-rose-950/5",
+                      warn.status === "ativo" && !isPendingMyScience && !isSusp && "border-amber-500/40 bg-amber-950/5",
+                      isTerminated && "opacity-75"
+                    )}
+                  >
+                    <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                      <div className="space-y-2 flex-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <Badge
+                            variant={isSusp ? "destructive" : "outline"}
+                            className={cn(
+                              "font-bold text-[10px] uppercase",
+                              !isSusp && "border-amber-500/50 text-amber-400 bg-amber-500/10"
+                            )}
+                          >
+                            {isSusp
+                              ? warn.suspension_type === "permanente"
+                                ? "🚫 Suspensão Permanente"
+                                : "🚫 Suspensão Temporária"
+                              : "⚠️ Advertência"}
+                          </Badge>
+
+                          {getSeverityBadge(warn.severity)}
+                          {getStatusBadge(warn.status)}
+
+                          {warn.applied_tag_id && (
+                            <Badge variant="secondary" className="text-[10px] font-medium bg-primary/10 text-primary border border-primary/30 flex items-center gap-1">
+                              <Tag className="h-2.5 w-2.5" />
+                              Tag: {tags.find((t) => t.id === warn.applied_tag_id)?.name || warn.applied_tag_id}
+                            </Badge>
+                          )}
+                        </div>
+
+                        <div>
+                          <h4 className="text-sm font-bold text-foreground flex items-center gap-1.5">
+                            {warn.reason}
+                          </h4>
+                          <p className="text-xs text-muted-foreground mt-0.5 whitespace-pre-wrap">
+                            {warn.description}
+                          </p>
+                        </div>
+
+                        {/* DATAS E CIÊNCIA */}
+                        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-muted-foreground pt-1">
+                          <span className="flex items-center gap-1">
+                            <Calendar className="h-3 w-3" />
+                            Aplicado em: {new Date(warn.starts_at).toLocaleDateString("pt-BR")}
+                          </span>
+
+                          {warn.ends_at ? (
+                            <span className="flex items-center gap-1 font-mono text-foreground/80">
+                              <Clock className="h-3 w-3 text-primary" />
+                              Término: {new Date(warn.ends_at).toLocaleString("pt-BR")}
+                            </span>
+                          ) : isSusp ? (
+                            <span className="text-rose-400 font-semibold">Permanente</span>
+                          ) : null}
+
+                          <span>
+                            Por: <strong className="text-foreground">{warn.admin_name}</strong>
+                          </span>
+
+                          {warn.acknowledged_at ? (
+                            <span className="text-emerald-400 font-medium inline-flex items-center gap-1">
+                              <CheckCircle2 className="h-3 w-3" />
+                              Ciente em {new Date(warn.acknowledged_at).toLocaleString("pt-BR")}
+                            </span>
+                          ) : (
+                            <span className="text-amber-400 font-bold inline-flex items-center gap-1">
+                              <AlertTriangle className="h-3 w-3" />
+                              Ciência pendente
+                            </span>
+                          )}
+                        </div>
+
+                        {/* MOTIVO DE REVOGAÇÃO SE HOUVER */}
+                        {warn.status === "revogado" && warn.revocation_reason && (
+                          <div className="mt-2 p-2 rounded-lg bg-purple-500/10 border border-purple-500/30 text-[11px] text-purple-200">
+                            <strong className="text-purple-300">Justificativa da Anistia/Revogação:</strong> {warn.revocation_reason}
+                            {warn.revoked_by_name && ` (por ${warn.revoked_by_name})`}
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="flex items-center gap-2 shrink-0 self-end md:self-center">
+                        {isPendingMyScience && (
+                          <Button
+                            size="sm"
+                            onClick={() => handleAcknowledgeWarning(warn.id)}
+                            disabled={acknowledgeMutation.isPending}
+                            className="h-8 text-xs font-bold bg-amber-500 hover:bg-amber-600 text-amber-950 gap-1.5 shadow-md cursor-pointer"
+                          >
+                            <FileSignature className="h-3.5 w-3.5" />
+                            <span>Dar Ciência</span>
+                          </Button>
+                        )}
+
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => setViewingWarning(warn)}
+                          className="h-8 px-2.5 text-xs font-semibold rounded-lg gap-1 border-border/80 cursor-pointer"
+                          title="Ver detalhes completos"
+                        >
+                          <Eye className="h-3.5 w-3.5" />
+                          <span>Detalhes</span>
+                        </Button>
+                      </div>
+                    </div>
+                  </Card>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ========================================================= */}
+      {/* MODO 2: GESTÃO GLOBAL DE PENALIDADES (ADMIN/LIDERANÇA)   */}
+      {/* ========================================================= */}
+      {currentTab === "gestao" && (
+        <div className="space-y-6">
+          {/* CARDS DE MÉTRICAS / KPIS GLOBAIS */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+            <Card className="surface-card border-border/70 p-4 relative overflow-hidden">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-medium text-muted-foreground">Total de Registros</span>
+                <div className="p-2 rounded-lg bg-primary/10 text-primary">
+                  <Shield className="h-4 w-4" />
+                </div>
+              </div>
+              <div className="mt-2 text-2xl font-black font-mono text-foreground">{globalStats.total}</div>
+              <p className="text-[10px] text-muted-foreground mt-0.5">Histórico disciplinar acumulado</p>
+            </Card>
+
+            <Card className="surface-card border-rose-500/30 bg-rose-950/10 p-4 relative overflow-hidden">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-medium text-rose-300">Suspensões Ativas</span>
+                <div className="p-2 rounded-lg bg-rose-500/20 text-rose-400">
+                  <Ban className="h-4 w-4 animate-pulse" />
+                </div>
+              </div>
+              <div className="mt-2 text-2xl font-black font-mono text-rose-400">{globalStats.activeSuspensions}</div>
+              <p className="text-[10px] text-rose-300/80 mt-0.5">Membros com bloqueio funcional ativo</p>
+            </Card>
+
+            <Card className="surface-card border-amber-500/30 bg-amber-950/10 p-4 relative overflow-hidden">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-medium text-amber-300">Advertências Ativas</span>
+                <div className="p-2 rounded-lg bg-amber-500/20 text-amber-400">
+                  <AlertTriangle className="h-4 w-4" />
+                </div>
+              </div>
+              <div className="mt-2 text-2xl font-black font-mono text-amber-400">{globalStats.activeWarnings}</div>
+              <p className="text-[10px] text-amber-300/80 mt-0.5">Membros notificados e sob observação</p>
+            </Card>
+
+            <Card className="surface-card border-purple-500/30 bg-purple-950/10 p-4 relative overflow-hidden">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-medium text-purple-300">Punições Revogadas</span>
+                <div className="p-2 rounded-lg bg-purple-500/20 text-purple-400">
+                  <Undo2 className="h-4 w-4" />
+                </div>
+              </div>
+              <div className="mt-2 text-2xl font-black font-mono text-purple-400">{globalStats.revoked}</div>
+              <p className="text-[10px] text-purple-300/80 mt-0.5">Canceladas manualmente com anistia</p>
+            </Card>
+          </div>
+
+          {/* BARRA DE FILTROS E BUSCA */}
+          <Card className="surface-card border-border/80 p-3 sm:p-4">
+            <div className="flex flex-col md:flex-row gap-3 items-stretch md:items-center justify-between">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Buscar por membro, ID, motivo ou administrador..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-9 h-9 text-xs"
+                />
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2">
+                <Select value={statusFilter} onValueChange={setStatusFilter}>
+                  <SelectTrigger className="h-9 text-xs w-[130px]">
+                    <SelectValue placeholder="Status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="todos">Todos Status</SelectItem>
+                    <SelectItem value="ativo">Apenas Ativos</SelectItem>
+                    <SelectItem value="expirado">Expirados</SelectItem>
+                    <SelectItem value="revogado">Revogados</SelectItem>
+                  </SelectContent>
+                </Select>
+
+                <Select value={typeFilter} onValueChange={setTypeFilter}>
+                  <SelectTrigger className="h-9 text-xs w-[130px]">
+                    <SelectValue placeholder="Tipo" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="todos">Todos Tipos</SelectItem>
+                    <SelectItem value="advertencia">Advertências</SelectItem>
+                    <SelectItem value="suspensao">Suspensões</SelectItem>
+                  </SelectContent>
+                </Select>
+
+                <Select value={severityFilter} onValueChange={setSeverityFilter}>
+                  <SelectTrigger className="h-9 text-xs w-[130px]">
+                    <SelectValue placeholder="Gravidade" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="todos">Todas Gravidades</SelectItem>
+                    <SelectItem value="leve">Leve</SelectItem>
+                    <SelectItem value="media">Média</SelectItem>
+                    <SelectItem value="grave">Grave</SelectItem>
+                    <SelectItem value="critica">Crítica</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </Card>
+
+          {/* LISTAGEM DE ADVERTÊNCIAS & SUSPENSÕES GLOBAIS */}
+          {isLoading ? (
+            <TableSkeleton rows={6} />
+          ) : filteredGlobalWarnings.length === 0 ? (
+            <EmptyState
+              icon={<ShieldAlert className="h-10 w-10 text-muted-foreground" />}
+              title="Nenhum registro disciplinar encontrado"
+              description={
+                searchTerm || statusFilter !== "todos" || typeFilter !== "todos"
+                  ? "Tente ajustar os filtros ou termo de busca acima."
+                  : "Nenhuma advertência ou suspensão foi aplicada ainda. O histórico da organização está limpo!"
+              }
+              action={
+                canCreate ? (
+                  <Button size="sm" onClick={handleOpenCreateModal} className="mt-4 gap-1.5 text-xs font-bold bg-rose-600 hover:bg-rose-700 text-white cursor-pointer">
+                    <Plus className="h-4 w-4" />
+                    <span>Aplicar Primeira Advertência</span>
+                  </Button>
+                ) : undefined
+              }
+            />
+          ) : (
+            <div className="space-y-3">
+              {filteredGlobalWarnings.map((warn) => {
+                const isSusp = warn.is_suspension || warn.type === "suspensao";
+                const isTerminated = warn.status === "expirado" || warn.status === "revogado";
+
+                return (
+                  <Card
+                    key={warn.id}
+                    className={cn(
+                      "surface-card border transition-all hover:border-border/90 p-4",
+                      warn.status === "ativo" && isSusp && "border-rose-500/40 bg-rose-950/5 shadow-xs",
+                      warn.status === "ativo" && !isSusp && "border-amber-500/40 bg-amber-950/5 shadow-xs",
+                      isTerminated && "opacity-75"
+                    )}
+                  >
+                    <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                      {/* MEMBRO & DADOS PRINCIPAIS */}
+                      <div className="flex items-start gap-3.5">
+                        <Avatar className="h-11 w-11 border-2 border-border/80 shadow-xs shrink-0 mt-0.5">
+                          <AvatarImage src={getProxiedImageUrl(warn.member_avatar || "") || undefined} />
+                          <AvatarFallback className="font-bold text-xs bg-primary/20 text-primary">
+                            {warn.member_name.substring(0, 2).toUpperCase()}
+                          </AvatarFallback>
+                        </Avatar>
+
+                        <div className="space-y-1">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="font-bold text-sm text-foreground">
+                              {warn.member_nickname || warn.member_name}
+                            </span>
+                            {warn.member_nickname && (
+                              <span className="text-xs text-muted-foreground font-normal">
+                                ({warn.member_name})
+                              </span>
+                            )}
+                            {warn.member_game_id && (
+                              <span className="font-mono text-[10px] px-1.5 py-0.2 rounded bg-secondary text-muted-foreground">
+                                ID: {warn.member_game_id}
+                              </span>
+                            )}
+                            {warn.member_level && (
+                              <Badge variant="outline" className="text-[10px] font-semibold py-0">
+                                {warn.member_level}
+                              </Badge>
+                            )}
+                            {getStatusBadge(warn.status)}
+                          </div>
+
+                          {/* TÍTULO E MOTIVO */}
+                          <div className="flex flex-wrap items-center gap-2 pt-0.5">
+                            <Badge
+                              variant={isSusp ? "destructive" : "outline"}
+                              className={cn(
+                                "font-bold text-[10px] uppercase",
+                                !isSusp && "border-amber-500/50 text-amber-400 bg-amber-500/10"
+                              )}
+                            >
+                              {isSusp
+                                ? warn.suspension_type === "permanente"
+                                ? "🚫 Suspensão Permanente"
+                                : "🚫 Suspensão Temporária"
+                              : "⚠️ Advertência"}
+                            </Badge>
+                            {getSeverityBadge(warn.severity)}
+                            <span className="text-xs font-semibold text-foreground/90">
+                              {warn.reason}
+                            </span>
+                            {warn.applied_tag_id && (
+                              <Badge variant="secondary" className="text-[10px] font-medium bg-primary/10 text-primary border border-primary/30 flex items-center gap-1">
+                                <Tag className="h-2.5 w-2.5" />
+                                Tag: {tags.find((t) => t.id === warn.applied_tag_id)?.name || warn.applied_tag_id}
+                              </Badge>
+                            )}
+                          </div>
+
+                          {/* DESCRIÇÃO RESUMIDA */}
+                          <p className="text-xs text-muted-foreground line-clamp-2 pt-0.5">
+                            {warn.description}
+                          </p>
+
+                          {/* BLOQUEIOS FUNCIONAIS */}
+                          {warn.blocks && Object.values(warn.blocks).some(Boolean) && (
+                            <div className="flex flex-wrap items-center gap-1.5 pt-1.5">
+                              <span className="text-[10px] font-bold text-muted-foreground uppercase flex items-center gap-1">
+                                <Lock className="h-2.5 w-2.5" /> Bloqueios:
+                              </span>
+                              {warn.blocks.block_all_operations && (
+                                <span className="text-[10px] px-1.5 py-0.5 rounded bg-rose-500/10 border border-rose-500/30 text-rose-300 font-medium">
+                                  Operações Gerais
+                                </span>
+                              )}
+                              {warn.blocks.block_login && (
+                                <span className="text-[10px] px-1.5 py-0.5 rounded bg-rose-500/10 border border-rose-500/30 text-rose-300 font-medium">
+                                  Acesso Plataforma
+                                </span>
+                              )}
+                              {warn.blocks.block_sales && (
+                                <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/10 border border-amber-500/30 text-amber-300 font-medium">
+                                  Vendas
+                                </span>
+                              )}
+                              {warn.blocks.block_movements && (
+                                <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/10 border border-amber-500/30 text-amber-300 font-medium">
+                                  Baú / Movimentações
+                                </span>
+                              )}
+                              {warn.blocks.block_productions && (
+                                <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/10 border border-amber-500/30 text-amber-300 font-medium">
+                                  Produção
+                                </span>
+                              )}
+                              {warn.blocks.block_cash_fund && (
+                                <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/10 border border-amber-500/30 text-amber-300 font-medium">
+                                  Fundo de Caixa
+                                </span>
+                              )}
+                            </div>
+                          )}
+
+                          {/* METADADOS DE DATA, ADMIN E CIÊNCIA */}
+                          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 pt-1 text-[11px] text-muted-foreground">
+                            <span className="flex items-center gap-1">
+                              <Calendar className="h-3 w-3" />
+                              Início: {new Date(warn.starts_at).toLocaleDateString("pt-BR")}
+                            </span>
+
+                            {warn.ends_at ? (
+                              <span className="flex items-center gap-1 font-mono text-foreground/80">
+                                <Clock className="h-3 w-3 text-primary" />
+                                Término: {new Date(warn.ends_at).toLocaleString("pt-BR")}
+                              </span>
+                            ) : isSusp ? (
+                              <span className="text-rose-400 font-semibold">Permanente</span>
+                            ) : null}
+
+                            <span>
+                              Aplicado por: <strong className="text-foreground">{warn.admin_name}</strong>
+                            </span>
+
+                            {warn.acknowledged_at ? (
+                              <span className="text-emerald-400 font-medium inline-flex items-center gap-1">
+                                <CheckCircle2 className="h-3 w-3" />
+                                Ciente em {new Date(warn.acknowledged_at).toLocaleDateString("pt-BR")}
+                              </span>
+                            ) : (
+                              <span className="text-amber-400 font-medium inline-flex items-center gap-1">
+                                <AlertTriangle className="h-3 w-3" />
+                                Pendente de ciência
+                              </span>
+                            )}
+                          </div>
+
+                          {/* MOTIVO DA REVOGAÇÃO SE HOUVER */}
+                          {warn.status === "revogado" && warn.revocation_reason && (
+                            <div className="mt-2 p-2 rounded-lg bg-purple-500/10 border border-purple-500/30 text-[11px] text-purple-200">
+                              <strong className="text-purple-300">Justificativa da Revogação:</strong> {warn.revocation_reason}
+                              {warn.revoked_by_name && ` (por ${warn.revoked_by_name})`}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* AÇÕES ADMINISTRATIVAS */}
+                      <div className="flex flex-wrap items-center gap-1.5 self-end lg:self-center shrink-0">
+                        {canViewDetails && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => setViewingWarning(warn)}
+                            className="h-8 px-2.5 text-xs font-semibold rounded-lg gap-1 border-border/80 cursor-pointer"
+                            title="Ver detalhes completos"
+                          >
+                            <Eye className="h-3.5 w-3.5" />
+                            <span>Detalhes</span>
+                          </Button>
+                        )}
+
+                        {canRevoke && warn.status === "ativo" && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => {
+                              setRevokingWarning(warn);
+                              setRevocationReasonInput("");
+                            }}
+                            className="h-8 px-2.5 text-xs font-semibold rounded-lg gap-1 border-purple-500/40 text-purple-400 hover:bg-purple-500/10 cursor-pointer"
+                            title="Revogar / Cancelar penalidade"
+                          >
+                            <Undo2 className="h-3.5 w-3.5" />
+                            <span>Revogar</span>
+                          </Button>
+                        )}
+
+                        {canEdit && warn.status === "ativo" && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleOpenEditModal(warn)}
+                            className="h-8 px-2.5 text-xs font-semibold rounded-lg gap-1 border-border/80 cursor-pointer"
+                            title="Editar penalidade"
+                          >
+                            <Edit2 className="h-3.5 w-3.5" />
+                            <span>Editar</span>
+                          </Button>
+                        )}
+
+                        {canDelete && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => setDeletingWarningId(warn.id)}
+                            className="h-8 px-2.5 text-xs font-semibold rounded-lg gap-1 border-rose-500/30 text-rose-400 hover:bg-rose-500/10 cursor-pointer"
+                            title="Excluir registro permanentemente"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  </Card>
+                );
+              })}
+            </div>
+          )}
         </div>
       )}
 
@@ -1262,13 +1577,13 @@ function AdvertenciasContent() {
               </div>
             )}
 
-            {/* 4. DESCRIÇÃO E DETALHES */}
+            {/* 4. DESCRIÇÃO DETALHADA */}
             <div>
               <Label className="text-xs font-semibold text-foreground">
                 Descrição dos Fatos & Evidências <span className="text-rose-500">*</span>
               </Label>
               <Textarea
-                placeholder="Detalhe o ocorrido, datas, reuniões, regras violadas e justificativa da penalidade..."
+                placeholder="Detalhe o ocorrido, normas violadas, provas ou acordos estabelecidos..."
                 value={newDescription}
                 onChange={(e) => setNewDescription(e.target.value)}
                 className="mt-1 text-xs min-h-[90px]"
@@ -1276,7 +1591,7 @@ function AdvertenciasContent() {
               />
             </div>
 
-            {/* 5. VIGÊNCIA E DURAÇÃO DA PENALIDADE */}
+            {/* 5. VIGÊNCIA E DURAÇÃO */}
             <div className="p-4 rounded-xl bg-secondary/30 border border-border space-y-3">
               <div className="flex items-center gap-2 text-foreground font-bold text-xs uppercase tracking-wider">
                 <Clock className="h-4 w-4 text-primary" /> Vigência & Duração
@@ -1291,8 +1606,8 @@ function AdvertenciasContent() {
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="temporaria">Temporária (Com data de término)</SelectItem>
-                        <SelectItem value="permanente">Permanente (Até anistia formal)</SelectItem>
+                        <SelectItem value="temporaria">Temporária (dias/horas definidos)</SelectItem>
+                        <SelectItem value="permanente">Permanente (indeterminada)</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -1328,7 +1643,7 @@ function AdvertenciasContent() {
                   <Label className="text-xs font-semibold text-foreground">Validade da Advertência no Prontuário</Label>
                   <div className="grid grid-cols-2 gap-2 mt-1">
                     <div>
-                      <Label className="text-[10px] text-muted-foreground">Dias</Label>
+                      <Label className="text-[10px] text-muted-foreground">Dias de vigência</Label>
                       <Input
                         type="number"
                         min={0}
@@ -1338,7 +1653,7 @@ function AdvertenciasContent() {
                       />
                     </div>
                     <div>
-                      <Label className="text-[10px] text-muted-foreground">Horas</Label>
+                      <Label className="text-[10px] text-muted-foreground">Horas adicionais</Label>
                       <Input
                         type="number"
                         min={0}
@@ -1350,21 +1665,21 @@ function AdvertenciasContent() {
                     </div>
                   </div>
                   <p className="text-[10px] text-muted-foreground mt-1">
-                    Após esse período de vigência, a advertência passa automaticamente para o status de "expirado".
+                    Após este período, o registro passará automaticamente para o status de expirado.
                   </p>
                 </div>
               )}
             </div>
 
-            {/* 6. BLOQUEIOS & RESTRIÇÕES OPERACIONAIS */}
+            {/* 6. BLOQUEIOS FUNCIONAIS */}
             <div className="p-4 rounded-xl bg-rose-950/20 border border-rose-500/30 space-y-3">
               <div>
                 <Label className="text-xs font-bold text-rose-200 flex items-center gap-1.5">
                   <Lock className="h-4 w-4 text-rose-400" />
-                  Bloquear Automaticamente (Segurança & Disciplina):
+                  Bloqueios Funcionais Automáticos:
                 </Label>
                 <p className="text-[11px] text-rose-300/70 mt-0.5">
-                  Selecione as restrições operacionais imediatas que serão impostas ao membro durante a vigência da penalidade.
+                  O sistema aplicará as travas operacionais enquanto a penalidade estiver ativa.
                 </p>
               </div>
 
@@ -1373,7 +1688,7 @@ function AdvertenciasContent() {
                   <Switch checked={blockAllOperations} onCheckedChange={setBlockAllOperations} />
                   <div>
                     <span className="font-bold text-rose-300 block">Bloqueio Total Operacional</span>
-                    <span className="text-[10px] text-muted-foreground">Impede qualquer ação/modificação no sistema</span>
+                    <span className="text-[10px] text-muted-foreground">Impede qualquer modificação</span>
                   </div>
                 </label>
 
@@ -1388,24 +1703,24 @@ function AdvertenciasContent() {
                 <label className="flex items-center gap-2 p-2 rounded-lg bg-background/50 border border-border cursor-pointer hover:bg-background/80 transition-colors">
                   <Switch checked={blockSales} onCheckedChange={setBlockSales} />
                   <div>
-                    <span className="font-semibold text-foreground block">Bloquear Vendas de Produtos</span>
-                    <span className="text-[10px] text-muted-foreground">Impede registrar ou estornar vendas</span>
+                    <span className="font-semibold text-foreground block">Bloquear Vendas</span>
+                    <span className="text-[10px] text-muted-foreground">Impede registrar vendas</span>
                   </div>
                 </label>
 
                 <label className="flex items-center gap-2 p-2 rounded-lg bg-background/50 border border-border cursor-pointer hover:bg-background/80 transition-colors">
                   <Switch checked={blockMovements} onCheckedChange={setBlockMovements} />
                   <div>
-                    <span className="font-semibold text-foreground block">Bloquear Retiradas / Baús</span>
-                    <span className="text-[10px] text-muted-foreground">Impede retiradas e transferências</span>
+                    <span className="font-semibold text-foreground block">Bloquear Baú</span>
+                    <span className="text-[10px] text-muted-foreground">Impede retiradas de baú</span>
                   </div>
                 </label>
 
                 <label className="flex items-center gap-2 p-2 rounded-lg bg-background/50 border border-border cursor-pointer hover:bg-background/80 transition-colors">
                   <Switch checked={blockProductions} onCheckedChange={setBlockProductions} />
                   <div>
-                    <span className="font-semibold text-foreground block">Bloquear Produções & Armazém</span>
-                    <span className="text-[10px] text-muted-foreground">Impede ordens de produção e estoque</span>
+                    <span className="font-semibold text-foreground block">Bloquear Produções</span>
+                    <span className="text-[10px] text-muted-foreground">Impede ordens de produção</span>
                   </div>
                 </label>
 
@@ -1413,13 +1728,13 @@ function AdvertenciasContent() {
                   <Switch checked={blockCashFund} onCheckedChange={setBlockCashFund} />
                   <div>
                     <span className="font-semibold text-foreground block">Bloquear Fundo de Caixa</span>
-                    <span className="text-[10px] text-muted-foreground">Impede depósitos e saques de caixa</span>
+                    <span className="text-[10px] text-muted-foreground">Impede movimentações de caixa</span>
                   </div>
                 </label>
               </div>
             </div>
 
-            {/* 7. ATRIBUIÇÃO AUTOMÁTICA DE TAG DE PUNIÇÃO */}
+            {/* 7. ATRIBUIÇÃO AUTOMÁTICA DE TAG */}
             <div className="p-4 rounded-xl bg-secondary/30 border border-border space-y-2">
               <Label className="text-xs font-semibold text-foreground flex items-center gap-1.5">
                 <Tag className="h-4 w-4 text-primary" />
@@ -1454,45 +1769,34 @@ function AdvertenciasContent() {
               </Button>
               <Button
                 type="submit"
-                disabled={createMutation.isPending || !selectedMemberId}
+                disabled={createMutation.isPending}
                 className="h-9 text-xs font-bold bg-rose-600 hover:bg-rose-700 text-white cursor-pointer"
               >
-                {createMutation.isPending ? "Aplicando..." : "Confirmar e Aplicar"}
+                {createMutation.isPending ? "Aplicando..." : "Confirmar & Aplicar"}
               </Button>
             </DialogFooter>
           </form>
         </DialogContent>
       </Dialog>
 
-      {/* MODAL 2: EDITAR PENALIDADE */}
+      {/* MODAL 2: EDITAR ADVERTÊNCIA */}
       <Dialog open={Boolean(editingWarning)} onOpenChange={(open) => !open && setEditingWarning(null)}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-lg font-bold text-foreground">
               <Edit2 className="h-5 w-5 text-primary" />
-              Editar Registro Disciplinar
+              Editar Penalidade Disciplinar
             </DialogTitle>
             <DialogDescription className="text-xs text-muted-foreground">
-              Retifique detalhes, motivo, gravidade ou configurações de bloqueio da penalidade.
+              {editingWarning ? `Modificando registro de ${editingWarning.member_name}` : ""}
             </DialogDescription>
           </DialogHeader>
 
           {editingWarning && (
             <form onSubmit={handleEditSubmit} className="space-y-4 pt-2">
-              <div className="p-3 rounded-lg bg-secondary/40 border border-border text-xs flex items-center justify-between">
-                <div>
-                  <span className="text-muted-foreground">Membro:</span>{" "}
-                  <strong className="text-foreground">{editingWarning.member_nickname || editingWarning.member_name}</strong>
-                </div>
-                <div>
-                  <span className="text-muted-foreground">Tipo:</span>{" "}
-                  <Badge variant="outline" className="text-[10px] uppercase">{editingWarning.type}</Badge>
-                </div>
-              </div>
-
-              {/* GRAVIDADE */}
+              {/* SEVERIDADE */}
               <div>
-                <Label className="text-xs font-semibold text-foreground">Gravidade da Infração</Label>
+                <Label className="text-xs font-semibold text-foreground">Gravidade</Label>
                 <Select value={editSeverity} onValueChange={(v: any) => setEditSeverity(v)}>
                   <SelectTrigger className="mt-1 h-9 text-xs">
                     <SelectValue />

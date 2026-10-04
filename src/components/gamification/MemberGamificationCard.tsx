@@ -37,9 +37,10 @@ import {
   renderInsigniaIcon,
   DynamicInsigniaIcon,
   getInsigniaIconComponent,
+  InsigniaEmblem,
 } from "@/components/gamification/InsigniaIcon";
 
-export { renderInsigniaIcon, DynamicInsigniaIcon, getInsigniaIconComponent };
+export { renderInsigniaIcon, DynamicInsigniaIcon, getInsigniaIconComponent, InsigniaEmblem };
 
 export interface MemberGamificationCardProps {
   userId: string;
@@ -218,38 +219,23 @@ export function MemberGamificationCard({
                     return (
                       <Tooltip key={grant.id}>
                         <TooltipTrigger asChild>
-                          <button
-                            type="button"
-                            onClick={() => setIsModalOpen(true)}
-                            className={cn(
-                              "group relative flex items-center justify-center w-[50px] h-[50px] min-w-[50px] min-h-[50px] max-w-[50px] max-h-[50px] rounded-xl border-2 shadow-md transition-all duration-200 cursor-pointer select-none",
-                              "hover:scale-115 hover:-translate-y-1 hover:z-20 active:scale-95",
-                              !iconStyle && rarity.bgClass,
-                              !iconStyle && rarity.borderClass,
-                              !iconStyle && rarity.textClass,
-                              rarity.glowClass ? `hover:${rarity.glowClass}` : ""
-                            )}
-                            style={{
-                              ...(iconStyle || {}),
-                              boxShadow: glowColor
-                                ? `0 4px 18px -2px ${glowColor}60`
-                                : "0 4px 14px -2px rgba(0,0,0,0.35)",
-                            }}
-                            aria-label={`${badge.name} (${rarity.label})`}
-                          >
-                            {/* Brilho Holográfico no Hover */}
-                            <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none rounded-[10px]" />
-
-                            {/* Ícone Centralizado do Emblema */}
-                            <div className="transform transition-transform duration-200 group-hover:scale-110">
-                              {renderInsigniaIcon(badge.icon, "h-6 w-6 shrink-0")}
-                            </div>
-
-                            {/* Estrela de Honra no Canto Superior Direito */}
-                            <div className="absolute -top-1 -right-1 h-3.5 w-3.5 rounded-full bg-background border border-amber-400/80 flex items-center justify-center shadow-xs">
-                              <span className="text-[7px] text-amber-400 leading-none font-bold select-none">★</span>
-                            </div>
-                          </button>
+                          <div>
+                            <InsigniaEmblem
+                              icon={badge.icon}
+                              name={badge.name}
+                              rarity={badge.rarity}
+                              shape_3d={badge.shape_3d}
+                              material_3d={badge.material_3d}
+                              border_style_3d={badge.border_style_3d}
+                              gloss_effect={badge.gloss_effect}
+                              size="md"
+                              color={badge.color}
+                              bgColor={badge.bg_color}
+                              borderColor={badge.border_color}
+                              onClick={() => setIsModalOpen(true)}
+                              interactive
+                            />
+                          </div>
                         </TooltipTrigger>
 
                         <TooltipContent

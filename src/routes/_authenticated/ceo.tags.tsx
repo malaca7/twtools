@@ -933,9 +933,14 @@ export function CeoGerenciarTagsPage() {
                       </div>
 
                       <div className="flex items-center gap-1 shrink-0">
-                        {tag.is_system && (
-                          <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4 border-amber-500/30 text-amber-400 bg-amber-500/10">
-                            Sistema
+                        {tag.is_system ? (
+                          <Badge variant="outline" className="text-[9px] px-2 py-0.5 border-amber-500/40 text-amber-300 bg-amber-500/10 font-bold flex items-center gap-1">
+                            <Sparkles className="h-2.5 w-2.5 text-amber-400" />
+                            Visível no Membro
+                          </Badge>
+                        ) : (
+                          <Badge variant="outline" className="text-[9px] px-1.5 py-0.5 border-border/60 text-muted-foreground bg-secondary/30">
+                            Interna / Regras
                           </Badge>
                         )}
                         {!tag.is_active && (
@@ -1348,18 +1353,24 @@ export function CeoGerenciarTagsPage() {
                 </Label>
               </div>
 
-              {isDevUser && (
-                <div className="flex items-center gap-2">
+              <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/30 space-y-1.5">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="space-y-0.5">
+                    <Label htmlFor="form-system" className="text-xs cursor-pointer font-bold text-amber-300 flex items-center gap-1.5">
+                      <Sparkles className="h-3.5 w-3.5 text-amber-400" />
+                      Tag de Sistema (Exibir Vinculada ao Membro)
+                    </Label>
+                    <p className="text-[11px] text-amber-200/70 leading-relaxed">
+                      Quando ativada, a tag aparece visualmente vinculada ao membro em toda a plataforma (Hierarquia, Topbar, Perfil e Listas de Membros). Se desativada, a tag funciona exclusivamente para concessão de permissões e regras operacionais.
+                    </p>
+                  </div>
                   <Switch
                     id="form-system"
                     checked={formIsSystem}
                     onCheckedChange={setFormIsSystem}
                   />
-                  <Label htmlFor="form-system" className="text-xs cursor-pointer font-medium text-amber-400">
-                    Tag de Sistema
-                  </Label>
                 </div>
-              )}
+              </div>
             </div>
           </div>
 

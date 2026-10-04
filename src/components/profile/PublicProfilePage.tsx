@@ -52,9 +52,16 @@ import { MemberTagBadge } from "@/components/ui/MemberTagBadge";
 export interface PublicProfilePageProps {
   handleOverride?: string;
   isRootRoute?: boolean;
+  onEditClick?: () => void;
+  hideBackNav?: boolean;
 }
 
-export function PublicProfilePage({ handleOverride, isRootRoute = false }: PublicProfilePageProps = {}) {
+export function PublicProfilePage({
+  handleOverride,
+  isRootRoute = false,
+  onEditClick,
+  hideBackNav = false,
+}: PublicProfilePageProps = {}) {
   // Normaliza o handle recebido (decodifica, remove @ ou %40 e coloca em minúsculas)
   const rawHandle = (() => {
     try {
@@ -70,31 +77,61 @@ export function PublicProfilePage({ handleOverride, isRootRoute = false }: Publi
     return <PerfilPage initialTab={cleanHandle as any} />;
   }
 
-  return <PublicProfileContent cleanHandle={cleanHandle} isRootRoute={isRootRoute} />;
+  return (
+    <PublicProfileContent
+      cleanHandle={cleanHandle}
+      isRootRoute={isRootRoute}
+      onEditClick={onEditClick}
+      hideBackNav={hideBackNav}
+    />
+  );
 }
 
-function PublicProfileContent({ cleanHandle, isRootRoute }: { cleanHandle: string; isRootRoute: boolean }) {
+function PublicProfileContent({
+  cleanHandle,
+  isRootRoute,
+  onEditClick,
+  hideBackNav,
+}: {
+  cleanHandle: string;
+  isRootRoute: boolean;
+  onEditClick?: () => void;
+  hideBackNav?: boolean;
+}) {
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, profile: authProfile } = useAuth();
   const { data: members = [] } = useMembers();
   const memberTagsMap = useMemberTagsMap();
 
   const [copiedLink, setCopiedLink] = useState(false);
   const [startingChat, setStartingChat] = useState(false);
 
+  // Determina se o visitante é o próprio dono do perfil
+  const isSelf = Boolean(
+    user &&
+    (!cleanHandle ||
+      (user.id && user.id.toLowerCase() === cleanHandle) ||
+      (authProfile?.id && String(authProfile.id).toLowerCase() === cleanHandle) ||
+      (authProfile?.user_id && String(authProfile.user_id).toLowerCase() === cleanHandle) ||
+      (authProfile?.custom_url && authProfile.custom_url.toLowerCase() === cleanHandle) ||
+      (authProfile?.discord_username && authProfile.discord_username.toLowerCase().replace(/#0$/, "") === cleanHandle) ||
+      (authProfile?.game_id && String(authProfile.game_id).toLowerCase() === cleanHandle))
+  );
+
   // 1. Busca rápida em cache local nos membros carregados
   const cachedMember = members.find((m) => {
+    if (!cleanHandle) return false;
     const cUrl = (m.custom_url || m.custom_theme?.custom_url || "").toLowerCase().trim();
     const dId = (m.discord_id || "").toLowerCase().trim();
     const dUser = (m.discord_username || "").toLowerCase().replace(/#0$/, "").trim();
     const uId = (m.user_id || "").toLowerCase().trim();
     const gId = (m.game_id || "").toLowerCase().trim();
     return (
-      cUrl === cleanHandle ||
-      dId === cleanHandle ||
-      dUser === cleanHandle ||
-      uId === cleanHandle ||
-      gId === cleanHandle
+      (cUrl && cUrl === cleanHandle) ||
+      (dId && dId === cleanHandle) ||
+      (dUser && dUser === cleanHandle) ||
+      (uId && uId === cleanHandle) ||
+      (gId && gId === cleanHandle)
     );
   });
 
@@ -108,7 +145,7 @@ function PublicProfileContent({ cleanHandle, isRootRoute }: { cleanHandle: strin
         const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(cleanHandle);
         let orQuery = `custom_url.ilike.${cleanHandle},discord_username.ilike.${cleanHandle}#0,discord_username.ilike.${cleanHandle},discord_id.eq.${cleanHandle},game_id.eq.${cleanHandle}`;
         if (isUuid) {
-          orQuery += `,user_id.eq.${cleanHandle}`;
+          orQuery += `,user_id.eq.${cleanHandle},id.eq.${cleanHandle}`;
         }
 
         const { data: directData, error: directErr } = await (supabase.from("profiles" as any))
@@ -156,13 +193,16 @@ function PublicProfileContent({ cleanHandle, isRootRoute }: { cleanHandle: strin
 
       return null;
     },
-    staleTime: 1000 * 30,
+    staleTime: 1000 * 15,
   });
 
-  const memberData = dbProfile || cachedMember;
-  const userId = memberData?.user_id;
+  const baseData = dbProfile || cachedMember;
+  const memberData = isSelf && authProfile
+    ? { ...(baseData || {}), ...authProfile, custom_theme: { ...(baseData?.custom_theme || {}), ...(authProfile.custom_theme || {}) } }
+    : baseData;
+  const userId = memberData?.user_id || (isSelf ? user?.id : undefined);
 
-  const isTargetLoading = !cachedMember && isDbLoading;
+  const isTargetLoading = !isSelf && !cachedMember && isDbLoading;
 
   if (isTargetLoading) {
     return (
@@ -218,7 +258,6 @@ function PublicProfileContent({ cleanHandle, isRootRoute }: { cleanHandle: strin
     );
   }
 
-  const isSelf = Boolean(user && userId === user.id);
   const isPublicProfileEnabled = memberData.custom_theme?.public_profile_enabled !== false;
 
   // Se o perfil estiver em modo privado e o visitante não estiver autenticado
@@ -256,13 +295,23 @@ function PublicProfileContent({ cleanHandle, isRootRoute }: { cleanHandle: strin
   const initials = displayName.slice(0, 2).toUpperCase();
   const activeSlug = memberData.custom_url || memberData.custom_theme?.custom_url || memberData.discord_username?.replace(/#0$/, "") || memberData.user_id;
 
-  const bannerValue = (memberData.banner_url || memberData.custom_theme?.banner_url || "tw_classic") as string;
+  const rawBanner =
+    memberData?.banner_url ||
+    memberData?.custom_theme?.banner_url ||
+    (isSelf ? (authProfile as any)?.banner_url || authProfile?.custom_theme?.banner_url : null);
+  const bannerValue = (rawBanner && typeof rawBanner === "string" && rawBanner.trim() ? rawBanner.trim() : "tw_classic") as string;
   const bio = (memberData.bio || memberData.custom_theme?.bio || "") as string;
   const customStatus = (memberData.custom_status || memberData.custom_theme?.custom_status || "") as string;
   const socialLinks: SocialLinks = (memberData.social_links || memberData.custom_theme?.social_links || {}) as SocialLinks;
   const streamAccounts = ((memberData as any).member_stream_accounts || []) as any[];
 
-  const isPresetBanner = !bannerValue.startsWith("http://") && !bannerValue.startsWith("https://") && !bannerValue.startsWith("data:image");
+  const isCustomImageBanner =
+    Boolean(bannerValue) &&
+    (bannerValue.startsWith("http://") ||
+      bannerValue.startsWith("https://") ||
+      bannerValue.startsWith("data:image") ||
+      bannerValue.startsWith("/"));
+  const isPresetBanner = !isCustomImageBanner;
   const matchedPreset = BANNER_PRESETS.find((p) => p.id === bannerValue) || BANNER_PRESETS[0];
 
   const handleCopyLink = () => {
@@ -301,55 +350,58 @@ function PublicProfileContent({ cleanHandle, isRootRoute }: { cleanHandle: strin
   return (
     <div className="mx-auto max-w-4xl space-y-6 pb-20 animate-in fade-in-50 duration-200">
       {/* BOTÃO VOLTAR / BREADCRUMBS */}
-      <div className="flex items-center justify-between gap-2 text-xs">
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          onClick={() => {
-            if (typeof window !== "undefined" && window.history.length > 1) {
-              window.history.back();
-            } else {
-              navigate({ to: "/" });
-            }
-          }}
-          className="h-8 px-2.5 text-xs text-muted-foreground hover:text-foreground hover:bg-secondary rounded-xl gap-1.5 cursor-pointer"
-        >
-          <ArrowLeft className="h-3.5 w-3.5" />
-          <span>Voltar</span>
-        </Button>
+      {!hideBackNav && (
+        <div className="flex items-center justify-between gap-2 text-xs">
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={() => {
+              if (typeof window !== "undefined" && window.history.length > 1) {
+                window.history.back();
+              } else {
+                navigate({ to: "/" });
+              }
+            }}
+            className="h-8 px-2.5 text-xs text-muted-foreground hover:text-foreground hover:bg-secondary rounded-xl gap-1.5 cursor-pointer"
+          >
+            <ArrowLeft className="h-3.5 w-3.5" />
+            <span>Voltar</span>
+          </Button>
 
-        <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground font-mono">
-          <Link to="/" className="hover:text-primary transition-colors">
-            Twin Wheels
-          </Link>
-          <ChevronRight className="h-3 w-3" />
-          <span className="text-foreground font-bold truncate max-w-[160px]">@{activeSlug}</span>
+          <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground font-mono">
+            <Link to="/" className="hover:text-primary transition-colors">
+              Twin Wheels
+            </Link>
+            <ChevronRight className="h-3 w-3" />
+            <span className="text-foreground font-bold truncate max-w-[160px]">@{activeSlug}</span>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* HERO CARD MINIMALISTA & HIGH-TECH COM BANNER */}
       <div className="relative rounded-3xl border border-white/10 bg-card/80 backdrop-blur-xl overflow-hidden shadow-2xl">
         {/* BANNER SUPERIOR */}
-        <div className="h-48 sm:h-60 md:h-64 w-full relative overflow-hidden bg-black">
+        <div className="h-52 sm:h-64 md:h-72 w-full relative overflow-hidden bg-black/80 border-b border-white/10">
           {isPresetBanner ? (
             <div className={cn("w-full h-full bg-gradient-to-r relative", matchedPreset.gradient)}>
-              <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_30%,rgba(255,255,255,0.08),transparent_60%)]" />
+              <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_30%,rgba(255,255,255,0.12),transparent_60%)]" />
               <div className="absolute inset-0 bg-[linear-gradient(to_top,rgba(0,0,0,0.85)_0%,transparent_65%)]" />
             </div>
           ) : (
-            <div className="w-full h-full relative">
+            <div className="w-full h-full relative group/banner">
               <img
                 src={getProxiedImageUrl(bannerValue)}
-                alt="Banner do Perfil"
-                className="w-full h-full object-cover"
+                alt={`Banner de ${displayName}`}
+                className="w-full h-full object-cover object-center transition-transform duration-700 group-hover/banner:scale-105"
                 onError={(e) => {
                   (e.currentTarget as HTMLImageElement).onerror = null;
                   (e.currentTarget as HTMLImageElement).src =
                     "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=1600&auto=format&fit=crop";
                 }}
               />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent" />
+              <div className="absolute inset-0 bg-gradient-to-t from-background via-background/40 to-transparent" />
+              <div className="absolute inset-0 bg-radial-gradient from-transparent via-transparent to-black/30" />
             </div>
           )}
 
@@ -436,16 +488,28 @@ function PublicProfileContent({ cleanHandle, isRootRoute }: { cleanHandle: strin
               )}
 
               {isSelf ? (
-                <Link to="/perfil">
+                onEditClick ? (
                   <Button
                     type="button"
                     size="sm"
+                    onClick={onEditClick}
                     className="h-10 px-4 text-xs font-bold bg-gradient-brand text-primary-foreground hover:opacity-90 rounded-xl gap-1.5 cursor-pointer shadow-lg shadow-primary/20 transition-all"
                   >
                     <Edit3 className="h-4 w-4" />
-                    <span>Personalizar Perfil</span>
+                    <span>Editar Meu Perfil</span>
                   </Button>
-                </Link>
+                ) : (
+                  <Link to="/perfil">
+                    <Button
+                      type="button"
+                      size="sm"
+                      className="h-10 px-4 text-xs font-bold bg-gradient-brand text-primary-foreground hover:opacity-90 rounded-xl gap-1.5 cursor-pointer shadow-lg shadow-primary/20 transition-all"
+                    >
+                      <Edit3 className="h-4 w-4" />
+                      <span>Personalizar Perfil</span>
+                    </Button>
+                  </Link>
+                )
               ) : !user ? (
                 <Link to="/">
                   <Button

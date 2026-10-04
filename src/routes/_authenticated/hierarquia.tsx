@@ -1,5 +1,6 @@
 import { useState, useMemo } from "react";
 import { createFileRoute, Outlet, useChildMatches } from "@tanstack/react-router";
+import { useQuery } from "@tanstack/react-query";
 import {
   Workflow,
   Users,
@@ -21,6 +22,9 @@ import {
   Flame,
   Layers,
   ChevronDown,
+  Award,
+  Tag,
+  Calendar,
 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -29,12 +33,15 @@ import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { PageHeader, NoAccess } from "@/components/ui-kit";
 import { useAuth } from "@/hooks/useAuth";
 import { useUrlTab } from "@/hooks/useUrlTab";
-import { useMembers, useSales, useMovements, nameOf } from "@/hooks/useData";
+import { useMembers, nameOf } from "@/hooks/useData";
 import { useMemberTagsMap } from "@/hooks/useMemberTags";
 import { MemberTagBadge } from "@/components/ui/MemberTagBadge";
+import { InsigniaEmblem } from "@/components/gamification/InsigniaIcon";
+import { getAllMemberInsignias, type MemberInsigniaGrant, RARITY_CONFIG } from "@/services/gamificationService";
 import {
   LEVELS,
   LEVEL_LABEL,
@@ -121,7 +128,7 @@ const RANK_TIERS: RankTierConfig[] = [
     nodeBg: "bg-blue-500/20 text-blue-300 border-blue-500/50 shadow-blue-500/20",
     icon: Shield,
     description: "Controle direto de estoque, baús, balcão de vendas e relatórios.",
-    responsibilities: ["Auditoria e abastecimento de suprimentos", "Lançamentos de vendas", "Acompanhamento de metas dos membros"],
+    responsibilities: ["Auditoria e abastecimento de suprimentos", "Lançamentos e registros", "Acompanhamento de metas dos membros"],
     maxWidthClass: "max-w-5xl",
     gridClass: "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4",
   },
@@ -153,7 +160,7 @@ const RANK_TIERS: RankTierConfig[] = [
     nodeBg: "bg-sky-500/20 text-sky-300 border-sky-500/50 shadow-sky-500/20",
     icon: UserCheck,
     description: "Integrante efetivado com acesso operacional regular à organização.",
-    responsibilities: ["Cumprimento das regras do grupo", "Relatórios e lançamento de vendas", "Participação de reuniões"],
+    responsibilities: ["Cumprimento das regras do grupo", "Relatórios e atuação cooperativa", "Participação de reuniões"],
     maxWidthClass: "max-w-7xl",
     gridClass: "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4",
   },
@@ -169,7 +176,7 @@ const RANK_TIERS: RankTierConfig[] = [
     nodeBg: "bg-zinc-500/20 text-zinc-300 border-zinc-500/50 shadow-zinc-500/20",
     icon: Circle,
     description: "Integrante em período de experiência, adaptação e integração ao grupo.",
-    responsibilities: ["Acompanhamento por membros experientes", "Adaptação às rotinas e regras", "Cumprimento da meta inicial"],
+    responsibilities: ["Acompanhamento por membros experientes", "Adaptação às rotinas e regras", "Cumprimento das instruções"],
     maxWidthClass: "max-w-7xl",
     gridClass: "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4",
   },
@@ -178,9 +185,28 @@ const RANK_TIERS: RankTierConfig[] = [
 export function HierarquiaPage() {
   const { hasPermission } = useAuth();
   const { data: members = [] } = useMembers();
-  const { data: sales = [] } = useSales();
-  const { data: movements = [] } = useMovements();
   const memberTagsMap = useMemberTagsMap();
+
+  // Busca todas as condecorações e insígnias dos membros em tempo real
+  const { data: allInsignias = [] } = useQuery({
+    queryKey: ["all_member_insignias"],
+    queryFn: getAllMemberInsignias,
+    staleTime: 60 * 1000,
+  });
+
+  // Mapeia insígnias por identificadores do membro
+  const memberInsigniasMap = useMemo(() => {
+    const map: Record<string, MemberInsigniaGrant[]> = {};
+    allInsignias.forEach((grant) => {
+      if (!grant.member_id) return;
+      const key = String(grant.member_id).toLowerCase().trim();
+      if (!map[key]) {
+        map[key] = [];
+      }
+      map[key].push(grant);
+    });
+    return map;
+  }, [allInsignias]);
 
   const [search, setSearch] = useState("");
   // Sincronização do modo de visualização com a URL (?modo=pyramid | cards)
@@ -192,26 +218,6 @@ export function HierarquiaPage() {
   const [hideEmptyRanks, setHideEmptyRanks] = useState<boolean>(false);
 
   const canView = hasPermission("view_hierarchy");
-
-  // Estatísticas de vendas e movimentações por usuário
-  const memberStatsMap = useMemo(() => {
-    const stats = new Map<string, { totalSales: number; totalMovements: number }>();
-    sales.forEach((s) => {
-      if (s.seller_id) {
-        const curr = stats.get(s.seller_id) || { totalSales: 0, totalMovements: 0 };
-        curr.totalSales += Number(s.total_price || 0);
-        stats.set(s.seller_id, curr);
-      }
-    });
-    movements.forEach((m) => {
-      if (m.user_id) {
-        const curr = stats.get(m.user_id) || { totalSales: 0, totalMovements: 0 };
-        curr.totalMovements += 1;
-        stats.set(m.user_id, curr);
-      }
-    });
-    return stats;
-  }, [sales, movements]);
 
   // Agrupamento de membros por nível hierárquico
   const groupedMembers = useMemo(() => {
@@ -272,6 +278,20 @@ export function HierarquiaPage() {
 
     return { totalCount, leadershipCount, managementCount, membersCount, novicesCount };
   }, [members]);
+
+  // Helper para obter insígnias do membro
+  const getInsigniasForMember = (member: (typeof members)[0]) => {
+    const id1 = member.user_id ? String(member.user_id).toLowerCase().trim() : "";
+    const id2 = member.id ? String(member.id).toLowerCase().trim() : "";
+    const id3 = member.game_id ? String(member.game_id).toLowerCase().trim() : "";
+
+    return (
+      (id1 && memberInsigniasMap[id1]) ||
+      (id2 && memberInsigniasMap[id2]) ||
+      (id3 && memberInsigniasMap[id3]) ||
+      []
+    );
+  };
 
   if (!canView) {
     return <NoAccess />;
@@ -448,17 +468,6 @@ export function HierarquiaPage() {
             const TierIcon = tier.icon;
             const rankMembers = groupedMembers.get(tier.level) || [];
 
-            // Top seller do cargo
-            let topSellerId: string | null = null;
-            let maxSales = 0;
-            rankMembers.forEach((m) => {
-              const stats = memberStatsMap.get(m.user_id);
-              if (stats && stats.totalSales > maxSales && stats.totalSales > 0) {
-                maxSales = stats.totalSales;
-                topSellerId = m.user_id;
-              }
-            });
-
             return (
               <div key={tier.level} className="flex flex-col items-center w-full">
                 {/* Indicador de Conexão Piramidal entre os Níveis */}
@@ -514,11 +523,6 @@ export function HierarquiaPage() {
                   ) : (
                     <div className={cn("grid gap-3.5 pt-1", tier.gridClass)}>
                       {rankMembers.map((member) => {
-                        const userStats = memberStatsMap.get(member.user_id) || {
-                          totalSales: 0,
-                          totalMovements: 0,
-                        };
-                        const isTopPerformer = member.user_id === topSellerId;
                         const isDeveloper = member.nivel === "desenvolvedor";
 
                         // Recupera todas as tags que o membro possui no sistema
@@ -527,25 +531,20 @@ export function HierarquiaPage() {
                           memberTagsMap[member.id] ||
                           [];
 
+                        // Recupera as insígnias que o membro possui
+                        const memberInsignias = getInsigniasForMember(member);
+
                         return (
                           <div
                             key={member.user_id || member.id}
                             className={cn(
                               "p-4 rounded-2xl bg-card/85 backdrop-blur-sm border border-border/80 hover:border-primary/60 transition-all duration-300 hover:shadow-xl space-y-3 relative group overflow-hidden flex flex-col justify-between",
-                              isTopPerformer && "border-amber-500/50 bg-amber-500/5 shadow-amber-500/10",
                               tier.level === "01" && "ring-1 ring-amber-500/30 shadow-md"
                             )}
                           >
-                            {/* Destaque Top Vendas */}
-                            {isTopPerformer && (
-                              <div className="absolute top-0 right-0 bg-amber-500 text-black text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-bl-xl shadow-xs flex items-center gap-1">
-                                <Trophy className="h-3 w-3" /> Top Vendas
-                              </div>
-                            )}
-
                             {/* Info Principal do Membro */}
                             <div className="space-y-2.5">
-                              <div className="flex items-center gap-3 pt-0.5">
+                              <div className="flex items-start gap-3 pt-0.5">
                                 {/* Avatar */}
                                 <div className="relative shrink-0">
                                   <Avatar className="h-12 w-12 border-2 border-border/80 shadow-md">
@@ -561,14 +560,6 @@ export function HierarquiaPage() {
                                     <p className="text-xs font-black text-foreground truncate">
                                       {nameOf(members, member.user_id)}
                                     </p>
-                                    {member.game_id && (
-                                      <Badge
-                                        variant="outline"
-                                        className="text-[9px] font-mono py-0 px-1.5 border-primary/40 text-primary shrink-0 bg-primary/5"
-                                      >
-                                        #{member.game_id}
-                                      </Badge>
-                                    )}
                                     {isDeveloper && (
                                       <Badge
                                         variant="outline"
@@ -578,17 +569,28 @@ export function HierarquiaPage() {
                                       </Badge>
                                     )}
                                   </div>
-                                  <p className="text-[11px] text-muted-foreground truncate mt-0.5">
-                                    {member.discord_username
-                                      ? `@${member.discord_username}`
-                                      : member.nickname || "Integrante Twin Wheels"}
-                                  </p>
+
+                                  <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                                    {/* ID DO JOGO (PASSAPORTE) */}
+                                    <Badge
+                                      variant="outline"
+                                      className="text-[10px] font-mono font-bold py-0 px-1.5 border-primary/40 text-primary bg-primary/10 shadow-xs"
+                                    >
+                                      ID: {member.game_id || "N/A"}
+                                    </Badge>
+
+                                    <p className="text-[11px] text-muted-foreground truncate">
+                                      {member.discord_username
+                                        ? `@${member.discord_username}`
+                                        : member.nickname || "Integrante"}
+                                    </p>
+                                  </div>
                                 </div>
                               </div>
 
                               {/* TAGS DO MEMBRO (EXIBIÇÃO EM TODA VISUALIZAÇÃO) */}
                               {assignedTags.length > 0 && (
-                                <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                                <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
                                   {assignedTags.map((tag) => (
                                     <MemberTagBadge
                                       key={tag.id}
@@ -601,31 +603,80 @@ export function HierarquiaPage() {
                               )}
                             </div>
 
-                            {/* Estatísticas de Desempenho & Admissão */}
+                            {/* SEÇÃO DE INSÍGNIAS E DATA DE ENTRADA */}
                             <div className="space-y-2 pt-2 border-t border-border/50">
-                              <div className="grid grid-cols-2 gap-2 text-[10px]">
-                                <div className="p-1.5 rounded-xl bg-secondary/40 border border-border/30">
-                                  <span className="text-muted-foreground block text-[9px] font-semibold">
-                                    Vendas Totais
-                                  </span>
-                                  <span className="font-mono font-bold text-emerald-400">
-                                    R$ {userStats.totalSales.toLocaleString("pt-BR")}
-                                  </span>
-                                </div>
-                                <div className="p-1.5 rounded-xl bg-secondary/40 border border-border/30">
-                                  <span className="text-muted-foreground block text-[9px] font-semibold">
-                                    Lançamentos
-                                  </span>
-                                  <span className="font-mono font-bold text-sky-400">
-                                    {userStats.totalMovements} ops
-                                  </span>
-                                </div>
-                              </div>
+                              {memberInsignias.length > 0 ? (
+                                <div className="space-y-1.5">
+                                  <div className="flex items-center justify-between text-[10px]">
+                                    <span className="flex items-center gap-1 text-amber-400 font-bold">
+                                      <Award className="h-3 w-3" />
+                                      <span>Insígnias ({memberInsignias.length})</span>
+                                    </span>
+                                    <span className="text-[9px] text-muted-foreground font-mono">
+                                      Admissão: {dateOnly(member.data_entrada)}
+                                    </span>
+                                  </div>
 
-                              <div className="flex items-center justify-between text-[10px] text-muted-foreground pt-0.5">
-                                <span>Admissão:</span>
-                                <span className="font-mono font-semibold">{dateOnly(member.data_entrada)}</span>
-                              </div>
+                                  <TooltipProvider delayDuration={50}>
+                                    <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
+                                      {memberInsignias.map((grant) => {
+                                        const badge = grant.insignia;
+                                        if (!badge) return null;
+                                        return (
+                                          <Tooltip key={grant.id}>
+                                            <TooltipTrigger asChild>
+                                              <div className="cursor-pointer transition-transform hover:scale-115 active:scale-95">
+                                                <InsigniaEmblem
+                                                  icon={badge.icon}
+                                                  name={badge.name}
+                                                  rarity={badge.rarity}
+                                                  shape_3d={badge.shape_3d}
+                                                  material_3d={badge.material_3d}
+                                                  border_style_3d={badge.border_style_3d}
+                                                  gloss_effect={badge.gloss_effect}
+                                                  size="xs"
+                                                  color={badge.color}
+                                                  bgColor={badge.bg_color}
+                                                  borderColor={badge.border_color}
+                                                  showStar={false}
+                                                />
+                                              </div>
+                                            </TooltipTrigger>
+                                            <TooltipContent side="top" className="text-xs p-2.5 max-w-xs space-y-1 bg-popover/95 backdrop-blur-md border border-border shadow-xl">
+                                              <div className="font-bold flex items-center gap-1.5 text-foreground">
+                                                <Award className="h-3.5 w-3.5 text-amber-400" />
+                                                <span>{badge.name}</span>
+                                                <Badge variant="outline" className="text-[9px] uppercase font-bold py-0">
+                                                  {badge.rarity}
+                                                </Badge>
+                                              </div>
+                                              {badge.description && (
+                                                <p className="text-[11px] text-muted-foreground">{badge.description}</p>
+                                              )}
+                                              {grant.reason && (
+                                                <p className="text-[10px] text-amber-300/80 italic">"{grant.reason}"</p>
+                                              )}
+                                              <span className="text-[9px] text-muted-foreground block pt-0.5 font-mono">
+                                                Concedida em {new Date(grant.granted_at).toLocaleDateString("pt-BR")}
+                                              </span>
+                                            </TooltipContent>
+                                          </Tooltip>
+                                        );
+                                      })}
+                                    </div>
+                                  </TooltipProvider>
+                                </div>
+                              ) : (
+                                <div className="flex items-center justify-between text-[10px] text-muted-foreground">
+                                  <span className="flex items-center gap-1 text-muted-foreground/50">
+                                    <Award className="h-3 w-3" />
+                                    <span>Sem insígnias</span>
+                                  </span>
+                                  <span className="font-mono text-[9px] text-muted-foreground">
+                                    Admissão: {dateOnly(member.data_entrada)}
+                                  </span>
+                                </div>
+                              )}
                             </div>
                           </div>
                         );
@@ -688,7 +739,7 @@ export function HierarquiaPage() {
                     </ul>
                   </div>
 
-                  {/* Lista de Integrantes com Tags */}
+                  {/* Lista de Integrantes com Tags e Insígnias */}
                   <div className="pt-3 border-t border-border/50 space-y-2.5">
                     <span className="text-[10px] font-extrabold uppercase tracking-wider text-muted-foreground block">
                       Integrantes neste cargo ({rankMembers.length}):
@@ -703,10 +754,12 @@ export function HierarquiaPage() {
                             memberTagsMap[m.id] ||
                             [];
 
+                          const memberInsignias = getInsigniasForMember(m);
+
                           return (
                             <div
                               key={m.user_id || m.id}
-                              className="p-2.5 rounded-xl bg-secondary/30 border border-border/50 hover:border-primary/40 transition-all shadow-xs space-y-1.5"
+                              className="p-3 rounded-xl bg-secondary/30 border border-border/50 hover:border-primary/40 transition-all shadow-xs space-y-2"
                             >
                               <div className="flex items-center gap-2.5 min-w-0">
                                 <Avatar className="h-8 w-8 shrink-0">
@@ -716,14 +769,17 @@ export function HierarquiaPage() {
                                   </AvatarFallback>
                                 </Avatar>
                                 <div className="min-w-0 flex-1">
-                                  <span className="text-xs font-bold text-foreground block truncate">
-                                    {nameOf(members, m.user_id)}
-                                  </span>
-                                  {m.game_id && (
-                                    <span className="text-[10px] text-muted-foreground font-mono">
-                                      #{m.game_id}
+                                  <div className="flex items-center gap-1.5 flex-wrap">
+                                    <span className="text-xs font-bold text-foreground block truncate">
+                                      {nameOf(members, m.user_id)}
                                     </span>
-                                  )}
+                                    <Badge
+                                      variant="outline"
+                                      className="text-[9px] font-mono py-0 px-1 border-primary/40 text-primary bg-primary/10"
+                                    >
+                                      ID: {m.game_id || "N/A"}
+                                    </Badge>
+                                  </div>
                                 </div>
                               </div>
 
@@ -738,6 +794,50 @@ export function HierarquiaPage() {
                                       showIcon
                                     />
                                   ))}
+                                </div>
+                              )}
+
+                              {/* Insígnias do Membro */}
+                              {memberInsignias.length > 0 && (
+                                <div className="pt-1 border-t border-border/30">
+                                  <TooltipProvider delayDuration={50}>
+                                    <div className="flex flex-wrap items-center gap-1">
+                                      {memberInsignias.map((grant) => {
+                                        const badge = grant.insignia;
+                                        if (!badge) return null;
+                                        return (
+                                          <Tooltip key={grant.id}>
+                                            <TooltipTrigger asChild>
+                                              <div className="cursor-pointer transition-transform hover:scale-110 active:scale-95">
+                                                <InsigniaEmblem
+                                                  icon={badge.icon}
+                                                  name={badge.name}
+                                                  rarity={badge.rarity}
+                                                  size="xs"
+                                                  color={badge.color}
+                                                  bgColor={badge.bg_color}
+                                                  borderColor={badge.border_color}
+                                                  showStar={false}
+                                                />
+                                              </div>
+                                            </TooltipTrigger>
+                                            <TooltipContent side="top" className="text-xs p-2 max-w-xs space-y-0.5">
+                                              <div className="font-bold flex items-center gap-1 text-foreground">
+                                                <Award className="h-3 w-3 text-amber-400" />
+                                                <span>{badge.name}</span>
+                                                <Badge variant="outline" className="text-[8px] uppercase font-bold py-0">
+                                                  {badge.rarity}
+                                                </Badge>
+                                              </div>
+                                              {badge.description && (
+                                                <p className="text-[10px] text-muted-foreground">{badge.description}</p>
+                                              )}
+                                            </TooltipContent>
+                                          </Tooltip>
+                                        );
+                                      })}
+                                    </div>
+                                  </TooltipProvider>
                                 </div>
                               )}
                             </div>

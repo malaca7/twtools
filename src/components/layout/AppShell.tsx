@@ -115,9 +115,10 @@ import { LEVEL_LABEL, levelBadgeClass, type Permission } from "@/lib/permissions
 import { cn } from "@/lib/utils";
 import { ScrollToTopButton } from "./ScrollToTopButton";
 import { ForceCachePurgeListener } from "@/components/dev/ForceCachePurgeListener";
+import { SuspensionAlertBanner } from "@/components/warnings/SuspensionAlertBanner";
+import { PlatformLockedScreen } from "@/components/warnings/PlatformLockedScreen";
 import { DevToolsMenu } from "@/components/dev/DevToolsMenu";
 import { NotificationCenter } from "@/components/notifications/NotificationCenter";
-import { SuspensionAlertBanner } from "@/components/warnings/SuspensionAlertBanner";
 import { useMyMemberTags } from "@/hooks/useMemberTags";
 import { MemberTagBadge } from "@/components/ui/MemberTagBadge";
 
@@ -1440,60 +1441,8 @@ export function AppShell({ children }: { children: ReactNode }) {
           </header>
 
           <main className="flex-1 px-2.5 py-4 sm:px-6 lg:px-8 pb-8 flex flex-col justify-between">
-            {isPlatformLocked ? (
-              <div className="w-full max-w-3xl mx-auto my-auto py-12 px-4 animate-in fade-in-50 duration-300">
-                <Card className="border-2 border-rose-500/40 bg-card/95 shadow-2xl backdrop-blur-xl overflow-hidden rounded-3xl">
-                  <div className="h-2 bg-gradient-to-r from-rose-600 via-rose-500 to-amber-500" />
-                  <CardHeader className="text-center pb-4 pt-8 px-6 sm:px-10">
-                    <div className="mx-auto w-16 h-16 rounded-2xl bg-rose-500/15 border-2 border-rose-500/40 flex items-center justify-center text-rose-400 mb-4 shadow-lg shadow-rose-500/20 animate-pulse">
-                      <Lock className="h-8 w-8" />
-                    </div>
-                    <CardTitle className="text-xl sm:text-2xl font-black text-rose-400 uppercase tracking-tight">
-                      Acesso à Plataforma Bloqueado
-                    </CardTitle>
-                    <CardDescription className="text-sm text-foreground/80 font-medium max-w-md mx-auto pt-2">
-                      Uma tag restritiva com <span className="text-rose-400 font-bold">Chave Mestra de Bloqueio</span> foi atribuída ao seu perfil pela liderança.
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent className="px-6 sm:px-10 pb-8 space-y-6 text-center">
-                    <div className="p-4 rounded-2xl bg-rose-500/10 border border-rose-500/25 text-left space-y-2 text-xs text-rose-200">
-                      <p className="font-bold flex items-center gap-1.5 text-rose-300">
-                        <ShieldAlert className="h-4 w-4 shrink-0 text-rose-400" />
-                        Restrições ativas no seu acesso:
-                      </p>
-                      <ul className="list-disc list-inside space-y-1 text-muted-foreground text-[11px] leading-relaxed pl-1">
-                        <li>Navegação de menus, abas e módulos travada.</li>
-                        <li>Visualização de registros e lançamentos operacionais suspensa.</li>
-                        <li>Ações de vendas, movimentação de baú, armazém e caixa desabilitadas.</li>
-                      </ul>
-                    </div>
-
-                    {platformLockedTags.length > 0 && (
-                      <div className="space-y-2">
-                        <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider block">
-                          Tag(s) causadora(s) do bloqueio:
-                        </span>
-                        <div className="flex flex-wrap items-center justify-center gap-2">
-                          {platformLockedTags.map((tag) => (
-                            <MemberTagBadge key={tag.id} tag={tag} size="sm" showIcon />
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
-                    <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3">
-                      <Button
-                        type="button"
-                        variant="outline"
-                        onClick={handleSignOut}
-                        className="w-full sm:w-auto h-10 px-6 rounded-xl border-rose-500/40 text-rose-300 hover:bg-rose-500/15 font-bold gap-2 cursor-pointer"
-                      >
-                        <LogOut className="h-4 w-4" /> Desconectar da Conta
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
+            {isPlatformLocked && !pathname.startsWith("/perfil/advertencias") && !pathname.startsWith("/perfil/disciplinar") ? (
+              <PlatformLockedScreen />
             ) : (
               <>
                 {settings.showSystemStatusNotice && settings.systemStatusNotice && (

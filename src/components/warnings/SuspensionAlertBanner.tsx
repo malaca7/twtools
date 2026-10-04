@@ -10,15 +10,20 @@ import {
   Lock,
   ChevronRight,
   ExternalLink,
+  ShoppingCart,
+  SlidersHorizontal,
+  Factory,
+  Landmark,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
 import { useMemberWarnings, useAcknowledgeWarningMutation } from "@/hooks/useWarnings";
+import { MemberTagBadge } from "@/components/ui/MemberTagBadge";
 import { cn } from "@/lib/utils";
 
 export function SuspensionAlertBanner() {
-  const { user, activeSuspension, isSuspended } = useAuth();
+  const { user, activeSuspension, isSuspended, memberTags } = useAuth();
   const { data: memberWarnings = [] } = useMemberWarnings(user?.id);
   const acknowledgeMutation = useAcknowledgeWarningMutation();
 
@@ -27,8 +32,20 @@ export function SuspensionAlertBanner() {
     (w) => w.status === "ativo" && !w.acknowledged_at
   );
 
-  // Se não houver suspensão ativa nem advertência pendente de confirmação, não renderiza nada
-  if (!isSuspended && !unacknowledgedWarning) {
+  // Encontra tags ativas com regras de bloqueio operacional
+  const restrictingTags = memberTags.filter(
+    (t) =>
+      t.is_active !== false &&
+      (t.rules?.is_blocked ||
+        t.rules?.block_operations ||
+        t.rules?.block_sales ||
+        t.rules?.block_movements ||
+        t.rules?.block_productions ||
+        t.rules?.block_cash_fund)
+  );
+
+  // Se não houver suspensão ativa, advertência pendente nem tags com restrições, não renderiza nada
+  if (!isSuspended && !unacknowledgedWarning && restrictingTags.length === 0) {
     return null;
   }
 
@@ -170,6 +187,79 @@ export function SuspensionAlertBanner() {
               <Link to="/perfil/advertencias">
                 <Button size="sm" variant="ghost" className="h-8 text-xs text-muted-foreground hover:text-foreground">
                   Detalhes
+                </Button>
+              </Link>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* BANNER 3: RESTRIÇÕES OPERACIONAIS ATIVAS POR TAG */}
+      {restrictingTags.length > 0 && !isSuspended && (
+        <div className="relative overflow-hidden rounded-xl border border-rose-500/40 bg-gradient-to-r from-rose-950/60 via-rose-900/20 to-background p-3.5 shadow-md backdrop-blur-md">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+            <div className="flex items-start gap-3">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-rose-500/15 text-rose-400 border border-rose-500/30">
+                <ShieldAlert className="h-5 w-5" />
+              </div>
+
+              <div className="space-y-1">
+                <div className="flex flex-wrap items-center gap-2">
+                  <Badge variant="destructive" className="font-bold uppercase tracking-wider text-[10px] px-2 py-0.5">
+                    🛡️ Restrições Operacionais Ativas
+                  </Badge>
+                  <span className="text-xs font-semibold text-rose-300">
+                    Aplicadas pelas suas Tags de Membro
+                  </span>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
+                  <span className="text-[10px] font-bold text-muted-foreground uppercase">
+                    Tags Restritivas:
+                  </span>
+                  {restrictingTags.map((t) => (
+                    <MemberTagBadge key={t.id} tag={t} size="sm" showIcon />
+                  ))}
+                </div>
+
+                <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                  <span className="text-[10px] font-bold text-rose-400 uppercase flex items-center gap-1">
+                    <Lock className="h-2.5 w-2.5" /> Ações Bloqueadas:
+                  </span>
+                  {restrictingTags.some((t) => t.rules?.is_blocked || t.rules?.block_operations) && (
+                    <Badge variant="outline" className="text-[9px] border-rose-500/40 text-rose-300 bg-rose-500/10">
+                      Operações Totais
+                    </Badge>
+                  )}
+                  {restrictingTags.some((t) => t.rules?.block_sales) && (
+                    <Badge variant="outline" className="text-[9px] border-rose-500/40 text-rose-300 bg-rose-500/10">
+                      Vendas
+                    </Badge>
+                  )}
+                  {restrictingTags.some((t) => t.rules?.block_movements) && (
+                    <Badge variant="outline" className="text-[9px] border-rose-500/40 text-rose-300 bg-rose-500/10">
+                      Movimentações de Baú
+                    </Badge>
+                  )}
+                  {restrictingTags.some((t) => t.rules?.block_productions) && (
+                    <Badge variant="outline" className="text-[9px] border-rose-500/40 text-rose-300 bg-rose-500/10">
+                      Produção & Armazém
+                    </Badge>
+                  )}
+                  {restrictingTags.some((t) => t.rules?.block_cash_fund) && (
+                    <Badge variant="outline" className="text-[9px] border-rose-500/40 text-rose-300 bg-rose-500/10">
+                      Fundo de Caixa
+                    </Badge>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
+              <Link to="/perfil/advertencias">
+                <Button size="sm" variant="outline" className="h-8 text-xs font-bold border-rose-500/40 bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 gap-1.5 rounded-lg">
+                  <span>Prontuário</span>
+                  <ChevronRight className="h-3.5 w-3.5" />
                 </Button>
               </Link>
             </div>

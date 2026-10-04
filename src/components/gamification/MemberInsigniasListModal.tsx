@@ -31,10 +31,9 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { getMemberInsignias, RARITY_CONFIG, type MemberInsigniaGrant, type RankedGamificationMember } from "@/services/gamificationService";
-import { getInsigniaIconStyles, getInsigniaCardStyles } from "@/components/gamification/InsigniaCatalogManagerModal";
+import { getInsigniaCardStyles } from "@/components/gamification/InsigniaCatalogManagerModal";
 import { cn } from "@/lib/utils";
-
-import { DynamicInsigniaIcon } from "@/components/gamification/InsigniaIcon";
+import { InsigniaEmblem } from "@/components/gamification/InsigniaIcon";
 
 interface MemberInsigniasListModalProps {
   open: boolean;
@@ -99,7 +98,6 @@ export function MemberInsigniasListModal({
               {insignias.map((grant) => {
                 const b = grant.insignia;
                 const rarityStyle = b?.rarity ? RARITY_CONFIG[b.rarity] : RARITY_CONFIG.comum;
-                const iconStyle = getInsigniaIconStyles(b || {});
                 const cardStyle = getInsigniaCardStyles(b || {});
                 return (
                   <div
@@ -112,17 +110,20 @@ export function MemberInsigniasListModal({
                     style={cardStyle}
                   >
                     <div className="flex items-start gap-3.5">
-                      <div
-                        className={cn(
-                          "w-[50px] h-[50px] min-w-[50px] min-h-[50px] rounded-xl border-2 flex items-center justify-center shrink-0 shadow-inner",
-                          !iconStyle && rarityStyle.borderClass,
-                          !iconStyle && rarityStyle.bgClass,
-                          !iconStyle && rarityStyle.textClass
-                        )}
-                        style={iconStyle}
-                      >
-                        <DynamicInsigniaIcon name={b?.icon} className="w-6 h-6" />
-                      </div>
+                      <InsigniaEmblem
+                        icon={b?.icon}
+                        name={b?.name}
+                        rarity={b?.rarity}
+                        shape_3d={b?.shape_3d}
+                        material_3d={b?.material_3d}
+                        border_style_3d={b?.border_style_3d}
+                        gloss_effect={b?.gloss_effect}
+                        size="md"
+                        color={b?.color}
+                        bgColor={b?.bg_color}
+                        borderColor={b?.border_color}
+                        interactive={false}
+                      />
 
                       <div className="min-w-0 flex-1 space-y-1.5">
                         <div className="flex items-center justify-between gap-2 flex-wrap">

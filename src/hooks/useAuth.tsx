@@ -7,7 +7,7 @@ import type { AppUser, AuthState, Profile, SignupRequestStatus } from "@/lib/app
 import { can, satisfiesPermission, LEVEL_LABEL, type AppLevel, type Permission } from "@/lib/permissions";
 import { useRolePermissions } from "@/hooks/useData";
 import { isUserDeveloper, DEV_DISCORD_IDS, isDevBypassActive, DEV_CONFIG_EVENT, CEO_CONFIG_EVENT, getCeoTagPermissionsSync, getDevTagPermissionsSync, isUserCeo } from "@/services/devService";
-import { parseMemberTagRules, type MemberTag } from "@/services/memberTagsService";
+import { parseMemberTagRules, getMemberTags, getMemberTagAssignments, type MemberTag } from "@/services/memberTagsService";
 import type { MemberWarning } from "@/types/warnings";
 import { getWarnings, WARNINGS_REALTIME_EVENT } from "@/services/warningsService";
 
@@ -442,84 +442,49 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const activeUserId = profile?.user_id || session?.user?.id;
   const activeProfileId = profile?.id;
   const activeDiscordId = profile?.discord_id;
+  const activeGameId = profile?.game_id;
   const [memberTags, setMemberTagsState] = useState<MemberTag[]>([]);
 
   useEffect(() => {
     let isCancelled = false;
     async function loadUserTags() {
-      if (!activeUserId && !activeProfileId && !activeDiscordId) {
+      if (!activeUserId && !activeProfileId && !activeDiscordId && !activeGameId) {
         setMemberTagsState([]);
         return;
       }
       try {
-        const idFilters = [
-          activeUserId ? `member_id.eq.${activeUserId}` : null,
-          activeProfileId && activeProfileId !== activeUserId ? `member_id.eq.${activeProfileId}` : null,
-          activeDiscordId ? `member_id.eq.${activeDiscordId}` : null,
-        ].filter(Boolean).join(",");
+        const [tagsData, assignmentsData] = await Promise.all([
+          getMemberTags(),
+          getMemberTagAssignments(),
+        ]);
 
-        const query = supabase
-          .from("member_tag_assignments" as any)
-          .select("tag_id, member_id, member_tags (*)");
+        const candidateIds = new Set(
+          [
+            activeUserId,
+            activeProfileId,
+            activeDiscordId,
+            activeGameId,
+            profile?.user_id,
+            profile?.id,
+            session?.user?.id,
+          ]
+            .filter(Boolean)
+            .map((id) => String(id).trim().toLowerCase())
+        );
 
-        if (idFilters.includes(",")) {
-          query.or(idFilters);
-        } else if (activeUserId) {
-          query.eq("member_id", activeUserId);
-        } else if (activeProfileId) {
-          query.eq("member_id", activeProfileId);
-        } else if (activeDiscordId) {
-          query.eq("member_id", activeDiscordId);
+        const myTagIds = new Set<string>();
+        for (const a of assignmentsData) {
+          if (a.member_id && candidateIds.has(String(a.member_id).trim().toLowerCase())) {
+            myTagIds.add(a.tag_id);
+          }
         }
 
-        const { data, error } = await query;
-        if (!error && Array.isArray(data) && !isCancelled) {
-          let loadedTags: MemberTag[] = data
-            .map((d: any) => d.member_tags)
-            .filter(Boolean)
-            .filter((t: any) => t.is_active !== false)
-            .map((t: any) => ({
-              id: t.id,
-              name: t.name,
-              description: t.description || null,
-              color: t.color || "#3b82f6",
-              icon: t.icon || "Tag",
-              is_system: Boolean(t.is_system),
-              is_active: t.is_active !== false,
-              permissions: Array.isArray(t.permissions) ? t.permissions : [],
-              rules: parseMemberTagRules(t.rules),
-              created_at: t.created_at,
-              updated_at: t.updated_at,
-            }));
+        const myTags = tagsData.filter(
+          (t) => myTagIds.has(t.id) && t.is_active !== false
+        );
 
-          if (loadedTags.length === 0 && data.length > 0) {
-            const tagIds = Array.from(new Set(data.map((d: any) => d.tag_id).filter(Boolean)));
-            if (tagIds.length > 0) {
-              const { data: directTags } = await supabase
-                .from("member_tags" as any)
-                .select("*")
-                .in("id", tagIds);
-              if (Array.isArray(directTags)) {
-                loadedTags = directTags
-                  .filter((t: any) => t.is_active !== false)
-                  .map((t: any) => ({
-                    id: t.id,
-                    name: t.name,
-                    description: t.description || null,
-                    color: t.color || "#3b82f6",
-                    icon: t.icon || "Tag",
-                    is_system: Boolean(t.is_system),
-                    is_active: t.is_active !== false,
-                    permissions: Array.isArray(t.permissions) ? t.permissions : [],
-                    rules: parseMemberTagRules(t.rules),
-                    created_at: t.created_at,
-                    updated_at: t.updated_at,
-                  }));
-              }
-            }
-          }
-
-          setMemberTagsState(loadedTags);
+        if (!isCancelled) {
+          setMemberTagsState(myTags);
         }
       } catch (e) {
         console.warn("Aviso ao carregar tags do membro:", e);
@@ -529,7 +494,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => {
       isCancelled = true;
     };
-  }, [activeUserId, activeProfileId, activeDiscordId, permissionsTick]);
+  }, [activeUserId, activeProfileId, activeDiscordId, activeGameId, profile?.user_id, profile?.id, session?.user?.id, permissionsTick]);
 
   // Carrega e monitora a suspensão ou penalidade com bloqueios do membro logado
   const [activeSuspension, setActiveSuspension] = useState<MemberWarning | null>(null);
@@ -889,9 +854,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [memberTags]);
 
   const isPlatformLocked = useMemo(() => {
-    if (isDevUser && isDevBypassActive()) return false;
+    // Imunidade estrita ao bloqueio APENAS para Desenvolvedores acessando o painel /dev com bypass ativo
+    const isDevInDevArea =
+      isDevUser &&
+      isDevBypassActive() &&
+      (panelMode === "dev" || (typeof window !== "undefined" && window.location.pathname.toLowerCase().startsWith("/dev")));
+    if (isDevInDevArea) {
+      return false;
+    }
     return platformLockedTags.length > 0 || Boolean(activeSuspension?.blocks?.block_login);
-  }, [platformLockedTags, activeSuspension, isDevUser]);
+  }, [platformLockedTags, activeSuspension, isDevUser, panelMode]);
 
   const isMemberBlocked = useMemo(() => {
     return (
@@ -945,8 +917,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         activePanel = panelMode;
       }
 
-      // 0. Avaliação de Suspensões Ativas & Regras Restritivas
+      // =========================================================================
+      // 0. BLOQUEIOS OPERACIONAIS & DE PLATAFORMA (PRECEDÊNCIA MÁXIMA)
+      // Regra absoluta do sistema: Bloqueios ficam ACIMA de qualquer cargo (01, 02, etc.),
+      // acima de tags de sistema e acima do painel CEO!
+      // =========================================================================
       if (!isDevUser || activePanel !== "dev" || !bypassActive) {
+        // 0.1. CHAVE MESTRA: BLOQUEIO TOTAL DE ACESSO À PLATAFORMA (block_login)
+        // Se o usuário possuir qualquer tag ativa com block_login OU suspensão com block_login:
+        // TODAS AS PERMISSÕES SÃO NEGADAS IMEDIATAMENTE!
+        const hasLoginBlock =
+          memberTags.some((t) => t.is_active !== false && t.rules?.block_login === true) ||
+          Boolean(activeSuspension?.blocks?.block_login);
+        if (hasLoginBlock) {
+          return false;
+        }
+
         const isOperationalAction =
           permission.startsWith("create_") ||
           permission.startsWith("delete_") ||
@@ -982,87 +968,91 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           permission === "manage_roles" ||
           permission === "manage_permissions";
 
-        const isSalesAction =
+        const isSalesPermission =
           permission.startsWith("sales.") ||
           permission.includes("sale") ||
+          permission === "view_sales" ||
+          permission === "view_all_sales" ||
           permission === "create_sale" ||
           permission === "reverse_sale" ||
           permission === "delete_sale";
 
-        const isMovementAction =
+        const isMovementPermission =
           permission.includes("movement") ||
+          permission.includes("bau") ||
+          permission === "view_movements" ||
+          permission === "view_baus" ||
           permission === "create_movement" ||
           permission === "reverse_movement" ||
           permission === "delete_movement" ||
           permission === "manage_baus" ||
           permission === "raw_materials.transfer_bau";
 
-        const isProdAction =
+        const isProductionPermission =
           permission.startsWith("productions.") ||
           permission.startsWith("raw_materials.") ||
           permission.startsWith("warehouse.") ||
           permission.startsWith("production_management.") ||
           permission.includes("production") ||
           permission.includes("raw_material") ||
-          permission.includes("warehouse");
+          permission.includes("warehouse") ||
+          permission === "view_productions";
 
-        const isCashAction =
-          permission.includes("cash_fund") ||
-          permission.includes("cash_movement") ||
+        const isCashPermission =
+          permission.includes("cash") ||
+          permission === "view_cash_fund" ||
           permission === "manage_cash_fund" ||
           permission === "reverse_cash_fund" ||
           permission === "delete_cash_movement";
 
-        // Bloqueios disciplinares durante suspensão ativa
-        if (activeSuspension) {
-          const blocks = activeSuspension.blocks;
-          if (blocks?.block_login) return false;
-          if (blocks?.block_all_operations && (isOperationalAction || isSalesAction || isMovementAction || isProdAction || isCashAction)) return false;
-          if (blocks?.block_sales && (isSalesAction || permission.includes("sale"))) return false;
-          if (blocks?.block_movements && (isMovementAction || permission.includes("movement") || permission === "manage_baus")) return false;
-          if (blocks?.block_productions && (isProdAction || permission.includes("production") || permission.includes("warehouse") || permission.includes("raw_material"))) return false;
-          if (blocks?.block_cash_fund && (isCashAction || permission.includes("cash"))) return false;
+        // 0.2. BLOQUEIO TOTAL DE OPERAÇÕES (is_blocked OU block_operations OU suspensão)
+        const hasOperationsBlock =
+          memberTags.some(
+            (t) =>
+              t.is_active !== false &&
+              (t.rules?.is_blocked === true || t.rules?.block_operations === true)
+          ) || Boolean(activeSuspension?.blocks?.block_all_operations);
+        if (hasOperationsBlock) {
+          if (
+            isOperationalAction ||
+            isSalesPermission ||
+            isMovementPermission ||
+            isProductionPermission ||
+            isCashPermission
+          ) {
+            return false;
+          }
         }
 
-        // Regras de Bloqueio por Tags Ativas do Membro:
-        // 1. Bloqueio de Acesso / Login
-        const hasLoginBlock = memberTags.some((t) => t.is_active !== false && t.rules?.block_login === true);
-        if (hasLoginBlock) {
+        // 0.3. BLOQUEIOS ESPECÍFICOS: VENDAS (block_sales)
+        const hasSalesBlock =
+          memberTags.some((t) => t.is_active !== false && t.rules?.block_sales === true) ||
+          Boolean(activeSuspension?.blocks?.block_sales);
+        if (hasSalesBlock && isSalesPermission) {
           return false;
         }
 
-        // 2. Bloqueio Total Operacional por Tags Ativas (is_blocked ou block_operations)
-        const hasBlockingTag = memberTags.some(
-          (t) => t.is_active !== false && (t.rules?.is_blocked === true || t.rules?.block_operations === true)
-        );
-        if (hasBlockingTag && (isOperationalAction || isSalesAction || isMovementAction || isProdAction || isCashAction)) {
+        // 0.4. BLOQUEIOS ESPECÍFICOS: MOVIMENTAÇÕES DE BAÚ (block_movements)
+        const hasMovementsBlock =
+          memberTags.some((t) => t.is_active !== false && t.rules?.block_movements === true) ||
+          Boolean(activeSuspension?.blocks?.block_movements);
+        if (hasMovementsBlock && isMovementPermission) {
           return false;
         }
 
-        // 3. Bloqueios Específicos Operacionais por Tags Ativas
-        const hasSalesBlock = memberTags.some((t) => t.is_active !== false && t.rules?.block_sales === true);
-        if (hasSalesBlock && (isSalesAction || permission.includes("sale"))) {
+        // 0.5. BLOQUEIOS ESPECÍFICOS: PRODUÇÕES & ARMAZÉM (block_productions)
+        const hasProductionsBlock =
+          memberTags.some((t) => t.is_active !== false && t.rules?.block_productions === true) ||
+          Boolean(activeSuspension?.blocks?.block_productions);
+        if (hasProductionsBlock && isProductionPermission) {
           return false;
         }
 
-        const hasMovementsBlock = memberTags.some((t) => t.is_active !== false && t.rules?.block_movements === true);
-        if (hasMovementsBlock && (isMovementAction || permission.includes("movement") || permission === "manage_baus")) {
-          return false;
-        }
-
-        const hasProductionsBlock = memberTags.some((t) => t.is_active !== false && t.rules?.block_productions === true);
-        if (
-          hasProductionsBlock &&
-          (isProdAction ||
-            permission.includes("production") ||
-            permission.includes("warehouse") ||
-            permission.includes("raw_material"))
-        ) {
-          return false;
-        }
-
-        const hasCashBlock = memberTags.some((t) => t.is_active !== false && t.rules?.block_cash_fund === true);
-        if (hasCashBlock && (isCashAction || permission.includes("cash"))) {
+        // 0.6. BLOQUEIOS ESPECÍFICOS: FUNDO DE CAIXA (block_cash_fund)
+        const hasCashBlock =
+          memberTags.some((t) => t.is_active !== false && t.rules?.block_cash_fund === true) ||
+          Boolean(activeSuspension?.blocks?.block_cash_fund);
+        if (hasCashBlock && isCashPermission) {
           return false;
         }
       }

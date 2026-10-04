@@ -6,9 +6,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { MemberInsigniasListModal } from "@/components/gamification/MemberInsigniasListModal";
-import { renderInsigniaIcon } from "@/components/gamification/MemberGamificationCard";
+import { InsigniaEmblem } from "@/components/gamification/InsigniaIcon";
 import { getMemberInsignias, RARITY_CONFIG } from "@/services/gamificationService";
-import { getInsigniaIconStyles } from "@/components/gamification/InsigniaCatalogManagerModal";
 import { cn } from "@/lib/utils";
 
 export interface MemberInsigniasCardsSectionProps {
@@ -80,52 +79,36 @@ export function MemberInsigniasCardsSection({
         </div>
       </div>
 
-      {/* VITRINE DE EMBLEMAS QUADRADOS 50x50 */}
+      {/* VITRINE DE EMBLEMAS QUADRADOS */}
       {memberInsignias.length > 0 ? (
         <div className="p-4 sm:p-5 rounded-3xl bg-secondary/15 border border-border/60 backdrop-blur-md shadow-sm">
           <TooltipProvider delayDuration={50}>
-            <div className="flex flex-wrap items-center gap-3 sm:gap-3.5">
+            <div className="flex flex-wrap items-center gap-3 sm:gap-4">
               {memberInsignias.map((grant) => {
                 const badge = grant.insignia;
                 if (!badge) return null;
                 const rarity = RARITY_CONFIG[badge.rarity] || RARITY_CONFIG.comum;
-                const iconStyle = getInsigniaIconStyles(badge);
-                const glowColor = badge.border_color || badge.bg_color || badge.color;
 
                 return (
                   <Tooltip key={grant.id}>
                     <TooltipTrigger asChild>
-                      <button
-                        type="button"
-                        onClick={() => setIsModalOpen(true)}
-                        className={cn(
-                          "group relative flex items-center justify-center w-[50px] h-[50px] min-w-[50px] min-h-[50px] max-w-[50px] max-h-[50px] rounded-xl border-2 shadow-md transition-all duration-200 cursor-pointer select-none",
-                          "hover:scale-115 hover:-translate-y-1 hover:z-20 active:scale-95",
-                          !iconStyle && rarity.bgClass,
-                          !iconStyle && rarity.borderClass,
-                          !iconStyle && rarity.textClass,
-                        )}
-                        style={{
-                          ...(iconStyle || {}),
-                          boxShadow: glowColor
-                            ? `0 4px 18px -2px ${glowColor}60`
-                            : "0 4px 14px -2px rgba(0,0,0,0.35)",
-                        }}
-                        aria-label={`${badge.name} (${rarity.label})`}
-                      >
-                        {/* Brilho Holográfico no Hover */}
-                        <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none rounded-[10px]" />
-
-                        {/* Ícone Centralizado do Emblema */}
-                        <div className="transform transition-transform duration-200 group-hover:scale-110">
-                          {renderInsigniaIcon(badge.icon, "h-6 w-6 shrink-0")}
-                        </div>
-
-                        {/* Estrela de Honra no Canto Superior Direito */}
-                        <div className="absolute -top-1 -right-1 h-3.5 w-3.5 rounded-full bg-background border border-amber-400/80 flex items-center justify-center shadow-xs">
-                          <span className="text-[7px] text-amber-400 leading-none font-bold select-none">★</span>
-                        </div>
-                      </button>
+                      <div>
+                        <InsigniaEmblem
+                          icon={badge.icon}
+                          name={badge.name}
+                          rarity={badge.rarity}
+                          shape_3d={badge.shape_3d}
+                          material_3d={badge.material_3d}
+                          border_style_3d={badge.border_style_3d}
+                          gloss_effect={badge.gloss_effect}
+                          size="md"
+                          color={badge.color}
+                          bgColor={badge.bg_color}
+                          borderColor={badge.border_color}
+                          onClick={() => setIsModalOpen(true)}
+                          interactive
+                        />
+                      </div>
                     </TooltipTrigger>
 
                     <TooltipContent
@@ -135,17 +118,21 @@ export function MemberInsigniasCardsSection({
                       {/* Topo do Tooltip com Ícone, Nome e Raridade */}
                       <div className="flex items-center justify-between gap-3 border-b border-border/50 pb-2">
                         <div className="flex items-center gap-2 min-w-0">
-                          <div
-                              className={cn(
-                                "h-7 w-7 rounded-lg border flex items-center justify-center shrink-0 shadow-xs",
-                                !iconStyle && rarity.bgClass,
-                                !iconStyle && rarity.borderClass,
-                                !iconStyle && rarity.textClass
-                              )}
-                              style={iconStyle || undefined}
-                            >
-                            {renderInsigniaIcon(badge.icon, "h-4 w-4")}
-                          </div>
+                          <InsigniaEmblem
+                            icon={badge.icon}
+                            name={badge.name}
+                            rarity={badge.rarity}
+                            shape_3d={badge.shape_3d}
+                            material_3d={badge.material_3d}
+                            border_style_3d={badge.border_style_3d}
+                            gloss_effect={badge.gloss_effect}
+                            size="xs"
+                            color={badge.color}
+                            bgColor={badge.bg_color}
+                            borderColor={badge.border_color}
+                            showStar={false}
+                            interactive={false}
+                          />
                           <span className="font-black text-xs text-foreground truncate">
                             {badge.name}
                           </span>
