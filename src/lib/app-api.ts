@@ -1601,7 +1601,15 @@ export async function getRolePermissions(): Promise<Record<AppLevel, Permission[
   rows.forEach((row) => {
     const lvl = row.level || row.nivel;
     if (lvl) {
-      map[lvl] = Array.isArray(row.permissions) ? (row.permissions as Permission[]) : [];
+      let perms = row.permissions;
+      if (typeof perms === "string") {
+        try {
+          perms = JSON.parse(perms);
+        } catch {
+          perms = [];
+        }
+      }
+      map[lvl] = Array.isArray(perms) ? (perms as Permission[]) : [];
     }
   });
   return map as Record<AppLevel, Permission[]>;

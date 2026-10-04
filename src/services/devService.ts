@@ -319,8 +319,15 @@ export async function getDevPermissions(
       .eq("level", "desenvolvedor")
       .maybeSingle();
 
-    if (!error && data && Array.isArray(data.permissions) && data.permissions.length > 0) {
-      const perms = data.permissions.map(String);
+    let rawPerms = data?.permissions;
+    if (typeof rawPerms === "string") {
+      try {
+        rawPerms = JSON.parse(rawPerms);
+      } catch {}
+    }
+
+    if (!error && data && Array.isArray(rawPerms) && rawPerms.length > 0) {
+      const perms = rawPerms.map(String);
       if (typeof window !== "undefined") {
         localStorage.setItem(DEV_PERMS_KEY, JSON.stringify(perms));
       }
@@ -834,8 +841,15 @@ export async function getCeoTagPermissions(
       .eq("level", "ceo")
       .maybeSingle();
 
-    if (!error && data && Array.isArray(data.permissions)) {
-      const perms = data.permissions.map(String);
+    let rawPerms = data?.permissions;
+    if (typeof rawPerms === "string") {
+      try {
+        rawPerms = JSON.parse(rawPerms);
+      } catch {}
+    }
+
+    if (!error && data && Array.isArray(rawPerms) && rawPerms.length > 0) {
+      const perms = rawPerms.map(String);
       if (typeof window !== "undefined") {
         localStorage.setItem(CEO_PERMS_KEY, JSON.stringify(perms));
       }

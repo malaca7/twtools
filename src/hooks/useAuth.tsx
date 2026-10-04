@@ -718,7 +718,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Permissões específicas da TAG CEO
   const ceoTagPermissions = useMemo<Permission[]>(() => {
     const permsSet = new Set<Permission>();
-    const ceoPerms = customRolePermissions?.["ceo"] ?? getCeoTagPermissionsSync();
+    const rawCeoPerms = customRolePermissions?.["ceo"];
+    const ceoPerms =
+      Array.isArray(rawCeoPerms) && rawCeoPerms.length > 0
+        ? rawCeoPerms
+        : getCeoTagPermissionsSync();
+
     for (const p of ceoPerms) {
       if (p) permsSet.add(p as Permission);
     }
@@ -731,13 +736,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
       }
     }
+    if (permsSet.size === 0) {
+      DEFAULT_CEO_PERMISSIONS.forEach((p) => permsSet.add(p as Permission));
+    }
     return Array.from(permsSet);
   }, [memberTags, customRolePermissions, isCeoTagItem]);
 
   // Permissões específicas da TAG DEV
   const devTagPermissions = useMemo<Permission[]>(() => {
     const permsSet = new Set<Permission>();
-    const devPerms = customRolePermissions?.["desenvolvedor"] ?? getDevTagPermissionsSync();
+    const rawDevPerms = customRolePermissions?.["desenvolvedor"];
+    const devPerms =
+      Array.isArray(rawDevPerms) && rawDevPerms.length > 0
+        ? rawDevPerms
+        : getDevTagPermissionsSync();
+
     for (const p of devPerms) {
       if (p) permsSet.add(p as Permission);
     }
@@ -749,6 +762,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           if (p && typeof p === "string") permsSet.add(p as Permission);
         }
       }
+    }
+    if (permsSet.size === 0) {
+      ALL_PERMISSIONS.forEach((p) => permsSet.add(p as Permission));
     }
     return Array.from(permsSet);
   }, [memberTags, customRolePermissions, isDevTagItem]);
@@ -1058,63 +1074,71 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       // REGRA 1: NO PAINEL MEMBRO
-      // apenas usar a permissão do cargo do membro e das tag do sistema,
-      // porém NÃO usar permissão da tag dev e ceo
       if (activePanel === "member") {
-        // 1. Cargo do membro
+        // 1. Tag DEV: Concede acesso às ferramentas e páginas da plataforma
+        if (isDevUser) {
+          if (bypassActive) return true;
+          if (satisfiesPermission(devTagPermissions, permission)) return true;
+        }
+        // 2. Tag CEO: Concede acesso executivo às páginas e governança da plataforma
+        if (isCeoUser) {
+          if (satisfiesPermission(ceoTagPermissions, permission)) return true;
+        }
+        // 3. Cargo do membro
         if (can(level, permission, customRolePermissions)) {
           return true;
         }
-        // 2. Tags do sistema
+        // 4. Tags do sistema
         if (satisfiesPermission(systemTagPermissions, permission)) {
           return true;
         }
-        // NÃO usar permissão da tag dev e ceo!
         return false;
       }
 
       // REGRA 2: NO PAINEL CEO
-      // apenas usar a permissão da tag ceo e das tag do sistema,
-      // porém NÃO usar permissão da tag dev
       if (activePanel === "ceo") {
-        // 1. Tag CEO (se o usuário for CEO ou Dev acessando painel CEO)
-        if (isCeoUser || isDevUser) {
-          if (permission === "view_ceo") {
-            return true;
-          }
-          if (satisfiesPermission(ceoTagPermissions, permission)) {
-            return true;
-          }
+        // 1. Desenvolvedor tem acesso total no Painel CEO
+        if (isDevUser) {
+          if (bypassActive) return true;
+          if (permission === "view_ceo") return true;
+          if (satisfiesPermission(devTagPermissions, permission)) return true;
         }
-        // 2. Tags do sistema
+        // 2. Tag CEO
+        if (isCeoUser) {
+          if (permission === "view_ceo") return true;
+          if (satisfiesPermission(ceoTagPermissions, permission)) return true;
+        }
+        // 3. Cargo do membro
+        if (can(level, permission, customRolePermissions)) {
+          return true;
+        }
+        // 4. Tags do sistema
         if (satisfiesPermission(systemTagPermissions, permission)) {
           return true;
         }
-        // NÃO usar permissão da tag dev!
         return false;
       }
 
       // REGRA 3: NO PAINEL DEV
-      // apenas usar a permissão da tag dev e das tag do sistema,
-      // porém NÃO usar permissão da tag ceo
       if (activePanel === "dev") {
         // 1. Tag DEV (se o usuário for Desenvolvedor)
         if (isDevUser) {
-          if (bypassActive) {
-            return true;
-          }
-          if (permission === "view_dev_hub" || permission === "view_dev") {
-            return true;
-          }
-          if (satisfiesPermission(devTagPermissions, permission)) {
-            return true;
-          }
+          if (bypassActive) return true;
+          if (permission === "view_dev_hub" || permission === "view_dev") return true;
+          if (satisfiesPermission(devTagPermissions, permission)) return true;
         }
-        // 2. Tags do sistema
+        // 2. Tag CEO acessando governança integrada
+        if (isCeoUser) {
+          if (satisfiesPermission(ceoTagPermissions, permission)) return true;
+        }
+        // 3. Cargo do membro
+        if (can(level, permission, customRolePermissions)) {
+          return true;
+        }
+        // 4. Tags do sistema
         if (satisfiesPermission(systemTagPermissions, permission)) {
           return true;
         }
-        // NÃO usar permissão da tag ceo!
         return false;
       }
 

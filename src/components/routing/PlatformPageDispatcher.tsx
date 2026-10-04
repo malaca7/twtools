@@ -47,6 +47,7 @@ import { AdvertenciasPage } from "@/routes/_authenticated/advertencias";
 import { GestaoProducaoPage } from "@/routes/_authenticated/producoes.gestao";
 import { MateriasPrimasPage } from "@/routes/_authenticated/producoes.materias-primas";
 import { CeoGerenciarTagsPage } from "@/routes/_authenticated/ceo.tags";
+import { EscalasPage } from "@/routes/_authenticated/escalas";
 
 export interface PlatformPageDispatcherProps {
   page: string;
@@ -82,6 +83,9 @@ const PAGE_PERMISSION_MAP: Record<string, Permission | null> = {
   "fundo-caixa": "view_cash_fund",
   ausencias: "view_absences",
   rankings: "view_rankings",
+  escalas: "escalas.view",
+  "escala-acao": "escalas.view",
+  "escalas-acao": "escalas.view",
   desempenho: "view_performance",
   "meu-desempenho": "view_performance",
   metas: "view_goals",
@@ -345,6 +349,10 @@ function InnerPageResolver({ page, tab, mode }: { page: string; tab?: string; mo
       return <AusenciasPage />;
     case "rankings":
       return <RankingsPage />;
+    case "escalas":
+    case "escala-acao":
+    case "escalas-acao":
+      return <EscalasPage />;
     case "loja":
     case "shop":
     case "store":

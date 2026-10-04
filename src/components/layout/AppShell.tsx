@@ -261,6 +261,9 @@ const URL_TO_PERMISSION_MAP: Record<string, Permission> = {
   "/dev/configuracao": "manage_dev_config",
   "/dev/menu-lateral": "manage_dev_menu",
   "/dev/estoque": "view_dev_hub",
+  "/escalas": "escalas.view",
+  "/dev/escalas": "escalas.view",
+  "/ceo/escalas": "escalas.view",
 };
 
 const DEV_MODULE_NAV_ITEMS: MasterNavItem[] = [
@@ -307,6 +310,7 @@ function resolveRequiredPermission(id?: string, url?: string): Permission | unde
     if (URL_TO_PERMISSION_MAP[withoutPrefix]) return URL_TO_PERMISSION_MAP[withoutPrefix];
 
     // Resolução robusta baseada em prefixo de rotas
+    if (withoutPrefix.startsWith("/escalas")) return "escalas.view";
     if (withoutPrefix.startsWith("/producoes/materias-primas") || withoutPrefix.startsWith("/materias-primas")) return "raw_materials.view";
     if (withoutPrefix.startsWith("/producoes/armazem") || withoutPrefix.startsWith("/armazem")) return "warehouse.view";
     if (withoutPrefix.startsWith("/producoes/gestao") || withoutPrefix.startsWith("/gestao-producao")) return "production_management.view";
@@ -744,6 +748,14 @@ function DynamicSidebarNavigation() {
             devUrl = "/dev/controledeestoque";
           } else if (item.id === "gestao-estoque" || item.url === "/gestao-estoque") {
             devUrl = "/dev/gestao-estoque";
+          } else if (item.id === "produzir" || item.url === "/producoes/produzir") {
+            devUrl = "/dev/producoes?tab=produzir";
+          } else if (item.id === "armazem" || item.url === "/producoes/armazem") {
+            devUrl = "/dev/producoes?tab=armazem";
+          } else if (item.id === "materias-primas" || item.url === "/producoes/materias-primas") {
+            devUrl = "/dev/producoes?tab=materias-primas";
+          } else if (item.id === "gestao-producao" || item.url === "/producoes/gestao") {
+            devUrl = "/dev/producoes?tab=gestao";
           } else if (devUrl.startsWith("/") && !devUrl.startsWith("/dev")) {
             devUrl = `/dev${devUrl}`;
           }
@@ -827,7 +839,17 @@ function DynamicSidebarNavigation() {
         })
         .map((item) => {
           let ceoUrl = item.url;
-          if (ceoUrl.startsWith("/") && !ceoUrl.startsWith("/ceo")) {
+          if (item.id === "desempenho") {
+            ceoUrl = "/ceo/meu-desempenho";
+          } else if (item.id === "produzir" || item.url === "/producoes/produzir") {
+            ceoUrl = "/ceo/producoes?tab=produzir";
+          } else if (item.id === "armazem" || item.url === "/producoes/armazem") {
+            ceoUrl = "/ceo/producoes?tab=armazem";
+          } else if (item.id === "materias-primas" || item.url === "/producoes/materias-primas") {
+            ceoUrl = "/ceo/producoes?tab=materias-primas";
+          } else if (item.id === "gestao-producao" || item.url === "/producoes/gestao") {
+            ceoUrl = "/ceo/producoes?tab=gestao";
+          } else if (ceoUrl.startsWith("/") && !ceoUrl.startsWith("/ceo")) {
             ceoUrl = `/ceo${ceoUrl}`;
           }
           return {
