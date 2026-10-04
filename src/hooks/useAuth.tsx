@@ -860,7 +860,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const isDevMode = Boolean(
     isDevUser &&
       (typeof window !== "undefined"
-        ? (window.location.pathname.startsWith("/dev") || window.location.hash.includes("/dev") || panelMode === "dev")
+        ? (window.location.pathname.startsWith("/dev") || window.location.hash.includes("/dev"))
         : panelMode === "dev")
   );
 
@@ -868,7 +868,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     (isCeoUser || isDevUser) &&
       !isDevMode &&
       (typeof window !== "undefined"
-        ? (window.location.pathname.startsWith("/ceo") || window.location.hash.includes("/ceo") || panelMode === "ceo")
+        ? (window.location.pathname.startsWith("/ceo") || window.location.hash.includes("/ceo"))
         : panelMode === "ceo")
   );
 

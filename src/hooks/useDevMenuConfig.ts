@@ -24,7 +24,6 @@ export const DEFAULT_DEV_CATEGORIES = ["DEV"];
 export const DEFAULT_DEV_MENU_ITEMS: DevMenuItemConfig[] = [
   { id: "dev-bot", title: "Bot", url: "/dev/bot", iconName: "Bot", visible: true, category: "DEV", order: 0 },
   { id: "dev-estoque", title: "Estoque", url: "/dev/estoque", iconName: "Boxes", visible: true, category: "DEV", order: 1 },
-  { id: "dev-escalas", title: "Escala de Ação", url: "/escalas", iconName: "Swords", visible: true, category: "DEV", order: 1.5 },
   { id: "dev-patch-notes", title: "Patch Notes & Releases", url: "/dev/patch-notes", iconName: "Sparkles", visible: true, category: "DEV", order: 2 },
   { id: "dev-desempenho", title: "Gestão Desempenho", url: "/dev/desempenho", iconName: "TrendingUp", visible: true, category: "DEV", order: 3 },
   { id: "dev-xp-insignias", title: "Xp e insígnias", url: "/dev/xp-insignias", iconName: "Award", visible: true, category: "DEV", order: 4 },

@@ -66,7 +66,8 @@ export const Route = createFileRoute("/_authenticated/membros")({
 });
 
 export function MembrosPage() {
-  const { hasPermission, level: currentUserLevel, profile: currentProfile, user, refresh, isDevMode } = useAuth();
+  const { hasPermission, level: currentUserLevel, profile: currentProfile, user, refresh, isDevMode, isDevUser } = useAuth();
+  const isDev = Boolean(isDevUser || isDevMode);
   const { devStyle, ceoStyle, DevIcon, CeoIcon } = usePanelTheme();
   const queryClient = useQueryClient();
 
@@ -158,7 +159,7 @@ export function MembrosPage() {
       if (!canChangeRoles) throw new Error("Você não possui permissão para alterar cargos.");
       const target = members.find((m) => m.user_id === targetUserId);
       const targetIsDev = Boolean(target?.is_developer || target?.nivel === "desenvolvedor");
-      if (targetIsDev && !isDevMode) {
+      if (targetIsDev && !isDev) {
         throw new Error("Apenas membros com a Tag de Dev podem alterar o cargo de outro Desenvolvedor.");
       }
       await setMemberLevel(targetUserId, newLevel);
@@ -191,8 +192,8 @@ export function MembrosPage() {
         nickname: editNickname.trim() || null,
         telefone: editTelefone.trim() || null,
         game_id: editGameId.trim() || null,
-        is_developer: isDevMode ? editIsDeveloper : undefined,
-        is_ceo: isDevMode ? editIsCeo : undefined,
+        is_developer: isDev ? editIsDeveloper : undefined,
+        is_ceo: isDev ? editIsCeo : undefined,
       });
     },
     onSuccess: () => {
@@ -397,7 +398,7 @@ export function MembrosPage() {
                   const avatarUrl = m.discord_avatar_url;
                   const initials = (m.nickname || m.nome).slice(0, 2).toUpperCase();
                   const targetIsDev = Boolean(m.is_developer || m.nivel === "desenvolvedor");
-                  const canChangeThisTargetRole = canChangeRoles && (!targetIsDev || isDevMode);
+                  const canChangeThisTargetRole = canChangeRoles && (!targetIsDev || isDev);
 
                   return (
                     <div key={m.user_id} className="p-4 rounded-xl border border-border/80 bg-card text-card-foreground shadow-sm space-y-3">
@@ -511,7 +512,7 @@ export function MembrosPage() {
                       const avatarUrl = m.discord_avatar_url;
                       const initials = (m.nickname || m.nome).slice(0, 2).toUpperCase();
                       const targetIsDev = Boolean(m.is_developer || m.nivel === "desenvolvedor");
-                      const canChangeThisTargetRole = canChangeRoles && (!targetIsDev || isDevMode);
+                      const canChangeThisTargetRole = canChangeRoles && (!targetIsDev || isDev);
 
                       return (
                         <TableRow key={m.user_id}>
@@ -707,7 +708,7 @@ export function MembrosPage() {
               />
             </div>
 
-            {isDevMode && (
+            {isDev && (
               <>
                 <div className={cn("p-3.5 rounded-xl border flex items-center justify-between gap-3 mt-3 shadow-sm", devStyle.bgSubtleClass, devStyle.borderSubtleClass)}>
                   <div className="flex items-center gap-2.5 min-w-0 flex-1">
