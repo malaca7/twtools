@@ -353,7 +353,7 @@ function resolveRequiredPermission(id?: string, url?: string): Permission | unde
 function DynamicSidebarNavigation() {
   const routerState = useRouterState();
   const pathname = routerState.location.pathname;
-  const { hasPermission, user, profile, level, isDevMode, isCeoMode, setPanelMode, isCeoUser, isDevUser, isPlatformLocked } = useAuth();
+  const { hasPermission, user, profile, level, isDevMode, isCeoMode, panelMode, setPanelMode, isCeoUser, isDevUser, isPlatformLocked } = useAuth();
   const { config: menuConfig } = useMenuConfig();
   const { config: devMenuConfig } = useDevMenuConfig();
   const { config: ceoMenuConfig } = useCeoMenuConfig();
@@ -433,27 +433,27 @@ function DynamicSidebarNavigation() {
     [storageKey]
   );
 
-  // Sincroniza o modo de painel com base na rota acessada
+  // Sincroniza o modo de painel com base na rota acessada (sem forçar reset para member ao navegar em rotas regulares)
   useEffect(() => {
     if (pathname.startsWith("/dev")) {
-      if (isDevUser && !isDevMode) setPanelMode("dev");
+      if (isDevUser && panelMode !== "dev") {
+        setPanelMode("dev");
+      }
     } else if (pathname.startsWith("/ceo")) {
-      if ((isCeoUser || isDevUser || hasPermission("view_ceo")) && !isCeoMode) {
+      // Se já estiver no modo dev, mantém dev (acessa como dev); caso contrário, sincroniza para ceo
+      if (panelMode !== "dev" && (isCeoUser || isDevUser || hasPermission("view_ceo")) && panelMode !== "ceo") {
         setPanelMode("ceo");
       }
-    } else {
-      // Qualquer rota regular de membro (/dashboard, /estoque, /membros, etc.)
-      if (isDevMode || isCeoMode) {
-        setPanelMode("member");
-      }
     }
-  }, [pathname, isDevUser, isCeoUser, isDevMode, isCeoMode, setPanelMode, hasPermission]);
+    // Ao navegar em páginas regulares de plataforma (/dashboard, /membros, /escalas, /vendas, etc.):
+    // NÃO reseta panelMode! O usuário continua acessando as páginas no modo em que está (Dev ou CEO)
+  }, [pathname, isDevUser, isCeoUser, panelMode, setPanelMode, hasPermission]);
 
-  const isDevArea = Boolean(isDevUser && pathname.startsWith("/dev"));
+  const isDevArea = Boolean(isDevUser && (panelMode === "dev" || pathname.startsWith("/dev")));
   const isCeoArea = Boolean(
     (isCeoUser || isDevUser || hasPermission("view_ceo")) &&
       !isDevArea &&
-      pathname.startsWith("/ceo")
+      (panelMode === "ceo" || pathname.startsWith("/ceo"))
   );
 
   const grouped = useMemo(() => {
@@ -1068,7 +1068,7 @@ function DynamicSidebarNavigation() {
 }
 
 export function AppShell({ children }: { children: ReactNode }) {
-  const { profile, level, signOut, user, isCeoUser, isDevUser, setPanelMode, hasPermission, isPlatformLocked, platformLockedTags } = useAuth();
+  const { profile, level, signOut, user, isCeoUser, isDevUser, panelMode, setPanelMode, hasPermission, isPlatformLocked, platformLockedTags } = useAuth();
   const myTags = useMyMemberTags();
   const navigate = useNavigate();
   const pathname = useRouterState({ select: (r) => r.location.pathname });
@@ -1077,6 +1077,9 @@ export function AppShell({ children }: { children: ReactNode }) {
   const canAccessCeo = isCeoUser || isDevUser || hasPermission("view_ceo");
   const canAccessDev = isDevUser;
   const hasMultiplePanels = canAccessCeo || canAccessDev;
+
+  const isDevActive = Boolean(isDevUser && (panelMode === "dev" || pathname.startsWith("/dev")));
+  const isCeoActive = Boolean(canAccessCeo && !isDevActive && (panelMode === "ceo" || pathname.startsWith("/ceo")));
 
   const { devStyle, ceoStyle, memberStyle, DevIcon, CeoIcon, MemberIcon } = usePanelTheme();
 
@@ -1148,7 +1151,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                         onClick={() => setPanelMode("member")}
                         className={cn(
                           "flex items-center gap-1 sm:gap-1.5 px-1.5 py-1 sm:px-3 sm:py-1.5 rounded-lg text-xs font-semibold transition-all duration-150 cursor-pointer",
-                          !pathname.startsWith("/dev") && !pathname.startsWith("/ceo")
+                          !isDevActive && !isCeoActive
                             ? cn(memberStyle.bgSolidClass, "shadow-xs ring-1", memberStyle.ringClass, "font-bold")
                             : cn(memberStyle.textMutedClass, "hover:bg-secondary/60 hover:text-foreground")
                         )}
@@ -1172,7 +1175,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                           onClick={() => setPanelMode("ceo")}
                           className={cn(
                             "flex items-center gap-1 sm:gap-1.5 px-1.5 py-1 sm:px-3 sm:py-1.5 rounded-lg text-xs font-semibold transition-all duration-150 cursor-pointer",
-                            pathname.startsWith("/ceo")
+                            isCeoActive
                               ? cn(ceoStyle.bgSolidClass, "shadow-xs ring-1", ceoStyle.ringClass, "font-bold")
                               : cn(ceoStyle.textMutedClass, "hover:bg-secondary/60 hover:text-foreground")
                           )}
@@ -1197,7 +1200,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                           onClick={() => setPanelMode("dev")}
                           className={cn(
                             "flex items-center gap-1 sm:gap-1.5 px-1.5 py-1 sm:px-3 sm:py-1.5 rounded-lg text-xs font-semibold transition-all duration-150 cursor-pointer",
-                            pathname.startsWith("/dev")
+                            isDevActive
                               ? cn(devStyle.bgSolidClass, "shadow-xs ring-1", devStyle.ringClass, "font-bold")
                               : cn(devStyle.textMutedClass, "hover:bg-secondary/60 hover:text-foreground")
                           )}

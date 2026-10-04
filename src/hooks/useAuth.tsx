@@ -859,17 +859,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const isDevMode = Boolean(
     isDevUser &&
-      (typeof window !== "undefined"
-        ? (window.location.pathname.startsWith("/dev") || window.location.hash.includes("/dev"))
-        : panelMode === "dev")
+      (panelMode === "dev" ||
+        (typeof window !== "undefined" &&
+          (window.location.pathname.startsWith("/dev") || window.location.hash.includes("/dev"))))
   );
 
   const isCeoMode = Boolean(
     (isCeoUser || isDevUser) &&
       !isDevMode &&
-      (typeof window !== "undefined"
-        ? (window.location.pathname.startsWith("/ceo") || window.location.hash.includes("/ceo"))
-        : panelMode === "ceo")
+      (panelMode === "ceo" ||
+        (typeof window !== "undefined" &&
+          (window.location.pathname.startsWith("/ceo") || window.location.hash.includes("/ceo"))))
   );
 
   const setPanelMode = useCallback((mode: "member" | "dev" | "ceo") => {
@@ -923,13 +923,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // Garante que membros comuns sem Tag Dev ou Tag CEO nunca fiquem travados em panelMode dev ou ceo
   useEffect(() => {
-    if (!loading && !isDevUser && !isCeoUser && panelMode !== "member") {
-      setPanelModeState("member");
-      if (typeof window !== "undefined") {
-        try {
-          localStorage.setItem("tw_panel_mode", "member");
-          sessionStorage.setItem("tw_panel_mode", "member");
-        } catch {}
+    if (!loading) {
+      if (!isDevUser && panelMode === "dev") {
+        const nextMode = isCeoUser ? "ceo" : "member";
+        setPanelModeState(nextMode);
+        if (typeof window !== "undefined") {
+          try {
+            localStorage.setItem("tw_panel_mode", nextMode);
+            sessionStorage.setItem("tw_panel_mode", nextMode);
+          } catch {}
+        }
+      } else if (!isCeoUser && !isDevUser && panelMode === "ceo") {
+        setPanelModeState("member");
+        if (typeof window !== "undefined") {
+          try {
+            localStorage.setItem("tw_panel_mode", "member");
+            sessionStorage.setItem("tw_panel_mode", "member");
+          } catch {}
+        }
       }
     }
   }, [loading, isDevUser, isCeoUser, panelMode]);
@@ -939,22 +950,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const bypassActive = isDevBypassActive();
 
       // Determinação do painel ativo:
-      // Se panelOverride for informado (ex: do Dispatcher), usa-o diretamente.
-      // Caso contrário, avalia pela rota atual do navegador (pathname / hash).
-      let activePanel: "member" | "dev" | "ceo" = panelOverride ?? "member";
-      if (!panelOverride && typeof window !== "undefined") {
-        const pathname = window.location.pathname.toLowerCase();
-        const hash = window.location.hash.toLowerCase();
-        if (pathname.startsWith("/dev") || hash.includes("/dev")) {
-          activePanel = "dev";
-        } else if (pathname.startsWith("/ceo") || hash.includes("/ceo")) {
-          activePanel = "ceo";
-        } else {
-          activePanel = "member";
-        }
-      } else if (!panelOverride) {
-        activePanel = panelMode;
-      }
+      // Se panelOverride for informado (ex: do Dispatcher ou de menu), usa-o diretamente.
+      // Caso contrário, respeita o modo de painel ativo do usuário (panelMode / isDevMode / isCeoMode),
+      // garantindo que ao navegar em páginas de CEO e Membro o usuário acesse como Tag Dev (se em dev)
+      // ou como Tag CEO (se em ceo).
+      let activePanel: "member" | "dev" | "ceo" = panelOverride ?? (
+        isDevUser && (panelMode === "dev" || (typeof window !== "undefined" && (window.location.pathname.startsWith("/dev") || window.location.hash.includes("/dev"))))
+          ? "dev"
+          : (isCeoUser || isDevUser) && (panelMode === "ceo" || (typeof window !== "undefined" && (window.location.pathname.startsWith("/ceo") || window.location.hash.includes("/ceo"))))
+            ? "ceo"
+            : "member"
+      );
 
       // =========================================================================
       // 0. BLOQUEIOS OPERACIONAIS & DE PLATAFORMA (PRECEDÊNCIA MÁXIMA)
