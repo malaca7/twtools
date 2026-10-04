@@ -1164,6 +1164,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           if (bypassActive) return true;
           if (permission === "view_dev_hub" || permission === "view_dev") return true;
           if (satisfiesPermission(devTagPermissions, permission)) return true;
+          // Se o desenvolvedor também possuir a TAG CEO, herda as permissões da TAG CEO no painel DEV
+          if (isCeoUser && satisfiesPermission(ceoTagPermissions, permission)) return true;
           return false;
         }
         // 2. Tag CEO acessando governança integrada
