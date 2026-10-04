@@ -711,6 +711,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (!isBlocked && rules.can_view_financial_reports) {
         permsSet.add("view_consolidated_financials" as Permission);
       }
+      if (!isBlocked && !rules.block_escalas && (rules.can_manage_escalas || cleanId === "lider_escala" || cleanId === "gerente_escala")) {
+        permsSet.add("escalas.view" as Permission);
+        permsSet.add("escalas.details" as Permission);
+        permsSet.add("escalas.create" as Permission);
+        permsSet.add("escalas.edit" as Permission);
+        permsSet.add("escalas.delete" as Permission);
+        permsSet.add("escalas.publish" as Permission);
+        permsSet.add("escalas.cancel" as Permission);
+        permsSet.add("escalas.manage_members" as Permission);
+        permsSet.add("escalas.add_participants" as Permission);
+        permsSet.add("escalas.remove_participants" as Permission);
+        permsSet.add("escalas.confirm_presence" as Permission);
+        permsSet.add("escalas.manage_slots" as Permission);
+        permsSet.add("escalas.substitute" as Permission);
+        permsSet.add("escalas.history" as Permission);
+        permsSet.add("escalas.settings" as Permission);
+      }
+      if (!isBlocked && !rules.block_escalas && (rules.can_view_escalas || rules.can_participate_escalas || cleanId === "acao" || cleanId === "operacional")) {
+        permsSet.add("escalas.view" as Permission);
+        permsSet.add("escalas.details" as Permission);
+        permsSet.add("escalas.confirm_presence" as Permission);
+        permsSet.add("escalas.history" as Permission);
+      }
     }
     return Array.from(permsSet);
   }, [memberTags, isDevTagItem, isCeoTagItem]);
@@ -1028,16 +1051,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               t.is_active !== false &&
               (t.rules?.is_blocked === true || t.rules?.block_operations === true)
           ) || Boolean(activeSuspension?.blocks?.block_all_operations);
+        const isEscalasOperational =
+          permission.startsWith("escalas.") &&
+          permission !== "escalas.view" &&
+          permission !== "escalas.details" &&
+          permission !== "escalas.history";
         if (hasOperationsBlock) {
           if (
             isOperationalAction ||
             isSalesPermission ||
             isMovementPermission ||
             isProductionPermission ||
-            isCashPermission
+            isCashPermission ||
+            isEscalasOperational
           ) {
             return false;
           }
+        }
+
+        // 0.2.5. BLOQUEIO ESPECÍFICO DE ESCALAS (block_escalas)
+        const hasEscalasBlock =
+          memberTags.some((t) => t.is_active !== false && t.rules?.block_escalas === true);
+        if (hasEscalasBlock && permission.startsWith("escalas.")) {
+          return false;
         }
 
         // 0.3. BLOQUEIOS ESPECÍFICOS: VENDAS (block_sales)

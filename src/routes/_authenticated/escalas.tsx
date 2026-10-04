@@ -126,7 +126,8 @@ export function EscalasPage() {
   const isPrivileged = Boolean(isDevUser || isCeoUser);
 
   // Permissões com suporte total a Dev e CEO
-  const canView = true;
+  const canView = isPrivileged || hasPermission("escalas.view");
+  const canDetails = isPrivileged || hasPermission("escalas.details") || canView;
   const canCreate = isPrivileged || hasPermission("escalas.create");
   const canEdit = isPrivileged || hasPermission("escalas.edit");
   const canDelete = isPrivileged || hasPermission("escalas.delete");
@@ -135,10 +136,11 @@ export function EscalasPage() {
   const canManageMembers = isPrivileged || hasPermission("escalas.manage_members");
   const canAddParticipants = isPrivileged || canManageMembers || hasPermission("escalas.add_participants");
   const canRemoveParticipants = isPrivileged || canManageMembers || hasPermission("escalas.remove_participants");
-  const canConfirmPresence = true;
+  const canConfirmPresence = isPrivileged || hasPermission("escalas.confirm_presence");
   const canManageSlots = isPrivileged || hasPermission("escalas.manage_slots");
   const canSubstitute = isPrivileged || canManageMembers || hasPermission("escalas.substitute");
   const canViewHistory = isPrivileged || hasPermission("escalas.history");
+  const canManageSettings = isPrivileged || hasPermission("escalas.settings");
 
   const myMemberId = profile?.id || profile?.user_id || user?.id;
   const actorName = profile?.nickname || profile?.nome || user?.email || "Operador";
@@ -163,6 +165,13 @@ export function EscalasPage() {
   const [filterType, setFilterType] = useState<string>("todos");
   const [filterOnlyMine, setFilterOnlyMine] = useState<boolean>(false);
   const [searchTerm, setSearchTerm] = useState<string>("");
+
+  // Garante que aba de histórico seja revertida caso o usuário não tenha permissão de visualizá-la
+  useEffect(() => {
+    if (!canViewHistory && activeTab === "historico") {
+      setActiveTab("ativas");
+    }
+  }, [canViewHistory, activeTab]);
 
   // Modais
   const [createModalOpen, setCreateModalOpen] = useState(false);
@@ -664,7 +673,35 @@ export function EscalasPage() {
   }, [selectedScale, profile, user]);
 
   if (!canView) {
-    return <NoAccess />;
+    return (
+      <div className="mx-auto max-w-xl py-16 px-4 animate-in fade-in-50 duration-300">
+        <Card className="surface-card border-rose-500/30 text-center p-8 space-y-5 shadow-2xl">
+          <div className="w-16 h-16 rounded-2xl bg-rose-500/15 border border-rose-500/30 flex items-center justify-center mx-auto text-rose-400">
+            <ShieldAlert className="w-8 h-8" />
+          </div>
+          <div className="space-y-2">
+            <h2 className="text-xl font-black text-foreground">Acesso Não Autorizado</h2>
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              Seu cargo ou tag atual não possui permissão para visualizar o menu ou a página de <strong className="text-foreground">Escala de Ação</strong> da facção. Solicite autorização à liderança caso necessário.
+            </p>
+          </div>
+          <div className="pt-2">
+            <Button
+              variant="outline"
+              className="border-rose-500/30 hover:bg-rose-500/10 text-xs font-bold gap-2 cursor-pointer"
+              onClick={() => {
+                if (typeof window !== "undefined") {
+                  window.location.href = "/dashboard";
+                }
+              }}
+            >
+              <ArrowRight className="w-4 h-4 rotate-180" />
+              Retornar ao Dashboard
+            </Button>
+          </div>
+        </Card>
+      </div>
+    );
   }
 
   return (
@@ -776,53 +813,57 @@ export function EscalasPage() {
                   {scales.filter((s) => s.status !== "concluida" && s.status !== "cancelada").length}
                 </Badge>
               </TabsTrigger>
-              <TabsTrigger value="historico" className="gap-2">
-                <History className="w-4 h-4" />
-                Histórico & Arquivo
-                <Badge
-                  variant="outline"
-                  className="ml-1 text-[10px] py-0 px-1 font-mono border-border"
-                >
-                  {scales.filter((s) => s.status === "concluida" || s.status === "cancelada").length}
-                </Badge>
-              </TabsTrigger>
+              {canViewHistory && (
+                <TabsTrigger value="historico" className="gap-2">
+                  <History className="w-4 h-4" />
+                  Histórico & Arquivo
+                  <Badge
+                    variant="outline"
+                    className="ml-1 text-[10px] py-0 px-1 font-mono border-border"
+                  >
+                    {scales.filter((s) => s.status === "concluida" || s.status === "cancelada").length}
+                  </Badge>
+                </TabsTrigger>
+              )}
             </TabsList>
           </Tabs>
 
-          <div className="flex flex-wrap items-center gap-3">
-            <div className="flex items-center gap-2 text-xs text-muted-foreground font-medium bg-secondary/30 px-3 py-1.5 rounded-lg border border-border/40">
+          <div className="flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center gap-2.5 sm:gap-3 w-full sm:w-auto">
+            <div className="flex items-center justify-between sm:justify-start gap-2 text-xs text-muted-foreground font-medium bg-secondary/30 px-3 py-1.5 rounded-lg border border-border/40">
+              <Label htmlFor="only-mine" className="cursor-pointer text-xs select-none">
+                Minhas Convocatórias
+              </Label>
               <Switch
                 id="only-mine"
                 checked={filterOnlyMine}
                 onCheckedChange={setFilterOnlyMine}
               />
-              <Label htmlFor="only-mine" className="cursor-pointer text-xs">
-                Minhas Convocatórias
-              </Label>
             </div>
 
-            <Select value={filterType} onValueChange={setFilterType}>
-              <SelectTrigger className="w-[180px] h-9 text-xs">
-                <SelectValue placeholder="Tipo de Ação" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="todos">Todos os Tipos</SelectItem>
-                {ACTION_TYPES.map((t) => (
-                  <SelectItem key={t.value} value={t.value}>
-                    {t.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <div className="flex items-center gap-2 w-full sm:w-auto">
+              <Select value={filterType} onValueChange={setFilterType}>
+                <SelectTrigger className="w-full sm:w-[180px] h-9 text-xs">
+                  <SelectValue placeholder="Tipo de Ação" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="todos">Todos os Tipos</SelectItem>
+                  {ACTION_TYPES.map((t) => (
+                    <SelectItem key={t.value} value={t.value}>
+                      {t.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
 
-            <div className="relative w-full sm:w-56">
-              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Buscar escala, local..."
-                className="pl-8 h-9 text-xs"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
+              <div className="relative w-full sm:w-56">
+                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Buscar escala, local..."
+                  className="pl-8 h-9 text-xs"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                />
+              </div>
             </div>
           </div>
         </div>
@@ -935,7 +976,7 @@ export function EscalasPage() {
                       )}
                     </div>
 
-                    {scale.descricao && (
+                    {scale.descricao && (canDetails || isScaleManager(scale)) && (
                       <CardDescription className="text-xs line-clamp-2 pt-0.5">
                         {scale.descricao}
                       </CardDescription>
@@ -1184,7 +1225,7 @@ export function EscalasPage() {
                     )}
 
                     {/* VAGAS ABERTAS E BOTÃO DE MARCAR / GARANTIR VAGA (PARA QUEM NÃO ESTÁ ESCALADO) */}
-                    {!scale.user_is_escalado && (scale.status === "publicada" || scale.status === "em_andamento") && (
+                    {canConfirmPresence && !scale.user_is_escalado && (scale.status === "publicada" || scale.status === "em_andamento") && (
                       <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-3 space-y-2">
                         <div className="flex items-center justify-between text-xs">
                           <span className="font-bold text-emerald-300 flex items-center gap-1.5">
@@ -1231,59 +1272,66 @@ export function EscalasPage() {
                     </Button>
 
                     {/* Ações Rápidas de Gestão */}
-                    <div className="flex items-center gap-1">
-                      {canPublish && scale.status === "rascunho" && (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="h-8 px-2 border-amber-500/40 text-amber-300 hover:bg-amber-500/10"
-                          title="Publicar Escala"
-                          onClick={() => publishMutation.mutate(scale.id)}
-                        >
-                          <Share2 className="w-3.5 h-3.5" />
-                        </Button>
-                      )}
+                    {(((canPublish || isScaleManager(scale)) && scale.status === "rascunho") ||
+                      canEdit || isScaleManager(scale) ||
+                      ((canCancel || isScaleManager(scale)) && scale.status !== "cancelada" && scale.status !== "concluida") ||
+                      canDelete) && (
+                      <div className="flex items-center gap-1">
+                        {(canPublish || isScaleManager(scale)) && scale.status === "rascunho" && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-8 px-2 border-amber-500/40 text-amber-300 hover:bg-amber-500/10 cursor-pointer"
+                            title="Publicar Escala"
+                            disabled={publishMutation.isPending}
+                            onClick={() => publishMutation.mutate(scale.id)}
+                          >
+                            <Share2 className="w-3.5 h-3.5" />
+                          </Button>
+                        )}
 
-                      {canEdit && (
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          className="h-8 px-2 text-muted-foreground hover:text-foreground"
-                          title="Editar Escala"
-                          onClick={() => handleOpenEditModal(scale)}
-                        >
-                          <Edit className="w-3.5 h-3.5" />
-                        </Button>
-                      )}
+                        {(canEdit || isScaleManager(scale)) && (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-8 px-2 text-muted-foreground hover:text-foreground cursor-pointer"
+                            title="Editar Escala"
+                            onClick={() => handleOpenEditModal(scale)}
+                          >
+                            <Edit className="w-3.5 h-3.5" />
+                          </Button>
+                        )}
 
-                      {canCancel && scale.status !== "cancelada" && scale.status !== "concluida" && (
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          className="h-8 px-2 text-rose-400 hover:bg-rose-500/10"
-                          title="Cancelar Escala"
-                          onClick={() => {
-                            setCancelTargetScaleId(scale.id);
-                            setCancelReason("");
-                            setCancelModalOpen(true);
-                          }}
-                        >
-                          <XCircle className="w-3.5 h-3.5" />
-                        </Button>
-                      )}
+                        {(canCancel || isScaleManager(scale)) && scale.status !== "cancelada" && scale.status !== "concluida" && (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-8 px-2 text-rose-400 hover:bg-rose-500/10 cursor-pointer"
+                            title="Cancelar Escala"
+                            onClick={() => {
+                              setCancelTargetScaleId(scale.id);
+                              setCancelReason("");
+                              setCancelModalOpen(true);
+                            }}
+                          >
+                            <XCircle className="w-3.5 h-3.5" />
+                          </Button>
+                        )}
 
-                      {canDelete && (
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          className="h-8 px-2 text-destructive hover:bg-destructive/10"
-                          title="Excluir Escala"
-                          onClick={() => deleteMutation.mutate(scale.id)}
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </Button>
-                      )}
-                    </div>
+                        {canDelete && (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-8 px-2 text-destructive hover:bg-destructive/10 cursor-pointer"
+                            title="Excluir Escala"
+                            disabled={deleteMutation.isPending}
+                            onClick={() => deleteMutation.mutate(scale.id)}
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </Button>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </Card>
               );
@@ -1384,30 +1432,42 @@ export function EscalasPage() {
               </div>
 
               <div className="space-y-1.5">
-                <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                  Limite de Vagas Titulares
-                </Label>
+                <div className="flex items-center justify-between">
+                  <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                    Limite de Vagas Titulares
+                  </Label>
+                  {!canManageSlots && !isPrivileged && (
+                    <span className="text-[10px] text-amber-400 font-medium">Requer Permissão</span>
+                  )}
+                </div>
                 <Input
                   type="number"
                   min="1"
                   max="100"
                   value={formVagasLimite}
                   onChange={(e) => setFormVagasLimite(e.target.value)}
-                  className="font-mono"
+                  className="font-mono text-xs"
+                  disabled={!canManageSlots && !isPrivileged}
                 />
               </div>
 
               <div className="space-y-1.5">
-                <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                  Vagas Reservas (Suplentes)
-                </Label>
+                <div className="flex items-center justify-between">
+                  <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                    Vagas Reservas (Suplentes)
+                  </Label>
+                  {!canManageSlots && !isPrivileged && (
+                    <span className="text-[10px] text-amber-400 font-medium">Requer Permissão</span>
+                  )}
+                </div>
                 <Input
                   type="number"
                   min="0"
                   max="50"
                   value={formVagasReservas}
                   onChange={(e) => setFormVagasReservas(e.target.value)}
-                  className="font-mono"
+                  className="font-mono text-xs"
+                  disabled={!canManageSlots && !isPrivileged}
                 />
               </div>
 
@@ -1546,7 +1606,7 @@ export function EscalasPage() {
                   </div>
 
                   <div className="flex items-center gap-2">
-                    {canAddParticipants && selectedScale.status !== "cancelada" && (
+                    {(canAddParticipants || isScaleManager(selectedScale)) && selectedScale.status !== "cancelada" && (
                       <Button
                         size="sm"
                         className="bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold gap-1.5 cursor-pointer"
@@ -1774,55 +1834,57 @@ export function EscalasPage() {
 
                   <div className="flex flex-wrap items-center gap-2">
                     {selectedUserMember ? (
-                      <>
-                        <Button
-                          size="sm"
-                          className={cn(
-                            "text-xs font-bold gap-1.5 h-8 cursor-pointer",
-                            selectedUserMember.status_presenca === "confirmado"
-                              ? "bg-emerald-600 hover:bg-emerald-700 text-white"
-                              : "bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40"
-                          )}
-                          disabled={confirmPresenceMutation.isPending}
-                          onClick={() =>
-                            confirmPresenceMutation.mutate({
-                              scaleId: selectedScale.id,
-                              status: "confirmado",
-                              reacao: "👍",
-                            })
-                          }
-                        >
-                          <Check className="w-3.5 h-3.5" />
-                          {selectedUserMember.status_presenca === "confirmado" ? "Confirmado" : "Confirmar Presença"}
-                        </Button>
+                      canConfirmPresence && (
+                        <>
+                          <Button
+                            size="sm"
+                            className={cn(
+                              "text-xs font-bold gap-1.5 h-8 cursor-pointer",
+                              selectedUserMember.status_presenca === "confirmado"
+                                ? "bg-emerald-600 hover:bg-emerald-700 text-white"
+                                : "bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40"
+                            )}
+                            disabled={confirmPresenceMutation.isPending}
+                            onClick={() =>
+                              confirmPresenceMutation.mutate({
+                                scaleId: selectedScale.id,
+                                status: "confirmado",
+                                reacao: "👍",
+                              })
+                            }
+                          >
+                            <Check className="w-3.5 h-3.5" />
+                            {selectedUserMember.status_presenca === "confirmado" ? "Confirmado" : "Confirmar Presença"}
+                          </Button>
 
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="text-xs font-bold gap-1.5 h-8 border-rose-500/30 text-rose-300 hover:bg-rose-500/10 cursor-pointer"
-                          onClick={() => {
-                            setAbsenceTargetScaleId(selectedScale.id);
-                            setAbsenceReason("");
-                            setAbsenceModalOpen(true);
-                          }}
-                        >
-                          <X className="w-3.5 h-3.5" />
-                          Não Posso Ir
-                        </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="text-xs font-bold gap-1.5 h-8 border-rose-500/30 text-rose-300 hover:bg-rose-500/10 cursor-pointer"
+                            onClick={() => {
+                              setAbsenceTargetScaleId(selectedScale.id);
+                              setAbsenceReason("");
+                              setAbsenceModalOpen(true);
+                            }}
+                          >
+                            <X className="w-3.5 h-3.5" />
+                            Não Posso Ir
+                          </Button>
 
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          className="text-xs font-bold gap-1.5 h-8 text-zinc-400 hover:text-zinc-200 hover:bg-secondary cursor-pointer"
-                          title="Liberar vaga e sair da escala"
-                          disabled={leaveScaleMutation.isPending}
-                          onClick={() => leaveScaleMutation.mutate({ scaleId: selectedScale.id })}
-                        >
-                          <DoorOpen className="w-3.5 h-3.5" />
-                          Liberar Vaga
-                        </Button>
-                      </>
-                    ) : selectedScale.status === "publicada" || selectedScale.status === "em_andamento" ? (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="text-xs font-bold gap-1.5 h-8 text-zinc-400 hover:text-zinc-200 hover:bg-secondary cursor-pointer"
+                            title="Liberar vaga e sair da escala"
+                            disabled={leaveScaleMutation.isPending}
+                            onClick={() => leaveScaleMutation.mutate({ scaleId: selectedScale.id })}
+                          >
+                            <DoorOpen className="w-3.5 h-3.5" />
+                            Liberar Vaga
+                          </Button>
+                        </>
+                      )
+                    ) : canConfirmPresence && (selectedScale.status === "publicada" || selectedScale.status === "em_andamento") ? (
                       <Button
                         size="sm"
                         className="bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-600 hover:from-emerald-500 hover:to-teal-500 text-white font-extrabold gap-2 text-xs h-9 shadow-lg shadow-emerald-950/40 cursor-pointer"
@@ -1955,7 +2017,7 @@ export function EscalasPage() {
                             {/* Botões do Membro */}
                             <div className="flex items-center gap-1 shrink-0">
                               {/* Ações de Aprovação do Gerente da Escala */}
-                              {isScaleManager(selectedScale) && selectedScale.status !== "cancelada" && (
+                              {(isScaleManager(selectedScale) || canManageMembers) && selectedScale.status !== "cancelada" && (
                                 <>
                                   {member.status_aprovacao !== "aprovado" && (
                                     <Button
@@ -1995,11 +2057,11 @@ export function EscalasPage() {
                                 </>
                               )}
 
-                              {canSubstitute && member.status_presenca === "ausente" && (
+                              {(canSubstitute || isScaleManager(selectedScale)) && member.status_presenca === "ausente" && (
                                 <Button
                                   size="sm"
                                   variant="outline"
-                                  className="h-7 text-[10px] border-amber-500/40 text-amber-300 hover:bg-amber-500/10 px-2"
+                                  className="h-7 text-[10px] border-amber-500/40 text-amber-300 hover:bg-amber-500/10 px-2 cursor-pointer"
                                   onClick={() => {
                                     setSubstituteTargetMember(member);
                                     setSubSelectedMemberId("");
@@ -2011,11 +2073,11 @@ export function EscalasPage() {
                                 </Button>
                               )}
 
-                              {canRemoveParticipants && (
+                              {(canRemoveParticipants || isScaleManager(selectedScale)) && (
                                 <Button
                                   size="sm"
                                   variant="ghost"
-                                  className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive"
+                                  className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive cursor-pointer"
                                   title="Remover da escala"
                                   onClick={() =>
                                     removeMemberMutation.mutate({
@@ -2114,7 +2176,7 @@ export function EscalasPage() {
 
                             <div className="flex items-center gap-1 shrink-0">
                               {/* Ações de Aprovação do Gerente da Escala para Reservas */}
-                              {isScaleManager(selectedScale) && selectedScale.status !== "cancelada" && (
+                              {(isScaleManager(selectedScale) || canManageMembers) && selectedScale.status !== "cancelada" && (
                                 <>
                                   {member.status_aprovacao !== "aprovado" && (
                                     <Button
@@ -2154,11 +2216,11 @@ export function EscalasPage() {
                                 </>
                               )}
 
-                              {canRemoveParticipants && (
+                              {(canRemoveParticipants || isScaleManager(selectedScale)) && (
                                 <Button
                                   size="sm"
                                   variant="ghost"
-                                  className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive"
+                                  className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive cursor-pointer"
                                   onClick={() =>
                                     removeMemberMutation.mutate({
                                       scaleId: selectedScale.id,

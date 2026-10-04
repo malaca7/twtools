@@ -10,6 +10,12 @@ export type MemberTagRules = {
   block_movements?: boolean;
   block_productions?: boolean;
   block_cash_fund?: boolean;
+  block_escalas?: boolean;
+
+  // Escala de Ação
+  can_manage_escalas?: boolean;
+  can_view_escalas?: boolean;
+  can_participate_escalas?: boolean;
 
   // Comercial & Vendas
   can_sell?: boolean;

@@ -1628,22 +1628,20 @@ export function satisfiesPermission(
 
   // 17. Escala de Ação
   if (
-    (permission === "escalas.view" || permission === "escalas.details") &&
+    permission === "escalas.view" &&
     (list.includes("escalas.view") ||
-      list.includes("escalas.details") ||
       list.includes("escalas.create") ||
-      list.includes("escalas.edit") ||
-      list.includes("escalas.delete") ||
-      list.includes("escalas.publish") ||
-      list.includes("escalas.cancel") ||
       list.includes("escalas.manage_members") ||
-      list.includes("escalas.add_participants") ||
-      list.includes("escalas.remove_participants") ||
-      list.includes("escalas.confirm_presence") ||
-      list.includes("escalas.manage_slots") ||
-      list.includes("escalas.substitute") ||
-      list.includes("escalas.history") ||
       list.includes("escalas.settings"))
+  ) {
+    return true;
+  }
+  if (
+    permission === "escalas.details" &&
+    (list.includes("escalas.details") ||
+      list.includes("escalas.view") ||
+      list.includes("escalas.create") ||
+      list.includes("escalas.manage_members"))
   ) {
     return true;
   }
@@ -2365,22 +2363,20 @@ export function can(
   }
   // Escala de Ação (Role Fallback)
   if (
-    (permission === "escalas.view" || permission === "escalas.details") &&
+    permission === "escalas.view" &&
     (rolePerms.includes("escalas.view") ||
-      rolePerms.includes("escalas.details") ||
       rolePerms.includes("escalas.create") ||
-      rolePerms.includes("escalas.edit") ||
-      rolePerms.includes("escalas.delete") ||
-      rolePerms.includes("escalas.publish") ||
-      rolePerms.includes("escalas.cancel") ||
       rolePerms.includes("escalas.manage_members") ||
-      rolePerms.includes("escalas.add_participants") ||
-      rolePerms.includes("escalas.remove_participants") ||
-      rolePerms.includes("escalas.confirm_presence") ||
-      rolePerms.includes("escalas.manage_slots") ||
-      rolePerms.includes("escalas.substitute") ||
-      rolePerms.includes("escalas.history") ||
       rolePerms.includes("escalas.settings"))
+  ) {
+    return true;
+  }
+  if (
+    permission === "escalas.details" &&
+    (rolePerms.includes("escalas.details") ||
+      rolePerms.includes("escalas.view") ||
+      rolePerms.includes("escalas.create") ||
+      rolePerms.includes("escalas.manage_members"))
   ) {
     return true;
   }
