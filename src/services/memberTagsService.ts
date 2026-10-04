@@ -86,6 +86,11 @@ export type MemberTag = {
   created_at: string;
   updated_at: string;
   assigned_count?: number;
+  discord_role_id?: string | null;
+  discord_guild_id?: string | null;
+  discord_role_name?: string | null;
+  discord_sync_enabled?: boolean;
+  discord_role_position?: number | null;
 };
 
 export type MemberTagAssignment = {
@@ -136,6 +141,11 @@ export async function getMemberTags(): Promise<MemberTag[]> {
     created_at: t.created_at,
     updated_at: t.updated_at,
     assigned_count: counts[t.id] || 0,
+    discord_role_id: t.discord_role_id || null,
+    discord_guild_id: t.discord_guild_id || null,
+    discord_role_name: t.discord_role_name || null,
+    discord_sync_enabled: t.discord_sync_enabled !== false,
+    discord_role_position: t.discord_role_position !== undefined ? t.discord_role_position : null,
   }));
 }
 
@@ -206,6 +216,11 @@ export async function getMemberTagsForMember(memberId: string): Promise<MemberTa
       rules: parseMemberTagRules(t.rules),
       created_at: t.created_at,
       updated_at: t.updated_at,
+      discord_role_id: t.discord_role_id || null,
+      discord_guild_id: t.discord_guild_id || null,
+      discord_role_name: t.discord_role_name || null,
+      discord_sync_enabled: t.discord_sync_enabled !== false,
+      discord_role_position: t.discord_role_position !== undefined ? t.discord_role_position : null,
     }));
 }
 
@@ -222,6 +237,11 @@ export async function saveMemberTag(tag: {
   permissions?: Permission[];
   rules?: MemberTagRules;
   is_system?: boolean;
+  discord_role_id?: string | null;
+  discord_guild_id?: string | null;
+  discord_role_name?: string | null;
+  discord_sync_enabled?: boolean;
+  discord_role_position?: number | null;
 }): Promise<MemberTag> {
   const cleanId = tag.id.toLowerCase().trim().replace(/[^a-z0-9_-]/g, "_");
   if (!cleanId) throw new Error("Identificador (slug) da tag é obrigatório.");
@@ -242,6 +262,11 @@ export async function saveMemberTag(tag: {
   if (tag.permissions !== undefined) payload.permissions = tag.permissions;
   if (tag.rules !== undefined) payload.rules = safeRules;
   if (tag.is_system !== undefined) payload.is_system = tag.is_system;
+  if (tag.discord_role_id !== undefined) payload.discord_role_id = tag.discord_role_id;
+  if (tag.discord_guild_id !== undefined) payload.discord_guild_id = tag.discord_guild_id;
+  if (tag.discord_role_name !== undefined) payload.discord_role_name = tag.discord_role_name;
+  if (tag.discord_sync_enabled !== undefined) payload.discord_sync_enabled = tag.discord_sync_enabled;
+  if (tag.discord_role_position !== undefined) payload.discord_role_position = tag.discord_role_position;
 
   const { data, error } = await supabase
     .from("member_tags" as any)
@@ -266,6 +291,11 @@ export async function saveMemberTag(tag: {
     rules: parseMemberTagRules((data as any).rules),
     created_at: (data as any).created_at,
     updated_at: (data as any).updated_at,
+    discord_role_id: (data as any).discord_role_id || null,
+    discord_guild_id: (data as any).discord_guild_id || null,
+    discord_role_name: (data as any).discord_role_name || null,
+    discord_sync_enabled: (data as any).discord_sync_enabled !== false,
+    discord_role_position: (data as any).discord_role_position !== undefined ? (data as any).discord_role_position : null,
   };
 }
 
@@ -309,6 +339,48 @@ export async function deleteMemberTag(tagId: string): Promise<void> {
 }
 
 /**
+ * Sincronização automática em background com o Discord ao alterar tags de membros
+ */
+async function triggerAutoDiscordTagSync(
+  memberId: string,
+  tagId: string,
+  action: "add" | "remove"
+): Promise<void> {
+  try {
+    const [{ data: tagData }, { data: profData }] = await Promise.all([
+      supabase
+        .from("member_tags" as any)
+        .select("id, name, discord_role_id, discord_guild_id, discord_sync_enabled")
+        .eq("id", tagId)
+        .maybeSingle(),
+      supabase
+        .from("profiles")
+        .select("id, user_id, nome, nickname, discord_id")
+        .or(`id.eq.${memberId},user_id.eq.${memberId}`)
+        .maybeSingle(),
+    ]);
+
+    if (!tagData || !profData) return;
+    const tag = tagData as any;
+    if (tag.discord_sync_enabled === false || !tag.discord_role_id || !tag.discord_guild_id) return;
+    if (!profData.discord_id || profData.discord_id.trim().length < 5) return;
+
+    const { syncMemberDiscordTagRole } = await import("@/services/discordTagService");
+    await syncMemberDiscordTagRole({
+      discordId: profData.discord_id.trim(),
+      guildId: tag.discord_guild_id,
+      roleId: tag.discord_role_id,
+      action,
+      tagId: tag.id,
+      tagName: tag.name,
+      memberName: profData.nickname || profData.nome,
+    });
+  } catch (err: any) {
+    console.warn("[MemberTagsService] Auto Discord sync em background falhou:", err.message);
+  }
+}
+
+/**
  * Alterna a atribuição de uma tag a um membro
  */
 export async function toggleMemberTagAssignment(
@@ -316,6 +388,7 @@ export async function toggleMemberTagAssignment(
   tagId: string,
   assignedBy?: string
 ): Promise<{ assigned: boolean }> {
+  let isAssigned = false;
   const { data, error } = await supabase.rpc("toggle_member_tag_rpc" as any, {
     p_member_id: memberId,
     p_tag_id: tagId,
@@ -337,18 +410,23 @@ export async function toggleMemberTagAssignment(
         .delete()
         .eq("member_id", memberId)
         .eq("tag_id", tagId);
-      return { assigned: false };
+      isAssigned = false;
     } else {
       await supabase.from("member_tag_assignments" as any).insert({
         member_id: memberId,
         tag_id: tagId,
         assigned_by: assignedBy || null,
       });
-      return { assigned: true };
+      isAssigned = true;
     }
+  } else {
+    isAssigned = Boolean((data as any)?.assigned);
   }
 
-  return { assigned: Boolean((data as any)?.assigned) };
+  // Dispara sincronização automática com o Discord em background
+  void triggerAutoDiscordTagSync(memberId, tagId, isAssigned ? "add" : "remove");
+
+  return { assigned: isAssigned };
 }
 
 /**
@@ -359,6 +437,16 @@ export async function setMemberTags(
   tagIds: string[],
   assignedBy?: string
 ): Promise<void> {
+  // Busca tags anteriores para sincronizar remoções
+  const { data: previous } = await supabase
+    .from("member_tag_assignments" as any)
+    .select("tag_id")
+    .eq("member_id", memberId);
+
+  const prevTagIds = (previous || []).map((p: any) => p.tag_id);
+  const removedTagIds = prevTagIds.filter((t: string) => !tagIds.includes(t));
+  const addedTagIds = tagIds.filter((t: string) => !prevTagIds.includes(t));
+
   const { error } = await supabase.rpc("set_member_tags_rpc" as any, {
     p_member_id: memberId,
     p_tag_ids: tagIds,
@@ -382,6 +470,14 @@ export async function setMemberTags(
       );
     }
   }
+
+  // Sincroniza adições e remoções no Discord
+  for (const tid of removedTagIds) {
+    void triggerAutoDiscordTagSync(memberId, tid, "remove");
+  }
+  for (const tid of addedTagIds) {
+    void triggerAutoDiscordTagSync(memberId, tid, "add");
+  }
 }
 
 /**
@@ -392,6 +488,15 @@ export async function setTagMembers(
   memberIds: string[],
   assignedBy?: string
 ): Promise<void> {
+  const { data: previous } = await supabase
+    .from("member_tag_assignments" as any)
+    .select("member_id")
+    .eq("tag_id", tagId);
+
+  const prevMemberIds = (previous || []).map((p: any) => p.member_id);
+  const removedMemberIds = prevMemberIds.filter((m: string) => !memberIds.includes(m));
+  const addedMemberIds = memberIds.filter((m: string) => !prevMemberIds.includes(m));
+
   const { error } = await supabase.rpc("set_tag_members_rpc" as any, {
     p_tag_id: tagId,
     p_member_ids: memberIds,
@@ -414,6 +519,14 @@ export async function setTagMembers(
         }))
       );
     }
+  }
+
+  // Sincroniza adições e remoções no Discord
+  for (const mid of removedMemberIds) {
+    void triggerAutoDiscordTagSync(mid, tagId, "remove");
+  }
+  for (const mid of addedMemberIds) {
+    void triggerAutoDiscordTagSync(mid, tagId, "add");
   }
 }
 
@@ -438,6 +551,7 @@ export async function assignMemberTag(
       tag_id: tagId,
       assigned_by: assignedBy || null,
     });
+    void triggerAutoDiscordTagSync(memberId, tagId, "add");
   }
 }
 
@@ -453,5 +567,7 @@ export async function removeMemberTagAssignment(
     .delete()
     .eq("member_id", memberId)
     .eq("tag_id", tagId);
+
+  void triggerAutoDiscordTagSync(memberId, tagId, "remove");
 }
 

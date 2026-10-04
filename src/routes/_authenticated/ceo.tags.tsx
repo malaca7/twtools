@@ -50,6 +50,16 @@ import {
   Swords,
   Crosshair,
   Target,
+  Bot,
+  ArrowUp,
+  ArrowDown,
+  ArrowUpDown,
+  ExternalLink,
+  Link2,
+  Unlink,
+  RefreshCcw,
+  CheckCircle,
+  Hash,
   type LucideIcon,
 } from "lucide-react";
 import { CeoGuard } from "@/guards/CeoGuard";
@@ -81,6 +91,22 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
 import { parseMemberTagRules, type MemberTag, type MemberTagRules } from "@/services/memberTagsService";
+import {
+  fetchGuildRoles,
+  createDiscordRoleForTag,
+  updateDiscordRolePosition,
+  syncAllMembersForTag,
+  type DiscordRoleInfo,
+} from "@/services/discordTagService";
+import { fetchBotGuilds, type BotGuildInfo } from "@/services/discordBotManageService";
+
+function DiscordIconSvg({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 127.14 96.36" fill="currentColor">
+      <path d="M107.7,8.07A105.15,105.15,0,0,0,77.26,0a77.19,77.19,0,0,0-3.3,6.83A96.67,96.67,0,0,0,53.22,6.83,77.19,77.19,0,0,0,49.88,0,105.15,105.15,0,0,0,19.44,8.07C3.66,31.58-1.86,54.65,1,77.53A105.73,105.73,0,0,0,32,96.36a77.7,77.7,0,0,0,6.63-10.85,68.43,68.43,0,0,1-10.5-5c.88-.65,1.72-1.34,2.51-2a75.58,75.58,0,0,0,93,0c.79.71,1.63,1.4,2.51,2a68.43,68.43,0,0,1-10.5,5,77.7,77.7,0,0,0,6.63,10.85,105.73,105.73,0,0,0,31.6-18.83C129,54.65,122.64,31.58,107.7,8.07ZM42.45,65.69C36.18,65.69,31,60,31,53S36.18,40.36,42.45,40.36,53.83,46,53.83,53,48.72,65.69,42.45,65.69Zm42.24,0C78.41,65.69,73.24,60,73.24,53S78.41,40.36,84.69,40.36,96.07,46,96.07,53,91,65.69,84.69,65.69Z" />
+    </svg>
+  );
+}
 
 export const Route = createFileRoute("/_authenticated/ceo/tags")({
   component: CeoGerenciarTagsPageWrapper,
@@ -155,6 +181,38 @@ export function CeoGerenciarTagsPage() {
   );
   const canAssignTag = Boolean(hasPermission("assign_ceo_tag"));
 
+  // Permissões de Integração Discord
+  const canDiscordConfig = Boolean(
+    isDevUser ||
+    hasPermission("tags.discord_config") ||
+    hasPermission("manage_ceo_tag_permissions") ||
+    hasPermission("manage_dev_tags")
+  );
+  const canDiscordCreateRole = Boolean(
+    isDevUser ||
+    hasPermission("tags.discord_create_role") ||
+    hasPermission("manage_ceo_tag_permissions") ||
+    hasPermission("manage_dev_tags")
+  );
+  const canDiscordEditPosition = Boolean(
+    isDevUser ||
+    hasPermission("tags.discord_edit_position") ||
+    hasPermission("manage_ceo_tag_permissions") ||
+    hasPermission("manage_dev_tags")
+  );
+  const canDiscordLink = Boolean(
+    isDevUser ||
+    hasPermission("tags.discord_link") ||
+    hasPermission("manage_ceo_tag_permissions") ||
+    hasPermission("manage_dev_tags")
+  );
+  const canDiscordSync = Boolean(
+    isDevUser ||
+    hasPermission("tags.discord_sync_members") ||
+    hasPermission("manage_ceo_tag_permissions") ||
+    hasPermission("manage_dev_tags")
+  );
+
   const { data: tags = [], isLoading: loadingTags, refetch: refetchTags } = useMemberTags();
   const { data: assignments = [], isLoading: loadingAssignments, refetch: refetchAssignments } = useMemberTagAssignments();
   const { data: members = [], isLoading: loadingMembers } = useMembers();
@@ -167,7 +225,7 @@ export function CeoGerenciarTagsPage() {
 
   // Filtros de busca de tags
   const [tagSearch, setTagSearch] = useState("");
-  const [tagFilter, setTagFilter] = useState<"all" | "active" | "blocking" | "sales" | "productions" | "system">("all");
+  const [tagFilter, setTagFilter] = useState<"all" | "active" | "blocking" | "sales" | "productions" | "discord" | "system">("all");
 
   // Modal de Criação / Edição de Tag
   const [isTagModalOpen, setIsTagModalOpen] = useState(false);
@@ -180,7 +238,42 @@ export function CeoGerenciarTagsPage() {
   const [formIsActive, setFormIsActive] = useState(true);
   const [formIsSystem, setFormIsSystem] = useState(false);
   const [formRules, setFormRules] = useState<MemberTagRules>({});
+  const [formDiscordRoleId, setFormDiscordRoleId] = useState<string | null>(null);
+  const [formDiscordGuildId, setFormDiscordGuildId] = useState<string | null>(null);
+  const [formDiscordRoleName, setFormDiscordRoleName] = useState<string | null>(null);
+  const [formDiscordSyncEnabled, setFormDiscordSyncEnabled] = useState(true);
+  const [formDiscordRolePosition, setFormDiscordRolePosition] = useState<number | null>(null);
   const { config: menuConfig } = useMenuConfig();
+
+  // Modal de Integração Discord
+  const [tagForDiscord, setTagForDiscord] = useState<MemberTag | null>(null);
+  const [discordGuilds, setDiscordGuilds] = useState<BotGuildInfo[]>([]);
+  const [selectedGuildId, setSelectedGuildId] = useState<string>("1535505650308620400");
+  const [guildRoles, setGuildRoles] = useState<DiscordRoleInfo[]>([]);
+  const [loadingGuildRoles, setLoadingGuildRoles] = useState(false);
+  const [discordModalTab, setDiscordModalTab] = useState<"link" | "create" | "hierarchy" | "sync">("link");
+  const [roleSearch, setRoleSearch] = useState("");
+
+  // Criação de Cargo no Discord
+  const [createRoleName, setCreateRoleName] = useState("");
+  const [createRoleColor, setCreateRoleColor] = useState("#5865F2");
+  const [createRoleHoist, setCreateRoleHoist] = useState(true);
+  const [createRoleMentionable, setCreateRoleMentionable] = useState(false);
+  const [targetInsertMode, setTargetInsertMode] = useState<"below" | "above" | "exact">("below");
+  const [targetRelativeRoleId, setTargetRelativeRoleId] = useState<string>("");
+  const [createRolePosition, setCreateRolePosition] = useState<number>(5);
+  const [isCreatingRole, setIsCreatingRole] = useState(false);
+
+  // Edição de Posição & Sincronização
+  const [isUpdatingPosition, setIsUpdatingPosition] = useState(false);
+  const [isSyncingAll, setIsSyncingAll] = useState(false);
+  const [syncReport, setSyncReport] = useState<{
+    totalMembers: number;
+    synced: number;
+    skippedNoDiscordId: number;
+    failed: number;
+    errors: string[];
+  } | null>(null);
 
   // Modal de Vínculo de Membros à Tag
   const [tagForMembers, setTagForMembers] = useState<MemberTag | null>(null);
@@ -415,7 +508,8 @@ export function CeoGerenciarTagsPage() {
         const matchName = tag.name.toLowerCase().includes(q);
         const matchId = tag.id.toLowerCase().includes(q);
         const matchDesc = (tag.description || "").toLowerCase().includes(q);
-        if (!matchName && !matchId && !matchDesc) return false;
+        const matchDiscord = (tag.discord_role_name || "").toLowerCase().includes(q);
+        if (!matchName && !matchId && !matchDesc && !matchDiscord) return false;
       }
 
       if (tagFilter === "active" && !tag.is_active) return false;
@@ -432,6 +526,7 @@ export function CeoGerenciarTagsPage() {
         return false;
       if (tagFilter === "sales" && !tag.rules?.can_sell && tag.id !== "vendedor") return false;
       if (tagFilter === "productions" && !tag.rules?.can_manage_productions && !tag.rules?.can_manage_raw_materials) return false;
+      if (tagFilter === "discord" && !tag.discord_role_id) return false;
       if (tagFilter === "system" && !tag.is_system) return false;
 
       return true;
@@ -453,6 +548,11 @@ export function CeoGerenciarTagsPage() {
     setFormIsActive(true);
     setFormIsSystem(false);
     setFormRules({});
+    setFormDiscordRoleId(null);
+    setFormDiscordGuildId(null);
+    setFormDiscordRoleName(null);
+    setFormDiscordSyncEnabled(true);
+    setFormDiscordRolePosition(null);
     setIsTagModalOpen(true);
   };
 
@@ -470,6 +570,11 @@ export function CeoGerenciarTagsPage() {
     setFormIsActive(tag.is_active !== false);
     setFormIsSystem(Boolean(tag.is_system));
     setFormRules(parseMemberTagRules(tag.rules));
+    setFormDiscordRoleId(tag.discord_role_id || null);
+    setFormDiscordGuildId(tag.discord_guild_id || null);
+    setFormDiscordRoleName(tag.discord_role_name || null);
+    setFormDiscordSyncEnabled(tag.discord_sync_enabled !== false);
+    setFormDiscordRolePosition(tag.discord_role_position !== undefined ? tag.discord_role_position : null);
     setIsTagModalOpen(true);
   };
 
@@ -513,6 +618,11 @@ export function CeoGerenciarTagsPage() {
         permissions: editingTag ? editingTag.permissions : [],
         rules: mergedRules,
         is_system: formIsSystem,
+        discord_role_id: formDiscordRoleId,
+        discord_guild_id: formDiscordGuildId,
+        discord_role_name: formDiscordRoleName,
+        discord_sync_enabled: formDiscordSyncEnabled,
+        discord_role_position: formDiscordRolePosition,
       });
       setIsTagModalOpen(false);
       if (typeof window !== "undefined") {
@@ -522,6 +632,235 @@ export function CeoGerenciarTagsPage() {
       }
     } catch (e) {
       // Já tratado na mutation
+    }
+  };
+
+  // Funções de Integração Discord
+  const loadGuildRoles = async (guildId: string) => {
+    if (!guildId) return;
+    setLoadingGuildRoles(true);
+    try {
+      const roles = await fetchGuildRoles(guildId);
+      setGuildRoles(roles);
+    } catch (err: any) {
+      toast.error("Erro ao carregar cargos do Discord.");
+    } finally {
+      setLoadingGuildRoles(false);
+    }
+  };
+
+  const handleOpenDiscordModal = async (tag: MemberTag) => {
+    if (!canDiscordConfig && !canDiscordLink && !canDiscordCreateRole) {
+      toast.error("Você não possui permissão para gerenciar a integração Discord de tags.");
+      return;
+    }
+    setTagForDiscord(tag);
+    setCreateRoleName(tag.name);
+    setCreateRoleColor(tag.color || "#5865F2");
+    setCreateRoleHoist(true);
+    setCreateRoleMentionable(false);
+    setSyncReport(null);
+    setRoleSearch("");
+    setTargetInsertMode("below");
+    setTargetRelativeRoleId("");
+    setDiscordModalTab(tag.discord_role_id ? "link" : "create");
+
+    try {
+      const gList = await fetchBotGuilds();
+      setDiscordGuilds(gList);
+      const targetGuild = tag.discord_guild_id || gList[0]?.id || "1535505650308620400";
+      setSelectedGuildId(targetGuild);
+      await loadGuildRoles(targetGuild);
+    } catch {
+      await loadGuildRoles("1535505650308620400");
+    }
+  };
+
+  const handleLinkExistingRole = async (role: DiscordRoleInfo) => {
+    if (!tagForDiscord) return;
+    if (!canDiscordLink) {
+      toast.error("Você não tem permissão para vincular cargos do Discord.");
+      return;
+    }
+    try {
+      await saveTagMutation.mutateAsync({
+        ...tagForDiscord,
+        discord_role_id: role.id,
+        discord_guild_id: selectedGuildId,
+        discord_role_name: role.name,
+        discord_role_position: role.position,
+      });
+      setTagForDiscord((prev) =>
+        prev
+          ? {
+              ...prev,
+              discord_role_id: role.id,
+              discord_guild_id: selectedGuildId,
+              discord_role_name: role.name,
+              discord_role_position: role.position,
+            }
+          : null
+      );
+      toast.success(`Tag vinculada com sucesso ao cargo "${role.name}" no Discord!`);
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new Event("tw_tags_updated"));
+      }
+    } catch (err: any) {
+      toast.error(err.message || "Erro ao vincular cargo.");
+    }
+  };
+
+  const handleUnlinkDiscordRole = async () => {
+    if (!tagForDiscord) return;
+    if (!canDiscordLink) {
+      toast.error("Você não tem permissão para desvincular cargos do Discord.");
+      return;
+    }
+    try {
+      await saveTagMutation.mutateAsync({
+        ...tagForDiscord,
+        discord_role_id: null,
+        discord_guild_id: null,
+        discord_role_name: null,
+        discord_role_position: null,
+      });
+      setTagForDiscord((prev) =>
+        prev
+          ? {
+              ...prev,
+              discord_role_id: null,
+              discord_guild_id: null,
+              discord_role_name: null,
+              discord_role_position: null,
+            }
+          : null
+      );
+      toast.success("Cargo do Discord desvinculado da tag com sucesso.");
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new Event("tw_tags_updated"));
+      }
+    } catch (err: any) {
+      toast.error(err.message || "Erro ao desvincular cargo.");
+    }
+  };
+
+  const handleCreateAndLinkDiscordRole = async () => {
+    if (!tagForDiscord) return;
+    if (!canDiscordCreateRole) {
+      toast.error("Você não possui permissão para criar cargos no Discord.");
+      return;
+    }
+    if (!createRoleName.trim()) {
+      toast.error("Informe o nome do cargo Discord.");
+      return;
+    }
+
+    setIsCreatingRole(true);
+    try {
+      let targetPos: number | undefined = undefined;
+      if (targetInsertMode === "above" && targetRelativeRoleId) {
+        const rel = guildRoles.find((r) => r.id === targetRelativeRoleId);
+        if (rel) targetPos = rel.position + 1;
+      } else if (targetInsertMode === "below" && targetRelativeRoleId) {
+        const rel = guildRoles.find((r) => r.id === targetRelativeRoleId);
+        if (rel) targetPos = Math.max(1, rel.position);
+      } else if (targetInsertMode === "exact") {
+        targetPos = createRolePosition;
+      }
+
+      const newRole = await createDiscordRoleForTag({
+        guildId: selectedGuildId,
+        name: createRoleName.trim(),
+        colorHex: createRoleColor,
+        hoist: createRoleHoist,
+        mentionable: createRoleMentionable,
+        targetPosition: targetPos,
+      });
+
+      await saveTagMutation.mutateAsync({
+        ...tagForDiscord,
+        discord_role_id: newRole.id,
+        discord_guild_id: selectedGuildId,
+        discord_role_name: newRole.name,
+        discord_role_position: newRole.position,
+      });
+
+      setTagForDiscord((prev) =>
+        prev
+          ? {
+              ...prev,
+              discord_role_id: newRole.id,
+              discord_guild_id: selectedGuildId,
+              discord_role_name: newRole.name,
+              discord_role_position: newRole.position,
+            }
+          : null
+      );
+
+      await loadGuildRoles(selectedGuildId);
+      setDiscordModalTab("link");
+      toast.success(`Cargo "${newRole.name}" criado no Discord e vinculado com sucesso!`);
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new Event("tw_tags_updated"));
+      }
+    } catch (err: any) {
+      toast.error(err.message || "Falha ao criar cargo no Discord.");
+    } finally {
+      setIsCreatingRole(false);
+    }
+  };
+
+  const handleUpdatePosition = async (roleId: string, newPosition: number) => {
+    if (!tagForDiscord || !canDiscordEditPosition) {
+      toast.error("Você não tem permissão para alterar posição hierárquica no Discord.");
+      return;
+    }
+    setIsUpdatingPosition(true);
+    try {
+      await updateDiscordRolePosition(selectedGuildId, roleId, newPosition);
+      if (tagForDiscord.discord_role_id === roleId) {
+        await saveTagMutation.mutateAsync({
+          ...tagForDiscord,
+          discord_role_position: newPosition,
+        });
+        setTagForDiscord((prev) => (prev ? { ...prev, discord_role_position: newPosition } : null));
+      }
+      await loadGuildRoles(selectedGuildId);
+      toast.success("Posição hierárquica do cargo atualizada no Discord!");
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new Event("tw_tags_updated"));
+      }
+    } catch (err: any) {
+      toast.error(err.message || "Erro ao atualizar posição no Discord.");
+    } finally {
+      setIsUpdatingPosition(false);
+    }
+  };
+
+  const handleSyncMembersNow = async () => {
+    if (!tagForDiscord || !tagForDiscord.discord_role_id) {
+      toast.error("Vincule um cargo do Discord antes de sincronizar.");
+      return;
+    }
+    if (!canDiscordSync) {
+      toast.error("Você não tem permissão para sincronizar membros no Discord.");
+      return;
+    }
+
+    setIsSyncingAll(true);
+    setSyncReport(null);
+    try {
+      const report = await syncAllMembersForTag(tagForDiscord);
+      setSyncReport(report);
+      if (report.success) {
+        toast.success(`Sincronização concluída! ${report.synced} membros sincronizados com sucesso.`);
+      } else {
+        toast.warning(`Sincronização concluída com avisos: ${report.synced} sincronizados, ${report.failed} falhas.`);
+      }
+    } catch (err: any) {
+      toast.error(err.message || "Falha na sincronização com o Discord.");
+    } finally {
+      setIsSyncingAll(false);
     }
   };
 
@@ -863,6 +1202,16 @@ export function CeoGerenciarTagsPage() {
             </Button>
             <Button
               type="button"
+              variant={tagFilter === "discord" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setTagFilter("discord")}
+              className="h-8 text-xs rounded-xl gap-1.5 border-indigo-500/30 text-indigo-300"
+            >
+              <DiscordIconSvg className="h-3.5 w-3.5 text-[#5865F2]" />
+              <span>Discord</span>
+            </Button>
+            <Button
+              type="button"
               variant={tagFilter === "system" ? "default" : "outline"}
               size="sm"
               onClick={() => setTagFilter("system")}
@@ -912,6 +1261,7 @@ export function CeoGerenciarTagsPage() {
               tag.rules?.can_participate_escalas ||
               (Array.isArray(tag.permissions) && tag.permissions.some((p) => typeof p === "string" && p.startsWith("escalas.")))
             );
+            const isDiscordLinked = Boolean(tag.discord_role_id);
 
             return (
               <Card
@@ -938,7 +1288,18 @@ export function CeoGerenciarTagsPage() {
                         </div>
                       </div>
 
-                      <div className="flex items-center gap-1 shrink-0">
+                      <div className="flex items-center gap-1 shrink-0 flex-wrap justify-end">
+                        {isDiscordLinked && (
+                          <Badge
+                            variant="outline"
+                            className="text-[9px] px-2 py-0.5 border-[#5865F2]/40 text-indigo-300 bg-[#5865F2]/10 font-bold flex items-center gap-1 cursor-pointer hover:bg-[#5865F2]/20 transition-all"
+                            onClick={() => handleOpenDiscordModal(tag)}
+                            title={`Cargo Discord: ${tag.discord_role_name || tag.discord_role_id}`}
+                          >
+                            <DiscordIconSvg className="h-2.5 w-2.5 text-[#5865F2]" />
+                            <span className="truncate max-w-[90px]">{tag.discord_role_name || "Discord"}</span>
+                          </Badge>
+                        )}
                         {tag.is_system ? (
                           <Badge variant="outline" className="text-[9px] px-2 py-0.5 border-amber-500/40 text-amber-300 bg-amber-500/10 font-bold flex items-center gap-1">
                             <Sparkles className="h-2.5 w-2.5 text-amber-400" />
@@ -1078,9 +1439,9 @@ export function CeoGerenciarTagsPage() {
                   </CardContent>
                 </div>
 
-                {(canManagePerms || canManageRules || canAssignTag || canEditTag || (!tag.is_system && canDeleteTag)) && (
-                  <div className="p-3 border-t border-border/50 bg-secondary/10 flex items-center justify-between gap-1.5">
-                    <div className="flex items-center gap-1">
+                {(canManagePerms || canManageRules || canAssignTag || canEditTag || canDiscordConfig || (!tag.is_system && canDeleteTag)) && (
+                  <div className="p-3 border-t border-border/50 bg-secondary/10 flex items-center justify-between gap-1.5 flex-wrap">
+                    <div className="flex items-center gap-1 flex-wrap">
                       {(canManagePerms || canManageRules) && (
                         <Button
                           type="button"
@@ -1090,7 +1451,7 @@ export function CeoGerenciarTagsPage() {
                           className="h-8 text-xs font-semibold rounded-xl gap-1.5 border-primary/30 text-primary hover:bg-primary/10"
                         >
                           <ShieldCheck className="h-3.5 w-3.5" />
-                          <span>Permissões & Regras</span>
+                          <span>Permissões</span>
                         </Button>
                       )}
                       {canAssignTag && (
@@ -1104,6 +1465,24 @@ export function CeoGerenciarTagsPage() {
                         >
                           <Users className="h-3.5 w-3.5" />
                           <span>Membros ({assignedCount})</span>
+                        </Button>
+                      )}
+                      {canDiscordConfig && (
+                        <Button
+                          type="button"
+                          variant={isDiscordLinked ? "outline" : "ghost"}
+                          size="sm"
+                          onClick={() => handleOpenDiscordModal(tag)}
+                          className={cn(
+                            "h-8 text-xs font-semibold rounded-xl gap-1.5 transition-all",
+                            isDiscordLinked
+                              ? "border-[#5865F2]/40 text-indigo-300 bg-[#5865F2]/10 hover:bg-[#5865F2]/20"
+                              : "text-muted-foreground hover:text-indigo-400 hover:bg-[#5865F2]/10"
+                          )}
+                          title={isDiscordLinked ? `Vinculado a: ${tag.discord_role_name || "Discord"}` : "Configurar Cargo no Discord"}
+                        >
+                          <DiscordIconSvg className="h-3.5 w-3.5 text-[#5865F2]" />
+                          <span>{isDiscordLinked ? "Discord ✓" : "Discord"}</span>
                         </Button>
                       )}
                     </div>
@@ -1355,6 +1734,96 @@ export function CeoGerenciarTagsPage() {
                     }
                   />
                 </div>
+              </div>
+            </div>
+
+            {/* INTEGRAÇÃO COM DISCORD */}
+            <div className="p-3.5 rounded-2xl bg-[#5865F2]/10 border border-[#5865F2]/30 space-y-2.5">
+              <div className="flex items-center justify-between">
+                <Label className="text-xs font-bold text-indigo-200 flex items-center gap-1.5">
+                  <DiscordIconSvg className="h-4 w-4 text-[#5865F2]" />
+                  <span>Integração com Discord (Sincronização de Cargos)</span>
+                </Label>
+                {formDiscordRoleId ? (
+                  <Badge className="text-[10px] bg-[#5865F2] text-white font-bold gap-1">
+                    <CheckCircle className="h-3 w-3" />
+                    <span>Vinculado</span>
+                  </Badge>
+                ) : (
+                  <Badge variant="outline" className="text-[10px] border-[#5865F2]/40 text-indigo-300">
+                    Não Vinculado
+                  </Badge>
+                )}
+              </div>
+              <p className="text-[11px] text-indigo-200/70">
+                Vincule esta tag a um cargo do Discord para sincronizar automaticamente quando atribuir ou remover membros na plataforma.
+              </p>
+
+              {formDiscordRoleId ? (
+                <div className="flex items-center justify-between p-2.5 rounded-xl bg-background/60 border border-[#5865F2]/40">
+                  <div className="space-y-0.5 min-w-0 pr-2">
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-xs font-bold text-indigo-300 truncate">
+                        {formDiscordRoleName || "Cargo Discord"}
+                      </span>
+                      {formDiscordRolePosition !== null && (
+                        <Badge variant="outline" className="text-[9px] py-0 px-1 border-[#5865F2]/40 text-indigo-300 font-mono">
+                          Pos #{formDiscordRolePosition}
+                        </Badge>
+                      )}
+                    </div>
+                    <p className="text-[10px] font-mono text-muted-foreground truncate">
+                      ID: {formDiscordRoleId}
+                    </p>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      if (editingTag) {
+                        handleOpenDiscordModal(editingTag);
+                      } else {
+                        toast.info("Crie a tag primeiro para abrir o painel avançado de cargos do Discord.");
+                      }
+                    }}
+                    className="h-7 text-[11px] rounded-lg border-[#5865F2]/40 text-indigo-300 hover:bg-[#5865F2]/20"
+                  >
+                    Gerenciar
+                  </Button>
+                </div>
+              ) : (
+                <div className="flex items-center justify-between p-2.5 rounded-xl bg-background/40 border border-dashed border-[#5865F2]/40">
+                  <span className="text-[11px] text-muted-foreground">
+                    Nenhum cargo Discord associado a esta tag.
+                  </span>
+                  {editingTag && (
+                    <Button
+                      type="button"
+                      size="sm"
+                      onClick={() => handleOpenDiscordModal(editingTag)}
+                      className="h-7 text-[11px] rounded-lg gap-1.5 bg-[#5865F2] hover:bg-[#5865F2]/90 text-white font-bold"
+                    >
+                      <DiscordIconSvg className="h-3 w-3" />
+                      <span>Configurar Discord</span>
+                    </Button>
+                  )}
+                </div>
+              )}
+
+              <div className="flex items-center justify-between pt-1 border-t border-[#5865F2]/20">
+                <div className="space-y-0.5 pr-2">
+                  <span className="text-[11px] font-semibold text-foreground block">
+                    Sincronização Automática
+                  </span>
+                  <span className="text-[10px] text-muted-foreground">
+                    Ao atribuir/remover tag na plataforma, sincroniza cargo no Discord
+                  </span>
+                </div>
+                <Switch
+                  checked={formDiscordSyncEnabled}
+                  onCheckedChange={setFormDiscordSyncEnabled}
+                />
               </div>
             </div>
 
@@ -2672,6 +3141,645 @@ export function CeoGerenciarTagsPage() {
                 <span>{updatePermissionsAndRulesMutation.isPending ? "Salvando..." : "Salvar Alterações"}</span>
               </Button>
             </div>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* MODAL 4: INTEGRAÇÃO DISCORD DA TAG */}
+      <Dialog
+        open={Boolean(tagForDiscord)}
+        onOpenChange={(open) => !open && setTagForDiscord(null)}
+      >
+        <DialogContent className="sm:max-w-3xl surface-card border-border/80 shadow-2xl max-h-[90vh] flex flex-col p-0 overflow-hidden">
+          {/* HEADER DO MODAL */}
+          <DialogHeader className="p-4 sm:p-5 pb-3 border-b border-border/60 bg-secondary/15 flex flex-col gap-2">
+            <div className="flex items-center justify-between gap-2 flex-wrap">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 rounded-xl bg-[#5865F2]/20 border border-[#5865F2]/40 text-[#5865F2]">
+                  <DiscordIconSvg className="h-5 w-5" />
+                </div>
+                <div>
+                  <DialogTitle className="text-base font-bold flex items-center gap-2">
+                    <span>Integração Discord da Tag</span>
+                    {tagForDiscord && <MemberTagBadge tag={tagForDiscord} size="sm" showIcon />}
+                  </DialogTitle>
+                  <DialogDescription className="text-xs text-muted-foreground mt-0.5">
+                    Vincule cargos do Discord, crie novos cargos automaticamente e gerencie a hierarquia do servidor.
+                  </DialogDescription>
+                </div>
+              </div>
+
+              {/* SELETOR DE SERVIDOR DO BOT */}
+              <div className="flex items-center gap-2 w-full sm:w-auto justify-between sm:justify-end mt-2 sm:mt-0">
+                <div className="flex items-center gap-1.5 bg-background/80 border border-border/60 px-2.5 py-1 rounded-xl">
+                  <span className="text-[11px] font-semibold text-muted-foreground">Servidor:</span>
+                  <select
+                    value={selectedGuildId}
+                    onChange={(e) => {
+                      const gId = e.target.value;
+                      setSelectedGuildId(gId);
+                      void loadGuildRoles(gId);
+                    }}
+                    className="bg-transparent text-xs font-bold text-foreground focus:outline-none cursor-pointer"
+                  >
+                    {discordGuilds.map((g) => (
+                      <option key={g.id} value={g.id} className="bg-popover text-popover-foreground">
+                        {g.name} ({g.memberCount || "?"} membros)
+                      </option>
+                    ))}
+                    {!discordGuilds.some((g) => g.id === "1535505650308620400") && (
+                      <option value="1535505650308620400" className="bg-popover text-popover-foreground">
+                        Twin Wheel (Principal)
+                      </option>
+                    )}
+                  </select>
+                </div>
+
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  onClick={() => void loadGuildRoles(selectedGuildId)}
+                  disabled={loadingGuildRoles}
+                  className="h-8 w-8 rounded-xl"
+                  title="Recarregar cargos do Discord"
+                >
+                  <RefreshCcw className={cn("h-3.5 w-3.5", loadingGuildRoles && "animate-spin text-primary")} />
+                </Button>
+              </div>
+            </div>
+          </DialogHeader>
+
+          {/* CORPO DO MODAL COM TABS */}
+          <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-4 text-xs">
+            <Tabs
+              value={discordModalTab}
+              onValueChange={(val: any) => setDiscordModalTab(val)}
+              className="space-y-4"
+            >
+              <TabsList className="grid grid-cols-2 sm:grid-cols-4 w-full h-auto p-1 bg-secondary/30 rounded-xl gap-1">
+                <TabsTrigger
+                  value="link"
+                  className="text-xs py-1.5 rounded-lg data-[state=active]:bg-[#5865F2] data-[state=active]:text-white font-semibold flex items-center gap-1.5"
+                >
+                  <Link2 className="h-3.5 w-3.5" />
+                  <span>Vincular Cargo</span>
+                  {guildRoles.length > 0 && (
+                    <Badge variant="outline" className="text-[9px] py-0 px-1 ml-1 bg-black/20 border-white/20 text-inherit">
+                      {guildRoles.length}
+                    </Badge>
+                  )}
+                </TabsTrigger>
+                <TabsTrigger
+                  value="create"
+                  className="text-xs py-1.5 rounded-lg data-[state=active]:bg-[#5865F2] data-[state=active]:text-white font-semibold flex items-center gap-1.5"
+                >
+                  <Sparkles className="h-3.5 w-3.5" />
+                  <span>Criar Novo Cargo</span>
+                </TabsTrigger>
+                <TabsTrigger
+                  value="hierarchy"
+                  className="text-xs py-1.5 rounded-lg data-[state=active]:bg-[#5865F2] data-[state=active]:text-white font-semibold flex items-center gap-1.5"
+                >
+                  <ArrowUpDown className="h-3.5 w-3.5" />
+                  <span>Hierarquia Servidor</span>
+                </TabsTrigger>
+                <TabsTrigger
+                  value="sync"
+                  className="text-xs py-1.5 rounded-lg data-[state=active]:bg-[#5865F2] data-[state=active]:text-white font-semibold flex items-center gap-1.5"
+                >
+                  <RefreshCw className="h-3.5 w-3.5" />
+                  <span>Sincronização</span>
+                </TabsTrigger>
+              </TabsList>
+
+              {/* ABA 1: VINCULAR CARGO EXISTENTE */}
+              <TabsContent value="link" className="space-y-4 m-0">
+                {/* STATUS DE VÍNCULO ATUAL */}
+                {tagForDiscord?.discord_role_id ? (
+                  <div className="p-3.5 rounded-2xl bg-[#5865F2]/10 border border-[#5865F2]/40 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-xs font-bold text-indigo-200">Cargo Vinculado Atualmente:</span>
+                        <Badge
+                          className="text-xs font-bold px-2 py-0.5"
+                          style={{
+                            backgroundColor: tagForDiscord.color || "#5865F2",
+                            color: "#fff",
+                          }}
+                        >
+                          @{tagForDiscord.discord_role_name || tagForDiscord.discord_role_id}
+                        </Badge>
+                        {tagForDiscord.discord_role_position !== null && (
+                          <Badge variant="outline" className="text-[10px] border-[#5865F2]/40 text-indigo-300 font-mono">
+                            Posição #{tagForDiscord.discord_role_position}
+                          </Badge>
+                        )}
+                      </div>
+                      <p className="text-[11px] font-mono text-muted-foreground">
+                        Role ID: {tagForDiscord.discord_role_id} • Guild ID: {tagForDiscord.discord_guild_id || selectedGuildId}
+                      </p>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={handleUnlinkDiscordRole}
+                        disabled={!canDiscordLink}
+                        className="text-xs rounded-xl h-8 border-rose-500/40 text-rose-400 hover:bg-rose-500/10 gap-1.5"
+                      >
+                        <Unlink className="h-3.5 w-3.5" />
+                        <span>Desvincular</span>
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="p-3.5 rounded-2xl bg-secondary/30 border border-dashed border-border/70 flex items-center justify-between gap-3">
+                    <div className="space-y-0.5">
+                      <p className="text-xs font-bold text-foreground">Nenhum cargo Discord vinculado</p>
+                      <p className="text-[11px] text-muted-foreground">
+                        Selecione um cargo da lista abaixo para vincular ou crie um novo cargo na aba "Criar Novo Cargo".
+                      </p>
+                    </div>
+                    <Button
+                      type="button"
+                      size="sm"
+                      onClick={() => setDiscordModalTab("create")}
+                      className="text-xs rounded-xl h-8 bg-[#5865F2] text-white hover:bg-[#5865F2]/90 font-bold shrink-0 gap-1.5"
+                    >
+                      <Sparkles className="h-3.5 w-3.5" />
+                      <span>Criar Novo</span>
+                    </Button>
+                  </div>
+                )}
+
+                {/* BUSCA DE CARGOS DO SERVIDOR */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <Label className="text-xs font-semibold">Cargos Disponíveis no Servidor ({guildRoles.length})</Label>
+                    <div className="relative w-48 sm:w-64">
+                      <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                      <Input
+                        value={roleSearch}
+                        onChange={(e) => setRoleSearch(e.target.value)}
+                        placeholder="Filtrar cargos..."
+                        className="pl-8 h-7 text-xs rounded-lg bg-background/50 border-border/60"
+                      />
+                    </div>
+                  </div>
+
+                  {loadingGuildRoles ? (
+                    <div className="p-8 text-center text-muted-foreground space-y-2">
+                      <Loader2 className="h-6 w-6 animate-spin mx-auto text-[#5865F2]" />
+                      <p>Carregando cargos do Discord...</p>
+                    </div>
+                  ) : guildRoles.length === 0 ? (
+                    <div className="p-6 text-center text-muted-foreground border border-dashed rounded-xl bg-background/30">
+                      Nenhum cargo encontrado no servidor selecionado.
+                    </div>
+                  ) : (
+                    <div className="max-h-72 overflow-y-auto space-y-1.5 border rounded-xl p-2 bg-background/40 border-border/60">
+                      {guildRoles
+                        .filter((r) => !roleSearch || r.name.toLowerCase().includes(roleSearch.toLowerCase()) || r.id.includes(roleSearch))
+                        .map((role) => {
+                          const isCurrent = tagForDiscord?.discord_role_id === role.id;
+                          return (
+                            <div
+                              key={role.id}
+                              className={cn(
+                                "flex items-center justify-between p-2.5 rounded-xl border transition-all",
+                                isCurrent
+                                  ? "bg-[#5865F2]/15 border-[#5865F2]/60 shadow-sm"
+                                  : "bg-background/60 border-border/40 hover:bg-secondary/40"
+                              )}
+                            >
+                              <div className="flex items-center gap-2.5 min-w-0 pr-2">
+                                <span
+                                  className="h-3.5 w-3.5 rounded-full shrink-0 border border-white/20"
+                                  style={{ backgroundColor: role.colorHex || "#99aab5" }}
+                                />
+                                <div className="min-w-0">
+                                  <div className="flex items-center gap-1.5 flex-wrap">
+                                    <span className="font-bold text-foreground text-xs truncate">
+                                      {role.name}
+                                    </span>
+                                    <Badge variant="outline" className="text-[9px] py-0 px-1 font-mono border-border/60 text-muted-foreground">
+                                      Pos #{role.position}
+                                    </Badge>
+                                    {role.hoist && (
+                                      <Badge variant="outline" className="text-[9px] py-0 px-1 border-indigo-500/30 text-indigo-300">
+                                        Destacado
+                                      </Badge>
+                                    )}
+                                    {role.managed && (
+                                      <Badge variant="outline" className="text-[9px] py-0 px-1 border-amber-500/30 text-amber-300">
+                                        Bot/Integrado
+                                      </Badge>
+                                    )}
+                                  </div>
+                                  <p className="text-[10px] font-mono text-muted-foreground truncate">
+                                    ID: {role.id}
+                                  </p>
+                                </div>
+                              </div>
+
+                              <div>
+                                {isCurrent ? (
+                                  <Badge className="bg-[#5865F2] text-white text-[10px] font-bold gap-1 py-1 px-2.5">
+                                    <Check className="h-3 w-3" />
+                                    <span>Vinculado</span>
+                                  </Badge>
+                                ) : (
+                                  <Button
+                                    type="button"
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => void handleLinkExistingRole(role)}
+                                    disabled={!canDiscordLink}
+                                    className="h-7 text-xs rounded-lg border-indigo-500/40 text-indigo-300 hover:bg-[#5865F2] hover:text-white"
+                                  >
+                                    Vincular
+                                  </Button>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
+                    </div>
+                  )}
+                </div>
+              </TabsContent>
+
+              {/* ABA 2: CRIAR NOVO CARGO AUTOMATICAMENTE */}
+              <TabsContent value="create" className="space-y-4 m-0">
+                <div className="p-3.5 rounded-2xl bg-[#5865F2]/10 border border-[#5865F2]/30 space-y-1.5">
+                  <p className="text-xs font-bold text-indigo-200 flex items-center gap-1.5">
+                    <Sparkles className="h-4 w-4 text-[#5865F2]" />
+                    <span>Criação Instantânea no Discord</span>
+                  </p>
+                  <p className="text-[11px] text-indigo-200/70 leading-relaxed">
+                    O sistema criará um novo cargo oficial diretamente no seu servidor Discord com as configurações abaixo e vinculará a tag instantaneamente.
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-semibold">Nome do Cargo no Discord</Label>
+                    <Input
+                      value={createRoleName}
+                      onChange={(e) => setCreateRoleName(e.target.value)}
+                      placeholder="Ex: Tático • Operações"
+                      className="h-9 text-xs rounded-xl bg-background/60"
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-semibold">Cor do Cargo</Label>
+                    <div className="flex items-center gap-2">
+                      <Input
+                        type="color"
+                        value={createRoleColor}
+                        onChange={(e) => setCreateRoleColor(e.target.value)}
+                        className="h-9 w-12 p-0.5 rounded-xl cursor-pointer bg-background/60"
+                      />
+                      <Input
+                        value={createRoleColor}
+                        onChange={(e) => setCreateRoleColor(e.target.value)}
+                        className="h-9 text-xs font-mono rounded-xl uppercase"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                  <div className="flex items-center justify-between p-3 rounded-xl bg-background/60 border border-border/60">
+                    <div className="space-y-0.5 pr-2">
+                      <span className="text-xs font-semibold text-foreground block">Exibir Separadamente (Hoist)</span>
+                      <span className="text-[10px] text-muted-foreground">Destaca integrantes com este cargo na lista online</span>
+                    </div>
+                    <Switch
+                      checked={createRoleHoist}
+                      onCheckedChange={setCreateRoleHoist}
+                    />
+                  </div>
+
+                  <div className="flex items-center justify-between p-3 rounded-xl bg-background/60 border border-border/60">
+                    <div className="space-y-0.5 pr-2">
+                      <span className="text-xs font-semibold text-foreground block">Permitir Menções (@mention)</span>
+                      <span className="text-[10px] text-muted-foreground">Permite que membros mencionem este cargo</span>
+                    </div>
+                    <Switch
+                      checked={createRoleMentionable}
+                      onCheckedChange={setCreateRoleMentionable}
+                    />
+                  </div>
+                </div>
+
+                {/* POSIÇÃO HIERÁRQUICA DO NOVO CARGO */}
+                <div className="p-3.5 rounded-2xl bg-secondary/30 border border-border/70 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-xs font-bold flex items-center gap-1.5">
+                      <ArrowUpDown className="h-4 w-4 text-primary" />
+                      <span>Posição Hierárquica no Discord</span>
+                    </Label>
+                    <Badge variant="outline" className="text-[10px] border-primary/40 text-primary">
+                      Ordem de Precedência
+                    </Badge>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground">
+                    Escolha onde o novo cargo ficará posicionado em relação aos cargos existentes no servidor selecionado.
+                  </p>
+
+                  <div className="grid grid-cols-3 gap-2">
+                    <Button
+                      type="button"
+                      variant={targetInsertMode === "below" ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => setTargetInsertMode("below")}
+                      className="h-8 text-xs rounded-xl"
+                    >
+                      Abaixo de Outro
+                    </Button>
+                    <Button
+                      type="button"
+                      variant={targetInsertMode === "above" ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => setTargetInsertMode("above")}
+                      className="h-8 text-xs rounded-xl"
+                    >
+                      Acima de Outro
+                    </Button>
+                    <Button
+                      type="button"
+                      variant={targetInsertMode === "exact" ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => setTargetInsertMode("exact")}
+                      className="h-8 text-xs rounded-xl"
+                    >
+                      Posição Exata (#)
+                    </Button>
+                  </div>
+
+                  {targetInsertMode !== "exact" ? (
+                    <div className="space-y-1.5 pt-1">
+                      <Label className="text-xs text-muted-foreground">
+                        {targetInsertMode === "below" ? "Posicionar Imediatamente Abaixo do Cargo:" : "Posicionar Imediatamente Acima do Cargo:"}
+                      </Label>
+                      <select
+                        value={targetRelativeRoleId}
+                        onChange={(e) => setTargetRelativeRoleId(e.target.value)}
+                        className="w-full h-9 text-xs rounded-xl bg-background/80 border border-border/70 px-3 font-semibold focus:outline-none"
+                      >
+                        <option value="">Selecione um cargo de referência...</option>
+                        {guildRoles.map((r) => (
+                          <option key={r.id} value={r.id}>
+                            #{r.position} — {r.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  ) : (
+                    <div className="space-y-1.5 pt-1">
+                      <Label className="text-xs text-muted-foreground">Número da Posição Hierárquica (1 = logo acima de @everyone)</Label>
+                      <Input
+                        type="number"
+                        min={1}
+                        max={guildRoles.length + 5}
+                        value={createRolePosition}
+                        onChange={(e) => setCreateRolePosition(parseInt(e.target.value, 10) || 1)}
+                        className="h-9 text-xs rounded-xl bg-background/80"
+                      />
+                    </div>
+                  )}
+                </div>
+
+                <Button
+                  type="button"
+                  onClick={handleCreateAndLinkDiscordRole}
+                  disabled={isCreatingRole || !canDiscordCreateRole || !createRoleName.trim()}
+                  className="w-full h-10 text-xs rounded-xl bg-[#5865F2] hover:bg-[#5865F2]/90 text-white font-bold gap-2 shadow-lg shadow-[#5865F2]/20"
+                >
+                  {isCreatingRole ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      <span>Criando cargo no Discord...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="h-4 w-4" />
+                      <span>Criar Cargo no Discord e Vincular à Tag</span>
+                    </>
+                  )}
+                </Button>
+              </TabsContent>
+
+              {/* ABA 3: HIERARQUIA COMPLETA DO SERVIDOR */}
+              <TabsContent value="hierarchy" className="space-y-3 m-0">
+                <div className="p-3 rounded-xl bg-secondary/30 border border-border/60 flex items-center justify-between gap-2">
+                  <div className="space-y-0.5">
+                    <p className="text-xs font-bold text-foreground">Estrutura Hierárquica de Cargos</p>
+                    <p className="text-[11px] text-muted-foreground">
+                      Cargos com maior posição numérica têm precedência e exibição superior no Discord.
+                    </p>
+                  </div>
+                  <Badge variant="outline" className="text-[10px] font-mono">
+                    {guildRoles.length} Cargos
+                  </Badge>
+                </div>
+
+                {loadingGuildRoles ? (
+                  <div className="p-8 text-center text-muted-foreground space-y-2">
+                    <Loader2 className="h-6 w-6 animate-spin mx-auto text-[#5865F2]" />
+                    <p>Carregando hierarquia...</p>
+                  </div>
+                ) : (
+                  <div className="max-h-80 overflow-y-auto space-y-1.5 border rounded-xl p-2 bg-background/40 border-border/60">
+                    {guildRoles.map((role) => {
+                      const isLinkedToCurrentTag = tagForDiscord?.discord_role_id === role.id;
+                      return (
+                        <div
+                          key={role.id}
+                          className={cn(
+                            "flex items-center justify-between p-2.5 rounded-xl border transition-all",
+                            isLinkedToCurrentTag
+                              ? "bg-[#5865F2]/20 border-[#5865F2] ring-1 ring-[#5865F2] shadow-sm"
+                              : "bg-background/60 border-border/40"
+                          )}
+                        >
+                          <div className="flex items-center gap-2.5 min-w-0 pr-2">
+                            <Badge variant="outline" className="text-[10px] font-mono px-1.5 py-0.5 shrink-0 bg-background/80">
+                              #{role.position}
+                            </Badge>
+                            <span
+                              className="h-3.5 w-3.5 rounded-full shrink-0 border border-white/20"
+                              style={{ backgroundColor: role.colorHex || "#99aab5" }}
+                            />
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <span className={cn("text-xs font-bold truncate", isLinkedToCurrentTag && "text-indigo-200")}>
+                                  {role.name}
+                                </span>
+                                {isLinkedToCurrentTag && (
+                                  <Badge className="bg-[#5865F2] text-white text-[9px] py-0 px-1.5 font-bold">
+                                    Tag Atual
+                                  </Badge>
+                                )}
+                              </div>
+                              <p className="text-[10px] font-mono text-muted-foreground truncate">
+                                ID: {role.id}
+                              </p>
+                            </div>
+                          </div>
+
+                          {isLinkedToCurrentTag && canDiscordEditPosition && (
+                            <div className="flex items-center gap-1 shrink-0">
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="icon"
+                                onClick={() => void handleUpdatePosition(role.id, role.position + 1)}
+                                disabled={isUpdatingPosition}
+                                className="h-7 w-7 rounded-lg"
+                                title="Subir Posição no Discord"
+                              >
+                                <ArrowUp className="h-3.5 w-3.5" />
+                              </Button>
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="icon"
+                                onClick={() => void handleUpdatePosition(role.id, Math.max(1, role.position - 1))}
+                                disabled={isUpdatingPosition || role.position <= 1}
+                                className="h-7 w-7 rounded-lg"
+                                title="Descer Posição no Discord"
+                              >
+                                <ArrowDown className="h-3.5 w-3.5" />
+                              </Button>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </TabsContent>
+
+              {/* ABA 4: SINCRONIZAÇÃO DE MEMBROS */}
+              <TabsContent value="sync" className="space-y-4 m-0">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div className="p-3.5 rounded-xl bg-background/60 border border-border/60 space-y-1">
+                    <span className="text-[11px] text-muted-foreground">Membros com esta Tag</span>
+                    <p className="text-xl font-bold text-foreground">
+                      {assignments.filter((a) => a.tag_id === tagForDiscord?.id).length}
+                    </p>
+                  </div>
+                  <div className="p-3.5 rounded-xl bg-background/60 border border-border/60 space-y-1">
+                    <span className="text-[11px] text-muted-foreground">Contas Discord Vinculadas</span>
+                    <p className="text-xl font-bold text-emerald-400">
+                      {
+                        members.filter(
+                          (m) =>
+                            assignments.some((a) => a.tag_id === tagForDiscord?.id && (a.member_id === m.id || a.member_id === m.user_id)) &&
+                            m.discord_id &&
+                            m.discord_id.trim().length > 5
+                        ).length
+                      }
+                    </p>
+                  </div>
+                  <div className="p-3.5 rounded-xl bg-background/60 border border-border/60 space-y-1">
+                    <span className="text-[11px] text-muted-foreground">Cargo no Discord</span>
+                    <p className="text-sm font-bold text-indigo-300 truncate">
+                      {tagForDiscord?.discord_role_name || "Nenhum cargo"}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="p-3.5 rounded-2xl bg-secondary/30 border border-border/60 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="space-y-0.5">
+                      <p className="text-xs font-bold text-foreground">Sincronização em Lote de Membros</p>
+                      <p className="text-[11px] text-muted-foreground">
+                        Atribui automaticamente o cargo do Discord a todos os integrantes que já possuem esta tag no sistema.
+                      </p>
+                    </div>
+                  </div>
+
+                  <Button
+                    type="button"
+                    onClick={handleSyncMembersNow}
+                    disabled={isSyncingAll || !canDiscordSync || !tagForDiscord?.discord_role_id}
+                    className="w-full h-9 text-xs rounded-xl font-bold bg-[#5865F2] hover:bg-[#5865F2]/90 text-white gap-2 shadow-sm"
+                  >
+                    {isSyncingAll ? (
+                      <>
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        <span>Sincronizando com o Discord...</span>
+                      </>
+                    ) : (
+                      <>
+                        <RefreshCw className="h-3.5 w-3.5" />
+                        <span>Sincronizar Todos os Membros Desta Tag Agora</span>
+                      </>
+                    )}
+                  </Button>
+                </div>
+
+                {/* RELATÓRIO DE SINCRONIZAÇÃO */}
+                {syncReport && (
+                  <div className="p-3.5 rounded-2xl bg-background/80 border border-border/70 space-y-2.5">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold flex items-center gap-1.5 text-foreground">
+                        <CheckCircle2 className="h-4 w-4 text-emerald-400" />
+                        <span>Resultado da Última Sincronização</span>
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-3 gap-2 text-center text-xs">
+                      <div className="p-2 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-300">
+                        <span className="font-bold text-sm block">{syncReport.synced}</span>
+                        <span className="text-[10px]">Sincronizados</span>
+                      </div>
+                      <div className="p-2 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-300">
+                        <span className="font-bold text-sm block">{syncReport.skippedNoDiscordId}</span>
+                        <span className="text-[10px]">Sem Discord ID</span>
+                      </div>
+                      <div className="p-2 rounded-lg bg-rose-500/10 border border-rose-500/30 text-rose-300">
+                        <span className="font-bold text-sm block">{syncReport.failed}</span>
+                        <span className="text-[10px]">Falhas</span>
+                      </div>
+                    </div>
+
+                    {syncReport.errors.length > 0 && (
+                      <div className="p-2 rounded-lg bg-rose-950/20 border border-rose-500/30 text-[11px] text-rose-300 space-y-1">
+                        <p className="font-bold">Avisos da API:</p>
+                        {syncReport.errors.slice(0, 3).map((err, idx) => (
+                          <p key={idx} className="font-mono text-[10px] truncate">• {err}</p>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </TabsContent>
+            </Tabs>
+          </div>
+
+          {/* RODAPÉ DO MODAL */}
+          <DialogFooter className="p-3 sm:p-4 border-t border-border/60 bg-secondary/15 flex items-center justify-between">
+            <span className="text-[11px] text-muted-foreground flex items-center gap-1.5">
+              <DiscordIconSvg className="h-3.5 w-3.5 text-[#5865F2]" />
+              <span>Twin Wheels Discord Bot Sync</span>
+            </span>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setTagForDiscord(null)}
+              className="text-xs rounded-xl"
+            >
+              Fechar
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

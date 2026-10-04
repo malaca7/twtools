@@ -3442,6 +3442,53 @@ setInterval(async () => {
 
 
 
+// 7. Sincronização em tempo real de Tags com Cargos do Discord
+const tagSyncChannel = supabase.channel("system-discord-tag-sync");
+tagSyncChannel
+  .on("broadcast", { event: "sync_member_tag_role" }, async (payload) => {
+    try {
+      const data = payload?.payload;
+      if (!data || !data.discordId || !data.guildId || !data.roleId) return;
+
+      const guild =
+        client.guilds.cache.get(data.guildId) ||
+        (await client.guilds.fetch(data.guildId).catch(() => null));
+      if (!guild) {
+        console.warn(`⚠️ [TAG DISCORD SYNC] Servidor não encontrado: ${data.guildId}`);
+        return;
+      }
+
+      const member = await guild.members.fetch(data.discordId).catch(() => null);
+      if (!member) {
+        console.warn(`⚠️ [TAG DISCORD SYNC] Membro não encontrado no Discord: ${data.discordId}`);
+        return;
+      }
+
+      const role =
+        guild.roles.cache.get(data.roleId) ||
+        (await guild.roles.fetch(data.roleId).catch(() => null));
+      if (!role) {
+        console.warn(`⚠️ [TAG DISCORD SYNC] Cargo não encontrado no servidor: ${data.roleId}`);
+        return;
+      }
+
+      if (data.action === "add") {
+        if (!member.roles.cache.has(data.roleId)) {
+          await member.roles.add(role, `Twin Wheels: Tag ${data.tagName || data.tagId} atribuída`);
+          console.log(`✅ [TAG DISCORD SYNC] Cargo ${role.name} adicionado ao membro ${member.user.tag}`);
+        }
+      } else if (data.action === "remove") {
+        if (member.roles.cache.has(data.roleId)) {
+          await member.roles.remove(role, `Twin Wheels: Tag ${data.tagName || data.tagId} removida`);
+          console.log(`🗑️ [TAG DISCORD SYNC] Cargo ${role.name} removido do membro ${member.user.tag}`);
+        }
+      }
+    } catch (syncErr) {
+      console.warn("⚠️ [TAG DISCORD SYNC] Erro ao sincronizar cargo no Discord:", syncErr.message);
+    }
+  })
+  .subscribe();
+
 // Inicializa motor de estoque Discord com sincronização em tempo real
 initStockEngine(client, supabase);
 

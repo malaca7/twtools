@@ -193,6 +193,17 @@ export type Permission =
   | "assign_ceo_tag"
   | "view_dev_tags"
   | "manage_dev_tags"
+  // Permissões de Integração de Tags com o Discord
+  | "tags.discord_config"
+  | "tags.discord_create_role"
+  | "tags.discord_edit_position"
+  | "tags.discord_link"
+  | "tags.discord_sync_members"
+  | "tags_discord_config"
+  | "tags_discord_create_role"
+  | "tags_discord_edit_position"
+  | "tags_discord_link"
+  | "tags_discord_sync_members"
   // Permissões da Central de Notificações Dev
   | "view_dev_notifications"
   | "manage_dev_notification_rules"
@@ -2472,6 +2483,29 @@ export function can(
   }
 
   if (permission === "view_dev_tags" && rolePerms.includes("manage_dev_tags")) return true;
+
+  if (
+    permission === "tags.discord_config" ||
+    permission === "tags.discord_create_role" ||
+    permission === "tags.discord_edit_position" ||
+    permission === "tags.discord_link" ||
+    permission === "tags.discord_sync_members" ||
+    permission === "tags_discord_config" ||
+    permission === "tags_discord_create_role" ||
+    permission === "tags_discord_edit_position" ||
+    permission === "tags_discord_link" ||
+    permission === "tags_discord_sync_members"
+  ) {
+    if (
+      rolePerms.includes("manage_ceo_tag_permissions") ||
+      rolePerms.includes("manage_dev_tags") ||
+      rolePerms.includes("manage_ceo_bot") ||
+      rolePerms.includes("manage_dev_bot") ||
+      rolePerms.includes(permission)
+    ) {
+      return true;
+    }
+  }
 
   return false;
 }

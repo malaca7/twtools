@@ -2219,4 +2219,47 @@ export const PAGE_CARDS: PageCardConfig[] = [
       },
     ],
   },
+  {
+    id: "tags-discord",
+    title: "Tags & Integração Discord",
+    route: "/ceo/tags",
+    icon: Tags,
+    description: "Controle de integração entre Tags da plataforma e Cargos do Discord: criação automática de cargos, hierarquia e sincronização em tempo real.",
+    color: "border-indigo-500/40 bg-indigo-500/5 text-indigo-400",
+    defaultCat: "CEO",
+    defaultOrder: 15,
+    permissions: [
+      {
+        key: "tags.discord_config",
+        label: "Configurar Integração Discord",
+        description: "Permite acessar a aba e configurações de integração Discord na gestão de tags.",
+        badge: "Integração",
+      },
+      {
+        key: "tags.discord_create_role",
+        label: "Criar Cargos Automaticamente no Discord",
+        description: "Permite disparar a criação automática de um novo cargo no servidor Discord a partir de uma tag.",
+        badge: "Discord API",
+      },
+      {
+        key: "tags.discord_edit_position",
+        label: "Definir Posição Hierárquica no Discord",
+        description: "Permite escolher e alterar a posição hierárquica do cargo vinculado na lista de cargos do servidor Discord.",
+        badge: "Hierarquia",
+      },
+      {
+        key: "tags.discord_link",
+        label: "Vincular e Desvincular Cargos Discord",
+        description: "Permite selecionar cargos existentes no Discord para associar ou desvincular de tags de membros.",
+        badge: "Vínculo",
+      },
+      {
+        key: "tags.discord_sync_members",
+        label: "Sincronizar Membros no Discord",
+        description: "Permite sincronizar em lote ou automaticamente cargos no Discord ao atribuir ou remover tags de membros.",
+        badge: "Sincronização",
+      },
+    ],
+  },
 ];
+
