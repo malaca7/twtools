@@ -47,6 +47,9 @@ import {
   Eye,
   SlidersHorizontal,
   HelpCircle,
+  Swords,
+  Crosshair,
+  Target,
   type LucideIcon,
 } from "lucide-react";
 import { CeoGuard } from "@/guards/CeoGuard";
@@ -903,6 +906,12 @@ export function CeoGerenciarTagsPage() {
             const canRaw = Boolean(tag.rules?.can_manage_raw_materials);
             const canWarehouse = Boolean(tag.rules?.can_transfer_warehouse);
             const isCeoAccess = Boolean(tag.rules?.can_access_ceo || tag.id === "ceo");
+            const canEscalas = Boolean(
+              tag.rules?.can_manage_escalas ||
+              tag.rules?.can_view_escalas ||
+              tag.rules?.can_participate_escalas ||
+              (Array.isArray(tag.permissions) && tag.permissions.some((p) => typeof p === "string" && p.startsWith("escalas.")))
+            );
 
             return (
               <Card
@@ -969,6 +978,12 @@ export function CeoGerenciarTagsPage() {
                               <span>Bloqueio Login</span>
                             </Badge>
                           )}
+                          {tag.rules?.block_escalas && (
+                            <Badge className="text-[10px] py-0 px-2 font-medium bg-rose-500/15 text-rose-400 border border-rose-500/30 gap-1">
+                              <ShieldAlert className="h-3 w-3" />
+                              <span>Bloqueio Escalas</span>
+                            </Badge>
+                          )}
                           {tag.rules?.block_sales && (
                             <Badge className="text-[10px] py-0 px-2 font-medium bg-rose-500/15 text-rose-400 border border-rose-500/30 gap-1">
                               <ShieldAlert className="h-3 w-3" />
@@ -994,6 +1009,12 @@ export function CeoGerenciarTagsPage() {
                             </Badge>
                           )}
                         </>
+                      )}
+                      {canEscalas && !tag.rules?.block_escalas && !isBlocked && (
+                        <Badge className="text-[10px] py-0 px-2 font-medium bg-rose-500/15 text-rose-400 border border-rose-500/30 gap-1">
+                          <Swords className="h-3 w-3" />
+                          <span>Escalas</span>
+                        </Badge>
                       )}
                       {canSell && !tag.rules?.block_sales && !isBlocked && (
                         <Badge className="text-[10px] py-0 px-2 font-medium bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 gap-1">
@@ -1916,6 +1937,7 @@ export function CeoGerenciarTagsPage() {
                               is_blocked: true,
                               block_operations: true,
                               block_login: true,
+                              block_escalas: true,
                               block_sales: true,
                               block_movements: true,
                               block_productions: true,
@@ -1936,6 +1958,7 @@ export function CeoGerenciarTagsPage() {
                               is_blocked: false,
                               block_operations: false,
                               block_login: false,
+                              block_escalas: false,
                               block_sales: false,
                               block_movements: false,
                               block_productions: false,
@@ -1987,6 +2010,25 @@ export function CeoGerenciarTagsPage() {
                           checked={Boolean(activeRules.block_login)}
                           onCheckedChange={(val) =>
                             handleUpdateRuleValue({ ...activeRules, block_login: val })
+                          }
+                        />
+                      </div>
+
+                      {/* BLOQUEAR ESCALAS DE AÇÃO */}
+                      <div className="flex items-center justify-between p-3.5 rounded-2xl bg-secondary/20 border border-border/60">
+                        <div className="space-y-0.5 pr-2">
+                          <Label className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                            <Swords className="h-3.5 w-3.5 text-rose-400" />
+                            <span>Bloquear Escala de Ação</span>
+                          </Label>
+                          <p className="text-[11px] text-muted-foreground">
+                            Impede acesso, visualização, convocação e confirmação em escalas de ação da facção.
+                          </p>
+                        </div>
+                        <Switch
+                          checked={Boolean(activeRules.block_escalas)}
+                          onCheckedChange={(val) =>
+                            handleUpdateRuleValue({ ...activeRules, block_escalas: val })
                           }
                         />
                       </div>
@@ -2442,12 +2484,81 @@ export function CeoGerenciarTagsPage() {
                   </div>
                 </div>
 
-                {/* SEÇÃO 6: RECURSOS EXPERIMENTAIS & OTIMIZAÇÕES */}
+                {/* SEÇÃO 6: ESCALA DE AÇÃO & OPERAÇÕES TÁTICAS */}
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2 pb-1.5 border-b border-border/50">
+                    <Swords className="h-4 w-4 text-rose-400" />
+                    <h3 className="text-xs uppercase tracking-wider font-bold text-rose-400">
+                      6. Escala de Ação & Operações Táticas
+                    </h3>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {/* GESTÃO DE ESCALAS */}
+                    <div className="flex items-center justify-between p-3.5 rounded-2xl bg-secondary/20 border border-border/60">
+                      <div className="space-y-0.5 pr-2">
+                        <Label className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                          <Crown className="h-3.5 w-3.5 text-amber-400" />
+                          <span>Habilitar Gestão de Escalas</span>
+                        </Label>
+                        <p className="text-[11px] text-muted-foreground">
+                          Permite criar novas ações, convocar integrantes, aprovar/reprovar participantes e realizar substituições.
+                        </p>
+                      </div>
+                      <Switch
+                        checked={Boolean(activeRules.can_manage_escalas)}
+                        onCheckedChange={(val) =>
+                          handleUpdateRuleValue({ ...activeRules, can_manage_escalas: val })
+                        }
+                      />
+                    </div>
+
+                    {/* VISUALIZAR ESCALAS */}
+                    <div className="flex items-center justify-between p-3.5 rounded-2xl bg-secondary/20 border border-border/60">
+                      <div className="space-y-0.5 pr-2">
+                        <Label className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                          <Eye className="h-3.5 w-3.5 text-rose-400" />
+                          <span>Visualizar Central de Escalas</span>
+                        </Label>
+                        <p className="text-[11px] text-muted-foreground">
+                          Permite acessar a página de Escalas de Ação e consultar horários, locais e convocados.
+                        </p>
+                      </div>
+                      <Switch
+                        checked={Boolean(activeRules.can_view_escalas)}
+                        onCheckedChange={(val) =>
+                          handleUpdateRuleValue({ ...activeRules, can_view_escalas: val })
+                        }
+                      />
+                    </div>
+
+                    {/* CONFIRMAR PRESENÇA & PARTICIPAR */}
+                    <div className="flex items-center justify-between p-3.5 rounded-2xl bg-secondary/20 border border-border/60 md:col-span-2">
+                      <div className="space-y-0.5 pr-2">
+                        <Label className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                          <UserCheck className="h-3.5 w-3.5 text-emerald-400" />
+                          <span>Confirmar Presença & Reivindicar Vaga</span>
+                        </Label>
+                        <p className="text-[11px] text-muted-foreground">
+                          Permite ao membro reagir como 'Vou', confirmar presença e garantir vagas titulares e reservas nas ações convocadas.
+                        </p>
+                      </div>
+                      <Switch
+                        checked={Boolean(activeRules.can_participate_escalas)}
+                        onCheckedChange={(val) =>
+                          handleUpdateRuleValue({ ...activeRules, can_participate_escalas: val })
+                        }
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* SEÇÃO 7: RECURSOS EXPERIMENTAIS & OTIMIZAÇÕES */}
                 <div className="space-y-3">
                   <div className="flex items-center gap-2 pb-1.5 border-b border-border/50">
                     <Sparkles className="h-4 w-4 text-sky-400" />
                     <h3 className="text-xs uppercase tracking-wider font-bold text-sky-400">
-                      6. Recursos Experimentais & Otimizações
+                      7. Recursos Experimentais & Otimizações
                     </h3>
                   </div>
 

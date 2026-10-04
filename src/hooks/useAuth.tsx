@@ -711,7 +711,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (!isBlocked && rules.can_view_financial_reports) {
         permsSet.add("view_consolidated_financials" as Permission);
       }
-      if (!isBlocked && !rules.block_escalas && (rules.can_manage_escalas || cleanId === "lider_escala" || cleanId === "gerente_escala")) {
+      if (!isBlocked && !rules.block_escalas && rules.can_manage_escalas) {
         permsSet.add("escalas.view" as Permission);
         permsSet.add("escalas.details" as Permission);
         permsSet.add("escalas.create" as Permission);
@@ -728,11 +728,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         permsSet.add("escalas.history" as Permission);
         permsSet.add("escalas.settings" as Permission);
       }
-      if (!isBlocked && !rules.block_escalas && (rules.can_view_escalas || rules.can_participate_escalas || cleanId === "acao" || cleanId === "operacional")) {
+      if (!isBlocked && !rules.block_escalas && (rules.can_view_escalas || rules.can_participate_escalas)) {
         permsSet.add("escalas.view" as Permission);
         permsSet.add("escalas.details" as Permission);
-        permsSet.add("escalas.confirm_presence" as Permission);
-        permsSet.add("escalas.history" as Permission);
+        if (rules.can_participate_escalas) {
+          permsSet.add("escalas.confirm_presence" as Permission);
+        }
+        if (rules.can_view_escalas) {
+          permsSet.add("escalas.history" as Permission);
+        }
       }
     }
     return Array.from(permsSet);

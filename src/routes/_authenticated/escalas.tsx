@@ -123,38 +123,36 @@ export function EscalasPage() {
   const { user, profile, hasPermission, isDevUser, isCeoUser } = useAuth();
   const queryClient = useQueryClient();
 
-  const isPrivileged = Boolean(isDevUser || isCeoUser);
-
-  // Permissões com suporte total a Dev e CEO
-  const canView = isPrivileged || hasPermission("escalas.view");
-  const canDetails = isPrivileged || hasPermission("escalas.details") || canView;
-  const canCreate = isPrivileged || hasPermission("escalas.create");
-  const canEdit = isPrivileged || hasPermission("escalas.edit");
-  const canDelete = isPrivileged || hasPermission("escalas.delete");
-  const canPublish = isPrivileged || hasPermission("escalas.publish");
-  const canCancel = isPrivileged || hasPermission("escalas.cancel");
-  const canManageMembers = isPrivileged || hasPermission("escalas.manage_members");
-  const canAddParticipants = isPrivileged || canManageMembers || hasPermission("escalas.add_participants");
-  const canRemoveParticipants = isPrivileged || canManageMembers || hasPermission("escalas.remove_participants");
-  const canConfirmPresence = isPrivileged || hasPermission("escalas.confirm_presence");
-  const canManageSlots = isPrivileged || hasPermission("escalas.manage_slots") || canCreate || canManageMembers;
-  const canSubstitute = isPrivileged || canManageMembers || hasPermission("escalas.substitute");
-  const canViewHistory = isPrivileged || hasPermission("escalas.history");
-  const canManageSettings = isPrivileged || hasPermission("escalas.settings");
+  // Permissões com suporte estrito a permissões marcadas por cargo e tags
+  const canView = hasPermission("escalas.view");
+  const canDetails = hasPermission("escalas.details") || canView;
+  const canCreate = hasPermission("escalas.create");
+  const canEdit = hasPermission("escalas.edit");
+  const canDelete = hasPermission("escalas.delete");
+  const canPublish = hasPermission("escalas.publish");
+  const canCancel = hasPermission("escalas.cancel");
+  const canManageMembers = hasPermission("escalas.manage_members");
+  const canAddParticipants = canManageMembers || hasPermission("escalas.add_participants");
+  const canRemoveParticipants = canManageMembers || hasPermission("escalas.remove_participants");
+  const canConfirmPresence = hasPermission("escalas.confirm_presence");
+  const canManageSlots = hasPermission("escalas.manage_slots") || canCreate || canManageMembers;
+  const canSubstitute = canManageMembers || hasPermission("escalas.substitute");
+  const canViewHistory = hasPermission("escalas.history");
+  const canManageSettings = hasPermission("escalas.settings");
 
   const myMemberId = profile?.id || profile?.user_id || user?.id;
   const actorName = profile?.nickname || profile?.nome || user?.email || "Operador";
 
-  // Verificar se o usuário atual é Gerente desta escala (ou liderança/admin)
+  // Verificar se o usuário atual é Gerente desta escala (ou possui permissão de gestão de membros)
   const isScaleManager = useCallback((scale?: ActionScale | null) => {
     if (!scale) return false;
-    if (isPrivileged || canManageMembers) return true;
+    if (canManageMembers) return true;
     const myPId = profile?.id;
     const myUId = profile?.user_id || user?.id;
     if (scale.gerente_id && (scale.gerente_id === myPId || scale.gerente_id === myUId)) return true;
     if (scale.criado_por && (scale.criado_por === myUId || scale.criado_por === myPId)) return true;
     return false;
-  }, [isPrivileged, canManageMembers, profile, user]);
+  }, [canManageMembers, profile, user]);
 
   // Consultas
   const { data: scales = [], isLoading } = useActionScales();
@@ -1463,7 +1461,7 @@ export function EscalasPage() {
                 </>
               )}
 
-              {(canManageMembers || canCreate || isPrivileged) && (
+              {(canManageMembers || canCreate) && (
                 <div className="space-y-1.5 sm:col-span-2">
                   <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
                     <Crown className="w-4 h-4 text-amber-400" />

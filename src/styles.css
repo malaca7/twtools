@@ -129,7 +129,12 @@ html:not([data-text-brightness="100"]) th,
 html:not([data-text-brightness="100"]) b,
 html:not([data-text-brightness="100"]) strong,
 html:not([data-text-brightness="100"]) i,
-html:not([data-text-brightness="100"]) em {
+html:not([data-text-brightness="100"]) em,
+html:not([data-text-brightness="100"]) button,
+html:not([data-text-brightness="100"]) input,
+html:not([data-text-brightness="100"]) textarea,
+html:not([data-text-brightness="100"]) select,
+html:not([data-text-brightness="100"]) [data-sidebar="menu-button"] {
   filter: brightness(var(--platform-text-brightness, 100%));
 }
 
@@ -1350,7 +1355,9 @@ html[data-theme="light_slate"] {
 }
 
 /* ─── Card Styles ─── */
-html[data-card-style="glassmorphism"] .surface-card {
+html[data-card-style="glassmorphism"] .surface-card,
+html[data-card-style="glassmorphism"] [data-slot="card"],
+html[data-card-style="glassmorphism"] .card {
   background-image: var(--gradient-surface);
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
@@ -1358,8 +1365,12 @@ html[data-card-style="glassmorphism"] .surface-card {
   border: 1px solid var(--border);
 }
 
-html[data-card-style="flat"],
-html[data-card-style="flat_modern"] .surface-card {
+html[data-card-style="flat"] .surface-card,
+html[data-card-style="flat"] [data-slot="card"],
+html[data-card-style="flat"] .card,
+html[data-card-style="flat_modern"] .surface-card,
+html[data-card-style="flat_modern"] [data-slot="card"],
+html[data-card-style="flat_modern"] .card {
   background-image: none !important;
   background-color: var(--card) !important;
   backdrop-filter: none !important;
@@ -1368,28 +1379,40 @@ html[data-card-style="flat_modern"] .surface-card {
   border: 1px solid var(--border) !important;
 }
 
-html[data-card-style="gradient"] .surface-card {
+html[data-card-style="gradient"] .surface-card,
+html[data-card-style="gradient"] [data-slot="card"],
+html[data-card-style="gradient"] .card {
   background-image: var(--gradient-surface);
   border: 1px solid oklch(from var(--primary) l c h / 45%) !important;
   box-shadow: 0 0 18px -4px oklch(from var(--primary) l c h / 25%) !important;
 }
 
-html[data-card-style="neon_outline"],
-html[data-card-style="outline_glow"] .surface-card {
+html[data-card-style="neon_outline"] .surface-card,
+html[data-card-style="neon_outline"] [data-slot="card"],
+html[data-card-style="neon_outline"] .card,
+html[data-card-style="outline_glow"] .surface-card,
+html[data-card-style="outline_glow"] [data-slot="card"],
+html[data-card-style="outline_glow"] .card {
   background-image: var(--gradient-surface);
   border: 1px solid oklch(from var(--primary) l c h / 75%) !important;
   box-shadow: 0 0 16px -2px oklch(from var(--primary) l c h / 35%) !important;
 }
 
-html[data-card-style="solid_oled"],
-html[data-card-style="solid_dark"] .surface-card {
+html[data-card-style="solid_oled"] .surface-card,
+html[data-card-style="solid_oled"] [data-slot="card"],
+html[data-card-style="solid_oled"] .card,
+html[data-card-style="solid_dark"] .surface-card,
+html[data-card-style="solid_dark"] [data-slot="card"],
+html[data-card-style="solid_dark"] .card {
   background-image: none !important;
   background-color: oklch(0.04 0.002 0) !important;
   border: 1px solid oklch(0.16 0.005 0) !important;
   box-shadow: 0 8px 24px -10px oklch(0 0 0 / 90%) !important;
 }
 
-html[data-card-style="carbon"] .surface-card {
+html[data-card-style="carbon"] .surface-card,
+html[data-card-style="carbon"] [data-slot="card"],
+html[data-card-style="carbon"] .card {
   background-color: var(--card) !important;
   background-image: 
     linear-gradient(45deg, oklch(1 0 0 / 2%) 25%, transparent 25%, transparent 75%, oklch(1 0 0 / 2%) 75%, oklch(1 0 0 / 2%)),
@@ -1400,7 +1423,9 @@ html[data-card-style="carbon"] .surface-card {
   border: 1px solid var(--border) !important;
 }
 
-html[data-card-style="neo_brutalism"] .surface-card {
+html[data-card-style="neo_brutalism"] .surface-card,
+html[data-card-style="neo_brutalism"] [data-slot="card"],
+html[data-card-style="neo_brutalism"] .card {
   background-image: none !important;
   background-color: var(--card) !important;
   border: 2px solid oklch(from var(--primary) l c h / 90%) !important;

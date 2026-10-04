@@ -86,6 +86,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarProvider,
+  SidebarRail,
   SidebarTrigger,
   useSidebar,
 } from "@/components/ui/sidebar";
@@ -901,10 +902,12 @@ function DynamicSidebarNavigation() {
     );
   }
 
+  const { state: sidebarState } = useSidebar();
+
   return (
     <>
-      {grouped.map(({ category, items }) => {
-        const isOpen = openCategory === category;
+      {grouped.map(({ category, items }, groupIdx) => {
+        const isOpen = openCategory === category || sidebarState === "collapsed";
 
         // Isolamento estrito: devStyle e ícone Dev APENAS em categorias de Dev
         const isDevCategory = (
@@ -920,7 +923,6 @@ function DynamicSidebarNavigation() {
             : category === "CEO"
         );
 
-        let activeStyle = isDevCategory ? devStyle : isCeoCategory ? ceoStyle : memberStyle;
         let defaultFallbackIcon = FolderTree;
         let savedIconName: string | null | undefined = null;
 
@@ -947,20 +949,28 @@ function DynamicSidebarNavigation() {
         const CatIcon = resolveCategoryIcon(savedIconName, defaultFallbackIcon);
 
         return (
-          <SidebarGroup key={category} className="py-1 px-1">
-            <SidebarGroupLabel asChild>
+          <SidebarGroup key={category} className="py-1 px-1.5 group-data-[collapsible=icon]:p-0.5">
+            {/* Divisor sutil no modo recolhido para separar grupos */}
+            {groupIdx > 0 && sidebarState === "collapsed" && (
+              <div className="mx-auto my-1.5 w-6 h-[1px] bg-sidebar-border/60" />
+            )}
+
+            {/* Cabeçalho de Categoria no modo expandido */}
+            <SidebarGroupLabel asChild className="group-data-[collapsible=icon]:hidden">
               <button
                 type="button"
                 onClick={() => toggleCategory(category)}
-                className="group/label flex items-center justify-between w-full px-2.5 py-1.5 rounded-lg text-[10.5px] uppercase tracking-[0.14em] font-bold text-sidebar-foreground/75 hover:text-sidebar-foreground hover:bg-sidebar-accent/50 transition-all duration-150 cursor-pointer"
+                className="group/label flex items-center justify-between w-full px-2.5 py-1.5 rounded-xl text-[10.5px] uppercase tracking-[0.14em] font-bold text-sidebar-foreground/75 hover:text-sidebar-foreground hover:bg-sidebar-accent/50 transition-all duration-150 cursor-pointer"
               >
                 <span className="flex items-center gap-2 truncate">
                   <span
                     className={cn(
-                      "flex items-center justify-center h-5 w-5 rounded-md shrink-0 transition-colors border",
-                      activeStyle.bgSubtleClass,
-                      activeStyle.iconClass || activeStyle.textClass,
-                      activeStyle.borderSubtleClass
+                      "flex items-center justify-center h-5 w-5 rounded-md shrink-0 transition-colors border shadow-2xs",
+                      isDevCategory
+                        ? cn(devStyle.bgSubtleClass, devStyle.iconClass || devStyle.textClass, devStyle.borderSubtleClass)
+                        : isCeoCategory
+                        ? cn(ceoStyle.bgSubtleClass, ceoStyle.iconClass || ceoStyle.textClass, ceoStyle.borderSubtleClass)
+                        : "bg-primary/10 border-primary/25 text-primary group-hover/label:bg-primary/20 group-hover/label:border-primary/40"
                     )}
                   >
                     <CatIcon className="h-3 w-3 shrink-0" />
@@ -968,7 +978,11 @@ function DynamicSidebarNavigation() {
                   <span
                     className={cn(
                       "truncate font-bold tracking-wider",
-                      activeStyle.textClass
+                      isDevCategory
+                        ? devStyle.textClass
+                        : isCeoCategory
+                        ? ceoStyle.textClass
+                        : "text-sidebar-foreground group-hover/label:text-foreground"
                     )}
                   >
                     {category}
@@ -984,8 +998,8 @@ function DynamicSidebarNavigation() {
             </SidebarGroupLabel>
 
             {isOpen && (
-              <SidebarGroupContent className="pt-1 pb-0.5 animate-in fade-in-50 duration-200">
-                <SidebarMenu className="gap-0.5">
+              <SidebarGroupContent className="pt-0.5 pb-0.5 animate-in fade-in-50 duration-200">
+                <SidebarMenu className="gap-1 group-data-[collapsible=icon]:gap-1.5 group-data-[collapsible=icon]:items-center">
                   {items.map((item) => {
                     const active = isItemActive(item.url);
                     const isExternal = item.url.startsWith("http://") || item.url.startsWith("https://");
@@ -999,9 +1013,39 @@ function DynamicSidebarNavigation() {
                       linkSearch = Object.fromEntries(new URLSearchParams(q));
                     }
 
+                    // Estilo de item ativo sincronizado com o tema ativo
+                    const activeItemClass = isDevCategory
+                      ? devStyle.activeItemClass
+                      : isCeoCategory
+                      ? ceoStyle.activeItemClass
+                      : "bg-primary/15 text-primary border border-primary/30 shadow-xs shadow-primary/15 font-bold";
+
+                    const activeIconClass = isDevCategory
+                      ? (devStyle.iconClass || devStyle.textClass)
+                      : isCeoCategory
+                      ? (ceoStyle.iconClass || ceoStyle.textClass)
+                      : "text-primary drop-shadow-[0_0_8px_var(--primary)]";
+
+                    const hoverItemClass = isDevCategory
+                      ? devStyle.itemHoverClass
+                      : isCeoCategory
+                      ? ceoStyle.itemHoverClass
+                      : "hover:bg-sidebar-accent/70 hover:text-foreground";
+
                     return (
-                      <SidebarMenuItem key={item.id || item.url}>
-                        <SidebarMenuButton asChild isActive={active} tooltip={item.title}>
+                      <SidebarMenuItem key={item.id || item.url} className="group-data-[collapsible=icon]:flex group-data-[collapsible=icon]:justify-center">
+                        <SidebarMenuButton
+                          asChild
+                          isActive={active}
+                          tooltip={{
+                            children: (
+                              <div className="flex flex-col gap-0.5 py-0.5">
+                                <span className="font-bold text-xs text-foreground">{item.title}</span>
+                                <span className="text-[10px] text-muted-foreground uppercase tracking-widest font-mono">{category}</span>
+                              </div>
+                            ),
+                          }}
+                        >
                           {isExternal ? (
                             <a
                               href={item.url}
@@ -1013,17 +1057,18 @@ function DynamicSidebarNavigation() {
                               className={cn(
                                 "group/menuitem flex items-center gap-2.5 px-3 py-2 rounded-xl text-[13px] font-medium transition-all duration-150",
                                 "text-sidebar-foreground/85 hover:text-foreground",
-                                activeStyle.itemHoverClass || "hover:bg-sidebar-accent/70"
+                                hoverItemClass || "hover:bg-sidebar-accent/70",
+                                "group-data-[collapsible=icon]:!size-9 group-data-[collapsible=icon]:!p-0 group-data-[collapsible=icon]:justify-center"
                               )}
                             >
                               <ItemIcon
                                 className={cn(
                                   "h-4 w-4 shrink-0 transition-colors text-muted-foreground",
-                                  activeStyle.itemIconHoverClass || "group-hover/menuitem:text-foreground"
+                                  "group-hover/menuitem:text-foreground group-data-[collapsible=icon]:mx-auto"
                                 )}
                               />
-                              <span className="truncate flex-1">{item.title}</span>
-                              <ExternalLink className="h-3 w-3 ml-auto opacity-50 shrink-0" />
+                              <span className="truncate flex-1 group-data-[collapsible=icon]:hidden">{item.title}</span>
+                              <ExternalLink className="h-3 w-3 ml-auto opacity-50 shrink-0 group-data-[collapsible=icon]:hidden" />
                             </a>
                           ) : (
                             <Link
@@ -1034,23 +1079,32 @@ function DynamicSidebarNavigation() {
                               }}
                               className={cn(
                                 "group/menuitem flex items-center gap-2.5 px-3 py-2 rounded-xl text-[13px] font-medium transition-all duration-150 relative",
+                                "group-data-[collapsible=icon]:!size-9 group-data-[collapsible=icon]:!p-0 group-data-[collapsible=icon]:justify-center",
                                 active
-                                  ? cn(activeStyle.activeItemClass, "shadow-xs font-semibold")
+                                  ? cn(
+                                      activeItemClass,
+                                      "group-data-[collapsible=icon]:ring-1 group-data-[collapsible=icon]:ring-primary/60 group-data-[collapsible=icon]:bg-primary/20"
+                                    )
                                   : cn(
                                       "text-sidebar-foreground/80 hover:text-foreground",
-                                      activeStyle.itemHoverClass || "hover:bg-sidebar-accent/60"
+                                      hoverItemClass || "hover:bg-sidebar-accent/60"
                                     )
                               )}
                             >
+                              {/* Barra indicadora vertical de item ativo no modo expandido */}
+                              {active && (
+                                <span className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-5 rounded-r-full bg-gradient-brand shadow-[0_0_8px_var(--primary)] group-data-[collapsible=icon]:hidden" />
+                              )}
+
                               <ItemIcon
                                 className={cn(
-                                  "h-4 w-4 shrink-0 transition-colors",
+                                  "h-4 w-4 shrink-0 transition-transform duration-150 group-data-[collapsible=icon]:mx-auto",
                                   active
-                                    ? (activeStyle.iconClass || activeStyle.textClass)
-                                    : cn("text-muted-foreground/75", activeStyle.itemIconHoverClass || "group-hover/menuitem:text-foreground")
+                                    ? activeIconClass
+                                    : cn("text-muted-foreground/75 group-hover/menuitem:text-foreground group-hover/menuitem:scale-105")
                                 )}
                               />
-                              <span className="truncate flex-1">{item.title}</span>
+                              <span className="truncate flex-1 group-data-[collapsible=icon]:hidden">{item.title}</span>
                             </Link>
                           )}
                         </SidebarMenuButton>
@@ -1098,13 +1152,17 @@ export function AppShell({ children }: { children: ReactNode }) {
   return (
     <SidebarProvider>
       <div className="flex min-h-screen w-full">
-        <Sidebar collapsible="icon" className="border-r border-sidebar-border">
-          <SidebarHeader className="px-4 py-5 shrink-0">
-            <Brand size="sm" />
+        <Sidebar collapsible="icon" className="border-r border-sidebar-border select-none">
+          <SidebarHeader className="px-3.5 py-4 shrink-0 border-b border-sidebar-border/40 group-data-[collapsible=icon]:p-2 group-data-[collapsible=icon]:border-b-0 group-data-[collapsible=icon]:justify-center">
+            <div className="flex items-center justify-between gap-2 group-data-[collapsible=icon]:justify-center">
+              <Brand size="sm" />
+              <SidebarTrigger className="hidden md:flex group-data-[collapsible=icon]:hidden h-7 w-7 rounded-lg text-muted-foreground hover:text-foreground hover:bg-sidebar-accent/80 transition-colors" />
+            </div>
           </SidebarHeader>
-          <SidebarContent>
+          <SidebarContent className="px-1 py-1.5">
             <DynamicSidebarNavigation />
           </SidebarContent>
+          <SidebarRail />
         </Sidebar>
 
         <div className="flex min-w-0 flex-1 flex-col min-h-screen platform-filters">

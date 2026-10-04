@@ -1626,52 +1626,81 @@ export function satisfiesPermission(
   }
 
   // 17. Escala de Ação
-  if (
-    permission === "escalas.view" &&
-    (list.includes("escalas.view") ||
-      list.includes("escalas.details") ||
-      list.includes("escalas.create") ||
-      list.includes("escalas.manage_members") ||
-      list.includes("escalas.settings"))
-  ) {
-    return true;
+  if (permission === "escalas.view") {
+    if (
+      list.includes("escalas.view") ||
+      list.some((p) => typeof p === "string" && p.startsWith("escalas."))
+    ) {
+      return true;
+    }
   }
-  if (
-    permission === "escalas.details" &&
-    (list.includes("escalas.details") ||
+  if (permission === "escalas.details") {
+    if (
+      list.includes("escalas.details") ||
       list.includes("escalas.view") ||
       list.includes("escalas.create") ||
-      list.includes("escalas.manage_members"))
-  ) {
-    return true;
+      list.includes("escalas.manage_members") ||
+      list.includes("escalas.settings")
+    ) {
+      return true;
+    }
   }
   if (
-    (permission === "escalas.add_participants" ||
-      permission === "escalas.remove_participants" ||
-      permission === "escalas.substitute" ||
-      permission === "escalas.manage_slots" ||
-      permission === "escalas.confirm_presence") &&
-    list.includes("escalas.manage_members")
+    permission === "escalas.add_participants" ||
+    permission === "escalas.remove_participants" ||
+    permission === "escalas.substitute" ||
+    permission === "escalas.manage_slots"
   ) {
-    return true;
-  }
-  if (
-    (permission === "escalas.edit" ||
-      permission === "escalas.cancel" ||
-      permission === "escalas.publish" ||
-      permission === "escalas.manage_slots") &&
-    list.includes("escalas.create")
-  ) {
-    return true;
-  }
-  if (
-    permission === "escalas.history" &&
-    (list.includes("escalas.history") ||
+    if (
+      list.includes(permission) ||
       list.includes("escalas.manage_members") ||
       list.includes("escalas.create") ||
-      list.includes("escalas.settings"))
+      list.includes("escalas.settings")
+    ) {
+      return true;
+    }
+  }
+  if (permission === "escalas.confirm_presence") {
+    if (
+      list.includes("escalas.confirm_presence") ||
+      list.includes("escalas.manage_members") ||
+      list.includes("escalas.settings")
+    ) {
+      return true;
+    }
+  }
+  if (
+    permission === "escalas.edit" ||
+    permission === "escalas.cancel" ||
+    permission === "escalas.publish"
   ) {
-    return true;
+    if (
+      list.includes(permission) ||
+      list.includes("escalas.create") ||
+      list.includes("escalas.settings")
+    ) {
+      return true;
+    }
+  }
+  if (permission === "escalas.delete") {
+    if (list.includes("escalas.delete") || list.includes("escalas.settings")) {
+      return true;
+    }
+  }
+  if (permission === "escalas.manage_members") {
+    if (list.includes("escalas.manage_members") || list.includes("escalas.settings")) {
+      return true;
+    }
+  }
+  if (permission === "escalas.history") {
+    if (
+      list.includes("escalas.history") ||
+      list.includes("escalas.manage_members") ||
+      list.includes("escalas.create") ||
+      list.includes("escalas.settings")
+    ) {
+      return true;
+    }
   }
 
   return false;
@@ -2365,52 +2394,81 @@ export function can(
     return true;
   }
   // Escala de Ação (Role Fallback)
-  if (
-    permission === "escalas.view" &&
-    (rolePerms.includes("escalas.view") ||
-      rolePerms.includes("escalas.details") ||
-      rolePerms.includes("escalas.create") ||
-      rolePerms.includes("escalas.manage_members") ||
-      rolePerms.includes("escalas.settings"))
-  ) {
-    return true;
+  if (permission === "escalas.view") {
+    if (
+      rolePerms.includes("escalas.view") ||
+      rolePerms.some((p) => typeof p === "string" && p.startsWith("escalas."))
+    ) {
+      return true;
+    }
   }
-  if (
-    permission === "escalas.details" &&
-    (rolePerms.includes("escalas.details") ||
+  if (permission === "escalas.details") {
+    if (
+      rolePerms.includes("escalas.details") ||
       rolePerms.includes("escalas.view") ||
       rolePerms.includes("escalas.create") ||
-      rolePerms.includes("escalas.manage_members"))
-  ) {
-    return true;
+      rolePerms.includes("escalas.manage_members") ||
+      rolePerms.includes("escalas.settings")
+    ) {
+      return true;
+    }
   }
   if (
-    (permission === "escalas.add_participants" ||
-      permission === "escalas.remove_participants" ||
-      permission === "escalas.substitute" ||
-      permission === "escalas.manage_slots" ||
-      permission === "escalas.confirm_presence") &&
-    rolePerms.includes("escalas.manage_members")
+    permission === "escalas.add_participants" ||
+    permission === "escalas.remove_participants" ||
+    permission === "escalas.substitute" ||
+    permission === "escalas.manage_slots"
   ) {
-    return true;
-  }
-  if (
-    (permission === "escalas.edit" ||
-      permission === "escalas.cancel" ||
-      permission === "escalas.publish" ||
-      permission === "escalas.manage_slots") &&
-    rolePerms.includes("escalas.create")
-  ) {
-    return true;
-  }
-  if (
-    permission === "escalas.history" &&
-    (rolePerms.includes("escalas.history") ||
+    if (
+      rolePerms.includes(permission) ||
       rolePerms.includes("escalas.manage_members") ||
       rolePerms.includes("escalas.create") ||
-      rolePerms.includes("escalas.settings"))
+      rolePerms.includes("escalas.settings")
+    ) {
+      return true;
+    }
+  }
+  if (permission === "escalas.confirm_presence") {
+    if (
+      rolePerms.includes("escalas.confirm_presence") ||
+      rolePerms.includes("escalas.manage_members") ||
+      rolePerms.includes("escalas.settings")
+    ) {
+      return true;
+    }
+  }
+  if (
+    permission === "escalas.edit" ||
+    permission === "escalas.cancel" ||
+    permission === "escalas.publish"
   ) {
-    return true;
+    if (
+      rolePerms.includes(permission) ||
+      rolePerms.includes("escalas.create") ||
+      rolePerms.includes("escalas.settings")
+    ) {
+      return true;
+    }
+  }
+  if (permission === "escalas.delete") {
+    if (rolePerms.includes("escalas.delete") || rolePerms.includes("escalas.settings")) {
+      return true;
+    }
+  }
+  if (permission === "escalas.manage_members") {
+    if (rolePerms.includes("escalas.manage_members") || rolePerms.includes("escalas.settings")) {
+      return true;
+    }
+  }
+  if (permission === "escalas.history") {
+    if (
+      rolePerms.includes("escalas.history") ||
+      rolePerms.includes("escalas.manage_members") ||
+      rolePerms.includes("escalas.create") ||
+      rolePerms.includes("escalas.settings")
+    ) {
+      return true;
+    }
   }
 
   if (permission === "view_dev_tags" && rolePerms.includes("manage_dev_tags")) return true;
