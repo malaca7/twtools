@@ -35,11 +35,24 @@ import { VerifiedBadge } from "@/components/ui/VerifiedBadge";
 import { dateTime } from "@/lib/format";
 
 interface VerificationRequestModalProps {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  isOpen?: boolean;
+  onClose?: () => void;
 }
 
-export function VerificationRequestModal({ open, onOpenChange }: VerificationRequestModalProps) {
+export function VerificationRequestModal({
+  open,
+  onOpenChange,
+  isOpen,
+  onClose,
+}: VerificationRequestModalProps) {
+  const isModalOpen = open !== undefined ? open : Boolean(isOpen);
+  const handleOpenChange = (val: boolean) => {
+    onOpenChange?.(val);
+    if (!val) onClose?.();
+  };
+
   const { user, profile } = useAuth();
   const { data: config } = useVerificationConfig();
   const { data: myRequest, isLoading: loadingMyReq } = useMyVerificationRequest();
@@ -84,7 +97,7 @@ export function VerificationRequestModal({ open, onOpenChange }: VerificationReq
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={isModalOpen} onOpenChange={handleOpenChange}>
       <DialogContent className="sm:max-w-lg surface-card border-border/80 shadow-2xl overflow-hidden p-0">
         {/* HEADER */}
         <div className="p-5 bg-gradient-to-b from-sky-500/10 via-background/60 to-background border-b border-border/60">

@@ -35,8 +35,9 @@ export function useVerificationConfig() {
   const queryClient = useQueryClient();
 
   useEffect(() => {
+    const channelName = `realtime-verification-config-${Math.random().toString(36).substring(2, 9)}`;
     const channel = supabase
-      .channel("realtime-verification-config")
+      .channel(channelName)
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "verification_badge_config" },
@@ -71,8 +72,9 @@ export function useVerificationRequests(statusFilter?: string) {
   const queryClient = useQueryClient();
 
   useEffect(() => {
+    const channelName = `realtime-verification-requests-${Math.random().toString(36).substring(2, 9)}`;
     const channel = supabase
-      .channel("realtime-verification-requests")
+      .channel(channelName)
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "verification_requests" },
@@ -136,8 +138,9 @@ export function useMemberVerifications() {
   const queryClient = useQueryClient();
 
   useEffect(() => {
+    const channelName = `realtime-member-verifications-${Math.random().toString(36).substring(2, 9)}`;
     const channel = supabase
-      .channel("realtime-member-verifications")
+      .channel(channelName)
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "member_verifications" },
