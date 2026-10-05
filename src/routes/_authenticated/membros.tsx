@@ -66,7 +66,41 @@ import type { Member } from "@/lib/app-types";
 import { useMemberTagsMap } from "@/hooks/useMemberTags";
 import { MemberTagBadge } from "@/components/ui/MemberTagBadge";
 import { VerifiedBadge } from "@/components/ui/VerifiedBadge";
+import type { MemberTag } from "@/services/memberTagsService";
 import { cn } from "@/lib/utils";
+
+/**
+ * Determina a tag de sistema com maior relevância hierárquica e operacional do membro
+ */
+export function getPrimaryRelevantTag(tags: MemberTag[]): MemberTag | null {
+  if (!tags || tags.length === 0) return null;
+
+  const scoreTag = (tag: MemberTag) => {
+    let score = 0;
+    // Posição hierárquica no Discord (quanto maior a posição, maior o peso)
+    if (typeof tag.discord_role_position === "number" && !isNaN(tag.discord_role_position)) {
+      score += tag.discord_role_position * 1000;
+    }
+    // Regras especiais e de liderança
+    if (tag.rules?.priority_badge) score += 50000;
+    if (tag.rules?.can_access_ceo || tag.id === "ceo") score += 40000;
+    if (tag.rules?.can_access_dev || tag.id === "dev" || tag.id === "desenvolvedor") score += 35000;
+    if (tag.rules?.is_blocked || tag.rules?.block_operations) score += 30000;
+    if (tag.rules?.can_manage_members) score += 20000;
+    if (tag.rules?.can_manage_escalas) score += 15000;
+    if (tag.rules?.can_sell) score += 10000;
+    if (tag.rules?.can_manage_productions) score += 10000;
+
+    // Quantidade de permissões concedidas
+    if (Array.isArray(tag.permissions)) {
+      score += tag.permissions.length * 10;
+    }
+    return score;
+  };
+
+  const sorted = [...tags].sort((a, b) => scoreTag(b) - scoreTag(a));
+  return sorted[0] || null;
+}
 
 export const Route = createFileRoute("/_authenticated/membros")({
   component: MembrosPage,
@@ -526,15 +560,42 @@ export function MembrosPage() {
                     (t) => t.is_active !== false && t.is_system === true
                   );
 
+                  // Tag mais relevante do membro (maior hierarquia/regras)
+                  const primaryTag = getPrimaryRelevantTag(assignedTags);
+                  const tagThemeColor = primaryTag?.color || null;
+                  const sortedTags = primaryTag
+                    ? [primaryTag, ...assignedTags.filter((t) => t.id !== primaryTag.id)]
+                    : assignedTags;
+
                   return (
                     <div
                       key={m.user_id}
                       className={cn(
-                        "rounded-2xl border border-border/70 bg-card/90 backdrop-blur-sm p-4 sm:p-5 shadow-sm hover:shadow-md transition-all duration-200 flex flex-col justify-between gap-4 group relative overflow-hidden",
-                        targetIsDev && "border-rose-500/40 bg-gradient-to-b from-rose-500/5 to-transparent",
-                        targetIsCeo && !targetIsDev && "border-amber-500/40 bg-gradient-to-b from-amber-500/5 to-transparent"
+                        "rounded-2xl border bg-card/90 backdrop-blur-sm p-4 sm:p-5 shadow-sm hover:shadow-lg transition-all duration-300 flex flex-col justify-between gap-4 group relative overflow-hidden",
+                        !tagThemeColor && !targetIsDev && !targetIsCeo && "border-border/70",
+                        targetIsDev && "border-rose-500/40 bg-gradient-to-b from-rose-500/10 via-card to-card shadow-rose-500/5",
+                        targetIsCeo && !targetIsDev && "border-amber-500/40 bg-gradient-to-b from-amber-500/10 via-card to-card shadow-amber-500/5"
                       )}
+                      style={
+                        tagThemeColor && !targetIsDev && !targetIsCeo
+                          ? {
+                              borderColor: `${tagThemeColor}55`,
+                              boxShadow: `0 4px 22px -2px ${tagThemeColor}22`,
+                              background: `linear-gradient(180deg, ${tagThemeColor}16 0%, ${tagThemeColor}05 38%, rgba(var(--card), 0.94) 100%)`,
+                            }
+                          : undefined
+                      }
                     >
+                      {/* BARRA SUPERIOR DE DESTAQUE COM O TEMA DA TAG MAIS RELEVANTE */}
+                      {tagThemeColor && !targetIsDev && !targetIsCeo && (
+                        <div
+                          className="absolute top-0 left-0 right-0 h-1 opacity-90"
+                          style={{
+                            background: `linear-gradient(90deg, transparent 0%, ${tagThemeColor} 50%, transparent 100%)`,
+                          }}
+                        />
+                      )}
+
                       {/* HEADER DO CARD: AVATAR, NOME, CARGO */}
                       <div className="space-y-3">
                         <div className="flex items-start justify-between gap-3">
@@ -546,7 +607,22 @@ export function MembrosPage() {
                             className="flex items-center gap-3 group/link min-w-0 flex-1 cursor-pointer"
                             title={`Ver perfil público de ${m.nickname || m.nome} em nova aba`}
                           >
-                            <Avatar className="h-12 w-12 border-2 border-border/80 group-hover/link:border-primary/70 transition-all shrink-0 shadow-sm">
+                            <Avatar
+                              className={cn(
+                                "h-12 w-12 border-2 transition-all shrink-0 shadow-sm",
+                                tagThemeColor && !targetIsDev && !targetIsCeo
+                                  ? "group-hover/link:ring-2"
+                                  : "border-border/80 group-hover/link:border-primary/70"
+                              )}
+                              style={
+                                tagThemeColor && !targetIsDev && !targetIsCeo
+                                  ? {
+                                      borderColor: `${tagThemeColor}90`,
+                                      boxShadow: `0 0 12px ${tagThemeColor}30`,
+                                    }
+                                  : undefined
+                              }
+                            >
                               {avatarUrl && <AvatarImage src={avatarUrl} alt={m.nome} />}
                               <AvatarFallback className="bg-primary/20 text-primary font-bold text-xs group-hover/link:text-primary transition-colors">
                                 {initials}
@@ -605,12 +681,31 @@ export function MembrosPage() {
                           </div>
                         </div>
 
-                        {/* TAGS DO SISTEMA VINCULADAS */}
-                        {assignedTags.length > 0 && (
+                        {/* TAGS DO SISTEMA VINCULADAS COM DESTAQUE NA TAG PRINCIPAL */}
+                        {sortedTags.length > 0 && (
                           <div className="flex items-center gap-1.5 flex-wrap pt-1">
-                            {assignedTags.map((tag) => (
-                              <MemberTagBadge key={tag.id} tag={tag} size="xs" showIcon />
-                            ))}
+                            {sortedTags.map((tag) => {
+                              const isPrimary = primaryTag?.id === tag.id;
+                              return (
+                                <MemberTagBadge
+                                  key={tag.id}
+                                  tag={tag}
+                                  size="xs"
+                                  showIcon
+                                  className={cn(
+                                    isPrimary && "ring-1 ring-offset-0 font-extrabold shadow-xs"
+                                  )}
+                                  style={
+                                    isPrimary && tag.color
+                                      ? {
+                                          borderColor: `${tag.color}80`,
+                                          boxShadow: `0 0 10px ${tag.color}35`,
+                                        }
+                                      : undefined
+                                  }
+                                />
+                              );
+                            })}
                           </div>
                         )}
 
@@ -718,8 +813,25 @@ export function MembrosPage() {
                         (t) => t.is_active !== false && t.is_system === true
                       );
 
+                      const primaryTag = getPrimaryRelevantTag(assignedTags);
+                      const tagThemeColor = primaryTag?.color || null;
+                      const sortedTags = primaryTag
+                        ? [primaryTag, ...assignedTags.filter((t) => t.id !== primaryTag.id)]
+                        : assignedTags;
+
                       return (
-                        <TableRow key={m.user_id} className="hover:bg-muted/40 transition-colors">
+                        <TableRow
+                          key={m.user_id}
+                          className="hover:bg-muted/40 transition-colors"
+                          style={
+                            tagThemeColor && !targetIsDev && !targetIsCeo
+                              ? {
+                                  borderLeft: `3.5px solid ${tagThemeColor}`,
+                                  backgroundColor: `${tagThemeColor}06`,
+                                }
+                              : undefined
+                          }
+                        >
                           <TableCell>
                             <Link
                               to="/perfil/$handle"
@@ -729,7 +841,16 @@ export function MembrosPage() {
                               className="flex items-center gap-3 min-w-[220px] group cursor-pointer"
                               title={`Ver perfil público de ${m.nickname || m.nome} em nova aba`}
                             >
-                              <Avatar className="h-10 w-10 border border-border group-hover:border-primary/50 transition-colors shadow-xs">
+                              <Avatar
+                                className="h-10 w-10 border transition-colors shadow-xs"
+                                style={
+                                  tagThemeColor && !targetIsDev && !targetIsCeo
+                                    ? {
+                                        borderColor: `${tagThemeColor}80`,
+                                      }
+                                    : undefined
+                                }
+                              >
                                 {avatarUrl && <AvatarImage src={avatarUrl} alt={m.nome} />}
                                 <AvatarFallback className="bg-secondary font-bold text-xs group-hover:text-primary transition-colors">
                                   {initials}
@@ -749,10 +870,10 @@ export function MembrosPage() {
                                   <p className="text-[0.65rem] text-muted-foreground">{m.nome}</p>
                                 ) : null}
 
-                                {/* Tags do Sistema na Tabela */}
-                                {assignedTags.length > 0 && (
+                                {/* Tags do Sistema na Tabela com destaque na principal */}
+                                {sortedTags.length > 0 && (
                                   <div className="flex items-center gap-1 flex-wrap pt-1">
-                                    {assignedTags.map((tag) => (
+                                    {sortedTags.map((tag) => (
                                       <MemberTagBadge key={tag.id} tag={tag} size="xs" showIcon />
                                     ))}
                                   </div>

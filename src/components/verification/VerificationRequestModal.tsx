@@ -39,6 +39,7 @@ import {
 import { VerifiedBadge } from "@/components/ui/VerifiedBadge";
 import { dateTime } from "@/lib/format";
 import { getLevelLabel, levelBadgeClass } from "@/lib/permissions";
+import { cn } from "@/lib/utils";
 
 interface VerificationRequestModalProps {
   open?: boolean;

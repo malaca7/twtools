@@ -19,6 +19,8 @@ import {
   Sliders,
   Paintbrush,
   SlidersHorizontal,
+  Minus,
+  Plus,
 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -587,155 +589,403 @@ export function UserAppearanceSettings() {
                 </div>
               </div>
 
-              {/* 4 SLIDERS DE ILUMINAÇÃO (0% A 180% COM DUPLO CLIQUE PARA RESETAR A 100%) */}
-              <div className="pt-3 border-t border-border/40 space-y-4">
-                <div className="flex items-center justify-between">
-                  <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
-                    Controles de Iluminação & Display:
-                  </span>
-                  <span className="text-[10px] text-primary/80 font-semibold bg-primary/10 px-2 py-0.5 rounded-md">
-                    💡 Dica: Duplo clique no controle restaura para 100%
-                  </span>
+              {/* 4 SLIDERS DE ILUMINAÇÃO (0% A 180% COM AJUSTES RÁPIDOS, STEPPERS E DUPLO CLIQUE) */}
+              <div className="pt-4 border-t border-border/40 space-y-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <div className="space-y-0.5">
+                    <div className="flex items-center gap-2">
+                      <SlidersHorizontal className="h-4 w-4 text-primary" />
+                      <span className="text-xs font-bold text-foreground uppercase tracking-wider">
+                        Controles de Iluminação & Display
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-muted-foreground">
+                      Ajuste fino de brilho, contraste, cores e nitidez de texto em tempo real.
+                    </p>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        handleChange("brightness", 100);
+                        handleChange("contrast", 100);
+                        handleChange("saturation", 100);
+                        handleChange("textBrightness", 100);
+                      }}
+                      className="h-7 text-[11px] font-semibold rounded-lg gap-1.5 border-border/80 hover:bg-secondary/80 text-muted-foreground hover:text-foreground"
+                      title="Restaura todos os 4 controles para o padrão 100%"
+                    >
+                      <RotateCcw className="h-3 w-3 text-primary" />
+                      <span>Restaurar Todos (100%)</span>
+                    </Button>
+                  </div>
                 </div>
 
-                <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+                <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
                   {/* 1. BRILHO GLOBAL */}
                   <div
                     onDoubleClick={() => handleChange("brightness", 100)}
-                    className="p-3.5 rounded-2xl bg-secondary/20 border border-border/60 space-y-3 select-none hover:border-amber-500/40 transition-colors"
-                    title="Duplo clique para restaurar 100%"
+                    className={cn(
+                      "p-3.5 rounded-2xl border transition-all duration-200 select-none flex flex-col justify-between gap-3 shadow-xs",
+                      theme.brightness !== 100
+                        ? "bg-amber-500/10 border-amber-500/40 shadow-amber-500/5"
+                        : "bg-secondary/25 border-border/70 hover:border-amber-500/30 hover:bg-secondary/40"
+                    )}
+                    title="Dê duplo clique para restaurar 100%"
                   >
                     <div className="flex items-center justify-between">
-                      <Label className="text-xs font-bold flex items-center gap-1.5 cursor-pointer">
-                        <SunMedium className="h-3.5 w-3.5 text-amber-400" />
-                        Brilho Global
-                      </Label>
+                      <div className="flex items-center gap-2">
+                        <div className="h-7 w-7 rounded-xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-400">
+                          <SunMedium className="h-3.5 w-3.5" />
+                        </div>
+                        <div>
+                          <Label className="text-xs font-bold block cursor-pointer text-foreground">
+                            Brilho Global
+                          </Label>
+                          <span className="text-[10px] text-muted-foreground">Filtro de luz</span>
+                        </div>
+                      </div>
+
                       <button
                         type="button"
                         onClick={() => handleChange("brightness", 100)}
-                        className="text-xs font-mono font-bold text-amber-400 hover:scale-110 transition-transform cursor-pointer"
-                        title="Clique para voltar a 100%"
+                        className="px-2 py-0.5 rounded-lg font-mono text-xs font-bold bg-amber-500/20 text-amber-400 hover:bg-amber-500/30 transition-all border border-amber-500/30 cursor-pointer"
+                        title="Clique para redefinir para 100%"
                       >
                         {theme.brightness}%
                       </button>
                     </div>
-                    <Slider
-                      value={[theme.brightness]}
-                      min={0}
-                      max={180}
-                      step={1}
-                      onValueChange={([val]) => handleChange("brightness", val)}
-                      className="cursor-pointer py-1"
-                    />
-                    <div className="flex items-center justify-between text-[10px] text-muted-foreground font-mono">
-                      <span>0%</span>
-                      <span className="text-amber-400/80 font-bold">Padrão 100%</span>
-                      <span>180%</span>
+
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => handleChange("brightness", Math.max(0, (theme.brightness || 100) - 5))}
+                          className="h-6 w-6 shrink-0 rounded-lg bg-secondary/80 hover:bg-secondary border border-border/60 flex items-center justify-center text-foreground hover:text-amber-400 text-xs transition-colors cursor-pointer"
+                          title="Diminuir 5%"
+                        >
+                          <Minus className="h-3 w-3" />
+                        </button>
+                        <Slider
+                          value={[theme.brightness ?? 100]}
+                          min={0}
+                          max={180}
+                          step={1}
+                          onValueChange={([val]) => handleChange("brightness", val)}
+                          className="cursor-pointer flex-1 py-1"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => handleChange("brightness", Math.min(180, (theme.brightness || 100) + 5))}
+                          className="h-6 w-6 shrink-0 rounded-lg bg-secondary/80 hover:bg-secondary border border-border/60 flex items-center justify-center text-foreground hover:text-amber-400 text-xs transition-colors cursor-pointer"
+                          title="Aumentar 5%"
+                        >
+                          <Plus className="h-3 w-3" />
+                        </button>
+                      </div>
+
+                      <div className="flex items-center justify-between text-[10px] text-muted-foreground font-mono px-0.5">
+                        <button
+                          type="button"
+                          onClick={() => handleChange("brightness", 50)}
+                          className="hover:text-foreground transition-colors cursor-pointer"
+                        >
+                          50%
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleChange("brightness", 100)}
+                          className={cn(
+                            "font-bold transition-colors cursor-pointer px-1 rounded",
+                            theme.brightness === 100 ? "text-amber-400 bg-amber-500/15" : "hover:text-foreground"
+                          )}
+                        >
+                          100% Padrão
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleChange("brightness", 150)}
+                          className="hover:text-foreground transition-colors cursor-pointer"
+                        >
+                          150%
+                        </button>
+                      </div>
                     </div>
                   </div>
 
                   {/* 2. CONTRASTE GLOBAL */}
                   <div
                     onDoubleClick={() => handleChange("contrast", 100)}
-                    className="p-3.5 rounded-2xl bg-secondary/20 border border-border/60 space-y-3 select-none hover:border-blue-500/40 transition-colors"
-                    title="Duplo clique para restaurar 100%"
+                    className={cn(
+                      "p-3.5 rounded-2xl border transition-all duration-200 select-none flex flex-col justify-between gap-3 shadow-xs",
+                      theme.contrast !== 100
+                        ? "bg-blue-500/10 border-blue-500/40 shadow-blue-500/5"
+                        : "bg-secondary/25 border-border/70 hover:border-blue-500/30 hover:bg-secondary/40"
+                    )}
+                    title="Dê duplo clique para restaurar 100%"
                   >
                     <div className="flex items-center justify-between">
-                      <Label className="text-xs font-bold flex items-center gap-1.5 cursor-pointer">
-                        <Contrast className="h-3.5 w-3.5 text-blue-400" />
-                        Contraste Global
-                      </Label>
+                      <div className="flex items-center gap-2">
+                        <div className="h-7 w-7 rounded-xl bg-blue-500/15 border border-blue-500/30 flex items-center justify-center text-blue-400">
+                          <Contrast className="h-3.5 w-3.5" />
+                        </div>
+                        <div>
+                          <Label className="text-xs font-bold block cursor-pointer text-foreground">
+                            Contraste Global
+                          </Label>
+                          <span className="text-[10px] text-muted-foreground">Definição visual</span>
+                        </div>
+                      </div>
+
                       <button
                         type="button"
                         onClick={() => handleChange("contrast", 100)}
-                        className="text-xs font-mono font-bold text-blue-400 hover:scale-110 transition-transform cursor-pointer"
-                        title="Clique para voltar a 100%"
+                        className="px-2 py-0.5 rounded-lg font-mono text-xs font-bold bg-blue-500/20 text-blue-400 hover:bg-blue-500/30 transition-all border border-blue-500/30 cursor-pointer"
+                        title="Clique para redefinir para 100%"
                       >
                         {theme.contrast}%
                       </button>
                     </div>
-                    <Slider
-                      value={[theme.contrast]}
-                      min={0}
-                      max={180}
-                      step={1}
-                      onValueChange={([val]) => handleChange("contrast", val)}
-                      className="cursor-pointer py-1"
-                    />
-                    <div className="flex items-center justify-between text-[10px] text-muted-foreground font-mono">
-                      <span>0%</span>
-                      <span className="text-blue-400/80 font-bold">Padrão 100%</span>
-                      <span>180%</span>
+
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => handleChange("contrast", Math.max(0, (theme.contrast || 100) - 5))}
+                          className="h-6 w-6 shrink-0 rounded-lg bg-secondary/80 hover:bg-secondary border border-border/60 flex items-center justify-center text-foreground hover:text-blue-400 text-xs transition-colors cursor-pointer"
+                          title="Diminuir 5%"
+                        >
+                          <Minus className="h-3 w-3" />
+                        </button>
+                        <Slider
+                          value={[theme.contrast ?? 100]}
+                          min={0}
+                          max={180}
+                          step={1}
+                          onValueChange={([val]) => handleChange("contrast", val)}
+                          className="cursor-pointer flex-1 py-1"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => handleChange("contrast", Math.min(180, (theme.contrast || 100) + 5))}
+                          className="h-6 w-6 shrink-0 rounded-lg bg-secondary/80 hover:bg-secondary border border-border/60 flex items-center justify-center text-foreground hover:text-blue-400 text-xs transition-colors cursor-pointer"
+                          title="Aumentar 5%"
+                        >
+                          <Plus className="h-3 w-3" />
+                        </button>
+                      </div>
+
+                      <div className="flex items-center justify-between text-[10px] text-muted-foreground font-mono px-0.5">
+                        <button
+                          type="button"
+                          onClick={() => handleChange("contrast", 50)}
+                          className="hover:text-foreground transition-colors cursor-pointer"
+                        >
+                          50%
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleChange("contrast", 100)}
+                          className={cn(
+                            "font-bold transition-colors cursor-pointer px-1 rounded",
+                            theme.contrast === 100 ? "text-blue-400 bg-blue-500/15" : "hover:text-foreground"
+                          )}
+                        >
+                          100% Padrão
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleChange("contrast", 150)}
+                          className="hover:text-foreground transition-colors cursor-pointer"
+                        >
+                          150%
+                        </button>
+                      </div>
                     </div>
                   </div>
 
                   {/* 3. SATURAÇÃO DE CORES */}
                   <div
                     onDoubleClick={() => handleChange("saturation", 100)}
-                    className="p-3.5 rounded-2xl bg-secondary/20 border border-border/60 space-y-3 select-none hover:border-rose-500/40 transition-colors"
-                    title="Duplo clique para restaurar 100%"
+                    className={cn(
+                      "p-3.5 rounded-2xl border transition-all duration-200 select-none flex flex-col justify-between gap-3 shadow-xs",
+                      (theme.saturation ?? 100) !== 100
+                        ? "bg-rose-500/10 border-rose-500/40 shadow-rose-500/5"
+                        : "bg-secondary/25 border-border/70 hover:border-rose-500/30 hover:bg-secondary/40"
+                    )}
+                    title="Dê duplo clique para restaurar 100%"
                   >
                     <div className="flex items-center justify-between">
-                      <Label className="text-xs font-bold flex items-center gap-1.5 cursor-pointer">
-                        <Flame className="h-3.5 w-3.5 text-rose-400" />
-                        Saturação de Cores
-                      </Label>
+                      <div className="flex items-center gap-2">
+                        <div className="h-7 w-7 rounded-xl bg-rose-500/15 border border-rose-500/30 flex items-center justify-center text-rose-400">
+                          <Flame className="h-3.5 w-3.5" />
+                        </div>
+                        <div>
+                          <Label className="text-xs font-bold block cursor-pointer text-foreground">
+                            Saturação de Cores
+                          </Label>
+                          <span className="text-[10px] text-muted-foreground">Vivacidade</span>
+                        </div>
+                      </div>
+
                       <button
                         type="button"
                         onClick={() => handleChange("saturation", 100)}
-                        className="text-xs font-mono font-bold text-rose-400 hover:scale-110 transition-transform cursor-pointer"
-                        title="Clique para voltar a 100%"
+                        className="px-2 py-0.5 rounded-lg font-mono text-xs font-bold bg-rose-500/20 text-rose-400 hover:bg-rose-500/30 transition-all border border-rose-500/30 cursor-pointer"
+                        title="Clique para redefinir para 100%"
                       >
                         {theme.saturation ?? 100}%
                       </button>
                     </div>
-                    <Slider
-                      value={[theme.saturation ?? 100]}
-                      min={0}
-                      max={180}
-                      step={1}
-                      onValueChange={([val]) => handleChange("saturation", val)}
-                      className="cursor-pointer py-1"
-                    />
-                    <div className="flex items-center justify-between text-[10px] text-muted-foreground font-mono">
-                      <span>0%</span>
-                      <span className="text-rose-400/80 font-bold">Padrão 100%</span>
-                      <span>180%</span>
+
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => handleChange("saturation", Math.max(0, (theme.saturation ?? 100) - 5))}
+                          className="h-6 w-6 shrink-0 rounded-lg bg-secondary/80 hover:bg-secondary border border-border/60 flex items-center justify-center text-foreground hover:text-rose-400 text-xs transition-colors cursor-pointer"
+                          title="Diminuir 5%"
+                        >
+                          <Minus className="h-3 w-3" />
+                        </button>
+                        <Slider
+                          value={[theme.saturation ?? 100]}
+                          min={0}
+                          max={180}
+                          step={1}
+                          onValueChange={([val]) => handleChange("saturation", val)}
+                          className="cursor-pointer flex-1 py-1"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => handleChange("saturation", Math.min(180, (theme.saturation ?? 100) + 5))}
+                          className="h-6 w-6 shrink-0 rounded-lg bg-secondary/80 hover:bg-secondary border border-border/60 flex items-center justify-center text-foreground hover:text-rose-400 text-xs transition-colors cursor-pointer"
+                          title="Aumentar 5%"
+                        >
+                          <Plus className="h-3 w-3" />
+                        </button>
+                      </div>
+
+                      <div className="flex items-center justify-between text-[10px] text-muted-foreground font-mono px-0.5">
+                        <button
+                          type="button"
+                          onClick={() => handleChange("saturation", 50)}
+                          className="hover:text-foreground transition-colors cursor-pointer"
+                        >
+                          50%
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleChange("saturation", 100)}
+                          className={cn(
+                            "font-bold transition-colors cursor-pointer px-1 rounded",
+                            (theme.saturation ?? 100) === 100 ? "text-rose-400 bg-rose-500/15" : "hover:text-foreground"
+                          )}
+                        >
+                          100% Padrão
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleChange("saturation", 150)}
+                          className="hover:text-foreground transition-colors cursor-pointer"
+                        >
+                          150%
+                        </button>
+                      </div>
                     </div>
                   </div>
 
                   {/* 4. BRILHO DE LETRAS / TEXTO */}
                   <div
                     onDoubleClick={() => handleChange("textBrightness", 100)}
-                    className="p-3.5 rounded-2xl bg-secondary/20 border border-border/60 space-y-3 select-none hover:border-yellow-500/40 transition-colors"
-                    title="Duplo clique para restaurar 100%"
+                    className={cn(
+                      "p-3.5 rounded-2xl border transition-all duration-200 select-none flex flex-col justify-between gap-3 shadow-xs",
+                      (theme.textBrightness ?? 100) !== 100
+                        ? "bg-yellow-500/10 border-yellow-500/40 shadow-yellow-500/5"
+                        : "bg-secondary/25 border-border/70 hover:border-yellow-500/30 hover:bg-secondary/40"
+                    )}
+                    title="Dê duplo clique para restaurar 100%"
                   >
                     <div className="flex items-center justify-between">
-                      <Label className="text-xs font-bold flex items-center gap-1.5 cursor-pointer">
-                        <Sparkles className="h-3.5 w-3.5 text-yellow-400" />
-                        Brilho das Letras / Texto
-                      </Label>
+                      <div className="flex items-center gap-2">
+                        <div className="h-7 w-7 rounded-xl bg-yellow-500/15 border border-yellow-500/30 flex items-center justify-center text-yellow-400">
+                          <Sparkles className="h-3.5 w-3.5" />
+                        </div>
+                        <div>
+                          <Label className="text-xs font-bold block cursor-pointer text-foreground">
+                            Brilho de Texto
+                          </Label>
+                          <span className="text-[10px] text-muted-foreground">Legibilidade</span>
+                        </div>
+                      </div>
+
                       <button
                         type="button"
                         onClick={() => handleChange("textBrightness", 100)}
-                        className="text-xs font-mono font-bold text-yellow-400 hover:scale-110 transition-transform cursor-pointer"
-                        title="Clique para voltar a 100%"
+                        className="px-2 py-0.5 rounded-lg font-mono text-xs font-bold bg-yellow-500/20 text-yellow-400 hover:bg-yellow-500/30 transition-all border border-yellow-500/30 cursor-pointer"
+                        title="Clique para redefinir para 100%"
                       >
                         {theme.textBrightness ?? 100}%
                       </button>
                     </div>
-                    <Slider
-                      value={[theme.textBrightness ?? 100]}
-                      min={0}
-                      max={180}
-                      step={1}
-                      onValueChange={([val]) => handleChange("textBrightness", val)}
-                      className="cursor-pointer py-1"
-                    />
-                    <div className="flex items-center justify-between text-[10px] text-muted-foreground font-mono">
-                      <span>0%</span>
-                      <span className="text-yellow-400/80 font-bold">Padrão 100%</span>
-                      <span>180%</span>
+
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => handleChange("textBrightness", Math.max(0, (theme.textBrightness ?? 100) - 5))}
+                          className="h-6 w-6 shrink-0 rounded-lg bg-secondary/80 hover:bg-secondary border border-border/60 flex items-center justify-center text-foreground hover:text-yellow-400 text-xs transition-colors cursor-pointer"
+                          title="Diminuir 5%"
+                        >
+                          <Minus className="h-3 w-3" />
+                        </button>
+                        <Slider
+                          value={[theme.textBrightness ?? 100]}
+                          min={0}
+                          max={180}
+                          step={1}
+                          onValueChange={([val]) => handleChange("textBrightness", val)}
+                          className="cursor-pointer flex-1 py-1"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => handleChange("textBrightness", Math.min(180, (theme.textBrightness ?? 100) + 5))}
+                          className="h-6 w-6 shrink-0 rounded-lg bg-secondary/80 hover:bg-secondary border border-border/60 flex items-center justify-center text-foreground hover:text-yellow-400 text-xs transition-colors cursor-pointer"
+                          title="Aumentar 5%"
+                        >
+                          <Plus className="h-3 w-3" />
+                        </button>
+                      </div>
+
+                      <div className="flex items-center justify-between text-[10px] text-muted-foreground font-mono px-0.5">
+                        <button
+                          type="button"
+                          onClick={() => handleChange("textBrightness", 50)}
+                          className="hover:text-foreground transition-colors cursor-pointer"
+                        >
+                          50%
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleChange("textBrightness", 100)}
+                          className={cn(
+                            "font-bold transition-colors cursor-pointer px-1 rounded",
+                            (theme.textBrightness ?? 100) === 100 ? "text-yellow-400 bg-yellow-500/15" : "hover:text-foreground"
+                          )}
+                        >
+                          100% Padrão
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleChange("textBrightness", 150)}
+                          className="hover:text-foreground transition-colors cursor-pointer"
+                        >
+                          150%
+                        </button>
+                      </div>
                     </div>
                   </div>
                 </div>

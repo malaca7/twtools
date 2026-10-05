@@ -158,7 +158,7 @@ const AVAILABLE_ICONS = [
 ];
 
 export function CeoGerenciarTagsPage() {
-  const { isDevUser, hasPermission } = useAuth();
+  const { user, profile, isDevUser, hasPermission } = useAuth();
 
   const canViewTags = Boolean(
     hasPermission("view_ceo_tag_permissions") ||
@@ -2048,13 +2048,14 @@ export function CeoGerenciarTagsPage() {
                 </div>
               ) : (
                 filteredMembersForAssign.map((m) => {
-                  const isChecked = selectedMemberIds.has(m.user_id) || (m.id ? selectedMemberIds.has(m.id) : false);
-                  const isSavingThisMember = memberAssignSavingId === m.user_id || memberAssignSavingId === m.id;
+                  const memKey = m.user_id || m.id;
+                  const isChecked = (m.user_id && selectedMemberIds.has(m.user_id)) || (m.id && selectedMemberIds.has(m.id));
+                  const isSavingThisMember = memberAssignSavingId === m.user_id || (m.id && memberAssignSavingId === m.id);
 
                   return (
                     <div
-                      key={m.id || m.user_id}
-                      onClick={() => handleToggleMember(m.user_id)}
+                      key={memKey}
+                      onClick={() => handleToggleMember(memKey)}
                       className={cn(
                         "p-2.5 flex items-center justify-between gap-3 cursor-pointer transition-colors select-none",
                         isChecked ? "bg-primary/10 hover:bg-primary/15" : "hover:bg-secondary/40"
@@ -2062,8 +2063,8 @@ export function CeoGerenciarTagsPage() {
                     >
                       <div className="flex items-center gap-2.5 min-w-0">
                         <Checkbox
-                          checked={isChecked}
-                          onCheckedChange={() => handleToggleMember(m.user_id)}
+                          checked={Boolean(isChecked)}
+                          onCheckedChange={() => handleToggleMember(memKey)}
                           className="rounded pointer-events-none"
                         />
                         <Avatar className="h-7 w-7 border border-border/50 shrink-0">
@@ -2107,38 +2108,31 @@ export function CeoGerenciarTagsPage() {
           </div>
 
           <DialogFooter className="flex flex-col sm:flex-row items-center justify-between gap-2 pt-2 border-t border-border/60">
-            <div className="flex items-center gap-3 text-xs w-full sm:w-auto justify-between sm:justify-start">
-              <span className="text-muted-foreground">
-                Total selecionados: <strong className="text-foreground font-mono">{selectedMemberIds.size}</strong>
+            <div className="flex items-center gap-3 text-xs w-full justify-between">
+              <span className="text-muted-foreground text-[11px]">
+                Integrantes vinculados: <strong className="text-foreground font-mono font-bold">{selectedMemberIds.size}</strong> de {members.length}
               </span>
 
               {/* Status de salvamento em tempo real */}
-              {memberAssignSavingId || setTagMembersMutation.isPending || toggleAssignmentMutation.isPending ? (
-                <span className="inline-flex items-center gap-1 text-[11px] text-primary font-bold animate-pulse">
-                  <Loader2 className="h-3 w-3 animate-spin" />
-                  <span>Salvando...</span>
-                </span>
-              ) : memberAssignAutoSaved ? (
-                <span className="inline-flex items-center gap-1 text-[11px] text-emerald-400 font-bold">
-                  <CheckCircle2 className="h-3 w-3" />
-                  <span>Salvo</span>
-                </span>
-              ) : (
-                <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground">
-                  <Sparkles className="h-3 w-3 text-sky-400" />
-                  <span>Auto-save ativo</span>
-                </span>
-              )}
+              <div className="flex items-center gap-1.5">
+                {memberAssignSavingId || setTagMembersMutation.isPending || toggleAssignmentMutation.isPending ? (
+                  <span className="inline-flex items-center gap-1 text-[11px] text-primary font-bold animate-pulse">
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    <span>Salvando alterações...</span>
+                  </span>
+                ) : memberAssignAutoSaved ? (
+                  <span className="inline-flex items-center gap-1 text-[11px] text-emerald-400 font-bold">
+                    <CheckCircle2 className="h-3.5 w-3.5" />
+                    <span>Salvo automaticamente</span>
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground">
+                    <Sparkles className="h-3 w-3 text-sky-400" />
+                    <span>Sincronização em tempo real</span>
+                  </span>
+                )}
+              </div>
             </div>
-
-            <Button
-              type="button"
-              size="sm"
-              onClick={() => setTagForMembers(null)}
-              className="text-xs rounded-xl font-bold bg-primary text-primary-foreground hover:bg-primary/90 px-4 w-full sm:w-auto"
-            >
-              Concluído
-            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
