@@ -49,6 +49,7 @@ import { errorMessage, formatPhone } from "@/lib/format";
 import { getLevelLabel, levelBadgeClass } from "@/lib/permissions";
 import { cn } from "@/lib/utils";
 import { useMembers } from "@/hooks/useData";
+import { useMyMemberTags } from "@/hooks/useMemberTags";
 import { type SocialLinks } from "@/types/profileFeed";
 import { UserAppearanceSettings } from "@/components/profile/UserAppearanceSettings";
 import { UniversalImageAdjusterModal } from "@/components/ui/UniversalImageAdjusterModal";
@@ -313,43 +314,81 @@ function PerfilContent({ initialTab }: { initialTab?: "perfil" | "dados" | "publ
     }
   };
 
-  const saveMutation = useMutation({
-    mutationFn: async () => {
-      if (!nome.trim()) throw new Error("O Nome do Jogador é obrigatório.");
-      if (!telefone.trim()) throw new Error("O Telefone em jogo é obrigatório.");
-      if (!gameId.trim()) throw new Error("O ID do Personagem em jogo é obrigatório.");
+  // Estado e motor de salvamento automático
+  const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
+  const isInitialLoadRef = useRef(true);
+  const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-      await updateUserProfile({
-        nome,
-        nickname: nickname.trim() || null,
-        telefone,
-        game_id: gameId,
-        custom_url: customUrl.trim().toLowerCase().replace(/^@/, "") || null,
-        public_profile_enabled: publicProfileEnabled,
-        banner_url: bannerUrl || null,
-        original_banner_url: originalBannerUrl || null,
-        avatar_url: profile?.discord_avatar_url || profile?.avatar_url || null,
-        bio: bio.trim() || null,
-        custom_status: customStatus.trim() || null,
-        social_links: socialLinks,
-        custom_theme: {
-          ...(profile?.custom_theme || {}),
-          banner_url: bannerUrl || null,
-          original_banner_url: originalBannerUrl || null,
-        },
-      } as any);
+  const performAutoSave = useCallback(
+    async (overrideData?: Partial<any>) => {
+      if (!user?.id) return;
+      const finalNome = overrideData?.nome ?? nome;
+      const finalTel = overrideData?.telefone ?? telefone;
+      const finalGameId = overrideData?.gameId ?? gameId;
+
+      if (!finalNome.trim() || !finalTel.trim() || !finalGameId.trim()) {
+        return;
+      }
+
+      setSaveStatus("saving");
+      try {
+        await updateUserProfile({
+          nome: finalNome,
+          nickname: (overrideData?.nickname ?? nickname).trim() || null,
+          telefone: finalTel,
+          game_id: finalGameId,
+          custom_url: (overrideData?.customUrl ?? customUrl).trim().toLowerCase().replace(/^@/, "") || null,
+          public_profile_enabled: overrideData?.publicProfileEnabled ?? publicProfileEnabled,
+          banner_url: (overrideData?.bannerUrl ?? bannerUrl) || null,
+          original_banner_url: (overrideData?.originalBannerUrl ?? originalBannerUrl) || null,
+          avatar_url: profile?.discord_avatar_url || profile?.avatar_url || null,
+          bio: (overrideData?.bio ?? bio).trim() || null,
+          custom_status: (overrideData?.customStatus ?? customStatus).trim() || null,
+          social_links: overrideData?.socialLinks ?? socialLinks,
+          custom_theme: {
+            ...(profile?.custom_theme || {}),
+            banner_url: (overrideData?.bannerUrl ?? bannerUrl) || null,
+            original_banner_url: (overrideData?.originalBannerUrl ?? originalBannerUrl) || null,
+          },
+        } as any);
+
+        setSaveStatus("saved");
+        void queryClient.invalidateQueries({ queryKey: ["auth"] });
+        void queryClient.invalidateQueries({ queryKey: ["members"] });
+        void queryClient.invalidateQueries({ queryKey: ["public-profile-details"] });
+        void queryClient.invalidateQueries({ queryKey: ["public-member-direct"] });
+      } catch (err) {
+        console.error("AutoSave profile error:", err);
+        setSaveStatus("error");
+      }
     },
-    onSuccess: async () => {
-      toast.success("Perfil atualizado com sucesso!");
-      setIsEditingProfile(false);
-      await refresh();
-      void queryClient.invalidateQueries({ queryKey: ["auth"] });
-      void queryClient.invalidateQueries({ queryKey: ["members"] });
-      void queryClient.invalidateQueries({ queryKey: ["public-profile-details"] });
-      void queryClient.invalidateQueries({ queryKey: ["public-member-direct"] });
-    },
-    onError: (err) => toast.error(errorMessage(err)),
-  });
+    [user?.id, nome, nickname, telefone, gameId, customUrl, publicProfileEnabled, bannerUrl, originalBannerUrl, profile, bio, customStatus, socialLinks, queryClient]
+  );
+
+  // Dispara salvamento com debounce quando qualquer campo do formulário for alterado
+  useEffect(() => {
+    if (isInitialLoadRef.current) {
+      if (profile) {
+        isInitialLoadRef.current = false;
+      }
+      return;
+    }
+
+    if (!isEditingProfile) return;
+
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
+    }
+
+    setSaveStatus("saving");
+    saveTimeoutRef.current = setTimeout(() => {
+      performAutoSave();
+    }, 450);
+
+    return () => {
+      if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+    };
+  }, [nome, nickname, telefone, gameId, customUrl, publicProfileEnabled, bannerUrl, originalBannerUrl, bio, customStatus, socialLinks, isEditingProfile, performAutoSave, profile]);
 
   const [isSyncingAvatar, setIsSyncingAvatar] = useState(false);
 
@@ -522,35 +561,40 @@ function PerfilContent({ initialTab }: { initialTab?: "perfil" | "dados" | "publ
                       </Badge>
                     </div>
                     <p className="text-xs text-muted-foreground mt-0.5">
-                      Altere seus dados, banner e redes sociais. Clique em salvar para atualizar seu perfil público.
+                      Suas alterações são salvas automaticamente a cada digitação e mudança de configuração.
                     </p>
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2 shrink-0">
+                <div className="flex items-center gap-3 shrink-0">
+                  {saveStatus === "saving" && (
+                    <Badge variant="outline" className="text-xs bg-amber-500/10 text-amber-300 border-amber-500/30 gap-1.5 py-1 px-2.5 animate-pulse">
+                      <Loader2 className="h-3.5 w-3.5 animate-spin text-amber-400" />
+                      <span>Salvando...</span>
+                    </Badge>
+                  )}
+                  {saveStatus === "saved" && (
+                    <Badge variant="outline" className="text-xs bg-emerald-500/10 text-emerald-400 border-emerald-500/30 gap-1.5 py-1 px-2.5">
+                      <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" />
+                      <span>Salvo automaticamente</span>
+                    </Badge>
+                  )}
+                  {saveStatus === "idle" && (
+                    <Badge variant="outline" className="text-xs bg-secondary/60 text-muted-foreground border-border/60 gap-1.5 py-1 px-2.5">
+                      <Sparkles className="h-3.5 w-3.5 text-primary" />
+                      <span>Salvamento Automático</span>
+                    </Badge>
+                  )}
+
                   <Button
                     type="button"
                     variant="outline"
                     size="sm"
                     onClick={() => setIsEditingProfile(false)}
-                    className="h-9 px-3.5 text-xs font-bold border-border/80 hover:bg-secondary rounded-xl gap-1.5 cursor-pointer shadow-xs"
+                    className="h-9 px-4 text-xs font-bold border-primary/30 bg-primary/10 text-primary hover:bg-primary/20 rounded-xl gap-1.5 cursor-pointer shadow-xs"
                   >
-                    <Eye className="h-3.5 w-3.5 text-primary" />
-                    <span>Voltar para Prévia</span>
-                  </Button>
-
-                  <Button
-                    type="button"
-                    onClick={() => saveMutation.mutate()}
-                    disabled={saveMutation.isPending}
-                    className="h-9 px-4 text-xs font-bold bg-gradient-brand text-primary-foreground hover:opacity-90 rounded-xl gap-2 cursor-pointer shadow-md shadow-primary/25"
-                  >
-                    {saveMutation.isPending ? (
-                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                    ) : (
-                      <Save className="h-3.5 w-3.5" />
-                    )}
-                    <span>Salvar Alterações</span>
+                    <Eye className="h-3.5 w-3.5" />
+                    <span>Concluir / Ver Prévia</span>
                   </Button>
                 </div>
               </div>
@@ -1097,21 +1141,29 @@ function PerfilContent({ initialTab }: { initialTab?: "perfil" | "dados" | "publ
                 </CardContent>
               </Card>
 
-              {/* BOTÃO DE SALVAR GERAL */}
-              <div className="pt-2">
-                <Button
-                  type="button"
-                  className="w-full h-11 bg-gradient-brand text-primary-foreground font-bold hover:opacity-90 shadow-md cursor-pointer rounded-xl text-xs gap-2"
-                  onClick={() => saveMutation.mutate()}
-                  disabled={saveMutation.isPending}
-                >
-                  {saveMutation.isPending ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <Save className="h-4 w-4" />
-                  )}
-                  Salvar Alterações de Perfil
-                </Button>
+              {/* STATUS DE SALVAMENTO AUTOMÁTICO */}
+              <div className="p-4 rounded-2xl border border-primary/20 bg-primary/5 flex items-center justify-between gap-3 text-xs shadow-xs">
+                <div className="flex items-center gap-2 text-foreground font-semibold">
+                  <Sparkles className="h-4 w-4 text-primary shrink-0" />
+                  <span>Salvamento Automático Ativado</span>
+                </div>
+                {saveStatus === "saving" && (
+                  <Badge variant="outline" className="text-[11px] font-mono bg-amber-500/10 text-amber-300 border-amber-500/30 gap-1.5 py-1 px-2.5">
+                    <Loader2 className="h-3 w-3 animate-spin text-amber-400" />
+                    <span>Salvando alterações...</span>
+                  </Badge>
+                )}
+                {saveStatus === "saved" && (
+                  <Badge variant="outline" className="text-[11px] font-mono bg-emerald-500/10 text-emerald-400 border-emerald-500/30 gap-1.5 py-1 px-2.5">
+                    <CheckCircle2 className="h-3 w-3 text-emerald-400" />
+                    <span>Todas as alterações salvas</span>
+                  </Badge>
+                )}
+                {saveStatus === "idle" && (
+                  <Badge variant="outline" className="text-[11px] font-mono bg-secondary text-muted-foreground border-border/60 py-1 px-2.5">
+                    Sincronizado
+                  </Badge>
+                )}
               </div>
             </div>
           </div>

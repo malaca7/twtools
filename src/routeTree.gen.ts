@@ -45,6 +45,7 @@ import { Route as AuthenticatedPermissoesRouteImport } from './routes/_authentic
 import { Route as AuthenticatedProdutosRouteImport } from './routes/_authenticated/produtos'
 import { Route as AuthenticatedRankingsRouteImport } from './routes/_authenticated/rankings'
 import { Route as AuthenticatedSaldosRouteImport } from './routes/_authenticated/saldos'
+import { Route as AuthenticatedSolicitarSeloRouteImport } from './routes/_authenticated/solicitar-selo'
 import { Route as AuthenticatedTicketsRouteImport } from './routes/_authenticated/tickets'
 import { Route as AuthenticatedVendasRouteImport } from './routes/_authenticated/vendas'
 import { Route as AuthCallbackRouteImport } from './routes/auth.callback'
@@ -299,6 +300,12 @@ const AuthenticatedSaldosRoute = AuthenticatedSaldosRouteImport.update({
   path: '/saldos',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedSolicitarSeloRoute =
+  AuthenticatedSolicitarSeloRouteImport.update({
+    id: '/solicitar-selo',
+    path: '/solicitar-selo',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedTicketsRoute = AuthenticatedTicketsRouteImport.update({
   id: '/tickets',
   path: '/tickets',
@@ -706,6 +713,7 @@ export interface FileRoutesByFullPath {
   '/produtos': typeof AuthenticatedProdutosRoute
   '/rankings': typeof AuthenticatedRankingsRouteWithChildren
   '/saldos': typeof AuthenticatedSaldosRoute
+  '/solicitar-selo': typeof AuthenticatedSolicitarSeloRoute
   '/tickets': typeof AuthenticatedTicketsRouteWithChildren
   '/vendas': typeof AuthenticatedVendasRoute
   '/auth/callback': typeof AuthCallbackRoute
@@ -808,6 +816,7 @@ export interface FileRoutesByTo {
   '/produtos': typeof AuthenticatedProdutosRoute
   '/rankings': typeof AuthenticatedRankingsRouteWithChildren
   '/saldos': typeof AuthenticatedSaldosRoute
+  '/solicitar-selo': typeof AuthenticatedSolicitarSeloRoute
   '/tickets': typeof AuthenticatedTicketsRouteWithChildren
   '/vendas': typeof AuthenticatedVendasRoute
   '/auth/callback': typeof AuthCallbackRoute
@@ -912,6 +921,7 @@ export interface FileRoutesById {
   '/_authenticated/produtos': typeof AuthenticatedProdutosRoute
   '/_authenticated/rankings': typeof AuthenticatedRankingsRouteWithChildren
   '/_authenticated/saldos': typeof AuthenticatedSaldosRoute
+  '/_authenticated/solicitar-selo': typeof AuthenticatedSolicitarSeloRoute
   '/_authenticated/tickets': typeof AuthenticatedTicketsRouteWithChildren
   '/_authenticated/vendas': typeof AuthenticatedVendasRoute
   '/auth/callback': typeof AuthCallbackRoute
@@ -1016,6 +1026,7 @@ export interface FileRouteTypes {
     | '/produtos'
     | '/rankings'
     | '/saldos'
+    | '/solicitar-selo'
     | '/tickets'
     | '/vendas'
     | '/auth/callback'
@@ -1118,6 +1129,7 @@ export interface FileRouteTypes {
     | '/produtos'
     | '/rankings'
     | '/saldos'
+    | '/solicitar-selo'
     | '/tickets'
     | '/vendas'
     | '/auth/callback'
@@ -1221,6 +1233,7 @@ export interface FileRouteTypes {
     | '/_authenticated/produtos'
     | '/_authenticated/rankings'
     | '/_authenticated/saldos'
+    | '/_authenticated/solicitar-selo'
     | '/_authenticated/tickets'
     | '/_authenticated/vendas'
     | '/auth/callback'
@@ -1550,6 +1563,13 @@ declare module '@tanstack/react-router' {
       path: '/saldos'
       fullPath: '/saldos'
       preLoaderRoute: typeof AuthenticatedSaldosRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/solicitar-selo': {
+      id: '/_authenticated/solicitar-selo'
+      path: '/solicitar-selo'
+      fullPath: '/solicitar-selo'
+      preLoaderRoute: typeof AuthenticatedSolicitarSeloRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/tickets': {
@@ -2275,6 +2295,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedProdutosRoute: typeof AuthenticatedProdutosRoute
   AuthenticatedRankingsRoute: typeof AuthenticatedRankingsRouteWithChildren
   AuthenticatedSaldosRoute: typeof AuthenticatedSaldosRoute
+  AuthenticatedSolicitarSeloRoute: typeof AuthenticatedSolicitarSeloRoute
   AuthenticatedTicketsRoute: typeof AuthenticatedTicketsRouteWithChildren
   AuthenticatedVendasRoute: typeof AuthenticatedVendasRoute
   AuthenticatedDevPageRoute: typeof AuthenticatedDevPageRouteWithChildren
@@ -2341,6 +2362,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedProdutosRoute: AuthenticatedProdutosRoute,
   AuthenticatedRankingsRoute: AuthenticatedRankingsRouteWithChildren,
   AuthenticatedSaldosRoute: AuthenticatedSaldosRoute,
+  AuthenticatedSolicitarSeloRoute: AuthenticatedSolicitarSeloRoute,
   AuthenticatedTicketsRoute: AuthenticatedTicketsRouteWithChildren,
   AuthenticatedVendasRoute: AuthenticatedVendasRoute,
   AuthenticatedDevPageRoute: AuthenticatedDevPageRouteWithChildren,

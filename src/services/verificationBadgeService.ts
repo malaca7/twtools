@@ -416,3 +416,121 @@ export async function fetchVerificationAuditLogs(limit = 50): Promise<Verificati
 
   return (data || []) as unknown as VerificationAuditLog[];
 }
+
+export interface VerificationRequirementsEvaluation {
+  meetsAll: boolean;
+  levelOk: boolean;
+  roleOk: boolean;
+  insigniasOk: boolean;
+  evaluationsOk: boolean;
+  currentLevel: number;
+  currentRole: string;
+  insigniasCount: number;
+  evaluationsCount: number;
+  details: {
+    levelMessage: string;
+    roleMessage: string;
+    insigniasMessage: string;
+    evaluationsMessage: string;
+  };
+}
+
+/**
+ * Avalia os 4 requisitos mandatórios de verificação da plataforma:
+ * 1. Nível do Membro 3+
+ * 2. Cargo de Membro+ (superior a novato)
+ * 3. Pelo menos 1 insígnia conquistada
+ * 4. Pelo menos 1 avaliação recebida
+ */
+export async function getMemberVerificationRequirementsStatus(
+  userId?: string,
+  profile?: any,
+  roleLevel?: string | null
+): Promise<VerificationRequirementsEvaluation> {
+  const currentUserId = userId || profile?.user_id;
+  if (!currentUserId) {
+    return {
+      meetsAll: false,
+      levelOk: false,
+      roleOk: false,
+      insigniasOk: false,
+      evaluationsOk: false,
+      currentLevel: 1,
+      currentRole: "Novato",
+      insigniasCount: 0,
+      evaluationsCount: 0,
+      details: {
+        levelMessage: "Nível 1 (Mínimo Nível 3+)",
+        roleMessage: "Cargo Novato (Mínimo Membro+)",
+        insigniasMessage: "0 insígnias (Mínimo 1 insígnia)",
+        evaluationsMessage: "0 avaliações (Mínimo 1 avaliação)",
+      },
+    };
+  }
+
+  // 1. Nível do Membro (Gamification Level) >= 3
+  const currentLevel = Number(profile?.gamification_level ?? profile?.level ?? 1);
+  const levelOk = currentLevel >= 3;
+
+  // 2. Cargo do Membro (Membro+ / superior a novato)
+  const currentRole = String(roleLevel || profile?.nivel || "novato").toLowerCase().trim();
+  const roleOk = currentRole !== "novato" && currentRole !== "";
+
+  // 3. Pelo menos 1 insígnia na plataforma
+  let insigniasCount = 0;
+  try {
+    const { count, error } = await supabase
+      .from("member_insignias" as any)
+      .select("*", { count: "exact", head: true })
+      .eq("member_id", currentUserId);
+    if (!error && typeof count === "number") {
+      insigniasCount = count;
+    }
+  } catch (err) {
+    console.error("Erro ao verificar insígnias:", err);
+  }
+  const insigniasOk = insigniasCount >= 1;
+
+  // 4. Pelo menos 1 avaliação na plataforma
+  let evaluationsCount = Number(profile?.stars_count ?? 0);
+  try {
+    const { count, error } = await supabase
+      .from("member_evaluations" as any)
+      .select("*", { count: "exact", head: true })
+      .eq("member_id", currentUserId);
+    if (!error && typeof count === "number" && count > 0) {
+      evaluationsCount = Math.max(evaluationsCount, count);
+    }
+  } catch (err) {
+    console.error("Erro ao verificar avaliações:", err);
+  }
+  const evaluationsOk = evaluationsCount >= 1;
+
+  const meetsAll = levelOk && roleOk && insigniasOk && evaluationsOk;
+
+  return {
+    meetsAll,
+    levelOk,
+    roleOk,
+    insigniasOk,
+    evaluationsOk,
+    currentLevel,
+    currentRole,
+    insigniasCount,
+    evaluationsCount,
+    details: {
+      levelMessage: levelOk
+        ? `Nível ${currentLevel} (Requisito Nível 3+ atendido)`
+        : `Nível ${currentLevel} (Necessário atingir Nível 3+)`,
+      roleMessage: roleOk
+        ? `Cargo "${currentRole.toUpperCase()}" (Requisito Membro+ atendido)`
+        : `Cargo "${currentRole.toUpperCase()}" (Necessário promoção para Membro+)`,
+      insigniasMessage: insigniasOk
+        ? `${insigniasCount} condecoraç${insigniasCount === 1 ? "ão" : "ões"} (Requisito 1+ insígnia atendido)`
+        : `Nenhuma insígnia conquistada (Necessário pelo menos 1 insígnia)`,
+      evaluationsMessage: evaluationsOk
+        ? `${evaluationsCount} avaliaç${evaluationsCount === 1 ? "ão" : "ões"} (Requisito 1+ avaliação atendido)`
+        : `Nenhuma avaliação recebida (Necessário pelo menos 1 avaliação)`,
+    },
+  };
+}

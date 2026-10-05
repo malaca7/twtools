@@ -25,14 +25,20 @@ import {
   HelpCircle,
   ExternalLink,
 } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
 import {
   useVerificationConfig,
   useMyVerificationRequest,
   useVerificationMutations,
 } from "@/hooks/useVerificationBadge";
+import {
+  getMemberVerificationRequirementsStatus,
+  type VerificationRequirementsEvaluation,
+} from "@/services/verificationBadgeService";
 import { VerifiedBadge } from "@/components/ui/VerifiedBadge";
 import { dateTime } from "@/lib/format";
+import { getLevelLabel, levelBadgeClass } from "@/lib/permissions";
 
 interface VerificationRequestModalProps {
   open?: boolean;
@@ -53,7 +59,7 @@ export function VerificationRequestModal({
     if (!val) onClose?.();
   };
 
-  const { user, profile } = useAuth();
+  const { user, profile, level, hasPermission } = useAuth();
   const { data: config } = useVerificationConfig();
   const { data: myRequest, isLoading: loadingMyReq } = useMyVerificationRequest();
   const { submitRequestMutation, cancelRequestMutation } = useVerificationMutations();
@@ -61,17 +67,20 @@ export function VerificationRequestModal({
   const [reason, setReason] = useState("");
   const [documentUrl, setDocumentUrl] = useState("");
 
+  const canRequest = hasPermission("verification.request");
   const isAlreadyVerified = Boolean(profile?.is_verified);
   const isPending = myRequest?.status === "pendente";
   const isRejected = myRequest?.status === "rejeitado";
 
-  const reqConfig = config?.requirements_config;
-  const hasDiscord = Boolean(profile?.discord_id && profile.discord_id.trim().length > 3);
-  const hasGameId = Boolean(profile?.game_id && profile.game_id.trim().length > 0);
+  const { data: reqs } = useQuery<VerificationRequirementsEvaluation>({
+    queryKey: ["verification_requirements_status", user?.id, profile?.gamification_level, profile?.stars_count, level],
+    queryFn: () => getMemberVerificationRequirementsStatus(user?.id, profile, level),
+    enabled: Boolean(user?.id) && isModalOpen,
+    staleTime: 10 * 1000,
+  });
 
-  const discordRequirementMet = !reqConfig?.require_discord || hasDiscord;
-  const gameIdRequirementMet = !reqConfig?.require_game_id || hasGameId;
-  const canSubmit = discordRequirementMet && gameIdRequirementMet && reason.trim().length >= 5;
+  const meetsAll = Boolean(reqs?.meetsAll);
+  const canSubmit = canRequest && meetsAll && reason.trim().length >= 5;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -206,47 +215,50 @@ export function VerificationRequestModal({
                 </div>
               )}
 
-              {/* REQUISITOS PRÉ-DEFINIDOS */}
+              {/* OS 4 REQUISITOS MANDATÓRIOS */}
               <div className="p-3.5 rounded-xl bg-secondary/30 border border-border/50 space-y-2">
-                <p className="text-xs font-bold text-foreground flex items-center gap-1.5">
-                  <ShieldCheck className="h-4 w-4 text-sky-400" />
-                  <span>Requisitos para Verificação</span>
-                </p>
+                <div className="flex items-center justify-between">
+                  <p className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                    <ShieldCheck className="h-4 w-4 text-sky-400" />
+                    <span>4 Requisitos Obrigatórios</span>
+                  </p>
+                  <Badge variant="outline" className={cn("text-[9px] font-mono py-0", meetsAll ? "border-emerald-500/40 text-emerald-400" : "border-amber-500/40 text-amber-400")}>
+                    {meetsAll ? "Todos Cumpridos" : "Requisitos Pendentes"}
+                  </Badge>
+                </div>
 
-                <div className="space-y-1.5 pt-1">
-                  {reqConfig?.require_discord && (
-                    <div className="flex items-center justify-between text-xs">
-                      <span className="text-muted-foreground flex items-center gap-1.5">
-                        Conta Discord vinculada
-                      </span>
-                      {hasDiscord ? (
-                        <span className="text-emerald-400 font-bold flex items-center gap-1">
-                          <CheckCircle2 className="h-3.5 w-3.5" /> Vinculada (@{profile?.discord_username || "Discord"})
-                        </span>
-                      ) : (
-                        <span className="text-rose-400 font-semibold flex items-center gap-1">
-                          <XCircle className="h-3.5 w-3.5" /> Pendente no perfil
-                        </span>
-                      )}
-                    </div>
-                  )}
+                <div className="space-y-2 pt-1 text-xs">
+                  <div className="flex items-center justify-between">
+                    <span className="text-muted-foreground">1. Nível do Membro 3+:</span>
+                    <span className={cn("font-bold flex items-center gap-1", reqs?.levelOk ? "text-emerald-400" : "text-rose-400")}>
+                      {reqs?.levelOk ? <CheckCircle2 className="h-3 w-3" /> : <XCircle className="h-3 w-3" />}
+                      Nível {reqs?.currentLevel ?? 1}
+                    </span>
+                  </div>
 
-                  {reqConfig?.require_game_id && (
-                    <div className="flex items-center justify-between text-xs">
-                      <span className="text-muted-foreground flex items-center gap-1.5">
-                        ID no Servidor de GTA
-                      </span>
-                      {hasGameId ? (
-                        <span className="text-emerald-400 font-bold flex items-center gap-1 font-mono">
-                          <CheckCircle2 className="h-3.5 w-3.5" /> #{profile?.game_id}
-                        </span>
-                      ) : (
-                        <span className="text-rose-400 font-semibold flex items-center gap-1">
-                          <XCircle className="h-3.5 w-3.5" /> Não informado no cadastro
-                        </span>
-                      )}
-                    </div>
-                  )}
+                  <div className="flex items-center justify-between">
+                    <span className="text-muted-foreground">2. Cargo de Membro+:</span>
+                    <span className={cn("font-bold flex items-center gap-1", reqs?.roleOk ? "text-emerald-400" : "text-rose-400")}>
+                      {reqs?.roleOk ? <CheckCircle2 className="h-3 w-3" /> : <XCircle className="h-3 w-3" />}
+                      {getLevelLabel(level)}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center justify-between">
+                    <span className="text-muted-foreground">3. Pelo menos 1 Condecoração:</span>
+                    <span className={cn("font-bold flex items-center gap-1", reqs?.insigniasOk ? "text-emerald-400" : "text-rose-400")}>
+                      {reqs?.insigniasOk ? <CheckCircle2 className="h-3 w-3" /> : <XCircle className="h-3 w-3" />}
+                      {reqs?.insigniasCount ?? 0} condecorações
+                    </span>
+                  </div>
+
+                  <div className="flex items-center justify-between">
+                    <span className="text-muted-foreground">4. Pelo menos 1 Avaliação:</span>
+                    <span className={cn("font-bold flex items-center gap-1", reqs?.evaluationsOk ? "text-emerald-400" : "text-rose-400")}>
+                      {reqs?.evaluationsOk ? <CheckCircle2 className="h-3 w-3" /> : <XCircle className="h-3 w-3" />}
+                      {reqs?.evaluationsCount ?? 0} avaliações
+                    </span>
+                  </div>
                 </div>
               </div>
 

@@ -332,9 +332,29 @@ export type Permission =
   | "view_ceo_warnings"
   | "manage_ceo_warnings"
   | "view_dev_warnings"
-  | "manage_dev_warnings";
+  | "manage_dev_warnings"
+  // Permissões do Sistema de Selo de Verificação
+  | "verification.view_page"
+  | "verification.request"
+  | "verification.cancel_own"
+  | "verification.manage"
+  | "verification.review"
+  | "verification.grant_direct"
+  | "verification.revoke"
+  | "verification.config"
+  | "verification.audit";
 
 export const ALL_PERMISSIONS: Permission[] = [
+  // Permissões de Selos de Verificação
+  "verification.view_page",
+  "verification.request",
+  "verification.cancel_own",
+  "verification.manage",
+  "verification.review",
+  "verification.grant_direct",
+  "verification.revoke",
+  "verification.config",
+  "verification.audit",
   // Permissões de Matérias-Primas
   "raw_materials.view",
   "raw_materials.create",
@@ -739,6 +759,16 @@ export const CEO_PERMISSIONS: Permission[] = [
   "view_warning_details",
   "export_warnings",
   "manage_warnings",
+  // Permissões de Selos de Verificação no CEO
+  "verification.manage",
+  "verification.review",
+  "verification.grant_direct",
+  "verification.revoke",
+  "verification.config",
+  "verification.audit",
+  "verification.view_page",
+  "verification.request",
+  "verification.cancel_own",
 ];
 
 const ADMIN: Permission[] = ALL_PERMISSIONS.filter(
@@ -905,6 +935,16 @@ const OFFICER: Permission[] = [
   "life_moderate_posts",
   "life_moderate_comments",
   "manage_life",
+  // Permissões de Selos de Verificação (Officer)
+  "verification.manage",
+  "verification.review",
+  "verification.grant_direct",
+  "verification.revoke",
+  "verification.config",
+  "verification.audit",
+  "verification.view_page",
+  "verification.request",
+  "verification.cancel_own",
 ];
 
 const MANAGER: Permission[] = [
@@ -1056,6 +1096,12 @@ const MANAGER: Permission[] = [
   "edit_profile_bio",
   "edit_profile_custom_url",
   "edit_profile_appearance",
+  // Permissões de Selos de Verificação (Manager)
+  "verification.view_page",
+  "verification.request",
+  "verification.cancel_own",
+  "verification.review",
+  "verification.manage",
 ];
 
 const MEMBER: Permission[] = [
@@ -1117,6 +1163,10 @@ const MEMBER: Permission[] = [
   "life_delete_own_comment",
   "life_delete_own_post",
   "life_follow_members",
+  // Permissões de Selos de Verificação (Member)
+  "verification.view_page",
+  "verification.request",
+  "verification.cancel_own",
 ];
 
 const NOVATO: Permission[] = [
@@ -1163,6 +1213,8 @@ const NOVATO: Permission[] = [
   "life_delete_own_comment",
   "life_delete_own_post",
   "life_follow_members",
+  // Permissões de Selos de Verificação (Novato)
+  "verification.view_page",
 ];
 
 export const PERMISSIONS: Record<AppLevel, Permission[]> = {
@@ -1250,6 +1302,29 @@ export function satisfiesPermission(
     ) {
       return true;
     }
+  }
+
+  // 2.2. Sistema de Selo de Verificação
+  if (list.includes("verification.manage")) {
+    if (
+      permission === "verification.view_page" ||
+      permission === "verification.request" ||
+      permission === "verification.cancel_own" ||
+      permission === "verification.manage" ||
+      permission === "verification.review" ||
+      permission === "verification.grant_direct" ||
+      permission === "verification.revoke" ||
+      permission === "verification.config" ||
+      permission === "verification.audit"
+    ) {
+      return true;
+    }
+  }
+  if (list.includes("verification.review") && (permission === "verification.view_page" || permission === "verification.manage" || permission === "verification.review")) {
+    return true;
+  }
+  if (list.includes("verification.request") && (permission === "verification.view_page" || permission === "verification.cancel_own")) {
+    return true;
   }
 
   if (
@@ -2189,6 +2264,29 @@ export function can(
     ) {
       return true;
     }
+  }
+
+  // Herança e equivalências de Selos de Verificação
+  if (rolePerms.includes("verification.manage")) {
+    if (
+      permission === "verification.view_page" ||
+      permission === "verification.request" ||
+      permission === "verification.cancel_own" ||
+      permission === "verification.manage" ||
+      permission === "verification.review" ||
+      permission === "verification.grant_direct" ||
+      permission === "verification.revoke" ||
+      permission === "verification.config" ||
+      permission === "verification.audit"
+    ) {
+      return true;
+    }
+  }
+  if (rolePerms.includes("verification.review") && (permission === "verification.view_page" || permission === "verification.manage" || permission === "verification.review")) {
+    return true;
+  }
+  if (rolePerms.includes("verification.request") && (permission === "verification.view_page" || permission === "verification.cancel_own")) {
+    return true;
   }
 
   if (

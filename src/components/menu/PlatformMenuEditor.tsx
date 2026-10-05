@@ -55,6 +55,13 @@ import {
   type MenuItemConfig,
   type PlatformSystemModule,
 } from "@/hooks/useMenuConfig";
+import {
+  useCeoMenuConfig,
+  DEFAULT_CEO_CATEGORIES,
+  DEFAULT_CEO_MENU_ITEMS,
+  CEO_SYSTEM_MODULES,
+  type CeoMenuItemConfig,
+} from "@/hooks/useCeoMenuConfig";
 import { AVAILABLE_MENU_ICONS, resolveMenuIcon } from "@/lib/menuIcons";
 import { useAuth } from "@/hooks/useAuth";
 import { cn } from "@/lib/utils";
@@ -68,8 +75,12 @@ export function PlatformMenuEditor({
   canEdit: canEditProp,
   showDevNavigationLinks = true,
 }: PlatformMenuEditorProps) {
-  const { config, save, reset } = useMenuConfig();
+  const { config: memberConfig, save: saveMember, reset: resetMember } = useMenuConfig();
+  const { config: ceoConfig, save: saveCeo, reset: resetCeo } = useCeoMenuConfig();
   const { hasPermission, isDevUser, isCeoUser, level } = useAuth();
+
+  // Scope State: "member" | "ceo"
+  const [scope, setScope] = useState<"member" | "ceo">("member");
 
   // Permission calculation: fallback to canEditProp or auth checks
   const isLeaderOrAdmin =
@@ -86,9 +97,13 @@ export function PlatformMenuEditor({
       hasPermission("manage_menu_settings") ||
       hasPermission("manage_platform_settings"));
 
+  const activeConfig = scope === "ceo" ? ceoConfig : memberConfig;
+  const defaultCats = scope === "ceo" ? DEFAULT_CEO_CATEGORIES : DEFAULT_MENU_CATEGORIES;
+  const defaultItems = scope === "ceo" ? (DEFAULT_CEO_MENU_ITEMS as any) : DEFAULT_MENU_ITEMS;
+
   // Categories state
   const [categories, setCategories] = useState<string[]>(
-    () => config.categories || DEFAULT_MENU_CATEGORIES
+    () => activeConfig.categories || defaultCats
   );
   const [newCatName, setNewCatName] = useState("");
   const [editingCatIndex, setEditingCatIndex] = useState<number | null>(null);
@@ -96,10 +111,10 @@ export function PlatformMenuEditor({
 
   // Items state
   const [items, setItems] = useState<MenuItemConfig[]>(
-    () => config.items || DEFAULT_MENU_ITEMS
+    () => (activeConfig.items as any) || defaultItems
   );
   const [deletedItemIds, setDeletedItemIds] = useState<string[]>(
-    () => config.deletedItemIds || []
+    () => activeConfig.deletedItemIds || []
   );
 
   // Restore category selector state for each deleted item
@@ -110,8 +125,8 @@ export function PlatformMenuEditor({
   const [selectedSystemModuleId, setSelectedSystemModuleId] = useState<string>("custom");
   const [newMenuTitle, setNewMenuTitle] = useState("");
   const [newMenuUrl, setNewMenuUrl] = useState("");
-  const [newMenuCategory, setNewMenuCategory] = useState(categories[0] || "Gestão");
-  const [newMenuIconName, setNewMenuIconName] = useState("LayoutDashboard");
+  const [newMenuCategory, setNewMenuCategory] = useState(categories[0] || (scope === "ceo" ? "CEO" : "Gestão"));
+  const [newMenuIconName, setNewMenuIconName] = useState(scope === "ceo" ? "Crown" : "LayoutDashboard");
   const [newMenuVisible, setNewMenuVisible] = useState(true);
   const [newIconSearch, setNewIconSearch] = useState("");
 
@@ -137,16 +152,16 @@ export function PlatformMenuEditor({
   const [draggedCatIdx, setDraggedCatIdx] = useState<number | null>(null);
   const [dragOverCatIdx, setDragOverCatIdx] = useState<number | null>(null);
 
-  // Synchronize state when external config updates
+  // Synchronize state when scope or external config updates
   useEffect(() => {
-    if (config) {
-      setCategories(config.categories || DEFAULT_MENU_CATEGORIES);
-      setItems(config.items || DEFAULT_MENU_ITEMS);
-      if (config.deletedItemIds) {
-        setDeletedItemIds(config.deletedItemIds);
-      }
-    }
-  }, [config]);
+    const currentCfg = scope === "ceo" ? ceoConfig : memberConfig;
+    const currentDefCats = scope === "ceo" ? DEFAULT_CEO_CATEGORIES : DEFAULT_MENU_CATEGORIES;
+    const currentDefItems = scope === "ceo" ? (DEFAULT_CEO_MENU_ITEMS as any) : DEFAULT_MENU_ITEMS;
+
+    setCategories(currentCfg.categories || currentDefCats);
+    setItems((currentCfg.items as any) || currentDefItems);
+    setDeletedItemIds(currentCfg.deletedItemIds || []);
+  }, [scope, memberConfig, ceoConfig]);
 
   // Master persistent reordering function
   const reorderAndPersist = useCallback(
@@ -174,18 +189,26 @@ export function PlatformMenuEditor({
         item.order = idx;
       });
 
-      const synced = syncMenuConfig({
-        categories: newCats,
-        items: categorizedItems,
-        deletedItemIds: activeDeletedIds,
-      });
+      setCategories(newCats);
+      setItems(categorizedItems);
+      setDeletedItemIds(activeDeletedIds);
 
-      setCategories(synced.categories);
-      setItems(synced.items);
-      setDeletedItemIds(synced.deletedItemIds || []);
-      save(synced);
+      if (scope === "ceo") {
+        saveCeo({
+          categories: newCats,
+          items: categorizedItems as any,
+          deletedItemIds: activeDeletedIds,
+        });
+      } else {
+        const synced = syncMenuConfig({
+          categories: newCats,
+          items: categorizedItems,
+          deletedItemIds: activeDeletedIds,
+        });
+        saveMember(synced);
+      }
     },
-    [deletedItemIds, save]
+    [deletedItemIds, scope, saveCeo, saveMember]
   );
 
   /* ─── Category Handlers ─── */
@@ -381,22 +404,6 @@ export function PlatformMenuEditor({
     },
     [userCanEdit, categories, items, reorderAndPersist]
   );
-
-  const handleReset = useCallback(() => {
-    if (!userCanEdit) return;
-    const defaultSynced = syncMenuConfig(null);
-    setCategories(defaultSynced.categories);
-    setItems(defaultSynced.items);
-    setDeletedItemIds([]);
-    reset();
-    toast.success("Menu restaurado para o padrão do sistema!");
-  }, [reset, userCanEdit]);
-
-  const handleSyncAll = useCallback(() => {
-    if (!userCanEdit) return;
-    reorderAndPersist(categories, items);
-    toast.success("Todas as categorias e menus foram sincronizados com sucesso!");
-  }, [userCanEdit, categories, items, reorderAndPersist]);
 
   /* ─── Item Drag and Drop Handlers ─── */
   const handleItemDragStart = (e: React.DragEvent, id: string) => {
@@ -597,12 +604,13 @@ export function PlatformMenuEditor({
   /* ─── Restore Deleted Items Handlers ─── */
   const handleRestoreDeletedItem = (deletedId: string) => {
     if (!userCanEdit) return;
-    const systemModule = PLATFORM_SYSTEM_MODULES.find((m) => m.id === deletedId);
+    const currentSystemModules = scope === "ceo" ? CEO_SYSTEM_MODULES : PLATFORM_SYSTEM_MODULES;
+    const systemModule = currentSystemModules.find((m) => m.id === deletedId);
     const targetCat =
       restoreCategoryMap[deletedId] ||
       (systemModule?.defaultCat && categories.includes(systemModule.defaultCat)
         ? systemModule.defaultCat
-        : categories[0] || "Gestão");
+        : categories[0] || (scope === "ceo" ? "CEO" : "Gestão"));
 
     const restoredItem: MenuItemConfig = {
       id: deletedId,
@@ -611,7 +619,7 @@ export function PlatformMenuEditor({
       visible: true,
       category: targetCat,
       order: items.length,
-      iconName: systemModule?.iconName || "LayoutDashboard",
+      iconName: systemModule?.iconName || (scope === "ceo" ? "Crown" : "LayoutDashboard"),
       isCustom: !systemModule,
     };
 
@@ -625,14 +633,15 @@ export function PlatformMenuEditor({
   const handleRestoreAllDeleted = () => {
     if (!userCanEdit || deletedItemIds.length === 0) return;
 
+    const currentSystemModules = scope === "ceo" ? CEO_SYSTEM_MODULES : PLATFORM_SYSTEM_MODULES;
     const restoredItems: MenuItemConfig[] = [];
     deletedItemIds.forEach((delId, idx) => {
-      const systemModule = PLATFORM_SYSTEM_MODULES.find((m) => m.id === delId);
+      const systemModule = currentSystemModules.find((m) => m.id === delId);
       const targetCat =
         restoreCategoryMap[delId] ||
         (systemModule?.defaultCat && categories.includes(systemModule.defaultCat)
           ? systemModule.defaultCat
-          : categories[0] || "Gestão");
+          : categories[0] || (scope === "ceo" ? "CEO" : "Gestão"));
 
       restoredItems.push({
         id: delId,
@@ -641,7 +650,7 @@ export function PlatformMenuEditor({
         visible: true,
         category: targetCat,
         order: items.length + idx,
-        iconName: systemModule?.iconName || "LayoutDashboard",
+        iconName: systemModule?.iconName || (scope === "ceo" ? "Crown" : "LayoutDashboard"),
         isCustom: !systemModule,
       });
     });
@@ -650,23 +659,59 @@ export function PlatformMenuEditor({
     toast.success(`${deletedItemIds.length} módulos restaurados com sucesso!`);
   };
 
+  const handleReset = async () => {
+    if (!userCanEdit) return;
+    if (
+      confirm(
+        `Restaurar a estrutura e ordem original do menu ${
+          scope === "ceo" ? "Executivo (Painel CEO)" : "da Plataforma (Membros)"
+        }?`
+      )
+    ) {
+      if (scope === "ceo") {
+        await resetCeo();
+        setCategories([...DEFAULT_CEO_CATEGORIES]);
+        setItems([...(DEFAULT_CEO_MENU_ITEMS as any)]);
+        setDeletedItemIds([]);
+      } else {
+        await resetMember();
+        setCategories([...DEFAULT_MENU_CATEGORIES]);
+        setItems([...DEFAULT_MENU_ITEMS]);
+        setDeletedItemIds([]);
+      }
+      toast.success(
+        `Menu ${scope === "ceo" ? "CEO" : "da Plataforma"} restaurado para os padrões de fábrica!`
+      );
+    }
+  };
+
+  const handleSyncAll = () => {
+    if (!userCanEdit) return;
+    reorderAndPersist(categories, items, deletedItemIds);
+    toast.success(
+      `Todas as categorias e menus ${
+        scope === "ceo" ? "do Painel CEO" : "da Plataforma"
+      } foram sincronizados!`
+    );
+  };
+
   // Group items by category for preview
   const grouped = useMemo(() => {
     const groups: Record<string, MenuItemConfig[]> = {};
     categories.forEach((cat) => {
       groups[cat] = items
-        .filter((item) => (item.category || categories[0] || "Gestão") === cat)
+        .filter((item) => (item.category || categories[0] || (scope === "ceo" ? "CEO" : "Gestão")) === cat)
         .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
     });
     // Include items from missing categories
     items.forEach((item) => {
-      const cat = item.category || categories[0] || "Gestão";
+      const cat = item.category || categories[0] || (scope === "ceo" ? "CEO" : "Gestão");
       if (!groups[cat]) {
         groups[cat] = [item];
       }
     });
     return groups;
-  }, [categories, items]);
+  }, [categories, items, scope]);
 
   // Icon search filters
   const filteredNewIcons = useMemo(() => {
@@ -686,26 +731,84 @@ export function PlatformMenuEditor({
   }, [editIconSearch]);
 
   // Available system modules not currently in items
+  const currentSystemModules = scope === "ceo" ? CEO_SYSTEM_MODULES : PLATFORM_SYSTEM_MODULES;
   const availableSystemModules = useMemo(() => {
     const itemIds = new Set(items.map((i) => i.id));
-    return PLATFORM_SYSTEM_MODULES.filter((m) => !itemIds.has(m.id));
-  }, [items]);
+    return currentSystemModules.filter((m) => !itemIds.has(m.id));
+  }, [items, currentSystemModules]);
 
   return (
     <div className="space-y-6 animate-in fade-in-50 slide-in-from-bottom-2 duration-300">
+      {/* SELETOR DE ESCOPO: PLATAFORMA (MEMBROS) vs EXECUTIVO (CEO) */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-2 rounded-2xl bg-secondary/30 border border-border/70 backdrop-blur-md">
+        <div className="flex items-center gap-1.5 p-1 rounded-xl bg-background/80 border border-border/60 shadow-xs">
+          <button
+            type="button"
+            onClick={() => setScope("member")}
+            className={cn(
+              "px-3.5 py-1.5 rounded-lg text-xs font-black transition-all flex items-center gap-1.5 cursor-pointer",
+              scope === "member"
+                ? "bg-gradient-brand text-primary-foreground shadow-sm"
+                : "text-muted-foreground hover:text-foreground hover:bg-secondary"
+            )}
+          >
+            <Layers className="h-3.5 w-3.5" />
+            <span>Menu Plataforma (Membros)</span>
+            <Badge className={cn("text-[9px] py-0 px-1 font-mono ml-1", scope === "member" ? "bg-white/20 text-white" : "bg-secondary text-foreground")}>
+              {memberConfig.items?.length || DEFAULT_MENU_ITEMS.length}
+            </Badge>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setScope("ceo")}
+            className={cn(
+              "px-3.5 py-1.5 rounded-lg text-xs font-black transition-all flex items-center gap-1.5 cursor-pointer",
+              scope === "ceo"
+                ? "bg-amber-500 text-black shadow-sm font-black"
+                : "text-muted-foreground hover:text-foreground hover:bg-secondary"
+            )}
+          >
+            <Crown className="h-3.5 w-3.5 text-amber-400 group-hover:scale-110 transition-transform" />
+            <span>Menu Executivo (Painel CEO)</span>
+            <Badge className={cn("text-[9px] py-0 px-1 font-mono ml-1", scope === "ceo" ? "bg-black/20 text-black" : "bg-amber-500/10 text-amber-300 border-amber-500/30")}>
+              {ceoConfig.items?.length || DEFAULT_CEO_MENU_ITEMS.length}
+            </Badge>
+          </button>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <Badge
+            variant="outline"
+            className={cn(
+              "text-[10px] font-mono font-bold py-1 px-2.5",
+              scope === "ceo"
+                ? "border-amber-500/40 text-amber-400 bg-amber-500/10"
+                : "border-primary/40 text-primary bg-primary/10"
+            )}
+          >
+            {scope === "ceo" ? "👑 Editando Menu CEO" : "👥 Editando Menu Membros"}
+          </Badge>
+        </div>
+      </div>
+
       {/* Top Banner / Navigation switch */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-xl bg-card border border-border/60 shadow-sm">
         <div>
           <div className="flex items-center gap-2">
             <h3 className="text-sm font-extrabold text-foreground">
-              Personalização do Menu Lateral (Plataforma)
+              {scope === "ceo"
+                ? "Personalização do Menu Lateral — Painel CEO"
+                : "Personalização do Menu Lateral — Plataforma (Membros)"}
             </h3>
-            <Badge className="bg-primary/10 text-primary border-primary/30 text-[10px] py-0.5">
-              Membros
+            <Badge className={cn("text-[10px] py-0.5", scope === "ceo" ? "bg-amber-500/10 text-amber-400 border-amber-500/30" : "bg-primary/10 text-primary border-primary/30")}>
+              {scope === "ceo" ? "Diretoria & CEO" : "Membros & Geral"}
             </Badge>
           </div>
           <p className="text-xs text-muted-foreground mt-0.5">
-            Gerencie as categorias, itens, rotas, ícones e ordem do menu exibido para todos os membros da facção.
+            {scope === "ceo"
+              ? "Gerencie as categorias, itens como 'Gerenciar Selos', métricas, finanças e atalhos exclusivos da diretoria executiva."
+              : "Gerencie as categorias, itens, rotas, ícones e ordem do menu exibido para todos os membros da facção."}
           </p>
         </div>
 
@@ -728,10 +831,10 @@ export function PlatformMenuEditor({
             size="sm"
             onClick={() => handleOpenAddMenu()}
             disabled={!userCanEdit}
-            className="h-8 text-xs gap-1.5 bg-gradient-brand text-primary-foreground font-bold shadow-sm"
+            className={cn("h-8 text-xs gap-1.5 font-bold shadow-sm", scope === "ceo" ? "bg-amber-500 hover:bg-amber-600 text-black" : "bg-gradient-brand text-primary-foreground")}
           >
             <Plus className="h-3.5 w-3.5" />
-            Novo Menu
+            <span>{scope === "ceo" ? "Novo Menu CEO" : "Novo Menu"}</span>
           </Button>
           <Button
             variant="outline"

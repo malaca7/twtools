@@ -21,7 +21,10 @@ import {
   Layers,
   ArrowRight,
 } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
 import { InsigniaGrid } from "@/components/performance/InsigniaGrid";
+import { MemberInsigniasCardsSection } from "@/components/gamification/MemberInsigniasCardsSection";
+import { VerifiedBadge } from "@/components/ui/VerifiedBadge";
 import { calculateMemberInsignias } from "@/lib/insignias";
 import { goalProgress, GOAL_STATUS_LABEL, GOAL_TYPE_LABEL } from "@/lib/metrics";
 import { PageHeader, TableSkeleton, EmptyState, NoAccess } from "@/components/ui-kit";
@@ -268,7 +271,10 @@ function MeuDesempenhoContent() {
 
                   <div className="space-y-1">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <h2 className="text-xl font-black text-foreground">{memberName}</h2>
+                      <div className="flex items-center gap-1.5">
+                        <h2 className="text-xl font-black text-foreground">{memberName}</h2>
+                        <VerifiedBadge isVerified={profile?.is_verified} size="md" />
+                      </div>
                       {level && (
                         <Badge variant="outline" className={levelBadgeClass(level)}>
                           {getLevelLabel(level)}
@@ -321,8 +327,22 @@ function MeuDesempenhoContent() {
             </CardContent>
           </Card>
 
-          {/* Insígnias & Conquistas Operacionais */}
-          {canViewInsignias && <InsigniaGrid insignias={myInsignias} />}
+          {/* Insígnias & Conquistas Reais do Membro */}
+          {canViewInsignias && currentUserId && (
+            <Card className="surface-card border-border/70 p-5 rounded-2xl shadow-md">
+              <MemberInsigniasCardsSection
+                userId={currentUserId}
+                member={{
+                  user_id: currentUserId,
+                  nome: profile?.nome || "Membro",
+                  nickname: profile?.nickname || undefined,
+                  avatar_url: profile?.avatar_url || undefined,
+                }}
+                title="Galeria de Insígnias & Conquistas Operacionais"
+                description="Emblemas 3D oficiais e condecorações de honra conquistadas na plataforma e concedidas pela liderança."
+              />
+            </Card>
+          )}
 
           {/* Member's Sales & Movements History Grid */}
           <div className="grid gap-6 md:grid-cols-2">

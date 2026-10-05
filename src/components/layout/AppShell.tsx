@@ -166,6 +166,7 @@ const MASTER_NAV_ITEMS: MasterNavItem[] = [
   { id: "ausencias", title: "Ausências", url: "/ausencias", icon: CalendarOff, perm: "view_absences", defaultCat: "Gestão", defaultOrder: 14 },
   { id: "rankings", title: "Rankings", url: "/rankings", icon: Trophy, perm: "view_rankings", defaultCat: "Gestão", defaultOrder: 15 },
   { id: "desempenho", title: "Meu Desempenho", url: "/desempenho", icon: User, perm: "view_performance", defaultCat: "Gestão", defaultOrder: 16 },
+  { id: "solicitar-selo", title: "Solicitar Verificação", url: "/solicitar-selo", icon: BadgeCheck, perm: "verification.view_page", defaultCat: "Gestão", defaultOrder: 16.5 },
   { id: "metas", title: "Metas", url: "/metas", icon: Target, perm: "view_goals", defaultCat: "Gestão", defaultOrder: 17 },
   { id: "avisos", title: "Enviar Avisos", url: "/avisos", icon: Megaphone, perm: "manage_announcements", defaultCat: "Gestão", defaultOrder: 18 },
   { id: "cargos", title: "Gerenciamento de Cargos", url: "/cargos", icon: ShieldCheck, perm: "manage_roles", defaultCat: "Administração", defaultOrder: 19 },
@@ -204,6 +205,7 @@ const URL_TO_PERMISSION_MAP: Record<string, Permission> = {
   "/rankings": "view_rankings",
   "/desempenho": "view_performance",
   "/meu-desempenho": "view_performance",
+  "/solicitar-selo": "verification.view_page",
   "/metas": "view_goals",
   "/avisos": "manage_announcements",
   "/cargos": "manage_roles",
@@ -249,7 +251,7 @@ const URL_TO_PERMISSION_MAP: Record<string, Permission> = {
   "/ceo/armazem": "warehouse.view",
   "/ceo/tags": "view_ceo_tag_permissions",
   "/ceo/permissoes-tags": "view_ceo_tag_permissions",
-  "/ceo/selos": "view_ceo",
+  "/ceo/selos": "verification.manage",
   "/ceo/logs": "view_audit",
   "/dev/tags": "view_dev_tags",
   "/dev/gerenciar-tags": "view_dev_tags",
@@ -262,7 +264,7 @@ const URL_TO_PERMISSION_MAP: Record<string, Permission> = {
   "/dev/ceo/ajustes-estoque": "view_ceo_stock_adjustments",
   "/dev/ceo/notificacoes": "view_ceo_notifications",
   "/dev/ceo/tags": "view_ceo_tag_permissions",
-  "/dev/ceo/selos": "view_ceo",
+  "/dev/ceo/selos": "verification.manage",
   "/dev/ceo/advertencias": "view_ceo_warnings",
   "/dev/ajustes-estoque": "view_ceo_stock_adjustments",
   "/dev/webhooks": "manage_ceo_webhooks",
@@ -305,6 +307,8 @@ const CEO_MODULE_NAV_ITEMS: MasterNavItem[] = [
   { id: "ceo-ajustes-estoque", title: "Ajustes de Estoque", url: "/ceo/ajustes-estoque", icon: Sliders, defaultCat: "CEO", defaultOrder: 4 },
   { id: "ceo-notificacoes", title: "Central de Notificações", url: "/ceo/notificacoes", icon: BellRing, defaultCat: "CEO", defaultOrder: 5 },
   { id: "ceo-tags", title: "Gerenciar Tags", url: "/ceo/tags", icon: Tags, defaultCat: "CEO", defaultOrder: 6 },
+  { id: "ceo-selos", title: "Gerenciar Selos", url: "/ceo/selos", icon: BadgeCheck, defaultCat: "CEO", defaultOrder: 7 },
+  { id: "ceo-advertencias", title: "Advertências & Suspensões", url: "/ceo/advertencias", icon: ShieldAlert, defaultCat: "CEO", defaultOrder: 8 },
 ];
 
 /**
@@ -326,6 +330,8 @@ function resolveRequiredPermission(id?: string, url?: string): Permission | unde
     if (URL_TO_PERMISSION_MAP[withoutPrefix]) return URL_TO_PERMISSION_MAP[withoutPrefix];
 
     // Resolução robusta baseada em prefixo de rotas
+    if (withoutPrefix.startsWith("/solicitar-selo")) return "verification.view_page";
+    if (withoutPrefix.startsWith("/ceo/selos") || withoutPrefix.startsWith("/selos")) return "verification.manage";
     if (withoutPrefix.startsWith("/escalas")) return "escalas.view";
     if (withoutPrefix.startsWith("/producoes/materias-primas") || withoutPrefix.startsWith("/materias-primas")) return "raw_materials.view";
     if (withoutPrefix.startsWith("/producoes/armazem") || withoutPrefix.startsWith("/armazem")) return "warehouse.view";
@@ -1166,6 +1172,26 @@ export function AppShell({ children }: { children: ReactNode }) {
     navigate({ to: "/", replace: true });
   };
 
+  const handleSwitchPanel = useCallback(
+    (targetMode: "member" | "dev" | "ceo") => {
+      setPanelMode(targetMode);
+      // Se a rota for estritamente exclusiva (ex: /ceo/* ou /dev/*) e o novo painel não tiver acesso:
+      const isExclusiveDevRoute = pathname.startsWith("/dev");
+      const isExclusiveCeoRoute = pathname.startsWith("/ceo");
+
+      if (targetMode === "member") {
+        if (isExclusiveDevRoute || isExclusiveCeoRoute) {
+          void navigate({ to: settings?.startPageUser || "/dashboard" });
+        }
+      } else if (targetMode === "ceo") {
+        if (isExclusiveDevRoute) {
+          void navigate({ to: settings?.startPageCeo || "/ceo/dashboard" });
+        }
+      }
+    },
+    [setPanelMode, pathname, settings, navigate]
+  );
+
   return (
     <SidebarProvider>
       <div className="flex min-h-screen w-full">
@@ -1216,17 +1242,17 @@ export function AppShell({ children }: { children: ReactNode }) {
               )}
 
               {/* SELETOR DE PAINÉIS (MEMBRO / CEO / DEV) NA BARRA DE TOPO */}
-              {/* Só exibe se o membro tiver acesso a mais de um painel, e apenas os painéis permitidos */}
+              {/* Mantém a visualização na mesma página atualizando apenas as permissões e tema do painel ativo */}
               {hasMultiplePanels && (
                 <div className="flex items-center p-0.5 sm:p-1 bg-secondary/50 border border-border/80 rounded-xl shadow-xs gap-0.5 sm:gap-1 backdrop-blur-md">
                   {/* Botão Painel Membro */}
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <Link
-                        to={settings?.startPageUser || "/dashboard"}
-                        onClick={() => setPanelMode("member")}
+                      <button
+                        type="button"
+                        onClick={() => handleSwitchPanel("member")}
                         className={cn(
-                          "flex items-center gap-1 sm:gap-1.5 px-1.5 py-1 sm:px-3 sm:py-1.5 rounded-lg text-xs font-semibold transition-all duration-150 cursor-pointer",
+                          "flex items-center gap-1 sm:gap-1.5 px-1.5 py-1 sm:px-3 sm:py-1.5 rounded-lg text-xs font-semibold transition-all duration-150 cursor-pointer border-none bg-transparent",
                           !isDevActive && !isCeoActive
                             ? cn(memberStyle.bgSolidClass, "shadow-xs ring-1", memberStyle.ringClass, "font-bold")
                             : cn(memberStyle.textMutedClass, "hover:bg-secondary/60 hover:text-foreground")
@@ -1235,10 +1261,10 @@ export function AppShell({ children }: { children: ReactNode }) {
                       >
                         <MemberIcon className="h-3.5 w-3.5 shrink-0" />
                         <span className="hidden md:inline">Membro</span>
-                      </Link>
+                      </button>
                     </TooltipTrigger>
                     <TooltipContent side="bottom" className={cn("text-[11px] font-bold", memberStyle.textClass)}>
-                      Painel Membro
+                      Painel Membro (Modo Operacional)
                     </TooltipContent>
                   </Tooltip>
 
@@ -1246,11 +1272,11 @@ export function AppShell({ children }: { children: ReactNode }) {
                   {canAccessCeo && (
                     <Tooltip>
                       <TooltipTrigger asChild>
-                        <Link
-                          to={settings?.startPageCeo || "/ceo/dashboard"}
-                          onClick={() => setPanelMode("ceo")}
+                        <button
+                          type="button"
+                          onClick={() => handleSwitchPanel("ceo")}
                           className={cn(
-                            "flex items-center gap-1 sm:gap-1.5 px-1.5 py-1 sm:px-3 sm:py-1.5 rounded-lg text-xs font-semibold transition-all duration-150 cursor-pointer",
+                            "flex items-center gap-1 sm:gap-1.5 px-1.5 py-1 sm:px-3 sm:py-1.5 rounded-lg text-xs font-semibold transition-all duration-150 cursor-pointer border-none bg-transparent",
                             isCeoActive
                               ? cn(ceoStyle.bgSolidClass, "shadow-xs ring-1", ceoStyle.ringClass, "font-bold")
                               : cn(ceoStyle.textMutedClass, "hover:bg-secondary/60 hover:text-foreground")
@@ -1259,10 +1285,10 @@ export function AppShell({ children }: { children: ReactNode }) {
                         >
                           <CeoIcon className="h-3.5 w-3.5 shrink-0" />
                           <span className="hidden md:inline">CEO</span>
-                        </Link>
+                        </button>
                       </TooltipTrigger>
                       <TooltipContent side="bottom" className={cn("text-[11px] font-bold", ceoStyle.textClass)}>
-                        Painel Executivo CEO
+                        Painel Executivo CEO (Diretoria)
                       </TooltipContent>
                     </Tooltip>
                   )}
@@ -1271,11 +1297,11 @@ export function AppShell({ children }: { children: ReactNode }) {
                   {canAccessDev && (
                     <Tooltip>
                       <TooltipTrigger asChild>
-                        <Link
-                          to={settings?.startPageDev || "/dev"}
-                          onClick={() => setPanelMode("dev")}
+                        <button
+                          type="button"
+                          onClick={() => handleSwitchPanel("dev")}
                           className={cn(
-                            "flex items-center gap-1 sm:gap-1.5 px-1.5 py-1 sm:px-3 sm:py-1.5 rounded-lg text-xs font-semibold transition-all duration-150 cursor-pointer",
+                            "flex items-center gap-1 sm:gap-1.5 px-1.5 py-1 sm:px-3 sm:py-1.5 rounded-lg text-xs font-semibold transition-all duration-150 cursor-pointer border-none bg-transparent",
                             isDevActive
                               ? cn(devStyle.bgSolidClass, "shadow-xs ring-1", devStyle.ringClass, "font-bold")
                               : cn(devStyle.textMutedClass, "hover:bg-secondary/60 hover:text-foreground")
@@ -1284,10 +1310,10 @@ export function AppShell({ children }: { children: ReactNode }) {
                         >
                           <DevIcon className="h-3.5 w-3.5 shrink-0" />
                           <span className="hidden md:inline">Dev</span>
-                        </Link>
+                        </button>
                       </TooltipTrigger>
                       <TooltipContent side="bottom" className={cn("text-[11px] font-bold", devStyle.textClass)}>
-                        Painel Dev (Dev Tools)
+                        Painel Dev Tools (Engenharia)
                       </TooltipContent>
                     </Tooltip>
                   )}

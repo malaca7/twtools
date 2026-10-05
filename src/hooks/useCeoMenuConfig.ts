@@ -17,6 +17,7 @@ export type CeoMenuConfig = {
   categories?: string[];
   categoryIcons?: Record<string, string>;
   items: CeoMenuItemConfig[];
+  deletedItemIds?: string[];
 };
 
 export const DEFAULT_CEO_CATEGORIES = ["CEO"];
@@ -31,6 +32,18 @@ export const DEFAULT_CEO_MENU_ITEMS: CeoMenuItemConfig[] = [
   { id: "ceo-tags", title: "Gerenciar Tags", url: "/ceo/tags", iconName: "Tags", visible: true, category: "CEO", order: 6 },
   { id: "ceo-selos", title: "Gerenciar Selos", url: "/ceo/selos", iconName: "BadgeCheck", visible: true, category: "CEO", order: 7 },
   { id: "ceo-advertencias", title: "Advertências & Suspensões", url: "/ceo/advertencias", iconName: "ShieldAlert", visible: true, category: "CEO", order: 8 },
+];
+
+export const CEO_SYSTEM_MODULES = [
+  { id: "ceo-dashboard", title: "Visão Geral & Métricas", url: "/ceo/dashboard", defaultCat: "CEO", iconName: "LayoutDashboard", description: "Painel executivo com métricas consolidadas e faturamento geral" },
+  { id: "ceo-bot", title: "Gerenciar Bot", url: "/ceo/bot", defaultCat: "CEO", iconName: "Bot", description: "Configuração do bot Discloud e sincronização do Discord" },
+  { id: "ceo-webhooks", title: "WebHook Discord", url: "/ceo/webhooks", defaultCat: "CEO", iconName: "Webhook", description: "Integração de canais de avisos e notificações no Discord" },
+  { id: "ceo-financas", title: "Fundo de Caixa & Finanças", url: "/ceo/financas", defaultCat: "CEO", iconName: "Landmark", description: "Gestão executiva de cofres, metas monetárias e auditoria" },
+  { id: "ceo-ajustes-estoque", title: "Ajustes de Estoque", url: "/ceo/ajustes-estoque", defaultCat: "CEO", iconName: "Sliders", description: "Ajustes administrativos manuais de quantidades em baús" },
+  { id: "ceo-notificacoes", title: "Central de Notificações", url: "/ceo/notificacoes", defaultCat: "CEO", iconName: "BellRing", description: "Disparo e broadcast de notificações e avisos em massa" },
+  { id: "ceo-tags", title: "Gerenciar Tags", url: "/ceo/tags", defaultCat: "CEO", iconName: "Tags", description: "Criação, cores, ícones e vinculação de tags da facção" },
+  { id: "ceo-selos", title: "Gerenciar Selos", url: "/ceo/selos", defaultCat: "CEO", iconName: "BadgeCheck", description: "Painel de gestão, análise de pedidos e aprovação de Selos de Verificação" },
+  { id: "ceo-advertencias", title: "Advertências & Suspensões", url: "/ceo/advertencias", defaultCat: "CEO", iconName: "ShieldAlert", description: "Auditoria e gestão de punições, advertências e suspensões" },
 ];
 
 const STORAGE_KEY = "tw_ceo_menu_config";
@@ -58,6 +71,10 @@ export function sanitizeCeoConfig(parsed: any): CeoMenuConfig {
       ? parsed.categories
       : [...DEFAULT_CEO_CATEGORIES];
 
+  const deletedIds = new Set<string>(
+    Array.isArray(parsed?.deletedItemIds) ? parsed.deletedItemIds : []
+  );
+
   const defaultIds = new Set(DEFAULT_CEO_MENU_ITEMS.map((d) => d.id));
 
   const rawItems = Array.isArray(parsed?.items) ? parsed.items : [];
@@ -68,26 +85,28 @@ export function sanitizeCeoConfig(parsed: any): CeoMenuConfig {
     }
   });
 
-  const merged = DEFAULT_CEO_MENU_ITEMS.map((def, defaultIdx) => {
-    const saved = savedMap.get(def.id) || (def.id === "ceo-tags" ? savedMap.get("ceo-permissoes-tags") : undefined);
-    if (!saved) return def;
-    return {
-      id: def.id,
-      title: def.id === "ceo-tags" ? "Gerenciar Tags" : (saved.title && typeof saved.title === "string" && saved.title.trim().length > 0 ? saved.title.trim() : def.title),
-      url: def.id === "ceo-tags" ? "/ceo/tags" : (saved.url && typeof saved.url === "string" && saved.url.trim().length > 1 && saved.url !== "/" ? saved.url.trim() : def.url),
-      iconName: saved.iconName || def.iconName,
-      visible: typeof saved.visible === "boolean" ? saved.visible : def.visible,
-      category:
-        saved.category && typeof saved.category === "string" && saved.category.trim().length > 0
-          ? saved.category.trim()
-          : def.category,
-      order: typeof saved.order === "number" ? saved.order : defaultIdx,
-    };
-  });
+  const merged = DEFAULT_CEO_MENU_ITEMS
+    .filter((def) => !deletedIds.has(def.id))
+    .map((def, defaultIdx) => {
+      const saved = savedMap.get(def.id) || (def.id === "ceo-tags" ? savedMap.get("ceo-permissoes-tags") : undefined);
+      if (!saved) return def;
+      return {
+        id: def.id,
+        title: def.id === "ceo-tags" ? "Gerenciar Tags" : (saved.title && typeof saved.title === "string" && saved.title.trim().length > 0 ? saved.title.trim() : def.title),
+        url: def.id === "ceo-tags" ? "/ceo/tags" : (saved.url && typeof saved.url === "string" && saved.url.trim().length > 1 && saved.url !== "/" ? saved.url.trim() : def.url),
+        iconName: saved.iconName || def.iconName,
+        visible: typeof saved.visible === "boolean" ? saved.visible : def.visible,
+        category:
+          saved.category && typeof saved.category === "string" && saved.category.trim().length > 0
+            ? saved.category.trim()
+            : def.category,
+        order: typeof saved.order === "number" ? saved.order : defaultIdx,
+      };
+    });
 
   // Preserva itens customizados adicionados pelo usuário
   const customItems: CeoMenuItemConfig[] = rawItems
-    .filter((i: any) => i && typeof i === "object" && i.id && !defaultIds.has(i.id))
+    .filter((i: any) => i && typeof i === "object" && i.id && !defaultIds.has(i.id) && !deletedIds.has(i.id))
     .map((i: any, idx: number) => ({
       id: i.id,
       title: i.title && typeof i.title === "string" ? i.title.trim() : "Novo Item",
@@ -108,6 +127,7 @@ export function sanitizeCeoConfig(parsed: any): CeoMenuConfig {
     categories,
     categoryIcons,
     items: [...merged, ...customItems].sort((a, b) => (a.order ?? 0) - (b.order ?? 0)),
+    deletedItemIds: Array.from(deletedIds),
   };
 }
 

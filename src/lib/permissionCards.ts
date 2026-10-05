@@ -42,6 +42,7 @@ import {
   Tags,
   ShieldAlert,
   Swords,
+  BadgeCheck,
 } from "lucide-react";
 import type { Permission } from "@/lib/permissions";
 
@@ -127,6 +128,10 @@ export const READ_ONLY_PERMISSIONS: Permission[] = [
   "escalas.view",
   "escalas.details",
   "escalas.history",
+  // Selo de Verificação
+  "verification.view_page",
+  "verification.manage",
+  "verification.audit",
 ];
 
 export const PAGE_CARDS: PageCardConfig[] = [
@@ -2258,6 +2263,84 @@ export const PAGE_CARDS: PageCardConfig[] = [
         label: "Sincronizar Membros no Discord",
         description: "Permite sincronizar em lote ou automaticamente cargos no Discord ao atribuir ou remover tags de membros.",
         badge: "Sincronização",
+      },
+    ],
+  },
+  {
+    id: "solicitar-selo",
+    title: "Solicitar Verificação",
+    route: "/solicitar-selo",
+    icon: BadgeCheck,
+    description: "Página oficial do membro para solicitação, acompanhamento de status e cancelamento do Selo de Verificação.",
+    color: "border-sky-500/40 bg-sky-500/5 text-sky-400",
+    defaultCat: "Gestão",
+    defaultOrder: 16.5,
+    permissions: [
+      {
+        key: "verification.view_page",
+        label: "Visualizar Página de Solicitação de Selo (/solicitar-selo)",
+        description: "Permite acessar a página de verificação e checar requisitos e condecorações.",
+        badge: "Acesso Base",
+      },
+      {
+        key: "verification.request",
+        label: "Enviar Solicitação de Verificação",
+        description: "Permite preencher e submeter o formulário oficial para avaliação da liderança.",
+        badge: "Operação",
+      },
+      {
+        key: "verification.cancel_own",
+        label: "Cancelar Própria Solicitação Pendente",
+        description: "Permite desistir ou cancelar uma solicitação de verificação em análise.",
+        badge: "Operação",
+      },
+    ],
+  },
+  {
+    id: "ceo-selos",
+    title: "Gerenciar Selos (CEO)",
+    route: "/ceo/selos",
+    icon: BadgeCheck,
+    description: "Gestão executiva de selos de verificação: análise e aprovação de pedidos, concessão direta, revogação, requisitos e auditoria.",
+    color: "border-amber-500/40 bg-amber-500/5 text-amber-400",
+    defaultCat: "CEO",
+    defaultOrder: 16,
+    permissions: [
+      {
+        key: "verification.manage",
+        label: "Acesso ao Módulo de Selos CEO (/ceo/selos)",
+        description: "Permite acessar a central executiva de selos de verificação na diretoria.",
+        badge: "Acesso Base",
+      },
+      {
+        key: "verification.review",
+        label: "Analisar, Aprovar e Rejeitar Solicitações",
+        description: "Permite avaliar solicitações pendentes, deferir selos ou rejeitar pedidos com justificativa.",
+        badge: "Moderação",
+      },
+      {
+        key: "verification.grant_direct",
+        label: "Conceder Selo Direto a Membro",
+        description: "Permite atribuir o selo de verificação a qualquer membro imediatamente sem solicitação prévia.",
+        badge: "Executivo",
+      },
+      {
+        key: "verification.revoke",
+        label: "Revogar / Remover Selo de Verificação",
+        description: "Permite retirar o selo de verificação de um membro com registro de motivo.",
+        badge: "Executivo",
+      },
+      {
+        key: "verification.config",
+        label: "Configurar Requisitos e Estilo Visual do Selo",
+        description: "Permite alterar nome, ícone, cor, brilho, instruções e regras de verificação.",
+        badge: "Configuração",
+      },
+      {
+        key: "verification.audit",
+        label: "Visualizar Histórico e Auditoria de Verificações",
+        description: "Permite inspecionar logs detalhados de concessões, recusas e revogações de selos.",
+        badge: "Auditoria",
       },
     ],
   },

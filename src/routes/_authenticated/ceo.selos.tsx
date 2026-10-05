@@ -105,6 +105,15 @@ const PRESET_COLORS = [
 
 export function CeoSelosPage() {
   const { hasPermission, isDevUser, isCeoUser, level } = useAuth();
+
+  // Permissões Granulares de Verificação
+  const canManage = hasPermission("verification.manage") || isCeoUser || isDevUser;
+  const canReview = hasPermission("verification.review") || canManage;
+  const canGrant = hasPermission("verification.grant_direct") || canManage;
+  const canRevoke = hasPermission("verification.revoke") || canManage;
+  const canConfig = hasPermission("verification.config") || canManage;
+  const canAudit = hasPermission("verification.audit") || canManage;
+
   const { data: members = [], isLoading: loadingMembers } = useMembers();
   const { data: tags = [] } = useMemberTags();
   const { data: dbCustomRoles = [] } = useCustomRoles();
@@ -292,15 +301,17 @@ export function CeoSelosPage() {
         title="Gerenciar Selos & Verificações"
         description="Controle e personalização completa do Selo de Verificado da Twin Wheels, aprovação de solicitações, requisitos e auditoria."
         action={
-          <Button
-            type="button"
-            size="sm"
-            onClick={() => setIsDirectModalOpen(true)}
-            className="text-xs rounded-xl font-bold bg-sky-500 hover:bg-sky-600 text-white gap-1.5 shadow-lg shadow-sky-500/20"
-          >
-            <UserPlus className="h-4 w-4" />
-            <span>Conceder Selo Direto</span>
-          </Button>
+          canGrant ? (
+            <Button
+              type="button"
+              size="sm"
+              onClick={() => setIsDirectModalOpen(true)}
+              className="text-xs rounded-xl font-bold bg-sky-500 hover:bg-sky-600 text-white gap-1.5 shadow-lg shadow-sky-500/20"
+            >
+              <UserPlus className="h-4 w-4" />
+              <span>Conceder Selo Direto</span>
+            </Button>
+          ) : undefined
         }
       />
 
@@ -347,7 +358,7 @@ export function CeoSelosPage() {
 
       {/* ABAS PRINCIPAIS */}
       <Tabs value={activeTab} onValueChange={(val: any) => setActiveTab(val)} className="space-y-4">
-        <TabsList className="grid grid-cols-2 sm:grid-cols-5 w-full h-auto p-1 bg-secondary/30 rounded-xl gap-1">
+        <TabsList className="flex flex-wrap sm:grid sm:grid-flow-col sm:auto-cols-fr w-full h-auto p-1 bg-secondary/30 rounded-xl gap-1">
           <TabsTrigger
             value="pendentes"
             className="text-xs py-2 rounded-lg data-[state=active]:bg-primary data-[state=active]:text-primary-foreground font-semibold flex items-center gap-1.5"
@@ -369,29 +380,35 @@ export function CeoSelosPage() {
             <span>Verificados ({activeVerifications.length})</span>
           </TabsTrigger>
 
-          <TabsTrigger
-            value="configuracao"
-            className="text-xs py-2 rounded-lg data-[state=active]:bg-primary data-[state=active]:text-primary-foreground font-semibold flex items-center gap-1.5"
-          >
-            <Sliders className="h-3.5 w-3.5" />
-            <span>Configurar Selo</span>
-          </TabsTrigger>
+          {canConfig && (
+            <TabsTrigger
+              value="configuracao"
+              className="text-xs py-2 rounded-lg data-[state=active]:bg-primary data-[state=active]:text-primary-foreground font-semibold flex items-center gap-1.5"
+            >
+              <Sliders className="h-3.5 w-3.5" />
+              <span>Configurar Selo</span>
+            </TabsTrigger>
+          )}
 
-          <TabsTrigger
-            value="cargos"
-            className="text-xs py-2 rounded-lg data-[state=active]:bg-primary data-[state=active]:text-primary-foreground font-semibold flex items-center gap-1.5"
-          >
-            <Shield className="h-3.5 w-3.5" />
-            <span>Autorizações</span>
-          </TabsTrigger>
+          {canConfig && (
+            <TabsTrigger
+              value="cargos"
+              className="text-xs py-2 rounded-lg data-[state=active]:bg-primary data-[state=active]:text-primary-foreground font-semibold flex items-center gap-1.5"
+            >
+              <Shield className="h-3.5 w-3.5" />
+              <span>Autorizações</span>
+            </TabsTrigger>
+          )}
 
-          <TabsTrigger
-            value="auditoria"
-            className="text-xs py-2 rounded-lg data-[state=active]:bg-primary data-[state=active]:text-primary-foreground font-semibold flex items-center gap-1.5"
-          >
-            <Calendar className="h-3.5 w-3.5" />
-            <span>Auditoria</span>
-          </TabsTrigger>
+          {canAudit && (
+            <TabsTrigger
+              value="auditoria"
+              className="text-xs py-2 rounded-lg data-[state=active]:bg-primary data-[state=active]:text-primary-foreground font-semibold flex items-center gap-1.5"
+            >
+              <Calendar className="h-3.5 w-3.5" />
+              <span>Auditoria</span>
+            </TabsTrigger>
+          )}
         </TabsList>
 
         {/* ABA 1: SOLICITAÇÕES PENDENTES */}
@@ -493,37 +510,45 @@ export function CeoSelosPage() {
                       </div>
 
                       {/* BOTÕES DE AÇÃO */}
-                      <div className="flex items-center gap-2 pt-2 border-t border-border/40">
-                        <Button
-                          type="button"
-                          size="sm"
-                          onClick={() => {
-                            setSelectedRequest(req);
-                            setReviewAction("approve");
-                            setCustomTitle("Verificado Oficial");
-                            setReviewNotes("");
-                          }}
-                          className="flex-1 h-8 text-xs font-bold rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5"
-                        >
-                          <Check className="h-3.5 w-3.5" />
-                          <span>Aprovar</span>
-                        </Button>
+                      {canReview ? (
+                        <div className="flex items-center gap-2 pt-2 border-t border-border/40">
+                          <Button
+                            type="button"
+                            size="sm"
+                            onClick={() => {
+                              setSelectedRequest(req);
+                              setReviewAction("approve");
+                              setCustomTitle("Verificado Oficial");
+                              setReviewNotes("");
+                            }}
+                            className="flex-1 h-8 text-xs font-bold rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5"
+                          >
+                            <Check className="h-3.5 w-3.5" />
+                            <span>Aprovar</span>
+                          </Button>
 
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={() => {
-                            setSelectedRequest(req);
-                            setReviewAction("reject");
-                            setReviewNotes("");
-                          }}
-                          className="flex-1 h-8 text-xs font-semibold rounded-xl border-rose-500/30 text-rose-400 hover:bg-rose-500/10 gap-1.5"
-                        >
-                          <X className="h-3.5 w-3.5" />
-                          <span>Rejeitar</span>
-                        </Button>
-                      </div>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              setSelectedRequest(req);
+                              setReviewAction("reject");
+                              setReviewNotes("");
+                            }}
+                            className="flex-1 h-8 text-xs font-semibold rounded-xl border-rose-500/30 text-rose-400 hover:bg-rose-500/10 gap-1.5"
+                          >
+                            <X className="h-3.5 w-3.5" />
+                            <span>Rejeitar</span>
+                          </Button>
+                        </div>
+                      ) : (
+                        <div className="pt-2 border-t border-border/40">
+                          <p className="text-[10px] text-muted-foreground italic">
+                            Apenas usuários com permissão de análise podem aprovar ou rejeitar solicitações.
+                          </p>
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -639,19 +664,23 @@ export function CeoSelosPage() {
                           </TableCell>
 
                           <TableCell className="text-right pr-4">
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => {
-                                setRevokingMember(v);
-                                setRevokeReason("");
-                              }}
-                              className="h-7 text-xs rounded-lg text-rose-400 hover:bg-rose-500/10 gap-1 font-semibold"
-                            >
-                              <Trash2 className="h-3.5 w-3.5" />
-                              <span>Remover Selo</span>
-                            </Button>
+                            {canRevoke ? (
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => {
+                                  setRevokingMember(v);
+                                  setRevokeReason("");
+                                }}
+                                className="h-7 text-xs rounded-lg text-rose-400 hover:bg-rose-500/10 gap-1 font-semibold"
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                                <span>Remover Selo</span>
+                              </Button>
+                            ) : (
+                              <span className="text-[10px] text-muted-foreground font-mono">Protegido</span>
+                            )}
                           </TableCell>
                         </TableRow>
                       ))}
