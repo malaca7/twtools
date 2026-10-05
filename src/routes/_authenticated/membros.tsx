@@ -117,12 +117,11 @@ export function MembrosPage() {
     }));
   }, [dbCustomRoles]);
 
-  // Mapa de pontuação/rank hierárquico para ordenação precisa por cargos
+  // Mapa de pontuação/rank hierárquico para ordenação estritamente por cargos
   const roleRankMap = useMemo(() => {
     const map = new Map<string, number>();
 
-    // Ranks padrões de fallback
-    map.set("desenvolvedor", 100000);
+    // Ranks padrões de fallback (apenas cargos organizacionais)
     map.set("01", 60000);
     map.set("02", 50000);
     map.set("gerente", 40000);
@@ -274,17 +273,16 @@ export function MembrosPage() {
     return nomeMatch || nickMatch || phoneMatch || gameMatch || discordMatch;
   });
 
-  // Ordenação: 1º por Cargos (Hierarquia descendente) e 2º por Ordem Alfabética
+  // Ordenação: Estritamente 1º por Cargos (Hierarquia descendente) e 2º por Ordem Alfabética
   const sortedMembers = useMemo(() => {
     return [...filteredMembers].sort((a, b) => {
-      const isDevA = Boolean(a.is_developer || a.nivel === "desenvolvedor");
-      const isDevB = Boolean(b.is_developer || b.nivel === "desenvolvedor");
-      if (isDevA !== isDevB) return isDevA ? -1 : 1;
+      const nivelA = String(a.nivel || "novato").toLowerCase();
+      const nivelB = String(b.nivel || "novato").toLowerCase();
 
-      const rankA = roleRankMap.get(String(a.nivel || "novato").toLowerCase()) ?? 0;
-      const rankB = roleRankMap.get(String(b.nivel || "novato").toLowerCase()) ?? 0;
+      const rankA = roleRankMap.get(nivelA) ?? 0;
+      const rankB = roleRankMap.get(nivelB) ?? 0;
       if (rankA !== rankB) {
-        return rankB - rankA; // Maior cargo primeiro
+        return rankB - rankA; // Maior cargo primeiro (ex: 01 > 02 > Gerente > ...)
       }
 
       // Ordem alfabética pelo apelido / nome exibido
