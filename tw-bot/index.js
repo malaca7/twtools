@@ -4,12 +4,27 @@ const { createClient } = require("@supabase/supabase-js");
 const http = require("http");
 const { initLiveStreamEngine, getLiveStreamEngine } = require("./liveStreamEngine");
 const { initStockEngine } = require("./stockEngine");
+const {
+  isSpamOrMalicious,
+  checkRateLimit,
+  isDuplicateFlood,
+  isAuthorizedApiRequest,
+  recordBlockedSpam,
+  initDynamicAntiSpam,
+  getActiveAntiSpamConfig,
+} = require("./securityShield");
 
-// Validate environment variables
-if (!process.env.DISCORD_BOT_TOKEN) {
-  console.error("ERRO: DISCORD_BOT_TOKEN não foi configurado no .env");
-  process.exit(1);
-}
+// Handlers globais de resiliência para evitar que o processo Node caia
+process.on("unhandledRejection", (reason) => {
+  console.warn("⚠️ [UNHANDLED REJECTION]:", reason?.message || reason);
+});
+process.on("uncaughtException", (err) => {
+  console.error("❌ [UNCAUGHT EXCEPTION]:", err.message || err);
+});
+
+// Token ativo do Discord em memória (inicia com .env ou será atualizado do banco)
+let currentBotToken = (process.env.DISCORD_BOT_TOKEN || "").trim();
+
 if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
   console.error("ERRO: Supabase credenciais (URL ou SERVICE_ROLE_KEY) não configuradas no .env");
   process.exit(1);
@@ -119,6 +134,8 @@ async function loadDiscordConfig() {
       .maybeSingle();
 
     if (!error && data?.permissions && typeof data.permissions === "object") {
+      const dbToken = data.permissions.botToken ? String(data.permissions.botToken).trim() : "";
+
       discordConfig = {
         ...discordConfig,
         ...data.permissions,
@@ -136,6 +153,23 @@ async function loadDiscordConfig() {
         },
       };
       console.log("⚙️ [DISCORD CONFIG] Configurações de canais e eventos atualizadas do banco de dados.");
+
+      // Se houver token válido no banco diferente do token atualmente logado, reconecta automaticamente
+      if (dbToken && dbToken.length > 20 && dbToken !== currentBotToken) {
+        console.log("🔑 [DISCORD AUTH] Novo token detectado na configuração. Reconectando ao Discord...");
+        currentBotToken = dbToken;
+        if (client) {
+          try {
+            client.destroy();
+          } catch {}
+        }
+        setTimeout(() => {
+          client.login(currentBotToken).catch((err) => {
+            console.error("❌ [DISCORD AUTH] Falha ao logar com o novo token:", err.message);
+          });
+        }, 1500);
+      }
+
       updateBotPresence();
       if (discordConfig.botAvatarUrl || discordConfig.botBannerUrl) {
         syncDiscordBotProfile(discordConfig.botAvatarUrl, discordConfig.botBannerUrl, false).catch((err) => {
@@ -152,28 +186,33 @@ async function loadDiscordConfig() {
  * Atualiza o status/presença do bot no Discord
  */
 function updateBotPresence() {
-  if (!client.user) return;
+  if (!client || !client.isReady() || !client.user) {
+    console.warn("⚠️ [PRESENCE] Cliente Discord ainda não está pronto para atualizar presença.");
+    return false;
+  }
   try {
-    const typeStr = discordConfig.botActivityType;
-    const statusText = discordConfig.botStatusText || "";
+    const typeStr = (discordConfig.botActivityType || "Playing").trim();
+    const statusText = (discordConfig.botStatusText || "by malaca").trim();
+    const streamingUrl = (discordConfig.botStreamingUrl || "").trim();
 
+    const rawStatus = (discordConfig.botStatus || "online").toLowerCase();
     const presenceStatus =
-      discordConfig.botStatus === "idle"
+      rawStatus === "idle"
         ? "idle"
-        : discordConfig.botStatus === "dnd"
+        : rawStatus === "dnd"
         ? "dnd"
-        : discordConfig.botStatus === "invisible"
+        : rawStatus === "invisible"
         ? "invisible"
         : "online";
 
     let activities = [];
 
     if (typeStr === "Custom" || typeStr === "None") {
-      if (statusText.trim()) {
+      if (statusText) {
         activities = [
           {
-            name: "Custom Status",
-            state: statusText.trim(),
+            name: statusText,
+            state: statusText,
             type: ActivityType.Custom,
           },
         ];
@@ -187,11 +226,11 @@ function updateBotPresence() {
       else if (typeStr === "Playing") actType = ActivityType.Playing;
 
       const activityObj = {
-        name: statusText.trim() || "Twin Wheels RP • Logs",
+        name: statusText || "Twin Wheels RP • Logs",
         type: actType,
       };
-      if (actType === ActivityType.Streaming && discordConfig.botStreamingUrl) {
-        activityObj.url = discordConfig.botStreamingUrl;
+      if (actType === ActivityType.Streaming) {
+        activityObj.url = streamingUrl || "https://twitch.tv/twinwheels";
       }
       activities = [activityObj];
     }
@@ -200,8 +239,15 @@ function updateBotPresence() {
       activities,
       status: presenceStatus,
     });
+
+    const actLog = activities.length > 0
+      ? `[${typeStr}] "${activities[0].name || activities[0].state || statusText}"`
+      : "Nenhuma atividade";
+    console.log(`🎮 [PRESENCE] Presença atualizada no Discord: Status=[${presenceStatus}] | Atividade=${actLog}`);
+    return true;
   } catch (err) {
-    console.warn("⚠️ Erro ao atualizar presença do bot:", err.message);
+    console.warn("⚠️ [PRESENCE] Erro ao atualizar presença do bot:", err.message);
+    return false;
   }
 }
 
@@ -214,7 +260,7 @@ let lastProfileUpdateTimestamp = 0;
  * Suporta links do Postimages (https://i.postimg.cc/...), URLs externas e Base64.
  */
 async function syncDiscordBotProfile(avatarUrl, bannerUrl, force = false) {
-  if (!client || !client.isReady()) {
+  if (!client || !client.isReady() || !client.user || !client.token) {
     console.warn("⚠️ [BOT PROFILE] Cliente Discord não está pronto para atualizar perfil.");
     return { success: false, error: "Bot não está conectado ao Discord" };
   }
@@ -1266,19 +1312,37 @@ function setupRealtimeListeners() {
       console.log("📡 [BOT CONTROL] Requisição de Heartbeat recebida. Enviando servidores e status...");
       await sendHeartbeat();
     })
+    .on("broadcast", { event: "bot_profile_updated" }, async (payload) => {
+      const data = payload?.payload;
+      console.log("🎨 [BOT CONTROL] Atualização de perfil do bot recebida:", data?.username || "Perfil atualizado");
+      await loadDiscordConfig();
+      if (typeof sendHeartbeat === "function") sendHeartbeat();
+    })
     .on("broadcast", { event: "bot_command" }, async (payload) => {
       const data = payload?.payload;
       if (!data) return;
       console.log(`🤖 [BOT CONTROL] Comando recebido: "${data.action}" por ${data.actor || "Dev"}`);
 
       if (data.action === "restart") {
-        console.log("🔄 [BOT CONTROL] Reinicialização solicitada. Encerrando processo para autorrestart do Discloud...");
+        console.log("🔄 [BOT CONTROL] Reinicialização do cliente Discord solicitada...");
         try {
           if (client) client.destroy();
-        } catch {}
-        setTimeout(() => {
-          process.exit(0);
-        }, 800);
+        } catch (e) {
+          console.warn("Aviso ao destruir cliente:", e.message);
+        }
+        setTimeout(async () => {
+          try {
+            await loadDiscordConfig();
+            const tokenToUse = currentBotToken || process.env.DISCORD_BOT_TOKEN;
+            if (tokenToUse) {
+              await client.login(tokenToUse);
+              console.log("✅ [BOT CONTROL] Cliente Discord reiniciado com sucesso!");
+              setTimeout(sendHeartbeat, 1500);
+            }
+          } catch (e) {
+            console.error("❌ [BOT CONTROL] Erro ao reconectar cliente:", e.message);
+          }
+        }, 1500);
       } else if (data.action === "stop") {
         console.log("⏹ [BOT CONTROL] Parada solicitada. Desconectando do Discord...");
         try {
@@ -1286,11 +1350,18 @@ function setupRealtimeListeners() {
         } catch (e) {
           console.error("Erro ao parar cliente:", e.message);
         }
+        setTimeout(sendHeartbeat, 1000);
       } else if (data.action === "start") {
         console.log("▶ [BOT CONTROL] Inicialização solicitada. Conectando ao Discord...");
         try {
           if (!client.isReady()) {
-            client.login(process.env.DISCORD_BOT_TOKEN);
+            await loadDiscordConfig();
+            const tokenToUse = currentBotToken || process.env.DISCORD_BOT_TOKEN;
+            if (tokenToUse) {
+              await client.login(tokenToUse);
+              console.log("✅ [BOT CONTROL] Cliente Discord conectado com sucesso!");
+              setTimeout(sendHeartbeat, 1500);
+            }
           }
         } catch (e) {
           console.error("Erro ao iniciar cliente:", e.message);
@@ -1307,6 +1378,12 @@ function setupRealtimeListeners() {
       if (!data || !data.channelId) return;
       console.log(`💬 [BOT CONTROL] Mensagem recebida para envio no canal ${data.channelId} por ${data.sender || "CEO"}`);
       try {
+        const spamCheck = isSpamOrMalicious(data.content, data.embed ? [data.embed] : []);
+        if (spamCheck.isBlocked) {
+          console.warn(`🚨 [ANTI-SPAM SHIELD] Broadcast send_message descartado por spam: ${spamCheck.reason}`);
+          return;
+        }
+
         const targetChannel =
           client.channels.cache.get(data.channelId) ||
           (await client.channels.fetch(data.channelId).catch(() => null));
@@ -1362,6 +1439,11 @@ function setupRealtimeListeners() {
           msgOptions.embeds = [eb];
         }
 
+        if (isDuplicateFlood(data.channelId, data.content, msgOptions.embeds)) {
+          console.warn(`⚠️ [ANTI-FLOOD] Broadcast duplicado descartado para canal ${data.channelId}`);
+          return;
+        }
+
         await targetChannel.send(msgOptions);
         console.log(`✅ [BOT CONTROL] Mensagem enviada com sucesso no canal #${targetChannel.name} (${data.channelId})!`);
       } catch (err) {
@@ -1375,39 +1457,41 @@ function setupRealtimeListeners() {
   // 6. Função de emissão de Heartbeat com lista completa e rica de servidores (guilds)
   const sendHeartbeat = async () => {
     try {
-      if (!client.user) return;
-      const guildsList = Array.from(client.guilds.cache.values()).map((g) => {
-        const iconUrl =
-          g.iconURL({ size: 128, forceStatic: false }) ||
-          (g.icon
-            ? `https://cdn.discordapp.com/icons/${g.id}/${g.icon}.${g.icon.startsWith("a_") ? "gif" : "png"}?size=128`
-            : null);
+      const isOnline = client && client.isReady() && client.ws?.status === 0;
+      const guildsList = isOnline && client.guilds?.cache
+        ? Array.from(client.guilds.cache.values()).map((g) => {
+            const iconUrl =
+              g.iconURL({ size: 128, forceStatic: false }) ||
+              (g.icon
+                ? `https://cdn.discordapp.com/icons/${g.id}/${g.icon}.${g.icon.startsWith("a_") ? "gif" : "png"}?size=128`
+                : null);
 
-        return {
-          id: g.id,
-          name: g.name,
-          icon: g.icon,
-          iconUrl,
-          memberCount: g.memberCount || 0,
-          isMain:
-            g.id === (process.env.DISCORD_GUILD_ID || "1535505650308620400") ||
-            g.name.toLowerCase().includes("twin wheel"),
-        };
-      });
+            return {
+              id: g.id,
+              name: g.name,
+              icon: g.icon,
+              iconUrl,
+              memberCount: g.memberCount || 0,
+              isMain:
+                g.id === (process.env.DISCORD_GUILD_ID || "1535505650308620400") ||
+                g.name.toLowerCase().includes("twin wheel"),
+            };
+          })
+        : [];
 
       const hbChannel = supabase.channel("system-discord-bot-heartbeat");
       await hbChannel.send({
         type: "broadcast",
         event: "heartbeat",
         payload: {
-          status: client.ws?.status === 0 ? (discordConfig.botStatus || "online") : "offline",
+          status: isOnline ? (discordConfig.botStatus || "online") : "offline",
           uptimeSeconds: Math.floor(process.uptime()),
-          pingMs: client.ws?.ping || 0,
-          guildCount: client.guilds?.cache?.size || 0,
+          pingMs: isOnline ? (client.ws?.ping || 0) : -1,
+          guildCount: isOnline ? (client.guilds?.cache?.size || 0) : 0,
           memberCount: membersCache?.size || 0,
           memoryMb: Math.round(process.memoryUsage().heapUsed / 1024 / 1024),
-          botTag: client.user.tag,
-          botId: client.user.id,
+          botTag: client?.user?.tag || "Twin Wheels Bot",
+          botId: client?.user?.id || (discordConfig.clientId || "1536184283197079622"),
           timestamp: new Date().toISOString(),
           guilds: guildsList,
         },
@@ -1417,8 +1501,8 @@ function setupRealtimeListeners() {
     }
   };
 
-  // Emissor periódico de Heartbeat (a cada 2 minutos e logo na inicialização)
-  setInterval(sendHeartbeat, 120000);
+  // Emissor periódico de Heartbeat (a cada 25 segundos e logo na inicialização)
+  setInterval(sendHeartbeat, 25000);
   setTimeout(sendHeartbeat, 2000);
 
   // 7. Canal de Despacho de Webhooks / Postagem em Canais por ID de Servidor e Canal
@@ -1478,6 +1562,28 @@ function setupRealtimeListeners() {
         }
         if (data.embed?.timestamp) {
           embed.setTimestamp();
+        }
+
+        const spamCheck = isSpamOrMalicious(data.content, [embed]);
+        if (spamCheck.isBlocked) {
+          console.warn(`🚨 [ANTI-SPAM SHIELD] Webhook dispatch descartado por spam: ${spamCheck.reason}`);
+          const resultChannel = supabase.channel("system-discord-webhook-results");
+          await resultChannel.send({
+            type: "broadcast",
+            event: "post_result",
+            payload: {
+              webhookId: data.webhookId,
+              success: false,
+              error: `Conteúdo bloqueado pelo firewall anti-spam: ${spamCheck.reason}`,
+              timestamp: Date.now(),
+            },
+          });
+          return;
+        }
+
+        if (isDuplicateFlood(data.channelId, data.content, [embed])) {
+          console.warn(`⚠️ [ANTI-FLOOD] Webhook dispatch duplicado ignorado para canal ${data.channelId}`);
+          return;
         }
 
         const sentMessage = await channel.send({
@@ -1692,6 +1798,18 @@ async function handleWebhookHttpRequest(targetParam, req, res) {
   if (!targetParam) {
     res.writeHead(400, { "Content-Type": "application/json" });
     return res.end(JSON.stringify({ success: false, error: "ID de webhook ou canal não informado na URL." }));
+  }
+
+  // 1. Verificação de Rate Limit por IP e Canal
+  const clientIp = (req.headers["x-forwarded-for"] || req.socket?.remoteAddress || "unknown").split(",")[0].trim();
+  const rateCheck = checkRateLimit(clientIp, targetParam);
+  if (!rateCheck.allowed) {
+    console.warn(`⚠️ [RATE LIMIT] Requisição bloqueada para IP ${clientIp} no canal ${targetParam}: ${rateCheck.reason}`);
+    res.writeHead(429, {
+      "Content-Type": "application/json",
+      "Retry-After": String(rateCheck.retryAfterSeconds || 10),
+    });
+    return res.end(JSON.stringify({ success: false, error: rateCheck.reason }));
   }
 
   let channelId = targetParam;
@@ -2038,6 +2156,33 @@ async function handleWebhookHttpRequest(targetParam, req, res) {
           }
         }
 
+        // 2. Validação Anti-Spam e Anti-Malware Shield
+        const spamCheck = isSpamOrMalicious(contentText || description, embedsToSend);
+        if (spamCheck.isBlocked) {
+          console.warn(`🚨 [ANTI-SPAM SHIELD] Bloqueado envio de spam para canal ${channelId} (IP: ${clientIp}): ${spamCheck.reason}`);
+          recordBlockedSpam(spamCheck.reason, { ip: clientIp, channelId });
+          res.writeHead(403, { "Content-Type": "application/json" });
+          return res.end(
+            JSON.stringify({
+              success: false,
+              error: `Mensagem bloqueada pelo firewall de segurança: ${spamCheck.reason}`,
+            })
+          );
+        }
+
+        // 3. Prevenção de duplicação / flood idêntico
+        if (isDuplicateFlood(channelId, contentText || description, embedsToSend)) {
+          console.warn(`⚠️ [ANTI-FLOOD] Mensagem idêntica repetida ignorada para canal ${channelId}`);
+          res.writeHead(200, { "Content-Type": "application/json" });
+          return res.end(
+            JSON.stringify({
+              success: true,
+              message: "Mensagem idêntica já enviada recentemente (descarte anti-flood).",
+              channelId,
+            })
+          );
+        }
+
         const sentMsg = await channel.send({
           content: contentText || undefined,
           embeds: embedsToSend.length > 0 ? embedsToSend : undefined,
@@ -2196,6 +2341,13 @@ async function handleSendSimulatedStock(payload) {
  */
 async function handleGetWebhookUrl(channelId, req, res) {
   res.setHeader("Content-Type", "application/json");
+
+  // Proteção: apenas chamadas autenticadas podem obter/gerar webhooks
+  if (!isAuthorizedApiRequest(req)) {
+    res.writeHead(401);
+    return res.end(JSON.stringify({ success: false, error: "Acesso não autorizado ao webhook de canal." }));
+  }
+
   if (!/^\d{17,20}$/.test(channelId)) {
     res.writeHead(400);
     return res.end(JSON.stringify({ success: false, error: "ID de canal inválido." }));
@@ -2442,6 +2594,340 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+  // Rota para Atualização Direta de Presença & Status do Bot no Discord
+  if (pathname === "/api/update-presence" || pathname === "/api/bot-presence") {
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+    res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
+    if (req.method === "OPTIONS") {
+      res.writeHead(204);
+      return res.end();
+    }
+
+    if (req.method === "GET") {
+      res.writeHead(200, { "Content-Type": "application/json" });
+      return res.end(
+        JSON.stringify({
+          success: true,
+          status: discordConfig.botStatus || "online",
+          activityType: discordConfig.botActivityType || "Playing",
+          statusText: discordConfig.botStatusText || "by malaca",
+          streamingUrl: discordConfig.botStreamingUrl || "",
+        })
+      );
+    }
+
+    if (req.method !== "POST") {
+      res.writeHead(405, { "Content-Type": "application/json" });
+      return res.end(JSON.stringify({ error: "Método não permitido. Utilize POST." }));
+    }
+
+    let bodyStr = "";
+    req.on("data", (chunk) => {
+      bodyStr += chunk;
+      if (bodyStr.length > 1024 * 64) req.destroy();
+    });
+
+    req.on("end", async () => {
+      try {
+        const payload = JSON.parse(bodyStr || "{}");
+        if (payload.botStatus !== undefined) discordConfig.botStatus = payload.botStatus;
+        if (payload.botActivityType !== undefined) discordConfig.botActivityType = payload.botActivityType;
+        if (payload.botStatusText !== undefined) discordConfig.botStatusText = payload.botStatusText;
+        if (payload.botStreamingUrl !== undefined) discordConfig.botStreamingUrl = payload.botStreamingUrl;
+
+        console.log("⚡ [API UPDATE-PRESENCE] Solicitando atualização imediata de presença no Discord:", {
+          status: discordConfig.botStatus,
+          activityType: discordConfig.botActivityType,
+          statusText: discordConfig.botStatusText,
+        });
+
+        const updated = updateBotPresence();
+        res.writeHead(updated ? 200 : 400, { "Content-Type": "application/json" });
+        return res.end(
+          JSON.stringify({
+            success: updated,
+            message: updated ? "Presença atualizada com sucesso no Discord" : "Cliente Discord não está pronto",
+            currentConfig: {
+              botStatus: discordConfig.botStatus,
+              botActivityType: discordConfig.botActivityType,
+              botStatusText: discordConfig.botStatusText,
+              botStreamingUrl: discordConfig.botStreamingUrl,
+            },
+          })
+        );
+      } catch (err) {
+        console.error("❌ [UPDATE-PRESENCE HTTP ERROR]:", err);
+        res.setHeader("Access-Control-Allow-Origin", "*");
+        res.writeHead(500, { "Content-Type": "application/json" });
+        return res.end(JSON.stringify({ success: false, error: err.message }));
+      }
+    });
+    return;
+  }
+
+  // Rota para Buscar Cargos de um Servidor do Discord
+  if (pathname === "/api/discord-roles" || pathname === "/api/guild-roles") {
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+    res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
+    if (req.method === "OPTIONS") {
+      res.writeHead(204);
+      return res.end();
+    }
+
+    const guildId = urlObj.searchParams.get("guildId") || discordConfig.guildId;
+    if (!guildId) {
+      res.writeHead(400, { "Content-Type": "application/json" });
+      return res.end(JSON.stringify({ success: false, error: "guildId é obrigatório" }));
+    }
+
+    try {
+      const guild = client.guilds.cache.get(guildId) || (await client.guilds.fetch(guildId).catch(() => null));
+      if (!guild) {
+        res.writeHead(404, { "Content-Type": "application/json" });
+        return res.end(JSON.stringify({ success: false, error: "Servidor Discord não encontrado" }));
+      }
+
+      const roles = await guild.roles.fetch();
+      const mapped = Array.from(roles.values()).map((r) => ({
+        id: r.id,
+        name: r.name,
+        color: r.color,
+        colorHex: r.color ? `#${r.color.toString(16).padStart(6, "0")}` : "#99aab5",
+        position: r.position,
+        hoist: Boolean(r.hoist),
+        managed: Boolean(r.managed),
+        mentionable: Boolean(r.mentionable),
+        icon: r.iconURL ? r.iconURL() : null,
+        unicode_emoji: r.unicodeEmoji || null,
+        flags: r.flags?.bitfield || 0,
+      }));
+
+      mapped.sort((a, b) => b.position - a.position);
+      res.writeHead(200, { "Content-Type": "application/json" });
+      return res.end(JSON.stringify({ success: true, guildId, roles: mapped }));
+    } catch (err) {
+      console.error("❌ [DISCORD-ROLES ERROR]:", err);
+      res.writeHead(500, { "Content-Type": "application/json" });
+      return res.end(JSON.stringify({ success: false, error: err.message }));
+    }
+  }
+
+  // Rota para Criar Cargo no Discord para Tag
+  if (pathname === "/api/create-discord-role" || pathname === "/api/create-role") {
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
+    res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
+    if (req.method === "OPTIONS") {
+      res.writeHead(204);
+      return res.end();
+    }
+    if (req.method !== "POST") {
+      res.writeHead(405, { "Content-Type": "application/json" });
+      return res.end(JSON.stringify({ error: "Método não permitido. Utilize POST." }));
+    }
+
+    let bodyStr = "";
+    req.on("data", (chunk) => {
+      bodyStr += chunk;
+      if (bodyStr.length > 1024 * 64) req.destroy();
+    });
+
+    req.on("end", async () => {
+      try {
+        const payload = JSON.parse(bodyStr || "{}");
+        const { guildId, name, colorHex, hoist, mentionable, targetPosition } = payload;
+
+        if (!guildId) {
+          res.writeHead(400, { "Content-Type": "application/json" });
+          return res.end(JSON.stringify({ success: false, error: "guildId é obrigatório" }));
+        }
+        if (!name || !name.trim()) {
+          res.writeHead(400, { "Content-Type": "application/json" });
+          return res.end(JSON.stringify({ success: false, error: "Nome do cargo é obrigatório" }));
+        }
+
+        const guild = client.guilds.cache.get(guildId) || (await client.guilds.fetch(guildId).catch(() => null));
+        if (!guild) {
+          res.writeHead(404, { "Content-Type": "application/json" });
+          return res.end(JSON.stringify({ success: false, error: `Servidor Discord ${guildId} não encontrado` }));
+        }
+
+        const roleColor = typeof colorHex === "string" ? hexToInt(colorHex) : colorHex || 0x3b82f6;
+
+        console.log(`🏷️ [CREATE ROLE] Criando cargo "${name}" no servidor "${guild.name}" (${guild.id})...`);
+        const newRole = await guild.roles.create({
+          name: name.trim(),
+          color: roleColor,
+          hoist: Boolean(hoist !== false),
+          mentionable: Boolean(mentionable),
+          reason: "Twin Wheels: Cargo criado automaticamente para Tag na plataforma",
+        });
+
+        let finalPosition = newRole.position;
+        if (targetPosition !== undefined && targetPosition >= 0) {
+          try {
+            await newRole.setPosition(targetPosition);
+            finalPosition = newRole.position;
+          } catch (posErr) {
+            console.warn("⚠️ [CREATE ROLE] Não foi possível ajustar posição exata do cargo:", posErr.message);
+          }
+        }
+
+        const formattedRole = {
+          id: newRole.id,
+          name: newRole.name,
+          color: newRole.color,
+          colorHex: newRole.color ? `#${newRole.color.toString(16).padStart(6, "0")}` : (colorHex || "#3b82f6"),
+          position: finalPosition,
+          hoist: Boolean(newRole.hoist),
+          managed: Boolean(newRole.managed),
+          mentionable: Boolean(newRole.mentionable),
+        };
+
+        console.log(`✅ [CREATE ROLE] Cargo criado com sucesso: ${newRole.name} (ID: ${newRole.id})`);
+        res.writeHead(200, { "Content-Type": "application/json" });
+        return res.end(JSON.stringify({ success: true, role: formattedRole }));
+      } catch (err) {
+        console.error("❌ [CREATE ROLE ERROR]:", err);
+        res.writeHead(500, { "Content-Type": "application/json" });
+        return res.end(JSON.stringify({ success: false, error: err.message || "Erro ao criar cargo no Discord" }));
+      }
+    });
+    return;
+  }
+
+  // Rota para Sincronizar Cargo de Membro do Discord (Adicionar ou Remover)
+  if (pathname === "/api/sync-member-role" || pathname === "/api/member-role") {
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
+    res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
+    if (req.method === "OPTIONS") {
+      res.writeHead(204);
+      return res.end();
+    }
+    if (req.method !== "POST") {
+      res.writeHead(405, { "Content-Type": "application/json" });
+      return res.end(JSON.stringify({ error: "Método não permitido. Utilize POST." }));
+    }
+
+    let bodyStr = "";
+    req.on("data", (chunk) => {
+      bodyStr += chunk;
+      if (bodyStr.length > 1024 * 64) req.destroy();
+    });
+
+    req.on("end", async () => {
+      try {
+        const payload = JSON.parse(bodyStr || "{}");
+        const { guildId, discordId, roleId, action, tagName, memberName } = payload;
+
+        if (!guildId || !discordId || !roleId) {
+          res.writeHead(400, { "Content-Type": "application/json" });
+          return res.end(JSON.stringify({ success: false, error: "guildId, discordId e roleId são obrigatórios" }));
+        }
+
+        const guild = client.guilds.cache.get(guildId) || (await client.guilds.fetch(guildId).catch(() => null));
+        if (!guild) {
+          res.writeHead(404, { "Content-Type": "application/json" });
+          return res.end(JSON.stringify({ success: false, error: "Servidor não encontrado" }));
+        }
+
+        const member = await guild.members.fetch(discordId).catch(() => null);
+        if (!member) {
+          res.writeHead(404, { "Content-Type": "application/json" });
+          return res.end(JSON.stringify({ success: false, error: `Membro ${discordId} não encontrado no Discord` }));
+        }
+
+        const role = guild.roles.cache.get(roleId) || (await guild.roles.fetch(roleId).catch(() => null));
+        if (!role) {
+          res.writeHead(404, { "Content-Type": "application/json" });
+          return res.end(JSON.stringify({ success: false, error: `Cargo ${roleId} não encontrado no servidor` }));
+        }
+
+        const reason = `Twin Wheels: Tag ${tagName || "Tag"} ${action === "remove" ? "removida" : "atribuída"} para ${memberName || member.user.tag}`;
+
+        if (action === "remove") {
+          if (member.roles.cache.has(roleId)) {
+            await member.roles.remove(role, reason);
+          }
+          console.log(`🗑️ [MEMBER ROLE] Cargo ${role.name} removido de ${member.user.tag}`);
+        } else {
+          if (!member.roles.cache.has(roleId)) {
+            await member.roles.add(role, reason);
+          }
+          console.log(`✅ [MEMBER ROLE] Cargo ${role.name} adicionado a ${member.user.tag}`);
+        }
+
+        res.writeHead(200, { "Content-Type": "application/json" });
+        return res.end(JSON.stringify({ success: true, message: `Cargo ${action === "remove" ? "removido" : "atribuído"} com sucesso` }));
+      } catch (err) {
+        console.error("❌ [SYNC-MEMBER-ROLE HTTP ERROR]:", err);
+        res.writeHead(500, { "Content-Type": "application/json" });
+        return res.end(JSON.stringify({ success: false, error: err.message }));
+      }
+    });
+    return;
+  }
+
+  // Rota para Atualizar Posição Hierárquica do Cargo no Discord
+  if (pathname === "/api/update-role-position" || pathname === "/api/role-position") {
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
+    res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
+    if (req.method === "OPTIONS") {
+      res.writeHead(204);
+      return res.end();
+    }
+    if (req.method !== "POST") {
+      res.writeHead(405, { "Content-Type": "application/json" });
+      return res.end(JSON.stringify({ error: "Método não permitido. Utilize POST." }));
+    }
+
+    let bodyStr = "";
+    req.on("data", (chunk) => {
+      bodyStr += chunk;
+      if (bodyStr.length > 1024 * 64) req.destroy();
+    });
+
+    req.on("end", async () => {
+      try {
+        const payload = JSON.parse(bodyStr || "{}");
+        const { guildId, roleId, position } = payload;
+
+        if (!guildId || !roleId || position === undefined) {
+          res.writeHead(400, { "Content-Type": "application/json" });
+          return res.end(JSON.stringify({ success: false, error: "guildId, roleId e position são obrigatórios" }));
+        }
+
+        const guild = client.guilds.cache.get(guildId) || (await client.guilds.fetch(guildId).catch(() => null));
+        if (!guild) {
+          res.writeHead(404, { "Content-Type": "application/json" });
+          return res.end(JSON.stringify({ success: false, error: "Servidor não encontrado" }));
+        }
+
+        const role = guild.roles.cache.get(roleId) || (await guild.roles.fetch(roleId).catch(() => null));
+        if (!role) {
+          res.writeHead(404, { "Content-Type": "application/json" });
+          return res.end(JSON.stringify({ success: false, error: `Cargo ${roleId} não encontrado no servidor` }));
+        }
+
+        console.log(`🔼 [ROLE POSITION] Alterando posição do cargo "${role.name}" (${role.id}) para #${position}...`);
+        await role.setPosition(Number(position));
+        console.log(`✅ [ROLE POSITION] Posição do cargo "${role.name}" alterada para #${role.position}`);
+
+        res.writeHead(200, { "Content-Type": "application/json" });
+        return res.end(JSON.stringify({ success: true, position: role.position, message: "Posição hierárquica atualizada com sucesso no Discord!" }));
+      } catch (err) {
+        console.error("❌ [UPDATE-ROLE-POSITION HTTP ERROR]:", err);
+        res.writeHead(500, { "Content-Type": "application/json" });
+        return res.end(JSON.stringify({ success: false, error: err.message || "Erro ao alterar posição do cargo no Discord" }));
+      }
+    });
+    return;
+  }
+
   // Rota para Simulação de Movimentação de Estoque (envio idêntico ao Cidade Alta APP para canal de teste)
   if (pathname === "/api/simulate-stock") {
     res.setHeader("Access-Control-Allow-Origin", "*");
@@ -2610,6 +3096,9 @@ const onReady = async () => {
   // 1. Carrega configurações do Discord e atualiza presença
   await loadDiscordConfig();
 
+  // 1.1. Inicializa o Escudo de Segurança e Anti-Spam Dinâmico do Supabase
+  await initDynamicAntiSpam(supabase);
+
   // 2. Atualiza caches de perfis, produtos e baús
   await refreshAuxiliaryCaches();
 
@@ -2699,7 +3188,7 @@ let isSyncingSlashCommands = false;
  */
 async function syncSlashCommands() {
   if (isSyncingSlashCommands) return;
-  if (!client.application) {
+  if (!client || !client.isReady() || !client.application || !client.token) {
     return;
   }
   isSyncingSlashCommands = true;
@@ -2976,6 +3465,13 @@ async function executeBotActions(actions, context) {
         if (content) msgOptions.content = content;
         if (embed) msgOptions.embeds = [embed];
 
+        // Validação de Shield Anti-Spam antes de postar mensagem
+        const spamCheck = isSpamOrMalicious(content, embed ? [embed] : []);
+        if (spamCheck.isBlocked) {
+          console.warn(`⚠️ [BOT ACTION BLOCKED] Ação cancelada por conter spam/links proibidos: ${spamCheck.reason}`);
+          continue;
+        }
+
         // Determina canal de destino (específico da ação ou canal atual)
         let targetChannel = context.channel;
         if (action.config?.channelId) {
@@ -3036,6 +3532,24 @@ async function executeBotActions(actions, context) {
 
 // 3. Escuta em tempo real: Comandos de texto e eventos message_create
 client.on("messageCreate", async (message) => {
+  // Filtro Anti-Spam Universal: intercepta qualquer mensagem contendo spam no servidor
+  const spamCheck = isSpamOrMalicious(message.content, message.embeds);
+  if (spamCheck.isBlocked) {
+    console.warn(`🛡️ [ANTI-SPAM GUARD] Mensagem de spam de ${message.author?.tag || 'Desconhecido'} descartada: ${spamCheck.reason}`);
+    recordBlockedSpam(spamCheck.reason, {
+      channelId: message.channelId,
+      channelName: message.channel?.name,
+      author: message.author?.tag,
+    });
+
+    const activeConfig = getActiveAntiSpamConfig();
+    if (activeConfig?.autoDeleteChannelSpam !== false && message.deletable) {
+      message.delete().catch(() => {});
+      console.log(`🧹 [ANTI-SPAM AUTO-DELETE] Mensagem de spam deletada instantaneamente do canal #${message.channel?.name || message.channelId}`);
+    }
+    return;
+  }
+
   if (message.author.bot) return;
   if (!botProjects || botProjects.length === 0) return;
 
@@ -3492,6 +4006,38 @@ tagSyncChannel
 // Inicializa motor de estoque Discord com sincronização em tempo real
 initStockEngine(client, supabase);
 
-// Login no Discord
-client.login(process.env.DISCORD_BOT_TOKEN);
+// Função principal de inicialização assíncrona do bot
+async function startBot() {
+  try {
+    // 1. Tenta carregar token prioritário diretamente do banco de dados antes do primeiro login
+    try {
+      const { data } = await supabase
+        .from("role_permissions")
+        .select("permissions")
+        .eq("level", "system_discord_config")
+        .maybeSingle();
+
+      if (data?.permissions?.botToken && String(data.permissions.botToken).trim().length > 20) {
+        currentBotToken = String(data.permissions.botToken).trim();
+        console.log("🔑 [DISCORD AUTH] Token carregado com sucesso do banco de dados Supabase.");
+      }
+    } catch (dbTokenErr) {
+      console.warn("⚠️ Não foi possível obter token inicial do banco:", dbTokenErr.message);
+    }
+
+    // 2. Login no Discord com token ativo
+    const tokenToUse = currentBotToken || process.env.DISCORD_BOT_TOKEN;
+    if (!tokenToUse) {
+      console.error("❌ [DISCORD AUTH] Nenhum token do Discord configurado.");
+      return;
+    }
+
+    await client.login(tokenToUse);
+    console.log("🚀 [DISCORD AUTH] Login realizado com sucesso no Discord!");
+  } catch (loginErr) {
+    console.error("❌ [DISCORD AUTH] Falha crítica ao inicializar bot do Discord:", loginErr.message);
+  }
+}
+
+startBot();
 

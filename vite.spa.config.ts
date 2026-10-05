@@ -25,5 +25,29 @@ export default defineConfig({
     outDir: "dist",
     emptyOutDir: true,
     cssMinify: "esbuild",
+    chunkSizeWarningLimit: 1500,
+    rollupOptions: {
+      output: {
+        manualChunks: (id) => {
+          if (id.includes("node_modules")) {
+            if (id.includes("react") || id.includes("react-dom")) {
+              return "vendor-react";
+            }
+            if (id.includes("@tanstack")) {
+              return "vendor-tanstack";
+            }
+            if (id.includes("@supabase")) {
+              return "vendor-supabase";
+            }
+            if (id.includes("lucide-react") || id.includes("@radix-ui") || id.includes("sonner")) {
+              return "vendor-ui";
+            }
+            if (id.includes("recharts") || id.includes("@xyflow")) {
+              return "vendor-charts";
+            }
+          }
+        },
+      },
+    },
   },
 });

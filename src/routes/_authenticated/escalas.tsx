@@ -132,25 +132,24 @@ export function EscalasPage() {
   const canPublish = hasPermission("escalas.publish");
   const canCancel = hasPermission("escalas.cancel");
   const canManageMembers = hasPermission("escalas.manage_members");
-  const canAddParticipants = canManageMembers || hasPermission("escalas.add_participants");
-  const canRemoveParticipants = canManageMembers || hasPermission("escalas.remove_participants");
+  const canAddParticipants = hasPermission("escalas.add_participants") || canManageMembers;
+  const canRemoveParticipants = hasPermission("escalas.remove_participants") || canManageMembers;
   const canConfirmPresence = hasPermission("escalas.confirm_presence");
-  const canManageSlots = hasPermission("escalas.manage_slots") || canCreate || canManageMembers;
-  const canSubstitute = canManageMembers || hasPermission("escalas.substitute");
+  const canManageSlots = hasPermission("escalas.manage_slots") || canManageMembers;
+  const canSubstitute = hasPermission("escalas.substitute") || canManageMembers;
   const canViewHistory = hasPermission("escalas.history");
   const canManageSettings = hasPermission("escalas.settings");
 
   const myMemberId = profile?.id || profile?.user_id || user?.id;
   const actorName = profile?.nickname || profile?.nome || user?.email || "Operador";
 
-  // Verificar se o usuário atual é Gerente desta escala (ou possui permissão de gestão de membros)
+  // Verificar se o usuário atual é o Gerente DESIGNADO para liderar a ação (ou possui permissão geral de gestão de membros)
   const isScaleManager = useCallback((scale?: ActionScale | null) => {
     if (!scale) return false;
     if (canManageMembers) return true;
     const myPId = profile?.id;
     const myUId = profile?.user_id || user?.id;
     if (scale.gerente_id && (scale.gerente_id === myPId || scale.gerente_id === myUId)) return true;
-    if (scale.criado_por && (scale.criado_por === myUId || scale.criado_por === myPId)) return true;
     return false;
   }, [canManageMembers, profile, user]);
 
@@ -315,6 +314,12 @@ export function EscalasPage() {
   // Salvar Escala (Mutation)
   const saveMutation = useMutation({
     mutationFn: async () => {
+      if (editScaleData && !canEdit) {
+        throw new Error("Você não possui permissão para editar escalas de ação.");
+      }
+      if (!editScaleData && !canCreate) {
+        throw new Error("Você não possui permissão para criar novas escalas de ação.");
+      }
       if (!formTitulo.trim()) throw new Error("Informe o título da escala.");
       if (!formLocalPosto.trim()) throw new Error("Informe o local ou posto de encontro.");
       if (!formDataHora) throw new Error("Informe a data e horário da ação.");
@@ -358,6 +363,9 @@ export function EscalasPage() {
   // Publicar Escala
   const publishMutation = useMutation({
     mutationFn: async (scaleId: string) => {
+      if (!canPublish) {
+        throw new Error("Você não possui permissão para publicar escalas de ação.");
+      }
       return await publishActionScale(scaleId, actorName);
     },
     onSuccess: () => {
@@ -373,6 +381,9 @@ export function EscalasPage() {
   // Cancelar Escala
   const cancelMutation = useMutation({
     mutationFn: async () => {
+      if (!canCancel) {
+        throw new Error("Você não possui permissão para cancelar escalas de ação.");
+      }
       if (!cancelTargetScaleId) throw new Error("Escala não selecionada.");
       if (!cancelReason.trim()) throw new Error("Informe o motivo do cancelamento.");
       return await cancelActionScale(cancelTargetScaleId, cancelReason.trim(), actorName);
@@ -393,6 +404,9 @@ export function EscalasPage() {
   // Excluir Escala
   const deleteMutation = useMutation({
     mutationFn: async (scaleId: string) => {
+      if (!canDelete) {
+        throw new Error("Você não possui permissão para excluir escalas de ação.");
+      }
       if (!confirm("Tem certeza que deseja excluir esta escala permanentemente?")) return;
       return await deleteActionScale(scaleId);
     },
@@ -503,6 +517,9 @@ export function EscalasPage() {
   // Adicionar Membro à Escala
   const addMemberMutation = useMutation({
     mutationFn: async () => {
+      if (!canAddParticipants && !canManageMembers) {
+        throw new Error("Você não possui permissão para escalar participantes nesta ação.");
+      }
       if (!selectedScaleId) throw new Error("Selecione uma escala.");
       if (!addSelectedMemberId) throw new Error("Selecione um membro.");
       return await addActionScaleMember({
@@ -528,6 +545,9 @@ export function EscalasPage() {
   // Remover Membro da Escala
   const removeMemberMutation = useMutation({
     mutationFn: async ({ scaleId, memberId }: { scaleId: string; memberId: string }) => {
+      if (!canRemoveParticipants && !canManageMembers) {
+        throw new Error("Você não possui permissão para remover participantes da escala.");
+      }
       if (!confirm("Remover este membro da escala?")) return;
       return await removeActionScaleMember(scaleId, memberId, actorName);
     },
@@ -544,6 +564,9 @@ export function EscalasPage() {
   // Substituir Membro
   const substituteMutation = useMutation({
     mutationFn: async () => {
+      if (!canSubstitute && !canManageMembers) {
+        throw new Error("Você não possui permissão para substituir membros na escala.");
+      }
       if (!selectedScaleId || !substituteTargetMember) throw new Error("Dados incompletos.");
       if (!subSelectedMemberId) throw new Error("Selecione o membro substituto.");
       if (!subMotivo.trim()) throw new Error("Informe o motivo da substituição.");
@@ -583,6 +606,10 @@ export function EscalasPage() {
       statusAprovacao: "aprovado" | "reprovado";
       motivo?: string;
     }) => {
+      const scaleObj = scales.find((s) => s.id === scaleId) || selectedScale;
+      if (!isScaleManager(scaleObj) && !canManageMembers) {
+        throw new Error("Apenas o Gerente designado desta ação ou membros com permissão de gestão podem avaliar operadores.");
+      }
       return await reviewActionScaleMember({
         scaleId,
         memberId,
@@ -1270,12 +1297,12 @@ export function EscalasPage() {
                     </Button>
 
                     {/* Ações Rápidas de Gestão */}
-                    {(((canPublish || isScaleManager(scale)) && scale.status === "rascunho") ||
-                      ((canEdit || isScaleManager(scale)) && scale.status !== "cancelada" && scale.status !== "concluida") ||
-                      ((canCancel || isScaleManager(scale)) && scale.status !== "cancelada" && scale.status !== "concluida") ||
+                    {((canPublish && scale.status === "rascunho") ||
+                      (canEdit && scale.status !== "cancelada" && scale.status !== "concluida") ||
+                      (canCancel && scale.status !== "cancelada" && scale.status !== "concluida") ||
                       canDelete) && (
                       <div className="flex items-center gap-1">
-                        {(canPublish || isScaleManager(scale)) && scale.status === "rascunho" && (
+                        {canPublish && scale.status === "rascunho" && (
                           <Button
                             size="sm"
                             variant="outline"
@@ -1288,7 +1315,7 @@ export function EscalasPage() {
                           </Button>
                         )}
 
-                        {(canEdit || isScaleManager(scale)) && scale.status !== "cancelada" && scale.status !== "concluida" && (
+                        {canEdit && scale.status !== "cancelada" && scale.status !== "concluida" && (
                           <Button
                             size="sm"
                             variant="ghost"
@@ -1300,7 +1327,7 @@ export function EscalasPage() {
                           </Button>
                         )}
 
-                        {(canCancel || isScaleManager(scale)) && scale.status !== "cancelada" && scale.status !== "concluida" && (
+                        {canCancel && scale.status !== "cancelada" && scale.status !== "concluida" && (
                           <Button
                             size="sm"
                             variant="ghost"
@@ -1429,7 +1456,7 @@ export function EscalasPage() {
                 />
               </div>
 
-              {(canManageSlots || (editScaleData && isScaleManager(editScaleData))) && (
+              {(canManageSlots || canCreate || canEdit) && (
                 <>
                   <div className="space-y-1.5">
                     <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
@@ -1461,7 +1488,7 @@ export function EscalasPage() {
                 </>
               )}
 
-              {(canManageMembers || canCreate) && (
+              {(canManageMembers || canCreate || canEdit) && (
                 <div className="space-y-1.5 sm:col-span-2">
                   <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
                     <Crown className="w-4 h-4 text-amber-400" />
@@ -1506,7 +1533,7 @@ export function EscalasPage() {
                 </div>
               )}
 
-              {(canPublish || canCancel || canCreate || canManageMembers || (editScaleData && isScaleManager(editScaleData))) && (
+              {(canPublish || canCancel || canCreate || canEdit) && (
                 <div className="space-y-1.5 sm:col-span-2">
                   <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
                     Status da Escala
@@ -1600,7 +1627,7 @@ export function EscalasPage() {
                   </div>
 
                   <div className="flex items-center gap-2">
-                    {(canAddParticipants || isScaleManager(selectedScale)) && selectedScale.status !== "cancelada" && selectedScale.status !== "concluida" && (
+                    {(canAddParticipants || canManageMembers) && selectedScale.status !== "cancelada" && selectedScale.status !== "concluida" && (
                       <Button
                         size="sm"
                         className="bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold gap-1.5 cursor-pointer"
@@ -2054,7 +2081,7 @@ export function EscalasPage() {
                                 </>
                               )}
 
-                              {(canSubstitute || isScaleManager(selectedScale)) && member.status_presenca === "ausente" && selectedScale.status !== "cancelada" && selectedScale.status !== "concluida" && (
+                              {(canSubstitute || canManageMembers) && member.status_presenca === "ausente" && selectedScale.status !== "cancelada" && selectedScale.status !== "concluida" && (
                                 <Button
                                   size="sm"
                                   variant="outline"
@@ -2070,7 +2097,7 @@ export function EscalasPage() {
                                 </Button>
                               )}
 
-                              {(canRemoveParticipants || isScaleManager(selectedScale)) && selectedScale.status !== "cancelada" && selectedScale.status !== "concluida" && (
+                              {(canRemoveParticipants || canManageMembers) && selectedScale.status !== "cancelada" && selectedScale.status !== "concluida" && (
                                 <Button
                                   size="sm"
                                   variant="ghost"
@@ -2213,7 +2240,7 @@ export function EscalasPage() {
                                 </>
                               )}
 
-                              {(canRemoveParticipants || isScaleManager(selectedScale)) && selectedScale.status !== "cancelada" && selectedScale.status !== "concluida" && (
+                              {(canRemoveParticipants || canManageMembers) && selectedScale.status !== "cancelada" && selectedScale.status !== "concluida" && (
                                 <Button
                                   size="sm"
                                   variant="ghost"

@@ -23,8 +23,13 @@ import {
   Clock,
   HelpCircle,
   ChevronRight,
+  ChevronDown,
   Info,
+  Shield,
+  ShieldAlert,
   ShieldCheck,
+  AlertOctagon,
+  Sliders,
   Sparkles,
   MessageSquarePlus,
   Terminal,
@@ -34,6 +39,8 @@ import {
   Type,
   AtSign,
   Bookmark,
+  X,
+  Lock,
 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -71,12 +78,15 @@ import {
   isDiscordWebhookUrl,
   fetchOrCreateDiscordChannelWebhook,
   DEFAULT_WEBHOOKS_CONFIG,
+  DEFAULT_ANTI_SPAM_CONFIG,
   KNOWN_CHANNEL_WEBHOOKS,
   type DiscordWebhook,
   type DiscordWebhooksConfig,
+  type WebhookAntiSpamConfig,
   type PostMessagePayload,
 } from "@/services/webhookService";
 import { DiscohookPostModal } from "./DiscohookPostModal";
+import { DevAntiSpamCard } from "./DevAntiSpamCard";
 import { cn } from "@/lib/utils";
 
 const COLOR_PRESETS = [
@@ -219,8 +229,20 @@ export function DevWebhooksConfigCard({ isCeoView }: DevWebhooksConfigCardProps 
     getDiscordWebhooksConfig()
       .then((data) => {
         if (isMounted) {
-          setConfig(data);
-          setInitialConfig(JSON.parse(JSON.stringify(data)));
+          const mergedData: DiscordWebhooksConfig = {
+            ...DEFAULT_WEBHOOKS_CONFIG,
+            ...data,
+            antiSpam: {
+              ...DEFAULT_ANTI_SPAM_CONFIG,
+              ...(data.antiSpam || {}),
+              stats: {
+                ...DEFAULT_ANTI_SPAM_CONFIG.stats,
+                ...(data.antiSpam?.stats || {}),
+              },
+            },
+          };
+          setConfig(mergedData);
+          setInitialConfig(JSON.parse(JSON.stringify(mergedData)));
         }
       })
       .catch((err) => {
@@ -715,6 +737,15 @@ export function DevWebhooksConfigCard({ isCeoView }: DevWebhooksConfigCardProps 
           )}
         </div>
       </div>
+
+      {/* ESCUDO ANTI-SPAM & FIREWALL */}
+      <DevAntiSpamCard
+        config={config}
+        onChange={setConfig}
+        canSave={canSaveConfig}
+        onSave={handleSaveAll}
+        saving={saving}
+      />
 
       {/* LISTA DE WEBHOOKS */}
       {config.webhooks.length === 0 ? (

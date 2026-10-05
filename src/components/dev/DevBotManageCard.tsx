@@ -93,6 +93,8 @@ import {
   fetchBotGuilds,
   uploadBotImage,
   triggerBotProfileSync,
+  updateDiscordBotProfile,
+  updateDiscordBotPresence,
   BANNER_PRESETS,
   type BotHeartbeatData,
   type BotGuildInfo,
@@ -166,6 +168,8 @@ export function DevBotManageCard({ isCeoView: isCeoViewProp }: DevBotManageCardP
     "Playing" | "Watching" | "Listening" | "Competing" | "Streaming" | "Custom" | "None"
   >("Playing");
   const [streamingUrlInput, setStreamingUrlInput] = useState("");
+  const [isSavingStatus, setIsSavingStatus] = useState(false);
+  const [isChangingPresence, setIsChangingPresence] = useState(false);
 
   // Modal de Recorte, Zoom e Redimensionamento (Avatar & Banner)
   const [isCropModalOpen, setIsCropModalOpen] = useState(false);
@@ -603,13 +607,17 @@ export function DevBotManageCard({ isCeoView: isCeoViewProp }: DevBotManageCardP
         setConfig((prev) => ({ ...prev, botAvatarUrl: publicUrl }));
         await handleUpdateConfig(
           { botAvatarUrl: publicUrl },
-          "Foto de perfil do bot atualizada com sucesso!"
+          "Foto de perfil do bot salva com sucesso!"
         );
-        const res = await triggerBotProfileSync({ botAvatarUrl: publicUrl, force: true });
-        if (res.success) {
-          toast.success("Foto de perfil sincronizada no Discord!", { id: toastId });
-        } else {
-          toast.info(res.message || "Avatar salvo no painel! (Sincronização em segundo plano)", { id: toastId });
+
+        const currentToken = config.botToken || tokenInput;
+        if (currentToken) {
+          const res = await updateDiscordBotProfile(currentToken, { avatarUrlOrFile: croppedFile });
+          if (res.success) {
+            toast.success("Foto de perfil sincronizada no Discord!", { id: toastId });
+          } else {
+            toast.info(`Avatar salvo no painel! (${res.error || "Sincronizado"})`, { id: toastId });
+          }
         }
         setIsAvatarModalOpen(false);
       } else {
@@ -618,13 +626,17 @@ export function DevBotManageCard({ isCeoView: isCeoViewProp }: DevBotManageCardP
         setConfig((prev) => ({ ...prev, botBannerUrl: publicUrl }));
         await handleUpdateConfig(
           { botBannerUrl: publicUrl },
-          "Banner do bot atualizado com sucesso!"
+          "Banner do bot salvo com sucesso!"
         );
-        const res = await triggerBotProfileSync({ botBannerUrl: publicUrl, force: true });
-        if (res.success) {
-          toast.success("Banner salvo e sincronizado!", { id: toastId });
-        } else {
-          toast.info(res.message || "Banner salvo no painel!", { id: toastId });
+
+        const currentToken = config.botToken || tokenInput;
+        if (currentToken) {
+          const res = await updateDiscordBotProfile(currentToken, { bannerUrlOrFile: croppedFile });
+          if (res.success) {
+            toast.success("Banner salvo e sincronizado no Discord!", { id: toastId });
+          } else {
+            toast.info("Banner salvo no painel!", { id: toastId });
+          }
         }
         setIsBannerModalOpen(false);
       }
@@ -652,11 +664,15 @@ export function DevBotManageCard({ isCeoView: isCeoViewProp }: DevBotManageCardP
         { botBannerUrl: cleanUrl },
         "Banner do bot atualizado com sucesso!"
       );
-      const res = await triggerBotProfileSync({ botBannerUrl: cleanUrl, force: true });
-      if (res.success) {
-        toast.success("Banner sincronizado!", { id: toastId });
-      } else {
-        toast.info(res.message || "Banner salvo no painel!", { id: toastId });
+
+      const currentToken = config.botToken || tokenInput;
+      if (currentToken) {
+        const res = await updateDiscordBotProfile(currentToken, { bannerUrlOrFile: cleanUrl });
+        if (res.success) {
+          toast.success("Banner sincronizado no Discord com sucesso!", { id: toastId });
+        } else {
+          toast.info("Banner salvo no painel!", { id: toastId });
+        }
       }
       setIsBannerModalOpen(false);
     } catch (err: any) {
@@ -672,12 +688,30 @@ export function DevBotManageCard({ isCeoView: isCeoViewProp }: DevBotManageCardP
       toast.error("Você não possui permissão para mudar o nome do bot.");
       return;
     }
-    if (!nameInput.trim()) return;
-    await handleUpdateConfig(
-      { botName: nameInput.trim() },
-      "Nome do bot atualizado!"
-    );
-    setIsNameModalOpen(false);
+    const cleanName = nameInput.trim();
+    if (!cleanName) return;
+    const toastId = toast.loading("Salvando e sincronizando nome do bot...");
+    try {
+      await handleUpdateConfig(
+        { botName: cleanName },
+        "Nome do bot atualizado no painel!"
+      );
+
+      const currentToken = config.botToken || tokenInput;
+      if (currentToken) {
+        const res = await updateDiscordBotProfile(currentToken, { username: cleanName });
+        if (res.success) {
+          toast.success("Nome do bot atualizado no Discord com sucesso!", { id: toastId });
+        } else {
+          toast.info(`Nome salvo na plataforma! (${res.error || "O Discord limita a 2 alterações por hora"})`, { id: toastId });
+        }
+      } else {
+        toast.success("Nome do bot atualizado!", { id: toastId });
+      }
+      setIsNameModalOpen(false);
+    } catch (err: any) {
+      toast.error(err.message || "Erro ao salvar nome", { id: toastId });
+    }
   };
 
   // Salvar Avatar
@@ -694,13 +728,19 @@ export function DevBotManageCard({ isCeoView: isCeoViewProp }: DevBotManageCardP
       setConfig((prev) => ({ ...prev, botAvatarUrl: cleanUrl }));
       await handleUpdateConfig(
         { botAvatarUrl: cleanUrl },
-        "Avatar do bot atualizado!"
+        "Avatar do bot atualizado no painel!"
       );
-      const res = await triggerBotProfileSync({ botAvatarUrl: cleanUrl, force: true });
-      if (res.success) {
-        toast.success("Foto de perfil sincronizada no Discord com sucesso!", { id: toastId });
+
+      const currentToken = config.botToken || tokenInput;
+      if (currentToken) {
+        const res = await updateDiscordBotProfile(currentToken, { avatarUrlOrFile: cleanUrl });
+        if (res.success) {
+          toast.success("Foto de perfil sincronizada no Discord com sucesso!", { id: toastId });
+        } else {
+          toast.info(`Avatar salvo no painel! (${res.error || "Sincronização em background"})`, { id: toastId });
+        }
       } else {
-        toast.info(res.message || "Avatar salvo no painel! (Sincronização em background)", { id: toastId });
+        toast.success("Avatar do bot atualizado!", { id: toastId });
       }
       setIsAvatarModalOpen(false);
     } catch (err: any) {
@@ -710,21 +750,79 @@ export function DevBotManageCard({ isCeoView: isCeoViewProp }: DevBotManageCardP
     }
   };
 
-  // Salvar Mensagem de Status
+  // Salvar Mensagem de Status e Atividade
   const handleSaveStatus = async () => {
     if (!hasPermission("bot_change_status")) {
       toast.error("Você não possui permissão para mudar o status do bot.");
       return;
     }
-    await handleUpdateConfig(
-      {
-        botStatusText: statusTextInput.trim() || "Feito com Twin Wheels",
+    const cleanText = statusTextInput.trim() || "by malaca";
+    const cleanUrl = streamingUrlInput.trim();
+    setIsSavingStatus(true);
+    const toastId = toast.loading("Salvando e sincronizando status no Discord...");
+    try {
+      const res = await updateDiscordBotPresence(
+        {
+          botStatusText: cleanText,
+          botActivityType: activityTypeInput,
+          botStreamingUrl: cleanUrl,
+        },
+        config,
+        user,
+        profile,
+        level
+      );
+      setConfig((prev) => ({
+        ...prev,
+        botStatusText: cleanText,
         botActivityType: activityTypeInput,
-        botStreamingUrl: streamingUrlInput.trim(),
-      },
-      "Mensagem de status e atividade atualizadas!"
-    );
-    setIsStatusModalOpen(false);
+        botStreamingUrl: cleanUrl,
+      }));
+      setInitialConfig((prev) => ({
+        ...prev,
+        botStatusText: cleanText,
+        botActivityType: activityTypeInput,
+        botStreamingUrl: cleanUrl,
+      }));
+      toast.success(res.message || "Mensagem de status e atividade atualizadas no Discord!", { id: toastId });
+      setIsStatusModalOpen(false);
+    } catch (err: any) {
+      toast.error("Erro ao salvar status: " + (err?.message || err), { id: toastId });
+    } finally {
+      setIsSavingStatus(false);
+    }
+  };
+
+  // Alterar Presença do Bot (On-line, Parado, Ocupado, Invisível)
+  const handlePresenceChange = async (newPresence: "online" | "idle" | "dnd" | "invisible") => {
+    if (!hasPermission("bot_change_presence")) {
+      toast.error("Você não possui permissão para mudar a presença do bot.");
+      return;
+    }
+    const labelMap = {
+      online: "On-line",
+      idle: "Ausente / Parado",
+      dnd: "Não Incomodar / Ocupado",
+      invisible: "Invisível",
+    };
+    setIsChangingPresence(true);
+    const toastId = toast.loading(`Alterando presença para ${labelMap[newPresence]} no Discord...`);
+    try {
+      const res = await updateDiscordBotPresence(
+        { botStatus: newPresence },
+        config,
+        user,
+        profile,
+        level
+      );
+      setConfig((prev) => ({ ...prev, botStatus: newPresence }));
+      setInitialConfig((prev) => ({ ...prev, botStatus: newPresence }));
+      toast.success(res.message || `Presença alterada para ${labelMap[newPresence]} com sucesso!`, { id: toastId });
+    } catch (err: any) {
+      toast.error("Erro ao alterar presença: " + (err?.message || err), { id: toastId });
+    } finally {
+      setIsChangingPresence(false);
+    }
   };
 
   // Enviar Mensagem via Bot Discord
@@ -1382,10 +1480,15 @@ export function DevBotManageCard({ isCeoView: isCeoViewProp }: DevBotManageCardP
                     <div>
                       <CardTitle className="text-sm font-black text-foreground flex items-center gap-2">
                         {isCeoView ? "Controle do Bot" : "Controle do Bot Discloud"}
-                        {isBotRunning ? (
-                          <Badge className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 text-[10px] font-bold gap-1 py-0.5">
+                        {isBotRunning && isHeartbeatActive ? (
+                          <Badge className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 text-[10px] font-bold gap-1 py-0.5 shadow-xs">
                             <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
                             Operacional
+                          </Badge>
+                        ) : isBotRunning ? (
+                          <Badge className="bg-amber-500/15 text-amber-300 border border-amber-500/30 text-[10px] font-bold gap-1 py-0.5 shadow-xs" title="O bot está ativado mas ainda não respondeu ao sinal de vida recente no Discord.">
+                            <span className="h-1.5 w-1.5 rounded-full bg-amber-400 animate-ping" />
+                            Aguardando Sinal / Offline
                           </Badge>
                         ) : (
                           <Badge className="bg-zinc-800 text-zinc-400 border border-zinc-700 text-[10px] font-bold py-0.5">
@@ -1515,11 +1618,22 @@ export function DevBotManageCard({ isCeoView: isCeoViewProp }: DevBotManageCardP
               {hasPermission("bot_change_status") && (
                 <Card className="surface-card border-border/60 bg-zinc-950/60 flex flex-col justify-between">
                   <CardHeader className="pb-2.5">
-                    <span className="text-[0.68rem] font-bold tracking-widest text-muted-foreground uppercase">
-                      MENSAGEM DE STATUS
-                    </span>
+                    <div className="flex items-center justify-between">
+                      <span className="text-[0.68rem] font-bold tracking-widest text-muted-foreground uppercase">
+                        MENSAGEM DE STATUS
+                      </span>
+                      {config.botActivityType === "Custom" || config.botActivityType === "None" ? (
+                        <Badge variant="outline" className="text-[0.65rem] bg-blue-950/40 text-blue-400 border-blue-800/40">
+                          Exibido no perfil
+                        </Badge>
+                      ) : (
+                        <Badge variant="outline" className="text-[0.65rem] bg-emerald-950/40 text-emerald-400 border-emerald-800/40">
+                          Visível na lista de membros
+                        </Badge>
+                      )}
+                    </div>
                     <CardDescription className="text-xs text-muted-foreground">
-                      Personalize o texto e atividade exibidos no perfil.
+                      Personalize o texto e atividade exibidos no perfil e canais do Discord.
                     </CardDescription>
                   </CardHeader>
 
@@ -1533,7 +1647,17 @@ export function DevBotManageCard({ isCeoView: isCeoViewProp }: DevBotManageCardP
                           {getActivityLabel(config.botActivityType || "Playing")}
                         </span>
                         <p className="text-xs font-bold text-foreground truncate">
-                          {config.botStatusText || "by malaca"}
+                          {config.botActivityType === "Playing" || !config.botActivityType
+                            ? `Jogando ${config.botStatusText || "by malaca"}`
+                            : config.botActivityType === "Watching"
+                            ? `Assistindo ${config.botStatusText || "by malaca"}`
+                            : config.botActivityType === "Listening"
+                            ? `Ouvindo ${config.botStatusText || "by malaca"}`
+                            : config.botActivityType === "Competing"
+                            ? `Competindo em ${config.botStatusText || "by malaca"}`
+                            : config.botActivityType === "Streaming"
+                            ? `Transmitindo ${config.botStatusText || "by malaca"}`
+                            : config.botStatusText || "by malaca"}
                         </p>
                       </div>
                     </div>
@@ -1573,10 +1697,8 @@ export function DevBotManageCard({ isCeoView: isCeoViewProp }: DevBotManageCardP
                       {/* On-line */}
                       <button
                         type="button"
-                        disabled={saving}
-                        onClick={() => {
-                          handleUpdateConfig({ botStatus: "online" }, "Presença alterada para On-line!");
-                        }}
+                        disabled={isChangingPresence || saving}
+                        onClick={() => handlePresenceChange("online")}
                         className={cn(
                           "flex items-center gap-2 p-2 rounded-xl border text-xs font-bold transition-all text-left cursor-pointer",
                           currentPresence === "online"
@@ -1591,10 +1713,8 @@ export function DevBotManageCard({ isCeoView: isCeoViewProp }: DevBotManageCardP
                       {/* Parado */}
                       <button
                         type="button"
-                        disabled={saving}
-                        onClick={() => {
-                          handleUpdateConfig({ botStatus: "idle" }, "Presença alterada para Parado!");
-                        }}
+                        disabled={isChangingPresence || saving}
+                        onClick={() => handlePresenceChange("idle")}
                         className={cn(
                           "flex items-center gap-2 p-2 rounded-xl border text-xs font-bold transition-all text-left cursor-pointer",
                           currentPresence === "idle"
@@ -1609,10 +1729,8 @@ export function DevBotManageCard({ isCeoView: isCeoViewProp }: DevBotManageCardP
                       {/* Não incomodar */}
                       <button
                         type="button"
-                        disabled={saving}
-                        onClick={() => {
-                          handleUpdateConfig({ botStatus: "dnd" }, "Presença alterada para Não incomodar!");
-                        }}
+                        disabled={isChangingPresence || saving}
+                        onClick={() => handlePresenceChange("dnd")}
                         className={cn(
                           "flex items-center gap-2 p-2 rounded-xl border text-xs font-bold transition-all text-left cursor-pointer",
                           currentPresence === "dnd"
@@ -1627,10 +1745,8 @@ export function DevBotManageCard({ isCeoView: isCeoViewProp }: DevBotManageCardP
                       {/* Invisível */}
                       <button
                         type="button"
-                        disabled={saving}
-                        onClick={() => {
-                          handleUpdateConfig({ botStatus: "invisible" }, "Presença alterada para Invisível!");
-                        }}
+                        disabled={isChangingPresence || saving}
+                        onClick={() => handlePresenceChange("invisible")}
                         className={cn(
                           "flex items-center gap-2 p-2 rounded-xl border text-xs font-bold transition-all text-left cursor-pointer",
                           currentPresence === "invisible"
@@ -2294,58 +2410,127 @@ export function DevBotManageCard({ isCeoView: isCeoViewProp }: DevBotManageCardP
       {/* MODAL 4: DEFINIR MENSAGEM DE STATUS & ATIVIDADE */}
       {/* ========================================================================= */}
       <Dialog open={isStatusModalOpen} onOpenChange={setIsStatusModalOpen}>
-        <DialogContent className="max-w-lg bg-zinc-950 border-zinc-800 text-foreground">
+        <DialogContent className="max-w-xl bg-zinc-950 border-zinc-800 text-foreground p-5">
           <DialogHeader>
             <DialogTitle className="text-base font-black flex items-center gap-2">
               <Gamepad2 className="h-5 w-5 text-rose-500" />
-              Definir Mensagem de Status
+              Definir Mensagem de Status & Atividade
             </DialogTitle>
             <DialogDescription className="text-xs text-muted-foreground">
-              Configure como a atividade e o texto do bot serão apresentados no Discord.
+              Configure como a atividade e o texto do bot serão apresentados na lista de membros e no perfil do Discord.
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4 py-2">
-            {/* Tipo de Atividade */}
-            <div className="space-y-1.5">
-              <Label className="text-xs font-bold">Tipo de Atividade</Label>
-              <Select
-                disabled={!hasPermission("bot_change_status")}
-                value={activityTypeInput}
-                onValueChange={(val: any) => setActivityTypeInput(val)}
-              >
-                <SelectTrigger className="bg-zinc-900 border-zinc-800 text-xs font-bold disabled:opacity-50 disabled:cursor-not-allowed">
-                  <SelectValue placeholder="Selecione a atividade" />
-                </SelectTrigger>
-                <SelectContent className="bg-zinc-900 border-zinc-800 text-xs">
-                  <SelectItem value="Custom">Status Personalizado (Sem tipo de atividade)</SelectItem>
-                  <SelectItem value="Playing">Jogando (Playing)</SelectItem>
-                  <SelectItem value="Watching">Assistindo (Watching)</SelectItem>
-                  <SelectItem value="Listening">Ouvindo (Listening)</SelectItem>
-                  <SelectItem value="Competing">Competindo (Competing)</SelectItem>
-                  <SelectItem value="Streaming">Transmitindo (Streaming)</SelectItem>
-                </SelectContent>
-              </Select>
-              {(activityTypeInput === "Custom" || activityTypeInput === "None") && (
-                <p className="text-[0.68rem] text-emerald-400 font-medium">
-                  ✓ O status será exibido de forma limpa como mensagem de texto direta no Discord, sem o prefixo &quot;Jogando&quot;, &quot;Assistindo&quot; ou &quot;Ouvindo&quot;.
-                </p>
-              )}
+            {/* 1. SELEÇÃO DE TIPO DE ATIVIDADE */}
+            <div className="space-y-2">
+              <Label className="text-xs font-bold">Tipo de Atividade no Discord</Label>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                {[
+                  {
+                    id: "Playing",
+                    label: "Jogando",
+                    icon: Gamepad2,
+                    desc: "Recomendado",
+                  },
+                  {
+                    id: "Watching",
+                    label: "Assistindo",
+                    icon: Tv,
+                    desc: "Assistindo...",
+                  },
+                  {
+                    id: "Listening",
+                    label: "Ouvindo",
+                    icon: Headphones,
+                    desc: "Ouvindo...",
+                  },
+                  {
+                    id: "Competing",
+                    label: "Competindo",
+                    icon: Trophy,
+                    desc: "Competindo em...",
+                  },
+                  {
+                    id: "Streaming",
+                    label: "Transmitindo",
+                    icon: Radio,
+                    desc: "Live c/ Link",
+                  },
+                  {
+                    id: "Custom",
+                    label: "Personalizado",
+                    icon: MessageSquare,
+                    desc: "Texto no perfil",
+                  },
+                ].map((act) => {
+                  const Icon = act.icon;
+                  const isSelected = activityTypeInput === act.id;
+                  return (
+                    <button
+                      key={act.id}
+                      type="button"
+                      disabled={!hasPermission("bot_change_status")}
+                      onClick={() => setActivityTypeInput(act.id as any)}
+                      className={cn(
+                        "flex flex-col items-start p-2.5 rounded-xl border text-left transition-all cursor-pointer relative",
+                        isSelected
+                          ? "bg-zinc-900 border-rose-500/80 text-foreground ring-1 ring-rose-500/50 shadow-md shadow-rose-950/20"
+                          : "bg-zinc-900/40 border-zinc-800/80 text-muted-foreground hover:bg-zinc-900 hover:text-foreground"
+                      )}
+                    >
+                      <div className="flex items-center justify-between w-full mb-1">
+                        <Icon className={cn("h-4 w-4", isSelected ? "text-rose-400" : "text-zinc-400")} />
+                        {act.id === "Playing" && (
+                          <span className="text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                            Mais Visível
+                          </span>
+                        )}
+                      </div>
+                      <span className="text-xs font-bold text-foreground">{act.label}</span>
+                      <span className="text-[10px] text-muted-foreground">{act.desc}</span>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
 
-            {/* Texto da Mensagem */}
+            {/* 2. TEXTO DA MENSAGEM */}
             <div className="space-y-1.5">
-              <Label className="text-xs font-bold">Texto de Status</Label>
+              <div className="flex items-center justify-between">
+                <Label className="text-xs font-bold">Texto de Status</Label>
+                <span className="text-[10px] text-muted-foreground font-mono">
+                  {statusTextInput.length}/128
+                </span>
+              </div>
               <Input
                 disabled={!hasPermission("bot_change_status")}
                 value={statusTextInput}
+                maxLength={128}
                 onChange={(e) => setStatusTextInput(e.target.value)}
-                placeholder="Ex: Twin Wheels • Logs em Tempo Real"
+                placeholder="Ex: by malaca ou Twin Wheels • Logs"
                 className="bg-zinc-900 border-zinc-800 text-xs font-bold disabled:opacity-50 disabled:cursor-not-allowed"
               />
-              <p className="text-[0.65rem] text-muted-foreground">
-                Exibido ao lado do tipo de atividade no perfil do bot.
-              </p>
+
+              {/* Presets Rápidos */}
+              <div className="flex items-center gap-1.5 flex-wrap pt-1">
+                <span className="text-[10px] text-muted-foreground font-bold mr-1">Atalhos:</span>
+                {[
+                  "by malaca",
+                  "Twin Wheels • Logs",
+                  "GTA RP • Twin Wheels",
+                  "twtools.malaca.com.br",
+                ].map((preset) => (
+                  <button
+                    key={preset}
+                    type="button"
+                    onClick={() => setStatusTextInput(preset)}
+                    className="px-2 py-0.5 rounded-md bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-[11px] font-medium text-zinc-300 transition-colors cursor-pointer"
+                  >
+                    {preset}
+                  </button>
+                ))}
+              </div>
             </div>
 
             {/* URL Streaming se selecionado */}
@@ -2356,29 +2541,104 @@ export function DevBotManageCard({ isCeoView: isCeoViewProp }: DevBotManageCardP
                   disabled={!hasPermission("bot_change_status")}
                   value={streamingUrlInput}
                   onChange={(e) => setStreamingUrlInput(e.target.value)}
-                  placeholder="https://www.twitch.tv/..."
+                  placeholder="https://www.twitch.tv/twinwheels"
                   className="bg-zinc-900 border-zinc-800 text-xs font-mono disabled:opacity-50 disabled:cursor-not-allowed"
                 />
               </div>
             )}
+
+            {/* 3. SIMULADOR / PREVIEW AO VIVO DO DISCORD */}
+            <div className="p-3.5 rounded-xl bg-[#111214] border border-[#1e1f22] space-y-2.5">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider flex items-center gap-1.5">
+                  <Eye className="h-3 w-3 text-rose-400" />
+                  Prévia em Tempo Real no Discord
+                </span>
+                <span className="text-[10px] text-zinc-500">Exibição exata no aplicativo</span>
+              </div>
+
+              {/* Preview 1: Como aparece na Barra Lateral de Membros */}
+              <div className="p-2.5 rounded-lg bg-[#2b2d31]/70 border border-[#313338] space-y-1">
+                <span className="text-[9px] font-bold text-zinc-400 uppercase block">
+                  Na lista de membros do servidor:
+                </span>
+                <div className="flex items-center gap-2.5 py-1">
+                  <div className="relative shrink-0">
+                    <img
+                      src={getProxiedImageUrl(avatarInput || config.botAvatarUrl || "https://adgdivossyzpwofouhrh.supabase.co/storage/v1/object/public/products/bot/avatar_1789253068262_twin_wheell_cropped.png")}
+                      alt="Bot Avatar"
+                      className="h-8 w-8 rounded-full object-cover bg-zinc-800"
+                    />
+                    <div
+                      className={cn(
+                        "absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-[#2b2d31]",
+                        currentPresence === "online" && "bg-[#23a55a]",
+                        currentPresence === "idle" && "bg-[#f0b232]",
+                        currentPresence === "dnd" && "bg-[#f23f43]",
+                        currentPresence === "invisible" && "bg-[#80848e]"
+                      )}
+                    />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-xs font-bold text-white truncate">
+                        {nameInput || config.botName || "Twin Wheels"}
+                      </span>
+                      <span className="px-1 py-0.2 rounded bg-[#5865f2] text-white text-[9px] font-black uppercase tracking-wider">
+                        APP
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-[#949ba4] truncate font-medium">
+                      {activityTypeInput === "Playing" && `Jogando ${statusTextInput.trim() || "by malaca"}`}
+                      {activityTypeInput === "Watching" && `Assistindo ${statusTextInput.trim() || "by malaca"}`}
+                      {activityTypeInput === "Listening" && `Ouvindo ${statusTextInput.trim() || "by malaca"}`}
+                      {activityTypeInput === "Competing" && `Competindo em ${statusTextInput.trim() || "by malaca"}`}
+                      {activityTypeInput === "Streaming" && `Transmitindo ${statusTextInput.trim() || "by malaca"}`}
+                      {(activityTypeInput === "Custom" || activityTypeInput === "None") && (
+                        <span className="italic text-zinc-500">{statusTextInput.trim() || "by malaca"} (visível no perfil)</span>
+                      )}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Dica Explicativa */}
+              <p className="text-[10px] text-zinc-400 flex items-center gap-1">
+                <Info className="h-3 w-3 text-sky-400 shrink-0" />
+                <span>
+                  Para que o texto apareça abaixo do nome na lista de membros do canal, utilize <b>Jogando</b>, <b>Assistindo</b> ou <b>Ouvindo</b>.
+                </span>
+              </p>
+            </div>
           </div>
 
-          <DialogFooter className="gap-2 sm:gap-0">
+          <DialogFooter className="gap-2 sm:gap-0 pt-2">
             <Button
               type="button"
               variant="outline"
+              disabled={isSavingStatus}
               onClick={() => setIsStatusModalOpen(false)}
-              className="bg-zinc-900 border-zinc-800 text-xs"
+              className="bg-zinc-900 border-zinc-800 text-xs cursor-pointer"
             >
               Cancelar
             </Button>
             <Button
               type="button"
               onClick={handleSaveStatus}
-              disabled={!hasPermission("bot_change_status")}
-              className="bg-rose-700 hover:bg-rose-600 text-white text-xs font-bold shadow-lg shadow-rose-950/40 disabled:opacity-50 disabled:cursor-not-allowed"
+              disabled={isSavingStatus || !hasPermission("bot_change_status")}
+              className="bg-rose-700 hover:bg-rose-600 text-white text-xs font-bold shadow-lg shadow-rose-950/40 gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              Salvar Status
+              {isSavingStatus ? (
+                <>
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  Sincronizando no Discord...
+                </>
+              ) : (
+                <>
+                  <Check className="h-3.5 w-3.5" />
+                  Salvar e Aplicar no Discord
+                </>
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>

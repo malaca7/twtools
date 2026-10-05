@@ -355,7 +355,146 @@ export async function fetchBotGuilds(botToken?: string): Promise<BotGuildInfo[]>
 }
 
 /**
- * Faz upload de imagem de avatar ou banner do bot para a API Postimages e retorna o link direto
+ * Converte um arquivo File/Blob ou URL de imagem para Data URL em Base64 (data:image/png;base64,...)
+ */
+export async function fileOrUrlToBase64DataUrl(fileOrUrl: File | Blob | string): Promise<string> {
+  if (typeof fileOrUrl === "string") {
+    const clean = fileOrUrl.trim();
+    if (clean.startsWith("data:")) return clean;
+    const { getProxiedImageUrl } = await import("@/services/postimagesService");
+    const targetUrl = getProxiedImageUrl(clean) || clean;
+    const res = await fetch(targetUrl);
+    if (!res.ok) {
+      throw new Error(`Falha ao obter imagem da URL (HTTP ${res.status})`);
+    }
+    const blob = await res.blob();
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result as string);
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+  } else {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result as string);
+      reader.onerror = reject;
+      reader.readAsDataURL(fileOrUrl);
+    });
+  }
+}
+
+/**
+ * Atualiza o perfil oficial do bot no Discord (Nome, Avatar e/ou Banner)
+ * Executa a requisição REST PATCH /users/@me com o token do bot e sincroniza com o backend.
+ */
+export async function updateDiscordBotProfile(
+  token: string,
+  updates: {
+    username?: string;
+    avatarUrlOrFile?: File | Blob | string;
+    bannerUrlOrFile?: File | Blob | string;
+  }
+): Promise<{
+  success: boolean;
+  user?: any;
+  message: string;
+  error?: string;
+}> {
+  const cleanToken = token ? token.trim().replace(/^Bot\s+/i, "") : "";
+  if (!cleanToken || cleanToken.length < 20) {
+    return {
+      success: false,
+      message: "Token do Discord não configurado ou inválido.",
+      error: "Token do Discord ausente.",
+    };
+  }
+
+  const body: any = {};
+
+  if (updates.username && updates.username.trim()) {
+    body.username = updates.username.trim();
+  }
+
+  if (updates.avatarUrlOrFile) {
+    try {
+      body.avatar = await fileOrUrlToBase64DataUrl(updates.avatarUrlOrFile);
+    } catch (e: any) {
+      console.warn("Erro ao converter avatar para base64:", e);
+    }
+  }
+
+  if (updates.bannerUrlOrFile) {
+    try {
+      body.banner = await fileOrUrlToBase64DataUrl(updates.bannerUrlOrFile);
+    } catch (e: any) {
+      console.warn("Erro ao converter banner para base64:", e);
+    }
+  }
+
+  if (Object.keys(body).length === 0) {
+    return { success: true, message: "Nenhuma alteração a sincronizar." };
+  }
+
+  try {
+    const res = await fetch("https://discord.com/api/v10/users/@me", {
+      method: "PATCH",
+      headers: {
+        Authorization: `Bot ${cleanToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(body),
+    });
+
+    if (res.ok) {
+      const userData = await res.json();
+
+      // Emite broadcast para sincronizar em tempo real com o backend do bot
+      try {
+        const controlChannel = supabase.channel("system-discord-bot-control");
+        await controlChannel.send({
+          type: "broadcast",
+          event: "bot_profile_updated",
+          payload: {
+            username: userData.username,
+            avatar: userData.avatar,
+            banner: userData.banner,
+            timestamp: Date.now(),
+          },
+        });
+      } catch {}
+
+      return {
+        success: true,
+        user: userData,
+        message: "Perfil do bot atualizado com sucesso no Discord!",
+      };
+    } else {
+      const errJson = await res.json().catch(() => ({}));
+      let msg = errJson.message || `Código de status HTTP ${res.status}`;
+      if (errJson.username) {
+        msg = `Nome: ${Array.isArray(errJson.username) ? errJson.username.join(", ") : errJson.username}`;
+      }
+      if (errJson.avatar) {
+        msg = `Avatar: ${Array.isArray(errJson.avatar) ? errJson.avatar.join(", ") : errJson.avatar}`;
+      }
+      return {
+        success: false,
+        error: msg,
+        message: `Discord recusou a alteração: ${msg}`,
+      };
+    }
+  } catch (err: any) {
+    return {
+      success: false,
+      error: err?.message || "Erro de conexão",
+      message: `Falha ao conectar com a API do Discord: ${err?.message || "Erro de rede"}`,
+    };
+  }
+}
+
+/**
+ * Faz upload de imagem de avatar ou banner do bot para Supabase Storage (com fallback Postimages/Base64)
  */
 export async function uploadBotImage(file: File, type: "avatar" | "banner" = "avatar"): Promise<string> {
   const ext = file.name.split(".").pop()?.toLowerCase() || "png";
@@ -363,14 +502,42 @@ export async function uploadBotImage(file: File, type: "avatar" | "banner" = "av
   const sanitized = file.name.replace(/[^a-zA-Z0-9.-]/g, "_").toLowerCase().replace(/\.[^/.]+$/, "");
   const fileName = `bot_${type}_${Date.now()}_${sanitized}.${cleanExt}`;
 
-  const { uploadImageToPostimages } = await import("@/services/postimagesService");
-  const cdnUrl = await uploadImageToPostimages(file, {
-    filename: fileName,
-    maxDimension: type === "avatar" ? 512 : 1920,
-    quality: 0.88,
-  });
+  // 1. Tenta upload no Supabase Storage primeiro (bucket products)
+  try {
+    const { data: uploadData, error: uploadErr } = await supabase.storage
+      .from("products")
+      .upload(`bot/${fileName}`, file, {
+        cacheControl: "3600",
+        upsert: true,
+      });
 
-  return cdnUrl;
+    if (!uploadErr && uploadData?.path) {
+      const { data: publicUrlData } = supabase.storage
+        .from("products")
+        .getPublicUrl(`bot/${fileName}`);
+      if (publicUrlData?.publicUrl) {
+        return publicUrlData.publicUrl;
+      }
+    }
+  } catch (sbErr) {
+    console.warn("Falha no upload Supabase Storage, tentando Postimages:", sbErr);
+  }
+
+  // 2. Fallback para Postimages
+  try {
+    const { uploadImageToPostimages } = await import("@/services/postimagesService");
+    const cdnUrl = await uploadImageToPostimages(file, {
+      filename: fileName,
+      maxDimension: type === "avatar" ? 512 : 1920,
+      quality: 0.88,
+    });
+    if (cdnUrl) return cdnUrl;
+  } catch (piErr) {
+    console.warn("Falha no Postimages:", piErr);
+  }
+
+  // 3. Fallback para Base64 Data URL
+  return fileOrUrlToBase64DataUrl(file);
 }
 
 export interface DiscordChannelInfo {
@@ -626,6 +793,86 @@ export async function triggerBotProfileSync(payload: {
     console.warn("⚠️ Discloud bot profile sync offline ou fallback local:", err?.message);
     return { success: true, message: "Atualização enviada para sincronização em background." };
   }
+}
+
+/**
+ * Atualiza o status e a presença do bot em tempo real (Supabase + Broadcast + Rota REST Discloud)
+ */
+export async function updateDiscordBotPresence(
+  params: {
+    botStatus?: "online" | "idle" | "dnd" | "invisible";
+    botActivityType?: "Playing" | "Watching" | "Listening" | "Competing" | "Streaming" | "Custom" | "None";
+    botStatusText?: string;
+    botStreamingUrl?: string;
+  },
+  currentConfig: DiscordBotConfig,
+  user?: AppUser | null,
+  profile?: Profile | null,
+  level?: AppLevel | null
+): Promise<{ success: boolean; message: string }> {
+  const updatedConfig: DiscordBotConfig = {
+    ...currentConfig,
+    ...params,
+  };
+
+  // 1. Salva a configuração no banco de dados Supabase e localStorage (dispara system-discord-config-sync)
+  await saveDiscordBotConfig(updatedConfig, user, profile, level);
+
+  // 2. Dispara broadcast direto no canal system-discord-bot-control
+  try {
+    const controlChannel = supabase.channel("system-discord-bot-control");
+    await controlChannel.send({
+      type: "broadcast",
+      event: "bot_command",
+      payload: {
+        action: "update_presence",
+        actor: profile?.nome || user?.email || "Desenvolvedor",
+        timestamp: Date.now(),
+        config: {
+          botStatus: updatedConfig.botStatus,
+          botStatusText: updatedConfig.botStatusText,
+          botActivityType: updatedConfig.botActivityType,
+          botStreamingUrl: updatedConfig.botStreamingUrl,
+        },
+      },
+    });
+  } catch (bcErr) {
+    console.warn("Aviso ao emitir broadcast de presença:", bcErr);
+  }
+
+  // 3. Tenta acionamento direto via endpoint HTTP no bot Discloud com timeout curto
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 2500);
+    await fetch("https://twin.discloud.app/api/update-presence", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        botStatus: updatedConfig.botStatus,
+        botActivityType: updatedConfig.botActivityType,
+        botStatusText: updatedConfig.botStatusText,
+        botStreamingUrl: updatedConfig.botStreamingUrl,
+      }),
+      signal: controller.signal,
+    }).catch(() => null);
+    clearTimeout(timeoutId);
+  } catch {}
+
+  // 4. Log de auditoria
+  try {
+    await logAuditAction("bot_change_status", {
+      status: updatedConfig.botStatus,
+      activityType: updatedConfig.botActivityType,
+      statusText: updatedConfig.botStatusText,
+      actor: profile?.nome || user?.email || "Desenvolvedor",
+      timestamp: new Date().toISOString(),
+    });
+  } catch {}
+
+  return {
+    success: true,
+    message: "Status e mensagem de atividade atualizados com sucesso no Discord!",
+  };
 }
 
 

@@ -1649,23 +1649,54 @@ export function satisfiesPermission(
     if (
       list.includes("escalas.details") ||
       list.includes("escalas.view") ||
-      list.includes("escalas.create") ||
+      list.some((p) => typeof p === "string" && p.startsWith("escalas."))
+    ) {
+      return true;
+    }
+  }
+  if (permission === "escalas.create") {
+    if (list.includes("escalas.create") || list.includes("escalas.settings")) {
+      return true;
+    }
+  }
+  if (permission === "escalas.edit") {
+    if (list.includes("escalas.edit") || list.includes("escalas.settings")) {
+      return true;
+    }
+  }
+  if (permission === "escalas.delete") {
+    if (list.includes("escalas.delete") || list.includes("escalas.settings")) {
+      return true;
+    }
+  }
+  if (permission === "escalas.publish") {
+    if (list.includes("escalas.publish") || list.includes("escalas.settings")) {
+      return true;
+    }
+  }
+  if (permission === "escalas.cancel") {
+    if (list.includes("escalas.cancel") || list.includes("escalas.settings")) {
+      return true;
+    }
+  }
+  if (permission === "escalas.manage_members") {
+    if (list.includes("escalas.manage_members") || list.includes("escalas.settings")) {
+      return true;
+    }
+  }
+  if (permission === "escalas.add_participants") {
+    if (
+      list.includes("escalas.add_participants") ||
       list.includes("escalas.manage_members") ||
       list.includes("escalas.settings")
     ) {
       return true;
     }
   }
-  if (
-    permission === "escalas.add_participants" ||
-    permission === "escalas.remove_participants" ||
-    permission === "escalas.substitute" ||
-    permission === "escalas.manage_slots"
-  ) {
+  if (permission === "escalas.remove_participants") {
     if (
-      list.includes(permission) ||
+      list.includes("escalas.remove_participants") ||
       list.includes("escalas.manage_members") ||
-      list.includes("escalas.create") ||
       list.includes("escalas.settings")
     ) {
       return true;
@@ -1680,26 +1711,20 @@ export function satisfiesPermission(
       return true;
     }
   }
-  if (
-    permission === "escalas.edit" ||
-    permission === "escalas.cancel" ||
-    permission === "escalas.publish"
-  ) {
+  if (permission === "escalas.manage_slots") {
     if (
-      list.includes(permission) ||
-      list.includes("escalas.create") ||
+      list.includes("escalas.manage_slots") ||
       list.includes("escalas.settings")
     ) {
       return true;
     }
   }
-  if (permission === "escalas.delete") {
-    if (list.includes("escalas.delete") || list.includes("escalas.settings")) {
-      return true;
-    }
-  }
-  if (permission === "escalas.manage_members") {
-    if (list.includes("escalas.manage_members") || list.includes("escalas.settings")) {
+  if (permission === "escalas.substitute") {
+    if (
+      list.includes("escalas.substitute") ||
+      list.includes("escalas.manage_members") ||
+      list.includes("escalas.settings")
+    ) {
       return true;
     }
   }
@@ -1707,9 +1732,13 @@ export function satisfiesPermission(
     if (
       list.includes("escalas.history") ||
       list.includes("escalas.manage_members") ||
-      list.includes("escalas.create") ||
       list.includes("escalas.settings")
     ) {
+      return true;
+    }
+  }
+  if (permission === "escalas.settings") {
+    if (list.includes("escalas.settings")) {
       return true;
     }
   }
@@ -2417,23 +2446,54 @@ export function can(
     if (
       rolePerms.includes("escalas.details") ||
       rolePerms.includes("escalas.view") ||
-      rolePerms.includes("escalas.create") ||
+      rolePerms.some((p) => typeof p === "string" && p.startsWith("escalas."))
+    ) {
+      return true;
+    }
+  }
+  if (permission === "escalas.create") {
+    if (rolePerms.includes("escalas.create") || rolePerms.includes("escalas.settings")) {
+      return true;
+    }
+  }
+  if (permission === "escalas.edit") {
+    if (rolePerms.includes("escalas.edit") || rolePerms.includes("escalas.settings")) {
+      return true;
+    }
+  }
+  if (permission === "escalas.delete") {
+    if (rolePerms.includes("escalas.delete") || rolePerms.includes("escalas.settings")) {
+      return true;
+    }
+  }
+  if (permission === "escalas.publish") {
+    if (rolePerms.includes("escalas.publish") || rolePerms.includes("escalas.settings")) {
+      return true;
+    }
+  }
+  if (permission === "escalas.cancel") {
+    if (rolePerms.includes("escalas.cancel") || rolePerms.includes("escalas.settings")) {
+      return true;
+    }
+  }
+  if (permission === "escalas.manage_members") {
+    if (rolePerms.includes("escalas.manage_members") || rolePerms.includes("escalas.settings")) {
+      return true;
+    }
+  }
+  if (permission === "escalas.add_participants") {
+    if (
+      rolePerms.includes("escalas.add_participants") ||
       rolePerms.includes("escalas.manage_members") ||
       rolePerms.includes("escalas.settings")
     ) {
       return true;
     }
   }
-  if (
-    permission === "escalas.add_participants" ||
-    permission === "escalas.remove_participants" ||
-    permission === "escalas.substitute" ||
-    permission === "escalas.manage_slots"
-  ) {
+  if (permission === "escalas.remove_participants") {
     if (
-      rolePerms.includes(permission) ||
+      rolePerms.includes("escalas.remove_participants") ||
       rolePerms.includes("escalas.manage_members") ||
-      rolePerms.includes("escalas.create") ||
       rolePerms.includes("escalas.settings")
     ) {
       return true;
@@ -2448,26 +2508,20 @@ export function can(
       return true;
     }
   }
-  if (
-    permission === "escalas.edit" ||
-    permission === "escalas.cancel" ||
-    permission === "escalas.publish"
-  ) {
+  if (permission === "escalas.manage_slots") {
     if (
-      rolePerms.includes(permission) ||
-      rolePerms.includes("escalas.create") ||
+      rolePerms.includes("escalas.manage_slots") ||
       rolePerms.includes("escalas.settings")
     ) {
       return true;
     }
   }
-  if (permission === "escalas.delete") {
-    if (rolePerms.includes("escalas.delete") || rolePerms.includes("escalas.settings")) {
-      return true;
-    }
-  }
-  if (permission === "escalas.manage_members") {
-    if (rolePerms.includes("escalas.manage_members") || rolePerms.includes("escalas.settings")) {
+  if (permission === "escalas.substitute") {
+    if (
+      rolePerms.includes("escalas.substitute") ||
+      rolePerms.includes("escalas.manage_members") ||
+      rolePerms.includes("escalas.settings")
+    ) {
       return true;
     }
   }
@@ -2475,9 +2529,13 @@ export function can(
     if (
       rolePerms.includes("escalas.history") ||
       rolePerms.includes("escalas.manage_members") ||
-      rolePerms.includes("escalas.create") ||
       rolePerms.includes("escalas.settings")
     ) {
+      return true;
+    }
+  }
+  if (permission === "escalas.settings") {
+    if (rolePerms.includes("escalas.settings")) {
       return true;
     }
   }

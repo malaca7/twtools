@@ -17,6 +17,13 @@ import {
   User,
   Save,
   Lock,
+  LayoutGrid,
+  List,
+  ExternalLink,
+  Crown,
+  Sparkles,
+  Shield,
+  Tag as TagIcon,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { DevBadge, CeoBadge } from "@/components/ui-kit";
@@ -26,7 +33,6 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { Code2, Crown } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Dialog,
@@ -54,9 +60,9 @@ import {
   updateMemberDetails,
   deleteMember,
 } from "@/lib/app-api";
-import { dateTime, errorMessage, formatPhone, formatSessionDuration, formatSecondsToHoursAndMinutes } from "@/lib/format";
-import { LEVEL_LABEL, LEVELS, levelBadgeClass, canPromote, type AppLevel } from "@/lib/permissions";
-import type { Member, PendingSignupRequest } from "@/lib/app-types";
+import { dateTime, errorMessage, formatPhone } from "@/lib/format";
+import { LEVEL_LABEL, LEVELS, levelBadgeClass, type AppLevel } from "@/lib/permissions";
+import type { Member } from "@/lib/app-types";
 import { useMemberTagsMap } from "@/hooks/useMemberTags";
 import { MemberTagBadge } from "@/components/ui/MemberTagBadge";
 import { cn } from "@/lib/utils";
@@ -71,7 +77,7 @@ export function MembrosPage() {
   const { devStyle, ceoStyle, DevIcon, CeoIcon } = usePanelTheme();
   const queryClient = useQueryClient();
 
-  // Granular permissions for members management (respects current panel mode: member vs dev)
+  // Permissões granulares de gestão de membros
   const canView = hasPermission("view_members");
   const canApprove = hasPermission("approve_requests");
   const canChangeRoles = hasPermission("change_roles") || hasPermission("promote_members");
@@ -85,9 +91,14 @@ export function MembrosPage() {
   const { data: members = [], isLoading: membersLoading } = useMembers();
   const { data: pending = [], isLoading: pendingLoading } = usePendingSignupRequests(canApprove);
   const { data: dbCustomRoles = [] } = useCustomRoles();
-  const memberTagsMap = useMemberTagsMap();
 
-  // Cargos válidos do grupo (excluindo desenvolvedor, que é tag de sistema)
+  // Apenas tags ativas e marcadas como "Tag de Sistema"
+  const memberTagsMap = useMemberTagsMap({ onlySystem: true });
+
+  // Modo de visualização no desktop: cards (grid) ou tabela
+  const [viewMode, setViewMode] = useState<"cards" | "table">("cards");
+
+  // Cargos válidos do grupo (excluindo desenvolvedor)
   const availableLevels = useMemo(() => {
     if (dbCustomRoles && dbCustomRoles.length > 0) {
       const filtered = dbCustomRoles.filter(
@@ -106,11 +117,41 @@ export function MembrosPage() {
     }));
   }, [dbCustomRoles]);
 
-  // Search filter
+  // Mapa de pontuação/rank hierárquico para ordenação precisa por cargos
+  const roleRankMap = useMemo(() => {
+    const map = new Map<string, number>();
+
+    // Ranks padrões de fallback
+    map.set("desenvolvedor", 100000);
+    map.set("01", 60000);
+    map.set("02", 50000);
+    map.set("gerente", 40000);
+    map.set("motoqueiro", 30000);
+    map.set("membro", 20000);
+    map.set("novato", 10000);
+
+    // Se existirem cargos customizados cadastrados no banco, aplica seus ranks exatos
+    if (dbCustomRoles && dbCustomRoles.length > 0) {
+      dbCustomRoles.forEach((r, idx) => {
+        const rankVal =
+          typeof r.rank === "number" && !isNaN(r.rank)
+            ? r.rank * 1000
+            : (dbCustomRoles.length - idx) * 10000;
+        map.set(r.id.toLowerCase(), rankVal);
+        if (r.nome) {
+          map.set(r.nome.toLowerCase(), rankVal);
+        }
+      });
+    }
+
+    return map;
+  }, [dbCustomRoles]);
+
+  // Filtro de busca
   const [search, setSearch] = useState("");
   const [reasons, setReasons] = useState<Record<string, string>>({});
 
-  // Modal edit member state
+  // Modal de edição de dados do membro
   const [editingMember, setEditingMember] = useState<Member | null>(null);
   const [editNome, setEditNome] = useState("");
   const [editNickname, setEditNickname] = useState("");
@@ -170,7 +211,6 @@ export function MembrosPage() {
       void queryClient.invalidateQueries({ queryKey: ["auth_session"] });
       void queryClient.invalidateQueries({ queryKey: ["auth"] });
 
-      // Se alterou o próprio cargo, re-sincronize a sessão
       if (user?.id === vars.targetUserId) {
         await refresh();
       }
@@ -220,6 +260,7 @@ export function MembrosPage() {
     return <NoAccess />;
   }
 
+  // Filtro por termo de busca
   const filteredMembers = members.filter((m) => {
     const term = search.toLowerCase().trim();
     if (!term) return true;
@@ -232,6 +273,29 @@ export function MembrosPage() {
 
     return nomeMatch || nickMatch || phoneMatch || gameMatch || discordMatch;
   });
+
+  // Ordenação: 1º por Cargos (Hierarquia descendente) e 2º por Ordem Alfabética
+  const sortedMembers = useMemo(() => {
+    return [...filteredMembers].sort((a, b) => {
+      const isDevA = Boolean(a.is_developer || a.nivel === "desenvolvedor");
+      const isDevB = Boolean(b.is_developer || b.nivel === "desenvolvedor");
+      if (isDevA !== isDevB) return isDevA ? -1 : 1;
+
+      const rankA = roleRankMap.get(String(a.nivel || "novato").toLowerCase()) ?? 0;
+      const rankB = roleRankMap.get(String(b.nivel || "novato").toLowerCase()) ?? 0;
+      if (rankA !== rankB) {
+        return rankB - rankA; // Maior cargo primeiro
+      }
+
+      // Ordem alfabética pelo apelido / nome exibido
+      const nameA = (a.nickname || a.nome || "").trim();
+      const nameB = (b.nickname || b.nome || "").trim();
+      const alphaComp = nameA.localeCompare(nameB, "pt-BR", { sensitivity: "base" });
+      if (alphaComp !== 0) return alphaComp;
+
+      return (a.nome || "").localeCompare(b.nome || "", "pt-BR", { sensitivity: "base" });
+    });
+  }, [filteredMembers, roleRankMap]);
 
   return (
     <div className="mx-auto max-w-6xl space-y-6">
@@ -362,24 +426,61 @@ export function MembrosPage() {
       )}
 
       {/* MEMBROS ATIVOS DO GRUPO */}
-      <Card className="surface-card">
+      <Card className="surface-card shadow-sm border-border/70">
         <CardHeader className="pb-3">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
-              <CardTitle className="text-base font-semibold">Membros Ativos ({filteredMembers.length})</CardTitle>
+              <CardTitle className="text-base font-semibold flex items-center gap-2">
+                <ShieldCheck className="h-5 w-5 text-primary" />
+                <span>Membros Ativos ({sortedMembers.length})</span>
+              </CardTitle>
               <CardDescription className="text-xs">
-                Membros com perfil ativo, cargos atribuídos e contas Discord vinculadas.
+                Membros organizados por ordem hierárquica de cargos e ordem alfabética.
               </CardDescription>
             </div>
 
-            <div className="relative w-full sm:w-72">
-              <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                placeholder="Buscar por nome, ID, telefone, Discord..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="pl-8 h-8 text-xs"
-              />
+            <div className="flex items-center gap-2 w-full sm:w-auto">
+              <div className="relative flex-1 sm:w-72">
+                <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  placeholder="Buscar por nome, ID, telefone, Discord..."
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  className="pl-8 h-8 text-xs rounded-xl"
+                />
+              </div>
+
+              {/* Botões de Alternância de Visualização no Desktop */}
+              <div className="hidden md:flex items-center gap-1 border border-border/60 rounded-xl p-0.5 bg-background/50 shrink-0">
+                <Button
+                  type="button"
+                  variant={viewMode === "cards" ? "default" : "ghost"}
+                  size="sm"
+                  onClick={() => setViewMode("cards")}
+                  className={cn(
+                    "h-7 px-2.5 text-xs rounded-lg gap-1.5 transition-all",
+                    viewMode === "cards" ? "bg-primary text-primary-foreground font-bold shadow-xs" : "text-muted-foreground"
+                  )}
+                  title="Visualização em Cards"
+                >
+                  <LayoutGrid className="h-3.5 w-3.5" />
+                  <span>Cards</span>
+                </Button>
+                <Button
+                  type="button"
+                  variant={viewMode === "table" ? "default" : "ghost"}
+                  size="sm"
+                  onClick={() => setViewMode("table")}
+                  className={cn(
+                    "h-7 px-2.5 text-xs rounded-lg gap-1.5 transition-all",
+                    viewMode === "table" ? "bg-primary text-primary-foreground font-bold shadow-xs" : "text-muted-foreground"
+                  )}
+                  title="Visualização em Tabela"
+                >
+                  <List className="h-3.5 w-3.5" />
+                  <span>Tabela</span>
+                </Button>
+              </div>
             </div>
           </div>
         </CardHeader>
@@ -387,113 +488,194 @@ export function MembrosPage() {
         <CardContent>
           {membersLoading ? (
             <TableSkeleton rows={6} />
-          ) : filteredMembers.length === 0 ? (
-            <EmptyState title="Nenhum membro encontrado" description="Altere o termo de busca para visualizar os membros." />
+          ) : sortedMembers.length === 0 ? (
+            <EmptyState
+              title="Nenhum membro encontrado"
+              description="Altere o termo de busca para visualizar os membros."
+            />
           ) : (
             <>
-              {/* MOBILE MEMBER CARDS (md:hidden) */}
-              <div className="grid gap-3 sm:grid-cols-2 md:hidden">
-                {filteredMembers.map((m) => {
+              {/* VISUALIZAÇÃO EM CARDS (PADRÃO MOBILE E OPÇÃO DESKTOP) */}
+              <div className={cn("grid gap-4 sm:grid-cols-2 lg:grid-cols-3", viewMode === "table" && "md:hidden")}>
+                {sortedMembers.map((m) => {
                   const currentNivel = m.nivel || "novato";
-                  const avatarUrl = m.discord_avatar_url;
+                  const avatarUrl = m.discord_avatar_url || m.avatar_url;
                   const initials = (m.nickname || m.nome).slice(0, 2).toUpperCase();
                   const targetIsDev = Boolean(m.is_developer || m.nivel === "desenvolvedor");
+                  const targetIsCeo = Boolean(m.is_ceo || m.custom_theme?.is_ceo);
                   const canChangeThisTargetRole = canChangeRoles && (!targetIsDev || isDev);
 
+                  // Tags ativas no sistema vinculadas a este membro
+                  const assignedTags = (memberTagsMap[m.user_id] || (m.id ? memberTagsMap[m.id] : []) || []).filter(
+                    (t) => t.is_active !== false && t.is_system === true
+                  );
+
                   return (
-                    <div key={m.user_id} className="p-4 rounded-xl border border-border/80 bg-card text-card-foreground shadow-sm space-y-3">
-                      <div className="flex items-center justify-between gap-2">
-                        <Link
-                          to="/perfil/$handle"
-                          params={{ handle: String(m.custom_url || m.discord_id || m.user_id).replace(/^@/, "") }}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="flex items-center gap-3 group cursor-pointer min-w-0"
-                          title={`Ver perfil público de ${m.nickname || m.nome} em nova aba`}
-                        >
-                          <Avatar className="h-10 w-10 border border-border group-hover:border-primary/50 transition-colors shrink-0">
-                            {avatarUrl && <AvatarImage src={avatarUrl} alt={m.nome} />}
-                            <AvatarFallback className="bg-secondary font-bold text-xs group-hover:text-primary transition-colors">
-                              {initials}
-                            </AvatarFallback>
-                          </Avatar>
-                          <div className="min-w-0">
-                            <div className="flex items-center gap-1.5 flex-wrap">
-                              <p className="font-bold text-sm text-foreground group-hover:text-primary transition-colors truncate">
-                                {m.nickname || m.nome}
-                              </p>
-                              {targetIsDev && <DevBadge size="xs" />}
-                              {Boolean(m.is_ceo || m.custom_theme?.is_ceo) && <CeoBadge size="xs" />}
-                            </div>
-                            {m.nickname && <p className="text-xs text-muted-foreground truncate">{m.nome}</p>}
-                            {(memberTagsMap[m.user_id] || []).length > 0 && (
-                              <div className="flex items-center gap-1 flex-wrap pt-1">
-                                {(memberTagsMap[m.user_id] || []).map((tag) => (
-                                  <MemberTagBadge key={tag.id} tag={tag} size="xs" />
-                                ))}
+                    <div
+                      key={m.user_id}
+                      className={cn(
+                        "rounded-2xl border border-border/70 bg-card/90 backdrop-blur-sm p-4 sm:p-5 shadow-sm hover:shadow-md transition-all duration-200 flex flex-col justify-between gap-4 group relative overflow-hidden",
+                        targetIsDev && "border-rose-500/40 bg-gradient-to-b from-rose-500/5 to-transparent",
+                        targetIsCeo && !targetIsDev && "border-amber-500/40 bg-gradient-to-b from-amber-500/5 to-transparent"
+                      )}
+                    >
+                      {/* HEADER DO CARD: AVATAR, NOME, CARGO */}
+                      <div className="space-y-3">
+                        <div className="flex items-start justify-between gap-3">
+                          <Link
+                            to="/perfil/$handle"
+                            params={{ handle: String(m.custom_url || m.discord_id || m.user_id).replace(/^@/, "") }}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-3 group/link min-w-0 flex-1 cursor-pointer"
+                            title={`Ver perfil público de ${m.nickname || m.nome} em nova aba`}
+                          >
+                            <Avatar className="h-12 w-12 border-2 border-border/80 group-hover/link:border-primary/70 transition-all shrink-0 shadow-sm">
+                              {avatarUrl && <AvatarImage src={avatarUrl} alt={m.nome} />}
+                              <AvatarFallback className="bg-primary/20 text-primary font-bold text-xs group-hover/link:text-primary transition-colors">
+                                {initials}
+                              </AvatarFallback>
+                            </Avatar>
+
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <p className="font-extrabold text-sm text-foreground group-hover/link:text-primary transition-colors truncate">
+                                  {m.nickname || m.nome}
+                                </p>
+                                {targetIsDev && <DevBadge size="xs" />}
+                                {targetIsCeo && <CeoBadge size="xs" />}
                               </div>
+
+                              {m.nickname ? (
+                                <p className="text-xs text-muted-foreground truncate">{m.nome}</p>
+                              ) : null}
+
+                              {m.discord_username ? (
+                                <p className="text-[11px] font-mono text-indigo-400 font-medium truncate mt-0.5">
+                                  @{m.discord_username}
+                                </p>
+                              ) : null}
+                            </div>
+                          </Link>
+
+                          {/* Seletor de Cargo ou Badge */}
+                          <div className="shrink-0">
+                            {canChangeThisTargetRole ? (
+                              <select
+                                className="h-8 rounded-xl border border-input bg-background/80 px-2.5 py-1 text-xs font-bold text-foreground focus:outline-none focus:ring-1 focus:ring-primary shadow-xs cursor-pointer"
+                                value={currentNivel}
+                                onChange={(e) => {
+                                  const desired = e.target.value as AppLevel;
+                                  changeRoleMutation.mutate({ targetUserId: m.user_id, newLevel: desired });
+                                }}
+                                disabled={changeRoleMutation.isPending}
+                                title="Alterar Cargo do Membro"
+                              >
+                                {availableLevels.map(({ id, label }) => (
+                                  <option key={id} value={id}>
+                                    {label}
+                                  </option>
+                                ))}
+                              </select>
+                            ) : (
+                              <Badge
+                                variant="outline"
+                                className={cn("text-[11px] font-extrabold px-2.5 py-0.5 rounded-lg shadow-xs", levelBadgeClass(currentNivel))}
+                              >
+                                {LEVEL_LABEL[currentNivel] || currentNivel}
+                              </Badge>
                             )}
                           </div>
-                        </Link>
+                        </div>
 
-                        {canChangeThisTargetRole ? (
-                          <select
-                            className="h-7 rounded-md border border-input bg-background px-2 py-0.5 text-xs font-bold focus:outline-none focus:ring-1 focus:ring-primary shrink-0"
-                            value={currentNivel}
-                            onChange={(e) => {
-                              const desired = e.target.value as AppLevel;
-                              changeRoleMutation.mutate({ targetUserId: m.user_id, newLevel: desired });
-                            }}
-                            disabled={changeRoleMutation.isPending}
-                          >
-                            {availableLevels.map(({ id, label }) => (
-                              <option key={id} value={id}>
-                                {label}
-                              </option>
+                        {/* TAGS DO SISTEMA VINCULADAS */}
+                        {assignedTags.length > 0 && (
+                          <div className="flex items-center gap-1.5 flex-wrap pt-1">
+                            {assignedTags.map((tag) => (
+                              <MemberTagBadge key={tag.id} tag={tag} size="xs" showIcon />
                             ))}
-                          </select>
-                        ) : (
-                          <Badge variant="outline" className={cn("text-[10px] font-bold px-2 py-0.5", levelBadgeClass(currentNivel))}>
-                            {LEVEL_LABEL[currentNivel] || currentNivel}
-                          </Badge>
+                          </div>
                         )}
+
+                        {/* DADOS DE JOGO E DISCORD */}
+                        <div className="grid grid-cols-2 gap-2 pt-2 border-t border-border/40 text-xs">
+                          <div className="p-2 rounded-xl bg-secondary/40 border border-border/30">
+                            <span className="text-muted-foreground block text-[10px] font-bold uppercase tracking-wider flex items-center gap-1">
+                              <IdCard className="h-3 w-3 text-primary" /> ID Jogo
+                            </span>
+                            <span className="font-mono font-bold text-foreground mt-0.5 block">
+                              #{m.game_id || "N/A"}
+                            </span>
+                          </div>
+
+                          <div className="p-2 rounded-xl bg-secondary/40 border border-border/30">
+                            <span className="text-muted-foreground block text-[10px] font-bold uppercase tracking-wider flex items-center gap-1">
+                              <Phone className="h-3 w-3 text-emerald-400" /> Telefone
+                            </span>
+                            <span className="font-semibold text-foreground mt-0.5 block font-mono">
+                              {m.telefone || "N/A"}
+                            </span>
+                          </div>
+                        </div>
                       </div>
 
-                      <div className="grid grid-cols-2 gap-2 text-xs pt-1 border-t border-border/50">
-                        <div>
-                          <span className="text-muted-foreground block text-[10px]">ID Jogo:</span>
-                          <span className="font-mono font-bold text-foreground">#{m.game_id || "N/A"}</span>
-                        </div>
-                        <div>
-                          <span className="text-muted-foreground block text-[10px]">Telefone:</span>
-                          <span className="font-bold text-foreground">{m.telefone || "N/A"}</span>
-                        </div>
-                      </div>
-
-                      <div className="flex items-center justify-between pt-2 border-t border-border/50 text-xs">
-                        <div className="flex items-center gap-1.5 text-emerald-400 font-mono text-[11px] font-bold">
-                          <Clock className="h-3.5 w-3.5" />
-                          <span>Total: {formatSecondsToHoursAndMinutes(m.total_seconds_online || 0)}</span>
-                        </div>
-
-                        {canEdit && (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleOpenEdit(m)}
-                            className="h-8 text-xs font-bold rounded-lg"
+                      {/* RODAPÉ DO CARD COM AÇÕES */}
+                      <div className="flex items-center justify-between pt-2.5 border-t border-border/40 gap-2">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          asChild
+                          className="h-8 text-xs font-semibold rounded-xl text-muted-foreground hover:text-foreground hover:bg-secondary/60 gap-1 px-2.5"
+                        >
+                          <Link
+                            to="/perfil/$handle"
+                            params={{ handle: String(m.custom_url || m.discord_id || m.user_id).replace(/^@/, "") }}
+                            target="_blank"
+                            rel="noopener noreferrer"
                           >
-                            <Edit className="h-3.5 w-3.5 mr-1" /> Editar
-                          </Button>
-                        )}
+                            <ExternalLink className="h-3.5 w-3.5" />
+                            <span>Perfil</span>
+                          </Link>
+                        </Button>
+
+                        <div className="flex items-center gap-1.5">
+                          {canEdit && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleOpenEdit(m)}
+                              className="h-8 text-xs font-bold rounded-xl gap-1 border-border/60 hover:bg-secondary/80"
+                            >
+                              <Edit className="h-3.5 w-3.5" />
+                              <span>Editar</span>
+                            </Button>
+                          )}
+
+                          {canDelete && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => {
+                                if (confirm(`Remover o membro ${m.nome} do grupo?`)) {
+                                  deleteMemberMutation.mutate(m.user_id);
+                                }
+                              }}
+                              disabled={deleteMemberMutation.isPending}
+                              className="h-8 w-8 rounded-xl text-destructive hover:bg-destructive/10"
+                              title="Remover Membro"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+                          )}
+                        </div>
                       </div>
                     </div>
                   );
                 })}
               </div>
 
-              {/* DESKTOP TABLE VIEW (hidden md:block) */}
-              <div className="hidden md:block overflow-x-auto">
+              {/* VISUALIZAÇÃO EM TABELA (DESKTOP) */}
+              <div className={cn("hidden overflow-x-auto", viewMode === "table" && "md:block")}>
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -501,31 +683,36 @@ export function MembrosPage() {
                       <TableHead>ID & Telefone</TableHead>
                       <TableHead>Conta Discord</TableHead>
                       <TableHead>Cargo / Nível</TableHead>
-                      <TableHead>Presença</TableHead>
                       {canEdit || canDelete ? <TableHead className="text-right">Ações</TableHead> : null}
                     </TableRow>
                   </TableHeader>
 
                   <TableBody>
-                    {filteredMembers.map((m) => {
+                    {sortedMembers.map((m) => {
                       const currentNivel = m.nivel || "novato";
-                      const avatarUrl = m.discord_avatar_url;
+                      const avatarUrl = m.discord_avatar_url || m.avatar_url;
                       const initials = (m.nickname || m.nome).slice(0, 2).toUpperCase();
                       const targetIsDev = Boolean(m.is_developer || m.nivel === "desenvolvedor");
+                      const targetIsCeo = Boolean(m.is_ceo || m.custom_theme?.is_ceo);
                       const canChangeThisTargetRole = canChangeRoles && (!targetIsDev || isDev);
 
+                      // Tags ativas no sistema vinculadas a este membro
+                      const assignedTags = (memberTagsMap[m.user_id] || (m.id ? memberTagsMap[m.id] : []) || []).filter(
+                        (t) => t.is_active !== false && t.is_system === true
+                      );
+
                       return (
-                        <TableRow key={m.user_id}>
+                        <TableRow key={m.user_id} className="hover:bg-muted/40">
                           <TableCell>
                             <Link
                               to="/perfil/$handle"
                               params={{ handle: String(m.custom_url || m.discord_id || m.user_id).replace(/^@/, "") }}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="flex items-center gap-3 min-w-[160px] group cursor-pointer"
+                              className="flex items-center gap-3 min-w-[200px] group cursor-pointer"
                               title={`Ver perfil público de ${m.nickname || m.nome} em nova aba`}
                             >
-                              <Avatar className="h-9 w-9 border border-border group-hover:border-primary/50 transition-colors">
+                              <Avatar className="h-10 w-10 border border-border group-hover:border-primary/50 transition-colors shadow-xs">
                                 {avatarUrl && <AvatarImage src={avatarUrl} alt={m.nome} />}
                                 <AvatarFallback className="bg-secondary font-bold text-xs group-hover:text-primary transition-colors">
                                   {initials}
@@ -533,20 +720,22 @@ export function MembrosPage() {
                               </Avatar>
 
                               <div>
-                                <div className="flex items-center gap-1.5">
+                                <div className="flex items-center gap-1.5 flex-wrap">
                                   <p className="font-bold text-xs text-foreground group-hover:text-primary transition-colors">
                                     {m.nickname ? `${m.nickname}` : m.nome}
                                   </p>
                                   {targetIsDev && <DevBadge size="xs" />}
-                                  {Boolean(m.is_ceo || m.custom_theme?.is_ceo) && <CeoBadge size="xs" />}
+                                  {targetIsCeo && <CeoBadge size="xs" />}
                                 </div>
                                 {m.nickname ? (
                                   <p className="text-[0.65rem] text-muted-foreground">{m.nome}</p>
                                 ) : null}
-                                {(memberTagsMap[m.user_id] || []).length > 0 && (
-                                  <div className="flex items-center gap-1 flex-wrap pt-0.5">
-                                    {(memberTagsMap[m.user_id] || []).map((tag) => (
-                                      <MemberTagBadge key={tag.id} tag={tag} size="xs" />
+
+                                {/* Tags do Sistema na Tabela */}
+                                {assignedTags.length > 0 && (
+                                  <div className="flex items-center gap-1 flex-wrap pt-1">
+                                    {assignedTags.map((tag) => (
+                                      <MemberTagBadge key={tag.id} tag={tag} size="xs" showIcon />
                                     ))}
                                   </div>
                                 )}
@@ -582,7 +771,7 @@ export function MembrosPage() {
                           <TableCell>
                             {canChangeThisTargetRole ? (
                               <select
-                                className="h-8 w-full min-w-[110px] rounded-md border border-input bg-background px-2 py-1 text-xs font-medium cursor-pointer"
+                                className="h-8 w-full min-w-[120px] rounded-xl border border-input bg-background px-2.5 py-1 text-xs font-semibold cursor-pointer shadow-xs"
                                 value={currentNivel}
                                 onChange={(e) => {
                                   const desired = e.target.value as AppLevel;
@@ -597,71 +786,60 @@ export function MembrosPage() {
                                 ))}
                               </select>
                             ) : (
-                              <Badge variant="outline" className={cn("text-[10px] font-semibold", levelBadgeClass(currentNivel))}>
+                              <Badge variant="outline" className={cn("text-[10px] font-bold px-2 py-0.5 rounded-lg", levelBadgeClass(currentNivel))}>
                                 {LEVEL_LABEL[currentNivel] || currentNivel}
                               </Badge>
                             )}
                           </TableCell>
 
-                          <TableCell className="text-xs">
-                            {canViewSensitiveData ? (
-                              <div className="flex items-center gap-1.5 text-emerald-400 font-mono text-xs font-bold">
-                                <Clock className="h-3.5 w-3.5" />
-                                <span>{formatSecondsToHoursAndMinutes(m.total_seconds_online || 0)}</span>
+                          {canEdit || canDelete ? (
+                            <TableCell className="text-right">
+                              <div className="flex items-center justify-end gap-1">
+                                {canEdit ? (
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-8 w-8 rounded-lg text-muted-foreground hover:text-foreground"
+                                    onClick={() => handleOpenEdit(m)}
+                                    title="Editar dados do membro"
+                                  >
+                                    <Edit className="h-3.5 w-3.5" />
+                                  </Button>
+                                ) : null}
+
+                                {canDelete ? (
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-8 w-8 rounded-lg text-destructive hover:bg-destructive/10"
+                                    onClick={() => {
+                                      if (confirm(`Remover o membro ${m.nome} do grupo?`)) {
+                                        deleteMemberMutation.mutate(m.user_id);
+                                      }
+                                    }}
+                                    disabled={deleteMemberMutation.isPending}
+                                    title="Excluir membro"
+                                  >
+                                    <Trash2 className="h-3.5 w-3.5" />
+                                  </Button>
+                                ) : null}
                               </div>
-                            ) : (
-                              <span className="text-muted-foreground font-mono text-xs font-semibold">••••••••</span>
-                            )}
-                          </TableCell>
-
-                        {canEdit || canDelete ? (
-                          <TableCell className="text-right">
-                            <div className="flex items-center justify-end gap-1">
-                              {canEdit ? (
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-7 w-7 text-muted-foreground hover:text-foreground"
-                                  onClick={() => handleOpenEdit(m)}
-                                  title="Editar dados do membro"
-                                >
-                                  <Edit className="h-3.5 w-3.5" />
-                                </Button>
-                              ) : null}
-
-                              {canDelete ? (
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-7 w-7 text-destructive hover:bg-destructive/10"
-                                  onClick={() => {
-                                    if (confirm(`Remover o membro ${m.nome} do grupo?`)) {
-                                      deleteMemberMutation.mutate(m.user_id);
-                                    }
-                                  }}
-                                  disabled={deleteMemberMutation.isPending}
-                                  title="Excluir membro"
-                                >
-                                  <Trash2 className="h-3.5 w-3.5" />
-                                </Button>
-                              ) : null}
-                            </div>
-                          </TableCell>
-                        ) : null}
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-            </div>
-          </>
-        )}
+                            </TableCell>
+                          ) : null}
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </div>
+            </>
+          )}
         </CardContent>
       </Card>
 
       {/* DIÁLOGO DE EDIÇÃO DE DADOS DO MEMBRO */}
       <Dialog open={Boolean(editingMember)} onOpenChange={(open) => !open && setEditingMember(null)}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-md surface-card border-border/80 shadow-2xl">
           <DialogHeader>
             <DialogTitle>Editar Dados do Membro</DialogTitle>
             <DialogDescription>
@@ -675,7 +853,7 @@ export function MembrosPage() {
               <Input
                 value={editNome}
                 onChange={(e) => setEditNome(e.target.value)}
-                className="mt-1 h-9 text-xs"
+                className="mt-1 h-9 text-xs rounded-xl"
               />
             </div>
 
@@ -684,7 +862,7 @@ export function MembrosPage() {
               <Input
                 value={editNickname}
                 onChange={(e) => setEditNickname(e.target.value)}
-                className="mt-1 h-9 text-xs"
+                className="mt-1 h-9 text-xs rounded-xl"
               />
             </div>
 
@@ -694,7 +872,7 @@ export function MembrosPage() {
                 placeholder="Ex.: 555-019"
                 value={editTelefone}
                 onChange={(e) => setEditTelefone(formatPhone(e.target.value))}
-                className="mt-1 h-9 text-xs font-mono font-bold"
+                className="mt-1 h-9 text-xs font-mono font-bold rounded-xl"
                 maxLength={7}
               />
             </div>
@@ -704,7 +882,7 @@ export function MembrosPage() {
               <Input
                 value={editGameId}
                 onChange={(e) => setEditGameId(e.target.value)}
-                className="mt-1 h-9 text-xs font-mono font-bold"
+                className="mt-1 h-9 text-xs font-mono font-bold rounded-xl"
               />
             </div>
 
@@ -760,12 +938,12 @@ export function MembrosPage() {
           </div>
 
           <DialogFooter>
-            <Button variant="outline" size="sm" onClick={() => setEditingMember(null)}>
+            <Button variant="outline" size="sm" onClick={() => setEditingMember(null)} className="rounded-xl">
               Cancelar
             </Button>
             <Button
               size="sm"
-              className="bg-gradient-brand text-primary-foreground font-semibold"
+              className="bg-gradient-brand text-primary-foreground font-semibold rounded-xl"
               onClick={() => updateMemberMutation.mutate()}
               disabled={updateMemberMutation.isPending}
             >

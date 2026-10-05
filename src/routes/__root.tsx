@@ -4,16 +4,12 @@ import {
   Link,
   createRootRouteWithContext,
   useRouter,
-  HeadContent,
-  Scripts,
 } from "@tanstack/react-router";
-import { useEffect, type ReactNode } from "react";
+import { useEffect } from "react";
 
-import appCss from "../styles.css?url";
 import { reportAppError } from "../lib/app-error-reporting";
 import { AuthProvider } from "@/hooks/useAuth";
 import { Toaster } from "@/components/ui/sonner";
-import { usePlatformSettings } from "@/hooks/usePlatformSettings";
 import { useUserTheme, applyThemeToDOM } from "@/hooks/useUserTheme";
 import { useRealtimeSync } from "@/hooks/useRealtimeSync";
 import { usePageTitleSync } from "@/hooks/usePageTitle";
@@ -45,7 +41,7 @@ function NotFoundComponent() {
         <div className="mt-6">
           <Link
             to="/"
-            className="inline-flex items-center justify-center rounded-md bg-gradient-brand px-4 py-2 text-sm font-medium text-primary-foreground transition-colors"
+            className="inline-flex items-center justify-center rounded-md bg-gradient-brand px-4 py-2 text-sm font-medium text-primary-foreground transition-colors cursor-pointer"
           >
             Voltar ao início
           </Link>
@@ -65,22 +61,27 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
   const handleReset = () => {
     try {
       localStorage.removeItem("tw_menu_config");
+      localStorage.removeItem("tw_panel_mode");
+      localStorage.removeItem("tw_dev_impersonate");
     } catch {}
     try {
       router.invalidate();
       reset();
     } catch {}
-    window.location.href = "/dashboard";
+    window.location.href = "/";
   };
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-background p-4 text-center">
       <div className="max-w-md w-full rounded-2xl border border-border/80 bg-card p-6 shadow-2xl space-y-4">
+        <div className="mx-auto w-12 h-12 rounded-2xl bg-destructive/15 border border-destructive/30 flex items-center justify-center text-destructive text-2xl font-bold">
+          ⚠️
+        </div>
         <h1 className="text-xl font-bold tracking-tight text-foreground">
-          Esta página não carregou
+          Esta página encontrou uma inconsistência
         </h1>
         <p className="text-xs text-muted-foreground leading-relaxed">
-          Ocorreu uma inconsistência temporária na inicialização da página. Clique no botão abaixo para restaurar a sessão.
+          Ocorreu uma inconsistência temporária na inicialização da página. Clique no botão abaixo para restaurar e recarregar a sessão.
         </p>
 
         {error?.message && (
@@ -89,12 +90,18 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
           </div>
         )}
 
-        <div className="pt-2 flex flex-wrap justify-center gap-2">
+        <div className="pt-2 flex flex-col gap-2">
           <button
-            onClick={handleReset}
+            onClick={() => window.location.reload()}
             className="w-full h-10 rounded-xl bg-gradient-brand px-4 py-2 text-xs font-bold text-primary-foreground cursor-pointer shadow-md hover:opacity-90 transition-all flex items-center justify-center gap-2"
           >
-            Tentar novamente
+            Recarregar Página
+          </button>
+          <button
+            onClick={handleReset}
+            className="w-full h-10 rounded-xl bg-secondary/80 border border-border px-4 py-2 text-xs font-semibold text-muted-foreground cursor-pointer hover:bg-secondary transition-all flex items-center justify-center gap-2"
+          >
+            Limpar Cache & Voltar ao Início
           </button>
         </div>
       </div>
@@ -126,41 +133,21 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { name: "twitter:image", content: "/logo.png" },
     ],
     links: [
-      { rel: "stylesheet", href: appCss },
       { rel: "preconnect", href: "https://fonts.googleapis.com" },
       { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
       {
         rel: "stylesheet",
-        href: "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Orbitron:wght@500;700;900&family=Outfit:wght@400;500;600;700&family=Rajdhani:wght@500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap",
+        href: "https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;900&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&family=Montserrat:wght@400;500;600;700;800&family=Orbitron:wght@500;700;900&family=Outfit:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Rajdhani:wght@500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap",
       },
       { rel: "icon", href: "/favicon.ico", type: "image/x-icon" },
       { rel: "icon", href: "/favicon.png", type: "image/png" },
       { rel: "apple-touch-icon", href: "/logo.png" },
     ],
   }),
-  shellComponent: RootShell,
   component: RootComponent,
   notFoundComponent: NotFoundComponent,
   errorComponent: ErrorComponent,
 });
-
-function RootShell({ children }: { children: ReactNode }) {
-  if (typeof window !== "undefined") {
-    return <>{children}</>;
-  }
-
-  return (
-    <html lang="pt-BR" className="dark">
-      <head>
-        <HeadContent />
-      </head>
-      <body>
-        {children}
-        <Scripts />
-      </body>
-    </html>
-  );
-}
 
 function DocumentTitleSync() {
   usePageTitleSync();
