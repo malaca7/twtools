@@ -151,7 +151,7 @@ export function MobileBottomNav() {
   return (
     <nav
       aria-label="Navegação inferior mobile"
-      className="fixed bottom-0 left-0 right-0 z-40 md:hidden bg-card/92 backdrop-blur-2xl border-t border-border/70 pb-safe shadow-[0_-4px_24px_rgba(0,0,0,0.45)] select-none transition-all duration-200"
+      className="mobile-bottom-nav fixed bottom-0 left-0 right-0 z-40 md:hidden bg-card/95 backdrop-blur-2xl border-t border-border/70 pb-safe shadow-[0_-4px_24px_rgba(0,0,0,0.45)] select-none transition-all duration-200"
     >
       <div className="flex items-center justify-around h-15 px-1 max-w-lg mx-auto">
         {/* 1. INÍCIO */}

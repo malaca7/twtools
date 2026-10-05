@@ -304,7 +304,6 @@ export const SelectContent = React.forwardRef<
         maxHeight: `${currentCoords.maxHeight}px`,
         transform: currentCoords.transform,
         zIndex: 999999,
-        backgroundColor: "var(--card)",
         ...style,
       }}
       className={cn(

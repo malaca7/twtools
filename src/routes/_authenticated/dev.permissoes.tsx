@@ -1305,7 +1305,7 @@ function DevPermissoesContent() {
 
           {/* FLOATING ACTIVE ROLE SWITCHER BAR — TELEPORTADO DIRETAMENTE AO BODY PARA FIXAÇÃO ABSOLUTA E FLUTUAÇÃO PERFEITA */}
           {activeTab === "cargos" && mounted && typeof document !== "undefined" && createPortal(
-            <div className="fixed bottom-4 sm:bottom-6 left-1/2 -translate-x-1/2 z-[9999] pointer-events-auto flex items-center gap-1.5 sm:gap-2.5 p-1.5 sm:p-2 rounded-2xl bg-card/95 dark:bg-zinc-950/95 border border-emerald-500/50 backdrop-blur-2xl shadow-[0_15px_50px_rgba(0,0,0,0.65)] ring-1 ring-white/10 animate-in fade-in slide-in-from-bottom-5 duration-200 max-w-[calc(100vw-1.5rem)]">
+            <div className="surface-card floating-widget fixed bottom-4 sm:bottom-6 left-1/2 -translate-x-1/2 z-[9999] pointer-events-auto flex items-center gap-1.5 sm:gap-2.5 p-1.5 sm:p-2 rounded-2xl bg-card/95 border border-emerald-500/50 backdrop-blur-2xl shadow-[0_15px_50px_rgba(0,0,0,0.65)] ring-1 ring-border/50 animate-in fade-in slide-in-from-bottom-5 duration-200 max-w-[calc(100vw-1.5rem)]">
               {/* Cargo Ativo Atual */}
               <div className="flex items-center gap-2 pl-2 pr-1">
                 <ShieldCheck className="h-4 w-4 text-emerald-400 shrink-0 animate-pulse" />

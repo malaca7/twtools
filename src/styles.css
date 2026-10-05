@@ -1364,7 +1364,93 @@ html[data-theme="light_slate"] {
   --shadow-elegant: 0 18px 45px -22px oklch(0.48 0.20 260 / 25%);
 }
 
-/* ─── Card, Modal, Popup & Tooltip Styles ─── */
+/* ─── Ambient Dialog & Modal Backdrop Overlay ─── */
+.dialog-overlay,
+[data-slot="dialog-overlay"],
+[data-radix-dialog-overlay],
+[data-radix-alert-dialog-overlay],
+[data-slot="sheet-overlay"],
+[data-slot="alert-dialog-overlay"] {
+  background: radial-gradient(
+    circle at 50% 30%,
+    color-mix(in srgb, var(--primary, #38bdf8) 12%, rgba(0, 0, 0, 0.72)) 0%,
+    rgba(3, 5, 10, 0.88) 100%
+  ) !important;
+  backdrop-filter: blur(12px) !important;
+  -webkit-backdrop-filter: blur(12px) !important;
+}
+
+html[data-theme^="light_"] .dialog-overlay,
+html[data-theme^="light_"] [data-slot="dialog-overlay"],
+html[data-theme^="light_"] [data-radix-dialog-overlay],
+html[data-theme^="light_"] [data-radix-alert-dialog-overlay],
+html[data-theme^="light_"] [data-slot="sheet-overlay"],
+html[data-theme^="light_"] [data-slot="alert-dialog-overlay"] {
+  background: radial-gradient(
+    circle at 50% 30%,
+    color-mix(in srgb, var(--primary, #38bdf8) 10%, rgba(15, 23, 42, 0.35)) 0%,
+    rgba(15, 23, 42, 0.55) 100%
+  ) !important;
+}
+
+/* ─── Base Default Style para Todos os Modais, Popups, Dropdowns & Elementos Flutuantes ─── */
+[role="dialog"],
+[role="alertdialog"],
+[data-slot="dialog-content"],
+[data-slot="alert-dialog-content"],
+[data-slot="sheet-content"],
+.dialog-content {
+  background-color: var(--card);
+  background-image: var(--gradient-surface);
+  color: var(--card-foreground);
+  border: 1px solid var(--border);
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.85), 0 0 0 1px var(--border);
+}
+
+/* Linha luminosa de destaque da marca no topo de todos os modais */
+[role="dialog"]:not([data-slot="sheet-content"])::before,
+[role="alertdialog"]::before,
+.dialog-content:not([data-slot="sheet-content"])::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 10%;
+  right: 10%;
+  height: 2px;
+  background: var(--gradient-brand);
+  border-radius: 9999px;
+  opacity: 0.9;
+  pointer-events: none;
+  z-index: 10;
+}
+
+/* ─── Herança de Filtros de Brilho, Contraste e Saturação em Todos os Portais e Elementos Flutuantes ─── */
+[role="dialog"],
+[role="alertdialog"],
+[data-slot="dialog-content"],
+[data-slot="alert-dialog-content"],
+[data-slot="sheet-content"],
+[data-radix-dropdown-menu-content],
+[data-radix-popover-content],
+[data-radix-select-content],
+.popover-content,
+[data-radix-context-menu-content],
+[data-radix-menubar-content],
+[data-radix-tooltip-content],
+[data-sonner-toast],
+.floating-widget,
+.floating-card,
+.floating-btn,
+.btn-floating,
+.floating-bar,
+.mobile-bottom-nav {
+  filter:
+    brightness(var(--platform-brightness, 100%))
+    contrast(var(--platform-contrast, 100%))
+    saturate(var(--platform-saturation, 100%));
+}
+
+/* ─── Card, Modal, Popup, Tooltip & Floating Element Styles ─── */
 html[data-card-style="glassmorphism"] .surface-card,
 html[data-card-style="glassmorphism"] [data-slot="card"],
 html[data-card-style="glassmorphism"] .card,
@@ -1380,13 +1466,16 @@ html[data-card-style="glassmorphism"] .popover-content,
 html[data-card-style="glassmorphism"] [data-radix-context-menu-content],
 html[data-card-style="glassmorphism"] [data-radix-menubar-content],
 html[data-card-style="glassmorphism"] [data-radix-tooltip-content],
+html[data-card-style="glassmorphism"] [data-sonner-toast],
 html[data-card-style="glassmorphism"] .floating-widget,
-html[data-card-style="glassmorphism"] .floating-card {
-  background-image: var(--gradient-surface);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  box-shadow: var(--shadow-card);
-  border: 1px solid var(--border);
+html[data-card-style="glassmorphism"] .floating-card,
+html[data-card-style="glassmorphism"] .floating-bar,
+html[data-card-style="glassmorphism"] .mobile-bottom-nav {
+  background-image: var(--gradient-surface) !important;
+  backdrop-filter: blur(16px) !important;
+  -webkit-backdrop-filter: blur(16px) !important;
+  box-shadow: var(--shadow-card) !important;
+  border: 1px solid var(--border) !important;
 }
 
 html[data-card-style="flat"] .surface-card,
@@ -1403,6 +1492,11 @@ html[data-card-style="flat"] [data-radix-select-content],
 html[data-card-style="flat"] .popover-content,
 html[data-card-style="flat"] [data-radix-context-menu-content],
 html[data-card-style="flat"] [data-radix-tooltip-content],
+html[data-card-style="flat"] [data-sonner-toast],
+html[data-card-style="flat"] .floating-widget,
+html[data-card-style="flat"] .floating-card,
+html[data-card-style="flat"] .floating-bar,
+html[data-card-style="flat"] .mobile-bottom-nav,
 html[data-card-style="flat_modern"] .surface-card,
 html[data-card-style="flat_modern"] [data-slot="card"],
 html[data-card-style="flat_modern"] .card,
@@ -1416,7 +1510,12 @@ html[data-card-style="flat_modern"] [data-radix-popover-content],
 html[data-card-style="flat_modern"] [data-radix-select-content],
 html[data-card-style="flat_modern"] .popover-content,
 html[data-card-style="flat_modern"] [data-radix-context-menu-content],
-html[data-card-style="flat_modern"] [data-radix-tooltip-content] {
+html[data-card-style="flat_modern"] [data-radix-tooltip-content],
+html[data-card-style="flat_modern"] [data-sonner-toast],
+html[data-card-style="flat_modern"] .floating-widget,
+html[data-card-style="flat_modern"] .floating-card,
+html[data-card-style="flat_modern"] .floating-bar,
+html[data-card-style="flat_modern"] .mobile-bottom-nav {
   background-image: none !important;
   background-color: var(--card) !important;
   backdrop-filter: none !important;
@@ -1439,7 +1538,11 @@ html[data-card-style="gradient"] [data-radix-select-content],
 html[data-card-style="gradient"] .popover-content,
 html[data-card-style="gradient"] [data-radix-context-menu-content],
 html[data-card-style="gradient"] [data-radix-tooltip-content],
-html[data-card-style="gradient"] .floating-widget {
+html[data-card-style="gradient"] [data-sonner-toast],
+html[data-card-style="gradient"] .floating-widget,
+html[data-card-style="gradient"] .floating-card,
+html[data-card-style="gradient"] .floating-bar,
+html[data-card-style="gradient"] .mobile-bottom-nav {
   background-image: var(--gradient-surface) !important;
   border: 1px solid oklch(from var(--primary) l c h / 45%) !important;
   box-shadow: 0 0 18px -4px oklch(from var(--primary) l c h / 25%), 0 25px 50px -15px rgba(0, 0, 0, 0.85) !important;
@@ -1459,7 +1562,11 @@ html[data-card-style="neon_outline"] [data-radix-select-content],
 html[data-card-style="neon_outline"] .popover-content,
 html[data-card-style="neon_outline"] [data-radix-context-menu-content],
 html[data-card-style="neon_outline"] [data-radix-tooltip-content],
+html[data-card-style="neon_outline"] [data-sonner-toast],
 html[data-card-style="neon_outline"] .floating-widget,
+html[data-card-style="neon_outline"] .floating-card,
+html[data-card-style="neon_outline"] .floating-bar,
+html[data-card-style="neon_outline"] .mobile-bottom-nav,
 html[data-card-style="outline_glow"] .surface-card,
 html[data-card-style="outline_glow"] [data-slot="card"],
 html[data-card-style="outline_glow"] .card,
@@ -1474,7 +1581,11 @@ html[data-card-style="outline_glow"] [data-radix-select-content],
 html[data-card-style="outline_glow"] .popover-content,
 html[data-card-style="outline_glow"] [data-radix-context-menu-content],
 html[data-card-style="outline_glow"] [data-radix-tooltip-content],
-html[data-card-style="outline_glow"] .floating-widget {
+html[data-card-style="outline_glow"] [data-sonner-toast],
+html[data-card-style="outline_glow"] .floating-widget,
+html[data-card-style="outline_glow"] .floating-card,
+html[data-card-style="outline_glow"] .floating-bar,
+html[data-card-style="outline_glow"] .mobile-bottom-nav {
   background-image: var(--gradient-surface) !important;
   border: 1px solid oklch(from var(--primary) l c h / 75%) !important;
   box-shadow: 0 0 16px -2px oklch(from var(--primary) l c h / 35%), 0 25px 50px -15px rgba(0, 0, 0, 0.85) !important;
@@ -1494,6 +1605,11 @@ html[data-card-style="solid_oled"] [data-radix-select-content],
 html[data-card-style="solid_oled"] .popover-content,
 html[data-card-style="solid_oled"] [data-radix-context-menu-content],
 html[data-card-style="solid_oled"] [data-radix-tooltip-content],
+html[data-card-style="solid_oled"] [data-sonner-toast],
+html[data-card-style="solid_oled"] .floating-widget,
+html[data-card-style="solid_oled"] .floating-card,
+html[data-card-style="solid_oled"] .floating-bar,
+html[data-card-style="solid_oled"] .mobile-bottom-nav,
 html[data-card-style="solid_dark"] .surface-card,
 html[data-card-style="solid_dark"] [data-slot="card"],
 html[data-card-style="solid_dark"] .card,
@@ -1507,7 +1623,12 @@ html[data-card-style="solid_dark"] [data-radix-popover-content],
 html[data-card-style="solid_dark"] [data-radix-select-content],
 html[data-card-style="solid_dark"] .popover-content,
 html[data-card-style="solid_dark"] [data-radix-context-menu-content],
-html[data-card-style="solid_dark"] [data-radix-tooltip-content] {
+html[data-card-style="solid_dark"] [data-radix-tooltip-content],
+html[data-card-style="solid_dark"] [data-sonner-toast],
+html[data-card-style="solid_dark"] .floating-widget,
+html[data-card-style="solid_dark"] .floating-card,
+html[data-card-style="solid_dark"] .floating-bar,
+html[data-card-style="solid_dark"] .mobile-bottom-nav {
   background-image: none !important;
   background-color: oklch(0.04 0.002 0) !important;
   border: 1px solid oklch(0.16 0.005 0) !important;
@@ -1527,7 +1648,12 @@ html[data-card-style="carbon"] [data-radix-popover-content],
 html[data-card-style="carbon"] [data-radix-select-content],
 html[data-card-style="carbon"] .popover-content,
 html[data-card-style="carbon"] [data-radix-context-menu-content],
-html[data-card-style="carbon"] [data-radix-tooltip-content] {
+html[data-card-style="carbon"] [data-radix-tooltip-content],
+html[data-card-style="carbon"] [data-sonner-toast],
+html[data-card-style="carbon"] .floating-widget,
+html[data-card-style="carbon"] .floating-card,
+html[data-card-style="carbon"] .floating-bar,
+html[data-card-style="carbon"] .mobile-bottom-nav {
   background-color: var(--card) !important;
   background-image: 
     linear-gradient(45deg, oklch(1 0 0 / 2%) 25%, transparent 25%, transparent 75%, oklch(1 0 0 / 2%) 75%, oklch(1 0 0 / 2%)),
@@ -1551,7 +1677,12 @@ html[data-card-style="neo_brutalism"] [data-radix-popover-content],
 html[data-card-style="neo_brutalism"] [data-radix-select-content],
 html[data-card-style="neo_brutalism"] .popover-content,
 html[data-card-style="neo_brutalism"] [data-radix-context-menu-content],
-html[data-card-style="neo_brutalism"] [data-radix-tooltip-content] {
+html[data-card-style="neo_brutalism"] [data-radix-tooltip-content],
+html[data-card-style="neo_brutalism"] [data-sonner-toast],
+html[data-card-style="neo_brutalism"] .floating-widget,
+html[data-card-style="neo_brutalism"] .floating-card,
+html[data-card-style="neo_brutalism"] .floating-bar,
+html[data-card-style="neo_brutalism"] .mobile-bottom-nav {
   background-image: none !important;
   background-color: var(--card) !important;
   border: 2px solid oklch(from var(--primary) l c h / 90%) !important;
@@ -1605,7 +1736,12 @@ html[data-border-radius="sharp"] [data-radix-tooltip-content],
 html[data-border-radius="sharp"] [data-sonner-toast],
 html[data-border-radius="sharp"] .surface-card,
 html[data-border-radius="sharp"] [data-slot="card"],
-html[data-border-radius="sharp"] .card {
+html[data-border-radius="sharp"] .card,
+html[data-border-radius="sharp"] .floating-btn,
+html[data-border-radius="sharp"] .btn-floating,
+html[data-border-radius="sharp"] .floating-widget,
+html[data-border-radius="sharp"] .floating-card,
+html[data-border-radius="sharp"] .floating-bar {
   border-radius: 0px !important;
 }
 
@@ -1622,7 +1758,10 @@ html[data-border-radius="medium"] [data-radix-popover-content],
 html[data-border-radius="medium"] [data-radix-select-content],
 html[data-border-radius="medium"] .popover-content,
 html[data-border-radius="medium"] [data-radix-tooltip-content],
-html[data-border-radius="medium"] [data-sonner-toast] {
+html[data-border-radius="medium"] [data-sonner-toast],
+html[data-border-radius="medium"] .floating-widget,
+html[data-border-radius="medium"] .floating-card,
+html[data-border-radius="medium"] .floating-bar {
   border-radius: 0.625rem !important;
 }
 
@@ -1639,7 +1778,10 @@ html[data-border-radius="smooth"] [data-radix-popover-content],
 html[data-border-radius="smooth"] [data-radix-select-content],
 html[data-border-radius="smooth"] .popover-content,
 html[data-border-radius="smooth"] [data-radix-tooltip-content],
-html[data-border-radius="smooth"] [data-sonner-toast] {
+html[data-border-radius="smooth"] [data-sonner-toast],
+html[data-border-radius="smooth"] .floating-widget,
+html[data-border-radius="smooth"] .floating-card,
+html[data-border-radius="smooth"] .floating-bar {
   border-radius: 1.125rem !important;
 }
 
@@ -1656,7 +1798,10 @@ html[data-border-radius="pill"] [data-radix-popover-content],
 html[data-border-radius="pill"] [data-radix-select-content],
 html[data-border-radius="pill"] .popover-content,
 html[data-border-radius="pill"] [data-radix-tooltip-content],
-html[data-border-radius="pill"] [data-sonner-toast] {
+html[data-border-radius="pill"] [data-sonner-toast],
+html[data-border-radius="pill"] .floating-widget,
+html[data-border-radius="pill"] .floating-card,
+html[data-border-radius="pill"] .floating-bar {
   border-radius: 1.75rem !important;
 }
 
@@ -1745,25 +1890,53 @@ html[data-border-glow-speed="off"] .animate-status-pulse-amber {
 
 /* ─── Glow Overrides em Modais, Popups e Botões Flutuantes ─── */
 html[data-glow="true"] [role="dialog"],
-html[data-glow="true"] [role="alertdialog"] {
-  box-shadow: 0 25px 65px -15px rgba(0, 0, 0, 0.9), 0 0 35px -5px oklch(from var(--primary) l c h / 30%) !important;
+html[data-glow="true"] [role="alertdialog"],
+html[data-glow="true"] [data-slot="dialog-content"],
+html[data-glow="true"] [data-slot="alert-dialog-content"] {
+  border-color: color-mix(in srgb, var(--primary) 65%, var(--border)) !important;
+  box-shadow: 0 25px 65px -15px rgba(0, 0, 0, 0.9), 0 0 35px -5px color-mix(in srgb, var(--primary) 35%, transparent) !important;
+}
+
+html[data-glow="true"][data-glow-intensity="high"] [role="dialog"],
+html[data-glow="true"][data-glow-intensity="high"] [role="alertdialog"],
+html[data-glow="true"][data-glow-intensity="high"] [data-slot="dialog-content"],
+html[data-glow="true"][data-glow-intensity="high"] [data-slot="alert-dialog-content"] {
+  border-color: var(--primary) !important;
+  box-shadow: 0 25px 75px -10px rgba(0, 0, 0, 0.95), 0 0 50px -2px color-mix(in srgb, var(--primary) 55%, transparent) !important;
+}
+
+html[data-glow="true"][data-glow-intensity="low"] [role="dialog"],
+html[data-glow="true"][data-glow-intensity="low"] [role="alertdialog"],
+html[data-glow="true"][data-glow-intensity="low"] [data-slot="dialog-content"],
+html[data-glow="true"][data-glow-intensity="low"] [data-slot="alert-dialog-content"] {
+  border-color: color-mix(in srgb, var(--primary) 40%, var(--border)) !important;
+  box-shadow: 0 20px 45px -10px rgba(0, 0, 0, 0.85), 0 0 20px -5px color-mix(in srgb, var(--primary) 20%, transparent) !important;
 }
 
 html[data-glow="true"] [data-radix-popover-content],
 html[data-glow="true"] [data-radix-dropdown-menu-content],
 html[data-glow="true"] [data-radix-select-content],
 html[data-glow="true"] .popover-content {
-  box-shadow: 0 16px 40px -10px rgba(0, 0, 0, 0.85), 0 0 22px -4px oklch(from var(--primary) l c h / 28%) !important;
+  border-color: color-mix(in srgb, var(--primary) 50%, var(--border)) !important;
+  box-shadow: 0 16px 40px -10px rgba(0, 0, 0, 0.85), 0 0 24px -4px color-mix(in srgb, var(--primary) 30%, transparent) !important;
 }
 
 html[data-glow="true"] [data-radix-tooltip-content] {
-  box-shadow: 0 8px 24px -5px rgba(0, 0, 0, 0.75), 0 0 14px -2px oklch(from var(--primary) l c h / 35%) !important;
-  border-color: oklch(from var(--primary) l c h / 45%) !important;
+  background: var(--card) !important;
+  border-color: color-mix(in srgb, var(--primary) 60%, var(--border)) !important;
+  box-shadow: 0 8px 24px -5px rgba(0, 0, 0, 0.75), 0 0 16px -2px color-mix(in srgb, var(--primary) 35%, transparent) !important;
 }
 
 html[data-glow="true"] .floating-btn,
 html[data-glow="true"] .btn-floating {
-  box-shadow: var(--shadow-glow, 0 8px 25px -4px oklch(from var(--primary) l c h / 50%)), 0 0 18px -2px oklch(from var(--primary) l c h / 40%) !important;
+  box-shadow: 0 10px 30px -4px color-mix(in srgb, var(--primary) 60%, transparent), 0 0 22px -2px color-mix(in srgb, var(--primary) 50%, transparent) !important;
+}
+
+html[data-glow="true"] .floating-widget,
+html[data-glow="true"] .floating-card,
+html[data-glow="true"] .floating-bar {
+  border-color: color-mix(in srgb, var(--primary) 50%, var(--border)) !important;
+  box-shadow: 0 16px 40px -10px rgba(0, 0, 0, 0.85), 0 0 20px -3px color-mix(in srgb, var(--primary) 30%, transparent) !important;
 }
 
 html[data-glow="true"] .member-card-online {
@@ -1781,7 +1954,10 @@ html[data-glow="false"] [data-radix-select-content],
 html[data-glow="false"] .popover-content,
 html[data-glow="false"] [data-radix-tooltip-content],
 html[data-glow="false"] .floating-btn,
-html[data-glow="false"] .btn-floating {
+html[data-glow="false"] .btn-floating,
+html[data-glow="false"] .floating-widget,
+html[data-glow="false"] .floating-card,
+html[data-glow="false"] .floating-bar {
   box-shadow: 0 12px 30px -10px rgba(0, 0, 0, 0.8) !important;
   text-shadow: none !important;
 }
@@ -1789,12 +1965,20 @@ html[data-glow="false"] .btn-floating {
 /* ─── Ajustes Globais de Modais e Popups em Temas Claros ─── */
 html[data-theme^="light_"] [role="dialog"],
 html[data-theme^="light_"] [role="alertdialog"],
+html[data-theme^="light_"] [data-slot="dialog-content"],
+html[data-theme^="light_"] [data-slot="alert-dialog-content"],
+html[data-theme^="light_"] [data-slot="sheet-content"],
 html[data-theme^="light_"] [data-radix-dropdown-menu-content],
 html[data-theme^="light_"] [data-radix-popover-content],
 html[data-theme^="light_"] [data-radix-select-content],
 html[data-theme^="light_"] .popover-content,
 html[data-theme^="light_"] [data-radix-context-menu-content],
-html[data-theme^="light_"] [data-radix-tooltip-content] {
+html[data-theme^="light_"] [data-radix-tooltip-content],
+html[data-theme^="light_"] [data-sonner-toast],
+html[data-theme^="light_"] .floating-widget,
+html[data-theme^="light_"] .floating-card,
+html[data-theme^="light_"] .floating-bar,
+html[data-theme^="light_"] .mobile-bottom-nav {
   background-color: var(--card) !important;
   color: var(--card-foreground) !important;
   border-color: var(--border) !important;
@@ -1830,7 +2014,8 @@ html[data-theme^="light_"] [role="alertdialog"] select {
 }
 
 .floating-widget,
-.floating-card {
+.floating-card,
+.floating-bar {
   background-color: var(--card);
   background-image: var(--gradient-surface);
   border: 1px solid var(--border);

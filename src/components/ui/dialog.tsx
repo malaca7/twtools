@@ -110,6 +110,7 @@ const DialogOverlay = React.forwardRef<
   return (
     <div
       ref={ref}
+      data-slot="dialog-overlay"
       onMouseDown={(e) => {
         mouseDownTargetRef.current = e.target;
       }}
@@ -124,7 +125,7 @@ const DialogOverlay = React.forwardRef<
         }
       }}
       className={cn(
-        "fixed inset-0 z-[10050] bg-black/80 backdrop-blur-md transition-opacity duration-200 cursor-pointer pointer-events-auto animate-in fade-in-0",
+        "dialog-overlay fixed inset-0 z-[10050] bg-black/75 backdrop-blur-md transition-opacity duration-200 cursor-pointer pointer-events-auto animate-in fade-in-0",
         className,
       )}
       {...props}
@@ -167,10 +168,11 @@ const DialogContentInner = React.forwardRef<
         ref={ref}
         role="dialog"
         aria-modal="true"
+        data-slot="dialog-content"
         onMouseDown={(e) => e.stopPropagation()}
         onClick={(e) => e.stopPropagation()}
         className={cn(
-          "fixed left-[50%] top-[50%] z-[10051] flex flex-col w-[calc(100%-1.25rem)] sm:w-[calc(100%-2rem)] max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 border border-border/80 bg-card text-card-foreground shadow-2xl rounded-2xl sm:rounded-3xl p-4 sm:p-6 opacity-100 scale-100 pointer-events-auto transition-all duration-150 max-h-[90dvh] overflow-y-auto overflow-x-hidden overscroll-contain ring-1 ring-border/50 scrollbar-none animate-in fade-in-0 zoom-in-95 backdrop-blur-2xl",
+          "dialog-content surface-card fixed left-[50%] top-[50%] z-[10051] flex flex-col w-[calc(100%-1.25rem)] sm:w-[calc(100%-2rem)] max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 border border-border/80 bg-card text-card-foreground shadow-2xl rounded-2xl sm:rounded-3xl p-4 sm:p-6 opacity-100 scale-100 pointer-events-auto transition-all duration-150 max-h-[90dvh] overflow-y-auto overflow-x-hidden overscroll-contain ring-1 ring-border/50 scrollbar-none animate-in fade-in-0 zoom-in-95 backdrop-blur-2xl relative",
           className,
         )}
         {...props}
@@ -183,7 +185,7 @@ const DialogContentInner = React.forwardRef<
               e.stopPropagation();
               setOpen(false);
             }}
-            className="absolute right-3 top-3 sm:right-4 sm:top-4 rounded-xl p-2 opacity-70 hover:opacity-100 hover:bg-secondary transition-all cursor-pointer text-muted-foreground hover:text-foreground z-20 active:scale-90"
+            className="absolute right-3 top-3 sm:right-4 sm:top-4 rounded-xl p-2 opacity-75 hover:opacity-100 hover:bg-primary/15 hover:text-primary transition-all cursor-pointer text-muted-foreground z-20 active:scale-90"
           >
             <X className="h-4 w-4" />
             <span className="sr-only">Fechar</span>

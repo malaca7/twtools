@@ -5,7 +5,7 @@ type ToasterProps = React.ComponentProps<typeof Sonner>;
 const Toaster = ({ ...props }: ToasterProps) => {
   return (
     <Sonner
-      theme="dark"
+      theme="system"
       position="top-center"
       offset={80}
       mobileOffset={76}
@@ -16,7 +16,7 @@ const Toaster = ({ ...props }: ToasterProps) => {
       toastOptions={{
         classNames: {
           toast:
-            "group toast font-sans group-[.toaster]:bg-card/95 group-[.toaster]:text-foreground group-[.toaster]:border-border/90 group-[.toaster]:shadow-2xl group-[.toaster]:rounded-2xl group-[.toaster]:backdrop-blur-2xl group-[.toaster]:border group-[.toaster]:px-4 group-[.toaster]:py-3 group-[.toaster]:text-xs group-[.toaster]:font-semibold",
+            "group toast font-sans group-[.toaster]:bg-card/95 group-[.toaster]:text-foreground group-[.toaster]:border-border/90 group-[.toaster]:shadow-2xl group-[.toaster]:rounded-2xl group-[.toaster]:backdrop-blur-2xl group-[.toaster]:border group-[.toaster]:px-4 group-[.toaster]:py-3 group-[.toaster]:text-xs group-[.toaster]:font-semibold floating-card",
           title: "font-bold text-xs",
           description: "group-[.toast]:text-muted-foreground text-xs",
           actionButton: "group-[.toast]:bg-primary group-[.toast]:text-primary-foreground group-[.toast]:font-bold group-[.toast]:rounded-xl",
