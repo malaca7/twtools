@@ -130,6 +130,7 @@ import { ForceCachePurgeListener } from "@/components/dev/ForceCachePurgeListene
 import { SuspensionAlertBanner } from "@/components/warnings/SuspensionAlertBanner";
 import { PlatformLockedScreen } from "@/components/warnings/PlatformLockedScreen";
 import { DevToolsMenu } from "@/components/dev/DevToolsMenu";
+import { DevMaintenanceTopBanner } from "@/components/maintenance/DevMaintenanceTopBanner";
 import { NotificationCenter } from "@/components/notifications/NotificationCenter";
 import { useMyMemberTags } from "@/hooks/useMemberTags";
 import { MemberTagBadge } from "@/components/ui/MemberTagBadge";
@@ -1182,6 +1183,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         </Sidebar>
 
         <div className="flex min-w-0 flex-1 flex-col min-h-screen platform-filters">
+          <DevMaintenanceTopBanner />
           <header className="sticky top-0 z-40 flex h-16 shrink-0 items-center justify-between gap-1.5 sm:gap-4 border-b border-border/70 bg-background/95 backdrop-blur-xl px-2.5 sm:px-6 shadow-sm">
             <div className="flex items-center gap-1.5 sm:gap-4 min-w-0">
               <SidebarTrigger />
@@ -1373,20 +1375,6 @@ export function AppShell({ children }: { children: ReactNode }) {
                       +{myTags.length - 3}
                     </Badge>
                   )}
-                </div>
-              )}
-
-              {/* Indicador de Manutenção Ativa */}
-              {(settings.maintenanceActive || settings.showSystemStatusNotice) && (
-                <div className="flex items-center">
-                  <Badge
-                    variant="outline"
-                    className="border-amber-500/70 bg-amber-500/15 text-amber-300 font-mono text-[10px] font-bold gap-1.5 animate-pulse px-2 sm:px-2.5 py-1 shadow-sm"
-                  >
-                    <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-ping shrink-0" />
-                    <span className="hidden sm:inline">MODO DE MANUTENÇÃO ATIVO</span>
-                    <span className="sm:hidden">MANUTENÇÃO</span>
-                  </Badge>
                 </div>
               )}
 

@@ -1,13 +1,10 @@
 import { useState } from "react";
-import { Link } from "@tanstack/react-router";
 import { toast } from "sonner";
 import {
   Wrench,
   RotateCcw,
   Sparkles,
   Flame,
-  LayoutDashboard,
-  ShieldAlert,
   Loader2,
   AlertTriangle,
 } from "lucide-react";
@@ -31,15 +28,24 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/hooks/useAuth";
+import { usePlatformSettings } from "@/hooks/usePlatformSettings";
 import { triggerForceCachePurge } from "@/services/devService";
+import { DevMaintenanceManagerModal } from "@/components/maintenance/DevMaintenanceManagerModal";
 
 export function DevToolsMenu() {
   const { user, profile, level, isDevUser } = useAuth();
+  const { settings } = usePlatformSettings();
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [maintenanceModalOpen, setMaintenanceModalOpen] = useState(false);
   const [reason, setReason] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   if (!isDevUser) return null;
+
+  const isMaintenanceActive = Boolean(
+    settings.maintenanceActive ||
+      (settings.showSystemStatusNotice && settings.systemStatusType === "destructive")
+  );
 
   const handleTriggerPurge = async () => {
     setIsSubmitting(true);
@@ -86,28 +92,23 @@ export function DevToolsMenu() {
           </Button>
         </DropdownMenuTrigger>
 
-        <DropdownMenuContent align="end" className="w-56 bg-slate-950 border-cyan-500/30">
+        <DropdownMenuContent align="end" className="w-60 bg-slate-950 border-cyan-500/30">
           <DropdownMenuLabel className="text-xs font-black text-cyan-400 flex items-center gap-2">
             <Sparkles className="h-3.5 w-3.5" /> Acesso Rápido Dev
           </DropdownMenuLabel>
           <DropdownMenuSeparator className="bg-cyan-500/20" />
 
-          <DropdownMenuItem asChild className="cursor-pointer text-xs focus:bg-cyan-900/40">
-            <Link to="/dev/dashboard" className="flex items-center gap-2 text-slate-300">
-              <LayoutDashboard className="h-3.5 w-3.5" /> Dashboard Dev
-            </Link>
-          </DropdownMenuItem>
-
-          <DropdownMenuItem asChild className="cursor-pointer text-xs focus:bg-cyan-900/40">
-            <Link to="/configuracoes" className="flex items-center gap-2 text-slate-300">
-              <Wrench className="h-3.5 w-3.5" /> Configurações Globais
-            </Link>
-          </DropdownMenuItem>
-
-          <DropdownMenuItem asChild className="cursor-pointer text-xs focus:bg-cyan-900/40">
-            <Link to="/dev/advertencias" className="flex items-center gap-2 text-slate-300">
-              <ShieldAlert className="h-3.5 w-3.5" /> Advertências (Global)
-            </Link>
+          <DropdownMenuItem
+            onClick={() => setMaintenanceModalOpen(true)}
+            className="cursor-pointer text-xs font-bold text-amber-300 focus:bg-amber-950/40 focus:text-amber-200 gap-2 flex items-center justify-between"
+          >
+            <div className="flex items-center gap-2">
+              <Wrench className="h-3.5 w-3.5 text-amber-400" />
+              <span>Modo de Manutenção</span>
+            </div>
+            {isMaintenanceActive && (
+              <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping shrink-0" />
+            )}
           </DropdownMenuItem>
 
           <DropdownMenuSeparator className="bg-cyan-500/20" />
@@ -120,6 +121,11 @@ export function DevToolsMenu() {
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
+
+      <DevMaintenanceManagerModal
+        open={maintenanceModalOpen}
+        onOpenChange={setMaintenanceModalOpen}
+      />
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="sm:max-w-lg w-[calc(100%-2rem)] bg-[#0c1222] border border-cyan-500/40 text-white p-5 sm:p-6 shadow-2xl rounded-2xl ring-1 ring-cyan-500/30 backdrop-blur-2xl">

@@ -47,6 +47,16 @@ export function GlobalMaintenanceOverlay() {
   const [managerOpen, setManagerOpen] = useState<boolean>(false);
   const [checkingStatus, setCheckingStatus] = useState<boolean>(false);
 
+  useEffect(() => {
+    const handleTogglePreview = (e: any) => {
+      setPreviewAsMember(Boolean(e?.detail?.preview));
+    };
+    window.addEventListener("tw_toggle_maintenance_preview", handleTogglePreview);
+    return () => {
+      window.removeEventListener("tw_toggle_maintenance_preview", handleTogglePreview);
+    };
+  }, []);
+
   // Cálculo se o usuário atual é alvo da manutenção (Targeting)
   const isUserTargeted = useMemo(() => {
     // Se o desenvolvedor está no modo de visualização como membro, sempre considera afetado para teste
@@ -226,131 +236,9 @@ export function GlobalMaintenanceOverlay() {
   }
 
   // MODO DESENVOLVEDOR (Bypass ativo e não está em modo preview):
-  // Renderiza indicativos discretos (HUD superior, borda neon suave e botão flutuante de gestão)
-  if (isDevUser && !previewAsMember && devDismissed) {
-    return (
-      <>
-        {/* Indicador Neon de Borda */}
-        <div
-          className="fixed inset-0 pointer-events-none z-[99980] border-2 border-amber-500/40 shadow-[inset_0_0_30px_rgba(245,158,11,0.2)] animate-pulse"
-          aria-hidden="true"
-        />
-
-        {/* Barra Superior Flutuante (Dev HUD) */}
-        <header className="fixed top-0 inset-x-0 z-[99990] bg-[#0c0c0e]/95 border-b border-amber-500/50 shadow-2xl backdrop-blur-md px-3 sm:px-6 py-1.5 flex items-center justify-between gap-3 text-xs text-amber-100 flex-wrap">
-          <div className="flex items-center gap-2.5 min-w-0">
-            <div className="p-1 rounded-md bg-amber-500 text-black font-black animate-pulse shrink-0">
-              <AlertTriangle className="w-3.5 h-3.5" />
-            </div>
-            <div className="flex items-center gap-2 min-w-0">
-              <span className="font-extrabold text-white text-[11px] sm:text-xs tracking-wider uppercase truncate">
-                Modo de Manutenção Ativo
-              </span>
-              <Badge
-                variant="outline"
-                className="hidden sm:inline-flex text-[9px] font-mono border-amber-400/50 text-amber-300 bg-amber-500/10 px-1.5 py-0"
-              >
-                Bypass Dev
-              </Badge>
-              {settings.maintenanceTargetType === "selected" && (
-                <Badge
-                  variant="outline"
-                  className="hidden md:inline-flex text-[9px] font-mono border-sky-400/50 text-sky-300 bg-sky-500/10 px-1.5 py-0"
-                >
-                  Seletiva ({settings.maintenanceTargetRoles?.length || 0} cargos /{" "}
-                  {settings.maintenanceTargetTags?.length || 0} tags)
-                </Badge>
-              )}
-            </div>
-
-            {/* Countdown no HUD */}
-            <div className="flex items-center gap-1.5 font-mono text-[11px] font-bold text-amber-300 bg-black/60 px-2 py-0.5 rounded-lg border border-amber-500/30 shrink-0">
-              <Clock className="w-3 h-3 text-amber-400" />
-              {timeLeft.isExpired ? (
-                <span className="text-rose-400 animate-pulse">Prazo Expirado</span>
-              ) : (
-                <span>
-                  {timeLeft.days > 0 && `${timeLeft.days}d `}
-                  {String(timeLeft.hours).padStart(2, "0")}h:
-                  {String(timeLeft.minutes).padStart(2, "0")}m:
-                  {String(timeLeft.seconds).padStart(2, "0")}s
-                </span>
-              )}
-            </div>
-          </div>
-
-          {/* Ações Rápidas no HUD */}
-          <div className="flex items-center gap-2 shrink-0">
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              onClick={() => handleQuickExtend(15)}
-              className="h-6.5 text-[10px] font-bold px-2 border-amber-500/40 text-amber-300 hover:bg-amber-500/20 cursor-pointer"
-              title="Prorrogar tempo em +15 minutos"
-            >
-              <PlusCircle className="w-3 h-3 mr-1" />
-              +15m
-            </Button>
-
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              onClick={() => setPreviewAsMember(true)}
-              className="h-6.5 text-[10px] font-bold px-2 text-sky-300 border-sky-500/40 hover:bg-sky-500/20 cursor-pointer"
-              title="Visualizar a tela bloqueada que os membros veem"
-            >
-              <Eye className="w-3 h-3 mr-1" />
-              Ver como Membro
-            </Button>
-
-            <Button
-              type="button"
-              size="sm"
-              onClick={() => setManagerOpen(true)}
-              className="h-6.5 text-[10px] font-bold px-2 bg-amber-500 hover:bg-amber-600 text-black cursor-pointer shadow-xs"
-            >
-              <Sliders className="w-3 h-3 mr-1" />
-              Gerenciar
-            </Button>
-
-            <Button
-              type="button"
-              size="sm"
-              variant="destructive"
-              onClick={handleFinishMaintenance}
-              className="h-6.5 text-[10px] font-bold px-2 shadow-xs cursor-pointer"
-            >
-              <Square className="w-3 h-3 mr-1" />
-              Finalizar
-            </Button>
-          </div>
-        </header>
-
-        {/* Botão Flutuante Rápido (FAB) */}
-        <div className="fixed bottom-4 right-4 z-[99985]">
-          <button
-            type="button"
-            onClick={() => setManagerOpen(true)}
-            className="flex items-center gap-2 px-3 py-2 rounded-2xl bg-gradient-to-r from-amber-600 to-rose-600 hover:from-amber-500 hover:to-rose-500 text-white font-bold text-xs shadow-2xl border border-white/20 transition-all hover:scale-105 active:scale-95 cursor-pointer"
-            title="Abrir Central de Gestão de Manutenção"
-          >
-            <Wrench className="w-4 h-4 animate-spin text-amber-200" style={{ animationDuration: "6s" }} />
-            <span>Manutenção</span>
-            <Badge className="bg-black/50 text-amber-300 font-mono text-[10px] px-1.5 py-0 border-amber-400/40">
-              {String(timeLeft.minutes).padStart(2, "0")}:{String(timeLeft.seconds).padStart(2, "0")}
-            </Badge>
-          </button>
-        </div>
-
-        <DevMaintenanceManagerModal
-          open={managerOpen}
-          onOpenChange={setManagerOpen}
-          onPreviewAsMember={() => setPreviewAsMember(true)}
-        />
-      </>
-    );
+  // A barra superior de status e controles de manutenção é renderizada no topo do AppShell sem sobreposição.
+  if (isDevUser && !previewAsMember) {
+    return null;
   }
 
   // PÁGINA / POPUP PRINCIPAL DE MANUTENÇÃO (Design Minimalista, Elegante, Tecnológico e Profissional)
