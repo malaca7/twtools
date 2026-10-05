@@ -563,10 +563,20 @@ html[data-theme="malaca_drkoled"] nav {
 }
 
 html[data-theme="malaca_drkoled"] [data-slot="card"],
-html[data-theme="malaca_drkoled"] .card {
+html[data-theme="malaca_drkoled"] .card,
+html[data-theme="malaca_drkoled"] [role="dialog"],
+html[data-theme="malaca_drkoled"] [role="alertdialog"],
+html[data-theme="malaca_drkoled"] [data-radix-dropdown-menu-content],
+html[data-theme="malaca_drkoled"] [data-radix-popover-content],
+html[data-theme="malaca_drkoled"] [data-radix-select-content],
+html[data-theme="malaca_drkoled"] .popover-content,
+html[data-theme="malaca_drkoled"] [data-radix-context-menu-content],
+html[data-theme="malaca_drkoled"] [data-radix-tooltip-content] {
   background-color: #080808 !important;
+  background-image: none !important;
   border-color: #181818 !important;
-  box-shadow: none !important;
+  color: #d4d4d8 !important;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.98) !important;
 }
 
 html[data-theme="malaca_drkoled"] button.bg-primary {
@@ -1354,13 +1364,27 @@ html[data-theme="light_slate"] {
   --shadow-elegant: 0 18px 45px -22px oklch(0.48 0.20 260 / 25%);
 }
 
-/* ─── Card Styles ─── */
+/* ─── Card, Modal, Popup & Tooltip Styles ─── */
 html[data-card-style="glassmorphism"] .surface-card,
 html[data-card-style="glassmorphism"] [data-slot="card"],
-html[data-card-style="glassmorphism"] .card {
+html[data-card-style="glassmorphism"] .card,
+html[data-card-style="glassmorphism"] [role="dialog"],
+html[data-card-style="glassmorphism"] [role="alertdialog"],
+html[data-card-style="glassmorphism"] [data-slot="dialog-content"],
+html[data-card-style="glassmorphism"] [data-slot="alert-dialog-content"],
+html[data-card-style="glassmorphism"] [data-slot="sheet-content"],
+html[data-card-style="glassmorphism"] [data-radix-dropdown-menu-content],
+html[data-card-style="glassmorphism"] [data-radix-popover-content],
+html[data-card-style="glassmorphism"] [data-radix-select-content],
+html[data-card-style="glassmorphism"] .popover-content,
+html[data-card-style="glassmorphism"] [data-radix-context-menu-content],
+html[data-card-style="glassmorphism"] [data-radix-menubar-content],
+html[data-card-style="glassmorphism"] [data-radix-tooltip-content],
+html[data-card-style="glassmorphism"] .floating-widget,
+html[data-card-style="glassmorphism"] .floating-card {
   background-image: var(--gradient-surface);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
   box-shadow: var(--shadow-card);
   border: 1px solid var(--border);
 }
@@ -1368,9 +1392,31 @@ html[data-card-style="glassmorphism"] .card {
 html[data-card-style="flat"] .surface-card,
 html[data-card-style="flat"] [data-slot="card"],
 html[data-card-style="flat"] .card,
+html[data-card-style="flat"] [role="dialog"],
+html[data-card-style="flat"] [role="alertdialog"],
+html[data-card-style="flat"] [data-slot="dialog-content"],
+html[data-card-style="flat"] [data-slot="alert-dialog-content"],
+html[data-card-style="flat"] [data-slot="sheet-content"],
+html[data-card-style="flat"] [data-radix-dropdown-menu-content],
+html[data-card-style="flat"] [data-radix-popover-content],
+html[data-card-style="flat"] [data-radix-select-content],
+html[data-card-style="flat"] .popover-content,
+html[data-card-style="flat"] [data-radix-context-menu-content],
+html[data-card-style="flat"] [data-radix-tooltip-content],
 html[data-card-style="flat_modern"] .surface-card,
 html[data-card-style="flat_modern"] [data-slot="card"],
-html[data-card-style="flat_modern"] .card {
+html[data-card-style="flat_modern"] .card,
+html[data-card-style="flat_modern"] [role="dialog"],
+html[data-card-style="flat_modern"] [role="alertdialog"],
+html[data-card-style="flat_modern"] [data-slot="dialog-content"],
+html[data-card-style="flat_modern"] [data-slot="alert-dialog-content"],
+html[data-card-style="flat_modern"] [data-slot="sheet-content"],
+html[data-card-style="flat_modern"] [data-radix-dropdown-menu-content],
+html[data-card-style="flat_modern"] [data-radix-popover-content],
+html[data-card-style="flat_modern"] [data-radix-select-content],
+html[data-card-style="flat_modern"] .popover-content,
+html[data-card-style="flat_modern"] [data-radix-context-menu-content],
+html[data-card-style="flat_modern"] [data-radix-tooltip-content] {
   background-image: none !important;
   background-color: var(--card) !important;
   backdrop-filter: none !important;
@@ -1381,29 +1427,87 @@ html[data-card-style="flat_modern"] .card {
 
 html[data-card-style="gradient"] .surface-card,
 html[data-card-style="gradient"] [data-slot="card"],
-html[data-card-style="gradient"] .card {
-  background-image: var(--gradient-surface);
+html[data-card-style="gradient"] .card,
+html[data-card-style="gradient"] [role="dialog"],
+html[data-card-style="gradient"] [role="alertdialog"],
+html[data-card-style="gradient"] [data-slot="dialog-content"],
+html[data-card-style="gradient"] [data-slot="alert-dialog-content"],
+html[data-card-style="gradient"] [data-slot="sheet-content"],
+html[data-card-style="gradient"] [data-radix-dropdown-menu-content],
+html[data-card-style="gradient"] [data-radix-popover-content],
+html[data-card-style="gradient"] [data-radix-select-content],
+html[data-card-style="gradient"] .popover-content,
+html[data-card-style="gradient"] [data-radix-context-menu-content],
+html[data-card-style="gradient"] [data-radix-tooltip-content],
+html[data-card-style="gradient"] .floating-widget {
+  background-image: var(--gradient-surface) !important;
   border: 1px solid oklch(from var(--primary) l c h / 45%) !important;
-  box-shadow: 0 0 18px -4px oklch(from var(--primary) l c h / 25%) !important;
+  box-shadow: 0 0 18px -4px oklch(from var(--primary) l c h / 25%), 0 25px 50px -15px rgba(0, 0, 0, 0.85) !important;
 }
 
 html[data-card-style="neon_outline"] .surface-card,
 html[data-card-style="neon_outline"] [data-slot="card"],
 html[data-card-style="neon_outline"] .card,
+html[data-card-style="neon_outline"] [role="dialog"],
+html[data-card-style="neon_outline"] [role="alertdialog"],
+html[data-card-style="neon_outline"] [data-slot="dialog-content"],
+html[data-card-style="neon_outline"] [data-slot="alert-dialog-content"],
+html[data-card-style="neon_outline"] [data-slot="sheet-content"],
+html[data-card-style="neon_outline"] [data-radix-dropdown-menu-content],
+html[data-card-style="neon_outline"] [data-radix-popover-content],
+html[data-card-style="neon_outline"] [data-radix-select-content],
+html[data-card-style="neon_outline"] .popover-content,
+html[data-card-style="neon_outline"] [data-radix-context-menu-content],
+html[data-card-style="neon_outline"] [data-radix-tooltip-content],
+html[data-card-style="neon_outline"] .floating-widget,
 html[data-card-style="outline_glow"] .surface-card,
 html[data-card-style="outline_glow"] [data-slot="card"],
-html[data-card-style="outline_glow"] .card {
-  background-image: var(--gradient-surface);
+html[data-card-style="outline_glow"] .card,
+html[data-card-style="outline_glow"] [role="dialog"],
+html[data-card-style="outline_glow"] [role="alertdialog"],
+html[data-card-style="outline_glow"] [data-slot="dialog-content"],
+html[data-card-style="outline_glow"] [data-slot="alert-dialog-content"],
+html[data-card-style="outline_glow"] [data-slot="sheet-content"],
+html[data-card-style="outline_glow"] [data-radix-dropdown-menu-content],
+html[data-card-style="outline_glow"] [data-radix-popover-content],
+html[data-card-style="outline_glow"] [data-radix-select-content],
+html[data-card-style="outline_glow"] .popover-content,
+html[data-card-style="outline_glow"] [data-radix-context-menu-content],
+html[data-card-style="outline_glow"] [data-radix-tooltip-content],
+html[data-card-style="outline_glow"] .floating-widget {
+  background-image: var(--gradient-surface) !important;
   border: 1px solid oklch(from var(--primary) l c h / 75%) !important;
-  box-shadow: 0 0 16px -2px oklch(from var(--primary) l c h / 35%) !important;
+  box-shadow: 0 0 16px -2px oklch(from var(--primary) l c h / 35%), 0 25px 50px -15px rgba(0, 0, 0, 0.85) !important;
 }
 
 html[data-card-style="solid_oled"] .surface-card,
 html[data-card-style="solid_oled"] [data-slot="card"],
 html[data-card-style="solid_oled"] .card,
+html[data-card-style="solid_oled"] [role="dialog"],
+html[data-card-style="solid_oled"] [role="alertdialog"],
+html[data-card-style="solid_oled"] [data-slot="dialog-content"],
+html[data-card-style="solid_oled"] [data-slot="alert-dialog-content"],
+html[data-card-style="solid_oled"] [data-slot="sheet-content"],
+html[data-card-style="solid_oled"] [data-radix-dropdown-menu-content],
+html[data-card-style="solid_oled"] [data-radix-popover-content],
+html[data-card-style="solid_oled"] [data-radix-select-content],
+html[data-card-style="solid_oled"] .popover-content,
+html[data-card-style="solid_oled"] [data-radix-context-menu-content],
+html[data-card-style="solid_oled"] [data-radix-tooltip-content],
 html[data-card-style="solid_dark"] .surface-card,
 html[data-card-style="solid_dark"] [data-slot="card"],
-html[data-card-style="solid_dark"] .card {
+html[data-card-style="solid_dark"] .card,
+html[data-card-style="solid_dark"] [role="dialog"],
+html[data-card-style="solid_dark"] [role="alertdialog"],
+html[data-card-style="solid_dark"] [data-slot="dialog-content"],
+html[data-card-style="solid_dark"] [data-slot="alert-dialog-content"],
+html[data-card-style="solid_dark"] [data-slot="sheet-content"],
+html[data-card-style="solid_dark"] [data-radix-dropdown-menu-content],
+html[data-card-style="solid_dark"] [data-radix-popover-content],
+html[data-card-style="solid_dark"] [data-radix-select-content],
+html[data-card-style="solid_dark"] .popover-content,
+html[data-card-style="solid_dark"] [data-radix-context-menu-content],
+html[data-card-style="solid_dark"] [data-radix-tooltip-content] {
   background-image: none !important;
   background-color: oklch(0.04 0.002 0) !important;
   border: 1px solid oklch(0.16 0.005 0) !important;
@@ -1412,7 +1516,18 @@ html[data-card-style="solid_dark"] .card {
 
 html[data-card-style="carbon"] .surface-card,
 html[data-card-style="carbon"] [data-slot="card"],
-html[data-card-style="carbon"] .card {
+html[data-card-style="carbon"] .card,
+html[data-card-style="carbon"] [role="dialog"],
+html[data-card-style="carbon"] [role="alertdialog"],
+html[data-card-style="carbon"] [data-slot="dialog-content"],
+html[data-card-style="carbon"] [data-slot="alert-dialog-content"],
+html[data-card-style="carbon"] [data-slot="sheet-content"],
+html[data-card-style="carbon"] [data-radix-dropdown-menu-content],
+html[data-card-style="carbon"] [data-radix-popover-content],
+html[data-card-style="carbon"] [data-radix-select-content],
+html[data-card-style="carbon"] .popover-content,
+html[data-card-style="carbon"] [data-radix-context-menu-content],
+html[data-card-style="carbon"] [data-radix-tooltip-content] {
   background-color: var(--card) !important;
   background-image: 
     linear-gradient(45deg, oklch(1 0 0 / 2%) 25%, transparent 25%, transparent 75%, oklch(1 0 0 / 2%) 75%, oklch(1 0 0 / 2%)),
@@ -1425,7 +1540,18 @@ html[data-card-style="carbon"] .card {
 
 html[data-card-style="neo_brutalism"] .surface-card,
 html[data-card-style="neo_brutalism"] [data-slot="card"],
-html[data-card-style="neo_brutalism"] .card {
+html[data-card-style="neo_brutalism"] .card,
+html[data-card-style="neo_brutalism"] [role="dialog"],
+html[data-card-style="neo_brutalism"] [role="alertdialog"],
+html[data-card-style="neo_brutalism"] [data-slot="dialog-content"],
+html[data-card-style="neo_brutalism"] [data-slot="alert-dialog-content"],
+html[data-card-style="neo_brutalism"] [data-slot="sheet-content"],
+html[data-card-style="neo_brutalism"] [data-radix-dropdown-menu-content],
+html[data-card-style="neo_brutalism"] [data-radix-popover-content],
+html[data-card-style="neo_brutalism"] [data-radix-select-content],
+html[data-card-style="neo_brutalism"] .popover-content,
+html[data-card-style="neo_brutalism"] [data-radix-context-menu-content],
+html[data-card-style="neo_brutalism"] [data-radix-tooltip-content] {
   background-image: none !important;
   background-color: var(--card) !important;
   border: 2px solid oklch(from var(--primary) l c h / 90%) !important;
@@ -1461,18 +1587,77 @@ html[data-font="cinzel"] body {
   font-family: "Cinzel", serif, ui-serif, sans-serif !important;
 }
 
-/* ─── Border Radius ─── */
+/* ─── Border Radius em Toda a Plataforma (Cards, Modais, Popups, Dropdowns, Botões) ─── */
 html[data-border-radius="sharp"] {
   --radius: 0rem !important;
 }
+html[data-border-radius="sharp"] [role="dialog"],
+html[data-border-radius="sharp"] [role="alertdialog"],
+html[data-border-radius="sharp"] [data-slot="dialog-content"],
+html[data-border-radius="sharp"] [data-slot="alert-dialog-content"],
+html[data-border-radius="sharp"] [data-slot="sheet-content"],
+html[data-border-radius="sharp"] [data-radix-dropdown-menu-content],
+html[data-border-radius="sharp"] [data-radix-popover-content],
+html[data-border-radius="sharp"] [data-radix-select-content],
+html[data-border-radius="sharp"] .popover-content,
+html[data-border-radius="sharp"] [data-radix-context-menu-content],
+html[data-border-radius="sharp"] [data-radix-tooltip-content],
+html[data-border-radius="sharp"] [data-sonner-toast],
+html[data-border-radius="sharp"] .surface-card,
+html[data-border-radius="sharp"] [data-slot="card"],
+html[data-border-radius="sharp"] .card {
+  border-radius: 0px !important;
+}
+
 html[data-border-radius="medium"] {
   --radius: 0.5rem !important;
 }
+html[data-border-radius="medium"] [role="dialog"],
+html[data-border-radius="medium"] [role="alertdialog"],
+html[data-border-radius="medium"] [data-slot="dialog-content"],
+html[data-border-radius="medium"] [data-slot="alert-dialog-content"],
+html[data-border-radius="medium"] [data-slot="sheet-content"],
+html[data-border-radius="medium"] [data-radix-dropdown-menu-content],
+html[data-border-radius="medium"] [data-radix-popover-content],
+html[data-border-radius="medium"] [data-radix-select-content],
+html[data-border-radius="medium"] .popover-content,
+html[data-border-radius="medium"] [data-radix-tooltip-content],
+html[data-border-radius="medium"] [data-sonner-toast] {
+  border-radius: 0.625rem !important;
+}
+
 html[data-border-radius="smooth"] {
   --radius: 0.85rem !important;
 }
+html[data-border-radius="smooth"] [role="dialog"],
+html[data-border-radius="smooth"] [role="alertdialog"],
+html[data-border-radius="smooth"] [data-slot="dialog-content"],
+html[data-border-radius="smooth"] [data-slot="alert-dialog-content"],
+html[data-border-radius="smooth"] [data-slot="sheet-content"],
+html[data-border-radius="smooth"] [data-radix-dropdown-menu-content],
+html[data-border-radius="smooth"] [data-radix-popover-content],
+html[data-border-radius="smooth"] [data-radix-select-content],
+html[data-border-radius="smooth"] .popover-content,
+html[data-border-radius="smooth"] [data-radix-tooltip-content],
+html[data-border-radius="smooth"] [data-sonner-toast] {
+  border-radius: 1.125rem !important;
+}
+
 html[data-border-radius="pill"] {
   --radius: 1.4rem !important;
+}
+html[data-border-radius="pill"] [role="dialog"],
+html[data-border-radius="pill"] [role="alertdialog"],
+html[data-border-radius="pill"] [data-slot="dialog-content"],
+html[data-border-radius="pill"] [data-slot="alert-dialog-content"],
+html[data-border-radius="pill"] [data-slot="sheet-content"],
+html[data-border-radius="pill"] [data-radix-dropdown-menu-content],
+html[data-border-radius="pill"] [data-radix-popover-content],
+html[data-border-radius="pill"] [data-radix-select-content],
+html[data-border-radius="pill"] .popover-content,
+html[data-border-radius="pill"] [data-radix-tooltip-content],
+html[data-border-radius="pill"] [data-sonner-toast] {
+  border-radius: 1.75rem !important;
 }
 
 /* ─── Background Patterns ─── */
@@ -1558,10 +1743,100 @@ html[data-border-glow-speed="off"] .animate-status-pulse-amber {
   animation: none !important;
 }
 
-/* ─── Glow & Status Animations Toggles ─── */
+/* ─── Glow Overrides em Modais, Popups e Botões Flutuantes ─── */
+html[data-glow="true"] [role="dialog"],
+html[data-glow="true"] [role="alertdialog"] {
+  box-shadow: 0 25px 65px -15px rgba(0, 0, 0, 0.9), 0 0 35px -5px oklch(from var(--primary) l c h / 30%) !important;
+}
+
+html[data-glow="true"] [data-radix-popover-content],
+html[data-glow="true"] [data-radix-dropdown-menu-content],
+html[data-glow="true"] [data-radix-select-content],
+html[data-glow="true"] .popover-content {
+  box-shadow: 0 16px 40px -10px rgba(0, 0, 0, 0.85), 0 0 22px -4px oklch(from var(--primary) l c h / 28%) !important;
+}
+
+html[data-glow="true"] [data-radix-tooltip-content] {
+  box-shadow: 0 8px 24px -5px rgba(0, 0, 0, 0.75), 0 0 14px -2px oklch(from var(--primary) l c h / 35%) !important;
+  border-color: oklch(from var(--primary) l c h / 45%) !important;
+}
+
+html[data-glow="true"] .floating-btn,
+html[data-glow="true"] .btn-floating {
+  box-shadow: var(--shadow-glow, 0 8px 25px -4px oklch(from var(--primary) l c h / 50%)), 0 0 18px -2px oklch(from var(--primary) l c h / 40%) !important;
+}
+
+html[data-glow="true"] .member-card-online {
+  border-color: oklch(0.72 0.17 155 / 50%) !important;
+  box-shadow: 0 0 14px -3px oklch(0.72 0.17 155 / 35%) !important;
+}
+
 html[data-glow="false"] .glow-primary,
-html[data-glow="false"] .member-card-online {
-  box-shadow: none !important;
+html[data-glow="false"] .member-card-online,
+html[data-glow="false"] [role="dialog"],
+html[data-glow="false"] [role="alertdialog"],
+html[data-glow="false"] [data-radix-popover-content],
+html[data-glow="false"] [data-radix-dropdown-menu-content],
+html[data-glow="false"] [data-radix-select-content],
+html[data-glow="false"] .popover-content,
+html[data-glow="false"] [data-radix-tooltip-content],
+html[data-glow="false"] .floating-btn,
+html[data-glow="false"] .btn-floating {
+  box-shadow: 0 12px 30px -10px rgba(0, 0, 0, 0.8) !important;
+  text-shadow: none !important;
+}
+
+/* ─── Ajustes Globais de Modais e Popups em Temas Claros ─── */
+html[data-theme^="light_"] [role="dialog"],
+html[data-theme^="light_"] [role="alertdialog"],
+html[data-theme^="light_"] [data-radix-dropdown-menu-content],
+html[data-theme^="light_"] [data-radix-popover-content],
+html[data-theme^="light_"] [data-radix-select-content],
+html[data-theme^="light_"] .popover-content,
+html[data-theme^="light_"] [data-radix-context-menu-content],
+html[data-theme^="light_"] [data-radix-tooltip-content] {
+  background-color: var(--card) !important;
+  color: var(--card-foreground) !important;
+  border-color: var(--border) !important;
+  box-shadow: 0 12px 35px -8px rgba(0, 0, 0, 0.15), 0 1px 3px rgba(0, 0, 0, 0.08) !important;
+}
+
+html[data-theme^="light_"] [role="dialog"] input,
+html[data-theme^="light_"] [role="dialog"] textarea,
+html[data-theme^="light_"] [role="dialog"] select,
+html[data-theme^="light_"] [role="alertdialog"] input,
+html[data-theme^="light_"] [role="alertdialog"] textarea,
+html[data-theme^="light_"] [role="alertdialog"] select {
+  background-color: var(--input) !important;
+  color: var(--foreground) !important;
+  border-color: var(--border) !important;
+}
+
+/* ─── Utilitários de Elementos e Botões Flutuantes ─── */
+.floating-btn,
+.btn-floating {
+  background-image: var(--gradient-brand);
+  background-color: var(--primary);
+  color: var(--primary-foreground);
+  border-color: oklch(from var(--primary) l c h / 40%);
+  box-shadow: var(--shadow-glow, 0 8px 24px -6px oklch(from var(--primary) l c h / 40%));
+  transition: all 250ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.floating-btn:hover,
+.btn-floating:hover {
+  filter: brightness(1.1);
+  box-shadow: 0 12px 30px -4px oklch(from var(--primary) l c h / 60%);
+}
+
+.floating-widget,
+.floating-card {
+  background-color: var(--card);
+  background-image: var(--gradient-surface);
+  border: 1px solid var(--border);
+  box-shadow: 0 16px 36px -10px rgba(0, 0, 0, 0.75), var(--shadow-card);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
 }
 
 html[data-glow="true"] .member-card-online {
