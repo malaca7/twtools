@@ -55,9 +55,11 @@ import { UniversalImageAdjusterModal } from "@/components/ui/UniversalImageAdjus
 import { SocialNetworksConfigCard } from "@/components/profile/SocialNetworksConfigCard";
 import { getProxiedImageUrl } from "@/services/postimagesService";
 import { MemberGamificationCard } from "@/components/gamification/MemberGamificationCard";
-import { useMyMemberTags } from "@/hooks/useMemberTags";
 import { MemberTagBadge } from "@/components/ui/MemberTagBadge";
+import { VerifiedBadge } from "@/components/ui/VerifiedBadge";
+import { VerificationRequestModal } from "@/components/verification/VerificationRequestModal";
 import { PublicProfilePage } from "@/components/profile/PublicProfilePage";
+import { BadgeCheck } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/perfil")({
   component: PerfilWrapper,
@@ -148,6 +150,9 @@ function PerfilContent({ initialTab }: { initialTab?: "perfil" | "dados" | "publ
       window.history.replaceState(null, "", targetPath);
     }
   };
+
+  // Modal de Verificação
+  const [isVerificationModalOpen, setIsVerificationModalOpen] = useState(false);
 
   // Dados Básicos do Jogador
   const [nome, setNome] = useState("");
@@ -623,6 +628,39 @@ function PerfilContent({ initialTab }: { initialTab?: "perfil" | "dados" | "publ
                   </div>
                 )}
 
+                {/* STATUS DE VERIFICAÇÃO */}
+                <div className="w-full p-3 rounded-xl border border-sky-500/30 bg-sky-500/10 space-y-2 text-left">
+                  <div className="flex items-center justify-between gap-1.5">
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <VerifiedBadge isVerified={profile?.is_verified} size="sm" />
+                      <span className="text-xs font-bold text-sky-200 truncate">
+                        {profile?.is_verified ? "Membro Verificado" : "Selo Oficial"}
+                      </span>
+                    </div>
+                    <Badge
+                      variant="outline"
+                      className={cn(
+                        "text-[9px] font-mono px-1.5 py-0",
+                        profile?.is_verified
+                          ? "border-emerald-500/50 text-emerald-300 bg-emerald-500/10"
+                          : "border-sky-500/40 text-sky-300 bg-sky-500/10"
+                      )}
+                    >
+                      {profile?.is_verified ? "Ativo" : "Disponível"}
+                    </Badge>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setIsVerificationModalOpen(true)}
+                    className="w-full text-xs font-bold border-sky-500/40 text-sky-300 hover:bg-sky-500/20 gap-1.5 h-8 rounded-lg cursor-pointer"
+                  >
+                    <BadgeCheck className="h-3.5 w-3.5" />
+                    <span>{profile?.is_verified ? "Ver Detalhes do Selo" : "Solicitar Verificação"}</span>
+                  </Button>
+                </div>
+
                 <div className="w-full pt-3 border-t border-border/50 space-y-2 text-xs text-left">
                   <p className="text-muted-foreground">
                     ID em Jogo: <span className="font-bold text-foreground">{gameId || "N/A"}</span>
@@ -1086,6 +1124,11 @@ function PerfilContent({ initialTab }: { initialTab?: "perfil" | "dados" | "publ
           <UserAppearanceSettings />
         </TabsContent>
       </Tabs>
+
+      <VerificationRequestModal
+        isOpen={isVerificationModalOpen}
+        onClose={() => setIsVerificationModalOpen(false)}
+      />
     </div>
   );
 }

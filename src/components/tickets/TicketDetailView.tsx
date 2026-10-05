@@ -78,6 +78,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useMembers } from "@/hooks/useData";
 import { dateTime, formatTimeOnly } from "@/lib/format";
 import { LEVEL_LABEL, levelBadgeClass, type AppLevel } from "@/lib/permissions";
+import { VerifiedBadge } from "@/components/ui/VerifiedBadge";
 import { uploadTicketAttachment } from "@/lib/app-api";
 
 interface TicketDetailViewProps {
@@ -601,10 +602,11 @@ export function TicketDetailView({ ticket, onClose, canManage }: TicketDetailVie
                 </AvatarFallback>
               </Avatar>
               <div>
-                <div className="flex items-center gap-1.5">
+                <div className="flex items-center gap-1.5 flex-wrap">
                   <span className="text-xs font-semibold text-foreground">
                     {ticket.creator_nickname || ticket.creator_name}
                   </span>
+                  <VerifiedBadge isVerified={members.find((m) => m.user_id === ticket.creator_id)?.is_verified} size="xs" />
                   <Badge
                     variant="outline"
                     className={cn("text-[10px] px-1.5 py-0", levelBadgeClass(ticket.creator_role))}
@@ -686,7 +688,7 @@ export function TicketDetailView({ ticket, onClose, canManage }: TicketDetailVie
                           {dateTime(msg.created_at)}
                         </span>
                       </div>
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-1.5 flex-wrap">
                         <Avatar className="h-5 w-5">
                           <AvatarImage src={msg.sender_avatar || undefined} />
                           <AvatarFallback className="text-[9px]">
@@ -696,6 +698,7 @@ export function TicketDetailView({ ticket, onClose, canManage }: TicketDetailVie
                         <span className="text-xs font-semibold text-amber-300">
                           {msg.sender_nickname || msg.sender_name}
                         </span>
+                        <VerifiedBadge isVerified={members.find((m) => m.user_id === msg.sender_id)?.is_verified} size="xs" />
                         <span className="text-[10px] text-amber-400/80">
                           ({LEVEL_LABEL[msg.sender_role] || msg.sender_role})
                         </span>
@@ -727,7 +730,7 @@ export function TicketDetailView({ ticket, onClose, canManage }: TicketDetailVie
                           : "bg-secondary/70 border border-border text-foreground rounded-bl-none"
                       )}
                     >
-                      <div className="flex items-center gap-2 border-b border-border/30 pb-1">
+                      <div className="flex items-center gap-1.5 flex-wrap border-b border-border/30 pb-1">
                         <Avatar className="h-5 w-5">
                           <AvatarImage src={msg.sender_avatar || undefined} />
                           <AvatarFallback className="text-[9px]">
@@ -737,6 +740,7 @@ export function TicketDetailView({ ticket, onClose, canManage }: TicketDetailVie
                         <span className="font-semibold text-xs text-foreground">
                           {isMe ? "Você" : msg.sender_nickname || msg.sender_name}
                         </span>
+                        <VerifiedBadge isVerified={members.find((m) => m.user_id === msg.sender_id)?.is_verified} size="xs" />
                         <Badge
                           variant="outline"
                           className={cn("text-[9px] px-1 py-0", levelBadgeClass(msg.sender_role))}

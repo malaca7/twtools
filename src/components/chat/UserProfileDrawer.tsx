@@ -11,6 +11,7 @@ import { DevBadge, CeoBadge } from "@/components/ui-kit";
 import { Button } from "@/components/ui/button";
 import { MessageSquare, Phone, ShieldCheck, User } from "lucide-react";
 import { useMembers } from "@/hooks/useData";
+import { VerifiedBadge } from "@/components/ui/VerifiedBadge";
 import { LEVEL_LABEL, levelBadgeClass, type AppLevel } from "@/lib/permissions";
 import { cn } from "@/lib/utils";
 
@@ -55,7 +56,10 @@ export function UserProfileDrawer({
           </div>
 
           <div className="space-y-0.5">
-            <h3 className="font-extrabold text-base text-foreground">{displayName}</h3>
+            <div className="flex items-center justify-center gap-1.5 flex-wrap">
+              <h3 className="font-extrabold text-base text-foreground">{displayName}</h3>
+              <VerifiedBadge isVerified={member.is_verified} size="sm" />
+            </div>
             {member.nickname && <p className="text-xs text-muted-foreground">{member.nome}</p>}
             <div className="pt-1 flex items-center justify-center gap-1.5 flex-wrap">
               <Badge variant="outline" className={`text-xs px-2 py-0.5 font-bold ${levelBadgeClass(nivel)}`}>

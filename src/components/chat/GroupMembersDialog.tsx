@@ -19,6 +19,7 @@ import {
   updateGroupInfo,
 } from "@/services/chatService";
 import { LEVEL_LABEL, levelBadgeClass, type AppLevel } from "@/lib/permissions";
+import { VerifiedBadge } from "@/components/ui/VerifiedBadge";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import type { ChatConversation } from "@/types/chat";
@@ -227,7 +228,10 @@ export function GroupMembersDialog({
                               {displayName.slice(0, 2).toUpperCase()}
                             </AvatarFallback>
                           </Avatar>
-                          <span className="truncate font-bold text-foreground">{displayName}</span>
+                          <div className="flex items-center gap-1.5 min-w-0">
+                            <span className="truncate font-bold text-foreground">{displayName}</span>
+                            <VerifiedBadge isVerified={m.is_verified} size="xs" />
+                          </div>
                         </div>
 
                         <div className="flex items-center gap-2">
@@ -291,6 +295,7 @@ export function GroupMembersDialog({
                           <span className="truncate font-bold text-foreground text-xs leading-tight">
                             {displayName}
                           </span>
+                          <VerifiedBadge isVerified={(prof as any)?.is_verified ?? allMembers.find(m => m.user_id === p.user_id)?.is_verified} size="xs" />
                           {isSelf && (
                             <span className="text-[10px] font-mono text-muted-foreground">(você)</span>
                           )}
