@@ -219,6 +219,7 @@ export function CeoGerenciarTagsPage() {
   const {
     saveTagMutation,
     deleteTagMutation,
+    toggleAssignmentMutation,
     setTagMembersMutation,
     updatePermissionsAndRulesMutation,
   } = useMemberTagMutations();
@@ -280,6 +281,9 @@ export function CeoGerenciarTagsPage() {
   const [selectedMemberIds, setSelectedMemberIds] = useState<Set<string>>(new Set());
   const [memberAssignSearch, setMemberAssignSearch] = useState("");
   const [memberAssignFilter, setMemberAssignFilter] = useState<"all" | "assigned" | "unassigned">("all");
+  const [memberAssignSavingId, setMemberAssignSavingId] = useState<string | null>(null);
+  const [memberAssignAutoSaved, setMemberAssignAutoSaved] = useState(false);
+  const memberAutoSavedTimerRef = React.useRef<NodeJS.Timeout | null>(null);
 
   // Modal de Permissões e Regras da Tag
   const [tagForPerms, setTagForPerms] = useState<MemberTag | null>(null);
@@ -877,10 +881,12 @@ export function CeoGerenciarTagsPage() {
     setSelectedMemberIds(existing);
     setMemberAssignSearch("");
     setMemberAssignFilter("all");
+    setMemberAssignSavingId(null);
+    setMemberAssignAutoSaved(false);
   };
 
   const filteredMembersForAssign = useMemo(() => {
-    return members.filter((m) => {
+    const list = members.filter((m) => {
       const memId = m.user_id || m.id;
       const isAssigned = selectedMemberIds.has(memId) || (m.user_id && selectedMemberIds.has(m.user_id)) || (m.id && selectedMemberIds.has(m.id));
       if (memberAssignFilter === "assigned" && !isAssigned) return false;
@@ -894,70 +900,145 @@ export function CeoGerenciarTagsPage() {
       const matchNivel = (m.nivel || "").toLowerCase().includes(q);
       return matchName || matchNick || matchGameId || matchNivel;
     });
+
+    // Ordenação: 1º Integrantes vinculados no topo, 2º Ordem alfabética
+    return list.sort((a, b) => {
+      const isAssignedA = selectedMemberIds.has(a.user_id) || (a.id && selectedMemberIds.has(a.id));
+      const isAssignedB = selectedMemberIds.has(b.user_id) || (b.id && selectedMemberIds.has(b.id));
+
+      if (isAssignedA !== isAssignedB) {
+        return isAssignedA ? -1 : 1;
+      }
+
+      const nameA = (a.nickname || a.nome || "").trim();
+      const nameB = (b.nickname || b.nome || "").trim();
+      return nameA.localeCompare(nameB, "pt-BR", { sensitivity: "base" });
+    });
   }, [members, memberAssignSearch, memberAssignFilter, selectedMemberIds]);
 
-  const handleToggleMember = (userId: string) => {
+  const handleToggleMember = async (userId: string) => {
+    if (!tagForMembers) return;
     if (!canAssignTag) {
       toast.error("Você não possui permissão para alterar vínculos de membros.");
       return;
     }
+
+    const isCurrentlyChecked = selectedMemberIds.has(userId);
+    const nextChecked = !isCurrentlyChecked;
+
+    // Atualização otimista imediata na interface
     setSelectedMemberIds((prev) => {
       const next = new Set(prev);
-      if (next.has(userId)) {
-        next.delete(userId);
-      } else {
+      if (nextChecked) {
         next.add(userId);
+      } else {
+        next.delete(userId);
       }
       return next;
     });
-  };
 
-  const handleSelectAllFilteredMembers = () => {
-    if (!canAssignTag) {
-      toast.error("Você não possui permissão para alterar vínculos de membros.");
-      return;
-    }
-    setSelectedMemberIds((prev) => {
-      const next = new Set(prev);
-      filteredMembersForAssign.forEach((m) => next.add(m.user_id || m.id));
-      return next;
-    });
-  };
+    setMemberAssignSavingId(userId);
+    setMemberAssignAutoSaved(false);
 
-  const handleClearAllFilteredMembers = () => {
-    if (!canAssignTag) {
-      toast.error("Você não possui permissão para alterar vínculos de membros.");
-      return;
-    }
-    setSelectedMemberIds((prev) => {
-      const next = new Set(prev);
-      filteredMembersForAssign.forEach((m) => {
-        if (m.user_id) next.delete(m.user_id);
-        if (m.id) next.delete(m.id);
-      });
-      return next;
-    });
-  };
-
-  const handleSaveMemberAssignments = async () => {
-    if (!tagForMembers) return;
-    if (!canAssignTag) {
-      toast.error("Você não possui permissão para salvar vínculos de membros.");
-      return;
-    }
     try {
-      await setTagMembersMutation.mutateAsync({
+      await toggleAssignmentMutation.mutateAsync({
+        memberId: userId,
         tagId: tagForMembers.id,
-        memberIds: Array.from(selectedMemberIds),
+        currentStatus: isCurrentlyChecked,
+        assignedBy: user?.id,
       });
-      setTagForMembers(null);
+
+      setMemberAssignAutoSaved(true);
+      if (memberAutoSavedTimerRef.current) clearTimeout(memberAutoSavedTimerRef.current);
+      memberAutoSavedTimerRef.current = setTimeout(() => {
+        setMemberAssignAutoSaved(false);
+      }, 2500);
+
       if (typeof window !== "undefined") {
         window.dispatchEvent(new Event("tw_tags_updated"));
         window.dispatchEvent(new Event("tw_permissions_synced"));
         window.dispatchEvent(new CustomEvent("tw_member_tags_updated"));
       }
-    } catch (e) {
-      // Já tratado
+    } catch (err: any) {
+      // Reverter em caso de erro
+      setSelectedMemberIds((prev) => {
+        const rollback = new Set(prev);
+        if (isCurrentlyChecked) rollback.add(userId);
+        else rollback.delete(userId);
+        return rollback;
+      });
+      toast.error(err.message || "Erro ao salvar vínculo do membro.");
+    } finally {
+      setMemberAssignSavingId(null);
+    }
+  };
+
+  const handleSelectAllFilteredMembers = async () => {
+    if (!tagForMembers) return;
+    if (!canAssignTag) {
+      toast.error("Você não possui permissão para alterar vínculos de membros.");
+      return;
+    }
+    const next = new Set(selectedMemberIds);
+    filteredMembersForAssign.forEach((m) => next.add(m.user_id || m.id));
+    setSelectedMemberIds(next);
+    setMemberAssignAutoSaved(false);
+
+    try {
+      await setTagMembersMutation.mutateAsync({
+        tagId: tagForMembers.id,
+        memberIds: Array.from(next),
+        assignedBy: user?.id,
+      });
+      setMemberAssignAutoSaved(true);
+      if (memberAutoSavedTimerRef.current) clearTimeout(memberAutoSavedTimerRef.current);
+      memberAutoSavedTimerRef.current = setTimeout(() => {
+        setMemberAssignAutoSaved(false);
+      }, 2500);
+
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new Event("tw_tags_updated"));
+        window.dispatchEvent(new Event("tw_permissions_synced"));
+        window.dispatchEvent(new CustomEvent("tw_member_tags_updated"));
+      }
+    } catch (err: any) {
+      toast.error(err.message || "Erro ao vincular todos os membros.");
+    }
+  };
+
+  const handleClearAllFilteredMembers = async () => {
+    if (!tagForMembers) return;
+    if (!canAssignTag) {
+      toast.error("Você não possui permissão para alterar vínculos de membros.");
+      return;
+    }
+    const next = new Set(selectedMemberIds);
+    filteredMembersForAssign.forEach((m) => {
+      if (m.user_id) next.delete(m.user_id);
+      if (m.id) next.delete(m.id);
+    });
+    setSelectedMemberIds(next);
+    setMemberAssignAutoSaved(false);
+
+    try {
+      await setTagMembersMutation.mutateAsync({
+        tagId: tagForMembers.id,
+        memberIds: Array.from(next),
+        assignedBy: user?.id,
+      });
+      setMemberAssignAutoSaved(true);
+      if (memberAutoSavedTimerRef.current) clearTimeout(memberAutoSavedTimerRef.current);
+      memberAutoSavedTimerRef.current = setTimeout(() => {
+        setMemberAssignAutoSaved(false);
+      }, 2500);
+
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new Event("tw_tags_updated"));
+        window.dispatchEvent(new Event("tw_permissions_synced"));
+        window.dispatchEvent(new CustomEvent("tw_member_tags_updated"));
+      }
+    } catch (err: any) {
+      toast.error(err.message || "Erro ao desvincular membros.");
     }
   };
 
@@ -1884,7 +1965,7 @@ export function CeoGerenciarTagsPage() {
         </DialogContent>
       </Dialog>
 
-      {/* MODAL 2: VINCULAR MEMBROS À TAG */}
+      {/* MODAL 2: VINCULAR MEMBROS À TAG (COM AUTO-SALVAMENTO E VINCULADOS NO TOPO) */}
       <Dialog open={Boolean(tagForMembers)} onOpenChange={(open) => !open && setTagForMembers(null)}>
         <DialogContent className="sm:max-w-xl surface-card border-border/80 shadow-2xl">
           <DialogHeader>
@@ -1898,13 +1979,13 @@ export function CeoGerenciarTagsPage() {
               )}
             </DialogTitle>
             <DialogDescription className="text-xs">
-              Selecione os integrantes que receberão esta tag e todas as suas permissões e regras operacionais.
+              Marque ou desmarque os integrantes para vincular ou desvincular em tempo real com salvamento automático.
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-3 py-2 text-xs">
             <div className="flex flex-col sm:flex-row items-center gap-2 justify-between">
-              <div className="relative w-full sm:w-64">
+              <div className="relative w-full sm:w-60">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
                 <Input
                   value={memberAssignSearch}
@@ -1942,6 +2023,7 @@ export function CeoGerenciarTagsPage() {
                     size="sm"
                     onClick={handleSelectAllFilteredMembers}
                     className="h-7 text-[10px] px-2 rounded-lg text-primary hover:bg-primary/10"
+                    title="Vincular todos os membros filtrados"
                   >
                     Marcar Todos
                   </Button>
@@ -1951,6 +2033,7 @@ export function CeoGerenciarTagsPage() {
                     size="sm"
                     onClick={handleClearAllFilteredMembers}
                     className="h-7 text-[10px] px-2 rounded-lg text-rose-400 hover:bg-rose-500/10"
+                    title="Desvincular todos os membros filtrados"
                   >
                     Limpar
                   </Button>
@@ -1965,14 +2048,16 @@ export function CeoGerenciarTagsPage() {
                 </div>
               ) : (
                 filteredMembersForAssign.map((m) => {
-                  const isChecked = selectedMemberIds.has(m.user_id);
+                  const isChecked = selectedMemberIds.has(m.user_id) || (m.id ? selectedMemberIds.has(m.id) : false);
+                  const isSavingThisMember = memberAssignSavingId === m.user_id || memberAssignSavingId === m.id;
+
                   return (
                     <div
-                      key={m.id}
+                      key={m.id || m.user_id}
                       onClick={() => handleToggleMember(m.user_id)}
                       className={cn(
                         "p-2.5 flex items-center justify-between gap-3 cursor-pointer transition-colors select-none",
-                        isChecked ? "bg-primary/10" : "hover:bg-secondary/40"
+                        isChecked ? "bg-primary/10 hover:bg-primary/15" : "hover:bg-secondary/40"
                       )}
                     >
                       <div className="flex items-center gap-2.5 min-w-0">
@@ -1984,12 +2069,12 @@ export function CeoGerenciarTagsPage() {
                         <Avatar className="h-7 w-7 border border-border/50 shrink-0">
                           <AvatarImage src={m.avatar_url || ""} />
                           <AvatarFallback className="text-[10px] font-bold">
-                            {m.nome.slice(0, 2).toUpperCase()}
+                            {(m.nickname || m.nome).slice(0, 2).toUpperCase()}
                           </AvatarFallback>
                         </Avatar>
                         <div className="min-w-0">
                           <p className="font-semibold text-foreground text-xs leading-none truncate">
-                            {m.nome}
+                            {m.nickname ? `${m.nickname} (${m.nome})` : m.nome}
                           </p>
                           <div className="flex items-center gap-2 mt-1">
                             {m.game_id && (
@@ -2004,11 +2089,16 @@ export function CeoGerenciarTagsPage() {
                         </div>
                       </div>
 
-                      {isChecked && (
-                        <Badge variant="outline" className="text-[10px] border-emerald-500/30 text-emerald-400 bg-emerald-500/10 shrink-0">
-                          Vinculado
-                        </Badge>
-                      )}
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        {isSavingThisMember ? (
+                          <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />
+                        ) : isChecked ? (
+                          <Badge variant="outline" className="text-[10px] border-emerald-500/30 text-emerald-400 bg-emerald-500/10 gap-1">
+                            <Check className="h-3 w-3" />
+                            <span>Vinculado</span>
+                          </Badge>
+                        ) : null}
+                      </div>
                     </div>
                   );
                 })
@@ -2016,30 +2106,39 @@ export function CeoGerenciarTagsPage() {
             </div>
           </div>
 
-          <DialogFooter className="flex items-center justify-between sm:justify-between pt-2 border-t border-border/60">
-            <span className="text-xs text-muted-foreground">
-              Total selecionados: <strong className="text-foreground font-mono">{selectedMemberIds.size}</strong>
-            </span>
-            <div className="flex items-center gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => setTagForMembers(null)}
-                className="text-xs rounded-xl"
-              >
-                Cancelar
-              </Button>
-              <Button
-                type="button"
-                size="sm"
-                onClick={handleSaveMemberAssignments}
-                disabled={setTagMembersMutation.isPending || !canAssignTag}
-                className="text-xs rounded-xl font-bold bg-primary text-primary-foreground hover:bg-primary/90"
-              >
-                {setTagMembersMutation.isPending ? "Salvando..." : "Salvar Vínculos"}
-              </Button>
+          <DialogFooter className="flex flex-col sm:flex-row items-center justify-between gap-2 pt-2 border-t border-border/60">
+            <div className="flex items-center gap-3 text-xs w-full sm:w-auto justify-between sm:justify-start">
+              <span className="text-muted-foreground">
+                Total selecionados: <strong className="text-foreground font-mono">{selectedMemberIds.size}</strong>
+              </span>
+
+              {/* Status de salvamento em tempo real */}
+              {memberAssignSavingId || setTagMembersMutation.isPending || toggleAssignmentMutation.isPending ? (
+                <span className="inline-flex items-center gap-1 text-[11px] text-primary font-bold animate-pulse">
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                  <span>Salvando...</span>
+                </span>
+              ) : memberAssignAutoSaved ? (
+                <span className="inline-flex items-center gap-1 text-[11px] text-emerald-400 font-bold">
+                  <CheckCircle2 className="h-3 w-3" />
+                  <span>Salvo</span>
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground">
+                  <Sparkles className="h-3 w-3 text-sky-400" />
+                  <span>Auto-save ativo</span>
+                </span>
+              )}
             </div>
+
+            <Button
+              type="button"
+              size="sm"
+              onClick={() => setTagForMembers(null)}
+              className="text-xs rounded-xl font-bold bg-primary text-primary-foreground hover:bg-primary/90 px-4 w-full sm:w-auto"
+            >
+              Concluído
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -3106,39 +3205,11 @@ export function CeoGerenciarTagsPage() {
             <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
               <Button
                 type="button"
-                variant="outline"
                 size="sm"
                 onClick={() => setTagForPerms(null)}
-                className="text-xs rounded-xl"
+                className="text-xs rounded-xl font-bold bg-primary text-primary-foreground hover:bg-primary/90 px-5"
               >
-                Fechar
-              </Button>
-              <Button
-                type="button"
-                size="sm"
-                onClick={async () => {
-                  if (!tagForPerms) return;
-                  try {
-                    const safeRules = parseMemberTagRules(activeRules);
-                    await updatePermissionsAndRulesMutation.mutateAsync({
-                      tagId: tagForPerms.id,
-                      permissions: activePerms,
-                      rules: safeRules,
-                    });
-                    if (typeof window !== "undefined") {
-                      window.dispatchEvent(new Event("tw_tags_updated"));
-                      window.dispatchEvent(new Event("tw_permissions_synced"));
-                      window.dispatchEvent(new CustomEvent("tw_member_tags_updated"));
-                    }
-                  } catch (e) {
-                    // Já tratado na mutation
-                  }
-                }}
-                disabled={updatePermissionsAndRulesMutation.isPending || (!canManagePerms && !canManageRules)}
-                className="text-xs rounded-xl font-bold bg-primary text-primary-foreground hover:bg-primary/90 gap-1.5 shadow-sm"
-              >
-                <Save className="h-3.5 w-3.5" />
-                <span>{updatePermissionsAndRulesMutation.isPending ? "Salvando..." : "Salvar Alterações"}</span>
+                Concluído
               </Button>
             </div>
           </DialogFooter>

@@ -23,6 +23,7 @@ import {
   Calendar,
   AlertCircle,
   BellRing,
+  BadgeCheck,
 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -483,6 +484,17 @@ export function CeoPageContent({ initialTab }: { initialTab?: string } = {}) {
                     Balanço do Fundo de Caixa
                   </Button>
                 )}
+
+                <Button
+                  asChild
+                  variant="outline"
+                  className="w-full justify-start text-xs font-bold h-11 border-emerald-500/40 hover:border-emerald-500/70 hover:bg-emerald-500/10 text-emerald-300"
+                >
+                  <Link to="/ceo/selos">
+                    <BadgeCheck className="h-4 w-4 mr-2 text-emerald-400" />
+                    Gerenciar Selos de Verificado
+                  </Link>
+                </Button>
 
                 <Button
                   asChild

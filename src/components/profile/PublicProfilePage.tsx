@@ -23,6 +23,7 @@ import {
   Lock,
   Flame,
   Award,
+  BadgeCheck,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { DevBadge, CeoBadge } from "@/components/ui-kit";
@@ -48,6 +49,8 @@ import { MemberGamificationCard } from "@/components/gamification/MemberGamifica
 import { MemberInsigniasCardsSection } from "@/components/gamification/MemberInsigniasCardsSection";
 import { useMemberTagsMap } from "@/hooks/useMemberTags";
 import { MemberTagBadge } from "@/components/ui/MemberTagBadge";
+import { VerifiedBadge } from "@/components/ui/VerifiedBadge";
+import { VerificationRequestModal } from "@/components/verification/VerificationRequestModal";
 
 export interface PublicProfilePageProps {
   handleOverride?: string;
@@ -105,6 +108,7 @@ function PublicProfileContent({
 
   const [copiedLink, setCopiedLink] = useState(false);
   const [startingChat, setStartingChat] = useState(false);
+  const [isVerificationModalOpen, setIsVerificationModalOpen] = useState(false);
 
   // Determina se o visitante é o próprio dono do perfil
   const isSelf = Boolean(
@@ -487,6 +491,20 @@ function PublicProfileContent({
                 </Button>
               )}
 
+              {isSelf && !memberData.is_verified && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setIsVerificationModalOpen(true)}
+                  className="h-10 px-3.5 text-xs font-bold border-emerald-500/40 text-emerald-400 hover:bg-emerald-500/15 rounded-xl gap-1.5 cursor-pointer backdrop-blur-md shadow-xs transition-all"
+                  title="Solicitar verificação de conta oficial"
+                >
+                  <BadgeCheck className="h-4 w-4" />
+                  <span>Solicitar Selo</span>
+                </Button>
+              )}
+
               {isSelf ? (
                 onEditClick ? (
                   <Button
@@ -531,6 +549,11 @@ function PublicProfileContent({
               <h1 className="text-2xl sm:text-3xl font-black text-foreground tracking-tight">
                 {displayName}
               </h1>
+
+              <VerifiedBadge
+                isVerified={Boolean(memberData.is_verified || (memberData as any).verified)}
+                size="md"
+              />
 
               {memberData.nickname && memberData.nome && memberData.nickname !== memberData.nome && (
                 <span className="text-xs text-muted-foreground font-medium">
@@ -753,6 +776,11 @@ function PublicProfileContent({
           </Card>
         )}
       </div>
+
+      <VerificationRequestModal
+        isOpen={isVerificationModalOpen}
+        onClose={() => setIsVerificationModalOpen(false)}
+      />
     </div>
   );
 }

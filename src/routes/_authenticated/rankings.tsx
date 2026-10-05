@@ -49,8 +49,10 @@ import {
 import { InsigniaGrantModal } from "@/components/gamification/InsigniaGrantModal";
 import { MemberEvaluationModal } from "@/components/gamification/MemberEvaluationModal";
 import { MemberInsigniasListModal } from "@/components/gamification/MemberInsigniasListModal";
+import { InsigniaCatalogManagerModal } from "@/components/gamification/InsigniaCatalogManagerModal";
 import { useMemberTagsMap } from "@/hooks/useMemberTags";
 import { MemberTagBadge } from "@/components/ui/MemberTagBadge";
+import { VerifiedBadge } from "@/components/ui/VerifiedBadge";
 
 export const Route = createFileRoute("/_authenticated/rankings")({
   component: RankingsWrapper,
@@ -436,9 +438,12 @@ function RankingsContent() {
                     <Badge variant="outline" className="mb-1 border-slate-500 text-slate-300">
                       2º Lugar
                     </Badge>
-                    <h3 className="font-bold text-foreground text-base truncate max-w-[200px]">
-                      {xpSecond?.nickname || xpSecond?.nome || "—"}
-                    </h3>
+                    <div className="flex items-center justify-center gap-1.5 flex-wrap">
+                      <h3 className="font-bold text-foreground text-base truncate max-w-[200px]">
+                        {xpSecond?.nickname || xpSecond?.nome || "—"}
+                      </h3>
+                      <VerifiedBadge isVerified={members.find(mb => mb.user_id === xpSecond?.user_id)?.is_verified} size="xs" />
+                    </div>
                     <p className="text-xs text-muted-foreground">
                       {xpSecond?.nivel ? getLevelLabel(xpSecond.nivel) : "Membro"}
                     </p>
@@ -514,9 +519,12 @@ function RankingsContent() {
                     <Badge className="mb-1 bg-amber-500 text-slate-950 font-black hover:bg-amber-400 shadow-md shadow-amber-500/20">
                       1º Lugar · Campeão Geral
                     </Badge>
-                    <h3 className="text-lg font-black text-foreground truncate max-w-[220px]">
-                      {xpFirst?.nickname || xpFirst?.nome || "—"}
-                    </h3>
+                    <div className="flex items-center justify-center gap-1.5 flex-wrap">
+                      <h3 className="text-lg font-black text-foreground truncate max-w-[220px]">
+                        {xpFirst?.nickname || xpFirst?.nome || "—"}
+                      </h3>
+                      <VerifiedBadge isVerified={members.find(mb => mb.user_id === xpFirst?.user_id)?.is_verified} size="sm" />
+                    </div>
                     <p className="text-xs text-muted-foreground">
                       {xpFirst?.nivel ? getLevelLabel(xpFirst.nivel) : "Membro"}
                     </p>
@@ -589,9 +597,12 @@ function RankingsContent() {
                     <Badge variant="outline" className="mb-1 border-amber-700 text-amber-600">
                       3º Lugar
                     </Badge>
-                    <h3 className="font-bold text-foreground text-base truncate max-w-[200px]">
-                      {xpThird?.nickname || xpThird?.nome || "—"}
-                    </h3>
+                    <div className="flex items-center justify-center gap-1.5 flex-wrap">
+                      <h3 className="font-bold text-foreground text-base truncate max-w-[200px]">
+                        {xpThird?.nickname || xpThird?.nome || "—"}
+                      </h3>
+                      <VerifiedBadge isVerified={members.find(mb => mb.user_id === xpThird?.user_id)?.is_verified} size="xs" />
+                    </div>
                     <p className="text-xs text-muted-foreground">
                       {xpThird?.nivel ? getLevelLabel(xpThird.nivel) : "Membro"}
                     </p>
@@ -702,6 +713,7 @@ function RankingsContent() {
                                       <p className="font-bold text-xs text-foreground truncate">
                                         {m.nickname || m.nome}
                                       </p>
+                                      <VerifiedBadge isVerified={members.find(mb => mb.user_id === m.user_id)?.is_verified} size="xs" />
                                       {isMe && (
                                         <Badge className="bg-primary text-primary-foreground text-[9px] px-1 py-0">
                                           Você
@@ -841,6 +853,7 @@ function RankingsContent() {
                                           <p className="font-bold text-foreground text-sm leading-tight">
                                             {m.nickname || m.nome}
                                           </p>
+                                          <VerifiedBadge isVerified={members.find(mb => mb.user_id === m.user_id)?.is_verified} size="xs" />
                                           {isMe && (
                                             <Badge className="bg-primary text-primary-foreground text-[9px] px-1 py-0 font-bold">
                                               Você

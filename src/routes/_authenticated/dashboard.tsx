@@ -32,6 +32,7 @@ import { cn } from "@/lib/utils";
 import type { Member } from "@/lib/app-types";
 import { MemberGamificationCard } from "@/components/gamification/MemberGamificationCard";
 import { MemberInsigniasCardsSection } from "@/components/gamification/MemberInsigniasCardsSection";
+import { VerifiedBadge } from "@/components/ui/VerifiedBadge";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   component: DashboardPage,
@@ -216,8 +217,10 @@ function DashboardContent() {
                     </p>
 
                     <div className="pt-2 border-t border-border/40 flex flex-wrap items-center justify-between gap-2">
-                      <p className="text-[0.65rem] text-muted-foreground">
-                        <span className="font-semibold text-foreground">{nameOf(members, ann.author_id)}</span> · {dateTime(ann.created_at)}
+                      <p className="text-[0.65rem] text-muted-foreground flex items-center gap-1">
+                        <span className="font-semibold text-foreground">{nameOf(members, ann.author_id)}</span>
+                        <VerifiedBadge isVerified={members.find((m) => m.user_id === ann.author_id)?.is_verified} size="xs" />
+                        <span>· {dateTime(ann.created_at)}</span>
                       </p>
 
                       <div className="flex flex-wrap items-center gap-2">

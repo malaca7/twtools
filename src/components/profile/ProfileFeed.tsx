@@ -35,6 +35,7 @@ import {
 } from "@/services/profileFeedService";
 import { useAuth } from "@/hooks/useAuth";
 import { useMembers } from "@/hooks/useData";
+import { VerifiedBadge } from "@/components/ui/VerifiedBadge";
 import { cn } from "@/lib/utils";
 import type { ProfilePost } from "@/types/profileFeed";
 
@@ -302,9 +303,12 @@ export function ProfileFeed({ authorId, authorName, authorAvatar, isSelf }: Prof
                           </AvatarFallback>
                         </Avatar>
                         <div className="min-w-0 flex-1">
-                          <p className="font-bold truncate text-[11px] text-foreground">
-                            {m.nickname || m.nome}
-                          </p>
+                          <div className="flex items-center gap-1 min-w-0">
+                            <p className="font-bold truncate text-[11px] text-foreground">
+                              {m.nickname || m.nome}
+                            </p>
+                            <VerifiedBadge isVerified={m.is_verified} size="xs" />
+                          </div>
                           <p className="font-mono text-[10px] text-muted-foreground truncate">
                             @{slug}
                           </p>
@@ -623,6 +627,7 @@ function ProfilePostCard({
             <div className="min-w-0">
               <div className="flex items-center gap-1.5 flex-wrap">
                 <span className="font-bold text-xs text-foreground truncate">{displayName}</span>
+                <VerifiedBadge isVerified={(post.author as any)?.is_verified} size="xs" />
                 {post.pinned && (
                   <Badge variant="outline" className="text-[9px] font-mono border-amber-500/40 text-amber-300 bg-amber-500/10 py-0">
                     Fixado

@@ -65,6 +65,7 @@ import { LEVEL_LABEL, LEVELS, levelBadgeClass, type AppLevel } from "@/lib/permi
 import type { Member } from "@/lib/app-types";
 import { useMemberTagsMap } from "@/hooks/useMemberTags";
 import { MemberTagBadge } from "@/components/ui/MemberTagBadge";
+import { VerifiedBadge } from "@/components/ui/VerifiedBadge";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/membros")({
@@ -95,8 +96,25 @@ export function MembrosPage() {
   // Apenas tags ativas e marcadas como "Tag de Sistema"
   const memberTagsMap = useMemberTagsMap({ onlySystem: true });
 
-  // Modo de visualização no desktop: cards (grid) ou tabela
-  const [viewMode, setViewMode] = useState<"cards" | "table">("cards");
+  // Modo de visualização: tabela por padrão (com persistência no localStorage) ou cards
+  const [viewMode, setViewMode] = useState<"cards" | "table">(() => {
+    try {
+      const saved = localStorage.getItem("tw_membros_view_mode");
+      if (saved === "cards" || saved === "table") return saved;
+    } catch {
+      // fallback
+    }
+    return "table";
+  });
+
+  const handleSetViewMode = (mode: "cards" | "table") => {
+    setViewMode(mode);
+    try {
+      localStorage.setItem("tw_membros_view_mode", mode);
+    } catch {
+      // ignore
+    }
+  };
 
   // Cargos válidos do grupo (excluindo desenvolvedor)
   const availableLevels = useMemo(() => {
@@ -452,9 +470,23 @@ export function MembrosPage() {
               <div className="hidden md:flex items-center gap-1 border border-border/60 rounded-xl p-0.5 bg-background/50 shrink-0">
                 <Button
                   type="button"
+                  variant={viewMode === "table" ? "default" : "ghost"}
+                  size="sm"
+                  onClick={() => handleSetViewMode("table")}
+                  className={cn(
+                    "h-7 px-2.5 text-xs rounded-lg gap-1.5 transition-all",
+                    viewMode === "table" ? "bg-primary text-primary-foreground font-bold shadow-xs" : "text-muted-foreground"
+                  )}
+                  title="Visualização em Tabela (Padrão)"
+                >
+                  <List className="h-3.5 w-3.5" />
+                  <span>Tabela</span>
+                </Button>
+                <Button
+                  type="button"
                   variant={viewMode === "cards" ? "default" : "ghost"}
                   size="sm"
-                  onClick={() => setViewMode("cards")}
+                  onClick={() => handleSetViewMode("cards")}
                   className={cn(
                     "h-7 px-2.5 text-xs rounded-lg gap-1.5 transition-all",
                     viewMode === "cards" ? "bg-primary text-primary-foreground font-bold shadow-xs" : "text-muted-foreground"
@@ -463,20 +495,6 @@ export function MembrosPage() {
                 >
                   <LayoutGrid className="h-3.5 w-3.5" />
                   <span>Cards</span>
-                </Button>
-                <Button
-                  type="button"
-                  variant={viewMode === "table" ? "default" : "ghost"}
-                  size="sm"
-                  onClick={() => setViewMode("table")}
-                  className={cn(
-                    "h-7 px-2.5 text-xs rounded-lg gap-1.5 transition-all",
-                    viewMode === "table" ? "bg-primary text-primary-foreground font-bold shadow-xs" : "text-muted-foreground"
-                  )}
-                  title="Visualização em Tabela"
-                >
-                  <List className="h-3.5 w-3.5" />
-                  <span>Tabela</span>
                 </Button>
               </div>
             </div>
@@ -540,6 +558,7 @@ export function MembrosPage() {
                                 <p className="font-extrabold text-sm text-foreground group-hover/link:text-primary transition-colors truncate">
                                   {m.nickname || m.nome}
                                 </p>
+                                <VerifiedBadge isVerified={m.is_verified} size="xs" />
                                 {targetIsDev && <DevBadge size="xs" />}
                                 {targetIsCeo && <CeoBadge size="xs" />}
                               </div>
@@ -673,15 +692,15 @@ export function MembrosPage() {
               </div>
 
               {/* VISUALIZAÇÃO EM TABELA (DESKTOP) */}
-              <div className={cn("hidden overflow-x-auto", viewMode === "table" && "md:block")}>
+              <div className={cn("hidden overflow-x-auto rounded-xl border border-border/60 bg-card/60 backdrop-blur-sm", viewMode === "table" && "md:block")}>
                 <Table>
                   <TableHeader>
-                    <TableRow>
-                      <TableHead>Membro / Personagem</TableHead>
-                      <TableHead>ID & Telefone</TableHead>
-                      <TableHead>Conta Discord</TableHead>
-                      <TableHead>Cargo / Nível</TableHead>
-                      {canEdit || canDelete ? <TableHead className="text-right">Ações</TableHead> : null}
+                    <TableRow className="hover:bg-transparent border-b border-border/60 bg-muted/40">
+                      <TableHead className="font-bold text-xs">Membro / Personagem</TableHead>
+                      <TableHead className="font-bold text-xs">ID & Telefone</TableHead>
+                      <TableHead className="font-bold text-xs">Conta Discord</TableHead>
+                      <TableHead className="font-bold text-xs">Cargo / Nível</TableHead>
+                      <TableHead className="font-bold text-xs text-right pr-4">Ações</TableHead>
                     </TableRow>
                   </TableHeader>
 
@@ -700,14 +719,14 @@ export function MembrosPage() {
                       );
 
                       return (
-                        <TableRow key={m.user_id} className="hover:bg-muted/40">
+                        <TableRow key={m.user_id} className="hover:bg-muted/40 transition-colors">
                           <TableCell>
                             <Link
                               to="/perfil/$handle"
                               params={{ handle: String(m.custom_url || m.discord_id || m.user_id).replace(/^@/, "") }}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="flex items-center gap-3 min-w-[200px] group cursor-pointer"
+                              className="flex items-center gap-3 min-w-[220px] group cursor-pointer"
                               title={`Ver perfil público de ${m.nickname || m.nome} em nova aba`}
                             >
                               <Avatar className="h-10 w-10 border border-border group-hover:border-primary/50 transition-colors shadow-xs">
@@ -722,6 +741,7 @@ export function MembrosPage() {
                                   <p className="font-bold text-xs text-foreground group-hover:text-primary transition-colors">
                                     {m.nickname ? `${m.nickname}` : m.nome}
                                   </p>
+                                  <VerifiedBadge isVerified={m.is_verified} size="xs" />
                                   {targetIsDev && <DevBadge size="xs" />}
                                   {targetIsCeo && <CeoBadge size="xs" />}
                                 </div>
@@ -743,7 +763,7 @@ export function MembrosPage() {
 
                           <TableCell className="text-xs">
                             <p className="font-mono font-bold text-foreground">ID: #{m.game_id || "N/A"}</p>
-                            <p className="text-muted-foreground text-[0.65rem]">{m.telefone || "N/A"}</p>
+                            <p className="text-muted-foreground text-[0.65rem]">{m.telefone ? formatPhone(m.telefone) : "N/A"}</p>
                           </TableCell>
 
                           {/* DISCORD DATA BADGE */}
@@ -790,40 +810,55 @@ export function MembrosPage() {
                             )}
                           </TableCell>
 
-                          {canEdit || canDelete ? (
-                            <TableCell className="text-right">
-                              <div className="flex items-center justify-end gap-1">
-                                {canEdit ? (
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className="h-8 w-8 rounded-lg text-muted-foreground hover:text-foreground"
-                                    onClick={() => handleOpenEdit(m)}
-                                    title="Editar dados do membro"
-                                  >
-                                    <Edit className="h-3.5 w-3.5" />
-                                  </Button>
-                                ) : null}
+                          <TableCell className="text-right pr-4">
+                            <div className="flex items-center justify-end gap-1">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                asChild
+                                className="h-8 w-8 rounded-xl text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
+                                title={`Ver perfil de ${m.nickname || m.nome}`}
+                              >
+                                <Link
+                                  to="/perfil/$handle"
+                                  params={{ handle: String(m.custom_url || m.discord_id || m.user_id).replace(/^@/, "") }}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                >
+                                  <ExternalLink className="h-3.5 w-3.5" />
+                                </Link>
+                              </Button>
 
-                                {canDelete ? (
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className="h-8 w-8 rounded-lg text-destructive hover:bg-destructive/10"
-                                    onClick={() => {
-                                      if (confirm(`Remover o membro ${m.nome} do grupo?`)) {
-                                        deleteMemberMutation.mutate(m.user_id);
-                                      }
-                                    }}
-                                    disabled={deleteMemberMutation.isPending}
-                                    title="Excluir membro"
-                                  >
-                                    <Trash2 className="h-3.5 w-3.5" />
-                                  </Button>
-                                ) : null}
-                              </div>
-                            </TableCell>
-                          ) : null}
+                              {canEdit ? (
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-8 w-8 rounded-xl text-muted-foreground hover:text-foreground hover:bg-secondary/80 transition-colors"
+                                  onClick={() => handleOpenEdit(m)}
+                                  title="Editar dados do membro"
+                                >
+                                  <Edit className="h-3.5 w-3.5" />
+                                </Button>
+                              ) : null}
+
+                              {canDelete ? (
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-8 w-8 rounded-xl text-destructive hover:bg-destructive/10 transition-colors"
+                                  onClick={() => {
+                                    if (confirm(`Remover o membro ${m.nome} do grupo?`)) {
+                                      deleteMemberMutation.mutate(m.user_id);
+                                    }
+                                  }}
+                                  disabled={deleteMemberMutation.isPending}
+                                  title="Excluir membro"
+                                >
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                </Button>
+                              ) : null}
+                            </div>
+                          </TableCell>
                         </TableRow>
                       );
                     })}

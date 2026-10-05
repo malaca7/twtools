@@ -56,6 +56,7 @@ import { Route as AuthenticatedCeoAdvertenciasRouteImport } from './routes/_auth
 import { Route as AuthenticatedCeoAjustesEstoqueRouteImport } from './routes/_authenticated/ceo.ajustes-estoque'
 import { Route as AuthenticatedCeoNotificacoesRouteImport } from './routes/_authenticated/ceo.notificacoes'
 import { Route as AuthenticatedCeoPermissoesTagsRouteImport } from './routes/_authenticated/ceo.permissoes-tags'
+import { Route as AuthenticatedCeoSelosRouteImport } from './routes/_authenticated/ceo.selos'
 import { Route as AuthenticatedCeoTagsRouteImport } from './routes/_authenticated/ceo.tags'
 import { Route as AuthenticatedConfiguracoesTabRouteImport } from './routes/_authenticated/configuracoes.$tab'
 import { Route as AuthenticatedDevIndexRouteImport } from './routes/_authenticated/dev.index'
@@ -358,6 +359,11 @@ const AuthenticatedCeoPermissoesTagsRoute =
     path: '/permissoes-tags',
     getParentRoute: () => AuthenticatedCeoRoute,
   } as any)
+const AuthenticatedCeoSelosRoute = AuthenticatedCeoSelosRouteImport.update({
+  id: '/selos',
+  path: '/selos',
+  getParentRoute: () => AuthenticatedCeoRoute,
+} as any)
 const AuthenticatedCeoTagsRoute = AuthenticatedCeoTagsRouteImport.update({
   id: '/tags',
   path: '/tags',
@@ -711,6 +717,7 @@ export interface FileRoutesByFullPath {
   '/ceo/ajustes-estoque': typeof AuthenticatedCeoAjustesEstoqueRoute
   '/ceo/notificacoes': typeof AuthenticatedCeoNotificacoesRoute
   '/ceo/permissoes-tags': typeof AuthenticatedCeoPermissoesTagsRoute
+  '/ceo/selos': typeof AuthenticatedCeoSelosRoute
   '/ceo/tags': typeof AuthenticatedCeoTagsRoute
   '/configuracoes/$tab': typeof AuthenticatedConfiguracoesTabRoute
   '/dev/$page': typeof AuthenticatedDevPageRouteWithChildren
@@ -812,6 +819,7 @@ export interface FileRoutesByTo {
   '/ceo/ajustes-estoque': typeof AuthenticatedCeoAjustesEstoqueRoute
   '/ceo/notificacoes': typeof AuthenticatedCeoNotificacoesRoute
   '/ceo/permissoes-tags': typeof AuthenticatedCeoPermissoesTagsRoute
+  '/ceo/selos': typeof AuthenticatedCeoSelosRoute
   '/ceo/tags': typeof AuthenticatedCeoTagsRoute
   '/configuracoes/$tab': typeof AuthenticatedConfiguracoesTabRoute
   '/dev/$page': typeof AuthenticatedDevPageRouteWithChildren
@@ -915,6 +923,7 @@ export interface FileRoutesById {
   '/_authenticated/ceo/ajustes-estoque': typeof AuthenticatedCeoAjustesEstoqueRoute
   '/_authenticated/ceo/notificacoes': typeof AuthenticatedCeoNotificacoesRoute
   '/_authenticated/ceo/permissoes-tags': typeof AuthenticatedCeoPermissoesTagsRoute
+  '/_authenticated/ceo/selos': typeof AuthenticatedCeoSelosRoute
   '/_authenticated/ceo/tags': typeof AuthenticatedCeoTagsRoute
   '/_authenticated/configuracoes/$tab': typeof AuthenticatedConfiguracoesTabRoute
   '/_authenticated/dev/$page': typeof AuthenticatedDevPageRouteWithChildren
@@ -1018,6 +1027,7 @@ export interface FileRouteTypes {
     | '/ceo/ajustes-estoque'
     | '/ceo/notificacoes'
     | '/ceo/permissoes-tags'
+    | '/ceo/selos'
     | '/ceo/tags'
     | '/configuracoes/$tab'
     | '/dev/$page'
@@ -1119,6 +1129,7 @@ export interface FileRouteTypes {
     | '/ceo/ajustes-estoque'
     | '/ceo/notificacoes'
     | '/ceo/permissoes-tags'
+    | '/ceo/selos'
     | '/ceo/tags'
     | '/configuracoes/$tab'
     | '/dev/$page'
@@ -1221,6 +1232,7 @@ export interface FileRouteTypes {
     | '/_authenticated/ceo/ajustes-estoque'
     | '/_authenticated/ceo/notificacoes'
     | '/_authenticated/ceo/permissoes-tags'
+    | '/_authenticated/ceo/selos'
     | '/_authenticated/ceo/tags'
     | '/_authenticated/configuracoes/$tab'
     | '/_authenticated/dev/$page'
@@ -1615,6 +1627,13 @@ declare module '@tanstack/react-router' {
       path: '/permissoes-tags'
       fullPath: '/ceo/permissoes-tags'
       preLoaderRoute: typeof AuthenticatedCeoPermissoesTagsRouteImport
+      parentRoute: typeof AuthenticatedCeoRoute
+    }
+    '/_authenticated/ceo/selos': {
+      id: '/_authenticated/ceo/selos'
+      path: '/selos'
+      fullPath: '/ceo/selos'
+      preLoaderRoute: typeof AuthenticatedCeoSelosRouteImport
       parentRoute: typeof AuthenticatedCeoRoute
     }
     '/_authenticated/ceo/tags': {
@@ -2022,6 +2041,7 @@ interface AuthenticatedCeoRouteChildren {
   AuthenticatedCeoAjustesEstoqueRoute: typeof AuthenticatedCeoAjustesEstoqueRoute
   AuthenticatedCeoNotificacoesRoute: typeof AuthenticatedCeoNotificacoesRoute
   AuthenticatedCeoPermissoesTagsRoute: typeof AuthenticatedCeoPermissoesTagsRoute
+  AuthenticatedCeoSelosRoute: typeof AuthenticatedCeoSelosRoute
   AuthenticatedCeoTagsRoute: typeof AuthenticatedCeoTagsRoute
   AuthenticatedCeoProducoesArmazemRoute: typeof AuthenticatedCeoProducoesArmazemRoute
   AuthenticatedCeoProducoesGestaoRoute: typeof AuthenticatedCeoProducoesGestaoRoute
@@ -2036,6 +2056,7 @@ const AuthenticatedCeoRouteChildren: AuthenticatedCeoRouteChildren = {
   AuthenticatedCeoAjustesEstoqueRoute: AuthenticatedCeoAjustesEstoqueRoute,
   AuthenticatedCeoNotificacoesRoute: AuthenticatedCeoNotificacoesRoute,
   AuthenticatedCeoPermissoesTagsRoute: AuthenticatedCeoPermissoesTagsRoute,
+  AuthenticatedCeoSelosRoute: AuthenticatedCeoSelosRoute,
   AuthenticatedCeoTagsRoute: AuthenticatedCeoTagsRoute,
   AuthenticatedCeoProducoesArmazemRoute: AuthenticatedCeoProducoesArmazemRoute,
   AuthenticatedCeoProducoesGestaoRoute: AuthenticatedCeoProducoesGestaoRoute,
@@ -2372,13 +2393,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}

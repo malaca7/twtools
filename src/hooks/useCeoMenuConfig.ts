@@ -29,7 +29,8 @@ export const DEFAULT_CEO_MENU_ITEMS: CeoMenuItemConfig[] = [
   { id: "ceo-ajustes-estoque", title: "Ajustes de Estoque", url: "/ceo/ajustes-estoque", iconName: "Sliders", visible: true, category: "CEO", order: 4 },
   { id: "ceo-notificacoes", title: "Central de Notificações", url: "/ceo/notificacoes", iconName: "BellRing", visible: true, category: "CEO", order: 5 },
   { id: "ceo-tags", title: "Gerenciar Tags", url: "/ceo/tags", iconName: "Tags", visible: true, category: "CEO", order: 6 },
-  { id: "ceo-advertencias", title: "Advertências & Suspensões", url: "/ceo/advertencias", iconName: "ShieldAlert", visible: true, category: "CEO", order: 7 },
+  { id: "ceo-selos", title: "Gerenciar Selos", url: "/ceo/selos", iconName: "BadgeCheck", visible: true, category: "CEO", order: 7 },
+  { id: "ceo-advertencias", title: "Advertências & Suspensões", url: "/ceo/advertencias", iconName: "ShieldAlert", visible: true, category: "CEO", order: 8 },
 ];
 
 const STORAGE_KEY = "tw_ceo_menu_config";

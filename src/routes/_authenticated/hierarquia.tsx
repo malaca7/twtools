@@ -40,6 +40,7 @@ import { useUrlTab } from "@/hooks/useUrlTab";
 import { useMembers, nameOf } from "@/hooks/useData";
 import { useMemberTagsMap } from "@/hooks/useMemberTags";
 import { MemberTagBadge } from "@/components/ui/MemberTagBadge";
+import { VerifiedBadge } from "@/components/ui/VerifiedBadge";
 import { InsigniaEmblem } from "@/components/gamification/InsigniaIcon";
 import { getAllMemberInsignias, type MemberInsigniaGrant, RARITY_CONFIG } from "@/services/gamificationService";
 import {
@@ -560,6 +561,7 @@ export function HierarquiaPage() {
                                     <p className="text-xs font-black text-foreground truncate">
                                       {nameOf(members, member.user_id)}
                                     </p>
+                                    <VerifiedBadge isVerified={member.is_verified} size="xs" />
                                     {isDeveloper && (
                                       <Badge
                                         variant="outline"
@@ -773,6 +775,7 @@ export function HierarquiaPage() {
                                     <span className="text-xs font-bold text-foreground block truncate">
                                       {nameOf(members, m.user_id)}
                                     </span>
+                                    <VerifiedBadge isVerified={m.is_verified} size="xs" />
                                     <Badge
                                       variant="outline"
                                       className="text-[9px] font-mono py-0 px-1 border-primary/40 text-primary bg-primary/10"

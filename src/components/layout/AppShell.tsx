@@ -58,6 +58,7 @@ import {
   Lock,
   Swords,
   Palette,
+  BadgeCheck,
 } from "lucide-react";
 import { resolveMenuIcon } from "@/lib/menuIcons";
 import {
@@ -132,6 +133,8 @@ import { DevToolsMenu } from "@/components/dev/DevToolsMenu";
 import { NotificationCenter } from "@/components/notifications/NotificationCenter";
 import { useMyMemberTags } from "@/hooks/useMemberTags";
 import { MemberTagBadge } from "@/components/ui/MemberTagBadge";
+import { VerifiedBadge } from "@/components/ui/VerifiedBadge";
+import { VerificationRequestModal } from "@/components/verification/VerificationRequestModal";
 
 type MasterNavItem = {
   id: string;
@@ -245,6 +248,7 @@ const URL_TO_PERMISSION_MAP: Record<string, Permission> = {
   "/ceo/armazem": "warehouse.view",
   "/ceo/tags": "view_ceo_tag_permissions",
   "/ceo/permissoes-tags": "view_ceo_tag_permissions",
+  "/ceo/selos": "view_ceo",
   "/ceo/logs": "view_audit",
   "/dev/tags": "view_dev_tags",
   "/dev/gerenciar-tags": "view_dev_tags",
@@ -257,6 +261,7 @@ const URL_TO_PERMISSION_MAP: Record<string, Permission> = {
   "/dev/ceo/ajustes-estoque": "view_ceo_stock_adjustments",
   "/dev/ceo/notificacoes": "view_ceo_notifications",
   "/dev/ceo/tags": "view_ceo_tag_permissions",
+  "/dev/ceo/selos": "view_ceo",
   "/dev/ceo/advertencias": "view_ceo_warnings",
   "/dev/ajustes-estoque": "view_ceo_stock_adjustments",
   "/dev/webhooks": "manage_ceo_webhooks",
@@ -1133,6 +1138,7 @@ function DynamicSidebarNavigation() {
 export function AppShell({ children }: { children: ReactNode }) {
   const { profile, level, signOut, user, isCeoUser, isDevUser, panelMode, setPanelMode, hasPermission, isPlatformLocked, platformLockedTags } = useAuth();
   const [isAppearanceModalOpen, setIsAppearanceModalOpen] = useState(false);
+  const [isVerificationModalOpen, setIsVerificationModalOpen] = useState(false);
   const myTags = useMyMemberTags();
   const navigate = useNavigate();
   const pathname = useRouterState({ select: (r) => r.location.pathname });
@@ -1405,9 +1411,12 @@ export function AppShell({ children }: { children: ReactNode }) {
                     </Avatar>
 
                     <div className="text-left min-w-0 hidden md:block pointer-events-none max-w-[130px]">
-                      <p className="truncate text-xs sm:text-sm font-bold text-foreground leading-tight">
-                        {mainName}
-                      </p>
+                      <div className="flex items-center gap-1 min-w-0">
+                        <p className="truncate text-xs sm:text-sm font-bold text-foreground leading-tight">
+                          {mainName}
+                        </p>
+                        <VerifiedBadge isVerified={profile?.is_verified} size="xs" />
+                      </div>
                       {subName ? (
                         <p className="truncate text-[0.65rem] text-muted-foreground leading-tight">
                           {subName}
@@ -1424,7 +1433,10 @@ export function AppShell({ children }: { children: ReactNode }) {
                 <DropdownMenuContent align="end" className="w-64">
                   <DropdownMenuLabel className="space-y-1.5">
                     <div className="flex items-center justify-between gap-1.5">
-                      <p className="text-xs font-bold text-foreground truncate">{mainName}</p>
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <p className="text-xs font-bold text-foreground truncate">{mainName}</p>
+                        <VerifiedBadge isVerified={profile?.is_verified} size="xs" />
+                      </div>
                       <Badge variant="outline" className={cn("text-[9px] font-mono px-1 py-0", levelBadgeClass(level || "membro"))}>
                         {level ? LEVEL_LABEL[level] : "Membro"}
                       </Badge>
@@ -1459,6 +1471,14 @@ export function AppShell({ children }: { children: ReactNode }) {
                     className="cursor-pointer font-medium"
                   >
                     <Palette className="mr-2 h-4 w-4 text-purple-400" /> Aparência
+                  </DropdownMenuItem>
+
+                  <DropdownMenuItem
+                    onClick={() => setIsVerificationModalOpen(true)}
+                    className="cursor-pointer font-medium"
+                  >
+                    <BadgeCheck className="mr-2 h-4 w-4 text-emerald-400" />
+                    <span>{profile?.is_verified ? "Selo de Verificado" : "Solicitar Verificação"}</span>
                   </DropdownMenuItem>
 
                   <DropdownMenuSeparator />
@@ -1616,6 +1636,12 @@ export function AppShell({ children }: { children: ReactNode }) {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* MODAL DE SOLICITAÇÃO / STATUS DE VERIFICAÇÃO */}
+      <VerificationRequestModal
+        isOpen={isVerificationModalOpen}
+        onClose={() => setIsVerificationModalOpen(false)}
+      />
     </SidebarProvider>
   );
 }
