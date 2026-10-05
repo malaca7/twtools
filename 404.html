@@ -17,26 +17,154 @@
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
     <meta http-equiv="Pragma" content="no-cache" />
     <meta http-equiv="Expires" content="0" />
-    <title>Twin Wheels — Gestão de Facção GTA RP</title>
+    <title>Twin Wheels — Gestão de Grupo GTA RP</title>
     <link rel="icon" href="/favicon.ico" type="image/x-icon" />
     <link rel="icon" href="/favicon.png" type="image/png" />
     <link rel="apple-touch-icon" href="/logo.png" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous" />
     <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;900&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&family=Montserrat:wght@400;500;600;700;800&family=Orbitron:wght@500;700;900&family=Outfit:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Rajdhani:wght@500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet" />
-    <script type="module" crossorigin src="/assets/index-ByOvxuJo.js"></script>
-    <link rel="modulepreload" crossorigin href="/assets/react-SIfiwpqq.js">
-    <link rel="modulepreload" crossorigin href="/assets/dist-Bxi6TEX9.js">
-    <link rel="modulepreload" crossorigin href="/assets/client-CMIpznYy.js">
-    <link rel="modulepreload" crossorigin href="/assets/app-api-VJ4YaFHO.js">
-    <link rel="modulepreload" crossorigin href="/assets/postimagesService-3RWukHIj.js">
-    <link rel="modulepreload" crossorigin href="/assets/discordService-BTpcyyBB.js">
-    <link rel="modulepreload" crossorigin href="/assets/syncService-CbPsjx_P.js">
-    <link rel="modulepreload" crossorigin href="/assets/productionService-BXSF_eJp.js">
-    <link rel="modulepreload" crossorigin href="/assets/discordTagService-U2YOtqtd.js">
-    <link rel="stylesheet" crossorigin href="/assets/index-CuXO4PqO.css">
+    <style>
+      html, body {
+        background-color: #060911 !important;
+        color: #f3f4f6 !important;
+        margin: 0;
+        padding: 0;
+        min-height: 100vh;
+        font-family: 'Space Grotesk', 'Inter', system-ui, -apple-system, sans-serif;
+      }
+      #root {
+        min-height: 100vh;
+      }
+      .tw-preloader {
+        position: fixed;
+        inset: 0;
+        background-color: #060911;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        z-index: 99999;
+      }
+      .tw-glow-bg {
+        position: absolute;
+        width: 320px;
+        height: 320px;
+        border-radius: 50%;
+        background: radial-gradient(circle, rgba(99, 102, 241, 0.22) 0%, rgba(139, 92, 246, 0.08) 50%, transparent 70%);
+        filter: blur(60px);
+        pointer-events: none;
+        animation: tw-pulse 3s ease-in-out infinite;
+      }
+      .tw-spinner-ring {
+        position: relative;
+        width: 72px;
+        height: 72px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .tw-spinner-ring::before {
+        content: '';
+        position: absolute;
+        inset: 0;
+        border-radius: 20px;
+        border: 2.5px solid rgba(99, 102, 241, 0.2);
+        border-top-color: #6366f1;
+        border-right-color: #8b5cf6;
+        animation: tw-spin 1s cubic-bezier(0.55, 0.25, 0.25, 0.95) infinite;
+        box-shadow: 0 0 16px rgba(99, 102, 241, 0.35);
+      }
+      .tw-logo-img {
+        width: 42px;
+        height: 42px;
+        object-fit: contain;
+        filter: drop-shadow(0 0 10px rgba(99, 102, 241, 0.6));
+      }
+      .tw-title-text {
+        font-size: 20px;
+        font-weight: 800;
+        letter-spacing: -0.02em;
+        background: linear-gradient(135deg, #ffffff 30%, #a5b4fc 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        margin-top: 18px;
+        text-align: center;
+      }
+      .tw-subtitle-text {
+        font-size: 11px;
+        color: #94a3b8;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        margin-top: 6px;
+        text-align: center;
+        font-weight: 600;
+      }
+      .tw-fallback-btn {
+        display: none;
+        margin-top: 24px;
+        padding: 8px 16px;
+        border-radius: 12px;
+        background: rgba(255, 255, 255, 0.08);
+        border: 1px solid rgba(255, 255, 255, 0.15);
+        color: #cbd5e1;
+        font-size: 12px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s;
+      }
+      .tw-fallback-btn:hover {
+        background: rgba(255, 255, 255, 0.15);
+        color: #fff;
+      }
+      @keyframes tw-spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+      }
+      @keyframes tw-pulse {
+        0%, 100% { transform: scale(1); opacity: 0.8; }
+        50% { transform: scale(1.15); opacity: 1; }
+      }
+    </style>
+    <script type="module" crossorigin src="/assets/index-CQSyhuvq.js"></script>
+    <link rel="modulepreload" crossorigin href="/assets/rolldown-runtime-hePW80VL.js">
+    <link rel="modulepreload" crossorigin href="/assets/vendor-charts-D0alTCOS.js">
+    <link rel="modulepreload" crossorigin href="/assets/vendor-react-BoMGv6vh.js">
+    <link rel="modulepreload" crossorigin href="/assets/vendor-tanstack-CoZfUsdw.js">
+    <link rel="modulepreload" crossorigin href="/assets/vendor-supabase-DXOF90vj.js">
+    <link rel="modulepreload" crossorigin href="/assets/client-DTda8_Gi.js">
+    <link rel="modulepreload" crossorigin href="/assets/app-api-DtE1mSw6.js">
+    <link rel="modulepreload" crossorigin href="/assets/vendor-ui-aqhH5rAL.js">
+    <link rel="modulepreload" crossorigin href="/assets/postimagesService-C7TfX8K6.js">
+    <link rel="modulepreload" crossorigin href="/assets/discordService-G8ofwiFJ.js">
+    <link rel="modulepreload" crossorigin href="/assets/syncService-CwYQPNaP.js">
+    <link rel="stylesheet" crossorigin href="/assets/vendor-react-BnuhLJ6X.css">
+    <link rel="stylesheet" crossorigin href="/assets/index-Cmwx0qSW.css">
   </head>
   <body class="bg-background text-foreground antialiased">
-    <div id="root"></div>
+    <div id="root">
+      <div class="tw-preloader" id="initial-preloader">
+        <div class="tw-glow-bg"></div>
+        <div class="tw-spinner-ring">
+          <img src="/logo.png" alt="Twin Wheels" class="tw-logo-img" onerror="this.style.display='none'" />
+        </div>
+        <div class="tw-title-text">Twin Wheels</div>
+        <div class="tw-subtitle-text">Iniciando plataforma...</div>
+        <button
+          type="button"
+          class="tw-fallback-btn"
+          id="preloader-fallback-btn"
+          onclick="try{localStorage.clear();sessionStorage.clear();}catch(e){}window.location.reload();"
+        >
+          Demorando para carregar? Limpar Cache e Recarregar
+        </button>
+      </div>
+      <script>
+        setTimeout(function() {
+          var btn = document.getElementById('preloader-fallback-btn');
+          if (btn) btn.style.display = 'block';
+        }, 5000);
+      </script>
+    </div>
   </body>
 </html>
