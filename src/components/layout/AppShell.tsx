@@ -57,6 +57,7 @@ import {
   Layers,
   Lock,
   Swords,
+  Palette,
 } from "lucide-react";
 import { resolveMenuIcon } from "@/lib/menuIcons";
 import {
@@ -103,6 +104,14 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
+import { UserAppearanceSettings } from "@/components/profile/UserAppearanceSettings";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { getProxiedImageUrl } from "@/services/postimagesService";
 import { useAuth } from "@/hooks/useAuth";
@@ -1123,6 +1132,7 @@ function DynamicSidebarNavigation() {
 
 export function AppShell({ children }: { children: ReactNode }) {
   const { profile, level, signOut, user, isCeoUser, isDevUser, panelMode, setPanelMode, hasPermission, isPlatformLocked, platformLockedTags } = useAuth();
+  const [isAppearanceModalOpen, setIsAppearanceModalOpen] = useState(false);
   const myTags = useMyMemberTags();
   const navigate = useNavigate();
   const pathname = useRouterState({ select: (r) => r.location.pathname });
@@ -1432,36 +1442,24 @@ export function AppShell({ children }: { children: ReactNode }) {
 
                   <DropdownMenuItem
                     onClick={() => {
-                      if (pathname.startsWith("/dev")) {
-                        navigate({ to: "/dev/perfil" });
-                      } else if (pathname.startsWith("/ceo")) {
-                        navigate({ to: "/ceo/perfil" });
+                      const publicHandle = profile?.custom_url || profile?.game_id || profile?.discord_username?.replace(/#0$/, "") || profile?.user_id || profile?.id;
+                      if (publicHandle) {
+                        navigate({ to: `/perfil/${publicHandle}` as any });
                       } else {
                         navigate({ to: "/perfil" });
                       }
                     }}
-                    className="cursor-pointer"
+                    className="cursor-pointer font-medium"
                   >
-                    <User className="mr-2 h-4 w-4 text-primary" /> Meu Perfil
+                    <User className="mr-2 h-4 w-4 text-primary" /> Perfil
                   </DropdownMenuItem>
 
-                  {(isCeoUser || isDevUser) && (
-                    <DropdownMenuItem
-                      onClick={() => navigate({ to: settings?.startPageCeo || "/ceo/dashboard" })}
-                      className={cn("cursor-pointer font-bold", ceoStyle.textClass, ceoStyle.itemHoverClass)}
-                    >
-                      <CeoIcon className={cn("mr-2 h-4 w-4", ceoStyle.iconClass)} /> Painel CEO
-                    </DropdownMenuItem>
-                  )}
-
-                  {isDevUser && (
-                    <DropdownMenuItem
-                      onClick={() => navigate({ to: settings?.startPageDev || "/dev" })}
-                      className={cn("cursor-pointer font-bold", devStyle.textClass, devStyle.itemHoverClass)}
-                    >
-                      <DevIcon className={cn("mr-2 h-4 w-4", devStyle.iconClass)} /> Painel Dev
-                    </DropdownMenuItem>
-                  )}
+                  <DropdownMenuItem
+                    onClick={() => setIsAppearanceModalOpen(true)}
+                    className="cursor-pointer font-medium"
+                  >
+                    <Palette className="mr-2 h-4 w-4 text-purple-400" /> Aparência
+                  </DropdownMenuItem>
 
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={handleSignOut} className="text-destructive font-medium cursor-pointer">
@@ -1598,6 +1596,26 @@ export function AppShell({ children }: { children: ReactNode }) {
 
       <ForceCachePurgeListener />
       <ScrollToTopButton />
+
+      {/* MODAL RÁPIDO DE APARÊNCIA E TEMAS */}
+      <Dialog open={isAppearanceModalOpen} onOpenChange={setIsAppearanceModalOpen}>
+        <DialogContent className="max-w-4xl w-[95vw] max-h-[90vh] overflow-y-auto p-4 sm:p-6 surface-card border-border/80 shadow-2xl">
+          <DialogHeader className="pb-3 border-b border-border/60">
+            <DialogTitle className="flex items-center gap-2 text-base sm:text-lg font-bold">
+              <div className="h-8 w-8 rounded-xl bg-purple-500/15 border border-purple-500/30 flex items-center justify-center text-purple-400 shrink-0">
+                <Palette className="h-4 w-4" />
+              </div>
+              <span>Configurar Aparência & Tema</span>
+            </DialogTitle>
+            <DialogDescription className="text-xs text-muted-foreground">
+              Personalize seus temas visuais, estilo de cards, bordas, fontes e efeitos de brilho em tempo real.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="pt-2">
+            <UserAppearanceSettings />
+          </div>
+        </DialogContent>
+      </Dialog>
     </SidebarProvider>
   );
 }
