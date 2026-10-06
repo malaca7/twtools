@@ -1042,6 +1042,34 @@ function getLogSemanticKey(log) {
 }
 
 /**
+ * Responde ao frontend sobre o resultado de um disparo de teste via Supabase Realtime Broadcast
+ */
+async function respondTestResult(testId, resultData) {
+  try {
+    const responsePayload = {
+      test_id: testId,
+      ...resultData,
+    };
+    if (testSharedChannel) {
+      await testSharedChannel.send({
+        type: "broadcast",
+        event: "test_result",
+        payload: responsePayload,
+      });
+    } else {
+      const ch = supabase.channel("system-discord-test-channel");
+      await ch.send({
+        type: "broadcast",
+        event: "test_result",
+        payload: responsePayload,
+      });
+    }
+  } catch (err) {
+    console.warn("⚠️ [TEST CHANNEL] Erro ao enviar resposta do teste:", err.message);
+  }
+}
+
+/**
  * Roteia e envia o embed do log diretamente para o canal do Discord através do Bot
  */
 async function dispatchAuditLogToDiscord(log) {

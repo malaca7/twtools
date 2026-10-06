@@ -911,6 +911,47 @@ export async function testDiscordWebhookChannel(
     }
   }
 
+  // 2. TENTA ENVIO DIRETO VIA BOT DISCLOUD (twin.discloud.app/webhook/:channelId)
+  if (webhook.channelId && isValidDiscordId(webhook.channelId)) {
+    try {
+      const testTitle = webhook.defaultTitle || `💻 Teste: ${webhook.name}`;
+      const testDesc = webhook.defaultDescription || `by ${profile?.nome || senderName || "Desenvolvedor"}`;
+
+      const botRes = await fetch(`https://twin.discloud.app/webhook/${webhook.channelId}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: testTitle,
+          description: testDesc,
+          imageUrl: webhook.imageUrl,
+          thumbnailUrl: webhook.thumbnailUrl,
+          mention: webhook.mentionRoles,
+          color: webhook.embedColor || "#10B981",
+          username: webhook.username || webhook.name || "Twin Wheels RP",
+          avatarUrl: webhook.avatarUrl || "https://i.ibb.co/ymH1BQPQ/Uma124.png",
+          useCodeblockField: webhook.useCodeblockField,
+          codeblockLanguage: webhook.codeblockLanguage,
+          footerText: webhook.footerText,
+          showTimestamp: webhook.showTimestamp !== false,
+        }),
+      });
+
+      if (botRes.ok) {
+        const botData = await botRes.json().catch(() => null);
+        if (botData?.success) {
+          return {
+            success: true,
+            message: `✅ Teste entregue com sucesso no canal #${botData.channelName || webhook.channelId}! (ID: ${botData.messageId || botData.id || "OK"})`,
+            messageId: botData.messageId || botData.id,
+            channelName: botData.channelName || webhook.channelId,
+          };
+        }
+      }
+    } catch (err) {
+      console.warn("Falha no envio do teste via Discloud HTTP, tentando fallback...", err);
+    }
+  }
+
   const testId = `test_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
 
   const testPayload = {
