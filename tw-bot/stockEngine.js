@@ -96,6 +96,84 @@ function cleanItemName(rawName, mappings = {}) {
   return name;
 }
 
+function parseItemToken(token, actionMultiplier, parsedItems, isTransfer, fromBauName, toBauName, bauName, config) {
+  if (!token || typeof token !== 'string') return;
+  const clean = token.replace(/^[•\-\*>\s]+/, '').trim();
+  if (!clean || /^(?:🎒|itens|ba[uú]|a[cç][aã]o|registro|saldo|detalhe)/i.test(clean)) return;
+
+  // 1. Padrão "x10 algemas" ou "x 10 algemas"
+  let match = clean.match(/^x\s*(\d+)\s*[:\-]?\s*(.+)$/i);
+  if (match) {
+    const qty = parseInt(match[1], 10);
+    const itemName = cleanItemName(match[2], config.item_mappings);
+    if (!isNaN(qty) && itemName) {
+      parsedItems.push({
+        is_transfer: isTransfer,
+        from_bau_name: fromBauName,
+        to_bau_name: toBauName,
+        bau_name: bauName,
+        item_name: itemName,
+        quantity_change: qty * actionMultiplier
+      });
+      return;
+    }
+  }
+
+  // 2. Padrão "10x algemas" ou "10 x algemas"
+  match = clean.match(/^(\d+)\s*x\s*[:\-]?\s*(.+)$/i);
+  if (match) {
+    const qty = parseInt(match[1], 10);
+    const itemName = cleanItemName(match[2], config.item_mappings);
+    if (!isNaN(qty) && itemName) {
+      parsedItems.push({
+        is_transfer: isTransfer,
+        from_bau_name: fromBauName,
+        to_bau_name: toBauName,
+        bau_name: bauName,
+        item_name: itemName,
+        quantity_change: qty * actionMultiplier
+      });
+      return;
+    }
+  }
+
+  // 3. Padrão "algemas x10" ou "algemas (10x)" ou "algemas: 10"
+  match = clean.match(/^(.+?)\s*(?:x\s*|\(\s*)(\d+)(?:\s*x|\s*\))?$/i) || clean.match(/^(.+?)\s*[:\-]\s*(\d+)$/i);
+  if (match) {
+    const itemName = cleanItemName(match[1], config.item_mappings);
+    const qty = parseInt(match[2], 10);
+    if (!isNaN(qty) && itemName && itemName.length > 1) {
+      parsedItems.push({
+        is_transfer: isTransfer,
+        from_bau_name: fromBauName,
+        to_bau_name: toBauName,
+        bau_name: bauName,
+        item_name: itemName,
+        quantity_change: qty * actionMultiplier
+      });
+      return;
+    }
+  }
+
+  // 4. Padrão "10 algemas"
+  match = clean.match(/^([+-]?\d+)\s+(.+)$/);
+  if (match) {
+    const qty = parseInt(match[1], 10);
+    const itemName = cleanItemName(match[2], config.item_mappings);
+    if (!isNaN(qty) && itemName && itemName.length > 1) {
+      parsedItems.push({
+        is_transfer: isTransfer,
+        from_bau_name: fromBauName,
+        to_bau_name: toBauName,
+        bau_name: bauName,
+        item_name: itemName,
+        quantity_change: Math.abs(qty) * actionMultiplier
+      });
+      return;
+    }
+  }
+}
+
 /**
  * Função utilitária pura para interpretar o conteúdo de uma mensagem ou embed do Discord
  */
@@ -106,7 +184,7 @@ function parseDiscordStockMessage(rawText, embed = null, config = {}, defaultBau
   let authorName = (embed?.author?.name) || '';
   let gamePlayerId = null;
 
-  // 1. Extrair ID do Jogador e Nome (ex: "Andrew Delucca Ferreira • ID 274" ou "Macaé Dacoro • ID 590")
+  // 1. Extrair ID do Jogador e Nome (ex: "Andrew Delucca Ferreira - 4337", "Macaé Dacoro • ID 590")
   const authorPattern = /(?:^|\n)\s*([a-zA-Z0-9À-ÿ\s\.\-_]+?)\s*[•\|\-]\s*(?:ID|Passaporte)?\s*(\d+)/i;
   const authorMatch = (authorName || rawText).match(authorPattern);
   if (authorMatch) {
@@ -120,19 +198,28 @@ function parseDiscordStockMessage(rawText, embed = null, config = {}, defaultBau
   }
 
   if (!authorName) {
-    const authorLine = lines.find(l => /ID\s*\d+/i.test(l));
+    const authorLine = lines.find(l => /ID\s*\d+/i.test(l) || /Ação e Registro/i.test(l));
     if (authorLine) {
-      const parts = authorLine.split(/[•\|\-]/);
-      authorName = parts[0]?.trim() || authorLine;
+      const clean = authorLine.replace(/👤|Ação e Registro|[:\-]+/gi, '').trim();
+      const parts = clean.split(/[•\|\-]/);
+      authorName = parts[0]?.trim() || clean;
     }
   }
 
-  // 2. Baú: Como as mensagens de log (Cidade Alta APP) trazem apenas "📦 Baú" genérico,
-  // o baú é resolvido primordialmente pelo canal dedicado (defaultBauName)
+  // 2. Baú
   let isTransfer = false;
   let fromBauName = null;
   let toBauName = null;
   let bauName = defaultBauName || 'BAÚ QG';
+
+  // Checar se o título ou linha tem "Baú: Nome" ou "📦 Baú \n Nome"
+  const bauTitleMatch = rawText.match(/(?:📦\s*)?ba[uú]\s*[:\-]\s*([^\n\r]+)/i);
+  if (bauTitleMatch && bauTitleMatch[1]) {
+    const extracted = bauTitleMatch[1].replace(/📦/g, '').replace(/^[:\-\s]+/, '').trim();
+    if (extracted && !['baú', 'bau'].includes(extracted.toLowerCase())) {
+      bauName = extracted;
+    }
+  }
 
   // Checar padrões explícitos de transferência entre dois baús
   const transferMatch = rawText.match(/(?:origem|de)\s*[:\-]\s*([^\n\r\|]+).*?(?:destino|para)\s*[:\-]\s*([^\n\r\|]+)/i) ||
@@ -156,19 +243,55 @@ function parseDiscordStockMessage(rawText, embed = null, config = {}, defaultBau
     }
   }
 
-  // 3. Interpretar itens e quantidades (Saldo Líquido e Detalhes da Movimentação)
+  // 3. Detectar Ação Cidade Alta (Retirou vs Guardou)
+  let actionMultiplier = 1; // 1 = Guardou/Adicionou, -1 = Retirou/Removeu
+  let inItensSection = false;
   let inSaldoLiquidoSection = false;
   let inDetalhesSection = false;
   let lastItemPendingQty = null;
 
+  const actionMatch = rawText.match(/(?:💼\s*)?a[cç][aã]o\s*[:\-]?\s*([^\n\r]+)/i);
+  if (actionMatch) {
+    const actStr = actionMatch[1].toLowerCase();
+    if (/retir|remov|pegou|sacou|tirou|sa[ií]da/i.test(actStr)) {
+      actionMultiplier = -1;
+    } else if (/guard|deposit|coloc|adicion|armazen|entrada/i.test(actStr)) {
+      actionMultiplier = 1;
+    }
+  }
+
   for (let i = 0; i < lines.length; i++) {
     const rawLine = lines[i];
-    // Remove markdown e formatações
     const line = rawLine.replace(/[\*\_`\\]/g, '').trim();
+
+    // Se a linha em si for "Retirou" ou "Guardou"
+    if (/^(?:💼\s*)?retirou|removido|retirada/i.test(line)) {
+      actionMultiplier = -1;
+    } else if (/^(?:💼\s*)?guardou|depositou|adicionado|dep[oó]sito/i.test(line)) {
+      actionMultiplier = 1;
+    }
+
+    // Seção de Itens (Cidade Alta)
+    if (/(?:🎒\s*)?itens/i.test(line)) {
+      inItensSection = true;
+      inSaldoLiquidoSection = false;
+      inDetalhesSection = false;
+
+      // Se os itens estiverem na mesma linha: "🎒 Itens: x10 algemas, x100 lockpick"
+      const inlineItens = line.replace(/^(?:🎒\s*)?itens\s*[:\-]?\s*/i, '').trim();
+      if (inlineItens) {
+        const itemTokens = inlineItens.split(/[,;\n]+/).map(t => t.trim()).filter(Boolean);
+        for (const token of itemTokens) {
+          parseItemToken(token, actionMultiplier, parsedItems, isTransfer, fromBauName, toBauName, bauName, config);
+        }
+      }
+      continue;
+    }
 
     // Início de Saldo Líquido
     if (/saldo\s*l[ií]quido/i.test(line)) {
       inSaldoLiquidoSection = true;
+      inItensSection = false;
       inDetalhesSection = false;
 
       const inlineMatch = line.match(/saldo\s*l[ií]quido\s*[:\-]?\s*(.+?)\s*([+-]\s*\d+)$/i);
@@ -193,13 +316,24 @@ function parseDiscordStockMessage(rawText, embed = null, config = {}, defaultBau
     if (/detalhes\s*da\s*movimenta[cç][aã]o/i.test(line)) {
       inSaldoLiquidoSection = false;
       inDetalhesSection = true;
+      inItensSection = false;
       continue;
     }
 
     // Linhas de rodapé ou metadados de fim
-    if (/movimenta[cç][oõ]es\s*agrupadas|data|hor[aá]rio|respons[aá]vel/i.test(line)) {
+    if (/movimenta[cç][oõ]es\s*agrupadas|voc[eê]\s*consegue\s*agendar|cda\s*:\s*\d+|data|hor[aá]rio|respons[aá]vel/i.test(line)) {
+      inItensSection = false;
       inSaldoLiquidoSection = false;
       inDetalhesSection = false;
+      continue;
+    }
+
+    if (inItensSection) {
+      // Formato Cidade Alta: "x10 algemas", "100x Lockpick", "10x capuz", "x10 algemas, x50 capuz"
+      const subTokens = line.split(/[,;]+/).map(t => t.trim()).filter(Boolean);
+      for (const token of subTokens) {
+        parseItemToken(token, actionMultiplier, parsedItems, isTransfer, fromBauName, toBauName, bauName, config);
+      }
       continue;
     }
 
@@ -243,7 +377,7 @@ function parseDiscordStockMessage(rawText, embed = null, config = {}, defaultBau
     } else {
       // Padrão de linha individual: "Metanfetamina -72"
       const itemMatch = line.match(/^([a-zA-Z0-9À-ÿ\s\.\-_]+?)\s+([+-]\d+)$/);
-      if (itemMatch && !/saldo|detalhe|ba[uú]|id|data/i.test(itemMatch[1])) {
+      if (itemMatch && !/saldo|detalhe|ba[uú]|id|data|a[cç][aã]o|registro/i.test(itemMatch[1])) {
         const itemName = cleanItemName(itemMatch[1], config.item_mappings);
         const qtyChange = parseInt(itemMatch[2], 10);
         if (!isNaN(qtyChange) && itemName.length > 1) {
@@ -404,7 +538,7 @@ async function processStockMessage(message, config, allBaus, broadcastChannel = 
       }
     }
 
-    const isStockEmbed = /saldo\s*l[ií]quido|detalhes\s*da\s*movimenta[cç][aã]o|movimenta[cç][aã]o|transfer[eê]ncia|ba[uú]|retirou|guardou|depositou|removeu/i.test(rawText);
+    const isStockEmbed = /saldo\s*l[ií]quido|detalhes\s*da\s*movimenta[cç][aã]o|movimenta[cç][aã]o|transfer[eê]ncia|ba[uú]|retirou|guardou|depositou|removeu|a[cç][aã]o\s*e\s*registro|itens/i.test(rawText);
 
     // Se o canal pertence a um baú específico
     if (matchedBau) {
@@ -440,7 +574,7 @@ async function processStockMessage(message, config, allBaus, broadcastChannel = 
     }
 
     // Se não aparenta ser uma log de movimentação de estoque, ignorar
-    if (!/saldo\s*l[ií]quido|detalhes\s*da\s*movimenta[cç][aã]o|movimenta[cç][aã]o|transfer[eê]ncia|ba[uú]|retirou|guardou|depositou|removeu/i.test(rawText)) {
+    if (!/saldo\s*l[ií]quido|detalhes\s*da\s*movimenta[cç][aã]o|movimenta[cç][aã]o|transfer[eê]ncia|ba[uú]|retirou|guardou|depositou|removeu|a[cç][aã]o\s*e\s*registro|itens/i.test(rawText)) {
       return;
     }
 
@@ -598,8 +732,8 @@ function initStockEngine(client, supabaseClient = null) {
 
       // Detecta se é embed de movimentação de estoque (Cidade Alta APP ou simulação técnica)
       const hasStockEmbed = message.embeds?.length > 0 &&
-        /saldo\s*l[ií]quido|detalhes\s*da\s*movimenta[cç][aã]o/i.test(
-          (message.embeds[0].title || '') + '\n' + (message.embeds[0].description || '')
+        /saldo\s*l[ií]quido|detalhes\s*da\s*movimenta[cç][aã]o|retirou|guardou|depositou|ba[uú]|itens|a[cç][aã]o\s*e\s*registro/i.test(
+          (message.embeds[0].title || '') + '\n' + (message.embeds[0].description || '') + '\n' + (message.embeds[0].fields?.map(f => f.name + ' ' + f.value).join('\n') || '')
         );
 
       // Ignorar mensagens enviadas pelo próprio bot (EXCETO se for mensagem de simulação/teste de estoque)

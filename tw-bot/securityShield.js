@@ -299,6 +299,12 @@ function isDuplicateFlood(channelId, content = "", embeds = []) {
   if (dynamicAntiSpamConfig && dynamicAntiSpamConfig.enabled === false) return false;
   if (dynamicAntiSpamConfig && dynamicAntiSpamConfig.duplicateProtectionEnabled === false) return false;
 
+  // Baú / Estoque / Movimentações legítimas do jogo nunca devem ser descartadas como flood
+  const textCombined = `${content || ""} ${JSON.stringify(embeds || [])}`;
+  if (/ba[uú]|itens|retirou|guardou|depositou|saldo\s*l[ií]quido|a[cç][aã]o\s*e\s*registro|cidade\s*alta/i.test(textCombined)) {
+    return false;
+  }
+
   const windowSec = Number(dynamicAntiSpamConfig.duplicateWindowSeconds);
   if (isNaN(windowSec) || windowSec <= 0) return false;
 

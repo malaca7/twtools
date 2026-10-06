@@ -1822,8 +1822,8 @@ async function warmUpGuildMembers() {
 // Mapeamento de apelidos e aliases de webhooks legados (ex: FiveM Cidade Alta logs)
 const KNOWN_WEBHOOK_ALIASES = {
   "1548409284000485420": "1535637509818548234", // Webhook legado Cidade Alta / Baú logs -> Canal #baus-qg
+  "1557157544764641284": "1535637509818548234", // Webhook ativo oficial #baus-qg
   "1548409281257279619": "1535634406490906734", // Captain Hook
-  "1557157544764641284": "1535637509818548234", // Webhook oficial #baus-qg
   "1554653001157705778": "1554652550634938540", // #baus-qgnew
   "1535637589818548234": "1535637509818548234", // Typo alias
   "baus": "1535637509818548234",
@@ -1833,14 +1833,15 @@ const KNOWN_WEBHOOK_ALIASES = {
 };
 
 const KNOWN_CHANNEL_WEBHOOKS_BOT = {
-  "1535637509818548234": "https://discord.com/api/webhooks/1548409284000485420/AoRhvOaaA-yNUdWHcV-TZUNx4gOLxWFddthfe3kfHKpycQ2SmyaUsQiSNTnagelHzlsR",
-  "1548409284000485420": "https://discord.com/api/webhooks/1548409284000485420/AoRhvOaaA-yNUdWHcV-TZUNx4gOLxWFddthfe3kfHKpycQ2SmyaUsQiSNTnagelHzlsR",
+  "1535637509818548234": "https://discord.com/api/webhooks/1557157544764641284/Cx1GDJxh7mBWrL2PMZBA6A1zX8UKsHQ6V2VbSbE4_60SF_koAY9_GyFrdvEHzwP-mzOi",
+  "1548409284000485420": "https://discord.com/api/webhooks/1557157544764641284/Cx1GDJxh7mBWrL2PMZBA6A1zX8UKsHQ6V2VbSbE4_60SF_koAY9_GyFrdvEHzwP-mzOi",
+  "1557157544764641284": "https://discord.com/api/webhooks/1557157544764641284/Cx1GDJxh7mBWrL2PMZBA6A1zX8UKsHQ6V2VbSbE4_60SF_koAY9_GyFrdvEHzwP-mzOi",
   "1554652550634938540": "https://discord.com/api/webhooks/1554653001157705778/L1ULPzVRJYagJuBaFZOuV00hFp2TaFOiEeCpIwBVbNvEKOHV08MiI_fhs9Lu4eq3z3bo",
   "1535634406490906734": "https://discord.com/api/webhooks/1548409281257279619/D7xXcK4e4W5qdqBp8SVN_ngkh-aydDk-GRUcucykcQCYORp_9Jfh8iyumYVQGX19lLYX",
 };
 
 /**
- * Trata requisições HTTP para a rota pública de Webhook (/webhook/:target)
+ * Trata requisições HTTP para a rota pública de Webhook (/webhook/:target, /webhooks/:target, /api/webhooks/:target)
  */
 async function handleWebhookHttpRequest(targetParam, req, res) {
   if (!targetParam) {
@@ -1850,10 +1851,11 @@ async function handleWebhookHttpRequest(targetParam, req, res) {
 
   // Normaliza o targetParam removendo query strings e barras
   const cleanTarget = String(targetParam).trim().replace(/^\/+|\/+$/g, "").split("?")[0];
+  const targetIdOnly = cleanTarget.split("/")[0].trim();
 
   // 1. Verificação de Rate Limit por IP e Canal
   const clientIp = (req.headers["x-forwarded-for"] || req.socket?.remoteAddress || "unknown").split(",")[0].trim();
-  const rateCheck = checkRateLimit(clientIp, cleanTarget);
+  const rateCheck = checkRateLimit(clientIp, targetIdOnly || cleanTarget);
   if (!rateCheck.allowed) {
     console.warn(`⚠️ [RATE LIMIT] Requisição bloqueada para IP ${clientIp} no canal ${cleanTarget}: ${rateCheck.reason}`);
     res.writeHead(429, {
@@ -1863,7 +1865,7 @@ async function handleWebhookHttpRequest(targetParam, req, res) {
     return res.end(JSON.stringify({ success: false, error: rateCheck.reason }));
   }
 
-  let channelId = KNOWN_WEBHOOK_ALIASES[cleanTarget] || cleanTarget;
+  let channelId = KNOWN_WEBHOOK_ALIASES[cleanTarget] || KNOWN_WEBHOOK_ALIASES[targetIdOnly] || targetIdOnly || cleanTarget;
   let webhookName = "Twin Wheels Webhook";
   let botUsername = "Twin Wheels RP";
   let botAvatar = (discordConfig && discordConfig.botAvatarUrl) || "https://i.ibb.co/ymH1BQPQ/Uma124.png";
@@ -1883,6 +1885,11 @@ async function handleWebhookHttpRequest(targetParam, req, res) {
   let defaultMention = undefined;
   let directWebhookUrl = undefined;
 
+  // Se channelId for ou apontar para #baus-qg, garante webhook oficial ativo
+  if (channelId === "1535637509818548234" || targetIdOnly === "1548409284000485420" || targetIdOnly === "1557157544764641284") {
+    directWebhookUrl = "https://discord.com/api/webhooks/1557157544764641284/Cx1GDJxh7mBWrL2PMZBA6A1zX8UKsHQ6V2VbSbE4_60SF_koAY9_GyFrdvEHzwP-mzOi";
+  }
+
   // Sempre busca nas configurações de webhooks do banco para obter metadados (nome, avatar, cor, canal, embeds)
   try {
     const { data } = await supabase
@@ -1895,14 +1902,20 @@ async function handleWebhookHttpRequest(targetParam, req, res) {
       const found = data.permissions.webhooks.find(
         (w) =>
           w.id === cleanTarget ||
+          w.id === targetIdOnly ||
           w.channelId === cleanTarget ||
+          w.channelId === targetIdOnly ||
           w.channelId === channelId ||
-          (w.webhookUrl && w.webhookUrl.includes(cleanTarget)) ||
-          (cleanTarget === "1548409284000485420" && (w.channelId === "1535637509818548234" || w.id === "webhook_1789248648283"))
+          (w.webhookUrl && (w.webhookUrl.includes(cleanTarget) || w.webhookUrl.includes(targetIdOnly))) ||
+          (cleanTarget.includes("1548409284000485420") && (w.channelId === "1535637509818548234" || w.id === "webhook_1789248648283"))
       );
       if (found) {
         if (found.channelId) channelId = found.channelId;
-        if (found.webhookUrl) directWebhookUrl = found.webhookUrl;
+        if (found.webhookUrl) {
+          directWebhookUrl = found.webhookUrl.includes("1548409284000485420")
+            ? "https://discord.com/api/webhooks/1557157544764641284/Cx1GDJxh7mBWrL2PMZBA6A1zX8UKsHQ6V2VbSbE4_60SF_koAY9_GyFrdvEHzwP-mzOi"
+            : found.webhookUrl;
+        }
         webhookName = found.name || webhookName;
         botUsername = found.username || botUsername;
         botAvatar = found.avatarUrl || botAvatar;
@@ -2227,9 +2240,10 @@ async function handleWebhookHttpRequest(targetParam, req, res) {
         let finalChannelName = channelId;
 
         const targetWebhookUrl =
-          directWebhookUrl ||
+          (directWebhookUrl && !directWebhookUrl.includes("1548409284000485420") ? directWebhookUrl : null) ||
           KNOWN_CHANNEL_WEBHOOKS_BOT[channelId] ||
-          KNOWN_CHANNEL_WEBHOOKS_BOT[cleanTarget];
+          KNOWN_CHANNEL_WEBHOOKS_BOT[cleanTarget] ||
+          KNOWN_CHANNEL_WEBHOOKS_BOT[targetIdOnly];
 
         // 1. Prioridade: Envio direto via Webhook Oficial do Discord (Preserva avatar e nome "Cidade Alta APP")
         if (targetWebhookUrl && targetWebhookUrl.startsWith("http")) {
@@ -2765,9 +2779,14 @@ const server = http.createServer(async (req, res) => {
     return handleGetWebhookUrl(targetChannelId, req, res);
   }
 
-  // Rota de Webhook pública: /webhook/:idOrChannelId ou /api/webhook/:idOrChannelId
-  if (pathname.startsWith("/webhook/") || pathname.startsWith("/api/webhook/")) {
-    const targetParam = pathname.replace(/^\/(?:api\/)?webhook\//, "").trim();
+  // Rota de Webhook pública: /webhook/:idOrChannelId, /api/webhook/:idOrChannelId, /webhooks/:idOrChannelId, /api/webhooks/:idOrChannelId
+  if (
+    pathname.startsWith("/webhook/") ||
+    pathname.startsWith("/webhooks/") ||
+    pathname.startsWith("/api/webhook/") ||
+    pathname.startsWith("/api/webhooks/")
+  ) {
+    const targetParam = pathname.replace(/^\/(?:api\/)?webhooks?\//, "").trim();
     return handleWebhookHttpRequest(targetParam, req, res);
   }
 
