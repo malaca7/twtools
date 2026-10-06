@@ -140,6 +140,8 @@ export const DEFAULT_WEBHOOKS_CONFIG: DiscordWebhooksConfig = {
       name: "TW | Logs de Baú QG",
       guildId: "1535505650308620400",
       channelId: "1535637509818548234",
+      webhookUrl:
+        "https://discord.com/api/webhooks/1548409284000485420/AoRhvOaaA-yNUdWHcV-TZUNx4gOLxWFddthfe3kfHKpycQ2SmyaUsQiSNTnagelHzlsR",
       description: "Logs de Baú QG",
       enabled: true,
       username: "Twin Wheels",
@@ -253,10 +255,14 @@ export function isValidDiscordId(id?: string): boolean {
 
 // Mapeamentos conhecidos de canais (roteamento gerenciado com segurança via bot)
 export const KNOWN_CHANNEL_WEBHOOKS: Record<string, string> = {
-  "1535637509818548234": "https://discord.com/api/webhooks/1557157544764641284/Cx1GDJxh7mBWrL2PMZBA6A1zX8UKsHQ6V2VbSbE4_60SF_koAY9_GyFrdvEHzwP-mzOi",
-  "1548409284000485420": "https://discord.com/api/webhooks/1557157544764641284/Cx1GDJxh7mBWrL2PMZBA6A1zX8UKsHQ6V2VbSbE4_60SF_koAY9_GyFrdvEHzwP-mzOi",
-  "1554652550634938540": "https://discord.com/api/webhooks/1554653001157705778/L1ULPzVRJYagJuBaFZOuV00hFp2TaFOiEeCpIwBVbNvEKOHV08MiI_fhs9Lu4eq3z3bo",
-  "1535634406490906734": "https://discord.com/api/webhooks/1548409281257279619/D7xXcK4e4W5qdqBp8SVN_ngkh-aydDk-GRUcucykcQCYORp_9Jfh8iyumYVQGX19lLYX",
+  "1535637509818548234":
+    "https://discord.com/api/webhooks/1548409284000485420/AoRhvOaaA-yNUdWHcV-TZUNx4gOLxWFddthfe3kfHKpycQ2SmyaUsQiSNTnagelHzlsR",
+  "1548409284000485420":
+    "https://discord.com/api/webhooks/1548409284000485420/AoRhvOaaA-yNUdWHcV-TZUNx4gOLxWFddthfe3kfHKpycQ2SmyaUsQiSNTnagelHzlsR",
+  "1554652550634938540":
+    "https://discord.com/api/webhooks/1554653001157705778/L1ULPzVRJYagJuBaFZOuV00hFp2TaFOiEeCpIwBVbNvEKOHV08MiI_fhs9Lu4eq3z3bo",
+  "1535634406490906734":
+    "https://discord.com/api/webhooks/1548409281257279619/D7xXcK4e4W5qdqBp8SVN_ngkh-aydDk-GRUcucykcQCYORp_9Jfh8iyumYVQGX19lLYX",
 };
 
 /**
@@ -973,4 +979,71 @@ export async function testDiscordWebhookChannel(
       });
   });
 }
+
+export interface DiscordMessagePreview {
+  id: string;
+  guildId?: string;
+  guildName?: string;
+  channelId: string;
+  channelName?: string;
+  createdAt: string;
+  author: {
+    id?: string;
+    username: string;
+    discriminator?: string;
+    avatarUrl?: string | null;
+    bot?: boolean;
+    webhookId?: string | null;
+  };
+  content?: string;
+  embeds: Array<{
+    title?: string;
+    description?: string;
+    url?: string;
+    color?: string | number;
+    author?: { name?: string; iconUrl?: string; url?: string } | null;
+    thumbnail?: { url?: string } | null;
+    image?: { url?: string } | null;
+    footer?: { text?: string; iconUrl?: string } | null;
+    timestamp?: string;
+    fields?: Array<{ name: string; value: string; inline?: boolean }>;
+  }>;
+  attachments: Array<{
+    id: string;
+    name: string;
+    url: string;
+    contentType?: string;
+    size?: number;
+  }>;
+  url: string;
+}
+
+/**
+ * Busca uma mensagem do Discord pelo link de compartilhamento (ex: https://discord.com/channels/GUILD/CHANNEL/MESSAGE)
+ */
+export async function fetchDiscordMessageByUrl(url: string): Promise<{
+  success: boolean;
+  message?: DiscordMessagePreview;
+  shieldResult?: { blocked: boolean; reason?: string; matchedPattern?: string };
+  error?: string;
+}> {
+  try {
+    const encoded = encodeURIComponent(url.trim());
+    const res = await fetch(`https://twin.discloud.app/api/discord-message?url=${encoded}`);
+    const data = await res.json().catch(() => null);
+    if (res.ok && data?.success) {
+      return data;
+    }
+    return {
+      success: false,
+      error: data?.error || `Falha ao buscar mensagem no Discord (Status HTTP ${res.status})`,
+    };
+  } catch (err: any) {
+    return {
+      success: false,
+      error: err?.message || "Erro de conexão com o bot do Discord.",
+    };
+  }
+}
+
 

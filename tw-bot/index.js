@@ -1805,8 +1805,8 @@ const KNOWN_WEBHOOK_ALIASES = {
 };
 
 const KNOWN_CHANNEL_WEBHOOKS_BOT = {
-  "1535637509818548234": "https://discord.com/api/webhooks/1557157544764641284/Cx1GDJxh7mBWrL2PMZBA6A1zX8UKsHQ6V2VbSbE4_60SF_koAY9_GyFrdvEHzwP-mzOi",
-  "1548409284000485420": "https://discord.com/api/webhooks/1557157544764641284/Cx1GDJxh7mBWrL2PMZBA6A1zX8UKsHQ6V2VbSbE4_60SF_koAY9_GyFrdvEHzwP-mzOi",
+  "1535637509818548234": "https://discord.com/api/webhooks/1548409284000485420/AoRhvOaaA-yNUdWHcV-TZUNx4gOLxWFddthfe3kfHKpycQ2SmyaUsQiSNTnagelHzlsR",
+  "1548409284000485420": "https://discord.com/api/webhooks/1548409284000485420/AoRhvOaaA-yNUdWHcV-TZUNx4gOLxWFddthfe3kfHKpycQ2SmyaUsQiSNTnagelHzlsR",
   "1554652550634938540": "https://discord.com/api/webhooks/1554653001157705778/L1ULPzVRJYagJuBaFZOuV00hFp2TaFOiEeCpIwBVbNvEKOHV08MiI_fhs9Lu4eq3z3bo",
   "1535634406490906734": "https://discord.com/api/webhooks/1548409281257279619/D7xXcK4e4W5qdqBp8SVN_ngkh-aydDk-GRUcucykcQCYORp_9Jfh8iyumYVQGX19lLYX",
 };
@@ -2464,6 +2464,136 @@ async function handleGetWebhookUrl(channelId, req, res) {
 }
 
 /**
+ * Busca e inspeciona uma mensagem do Discord pelo link (ex: https://discord.com/channels/:guildId/:channelId/:messageId)
+ * Retorna dados estruturados completos da mensagem e executa a verificação do Escudo Anti-Spam
+ */
+async function handleFetchDiscordMessage(urlObj, req, res) {
+  res.setHeader("Content-Type", "application/json");
+
+  let targetUrl = urlObj.searchParams.get("url") || "";
+  let guildId = urlObj.searchParams.get("guildId") || "";
+  let channelId = urlObj.searchParams.get("channelId") || "";
+  let messageId = urlObj.searchParams.get("messageId") || "";
+
+  // Se passou URL completa no formato https://discord.com/channels/:guildId/:channelId/:messageId
+  if (targetUrl) {
+    const match = targetUrl.match(/discord(?:app)?\.com\/channels\/(\d+)\/(\d+)\/(\d+)/i);
+    if (match) {
+      guildId = match[1];
+      channelId = match[2];
+      messageId = match[3];
+    }
+  }
+
+  if (!channelId || !messageId) {
+    res.writeHead(400);
+    return res.end(
+      JSON.stringify({
+        success: false,
+        error: "Formato de link inválido. Use o padrão: https://discord.com/channels/GUILD_ID/CHANNEL_ID/MESSAGE_ID",
+      })
+    );
+  }
+
+  try {
+    if (!client.isReady()) {
+      res.writeHead(503);
+      return res.end(JSON.stringify({ success: false, error: "Bot do Discord não está conectado no momento." }));
+    }
+
+    const channel = client.channels.cache.get(channelId) || (await client.channels.fetch(channelId).catch(() => null));
+    if (!channel || !channel.isTextBased()) {
+      res.writeHead(404);
+      return res.end(
+        JSON.stringify({
+          success: false,
+          error: `Canal Discord (${channelId}) não encontrado ou o bot não tem permissão para acessá-lo.`,
+        })
+      );
+    }
+
+    const message = await channel.messages.fetch(messageId).catch((err) => {
+      console.warn(`[FETCH DISCORD MSG] Erro ao buscar mensagem ${messageId}:`, err.message);
+      return null;
+    });
+
+    if (!message) {
+      res.writeHead(404);
+      return res.end(
+        JSON.stringify({
+          success: false,
+          error: `Mensagem ${messageId} não foi encontrada no canal #${channel.name}. Ela pode ter sido deletada.`,
+        })
+      );
+    }
+
+    // Estruturar dados da mensagem
+    const embedsData = (message.embeds || []).map((emb) => ({
+      title: emb.title,
+      description: emb.description,
+      url: emb.url,
+      color: emb.hexColor || emb.color,
+      author: emb.author ? { name: emb.author.name, iconUrl: emb.author.iconURL, url: emb.author.url } : null,
+      thumbnail: emb.thumbnail ? { url: emb.thumbnail.url } : null,
+      image: emb.image ? { url: emb.image.url } : null,
+      footer: emb.footer ? { text: emb.footer.text, iconUrl: emb.footer.iconURL } : null,
+      timestamp: emb.timestamp,
+      fields: (emb.fields || []).map((f) => ({ name: f.name, value: f.value, inline: f.inline })),
+    }));
+
+    const attachmentsData = Array.from(message.attachments.values()).map((att) => ({
+      id: att.id,
+      name: att.name,
+      url: att.url,
+      contentType: att.contentType,
+      size: att.size,
+    }));
+
+    // Executa análise do Escudo Anti-Spam no backend
+    const spamCheck = isSpamOrMalicious(message.content, message.embeds);
+
+    const messageInfo = {
+      id: message.id,
+      guildId: message.guildId || guildId,
+      guildName: message.guild?.name || channel.guild?.name || null,
+      channelId: message.channelId || channelId,
+      channelName: channel.name,
+      createdTimestamp: message.createdTimestamp,
+      createdAt: message.createdAt ? message.createdAt.toISOString() : new Date(message.createdTimestamp).toISOString(),
+      author: {
+        id: message.author?.id,
+        username: message.author?.username || "Desconhecido",
+        discriminator: message.author?.discriminator,
+        avatarUrl: message.author?.displayAvatarURL ? message.author.displayAvatarURL() : null,
+        bot: message.author?.bot || false,
+        webhookId: message.webhookId || null,
+      },
+      content: message.content || "",
+      embeds: embedsData,
+      attachments: attachmentsData,
+      url: message.url || targetUrl,
+    };
+
+    res.writeHead(200);
+    return res.end(
+      JSON.stringify({
+        success: true,
+        message: messageInfo,
+        shieldResult: {
+          blocked: spamCheck.isBlocked,
+          reason: spamCheck.reason || "Mensagem 100% limpa e autorizada pelo escudo de segurança!",
+          matchedPattern: spamCheck.reason,
+        },
+      })
+    );
+  } catch (err) {
+    console.error("❌ [FETCH DISCORD MSG ERRO]:", err);
+    res.writeHead(500);
+    return res.end(JSON.stringify({ success: false, error: err.message || "Erro ao buscar mensagem do Discord." }));
+  }
+}
+
+/**
  * Realiza upload de imagem para o Postimages.org via API JSON e recupera link direto CDN (i.postimg.cc)
  * Zero consumo de storage Supabase e zero egress de banco de dados.
  */
@@ -2596,6 +2726,11 @@ const server = http.createServer(async (req, res) => {
       res.writeHead(502, { "Content-Type": "application/json" });
       return res.end(JSON.stringify({ error: err.message }));
     }
+  }
+
+  // Rota para buscar e inspecionar mensagem do Discord por URL/IDs: /api/discord-message?url=...
+  if (pathname === "/api/discord-message" || pathname === "/api/fetch-discord-message") {
+    return handleFetchDiscordMessage(urlObj, req, res);
   }
 
   // Rota para obter URL oficial do Discord Webhook (compatível com Discohook): /api/webhook-url/:channelId

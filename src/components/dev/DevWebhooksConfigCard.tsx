@@ -928,10 +928,16 @@ export function DevWebhooksConfigCard({ isCeoView }: DevWebhooksConfigCardProps 
                       </button>
                     </div>
 
-                    <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-zinc-950 border border-zinc-800 text-[0.68rem] font-mono text-zinc-300">
-                      <span className="truncate flex-1 select-all font-mono" title={getWebhookShareableUrl(wh)}>
-                        {getWebhookShareableUrl(wh)}
-                      </span>
+                    <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-zinc-950 border border-zinc-800 text-[0.68rem] font-mono text-zinc-300 min-w-0">
+                      <input
+                        type="text"
+                        readOnly
+                        dir="ltr"
+                        value={getWebhookShareableUrl(wh)}
+                        onClick={(e) => (e.target as HTMLInputElement).select()}
+                        className="bg-transparent border-0 font-mono text-[0.68rem] text-zinc-300 flex-1 min-w-0 select-all focus:outline-none cursor-pointer selection:bg-emerald-500/30 text-left"
+                        title={getWebhookShareableUrl(wh)}
+                      />
                       <Button
                         size="sm"
                         variant="ghost"
@@ -1915,13 +1921,21 @@ export function DevWebhooksConfigCard({ isCeoView }: DevWebhooksConfigCardProps 
                       {copiedId === codeWebhook.id ? "Copiado!" : "Copiar Link"}
                     </button>
                   </div>
-                  <div className="flex items-center gap-2 p-2 rounded-lg bg-zinc-950 border border-zinc-800 text-[0.75rem] font-mono text-zinc-300">
-                    <span className="truncate flex-1 select-all">{getWebhookShareableUrl(codeWebhook)}</span>
+                  <div className="flex items-center gap-2 p-2 rounded-lg bg-zinc-950 border border-zinc-800 text-[0.75rem] font-mono text-zinc-300 min-w-0">
+                    <input
+                      type="text"
+                      readOnly
+                      dir="ltr"
+                      value={getWebhookShareableUrl(codeWebhook)}
+                      onClick={(e) => (e.target as HTMLInputElement).select()}
+                      className="bg-transparent border-0 font-mono text-[0.75rem] text-zinc-300 flex-1 min-w-0 select-all focus:outline-none cursor-pointer selection:bg-violet-500/30 text-left"
+                      title={getWebhookShareableUrl(codeWebhook)}
+                    />
                     <a
                       href={getWebhookShareableUrl(codeWebhook)}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="p-1 rounded text-muted-foreground hover:text-foreground hover:bg-zinc-800"
+                      className="p-1 rounded text-muted-foreground hover:text-foreground hover:bg-zinc-800 shrink-0"
                       title="Abrir no navegador"
                     >
                       <ExternalLink className="h-3.5 w-3.5" />
