@@ -929,15 +929,13 @@ export function DevWebhooksConfigCard({ isCeoView }: DevWebhooksConfigCardProps 
                     </div>
 
                     <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-zinc-950 border border-zinc-800 text-[0.68rem] font-mono text-zinc-300 min-w-0">
-                      <input
-                        type="text"
-                        readOnly
-                        dir="ltr"
-                        value={getWebhookShareableUrl(wh)}
-                        onClick={(e) => (e.target as HTMLInputElement).select()}
-                        className="bg-transparent border-0 font-mono text-[0.68rem] text-zinc-300 flex-1 min-w-0 select-all focus:outline-none cursor-pointer selection:bg-emerald-500/30 text-left"
+                      <div
+                        onClick={() => handleCopyWebhookLink(wh)}
                         title={getWebhookShareableUrl(wh)}
-                      />
+                        className="font-mono text-[0.68rem] text-zinc-300 flex-1 min-w-0 truncate text-left cursor-pointer hover:text-emerald-300 transition-colors select-all"
+                      >
+                        {getWebhookShareableUrl(wh)}
+                      </div>
                       <Button
                         size="sm"
                         variant="ghost"

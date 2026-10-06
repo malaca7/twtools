@@ -59,7 +59,9 @@ export interface WebhookAntiSpamConfig {
   maxMessagesPerMinutePerChannel: number;
   duplicateProtectionEnabled?: boolean;
   duplicateWindowSeconds: number;
+  customBlockedPhrasesEnabled?: boolean;
   customBlockedPhrases: string[];
+  customBlockedDomainsEnabled?: boolean;
   customBlockedDomains: string[];
   autoDeleteChannelSpam: boolean;
   notifyOnSpamBlocked: boolean;
@@ -96,6 +98,7 @@ export const DEFAULT_ANTI_SPAM_CONFIG: WebhookAntiSpamConfig = {
   maxMessagesPerMinutePerChannel: 20,
   duplicateProtectionEnabled: true,
   duplicateWindowSeconds: 45,
+  customBlockedPhrasesEnabled: true,
   customBlockedPhrases: [
     "to use this bot, you must join",
     "programming & development tools",
@@ -108,6 +111,7 @@ export const DEFAULT_ANTI_SPAM_CONFIG: WebhookAntiSpamConfig = {
     "claim free nitro",
     "airdrop token",
   ],
+  customBlockedDomainsEnabled: true,
   customBlockedDomains: [
     "t.me",
     "telegram.me",
@@ -141,7 +145,7 @@ export const DEFAULT_WEBHOOKS_CONFIG: DiscordWebhooksConfig = {
       guildId: "1535505650308620400",
       channelId: "1535637509818548234",
       webhookUrl:
-        "https://discord.com/api/webhooks/1557157544764641284/Cx1GDJxh7mBWrL2PMZBA6A1zX8UKsHQ6V2VbSbE4_60SF_koAY9_GyFrdvEHzwP-mzOi",
+        "https://discord.com/api/webhooks/1548409284000485420/AoRhvOaaA-yNUdWHcV-TZUNx4gOLxWFddthfe3kfHKpycQ2SmyaUsQiSNTnagelHzlsR",
       description: "Logs de Baú QG",
       enabled: true,
       username: "Twin Wheels",
@@ -256,9 +260,9 @@ export function isValidDiscordId(id?: string): boolean {
 // Mapeamentos conhecidos de canais (roteamento gerenciado com segurança via bot)
 export const KNOWN_CHANNEL_WEBHOOKS: Record<string, string> = {
   "1535637509818548234":
-    "https://discord.com/api/webhooks/1557157544764641284/Cx1GDJxh7mBWrL2PMZBA6A1zX8UKsHQ6V2VbSbE4_60SF_koAY9_GyFrdvEHzwP-mzOi",
+    "https://discord.com/api/webhooks/1548409284000485420/AoRhvOaaA-yNUdWHcV-TZUNx4gOLxWFddthfe3kfHKpycQ2SmyaUsQiSNTnagelHzlsR",
   "1548409284000485420":
-    "https://discord.com/api/webhooks/1557157544764641284/Cx1GDJxh7mBWrL2PMZBA6A1zX8UKsHQ6V2VbSbE4_60SF_koAY9_GyFrdvEHzwP-mzOi",
+    "https://discord.com/api/webhooks/1548409284000485420/AoRhvOaaA-yNUdWHcV-TZUNx4gOLxWFddthfe3kfHKpycQ2SmyaUsQiSNTnagelHzlsR",
   "1554652550634938540":
     "https://discord.com/api/webhooks/1554653001157705778/L1ULPzVRJYagJuBaFZOuV00hFp2TaFOiEeCpIwBVbNvEKOHV08MiI_fhs9Lu4eq3z3bo",
   "1535634406490906734":

@@ -19,7 +19,9 @@ let dynamicAntiSpamConfig = {
   maxMessagesPerMinutePerChannel: 20,
   duplicateProtectionEnabled: true,
   duplicateWindowSeconds: 45,
+  customBlockedPhrasesEnabled: true,
   customBlockedPhrases: [],
+  customBlockedDomainsEnabled: true,
   customBlockedDomains: [],
   autoDeleteChannelSpam: true,
   notifyOnSpamBlocked: true,
@@ -196,7 +198,7 @@ function isSpamOrMalicious(content = "", embeds = []) {
   }
 
   // 5. Checagem de Domínios Customizados configurados pelo usuário
-  if (Array.isArray(dynamicAntiSpamConfig.customBlockedDomains)) {
+  if (dynamicAntiSpamConfig.customBlockedDomainsEnabled !== false && Array.isArray(dynamicAntiSpamConfig.customBlockedDomains)) {
     for (const domain of dynamicAntiSpamConfig.customBlockedDomains) {
       const cleanDom = normalizeContent(domain);
       if (cleanDom && (normalized.includes(cleanDom) || combinedRaw.toLowerCase().includes(cleanDom))) {
@@ -209,7 +211,7 @@ function isSpamOrMalicious(content = "", embeds = []) {
   }
 
   // 6. Checagem de Frases Customizadas configuradas pelo usuário
-  if (Array.isArray(dynamicAntiSpamConfig.customBlockedPhrases)) {
+  if (dynamicAntiSpamConfig.customBlockedPhrasesEnabled !== false && Array.isArray(dynamicAntiSpamConfig.customBlockedPhrases)) {
     for (const phrase of dynamicAntiSpamConfig.customBlockedPhrases) {
       const cleanPhrase = normalizeContent(phrase);
       if (cleanPhrase && normalized.includes(cleanPhrase)) {

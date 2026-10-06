@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef, useCallback } from "react";
 import {
   Shield,
   ShieldAlert,
@@ -19,7 +19,6 @@ import {
   Zap,
   ChevronDown,
   ChevronUp,
-  Save,
   Loader2,
   Info,
   Server,
@@ -42,9 +41,11 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
+import { useAuth } from "@/hooks/useAuth";
 import {
   DEFAULT_ANTI_SPAM_CONFIG,
   fetchDiscordMessageByUrl,
+  saveDiscordWebhooksConfig,
   type DiscordMessagePreview,
   type DiscordWebhooksConfig,
   type WebhookAntiSpamConfig,
@@ -55,17 +56,16 @@ interface DevAntiSpamCardProps {
   config: DiscordWebhooksConfig;
   onChange: (updated: DiscordWebhooksConfig) => void;
   canSave: boolean;
-  onSave: () => Promise<void>;
-  saving: boolean;
+  onSave?: () => Promise<void>;
+  saving?: boolean;
 }
 
 export function DevAntiSpamCard({
   config,
   onChange,
   canSave,
-  onSave,
-  saving,
 }: DevAntiSpamCardProps) {
+  const { user, profile, level } = useAuth();
   const [isExpanded, setIsExpanded] = useState(true);
   const [newPhrase, setNewPhrase] = useState("");
   const [newDomain, setNewDomain] = useState("");
@@ -78,6 +78,9 @@ export function DevAntiSpamCard({
     matchedPattern?: string;
   } | null>(null);
 
+  const [autoSaveStatus, setAutoSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
+  const saveDebounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const antiSpam: WebhookAntiSpamConfig = useMemo(() => {
     return {
       ...DEFAULT_ANTI_SPAM_CONFIG,
@@ -89,7 +92,36 @@ export function DevAntiSpamCard({
     };
   }, [config.antiSpam]);
 
-  const updateAntiSpam = (partial: Partial<WebhookAntiSpamConfig>) => {
+  const performAutoSave = useCallback(
+    (fullConfig: DiscordWebhooksConfig, immediate = true) => {
+      if (!canSave) return;
+      if (saveDebounceTimer.current) {
+        clearTimeout(saveDebounceTimer.current);
+      }
+
+      setAutoSaveStatus("saving");
+
+      const doSave = async () => {
+        try {
+          await saveDiscordWebhooksConfig(fullConfig, user, profile, level);
+          setAutoSaveStatus("saved");
+        } catch (err: any) {
+          console.error("Erro no salvamento automático do escudo:", err);
+          setAutoSaveStatus("error");
+          toast.error("Falha no salvamento automático: " + (err?.message || "Erro desconhecido"));
+        }
+      };
+
+      if (immediate) {
+        doSave();
+      } else {
+        saveDebounceTimer.current = setTimeout(doSave, 400);
+      }
+    },
+    [canSave, user, profile, level]
+  );
+
+  const updateAntiSpam = (partial: Partial<WebhookAntiSpamConfig>, immediate = true) => {
     const updated: WebhookAntiSpamConfig = {
       ...antiSpam,
       ...partial,
@@ -98,10 +130,12 @@ export function DevAntiSpamCard({
         ...(partial.stats || {}),
       },
     };
-    onChange({
+    const newConfig: DiscordWebhooksConfig = {
       ...config,
       antiSpam: updated,
-    });
+    };
+    onChange(newConfig);
+    performAutoSave(newConfig, immediate);
   };
 
   const handleAddPhrase = () => {
@@ -113,16 +147,16 @@ export function DevAntiSpamCard({
     }
     updateAntiSpam({
       customBlockedPhrases: [...antiSpam.customBlockedPhrases, trimmed],
-    });
+    }, true);
     setNewPhrase("");
-    toast.success(`Frase "${trimmed}" adicionada ao filtro.`);
+    toast.success(`Frase "${trimmed}" adicionada e salva no filtro.`);
   };
 
   const handleRemovePhrase = (phraseToRemove: string) => {
     updateAntiSpam({
       customBlockedPhrases: antiSpam.customBlockedPhrases.filter((p) => p !== phraseToRemove),
-    });
-    toast.success(`Frase removida.`);
+    }, true);
+    toast.success(`Frase removida e salva.`);
   };
 
   const handleAddDomain = () => {
@@ -136,23 +170,23 @@ export function DevAntiSpamCard({
     }
     updateAntiSpam({
       customBlockedDomains: [...antiSpam.customBlockedDomains, trimmed],
-    });
+    }, true);
     setNewDomain("");
-    toast.success(`Domínio "${trimmed}" adicionado ao filtro.`);
+    toast.success(`Domínio "${trimmed}" adicionado e salvo no filtro.`);
   };
 
   const handleRemoveDomain = (domainToRemove: string) => {
     updateAntiSpam({
       customBlockedDomains: antiSpam.customBlockedDomains.filter((d) => d !== domainToRemove),
-    });
-    toast.success(`Domínio removido.`);
+    }, true);
+    toast.success(`Domínio removido e salvo.`);
   };
 
   const handleResetDefaults = () => {
     updateAntiSpam({
       ...DEFAULT_ANTI_SPAM_CONFIG,
       stats: antiSpam.stats,
-    });
+    }, true);
     toast.success("Configurações do Anti-Spam restauradas para o padrão recomendado.");
   };
 
@@ -165,7 +199,7 @@ export function DevAntiSpamCard({
         lastBlockedChannel: undefined,
         lastBlockedIp: undefined,
       },
-    });
+    }, true);
     toast.success("Métricas de spams bloqueados zeradas.");
   };
 
@@ -266,7 +300,11 @@ export function DevAntiSpamCard({
     }
 
     // 4. Domínios customizados
-    if (currentRules.customBlockedDomains && currentRules.customBlockedDomains.length > 0) {
+    if (
+      (currentRules.customBlockedDomainsEnabled ?? true) &&
+      currentRules.customBlockedDomains &&
+      currentRules.customBlockedDomains.length > 0
+    ) {
       for (const dom of currentRules.customBlockedDomains) {
         if (dom && combined.includes(dom.toLowerCase())) {
           return {
@@ -279,7 +317,11 @@ export function DevAntiSpamCard({
     }
 
     // 5. Frases customizadas
-    if (currentRules.customBlockedPhrases && currentRules.customBlockedPhrases.length > 0) {
+    if (
+      (currentRules.customBlockedPhrasesEnabled ?? true) &&
+      currentRules.customBlockedPhrases &&
+      currentRules.customBlockedPhrases.length > 0
+    ) {
       for (const phrase of currentRules.customBlockedPhrases) {
         if (phrase && combined.includes(phrase.toLowerCase())) {
           return {
@@ -956,18 +998,50 @@ A-TOOLS X
           {/* SEÇÃO 3: LISTAS CUSTOMIZADAS DE PALAVRAS E DOMÍNIOS PROIBIDOS */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             {/* 3.1 Palavras & Frases Proibidas */}
-            <div className="space-y-3 p-4 rounded-xl bg-zinc-900/60 border border-zinc-800 flex flex-col justify-between">
+            <div
+              className={cn(
+                "space-y-3 p-4 rounded-xl border flex flex-col justify-between transition-all",
+                (antiSpam.customBlockedPhrasesEnabled ?? true)
+                  ? "bg-zinc-900/60 border-zinc-800"
+                  : "bg-zinc-950/40 border-zinc-800/50 opacity-75"
+              )}
+            >
               <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <h4 className="text-xs font-black tracking-wider uppercase text-muted-foreground flex items-center gap-1.5">
-                    <Flame className="h-3.5 w-3.5 text-rose-400" />
-                    Frases e Termos Proibidos ({antiSpam.customBlockedPhrases.length})
-                  </h4>
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h4 className="text-xs font-black tracking-wider uppercase text-muted-foreground flex items-center gap-1.5">
+                      <Flame className="h-3.5 w-3.5 text-rose-400" />
+                      Frases e Termos Proibidos ({antiSpam.customBlockedPhrases.length})
+                    </h4>
+                    {(antiSpam.customBlockedPhrasesEnabled ?? true) ? (
+                      <Badge
+                        variant="outline"
+                        className="text-[10px] font-mono py-0 h-4 text-emerald-400 bg-emerald-500/10 border-emerald-500/30 font-bold"
+                      >
+                        Ativo
+                      </Badge>
+                    ) : (
+                      <Badge
+                        variant="outline"
+                        className="text-[10px] font-mono py-0 h-4 text-muted-foreground bg-zinc-900 border-zinc-800"
+                      >
+                        Desativado
+                      </Badge>
+                    )}
+                  </div>
+
+                  <Switch
+                    checked={antiSpam.customBlockedPhrasesEnabled ?? true}
+                    onCheckedChange={(val) => updateAntiSpam({ customBlockedPhrasesEnabled: val }, true)}
+                    className="scale-90 data-[state=checked]:bg-rose-500"
+                    title="Ativar ou desativar filtro de frases e termos proibidos"
+                  />
                 </div>
 
                 <div className="flex items-center gap-2">
                   <Input
                     value={newPhrase}
+                    disabled={!(antiSpam.customBlockedPhrasesEnabled ?? true)}
                     onChange={(e) => setNewPhrase(e.target.value)}
                     onKeyDown={(e) => {
                       if (e.key === "Enter") {
@@ -975,55 +1049,106 @@ A-TOOLS X
                         handleAddPhrase();
                       }
                     }}
-                    placeholder="Adicionar frase proibida (ex: to use this bot)..."
-                    className="bg-zinc-950 border-zinc-800 text-xs h-8"
+                    placeholder={
+                      (antiSpam.customBlockedPhrasesEnabled ?? true)
+                        ? "Adicionar frase proibida (ex: to use this bot)..."
+                        : "Filtro desativado (ative o switch para adicionar)..."
+                    }
+                    className="bg-zinc-950 border-zinc-800 text-xs h-8 disabled:opacity-50"
                   />
                   <Button
                     type="button"
                     size="sm"
+                    disabled={!(antiSpam.customBlockedPhrasesEnabled ?? true)}
                     onClick={handleAddPhrase}
-                    className="bg-zinc-800 hover:bg-zinc-700 text-foreground font-bold text-xs h-8 shrink-0"
+                    className="bg-zinc-800 hover:bg-zinc-700 text-foreground font-bold text-xs h-8 shrink-0 disabled:opacity-50"
                   >
                     <Plus className="h-3.5 w-3.5" />
                     Adicionar
                   </Button>
                 </div>
 
-                <div className="flex flex-wrap gap-1.5 max-h-36 overflow-y-auto p-2 rounded-lg bg-zinc-950 border border-zinc-800/80">
-                  {antiSpam.customBlockedPhrases.map((phrase) => (
-                    <Badge
-                      key={phrase}
-                      variant="outline"
-                      className="bg-zinc-900 border-zinc-800 text-zinc-300 text-[11px] font-mono py-0.5 px-2 flex items-center gap-1.5 hover:border-rose-500/50"
-                    >
-                      <span>{phrase}</span>
-                      <button
-                        type="button"
-                        onClick={() => handleRemovePhrase(phrase)}
-                        className="text-muted-foreground hover:text-rose-400 transition-colors"
-                        title="Remover termo"
+                <div
+                  className={cn(
+                    "flex flex-wrap gap-1.5 max-h-36 overflow-y-auto p-2 rounded-lg bg-zinc-950 border border-zinc-800/80 transition-opacity",
+                    !(antiSpam.customBlockedPhrasesEnabled ?? true) && "opacity-60"
+                  )}
+                >
+                  {antiSpam.customBlockedPhrases.length === 0 ? (
+                    <span className="text-[11px] text-muted-foreground italic px-1">
+                      Nenhuma frase personalizada cadastrada.
+                    </span>
+                  ) : (
+                    antiSpam.customBlockedPhrases.map((phrase) => (
+                      <Badge
+                        key={phrase}
+                        variant="outline"
+                        className={cn(
+                          "bg-zinc-900 border-zinc-800 text-zinc-300 text-[11px] font-mono py-0.5 px-2 flex items-center gap-1.5 hover:border-rose-500/50",
+                          !(antiSpam.customBlockedPhrasesEnabled ?? true) && "line-through text-zinc-500"
+                        )}
                       >
-                        ×
-                      </button>
-                    </Badge>
-                  ))}
+                        <span>{phrase}</span>
+                        <button
+                          type="button"
+                          onClick={() => handleRemovePhrase(phrase)}
+                          className="text-muted-foreground hover:text-rose-400 transition-colors"
+                          title="Remover termo"
+                        >
+                          ×
+                        </button>
+                      </Badge>
+                    ))
+                  )}
                 </div>
               </div>
             </div>
 
             {/* 3.2 Domínios Proibidos */}
-            <div className="space-y-3 p-4 rounded-xl bg-zinc-900/60 border border-zinc-800 flex flex-col justify-between">
+            <div
+              className={cn(
+                "space-y-3 p-4 rounded-xl border flex flex-col justify-between transition-all",
+                (antiSpam.customBlockedDomainsEnabled ?? true)
+                  ? "bg-zinc-900/60 border-zinc-800"
+                  : "bg-zinc-950/40 border-zinc-800/50 opacity-75"
+              )}
+            >
               <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <h4 className="text-xs font-black tracking-wider uppercase text-muted-foreground flex items-center gap-1.5">
-                    <Globe className="h-3.5 w-3.5 text-blue-400" />
-                    Domínios e URLs Proibidas ({antiSpam.customBlockedDomains.length})
-                  </h4>
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h4 className="text-xs font-black tracking-wider uppercase text-muted-foreground flex items-center gap-1.5">
+                      <Globe className="h-3.5 w-3.5 text-blue-400" />
+                      Domínios e URLs Proibidas ({antiSpam.customBlockedDomains.length})
+                    </h4>
+                    {(antiSpam.customBlockedDomainsEnabled ?? true) ? (
+                      <Badge
+                        variant="outline"
+                        className="text-[10px] font-mono py-0 h-4 text-emerald-400 bg-emerald-500/10 border-emerald-500/30 font-bold"
+                      >
+                        Ativo
+                      </Badge>
+                    ) : (
+                      <Badge
+                        variant="outline"
+                        className="text-[10px] font-mono py-0 h-4 text-muted-foreground bg-zinc-900 border-zinc-800"
+                      >
+                        Desativado
+                      </Badge>
+                    )}
+                  </div>
+
+                  <Switch
+                    checked={antiSpam.customBlockedDomainsEnabled ?? true}
+                    onCheckedChange={(val) => updateAntiSpam({ customBlockedDomainsEnabled: val }, true)}
+                    className="scale-90 data-[state=checked]:bg-blue-500"
+                    title="Ativar ou desativar filtro de domínios e URLs proibidas"
+                  />
                 </div>
 
                 <div className="flex items-center gap-2">
                   <Input
                     value={newDomain}
+                    disabled={!(antiSpam.customBlockedDomainsEnabled ?? true)}
                     onChange={(e) => setNewDomain(e.target.value)}
                     onKeyDown={(e) => {
                       if (e.key === "Enter") {
@@ -1031,38 +1156,57 @@ A-TOOLS X
                         handleAddDomain();
                       }
                     }}
-                    placeholder="Adicionar domínio (ex: t.me, grabify.link)..."
-                    className="bg-zinc-950 border-zinc-800 text-xs h-8 font-mono"
+                    placeholder={
+                      (antiSpam.customBlockedDomainsEnabled ?? true)
+                        ? "Adicionar domínio (ex: t.me, grabify.link)..."
+                        : "Filtro desativado (ative o switch para adicionar)..."
+                    }
+                    className="bg-zinc-950 border-zinc-800 text-xs h-8 font-mono disabled:opacity-50"
                   />
                   <Button
                     type="button"
                     size="sm"
+                    disabled={!(antiSpam.customBlockedDomainsEnabled ?? true)}
                     onClick={handleAddDomain}
-                    className="bg-zinc-800 hover:bg-zinc-700 text-foreground font-bold text-xs h-8 shrink-0"
+                    className="bg-zinc-800 hover:bg-zinc-700 text-foreground font-bold text-xs h-8 shrink-0 disabled:opacity-50"
                   >
                     <Plus className="h-3.5 w-3.5" />
                     Adicionar
                   </Button>
                 </div>
 
-                <div className="flex flex-wrap gap-1.5 max-h-36 overflow-y-auto p-2 rounded-lg bg-zinc-950 border border-zinc-800/80">
-                  {antiSpam.customBlockedDomains.map((domain) => (
-                    <Badge
-                      key={domain}
-                      variant="outline"
-                      className="bg-zinc-900 border-zinc-800 text-zinc-300 text-[11px] font-mono py-0.5 px-2 flex items-center gap-1.5 hover:border-blue-500/50"
-                    >
-                      <span>{domain}</span>
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveDomain(domain)}
-                        className="text-muted-foreground hover:text-rose-400 transition-colors"
-                        title="Remover domínio"
+                <div
+                  className={cn(
+                    "flex flex-wrap gap-1.5 max-h-36 overflow-y-auto p-2 rounded-lg bg-zinc-950 border border-zinc-800/80 transition-opacity",
+                    !(antiSpam.customBlockedDomainsEnabled ?? true) && "opacity-60"
+                  )}
+                >
+                  {antiSpam.customBlockedDomains.length === 0 ? (
+                    <span className="text-[11px] text-muted-foreground italic px-1">
+                      Nenhum domínio personalizado cadastrado.
+                    </span>
+                  ) : (
+                    antiSpam.customBlockedDomains.map((domain) => (
+                      <Badge
+                        key={domain}
+                        variant="outline"
+                        className={cn(
+                          "bg-zinc-900 border-zinc-800 text-zinc-300 text-[11px] font-mono py-0.5 px-2 flex items-center gap-1.5 hover:border-blue-500/50",
+                          !(antiSpam.customBlockedDomainsEnabled ?? true) && "line-through text-zinc-500"
+                        )}
                       >
-                        ×
-                      </button>
-                    </Badge>
-                  ))}
+                        <span>{domain}</span>
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveDomain(domain)}
+                          className="text-muted-foreground hover:text-rose-400 transition-colors"
+                          title="Remover domínio"
+                        >
+                          ×
+                        </button>
+                      </Badge>
+                    ))
+                  )}
                 </div>
               </div>
             </div>
@@ -1510,16 +1654,41 @@ A-TOOLS X
           Restaurar Padrão Recomendado
         </Button>
 
-        {canSave && (
-          <Button
-            onClick={onSave}
-            disabled={saving}
-            className="bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs gap-1.5 shadow-lg shadow-rose-950/40 ml-auto"
-          >
-            {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
-            Salvar Regras do Escudo
-          </Button>
-        )}
+        <div className="flex items-center gap-2 ml-auto">
+          {autoSaveStatus === "saving" && (
+            <Badge
+              variant="outline"
+              className="bg-primary/10 border-primary/30 text-primary text-xs font-semibold py-1 px-2.5 flex items-center gap-1.5 animate-pulse"
+            >
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              <span>Salvando automaticamente...</span>
+            </Badge>
+          )}
+          {autoSaveStatus === "saved" && (
+            <Badge
+              variant="outline"
+              className="bg-emerald-500/10 border-emerald-500/30 text-emerald-400 text-xs font-semibold py-1 px-2.5 flex items-center gap-1.5"
+            >
+              <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" />
+              <span>Salvo automaticamente</span>
+            </Badge>
+          )}
+          {autoSaveStatus === "error" && (
+            <Badge
+              variant="outline"
+              className="bg-rose-500/10 border-rose-500/30 text-rose-400 text-xs font-semibold py-1 px-2.5 flex items-center gap-1.5"
+            >
+              <AlertTriangle className="h-3.5 w-3.5 text-rose-400" />
+              <span>Erro ao salvar</span>
+            </Badge>
+          )}
+          {autoSaveStatus === "idle" && (
+            <div className="flex items-center gap-1.5 text-muted-foreground text-xs">
+              <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500/60" />
+              <span>Salvamento automático ativo</span>
+            </div>
+          )}
+        </div>
       </CardFooter>
     </Card>
   );
