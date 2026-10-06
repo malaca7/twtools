@@ -1791,6 +1791,26 @@ async function warmUpGuildMembers() {
   }
 }
 
+// Mapeamento de apelidos e aliases de webhooks legados (ex: FiveM Cidade Alta logs)
+const KNOWN_WEBHOOK_ALIASES = {
+  "1548409284000485420": "1535637509818548234", // Webhook legado Cidade Alta / Baú logs -> Canal #baus-qg
+  "1548409281257279619": "1535634406490906734", // Captain Hook
+  "1557157544764641284": "1535637509818548234", // Webhook oficial #baus-qg
+  "1554653001157705778": "1554652550634938540", // #baus-qgnew
+  "1535637589818548234": "1535637509818548234", // Typo alias
+  "baus": "1535637509818548234",
+  "baus-qg": "1535637509818548234",
+  "logs-bau": "1535637509818548234",
+  "estoque": "1535637509818548234",
+};
+
+const KNOWN_CHANNEL_WEBHOOKS_BOT = {
+  "1535637509818548234": "https://discord.com/api/webhooks/1557157544764641284/Cx1GDJxh7mBWrL2PMZBA6A1zX8UKsHQ6V2VbSbE4_60SF_koAY9_GyFrdvEHzwP-mzOi",
+  "1548409284000485420": "https://discord.com/api/webhooks/1557157544764641284/Cx1GDJxh7mBWrL2PMZBA6A1zX8UKsHQ6V2VbSbE4_60SF_koAY9_GyFrdvEHzwP-mzOi",
+  "1554652550634938540": "https://discord.com/api/webhooks/1554653001157705778/L1ULPzVRJYagJuBaFZOuV00hFp2TaFOiEeCpIwBVbNvEKOHV08MiI_fhs9Lu4eq3z3bo",
+  "1535634406490906734": "https://discord.com/api/webhooks/1548409281257279619/D7xXcK4e4W5qdqBp8SVN_ngkh-aydDk-GRUcucykcQCYORp_9Jfh8iyumYVQGX19lLYX",
+};
+
 /**
  * Trata requisições HTTP para a rota pública de Webhook (/webhook/:target)
  */
@@ -1800,11 +1820,14 @@ async function handleWebhookHttpRequest(targetParam, req, res) {
     return res.end(JSON.stringify({ success: false, error: "ID de webhook ou canal não informado na URL." }));
   }
 
+  // Normaliza o targetParam removendo query strings e barras
+  const cleanTarget = String(targetParam).trim().replace(/^\/+|\/+$/g, "").split("?")[0];
+
   // 1. Verificação de Rate Limit por IP e Canal
   const clientIp = (req.headers["x-forwarded-for"] || req.socket?.remoteAddress || "unknown").split(",")[0].trim();
-  const rateCheck = checkRateLimit(clientIp, targetParam);
+  const rateCheck = checkRateLimit(clientIp, cleanTarget);
   if (!rateCheck.allowed) {
-    console.warn(`⚠️ [RATE LIMIT] Requisição bloqueada para IP ${clientIp} no canal ${targetParam}: ${rateCheck.reason}`);
+    console.warn(`⚠️ [RATE LIMIT] Requisição bloqueada para IP ${clientIp} no canal ${cleanTarget}: ${rateCheck.reason}`);
     res.writeHead(429, {
       "Content-Type": "application/json",
       "Retry-After": String(rateCheck.retryAfterSeconds || 10),
@@ -1812,7 +1835,7 @@ async function handleWebhookHttpRequest(targetParam, req, res) {
     return res.end(JSON.stringify({ success: false, error: rateCheck.reason }));
   }
 
-  let channelId = targetParam;
+  let channelId = KNOWN_WEBHOOK_ALIASES[cleanTarget] || cleanTarget;
   let webhookName = "Twin Wheels Webhook";
   let botUsername = "Twin Wheels RP";
   let botAvatar = (discordConfig && discordConfig.botAvatarUrl) || "https://i.ibb.co/ymH1BQPQ/Uma124.png";
@@ -1830,6 +1853,7 @@ async function handleWebhookHttpRequest(targetParam, req, res) {
   let footerIconUrl = undefined;
   let showTimestamp = true;
   let defaultMention = undefined;
+  let directWebhookUrl = undefined;
 
   // Sempre busca nas configurações de webhooks do banco para obter metadados (nome, avatar, cor, canal, embeds)
   try {
@@ -1842,12 +1866,15 @@ async function handleWebhookHttpRequest(targetParam, req, res) {
     if (data?.permissions?.webhooks && Array.isArray(data.permissions.webhooks)) {
       const found = data.permissions.webhooks.find(
         (w) =>
-          w.id === targetParam ||
-          w.channelId === targetParam ||
-          (w.webhookUrl && w.webhookUrl.includes(targetParam))
+          w.id === cleanTarget ||
+          w.channelId === cleanTarget ||
+          w.channelId === channelId ||
+          (w.webhookUrl && w.webhookUrl.includes(cleanTarget)) ||
+          (cleanTarget === "1548409284000485420" && (w.channelId === "1535637509818548234" || w.id === "webhook_1789248648283"))
       );
-      if (found && found.channelId) {
-        channelId = found.channelId;
+      if (found) {
+        if (found.channelId) channelId = found.channelId;
+        if (found.webhookUrl) directWebhookUrl = found.webhookUrl;
         webhookName = found.name || webhookName;
         botUsername = found.username || botUsername;
         botAvatar = found.avatarUrl || botAvatar;
@@ -1885,9 +1912,9 @@ async function handleWebhookHttpRequest(targetParam, req, res) {
     }
   }
 
-  if (!/^\d{17,20}$/.test(channelId)) {
+  if (!/^\d{17,20}$/.test(channelId) && !directWebhookUrl) {
     res.writeHead(404, { "Content-Type": "application/json" });
-    return res.end(JSON.stringify({ success: false, error: `Webhook ou ID de Canal inválido: ${targetParam}` }));
+    return res.end(JSON.stringify({ success: false, error: `Webhook ou ID de Canal inválido: ${cleanTarget}` }));
   }
 
   // Se for GET, renderiza a página web para envio direto pelo navegador ou retorna JSON se solicitado
@@ -2065,21 +2092,6 @@ async function handleWebhookHttpRequest(targetParam, req, res) {
         const avatar = payload.avatarUrl || payload.avatar_url || botAvatar;
         const finalMention = payload.mention || defaultMention || undefined;
 
-        if (!client.isReady()) {
-          res.writeHead(503, { "Content-Type": "application/json" });
-          return res.end(JSON.stringify({ success: false, error: "Bot do Discord está offline ou reconectando. Tente novamente em alguns instantes." }));
-        }
-
-        const channel = await client.channels.fetch(channelId).catch((err) => {
-          console.warn(`[HTTP WEBHOOK] Erro ao buscar canal ${channelId}:`, err.message);
-          return null;
-        });
-
-        if (!channel || !channel.isTextBased()) {
-          res.writeHead(404, { "Content-Type": "application/json" });
-          return res.end(JSON.stringify({ success: false, error: `Canal Discord ${channelId} não encontrado ou o bot não tem permissão para acessá-lo.` }));
-        }
-
         let contentText = undefined;
         if (finalMention && payload.content) {
           contentText = `${String(finalMention)}\n${String(payload.content)}`;
@@ -2183,20 +2195,80 @@ async function handleWebhookHttpRequest(targetParam, req, res) {
           );
         }
 
-        const sentMsg = await channel.send({
-          content: contentText || undefined,
-          embeds: embedsToSend.length > 0 ? embedsToSend : undefined,
-        });
+        let sentMsg = null;
+        let finalChannelName = channelId;
 
-        console.log(`📡 [HTTP WEBHOOK] Mensagem postada com sucesso em #${channel.name} (${channelId}) (ID: ${sentMsg.id})`);
+        // 1. Tenta envio direto via Discord.js se o bot estiver pronto e o canal for válido
+        if (client.isReady() && channelId && /^\d{17,20}$/.test(channelId)) {
+          try {
+            const channel = client.channels.cache.get(channelId) || (await client.channels.fetch(channelId).catch(() => null));
+            if (channel && channel.isTextBased()) {
+              sentMsg = await channel.send({
+                content: contentText || undefined,
+                embeds: embedsToSend.length > 0 ? embedsToSend : undefined,
+              });
+              finalChannelName = channel.name;
+              console.log(`📡 [HTTP WEBHOOK] Mensagem postada com sucesso em #${channel.name} (${channelId}) (ID: ${sentMsg.id})`);
+            }
+          } catch (sendErr) {
+            console.warn(`[HTTP WEBHOOK] Falha ao postar via canal ${channelId}:`, sendErr.message);
+          }
+        }
+
+        // 2. Fallback: Se não conseguiu enviar via canal, tenta envio direto para o Webhook oficial do Discord
+        if (!sentMsg) {
+          const fallbackWebhookUrl =
+            directWebhookUrl ||
+            KNOWN_CHANNEL_WEBHOOKS_BOT[channelId] ||
+            KNOWN_CHANNEL_WEBHOOKS_BOT[cleanTarget];
+
+          if (fallbackWebhookUrl && fallbackWebhookUrl.startsWith("http")) {
+            try {
+              const hookRes = await fetch(fallbackWebhookUrl + "?wait=true", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  username: sender,
+                  avatar_url: avatar,
+                  content: contentText || undefined,
+                  embeds: embedsToSend.map((e) => (typeof e.toJSON === "function" ? e.toJSON() : e)),
+                }),
+              });
+
+              if (hookRes.ok) {
+                const hookData = await hookRes.json().catch(() => ({}));
+                sentMsg = { id: hookData.id || "discord_webhook_ok" };
+                finalChannelName = hookData.channel_id || channelId;
+                console.log(`📡 [HTTP WEBHOOK] Mensagem postada via Webhook Fallback (${fallbackWebhookUrl.slice(0, 45)}...)`);
+              } else {
+                const hookErr = await hookRes.text().catch(() => "");
+                console.warn(`[HTTP WEBHOOK] Fallback Webhook retornou ${hookRes.status}:`, hookErr);
+              }
+            } catch (whErr) {
+              console.warn("[HTTP WEBHOOK] Erro no fallback webhook:", whErr.message);
+            }
+          }
+        }
+
+        if (!sentMsg) {
+          res.writeHead(404, { "Content-Type": "application/json" });
+          return res.end(
+            JSON.stringify({
+              success: false,
+              error: `Canal Discord ou Webhook (${cleanTarget}) não encontrado ou inacessível no momento.`,
+            })
+          );
+        }
 
         res.writeHead(200, { "Content-Type": "application/json" });
         return res.end(
           JSON.stringify({
             success: true,
-            message: `Mensagem enviada com sucesso para o canal #${channel.name}!`,
+            message: `Mensagem enviada com sucesso para o canal #${finalChannelName}!`,
+            id: sentMsg.id,
             messageId: sentMsg.id,
-            channelName: channel.name,
+            channel_id: channelId,
+            channelName: finalChannelName,
             channelId,
           })
         );
