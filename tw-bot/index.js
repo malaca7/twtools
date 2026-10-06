@@ -1805,8 +1805,8 @@ const KNOWN_WEBHOOK_ALIASES = {
 };
 
 const KNOWN_CHANNEL_WEBHOOKS_BOT = {
-  "1535637509818548234": "https://discord.com/api/webhooks/1548409284000485420/AoRhvOaaA-yNUdWHcV-TZUNx4gOLxWFddthfe3kfHKpycQ2SmyaUsQiSNTnagelHzlsR",
-  "1548409284000485420": "https://discord.com/api/webhooks/1548409284000485420/AoRhvOaaA-yNUdWHcV-TZUNx4gOLxWFddthfe3kfHKpycQ2SmyaUsQiSNTnagelHzlsR",
+  "1535637509818548234": "https://discord.com/api/webhooks/1557157544764641284/Cx1GDJxh7mBWrL2PMZBA6A1zX8UKsHQ6V2VbSbE4_60SF_koAY9_GyFrdvEHzwP-mzOi",
+  "1548409284000485420": "https://discord.com/api/webhooks/1557157544764641284/Cx1GDJxh7mBWrL2PMZBA6A1zX8UKsHQ6V2VbSbE4_60SF_koAY9_GyFrdvEHzwP-mzOi",
   "1554652550634938540": "https://discord.com/api/webhooks/1554653001157705778/L1ULPzVRJYagJuBaFZOuV00hFp2TaFOiEeCpIwBVbNvEKOHV08MiI_fhs9Lu4eq3z3bo",
   "1535634406490906734": "https://discord.com/api/webhooks/1548409281257279619/D7xXcK4e4W5qdqBp8SVN_ngkh-aydDk-GRUcucykcQCYORp_9Jfh8iyumYVQGX19lLYX",
 };
@@ -2198,8 +2198,41 @@ async function handleWebhookHttpRequest(targetParam, req, res) {
         let sentMsg = null;
         let finalChannelName = channelId;
 
-        // 1. Tenta envio direto via Discord.js se o bot estiver pronto e o canal for válido
-        if (client.isReady() && channelId && /^\d{17,20}$/.test(channelId)) {
+        const targetWebhookUrl =
+          directWebhookUrl ||
+          KNOWN_CHANNEL_WEBHOOKS_BOT[channelId] ||
+          KNOWN_CHANNEL_WEBHOOKS_BOT[cleanTarget];
+
+        // 1. Prioridade: Envio direto via Webhook Oficial do Discord (Preserva avatar e nome "Cidade Alta APP")
+        if (targetWebhookUrl && targetWebhookUrl.startsWith("http")) {
+          try {
+            const hookRes = await fetch(targetWebhookUrl + "?wait=true", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                username: sender,
+                avatar_url: avatar,
+                content: contentText || undefined,
+                embeds: embedsToSend.map((e) => (typeof e.toJSON === "function" ? e.toJSON() : e)),
+              }),
+            });
+
+            if (hookRes.ok) {
+              const hookData = await hookRes.json().catch(() => ({}));
+              sentMsg = { id: hookData.id || "discord_webhook_ok" };
+              finalChannelName = hookData.channel_id || channelId;
+              console.log(`📡 [HTTP WEBHOOK] Mensagem postada com sucesso via Webhook Oficial (${sender}) em #${finalChannelName} (ID: ${sentMsg.id})`);
+            } else {
+              const hookErr = await hookRes.text().catch(() => "");
+              console.warn(`[HTTP WEBHOOK] Webhook Oficial retornou status ${hookRes.status}:`, hookErr);
+            }
+          } catch (whErr) {
+            console.warn("[HTTP WEBHOOK] Erro ao disparar via Webhook Oficial:", whErr.message);
+          }
+        }
+
+        // 2. Fallback: Envio direto via Bot Discord.js no canal de texto
+        if (!sentMsg && client.isReady() && channelId && /^\d{17,20}$/.test(channelId)) {
           try {
             const channel = client.channels.cache.get(channelId) || (await client.channels.fetch(channelId).catch(() => null));
             if (channel && channel.isTextBased()) {
@@ -2208,45 +2241,10 @@ async function handleWebhookHttpRequest(targetParam, req, res) {
                 embeds: embedsToSend.length > 0 ? embedsToSend : undefined,
               });
               finalChannelName = channel.name;
-              console.log(`📡 [HTTP WEBHOOK] Mensagem postada com sucesso em #${channel.name} (${channelId}) (ID: ${sentMsg.id})`);
+              console.log(`📡 [HTTP WEBHOOK] Mensagem postada via Bot direto em #${channel.name} (${channelId}) (ID: ${sentMsg.id})`);
             }
           } catch (sendErr) {
-            console.warn(`[HTTP WEBHOOK] Falha ao postar via canal ${channelId}:`, sendErr.message);
-          }
-        }
-
-        // 2. Fallback: Se não conseguiu enviar via canal, tenta envio direto para o Webhook oficial do Discord
-        if (!sentMsg) {
-          const fallbackWebhookUrl =
-            directWebhookUrl ||
-            KNOWN_CHANNEL_WEBHOOKS_BOT[channelId] ||
-            KNOWN_CHANNEL_WEBHOOKS_BOT[cleanTarget];
-
-          if (fallbackWebhookUrl && fallbackWebhookUrl.startsWith("http")) {
-            try {
-              const hookRes = await fetch(fallbackWebhookUrl + "?wait=true", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  username: sender,
-                  avatar_url: avatar,
-                  content: contentText || undefined,
-                  embeds: embedsToSend.map((e) => (typeof e.toJSON === "function" ? e.toJSON() : e)),
-                }),
-              });
-
-              if (hookRes.ok) {
-                const hookData = await hookRes.json().catch(() => ({}));
-                sentMsg = { id: hookData.id || "discord_webhook_ok" };
-                finalChannelName = hookData.channel_id || channelId;
-                console.log(`📡 [HTTP WEBHOOK] Mensagem postada via Webhook Fallback (${fallbackWebhookUrl.slice(0, 45)}...)`);
-              } else {
-                const hookErr = await hookRes.text().catch(() => "");
-                console.warn(`[HTTP WEBHOOK] Fallback Webhook retornou ${hookRes.status}:`, hookErr);
-              }
-            } catch (whErr) {
-              console.warn("[HTTP WEBHOOK] Erro no fallback webhook:", whErr.message);
-            }
+            console.warn(`[HTTP WEBHOOK] Falha ao postar via canal direto ${channelId}:`, sendErr.message);
           }
         }
 
