@@ -52,8 +52,12 @@ export interface WebhookAntiSpamConfig {
   blockDiscordInvites: boolean;
   blockPhishingLinks: boolean;
   blockIpLoggers: boolean;
+  rateLimitEnabled?: boolean;
+  ipRateLimitEnabled?: boolean;
+  channelRateLimitEnabled?: boolean;
   maxRequestsPerMinutePerIp: number;
   maxMessagesPerMinutePerChannel: number;
+  duplicateProtectionEnabled?: boolean;
   duplicateWindowSeconds: number;
   customBlockedPhrases: string[];
   customBlockedDomains: string[];
@@ -85,8 +89,12 @@ export const DEFAULT_ANTI_SPAM_CONFIG: WebhookAntiSpamConfig = {
   blockDiscordInvites: true,
   blockPhishingLinks: true,
   blockIpLoggers: true,
+  rateLimitEnabled: true,
+  ipRateLimitEnabled: true,
+  channelRateLimitEnabled: true,
   maxRequestsPerMinutePerIp: 25,
   maxMessagesPerMinutePerChannel: 20,
+  duplicateProtectionEnabled: true,
   duplicateWindowSeconds: 45,
   customBlockedPhrases: [
     "to use this bot, you must join",

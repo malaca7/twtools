@@ -12,8 +12,12 @@ let dynamicAntiSpamConfig = {
   blockDiscordInvites: true,
   blockPhishingLinks: true,
   blockIpLoggers: true,
+  rateLimitEnabled: true,
+  ipRateLimitEnabled: true,
+  channelRateLimitEnabled: true,
   maxRequestsPerMinutePerIp: 25,
   maxMessagesPerMinutePerChannel: 20,
+  duplicateProtectionEnabled: true,
   duplicateWindowSeconds: 45,
   customBlockedPhrases: [],
   customBlockedDomains: [],
@@ -224,38 +228,52 @@ function isSpamOrMalicious(content = "", embeds = []) {
  * Validação de Rate Limit por IP e Canal de destino
  */
 function checkRateLimit(ip = "unknown", channelId = "") {
+  // Se o escudo geral estiver desativado ou o rate limit estiver desativado, permite livremente
+  if (dynamicAntiSpamConfig && dynamicAntiSpamConfig.enabled === false) {
+    return { allowed: true };
+  }
+  if (dynamicAntiSpamConfig && dynamicAntiSpamConfig.rateLimitEnabled === false) {
+    return { allowed: true };
+  }
+
   const now = Date.now();
   const window10s = now - 10000;
   const window60s = now - 60000;
 
-  const maxPerMinuteIp = dynamicAntiSpamConfig.maxRequestsPerMinutePerIp || 25;
-  const maxPerMinuteChannel = dynamicAntiSpamConfig.maxMessagesPerMinutePerChannel || 20;
+  const isIpLimitActive = dynamicAntiSpamConfig.ipRateLimitEnabled !== false;
+  const isChannelLimitActive = dynamicAntiSpamConfig.channelRateLimitEnabled !== false;
+
+  const maxPerMinuteIp = Number(dynamicAntiSpamConfig.maxRequestsPerMinutePerIp) || 25;
+  const maxPerMinuteChannel = Number(dynamicAntiSpamConfig.maxMessagesPerMinutePerChannel) || 20;
 
   // 1. Limite por IP
-  const ipTimes = (ipRequestHistory.get(ip) || []).filter((t) => t > window60s);
-  const recent10s = ipTimes.filter((t) => t > window10s);
+  if (isIpLimitActive && maxPerMinuteIp > 0) {
+    const ipTimes = (ipRequestHistory.get(ip) || []).filter((t) => t > window60s);
+    const burstThreshold = Math.max(10, Math.ceil(maxPerMinuteIp / 2));
+    const recent10s = ipTimes.filter((t) => t > window10s);
 
-  if (recent10s.length >= 6) {
-    return {
-      allowed: false,
-      reason: "Muitas requisições em curto intervalo (Limite: 6 reqs / 10s). Aguarde alguns segundos.",
-      retryAfterSeconds: 5,
-    };
+    if (recent10s.length >= burstThreshold) {
+      return {
+        allowed: false,
+        reason: `Muitas requisições em curto intervalo (Limite de rajada: ${burstThreshold} reqs / 10s). Aguarde alguns segundos.`,
+        retryAfterSeconds: 5,
+      };
+    }
+
+    if (ipTimes.length >= maxPerMinuteIp) {
+      return {
+        allowed: false,
+        reason: `Limite por minuto excedido para este IP (Limite: ${maxPerMinuteIp} reqs / 60s). Aguarde.`,
+        retryAfterSeconds: 15,
+      };
+    }
+
+    ipTimes.push(now);
+    ipRequestHistory.set(ip, ipTimes);
   }
-
-  if (ipTimes.length >= maxPerMinuteIp) {
-    return {
-      allowed: false,
-      reason: `Limite por minuto excedido para este IP (Limite: ${maxPerMinuteIp} reqs / 60s). Aguarde.`,
-      retryAfterSeconds: 15,
-    };
-  }
-
-  ipTimes.push(now);
-  ipRequestHistory.set(ip, ipTimes);
 
   // 2. Limite por canal Discord (proteção contra flood no canal)
-  if (channelId) {
+  if (channelId && isChannelLimitActive && maxPerMinuteChannel > 0) {
     const chTimes = (channelMessageHistory.get(channelId) || []).filter((t) => t > window60s);
     if (chTimes.length >= maxPerMinuteChannel) {
       return {
@@ -276,12 +294,18 @@ function checkRateLimit(ip = "unknown", channelId = "") {
  */
 function isDuplicateFlood(channelId, content = "", embeds = []) {
   if (!channelId) return false;
+  if (dynamicAntiSpamConfig && dynamicAntiSpamConfig.enabled === false) return false;
+  if (dynamicAntiSpamConfig && dynamicAntiSpamConfig.duplicateProtectionEnabled === false) return false;
+
+  const windowSec = Number(dynamicAntiSpamConfig.duplicateWindowSeconds);
+  if (isNaN(windowSec) || windowSec <= 0) return false;
+
   const signature = `${channelId}:${content}:${JSON.stringify(embeds || [])}`;
   const hash = crypto.createHash("sha256").update(signature).digest("hex");
 
   const now = Date.now();
   const lastSeen = recentMessageHashes.get(hash);
-  const windowMs = (dynamicAntiSpamConfig.duplicateWindowSeconds || 45) * 1000;
+  const windowMs = windowSec * 1000;
 
   if (lastSeen && now - lastSeen < windowMs) {
     return true; // Mensagem 100% idêntica enviada há menos tempo que a janela

@@ -564,85 +564,280 @@ A-TOOLS X
           </div>
 
           {/* SEÇÃO 2: LIMITES DE TRÁFEGO & RATE LIMITING */}
-          <div className="space-y-3 p-4 rounded-xl bg-zinc-900/40 border border-zinc-800/80">
-            <h4 className="text-xs font-black tracking-wider uppercase text-muted-foreground flex items-center gap-1.5">
-              <Sliders className="h-3.5 w-3.5 text-primary" />
-              Limites de Tráfego & Anti-Flood (Rate Limiting)
-            </h4>
+          <div className="space-y-4 p-4 rounded-xl bg-zinc-900/40 border border-zinc-800/80">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-zinc-800/60">
+              <div className="flex items-start sm:items-center gap-2.5">
+                <Sliders className="h-4 w-4 text-primary shrink-0 mt-0.5 sm:mt-0" />
+                <div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h4 className="text-xs font-black tracking-wider uppercase text-foreground">
+                      Limites de Tráfego & Anti-Flood (Rate Limiting)
+                    </h4>
+                    {(antiSpam.rateLimitEnabled ?? true) ? (
+                      <Badge className="bg-emerald-500/15 text-emerald-400 border-emerald-500/30 text-[9px] font-bold py-0 h-4">
+                        Ativado
+                      </Badge>
+                    ) : (
+                      <Badge className="bg-zinc-800 text-zinc-400 border-zinc-700 text-[9px] font-bold py-0 h-4">
+                        Desativado
+                      </Badge>
+                    )}
+                  </div>
+                  <p className="text-[0.68rem] text-muted-foreground mt-0.5">
+                    Controle de vazão por IP e canal para proteger contra ataques, sobrecargas e spam em massa.
+                  </p>
+                </div>
+              </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              {/* Limite por IP */}
-              <div className="space-y-1.5">
-                <Label className="text-xs font-bold flex items-center justify-between">
-                  <span>Req. Máximas por IP / min</span>
-                  <Badge variant="outline" className="text-[10px] font-mono py-0 h-4 text-primary">
-                    {antiSpam.maxRequestsPerMinutePerIp} req/min
-                  </Badge>
+              <div className="flex items-center gap-2 self-start sm:self-auto bg-zinc-950/80 px-2.5 py-1.5 rounded-lg border border-zinc-800 shrink-0">
+                <Label htmlFor="master-ratelimit" className="text-[11px] font-bold text-foreground cursor-pointer">
+                  {(antiSpam.rateLimitEnabled ?? true) ? "Rate Limit Ativo" : "Rate Limit Desligado"}
                 </Label>
-                <Input
-                  type="number"
-                  min={5}
-                  max={120}
-                  value={antiSpam.maxRequestsPerMinutePerIp}
-                  onChange={(e) =>
-                    updateAntiSpam({
-                      maxRequestsPerMinutePerIp: Math.max(5, parseInt(e.target.value) || 25),
-                    })
-                  }
-                  className="bg-zinc-950 border-zinc-800 text-xs font-mono font-bold h-8"
+                <Switch
+                  id="master-ratelimit"
+                  checked={antiSpam.rateLimitEnabled ?? true}
+                  onCheckedChange={(val) => updateAntiSpam({ rateLimitEnabled: val })}
                 />
-                <p className="text-[0.65rem] text-muted-foreground">
-                  Bloqueia temporariamente com HTTP 429 se um IP ultrapassar esse limite.
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {/* Limite por IP */}
+              <div
+                className={cn(
+                  "p-3.5 rounded-xl border flex flex-col justify-between space-y-3 transition-all",
+                  (antiSpam.rateLimitEnabled ?? true) && (antiSpam.ipRateLimitEnabled ?? true)
+                    ? "bg-zinc-950/60 border-zinc-800 hover:border-zinc-700"
+                    : "bg-zinc-950/30 border-zinc-800/50 opacity-70"
+                )}
+              >
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <Radio className="h-3.5 w-3.5 text-blue-400 shrink-0" />
+                      <Label className="text-xs font-bold text-foreground cursor-pointer truncate">
+                        Req. Máximas por IP / min
+                      </Label>
+                    </div>
+                    <Switch
+                      checked={(antiSpam.rateLimitEnabled ?? true) && (antiSpam.ipRateLimitEnabled ?? true)}
+                      disabled={!(antiSpam.rateLimitEnabled ?? true)}
+                      onCheckedChange={(val) => updateAntiSpam({ ipRateLimitEnabled: val })}
+                    />
+                  </div>
+
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] text-muted-foreground font-mono">Limite Atual:</span>
+                    {(antiSpam.rateLimitEnabled ?? true) && (antiSpam.ipRateLimitEnabled ?? true) ? (
+                      <Badge variant="outline" className="text-[10px] font-mono py-0 h-4 text-primary bg-primary/10 border-primary/30 font-bold">
+                        {antiSpam.maxRequestsPerMinutePerIp} req/min
+                      </Badge>
+                    ) : (
+                      <Badge variant="outline" className="text-[10px] font-mono py-0 h-4 text-muted-foreground bg-zinc-900 border-zinc-800">
+                        Sem limite
+                      </Badge>
+                    )}
+                  </div>
+
+                  <Input
+                    type="number"
+                    min={1}
+                    max={100000}
+                    disabled={!((antiSpam.rateLimitEnabled ?? true) && (antiSpam.ipRateLimitEnabled ?? true))}
+                    value={antiSpam.maxRequestsPerMinutePerIp}
+                    onChange={(e) => {
+                      const val = parseInt(e.target.value);
+                      updateAntiSpam({
+                        maxRequestsPerMinutePerIp: isNaN(val) ? 25 : Math.max(1, val),
+                      });
+                    }}
+                    className="bg-zinc-950 border-zinc-800 text-xs font-mono font-bold h-8"
+                  />
+
+                  {/* Quick Preset Buttons */}
+                  <div className="flex items-center gap-1 flex-wrap pt-0.5">
+                    {[25, 100, 500, 1000].map((preset) => (
+                      <button
+                        key={preset}
+                        type="button"
+                        disabled={!((antiSpam.rateLimitEnabled ?? true) && (antiSpam.ipRateLimitEnabled ?? true))}
+                        onClick={() => updateAntiSpam({ maxRequestsPerMinutePerIp: preset })}
+                        className={cn(
+                          "text-[9px] font-mono px-1.5 py-0.5 rounded border transition-colors",
+                          antiSpam.maxRequestsPerMinutePerIp === preset && (antiSpam.rateLimitEnabled ?? true) && (antiSpam.ipRateLimitEnabled ?? true)
+                            ? "bg-primary text-primary-foreground border-primary font-bold"
+                            : "bg-zinc-900 text-zinc-400 border-zinc-800 hover:text-zinc-200 hover:bg-zinc-800"
+                        )}
+                      >
+                        {preset}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <p className="text-[0.65rem] text-muted-foreground leading-tight">
+                  {(antiSpam.rateLimitEnabled ?? true) && (antiSpam.ipRateLimitEnabled ?? true)
+                    ? "Bloqueia temporariamente com HTTP 429 se um IP ultrapassar esse limite."
+                    : "Requisições de IPs não sofrerão limitação de velocidade."}
                 </p>
               </div>
 
               {/* Limite por Canal */}
-              <div className="space-y-1.5">
-                <Label className="text-xs font-bold flex items-center justify-between">
-                  <span>Msgs Máximas por Canal / min</span>
-                  <Badge variant="outline" className="text-[10px] font-mono py-0 h-4 text-primary">
-                    {antiSpam.maxMessagesPerMinutePerChannel} msg/min
-                  </Badge>
-                </Label>
-                <Input
-                  type="number"
-                  min={5}
-                  max={120}
-                  value={antiSpam.maxMessagesPerMinutePerChannel}
-                  onChange={(e) =>
-                    updateAntiSpam({
-                      maxMessagesPerMinutePerChannel: Math.max(5, parseInt(e.target.value) || 20),
-                    })
-                  }
-                  className="bg-zinc-950 border-zinc-800 text-xs font-mono font-bold h-8"
-                />
-                <p className="text-[0.65rem] text-muted-foreground">
-                  Evita que um canal específico do Discord seja inundado com disparos em lote.
+              <div
+                className={cn(
+                  "p-3.5 rounded-xl border flex flex-col justify-between space-y-3 transition-all",
+                  (antiSpam.rateLimitEnabled ?? true) && (antiSpam.channelRateLimitEnabled ?? true)
+                    ? "bg-zinc-950/60 border-zinc-800 hover:border-zinc-700"
+                    : "bg-zinc-950/30 border-zinc-800/50 opacity-70"
+                )}
+              >
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <MessageSquare className="h-3.5 w-3.5 text-emerald-400 shrink-0" />
+                      <Label className="text-xs font-bold text-foreground cursor-pointer truncate">
+                        Msgs Máximas por Canal / min
+                      </Label>
+                    </div>
+                    <Switch
+                      checked={(antiSpam.rateLimitEnabled ?? true) && (antiSpam.channelRateLimitEnabled ?? true)}
+                      disabled={!(antiSpam.rateLimitEnabled ?? true)}
+                      onCheckedChange={(val) => updateAntiSpam({ channelRateLimitEnabled: val })}
+                    />
+                  </div>
+
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] text-muted-foreground font-mono">Limite Atual:</span>
+                    {(antiSpam.rateLimitEnabled ?? true) && (antiSpam.channelRateLimitEnabled ?? true) ? (
+                      <Badge variant="outline" className="text-[10px] font-mono py-0 h-4 text-primary bg-primary/10 border-primary/30 font-bold">
+                        {antiSpam.maxMessagesPerMinutePerChannel} msg/min
+                      </Badge>
+                    ) : (
+                      <Badge variant="outline" className="text-[10px] font-mono py-0 h-4 text-muted-foreground bg-zinc-900 border-zinc-800">
+                        Sem limite
+                      </Badge>
+                    )}
+                  </div>
+
+                  <Input
+                    type="number"
+                    min={1}
+                    max={100000}
+                    disabled={!((antiSpam.rateLimitEnabled ?? true) && (antiSpam.channelRateLimitEnabled ?? true))}
+                    value={antiSpam.maxMessagesPerMinutePerChannel}
+                    onChange={(e) => {
+                      const val = parseInt(e.target.value);
+                      updateAntiSpam({
+                        maxMessagesPerMinutePerChannel: isNaN(val) ? 20 : Math.max(1, val),
+                      });
+                    }}
+                    className="bg-zinc-950 border-zinc-800 text-xs font-mono font-bold h-8"
+                  />
+
+                  {/* Quick Preset Buttons */}
+                  <div className="flex items-center gap-1 flex-wrap pt-0.5">
+                    {[20, 60, 120, 1000].map((preset) => (
+                      <button
+                        key={preset}
+                        type="button"
+                        disabled={!((antiSpam.rateLimitEnabled ?? true) && (antiSpam.channelRateLimitEnabled ?? true))}
+                        onClick={() => updateAntiSpam({ maxMessagesPerMinutePerChannel: preset })}
+                        className={cn(
+                          "text-[9px] font-mono px-1.5 py-0.5 rounded border transition-colors",
+                          antiSpam.maxMessagesPerMinutePerChannel === preset && (antiSpam.rateLimitEnabled ?? true) && (antiSpam.channelRateLimitEnabled ?? true)
+                            ? "bg-primary text-primary-foreground border-primary font-bold"
+                            : "bg-zinc-900 text-zinc-400 border-zinc-800 hover:text-zinc-200 hover:bg-zinc-800"
+                        )}
+                      >
+                        {preset}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <p className="text-[0.65rem] text-muted-foreground leading-tight">
+                  {(antiSpam.rateLimitEnabled ?? true) && (antiSpam.channelRateLimitEnabled ?? true)
+                    ? "Evita que um canal específico do Discord seja inundado com disparos em lote."
+                    : "Disparos no canal não sofrerão limitação de velocidade."}
                 </p>
               </div>
 
               {/* Janela Anti-Duplicação */}
-              <div className="space-y-1.5">
-                <Label className="text-xs font-bold flex items-center justify-between">
-                  <span>Janela Anti-Duplicação (segundos)</span>
-                  <Badge variant="outline" className="text-[10px] font-mono py-0 h-4 text-primary">
-                    {antiSpam.duplicateWindowSeconds}s
-                  </Badge>
-                </Label>
-                <Input
-                  type="number"
-                  min={5}
-                  max={300}
-                  value={antiSpam.duplicateWindowSeconds}
-                  onChange={(e) =>
-                    updateAntiSpam({
-                      duplicateWindowSeconds: Math.max(5, parseInt(e.target.value) || 45),
-                    })
-                  }
-                  className="bg-zinc-950 border-zinc-800 text-xs font-mono font-bold h-8"
-                />
-                <p className="text-[0.65rem] text-muted-foreground">
-                  Descarta silenciosamente mensagens de mesmo conteúdo enviadas em sequência rápida.
+              <div
+                className={cn(
+                  "p-3.5 rounded-xl border flex flex-col justify-between space-y-3 transition-all",
+                  (antiSpam.duplicateProtectionEnabled ?? true)
+                    ? "bg-zinc-950/60 border-zinc-800 hover:border-zinc-700"
+                    : "bg-zinc-950/30 border-zinc-800/50 opacity-70"
+                )}
+              >
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <Clock className="h-3.5 w-3.5 text-amber-400 shrink-0" />
+                      <Label className="text-xs font-bold text-foreground cursor-pointer truncate">
+                        Janela Anti-Duplicação
+                      </Label>
+                    </div>
+                    <Switch
+                      checked={antiSpam.duplicateProtectionEnabled ?? true}
+                      onCheckedChange={(val) => updateAntiSpam({ duplicateProtectionEnabled: val })}
+                    />
+                  </div>
+
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] text-muted-foreground font-mono">Janela Atual:</span>
+                    {(antiSpam.duplicateProtectionEnabled ?? true) ? (
+                      <Badge variant="outline" className="text-[10px] font-mono py-0 h-4 text-primary bg-primary/10 border-primary/30 font-bold">
+                        {antiSpam.duplicateWindowSeconds}s
+                      </Badge>
+                    ) : (
+                      <Badge variant="outline" className="text-[10px] font-mono py-0 h-4 text-muted-foreground bg-zinc-900 border-zinc-800">
+                        Desativada
+                      </Badge>
+                    )}
+                  </div>
+
+                  <Input
+                    type="number"
+                    min={1}
+                    max={3600}
+                    disabled={!(antiSpam.duplicateProtectionEnabled ?? true)}
+                    value={antiSpam.duplicateWindowSeconds}
+                    onChange={(e) => {
+                      const val = parseInt(e.target.value);
+                      updateAntiSpam({
+                        duplicateWindowSeconds: isNaN(val) ? 45 : Math.max(1, val),
+                      });
+                    }}
+                    className="bg-zinc-950 border-zinc-800 text-xs font-mono font-bold h-8"
+                  />
+
+                  {/* Quick Preset Buttons */}
+                  <div className="flex items-center gap-1 flex-wrap pt-0.5">
+                    {[5, 15, 45, 120].map((preset) => (
+                      <button
+                        key={preset}
+                        type="button"
+                        disabled={!(antiSpam.duplicateProtectionEnabled ?? true)}
+                        onClick={() => updateAntiSpam({ duplicateWindowSeconds: preset })}
+                        className={cn(
+                          "text-[9px] font-mono px-1.5 py-0.5 rounded border transition-colors",
+                          antiSpam.duplicateWindowSeconds === preset && (antiSpam.duplicateProtectionEnabled ?? true)
+                            ? "bg-primary text-primary-foreground border-primary font-bold"
+                            : "bg-zinc-900 text-zinc-400 border-zinc-800 hover:text-zinc-200 hover:bg-zinc-800"
+                        )}
+                      >
+                        {preset}s
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <p className="text-[0.65rem] text-muted-foreground leading-tight">
+                  {(antiSpam.duplicateProtectionEnabled ?? true)
+                    ? "Descarta silenciosamente mensagens de mesmo conteúdo enviadas em sequência rápida."
+                    : "Mensagens duplicadas serão enviadas normalmente sem descarte."}
                 </p>
               </div>
             </div>
