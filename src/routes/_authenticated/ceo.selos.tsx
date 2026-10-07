@@ -118,14 +118,21 @@ export function CeoSelosPage() {
       ? "ceo"
       : "member";
 
-  // Permissões Granulares de Verificação no painel efetivo (sem bypass incondicional)
+  // Permissões Granulares de Verificação no painel efetivo (estritamente individuais)
   const canManage = hasPermission("verification.manage", effectivePanel);
-  const canView = hasPermission("verification.view_page", effectivePanel) || canManage;
-  const canReview = hasPermission("verification.review", effectivePanel) || canManage;
-  const canGrant = hasPermission("verification.grant_direct", effectivePanel) || canManage;
-  const canRevoke = hasPermission("verification.revoke", effectivePanel) || canManage;
-  const canConfig = hasPermission("verification.config", effectivePanel) || canManage;
-  const canAudit = hasPermission("verification.audit", effectivePanel) || canManage;
+  const canReview = hasPermission("verification.review", effectivePanel);
+  const canGrant = hasPermission("verification.grant_direct", effectivePanel);
+  const canRevoke = hasPermission("verification.revoke", effectivePanel);
+  const canConfig = hasPermission("verification.config", effectivePanel);
+  const canAudit = hasPermission("verification.audit", effectivePanel);
+  const canView =
+    hasPermission("verification.view_page", effectivePanel) ||
+    canManage ||
+    canReview ||
+    canGrant ||
+    canRevoke ||
+    canConfig ||
+    canAudit;
 
   const { data: members = [], isLoading: loadingMembers } = useMembers();
   const { data: tags = [] } = useMemberTags();

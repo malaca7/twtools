@@ -1308,22 +1308,29 @@ export function satisfiesPermission(
   if (list.includes("verification.manage")) {
     if (
       permission === "verification.view_page" ||
-      permission === "verification.request" ||
-      permission === "verification.cancel_own" ||
-      permission === "verification.manage" ||
-      permission === "verification.review" ||
-      permission === "verification.grant_direct" ||
-      permission === "verification.revoke" ||
-      permission === "verification.config" ||
-      permission === "verification.audit"
+      permission === "verification.manage"
     ) {
       return true;
     }
   }
-  if (list.includes("verification.review") && (permission === "verification.view_page" || permission === "verification.manage" || permission === "verification.review")) {
+  if (
+    list.includes("verification.review") ||
+    list.includes("verification.grant_direct") ||
+    list.includes("verification.revoke") ||
+    list.includes("verification.config") ||
+    list.includes("verification.audit")
+  ) {
+    if (
+      permission === "verification.view_page" ||
+      permission === "verification.manage"
+    ) {
+      return true;
+    }
+  }
+  if (list.includes("verification.request") && permission === "verification.view_page") {
     return true;
   }
-  if (list.includes("verification.request") && (permission === "verification.view_page" || permission === "verification.cancel_own")) {
+  if (list.includes("verification.cancel_own") && permission === "verification.view_page") {
     return true;
   }
 
@@ -2270,22 +2277,29 @@ export function can(
   if (rolePerms.includes("verification.manage")) {
     if (
       permission === "verification.view_page" ||
-      permission === "verification.request" ||
-      permission === "verification.cancel_own" ||
-      permission === "verification.manage" ||
-      permission === "verification.review" ||
-      permission === "verification.grant_direct" ||
-      permission === "verification.revoke" ||
-      permission === "verification.config" ||
-      permission === "verification.audit"
+      permission === "verification.manage"
     ) {
       return true;
     }
   }
-  if (rolePerms.includes("verification.review") && (permission === "verification.view_page" || permission === "verification.manage" || permission === "verification.review")) {
+  if (
+    rolePerms.includes("verification.review") ||
+    rolePerms.includes("verification.grant_direct") ||
+    rolePerms.includes("verification.revoke") ||
+    rolePerms.includes("verification.config") ||
+    rolePerms.includes("verification.audit")
+  ) {
+    if (
+      permission === "verification.view_page" ||
+      permission === "verification.manage"
+    ) {
+      return true;
+    }
+  }
+  if (rolePerms.includes("verification.request") && permission === "verification.view_page") {
     return true;
   }
-  if (rolePerms.includes("verification.request") && (permission === "verification.view_page" || permission === "verification.cancel_own")) {
+  if (rolePerms.includes("verification.cancel_own") && permission === "verification.view_page") {
     return true;
   }
 

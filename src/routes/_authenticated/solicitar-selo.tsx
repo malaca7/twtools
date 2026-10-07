@@ -521,6 +521,21 @@ function SolicitarSeloContent() {
           </CardContent>
         </Card>
       )}
+
+      {/* AVISO QUANDO NÃO POSSUIR PERMISSÃO PARA ENVIAR SOLICITAÇÃO */}
+      {!isAlreadyVerified && !isPending && !canRequest && (
+        <Card className="surface-card border-amber-500/30 bg-amber-500/5 shadow-sm">
+          <CardContent className="p-5 flex items-start gap-3.5 text-xs text-amber-300">
+            <AlertCircle className="h-5 w-5 text-amber-400 shrink-0 mt-0.5" />
+            <div className="space-y-1">
+              <p className="font-bold text-foreground text-sm">Permissão 'Enviar Solicitação de Verificação' Desativada</p>
+              <p className="text-muted-foreground leading-relaxed">
+                Você possui acesso a esta página para acompanhar os requisitos, porém a permissão para enviar solicitações não está habilitada para seu perfil ou cargo. Entre em contato com a diretoria caso necessite submeter um pedido de verificação.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }
