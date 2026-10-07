@@ -1335,25 +1335,23 @@ export function DevWebhooksConfigCard({ isCeoView }: DevWebhooksConfigCardProps 
                   </div>
 
                   {/* URL Oficial do Webhook Discord */}
-                  {canCopyUrl && (
-                    <div className="space-y-1 pt-1 border-t border-zinc-800/80">
-                      <div className="flex items-center justify-between">
-                        <Label className="text-xs font-bold flex items-center gap-1.5">
-                          <ExternalLink className="h-3.5 w-3.5 text-emerald-400" />
-                          URL Oficial do Webhook (Discohook / FiveM)
-                        </Label>
-                        <Badge className="bg-emerald-500/10 text-emerald-400 border-emerald-500/20 text-[9px] font-mono">
-                          Oficial Discord
-                        </Badge>
-                      </div>
-                      <Input
-                        value={editingWebhook.webhookUrl || ""}
-                        onChange={(e) => setEditingWebhook({ ...editingWebhook, webhookUrl: e.target.value })}
-                        placeholder="https://discord.com/api/webhooks/... (preenchida automaticamente se vazia)"
-                        className="bg-zinc-950 border-zinc-800 text-xs font-mono"
-                      />
+                  <div className="space-y-1 pt-1 border-t border-zinc-800/80">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-xs font-bold flex items-center gap-1.5">
+                        <ExternalLink className="h-3.5 w-3.5 text-emerald-400" />
+                        URL Oficial do Webhook (Discohook / FiveM)
+                      </Label>
+                      <Badge className="bg-emerald-500/10 text-emerald-400 border-emerald-500/20 text-[9px] font-mono">
+                        Oficial Discord
+                      </Badge>
                     </div>
-                  )}
+                    <Input
+                      value={editingWebhook.webhookUrl || ""}
+                      onChange={(e) => setEditingWebhook({ ...editingWebhook, webhookUrl: e.target.value })}
+                      placeholder="https://discord.com/api/webhooks/... (preenchida automaticamente se vazia)"
+                      className="bg-zinc-950 border-zinc-800 text-xs font-mono"
+                    />
+                  </div>
                 </div>
 
                 {/* 3. Identidade do Bot Emissor */}

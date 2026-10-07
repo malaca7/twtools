@@ -1542,8 +1542,8 @@ export function AppShell({ children }: { children: ReactNode }) {
                     <Palette className="mr-2 h-4 w-4 text-purple-400" /> Aparência
                   </DropdownMenuItem>
 
-                  {(hasPermission("verification.request", isDevArea ? "dev" : isCeoArea ? "ceo" : "member") ||
-                    hasPermission("verification.view_page", isDevArea ? "dev" : isCeoArea ? "ceo" : "member") ||
+                  {(hasPermission("verification.request") ||
+                    hasPermission("verification.view_page") ||
                     profile?.is_verified) && (
                     <DropdownMenuItem
                       onClick={() => setIsVerificationModalOpen(true)}
