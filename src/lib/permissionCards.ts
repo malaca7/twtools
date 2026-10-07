@@ -2332,9 +2332,15 @@ export const PAGE_CARDS: PageCardConfig[] = [
       },
       {
         key: "verification.config",
-        label: "Configurar Requisitos e Estilo Visual do Selo",
-        description: "Permite alterar nome, ícone, cor, brilho, instruções e regras de verificação.",
+        label: "Configurar Estilo Visual & Parâmetros do Selo",
+        description: "Permite alterar nome, ícone, cor, brilho e tooltip visual do selo de verificação.",
         badge: "Configuração",
+      },
+      {
+        key: "verification.requirements",
+        label: "Configurar, Criar e Apagar Requisitos do Selo",
+        description: "Permite criar novos requisitos personalizados, editar parâmetros exigidos e apagar regras de verificação.",
+        badge: "Requisitos",
       },
       {
         key: "verification.audit",

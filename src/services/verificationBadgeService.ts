@@ -1,5 +1,14 @@
 import { supabase } from "@/integrations/supabase/client";
 
+export interface CustomRequirementItem {
+  id: string;
+  title: string;
+  description: string;
+  is_required: boolean;
+  type?: "boolean" | "number" | "text";
+  min_value?: number;
+}
+
 export interface VerificationRequirementsConfig {
   require_discord: boolean;
   require_game_id: boolean;
@@ -9,6 +18,7 @@ export interface VerificationRequirementsConfig {
   allowed_roles?: string[];
   allowed_tags?: string[];
   custom_instructions?: string;
+  custom_requirements?: CustomRequirementItem[];
 }
 
 export interface VerificationBadgeConfig {

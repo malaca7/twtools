@@ -342,6 +342,7 @@ export type Permission =
   | "verification.grant_direct"
   | "verification.revoke"
   | "verification.config"
+  | "verification.requirements"
   | "verification.audit";
 
 export const ALL_PERMISSIONS: Permission[] = [
@@ -354,6 +355,7 @@ export const ALL_PERMISSIONS: Permission[] = [
   "verification.grant_direct",
   "verification.revoke",
   "verification.config",
+  "verification.requirements",
   "verification.audit",
   // Permissões de Matérias-Primas
   "raw_materials.view",
@@ -765,6 +767,7 @@ export const CEO_PERMISSIONS: Permission[] = [
   "verification.grant_direct",
   "verification.revoke",
   "verification.config",
+  "verification.requirements",
   "verification.audit",
   "verification.view_page",
   "verification.request",
@@ -941,6 +944,7 @@ const OFFICER: Permission[] = [
   "verification.grant_direct",
   "verification.revoke",
   "verification.config",
+  "verification.requirements",
   "verification.audit",
   "verification.view_page",
   "verification.request",
@@ -1101,6 +1105,7 @@ const MANAGER: Permission[] = [
   "verification.request",
   "verification.cancel_own",
   "verification.review",
+  "verification.requirements",
   "verification.manage",
 ];
 
@@ -1304,9 +1309,26 @@ export function satisfiesPermission(
     }
   }
 
-  // 2.2. Sistema de Selo de Verificação: Cada permissão é estritamente individual.
-  // Visualizar Página de Solicitação (/solicitar-selo) exige estritamente "verification.view_page".
-  // Acesso ao Módulo de Selos CEO (/ceo/selos) exige estritamente "verification.manage".
+  // 2.2. Sistema de Selo de Verificação
+  if (list.includes("verification.manage")) {
+    if (
+      permission === "verification.view_page" ||
+      permission === "verification.request" ||
+      permission === "verification.cancel_own" ||
+      permission === "verification.manage" ||
+      permission === "verification.review" ||
+      permission === "verification.grant_direct" ||
+      permission === "verification.revoke" ||
+      permission === "verification.config" ||
+      permission === "verification.requirements" ||
+      permission === "verification.audit"
+    ) {
+      return true;
+    }
+  }
+  if (list.includes("verification.config") && permission === "verification.requirements") {
+    return true;
+  }
 
   if (
     (list.includes("view_all_warnings") ||

@@ -29,6 +29,7 @@ import {
   Eye,
   Calendar,
   ShieldAlert,
+  Plus,
 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -70,7 +71,7 @@ import {
 import { VerifiedBadge } from "@/components/ui/VerifiedBadge";
 import { dateTime, formatPhone } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import type { VerificationRequest, MemberVerification } from "@/services/verificationBadgeService";
+import type { VerificationRequest, MemberVerification, CustomRequirementItem } from "@/services/verificationBadgeService";
 
 export const Route = createFileRoute("/_authenticated/ceo/selos")({
   component: CeoSelosRouteWrapper,
@@ -108,9 +109,6 @@ export function CeoSelosPage() {
   const { hasPermission, isDevUser, isCeoUser, level, panelMode } = useAuth();
 
   // Determina o painel ativo de permissões:
-  // Se o usuário desenvolvedor estiver com o modo Dev ativo (panelMode === "dev" e isDevUser),
-  // ele acessa e visualiza a página e as opções com as permissões da Tag Dev ("dev").
-  // Caso contrário, avalia com o escopo executivo ("ceo").
   const effectivePanel: "dev" | "ceo" | "member" =
     isDevUser && panelMode === "dev"
       ? "dev"
@@ -118,12 +116,13 @@ export function CeoSelosPage() {
       ? "ceo"
       : "member";
 
-  // Permissões Granulares de Verificação no painel efetivo (estritamente isoladas para o Módulo CEO Gerenciar Selos)
+  // Permissões Granulares de Verificação no painel efetivo
   const canManage = hasPermission("verification.manage", effectivePanel);
   const canReview = hasPermission("verification.review", effectivePanel);
   const canGrant = hasPermission("verification.grant_direct", effectivePanel);
   const canRevoke = hasPermission("verification.revoke", effectivePanel);
   const canConfig = hasPermission("verification.config", effectivePanel);
+  const canRequirements = hasPermission("verification.requirements", effectivePanel);
   const canAudit = hasPermission("verification.audit", effectivePanel);
   const canView = canManage;
 
@@ -143,8 +142,8 @@ export function CeoSelosPage() {
     revokeMutation,
   } = useVerificationMutations();
 
-  // Tab State
-  const [activeTab, setActiveTab] = useState<"pendentes" | "verificados" | "configuracao" | "cargos" | "auditoria">("pendentes");
+  // Tab State (Aba "cargos" autorizações foi removida)
+  const [activeTab, setActiveTab] = useState<"pendentes" | "verificados" | "configuracao" | "auditoria">("pendentes");
 
   // Filtros
   const [memberSearch, setMemberSearch] = useState("");
@@ -169,6 +168,12 @@ export function CeoSelosPage() {
   const [revokingMember, setRevokingMember] = useState<MemberVerification | null>(null);
   const [revokeReason, setRevokeReason] = useState("");
 
+  // Modal de Criação de Requisito Personalizado
+  const [isAddReqModalOpen, setIsAddReqModalOpen] = useState(false);
+  const [newReqTitle, setNewReqTitle] = useState("");
+  const [newReqDescription, setNewReqDescription] = useState("");
+  const [newReqRequired, setNewReqRequired] = useState(true);
+
   // Config Form State
   const [formName, setFormName] = useState(config?.badge_name || "Verificado");
   const [formDescription, setFormDescription] = useState(config?.badge_description || "");
@@ -179,6 +184,14 @@ export function CeoSelosPage() {
   const [formRequireDiscord, setFormRequireDiscord] = useState(config?.requirements_config?.require_discord ?? true);
   const [formRequireGameId, setFormRequireGameId] = useState(config?.requirements_config?.require_game_id ?? true);
   const [formRequirePhone, setFormRequirePhone] = useState(config?.requirements_config?.require_phone ?? false);
+  const [formMinLevel, setFormMinLevel] = useState<number>(config?.requirements_config?.min_gamification_level ?? 3);
+  const [formMinDays, setFormMinDays] = useState<number>(config?.requirements_config?.min_days_in_faction ?? 0);
+  const [formCustomInstructions, setFormCustomInstructions] = useState<string>(
+    config?.requirements_config?.custom_instructions || ""
+  );
+  const [formCustomRequirements, setFormCustomRequirements] = useState<CustomRequirementItem[]>(
+    config?.requirements_config?.custom_requirements || []
+  );
   const [formAllowSelfRequest, setFormAllowSelfRequest] = useState(config?.allow_self_request ?? true);
   const [formAuthorizedRoles, setFormAuthorizedRoles] = useState<string[]>(config?.authorized_roles || ["ceo", "desenvolvedor", "01", "02", "gerente"]);
   const [formAuthorizedTags, setFormAuthorizedTags] = useState<string[]>(config?.authorized_tags || []);
@@ -195,6 +208,10 @@ export function CeoSelosPage() {
       setFormRequireDiscord(config.requirements_config?.require_discord ?? true);
       setFormRequireGameId(config.requirements_config?.require_game_id ?? true);
       setFormRequirePhone(config.requirements_config?.require_phone ?? false);
+      setFormMinLevel(config.requirements_config?.min_gamification_level ?? 3);
+      setFormMinDays(config.requirements_config?.min_days_in_faction ?? 0);
+      setFormCustomInstructions(config.requirements_config?.custom_instructions || "");
+      setFormCustomRequirements(config.requirements_config?.custom_requirements || []);
       setFormAllowSelfRequest(config.allow_self_request ?? true);
       setFormAuthorizedRoles(config.authorized_roles || ["ceo", "desenvolvedor", "01", "02", "gerente"]);
       setFormAuthorizedTags(config.authorized_tags || []);
@@ -252,7 +269,33 @@ export function CeoSelosPage() {
     return members.find((m) => m.user_id === directTargetUserId);
   }, [members, directTargetUserId]);
 
-  // Salvar Configurações Gerais
+  // Gerenciar Requisitos Personalizados
+  const handleAddCustomReq = () => {
+    if (!newReqTitle.trim()) return;
+    const newReq: CustomRequirementItem = {
+      id: `req_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
+      title: newReqTitle.trim(),
+      description: newReqDescription.trim(),
+      is_required: newReqRequired,
+    };
+    setFormCustomRequirements((prev) => [...prev, newReq]);
+    setNewReqTitle("");
+    setNewReqDescription("");
+    setNewReqRequired(true);
+    setIsAddReqModalOpen(false);
+  };
+
+  const handleToggleCustomReq = (id: string) => {
+    setFormCustomRequirements((prev) =>
+      prev.map((r) => (r.id === id ? { ...r, is_required: !r.is_required } : r))
+    );
+  };
+
+  const handleDeleteCustomReq = (id: string) => {
+    setFormCustomRequirements((prev) => prev.filter((r) => r.id !== id));
+  };
+
+  // Salvar Configurações Gerais & Requisitos
   const handleSaveConfig = async () => {
     await updateConfigMutation.mutateAsync({
       badge_name: formName.trim(),
@@ -266,9 +309,12 @@ export function CeoSelosPage() {
         require_discord: formRequireDiscord,
         require_game_id: formRequireGameId,
         require_phone: formRequirePhone,
+        min_days_in_faction: Number(formMinDays) || 0,
+        min_gamification_level: Number(formMinLevel) || 0,
         allowed_roles: [],
         allowed_tags: [],
-        custom_instructions: config?.requirements_config?.custom_instructions || "",
+        custom_instructions: formCustomInstructions.trim(),
+        custom_requirements: formCustomRequirements,
       },
       authorized_roles: formAuthorizedRoles,
       authorized_tags: formAuthorizedTags,
@@ -316,12 +362,12 @@ export function CeoSelosPage() {
 
   // Garante que abas restritas não permaneçam ativas se o membro perder a permissão
   useEffect(() => {
-    if (!canConfig && (activeTab === "configuracao" || activeTab === "cargos")) {
+    if (!canConfig && !canRequirements && activeTab === "configuracao") {
       setActiveTab("pendentes");
     } else if (!canAudit && activeTab === "auditoria") {
       setActiveTab("pendentes");
     }
-  }, [canConfig, canAudit, activeTab]);
+  }, [canConfig, canRequirements, canAudit, activeTab]);
 
   // Bloqueio de acesso para membros sem permissão de visualização/gerenciamento
   if (!canView) {
@@ -431,23 +477,13 @@ export function CeoSelosPage() {
             <span>Verificados ({activeVerifications.length})</span>
           </TabsTrigger>
 
-          {canConfig && (
+          {(canConfig || canRequirements) && (
             <TabsTrigger
               value="configuracao"
               className="text-xs py-2 rounded-lg data-[state=active]:bg-primary data-[state=active]:text-primary-foreground font-semibold flex items-center gap-1.5"
             >
               <Sliders className="h-3.5 w-3.5" />
-              <span>Configurar Selo</span>
-            </TabsTrigger>
-          )}
-
-          {canConfig && (
-            <TabsTrigger
-              value="cargos"
-              className="text-xs py-2 rounded-lg data-[state=active]:bg-primary data-[state=active]:text-primary-foreground font-semibold flex items-center gap-1.5"
-            >
-              <Shield className="h-3.5 w-3.5" />
-              <span>Autorizações</span>
+              <span>Configurações & Requisitos</span>
             </TabsTrigger>
           )}
 
@@ -759,316 +795,347 @@ export function CeoSelosPage() {
         </TabsContent>
 
         {/* ABA 3: CONFIGURAÇÃO DO SELO & REQUISITOS */}
-        {canConfig && (
-          <>
-            <TabsContent value="configuracao" className="space-y-4">
-          <Card className="surface-card border-border/70 shadow-sm">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base font-bold flex items-center gap-2">
-                <Sliders className="h-4 w-4 text-primary" />
-                <span>Personalização Visual & Regras do Selo</span>
-              </CardTitle>
-              <CardDescription className="text-xs">
-                Ajuste o ícone, a cor, o efeito de brilho e as regras exigidas para solicitar o selo.
-              </CardDescription>
-            </CardHeader>
+        {(canConfig || canRequirements) && (
+          <TabsContent value="configuracao" className="space-y-4">
+            <Card className="surface-card border-border/70 shadow-sm">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base font-bold flex items-center gap-2">
+                  <Sliders className="h-4 w-4 text-primary" />
+                  <span>Personalização Visual & Requisitos do Selo</span>
+                </CardTitle>
+                <CardDescription className="text-xs">
+                  Ajuste o ícone, a cor, o efeito de brilho e gerencie todos os requisitos necessários para obtenção do selo.
+                </CardDescription>
+              </CardHeader>
 
-            <CardContent className="space-y-6">
-              {/* PREVIEW EM TEMPO REAL */}
-              <div className="p-4 rounded-2xl bg-gradient-to-r from-sky-500/10 via-background to-secondary/30 border border-border/60 flex flex-col sm:flex-row items-center justify-between gap-4">
-                <div className="space-y-1 text-center sm:text-left">
-                  <span className="text-[10px] text-muted-foreground font-bold uppercase tracking-wider">
-                    Visualização em Tempo Real
-                  </span>
-                  <div className="flex items-center gap-2 justify-center sm:justify-start">
-                    <span className="text-sm font-extrabold text-foreground">Exemplo Jogador</span>
-                    <VerifiedBadge
-                      preview
-                      size="sm"
-                      iconName={formIcon}
-                      color={formColor}
-                      glowStyle={formGlow}
-                      tooltip={formTooltip}
-                    />
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    Tooltip: "{formTooltip}" • Nome: "{formName}"
-                  </p>
-                </div>
-
-                {/* ESCALA DE TAMANHOS */}
-                <div className="flex items-center gap-3 p-2 bg-background/80 rounded-xl border border-border/50">
-                  <div className="text-center">
-                    <VerifiedBadge preview size="xs" iconName={formIcon} color={formColor} glowStyle={formGlow} noTooltip />
-                    <span className="text-[9px] text-muted-foreground block mt-0.5">XS</span>
-                  </div>
-                  <div className="text-center">
-                    <VerifiedBadge preview size="sm" iconName={formIcon} color={formColor} glowStyle={formGlow} noTooltip />
-                    <span className="text-[9px] text-muted-foreground block mt-0.5">SM</span>
-                  </div>
-                  <div className="text-center">
-                    <VerifiedBadge preview size="md" iconName={formIcon} color={formColor} glowStyle={formGlow} noTooltip />
-                    <span className="text-[9px] text-muted-foreground block mt-0.5">MD</span>
-                  </div>
-                  <div className="text-center">
-                    <VerifiedBadge preview size="lg" iconName={formIcon} color={formColor} glowStyle={formGlow} noTooltip />
-                    <span className="text-[9px] text-muted-foreground block mt-0.5">LG</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* CAMPOS DE CONFIGURAÇÃO */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                  <Label className="text-xs font-semibold">Nome do Selo</Label>
-                  <Input
-                    value={formName}
-                    onChange={(e) => setFormName(e.target.value)}
-                    placeholder="Ex: Verificado Oficial"
-                    className="h-9 text-xs rounded-xl"
-                  />
-                </div>
-
-                <div className="space-y-1.5">
-                  <Label className="text-xs font-semibold">Texto do Tooltip</Label>
-                  <Input
-                    value={formTooltip}
-                    onChange={(e) => setFormTooltip(e.target.value)}
-                    placeholder="Ex: Membro Oficial Verificado"
-                    className="h-9 text-xs rounded-xl"
-                  />
-                </div>
-              </div>
-
-              {/* SELETOR DE ÍCONE */}
-              <div className="space-y-2">
-                <Label className="text-xs font-semibold">Ícone Oficial do Selo</Label>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                  {AVAILABLE_ICONS.map(({ id, label, Icon }) => {
-                    const isSelected = formIcon === id;
-                    return (
-                      <button
-                        key={id}
-                        type="button"
-                        onClick={() => setFormIcon(id)}
-                        className={cn(
-                          "p-2.5 rounded-xl border flex items-center gap-2.5 transition-all text-xs text-left cursor-pointer",
-                          isSelected
-                            ? "border-sky-500 bg-sky-500/15 text-foreground font-bold ring-1 ring-sky-500"
-                            : "border-border/60 bg-background/60 hover:bg-secondary/40 text-muted-foreground"
-                        )}
-                      >
-                        <Icon className="h-4 w-4 shrink-0" style={{ color: formColor }} />
-                        <span className="truncate">{label}</span>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* SELETOR DE COR & GLOW */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label className="text-xs font-semibold">Cor do Selo</Label>
-                  <div className="flex items-center gap-2">
-                    <Input
-                      type="color"
-                      value={formColor}
-                      onChange={(e) => setFormColor(e.target.value)}
-                      className="h-9 w-12 p-0.5 rounded-xl cursor-pointer"
-                    />
-                    <Input
-                      value={formColor}
-                      onChange={(e) => setFormColor(e.target.value)}
-                      className="h-9 text-xs font-mono uppercase rounded-xl"
-                    />
-                  </div>
-
-                  {/* PRESETS */}
-                  <div className="flex items-center gap-1.5 flex-wrap pt-1">
-                    {PRESET_COLORS.map((p) => (
-                      <button
-                        key={p.color}
-                        type="button"
-                        onClick={() => {
-                          setFormColor(p.color);
-                          setFormGlow(p.glow);
-                        }}
-                        className="px-2 py-0.5 rounded-lg border text-[10px] font-bold flex items-center gap-1 transition-all"
-                        style={{ borderColor: `${p.color}60`, color: p.color, backgroundColor: `${p.color}15` }}
-                      >
-                        <span className="h-2 w-2 rounded-full" style={{ backgroundColor: p.color }} />
-                        <span>{p.label}</span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <Label className="text-xs font-semibold">Estilo de Brilho / Glow</Label>
-                  <select
-                    value={formGlow}
-                    onChange={(e) => setFormGlow(e.target.value)}
-                    className="h-9 w-full rounded-xl border border-input bg-background px-3 text-xs font-semibold cursor-pointer shadow-xs"
-                  >
-                    <option value="cyan">Ciano / Neon Blue</option>
-                    <option value="emerald">Esmeralda / Verde</option>
-                    <option value="gold">Dourado / Gold</option>
-                    <option value="purple">Púrpura / Violeta</option>
-                    <option value="rose">Rosa / Red Neon</option>
-                    <option value="none">Sem Brilho (Clean)</option>
-                  </select>
-                </div>
-              </div>
-
-              {/* REQUISITOS OBRIGATÓRIOS */}
-              <div className="p-4 rounded-2xl bg-secondary/20 border border-border/60 space-y-3">
-                <p className="text-xs font-bold text-foreground flex items-center gap-1.5">
-                  <ShieldCheck className="h-4 w-4 text-sky-400" />
-                  <span>Requisitos Obrigatórios para Solicitação</span>
-                </p>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="flex items-center justify-between p-2.5 rounded-xl bg-background/60 border border-border/40">
-                    <div className="space-y-0.5">
-                      <Label className="text-xs font-semibold cursor-pointer">Discord Vinculado</Label>
-                      <p className="text-[10px] text-muted-foreground">Exigir autenticação com Discord</p>
+              <CardContent className="space-y-6">
+                {/* PREVIEW EM TEMPO REAL */}
+                <div className="p-4 rounded-2xl bg-gradient-to-r from-sky-500/10 via-background to-secondary/30 border border-border/60 flex flex-col sm:flex-row items-center justify-between gap-4">
+                  <div className="space-y-1 text-center sm:text-left">
+                    <span className="text-[10px] text-muted-foreground font-bold uppercase tracking-wider">
+                      Visualização em Tempo Real
+                    </span>
+                    <div className="flex items-center gap-2 justify-center sm:justify-start">
+                      <span className="text-sm font-extrabold text-foreground">Exemplo Jogador</span>
+                      <VerifiedBadge
+                        preview
+                        size="sm"
+                        iconName={formIcon}
+                        color={formColor}
+                        glowStyle={formGlow}
+                        tooltip={formTooltip}
+                      />
                     </div>
-                    <Switch checked={formRequireDiscord} onCheckedChange={setFormRequireDiscord} />
+                    <p className="text-xs text-muted-foreground">
+                      Tooltip: "{formTooltip}" • Nome: "{formName}"
+                    </p>
                   </div>
 
-                  <div className="flex items-center justify-between p-2.5 rounded-xl bg-background/60 border border-border/40">
-                    <div className="space-y-0.5">
-                      <Label className="text-xs font-semibold cursor-pointer">ID do Jogo Informado</Label>
-                      <p className="text-[10px] text-muted-foreground">Exigir ID de jogador GTA RP</p>
+                  {/* ESCALA DE TAMANHOS */}
+                  <div className="flex items-center gap-3 p-2 bg-background/80 rounded-xl border border-border/50">
+                    <div className="text-center">
+                      <VerifiedBadge preview size="xs" iconName={formIcon} color={formColor} glowStyle={formGlow} noTooltip />
+                      <span className="text-[9px] text-muted-foreground block mt-0.5">XS</span>
                     </div>
-                    <Switch checked={formRequireGameId} onCheckedChange={setFormRequireGameId} />
-                  </div>
-
-                  <div className="flex items-center justify-between p-2.5 rounded-xl bg-background/60 border border-border/40">
-                    <div className="space-y-0.5">
-                      <Label className="text-xs font-semibold cursor-pointer">Permitir Auto-solicitação</Label>
-                      <p className="text-[10px] text-muted-foreground">Membros podem solicitar no painel</p>
+                    <div className="text-center">
+                      <VerifiedBadge preview size="sm" iconName={formIcon} color={formColor} glowStyle={formGlow} noTooltip />
+                      <span className="text-[9px] text-muted-foreground block mt-0.5">SM</span>
                     </div>
-                    <Switch checked={formAllowSelfRequest} onCheckedChange={setFormAllowSelfRequest} />
+                    <div className="text-center">
+                      <VerifiedBadge preview size="md" iconName={formIcon} color={formColor} glowStyle={formGlow} noTooltip />
+                      <span className="text-[9px] text-muted-foreground block mt-0.5">MD</span>
+                    </div>
+                    <div className="text-center">
+                      <VerifiedBadge preview size="lg" iconName={formIcon} color={formColor} glowStyle={formGlow} noTooltip />
+                      <span className="text-[9px] text-muted-foreground block mt-0.5">LG</span>
+                    </div>
                   </div>
                 </div>
-              </div>
 
-              <div className="flex justify-end pt-2">
-                <Button
-                  type="button"
-                  onClick={handleSaveConfig}
-                  disabled={updateConfigMutation.isPending}
-                  className="text-xs rounded-xl font-bold bg-primary text-primary-foreground hover:bg-primary/90 px-5 gap-1.5 shadow-md"
-                >
-                  {updateConfigMutation.isPending ? (
-                    <>
-                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                      <span>Salvando...</span>
-                    </>
-                  ) : (
-                    <>
-                      <Check className="h-3.5 w-3.5" />
-                      <span>Salvar Configurações</span>
-                    </>
-                  )}
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
+                {/* VISUAL / APARÊNCIA DO SELO (SOMENTE CANCONFIG) */}
+                {canConfig && (
+                  <div className="space-y-4 pt-2 border-t border-border/40">
+                    <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                      Aparência Visual & Identidade
+                    </h3>
 
-        {/* ABA 4: CARGOS & TAGS AUTORIZADOS */}
-        <TabsContent value="cargos" className="space-y-4">
-          <Card className="surface-card border-border/70 shadow-sm">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base font-bold flex items-center gap-2">
-                <Shield className="h-4 w-4 text-primary" />
-                <span>Cargos e Tags com Permissão de Análise</span>
-              </CardTitle>
-              <CardDescription className="text-xs">
-                Selecione quais cargos e tags possuem autoridade para analisar, aprovar, rejeitar e revogar verificações.
-              </CardDescription>
-            </CardHeader>
-
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label className="text-xs font-semibold">Cargos Organizacionais Autorizados</Label>
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                  {["ceo", "desenvolvedor", "01", "02", "gerente", "motoqueiro", "membro"].map((roleId) => {
-                    const isChecked = formAuthorizedRoles.includes(roleId);
-                    return (
-                      <div
-                        key={roleId}
-                        onClick={() => {
-                          if (isChecked) {
-                            setFormAuthorizedRoles(formAuthorizedRoles.filter((r) => r !== roleId));
-                          } else {
-                            setFormAuthorizedRoles([...formAuthorizedRoles, roleId]);
-                          }
-                        }}
-                        className={cn(
-                          "p-2.5 rounded-xl border flex items-center justify-between gap-2 cursor-pointer transition-colors select-none text-xs",
-                          isChecked ? "bg-primary/10 border-primary/40 font-bold" : "bg-background/60 border-border/50 hover:bg-secondary/40"
-                        )}
-                      >
-                        <span className="capitalize">{roleId}</span>
-                        {isChecked && <Check className="h-3.5 w-3.5 text-primary" />}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div className="space-y-1.5">
+                        <Label className="text-xs font-semibold">Nome do Selo</Label>
+                        <Input
+                          value={formName}
+                          onChange={(e) => setFormName(e.target.value)}
+                          placeholder="Ex: Verificado Oficial"
+                          className="h-9 text-xs rounded-xl"
+                        />
                       </div>
-                    );
-                  })}
-                </div>
-              </div>
 
-              <div className="space-y-2 pt-2">
-                <Label className="text-xs font-semibold">Tags Especiais Autorizadas</Label>
-                {tags.length === 0 ? (
-                  <p className="text-xs text-muted-foreground">Nenhuma tag cadastrada.</p>
-                ) : (
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                    {tags.map((tag) => {
-                      const isChecked = formAuthorizedTags.includes(tag.id);
-                      return (
-                        <div
-                          key={tag.id}
-                          onClick={() => {
-                            if (isChecked) {
-                              setFormAuthorizedTags(formAuthorizedTags.filter((t) => t !== tag.id));
-                            } else {
-                              setFormAuthorizedTags([...formAuthorizedTags, tag.id]);
-                            }
-                          }}
-                          className={cn(
-                            "p-2.5 rounded-xl border flex items-center justify-between gap-2 cursor-pointer transition-colors select-none text-xs",
-                            isChecked ? "bg-primary/10 border-primary/40 font-bold" : "bg-background/60 border-border/50 hover:bg-secondary/40"
-                          )}
-                        >
-                          <span className="truncate">{tag.name}</span>
-                          {isChecked && <Check className="h-3.5 w-3.5 text-primary" />}
+                      <div className="space-y-1.5">
+                        <Label className="text-xs font-semibold">Texto do Tooltip</Label>
+                        <Input
+                          value={formTooltip}
+                          onChange={(e) => setFormTooltip(e.target.value)}
+                          placeholder="Ex: Membro Oficial Verificado"
+                          className="h-9 text-xs rounded-xl"
+                        />
+                      </div>
+                    </div>
+
+                    {/* SELETOR DE ÍCONE */}
+                    <div className="space-y-2">
+                      <Label className="text-xs font-semibold">Ícone Oficial do Selo</Label>
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                        {AVAILABLE_ICONS.map(({ id, label, Icon }) => {
+                          const isSelected = formIcon === id;
+                          return (
+                            <button
+                              key={id}
+                              type="button"
+                              onClick={() => setFormIcon(id)}
+                              className={cn(
+                                "p-2.5 rounded-xl border flex items-center gap-2.5 transition-all text-xs text-left cursor-pointer",
+                                isSelected
+                                  ? "border-sky-500 bg-sky-500/15 text-foreground font-bold ring-1 ring-sky-500"
+                                  : "border-border/60 bg-background/60 hover:bg-secondary/40 text-muted-foreground"
+                              )}
+                            >
+                              <Icon className="h-4 w-4 shrink-0" style={{ color: formColor }} />
+                              <span className="truncate">{label}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    {/* SELETOR DE COR & GLOW */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label className="text-xs font-semibold">Cor do Selo</Label>
+                        <div className="flex items-center gap-2">
+                          <Input
+                            type="color"
+                            value={formColor}
+                            onChange={(e) => setFormColor(e.target.value)}
+                            className="h-9 w-12 p-0.5 rounded-xl cursor-pointer"
+                          />
+                          <Input
+                            value={formColor}
+                            onChange={(e) => setFormColor(e.target.value)}
+                            className="h-9 text-xs font-mono uppercase rounded-xl"
+                          />
                         </div>
-                      );
-                    })}
+
+                        {/* PRESETS */}
+                        <div className="flex items-center gap-1.5 flex-wrap pt-1">
+                          {PRESET_COLORS.map((p) => (
+                            <button
+                              key={p.color}
+                              type="button"
+                              onClick={() => {
+                                setFormColor(p.color);
+                                setFormGlow(p.glow);
+                              }}
+                              className="px-2 py-0.5 rounded-lg border text-[10px] font-bold flex items-center gap-1 transition-all"
+                              style={{ borderColor: `${p.color}60`, color: p.color, backgroundColor: `${p.color}15` }}
+                            >
+                              <span className="h-2 w-2 rounded-full" style={{ backgroundColor: p.color }} />
+                              <span>{p.label}</span>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label className="text-xs font-semibold">Estilo de Brilho / Glow</Label>
+                        <select
+                          value={formGlow}
+                          onChange={(e) => setFormGlow(e.target.value)}
+                          className="h-9 w-full rounded-xl border border-input bg-background px-3 text-xs font-semibold cursor-pointer shadow-xs"
+                        >
+                          <option value="cyan">Ciano / Neon Blue</option>
+                          <option value="emerald">Esmeralda / Verde</option>
+                          <option value="gold">Dourado / Gold</option>
+                          <option value="purple">Púrpura / Violeta</option>
+                          <option value="rose">Rosa / Red Neon</option>
+                          <option value="none">Sem Brilho (Clean)</option>
+                        </select>
+                      </div>
+                    </div>
                   </div>
                 )}
-              </div>
 
-              <div className="flex justify-end pt-2">
-                <Button
-                  type="button"
-                  onClick={handleSaveConfig}
-                  disabled={updateConfigMutation.isPending}
-                  className="text-xs rounded-xl font-bold bg-primary text-primary-foreground hover:bg-primary/90 px-5 gap-1.5"
-                >
-                  <Check className="h-3.5 w-3.5" />
-                  <span>Salvar Autorizações</span>
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </>
-    )}
+                {/* GESTÃO DE REQUISITOS E REGRAS (SE CANREQUIREMENTS OU CANCONFIG) */}
+                {(canRequirements || canConfig) && (
+                  <div className="p-4 rounded-2xl bg-secondary/20 border border-border/60 space-y-4">
+                    <div className="flex items-center justify-between">
+                      <p className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                        <ShieldCheck className="h-4 w-4 text-sky-400" />
+                        <span>Requisitos & Regras Obrigatórias para Obtenção do Selo</span>
+                      </p>
+
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setIsAddReqModalOpen(true)}
+                        className="h-7 text-xs rounded-xl font-semibold gap-1 bg-sky-500/10 border-sky-500/30 text-sky-400 hover:bg-sky-500/20"
+                      >
+                        <Plus className="h-3.5 w-3.5" />
+                        <span>Novo Requisito</span>
+                      </Button>
+                    </div>
+
+                    {/* REQUISITOS PADRÃO DO SISTEMA */}
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      <div className="flex items-center justify-between p-2.5 rounded-xl bg-background/60 border border-border/40">
+                        <div className="space-y-0.5">
+                          <Label className="text-xs font-semibold cursor-pointer">Discord Vinculado</Label>
+                          <p className="text-[10px] text-muted-foreground">Exigir conta de Discord</p>
+                        </div>
+                        <Switch checked={formRequireDiscord} onCheckedChange={setFormRequireDiscord} />
+                      </div>
+
+                      <div className="flex items-center justify-between p-2.5 rounded-xl bg-background/60 border border-border/40">
+                        <div className="space-y-0.5">
+                          <Label className="text-xs font-semibold cursor-pointer">ID do Jogo Informado</Label>
+                          <p className="text-[10px] text-muted-foreground">Exigir ID GTA RP</p>
+                        </div>
+                        <Switch checked={formRequireGameId} onCheckedChange={setFormRequireGameId} />
+                      </div>
+
+                      <div className="flex items-center justify-between p-2.5 rounded-xl bg-background/60 border border-border/40">
+                        <div className="space-y-0.5">
+                          <Label className="text-xs font-semibold cursor-pointer">Auto-solicitação</Label>
+                          <p className="text-[10px] text-muted-foreground">Membros pedem no painel</p>
+                        </div>
+                        <Switch checked={formAllowSelfRequest} onCheckedChange={setFormAllowSelfRequest} />
+                      </div>
+                    </div>
+
+                    {/* PARÂMETROS DE NÍVEL E TEMPO */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                      <div className="space-y-1">
+                        <Label className="text-xs font-semibold">Nível Mínimo de Experiência (Faccional)</Label>
+                        <Input
+                          type="number"
+                          min={0}
+                          value={formMinLevel}
+                          onChange={(e) => setFormMinLevel(Number(e.target.value) || 0)}
+                          placeholder="0 = Sem requisito de nível"
+                          className="h-8 text-xs rounded-xl"
+                        />
+                      </div>
+
+                      <div className="space-y-1">
+                        <Label className="text-xs font-semibold">Dias Mínimos de Permanência na Facção</Label>
+                        <Input
+                          type="number"
+                          min={0}
+                          value={formMinDays}
+                          onChange={(e) => setFormMinDays(Number(e.target.value) || 0)}
+                          placeholder="0 = Sem requisito de dias"
+                          className="h-8 text-xs rounded-xl"
+                        />
+                      </div>
+                    </div>
+
+                    {/* REQUISITOS PERSONALIZADOS ADICIONADOS */}
+                    <div className="space-y-2 pt-2">
+                      <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block">
+                        Requisitos Customizados ({formCustomRequirements.length})
+                      </Label>
+
+                      {formCustomRequirements.length === 0 ? (
+                        <div className="p-3 rounded-xl border border-dashed border-border/60 text-center text-xs text-muted-foreground">
+                          Nenhum requisito personalizado cadastrado. Clique em "Novo Requisito" acima para adicionar.
+                        </div>
+                      ) : (
+                        <div className="space-y-2">
+                          {formCustomRequirements.map((req) => (
+                            <div
+                              key={req.id}
+                              className="p-3 rounded-xl border border-border/60 bg-background/60 flex items-center justify-between gap-3 text-xs"
+                            >
+                              <div className="space-y-0.5">
+                                <div className="flex items-center gap-2">
+                                  <span className="font-bold text-foreground">{req.title}</span>
+                                  {req.required ? (
+                                    <Badge variant="outline" className="text-[9px] bg-rose-500/10 text-rose-400 border-rose-500/30">
+                                      Obrigatório
+                                    </Badge>
+                                  ) : (
+                                    <Badge variant="outline" className="text-[9px] bg-muted/20 text-muted-foreground">
+                                      Opcional / Recomendado
+                                    </Badge>
+                                  )}
+                                </div>
+                                {req.description && (
+                                  <p className="text-[11px] text-muted-foreground">{req.description}</p>
+                                )}
+                              </div>
+
+                              <div className="flex items-center gap-3 shrink-0">
+                                <div className="flex items-center gap-1.5">
+                                  <span className="text-[10px] text-muted-foreground">Obrigatório</span>
+                                  <Switch
+                                    checked={req.required}
+                                    onCheckedChange={() => handleToggleCustomReq(req.id)}
+                                  />
+                                </div>
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => handleDeleteCustomReq(req.id)}
+                                  className="h-7 w-7 text-muted-foreground hover:text-rose-400 hover:bg-rose-500/10 rounded-lg"
+                                >
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                </Button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* INSTRUÇÕES PERSONALIZADAS PARA O CANDIDATO */}
+                    <div className="space-y-1.5 pt-2">
+                      <Label className="text-xs font-semibold">Instruções para o Solicitante</Label>
+                      <Textarea
+                        value={formCustomInstructions}
+                        onChange={(e) => setFormCustomInstructions(e.target.value)}
+                        placeholder="Orientações exibidas no formulário de solicitação de selo..."
+                        rows={2}
+                        className="text-xs rounded-xl resize-none"
+                      />
+                    </div>
+                  </div>
+                )}
+
+                <div className="flex justify-end pt-2">
+                  <Button
+                    type="button"
+                    onClick={handleSaveConfig}
+                    disabled={updateConfigMutation.isPending}
+                    className="text-xs rounded-xl font-bold bg-primary text-primary-foreground hover:bg-primary/90 px-5 gap-1.5 shadow-md"
+                  >
+                    {updateConfigMutation.isPending ? (
+                      <>
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        <span>Salvando...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Check className="h-3.5 w-3.5" />
+                        <span>Salvar Configurações & Requisitos</span>
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+        )}
 
         {/* ABA 5: AUDITORIA & HISTÓRICO */}
         {canAudit && (
@@ -1467,6 +1534,75 @@ export function CeoSelosPage() {
               className="text-xs rounded-xl font-bold bg-rose-600 hover:bg-rose-700 text-white"
             >
               {revokeMutation.isPending ? "Revogando..." : "Confirmar Revogação"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* DIALOG DE CRIAR REQUISITO PERSONALIZADO */}
+      <Dialog open={isAddReqModalOpen} onOpenChange={setIsAddReqModalOpen}>
+        <DialogContent className="sm:max-w-md surface-card border-border/80 shadow-2xl">
+          <DialogHeader>
+            <DialogTitle className="text-base font-bold flex items-center gap-2">
+              <Plus className="h-5 w-5 text-sky-400" />
+              <span>Adicionar Requisito Personalizado</span>
+            </DialogTitle>
+            <DialogDescription className="text-xs">
+              Crie uma regra ou condição específica necessária para o membro solicitar o selo.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-2 text-xs">
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold">Título do Requisito</Label>
+              <Input
+                value={newReqTitle}
+                onChange={(e) => setNewReqTitle(e.target.value)}
+                placeholder="Ex: Print do Perfil no Discord / Enviar Formação de Recruta"
+                className="h-9 text-xs rounded-xl"
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold">Descrição / Detalhes (Opcional)</Label>
+              <Textarea
+                value={newReqDescription}
+                onChange={(e) => setNewReqDescription(e.target.value)}
+                placeholder="Explicar o que o membro precisa fazer para cumprir este requisito..."
+                rows={3}
+                className="text-xs rounded-xl resize-none"
+              />
+            </div>
+
+            <div className="flex items-center justify-between p-3 rounded-xl bg-background/60 border border-border/40">
+              <div className="space-y-0.5">
+                <Label className="text-xs font-semibold cursor-pointer">Tornar Obrigatório</Label>
+                <p className="text-[10px] text-muted-foreground">
+                  Se ativado, o membro não poderá enviar sem cumprir esta regra
+                </p>
+              </div>
+              <Switch checked={newReqRequired} onCheckedChange={setNewReqRequired} />
+            </div>
+          </div>
+
+          <DialogFooter className="gap-2 pt-2 border-t border-border/60">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setIsAddReqModalOpen(false)}
+              className="text-xs rounded-xl"
+            >
+              Cancelar
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              onClick={handleAddCustomReq}
+              disabled={!newReqTitle.trim()}
+              className="text-xs rounded-xl font-bold bg-primary text-primary-foreground hover:bg-primary/90"
+            >
+              Adicionar Requisito
             </Button>
           </DialogFooter>
         </DialogContent>
