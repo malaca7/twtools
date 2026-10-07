@@ -806,6 +806,7 @@ function DynamicSidebarNavigation() {
         if (item.url.startsWith("/dev") || item.url.startsWith("/ceo")) return false;
         if (!item.visible) return false;
         if (item.id === "solicitar-selo" || item.url === "/solicitar-selo") {
+          if (profile?.is_verified) return false;
           const hasDevPerm = hasPermission("verification.view_page", "dev");
           const hasCeoPerm = isCeoUser && hasPermission("verification.view_page", "ceo");
           if (!hasDevPerm && !hasCeoPerm) return false;
@@ -855,6 +856,7 @@ function DynamicSidebarNavigation() {
         if (item.url.startsWith("/dev") || item.url.startsWith("/ceo")) return false;
         if (!item.visible) return false;
         if (item.id === "solicitar-selo" || item.url === "/solicitar-selo") {
+          if (profile?.is_verified) return false;
           if (!hasPermission("verification.view_page", "ceo")) {
             return false;
           }
@@ -901,6 +903,7 @@ function DynamicSidebarNavigation() {
       if (!item.visible) return false;
       // 3. Verifica estritamente a permissão exigida pelo item do menu (respeitando bloqueios de tag e cargo)
       if (item.id === "solicitar-selo" || item.url === "/solicitar-selo") {
+        if (profile?.is_verified) return false;
         if (!hasPermission("verification.view_page", "member")) {
           return false;
         }
@@ -1541,13 +1544,13 @@ export function AppShell({ children }: { children: ReactNode }) {
                     <Palette className="mr-2 h-4 w-4 text-purple-400" /> Aparência
                   </DropdownMenuItem>
 
-                  {hasPermission("verification.view_page") && (
+                  {!profile?.is_verified && hasPermission("verification.view_page") && (
                     <DropdownMenuItem
                       onClick={() => navigate({ to: "/solicitar-selo" })}
                       className="cursor-pointer font-medium"
                     >
                       <BadgeCheck className="mr-2 h-4 w-4 text-emerald-400" />
-                      <span>{profile?.is_verified ? "Selo de Verificado" : "Solicitar Verificação"}</span>
+                      <span>Solicitar Verificação</span>
                     </DropdownMenuItem>
                   )}
 

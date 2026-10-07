@@ -419,6 +419,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     window.addEventListener("tw_ceo_config_updated", handleMenuOrCeoUpdate);
     window.addEventListener("tw_tags_updated", handleMenuOrCeoUpdate);
     window.addEventListener("tw_member_tags_updated", handleMenuOrCeoUpdate);
+    window.addEventListener("tw_verifications_updated", handleAuthReload);
 
     return () => {
       window.removeEventListener("tw_permissions_synced", handlePermissionsSynced);
@@ -427,6 +428,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       window.removeEventListener("tw_ceo_config_updated", handleMenuOrCeoUpdate);
       window.removeEventListener("tw_tags_updated", handleMenuOrCeoUpdate);
       window.removeEventListener("tw_member_tags_updated", handleMenuOrCeoUpdate);
+      window.removeEventListener("tw_verifications_updated", handleAuthReload);
     };
   }, [loadAuth, profile?.user_id, session?.user?.id, queryClient]);
 
@@ -987,6 +989,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           Boolean(activeSuspension?.blocks?.block_login);
         if (hasLoginBlock) {
           return false;
+        }
+
+        // 0.15. MEMBRO JÁ VERIFICADO: Não visualiza página de solicitação e não solicita novo selo
+        if (profile?.is_verified === true) {
+          if (permission === "verification.view_page" || permission === "verification.request") {
+            return false;
+          }
         }
 
         const isOperationalAction =

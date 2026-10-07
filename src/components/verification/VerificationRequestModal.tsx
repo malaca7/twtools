@@ -81,11 +81,11 @@ export function VerificationRequestModal({
   });
 
   const meetsAll = Boolean(reqs?.meetsAll);
-  const canSubmit = canRequest && meetsAll && reason.trim().length >= 5;
+  const canSubmit = !isAlreadyVerified && canRequest && meetsAll && reason.trim().length >= 5;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!canSubmit) return;
+    if (isAlreadyVerified || !canSubmit) return;
 
     try {
       await submitRequestMutation.mutateAsync({

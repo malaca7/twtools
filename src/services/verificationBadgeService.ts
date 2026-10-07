@@ -271,6 +271,19 @@ export async function submitVerificationRequest(params: {
   document_url?: string | null;
   extra_data?: Record<string, any>;
 }): Promise<{ success: boolean; request_id: string }> {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (user) {
+    const { data: memberData } = await supabase
+      .from("members")
+      .select("is_verified")
+      .eq("user_id", user.id)
+      .maybeSingle();
+
+    if (memberData?.is_verified) {
+      throw new Error("Seu perfil já possui o Selo de Verificado oficial! Você não pode realizar novas solicitações.");
+    }
+  }
+
   const { data, error } = await supabase.rpc("submit_verification_request_rpc" as any, {
     p_reason: params.reason,
     p_document_url: params.document_url || null,

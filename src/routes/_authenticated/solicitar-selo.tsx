@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
+import { toast } from "sonner";
 import {
   BadgeCheck,
   ShieldCheck,
@@ -52,7 +53,84 @@ export const Route = createFileRoute("/_authenticated/solicitar-selo")({
 });
 
 function SolicitarSeloPageWrapper() {
-  const { hasPermission } = useAuth();
+  const { profile, hasPermission } = useAuth();
+  const isAlreadyVerified = Boolean(profile?.is_verified);
+
+  if (isAlreadyVerified) {
+    return (
+      <div className="mx-auto max-w-4xl space-y-6 pb-12 animate-in fade-in-50 duration-300">
+        <PageHeader
+          title="Solicitar Verificação de Selo 🛡️"
+          description="Página Oficial de Autenticação — Membro da Twin Wheels."
+          actions={
+            <Badge className="bg-emerald-500/20 text-emerald-300 border-emerald-500/40 text-xs font-bold px-3 py-1 flex items-center gap-1.5 shadow-sm">
+              <BadgeCheck className="h-4 w-4 text-emerald-400" />
+              <span>Verificado Ativo</span>
+            </Badge>
+          }
+        />
+        <Card className="surface-card border-emerald-500/40 bg-gradient-to-br from-emerald-500/10 via-card to-background shadow-xl overflow-hidden">
+          <CardContent className="p-6 sm:p-10 space-y-6 text-center">
+            <div className="mx-auto relative flex items-center justify-center h-24 w-24 rounded-3xl bg-emerald-500/20 border-2 border-emerald-500/50 text-emerald-400 shadow-xl shadow-emerald-500/10">
+              <BadgeCheck className="h-12 w-12 text-emerald-400" />
+              <span className="absolute -top-1 -right-1 flex h-5 w-5">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                <span className="relative inline-flex rounded-full h-5 w-5 bg-emerald-500" />
+              </span>
+            </div>
+
+            <div className="space-y-2 max-w-lg mx-auto">
+              <div className="flex items-center justify-center gap-2 flex-wrap">
+                <h2 className="text-xl font-black text-foreground">
+                  {profile?.nickname || profile?.nome || "Membro"}
+                </h2>
+                <VerifiedBadge isVerified={true} size="md" />
+                <Badge className="bg-emerald-500/20 text-emerald-300 border-emerald-500/30 text-xs font-extrabold">
+                  Oficial Verificado
+                </Badge>
+              </div>
+              <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed">
+                Você já possui o <strong className="text-emerald-400">Selo Oficial de Verificação</strong> ativo no seu perfil. Como você já é um membro autenticado pela Diretoria Executiva da Twin Wheels, a página e o formulário de novas solicitações não estão disponíveis para sua conta.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 max-w-2xl mx-auto pt-4 border-t border-border/50 text-xs">
+              <div className="p-3.5 rounded-xl bg-secondary/30 border border-border/40 text-left">
+                <p className="text-[10px] uppercase font-bold text-muted-foreground">Status do Selo</p>
+                <div className="flex items-center gap-1.5 mt-1 font-extrabold text-emerald-400 font-mono">
+                  <CheckCircle2 className="h-3.5 w-3.5" />
+                  <span>Ativo & Reconhecido</span>
+                </div>
+              </div>
+              <div className="p-3.5 rounded-xl bg-secondary/30 border border-border/40 text-left">
+                <p className="text-[10px] uppercase font-bold text-muted-foreground">Exibição na Plataforma</p>
+                <p className="font-extrabold text-foreground font-mono mt-1">Global (Todas as Telas)</p>
+              </div>
+              <div className="p-3.5 rounded-xl bg-secondary/30 border border-border/40 text-left">
+                <p className="text-[10px] uppercase font-bold text-muted-foreground">Autenticação</p>
+                <p className="font-extrabold text-sky-400 font-mono mt-1">Oficial Twin Wheels</p>
+              </div>
+            </div>
+
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-4">
+              <Button asChild size="default" className="bg-gradient-brand text-primary-foreground font-bold shadow-md w-full sm:w-auto h-10 px-6 gap-2">
+                <Link to="/perfil">
+                  <Award className="h-4 w-4" />
+                  <span>Ver Meu Perfil</span>
+                </Link>
+              </Button>
+              <Button asChild variant="outline" size="default" className="border-border/70 hover:bg-secondary/60 w-full sm:w-auto h-10 px-6 gap-2">
+                <Link to="/">
+                  <span>Voltar ao Início</span>
+                </Link>
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   if (!hasPermission("verification.view_page")) {
     return (
       <div className="mx-auto max-w-5xl space-y-6">
@@ -109,14 +187,18 @@ function SolicitarSeloContent() {
   const progressPct = (passedCount / 4) * 100;
 
   const canSubmit =
+    !isAlreadyVerified &&
     canRequest &&
     meetsAllRequirements &&
     !isPending &&
-    !isAlreadyVerified &&
     reason.trim().length >= 5;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isAlreadyVerified) {
+      toast.error("Você já possui o selo de verificado ativo e não pode enviar nova solicitação!");
+      return;
+    }
     if (!canSubmit) return;
 
     try {
