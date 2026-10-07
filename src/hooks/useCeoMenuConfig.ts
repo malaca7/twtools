@@ -66,10 +66,15 @@ function subscribe(callback: () => void) {
 }
 
 export function sanitizeCeoConfig(parsed: any): CeoMenuConfig {
-  const categories: string[] =
+  let categories: string[] =
     Array.isArray(parsed?.categories) && parsed.categories.length > 0
       ? parsed.categories.map((c: any) => String(c).trim()).filter(Boolean)
-      : [...DEFAULT_CEO_CATEGORIES];
+      : [];
+
+  categories = Array.from(new Set(categories));
+  if (categories.length === 0) {
+    categories = [...DEFAULT_CEO_CATEGORIES];
+  }
 
   const deletedIds = new Set<string>(
     Array.isArray(parsed?.deletedItemIds) ? parsed.deletedItemIds : []
@@ -103,11 +108,7 @@ export function sanitizeCeoConfig(parsed: any): CeoMenuConfig {
 
       // Normaliza categoria antiga ou órfã
       if (!categories.includes(itemCat)) {
-        if (itemCat === "CEO" && !categories.includes("CEO")) {
-          itemCat = primaryCat;
-        } else {
-          categories.push(itemCat);
-        }
+        itemCat = primaryCat;
       }
 
       return {
@@ -136,11 +137,7 @@ export function sanitizeCeoConfig(parsed: any): CeoMenuConfig {
     .map((i: any, idx: number) => {
       let itemCat = i.category && typeof i.category === "string" ? i.category.trim() : primaryCat;
       if (!categories.includes(itemCat)) {
-        if (itemCat === "CEO" && !categories.includes("CEO")) {
-          itemCat = primaryCat;
-        } else {
-          categories.push(itemCat);
-        }
+        itemCat = primaryCat;
       }
 
       return {

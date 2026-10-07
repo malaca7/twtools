@@ -1511,6 +1511,7 @@ function CeoMenuLateralEditor() {
   // Drag and Drop state for items
   const [draggedItemId, setDraggedItemId] = useState<string | null>(null);
   const [dragOverItemId, setDragOverItemId] = useState<string | null>(null);
+  const [dragOverCatTarget, setDragOverCatTarget] = useState<string | null>(null);
 
   // Helper to persist state to Supabase + LocalStorage
   const persist = useCallback(
@@ -1622,7 +1623,16 @@ function CeoMenuLateralEditor() {
     const nextCats = [...categories];
     [nextCats[index], nextCats[targetIndex]] = [nextCats[targetIndex], nextCats[index]];
 
-    persist(nextCats, items);
+    const reorderedItems = [...items].sort((a, b) => {
+      const catA = a.category || nextCats[0] || "CEO Tools";
+      const catB = b.category || nextCats[0] || "CEO Tools";
+      const idxA = nextCats.indexOf(catA);
+      const idxB = nextCats.indexOf(catB);
+      if (idxA !== idxB) return (idxA === -1 ? 999 : idxA) - (idxB === -1 ? 999 : idxB);
+      return (a.order ?? 0) - (b.order ?? 0);
+    });
+
+    persist(nextCats, reorderedItems);
     toast.success("Ordem das categorias CEO atualizada! 👑");
   };
 
@@ -1659,13 +1669,34 @@ function CeoMenuLateralEditor() {
     nextCats.splice(targetIdx, 0, removed);
 
     setDraggedCatIdx(null);
-    persist(nextCats, items);
+
+    const reorderedItems = [...items].sort((a, b) => {
+      const catA = a.category || nextCats[0] || "CEO Tools";
+      const catB = b.category || nextCats[0] || "CEO Tools";
+      const idxA = nextCats.indexOf(catA);
+      const idxB = nextCats.indexOf(catB);
+      if (idxA !== idxB) return (idxA === -1 ? 999 : idxA) - (idxB === -1 ? 999 : idxB);
+      return (a.order ?? 0) - (b.order ?? 0);
+    });
+
+    persist(nextCats, reorderedItems);
     toast.success(`Categoria CEO "${removed}" reposicionada! 👑`);
   };
 
   /* ─── Item Handlers ─── */
   const updateItem = (itemId: string, patch: Partial<CeoMenuItemConfig>) => {
-    const next = items.map((i) => (i.id === itemId ? { ...i, ...patch } : i));
+    let next = items.map((i) => (i.id === itemId ? { ...i, ...patch } : i));
+    if (patch.category) {
+      const fallback = categories[0] || "CEO Tools";
+      next = [...next].sort((a, b) => {
+        const catA = a.category || fallback;
+        const catB = b.category || fallback;
+        const idxA = categories.indexOf(catA);
+        const idxB = categories.indexOf(catB);
+        if (idxA !== idxB) return (idxA === -1 ? 999 : idxA) - (idxB === -1 ? 999 : idxB);
+        return (a.order ?? 0) - (b.order ?? 0);
+      });
+    }
     persist(categories, next);
   };
 
@@ -1783,32 +1814,39 @@ function CeoMenuLateralEditor() {
     }
   };
 
-  const moveItemWithinCategory = (itemId: string, direction: "up" | "down") => {
-    const item = items.find((i) => i.id === itemId);
-    if (!item) return;
-    const cat = item.category || "CEO";
+  const moveItemWithinCategory = useCallback(
+    (itemId: string, direction: "up" | "down") => {
+      const currentItem = items.find((i) => i.id === itemId);
+      if (!currentItem) return;
 
-    const catItems = items
-      .filter((i) => (i.category || "CEO") === cat)
-      .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+      const fallback = categories[0] || "CEO Tools";
+      const cat = currentItem.category || fallback;
+      const catItems = items.filter((i) => (i.category || fallback) === cat);
+      const indexInCat = catItems.findIndex((i) => i.id === itemId);
+      if (indexInCat < 0) return;
 
-    const currentIdx = catItems.findIndex((i) => i.id === itemId);
-    const targetIdx = direction === "up" ? currentIdx - 1 : currentIdx + 1;
-    if (targetIdx < 0 || targetIdx >= catItems.length) return;
+      const targetIndexInCat = direction === "up" ? indexInCat - 1 : indexInCat + 1;
+      if (targetIndexInCat < 0 || targetIndexInCat >= catItems.length) return;
 
-    const swapTarget = catItems[targetIdx];
+      const newCatItems = [...catItems];
+      [newCatItems[indexInCat], newCatItems[targetIndexInCat]] = [
+        newCatItems[targetIndexInCat],
+        newCatItems[indexInCat],
+      ];
 
-    const currentItemGlobalIdx = items.findIndex((i) => i.id === itemId);
-    const swapTargetGlobalIdx = items.findIndex((i) => i.id === swapTarget.id);
+      let catCounter = 0;
+      const nextItems = items.map((it) => {
+        if ((it.category || fallback) === cat) {
+          return newCatItems[catCounter++];
+        }
+        return it;
+      });
 
-    const next = [...items];
-    const tempOrder = next[currentItemGlobalIdx].order;
-    next[currentItemGlobalIdx].order = next[swapTargetGlobalIdx].order;
-    next[swapTargetGlobalIdx].order = tempOrder;
-
-    persist(categories, next);
-    toast.success("Ordem do item CEO atualizada! 👑");
-  };
+      persist(categories, nextItems);
+      toast.success(`Ordem do item "${currentItem.title}" atualizada! 👑`);
+    },
+    [categories, items, persist]
+  );
 
   const handleReset = async () => {
     if (confirm("Tem certeza que deseja restaurar as configurações padrão do menu lateral do CEO?")) {
@@ -1839,7 +1877,9 @@ function CeoMenuLateralEditor() {
 
   const handleItemDrop = (e: React.DragEvent, targetItemId: string) => {
     e.preventDefault();
+    e.stopPropagation();
     setDragOverItemId(null);
+    setDragOverCatTarget(null);
     if (!draggedItemId || draggedItemId === targetItemId) {
       setDraggedItemId(null);
       return;
@@ -1852,19 +1892,95 @@ function CeoMenuLateralEditor() {
       return;
     }
 
-    let next = items.filter((i) => i.id !== draggedItemId);
+    const fallback = categories[0] || "CEO Tools";
+    const targetCat = targetItem.category || fallback;
+    const next = items.filter((i) => i.id !== draggedItemId);
     const targetIndex = next.findIndex((i) => i.id === targetItemId);
 
-    const updatedDragged = {
+    const updatedDragged: CeoMenuItemConfig = {
       ...draggedItem,
-      category: targetItem.category || categories[0] || "CEO Tools",
+      category: targetCat,
     };
 
-    next.splice(targetIndex, 0, updatedDragged);
+    if (targetIndex === -1) {
+      next.push(updatedDragged);
+    } else {
+      next.splice(targetIndex, 0, updatedDragged);
+    }
 
     setDraggedItemId(null);
     persist(categories, next);
     toast.success(`Item CEO "${draggedItem.title}" reordenado! 👑`);
+  };
+
+  /* ─── Dropping Items onto Categories (Cards / Headers / Empty Box) ─── */
+  const handleItemDragOverCategory = (e: React.DragEvent, cat: string) => {
+    if (!draggedItemId) return;
+    e.preventDefault();
+    e.stopPropagation();
+    setDragOverCatTarget(cat);
+  };
+
+  const handleItemDragLeaveCategory = () => {
+    setDragOverCatTarget(null);
+  };
+
+  const handleItemDropOnCategory = (e: React.DragEvent, targetCat: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragOverCatTarget(null);
+    setDragOverItemId(null);
+
+    if (!draggedItemId) return;
+    const draggedItem = items.find((i) => i.id === draggedItemId);
+    if (!draggedItem) {
+      setDraggedItemId(null);
+      return;
+    }
+
+    const fallback = categories[0] || "CEO Tools";
+    const currentCat = draggedItem.category || fallback;
+
+    const otherItems = items.filter((i) => i.id !== draggedItemId);
+    const updatedDragged: CeoMenuItemConfig = {
+      ...draggedItem,
+      category: targetCat,
+    };
+
+    if (currentCat === targetCat) {
+      otherItems.push(updatedDragged);
+    } else {
+      let insertIndex = -1;
+      for (let i = otherItems.length - 1; i >= 0; i--) {
+        if ((otherItems[i].category || fallback) === targetCat) {
+          insertIndex = i + 1;
+          break;
+        }
+      }
+
+      if (insertIndex === -1) {
+        const catIdx = categories.indexOf(targetCat);
+        let foundIdx = -1;
+        for (let c = catIdx + 1; c < categories.length; c++) {
+          const nextCatItemIdx = otherItems.findIndex((it) => (it.category || fallback) === categories[c]);
+          if (nextCatItemIdx !== -1) {
+            foundIdx = nextCatItemIdx;
+            break;
+          }
+        }
+        if (foundIdx !== -1) {
+          otherItems.splice(foundIdx, 0, updatedDragged);
+        } else {
+          otherItems.push(updatedDragged);
+        }
+      } else {
+        otherItems.splice(insertIndex, 0, updatedDragged);
+      }
+    }
+
+    setDraggedItemId(null);
+    persist(categories, otherItems);
+    toast.success(`Item CEO "${draggedItem.title}" movido para "${targetCat}"! 👑`);
   };
 
   // Group items by category for preview
@@ -1872,7 +1988,9 @@ function CeoMenuLateralEditor() {
     const fallbackCat = categories[0] || "CEO Tools";
     const groups: Record<string, CeoMenuItemConfig[]> = {};
     categories.forEach((cat) => {
-      groups[cat] = items.filter((item) => (item.category || fallbackCat) === cat);
+      groups[cat] = items
+        .filter((item) => (item.category || fallbackCat) === cat)
+        .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
     });
     items.forEach((item) => {
       let cat = item.category || fallbackCat;
@@ -1996,9 +2114,11 @@ function CeoMenuLateralEditor() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
             {categories.map((cat, idx) => {
               const isEditing = editingCatIndex === idx;
-              const itemCount = items.filter((i) => (i.category || "CEO") === cat).length;
+              const fallbackCat = categories[0] || "CEO Tools";
+              const itemCount = items.filter((i) => (i.category || fallbackCat) === cat).length;
               const isDraggingCat = draggedCatIdx === idx;
               const isOverCat = dragOverCatIdx === idx;
+              const isTargetForDroppedItem = dragOverCatTarget === cat && Boolean(draggedItemId);
               const CatIcon = resolveCategoryIcon(categoryIcons[cat], Crown);
 
               return (
@@ -2006,14 +2126,32 @@ function CeoMenuLateralEditor() {
                   key={cat}
                   draggable={!isEditing}
                   onDragStart={(e) => handleCatDragStart(e, idx)}
-                  onDragOver={(e) => handleCatDragOver(e, idx)}
-                  onDragLeave={handleCatDragLeave}
-                  onDrop={(e) => handleCatDrop(e, idx)}
+                  onDragOver={(e) => {
+                    if (draggedItemId) {
+                      handleItemDragOverCategory(e, cat);
+                    } else {
+                      handleCatDragOver(e, idx);
+                    }
+                  }}
+                  onDragLeave={() => {
+                    if (draggedItemId) {
+                      handleItemDragLeaveCategory();
+                    } else {
+                      handleCatDragLeave();
+                    }
+                  }}
+                  onDrop={(e) => {
+                    if (draggedItemId) {
+                      handleItemDropOnCategory(e, cat);
+                    } else {
+                      handleCatDrop(e, idx);
+                    }
+                  }}
                   className={cn(
                     "flex items-center justify-between gap-2 p-2.5 rounded-xl bg-secondary/30 border border-border/50 transition-all",
                     !isEditing && cn("cursor-grab active:cursor-grabbing", ceoStyle.borderHoverClass),
                     isDraggingCat && cn("opacity-30 scale-95 border-dashed", ceoStyle.borderClass),
-                    isOverCat && cn(ceoStyle.borderClass, ceoStyle.bgSubtleClass, "shadow-lg scale-[1.01]")
+                    (isOverCat || isTargetForDroppedItem) && cn(ceoStyle.borderClass, ceoStyle.bgSubtleClass, "shadow-lg scale-[1.02] border-dashed ring-2 ring-amber-400/40")
                   )}
                 >
                   {isEditing ? (
@@ -2178,13 +2316,24 @@ function CeoMenuLateralEditor() {
           </div>
 
           {categories.map((cat) => {
+            const fallbackCat = categories[0] || "CEO Tools";
             const catItems = items
-              .filter((i) => (i.category || categories[0] || "CEO Tools") === cat)
+              .filter((i) => (i.category || fallbackCat) === cat)
               .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
             const CatIcon = resolveCategoryIcon(categoryIcons[cat], Crown);
+            const isCatTarget = dragOverCatTarget === cat && Boolean(draggedItemId);
 
             return (
-              <div key={cat} className="space-y-2">
+              <div
+                key={cat}
+                className={cn(
+                  "space-y-2 p-2 rounded-xl transition-all",
+                  isCatTarget && cn("ring-2 ring-dashed rounded-xl bg-secondary/20", ceoStyle.borderClass)
+                )}
+                onDragOver={(e) => handleItemDragOverCategory(e, cat)}
+                onDragLeave={handleItemDragLeaveCategory}
+                onDrop={(e) => handleItemDropOnCategory(e, cat)}
+              >
                 {/* Category Subheader */}
                 <div className="flex items-center justify-between px-1">
                   <div className="flex items-center gap-2">
@@ -2210,8 +2359,23 @@ function CeoMenuLateralEditor() {
 
                 {/* Items in this category */}
                 {catItems.length === 0 ? (
-                  <div className="p-4 rounded-xl border border-dashed border-border/40 text-center text-xs text-muted-foreground/60">
-                    Nenhum item nesta categoria CEO. Arraste ou crie um novo item.
+                  <div
+                    onDragOver={(e) => handleItemDragOverCategory(e, cat)}
+                    onDragLeave={handleItemDragLeaveCategory}
+                    onDrop={(e) => handleItemDropOnCategory(e, cat)}
+                    className={cn(
+                      "p-6 rounded-xl border-2 border-dashed text-center text-xs transition-all flex flex-col items-center justify-center gap-1.5",
+                      isCatTarget
+                        ? cn("scale-[1.01] shadow-md border-solid", ceoStyle.borderClass, ceoStyle.bgSubtleClass, ceoStyle.textClass)
+                        : "border-border/40 text-muted-foreground/60 bg-secondary/10"
+                    )}
+                  >
+                    <Move className={cn("h-4 w-4", isCatTarget ? ceoStyle.textClass : "text-muted-foreground/40")} />
+                    <span>
+                      {draggedItemId
+                        ? `Solte o item aqui para mover para "${cat}" 👑`
+                        : "Nenhum item nesta categoria CEO. Arraste itens para cá ou crie um novo."}
+                    </span>
                   </div>
                 ) : (
                   <div className="space-y-2">
@@ -2344,7 +2508,10 @@ function CeoMenuLateralEditor() {
                               <span className="text-[10px] text-muted-foreground font-medium hidden sm:inline">Cat:</span>
                               <Select
                                 value={item.category || categories[0] || "CEO Tools"}
-                                onValueChange={(val) => updateItem(item.id, { category: val })}
+                                onValueChange={(val) => {
+                                  updateItem(item.id, { category: val });
+                                  toast.success(`Item "${item.title}" movido para "${val}"! 👑`);
+                                }}
                               >
                                 <SelectTrigger className="h-8 w-28 text-xs font-bold border-border/70 bg-secondary/40 rounded-lg shrink-0">
                                   <SelectValue />

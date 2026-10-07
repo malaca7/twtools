@@ -595,7 +595,10 @@ function DynamicSidebarNavigation() {
       const defaultCeoIds = new Set(DEFAULT_CEO_MENU_ITEMS.map((d) => d.id));
       const primaryCeoCat = ceoCategoryOrder[0] || "CEO Tools";
 
-      const customizedCeo: MasterNavItem[] = DEFAULT_CEO_MENU_ITEMS.map((item, defaultIdx) => {
+      const ceoDeletedIds = new Set(ceoMenuConfig?.deletedItemIds || []);
+      const customizedCeo: MasterNavItem[] = DEFAULT_CEO_MENU_ITEMS
+        .filter((item) => !ceoDeletedIds.has(item.id))
+        .map((item, defaultIdx) => {
         const cfg = ceoConfigMap.get(item.id) || ceoConfigMap.get(item.url);
         let resolvedCat = cfg?.category || item.category || primaryCeoCat;
         if (!ceoCategoryOrder.includes(resolvedCat)) {
