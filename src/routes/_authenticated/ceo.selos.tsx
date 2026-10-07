@@ -350,20 +350,28 @@ export function CeoSelosPage() {
   return (
     <div className="mx-auto max-w-6xl space-y-6">
       <PageHeader
-        title="Gerenciar Selos & Verificações"
-        description="Controle e personalização completa do Selo de Verificado da Twin Wheels, aprovação de solicitações, requisitos e auditoria."
-        action={
-          canGrant ? (
-            <Button
-              type="button"
-              size="sm"
-              onClick={() => setIsDirectModalOpen(true)}
-              className="text-xs rounded-xl font-bold bg-sky-500 hover:bg-sky-600 text-white gap-1.5 shadow-lg shadow-sky-500/20"
-            >
-              <UserPlus className="h-4 w-4" />
-              <span>Conceder Selo Direto</span>
-            </Button>
-          ) : undefined
+        title="Gerenciar Selos & Verificações (Central CEO)"
+        description="Painel da Diretoria — Controle executivo do Selo de Verificado da Twin Wheels, aprovação de solicitações, concessões, revogações, requisitos e auditoria."
+        actions={
+          <div className="flex items-center gap-2 flex-wrap">
+            <Link to="/solicitar-selo">
+              <Button variant="outline" size="sm" className="h-8 text-xs font-bold rounded-xl border-sky-500/30 text-sky-400 hover:bg-sky-500/10 gap-1.5">
+                <BadgeCheck className="h-3.5 w-3.5 text-sky-400" />
+                <span>Ver Página de Solicitação (Membro)</span>
+              </Button>
+            </Link>
+            {canGrant && (
+              <Button
+                type="button"
+                size="sm"
+                onClick={() => setIsDirectModalOpen(true)}
+                className="h-8 text-xs rounded-xl font-bold bg-sky-500 hover:bg-sky-600 text-white gap-1.5 shadow-lg shadow-sky-500/20"
+              >
+                <UserPlus className="h-4 w-4" />
+                <span>Conceder Selo Direto</span>
+              </Button>
+            )}
+          </div>
         }
       />
 
