@@ -1310,12 +1310,23 @@ export function satisfiesPermission(
   }
 
   // 2.2. Sistema de Selo de Verificação
+  if (
+    list.includes("verification.manage") ||
+    list.includes("verification.review") ||
+    list.includes("verification.grant_direct") ||
+    list.includes("verification.revoke") ||
+    list.includes("verification.config") ||
+    list.includes("verification.requirements") ||
+    list.includes("verification.audit")
+  ) {
+    if (permission === "verification.view_page" || permission === "permission.ceo_selos" || permission === "verification.manage") {
+      return true;
+    }
+  }
   if (list.includes("verification.manage")) {
     if (
-      permission === "verification.view_page" ||
       permission === "verification.request" ||
       permission === "verification.cancel_own" ||
-      permission === "verification.manage" ||
       permission === "verification.review" ||
       permission === "verification.grant_direct" ||
       permission === "verification.revoke" ||

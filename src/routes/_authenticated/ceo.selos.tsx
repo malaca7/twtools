@@ -124,7 +124,7 @@ export function CeoSelosPage() {
   const canConfig = hasPermission("verification.config", effectivePanel);
   const canRequirements = hasPermission("verification.requirements", effectivePanel);
   const canAudit = hasPermission("verification.audit", effectivePanel);
-  const canView = canManage;
+  const canView = canManage || canReview || canGrant || canRevoke || canConfig || canRequirements || canAudit || hasPermission("verification.view_page", effectivePanel);
 
   const { data: members = [], isLoading: loadingMembers } = useMembers();
   const { data: tags = [] } = useMemberTags();
@@ -1059,7 +1059,7 @@ export function CeoSelosPage() {
                               <div className="space-y-0.5">
                                 <div className="flex items-center gap-2">
                                   <span className="font-bold text-foreground">{req.title}</span>
-                                  {req.required ? (
+                                  {(req.is_required ?? req.required) ? (
                                     <Badge variant="outline" className="text-[9px] bg-rose-500/10 text-rose-400 border-rose-500/30">
                                       Obrigatório
                                     </Badge>
@@ -1078,7 +1078,7 @@ export function CeoSelosPage() {
                                 <div className="flex items-center gap-1.5">
                                   <span className="text-[10px] text-muted-foreground">Obrigatório</span>
                                   <Switch
-                                    checked={req.required}
+                                    checked={Boolean(req.is_required ?? req.required)}
                                     onCheckedChange={() => handleToggleCustomReq(req.id)}
                                   />
                                 </div>
