@@ -1329,12 +1329,18 @@ export function satisfiesPermission(
     list.includes("verification.requirements") ||
     list.includes("verification.audit")
   ) {
-    if (permission === "verification.view_page" || permission === "permission.ceo_selos" || permission === "verification.manage") {
+    if (
+      permission === "verification.view_page" ||
+      permission === "permission.ceo_selos" ||
+      permission === "verification.manage" ||
+      permission === "view_ceo"
+    ) {
       return true;
     }
   }
   if (list.includes("verification.manage")) {
     if (
+      permission.startsWith("verification.") ||
       permission === "verification.request" ||
       permission === "verification.cancel_own" ||
       permission === "verification.review" ||

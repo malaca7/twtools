@@ -1140,24 +1140,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       // REGRA 2: NO PAINEL CEO
-      // Apenas as permissões marcadas para a Tag CEO definem o acesso.
       if (activePanel === "ceo") {
         if (isDevUser && bypassActive) return true;
-        if (isCeoUser || isDevUser) {
-          if (permission === "view_ceo") return true;
-          return satisfiesPermission(ceoTagPermissions, permission);
+        if (permission === "view_ceo") return true;
+        if ((isCeoUser || isDevUser) && satisfiesPermission(ceoTagPermissions, permission)) {
+          return true;
         }
-        // Sem Tag CEO: permissão delegada via cargo/tags do sistema
         return evaluateAsMember();
       }
 
       // REGRA 3: NO PAINEL DEV
-      // Apenas as permissões marcadas para a Tag Dev definem o acesso.
       if (activePanel === "dev") {
         if (isDevUser) {
           if (bypassActive) return true;
           if (permission === "view_dev_hub" || permission === "view_dev") return true;
-          return satisfiesPermission(devTagPermissions, permission);
+          if (satisfiesPermission(devTagPermissions, permission)) return true;
         }
         return evaluateAsMember();
       }
