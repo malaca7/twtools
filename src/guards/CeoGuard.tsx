@@ -50,7 +50,8 @@ export function CeoGuard({ children }: CeoGuardProps) {
     hasPermission("manage_ceo_bot") ||
     hasPermission("manage_ceo_webhooks") ||
     hasPermission("view_ceo_stock_adjustments") ||
-    hasPermission("view_ceo_notifications")
+    hasPermission("view_ceo_notifications") ||
+    hasPermission("verification.manage")
   );
 
   if (!hasAccess) {

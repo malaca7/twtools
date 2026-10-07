@@ -697,9 +697,6 @@ export const DEFAULT_CEO_PERMISSIONS: string[] = [
   "view_ceo_warnings",
   "manage_ceo_warnings",
   // Permissões de Selos de Verificação CEO
-  "verification.view_page",
-  "verification.request",
-  "verification.cancel_own",
   "verification.manage",
   "verification.review",
   "verification.grant_direct",

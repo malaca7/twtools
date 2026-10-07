@@ -54,7 +54,18 @@ export const Route = createFileRoute("/_authenticated/solicitar-selo")({
 function SolicitarSeloPageWrapper() {
   const { hasPermission } = useAuth();
   if (!hasPermission("verification.view_page")) {
-    return <NoAccess />;
+    return (
+      <div className="mx-auto max-w-5xl space-y-6">
+        <PageHeader
+          title="Solicitar Verificação"
+          description="Selo oficial de membro verificado da Twin Wheels."
+        />
+        <NoAccess
+          title="Acesso à Página de Solicitação Restrito"
+          description="Você não possui a permissão 'Visualizar Página de Solicitação de Selo (/solicitar-selo)'. Entre em contato com a liderança para liberar seu acesso."
+        />
+      </div>
+    );
   }
   return <SolicitarSeloContent />;
 }

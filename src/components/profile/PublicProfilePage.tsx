@@ -102,7 +102,7 @@ function PublicProfileContent({
   hideBackNav?: boolean;
 }) {
   const navigate = useNavigate();
-  const { user, profile: authProfile } = useAuth();
+  const { user, profile: authProfile, hasPermission } = useAuth();
   const { data: members = [] } = useMembers();
   const memberTagsMap = useMemberTagsMap();
 
@@ -491,7 +491,7 @@ function PublicProfileContent({
                 </Button>
               )}
 
-              {isSelf && !memberData.is_verified && (
+              {isSelf && !memberData.is_verified && hasPermission("verification.view_page") && (
                 <Button
                   type="button"
                   variant="outline"

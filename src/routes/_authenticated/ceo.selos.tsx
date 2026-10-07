@@ -124,7 +124,7 @@ export function CeoSelosPage() {
   const canConfig = hasPermission("verification.config", effectivePanel);
   const canRequirements = hasPermission("verification.requirements", effectivePanel);
   const canAudit = hasPermission("verification.audit", effectivePanel);
-  const canView = canManage || canReview || canGrant || canRevoke || canConfig || canRequirements || canAudit || hasPermission("verification.view_page", effectivePanel);
+  const canView = canManage;
 
   const { data: members = [], isLoading: loadingMembers } = useMembers();
   const { data: tags = [] } = useMemberTags();

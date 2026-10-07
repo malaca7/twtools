@@ -465,7 +465,7 @@ function DynamicSidebarNavigation() {
       }
     } else if (pathname.startsWith("/ceo")) {
       // Se já estiver no modo dev, mantém dev (acessa como dev); caso contrário, sincroniza para ceo
-      if (panelMode !== "dev" && (isCeoUser || isDevUser || hasPermission("view_ceo")) && panelMode !== "ceo") {
+      if (panelMode !== "dev" && (isCeoUser || isDevUser || hasPermission("view_ceo") || hasPermission("verification.manage")) && panelMode !== "ceo") {
         setPanelMode("ceo");
       }
     }
@@ -475,7 +475,7 @@ function DynamicSidebarNavigation() {
 
   const isDevArea = Boolean(isDevUser && (panelMode === "dev" || pathname.startsWith("/dev")));
   const isCeoArea = Boolean(
-    (isCeoUser || isDevUser || hasPermission("view_ceo")) &&
+    (isCeoUser || isDevUser || hasPermission("view_ceo") || hasPermission("verification.manage")) &&
       !isDevArea &&
       (panelMode === "ceo" || pathname.startsWith("/ceo"))
   );
@@ -647,7 +647,7 @@ function DynamicSidebarNavigation() {
         });
 
       const allCeoItems = [...customizedCeo, ...customCeoItems];
-      const canSeeCeo = Boolean(isCeoUser || isDevUser || hasPermission("view_ceo"));
+      const canSeeCeo = Boolean(isCeoUser || isDevUser || hasPermission("view_ceo") || hasPermission("verification.manage"));
 
       const targetRole: "dev" | "ceo" = isDevArea ? "dev" : "ceo";
 
@@ -1202,7 +1202,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const pathname = useRouterState({ select: (r) => r.location.pathname });
 
   // Permissões e cálculo de acesso a múltiplos painéis
-  const canAccessCeo = isCeoUser || isDevUser || hasPermission("view_ceo");
+  const canAccessCeo = isCeoUser || isDevUser || hasPermission("view_ceo") || hasPermission("verification.manage");
   const canAccessDev = isDevUser;
   const hasMultiplePanels = canAccessCeo || canAccessDev;
 
@@ -1538,7 +1538,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                     <Palette className="mr-2 h-4 w-4 text-purple-400" /> Aparência
                   </DropdownMenuItem>
 
-                  {(hasPermission("verification.view_page") || profile?.is_verified) && (
+                  {hasPermission("verification.view_page") && (
                     <DropdownMenuItem
                       onClick={() => navigate({ to: "/solicitar-selo" })}
                       className="cursor-pointer font-medium"
