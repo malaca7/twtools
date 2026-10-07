@@ -136,15 +136,7 @@ function SolicitarSeloContent() {
         title="Solicitar Verificação de Selo 🛡️"
         description="Página Oficial do Membro — Acompanhe seus requisitos operacionais e solicite a verificação de autenticidade da Twin Wheels."
         actions={
-          <div className="flex items-center gap-2 flex-wrap">
-            {hasPermission("verification.manage") || hasPermission("verification.review") ? (
-              <Link to="/ceo/selos">
-                <Button variant="outline" size="sm" className="h-8 text-xs font-bold gap-1.5 border-amber-500/30 text-amber-400 hover:bg-amber-500/10 rounded-xl">
-                  <ShieldCheck className="h-3.5 w-3.5 text-amber-400" />
-                  <span>Painel Gerenciar Selos (CEO)</span>
-                </Button>
-              </Link>
-            ) : null}
+          <div className="flex items-center gap-2">
             {isAlreadyVerified ? (
               <Badge className="bg-emerald-500/20 text-emerald-300 border-emerald-500/40 text-xs font-bold px-3 py-1 flex items-center gap-1.5 shadow-sm">
                 <BadgeCheck className="h-4 w-4 text-emerald-400" />
