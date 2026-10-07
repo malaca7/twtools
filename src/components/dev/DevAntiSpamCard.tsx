@@ -50,6 +50,7 @@ import {
   type DiscordWebhooksConfig,
   type WebhookAntiSpamConfig,
 } from "@/services/webhookService";
+import { PurgeSpamModal } from "./PurgeSpamModal";
 import { cn } from "@/lib/utils";
 
 interface DevAntiSpamCardProps {
@@ -67,6 +68,7 @@ export function DevAntiSpamCard({
 }: DevAntiSpamCardProps) {
   const { user, profile, level } = useAuth();
   const [isExpanded, setIsExpanded] = useState(true);
+  const [isPurgeModalOpen, setIsPurgeModalOpen] = useState(false);
   const [newPhrase, setNewPhrase] = useState("");
   const [newDomain, setNewDomain] = useState("");
   const [testInput, setTestInput] = useState("");
@@ -468,6 +470,16 @@ A-TOOLS X
           </div>
 
           <div className="flex items-center gap-3 flex-wrap">
+            {/* Botão para Apagar Todo Spam do Servidor Discord */}
+            <Button
+              size="sm"
+              onClick={() => setIsPurgeModalOpen(true)}
+              className="bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs gap-1.5 h-8 rounded-xl shadow-md shadow-rose-600/25 cursor-pointer"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+              <span>Apagar Spam do Discord</span>
+            </Button>
+
             {/* Master Switch */}
             <div className="flex items-center gap-2 bg-zinc-900/90 px-3 py-1.5 rounded-xl border border-zinc-800">
               <Label htmlFor="master-antispam" className="text-xs font-bold cursor-pointer">
@@ -568,17 +580,29 @@ A-TOOLS X
                 </span>
               </div>
             </div>
-            {antiSpam.stats?.totalBlocked && antiSpam.stats.totalBlocked > 0 ? (
+            <div className="flex items-center gap-1 shrink-0">
               <Button
-                variant="ghost"
+                variant="outline"
                 size="sm"
-                onClick={handleResetStats}
-                className="h-6 px-1.5 text-[10px] text-muted-foreground hover:text-rose-400"
-                title="Zerar contador de bloqueios"
+                onClick={() => setIsPurgeModalOpen(true)}
+                className="h-6 px-2 text-[10px] font-bold border-rose-500/30 text-rose-400 hover:bg-rose-500/10 gap-1 rounded-lg cursor-pointer"
+                title="Varrer canais e apagar mensagens de spam no Discord"
               >
-                <RotateCcw className="h-3 w-3" />
+                <Trash2 className="h-3 w-3" />
+                <span>Limpar Spams</span>
               </Button>
-            ) : null}
+              {antiSpam.stats?.totalBlocked && antiSpam.stats.totalBlocked > 0 ? (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleResetStats}
+                  className="h-6 px-1.5 text-[10px] text-muted-foreground hover:text-rose-400"
+                  title="Zerar contador de bloqueios"
+                >
+                  <RotateCcw className="h-3 w-3" />
+                </Button>
+              ) : null}
+            </div>
           </div>
         </div>
       </div>
@@ -586,6 +610,33 @@ A-TOOLS X
       {/* CONTEÚDO EXPANSÍVEL: MÓDULOS DE PROTEÇÃO, LIMITES, LISTAS E TESTADOR */}
       {isExpanded && (
         <CardContent className="p-5 space-y-6 animate-in fade-in-30 duration-200">
+          {/* BANNER DE AÇÃO: VARRER E APAGAR TODO SPAM DO SERVIDOR */}
+          <div className="p-4 rounded-2xl bg-gradient-to-r from-rose-500/15 via-zinc-900/80 to-zinc-950 border border-rose-500/30 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-sm">
+            <div className="space-y-1">
+              <div className="flex items-center gap-2 flex-wrap">
+                <div className="p-1.5 rounded-lg bg-rose-500/20 text-rose-400">
+                  <Trash2 className="h-4 w-4" />
+                </div>
+                <span className="font-extrabold text-sm text-foreground">
+                  Limpeza e Purga Geral de Spam no Discord
+                </span>
+                <Badge className="bg-rose-500/20 text-rose-300 border-rose-500/30 text-[9px] font-mono">
+                  Remoção em Massa
+                </Badge>
+              </div>
+              <p className="text-xs text-muted-foreground leading-relaxed max-w-xl">
+                O bot varrerá os canais de texto do servidor Discord, analisará mensagens recentes contra as regras do Escudo Anti-Spam e <strong>apagará todas as mensagens com links suspeitos, convites e propagandas maliciosas</strong>.
+              </p>
+            </div>
+            <Button
+              onClick={() => setIsPurgeModalOpen(true)}
+              className="bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs gap-2 h-10 px-4 rounded-xl shadow-lg shadow-rose-600/30 shrink-0 cursor-pointer"
+            >
+              <Trash2 className="h-4 w-4" />
+              <span>Apagar Todo Spam Agora</span>
+            </Button>
+          </div>
+
           {/* SEÇÃO 1: MÓDULOS DE PROTEÇÃO ATIVA */}
           <div className="space-y-3">
             <div className="flex items-center justify-between">
@@ -1690,6 +1741,9 @@ A-TOOLS X
           )}
         </div>
       </CardFooter>
+
+      {/* MODAL DE PURGA & LIMPEZA DE SPAM NO DISCORD */}
+      <PurgeSpamModal open={isPurgeModalOpen} onOpenChange={setIsPurgeModalOpen} />
     </Card>
   );
 }

@@ -87,6 +87,7 @@ import {
 } from "@/services/webhookService";
 import { DiscohookPostModal } from "./DiscohookPostModal";
 import { DevAntiSpamCard } from "./DevAntiSpamCard";
+import { PurgeSpamModal } from "./PurgeSpamModal";
 import { cn } from "@/lib/utils";
 
 const COLOR_PRESETS = [
@@ -212,6 +213,9 @@ export function DevWebhooksConfigCard({ isCeoView }: DevWebhooksConfigCardProps 
   const [isPostModalOpen, setIsPostModalOpen] = useState(false);
   const [targetWebhookForPost, setTargetWebhookForPost] = useState<DiscordWebhook | null>(null);
   const [isPosting, setIsPosting] = useState(false);
+
+  // Modal para Apagar Todo Spam do Servidor Discord
+  const [isPurgeModalOpen, setIsPurgeModalOpen] = useState(false);
 
   // Modal de Código / Como Usar
   const [isCodeModalOpen, setIsCodeModalOpen] = useState(false);
@@ -765,6 +769,16 @@ export function DevWebhooksConfigCard({ isCeoView }: DevWebhooksConfigCardProps 
               Nova Postagem
             </Button>
           )}
+
+          {/* Botão para Apagar Todo Spam do Servidor Discord */}
+          <Button
+            onClick={() => setIsPurgeModalOpen(true)}
+            variant="outline"
+            className="border-rose-500/40 text-rose-400 hover:bg-rose-500/10 hover:text-rose-300 font-bold text-xs gap-1.5 shadow-xs cursor-pointer"
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+            <span>Apagar Spam do Discord</span>
+          </Button>
 
           {canCreateWebhook && (
             <Button
@@ -2193,6 +2207,9 @@ await postMessageToWebhookChannel(webhook, {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* MODAL DE PURGA & LIMPEZA DE SPAM NO DISCORD */}
+      <PurgeSpamModal open={isPurgeModalOpen} onOpenChange={setIsPurgeModalOpen} />
     </div>
   );
 }

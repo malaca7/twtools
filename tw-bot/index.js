@@ -1329,6 +1329,35 @@ function setupRealtimeListeners() {
         dispatchAuditLogToDiscord(payload.payload);
       }
     })
+    .on("broadcast", { event: "purge_spam" }, async (payload) => {
+      const data = payload?.payload;
+      console.log("🧹 [PURGE SPAM REALTIME] Solicitação recebida:", data?.requestId);
+      try {
+        const result = await purgeSpamFromGuild(data?.guildId, {
+          limit: data?.limit || 50,
+          channelId: data?.channelId,
+        });
+        testSharedChannel.send({
+          type: "broadcast",
+          event: "purge_spam_result",
+          payload: {
+            requestId: data?.requestId,
+            success: true,
+            ...result,
+          },
+        }).catch(() => {});
+      } catch (err) {
+        testSharedChannel.send({
+          type: "broadcast",
+          event: "purge_spam_result",
+          payload: {
+            requestId: data?.requestId,
+            success: false,
+            error: err.message,
+          },
+        }).catch(() => {});
+      }
+    })
     .subscribe((status) => {
       console.log(`📡 [TEST CHANNEL STATUS] status: ${status}`);
     });
@@ -2634,6 +2663,169 @@ async function handleFetchDiscordMessage(urlObj, req, res) {
 }
 
 /**
+ * Varre e apaga todas as mensagens de spam dos canais de texto do servidor Discord
+ */
+async function purgeSpamFromGuild(guildId, options = {}) {
+  const limitPerChannel = Math.min(Math.max(parseInt(options.limit || "50", 10), 5), 100);
+  const targetChannelId = options.channelId || null;
+
+  if (!client.isReady()) {
+    throw new Error("Bot do Discord não está pronto ou conectado no momento.");
+  }
+
+  let guildsToScan = [];
+  if (guildId && guildId !== "all") {
+    const g = client.guilds.cache.get(guildId) || (await client.guilds.fetch(guildId).catch(() => null));
+    if (g) guildsToScan.push(g);
+  }
+  if (guildsToScan.length === 0) {
+    guildsToScan = Array.from(client.guilds.cache.values());
+  }
+
+  const results = {
+    scannedGuilds: guildsToScan.length,
+    scannedChannels: 0,
+    scannedMessages: 0,
+    deletedMessagesCount: 0,
+    deletedDetails: [],
+    errors: [],
+  };
+
+  for (const guild of guildsToScan) {
+    let channels;
+    try {
+      channels = await guild.channels.fetch();
+    } catch {
+      channels = guild.channels.cache;
+    }
+
+    for (const [chId, channel] of channels) {
+      if (!channel || !channel.isTextBased() || channel.isThread?.()) continue;
+      if (targetChannelId && chId !== targetChannelId) continue;
+
+      const perms = channel.permissionsFor(client.user);
+      if (!perms || !perms.has("ViewChannel") || !perms.has("ReadMessageHistory")) {
+        continue;
+      }
+      const canDelete = perms.has("ManageMessages");
+
+      results.scannedChannels++;
+
+      try {
+        const messages = await channel.messages.fetch({ limit: limitPerChannel }).catch(() => null);
+        if (!messages || messages.size === 0) continue;
+
+        for (const [msgId, msg] of messages) {
+          results.scannedMessages++;
+
+          // Não apaga mensagens enviadas pelo próprio bot oficial
+          if (msg.author?.id === client.user.id) continue;
+
+          const spamCheck = isSpamOrMalicious(msg.content, msg.embeds);
+          if (spamCheck && spamCheck.isBlocked) {
+            let wasDeleted = false;
+            if (canDelete && msg.deletable) {
+              try {
+                await msg.delete();
+                wasDeleted = true;
+                results.deletedMessagesCount++;
+              } catch (delErr) {
+                results.errors.push(`Falha ao deletar msg ${msgId} em #${channel.name}: ${delErr.message}`);
+              }
+            }
+
+            results.deletedDetails.push({
+              messageId: msgId,
+              channelId: chId,
+              channelName: channel.name,
+              guildId: guild.id,
+              guildName: guild.name,
+              authorTag: msg.author?.tag || msg.author?.username || "Desconhecido",
+              authorId: msg.author?.id,
+              reason: spamCheck.reason || "Spam detectado",
+              contentSnippet: (msg.content || "").slice(0, 150),
+              deleted: wasDeleted,
+              createdAt: msg.createdAt ? msg.createdAt.toISOString() : new Date().toISOString(),
+            });
+
+            // Registra telemetria de spam bloqueado/apagado
+            try {
+              recordBlockedSpam(spamCheck.reason || "Purga manual de spam", {
+                channelId: chId,
+                channelName: channel.name,
+                author: msg.author?.tag || msg.author?.username,
+              });
+            } catch {}
+          }
+        }
+      } catch (chErr) {
+        results.errors.push(`Erro ao acessar canal #${channel.name}: ${chErr.message}`);
+      }
+    }
+  }
+
+  console.log(`🧹 [PURGE SPAM] Varredura concluída: ${results.scannedChannels} canais, ${results.scannedMessages} mensagens analisadas, ${results.deletedMessagesCount} spams apagados.`);
+  return results;
+}
+
+/**
+ * Handler HTTP para endpoint /api/clean-spam e /api/purge-spam
+ */
+async function handlePurgeSpamHttpRequest(urlObj, req, res) {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
+  res.setHeader("Content-Type", "application/json");
+
+  if (req.method === "OPTIONS") {
+    res.writeHead(204);
+    return res.end();
+  }
+
+  let guildId = urlObj.searchParams.get("guildId") || "";
+  let channelId = urlObj.searchParams.get("channelId") || "";
+  let limit = parseInt(urlObj.searchParams.get("limit") || "50", 10);
+
+  if (req.method === "POST") {
+    let bodyStr = "";
+    req.on("data", (chunk) => {
+      bodyStr += chunk;
+      if (bodyStr.length > 1024 * 64) req.destroy();
+    });
+    req.on("end", async () => {
+      try {
+        let payload = {};
+        try {
+          payload = JSON.parse(bodyStr || "{}");
+        } catch {}
+        const finalGuildId = payload.guildId || guildId;
+        const finalChannelId = payload.channelId || channelId;
+        const finalLimit = payload.limit || limit;
+
+        const results = await purgeSpamFromGuild(finalGuildId, { limit: finalLimit, channelId: finalChannelId });
+        res.writeHead(200);
+        return res.end(JSON.stringify({ success: true, ...results }));
+      } catch (err) {
+        console.error("❌ [PURGE SPAM HTTP ERROR]:", err);
+        res.writeHead(500);
+        return res.end(JSON.stringify({ success: false, error: err.message }));
+      }
+    });
+    return;
+  }
+
+  try {
+    const results = await purgeSpamFromGuild(guildId, { limit, channelId });
+    res.writeHead(200);
+    return res.end(JSON.stringify({ success: true, ...results }));
+  } catch (err) {
+    console.error("❌ [PURGE SPAM HTTP ERROR]:", err);
+    res.writeHead(500);
+    return res.end(JSON.stringify({ success: false, error: err.message }));
+  }
+}
+
+/**
  * Realiza upload de imagem para o Postimages.org via API JSON e recupera link direto CDN (i.postimg.cc)
  * Zero consumo de storage Supabase e zero egress de banco de dados.
  */
@@ -2771,6 +2963,11 @@ const server = http.createServer(async (req, res) => {
   // Rota para buscar e inspecionar mensagem do Discord por URL/IDs: /api/discord-message?url=...
   if (pathname === "/api/discord-message" || pathname === "/api/fetch-discord-message") {
     return handleFetchDiscordMessage(urlObj, req, res);
+  }
+
+  // Rota para Varrer e Apagar Spams do Servidor Discord: /api/clean-spam ou /api/purge-spam
+  if (pathname === "/api/clean-spam" || pathname === "/api/purge-spam") {
+    return handlePurgeSpamHttpRequest(urlObj, req, res);
   }
 
   // Rota para obter URL oficial do Discord Webhook (compatível com Discohook): /api/webhook-url/:channelId

@@ -1102,4 +1102,102 @@ export async function fetchDiscordMessageByUrl(url: string): Promise<{
   }
 }
 
+export interface PurgeSpamOptions {
+  guildId?: string;
+  channelId?: string;
+  limit?: number;
+}
+
+export interface PurgeSpamResult {
+  success: boolean;
+  scannedGuilds: number;
+  scannedChannels: number;
+  scannedMessages: number;
+  deletedMessagesCount: number;
+  deletedDetails: Array<{
+    messageId: string;
+    channelId: string;
+    channelName: string;
+    guildId?: string;
+    guildName?: string;
+    authorTag: string;
+    authorId?: string;
+    reason: string;
+    contentSnippet: string;
+    deleted: boolean;
+    createdAt: string;
+  }>;
+  errors?: string[];
+  error?: string;
+}
+
+/**
+ * Varre os canais de texto do Discord e apaga todas as mensagens de spam encontradas
+ */
+export async function purgeDiscordSpamMessages(options: PurgeSpamOptions = {}): Promise<PurgeSpamResult> {
+  const guildId = options.guildId || "1535505650308620400";
+  const limit = options.limit || 50;
+  const channelId = options.channelId || "";
+
+  // 1. Tentar via chamada HTTP direta ao Bot no Discloud
+  try {
+    const res = await fetch("https://twin.discloud.app/api/clean-spam", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ guildId, channelId, limit }),
+    });
+    if (res.ok) {
+      const data = await res.json().catch(() => null);
+      if (data && data.success) {
+        return data;
+      }
+    }
+  } catch (err) {
+    console.warn("Falha no purge via HTTP Discloud, tentando via Realtime...", err);
+  }
+
+  // 2. Fallback via Supabase Realtime Broadcast compartilhado com o bot
+  return new Promise((resolve) => {
+    const requestId = `purge_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+    let hasResolved = false;
+
+    const timer = setTimeout(() => {
+      if (!hasResolved) {
+        hasResolved = true;
+        resolve({
+          success: false,
+          scannedGuilds: 0,
+          scannedChannels: 0,
+          scannedMessages: 0,
+          deletedMessagesCount: 0,
+          deletedDetails: [],
+          error: "O Bot do Discord não respondeu em tempo hábil. Verifique se o bot está online na Discloud.",
+        });
+      }
+    }, 15000);
+
+    const ch = supabase.channel("system-discord-test-channel");
+    ch.on("broadcast", { event: "purge_spam_result" }, (msg: any) => {
+      if (msg?.payload?.requestId === requestId && !hasResolved) {
+        hasResolved = true;
+        clearTimeout(timer);
+        resolve(msg.payload);
+      }
+    }).subscribe((status) => {
+      if (status === "SUBSCRIBED") {
+        ch.send({
+          type: "broadcast",
+          event: "purge_spam",
+          payload: {
+            requestId,
+            guildId,
+            channelId,
+            limit,
+          },
+        }).catch(() => {});
+      }
+    });
+  });
+}
+
 
