@@ -81,6 +81,7 @@ export type MemberTag = {
   icon: string;
   is_system: boolean;
   is_active: boolean;
+  order_index?: number;
   permissions: Permission[];
   rules: MemberTagRules;
   created_at: string;
@@ -103,13 +104,14 @@ export type MemberTagAssignment = {
 };
 
 /**
- * Busca todas as tags de membros cadastradas
+ * Busca todas as tags de membros cadastradas ordenadas por ordem hierárquica (order_index)
  */
 export async function getMemberTags(): Promise<MemberTag[]> {
   const { data: tags, error: tagsErr } = await supabase
     .from("member_tags" as any)
     .select("*")
-    .order("name", { ascending: true });
+    .order("order_index", { ascending: true })
+    .order("created_at", { ascending: true });
 
   if (tagsErr) {
     console.error("Erro ao buscar member_tags:", tagsErr);
@@ -136,6 +138,7 @@ export async function getMemberTags(): Promise<MemberTag[]> {
     icon: t.icon || "Tag",
     is_system: Boolean(t.is_system),
     is_active: t.is_active !== false,
+    order_index: typeof t.order_index === "number" ? t.order_index : 0,
     permissions: Array.isArray(t.permissions) ? t.permissions : [],
     rules: parseMemberTagRules(t.rules),
     created_at: t.created_at,
@@ -212,6 +215,7 @@ export async function getMemberTagsForMember(memberId: string): Promise<MemberTa
       icon: t.icon || "Tag",
       is_system: Boolean(t.is_system),
       is_active: t.is_active !== false,
+      order_index: typeof t.order_index === "number" ? t.order_index : 0,
       permissions: Array.isArray(t.permissions) ? t.permissions : [],
       rules: parseMemberTagRules(t.rules),
       created_at: t.created_at,
@@ -221,7 +225,8 @@ export async function getMemberTagsForMember(memberId: string): Promise<MemberTa
       discord_role_name: t.discord_role_name || null,
       discord_sync_enabled: t.discord_sync_enabled !== false,
       discord_role_position: t.discord_role_position !== undefined ? t.discord_role_position : null,
-    }));
+    }))
+    .sort((a: any, b: any) => (a.order_index ?? 0) - (b.order_index ?? 0));
 }
 
 /**
@@ -234,6 +239,7 @@ export async function saveMemberTag(tag: {
   color: string;
   icon: string;
   is_active?: boolean;
+  order_index?: number;
   permissions?: Permission[];
   rules?: MemberTagRules;
   is_system?: boolean;
@@ -259,6 +265,7 @@ export async function saveMemberTag(tag: {
   };
 
   if (tag.is_active !== undefined) payload.is_active = tag.is_active;
+  if (tag.order_index !== undefined) payload.order_index = tag.order_index;
   if (tag.permissions !== undefined) payload.permissions = tag.permissions;
   if (tag.rules !== undefined) payload.rules = safeRules;
   if (tag.is_system !== undefined) payload.is_system = tag.is_system;
@@ -287,6 +294,7 @@ export async function saveMemberTag(tag: {
     icon: (data as any).icon,
     is_system: Boolean((data as any).is_system),
     is_active: (data as any).is_active !== false,
+    order_index: typeof (data as any).order_index === "number" ? (data as any).order_index : 0,
     permissions: Array.isArray((data as any).permissions) ? (data as any).permissions : [],
     rules: parseMemberTagRules((data as any).rules),
     created_at: (data as any).created_at,
@@ -297,6 +305,28 @@ export async function saveMemberTag(tag: {
     discord_sync_enabled: (data as any).discord_sync_enabled !== false,
     discord_role_position: (data as any).discord_role_position !== undefined ? (data as any).discord_role_position : null,
   };
+}
+
+/**
+ * Atualiza a ordenação sequencial de todas as tags (ordem hierárquica)
+ */
+export async function updateMemberTagsOrder(orderedTagIds: string[]): Promise<void> {
+  if (!orderedTagIds || orderedTagIds.length === 0) return;
+
+  const { error } = await (supabase.rpc as any)("reorder_member_tags", {
+    p_tag_ids: orderedTagIds,
+  });
+
+  if (error) {
+    console.warn("RPC reorder_member_tags falhou, aplicando fallback direto:", error.message);
+    const now = new Date().toISOString();
+    for (let i = 0; i < orderedTagIds.length; i++) {
+      await supabase
+        .from("member_tags" as any)
+        .update({ order_index: i, updated_at: now })
+        .eq("id", orderedTagIds[i]);
+    }
+  }
 }
 
 /**

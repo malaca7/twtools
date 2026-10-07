@@ -10,6 +10,7 @@ import {
   toggleMemberTagAssignment,
   setMemberTags,
   setTagMembers,
+  updateMemberTagsOrder,
   type MemberTag,
   type MemberTagAssignment,
   type MemberTagRules,
@@ -37,7 +38,7 @@ import { useMembers } from "@/hooks/useData";
 
 /**
  * Retorna um Map de member_id / user_id -> MemberTag[] para renderização rápida e enriquecimento de listas de membros.
- * Por padrão, apenas tags configuradas com "Tag de Sistema" (is_system === true) e ativas são exibidas visualmente vinculadas aos membros.
+ * Por padrão, tags ativas são retornadas ordenadas por ordem de nível (order_index).
  */
 export function useMemberTagsMap(options: { onlySystem?: boolean } = { onlySystem: true }) {
   const { data: tags = [] } = useMemberTags();
@@ -84,6 +85,11 @@ export function useMemberTagsMap(options: { onlySystem?: boolean } = { onlySyste
           }
         });
       }
+    });
+
+    // Ordena as tags de cada membro por ordem de nível (order_index)
+    Object.keys(memberTagsMap).forEach((id) => {
+      memberTagsMap[id].sort((a, b) => (a.order_index ?? 999) - (b.order_index ?? 999));
     });
 
     return memberTagsMap;
@@ -227,6 +233,17 @@ export function useMemberTagMutations() {
     },
   });
 
+  const updateTagsOrderMutation = useMutation({
+    mutationFn: (orderedTagIds: string[]) => updateMemberTagsOrder(orderedTagIds),
+    onSuccess: () => {
+      toast.success("Ordem e hierarquia das tags atualizadas com sucesso!");
+      invalidate();
+    },
+    onError: (err: any) => {
+      toast.error(err.message || "Erro ao atualizar ordem das tags.");
+    },
+  });
+
   return {
     saveTagMutation,
     deleteTagMutation,
@@ -234,5 +251,6 @@ export function useMemberTagMutations() {
     toggleAssignmentMutation,
     setMemberTagsMutation,
     setTagMembersMutation,
+    updateTagsOrderMutation,
   };
 }

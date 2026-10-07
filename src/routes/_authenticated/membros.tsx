@@ -70,35 +70,64 @@ import type { MemberTag } from "@/services/memberTagsService";
 import { cn } from "@/lib/utils";
 
 /**
- * Determina a tag de sistema com maior relevância hierárquica e operacional do membro
+ * Retorna a cor estética e temática do cargo para destaque de membros sem tag
+ */
+export function getRoleThemeColor(level: string | null | undefined): string {
+  switch (level?.toLowerCase()) {
+    case "desenvolvedor":
+      return "#f43f5e"; // Rose 500
+    case "01":
+      return "#a855f7"; // Purple 500
+    case "02":
+      return "#6366f1"; // Indigo 500
+    case "gerente":
+      return "#3b82f6"; // Blue 500
+    case "motoqueiro":
+      return "#10b981"; // Emerald 500
+    case "membro":
+      return "#06b6d4"; // Cyan 500
+    case "novato":
+      return "#f59e0b"; // Amber 500
+    default:
+      return "#8b5cf6"; // Violet 500
+  }
+}
+
+/**
+ * Determina a tag no nível mais alto que o membro possui e que esteja ativa no sistema.
+ * O nível é definido prioritariamente pela ordem sequencial (order_index) configurada
+ * na página de gestão de tags (menor order_index = nível mais alto / topo da hierarquia).
  */
 export function getPrimaryRelevantTag(tags: MemberTag[]): MemberTag | null {
   if (!tags || tags.length === 0) return null;
 
-  const scoreTag = (tag: MemberTag) => {
-    let score = 0;
-    // Posição hierárquica no Discord (quanto maior a posição, maior o peso)
-    if (typeof tag.discord_role_position === "number" && !isNaN(tag.discord_role_position)) {
-      score += tag.discord_role_position * 1000;
-    }
-    // Regras especiais e de liderança
-    if (tag.rules?.priority_badge) score += 50000;
-    if (tag.rules?.can_access_ceo || tag.id === "ceo") score += 40000;
-    if (tag.rules?.can_access_dev || tag.id === "dev" || tag.id === "desenvolvedor") score += 35000;
-    if (tag.rules?.is_blocked || tag.rules?.block_operations) score += 30000;
-    if (tag.rules?.can_manage_members) score += 20000;
-    if (tag.rules?.can_manage_escalas) score += 15000;
-    if (tag.rules?.can_sell) score += 10000;
-    if (tag.rules?.can_manage_productions) score += 10000;
+  // Filtra apenas tags ativas no sistema
+  const activeTags = tags.filter((t) => t.is_active !== false);
+  if (activeTags.length === 0) return null;
 
-    // Quantidade de permissões concedidas
-    if (Array.isArray(tag.permissions)) {
-      score += tag.permissions.length * 10;
+  const sorted = [...activeTags].sort((a, b) => {
+    // 1. Ordem hierárquica oficial configurada pelo CEO / DEV (menor order_index = nível mais alto)
+    const orderA = typeof a.order_index === "number" ? a.order_index : 9999;
+    const orderB = typeof b.order_index === "number" ? b.order_index : 9999;
+    if (orderA !== orderB) {
+      return orderA - orderB;
     }
-    return score;
-  };
 
-  const sorted = [...tags].sort((a, b) => scoreTag(b) - scoreTag(a));
+    // 2. Desempate por regras de prioridade ou posição do Discord
+    let scoreA = 0;
+    let scoreB = 0;
+    if (a.rules?.priority_badge) scoreA += 50000;
+    if (b.rules?.priority_badge) scoreB += 50000;
+    if (a.rules?.can_access_ceo || a.id === "ceo") scoreA += 40000;
+    if (b.rules?.can_access_ceo || b.id === "ceo") scoreB += 40000;
+    if (a.rules?.can_access_dev || a.id === "dev" || a.id === "desenvolvedor") scoreA += 35000;
+    if (b.rules?.can_access_dev || b.id === "dev" || b.id === "desenvolvedor") scoreB += 35000;
+    if (typeof a.discord_role_position === "number") scoreA += a.discord_role_position * 100;
+    if (typeof b.discord_role_position === "number") scoreB += b.discord_role_position * 100;
+
+    return scoreB - scoreA;
+  });
+
   return sorted[0] || null;
 }
 
@@ -127,8 +156,8 @@ export function MembrosPage() {
   const { data: pending = [], isLoading: pendingLoading } = usePendingSignupRequests(canApprove);
   const { data: dbCustomRoles = [] } = useCustomRoles();
 
-  // Apenas tags ativas e marcadas como "Tag de Sistema"
-  const memberTagsMap = useMemberTagsMap({ onlySystem: true });
+  // Tags ativas no sistema dos membros (todas as tags ativas)
+  const memberTagsMap = useMemberTagsMap({ onlySystem: false });
 
   // Modo de visualização: tabela por padrão (com persistência no localStorage) ou cards
   const [viewMode, setViewMode] = useState<"cards" | "table">(() => {
@@ -557,12 +586,15 @@ export function MembrosPage() {
 
                   // Tags ativas no sistema vinculadas a este membro
                   const assignedTags = (memberTagsMap[m.user_id] || (m.id ? memberTagsMap[m.id] : []) || []).filter(
-                    (t) => t.is_active !== false && t.is_system === true
+                    (t) => t.is_active !== false
                   );
 
-                  // Tag mais relevante do membro (maior hierarquia/regras)
+                  // Tag no nível mais alto que o membro possui (e ativa no sistema)
                   const primaryTag = getPrimaryRelevantTag(assignedTags);
-                  const tagThemeColor = primaryTag?.color || null;
+                  const hasActiveTag = Boolean(primaryTag);
+                  const roleThemeColor = getRoleThemeColor(currentNivel);
+                  // Destaque: se possui tag ativa, destaca com ela. Se não possui tag, destaca com o cargo dele!
+                  const cardHighlightColor = hasActiveTag ? primaryTag!.color : roleThemeColor;
                   const sortedTags = primaryTag
                     ? [primaryTag, ...assignedTags.filter((t) => t.id !== primaryTag.id)]
                     : assignedTags;
@@ -571,30 +603,21 @@ export function MembrosPage() {
                     <div
                       key={m.user_id}
                       className={cn(
-                        "rounded-2xl border bg-card/90 backdrop-blur-sm p-4 sm:p-5 shadow-sm hover:shadow-lg transition-all duration-300 flex flex-col justify-between gap-4 group relative overflow-hidden",
-                        !tagThemeColor && !targetIsDev && !targetIsCeo && "border-border/70",
-                        targetIsDev && "border-rose-500/40 bg-gradient-to-b from-rose-500/10 via-card to-card shadow-rose-500/5",
-                        targetIsCeo && !targetIsDev && "border-amber-500/40 bg-gradient-to-b from-amber-500/10 via-card to-card shadow-amber-500/5"
+                        "rounded-2xl border bg-card/90 backdrop-blur-sm p-4 sm:p-5 shadow-sm hover:shadow-lg transition-all duration-300 flex flex-col justify-between gap-4 group relative overflow-hidden"
                       )}
-                      style={
-                        tagThemeColor && !targetIsDev && !targetIsCeo
-                          ? {
-                              borderColor: `${tagThemeColor}55`,
-                              boxShadow: `0 4px 22px -2px ${tagThemeColor}22`,
-                              background: `linear-gradient(180deg, ${tagThemeColor}16 0%, ${tagThemeColor}05 38%, rgba(var(--card), 0.94) 100%)`,
-                            }
-                          : undefined
-                      }
+                      style={{
+                        borderColor: `${cardHighlightColor}55`,
+                        boxShadow: `0 4px 22px -2px ${cardHighlightColor}22`,
+                        background: `linear-gradient(180deg, ${cardHighlightColor}16 0%, ${cardHighlightColor}05 38%, rgba(var(--card), 0.94) 100%)`,
+                      }}
                     >
-                      {/* BARRA SUPERIOR DE DESTAQUE COM O TEMA DA TAG MAIS RELEVANTE */}
-                      {tagThemeColor && !targetIsDev && !targetIsCeo && (
-                        <div
-                          className="absolute top-0 left-0 right-0 h-1 opacity-90"
-                          style={{
-                            background: `linear-gradient(90deg, transparent 0%, ${tagThemeColor} 50%, transparent 100%)`,
-                          }}
-                        />
-                      )}
+                      {/* BARRA SUPERIOR DE DESTAQUE COM O TEMA DA TAG OU CARGO */}
+                      <div
+                        className="absolute top-0 left-0 right-0 h-1 opacity-90"
+                        style={{
+                          background: `linear-gradient(90deg, transparent 0%, ${cardHighlightColor} 50%, transparent 100%)`,
+                        }}
+                      />
 
                       {/* HEADER DO CARD: AVATAR, NOME, CARGO */}
                       <div className="space-y-3">
@@ -609,19 +632,12 @@ export function MembrosPage() {
                           >
                             <Avatar
                               className={cn(
-                                "h-12 w-12 border-2 transition-all shrink-0 shadow-sm",
-                                tagThemeColor && !targetIsDev && !targetIsCeo
-                                  ? "group-hover/link:ring-2"
-                                  : "border-border/80 group-hover/link:border-primary/70"
+                                "h-12 w-12 border-2 transition-all shrink-0 shadow-sm group-hover/link:ring-2"
                               )}
-                              style={
-                                tagThemeColor && !targetIsDev && !targetIsCeo
-                                  ? {
-                                      borderColor: `${tagThemeColor}90`,
-                                      boxShadow: `0 0 12px ${tagThemeColor}30`,
-                                    }
-                                  : undefined
-                              }
+                              style={{
+                                borderColor: `${cardHighlightColor}90`,
+                                boxShadow: `0 0 12px ${cardHighlightColor}30`,
+                              }}
                             >
                               {avatarUrl && <AvatarImage src={avatarUrl} alt={m.nome} />}
                               <AvatarFallback className="bg-primary/20 text-primary font-bold text-xs group-hover/link:text-primary transition-colors">
@@ -681,8 +697,8 @@ export function MembrosPage() {
                           </div>
                         </div>
 
-                        {/* TAGS DO SISTEMA VINCULADAS COM DESTAQUE NA TAG PRINCIPAL */}
-                        {sortedTags.length > 0 && (
+                        {/* TAGS VINCULADAS COM DESTAQUE NA TAG PRINCIPAL OU DESTAQUE POR CARGO */}
+                        {sortedTags.length > 0 ? (
                           <div className="flex items-center gap-1.5 flex-wrap pt-1">
                             {sortedTags.map((tag) => {
                               const isPrimary = primaryTag?.id === tag.id;
@@ -706,6 +722,29 @@ export function MembrosPage() {
                                 />
                               );
                             })}
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-1.5 flex-wrap pt-1">
+                            <Badge
+                              variant="outline"
+                              className={cn(
+                                "text-[10px] font-bold px-2 py-0.5 rounded-lg border gap-1.5 shadow-xs transition-all",
+                                levelBadgeClass(currentNivel)
+                              )}
+                              style={{
+                                borderColor: `${roleThemeColor}60`,
+                                backgroundColor: `${roleThemeColor}12`,
+                              }}
+                              title={`Membro sem tags ativas: card destacado com o cargo ${LEVEL_LABEL[currentNivel] || currentNivel}`}
+                            >
+                              <span
+                                className="h-1.5 w-1.5 rounded-full shrink-0 shadow-xs"
+                                style={{ backgroundColor: roleThemeColor }}
+                              />
+                              <span className="text-[10px] uppercase font-bold tracking-wider">
+                                Destaque: {LEVEL_LABEL[currentNivel] || currentNivel}
+                              </span>
+                            </Badge>
                           </div>
                         )}
 
@@ -810,11 +849,14 @@ export function MembrosPage() {
 
                       // Tags ativas no sistema vinculadas a este membro
                       const assignedTags = (memberTagsMap[m.user_id] || (m.id ? memberTagsMap[m.id] : []) || []).filter(
-                        (t) => t.is_active !== false && t.is_system === true
+                        (t) => t.is_active !== false
                       );
 
                       const primaryTag = getPrimaryRelevantTag(assignedTags);
-                      const tagThemeColor = primaryTag?.color || null;
+                      const hasActiveTag = Boolean(primaryTag);
+                      const roleThemeColor = getRoleThemeColor(currentNivel);
+                      // Destaque: se possui tag ativa, destaca com ela. Se não possui tag, destaca com o cargo dele!
+                      const cardHighlightColor = hasActiveTag ? primaryTag!.color : roleThemeColor;
                       const sortedTags = primaryTag
                         ? [primaryTag, ...assignedTags.filter((t) => t.id !== primaryTag.id)]
                         : assignedTags;
@@ -823,14 +865,10 @@ export function MembrosPage() {
                         <TableRow
                           key={m.user_id}
                           className="hover:bg-muted/40 transition-colors"
-                          style={
-                            tagThemeColor && !targetIsDev && !targetIsCeo
-                              ? {
-                                  borderLeft: `3.5px solid ${tagThemeColor}`,
-                                  backgroundColor: `${tagThemeColor}06`,
-                                }
-                              : undefined
-                          }
+                          style={{
+                            borderLeft: `3.5px solid ${cardHighlightColor}`,
+                            backgroundColor: `${cardHighlightColor}07`,
+                          }}
                         >
                           <TableCell>
                             <Link
@@ -843,13 +881,9 @@ export function MembrosPage() {
                             >
                               <Avatar
                                 className="h-10 w-10 border transition-colors shadow-xs"
-                                style={
-                                  tagThemeColor && !targetIsDev && !targetIsCeo
-                                    ? {
-                                        borderColor: `${tagThemeColor}80`,
-                                      }
-                                    : undefined
-                                }
+                                style={{
+                                  borderColor: `${cardHighlightColor}80`,
+                                }}
                               >
                                 {avatarUrl && <AvatarImage src={avatarUrl} alt={m.nome} />}
                                 <AvatarFallback className="bg-secondary font-bold text-xs group-hover:text-primary transition-colors">
@@ -870,12 +904,25 @@ export function MembrosPage() {
                                   <p className="text-[0.65rem] text-muted-foreground">{m.nome}</p>
                                 ) : null}
 
-                                {/* Tags do Sistema na Tabela com destaque na principal */}
-                                {sortedTags.length > 0 && (
+                                {/* Tags ou Cargo de Destaque na Tabela */}
+                                {sortedTags.length > 0 ? (
                                   <div className="flex items-center gap-1 flex-wrap pt-1">
                                     {sortedTags.map((tag) => (
                                       <MemberTagBadge key={tag.id} tag={tag} size="xs" showIcon />
                                     ))}
+                                  </div>
+                                ) : (
+                                  <div className="pt-0.5">
+                                    <span
+                                      className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded border inline-flex items-center gap-1"
+                                      style={{
+                                        borderColor: `${roleThemeColor}40`,
+                                        color: roleThemeColor,
+                                        backgroundColor: `${roleThemeColor}10`,
+                                      }}
+                                    >
+                                      Cargo: {LEVEL_LABEL[currentNivel] || currentNivel}
+                                    </span>
                                   </div>
                                 )}
                               </div>

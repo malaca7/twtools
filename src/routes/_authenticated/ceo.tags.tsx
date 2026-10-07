@@ -54,6 +54,8 @@ import {
   ArrowUp,
   ArrowDown,
   ArrowUpDown,
+  ChevronsUp,
+  ChevronsDown,
   ExternalLink,
   Link2,
   Unlink,
@@ -222,7 +224,81 @@ export function CeoGerenciarTagsPage() {
     toggleAssignmentMutation,
     setTagMembersMutation,
     updatePermissionsAndRulesMutation,
+    updateTagsOrderMutation,
   } = useMemberTagMutations();
+
+  // Permissão para reordenar tags
+  const canReorderTags = Boolean(
+    isDevUser ||
+    canEditTag ||
+    canManagePerms ||
+    hasPermission("edit_ceo_tag") ||
+    hasPermission("manage_ceo_tag_permissions") ||
+    hasPermission("manage_dev_tags")
+  );
+
+  // Modal de Reordenação de Tags
+  const [isReorderModalOpen, setIsReorderModalOpen] = useState(false);
+  const [reorderList, setReorderList] = useState<MemberTag[]>([]);
+  const [isSavingOrder, setIsSavingOrder] = useState(false);
+
+  const handleMoveTagUp = async (tagId: string) => {
+    if (!canReorderTags) {
+      toast.error("Você não possui permissão para reordenar tags.");
+      return;
+    }
+    const idx = tags.findIndex((t) => t.id === tagId);
+    if (idx <= 0) return;
+    const newTags = [...tags];
+    const temp = newTags[idx];
+    newTags[idx] = newTags[idx - 1];
+    newTags[idx - 1] = temp;
+    try {
+      await updateTagsOrderMutation.mutateAsync(newTags.map((t) => t.id));
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("tw_member_tags_updated"));
+      }
+    } catch (err: any) {
+      toast.error(err.message || "Erro ao subir posição da tag.");
+    }
+  };
+
+  const handleMoveTagDown = async (tagId: string) => {
+    if (!canReorderTags) {
+      toast.error("Você não possui permissão para reordenar tags.");
+      return;
+    }
+    const idx = tags.findIndex((t) => t.id === tagId);
+    if (idx < 0 || idx >= tags.length - 1) return;
+    const newTags = [...tags];
+    const temp = newTags[idx];
+    newTags[idx] = newTags[idx + 1];
+    newTags[idx + 1] = temp;
+    try {
+      await updateTagsOrderMutation.mutateAsync(newTags.map((t) => t.id));
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("tw_member_tags_updated"));
+      }
+    } catch (err: any) {
+      toast.error(err.message || "Erro ao descer posição da tag.");
+    }
+  };
+
+  const handleSaveReorderModal = async () => {
+    if (!canReorderTags) return;
+    setIsSavingOrder(true);
+    try {
+      await updateTagsOrderMutation.mutateAsync(reorderList.map((t) => t.id));
+      setIsReorderModalOpen(false);
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("tw_member_tags_updated"));
+      }
+    } catch (err: any) {
+      toast.error(err.message || "Erro ao salvar reordenação das tags.");
+    } finally {
+      setIsSavingOrder(false);
+    }
+  };
 
   // Filtros de busca de tags
   const [tagSearch, setTagSearch] = useState("");
@@ -1159,6 +1235,22 @@ export function CeoGerenciarTagsPage() {
             <RefreshCw className="h-3.5 w-3.5" />
             <span>Sincronizar</span>
           </Button>
+          {canReorderTags && tags.length > 1 && (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setReorderList([...tags]);
+                setIsReorderModalOpen(true);
+              }}
+              className="rounded-xl gap-1.5 h-9 text-xs border-primary/30 text-primary hover:bg-primary/10 shadow-xs"
+              title="Reordenar a prioridade e hierarquia das tags"
+            >
+              <ArrowUpDown className="h-3.5 w-3.5" />
+              <span>Reordenar Tags ({tags.length})</span>
+            </Button>
+          )}
           {canCreateTag && (
             <Button
               type="button"
@@ -1343,6 +1435,7 @@ export function CeoGerenciarTagsPage() {
               (Array.isArray(tag.permissions) && tag.permissions.some((p) => typeof p === "string" && p.startsWith("escalas.")))
             );
             const isDiscordLinked = Boolean(tag.discord_role_id);
+            const currentTagIndex = tags.findIndex((t) => t.id === tag.id);
 
             return (
               <Card
@@ -1363,13 +1456,62 @@ export function CeoGerenciarTagsPage() {
                           className="shadow-sm font-semibold"
                         />
                         <div className="min-w-0">
-                          <p className="text-[10px] font-mono text-muted-foreground truncate">
-                            @{tag.id}
-                          </p>
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <Badge
+                              variant="outline"
+                              className={cn(
+                                "text-[9px] font-mono font-bold px-1.5 py-0 h-4.5 rounded-md border flex items-center gap-1",
+                                currentTagIndex === 0
+                                  ? "bg-amber-500/15 text-amber-400 border-amber-500/35 font-extrabold"
+                                  : currentTagIndex === 1
+                                  ? "bg-indigo-500/15 text-indigo-400 border-indigo-500/35"
+                                  : "bg-muted/40 text-muted-foreground border-border/60"
+                              )}
+                              title={`Posição hierárquica #${currentTagIndex + 1}. A tag no topo tem o nível mais alto no sistema.`}
+                            >
+                              {currentTagIndex === 0 ? (
+                                <>
+                                  <Crown className="h-2.5 w-2.5 text-amber-400" />
+                                  <span>#1 Topo</span>
+                                </>
+                              ) : (
+                                <span>#{currentTagIndex + 1}</span>
+                              )}
+                            </Badge>
+                            <p className="text-[10px] font-mono text-muted-foreground truncate">
+                              @{tag.id}
+                            </p>
+                          </div>
                         </div>
                       </div>
 
                       <div className="flex items-center gap-1 shrink-0 flex-wrap justify-end">
+                        {canReorderTags && tags.length > 1 && (
+                          <div className="flex items-center gap-0.5 bg-secondary/50 rounded-lg p-0.5 border border-border/50 shadow-2xs">
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              disabled={currentTagIndex <= 0 || updateTagsOrderMutation.isPending}
+                              onClick={() => handleMoveTagUp(tag.id)}
+                              className="h-6 w-6 rounded-md hover:bg-primary/20 hover:text-primary disabled:opacity-30 disabled:pointer-events-none"
+                              title={currentTagIndex <= 0 ? "Tag já é nível #1 (topo)" : `Subir nível (mover para #${currentTagIndex})`}
+                            >
+                              <ArrowUp className="h-3 w-3" />
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              disabled={currentTagIndex >= tags.length - 1 || updateTagsOrderMutation.isPending}
+                              onClick={() => handleMoveTagDown(tag.id)}
+                              className="h-6 w-6 rounded-md hover:bg-primary/20 hover:text-primary disabled:opacity-30 disabled:pointer-events-none"
+                              title={currentTagIndex >= tags.length - 1 ? "Tag já está no último nível" : `Descer nível (mover para #${currentTagIndex + 2})`}
+                            >
+                              <ArrowDown className="h-3 w-3" />
+                            </Button>
+                          </div>
+                        )}
                         {isDiscordLinked && (
                           <Badge
                             variant="outline"
@@ -3845,6 +3987,174 @@ export function CeoGerenciarTagsPage() {
             >
               Fechar
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* MODAL DE REORDENAÇÃO COMPLETA DAS TAGS */}
+      <Dialog open={isReorderModalOpen} onOpenChange={setIsReorderModalOpen}>
+        <DialogContent className="max-w-2xl max-h-[85vh] flex flex-col p-0 overflow-hidden">
+          <DialogHeader className="p-4 sm:p-5 border-b border-border/60 bg-secondary/20">
+            <DialogTitle className="flex items-center gap-2 text-base font-bold">
+              <ArrowUpDown className="h-5 w-5 text-primary" />
+              <span>Ordenar e Reorganizar Tags</span>
+            </DialogTitle>
+            <DialogDescription className="text-xs text-muted-foreground leading-relaxed mt-1">
+              A ordem das tags define o <strong>nível hierárquico</strong> no sistema. Membros com múltiplas tags terão seus cards na página de membros destacados com a tag de <strong>nível mais alto</strong> (mais próxima do topo • #1).
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="flex-1 overflow-y-auto p-4 space-y-2">
+            {reorderList.map((tag, idx) => {
+              const isFirst = idx === 0;
+              const isLast = idx === reorderList.length - 1;
+
+              return (
+                <div
+                  key={tag.id}
+                  className={cn(
+                    "flex items-center justify-between p-3 rounded-xl border bg-card/80 transition-all gap-3",
+                    isFirst ? "border-amber-500/40 bg-amber-500/5 shadow-xs" : "border-border/60 hover:bg-muted/30"
+                  )}
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    <span
+                      className={cn(
+                        "font-mono text-xs h-7 w-7 rounded-lg flex items-center justify-center shrink-0 border",
+                        isFirst
+                          ? "bg-amber-500 text-black border-amber-400 font-extrabold shadow-xs"
+                          : "bg-muted text-muted-foreground border-border/70 font-bold"
+                      )}
+                    >
+                      {idx + 1}
+                    </span>
+
+                    <MemberTagBadge tag={tag} size="sm" showIcon className="shadow-xs shrink-0" />
+
+                    <div className="min-w-0">
+                      <p className="text-xs font-bold text-foreground truncate flex items-center gap-1.5">
+                        <span>{tag.name}</span>
+                        {isFirst && (
+                          <Badge className="bg-amber-500/20 text-amber-300 border-amber-500/40 text-[9px] py-0 px-1.5 font-bold gap-1">
+                            <Crown className="h-2.5 w-2.5 text-amber-400" />
+                            Nível Mais Alto
+                          </Badge>
+                        )}
+                        {!tag.is_active && (
+                          <Badge variant="outline" className="text-[9px] px-1.5 py-0 border-rose-500/30 text-rose-400 bg-rose-500/10">
+                            Inativa
+                          </Badge>
+                        )}
+                      </p>
+                      <p className="text-[10px] font-mono text-muted-foreground truncate">
+                        @{tag.id}
+                        {tag.description ? ` • ${tag.description}` : ""}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-1 shrink-0">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      disabled={isFirst}
+                      onClick={() => {
+                        if (isFirst) return;
+                        const next = [...reorderList];
+                        const [item] = next.splice(idx, 1);
+                        next.unshift(item);
+                        setReorderList(next);
+                      }}
+                      className="h-8 w-8 rounded-lg"
+                      title="Mover para o topo absoluto"
+                    >
+                      <ChevronsUp className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      disabled={isFirst}
+                      onClick={() => {
+                        if (isFirst) return;
+                        const next = [...reorderList];
+                        const temp = next[idx];
+                        next[idx] = next[idx - 1];
+                        next[idx - 1] = temp;
+                        setReorderList(next);
+                      }}
+                      className="h-8 w-8 rounded-lg"
+                      title="Subir uma posição"
+                    >
+                      <ArrowUp className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      disabled={isLast}
+                      onClick={() => {
+                        if (isLast) return;
+                        const next = [...reorderList];
+                        const temp = next[idx];
+                        next[idx] = next[idx + 1];
+                        next[idx + 1] = temp;
+                        setReorderList(next);
+                      }}
+                      className="h-8 w-8 rounded-lg"
+                      title="Descer uma posição"
+                    >
+                      <ArrowDown className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      disabled={isLast}
+                      onClick={() => {
+                        if (isLast) return;
+                        const next = [...reorderList];
+                        const [item] = next.splice(idx, 1);
+                        next.push(item);
+                        setReorderList(next);
+                      }}
+                      className="h-8 w-8 rounded-lg"
+                      title="Mover para o final absoluto"
+                    >
+                      <ChevronsDown className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          <DialogFooter className="p-3 sm:p-4 border-t border-border/60 bg-secondary/15 flex items-center justify-between">
+            <p className="text-[11px] text-muted-foreground hidden sm:block">
+              Posicione as tags na hierarquia desejada e salve as alterações.
+            </p>
+            <div className="flex items-center gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setIsReorderModalOpen(false)}
+                className="text-xs rounded-xl"
+              >
+                Cancelar
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                disabled={isSavingOrder}
+                onClick={handleSaveReorderModal}
+                className="text-xs font-bold rounded-xl gap-1.5 bg-primary text-primary-foreground hover:bg-primary/90"
+              >
+                {isSavingOrder ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
+                <span>Salvar Nova Ordem</span>
+              </Button>
+            </div>
           </DialogFooter>
         </DialogContent>
       </Dialog>
