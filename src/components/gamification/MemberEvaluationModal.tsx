@@ -18,10 +18,19 @@ import { evaluateMember, type RankedGamificationMember } from "@/services/gamifi
 import { useAuth } from "@/hooks/useAuth";
 import { cn } from "@/lib/utils";
 
+export interface EvaluatableMember {
+  user_id: string;
+  nome: string;
+  nickname?: string | null;
+  avatar_url?: string | null;
+  game_id?: string | number | null;
+  stars_rating?: number | null;
+}
+
 interface MemberEvaluationModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  targetMember: RankedGamificationMember | null;
+  targetMember: EvaluatableMember | RankedGamificationMember | null;
 }
 
 const STAR_LABELS: Record<number, { title: string; desc: string; color: string }> = {
@@ -38,8 +47,13 @@ export function MemberEvaluationModal({
   targetMember,
 }: MemberEvaluationModalProps) {
   const queryClient = useQueryClient();
-  const { hasPermission } = useAuth();
-  const canEvaluate = hasPermission("evaluate_member");
+  const { hasPermission, isDevUser, isCeoUser } = useAuth();
+  const canEvaluate = Boolean(
+    hasPermission("evaluate_member") ||
+    hasPermission("manage_performance") ||
+    isDevUser ||
+    isCeoUser
+  );
 
   const [stars, setStars] = useState<number>(5);
   const [hoveredStar, setHoveredStar] = useState<number | null>(null);

@@ -93,7 +93,12 @@ function RankingsContent() {
   const canViewMovements = hasPermission("view_rankings_movements");
   const canGrantInsignia = hasPermission("grant_insignia");
   const canManageCatalog = hasPermission("manage_insignias_catalog");
-  const canEvaluate = hasPermission("evaluate_member");
+  const canEvaluate = Boolean(
+    hasPermission("evaluate_member") ||
+    hasPermission("manage_performance") ||
+    isDevUser ||
+    isCeoUser
+  );
 
   // Abas de classificação sincronizadas com a URL (?tipo=xp | revenue | sales | movements)
   const defaultTab = canViewXp ? "xp" : canViewFinancial ? "revenue" : "movements";
@@ -111,9 +116,9 @@ function RankingsContent() {
   });
 
   // Modais de avaliação, concessão e catálogo
-  const [evaluatingMember, setEvaluatingMember] = useState<RankedGamificationMember | null>(null);
-  const [grantingInsigniaMember, setGrantingInsigniaMember] = useState<RankedGamificationMember | null>(null);
-  const [viewingInsigniasMember, setViewingInsigniasMember] = useState<RankedGamificationMember | null>(null);
+  const [evaluatingMember, setEvaluatingMember] = useState<any | null>(null);
+  const [grantingInsigniaMember, setGrantingInsigniaMember] = useState<any | null>(null);
+  const [viewingInsigniasMember, setViewingInsigniasMember] = useState<any | null>(null);
   const [isCatalogModalOpen, setIsCatalogModalOpen] = useState(false);
 
   // Consultas aos dados existentes e gamificação
@@ -1027,6 +1032,31 @@ function RankingsContent() {
                     <div className="mt-4 text-lg font-bold text-slate-300">
                       {getLegacyMetricDisplay(legacySecond)}
                     </div>
+
+                    {(canEvaluate || canGrantInsignia) && legacySecond && (
+                      <div className="mt-4 flex items-center gap-1.5 pt-3 border-t border-border/40 w-full justify-center">
+                        {canEvaluate && (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => setEvaluatingMember(legacySecond)}
+                            className="h-7 text-xs gap-1 text-amber-400 hover:text-amber-300 hover:bg-amber-500/10"
+                          >
+                            <Star className="h-3 w-3 fill-amber-400" /> Avaliar
+                          </Button>
+                        )}
+                        {canGrantInsignia && (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => setGrantingInsigniaMember(legacySecond)}
+                            className="h-7 text-xs gap-1 text-primary hover:text-primary hover:bg-primary/10"
+                          >
+                            <Award className="h-3 w-3" /> Insígnia
+                          </Button>
+                        )}
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
 
@@ -1058,6 +1088,31 @@ function RankingsContent() {
                     <div className="mt-4 text-2xl font-black text-amber-400">
                       {getLegacyMetricDisplay(legacyFirst)}
                     </div>
+
+                    {(canEvaluate || canGrantInsignia) && legacyFirst && (
+                      <div className="mt-4 flex items-center gap-1.5 pt-3 border-t border-amber-500/20 w-full justify-center">
+                        {canEvaluate && (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => setEvaluatingMember(legacyFirst)}
+                            className="h-7 text-xs gap-1 text-amber-400 hover:text-amber-300 hover:bg-amber-500/10"
+                          >
+                            <Star className="h-3 w-3 fill-amber-400" /> Avaliar
+                          </Button>
+                        )}
+                        {canGrantInsignia && (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => setGrantingInsigniaMember(legacyFirst)}
+                            className="h-7 text-xs gap-1 text-primary hover:text-primary hover:bg-primary/10"
+                          >
+                            <Award className="h-3 w-3" /> Insígnia
+                          </Button>
+                        )}
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
 
@@ -1086,6 +1141,31 @@ function RankingsContent() {
                     <div className="mt-4 text-lg font-bold text-amber-600">
                       {getLegacyMetricDisplay(legacyThird)}
                     </div>
+
+                    {(canEvaluate || canGrantInsignia) && legacyThird && (
+                      <div className="mt-4 flex items-center gap-1.5 pt-3 border-t border-border/40 w-full justify-center">
+                        {canEvaluate && (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => setEvaluatingMember(legacyThird)}
+                            className="h-7 text-xs gap-1 text-amber-400 hover:text-amber-300 hover:bg-amber-500/10"
+                          >
+                            <Star className="h-3 w-3 fill-amber-400" /> Avaliar
+                          </Button>
+                        )}
+                        {canGrantInsignia && (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => setGrantingInsigniaMember(legacyThird)}
+                            className="h-7 text-xs gap-1 text-primary hover:text-primary hover:bg-primary/10"
+                          >
+                            <Award className="h-3 w-3" /> Insígnia
+                          </Button>
+                        )}
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
               </div>
@@ -1114,40 +1194,67 @@ function RankingsContent() {
                             <div
                               key={m.user_id}
                               className={cn(
-                                "p-3 rounded-xl border bg-card shadow-xs flex items-center justify-between gap-2.5",
+                                "p-3 rounded-xl border bg-card shadow-xs flex flex-col gap-2 transition-all",
                                 pos <= 3 ? "border-primary/40 bg-primary/5" : "border-border/70"
                               )}
                             >
-                              <div className="flex items-center gap-2.5 min-w-0">
-                                <span className="font-mono font-black text-xs text-muted-foreground w-6 text-center shrink-0">
-                                  {pos === 1 ? "🥇" : pos === 2 ? "🥈" : pos === 3 ? "🥉" : `${pos}º`}
-                                </span>
-                                <div className="min-w-0">
-                                  <p className="font-bold text-xs text-foreground truncate">
-                                    {m.nickname || m.nome}
-                                  </p>
-                                  <div className="flex items-center gap-1.5 pt-0.5">
-                                    {m.nivel && (
-                                      <Badge variant="outline" className={cn("text-[9px] px-1 py-0", levelBadgeClass(m.nivel as any))}>
-                                        {getLevelLabel(m.nivel)}
-                                      </Badge>
-                                    )}
+                              <div className="flex items-center justify-between gap-2.5">
+                                <div className="flex items-center gap-2.5 min-w-0">
+                                  <span className="font-mono font-black text-xs text-muted-foreground w-6 text-center shrink-0">
+                                    {pos === 1 ? "🥇" : pos === 2 ? "🥈" : pos === 3 ? "🥉" : `${pos}º`}
+                                  </span>
+                                  <div className="min-w-0">
+                                    <p className="font-bold text-xs text-foreground truncate">
+                                      {m.nickname || m.nome}
+                                    </p>
+                                    <div className="flex items-center gap-1.5 pt-0.5">
+                                      {m.nivel && (
+                                        <Badge variant="outline" className={cn("text-[9px] px-1 py-0", levelBadgeClass(m.nivel as any))}>
+                                          {getLevelLabel(m.nivel)}
+                                        </Badge>
+                                      )}
+                                    </div>
                                   </div>
+                                </div>
+
+                                <div className="text-right shrink-0">
+                                  <span className="font-black text-xs text-primary font-mono block">
+                                    {rankingType === "revenue"
+                                      ? currency(m.totalRevenue)
+                                      : rankingType === "sales"
+                                      ? `${m.salesCount} vendas`
+                                      : `${m.movementsCount} mov.`}
+                                  </span>
+                                  <span className="text-[10px] text-muted-foreground">
+                                    {m.salesCount} vendas · {m.movementsCount} mov.
+                                  </span>
                                 </div>
                               </div>
 
-                              <div className="text-right shrink-0">
-                                <span className="font-black text-xs text-primary font-mono block">
-                                  {rankingType === "revenue"
-                                    ? currency(m.totalRevenue)
-                                    : rankingType === "sales"
-                                    ? `${m.salesCount} vendas`
-                                    : `${m.movementsCount} mov.`}
-                                </span>
-                                <span className="text-[10px] text-muted-foreground">
-                                  {m.salesCount} vendas · {m.movementsCount} mov.
-                                </span>
-                              </div>
+                              {(canEvaluate || canGrantInsignia) && (
+                                <div className="flex items-center gap-1 pt-2 border-t border-border/40 justify-end">
+                                  {canEvaluate && (
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      onClick={() => setEvaluatingMember(m)}
+                                      className="h-6 text-[10px] px-2 gap-1 border-amber-500/30 text-amber-400 hover:bg-amber-500/10"
+                                    >
+                                      <Star className="h-2.5 w-2.5 fill-amber-400" /> Avaliar
+                                    </Button>
+                                  )}
+                                  {canGrantInsignia && (
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      onClick={() => setGrantingInsigniaMember(m)}
+                                      className="h-6 text-[10px] px-2 gap-1 border-primary/30 text-primary hover:bg-primary/10"
+                                    >
+                                      <Award className="h-2.5 w-2.5" /> Insígnia
+                                    </Button>
+                                  )}
+                                </div>
+                              )}
                             </div>
                           );
                         })}
@@ -1164,6 +1271,7 @@ function RankingsContent() {
                               <TableHead className="text-right">Faturamento</TableHead>
                               <TableHead className="text-right">Vendas</TableHead>
                               <TableHead className="text-right">Movimentações</TableHead>
+                              {(canEvaluate || canGrantInsignia) && <TableHead className="text-right pr-6">Ações</TableHead>}
                             </TableRow>
                           </TableHeader>
                           <TableBody>
@@ -1202,6 +1310,36 @@ function RankingsContent() {
                                   <TableCell className="text-right text-xs text-muted-foreground">
                                     {m.movementsCount}
                                   </TableCell>
+                                  {(canEvaluate || canGrantInsignia) && (
+                                    <TableCell className="text-right pr-6">
+                                      <div className="flex items-center justify-end gap-1.5">
+                                        {canEvaluate && (
+                                          <Button
+                                            size="sm"
+                                            variant="ghost"
+                                            onClick={() => setEvaluatingMember(m)}
+                                            title="Avaliar Desempenho com 1 a 5 estrelas"
+                                            className="h-8 px-2 text-xs gap-1 text-amber-400 hover:text-amber-300 hover:bg-amber-500/15"
+                                          >
+                                            <Star className="h-3.5 w-3.5 fill-amber-400" />
+                                            <span className="hidden lg:inline">Avaliar</span>
+                                          </Button>
+                                        )}
+                                        {canGrantInsignia && (
+                                          <Button
+                                            size="sm"
+                                            variant="ghost"
+                                            onClick={() => setGrantingInsigniaMember(m)}
+                                            title="Conceder Insígnia"
+                                            className="h-8 px-2 text-xs gap-1 text-primary hover:text-primary hover:bg-primary/15"
+                                          >
+                                            <Award className="h-3.5 w-3.5" />
+                                            <span className="hidden lg:inline">Insígnia</span>
+                                          </Button>
+                                        )}
+                                      </div>
+                                    </TableCell>
+                                  )}
                                 </TableRow>
                               );
                             })}
