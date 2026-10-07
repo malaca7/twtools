@@ -277,7 +277,15 @@ export const KNOWN_CHANNEL_WEBHOOKS: Record<string, string> = {
 export function getWebhookShareableUrl(webhook?: DiscordWebhook | null): string {
   if (!webhook) return "";
   if (webhook.webhookUrl && isDiscordWebhookUrl(webhook.webhookUrl)) {
-    return webhook.webhookUrl.trim();
+    const raw = webhook.webhookUrl.trim();
+    // Auto-heal para o webhook legado excluído do Discord apontar para o webhook oficial ativo
+    if (raw.includes("1548409284000485420")) {
+      return "https://discord.com/api/webhooks/1557157544764641284/Cx1GDJxh7mBWrL2PMZBA6A1zX8UKsHQ6V2VbSbE4_60SF_koAY9_GyFrdvEHzwP-mzOi";
+    }
+    return raw;
+  }
+  if (webhook.channelId && KNOWN_CHANNEL_WEBHOOKS[webhook.channelId]) {
+    return KNOWN_CHANNEL_WEBHOOKS[webhook.channelId] || "";
   }
   return `https://twin.discloud.app/webhook/${webhook.channelId || webhook.id}`;
 }
@@ -380,9 +388,6 @@ export async function getDiscordWebhooksConfig(): Promise<DiscordWebhooksConfig>
             ...w,
             guildId: w.guildId || DEFAULT_WEBHOOKS_CONFIG.defaultGuildId,
             channelId: w.channelId || "",
-            webhookUrl: w.webhookUrl?.includes("1548409284000485420")
-              ? "https://discord.com/api/webhooks/1557157544764641284/Cx1GDJxh7mBWrL2PMZBA6A1zX8UKsHQ6V2VbSbE4_60SF_koAY9_GyFrdvEHzwP-mzOi"
-              : w.webhookUrl,
           }))
         : [];
 
@@ -551,7 +556,7 @@ export async function postMessageToWebhookChannel(
   }
 
   // Normaliza múltiplos embeds ou compatibilidade com campos soltos de embed único
-  const rawEmbeds: DiscordEmbedData[] =
+  const rawEmbeds: DiscordEmbedData[] = (
     messageData.embeds && messageData.embeds.length > 0
       ? messageData.embeds
       : messageData.title ||
@@ -578,7 +583,8 @@ export async function postMessageToWebhookChannel(
             fields: messageData.fields,
           },
         ]
-      : [];
+      : []
+  ) as DiscordEmbedData[];
 
   const cleanContent = messageData.content?.trim() || messageData.mention?.trim() || undefined;
 

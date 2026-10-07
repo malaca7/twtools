@@ -85,6 +85,7 @@ export type Profile = {
   stars_rating?: number;
   stars_count?: number;
   tw_coins?: number;
+  is_verified?: boolean;
 };
 
 export type SignupRequestStatus = "pendente" | "aprovado" | "rejeitado";

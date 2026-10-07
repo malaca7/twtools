@@ -75,7 +75,7 @@ export async function getCurrentAuth(): Promise<AuthState> {
     // 1. Load profile (first by user_id, fallback to discord_id / discord_email)
     let profileRow: any = null;
     const { data: pByUid } = await (supabase.from("profiles" as any))
-      .select("id, user_id, nome, nickname, telefone, game_id, avatar_url, banner_url, status, data_entrada, discord_id, discord_username, discord_avatar_url, discord_email, is_developer, is_ceo, custom_theme, bio, custom_status, custom_url, xp, gamification_level, stars_rating, stars_count, tw_coins")
+      .select("id, user_id, nome, nickname, telefone, game_id, avatar_url, banner_url, status, data_entrada, discord_id, discord_username, discord_avatar_url, discord_email, is_developer, is_ceo, custom_theme, bio, custom_status, custom_url, xp, gamification_level, stars_rating, stars_count, tw_coins, is_verified")
       .eq("user_id", session.user.id)
       .maybeSingle();
 
@@ -87,7 +87,7 @@ export async function getCurrentAuth(): Promise<AuthState> {
       if (discordEmail) filters.push(`discord_email.eq.${discordEmail}`);
 
       const { data: pFallback } = await (supabase.from("profiles" as any))
-        .select("id, user_id, nome, nickname, telefone, game_id, avatar_url, banner_url, status, data_entrada, discord_id, discord_username, discord_avatar_url, discord_email, is_developer, is_ceo, custom_theme, bio, custom_status, custom_url, xp, gamification_level, stars_rating, stars_count, tw_coins")
+        .select("id, user_id, nome, nickname, telefone, game_id, avatar_url, banner_url, status, data_entrada, discord_id, discord_username, discord_avatar_url, discord_email, is_developer, is_ceo, custom_theme, bio, custom_status, custom_url, xp, gamification_level, stars_rating, stars_count, tw_coins, is_verified")
         .or(filters.join(","))
         .maybeSingle();
 
@@ -167,6 +167,7 @@ export async function getCurrentAuth(): Promise<AuthState> {
       stars_rating: Number(pAny.stars_rating || 5.0),
       stars_count: Number(pAny.stars_count || 0),
       tw_coins: Number(pAny.tw_coins || 0),
+      is_verified: pAny.is_verified === true,
     } : null;
 
     if (profile && !profile.discord_avatar_url && session.user.user_metadata?.avatar_url) {
@@ -740,7 +741,7 @@ export async function getMembers(): Promise<Member[]> {
   try {
     const [profilesRes, rolesRes, signupReqsRes] = await Promise.all([
       (supabase.from("profiles" as any))
-        .select("id, user_id, nome, nickname, telefone, game_id, status, data_entrada, created_at, discord_id, discord_username, discord_avatar_url, avatar_url, discord_email, is_developer, is_ceo, custom_theme, xp, gamification_level, stars_rating, stars_count, tw_coins")
+        .select("id, user_id, nome, nickname, telefone, game_id, status, data_entrada, created_at, discord_id, discord_username, discord_avatar_url, avatar_url, discord_email, is_developer, is_ceo, custom_theme, xp, gamification_level, stars_rating, stars_count, tw_coins, is_verified")
         .order("created_at", { ascending: true }),
       supabase
         .from("user_roles")
@@ -809,6 +810,7 @@ export async function getMembers(): Promise<Member[]> {
         stars_rating: Number(d.stars_rating || 5.0),
         stars_count: Number(d.stars_count || 0),
         tw_coins: Number(d.tw_coins || 0),
+        is_verified: d.is_verified === true,
       };
     });
 }

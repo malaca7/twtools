@@ -120,7 +120,7 @@ export function VerificationRequestModal({
                 <div>
                   <DialogTitle className="text-base font-bold flex items-center gap-1.5">
                     <span>Selo de Verificado</span>
-                    <VerifiedBadge size="sm" noTooltip />
+                    <VerifiedBadge isVerified={isAlreadyVerified} size="sm" noTooltip />
                   </DialogTitle>
                   <DialogDescription className="text-xs text-muted-foreground mt-0.5">
                     Autenticação e reconhecimento oficial na comunidade Twin Wheels.
@@ -154,7 +154,7 @@ export function VerificationRequestModal({
               </div>
               <div className="pt-2 flex items-center justify-center gap-2">
                 <span className="text-xs text-muted-foreground">Exibição do seu selo:</span>
-                <VerifiedBadge size="md" showText />
+                <VerifiedBadge isVerified size="md" showText />
               </div>
             </div>
           ) : isPending ? (

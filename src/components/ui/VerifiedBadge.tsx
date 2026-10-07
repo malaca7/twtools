@@ -22,8 +22,16 @@ import { cn } from "@/lib/utils";
 export type VerifiedBadgeSize = "xs" | "sm" | "md" | "lg" | "xl";
 
 export interface VerifiedBadgeProps {
-  /** Se o membro está verificado */
-  isVerified?: boolean;
+  /**
+   * Se o membro está verificado (aprovado). O selo SÓ é exibido quando for exatamente `true`;
+   * `undefined`, `null` ou `false` nunca exibem o selo.
+   */
+  isVerified?: boolean | null;
+  /**
+   * Força a exibição apenas para pré-visualizações/ilustrações de configuração
+   * (ex.: editor do selo, título do modal de solicitação). Nunca usar para membros.
+   */
+  preview?: boolean;
   /** Tamanho do selo */
   size?: VerifiedBadgeSize;
   /** Cor customizada para sobrepor a padrão */
@@ -74,7 +82,8 @@ const GLOW_CLASSES: Record<string, string> = {
 };
 
 export function VerifiedBadge({
-  isVerified = true,
+  isVerified = false,
+  preview = false,
   size = "sm",
   color,
   iconName,
@@ -87,7 +96,9 @@ export function VerifiedBadge({
 }: VerifiedBadgeProps) {
   const { data: config } = useVerificationConfig();
 
-  if (!isVerified && !showText) {
+  // Regra de ouro: apenas membros aprovados (isVerified === true) exibem o selo.
+  const shouldRender = isVerified === true || preview === true;
+  if (!shouldRender) {
     return null;
   }
 

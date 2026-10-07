@@ -186,37 +186,52 @@ export async function updateVerificationConfig(
  * Busca todas as solicitações de verificação (com perfis dos membros)
  */
 export async function fetchVerificationRequests(statusFilter?: string): Promise<VerificationRequest[]> {
-  let query = supabase
-    .from("verification_requests" as any)
-    .select(`
-      *,
-      member:profiles!verification_requests_user_id_fkey (
-        nome,
-        nickname,
-        avatar_url,
-        discord_username,
-        discord_avatar_url,
-        game_id,
-        telefone
-      ),
-      reviewer:profiles!verification_requests_reviewed_by_fkey (
-        nome,
-        nickname
-      )
-    `)
-    .order("created_at", { ascending: false });
+  try {
+    let query = supabase
+      .from("verification_requests" as any)
+      .select("*")
+      .order("created_at", { ascending: false });
 
-  if (statusFilter && statusFilter !== "all") {
-    query = query.eq("status", statusFilter);
-  }
+    if (statusFilter && statusFilter !== "all") {
+      query = query.eq("status", statusFilter);
+    }
 
-  const { data, error } = await query;
-  if (error) {
-    console.error("Erro ao buscar solicitações de verificação:", error);
+    const { data: requests, error } = await query;
+    if (error) {
+      console.error("Erro ao buscar solicitações de verificação:", error);
+      return [];
+    }
+
+    if (!requests || requests.length === 0) return [];
+
+    // Busca todos os user_ids envolvidos para preencher os dados de perfil
+    const userIds = Array.from(new Set(requests.map((r: any) => r.user_id).filter(Boolean)));
+    const reviewerIds = Array.from(new Set(requests.map((r: any) => r.reviewed_by).filter(Boolean)));
+    const allUserIds = Array.from(new Set([...userIds, ...reviewerIds]));
+
+    const profilesMap: Record<string, any> = {};
+    if (allUserIds.length > 0) {
+      const { data: profiles } = await (supabase
+        .from("profiles") as any)
+        .select("user_id, nome, nickname, avatar_url, discord_username, discord_avatar_url, game_id, telefone")
+        .in("user_id", allUserIds);
+
+      if (profiles) {
+        for (const p of profiles) {
+          profilesMap[p.user_id] = p;
+        }
+      }
+    }
+
+    return requests.map((req: any) => ({
+      ...req,
+      member: profilesMap[req.user_id] || null,
+      reviewer: req.reviewed_by ? profilesMap[req.reviewed_by] || null : null,
+    })) as unknown as VerificationRequest[];
+  } catch (err) {
+    console.error("Erro ao carregar solicitações de verificação:", err);
     return [];
   }
-
-  return (data || []) as unknown as VerificationRequest[];
 }
 
 /**
@@ -360,61 +375,94 @@ export async function revokeVerification(params: {
  * Lista todos os membros verificados ativos
  */
 export async function fetchMemberVerifications(): Promise<MemberVerification[]> {
-  const { data, error } = await supabase
-    .from("member_verifications" as any)
-    .select(`
-      *,
-      member:profiles!member_verifications_user_id_fkey (
-        nome,
-        nickname,
-        avatar_url,
-        discord_username,
-        discord_avatar_url,
-        game_id,
-        telefone
-      ),
-      verifier:profiles!member_verifications_verified_by_fkey (
-        nome,
-        nickname
-      )
-    `)
-    .eq("is_verified", true)
-    .order("verified_at", { ascending: false });
+  try {
+    const { data: verifications, error } = await supabase
+      .from("member_verifications" as any)
+      .select("*")
+      .eq("is_verified", true)
+      .order("verified_at", { ascending: false });
 
-  if (error) {
-    console.error("Erro ao carregar membros verificados:", error);
+    if (error) {
+      console.error("Erro ao carregar membros verificados:", error);
+      return [];
+    }
+
+    if (!verifications || verifications.length === 0) return [];
+
+    const userIds = Array.from(new Set(verifications.map((v: any) => v.user_id).filter(Boolean)));
+    const verifierIds = Array.from(new Set(verifications.map((v: any) => v.verified_by).filter(Boolean)));
+    const allIds = Array.from(new Set([...userIds, ...verifierIds]));
+
+    const profilesMap: Record<string, any> = {};
+    if (allIds.length > 0) {
+      const { data: profiles } = await (supabase
+        .from("profiles") as any)
+        .select("user_id, nome, nickname, avatar_url, discord_username, discord_avatar_url, game_id, telefone")
+        .in("user_id", allIds);
+
+      if (profiles) {
+        for (const p of profiles) {
+          profilesMap[p.user_id] = p;
+        }
+      }
+    }
+
+    return verifications.map((v: any) => ({
+      ...v,
+      member: profilesMap[v.user_id] || null,
+      verifier: v.verified_by ? profilesMap[v.verified_by] || null : null,
+    })) as unknown as MemberVerification[];
+  } catch (err) {
+    console.error("Erro ao carregar membros verificados:", err);
     return [];
   }
-
-  return (data || []) as unknown as MemberVerification[];
 }
 
 /**
  * Busca histórico / logs de auditoria do sistema de verificação
  */
 export async function fetchVerificationAuditLogs(limit = 50): Promise<VerificationAuditLog[]> {
-  const { data, error } = await supabase
-    .from("verification_audit_logs" as any)
-    .select(`
-      *,
-      target_member:profiles!verification_audit_logs_target_user_id_fkey (
-        nome,
-        nickname
-      ),
-      performer_member:profiles!verification_audit_logs_performed_by_fkey (
-        nome,
-        nickname
-      )
-    `)
-    .order("created_at", { ascending: false })
-    .limit(limit);
+  try {
+    const { data: logs, error } = await supabase
+      .from("verification_audit_logs" as any)
+      .select("*")
+      .order("created_at", { ascending: false })
+      .limit(limit);
 
-  if (error) {
-    console.error("Erro ao carregar auditoria de verificações:", error);
+    if (error) {
+      console.error("Erro ao carregar auditoria de verificações:", error);
+      return [];
+    }
+
+    if (!logs || logs.length === 0) return [];
+
+    const targetIds = Array.from(new Set(logs.map((l: any) => l.target_user_id).filter(Boolean)));
+    const performerIds = Array.from(new Set(logs.map((l: any) => l.performed_by).filter(Boolean)));
+    const allIds = Array.from(new Set([...targetIds, ...performerIds]));
+
+    const profilesMap: Record<string, any> = {};
+    if (allIds.length > 0) {
+      const { data: profiles } = await supabase
+        .from("profiles")
+        .select("user_id, nome, nickname")
+        .in("user_id", allIds);
+
+      if (profiles) {
+        for (const p of profiles) {
+          profilesMap[p.user_id] = p;
+        }
+      }
+    }
+
+    return logs.map((l: any) => ({
+      ...l,
+      target_member: profilesMap[l.target_user_id] || null,
+      performer_member: l.performed_by ? profilesMap[l.performed_by] || null : null,
+    })) as unknown as VerificationAuditLog[];
+  } catch (err) {
+    console.error("Erro ao carregar auditoria de verificações:", err);
     return [];
   }
-
-  return (data || []) as unknown as VerificationAuditLog[];
 }
 
 export interface VerificationRequirementsEvaluation {

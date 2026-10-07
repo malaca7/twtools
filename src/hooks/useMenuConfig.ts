@@ -42,7 +42,7 @@ function subscribe(callback: () => void) {
   return () => listeners.delete(callback);
 }
 
-export const DEFAULT_MENU_CATEGORIES = ["Produções", "Gestão", "Administração"];
+export const DEFAULT_MENU_CATEGORIES = ["Produções", "Gestão", "Administração", "CEO"];
 
 export const DEFAULT_MENU_ITEMS: MenuItemConfig[] = [
   { id: "produzir", title: "Produzir", url: "/producoes/produzir", visible: true, category: "Produções", order: 0, iconName: "Factory" },
@@ -73,6 +73,8 @@ export const DEFAULT_MENU_ITEMS: MenuItemConfig[] = [
   { id: "perfil", title: "Meu Perfil", url: "/perfil", visible: true, category: "Gestão", order: 22 },
   { id: "configuracoes", title: "Configurações", url: "/configuracoes", visible: true, category: "Administração", order: 23 },
   { id: "advertencias", title: "Advertências", url: "/advertencias", visible: true, category: "Administração", order: 24, iconName: "ShieldAlert" },
+  { id: "ceo-tags", title: "Gerenciar Tags", url: "/ceo/tags", visible: true, category: "Administração", order: 24.5, iconName: "Tags" },
+  { id: "ceo-selos", title: "Gerenciar Selos", url: "/ceo/selos", visible: true, category: "CEO", order: 25, iconName: "BadgeCheck" },
 ];
 
 export type PlatformSystemModule = {
@@ -112,6 +114,8 @@ export const PLATFORM_SYSTEM_MODULES: PlatformSystemModule[] = [
   { id: "perfil", title: "Meu Perfil", url: "/perfil", defaultCat: "Gestão", iconName: "User", description: "Perfil público e dados do membro" },
   { id: "configuracoes", title: "Configurações", url: "/configuracoes", defaultCat: "Administração", iconName: "Wrench", description: "Configurações gerais do sistema" },
   { id: "advertencias", title: "Advertências", url: "/advertencias", defaultCat: "Administração", iconName: "ShieldAlert", description: "Sistema disciplinar de advertências e suspensões" },
+  { id: "ceo-tags", title: "Gerenciar Tags", url: "/ceo/tags", defaultCat: "Administração", iconName: "Tags", description: "Gestão executiva de tags especiais e sincronização no Discord" },
+  { id: "ceo-selos", title: "Gerenciar Selos", url: "/ceo/selos", defaultCat: "CEO", iconName: "BadgeCheck", description: "Painel executivo de gestão, análise de pedidos e aprovação de Selos de Verificação" },
 ];
 
 /**

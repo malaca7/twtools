@@ -1467,6 +1467,11 @@ function CeoMenuLateralEditor() {
     return [...DEFAULT_CEO_MENU_ITEMS];
   });
 
+  // Deleted items state
+  const [deletedItemIds, setDeletedItemIds] = useState<string[]>(() => {
+    return config?.deletedItemIds || [];
+  });
+
   // Sync state when config finishes fetching remotely from Supabase
   useEffect(() => {
     if (config?.categories && Array.isArray(config.categories) && config.categories.length > 0) {
@@ -1478,13 +1483,16 @@ function CeoMenuLateralEditor() {
     if (config?.items && Array.isArray(config.items) && config.items.length > 0) {
       setItems(sanitizeCeoConfig(config).items);
     }
+    if (config?.deletedItemIds) {
+      setDeletedItemIds(config.deletedItemIds);
+    }
   }, [config]);
 
   // Add Item Dialog State
   const [isAddItemOpen, setIsAddItemOpen] = useState(false);
   const [newItemTitle, setNewItemTitle] = useState("");
   const [newItemUrl, setNewItemUrl] = useState("");
-  const [newItemCategory, setNewItemCategory] = useState("CEO");
+  const [newItemCategory, setNewItemCategory] = useState(() => categories[0] || "CEO Tools");
   const [newItemIcon, setNewItemIcon] = useState("Crown");
 
   // Edit Item Modal State
@@ -1506,15 +1514,17 @@ function CeoMenuLateralEditor() {
 
   // Helper to persist state to Supabase + LocalStorage
   const persist = useCallback(
-    (newCats: string[], newItems: CeoMenuItemConfig[], newIcons?: Record<string, string>) => {
+    (newCats: string[], newItems: CeoMenuItemConfig[], newIcons?: Record<string, string>, newDeletedIds?: string[]) => {
       const cleanedItems = newItems.map((it, idx) => ({ ...it, order: idx }));
       const currentIcons = newIcons ?? categoryIcons;
+      const activeDeletedIds = newDeletedIds ?? deletedItemIds;
       setCategories(newCats);
       setItems(cleanedItems);
       setCategoryIcons(currentIcons);
-      save({ categories: newCats, items: cleanedItems, categoryIcons: currentIcons });
+      setDeletedItemIds(activeDeletedIds);
+      save({ categories: newCats, items: cleanedItems, categoryIcons: currentIcons, deletedItemIds: activeDeletedIds });
     },
-    [save, categoryIcons]
+    [save, categoryIcons, deletedItemIds]
   );
 
   /* ─── Category Icon Picker Handler ─── */
@@ -1590,12 +1600,12 @@ function CeoMenuLateralEditor() {
 
   const handleDeleteCategory = (catToDelete: string) => {
     if (categories.length <= 1) {
-      toast.error("Você deve ter pelo menos 1 categoria no menu CEO!");
+      toast.info("Para alterar o nome da única categoria, use o botão de editar (lápis) ou crie outra categoria primeiro.");
       return;
     }
 
     const nextCats = categories.filter((c) => c !== catToDelete);
-    const fallbackCat = nextCats[0] || "CEO";
+    const fallbackCat = nextCats[0] || "CEO Tools";
 
     const nextItems = items.map((i) => (i.category === catToDelete ? { ...i, category: fallbackCat } : i));
     const nextIcons = { ...categoryIcons };
@@ -1762,7 +1772,8 @@ function CeoMenuLateralEditor() {
     } else {
       if (confirm(`Deseja realmente remover "${item.title}" do menu CEO? Você poderá restaurar os padrões a qualquer momento.`)) {
         const nextItems = items.filter((i) => i.id !== id);
-        persist(categories, nextItems);
+        const nextDeletedIds = Array.from(new Set([...deletedItemIds, item.id]));
+        persist(categories, nextItems, undefined, nextDeletedIds);
         if (isEditModalOpen && editingItem?.id === id) {
           setIsEditModalOpen(false);
           setEditingItem(null);
@@ -1846,7 +1857,7 @@ function CeoMenuLateralEditor() {
 
     const updatedDragged = {
       ...draggedItem,
-      category: targetItem.category || "CEO",
+      category: targetItem.category || categories[0] || "CEO Tools",
     };
 
     next.splice(targetIndex, 0, updatedDragged);
@@ -1858,12 +1869,16 @@ function CeoMenuLateralEditor() {
 
   // Group items by category for preview
   const grouped = useMemo(() => {
+    const fallbackCat = categories[0] || "CEO Tools";
     const groups: Record<string, CeoMenuItemConfig[]> = {};
     categories.forEach((cat) => {
-      groups[cat] = items.filter((item) => (item.category || "CEO") === cat);
+      groups[cat] = items.filter((item) => (item.category || fallbackCat) === cat);
     });
     items.forEach((item) => {
-      const cat = item.category || "CEO";
+      let cat = item.category || fallbackCat;
+      if (cat === "CEO" && !categories.includes("CEO")) {
+        cat = fallbackCat;
+      }
       if (!groups[cat]) groups[cat] = [item];
     });
     return groups;
@@ -2164,7 +2179,7 @@ function CeoMenuLateralEditor() {
 
           {categories.map((cat) => {
             const catItems = items
-              .filter((i) => (i.category || "CEO") === cat)
+              .filter((i) => (i.category || categories[0] || "CEO Tools") === cat)
               .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
             const CatIcon = resolveCategoryIcon(categoryIcons[cat], Crown);
 
@@ -2328,7 +2343,7 @@ function CeoMenuLateralEditor() {
                             <div className="flex items-center gap-1.5">
                               <span className="text-[10px] text-muted-foreground font-medium hidden sm:inline">Cat:</span>
                               <Select
-                                value={item.category || "CEO"}
+                                value={item.category || categories[0] || "CEO Tools"}
                                 onValueChange={(val) => updateItem(item.id, { category: val })}
                               >
                                 <SelectTrigger className="h-8 w-28 text-xs font-bold border-border/70 bg-secondary/40 rounded-lg shrink-0">

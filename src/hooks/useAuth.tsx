@@ -97,6 +97,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         prev.gamification_level === next.profile.gamification_level &&
         prev.stars_rating === next.profile.stars_rating &&
         prev.stars_count === next.profile.stars_count &&
+        prev.is_verified === next.profile.is_verified &&
         JSON.stringify(prev.custom_theme) === JSON.stringify(next.profile.custom_theme)
       ) {
         return prev;
@@ -141,6 +142,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               social_links: sim.social_links || sim.custom_theme?.social_links || null,
               custom_theme: sim.custom_theme || null,
               custom_url: sim.custom_url || sim.custom_theme?.custom_url || null,
+              is_verified: Boolean(sim.is_verified === true),
             },
             level: sim.nivel || "novato",
             signupRequestStatus: null,
@@ -197,6 +199,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               social_links: dev.social_links || dev.custom_theme?.social_links || null,
               custom_theme: dev.custom_theme || null,
               custom_url: dev.custom_url || dev.custom_theme?.custom_url || null,
+              is_verified: Boolean(dev.is_verified === true),
             },
             level: dev.nivel || "novato",
             signupRequestStatus: null,
@@ -295,8 +298,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       )
       .subscribe();
 
+    const handleVerif = () => {
+      void loadAuth();
+      void queryClient.invalidateQueries({ queryKey: ["auth"] });
+      void queryClient.invalidateQueries({ queryKey: ["members"] });
+    };
+    window.addEventListener("tw_verifications_updated", handleVerif);
+
     return () => {
       void supabase.removeChannel(channel);
+      window.removeEventListener("tw_verifications_updated", handleVerif);
     };
   }, [loadAuth, queryClient, profile?.user_id, session?.user?.id]);
 
@@ -946,12 +957,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // garantindo que ao navegar em páginas de CEO e Membro o usuário acesse como Tag Dev (se em dev)
       // ou como Tag CEO (se em ceo).
       let activePanel: "member" | "dev" | "ceo" = panelOverride ?? (
-        isDevUser && (panelMode === "dev" || (typeof window !== "undefined" && (window.location.pathname.startsWith("/dev") || window.location.hash.includes("/dev"))))
+        isDevUser && panelMode === "dev"
+          ? "dev"
+          : isDevUser && (typeof window !== "undefined" && (window.location.pathname.startsWith("/dev") || window.location.hash.includes("/dev")))
           ? "dev"
           : (isCeoUser || isDevUser) && (panelMode === "ceo" || (typeof window !== "undefined" && (window.location.pathname.startsWith("/ceo") || window.location.hash.includes("/ceo"))))
             ? "ceo"
             : "member"
       );
+
+      // Se o usuário desenvolvedor estiver expressamente com o modo Dev ativo (panelMode === "dev"),
+      // qualquer acesso (inclusive rotas executivas como /ceo/selos) avalia com as permissões da Tag Dev,
+      // a menos que um panelOverride específico não-dev tenha sido solicitado explicitamente em um subcomponente isolado.
+      if (isDevUser && panelMode === "dev" && (!panelOverride || panelOverride === "ceo")) {
+        activePanel = "dev";
+      }
 
       // =========================================================================
       // 0. BLOQUEIOS OPERACIONAIS & DE PLATAFORMA (PRECEDÊNCIA MÁXIMA)

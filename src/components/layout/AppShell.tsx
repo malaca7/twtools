@@ -175,6 +175,8 @@ const MASTER_NAV_ITEMS: MasterNavItem[] = [
   { id: "advertencias", title: "Advertências", url: "/advertencias", icon: ShieldAlert, perm: "view_warnings", defaultCat: "Administração", defaultOrder: 21.5 },
   { id: "perfil", title: "Meu Perfil", url: "/perfil", icon: User, perm: "view_profile", defaultCat: "Gestão", defaultOrder: 22 },
   { id: "configuracoes", title: "Configurações", url: "/configuracoes", icon: Wrench, perm: "manage_platform_settings", defaultCat: "Administração", defaultOrder: 23 },
+  { id: "ceo-tags", title: "Gerenciar Tags", url: "/ceo/tags", icon: Tags, perm: "view_ceo_tag_permissions", defaultCat: "Administração", defaultOrder: 24 },
+  { id: "ceo-selos", title: "Gerenciar Selos", url: "/ceo/selos", icon: BadgeCheck, perm: "verification.manage", defaultCat: "CEO", defaultOrder: 25 },
 ];
 
 const URL_TO_PERMISSION_MAP: Record<string, Permission> = {
@@ -588,60 +590,95 @@ function DynamicSidebarNavigation() {
       const ceoConfigMap = new Map(ceoValidItems.map((c) => [c.id || c.url, c]));
       const ceoCategoryOrder = ceoMenuConfig?.categories?.length
         ? ceoMenuConfig.categories
-        : ["CEO"];
+        : ["CEO Tools"];
 
       const defaultCeoIds = new Set(DEFAULT_CEO_MENU_ITEMS.map((d) => d.id));
+      const primaryCeoCat = ceoCategoryOrder[0] || "CEO Tools";
+
       const customizedCeo: MasterNavItem[] = DEFAULT_CEO_MENU_ITEMS.map((item, defaultIdx) => {
         const cfg = ceoConfigMap.get(item.id) || ceoConfigMap.get(item.url);
+        let resolvedCat = cfg?.category || item.category || primaryCeoCat;
+        if (!ceoCategoryOrder.includes(resolvedCat)) {
+          if (resolvedCat === "CEO" && !ceoCategoryOrder.includes("CEO")) {
+            resolvedCat = primaryCeoCat;
+          }
+        }
         return {
           id: item.id,
           title: cfg?.title || item.title,
           url: cfg?.url || item.url,
           icon: (cfg?.iconName ? resolveMenuIcon(cfg.iconName, item.url) : resolveMenuIcon(item.iconName, item.url)) as typeof LayoutDashboard,
           visible: cfg ? cfg.visible !== false : item.visible !== false,
-          defaultCat: item.category || "CEO",
-          category: cfg?.category || item.category || "CEO",
+          defaultCat: primaryCeoCat,
+          category: resolvedCat,
           defaultOrder: item.order ?? defaultIdx,
           order: typeof cfg?.order === "number" ? cfg.order : item.order ?? defaultIdx,
         };
       });
 
       const customCeoItems: MasterNavItem[] = ceoValidItems
-        .filter((c) => !defaultCeoIds.has(c.id))
-        .map((c, idx) => ({
-          id: c.id,
-          title: c.title,
-          url: c.url,
-          icon: resolveMenuIcon(c.iconName, c.url) as typeof LayoutDashboard,
-          visible: c.visible !== false,
-          defaultCat: c.category || ceoCategoryOrder[0] || "CEO",
-          category: c.category || ceoCategoryOrder[0] || "CEO",
-          defaultOrder: typeof c.order === "number" ? c.order : 50 + idx,
-          order: typeof c.order === "number" ? c.order : 50 + idx,
-          isCustom: true,
-        }));
+        .filter((c) => {
+          if (!c || defaultCeoIds.has(c.id)) return false;
+          // Ignora item customizado duplicado de Gerenciar Selos
+          if (c.url === "/ceo/selos" || (c.title && c.title.toLowerCase().trim() === "gerenciar selos")) {
+            return false;
+          }
+          return true;
+        })
+        .map((c, idx) => {
+          let resolvedCat = c.category || primaryCeoCat;
+          if (!ceoCategoryOrder.includes(resolvedCat)) {
+            if (resolvedCat === "CEO" && !ceoCategoryOrder.includes("CEO")) {
+              resolvedCat = primaryCeoCat;
+            }
+          }
+          return {
+            id: c.id,
+            title: c.title,
+            url: c.url,
+            icon: resolveMenuIcon(c.iconName, c.url) as typeof LayoutDashboard,
+            visible: c.visible !== false,
+            defaultCat: primaryCeoCat,
+            category: resolvedCat,
+            defaultOrder: typeof c.order === "number" ? c.order : 50 + idx,
+            order: typeof c.order === "number" ? c.order : 50 + idx,
+            isCustom: true,
+          };
+        });
 
       const allCeoItems = [...customizedCeo, ...customCeoItems];
       const canSeeCeo = Boolean(isCeoUser || isDevUser || hasPermission("view_ceo"));
+
+      const targetRole: "dev" | "ceo" = isDevArea ? "dev" : "ceo";
 
       const visibleCeo = canSeeCeo
         ? allCeoItems.filter((item) => {
             if (!item.visible) return false;
             if (
               (item.id === "ceo-dashboard" || item.id === "ceo-executivo" || item.url === "/ceo" || item.url === "/ceo/dashboard") &&
-              !hasPermission("view_ceo", "ceo") &&
-              !hasPermission("view_ceo_dashboard", "ceo")
+              !hasPermission("view_ceo", targetRole) &&
+              !hasPermission("view_ceo_dashboard", targetRole)
             ) {
               return false;
             }
-            if (item.id === "ceo-bot" && (!hasPermission("manage_ceo_bot", "ceo") || ceoConfig.allowManageBot === false)) return false;
-            if (item.id === "ceo-webhooks" && (!hasPermission("manage_ceo_webhooks", "ceo") || ceoConfig.allowWebhooks === false)) return false;
-            if (item.id === "ceo-financas" && (!hasPermission("view_ceo_financials", "ceo") || ceoConfig.allowFinancials === false)) return false;
-            if (item.id === "ceo-ajustes-estoque" && !hasPermission("view_ceo_stock_adjustments", "ceo")) return false;
-            if (item.id === "ceo-notificacoes" && !hasPermission("view_ceo_notifications", "ceo")) return false;
-            if (item.id === "ceo-tags" && !hasPermission("view_ceo_tag_permissions", "ceo")) return false;
+            if (item.id === "ceo-bot" && (!hasPermission("manage_ceo_bot", targetRole) || ceoConfig.allowManageBot === false)) return false;
+            if (item.id === "ceo-webhooks" && (!hasPermission("manage_ceo_webhooks", targetRole) || ceoConfig.allowWebhooks === false)) return false;
+            if (item.id === "ceo-financas" && (!hasPermission("view_ceo_financials", targetRole) || ceoConfig.allowFinancials === false)) return false;
+            if (item.id === "ceo-ajustes-estoque" && !hasPermission("view_ceo_stock_adjustments", targetRole)) return false;
+            if (item.id === "ceo-notificacoes" && !hasPermission("view_ceo_notifications", targetRole)) return false;
+            if (item.id === "ceo-tags" && !hasPermission("view_ceo_tag_permissions", targetRole)) return false;
+            if (item.id === "ceo-selos" || item.url === "/ceo/selos") {
+              if (
+                !hasPermission("verification.manage", targetRole) &&
+                !hasPermission("verification.view_page", targetRole) &&
+                !hasPermission("verification.review", targetRole)
+              ) {
+                return false;
+              }
+              return true;
+            }
             const reqPerm = item.perm || resolveRequiredPermission(item.id, item.url);
-            if (reqPerm && !hasPermission(reqPerm, "ceo")) return false;
+            if (reqPerm && !hasPermission(reqPerm, targetRole)) return false;
             return true;
           })
         : [];
@@ -649,7 +686,7 @@ function DynamicSidebarNavigation() {
       const ceoGroups: { category: string; items: typeof visibleCeo }[] = [];
       ceoCategoryOrder.forEach((cat) => {
         const catItems = visibleCeo
-          .filter((i) => (i.category || "CEO") === cat)
+          .filter((i) => (i.category || primaryCeoCat) === cat)
           .sort((a, b) => a.order - b.order);
         if (catItems.length > 0) {
           ceoGroups.push({ category: cat, items: catItems });
@@ -658,11 +695,11 @@ function DynamicSidebarNavigation() {
 
       const knownCeoCats = new Set(ceoCategoryOrder);
       visibleCeo.forEach((item) => {
-        const cat = item.category || "CEO";
+        const cat = item.category || primaryCeoCat;
         if (!knownCeoCats.has(cat)) {
           knownCeoCats.add(cat);
           const catItems = visibleCeo
-            .filter((i) => (i.category || "CEO") === cat)
+            .filter((i) => (i.category || primaryCeoCat) === cat)
             .sort((a, b) => a.order - b.order);
           if (catItems.length > 0) {
             ceoGroups.push({ category: cat, items: catItems });
@@ -762,13 +799,19 @@ function DynamicSidebarNavigation() {
         }
       });
 
-      // Menus do painel da tag CEO se o membro possuir a TAG CEO
-      const ceoGroups = isCeoUser ? buildCeoGroups() : [];
+      // Menus do painel da tag CEO se o membro possuir a TAG CEO ou for Desenvolvedor
+      const ceoGroups = (isCeoUser || isDevUser) ? buildCeoGroups() : [];
 
       // Menus do painel admin / plataforma que o membro possui permissão na TAG DEV ou TAG CEO
       const visibleDevPlatform = allPlatformItems.filter((item) => {
         if (item.url.startsWith("/dev") || item.url.startsWith("/ceo")) return false;
         if (!item.visible) return false;
+        if (item.id === "solicitar-selo" || item.url === "/solicitar-selo") {
+          const hasDevPerm = hasPermission("verification.view_page", "dev") || hasPermission("verification.request", "dev");
+          const hasCeoPerm = isCeoUser && (hasPermission("verification.view_page", "ceo") || hasPermission("verification.request", "ceo"));
+          if (!hasDevPerm && !hasCeoPerm) return false;
+          return true;
+        }
         const reqPerm = item.perm || resolveRequiredPermission(item.id, item.url);
         const hasDevPerm = reqPerm ? hasPermission(reqPerm, "dev") : true;
         const hasCeoPerm = isCeoUser && reqPerm ? hasPermission(reqPerm, "ceo") : false;
@@ -812,6 +855,12 @@ function DynamicSidebarNavigation() {
       const visibleCeoPlatform = allPlatformItems.filter((item) => {
         if (item.url.startsWith("/dev") || item.url.startsWith("/ceo")) return false;
         if (!item.visible) return false;
+        if (item.id === "solicitar-selo" || item.url === "/solicitar-selo") {
+          if (!hasPermission("verification.view_page", "ceo") && !hasPermission("verification.request", "ceo")) {
+            return false;
+          }
+          return true;
+        }
         const reqPerm = item.perm || resolveRequiredPermission(item.id, item.url);
         if (reqPerm && !hasPermission(reqPerm, "ceo")) return false;
         return true;
@@ -852,6 +901,12 @@ function DynamicSidebarNavigation() {
       // 2. Se foi desmarcado/ocultado na configuração do menu
       if (!item.visible) return false;
       // 3. Verifica estritamente a permissão exigida pelo item do menu (respeitando bloqueios de tag e cargo)
+      if (item.id === "solicitar-selo" || item.url === "/solicitar-selo") {
+        if (!hasPermission("verification.view_page", "member") && !hasPermission("verification.request", "member")) {
+          return false;
+        }
+        return true;
+      }
       const requiredPerm = item.perm || resolveRequiredPermission(item.id, item.url);
       if (requiredPerm && !hasPermission(requiredPerm, "member")) {
         return false;
@@ -1487,13 +1542,17 @@ export function AppShell({ children }: { children: ReactNode }) {
                     <Palette className="mr-2 h-4 w-4 text-purple-400" /> Aparência
                   </DropdownMenuItem>
 
-                  <DropdownMenuItem
-                    onClick={() => setIsVerificationModalOpen(true)}
-                    className="cursor-pointer font-medium"
-                  >
-                    <BadgeCheck className="mr-2 h-4 w-4 text-emerald-400" />
-                    <span>{profile?.is_verified ? "Selo de Verificado" : "Solicitar Verificação"}</span>
-                  </DropdownMenuItem>
+                  {(hasPermission("verification.request", isDevArea ? "dev" : isCeoArea ? "ceo" : "member") ||
+                    hasPermission("verification.view_page", isDevArea ? "dev" : isCeoArea ? "ceo" : "member") ||
+                    profile?.is_verified) && (
+                    <DropdownMenuItem
+                      onClick={() => setIsVerificationModalOpen(true)}
+                      className="cursor-pointer font-medium"
+                    >
+                      <BadgeCheck className="mr-2 h-4 w-4 text-emerald-400" />
+                      <span>{profile?.is_verified ? "Selo de Verificado" : "Solicitar Verificação"}</span>
+                    </DropdownMenuItem>
+                  )}
 
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={handleSignOut} className="text-destructive font-medium cursor-pointer">

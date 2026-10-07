@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import {
   BadgeCheck,
@@ -28,6 +28,7 @@ import {
   RefreshCw,
   Eye,
   Calendar,
+  ShieldAlert,
 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -104,15 +105,27 @@ const PRESET_COLORS = [
 ];
 
 export function CeoSelosPage() {
-  const { hasPermission, isDevUser, isCeoUser, level } = useAuth();
+  const { hasPermission, isDevUser, isCeoUser, level, panelMode } = useAuth();
 
-  // Permissões Granulares de Verificação
-  const canManage = hasPermission("verification.manage") || isCeoUser || isDevUser;
-  const canReview = hasPermission("verification.review") || canManage;
-  const canGrant = hasPermission("verification.grant_direct") || canManage;
-  const canRevoke = hasPermission("verification.revoke") || canManage;
-  const canConfig = hasPermission("verification.config") || canManage;
-  const canAudit = hasPermission("verification.audit") || canManage;
+  // Determina o painel ativo de permissões:
+  // Se o usuário desenvolvedor estiver com o modo Dev ativo (panelMode === "dev" e isDevUser),
+  // ele acessa e visualiza a página e as opções com as permissões da Tag Dev ("dev").
+  // Caso contrário, avalia com o escopo executivo ("ceo").
+  const effectivePanel: "dev" | "ceo" | "member" =
+    isDevUser && panelMode === "dev"
+      ? "dev"
+      : isCeoUser || panelMode === "ceo"
+      ? "ceo"
+      : "member";
+
+  // Permissões Granulares de Verificação no painel efetivo (sem bypass incondicional)
+  const canManage = hasPermission("verification.manage", effectivePanel);
+  const canView = hasPermission("verification.view_page", effectivePanel) || canManage;
+  const canReview = hasPermission("verification.review", effectivePanel) || canManage;
+  const canGrant = hasPermission("verification.grant_direct", effectivePanel) || canManage;
+  const canRevoke = hasPermission("verification.revoke", effectivePanel) || canManage;
+  const canConfig = hasPermission("verification.config", effectivePanel) || canManage;
+  const canAudit = hasPermission("verification.audit", effectivePanel) || canManage;
 
   const { data: members = [], isLoading: loadingMembers } = useMembers();
   const { data: tags = [] } = useMemberTags();
@@ -294,6 +307,38 @@ export function CeoSelosPage() {
     setRevokingMember(null);
     setRevokeReason("");
   };
+
+  // Garante que abas restritas não permaneçam ativas se o membro perder a permissão
+  useEffect(() => {
+    if (!canConfig && (activeTab === "configuracao" || activeTab === "cargos")) {
+      setActiveTab("pendentes");
+    } else if (!canAudit && activeTab === "auditoria") {
+      setActiveTab("pendentes");
+    }
+  }, [canConfig, canAudit, activeTab]);
+
+  // Bloqueio de acesso para membros sem permissão de visualização/gerenciamento
+  if (!canView) {
+    return (
+      <div className="mx-auto max-w-6xl space-y-6">
+        <PageHeader
+          title="Gerenciar Selos & Verificações"
+          description="Controle e personalização completa do Selo de Verificado da Twin Wheels."
+        />
+        <div className="flex flex-col items-center justify-center p-12 text-center space-y-4 rounded-2xl bg-card border border-border/60 shadow-sm">
+          <div className="p-4 rounded-2xl bg-destructive/10 text-destructive border border-destructive/20 shadow-sm">
+            <ShieldAlert className="h-10 w-10" />
+          </div>
+          <div className="space-y-1">
+            <h2 className="text-base font-bold text-foreground">Acesso ao Módulo de Selos Restrito</h2>
+            <p className="text-xs text-muted-foreground max-w-md mx-auto">
+              Você não possui permissão para visualizar ou gerenciar os Selos de Verificação. Entre em contato com a liderança para liberar seu acesso.
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="mx-auto max-w-6xl space-y-6">
@@ -510,7 +555,7 @@ export function CeoSelosPage() {
                       </div>
 
                       {/* BOTÕES DE AÇÃO */}
-                      {canReview ? (
+                      {canReview && (
                         <div className="flex items-center gap-2 pt-2 border-t border-border/40">
                           <Button
                             type="button"
@@ -541,12 +586,6 @@ export function CeoSelosPage() {
                             <X className="h-3.5 w-3.5" />
                             <span>Rejeitar</span>
                           </Button>
-                        </div>
-                      ) : (
-                        <div className="pt-2 border-t border-border/40">
-                          <p className="text-[10px] text-muted-foreground italic">
-                            Apenas usuários com permissão de análise podem aprovar ou rejeitar solicitações.
-                          </p>
                         </div>
                       )}
                     </div>
@@ -601,7 +640,7 @@ export function CeoSelosPage() {
                         <TableHead className="font-bold text-xs">Selo & Título</TableHead>
                         <TableHead className="font-bold text-xs">Data de Verificação</TableHead>
                         <TableHead className="font-bold text-xs">Aprovado Por</TableHead>
-                        <TableHead className="font-bold text-xs text-right pr-4">Ações</TableHead>
+                        {canRevoke && <TableHead className="font-bold text-xs text-right pr-4">Ações</TableHead>}
                       </TableRow>
                     </TableHeader>
 
@@ -622,6 +661,7 @@ export function CeoSelosPage() {
                                     {v.member?.nickname ? `${v.member.nickname} (${v.member.nome})` : v.member?.nome}
                                   </span>
                                   <VerifiedBadge
+                                    isVerified
                                     size="sm"
                                     color={v.badge_color_override || undefined}
                                     iconName={v.badge_icon_override || undefined}
@@ -646,6 +686,7 @@ export function CeoSelosPage() {
                               style={v.badge_color_override ? { borderColor: `${v.badge_color_override}50`, color: v.badge_color_override, backgroundColor: `${v.badge_color_override}15` } : {}}
                             >
                               <VerifiedBadge
+                                isVerified
                                 size="xs"
                                 color={v.badge_color_override || undefined}
                                 iconName={v.badge_icon_override || undefined}
@@ -663,8 +704,8 @@ export function CeoSelosPage() {
                             {v.verifier?.nome || "Administração"}
                           </TableCell>
 
-                          <TableCell className="text-right pr-4">
-                            {canRevoke ? (
+                          {canRevoke && (
+                            <TableCell className="text-right pr-4">
                               <Button
                                 type="button"
                                 variant="ghost"
@@ -678,10 +719,8 @@ export function CeoSelosPage() {
                                 <Trash2 className="h-3.5 w-3.5" />
                                 <span>Remover Selo</span>
                               </Button>
-                            ) : (
-                              <span className="text-[10px] text-muted-foreground font-mono">Protegido</span>
-                            )}
-                          </TableCell>
+                            </TableCell>
+                          )}
                         </TableRow>
                       ))}
                     </TableBody>
@@ -693,7 +732,9 @@ export function CeoSelosPage() {
         </TabsContent>
 
         {/* ABA 3: CONFIGURAÇÃO DO SELO & REQUISITOS */}
-        <TabsContent value="configuracao" className="space-y-4">
+        {canConfig && (
+          <>
+            <TabsContent value="configuracao" className="space-y-4">
           <Card className="surface-card border-border/70 shadow-sm">
             <CardHeader className="pb-3">
               <CardTitle className="text-base font-bold flex items-center gap-2">
@@ -715,6 +756,7 @@ export function CeoSelosPage() {
                   <div className="flex items-center gap-2 justify-center sm:justify-start">
                     <span className="text-sm font-extrabold text-foreground">Exemplo Jogador</span>
                     <VerifiedBadge
+                      preview
                       size="sm"
                       iconName={formIcon}
                       color={formColor}
@@ -730,19 +772,19 @@ export function CeoSelosPage() {
                 {/* ESCALA DE TAMANHOS */}
                 <div className="flex items-center gap-3 p-2 bg-background/80 rounded-xl border border-border/50">
                   <div className="text-center">
-                    <VerifiedBadge size="xs" iconName={formIcon} color={formColor} glowStyle={formGlow} noTooltip />
+                    <VerifiedBadge preview size="xs" iconName={formIcon} color={formColor} glowStyle={formGlow} noTooltip />
                     <span className="text-[9px] text-muted-foreground block mt-0.5">XS</span>
                   </div>
                   <div className="text-center">
-                    <VerifiedBadge size="sm" iconName={formIcon} color={formColor} glowStyle={formGlow} noTooltip />
+                    <VerifiedBadge preview size="sm" iconName={formIcon} color={formColor} glowStyle={formGlow} noTooltip />
                     <span className="text-[9px] text-muted-foreground block mt-0.5">SM</span>
                   </div>
                   <div className="text-center">
-                    <VerifiedBadge size="md" iconName={formIcon} color={formColor} glowStyle={formGlow} noTooltip />
+                    <VerifiedBadge preview size="md" iconName={formIcon} color={formColor} glowStyle={formGlow} noTooltip />
                     <span className="text-[9px] text-muted-foreground block mt-0.5">MD</span>
                   </div>
                   <div className="text-center">
-                    <VerifiedBadge size="lg" iconName={formIcon} color={formColor} glowStyle={formGlow} noTooltip />
+                    <VerifiedBadge preview size="lg" iconName={formIcon} color={formColor} glowStyle={formGlow} noTooltip />
                     <span className="text-[9px] text-muted-foreground block mt-0.5">LG</span>
                   </div>
                 </div>
@@ -998,74 +1040,78 @@ export function CeoSelosPage() {
             </CardContent>
           </Card>
         </TabsContent>
+      </>
+    )}
 
         {/* ABA 5: AUDITORIA & HISTÓRICO */}
-        <TabsContent value="auditoria" className="space-y-4">
-          <Card className="surface-card border-border/70 shadow-sm">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base font-bold flex items-center gap-2">
-                <Calendar className="h-4 w-4 text-primary" />
-                <span>Histórico & Logs de Auditoria</span>
-              </CardTitle>
-              <CardDescription className="text-xs">
-                Registro detalhado de todas as solicitações, aprovações, recusas e concessões diretas.
-              </CardDescription>
-            </CardHeader>
+        {canAudit && (
+          <TabsContent value="auditoria" className="space-y-4">
+            <Card className="surface-card border-border/70 shadow-sm">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base font-bold flex items-center gap-2">
+                  <Calendar className="h-4 w-4 text-primary" />
+                  <span>Histórico & Logs de Auditoria</span>
+                </CardTitle>
+                <CardDescription className="text-xs">
+                  Registro detalhado de todas as solicitações, aprovações, recusas e concessões diretas.
+                </CardDescription>
+              </CardHeader>
 
-            <CardContent>
-              {loadingAudit ? (
-                <TableSkeleton rows={4} />
-              ) : auditLogs.length === 0 ? (
-                <EmptyState
-                  title="Nenhum log registrado"
-                  description="As ações de verificação realizadas serão registradas aqui em tempo real."
-                />
-              ) : (
-                <div className="space-y-2">
-                  {auditLogs.map((log) => (
-                    <div
-                      key={log.id}
-                      className="p-3 rounded-xl border border-border/60 bg-background/60 flex items-center justify-between gap-3 text-xs"
-                    >
-                      <div className="space-y-0.5">
-                        <div className="flex items-center gap-2">
-                          <Badge
-                            variant="outline"
-                            className={cn(
-                              "text-[10px] font-bold uppercase",
-                              log.action.includes("aprovada") || log.action.includes("concedido")
-                                ? "border-emerald-500/30 text-emerald-400 bg-emerald-500/10"
-                                : log.action.includes("rejeitada") || log.action.includes("removido")
-                                ? "border-rose-500/30 text-rose-400 bg-rose-500/10"
-                                : "border-sky-500/30 text-sky-400 bg-sky-500/10"
-                            )}
-                          >
-                            {log.action.replace(/_/g, " ")}
-                          </Badge>
-                          <span className="font-bold text-foreground">
-                            {log.target_member?.nickname || log.target_member?.nome || "Membro"}
-                          </span>
+              <CardContent>
+                {loadingAudit ? (
+                  <TableSkeleton rows={4} />
+                ) : auditLogs.length === 0 ? (
+                  <EmptyState
+                    title="Nenhum log registrado"
+                    description="As ações de verificação realizadas serão registradas aqui em tempo real."
+                  />
+                ) : (
+                  <div className="space-y-2">
+                    {auditLogs.map((log) => (
+                      <div
+                        key={log.id}
+                        className="p-3 rounded-xl border border-border/60 bg-background/60 flex items-center justify-between gap-3 text-xs"
+                      >
+                        <div className="space-y-0.5">
+                          <div className="flex items-center gap-2">
+                            <Badge
+                              variant="outline"
+                              className={cn(
+                                "text-[10px] font-bold uppercase",
+                                log.action.includes("aprovada") || log.action.includes("concedido")
+                                  ? "border-emerald-500/30 text-emerald-400 bg-emerald-500/10"
+                                  : log.action.includes("rejeitada") || log.action.includes("removido")
+                                  ? "border-rose-500/30 text-rose-400 bg-rose-500/10"
+                                  : "border-sky-500/30 text-sky-400 bg-sky-500/10"
+                              )}
+                            >
+                              {log.action.replace(/_/g, " ")}
+                            </Badge>
+                            <span className="font-bold text-foreground">
+                              {log.target_member?.nickname || log.target_member?.nome || "Membro"}
+                            </span>
+                          </div>
+                          {log.details?.reason || log.details?.notes ? (
+                            <p className="text-[11px] text-muted-foreground italic">
+                              "{log.details?.reason || log.details?.notes}"
+                            </p>
+                          ) : null}
                         </div>
-                        {log.details?.reason || log.details?.notes ? (
-                          <p className="text-[11px] text-muted-foreground italic">
-                            "{log.details?.reason || log.details?.notes}"
-                          </p>
-                        ) : null}
-                      </div>
 
-                      <div className="text-right shrink-0">
-                        <p className="text-[10px] text-muted-foreground font-mono">{dateTime(log.created_at)}</p>
-                        <p className="text-[10px] text-muted-foreground">
-                          Por: {log.performer_member?.nome || "Sistema"}
-                        </p>
+                        <div className="text-right shrink-0">
+                          <p className="text-[10px] text-muted-foreground font-mono">{dateTime(log.created_at)}</p>
+                          <p className="text-[10px] text-muted-foreground">
+                            Por: {log.performer_member?.nome || "Sistema"}
+                          </p>
+                        </div>
                       </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+        )}
       </Tabs>
 
       {/* DIALOG DE ANÁLISE DE SOLICITAÇÃO (APROVAR / REJEITAR) */}

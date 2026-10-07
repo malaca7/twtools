@@ -221,6 +221,12 @@ export function DevWebhooksConfigCard({ isCeoView }: DevWebhooksConfigCardProps 
   const [testingId, setTestingId] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
+  // Modal de Exclusão Segura com Múltiplas Confirmações (Proteção contra revogação acidental)
+  const [deletingWebhook, setDeletingWebhook] = useState<DiscordWebhook | null>(null);
+  const [deleteConfirmText, setDeleteConfirmText] = useState("");
+  const [deleteAcknowledge, setDeleteAcknowledge] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+
   // Carrega configurações
   useEffect(() => {
     let isMounted = true;
@@ -455,6 +461,19 @@ export function DevWebhooksConfigCard({ isCeoView }: DevWebhooksConfigCardProps 
     setSavingInModal(true);
     try {
       let resolvedWebhookUrl = editingWebhook.webhookUrl?.trim();
+      // Auto-heal: se url vazia ou se aponta para o webhook legado excluído do Discord, resolve com o webhook ativo
+      if (!resolvedWebhookUrl || resolvedWebhookUrl.includes("1548409284000485420")) {
+        if (KNOWN_CHANNEL_WEBHOOKS[trimmedChannelId]) {
+          resolvedWebhookUrl = KNOWN_CHANNEL_WEBHOOKS[trimmedChannelId];
+        } else {
+          try {
+            const res = await fetchOrCreateDiscordChannelWebhook(trimmedChannelId, trimmedName);
+            if (res.success && res.webhookUrl) {
+              resolvedWebhookUrl = res.webhookUrl;
+            }
+          } catch {}
+        }
+      }
       if (!resolvedWebhookUrl && KNOWN_CHANNEL_WEBHOOKS[trimmedChannelId]) {
         resolvedWebhookUrl = KNOWN_CHANNEL_WEBHOOKS[trimmedChannelId];
       }
@@ -507,21 +526,42 @@ export function DevWebhooksConfigCard({ isCeoView }: DevWebhooksConfigCardProps 
     }
   };
 
-  // Excluir Webhook com persistência imediata
-  const handleDelete = async (id: string) => {
+  // Solicitar Exclusão de Webhook (Abre Modal de Confirmação Rígida)
+  const handleRequestDelete = (wh: DiscordWebhook) => {
     if (!canDeleteWebhook) {
       toast.error("Você não possui permissão para excluir webhooks.");
       return;
     }
-    const filtered = config.webhooks.filter((w) => w.id !== id);
-    const newConfig = { ...config, webhooks: filtered };
+    setDeletingWebhook(wh);
+    setDeleteConfirmText("");
+    setDeleteAcknowledge(false);
+  };
+
+  // Excluir Webhook com Confirmação Rígida (Múltiplas Confirmações de Segurança)
+  const handleConfirmDelete = async () => {
+    if (!deletingWebhook) return;
+    if (!canDeleteWebhook) {
+      toast.error("Você não possui permissão para excluir webhooks.");
+      return;
+    }
+    if (deleteConfirmText.trim().toUpperCase() !== "EXCLUIR" || !deleteAcknowledge) {
+      toast.error("Preencha todas as confirmações de segurança antes de prosseguir.");
+      return;
+    }
+
+    setIsDeleting(true);
     try {
+      const filtered = config.webhooks.filter((w) => w.id !== deletingWebhook.id);
+      const newConfig = { ...config, webhooks: filtered };
       await saveDiscordWebhooksConfig(newConfig, user, profile, level);
       setConfig(newConfig);
       setInitialConfig(JSON.parse(JSON.stringify(newConfig)));
-      toast.success("Webhook removido e salvo com sucesso.");
+      toast.success(`Webhook "${deletingWebhook.name}" excluído definitivamente.`);
+      setDeletingWebhook(null);
     } catch (err: any) {
       toast.error("Erro ao remover: " + (err?.message || err));
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -1095,9 +1135,9 @@ export function DevWebhooksConfigCard({ isCeoView }: DevWebhooksConfigCardProps 
                         <Button
                           size="sm"
                           variant="ghost"
-                          onClick={() => handleDelete(wh.id)}
+                          onClick={() => handleRequestDelete(wh)}
                           className="h-8 w-8 p-0 text-muted-foreground hover:text-rose-400"
-                          title="Excluir webhook"
+                          title="Excluir webhook definitivamente (com confirmações de segurança)"
                         >
                           <Trash2 className="h-3.5 w-3.5" />
                         </Button>
@@ -2024,6 +2064,133 @@ await postMessageToWebhookChannel(webhook, {
               className="bg-primary text-primary-foreground text-xs font-bold"
             >
               Copiar IDs do Canal
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ========================================================================= */}
+      {/* MODAL: CONFIRMAÇÃO RÍGIDA DE EXCLUSÃO DE WEBHOOK */}
+      {/* ========================================================================= */}
+      <Dialog
+        open={Boolean(deletingWebhook)}
+        onOpenChange={(open) => {
+          if (!open && !isDeleting) {
+            setDeletingWebhook(null);
+            setDeleteConfirmText("");
+            setDeleteAcknowledge(false);
+          }
+        }}
+      >
+        <DialogContent className="max-w-lg bg-zinc-950 border-rose-900/50 text-foreground p-6 shadow-2xl">
+          <DialogHeader>
+            <div className="flex items-center gap-3">
+              <div className="p-3 rounded-2xl bg-rose-500/10 border border-rose-500/30 text-rose-400">
+                <AlertOctagon className="h-6 w-6" />
+              </div>
+              <div>
+                <DialogTitle className="text-base font-black text-rose-300">
+                  Excluir Webhook Definitivamente?
+                </DialogTitle>
+                <DialogDescription className="text-xs text-zinc-400 mt-1">
+                  Esta ação é irreversível e invalida permanentemente o link de integração do Discord.
+                </DialogDescription>
+              </div>
+            </div>
+          </DialogHeader>
+
+          {deletingWebhook && (
+            <div className="space-y-4 py-2 text-xs">
+              <div className="p-3 rounded-xl bg-zinc-900/90 border border-zinc-800 space-y-1.5 font-mono text-[11px]">
+                <div className="flex items-center justify-between text-zinc-400">
+                  <span>Nome:</span>
+                  <strong className="text-zinc-200">{deletingWebhook.name}</strong>
+                </div>
+                <div className="flex items-center justify-between text-zinc-400">
+                  <span>Canal:</span>
+                  <span className="text-violet-300">#{deletingWebhook.channelId}</span>
+                </div>
+                <div className="flex items-center justify-between text-zinc-400">
+                  <span>Servidor:</span>
+                  <span className="text-zinc-300">{deletingWebhook.guildId}</span>
+                </div>
+              </div>
+
+              <div className="p-3 rounded-xl bg-rose-950/30 border border-rose-500/30 text-rose-200/90 space-y-2 text-xs leading-relaxed">
+                <div className="font-bold flex items-center gap-1.5 text-rose-300">
+                  <ShieldAlert className="h-4 w-4 shrink-0" />
+                  <span>Aviso Crítico de Interrupção de Serviços</span>
+                </div>
+                <p>
+                  Ao excluir este webhook, o link ativo será permanentemente desativado. Quaisquer integrações externas configuradas (FiveM, Discohook, scripts automatizados de baú e bots) que utilizem esta URL deixarão de entregar mensagens imediatamente.
+                </p>
+              </div>
+
+              {/* Confirmação 1: Checkbox de ciência */}
+              <label className="flex items-start gap-3 p-3 rounded-xl bg-zinc-900/60 border border-zinc-800 hover:border-zinc-700 cursor-pointer select-none transition-colors">
+                <input
+                  type="checkbox"
+                  checked={deleteAcknowledge}
+                  onChange={(e) => setDeleteAcknowledge(e.target.checked)}
+                  disabled={isDeleting}
+                  className="mt-0.5 h-4 w-4 rounded border-zinc-700 bg-zinc-950 text-rose-600 focus:ring-rose-500 cursor-pointer"
+                />
+                <span className="text-xs text-zinc-300 font-medium">
+                  Estou ciente de que as mensagens enviadas para este link deixarão de ser entregues e que o link não poderá ser recuperado.
+                </span>
+              </label>
+
+              {/* Confirmação 2: Digitar EXCLUIR */}
+              <div className="space-y-1.5">
+                <Label className="text-xs font-bold text-zinc-300">
+                  Para confirmar, digite <span className="font-mono text-rose-400 font-black">EXCLUIR</span> no campo abaixo:
+                </Label>
+                <Input
+                  value={deleteConfirmText}
+                  onChange={(e) => setDeleteConfirmText(e.target.value)}
+                  placeholder="EXCLUIR"
+                  disabled={isDeleting}
+                  className="bg-zinc-900 border-zinc-800 text-xs font-mono uppercase tracking-wider text-rose-300 focus:border-rose-500"
+                />
+              </div>
+            </div>
+          )}
+
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              type="button"
+              variant="outline"
+              disabled={isDeleting}
+              onClick={() => {
+                setDeletingWebhook(null);
+                setDeleteConfirmText("");
+                setDeleteAcknowledge(false);
+              }}
+              className="bg-zinc-900 border-zinc-800 text-xs font-semibold hover:bg-zinc-800"
+            >
+              Cancelar (Manter Webhook Ativo)
+            </Button>
+            <Button
+              type="button"
+              disabled={
+                isDeleting ||
+                !deleteAcknowledge ||
+                deleteConfirmText.trim().toUpperCase() !== "EXCLUIR"
+              }
+              onClick={handleConfirmDelete}
+              className="bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs gap-1.5 disabled:opacity-40 shadow-lg shadow-rose-950/50"
+            >
+              {isDeleting ? (
+                <>
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  <span>Excluindo...</span>
+                </>
+              ) : (
+                <>
+                  <Trash2 className="h-3.5 w-3.5" />
+                  <span>Excluir Definitivamente</span>
+                </>
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>

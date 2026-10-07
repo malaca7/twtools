@@ -121,13 +121,13 @@ export function PermissoesPage() {
     }
   }, [dbPermissions, selectedLevel]);
 
-  // Cards exclusivos da plataforma operacional de membros (removendo Painel Dev, Painel CEO, Transmissão e Lives, e Twin Life, mantendo Gerenciar Tags sob Administração)
+  // Cards exclusivos da plataforma operacional de membros (removendo Painel Dev, Painel CEO, Transmissão e Lives, e Twin Life, mantendo Gerenciar Tags e Selos)
   const platformPageCards = useMemo(() => {
     return PAGE_CARDS.filter((card) => {
       if (card.defaultCat === "DEV" || card.defaultCat === "Ferramentas Dev") return false;
       if (card.id.startsWith("dev-") || card.id === "dev") return false;
-      // Permite expressamente o card "ceo-tags" (Gerenciar Tags) sob Administração
-      if (card.id === "ceo-tags") return true;
+      // Permite expressamente os cards "ceo-tags", "ceo-selos" e "solicitar-selo"
+      if (card.id === "ceo-tags" || card.id === "ceo-selos" || card.id === "solicitar-selo") return true;
       if (card.defaultCat === "CEO") return false;
       if (card.id.startsWith("ceo-") || card.id === "ceo") return false;
       // Remover expressamente "Transmissão e Lives" e "Twin Life"
@@ -154,9 +154,9 @@ export function PermissoesPage() {
       : ["Produções", "Gestão", "Administração"];
     const orderedCategories = rawCategories;
 
-    // Remover categoria "Operação", "DEV", "CEO"
+    // Remover apenas categorias de Ferramentas Dev e Operação
     const categoryOrder = orderedCategories.filter(
-      (c) => c !== "DEV" && c !== "Ferramentas Dev" && c !== "CEO" && c !== "Operação"
+      (c) => c !== "DEV" && c !== "Ferramentas Dev" && c !== "Operação"
     );
 
     const customized = platformPageCards
@@ -167,16 +167,22 @@ export function PermissoesPage() {
           cat = card.id === "vendas" ? "Produções" : "Gestão";
         }
         if (card.id === "ceo-tags") {
-          cat = "Administração";
+          cat = cfg?.category || "Administração";
+        }
+        if (card.id === "ceo-selos") {
+          cat = cfg?.category || (categoryOrder.includes("CEO") ? "CEO" : "Administração");
+        }
+        if (card.id === "solicitar-selo") {
+          cat = cfg?.category || "Gestão";
         }
         return {
           ...card,
-          title: card.id === "ceo-tags" ? "Gerenciar Tags" : (cfg?.title || card.title),
+          title: card.id === "ceo-tags" ? "Gerenciar Tags" : card.id === "ceo-selos" ? "Gerenciar Selos" : (cfg?.title || card.title),
           category: cat,
           order: typeof cfg?.order === "number" ? cfg.order : card.defaultOrder,
         };
       })
-      .filter((card) => card.category !== "DEV" && card.category !== "Ferramentas Dev" && card.category !== "CEO" && card.category !== "Operação");
+      .filter((card) => card.category !== "DEV" && card.category !== "Ferramentas Dev" && card.category !== "Operação");
 
     const groups: { category: string; cards: typeof customized }[] = [];
 

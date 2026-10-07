@@ -53,7 +53,7 @@ export const Route = createFileRoute("/_authenticated/solicitar-selo")({
 
 function SolicitarSeloPageWrapper() {
   const { hasPermission } = useAuth();
-  if (!hasPermission("verification.view_page")) {
+  if (!hasPermission("verification.view_page") && !hasPermission("verification.request")) {
     return <NoAccess />;
   }
   return <SolicitarSeloContent />;
@@ -445,8 +445,8 @@ function SolicitarSeloContent() {
         </CardContent>
       </Card>
 
-      {/* FORMULÁRIO DE SOLICITAÇÃO (SE NÃO ESTIVER VERIFICADO E NÃO ESTIVER PENDENTE) */}
-      {!isAlreadyVerified && !isPending && (
+      {/* FORMULÁRIO DE SOLICITAÇÃO (SE NÃO ESTIVER VERIFICADO, NÃO ESTIVER PENDENTE E POSSUIR PERMISSÃO) */}
+      {!isAlreadyVerified && !isPending && canRequest && (
         <Card className="surface-card">
           <CardHeader className="pb-3 border-b border-border/60">
             <CardTitle className="text-base font-extrabold flex items-center gap-2">
@@ -470,7 +470,7 @@ function SolicitarSeloContent() {
                   onChange={(e) => setReason(e.target.value)}
                   placeholder="Explique brevemente por que você deseja a verificação de autenticidade (ex.: Membro ativo em operações, produtor dedicado, etc.)..."
                   className="min-h-[100px] text-xs resize-none"
-                  disabled={!canRequest || !meetsAllRequirements || submitRequestMutation.isPending}
+                  disabled={!meetsAllRequirements || submitRequestMutation.isPending}
                 />
                 <p className="text-[11px] text-muted-foreground">
                   Mínimo de 5 caracteres. Seja claro e objetivo.
@@ -487,7 +487,7 @@ function SolicitarSeloContent() {
                   onChange={(e) => setDocumentUrl(e.target.value)}
                   placeholder="https://discord.com/... ou link de imagem/comprovante"
                   className="h-9 text-xs font-mono"
-                  disabled={!canRequest || !meetsAllRequirements || submitRequestMutation.isPending}
+                  disabled={!meetsAllRequirements || submitRequestMutation.isPending}
                 />
               </div>
 
@@ -497,13 +497,6 @@ function SolicitarSeloContent() {
                   <span>
                     Você precisa cumprir todos os 4 requisitos acima antes de submeter a solicitação de verificação.
                   </span>
-                </div>
-              )}
-
-              {!canRequest && (
-                <div className="p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs flex items-center gap-2">
-                  <ShieldAlert className="h-4 w-4 shrink-0" />
-                  <span>Seu cargo atual não possui permissão para enviar solicitações de verificação.</span>
                 </div>
               )}
 

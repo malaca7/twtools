@@ -374,7 +374,7 @@ function DevPermissoesContent() {
       // 4. Ordem e lista unificada de categorias para a aba correspondente
       const categoryOrder =
         tab === "cargos"
-          ? rawMemberCats.filter((c) => c !== "DEV" && c !== "Ferramentas Dev" && c !== "CEO" && c !== "Operação")
+          ? rawMemberCats.filter((c) => c !== "DEV" && c !== "Ferramentas Dev" && c !== "Operação")
           : tab === "ceo"
           ? Array.from(new Set([...rawCeoCats, ...rawMemberCats]))
           : Array.from(new Set([...rawDevCats, ...rawCeoCats, ...rawMemberCats]));
@@ -384,8 +384,8 @@ function DevPermissoesContent() {
         .filter((card) => {
           if (tab === "cargos") {
             if (isDevCard(card)) return false;
-            if (card.id === "ceo-tags") return true;
-            if (isCeoCard(card)) return false;
+            if (card.id === "ceo-tags" || card.id === "ceo-selos" || card.id === "solicitar-selo") return true;
+            if (isCeoCard(card) && card.id !== "ceo-tags" && card.id !== "ceo-selos") return false;
             if (card.id === "lives" || card.id === "life") return false;
             return true;
           }
@@ -404,7 +404,13 @@ function DevPermissoesContent() {
 
           let cat = cfg?.category || card.defaultCat;
           if (tab === "cargos" && card.id === "ceo-tags") {
-            cat = "Administração";
+            cat = cfg?.category || "Administração";
+          }
+          if (tab === "cargos" && card.id === "ceo-selos") {
+            cat = cfg?.category || (categoryOrder.includes("CEO") ? "CEO" : "Administração");
+          }
+          if (card.id === "solicitar-selo" && tab === "cargos") {
+            cat = cfg?.category || "Gestão";
           }
           if (isDevCard(card) && !rawDevCats.includes(cat)) {
             cat = rawDevCats[0] || "DEV";
@@ -413,7 +419,12 @@ function DevPermissoesContent() {
 
           return {
             ...card,
-            title: tab === "cargos" && card.id === "ceo-tags" ? "Gerenciar Tags" : (cfg?.title || card.title),
+            title:
+              tab === "cargos" && card.id === "ceo-tags"
+                ? "Gerenciar Tags"
+                : tab === "cargos" && card.id === "ceo-selos"
+                ? "Gerenciar Selos"
+                : (cfg?.title || card.title),
             category: cat,
             order: typeof cfg?.order === "number" ? cfg.order : card.defaultOrder,
           };

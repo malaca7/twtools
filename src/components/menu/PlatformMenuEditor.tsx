@@ -158,8 +158,28 @@ export function PlatformMenuEditor({
     const currentDefCats = scope === "ceo" ? DEFAULT_CEO_CATEGORIES : DEFAULT_MENU_CATEGORIES;
     const currentDefItems = scope === "ceo" ? (DEFAULT_CEO_MENU_ITEMS as any) : DEFAULT_MENU_ITEMS;
 
-    setCategories(currentCfg.categories || currentDefCats);
-    setItems((currentCfg.items as any) || currentDefItems);
+    const rawCats = currentCfg.categories && currentCfg.categories.length > 0
+      ? [...currentCfg.categories]
+      : [...currentDefCats];
+    const rawItems: MenuItemConfig[] = (currentCfg.items as any) || currentDefItems;
+
+    // Garante que todas as categorias dos itens apareçam na lista e normaliza categorias legadas
+    const initialCats = [...rawCats];
+    const initialItems = rawItems.map((it) => {
+      let cat = it.category;
+      if (scope === "ceo") {
+        if (cat === "CEO" && !initialCats.includes("CEO")) {
+          cat = initialCats[0] || "CEO Tools";
+        }
+      }
+      if (cat && !initialCats.includes(cat)) {
+        initialCats.push(cat);
+      }
+      return { ...it, category: cat || initialCats[0] };
+    });
+
+    setCategories(initialCats);
+    setItems(initialItems);
     setDeletedItemIds(currentCfg.deletedItemIds || []);
   }, [scope, memberConfig, ceoConfig]);
 
@@ -168,20 +188,22 @@ export function PlatformMenuEditor({
     (newCats: string[], newItems: MenuItemConfig[], newDeletedIds?: string[]) => {
       const activeDeletedIds = newDeletedIds ?? deletedItemIds;
       const catSet = new Set(newCats);
+      const fallbackCat = newCats[0] || (scope === "ceo" ? "CEO Tools" : "Gestão");
+
+      // Reatribui itens de categorias removidas/órfãs para a categoria primária
+      const normalizedItems = newItems.map((item) => {
+        const cat = item.category || fallbackCat;
+        if (!catSet.has(cat)) {
+          return { ...item, category: fallbackCat };
+        }
+        return item;
+      });
 
       // Group items strictly according to newCats order
       const categorizedItems: MenuItemConfig[] = [];
       newCats.forEach((cat) => {
-        const inCat = newItems.filter((i) => (i.category || newCats[0]) === cat);
+        const inCat = normalizedItems.filter((i) => i.category === cat);
         categorizedItems.push(...inCat);
-      });
-
-      // Append any items in orphan categories
-      newItems.forEach((item) => {
-        const cat = item.category || newCats[0];
-        if (!catSet.has(cat) && !categorizedItems.some((ci) => ci.id === item.id)) {
-          categorizedItems.push(item);
-        }
       });
 
       // Sequential 0, 1, 2, ... indexing
@@ -484,7 +506,8 @@ export function PlatformMenuEditor({
     if (moduleId === "custom") {
       return;
     }
-    const found = PLATFORM_SYSTEM_MODULES.find((m) => m.id === moduleId);
+    const pool = scope === "ceo" ? [...CEO_SYSTEM_MODULES, ...PLATFORM_SYSTEM_MODULES] : [...PLATFORM_SYSTEM_MODULES, ...CEO_SYSTEM_MODULES];
+    const found = pool.find((m) => m.id === moduleId);
     if (found) {
       setNewMenuTitle(found.title);
       setNewMenuUrl(found.url);
@@ -492,7 +515,7 @@ export function PlatformMenuEditor({
       if (categories.includes(found.defaultCat)) {
         setNewMenuCategory(found.defaultCat);
       } else {
-        setNewMenuCategory(categories[0] || "Gestão");
+        setNewMenuCategory(categories[0] || (scope === "ceo" ? "CEO" : "Gestão"));
       }
     }
   };
@@ -610,7 +633,7 @@ export function PlatformMenuEditor({
       restoreCategoryMap[deletedId] ||
       (systemModule?.defaultCat && categories.includes(systemModule.defaultCat)
         ? systemModule.defaultCat
-        : categories[0] || (scope === "ceo" ? "CEO" : "Gestão"));
+        : categories[0] || (scope === "ceo" ? "CEO Tools" : "Gestão"));
 
     const restoredItem: MenuItemConfig = {
       id: deletedId,
@@ -641,7 +664,7 @@ export function PlatformMenuEditor({
         restoreCategoryMap[delId] ||
         (systemModule?.defaultCat && categories.includes(systemModule.defaultCat)
           ? systemModule.defaultCat
-          : categories[0] || (scope === "ceo" ? "CEO" : "Gestão"));
+          : categories[0] || (scope === "ceo" ? "CEO Tools" : "Gestão"));
 
       restoredItems.push({
         id: delId,
@@ -697,15 +720,19 @@ export function PlatformMenuEditor({
 
   // Group items by category for preview
   const grouped = useMemo(() => {
+    const fallbackCat = categories[0] || (scope === "ceo" ? "CEO Tools" : "Gestão");
     const groups: Record<string, MenuItemConfig[]> = {};
     categories.forEach((cat) => {
       groups[cat] = items
-        .filter((item) => (item.category || categories[0] || (scope === "ceo" ? "CEO" : "Gestão")) === cat)
+        .filter((item) => (item.category || fallbackCat) === cat)
         .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
     });
     // Include items from missing categories
     items.forEach((item) => {
-      const cat = item.category || categories[0] || (scope === "ceo" ? "CEO" : "Gestão");
+      let cat = item.category || fallbackCat;
+      if (scope === "ceo" && cat === "CEO" && !categories.includes("CEO")) {
+        cat = fallbackCat;
+      }
       if (!groups[cat]) {
         groups[cat] = [item];
       }
@@ -997,10 +1024,16 @@ export function PlatformMenuEditor({
                         </button>
                         <button
                           type="button"
-                          onClick={() => setCatToDelete(cat)}
-                          disabled={!userCanEdit || categories.length <= 1}
+                          onClick={() => {
+                            if (categories.length <= 1) {
+                              toast.info("Para alterar o nome da única categoria, use o botão de editar (lápis) ou adicione outra categoria primeiro.");
+                              return;
+                            }
+                            setCatToDelete(cat);
+                          }}
+                          disabled={!userCanEdit}
                           className="h-6 w-6 flex items-center justify-center rounded text-muted-foreground hover:text-destructive disabled:opacity-20"
-                          title="Excluir categoria"
+                          title={categories.length <= 1 ? "Única categoria (edite no lápis ou adicione outra)" : "Excluir categoria"}
                         >
                           <Trash2 className="h-3.5 w-3.5" />
                         </button>
@@ -1069,13 +1102,14 @@ export function PlatformMenuEditor({
           <CardContent className="p-3">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
               {deletedItemIds.map((delId) => {
-                const sysModule = PLATFORM_SYSTEM_MODULES.find((m) => m.id === delId);
+                const currentSystemModules = scope === "ceo" ? CEO_SYSTEM_MODULES : PLATFORM_SYSTEM_MODULES;
+                const sysModule = currentSystemModules.find((m) => m.id === delId);
                 const ItemIcon = resolveMenuIcon(sysModule?.iconName, sysModule?.url || `/${delId}`);
                 const selectedCat =
                   restoreCategoryMap[delId] ||
                   (sysModule?.defaultCat && categories.includes(sysModule.defaultCat)
                     ? sysModule.defaultCat
-                    : categories[0] || "Gestão");
+                    : categories[0] || (scope === "ceo" ? "CEO Tools" : "Gestão"));
 
                 return (
                   <div
@@ -1508,7 +1542,7 @@ export function PlatformMenuEditor({
                     + Criar Rota / Link Customizado
                   </SelectItem>
                   <Separator className="my-1" />
-                  {PLATFORM_SYSTEM_MODULES.map((mod) => {
+                  {((scope === "ceo" ? CEO_SYSTEM_MODULES : PLATFORM_SYSTEM_MODULES) as PlatformSystemModule[]).map((mod) => {
                     const isAlreadyIn = items.some((i) => i.id === mod.id);
                     const isDel = deletedItemIds.includes(mod.id);
                     return (
