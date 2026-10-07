@@ -15,6 +15,8 @@ import {
   Sparkles,
   ExternalLink,
   ChevronDown,
+  ChevronUp,
+  X,
   ArrowUp,
   SlidersHorizontal,
   Check,
@@ -224,10 +226,12 @@ function DevPermissoesContent() {
   // Gestão de membros com Tag Dev
   const [searchDevMember, setSearchDevMember] = useState("");
   const [filterDevOnly, setFilterDevOnly] = useState<"all" | "dev_only">("all");
+  const [isDevMembersOpen, setIsDevMembersOpen] = useState(false);
 
   // Gestão de membros com Tag CEO
   const [searchMember, setSearchMember] = useState("");
   const [filterCeoOnly, setFilterCeoOnly] = useState<"all" | "ceo_only">("all");
+  const [isCeoMembersOpen, setIsCeoMembersOpen] = useState(false);
   const [togglingMemberId, setTogglingMemberId] = useState<string | null>(null);
 
   // 0. Sincronização em tempo real das permissões dos cargos com dbPermissions (/permissoes)
@@ -1503,9 +1507,12 @@ function DevPermissoesContent() {
                 </div>
 
                 <div className="flex items-center gap-2 shrink-0">
-                  <div
-                    className="px-4 py-2 rounded-xl bg-background/60 text-center"
+                  <button
+                    type="button"
+                    onClick={() => setIsDevMembersOpen((prev) => !prev)}
+                    className="px-4 py-2 rounded-xl bg-background/60 text-center transition-all hover:bg-background/90 hover:scale-105 cursor-pointer"
                     style={{ borderColor: `${devStyle.primaryHex}30`, borderWidth: "1px" }}
+                    title={isDevMembersOpen ? "Clique para recolher membros" : "Clique para abrir gerenciamento de membros"}
                   >
                     <span className="text-[0.65rem] uppercase tracking-wider text-muted-foreground font-semibold block">
                       Devs Ativos
@@ -1513,175 +1520,272 @@ function DevPermissoesContent() {
                     <span className="text-lg font-black" style={{ color: devStyle.primaryHex }}>
                       {activeDevsCount}
                     </span>
-                  </div>
+                  </button>
                 </div>
               </div>
             </CardHeader>
           </Card>
 
-          {/* SEÇÃO 1 (DEV): GERENCIAMENTO E ATRIBUIÇÃO DIRETA DE MEMBROS */}
-          <Card className="surface-card border-border/80">
-            <CardHeader className="pb-3">
-              <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
-                <div>
-                  <CardTitle className="text-sm font-extrabold flex items-center gap-2">
-                    <DevIcon className="h-4 w-4" style={{ color: devStyle.primaryHex }} />
-                    Membros do grupo & Atribuição da Tag Dev
-                  </CardTitle>
-                  <CardDescription className="text-xs">
-                    Ative ou desative a Tag Dev instantaneamente para qualquer integrante com 1 clique.
-                  </CardDescription>
+          {/* SEÇÃO 1 (DEV): BOTÃO COM ÍCONE PARA ABRIR O CARD DE ATRIBUIÇÃO DE MEMBROS */}
+          <div className="space-y-3">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setIsDevMembersOpen((prev) => !prev)}
+                className={cn(
+                  "h-11 px-4 rounded-xl border font-bold text-xs flex items-center gap-3 transition-all shadow-xs cursor-pointer select-none",
+                  isDevMembersOpen
+                    ? "bg-secondary text-foreground"
+                    : "bg-card hover:bg-secondary/70 text-foreground border-border/80"
+                )}
+                style={{
+                  borderColor: isDevMembersOpen ? `${devStyle.primaryHex}60` : undefined,
+                  boxShadow: isDevMembersOpen ? `0 0 15px ${devStyle.primaryHex}15` : undefined,
+                }}
+              >
+                <div
+                  className="p-1.5 rounded-lg shrink-0 transition-transform"
+                  style={{
+                    backgroundColor: `${devStyle.primaryHex}20`,
+                    color: devStyle.primaryHex,
+                  }}
+                >
+                  <DevIcon className="h-4 w-4" />
                 </div>
-
-                <div className="flex flex-wrap items-center gap-2">
-                  <div className="relative w-full sm:w-60">
-                    <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
-                    <Input
-                      placeholder="Buscar por nome, ID ou cargo..."
-                      value={searchDevMember}
-                      onChange={(e) => setSearchDevMember(e.target.value)}
-                      className="pl-8 h-8 text-xs bg-background/50"
-                    />
-                  </div>
-
-                  <div className="flex items-center gap-1 bg-secondary/60 p-0.5 rounded-lg border border-border/60">
-                    <button
-                      type="button"
-                      onClick={() => setFilterDevOnly("all")}
-                      className={cn(
-                        "px-2.5 py-1 text-[11px] font-bold rounded-md transition-all cursor-pointer",
-                        filterDevOnly === "all"
-                          ? "bg-background text-foreground shadow-xs"
-                          : "text-muted-foreground hover:text-foreground"
-                      )}
-                    >
-                      Todos ({members.length})
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setFilterDevOnly("dev_only")}
-                      className={cn(
-                        "px-2.5 py-1 text-[11px] font-bold rounded-md transition-all cursor-pointer flex items-center gap-1",
-                        filterDevOnly !== "dev_only" && "text-muted-foreground hover:text-foreground"
-                      )}
-                      style={
-                        filterDevOnly === "dev_only"
-                          ? {
-                              backgroundColor: `${devStyle.primaryHex}20`,
-                              color: devStyle.primaryHex,
-                              borderColor: `${devStyle.primaryHex}40`,
-                              borderWidth: "1px",
-                            }
-                          : undefined
-                      }
-                    >
-                      <DevIcon className="h-3.5 w-3.5" />
-                      Devs ({activeDevsCount})
-                    </button>
-                  </div>
+                <div className="flex items-center gap-2">
+                  <span className="font-extrabold">Membros do grupo & Atribuição da Tag Dev</span>
+                  <Badge
+                    variant="outline"
+                    className="text-[10px] font-mono px-2 py-0.5"
+                    style={{
+                      borderColor: `${devStyle.primaryHex}40`,
+                      backgroundColor: `${devStyle.primaryHex}15`,
+                      color: devStyle.primaryHex,
+                    }}
+                  >
+                    {activeDevsCount} {activeDevsCount === 1 ? "Dev ativo" : "Devs ativos"}
+                  </Badge>
                 </div>
-              </div>
-            </CardHeader>
-
-            <CardContent className="pt-0">
-              {loadingMembers ? (
-                <div className="py-8 flex items-center justify-center text-center">
-                  <Loader2 className="h-6 w-6 animate-spin mr-2" style={{ color: devStyle.primaryHex }} />
-                  <span className="text-xs text-muted-foreground">Carregando lista de membros...</span>
+                <div className="ml-1 text-muted-foreground flex items-center gap-1">
+                  <span className="text-[11px] font-normal hidden sm:inline">
+                    {isDevMembersOpen ? "Recolher" : "Abrir"}
+                  </span>
+                  {isDevMembersOpen ? (
+                    <ChevronUp className="h-4 w-4 shrink-0" style={{ color: devStyle.primaryHex }} />
+                  ) : (
+                    <ChevronDown className="h-4 w-4 shrink-0" />
+                  )}
                 </div>
-              ) : filteredDevMembers.length === 0 ? (
-                <div className="py-8 text-center border border-dashed rounded-xl border-border/60">
-                  <p className="text-xs text-muted-foreground">
-                    Nenhum membro encontrado com os filtros aplicados.
-                  </p>
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 max-h-[380px] overflow-y-auto pr-1">
-                  {filteredDevMembers.map((member) => {
-                    const isDev = Boolean(member.is_developer || member.nivel === "desenvolvedor");
-                    const isCeo = Boolean(member.is_ceo || member.custom_theme?.is_ceo);
-                    const isToggling = togglingMemberId === member.user_id;
+              </Button>
+            </div>
 
-                    return (
-                      <div
-                        key={member.user_id}
-                        className={cn(
-                          "flex items-center justify-between p-3 rounded-xl border transition-all",
-                          !isDev && "bg-secondary/20 border-border/60 hover:bg-secondary/40"
+            {/* CARD ABERTO QUANDO O BOTÃO É CLICADO */}
+            {isDevMembersOpen && (
+              <Card
+                className="surface-card border-border/80 animate-in fade-in-50 slide-in-from-top-2 duration-200"
+                style={{
+                  borderColor: `${devStyle.primaryHex}40`,
+                  boxShadow: `0 0 20px ${devStyle.primaryHex}08`,
+                }}
+              >
+                <CardHeader className="pb-3 border-b border-border/40">
+                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+                    <div>
+                      <div className="flex items-center justify-between gap-2">
+                        <CardTitle className="text-sm font-extrabold flex items-center gap-2">
+                          <DevIcon className="h-4 w-4" style={{ color: devStyle.primaryHex }} />
+                          Membros do grupo & Atribuição da Tag Dev
+                        </CardTitle>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setIsDevMembersOpen(false)}
+                          className="h-7 px-2 text-xs text-muted-foreground hover:text-foreground cursor-pointer sm:hidden"
+                          title="Fechar"
+                        >
+                          <X className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
+                      <CardDescription className="text-xs mt-0.5">
+                        Ative ou desative a Tag Dev instantaneamente para qualquer integrante com 1 clique.
+                      </CardDescription>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-2">
+                      <div className="relative w-full sm:w-60">
+                        <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
+                        <Input
+                          placeholder="Buscar por nome, ID ou cargo..."
+                          value={searchDevMember}
+                          onChange={(e) => setSearchDevMember(e.target.value)}
+                          className="pl-8 pr-7 h-8 text-xs bg-background/50"
+                        />
+                        {searchDevMember && (
+                          <button
+                            type="button"
+                            onClick={() => setSearchDevMember("")}
+                            className="absolute right-2 top-2 text-muted-foreground hover:text-foreground cursor-pointer"
+                            title="Limpar busca"
+                          >
+                            <X className="h-3.5 w-3.5" />
+                          </button>
                         )}
-                        style={
-                          isDev
-                            ? {
-                                backgroundColor: `${devStyle.primaryHex}12`,
-                                borderColor: `${devStyle.primaryHex}40`,
-                              }
-                            : undefined
-                        }
+                      </div>
+
+                      <div className="flex items-center gap-1 bg-secondary/60 p-0.5 rounded-lg border border-border/60">
+                        <button
+                          type="button"
+                          onClick={() => setFilterDevOnly("all")}
+                          className={cn(
+                            "px-2.5 py-1 text-[11px] font-bold rounded-md transition-all cursor-pointer",
+                            filterDevOnly === "all"
+                              ? "bg-background text-foreground shadow-xs"
+                              : "text-muted-foreground hover:text-foreground"
+                          )}
+                        >
+                          Todos ({members.length})
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setFilterDevOnly("dev_only")}
+                          className={cn(
+                            "px-2.5 py-1 text-[11px] font-bold rounded-md transition-all cursor-pointer flex items-center gap-1",
+                            filterDevOnly !== "dev_only" && "text-muted-foreground hover:text-foreground"
+                          )}
+                          style={
+                            filterDevOnly === "dev_only"
+                              ? {
+                                  backgroundColor: `${devStyle.primaryHex}20`,
+                                  color: devStyle.primaryHex,
+                                  borderColor: `${devStyle.primaryHex}40`,
+                                  borderWidth: "1px",
+                                }
+                              : undefined
+                          }
+                        >
+                          <DevIcon className="h-3.5 w-3.5" />
+                          Devs ({activeDevsCount})
+                        </button>
+                      </div>
+
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setIsDevMembersOpen(false)}
+                        className="h-8 text-xs font-semibold text-muted-foreground hover:text-foreground cursor-pointer hidden sm:flex items-center gap-1"
+                        title="Recolher card de membros"
                       >
-                        <div className="flex items-center gap-2.5 min-w-0">
-                          <img
-                            src={member.avatar_url || member.discord_avatar_url || "/placeholder-avatar.png"}
-                            alt={member.nome}
+                        <ChevronUp className="h-3.5 w-3.5" />
+                        Recolher
+                      </Button>
+                    </div>
+                  </div>
+                </CardHeader>
+
+                <CardContent className="pt-4">
+                  {loadingMembers ? (
+                    <div className="py-8 flex items-center justify-center text-center">
+                      <Loader2 className="h-6 w-6 animate-spin mr-2" style={{ color: devStyle.primaryHex }} />
+                      <span className="text-xs text-muted-foreground">Carregando lista de membros...</span>
+                    </div>
+                  ) : filteredDevMembers.length === 0 ? (
+                    <div className="py-8 text-center border border-dashed rounded-xl border-border/60">
+                      <p className="text-xs text-muted-foreground">
+                        Nenhum membro encontrado com os filtros aplicados.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 max-h-[380px] overflow-y-auto pr-1">
+                      {filteredDevMembers.map((member) => {
+                        const isDev = Boolean(member.is_developer || member.nivel === "desenvolvedor");
+                        const isCeo = Boolean(member.is_ceo || member.custom_theme?.is_ceo);
+                        const isToggling = togglingMemberId === member.user_id;
+
+                        return (
+                          <div
+                            key={member.user_id}
                             className={cn(
-                              "h-9 w-9 rounded-full object-cover border shrink-0",
-                              !isDev && "border-border"
+                              "flex items-center justify-between p-3 rounded-xl border transition-all",
+                              !isDev && "bg-secondary/20 border-border/60 hover:bg-secondary/40"
                             )}
                             style={
                               isDev
                                 ? {
-                                    borderColor: devStyle.primaryHex,
-                                    boxShadow: `0 0 0 2px ${devStyle.primaryHex}35`,
+                                    backgroundColor: `${devStyle.primaryHex}12`,
+                                    borderColor: `${devStyle.primaryHex}40`,
                                   }
                                 : undefined
                             }
-                            onError={(e) => {
-                              (e.target as HTMLElement).style.display = "none";
-                            }}
-                          />
-                          <div className="min-w-0">
-                            <div className="flex items-center gap-1.5 truncate">
-                              <span className="text-xs font-bold text-foreground truncate">
-                                {member.nickname || member.nome}
-                              </span>
-                              {isDev && <DevBadge size="xs" />}
-                              {isCeo && <CeoBadge size="xs" />}
+                          >
+                            <div className="flex items-center gap-2.5 min-w-0">
+                              <img
+                                src={member.avatar_url || member.discord_avatar_url || "/placeholder-avatar.png"}
+                                alt={member.nome}
+                                className={cn(
+                                  "h-9 w-9 rounded-full object-cover border shrink-0",
+                                  !isDev && "border-border"
+                                )}
+                                style={
+                                  isDev
+                                    ? {
+                                        borderColor: devStyle.primaryHex,
+                                        boxShadow: `0 0 0 2px ${devStyle.primaryHex}35`,
+                                      }
+                                    : undefined
+                                }
+                                onError={(e) => {
+                                  (e.target as HTMLElement).style.display = "none";
+                                }}
+                              />
+                              <div className="min-w-0">
+                                <div className="flex items-center gap-1.5 truncate">
+                                  <span className="text-xs font-bold text-foreground truncate">
+                                    {member.nickname || member.nome}
+                                  </span>
+                                  {isDev && <DevBadge size="xs" />}
+                                  {isCeo && <CeoBadge size="xs" />}
+                                </div>
+                                <div className="flex items-center gap-1.5 mt-0.5">
+                                  <Badge
+                                    variant="outline"
+                                    className={cn("text-[9px] py-0 px-1.5 font-medium", levelBadgeClass(member.nivel))}
+                                  >
+                                    {getLevelLabel(member.nivel)}
+                                  </Badge>
+                                  {member.game_id && (
+                                    <span className="text-[9px] font-mono text-muted-foreground">
+                                      ID: {member.game_id}
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
                             </div>
-                            <div className="flex items-center gap-1.5 mt-0.5">
-                              <Badge
-                                variant="outline"
-                                className={cn("text-[9px] py-0 px-1.5 font-medium", levelBadgeClass(member.nivel))}
-                              >
-                                {getLevelLabel(member.nivel)}
-                              </Badge>
-                              {member.game_id && (
-                                <span className="text-[9px] font-mono text-muted-foreground">
-                                  ID: {member.game_id}
-                                </span>
+
+                            <div className="flex items-center gap-2 shrink-0 ml-2">
+                              {isToggling ? (
+                                <Loader2 className="h-4 w-4 animate-spin" style={{ color: devStyle.primaryHex }} />
+                              ) : (
+                                <Switch
+                                  id={`dev-toggle-${member.user_id}`}
+                                  checked={isDev}
+                                  onCheckedChange={() =>
+                                    handleToggleDevTag(member.user_id, isDev, member.nickname || member.nome)
+                                  }
+                                />
                               )}
                             </div>
                           </div>
-                        </div>
-
-                        <div className="flex items-center gap-2 shrink-0 ml-2">
-                          {isToggling ? (
-                            <Loader2 className="h-4 w-4 animate-spin" style={{ color: devStyle.primaryHex }} />
-                          ) : (
-                            <Switch
-                              id={`dev-toggle-${member.user_id}`}
-                              checked={isDev}
-                              onCheckedChange={() =>
-                                handleToggleDevTag(member.user_id, isDev, member.nickname || member.nome)
-                              }
-                            />
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </CardContent>
-          </Card>
+                        );
+                      })}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+          </div>
 
           {/* Barra de Controles Rápidos Tag Dev */}
           <Card className="surface-card p-4">
@@ -1972,9 +2076,12 @@ function DevPermissoesContent() {
                 </div>
 
                 <div className="flex items-center gap-2 shrink-0">
-                  <div
-                    className="px-4 py-2 rounded-xl bg-background/60 text-center"
+                  <button
+                    type="button"
+                    onClick={() => setIsCeoMembersOpen((prev) => !prev)}
+                    className="px-4 py-2 rounded-xl bg-background/60 text-center transition-all hover:bg-background/90 hover:scale-105 cursor-pointer"
                     style={{ borderColor: `${ceoStyle.primaryHex}30`, borderWidth: "1px" }}
+                    title={isCeoMembersOpen ? "Clique para recolher membros" : "Clique para abrir gerenciamento de membros"}
                   >
                     <span className="text-[0.65rem] uppercase tracking-wider text-muted-foreground font-semibold block">
                       CEOs Ativos
@@ -1982,175 +2089,272 @@ function DevPermissoesContent() {
                     <span className="text-lg font-black" style={{ color: ceoStyle.primaryHex }}>
                       {activeCeosCount}
                     </span>
-                  </div>
+                  </button>
                 </div>
               </div>
             </CardHeader>
           </Card>
 
-          {/* SEÇÃO 1 (CEO): GERENCIAMENTO E ATRIBUIÇÃO DIRETA DE MEMBROS */}
-          <Card className="surface-card border-border/80">
-            <CardHeader className="pb-3">
-              <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
-                <div>
-                  <CardTitle className="text-sm font-extrabold flex items-center gap-2">
-                    <CeoIcon className="h-4 w-4" style={{ color: ceoStyle.primaryHex }} />
-                    Membros do grupo & Atribuição da Tag CEO
-                  </CardTitle>
-                  <CardDescription className="text-xs">
-                    Ative ou desative a Tag CEO instantaneamente para qualquer integrante com 1 clique.
-                  </CardDescription>
+          {/* SEÇÃO 1 (CEO): BOTÃO COM ÍCONE PARA ABRIR O CARD DE ATRIBUIÇÃO DE MEMBROS */}
+          <div className="space-y-3">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setIsCeoMembersOpen((prev) => !prev)}
+                className={cn(
+                  "h-11 px-4 rounded-xl border font-bold text-xs flex items-center gap-3 transition-all shadow-xs cursor-pointer select-none",
+                  isCeoMembersOpen
+                    ? "bg-secondary text-foreground"
+                    : "bg-card hover:bg-secondary/70 text-foreground border-border/80"
+                )}
+                style={{
+                  borderColor: isCeoMembersOpen ? `${ceoStyle.primaryHex}60` : undefined,
+                  boxShadow: isCeoMembersOpen ? `0 0 15px ${ceoStyle.primaryHex}15` : undefined,
+                }}
+              >
+                <div
+                  className="p-1.5 rounded-lg shrink-0 transition-transform"
+                  style={{
+                    backgroundColor: `${ceoStyle.primaryHex}20`,
+                    color: ceoStyle.primaryHex,
+                  }}
+                >
+                  <CeoIcon className="h-4 w-4" />
                 </div>
-
-                <div className="flex flex-wrap items-center gap-2">
-                  <div className="relative w-full sm:w-60">
-                    <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
-                    <Input
-                      placeholder="Buscar por nome, ID ou cargo..."
-                      value={searchMember}
-                      onChange={(e) => setSearchMember(e.target.value)}
-                      className="pl-8 h-8 text-xs bg-background/50"
-                    />
-                  </div>
-
-                  <div className="flex items-center gap-1 bg-secondary/60 p-0.5 rounded-lg border border-border/60">
-                    <button
-                      type="button"
-                      onClick={() => setFilterCeoOnly("all")}
-                      className={cn(
-                        "px-2.5 py-1 text-[11px] font-bold rounded-md transition-all cursor-pointer",
-                        filterCeoOnly === "all"
-                          ? "bg-background text-foreground shadow-xs"
-                          : "text-muted-foreground hover:text-foreground"
-                      )}
-                    >
-                      Todos ({members.length})
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setFilterCeoOnly("ceo_only")}
-                      className={cn(
-                        "px-2.5 py-1 text-[11px] font-bold rounded-md transition-all cursor-pointer flex items-center gap-1",
-                        filterCeoOnly !== "ceo_only" && "text-muted-foreground hover:text-foreground"
-                      )}
-                      style={
-                        filterCeoOnly === "ceo_only"
-                          ? {
-                              backgroundColor: `${ceoStyle.primaryHex}20`,
-                              color: ceoStyle.primaryHex,
-                              borderColor: `${ceoStyle.primaryHex}40`,
-                              borderWidth: "1px",
-                            }
-                          : undefined
-                      }
-                    >
-                      <CeoIcon className="h-3.5 w-3.5" />
-                      CEOs ({activeCeosCount})
-                    </button>
-                  </div>
+                <div className="flex items-center gap-2">
+                  <span className="font-extrabold">Membros do grupo & Atribuição da Tag CEO</span>
+                  <Badge
+                    variant="outline"
+                    className="text-[10px] font-mono px-2 py-0.5"
+                    style={{
+                      borderColor: `${ceoStyle.primaryHex}40`,
+                      backgroundColor: `${ceoStyle.primaryHex}15`,
+                      color: ceoStyle.primaryHex,
+                    }}
+                  >
+                    {activeCeosCount} {activeCeosCount === 1 ? "CEO ativo" : "CEOs ativos"}
+                  </Badge>
                 </div>
-              </div>
-            </CardHeader>
-
-            <CardContent className="pt-0">
-              {loadingMembers ? (
-                <div className="py-8 flex items-center justify-center text-center">
-                  <Loader2 className="h-6 w-6 animate-spin mr-2" style={{ color: ceoStyle.primaryHex }} />
-                  <span className="text-xs text-muted-foreground">Carregando lista de membros...</span>
+                <div className="ml-1 text-muted-foreground flex items-center gap-1">
+                  <span className="text-[11px] font-normal hidden sm:inline">
+                    {isCeoMembersOpen ? "Recolher" : "Abrir"}
+                  </span>
+                  {isCeoMembersOpen ? (
+                    <ChevronUp className="h-4 w-4 shrink-0" style={{ color: ceoStyle.primaryHex }} />
+                  ) : (
+                    <ChevronDown className="h-4 w-4 shrink-0" />
+                  )}
                 </div>
-              ) : filteredMembers.length === 0 ? (
-                <div className="py-8 text-center border border-dashed rounded-xl border-border/60">
-                  <p className="text-xs text-muted-foreground">
-                    Nenhum membro encontrado com os filtros aplicados.
-                  </p>
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 max-h-[380px] overflow-y-auto pr-1">
-                  {filteredMembers.map((member) => {
-                    const isCeo = Boolean(member.is_ceo || member.custom_theme?.is_ceo);
-                    const isDev = Boolean(member.is_developer || member.nivel === "desenvolvedor");
-                    const isToggling = togglingMemberId === member.user_id;
+              </Button>
+            </div>
 
-                    return (
-                      <div
-                        key={member.user_id}
-                        className={cn(
-                          "flex items-center justify-between p-3 rounded-xl border transition-all",
-                          !isCeo && "bg-secondary/20 border-border/60 hover:bg-secondary/40"
+            {/* CARD ABERTO QUANDO O BOTÃO É CLICADO */}
+            {isCeoMembersOpen && (
+              <Card
+                className="surface-card border-border/80 animate-in fade-in-50 slide-in-from-top-2 duration-200"
+                style={{
+                  borderColor: `${ceoStyle.primaryHex}40`,
+                  boxShadow: `0 0 20px ${ceoStyle.primaryHex}08`,
+                }}
+              >
+                <CardHeader className="pb-3 border-b border-border/40">
+                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+                    <div>
+                      <div className="flex items-center justify-between gap-2">
+                        <CardTitle className="text-sm font-extrabold flex items-center gap-2">
+                          <CeoIcon className="h-4 w-4" style={{ color: ceoStyle.primaryHex }} />
+                          Membros do grupo & Atribuição da Tag CEO
+                        </CardTitle>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setIsCeoMembersOpen(false)}
+                          className="h-7 px-2 text-xs text-muted-foreground hover:text-foreground cursor-pointer sm:hidden"
+                          title="Fechar"
+                        >
+                          <X className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
+                      <CardDescription className="text-xs mt-0.5">
+                        Ative ou desative a Tag CEO instantaneamente para qualquer integrante com 1 clique.
+                      </CardDescription>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-2">
+                      <div className="relative w-full sm:w-60">
+                        <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
+                        <Input
+                          placeholder="Buscar por nome, ID ou cargo..."
+                          value={searchMember}
+                          onChange={(e) => setSearchMember(e.target.value)}
+                          className="pl-8 pr-7 h-8 text-xs bg-background/50"
+                        />
+                        {searchMember && (
+                          <button
+                            type="button"
+                            onClick={() => setSearchMember("")}
+                            className="absolute right-2 top-2 text-muted-foreground hover:text-foreground cursor-pointer"
+                            title="Limpar busca"
+                          >
+                            <X className="h-3.5 w-3.5" />
+                          </button>
                         )}
-                        style={
-                          isCeo
-                            ? {
-                                backgroundColor: `${ceoStyle.primaryHex}12`,
-                                borderColor: `${ceoStyle.primaryHex}40`,
-                              }
-                            : undefined
-                        }
+                      </div>
+
+                      <div className="flex items-center gap-1 bg-secondary/60 p-0.5 rounded-lg border border-border/60">
+                        <button
+                          type="button"
+                          onClick={() => setFilterCeoOnly("all")}
+                          className={cn(
+                            "px-2.5 py-1 text-[11px] font-bold rounded-md transition-all cursor-pointer",
+                            filterCeoOnly === "all"
+                              ? "bg-background text-foreground shadow-xs"
+                              : "text-muted-foreground hover:text-foreground"
+                          )}
+                        >
+                          Todos ({members.length})
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setFilterCeoOnly("ceo_only")}
+                          className={cn(
+                            "px-2.5 py-1 text-[11px] font-bold rounded-md transition-all cursor-pointer flex items-center gap-1",
+                            filterCeoOnly !== "ceo_only" && "text-muted-foreground hover:text-foreground"
+                          )}
+                          style={
+                            filterCeoOnly === "ceo_only"
+                              ? {
+                                  backgroundColor: `${ceoStyle.primaryHex}20`,
+                                  color: ceoStyle.primaryHex,
+                                  borderColor: `${ceoStyle.primaryHex}40`,
+                                  borderWidth: "1px",
+                                }
+                              : undefined
+                          }
+                        >
+                          <CeoIcon className="h-3.5 w-3.5" />
+                          CEOs ({activeCeosCount})
+                        </button>
+                      </div>
+
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setIsCeoMembersOpen(false)}
+                        className="h-8 text-xs font-semibold text-muted-foreground hover:text-foreground cursor-pointer hidden sm:flex items-center gap-1"
+                        title="Recolher card de membros"
                       >
-                        <div className="flex items-center gap-2.5 min-w-0">
-                          <img
-                            src={member.avatar_url || member.discord_avatar_url || "/placeholder-avatar.png"}
-                            alt={member.nome}
+                        <ChevronUp className="h-3.5 w-3.5" />
+                        Recolher
+                      </Button>
+                    </div>
+                  </div>
+                </CardHeader>
+
+                <CardContent className="pt-4">
+                  {loadingMembers ? (
+                    <div className="py-8 flex items-center justify-center text-center">
+                      <Loader2 className="h-6 w-6 animate-spin mr-2" style={{ color: ceoStyle.primaryHex }} />
+                      <span className="text-xs text-muted-foreground">Carregando lista de membros...</span>
+                    </div>
+                  ) : filteredMembers.length === 0 ? (
+                    <div className="py-8 text-center border border-dashed rounded-xl border-border/60">
+                      <p className="text-xs text-muted-foreground">
+                        Nenhum membro encontrado com os filtros aplicados.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 max-h-[380px] overflow-y-auto pr-1">
+                      {filteredMembers.map((member) => {
+                        const isCeo = Boolean(member.is_ceo || member.custom_theme?.is_ceo);
+                        const isDev = Boolean(member.is_developer || member.nivel === "desenvolvedor");
+                        const isToggling = togglingMemberId === member.user_id;
+
+                        return (
+                          <div
+                            key={member.user_id}
                             className={cn(
-                              "h-9 w-9 rounded-full object-cover border shrink-0",
-                              !isCeo && "border-border"
+                              "flex items-center justify-between p-3 rounded-xl border transition-all",
+                              !isCeo && "bg-secondary/20 border-border/60 hover:bg-secondary/40"
                             )}
                             style={
                               isCeo
                                 ? {
-                                    borderColor: ceoStyle.primaryHex,
-                                    boxShadow: `0 0 0 2px ${ceoStyle.primaryHex}35`,
+                                    backgroundColor: `${ceoStyle.primaryHex}12`,
+                                    borderColor: `${ceoStyle.primaryHex}40`,
                                   }
                                 : undefined
                             }
-                            onError={(e) => {
-                              (e.target as HTMLElement).style.display = "none";
-                            }}
-                          />
-                          <div className="min-w-0">
-                            <div className="flex items-center gap-1.5 truncate">
-                              <span className="text-xs font-bold text-foreground truncate">
-                                {member.nickname || member.nome}
-                              </span>
-                              {isCeo && <CeoBadge size="xs" />}
-                              {isDev && <DevBadge size="xs" />}
+                          >
+                            <div className="flex items-center gap-2.5 min-w-0">
+                              <img
+                                src={member.avatar_url || member.discord_avatar_url || "/placeholder-avatar.png"}
+                                alt={member.nome}
+                                className={cn(
+                                  "h-9 w-9 rounded-full object-cover border shrink-0",
+                                  !isCeo && "border-border"
+                                )}
+                                style={
+                                  isCeo
+                                    ? {
+                                        borderColor: ceoStyle.primaryHex,
+                                        boxShadow: `0 0 0 2px ${ceoStyle.primaryHex}35`,
+                                      }
+                                    : undefined
+                                }
+                                onError={(e) => {
+                                  (e.target as HTMLElement).style.display = "none";
+                                }}
+                              />
+                              <div className="min-w-0">
+                                <div className="flex items-center gap-1.5 truncate">
+                                  <span className="text-xs font-bold text-foreground truncate">
+                                    {member.nickname || member.nome}
+                                  </span>
+                                  {isCeo && <CeoBadge size="xs" />}
+                                  {isDev && <DevBadge size="xs" />}
+                                </div>
+                                <div className="flex items-center gap-1.5 mt-0.5">
+                                  <Badge
+                                    variant="outline"
+                                    className={cn("text-[9px] py-0 px-1.5 font-medium", levelBadgeClass(member.nivel))}
+                                  >
+                                    {getLevelLabel(member.nivel)}
+                                  </Badge>
+                                  {member.game_id && (
+                                    <span className="text-[9px] font-mono text-muted-foreground">
+                                      ID: {member.game_id}
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
                             </div>
-                            <div className="flex items-center gap-1.5 mt-0.5">
-                              <Badge
-                                variant="outline"
-                                className={cn("text-[9px] py-0 px-1.5 font-medium", levelBadgeClass(member.nivel))}
-                              >
-                                {getLevelLabel(member.nivel)}
-                              </Badge>
-                              {member.game_id && (
-                                <span className="text-[9px] font-mono text-muted-foreground">
-                                  ID: {member.game_id}
-                                </span>
+
+                            <div className="flex items-center gap-2 shrink-0 ml-2">
+                              {isToggling ? (
+                                <Loader2 className="h-4 w-4 animate-spin" style={{ color: ceoStyle.primaryHex }} />
+                              ) : (
+                                <Switch
+                                  id={`ceo-toggle-${member.user_id}`}
+                                  checked={isCeo}
+                                  onCheckedChange={() =>
+                                    handleToggleCeoTag(member.user_id, isCeo, member.nickname || member.nome)
+                                  }
+                                />
                               )}
                             </div>
                           </div>
-                        </div>
-
-                        <div className="flex items-center gap-2 shrink-0 ml-2">
-                          {isToggling ? (
-                            <Loader2 className="h-4 w-4 animate-spin" style={{ color: ceoStyle.primaryHex }} />
-                          ) : (
-                            <Switch
-                              id={`ceo-toggle-${member.user_id}`}
-                              checked={isCeo}
-                              onCheckedChange={() =>
-                                handleToggleCeoTag(member.user_id, isCeo, member.nickname || member.nome)
-                              }
-                            />
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </CardContent>
-          </Card>
+                        );
+                      })}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+          </div>
 
           {/* SEÇÃO 2 (CEO): BARRA DE CONTROLES RÁPIDOS DA MATRIZ DA TAG CEO */}
           <Card className="surface-card p-4 border-amber-500/30">
