@@ -170,7 +170,9 @@ export function PermissoesPage() {
           cat = cfg?.category || "Administração";
         }
         if (card.id === "ceo-selos") {
-          cat = cfg?.category || (categoryOrder.includes("CEO") ? "CEO" : "Administração");
+          cat = (cfg?.category && cfg.category !== "CEO" && categoryOrder.includes(cfg.category))
+            ? cfg.category
+            : (categoryOrder.includes("Administração") ? "Administração" : categoryOrder[0] || "Gestão");
         }
         if (card.id === "solicitar-selo") {
           cat = cfg?.category || "Gestão";

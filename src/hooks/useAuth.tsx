@@ -1143,8 +1143,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (activePanel === "ceo") {
         if (isDevUser && bypassActive) return true;
         if (permission === "view_ceo") return true;
-        if ((isCeoUser || isDevUser) && satisfiesPermission(ceoTagPermissions, permission)) {
-          return true;
+        if (isCeoUser || isDevUser) {
+          if (permission.startsWith("verification.")) {
+            return satisfiesPermission(ceoTagPermissions, permission);
+          }
+          if (satisfiesPermission(ceoTagPermissions, permission)) {
+            return true;
+          }
         }
         return evaluateAsMember();
       }
@@ -1154,6 +1159,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (isDevUser) {
           if (bypassActive) return true;
           if (permission === "view_dev_hub" || permission === "view_dev") return true;
+          if (permission.startsWith("verification.")) {
+            return satisfiesPermission(devTagPermissions, permission);
+          }
           if (satisfiesPermission(devTagPermissions, permission)) return true;
         }
         return evaluateAsMember();

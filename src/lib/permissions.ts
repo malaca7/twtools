@@ -779,7 +779,9 @@ export const CEO_PERMISSIONS: Permission[] = [
 ];
 
 const ADMIN: Permission[] = ALL_PERMISSIONS.filter(
-  (p) => !CEO_PERMISSIONS.includes(p) && !DEV_PANEL_PERMISSIONS.includes(p) && p !== "grant_insignia"
+  (p) =>
+    ((!CEO_PERMISSIONS.includes(p) && !DEV_PANEL_PERMISSIONS.includes(p)) || p.startsWith("verification.")) &&
+    p !== "grant_insignia"
 );
 
 const OFFICER: Permission[] = [
@@ -1313,9 +1315,10 @@ export function satisfiesPermission(
     }
   }
 
-  // 2.2. Sistema de Selo de Verificação: Estrita separação e isolamento por módulo
+  // 2.2. Sistema de Selo de Verificação: Estrita granularidade e isolamento por permissão
   // - "verification.view_page" é exigida ESTRITAMENTE para a página e menu de Solicitar Selo (/solicitar-selo).
   // - "verification.manage" é exigida ESTRITAMENTE para a página e menu de Gerenciar Selos CEO (/ceo/selos).
+  // - Cada ação/aba possui sua permissão estritamente individual (review, grant_direct, revoke, config, requirements, audit).
   if (permission === "verification.view_page") {
     return list.includes("verification.view_page");
   }
@@ -1325,20 +1328,17 @@ export function satisfiesPermission(
   if (permission === "view_ceo" && list.includes("verification.manage")) {
     return true;
   }
-  if (list.includes("verification.manage")) {
-    if (
-      permission === "verification.review" ||
-      permission === "verification.grant_direct" ||
-      permission === "verification.revoke" ||
-      permission === "verification.config" ||
-      permission === "verification.requirements" ||
-      permission === "verification.audit"
-    ) {
-      return true;
-    }
-  }
-  if (list.includes("verification.config") && permission === "verification.requirements") {
-    return true;
+  if (
+    permission === "verification.review" ||
+    permission === "verification.grant_direct" ||
+    permission === "verification.revoke" ||
+    permission === "verification.config" ||
+    permission === "verification.requirements" ||
+    permission === "verification.audit" ||
+    permission === "verification.request" ||
+    permission === "verification.cancel_own"
+  ) {
+    return list.includes(permission);
   }
 
   if (

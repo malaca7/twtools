@@ -112,7 +112,7 @@ export function CeoSelosPage() {
   const effectivePanel: "dev" | "ceo" | "member" =
     isDevUser && panelMode === "dev"
       ? "dev"
-      : isCeoUser || panelMode === "ceo"
+      : isCeoUser
       ? "ceo"
       : "member";
 

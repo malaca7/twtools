@@ -407,7 +407,9 @@ function DevPermissoesContent() {
             cat = cfg?.category || "Administração";
           }
           if (tab === "cargos" && card.id === "ceo-selos") {
-            cat = cfg?.category || (categoryOrder.includes("CEO") ? "CEO" : "Administração");
+            cat = (cfg?.category && cfg.category !== "CEO" && categoryOrder.includes(cfg.category))
+              ? cfg.category
+              : (categoryOrder.includes("Administração") ? "Administração" : categoryOrder[0] || "Gestão");
           }
           if (card.id === "solicitar-selo" && tab === "cargos") {
             cat = cfg?.category || "Gestão";
