@@ -273,13 +273,13 @@ export async function submitVerificationRequest(params: {
 }): Promise<{ success: boolean; request_id: string }> {
   const { data: { user } } = await supabase.auth.getUser();
   if (user) {
-    const { data: memberData } = await supabase
-      .from("members")
+    const { data: profileData } = await (supabase as any)
+      .from("profiles")
       .select("is_verified")
       .eq("user_id", user.id)
       .maybeSingle();
 
-    if (memberData?.is_verified) {
+    if (profileData?.is_verified) {
       throw new Error("Seu perfil já possui o Selo de Verificado oficial! Você não pode realizar novas solicitações.");
     }
   }
@@ -488,120 +488,291 @@ export async function fetchVerificationAuditLogs(limit = 50): Promise<Verificati
   }
 }
 
+export interface EvaluatedRequirementItem {
+  id: string;
+  title: string;
+  description?: string;
+  isRequired: boolean;
+  isMet: boolean;
+  currentValue?: any;
+  requiredValue?: any;
+  message: string;
+  category: "account" | "level" | "faction" | "role" | "custom";
+}
+
 export interface VerificationRequirementsEvaluation {
   meetsAll: boolean;
+  totalRequired: number;
+  passedRequired: number;
+  totalOptional: number;
+  passedOptional: number;
+  items: EvaluatedRequirementItem[];
+  allowSelfRequest: boolean;
+  customInstructions?: string;
+  // Propriedades retrocompatíveis
   levelOk: boolean;
   roleOk: boolean;
+  discordOk: boolean;
+  gameIdOk: boolean;
+  phoneOk: boolean;
+  daysOk: boolean;
   insigniasOk: boolean;
   evaluationsOk: boolean;
   currentLevel: number;
   currentRole: string;
+  daysInFaction: number;
   insigniasCount: number;
   evaluationsCount: number;
   details: {
     levelMessage: string;
     roleMessage: string;
+    discordMessage?: string | undefined;
+    gameIdMessage?: string | undefined;
+    phoneMessage?: string | undefined;
+    daysMessage?: string | undefined;
     insigniasMessage: string;
     evaluationsMessage: string;
+    [key: string]: string | undefined;
   };
 }
 
 /**
- * Avalia os 4 requisitos mandatórios de verificação da plataforma:
- * 1. Nível do Membro 3+
- * 2. Cargo de Membro+ (superior a novato)
- * 3. Pelo menos 1 insígnia conquistada
- * 4. Pelo menos 1 avaliação recebida
+ * Avalia dinamicamente os requisitos oficiais de verificação configurados
+ * na tela de Gerenciamento de Selos (/ceo/selos) da Twin Wheels.
  */
 export async function getMemberVerificationRequirementsStatus(
   userId?: string,
   profile?: any,
-  roleLevel?: string | null
+  roleLevel?: string | null,
+  customConfig?: VerificationBadgeConfig | null
 ): Promise<VerificationRequirementsEvaluation> {
   const currentUserId = userId || profile?.user_id;
-  if (!currentUserId) {
-    return {
-      meetsAll: false,
-      levelOk: false,
-      roleOk: false,
-      insigniasOk: false,
-      evaluationsOk: false,
-      currentLevel: 1,
-      currentRole: "Novato",
-      insigniasCount: 0,
-      evaluationsCount: 0,
-      details: {
-        levelMessage: "Nível 1 (Mínimo Nível 3+)",
-        roleMessage: "Cargo Novato (Mínimo Membro+)",
-        insigniasMessage: "0 insígnias (Mínimo 1 insígnia)",
-        evaluationsMessage: "0 avaliações (Mínimo 1 avaliação)",
-      },
-    };
+
+  // Carrega a configuração ativa do selo caso não tenha sido injetada
+  let config = customConfig;
+  if (!config) {
+    try {
+      config = await fetchVerificationConfig();
+    } catch {
+      config = DEFAULT_VERIFICATION_CONFIG;
+    }
   }
 
-  // 1. Nível do Membro (Gamification Level) >= 3
+  const reqConfig = config?.requirements_config || DEFAULT_VERIFICATION_CONFIG.requirements_config;
+  const allowSelfRequest = config?.allow_self_request !== false;
+  const customInstructions = reqConfig.custom_instructions?.trim() || "";
+
+  // 1. Dados Básicos do Membro
   const currentLevel = Number(profile?.gamification_level ?? profile?.level ?? 1);
-  const levelOk = currentLevel >= 3;
-
-  // 2. Cargo do Membro (Membro+ / superior a novato)
   const currentRole = String(roleLevel || profile?.nivel || "novato").toLowerCase().trim();
-  const roleOk = currentRole !== "novato" && currentRole !== "";
 
-  // 3. Pelo menos 1 insígnia na plataforma
-  let insigniasCount = 0;
-  try {
-    const { count, error } = await supabase
-      .from("member_insignias" as any)
-      .select("*", { count: "exact", head: true })
-      .eq("member_id", currentUserId);
-    if (!error && typeof count === "number") {
-      insigniasCount = count;
-    }
-  } catch (err) {
-    console.error("Erro ao verificar insígnias:", err);
+  // Cálculo de permanência na facção (dias)
+  const joinDateStr = profile?.data_entrada || profile?.created_at;
+  const daysInFaction = joinDateStr
+    ? Math.max(0, Math.floor((Date.now() - new Date(joinDateStr).getTime()) / (1000 * 60 * 60 * 24)))
+    : 0;
+
+  // Conta de Discord vinculada
+  const hasDiscord = Boolean(
+    profile?.discord_username?.trim() ||
+    profile?.discord_id?.trim() ||
+    profile?.discord_email?.trim()
+  );
+
+  // ID do jogo informado
+  const hasGameId = Boolean(profile?.game_id && String(profile.game_id).trim() !== "");
+
+  // Telefone informado
+  const hasPhone = Boolean(profile?.telefone && String(profile.telefone).trim() !== "");
+
+  // Itens avaliados dinamicamente
+  const items: EvaluatedRequirementItem[] = [];
+
+  // A) Requisito: Discord Vinculado
+  if (reqConfig.require_discord) {
+    items.push({
+      id: "discord",
+      title: "Discord Oficial Vinculado",
+      description: "Conta do Discord autenticada na plataforma da Twin Wheels",
+      isRequired: true,
+      isMet: hasDiscord,
+      currentValue: profile?.discord_username || (hasDiscord ? "Conectado" : "Não Vinculado"),
+      requiredValue: "Vinculado",
+      message: hasDiscord
+        ? `Discord vinculado (@${profile?.discord_username || "Conectado"})`
+        : "Nenhuma conta Discord vinculada ao perfil. Acesse Seu Perfil para vincular.",
+      category: "account",
+    });
   }
-  const insigniasOk = insigniasCount >= 1;
 
-  // 4. Pelo menos 1 avaliação na plataforma
-  let evaluationsCount = Number(profile?.stars_count ?? 0);
-  try {
-    const { count, error } = await supabase
-      .from("member_evaluations" as any)
-      .select("*", { count: "exact", head: true })
-      .eq("member_id", currentUserId);
-    if (!error && typeof count === "number" && count > 0) {
-      evaluationsCount = Math.max(evaluationsCount, count);
-    }
-  } catch (err) {
-    console.error("Erro ao verificar avaliações:", err);
+  // B) Requisito: ID do Jogo Informado
+  if (reqConfig.require_game_id) {
+    items.push({
+      id: "game_id",
+      title: "ID / Passaporte GTA RP",
+      description: "Identificador do personagem nos servidores de GTA RP",
+      isRequired: true,
+      isMet: hasGameId,
+      currentValue: profile?.game_id || "Não Informado",
+      requiredValue: "Informado",
+      message: hasGameId
+        ? `Passaporte cadastrado (ID: #${profile?.game_id})`
+        : "ID/Passaporte do GTA RP não informado no perfil.",
+      category: "account",
+    });
   }
-  const evaluationsOk = evaluationsCount >= 1;
 
-  const meetsAll = levelOk && roleOk && insigniasOk && evaluationsOk;
+  // C) Requisito: Telefone Cadastrado
+  if (reqConfig.require_phone) {
+    items.push({
+      id: "phone",
+      title: "Telefone de Contato",
+      description: "Número de telefone operacional cadastrado",
+      isRequired: true,
+      isMet: hasPhone,
+      currentValue: profile?.telefone || "Não Informado",
+      requiredValue: "Cadastrado",
+      message: hasPhone
+        ? `Telefone cadastrado (${profile?.telefone})`
+        : "Telefone de contato não cadastrado no perfil.",
+      category: "account",
+    });
+  }
+
+  // D) Requisito: Nível Mínimo de Gamificação
+  const minLevel = Number(reqConfig.min_gamification_level || 0);
+  if (minLevel > 0) {
+    const levelOk = currentLevel >= minLevel;
+    items.push({
+      id: "level",
+      title: `Nível Mínimo de Experiência (${minLevel}+)`,
+      description: `Patente faccional de nível ${minLevel} ou superior necessária`,
+      isRequired: true,
+      isMet: levelOk,
+      currentValue: currentLevel,
+      requiredValue: minLevel,
+      message: levelOk
+        ? `Nível ${currentLevel} atingido (Exigido: Nível ${minLevel}+)`
+        : `Nível atual ${currentLevel} insuficiente (Exigido: Nível ${minLevel}+)`,
+      category: "level",
+    });
+  }
+
+  // E) Requisito: Dias Mínimos de Permanência
+  const minDays = Number(reqConfig.min_days_in_faction || 0);
+  if (minDays > 0) {
+    const daysOk = daysInFaction >= minDays;
+    items.push({
+      id: "days_in_faction",
+      title: `Tempo de Facção (${minDays}+ dias)`,
+      description: `Permanência ativa igual ou superior a ${minDays} dias`,
+      isRequired: true,
+      isMet: daysOk,
+      currentValue: daysInFaction,
+      requiredValue: minDays,
+      message: daysOk
+        ? `${daysInFaction} dia(s) na facção (Mínimo de ${minDays} dias atendido)`
+        : `${daysInFaction} dia(s) na facção (Necessário permanecer pelo menos ${minDays} dias)`,
+      category: "faction",
+    });
+  }
+
+  // F) Requisito: Cargos Autorizados
+  if (Array.isArray(reqConfig.allowed_roles) && reqConfig.allowed_roles.length > 0) {
+    const allowedList = reqConfig.allowed_roles.map((r: string) => r.toLowerCase().trim());
+    const roleOk = allowedList.includes(currentRole);
+    items.push({
+      id: "role",
+      title: "Cargo Faccional Autorizado",
+      description: `Cargos permitidos: ${reqConfig.allowed_roles.join(", ")}`,
+      isRequired: true,
+      isMet: roleOk,
+      currentValue: currentRole.toUpperCase(),
+      requiredValue: reqConfig.allowed_roles.join(", "),
+      message: roleOk
+        ? `Cargo "${currentRole.toUpperCase()}" habilitado para solicitação`
+        : `Cargo "${currentRole.toUpperCase()}" não autorizado. Permitidos: ${reqConfig.allowed_roles.join(", ")}`,
+      category: "role",
+    });
+  }
+
+  // G) Requisitos Customizados Cadastrados pela Liderança
+  if (Array.isArray(reqConfig.custom_requirements)) {
+    reqConfig.custom_requirements.forEach((cReq) => {
+      const isReq = Boolean(cReq.is_required ?? (cReq as any).required);
+      items.push({
+        id: `custom_${cReq.id}`,
+        title: cReq.title,
+        description: cReq.description,
+        isRequired: isReq,
+        isMet: true, // Avaliação declaratória pelo candidato no formulário
+        message: isReq
+          ? "Requisito obrigatório da Diretoria — Confirme sua declaração no envio"
+          : "Critério sugerido pela Diretoria",
+        category: "custom",
+      });
+    });
+  }
+
+  // Se nenhum requisito restritivo estiver configurado, adiciona um informativo
+  if (items.length === 0) {
+    items.push({
+      id: "open",
+      title: "Solicitação Aberta",
+      description: "Nenhum critério restritivo configurado pela Diretoria Executiva",
+      isRequired: false,
+      isMet: true,
+      message: "Qualquer membro ativo pode submeter uma justificativa para análise da liderança.",
+      category: "account",
+    });
+  }
+
+  // Contabilização
+  const requiredItems = items.filter((i) => i.isRequired);
+  const optionalItems = items.filter((i) => !i.isRequired);
+  const passedRequired = requiredItems.filter((i) => i.isMet).length;
+  const passedOptional = optionalItems.filter((i) => i.isMet).length;
+  const meetsAll = requiredItems.length === 0 || passedRequired === requiredItems.length;
+
+  // Retrocompatibilidade
+  const levelItem = items.find((i) => i.id === "level");
+  const roleItem = items.find((i) => i.id === "role");
+  const discordItem = items.find((i) => i.id === "discord");
+  const gameIdItem = items.find((i) => i.id === "game_id");
+  const phoneItem = items.find((i) => i.id === "phone");
+  const daysItem = items.find((i) => i.id === "days_in_faction");
 
   return {
     meetsAll,
-    levelOk,
-    roleOk,
-    insigniasOk,
-    evaluationsOk,
+    totalRequired: requiredItems.length,
+    passedRequired,
+    totalOptional: optionalItems.length,
+    passedOptional,
+    items,
+    allowSelfRequest,
+    customInstructions,
+    levelOk: levelItem ? levelItem.isMet : true,
+    roleOk: roleItem ? roleItem.isMet : true,
+    discordOk: discordItem ? discordItem.isMet : true,
+    gameIdOk: gameIdItem ? gameIdItem.isMet : true,
+    phoneOk: phoneItem ? phoneItem.isMet : true,
+    daysOk: daysItem ? daysItem.isMet : true,
+    insigniasOk: true,
+    evaluationsOk: true,
     currentLevel,
     currentRole,
-    insigniasCount,
-    evaluationsCount,
+    daysInFaction,
+    insigniasCount: 0,
+    evaluationsCount: 0,
     details: {
-      levelMessage: levelOk
-        ? `Nível ${currentLevel} (Requisito Nível 3+ atendido)`
-        : `Nível ${currentLevel} (Necessário atingir Nível 3+)`,
-      roleMessage: roleOk
-        ? `Cargo "${currentRole.toUpperCase()}" (Requisito Membro+ atendido)`
-        : `Cargo "${currentRole.toUpperCase()}" (Necessário promoção para Membro+)`,
-      insigniasMessage: insigniasOk
-        ? `${insigniasCount} condecoraç${insigniasCount === 1 ? "ão" : "ões"} (Requisito 1+ insígnia atendido)`
-        : `Nenhuma insígnia conquistada (Necessário pelo menos 1 insígnia)`,
-      evaluationsMessage: evaluationsOk
-        ? `${evaluationsCount} avaliaç${evaluationsCount === 1 ? "ão" : "ões"} (Requisito 1+ avaliação atendido)`
-        : `Nenhuma avaliação recebida (Necessário pelo menos 1 avaliação)`,
+      levelMessage: levelItem?.message || `Nível ${currentLevel}`,
+      roleMessage: roleItem?.message || `Cargo ${currentRole.toUpperCase()}`,
+      discordMessage: discordItem?.message,
+      gameIdMessage: gameIdItem?.message,
+      phoneMessage: phoneItem?.message,
+      daysMessage: daysItem?.message,
+      insigniasMessage: "Condecorações faccionais registradas",
+      evaluationsMessage: "Avaliações registradas na plataforma",
     },
   };
 }

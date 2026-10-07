@@ -596,6 +596,29 @@ export function CeoSelosPage() {
                             </a>
                           </div>
                         )}
+
+                        {/* REQUISITOS CUSTOMIZADOS CONFIRMADOS */}
+                        {req.extra_data?.custom_declarations && Object.keys(req.extra_data.custom_declarations).length > 0 && (
+                          <div className="p-2.5 rounded-xl bg-secondary/30 border border-border/40 space-y-1 text-xs">
+                            <span className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider block">
+                              Declaração de Requisitos da Liderança
+                            </span>
+                            <div className="flex flex-wrap gap-1">
+                              {Object.entries(req.extra_data.custom_declarations).map(([k, v]) => (
+                                <Badge
+                                  key={k}
+                                  variant="outline"
+                                  className={cn(
+                                    "text-[9px] py-0 font-mono",
+                                    v ? "border-emerald-500/40 text-emerald-400 bg-emerald-500/10" : "border-rose-500/40 text-rose-400"
+                                  )}
+                                >
+                                  {v ? "✓ Declarado Cumprido" : "✗ Não Confirmado"}
+                                </Badge>
+                              ))}
+                            </div>
+                          </div>
+                        )}
                       </div>
 
                       {/* BOTÕES DE AÇÃO */}
@@ -983,7 +1006,7 @@ export function CeoSelosPage() {
                     </div>
 
                     {/* REQUISITOS PADRÃO DO SISTEMA */}
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                       <div className="flex items-center justify-between p-2.5 rounded-xl bg-background/60 border border-border/40">
                         <div className="space-y-0.5">
                           <Label className="text-xs font-semibold cursor-pointer">Discord Vinculado</Label>
@@ -998,6 +1021,14 @@ export function CeoSelosPage() {
                           <p className="text-[10px] text-muted-foreground">Exigir ID GTA RP</p>
                         </div>
                         <Switch checked={formRequireGameId} onCheckedChange={setFormRequireGameId} />
+                      </div>
+
+                      <div className="flex items-center justify-between p-2.5 rounded-xl bg-background/60 border border-border/40">
+                        <div className="space-y-0.5">
+                          <Label className="text-xs font-semibold cursor-pointer">Telefone Cadastrado</Label>
+                          <p className="text-[10px] text-muted-foreground">Exigir número celular</p>
+                        </div>
+                        <Switch checked={formRequirePhone} onCheckedChange={setFormRequirePhone} />
                       </div>
 
                       <div className="flex items-center justify-between p-2.5 rounded-xl bg-background/60 border border-border/40">

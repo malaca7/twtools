@@ -21,9 +21,12 @@ import {
   ArrowRight,
   ShieldAlert,
   ChevronRight,
-  Flame,
   Info,
   Layers,
+  Phone,
+  Gamepad2,
+  Calendar,
+  MessageSquare,
 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -32,6 +35,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Progress } from "@/components/ui/progress";
+import { Checkbox } from "@/components/ui/checkbox";
 import { PageHeader, NoAccess } from "@/components/ui-kit";
 import { useAuth } from "@/hooks/useAuth";
 import {
@@ -156,6 +160,7 @@ function SolicitarSeloContent() {
 
   const [reason, setReason] = useState("");
   const [documentUrl, setDocumentUrl] = useState("");
+  const [customDeclarations, setCustomDeclarations] = useState<Record<string, boolean>>({});
 
   const canRequest = hasPermission("verification.request");
   const canCancel = hasPermission("verification.cancel_own");
@@ -164,31 +169,46 @@ function SolicitarSeloContent() {
   const isPending = myRequest?.status === "pendente";
   const isRejected = myRequest?.status === "rejeitado";
 
-  // Avaliação em tempo real dos 4 requisitos
+  // Avaliação em tempo real dos requisitos configurados no sistema
   const { data: reqs, isLoading: loadingReqs } = useQuery<VerificationRequirementsEvaluation>({
-    queryKey: ["verification_requirements_status", user?.id, profile?.gamification_level, profile?.stars_count, level],
-    queryFn: () => getMemberVerificationRequirementsStatus(user?.id, profile, level),
+    queryKey: [
+      "verification_requirements_status",
+      user?.id,
+      profile?.gamification_level,
+      profile?.telefone,
+      profile?.game_id,
+      profile?.discord_username,
+      profile?.discord_id,
+      profile?.data_entrada,
+      profile?.created_at,
+      level,
+      config?.requirements_config,
+      config?.allow_self_request,
+    ],
+    queryFn: () => getMemberVerificationRequirementsStatus(user?.id, profile, level, config),
     enabled: Boolean(user?.id),
     staleTime: 10 * 1000,
   });
 
-  const meetsAllRequirements = Boolean(reqs?.meetsAll);
+  const allowSelfRequest = config?.allow_self_request !== false;
 
-  const passedCount = useMemo(() => {
-    if (!reqs) return 0;
-    let count = 0;
-    if (reqs.levelOk) count++;
-    if (reqs.roleOk) count++;
-    if (reqs.insigniasOk) count++;
-    if (reqs.evaluationsOk) count++;
-    return count;
-  }, [reqs]);
+  const requiredItems = useMemo(() => reqs?.items?.filter((i) => i.isRequired) || [], [reqs]);
+  const totalRequired = requiredItems.length;
 
-  const progressPct = (passedCount / 4) * 100;
+  const passedRequired = useMemo(() => {
+    return requiredItems.filter((i) => {
+      if (i.category === "custom") return Boolean(customDeclarations[i.id]);
+      return i.isMet;
+    }).length;
+  }, [requiredItems, customDeclarations]);
+
+  const meetsAllRequirements = totalRequired === 0 || passedRequired === totalRequired;
+  const progressPct = totalRequired > 0 ? (passedRequired / totalRequired) * 100 : 100;
 
   const canSubmit =
     !isAlreadyVerified &&
     canRequest &&
+    allowSelfRequest &&
     meetsAllRequirements &&
     !isPending &&
     reason.trim().length >= 5;
@@ -199,12 +219,19 @@ function SolicitarSeloContent() {
       toast.error("Você já possui o selo de verificado ativo e não pode enviar nova solicitação!");
       return;
     }
+    if (!allowSelfRequest) {
+      toast.error("O envio de novas solicitações foi temporariamente desativado pela Diretoria Executiva.");
+      return;
+    }
     if (!canSubmit) return;
 
     try {
       await submitRequestMutation.mutateAsync({
         reason: reason.trim(),
         document_url: documentUrl.trim() || null,
+        extra_data: {
+          custom_declarations: customDeclarations,
+        },
       });
       setReason("");
       setDocumentUrl("");
@@ -370,13 +397,45 @@ function SolicitarSeloContent() {
               </p>
             )}
             <p className="text-muted-foreground">
-              Você pode submeter uma nova solicitação caso atenda a todos os 4 requisitos obrigatórios abaixo.
+              Você pode submeter uma nova solicitação caso atenda a todos os requisitos obrigatórios abaixo.
             </p>
           </CardContent>
         </Card>
       )}
 
-      {/* CARD DOS 4 REQUISITOS MANDATÓRIOS */}
+      {/* INSTRUÇÕES DA DIRETORIA EXECUTIVA */}
+      {config?.requirements_config?.custom_instructions && (
+        <Card className="surface-card border-sky-500/30 bg-sky-500/5 shadow-sm">
+          <CardContent className="p-4 flex items-start gap-3 text-xs">
+            <Info className="h-5 w-5 text-sky-400 shrink-0 mt-0.5" />
+            <div className="space-y-1">
+              <p className="font-bold text-foreground text-xs uppercase tracking-wider text-sky-400">
+                Orientações da Diretoria Executiva
+              </p>
+              <p className="text-muted-foreground leading-relaxed">
+                {config.requirements_config.custom_instructions}
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* AVISO SE AUTO-SOLICITAÇÃO ESTIVER DESATIVADA PELA LIDERANÇA */}
+      {!allowSelfRequest && !isAlreadyVerified && (
+        <Card className="surface-card border-amber-500/30 bg-amber-500/5 shadow-sm">
+          <CardContent className="p-4 flex items-start gap-3.5 text-xs text-amber-300">
+            <AlertCircle className="h-5 w-5 text-amber-400 shrink-0 mt-0.5" />
+            <div className="space-y-1">
+              <p className="font-bold text-foreground text-sm">Auto-Solicitação Desativada pela Diretoria</p>
+              <p className="text-muted-foreground leading-relaxed">
+                O envio de novas solicitações diretas pelo membro foi temporariamente suspenso pela Diretoria Executiva da Twin Wheels. As verificações estão ocorrendo exclusivamente por indicação direta da liderança.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* CARD DOS REQUISITOS CONFIGURADOS */}
       <Card className="surface-card">
         <CardHeader className="pb-3 border-b border-border/60">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
@@ -386,7 +445,7 @@ function SolicitarSeloContent() {
                 <span>Requisitos Oficiais para Verificação</span>
               </CardTitle>
               <CardDescription className="text-xs">
-                Critérios operacionais necessários para obter o selo de autenticidade da Twin Wheels
+                Critérios operacionais sincronizados em tempo real com a gestão da Twin Wheels
               </CardDescription>
             </div>
             <Badge
@@ -398,148 +457,123 @@ function SolicitarSeloContent() {
                   : "border-amber-500/40 text-amber-400 bg-amber-500/10"
               )}
             >
-              {passedCount} de 4 Requisitos Atendidos ({progressPct.toFixed(0)}%)
+              {totalRequired > 0
+                ? `${passedRequired} de ${totalRequired} Requisitos Obrigatórios Atendidos (${progressPct.toFixed(0)}%)`
+                : "Solicitação Aberta (Sem restrições configuradas)"}
             </Badge>
           </div>
-          <div className="pt-2">
-            <Progress value={progressPct} className="h-2 bg-secondary" />
-          </div>
+          {totalRequired > 0 && (
+            <div className="pt-2">
+              <Progress value={progressPct} className="h-2 bg-secondary" />
+            </div>
+          )}
         </CardHeader>
 
         <CardContent className="p-4 sm:p-5 space-y-3">
-          {loadingReqs ? (
+          {loadingReqs || loadingConfig ? (
             <div className="py-6 flex items-center justify-center text-muted-foreground gap-2">
               <Loader2 className="h-4 w-4 animate-spin text-primary" />
-              <span className="text-xs">Verificando seus requisitos no sistema...</span>
+              <span className="text-xs">Sincronizando requisitos com a liderança...</span>
+            </div>
+          ) : !reqs?.items || reqs.items.length === 0 ? (
+            <div className="p-4 rounded-xl bg-secondary/30 text-center text-xs text-muted-foreground">
+              Nenhum requisito configurado. Qualquer membro ativo pode solicitar o selo.
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {/* 1. NÍVEL DO MEMBRO 3+ */}
-              <div
-                className={cn(
-                  "p-3.5 rounded-2xl border transition-all flex items-start gap-3",
-                  reqs?.levelOk
-                    ? "bg-emerald-500/5 border-emerald-500/30"
-                    : "bg-secondary/20 border-border/60"
-                )}
-              >
-                <div
-                  className={cn(
-                    "h-8 w-8 rounded-xl flex items-center justify-center shrink-0 text-xs font-black",
-                    reqs?.levelOk
-                      ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/40"
-                      : "bg-secondary text-muted-foreground border border-border"
-                  )}
-                >
-                  {reqs?.levelOk ? <CheckCircle2 className="h-4 w-4" /> : <XCircle className="h-4 w-4 text-rose-400" />}
-                </div>
-                <div className="min-w-0 space-y-0.5">
-                  <p className="text-xs font-extrabold text-foreground flex items-center gap-1.5">
-                    <span>1. Nível do Membro 3+</span>
-                    <Badge variant="outline" className="text-[9px] font-mono py-0">
-                      Nível {reqs?.currentLevel ?? 1}
-                    </Badge>
-                  </p>
-                  <p className="text-[11px] text-muted-foreground">{reqs?.details.levelMessage}</p>
-                </div>
-              </div>
+              {reqs.items.map((item, idx) => {
+                const isCustom = item.category === "custom";
+                const isMet = isCustom ? Boolean(customDeclarations[item.id]) : item.isMet;
 
-              {/* 2. CARGO DE MEMBRO+ */}
-              <div
-                className={cn(
-                  "p-3.5 rounded-2xl border transition-all flex items-start gap-3",
-                  reqs?.roleOk
-                    ? "bg-emerald-500/5 border-emerald-500/30"
-                    : "bg-secondary/20 border-border/60"
-                )}
-              >
-                <div
-                  className={cn(
-                    "h-8 w-8 rounded-xl flex items-center justify-center shrink-0 text-xs font-black",
-                    reqs?.roleOk
-                      ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/40"
-                      : "bg-secondary text-muted-foreground border border-border"
-                  )}
-                >
-                  {reqs?.roleOk ? <CheckCircle2 className="h-4 w-4" /> : <XCircle className="h-4 w-4 text-rose-400" />}
-                </div>
-                <div className="min-w-0 space-y-0.5">
-                  <p className="text-xs font-extrabold text-foreground flex items-center gap-1.5">
-                    <span>2. Cargo de Membro+</span>
-                    <Badge variant="outline" className={cn("text-[9px] font-mono py-0", levelBadgeClass(level))}>
-                      {getLevelLabel(level)}
-                    </Badge>
-                  </p>
-                  <p className="text-[11px] text-muted-foreground">{reqs?.details.roleMessage}</p>
-                </div>
-              </div>
+                return (
+                  <div
+                    key={item.id}
+                    className={cn(
+                      "p-3.5 rounded-2xl border transition-all flex flex-col justify-between gap-2.5",
+                      isMet
+                        ? "bg-emerald-500/5 border-emerald-500/30"
+                        : item.isRequired
+                        ? "bg-rose-500/5 border-rose-500/25"
+                        : "bg-secondary/20 border-border/60"
+                    )}
+                  >
+                    <div className="flex items-start gap-3">
+                      <div
+                        className={cn(
+                          "h-8 w-8 rounded-xl flex items-center justify-center shrink-0 text-xs font-black",
+                          isMet
+                            ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/40"
+                            : item.isRequired
+                            ? "bg-rose-500/20 text-rose-400 border border-rose-500/40"
+                            : "bg-secondary text-muted-foreground border border-border"
+                        )}
+                      >
+                        {isMet ? (
+                          <CheckCircle2 className="h-4 w-4" />
+                        ) : (
+                          <XCircle className="h-4 w-4 text-rose-400" />
+                        )}
+                      </div>
 
-              {/* 3. PELO MENOS UMA INSÍGNIA */}
-              <div
-                className={cn(
-                  "p-3.5 rounded-2xl border transition-all flex items-start gap-3",
-                  reqs?.insigniasOk
-                    ? "bg-emerald-500/5 border-emerald-500/30"
-                    : "bg-secondary/20 border-border/60"
-                )}
-              >
-                <div
-                  className={cn(
-                    "h-8 w-8 rounded-xl flex items-center justify-center shrink-0 text-xs font-black",
-                    reqs?.insigniasOk
-                      ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/40"
-                      : "bg-secondary text-muted-foreground border border-border"
-                  )}
-                >
-                  {reqs?.insigniasOk ? <CheckCircle2 className="h-4 w-4" /> : <XCircle className="h-4 w-4 text-rose-400" />}
-                </div>
-                <div className="min-w-0 space-y-0.5">
-                  <p className="text-xs font-extrabold text-foreground flex items-center gap-1.5">
-                    <span>3. Condecoração / Insígnia</span>
-                    <Badge variant="outline" className="text-[9px] font-mono py-0">
-                      {reqs?.insigniasCount ?? 0} {reqs?.insigniasCount === 1 ? "insígnia" : "insígnias"}
-                    </Badge>
-                  </p>
-                  <p className="text-[11px] text-muted-foreground">{reqs?.details.insigniasMessage}</p>
-                </div>
-              </div>
+                      <div className="min-w-0 space-y-0.5 flex-1">
+                        <div className="flex items-center justify-between gap-1 flex-wrap">
+                          <p className="text-xs font-extrabold text-foreground flex items-center gap-1.5">
+                            <span>{idx + 1}. {item.title}</span>
+                          </p>
+                          <div className="flex items-center gap-1">
+                            {item.isRequired ? (
+                              <Badge variant="outline" className="text-[9px] font-mono py-0 border-rose-500/30 text-rose-400 bg-rose-500/10">
+                                Obrigatório
+                              </Badge>
+                            ) : (
+                              <Badge variant="outline" className="text-[9px] font-mono py-0 text-muted-foreground">
+                                Opcional
+                              </Badge>
+                            )}
+                            {item.currentValue && (
+                              <Badge variant="outline" className="text-[9px] font-mono py-0">
+                                {item.currentValue}
+                              </Badge>
+                            )}
+                          </div>
+                        </div>
+                        <p className="text-[11px] text-muted-foreground leading-relaxed">
+                          {item.message || item.description}
+                        </p>
+                      </div>
+                    </div>
 
-              {/* 4. PELO MENOS UMA AVALIAÇÃO NA PLATAFORMA */}
-              <div
-                className={cn(
-                  "p-3.5 rounded-2xl border transition-all flex items-start gap-3",
-                  reqs?.evaluationsOk
-                    ? "bg-emerald-500/5 border-emerald-500/30"
-                    : "bg-secondary/20 border-border/60"
-                )}
-              >
-                <div
-                  className={cn(
-                    "h-8 w-8 rounded-xl flex items-center justify-center shrink-0 text-xs font-black",
-                    reqs?.evaluationsOk
-                      ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/40"
-                      : "bg-secondary text-muted-foreground border border-border"
-                  )}
-                >
-                  {reqs?.evaluationsOk ? <CheckCircle2 className="h-4 w-4" /> : <XCircle className="h-4 w-4 text-rose-400" />}
-                </div>
-                <div className="min-w-0 space-y-0.5">
-                  <p className="text-xs font-extrabold text-foreground flex items-center gap-1.5">
-                    <span>4. Avaliação Recebida</span>
-                    <Badge variant="outline" className="text-[9px] font-mono py-0">
-                      {reqs?.evaluationsCount ?? 0} {reqs?.evaluationsCount === 1 ? "avaliação" : "avaliações"}
-                    </Badge>
-                  </p>
-                  <p className="text-[11px] text-muted-foreground">{reqs?.details.evaluationsMessage}</p>
-                </div>
-              </div>
+                    {/* CONFIRMAÇÃO DECLARATÓRIA DE REQUISITO CUSTOMIZADO */}
+                    {isCustom && (
+                      <div className="pt-2 border-t border-border/40 flex items-center gap-2">
+                        <Checkbox
+                          id={`req-check-${item.id}`}
+                          checked={Boolean(customDeclarations[item.id])}
+                          onCheckedChange={(checked) =>
+                            setCustomDeclarations((prev) => ({
+                              ...prev,
+                              [item.id]: Boolean(checked),
+                            }))
+                          }
+                        />
+                        <label
+                          htmlFor={`req-check-${item.id}`}
+                          className="text-[11px] font-medium text-foreground cursor-pointer select-none leading-none"
+                        >
+                          Declaro e confirmo que cumpro este critério
+                        </label>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           )}
         </CardContent>
       </Card>
 
-      {/* FORMULÁRIO DE SOLICITAÇÃO (SE NÃO ESTIVER VERIFICADO, NÃO ESTIVER PENDENTE E POSSUIR PERMISSÃO) */}
-      {!isAlreadyVerified && !isPending && canRequest && (
+      {/* FORMULÁRIO DE SOLICITAÇÃO (SE NÃO ESTIVER VERIFICADO, NÃO ESTIVER PENDENTE, POSSUIR PERMISSÃO E PERMITIR AUTO-SOLICITAÇÃO) */}
+      {!isAlreadyVerified && !isPending && canRequest && allowSelfRequest && (
         <Card className="surface-card">
           <CardHeader className="pb-3 border-b border-border/60">
             <CardTitle className="text-base font-extrabold flex items-center gap-2">
@@ -588,7 +622,7 @@ function SolicitarSeloContent() {
                 <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs flex items-center gap-2">
                   <AlertCircle className="h-4 w-4 shrink-0" />
                   <span>
-                    Você precisa cumprir todos os 4 requisitos acima antes de submeter a solicitação de verificação.
+                    Você precisa cumprir e confirmar todos os requisitos obrigatórios da Diretoria acima antes de submeter a solicitação de verificação.
                   </span>
                 </div>
               )}

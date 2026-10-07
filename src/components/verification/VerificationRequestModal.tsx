@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import {
   Dialog,
   DialogContent,
@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   ShieldCheck,
   BadgeCheck,
@@ -24,6 +25,11 @@ import {
   Send,
   HelpCircle,
   ExternalLink,
+  Info,
+  Phone,
+  Gamepad2,
+  Calendar,
+  MessageSquare,
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
@@ -67,21 +73,46 @@ export function VerificationRequestModal({
 
   const [reason, setReason] = useState("");
   const [documentUrl, setDocumentUrl] = useState("");
+  const [customDeclarations, setCustomDeclarations] = useState<Record<string, boolean>>({});
 
   const canRequest = hasPermission("verification.request");
   const isAlreadyVerified = Boolean(profile?.is_verified);
   const isPending = myRequest?.status === "pendente";
   const isRejected = myRequest?.status === "rejeitado";
 
-  const { data: reqs } = useQuery<VerificationRequirementsEvaluation>({
-    queryKey: ["verification_requirements_status", user?.id, profile?.gamification_level, profile?.stars_count, level],
-    queryFn: () => getMemberVerificationRequirementsStatus(user?.id, profile, level),
+  const { data: reqs, isLoading: loadingReqs } = useQuery<VerificationRequirementsEvaluation>({
+    queryKey: [
+      "verification_requirements_status",
+      user?.id,
+      profile?.gamification_level,
+      profile?.telefone,
+      profile?.game_id,
+      profile?.discord_username,
+      profile?.discord_id,
+      profile?.data_entrada,
+      profile?.created_at,
+      level,
+      config?.requirements_config,
+      config?.allow_self_request,
+    ],
+    queryFn: () => getMemberVerificationRequirementsStatus(user?.id, profile, level, config),
     enabled: Boolean(user?.id) && isModalOpen,
     staleTime: 10 * 1000,
   });
 
-  const meetsAll = Boolean(reqs?.meetsAll);
-  const canSubmit = !isAlreadyVerified && canRequest && meetsAll && reason.trim().length >= 5;
+  const allowSelfRequest = config?.allow_self_request !== false;
+  const requiredItems = useMemo(() => reqs?.items?.filter((i) => i.isRequired) || [], [reqs]);
+  const totalRequired = requiredItems.length;
+
+  const passedRequired = useMemo(() => {
+    return requiredItems.filter((i) => {
+      if (i.category === "custom") return Boolean(customDeclarations[i.id]);
+      return i.isMet;
+    }).length;
+  }, [requiredItems, customDeclarations]);
+
+  const meetsAll = totalRequired === 0 || passedRequired === totalRequired;
+  const canSubmit = !isAlreadyVerified && canRequest && allowSelfRequest && meetsAll && reason.trim().length >= 5;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -91,9 +122,14 @@ export function VerificationRequestModal({
       await submitRequestMutation.mutateAsync({
         reason: reason.trim(),
         document_url: documentUrl.trim() || null,
+        extra_data: {
+          custom_declarations: customDeclarations,
+        },
       });
       setReason("");
       setDocumentUrl("");
+      onOpenChange?.(false);
+      onClose?.();
     } catch {
       // Toast handled by mutation
     }
@@ -216,51 +252,138 @@ export function VerificationRequestModal({
                 </div>
               )}
 
-              {/* OS 4 REQUISITOS MANDATÓRIOS */}
-              <div className="p-3.5 rounded-xl bg-secondary/30 border border-border/50 space-y-2">
+              {/* INSTRUÇÕES DA DIRETORIA */}
+              {config?.requirements_config?.custom_instructions && (
+                <div className="p-3 rounded-xl bg-sky-500/10 border border-sky-500/30 text-xs flex items-start gap-2">
+                  <Info className="h-4 w-4 text-sky-400 shrink-0 mt-0.5" />
+                  <div className="space-y-0.5">
+                    <span className="text-[10px] uppercase font-bold text-sky-400 block tracking-wider">
+                      Instruções da Diretoria
+                    </span>
+                    <p className="text-[11px] text-muted-foreground leading-relaxed">
+                      {config.requirements_config.custom_instructions}
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {/* AVISO SE AUTO-SOLICITAÇÃO ESTIVER DESATIVADA */}
+              {!allowSelfRequest && (
+                <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-300 space-y-1">
+                  <div className="flex items-center gap-1.5 font-bold">
+                    <AlertCircle className="h-4 w-4" />
+                    <span>Auto-solicitação desativada</span>
+                  </div>
+                  <p className="text-[11px] text-amber-200/80">
+                    Novas solicitações de verificação foram temporariamente suspensas pela Diretoria Executiva. As concessões estão ocorrendo diretamente pela liderança.
+                  </p>
+                </div>
+              )}
+
+              {/* REQUISITOS SINCRONIZADOS DA DIRETORIA */}
+              <div className="p-3.5 rounded-xl bg-secondary/30 border border-border/50 space-y-2.5">
                 <div className="flex items-center justify-between">
                   <p className="text-xs font-bold text-foreground flex items-center gap-1.5">
                     <ShieldCheck className="h-4 w-4 text-sky-400" />
-                    <span>4 Requisitos Obrigatórios</span>
+                    <span>Requisitos Oficiais da Diretoria</span>
                   </p>
-                  <Badge variant="outline" className={cn("text-[9px] font-mono py-0", meetsAll ? "border-emerald-500/40 text-emerald-400" : "border-amber-500/40 text-amber-400")}>
-                    {meetsAll ? "Todos Cumpridos" : "Requisitos Pendentes"}
+                  <Badge
+                    variant="outline"
+                    className={cn(
+                      "text-[9px] font-mono py-0",
+                      meetsAll
+                        ? "border-emerald-500/40 text-emerald-400 bg-emerald-500/10"
+                        : "border-amber-500/40 text-amber-400 bg-amber-500/10"
+                    )}
+                  >
+                    {totalRequired > 0
+                      ? `${passedRequired}/${totalRequired} Cumpridos`
+                      : "Sem Requisitos"}
                   </Badge>
                 </div>
 
-                <div className="space-y-2 pt-1 text-xs">
-                  <div className="flex items-center justify-between">
-                    <span className="text-muted-foreground">1. Nível do Membro 3+:</span>
-                    <span className={cn("font-bold flex items-center gap-1", reqs?.levelOk ? "text-emerald-400" : "text-rose-400")}>
-                      {reqs?.levelOk ? <CheckCircle2 className="h-3 w-3" /> : <XCircle className="h-3 w-3" />}
-                      Nível {reqs?.currentLevel ?? 1}
-                    </span>
+                {loadingReqs ? (
+                  <div className="py-4 flex items-center justify-center gap-2 text-muted-foreground">
+                    <Loader2 className="h-3.5 w-3.5 animate-spin text-sky-400" />
+                    <span className="text-[11px]">Sincronizando requisitos...</span>
                   </div>
+                ) : !reqs?.items || reqs.items.length === 0 ? (
+                  <p className="text-[11px] text-muted-foreground">
+                    Nenhum requisito configurado pela Diretoria.
+                  </p>
+                ) : (
+                  <div className="space-y-2 pt-1 text-xs">
+                    {reqs.items.map((item) => {
+                      const isCustom = item.category === "custom";
+                      const isMet = isCustom ? Boolean(customDeclarations[item.id]) : item.isMet;
 
-                  <div className="flex items-center justify-between">
-                    <span className="text-muted-foreground">2. Cargo de Membro+:</span>
-                    <span className={cn("font-bold flex items-center gap-1", reqs?.roleOk ? "text-emerald-400" : "text-rose-400")}>
-                      {reqs?.roleOk ? <CheckCircle2 className="h-3 w-3" /> : <XCircle className="h-3 w-3" />}
-                      {getLevelLabel(level)}
-                    </span>
+                      return (
+                        <div
+                          key={item.id}
+                          className={cn(
+                            "p-2 rounded-lg border flex flex-col gap-1.5 transition-all",
+                            isMet
+                              ? "bg-emerald-500/5 border-emerald-500/25"
+                              : item.isRequired
+                              ? "bg-rose-500/5 border-rose-500/20"
+                              : "bg-secondary/20 border-border/40"
+                          )}
+                        >
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="text-foreground font-medium flex items-center gap-1.5 min-w-0">
+                              <span className="truncate">{item.title}</span>
+                              {item.isRequired ? (
+                                <Badge variant="outline" className="text-[8px] py-0 px-1 border-rose-500/30 text-rose-400">
+                                  Obrigatório
+                                </Badge>
+                              ) : (
+                                <Badge variant="outline" className="text-[8px] py-0 px-1 text-muted-foreground">
+                                  Opcional
+                                </Badge>
+                              )}
+                            </span>
+                            <span
+                              className={cn(
+                                "font-bold flex items-center gap-1 shrink-0 text-[11px]",
+                                isMet ? "text-emerald-400" : "text-rose-400"
+                              )}
+                            >
+                              {isMet ? (
+                                <CheckCircle2 className="h-3.5 w-3.5" />
+                              ) : (
+                                <XCircle className="h-3.5 w-3.5" />
+                              )}
+                              {item.currentValue || (isMet ? "Atendido" : "Pendente")}
+                            </span>
+                          </div>
+                          <p className="text-[10px] text-muted-foreground leading-tight">
+                            {item.message || item.description}
+                          </p>
+                          {isCustom && (
+                            <div className="pt-1.5 border-t border-border/30 flex items-center gap-2">
+                              <Checkbox
+                                id={`modal-decl-${item.id}`}
+                                checked={Boolean(customDeclarations[item.id])}
+                                onCheckedChange={(checked) =>
+                                  setCustomDeclarations((prev) => ({
+                                    ...prev,
+                                    [item.id]: Boolean(checked),
+                                  }))
+                                }
+                              />
+                              <label
+                                htmlFor={`modal-decl-${item.id}`}
+                                className="text-[10px] text-foreground cursor-pointer select-none leading-none"
+                              >
+                                Declaro que cumpro este requisito
+                              </label>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
-
-                  <div className="flex items-center justify-between">
-                    <span className="text-muted-foreground">3. Pelo menos 1 Condecoração:</span>
-                    <span className={cn("font-bold flex items-center gap-1", reqs?.insigniasOk ? "text-emerald-400" : "text-rose-400")}>
-                      {reqs?.insigniasOk ? <CheckCircle2 className="h-3 w-3" /> : <XCircle className="h-3 w-3" />}
-                      {reqs?.insigniasCount ?? 0} condecorações
-                    </span>
-                  </div>
-
-                  <div className="flex items-center justify-between">
-                    <span className="text-muted-foreground">4. Pelo menos 1 Avaliação:</span>
-                    <span className={cn("font-bold flex items-center gap-1", reqs?.evaluationsOk ? "text-emerald-400" : "text-rose-400")}>
-                      {reqs?.evaluationsOk ? <CheckCircle2 className="h-3 w-3" /> : <XCircle className="h-3 w-3" />}
-                      {reqs?.evaluationsCount ?? 0} avaliações
-                    </span>
-                  </div>
-                </div>
+                )}
               </div>
 
               {/* FORMULÁRIO CURTO */}
