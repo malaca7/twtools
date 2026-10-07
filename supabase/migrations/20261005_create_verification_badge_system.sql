@@ -141,7 +141,12 @@ DECLARE
   v_user_role TEXT := '';
   v_config RECORD;
   v_has_tag BOOLEAN := false;
+  v_has_perm BOOLEAN := false;
 BEGIN
+  IF p_user_id IS NULL THEN
+    RETURN false;
+  END IF;
+
   -- 1. Verifica se é Dev ou CEO
   SELECT is_developer, is_ceo INTO v_is_dev, v_is_ceo FROM public.profiles WHERE user_id = p_user_id;
   IF v_is_dev = true OR v_is_ceo = true THEN
@@ -154,15 +159,26 @@ BEGIN
     v_user_role := 'membro';
   END IF;
 
-  -- 3. Carrega configurações de autorização
-  SELECT * INTO v_config FROM public.verification_badge_config WHERE id = 'default';
+  -- 3. Verifica se o cargo possui permissões de selo em role_permissions
+  SELECT EXISTS (
+    SELECT 1 FROM public.role_permissions
+    WHERE level = v_user_role
+      AND permissions && ARRAY['verification.manage', 'verification.grant_direct', 'verification.review', 'verification.config', 'verification.revoke']::text[]
+  ) INTO v_has_perm;
 
-  IF v_config.authorized_roles IS NOT NULL AND v_user_role = ANY(v_config.authorized_roles) THEN
+  IF v_has_perm THEN
     RETURN true;
   END IF;
 
-  -- 4. Verifica se possui alguma tag autorizada
-  IF v_config.authorized_tags IS NOT NULL AND array_length(v_config.authorized_tags, 1) > 0 THEN
+  -- 4. Carrega configurações de autorização
+  SELECT * INTO v_config FROM public.verification_badge_config WHERE id = 'default';
+
+  IF v_config IS NOT NULL AND v_config.authorized_roles IS NOT NULL AND v_user_role = ANY(v_config.authorized_roles) THEN
+    RETURN true;
+  END IF;
+
+  -- 5. Verifica se possui alguma tag autorizada
+  IF v_config IS NOT NULL AND v_config.authorized_tags IS NOT NULL AND array_length(v_config.authorized_tags, 1) > 0 THEN
     SELECT EXISTS (
       SELECT 1 FROM public.member_tag_assignments
       WHERE member_id = p_user_id::text
@@ -438,6 +454,11 @@ BEGIN
     RAISE EXCEPTION 'Você não possui permissão para conceder selos de verificação.';
   END IF;
 
+  IF p_target_user_id IS NULL THEN
+    RAISE EXCEPTION 'Membro não informado.';
+  END IF;
+
+  -- 1. Insere ou atualiza o selo ativo do membro
   INSERT INTO public.member_verifications (
     user_id,
     is_verified,
@@ -463,14 +484,25 @@ BEGIN
       verified_by = v_auth_uid,
       custom_title = COALESCE(p_custom_title, member_verifications.custom_title),
       badge_color_override = COALESCE(p_badge_color, member_verifications.badge_color_override),
-      notes = p_notes,
+      notes = COALESCE(p_notes, member_verifications.notes),
       updated_at = now();
 
+  -- 2. Atualiza o perfil do membro
   UPDATE public.profiles
   SET is_verified = true,
       updated_at = now()
   WHERE user_id = p_target_user_id;
 
+  -- 3. Atualiza eventuais solicitações pendentes do membro para aprovado
+  UPDATE public.verification_requests
+  SET status = 'aprovado',
+      reviewed_by = v_auth_uid,
+      reviewed_at = now(),
+      review_notes = COALESCE(p_notes, 'Aprovado via Concessão Direta'),
+      updated_at = now()
+  WHERE user_id = p_target_user_id AND status = 'pendente';
+
+  -- 4. Registra log de auditoria
   INSERT INTO public.verification_audit_logs (
     action,
     target_user_id,
@@ -480,7 +512,7 @@ BEGIN
     'selo_concedido_direto',
     p_target_user_id,
     v_auth_uid,
-    jsonb_build_object('custom_title', p_custom_title, 'notes', p_notes)
+    jsonb_build_object('custom_title', p_custom_title, 'badge_color', p_badge_color, 'notes', p_notes)
   );
 
   RETURN jsonb_build_object('success', true);

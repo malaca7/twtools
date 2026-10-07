@@ -235,16 +235,22 @@ export function CeoSelosPage() {
   const unverifiedMembers = useMemo(() => {
     const verifiedUserIds = new Set(activeVerifications.map((v) => v.user_id));
     return members.filter((m) => {
-      if (verifiedUserIds.has(m.user_id)) return false;
+      if (verifiedUserIds.has(m.user_id) || (m as any).is_verified) return false;
+      if (m.user_id === directTargetUserId) return true;
       if (!directSearch) return true;
       const q = directSearch.toLowerCase();
       return (
-        m.nome.toLowerCase().includes(q) ||
+        (m.nome || "").toLowerCase().includes(q) ||
         (m.nickname || "").toLowerCase().includes(q) ||
-        (m.game_id || "").includes(q)
+        (m.game_id || "").toLowerCase().includes(q) ||
+        ((m as any).discord_username || "").toLowerCase().includes(q)
       );
     });
-  }, [members, activeVerifications, directSearch]);
+  }, [members, activeVerifications, directSearch, directTargetUserId]);
+
+  const selectedDirectMember = useMemo(() => {
+    return members.find((m) => m.user_id === directTargetUserId);
+  }, [members, directTargetUserId]);
 
   // Salvar Configurações Gerais
   const handleSaveConfig = async () => {
@@ -555,37 +561,58 @@ export function CeoSelosPage() {
                       </div>
 
                       {/* BOTÕES DE AÇÃO */}
-                      {canReview && (
-                        <div className="flex items-center gap-2 pt-2 border-t border-border/40">
-                          <Button
-                            type="button"
-                            size="sm"
-                            onClick={() => {
-                              setSelectedRequest(req);
-                              setReviewAction("approve");
-                              setCustomTitle("Verificado Oficial");
-                              setReviewNotes("");
-                            }}
-                            className="flex-1 h-8 text-xs font-bold rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5"
-                          >
-                            <Check className="h-3.5 w-3.5" />
-                            <span>Aprovar</span>
-                          </Button>
+                      {(canReview || canGrant) && (
+                        <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-border/40">
+                          {canReview && (
+                            <Button
+                              type="button"
+                              size="sm"
+                              onClick={() => {
+                                setSelectedRequest(req);
+                                setReviewAction("approve");
+                                setCustomTitle("Verificado Oficial");
+                                setReviewNotes("");
+                              }}
+                              className="flex-1 h-8 text-xs font-bold rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5"
+                            >
+                              <Check className="h-3.5 w-3.5" />
+                              <span>Aprovar</span>
+                            </Button>
+                          )}
 
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            onClick={() => {
-                              setSelectedRequest(req);
-                              setReviewAction("reject");
-                              setReviewNotes("");
-                            }}
-                            className="flex-1 h-8 text-xs font-semibold rounded-xl border-rose-500/30 text-rose-400 hover:bg-rose-500/10 gap-1.5"
-                          >
-                            <X className="h-3.5 w-3.5" />
-                            <span>Rejeitar</span>
-                          </Button>
+                          {canGrant && (
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              onClick={() => {
+                                setDirectTargetUserId(req.user_id);
+                                setIsDirectModalOpen(true);
+                              }}
+                              className="h-8 text-xs font-bold rounded-xl border-sky-500/40 text-sky-400 hover:bg-sky-500/10 gap-1.5"
+                              title="Conceder Selo Direto a este membro"
+                            >
+                              <UserPlus className="h-3.5 w-3.5" />
+                              <span>Direto</span>
+                            </Button>
+                          )}
+
+                          {canReview && (
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                setSelectedRequest(req);
+                                setReviewAction("reject");
+                                setReviewNotes("");
+                              }}
+                              className="flex-1 h-8 text-xs font-semibold rounded-xl border-rose-500/30 text-rose-400 hover:bg-rose-500/10 gap-1.5"
+                            >
+                              <X className="h-3.5 w-3.5" />
+                              <span>Rejeitar</span>
+                            </Button>
+                          )}
                         </div>
                       )}
                     </div>
@@ -1203,33 +1230,48 @@ export function CeoSelosPage() {
       </Dialog>
 
       {/* DIALOG DE CONCESSÃO DIRETA DE SELO */}
-      <Dialog open={isDirectModalOpen} onOpenChange={setIsDirectModalOpen}>
-        <DialogContent className="sm:max-w-md surface-card border-border/80 shadow-2xl">
+      <Dialog
+        open={isDirectModalOpen}
+        onOpenChange={(open) => {
+          setIsDirectModalOpen(open);
+          if (!open) {
+            setDirectSearch("");
+            setDirectNotes("");
+            setDirectColor("");
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-lg surface-card border-border/80 shadow-2xl">
           <DialogHeader>
             <DialogTitle className="text-base font-bold flex items-center gap-2">
               <UserPlus className="h-5 w-5 text-sky-400" />
               <span>Conceder Selo de Verificado Direto</span>
             </DialogTitle>
             <DialogDescription className="text-xs">
-              Conceda o selo imediatamente a qualquer integrante sem necessidade de formulário prévio.
+              Conceda o selo de verificação imediatamente a qualquer integrante sem necessidade de solicitação prévia.
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-3 py-2 text-xs">
+          <div className="space-y-4 py-2 text-xs">
+            {/* SELEÇÃO DO MEMBRO */}
             <div className="space-y-1.5">
               <Label className="text-xs font-semibold">Selecione o Membro</Label>
-              <Input
-                placeholder="Filtrar membro por nome ou ID..."
-                value={directSearch}
-                onChange={(e) => setDirectSearch(e.target.value)}
-                className="h-8 text-xs rounded-xl mb-1.5"
-              />
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                <Input
+                  placeholder="Filtrar por nome, apelido, ID # ou discord..."
+                  value={directSearch}
+                  onChange={(e) => setDirectSearch(e.target.value)}
+                  className="pl-8 h-8 text-xs rounded-xl mb-1.5"
+                />
+              </div>
+
               <select
                 value={directTargetUserId}
                 onChange={(e) => setDirectTargetUserId(e.target.value)}
-                className="h-9 w-full rounded-xl border border-input bg-background px-3 text-xs font-semibold cursor-pointer shadow-xs"
+                className="h-9 w-full rounded-xl border border-input bg-background px-3 text-xs font-semibold cursor-pointer shadow-xs focus:ring-2 focus:ring-sky-500/30"
               >
-                <option value="">Selecione um integrante...</option>
+                <option value="">Selecione um integrante ({unverifiedMembers.length} disponíveis)...</option>
                 {unverifiedMembers.map((m) => (
                   <option key={m.user_id} value={m.user_id}>
                     {m.nome} {m.nickname ? `(${m.nickname})` : ""} — ID #{m.game_id || "N/A"}
@@ -1238,22 +1280,108 @@ export function CeoSelosPage() {
               </select>
             </div>
 
+            {/* CARD DO MEMBRO SELECIONADO & PREVIEW DO SELO */}
+            {selectedDirectMember ? (
+              <div className="p-3 rounded-2xl bg-sky-500/10 border border-sky-500/20 space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2.5">
+                    <Avatar className="h-10 w-10 border border-sky-500/30 shadow-xs">
+                      <AvatarImage src={(selectedDirectMember as any).discord_avatar_url || selectedDirectMember.avatar_url || ""} />
+                      <AvatarFallback className="font-bold text-xs">
+                        {(selectedDirectMember.nickname || selectedDirectMember.nome || "MB").slice(0, 2).toUpperCase()}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div>
+                      <div className="flex items-center gap-1.5">
+                        <span className="font-extrabold text-sm text-foreground">
+                          {selectedDirectMember.nickname ? `${selectedDirectMember.nickname} (${selectedDirectMember.nome})` : selectedDirectMember.nome}
+                        </span>
+                        <VerifiedBadge
+                          preview
+                          size="sm"
+                          iconName={formIcon}
+                          color={directColor || formColor}
+                          glowStyle={formGlow}
+                          tooltip={directCustomTitle || formTooltip}
+                        />
+                      </div>
+                      <p className="text-[11px] text-muted-foreground flex items-center gap-2 mt-0.5">
+                        {selectedDirectMember.game_id && <span className="font-mono font-bold text-sky-300">ID: #{selectedDirectMember.game_id}</span>}
+                        {(selectedDirectMember as any).discord_username && <span className="font-mono text-indigo-400">@{(selectedDirectMember as any).discord_username}</span>}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between text-[11px] pt-2 border-t border-sky-500/20 text-muted-foreground">
+                  <span>Visualização Oficial:</span>
+                  <Badge
+                    variant="outline"
+                    className="text-[10px] font-bold px-2 py-0.5 rounded-lg border-sky-500/40 text-sky-300 bg-sky-500/20 gap-1"
+                    style={directColor ? { borderColor: `${directColor}60`, color: directColor, backgroundColor: `${directColor}20` } : {}}
+                  >
+                    <VerifiedBadge
+                      preview
+                      size="xs"
+                      iconName={formIcon}
+                      color={directColor || formColor}
+                      glowStyle={formGlow}
+                      noTooltip
+                    />
+                    <span>{directCustomTitle.trim() || formName || "Verificado Oficial"}</span>
+                  </Badge>
+                </div>
+              </div>
+            ) : (
+              <div className="p-3 rounded-2xl bg-secondary/30 border border-border/50 text-center text-muted-foreground text-xs">
+                Selecione um integrante da lista acima para pré-visualizar a concessão do selo.
+              </div>
+            )}
+
+            {/* TÍTULO PERSONALIZADO */}
             <div className="space-y-1.5">
-              <Label className="text-xs font-semibold">Título Personalizado (Opcional)</Label>
+              <Label className="text-xs font-semibold">Título Personalizado do Selo</Label>
               <Input
                 value={directCustomTitle}
                 onChange={(e) => setDirectCustomTitle(e.target.value)}
-                placeholder="Ex: Verificado Oficial / Parceiro"
+                placeholder="Ex: Verificado Oficial / Líder / Parceiro"
                 className="h-8 text-xs rounded-xl"
               />
             </div>
 
+            {/* COR PERSONALIZADA / PALETA */}
+            <div className="space-y-2">
+              <Label className="text-xs font-semibold">Cor de Destaque do Selo</Label>
+              <div className="flex flex-wrap gap-1.5">
+                {PRESET_COLORS.map((preset) => (
+                  <button
+                    key={preset.color}
+                    type="button"
+                    onClick={() => setDirectColor(preset.color)}
+                    className={cn(
+                      "px-2.5 py-1 rounded-lg text-[11px] font-bold border flex items-center gap-1.5 transition-all",
+                      directColor === preset.color || (!directColor && preset.color === formColor)
+                        ? "border-white bg-white/10 shadow-sm scale-105"
+                        : "border-border/60 bg-secondary/20 hover:border-border"
+                    )}
+                  >
+                    <span
+                      className="h-2.5 w-2.5 rounded-full inline-block border border-white/20"
+                      style={{ backgroundColor: preset.color }}
+                    />
+                    <span>{preset.label}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* JUSTIFICATIVA / NOTAS */}
             <div className="space-y-1.5">
-              <Label className="text-xs font-semibold">Justificativa / Motivo</Label>
+              <Label className="text-xs font-semibold">Justificativa / Motivo da Concessão</Label>
               <Input
                 value={directNotes}
                 onChange={(e) => setDirectNotes(e.target.value)}
-                placeholder="Ex: Concessão direta pela liderança / Cargo de confiança"
+                placeholder="Ex: Concessão direta pela liderança / Membro oficial de confiança"
                 className="h-8 text-xs rounded-xl"
               />
             </div>
@@ -1274,9 +1402,19 @@ export function CeoSelosPage() {
               size="sm"
               onClick={handleConfirmDirect}
               disabled={!directTargetUserId || grantDirectMutation.isPending}
-              className="text-xs rounded-xl font-bold bg-sky-500 hover:bg-sky-600 text-white"
+              className="text-xs rounded-xl font-bold bg-sky-500 hover:bg-sky-600 text-white gap-1.5 shadow-md shadow-sky-500/20"
             >
-              {grantDirectMutation.isPending ? "Concedendo..." : "Conceder Selo"}
+              {grantDirectMutation.isPending ? (
+                <>
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  <span>Concedendo...</span>
+                </>
+              ) : (
+                <>
+                  <UserPlus className="h-3.5 w-3.5" />
+                  <span>Conceder Selo Direto</span>
+                </>
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>
