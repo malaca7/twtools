@@ -682,6 +682,16 @@ export const DEV_PANEL_PERMISSIONS: Permission[] = [
   "estoque.adicionar",
   "estoque.remover",
   "estoque.corrigir",
+  "verification.manage",
+  "verification.review",
+  "verification.grant_direct",
+  "verification.revoke",
+  "verification.config",
+  "verification.requirements",
+  "verification.audit",
+  "verification.view_page",
+  "verification.request",
+  "verification.cancel_own",
 ];
 
 export const CEO_PERMISSIONS: Permission[] = [

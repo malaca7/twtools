@@ -705,6 +705,7 @@ export const DEFAULT_CEO_PERMISSIONS: string[] = [
   "verification.grant_direct",
   "verification.revoke",
   "verification.config",
+  "verification.requirements",
   "verification.audit",
   "view_warnings",
   "view_all_warnings",
