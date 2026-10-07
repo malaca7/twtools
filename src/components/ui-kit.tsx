@@ -7,12 +7,14 @@ export function PageHeader({
   title,
   description,
   actions,
+  action,
   icon,
   children,
 }: {
   title: string;
   description?: string;
   actions?: ReactNode;
+  action?: ReactNode;
   icon?: ReactNode | React.ComponentType<{ className?: string }>;
   children?: ReactNode;
 }) {
@@ -40,6 +42,8 @@ export function PageHeader({
     return null;
   };
 
+  const headerActions = actions ?? action;
+
   return (
     <div className="mb-4 sm:mb-6 flex flex-col gap-2.5 sm:flex-row sm:items-end sm:justify-between">
       <div className="flex items-start gap-3">
@@ -57,7 +61,7 @@ export function PageHeader({
           ) : null}
         </div>
       </div>
-      {actions ? <div className="flex flex-wrap gap-2 pt-1 sm:pt-0">{actions}</div> : null}
+      {headerActions ? <div className="flex flex-wrap gap-2 pt-1 sm:pt-0">{headerActions}</div> : null}
       {children}
     </div>
   );

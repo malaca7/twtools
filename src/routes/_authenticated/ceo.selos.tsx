@@ -397,13 +397,15 @@ export function CeoSelosPage() {
       <PageHeader
         title="Gerenciar Selos (Central CEO)"
         description="Painel da Diretoria — Controle executivo do Selo de Verificado da Twin Wheels, aprovação de solicitações, concessões, revogações, requisitos e auditoria."
-        action={
+        actions={
           canGrant ? (
             <Button
               type="button"
-              size="sm"
-              onClick={() => setIsDirectModalOpen(true)}
-              className="h-8 text-xs rounded-xl font-bold bg-sky-500 hover:bg-sky-600 text-white gap-1.5 shadow-lg shadow-sky-500/20"
+              onClick={() => {
+                setDirectTargetUserId("");
+                setIsDirectModalOpen(true);
+              }}
+              className="h-9 px-4 text-xs rounded-xl font-extrabold bg-sky-500 hover:bg-sky-600 text-white gap-2 shadow-lg shadow-sky-500/25 transition-all hover:scale-[1.02] cursor-pointer"
             >
               <UserPlus className="h-4 w-4" />
               <span>Conceder Selo Direto</span>
@@ -597,58 +599,37 @@ export function CeoSelosPage() {
                       </div>
 
                       {/* BOTÕES DE AÇÃO */}
-                      {(canReview || canGrant) && (
-                        <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-border/40">
-                          {canReview && (
-                            <Button
-                              type="button"
-                              size="sm"
-                              onClick={() => {
-                                setSelectedRequest(req);
-                                setReviewAction("approve");
-                                setCustomTitle("Verificado Oficial");
-                                setReviewNotes("");
-                              }}
-                              className="flex-1 h-8 text-xs font-bold rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5"
-                            >
-                              <Check className="h-3.5 w-3.5" />
-                              <span>Aprovar</span>
-                            </Button>
-                          )}
+                      {canReview && (
+                        <div className="flex items-center gap-2 pt-2 border-t border-border/40">
+                          <Button
+                            type="button"
+                            size="sm"
+                            onClick={() => {
+                              setSelectedRequest(req);
+                              setReviewAction("approve");
+                              setCustomTitle("Verificado Oficial");
+                              setReviewNotes("");
+                            }}
+                            className="flex-1 h-8 text-xs font-bold rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5 cursor-pointer shadow-xs"
+                          >
+                            <Check className="h-3.5 w-3.5" />
+                            <span>Aprovar</span>
+                          </Button>
 
-                          {canGrant && (
-                            <Button
-                              type="button"
-                              size="sm"
-                              variant="outline"
-                              onClick={() => {
-                                setDirectTargetUserId(req.user_id);
-                                setIsDirectModalOpen(true);
-                              }}
-                              className="h-8 text-xs font-bold rounded-xl border-sky-500/40 text-sky-400 hover:bg-sky-500/10 gap-1.5"
-                              title="Conceder Selo Direto a este membro"
-                            >
-                              <UserPlus className="h-3.5 w-3.5" />
-                              <span>Direto</span>
-                            </Button>
-                          )}
-
-                          {canReview && (
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              onClick={() => {
-                                setSelectedRequest(req);
-                                setReviewAction("reject");
-                                setReviewNotes("");
-                              }}
-                              className="flex-1 h-8 text-xs font-semibold rounded-xl border-rose-500/30 text-rose-400 hover:bg-rose-500/10 gap-1.5"
-                            >
-                              <X className="h-3.5 w-3.5" />
-                              <span>Rejeitar</span>
-                            </Button>
-                          )}
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              setSelectedRequest(req);
+                              setReviewAction("reject");
+                              setReviewNotes("");
+                            }}
+                            className="flex-1 h-8 text-xs font-semibold rounded-xl border-rose-500/30 text-rose-400 hover:bg-rose-500/10 gap-1.5 cursor-pointer"
+                          >
+                            <X className="h-3.5 w-3.5" />
+                            <span>Rejeitar</span>
+                          </Button>
                         </div>
                       )}
                     </div>
@@ -674,14 +655,30 @@ export function CeoSelosPage() {
                   </CardDescription>
                 </div>
 
-                <div className="relative w-full sm:w-64">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-                  <Input
-                    placeholder="Buscar por nome, ID..."
-                    value={memberSearch}
-                    onChange={(e) => setMemberSearch(e.target.value)}
-                    className="pl-8 h-8 text-xs rounded-xl"
-                  />
+                <div className="flex items-center gap-2 w-full sm:w-auto">
+                  <div className="relative w-full sm:w-64">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                    <Input
+                      placeholder="Buscar por nome, ID..."
+                      value={memberSearch}
+                      onChange={(e) => setMemberSearch(e.target.value)}
+                      className="pl-8 h-8 text-xs rounded-xl"
+                    />
+                  </div>
+                  {canGrant && (
+                    <Button
+                      type="button"
+                      size="sm"
+                      onClick={() => {
+                        setDirectTargetUserId("");
+                        setIsDirectModalOpen(true);
+                      }}
+                      className="h-8 text-xs font-bold rounded-xl bg-sky-500 hover:bg-sky-600 text-white gap-1.5 shadow-sm shadow-sky-500/20 shrink-0 cursor-pointer hidden md:flex"
+                    >
+                      <UserPlus className="h-3.5 w-3.5" />
+                      <span>Conceder Selo Direto</span>
+                    </Button>
+                  )}
                 </div>
               </div>
             </CardHeader>
@@ -692,7 +689,7 @@ export function CeoSelosPage() {
               ) : filteredVerifications.length === 0 ? (
                 <EmptyState
                   title="Nenhum membro verificado encontrado"
-                  description="Use o botão 'Conceder Selo Direto' ou aprove solicitações pendentes."
+                  description="Use o botão 'Conceder Selo Direto' no topo da página ou aprove solicitações pendentes."
                 />
               ) : (
                 <div className="overflow-x-auto rounded-xl border border-border/60 bg-card/60">
