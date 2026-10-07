@@ -53,7 +53,7 @@ export const Route = createFileRoute("/_authenticated/solicitar-selo")({
 
 function SolicitarSeloPageWrapper() {
   const { hasPermission } = useAuth();
-  if (!hasPermission("verification.view_page") && !hasPermission("verification.request")) {
+  if (!hasPermission("verification.view_page")) {
     return <NoAccess />;
   }
   return <SolicitarSeloContent />;

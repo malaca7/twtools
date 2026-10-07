@@ -1304,31 +1304,9 @@ export function satisfiesPermission(
     }
   }
 
-  // 2.2. Sistema de Selo de Verificação (Isolamento Estrito por Módulo e Página)
-  // Módulo: Gerenciar Selos (CEO) -> Apenas para /ceo/selos
-  if (
-    list.includes("verification.manage") ||
-    list.includes("verification.review") ||
-    list.includes("verification.grant_direct") ||
-    list.includes("verification.revoke") ||
-    list.includes("verification.config") ||
-    list.includes("verification.audit")
-  ) {
-    if (permission === "verification.manage") {
-      return true;
-    }
-  }
-
-  // Módulo: Solicitar Verificação -> Apenas para /solicitar-selo
-  if (
-    list.includes("verification.view_page") ||
-    list.includes("verification.request") ||
-    list.includes("verification.cancel_own")
-  ) {
-    if (permission === "verification.view_page") {
-      return true;
-    }
-  }
+  // 2.2. Sistema de Selo de Verificação: Cada permissão é estritamente individual.
+  // Visualizar Página de Solicitação (/solicitar-selo) exige estritamente "verification.view_page".
+  // Acesso ao Módulo de Selos CEO (/ceo/selos) exige estritamente "verification.manage".
 
   if (
     (list.includes("view_all_warnings") ||
@@ -2269,31 +2247,9 @@ export function can(
     }
   }
 
-  // Herança e equivalências de Selos de Verificação (Isolamento Estrito por Módulo e Página)
-  // Módulo: Gerenciar Selos (CEO) -> Apenas para /ceo/selos
-  if (
-    rolePerms.includes("verification.manage") ||
-    rolePerms.includes("verification.review") ||
-    rolePerms.includes("verification.grant_direct") ||
-    rolePerms.includes("verification.revoke") ||
-    rolePerms.includes("verification.config") ||
-    rolePerms.includes("verification.audit")
-  ) {
-    if (permission === "verification.manage") {
-      return true;
-    }
-  }
-
-  // Módulo: Solicitar Verificação -> Apenas para /solicitar-selo
-  if (
-    rolePerms.includes("verification.view_page") ||
-    rolePerms.includes("verification.request") ||
-    rolePerms.includes("verification.cancel_own")
-  ) {
-    if (permission === "verification.view_page") {
-      return true;
-    }
-  }
+  // Herança e equivalências de Selos de Verificação: Cada permissão é estritamente individual.
+  // Visualizar Página de Solicitação (/solicitar-selo) exige estritamente "verification.view_page".
+  // Acesso ao Módulo de Selos CEO (/ceo/selos) exige estritamente "verification.manage".
 
   if (
     (rolePerms.includes("view_all_warnings") ||

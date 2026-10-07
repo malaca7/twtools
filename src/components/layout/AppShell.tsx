@@ -668,11 +668,7 @@ function DynamicSidebarNavigation() {
             if (item.id === "ceo-notificacoes" && !hasPermission("view_ceo_notifications", targetRole)) return false;
             if (item.id === "ceo-tags" && !hasPermission("view_ceo_tag_permissions", targetRole)) return false;
             if (item.id === "ceo-selos" || item.url === "/ceo/selos") {
-              if (
-                !hasPermission("verification.manage", targetRole) &&
-                !hasPermission("verification.view_page", targetRole) &&
-                !hasPermission("verification.review", targetRole)
-              ) {
+              if (!hasPermission("verification.manage", targetRole)) {
                 return false;
               }
               return true;
@@ -807,8 +803,8 @@ function DynamicSidebarNavigation() {
         if (item.url.startsWith("/dev") || item.url.startsWith("/ceo")) return false;
         if (!item.visible) return false;
         if (item.id === "solicitar-selo" || item.url === "/solicitar-selo") {
-          const hasDevPerm = hasPermission("verification.view_page", "dev") || hasPermission("verification.request", "dev");
-          const hasCeoPerm = isCeoUser && (hasPermission("verification.view_page", "ceo") || hasPermission("verification.request", "ceo"));
+          const hasDevPerm = hasPermission("verification.view_page", "dev");
+          const hasCeoPerm = isCeoUser && hasPermission("verification.view_page", "ceo");
           if (!hasDevPerm && !hasCeoPerm) return false;
           return true;
         }
@@ -856,7 +852,7 @@ function DynamicSidebarNavigation() {
         if (item.url.startsWith("/dev") || item.url.startsWith("/ceo")) return false;
         if (!item.visible) return false;
         if (item.id === "solicitar-selo" || item.url === "/solicitar-selo") {
-          if (!hasPermission("verification.view_page", "ceo") && !hasPermission("verification.request", "ceo")) {
+          if (!hasPermission("verification.view_page", "ceo")) {
             return false;
           }
           return true;
@@ -902,7 +898,7 @@ function DynamicSidebarNavigation() {
       if (!item.visible) return false;
       // 3. Verifica estritamente a permissão exigida pelo item do menu (respeitando bloqueios de tag e cargo)
       if (item.id === "solicitar-selo" || item.url === "/solicitar-selo") {
-        if (!hasPermission("verification.view_page", "member") && !hasPermission("verification.request", "member")) {
+        if (!hasPermission("verification.view_page", "member")) {
           return false;
         }
         return true;
