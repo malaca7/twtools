@@ -58,6 +58,7 @@ import {
   type TwCoinsConfig,
 } from "@/services/gamificationService";
 import { cn } from "@/lib/utils";
+import { formatXp } from "@/lib/format";
 
 export function DevCoinsManager() {
   const queryClient = useQueryClient();
@@ -428,7 +429,7 @@ export function DevCoinsManager() {
                             </td>
 
                             <td className="p-3.5 font-mono font-bold text-violet-300">
-                              {xp.toLocaleString("pt-BR")} XP
+                              {formatXp(xp)} XP
                             </td>
 
                             <td className="p-3.5 font-mono font-black text-amber-300 text-sm">
@@ -883,7 +884,7 @@ export function DevCoinsManager() {
                             <div className="flex items-center justify-between text-xs">
                               <span className="text-muted-foreground">XP a Deduzir:</span>
                               <span className="font-mono font-bold text-violet-300">
-                                -{simXp.toLocaleString("pt-BR")} XP
+                                -{formatXp(simXp)} XP
                               </span>
                             </div>
 

@@ -41,6 +41,7 @@ import {
   type RankedGamificationMember,
 } from "@/services/gamificationService";
 import { getInsigniaIconStyles, getInsigniaCardStyles } from "@/components/gamification/InsigniaCatalogManagerModal";
+import { formatXp } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 import { renderInsigniaIcon, DynamicInsigniaIcon, InsigniaEmblem } from "@/components/gamification/InsigniaIcon";
@@ -186,7 +187,7 @@ export function InsigniaGrantModal({
                   <Coins className="h-3 w-3 text-amber-400" /> Seu Saldo de XP
                 </span>
                 <p className="text-sm font-black text-foreground font-mono">
-                  {grantorXp.toLocaleString()} <span className="text-amber-400 text-xs">XP</span>
+                  {formatXp(grantorXp)} <span className="text-amber-400 text-xs">XP</span>
                 </p>
                 <span className="text-[10px] text-muted-foreground">
                   (O custo é debitado de você)
@@ -356,7 +357,7 @@ export function InsigniaGrantModal({
               <AlertTriangle className="h-4 w-4 shrink-0" />
               <span>
                 Você não possui XP suficiente para esta insígnia. Faltam{" "}
-                <strong>{xpDifference.toLocaleString()} XP</strong> no seu saldo de administrador.
+                <strong>{formatXp(xpDifference)} XP</strong> no seu saldo de administrador.
               </span>
             </div>
           )}

@@ -30,6 +30,7 @@ import {
 } from "@/services/gamificationService";
 import { useAuth } from "@/hooks/useAuth";
 import { cn } from "@/lib/utils";
+import { formatXp } from "@/lib/format";
 import { MemberInsigniasListModal } from "@/components/gamification/MemberInsigniasListModal";
 import { getInsigniaIconStyles } from "@/components/gamification/InsigniaCatalogManagerModal";
 
@@ -118,7 +119,7 @@ export function MemberGamificationCard({
               </div>
 
               <p className="text-sm sm:text-base font-black text-foreground font-mono mt-0.5">
-                {levelInfo.currentXp.toLocaleString()}{" "}
+                {formatXp(levelInfo.currentXp)}{" "}
                 <span className="text-amber-400 text-xs font-sans">XP Total</span>
               </p>
             </div>
@@ -167,7 +168,7 @@ export function MemberGamificationCard({
               Progresso para o Nível {levelInfo.level + 1}:
             </span>
             <span className="text-foreground font-bold">
-              {levelInfo.currentXp.toLocaleString()} / {levelInfo.nextLevelXp.toLocaleString()} XP{" "}
+              {formatXp(levelInfo.currentXp)} / {formatXp(levelInfo.nextLevelXp)} XP{" "}
               <span className="text-amber-400 font-sans">({levelInfo.progressPercent}%)</span>
             </span>
           </div>
@@ -180,7 +181,7 @@ export function MemberGamificationCard({
           </div>
 
           <p className="text-[10px] text-muted-foreground">
-            Faltam <strong className="text-amber-300 font-mono">{levelInfo.xpNeededForNext.toLocaleString()} XP</strong> para subir de patente na facção.
+            Faltam <strong className="text-amber-300 font-mono">{formatXp(levelInfo.xpNeededForNext)} XP</strong> para subir de patente na facção.
           </p>
         </div>
 

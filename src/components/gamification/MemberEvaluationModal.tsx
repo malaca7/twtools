@@ -37,8 +37,8 @@ const STAR_LABELS: Record<number, { title: string; desc: string; color: string }
   1: { title: "1 Estrela - Crítico", desc: "Desempenho muito abaixo do padrão da facção ou conduta inadequada.", color: "text-rose-400" },
   2: { title: "2 Estrelas - Regular / Precisa Melhorar", desc: "Abaixo da média esperada, necessita de instrução e acompanhamento.", color: "text-amber-400" },
   3: { title: "3 Estrelas - Bom / Satisfatório", desc: "Cumpre as obrigações básicas operacionais do grupo.", color: "text-yellow-400" },
-  4: { title: "4 Estrelas - Muito Bom / Destaque", desc: "Atuação acima da média com iniciativa e pontualidade (+10 XP Bônus).", color: "text-emerald-400" },
-  5: { title: "5 Estrelas - Excelência Suprema", desc: "Performance impecável, liderança nata e dedicação extrema (+10 XP Bônus).", color: "text-amber-300" },
+  4: { title: "4 Estrelas - Muito Bom / Destaque", desc: "Atuação acima da média com iniciativa e pontualidade (+0.50 XP Bônus).", color: "text-emerald-400" },
+  5: { title: "5 Estrelas - Excelência Suprema", desc: "Performance impecável, liderança nata e dedicação extrema (+0.50 XP Bônus).", color: "text-amber-300" },
 };
 
 export function MemberEvaluationModal({

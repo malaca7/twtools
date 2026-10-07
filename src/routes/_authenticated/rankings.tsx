@@ -22,7 +22,7 @@ import { PageHeader, NoAccess, TableSkeleton, EmptyState } from "@/components/ui
 import { useAuth } from "@/hooks/useAuth";
 import { useUrlTab } from "@/hooks/useUrlTab";
 import { useSales, useMovements, useMembers, nameOf } from "@/hooks/useData";
-import { currency, num } from "@/lib/format";
+import { currency, num, formatXp } from "@/lib/format";
 import { getLevelLabel, levelBadgeClass } from "@/lib/permissions";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -298,7 +298,7 @@ function RankingsContent() {
                   </span>
                   <span>•</span>
                   <span className="text-primary font-mono font-bold">
-                    {num(currentUserGamification?.xp ?? profile?.xp ?? 0)} XP
+                    {formatXp(currentUserGamification?.xp ?? profile?.xp ?? 0)} XP
                   </span>
                 </div>
               </div>
@@ -320,11 +320,11 @@ function RankingsContent() {
 
               <div className="flex items-center justify-between text-[11px] text-muted-foreground">
                 <span>
-                  {num(currentUserLevelInfo.xpInCurrentLevel)} / {num(currentUserLevelInfo.xpNeededForNext + currentUserLevelInfo.xpInCurrentLevel)} XP
+                  {formatXp(currentUserLevelInfo.xpInCurrentLevel)} / {formatXp(currentUserLevelInfo.xpNeededForNext + currentUserLevelInfo.xpInCurrentLevel)} XP
                 </span>
                 <span className="text-primary font-medium">
                   {currentUserLevelInfo.xpNeededForNext > 0
-                    ? `Faltam ${num(currentUserLevelInfo.xpNeededForNext)} XP`
+                    ? `Faltam ${formatXp(currentUserLevelInfo.xpNeededForNext)} XP`
                     : "Nível Máximo"}
                 </span>
               </div>
@@ -466,7 +466,7 @@ function RankingsContent() {
                     )}
 
                     <div className="mt-4 text-xl font-black text-slate-200 font-mono">
-                      {xpSecond ? `${num(xpSecond.xp)} XP` : "0 XP"}
+                      {xpSecond ? `${formatXp(xpSecond.xp)} XP` : "0,00 XP"}
                     </div>
 
                     {xpSecond?.insignias_count ? (
@@ -547,7 +547,7 @@ function RankingsContent() {
                     )}
 
                     <div className="mt-4 text-2xl font-black text-amber-400 font-mono tracking-tight">
-                      {xpFirst ? `${num(xpFirst.xp)} XP` : "0 XP"}
+                      {xpFirst ? `${formatXp(xpFirst.xp)} XP` : "0,00 XP"}
                     </div>
 
                     {xpFirst?.insignias_count ? (
@@ -625,7 +625,7 @@ function RankingsContent() {
                     )}
 
                     <div className="mt-4 text-xl font-black text-amber-600 font-mono">
-                      {xpThird ? `${num(xpThird.xp)} XP` : "0 XP"}
+                      {xpThird ? `${formatXp(xpThird.xp)} XP` : "0,00 XP"}
                     </div>
 
                     {xpThird?.insignias_count ? (
@@ -743,7 +743,7 @@ function RankingsContent() {
 
                                 <div className="text-right shrink-0">
                                   <span className="font-black text-xs text-primary font-mono block">
-                                    {num(m.xp)} XP
+                                    {formatXp(m.xp)} XP
                                   </span>
                                   <div className="flex items-center gap-1 justify-end pt-0.5">
                                     <Star className="h-3 w-3 fill-amber-400 text-amber-400" />
@@ -915,11 +915,11 @@ function RankingsContent() {
                                   <TableCell className="text-right">
                                     <div className="space-y-0.5">
                                       <span className="font-black text-sm text-primary font-mono block">
-                                        {num(m.xp)} XP
+                                        {formatXp(m.xp)} XP
                                       </span>
                                       {period !== "all" && (
                                         <span className="text-[10px] text-muted-foreground block font-mono">
-                                          +{num(m.period_xp)} no período
+                                          +{formatXp(m.period_xp)} no período
                                         </span>
                                       )}
                                     </div>

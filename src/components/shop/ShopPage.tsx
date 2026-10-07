@@ -57,6 +57,7 @@ import {
   type ShopPurchase,
 } from "@/services/gamificationService";
 import { renderInsigniaIcon } from "@/components/gamification/MemberGamificationCard";
+import { formatXp } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 const CATEGORY_MAP: Record<string, { label: string; icon: React.ElementType }> = {
@@ -240,7 +241,7 @@ export function ShopPage() {
                     Saldo de XP Atual
                   </span>
                   <span className="text-sm font-black font-mono text-foreground">
-                    {currentXp.toLocaleString("pt-BR")} XP
+                    {formatXp(currentXp)} XP
                   </span>
                 </div>
               </div>
@@ -676,7 +677,7 @@ function ExchangeXpModal({
                 Seu Saldo de XP
               </span>
               <p className="font-mono font-black text-base text-foreground">
-                {Number(currentXp || 0).toLocaleString("pt-BR")} XP
+                {formatXp(currentXp)} XP
               </p>
             </div>
             <div className="p-3 rounded-xl bg-secondary/50 border border-border/70 space-y-1">
@@ -696,7 +697,7 @@ function ExchangeXpModal({
                 Quantidade de XP para Converter:
               </label>
               <span className="text-[11px] text-muted-foreground font-mono">
-                Máximo disponível: {Number(currentXp || 0).toLocaleString("pt-BR")} XP
+                Máximo disponível: {formatXp(currentXp)} XP
               </span>
             </div>
 
@@ -704,6 +705,7 @@ function ExchangeXpModal({
               <Zap className="h-4 w-4 absolute left-3 top-3 text-amber-400" />
               <Input
                 type="number"
+                step="0.01"
                 min={minXp}
                 max={currentXp}
                 value={xpToExchange}
@@ -727,10 +729,10 @@ function ExchangeXpModal({
               ))}
               <button
                 type="button"
-                onClick={() => setXpToExchange(String(Math.floor(currentXp)))}
+                onClick={() => setXpToExchange(String(currentXp))}
                 className="px-2.5 py-1 rounded-lg bg-amber-500/15 hover:bg-amber-500/25 text-[11px] font-bold text-amber-300 border border-amber-500/30 transition-colors cursor-pointer ml-auto"
               >
-                Converter Tudo ({Math.floor(currentXp)} XP)
+                Converter Tudo ({formatXp(currentXp)} XP)
               </button>
             </div>
           </div>
@@ -739,7 +741,7 @@ function ExchangeXpModal({
           <div className="p-3.5 rounded-2xl bg-secondary/40 border border-border/60 space-y-2 font-mono text-xs">
             <div className="flex items-center justify-between text-muted-foreground">
               <span>XP a Deduzir:</span>
-              <span className="text-rose-400 font-bold">-{numXp.toLocaleString("pt-BR")} XP</span>
+              <span className="text-rose-400 font-bold">-{formatXp(numXp)} XP</span>
             </div>
             <div className="flex items-center justify-between text-muted-foreground">
               <span>Câmbio Bruto:</span>

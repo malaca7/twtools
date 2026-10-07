@@ -138,58 +138,58 @@ export interface LevelInfo {
 }
 
 // Configuração matemática de patamares de XP por Nível (1 a 50+)
-// Curva Ultra Rara: Nível 5 (1.500 XP - Muito Difícil), Nível 10 (15.000 XP - Super Hiper Difícil)
+// Curva balanceada para economia decimal: Nível 2 (5 XP), Nível 5 (60 XP), Nível 10 (400 XP)
 export const LEVEL_THRESHOLDS = [
   { level: 1, xp: 0, title: "Recruta do Asfalto" },
-  { level: 2, xp: 120, title: "Iniciado da Twin" },
-  { level: 3, xp: 350, title: "Aspirante da Estrada" },
-  { level: 4, xp: 800, title: "Soldado de Pista" },
-  { level: 5, xp: 1500, title: "Operador Tático" },
-  { level: 6, xp: 2600, title: "Sentinela de Honra" },
-  { level: 7, xp: 4200, title: "Batedor Noturno" },
-  { level: 8, xp: 6500, title: "Veterano de Ronda" },
-  { level: 9, xp: 9800, title: "Especialista de Comboio" },
-  { level: 10, xp: 15000, title: "Comandante Operacional" },
-  { level: 11, xp: 22000, title: "Capitão da Estrada" },
-  { level: 12, xp: 31000, title: "Guarda de Elite" },
-  { level: 13, xp: 42000, title: "Inspetor Tático" },
-  { level: 14, xp: 56000, title: "Marechal de Pista" },
-  { level: 15, xp: 73000, title: "Pilar da Facção" },
-  { level: 16, xp: 94000, title: "Guardião de Ferro" },
-  { level: 17, xp: 119000, title: "Carrasco do Tráfego" },
-  { level: 18, xp: 149000, title: "Patriarca de Ronda" },
-  { level: 19, xp: 185000, title: "Mentor do Asfalto" },
-  { level: 20, xp: 230000, title: "Lorde da Facção" },
-  { level: 21, xp: 285000, title: "Mestre de Operações" },
-  { level: 22, xp: 350000, title: "Sentinela Supremo" },
-  { level: 23, xp: 425000, title: "Vanguarda Implacável" },
-  { level: 24, xp: 510000, title: "Sombra da Estrada" },
-  { level: 25, xp: 605000, title: "Grão-Mestre Twin Wheels" },
-  { level: 26, xp: 710000, title: "Titã do Asfalto" },
-  { level: 27, xp: 825000, title: "Imperador do Comboio" },
-  { level: 28, xp: 950000, title: "Paladino de Honra" },
-  { level: 29, xp: 1085000, title: "Lenda Urbana" },
-  { level: 30, xp: 1230000, title: "Soberano da Twin Wheels" },
-  { level: 31, xp: 1385000, title: "General de Asfalto" },
-  { level: 32, xp: 1550000, title: "Lança de Ébano" },
-  { level: 33, xp: 1725000, title: "Comandante Lendário" },
-  { level: 34, xp: 1910000, title: "Fênix do Asfalto" },
-  { level: 35, xp: 2105000, title: "Lenda Viva" },
-  { level: 36, xp: 2310000, title: "Arauto da Glória" },
-  { level: 37, xp: 2525000, title: "Vórtice de Aço" },
-  { level: 38, xp: 2750000, title: "Guardião dos Céus" },
-  { level: 39, xp: 2985000, title: "Titã Imortal" },
-  { level: 40, xp: 3230000, title: "Mito Consagrado" },
-  { level: 41, xp: 3485000, title: "Vontade Inabalável" },
-  { level: 42, xp: 3750000, title: "Pilar dos Deuses" },
-  { level: 43, xp: 4025000, title: "Senhor do Destino" },
-  { level: 44, xp: 4310000, title: "Lenda Cósmica" },
-  { level: 45, xp: 4605000, title: "Semideus da Estrada" },
-  { level: 46, xp: 4910000, title: "Tempestade de Aço" },
-  { level: 47, xp: 5225000, title: "Presença Imperial" },
-  { level: 48, xp: 5550000, title: "Eminência Parda" },
-  { level: 49, xp: 5885000, title: "Primordial da Facção" },
-  { level: 50, xp: 6250000, title: "Divindade do Asfalto" },
+  { level: 2, xp: 5, title: "Iniciado da Twin" },
+  { level: 3, xp: 15, title: "Aspirante da Estrada" },
+  { level: 4, xp: 30, title: "Soldado de Pista" },
+  { level: 5, xp: 60, title: "Operador Tático" },
+  { level: 6, xp: 100, title: "Sentinela de Honra" },
+  { level: 7, xp: 160, title: "Batedor Noturno" },
+  { level: 8, xp: 240, title: "Veterano de Ronda" },
+  { level: 9, xp: 320, title: "Especialista de Comboio" },
+  { level: 10, xp: 400, title: "Comandante Operacional" },
+  { level: 11, xp: 500, title: "Capitão da Estrada" },
+  { level: 12, xp: 620, title: "Guarda de Elite" },
+  { level: 13, xp: 760, title: "Inspetor Tático" },
+  { level: 14, xp: 920, title: "Marechal de Pista" },
+  { level: 15, xp: 1100, title: "Pilar da Facção" },
+  { level: 16, xp: 1300, title: "Guardião de Ferro" },
+  { level: 17, xp: 1520, title: "Carrasco do Tráfego" },
+  { level: 18, xp: 1760, title: "Patriarca de Ronda" },
+  { level: 19, xp: 2020, title: "Mentor do Asfalto" },
+  { level: 20, xp: 2300, title: "Lorde da Facção" },
+  { level: 21, xp: 2600, title: "Mestre de Operações" },
+  { level: 22, xp: 2920, title: "Sentinela Supremo" },
+  { level: 23, xp: 3260, title: "Vanguarda Implacável" },
+  { level: 24, xp: 3620, title: "Sombra da Estrada" },
+  { level: 25, xp: 4000, title: "Grão-Mestre Twin Wheels" },
+  { level: 26, xp: 4400, title: "Titã do Asfalto" },
+  { level: 27, xp: 4820, title: "Imperador do Comboio" },
+  { level: 28, xp: 5260, title: "Paladino de Honra" },
+  { level: 29, xp: 5720, title: "Lenda Urbana" },
+  { level: 30, xp: 6200, title: "Soberano da Twin Wheels" },
+  { level: 31, xp: 6700, title: "General de Asfalto" },
+  { level: 32, xp: 7220, title: "Lança de Ébano" },
+  { level: 33, xp: 7760, title: "Comandante Lendário" },
+  { level: 34, xp: 8320, title: "Fênix do Asfalto" },
+  { level: 35, xp: 8900, title: "Lenda Viva" },
+  { level: 36, xp: 9500, title: "Arauto da Glória" },
+  { level: 37, xp: 10120, title: "Vórtice de Aço" },
+  { level: 38, xp: 10760, title: "Guardião dos Céus" },
+  { level: 39, xp: 11420, title: "Titã Imortal" },
+  { level: 40, xp: 12100, title: "Mito Consagrado" },
+  { level: 41, xp: 12800, title: "Vontade Inabalável" },
+  { level: 42, xp: 13520, title: "Pilar dos Deuses" },
+  { level: 43, xp: 14260, title: "Senhor do Destino" },
+  { level: 44, xp: 15020, title: "Lenda Cósmica" },
+  { level: 45, xp: 15800, title: "Semideus da Estrada" },
+  { level: 46, xp: 16600, title: "Tempestade de Aço" },
+  { level: 47, xp: 17420, title: "Presença Imperial" },
+  { level: 48, xp: 18260, title: "Eminência Parda" },
+  { level: 49, xp: 19120, title: "Primordial da Facção" },
+  { level: 50, xp: 20000, title: "Divindade do Asfalto" },
 ];
 
 export function getLevelInfo(totalXp: number): LevelInfo {
@@ -209,10 +209,10 @@ export function getLevelInfo(totalXp: number): LevelInfo {
 
   if (!nextTier) {
     // Acima do nível 50
-    const extraLevels = Math.floor((xp - 6250000) / 350000);
+    const extraLevels = Math.floor((xp - 20000) / 1000);
     const lvl = 50 + extraLevels;
-    const startXp = 6250000 + extraLevels * 350000;
-    const endXp = startXp + 350000;
+    const startXp = 20000 + extraLevels * 1000;
+    const endXp = startXp + 1000;
     const inLvl = xp - startXp;
     return {
       level: lvl,
@@ -220,9 +220,9 @@ export function getLevelInfo(totalXp: number): LevelInfo {
       currentXp: xp,
       levelStartXp: startXp,
       nextLevelXp: endXp,
-      xpNeededForNext: endXp - xp,
-      xpInCurrentLevel: inLvl,
-      progressPercent: Math.min(100, Math.round((inLvl / 350000) * 100)),
+      xpNeededForNext: Number((endXp - xp).toFixed(2)),
+      xpInCurrentLevel: Number(inLvl.toFixed(2)),
+      progressPercent: Math.min(100, Math.round((inLvl / 1000) * 100)),
       isMaxLevel: false,
     };
   }
@@ -237,8 +237,8 @@ export function getLevelInfo(totalXp: number): LevelInfo {
     currentXp: xp,
     levelStartXp: currentTier.xp,
     nextLevelXp: nextTier.xp,
-    xpNeededForNext: Math.max(0, nextTier.xp - xp),
-    xpInCurrentLevel: inLevel,
+    xpNeededForNext: Number(Math.max(0, nextTier.xp - xp).toFixed(2)),
+    xpInCurrentLevel: Number(inLevel.toFixed(2)),
     progressPercent: pct,
     isMaxLevel: false,
   };
@@ -295,7 +295,6 @@ export async function getGamificationRanking(period: "all" | "month" | "week" = 
     });
 
     if (error) {
-      console.warn("RPC get_gamification_ranking falhou, fallback direto em profiles:", error);
       return await getRankingFallback(period);
     }
 
@@ -318,8 +317,7 @@ export async function getGamificationRanking(period: "all" | "month" | "week" = 
       insignias_count: Number(m.insignias_count || 0),
       rank_position: Number(m.rank_position || 1),
     }));
-  } catch (err) {
-    console.error("Erro ao obter ranking gamificado:", err);
+  } catch {
     return [];
   }
 }
@@ -633,7 +631,7 @@ export async function devManageMemberXp(params: {
   const { data, error } = await supabase.rpc("dev_manage_member_xp_rpc", {
     p_member_id: params.memberId,
     p_mode: params.mode,
-    p_amount: Math.round(Number(params.amount || 0)),
+    p_amount: Number(Number(params.amount || 0).toFixed(2)),
     p_reason: params.reason,
   });
 
@@ -780,7 +778,6 @@ export async function devGetXpRules(): Promise<XpRuleConfig[]> {
     .order("action_type", { ascending: true });
 
   if (error || !data) {
-    console.error("Falha ao buscar regras de XP:", error);
     return [];
   }
 
@@ -801,12 +798,17 @@ export async function devUpdateXpRule(rule: Partial<XpRuleConfig> & { action_typ
     throw new Error("O nome da regra de XP é obrigatório.");
   }
 
+  const rewardVal = Number(Number(rule.xp_reward || 0).toFixed(2));
+  if (rewardVal <= 0 || rewardVal >= 1) {
+    throw new Error("O valor de ganho de XP deve ser decimal abaixo de 1 (entre 0.01 e 0.99 XP).");
+  }
+
   // Tenta via RPC dev_update_xp_rule_rpc
   try {
     const { error: rpcErr } = await supabase.rpc("dev_update_xp_rule_rpc", {
       p_action_type: cleanActionType,
       p_name: cleanName,
-      p_xp_reward: Number(rule.xp_reward || 0),
+      p_xp_reward: rewardVal,
       p_cooldown_seconds: Number(rule.cooldown_seconds || 0),
       p_daily_cap: Number(rule.daily_cap || 0),
       p_category: rule.category || "geral",
@@ -817,9 +819,8 @@ export async function devUpdateXpRule(rule: Partial<XpRuleConfig> & { action_typ
     if (!rpcErr) {
       return;
     }
-    console.warn("dev_update_xp_rule_rpc falhou, tentando upsert direto:", rpcErr);
-  } catch (e) {
-    console.warn("Erro ao chamar dev_update_xp_rule_rpc:", e);
+  } catch {
+    // Continua para o upsert direto
   }
 
   // Fallback: upsert direto na tabela xp_rules_config (permitido para admin e developer por RLS)
@@ -829,7 +830,7 @@ export async function devUpdateXpRule(rule: Partial<XpRuleConfig> & { action_typ
       {
         action_type: cleanActionType,
         name: cleanName,
-        xp_reward: Number(rule.xp_reward || 0),
+        xp_reward: rewardVal,
         cooldown_seconds: Number(rule.cooldown_seconds || 0),
         daily_cap: Number(rule.daily_cap || 0),
         category: rule.category || "geral",
@@ -875,7 +876,6 @@ export async function devDeleteXpRule(actionType: string): Promise<void> {
     .eq("action_type", cleanActionType);
 
   if (directErr) {
-    console.error("Erro ao apagar regra de XP:", directErr);
     throw new Error(directErr.message || "Falha ao excluir regra de XP.");
   }
 }
@@ -916,7 +916,6 @@ export async function devGetAllXpTransactions(limit = 100, memberId?: string): P
 
   const { data, error } = await query;
   if (error || !data) {
-    console.error("Falha ao buscar histórico de XP para auditoria:", error);
     return [];
   }
 

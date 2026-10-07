@@ -124,6 +124,7 @@ import {
   DEFAULT_CEO_MENU_ITEMS,
 } from "@/hooks/useCeoMenuConfig";
 import { LEVEL_LABEL, levelBadgeClass, type Permission } from "@/lib/permissions";
+import { formatXp } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { ScrollToTopButton } from "./ScrollToTopButton";
 import { ForceCachePurgeListener } from "@/components/dev/ForceCachePurgeListener";
@@ -1392,13 +1393,13 @@ export function AppShell({ children }: { children: ReactNode }) {
                       >
                         <Zap className="h-3.5 w-3.5 text-violet-400 fill-violet-400/20 shrink-0" />
                         <span className="hidden xs:inline text-[11px] font-bold text-violet-200">
-                          {Number(profile?.xp || 0).toLocaleString("pt-BR")}{" "}
+                          {formatXp(profile?.xp || 0)}{" "}
                           <span className="text-[10px] text-violet-400/80 font-normal">XP</span>
                         </span>
                         <span className="xs:hidden text-[10px] font-bold text-violet-200">
                           {Number(profile?.xp || 0) >= 1000
                             ? `${(Number(profile?.xp || 0) / 1000).toFixed(1)}k`
-                            : Number(profile?.xp || 0)}
+                            : formatXp(profile?.xp || 0)}
                         </span>
                       </Link>
                     </TooltipTrigger>
@@ -1407,7 +1408,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                         <Zap className="h-3 w-3" /> Pontos de Experiência (XP)
                       </p>
                       <p className="text-[10px] text-muted-foreground">
-                        Nível {Number(profile?.gamification_level || 1)} · {Number(profile?.xp || 0).toLocaleString("pt-BR")} XP acumulados. Clique para abrir Meu Desempenho.
+                        Nível {Number(profile?.gamification_level || 1)} · {formatXp(profile?.xp || 0)} XP acumulados. Clique para abrir Meu Desempenho.
                       </p>
                     </TooltipContent>
                   </Tooltip>

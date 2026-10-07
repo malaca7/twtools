@@ -69,6 +69,7 @@ import { DevBadge, CeoBadge, PageHeader } from "@/components/ui-kit";
 import { usePanelTheme } from "@/lib/panelTheme";
 import { useAuth } from "@/hooks/useAuth";
 import { cn } from "@/lib/utils";
+import { formatXp } from "@/lib/format";
 import { getLevelLabel, levelBadgeClass } from "@/lib/permissions";
 import {
   type InsigniaItem,
@@ -140,7 +141,7 @@ const RULE_TEMPLATES: { label: string; action_type: string; name: string; catego
     action_type: "production_completed",
     name: "Produção de Item Concluída",
     category: "producao",
-    xp_reward: 2,
+    xp_reward: 0.40,
     cooldown_seconds: 120,
     daily_cap: 10,
     description: "Concedido ao fabricar um lote de produtos na Estação de Produção.",
@@ -150,7 +151,7 @@ const RULE_TEMPLATES: { label: string; action_type: string; name: string; catego
     action_type: "raw_material_collected",
     name: "Entrada de Matérias-Primas",
     category: "producao",
-    xp_reward: 1,
+    xp_reward: 0.20,
     cooldown_seconds: 300,
     daily_cap: 5,
     description: "Concedido ao dar entrada de insumos ou puxar de baús manuais para a facção.",
@@ -160,7 +161,7 @@ const RULE_TEMPLATES: { label: string; action_type: string; name: string; catego
     action_type: "warehouse_transfer",
     name: "Logística do Armazém",
     category: "producao",
-    xp_reward: 1,
+    xp_reward: 0.20,
     cooldown_seconds: 300,
     daily_cap: 5,
     description: "Concedido ao transferir itens do armazém central para os baús ou venda.",
@@ -170,7 +171,7 @@ const RULE_TEMPLATES: { label: string; action_type: string; name: string; catego
     action_type: "counter_sale",
     name: "Venda no Balcão Comercial",
     category: "vendas",
-    xp_reward: 2,
+    xp_reward: 0.40,
     cooldown_seconds: 180,
     daily_cap: 8,
     description: "Concedido ao registrar uma venda de produtos a clientes.",
@@ -180,7 +181,7 @@ const RULE_TEMPLATES: { label: string; action_type: string; name: string; catego
     action_type: "cash_fund_deposit",
     name: "Aporte Financeiro no Caixa",
     category: "vendas",
-    xp_reward: 2,
+    xp_reward: 0.30,
     cooldown_seconds: 600,
     daily_cap: 6,
     description: "Concedido ao realizar aportes em dinheiro no fundo de caixa da facção.",
@@ -190,9 +191,9 @@ const RULE_TEMPLATES: { label: string; action_type: string; name: string; catego
     action_type: "weekly_goal_completed",
     name: "Meta Semanal Batida",
     category: "metas",
-    xp_reward: 5,
+    xp_reward: 0.80,
     cooldown_seconds: 86400,
-    daily_cap: 5,
+    daily_cap: 1,
     description: "Bônus por alcançar a cota semanal estipulada pela diretoria.",
   },
 ];
@@ -216,9 +217,9 @@ export const ALL_PLATFORM_TRIGGERS: PlatformTriggerItem[] = [
     category: "vendas",
     category_label: "Vendas & Comercial",
     description: "Disparado quando uma negociação ou venda de produtos/insumos é concluída e auditada.",
-    default_xp: 3,
+    default_xp: 0.50,
     default_cooldown: 60,
-    default_cap: 15,
+    default_cap: 10,
   },
   {
     action_type: "counter_sale",
@@ -226,7 +227,7 @@ export const ALL_PLATFORM_TRIGGERS: PlatformTriggerItem[] = [
     category: "vendas",
     category_label: "Vendas & Comercial",
     description: "Disparado ao realizar vendas diretas de balcão para clientes ou membros da facção.",
-    default_xp: 2,
+    default_xp: 0.40,
     default_cooldown: 180,
     default_cap: 8,
   },
@@ -236,7 +237,7 @@ export const ALL_PLATFORM_TRIGGERS: PlatformTriggerItem[] = [
     category: "vendas",
     category_label: "Vendas & Comercial",
     description: "Disparado ao cadastrar e formalizar um novo pedido de carga/encomenda no sistema.",
-    default_xp: 1,
+    default_xp: 0.20,
     default_cooldown: 120,
     default_cap: 10,
   },
@@ -246,7 +247,7 @@ export const ALL_PLATFORM_TRIGGERS: PlatformTriggerItem[] = [
     category: "vendas",
     category_label: "Vendas & Comercial",
     description: "Disparado ao concluir a entrega e confirmação de recebimento de uma carga comercial.",
-    default_xp: 3,
+    default_xp: 0.50,
     default_cooldown: 300,
     default_cap: 6,
   },
@@ -256,7 +257,7 @@ export const ALL_PLATFORM_TRIGGERS: PlatformTriggerItem[] = [
     category: "vendas",
     category_label: "Financeiro & Caixa",
     description: "Disparado ao registrar um aporte financeiro em dinheiro ou transferência no caixa da facção.",
-    default_xp: 2,
+    default_xp: 0.30,
     default_cooldown: 600,
     default_cap: 6,
   },
@@ -266,7 +267,7 @@ export const ALL_PLATFORM_TRIGGERS: PlatformTriggerItem[] = [
     category: "vendas",
     category_label: "Financeiro & Caixa",
     description: "Disparado em operações com fluxo de saída e prestação de contas no fundo de caixa.",
-    default_xp: 1,
+    default_xp: 0.20,
     default_cooldown: 600,
     default_cap: 4,
   },
@@ -278,7 +279,7 @@ export const ALL_PLATFORM_TRIGGERS: PlatformTriggerItem[] = [
     category: "producao",
     category_label: "Produção & Oficinas",
     description: "Disparado ao fabricar com êxito um lote de insumos ou produtos na bancada.",
-    default_xp: 2,
+    default_xp: 0.40,
     default_cooldown: 120,
     default_cap: 10,
   },
@@ -288,7 +289,7 @@ export const ALL_PLATFORM_TRIGGERS: PlatformTriggerItem[] = [
     category: "producao",
     category_label: "Produção & Oficinas",
     description: "Disparado ao recolher ou registrar entrada de insumos brutos para refino e processo.",
-    default_xp: 1,
+    default_xp: 0.20,
     default_cooldown: 300,
     default_cap: 5,
   },
@@ -298,7 +299,7 @@ export const ALL_PLATFORM_TRIGGERS: PlatformTriggerItem[] = [
     category: "producao",
     category_label: "Produção & Oficinas",
     description: "Disparado ao finalizar uma carga industrial de grande volume de produtos.",
-    default_xp: 4,
+    default_xp: 0.60,
     default_cooldown: 600,
     default_cap: 4,
   },
@@ -308,7 +309,7 @@ export const ALL_PLATFORM_TRIGGERS: PlatformTriggerItem[] = [
     category: "producao",
     category_label: "Produção & Oficinas",
     description: "Disparado ao sintetizar ou forjar itens especiais ou receitas secretas da facção.",
-    default_xp: 3,
+    default_xp: 0.50,
     default_cooldown: 300,
     default_cap: 6,
   },
@@ -318,7 +319,7 @@ export const ALL_PLATFORM_TRIGGERS: PlatformTriggerItem[] = [
     category: "producao",
     category_label: "Produção & Oficinas",
     description: "Disparado ao calibrar e fazer reparos preventivos nas bancadas operacionais.",
-    default_xp: 2,
+    default_xp: 0.30,
     default_cooldown: 1800,
     default_cap: 3,
   },
@@ -330,7 +331,7 @@ export const ALL_PLATFORM_TRIGGERS: PlatformTriggerItem[] = [
     category: "estoque",
     category_label: "Logística & Baús",
     description: "Disparado em depósitos e recolhimentos conferidos em baús físicos ou cofres da facção.",
-    default_xp: 1,
+    default_xp: 0.01,
     default_cooldown: 120,
     default_cap: 5,
   },
@@ -340,7 +341,7 @@ export const ALL_PLATFORM_TRIGGERS: PlatformTriggerItem[] = [
     category: "estoque",
     category_label: "Logística & Baús",
     description: "Disparado ao transferir suprimentos e lotes do armazém central para sub-baús ou veículos.",
-    default_xp: 1,
+    default_xp: 0.20,
     default_cooldown: 300,
     default_cap: 5,
   },
@@ -350,7 +351,7 @@ export const ALL_PLATFORM_TRIGGERS: PlatformTriggerItem[] = [
     category: "estoque",
     category_label: "Logística & Baús",
     description: "Disparado ao protocolar entrada e conferência de carregamento no armazém central.",
-    default_xp: 2,
+    default_xp: 0.30,
     default_cooldown: 300,
     default_cap: 5,
   },
@@ -360,7 +361,7 @@ export const ALL_PLATFORM_TRIGGERS: PlatformTriggerItem[] = [
     category: "estoque",
     category_label: "Logística & Baús",
     description: "Disparado ao executar verificação e batimento de inventário em baú ou porta-malas.",
-    default_xp: 3,
+    default_xp: 0.40,
     default_cooldown: 1800,
     default_cap: 3,
   },
@@ -372,7 +373,7 @@ export const ALL_PLATFORM_TRIGGERS: PlatformTriggerItem[] = [
     category: "metas",
     category_label: "Metas & Desempenho",
     description: "Disparado ao atingir a cota individual ou coletiva da semana fixada pela diretoria.",
-    default_xp: 5,
+    default_xp: 0.80,
     default_cooldown: 86400,
     default_cap: 5,
   },
@@ -382,7 +383,7 @@ export const ALL_PLATFORM_TRIGGERS: PlatformTriggerItem[] = [
     category: "metas",
     category_label: "Metas & Desempenho",
     description: "Disparado ao bater marcos parciais de cotas operacionais e produção estipuladas.",
-    default_xp: 3,
+    default_xp: 0.50,
     default_cooldown: 3600,
     default_cap: 4,
   },
@@ -392,7 +393,7 @@ export const ALL_PLATFORM_TRIGGERS: PlatformTriggerItem[] = [
     category: "metas",
     category_label: "Metas & Desempenho",
     description: "Grande bonificação ao cumprir e consagrar o desempenho total mensal da facção.",
-    default_xp: 15,
+    default_xp: 0.90,
     default_cooldown: 604800,
     default_cap: 1,
   },
@@ -402,7 +403,7 @@ export const ALL_PLATFORM_TRIGGERS: PlatformTriggerItem[] = [
     category: "metas",
     category_label: "Metas & Desempenho",
     description: "Premiação de prestígio para membros que figuram no Top 3 de produtividade e XP.",
-    default_xp: 10,
+    default_xp: 0.90,
     default_cooldown: 604800,
     default_cap: 1,
   },
@@ -414,7 +415,7 @@ export const ALL_PLATFORM_TRIGGERS: PlatformTriggerItem[] = [
     category: "presenca",
     category_label: "Presença & Operações",
     description: "Bônus diário conferido por engajamento e presença contínua auditada na plataforma.",
-    default_xp: 2,
+    default_xp: 0.20,
     default_cooldown: 86400,
     default_cap: 1,
   },
@@ -424,7 +425,7 @@ export const ALL_PLATFORM_TRIGGERS: PlatformTriggerItem[] = [
     category: "presenca",
     category_label: "Presença & Operações",
     description: "Disparado ao confirmar presença em alinhamentos táticos ou assembleias gerais.",
-    default_xp: 3,
+    default_xp: 0.40,
     default_cooldown: 86400,
     default_cap: 2,
   },
@@ -434,7 +435,7 @@ export const ALL_PLATFORM_TRIGGERS: PlatformTriggerItem[] = [
     category: "presenca",
     category_label: "Presença & Operações",
     description: "Disparado ao cumprir a rota de ronda e proteção de perímetro da facção.",
-    default_xp: 3,
+    default_xp: 0.40,
     default_cooldown: 1800,
     default_cap: 4,
   },
@@ -444,7 +445,7 @@ export const ALL_PLATFORM_TRIGGERS: PlatformTriggerItem[] = [
     category: "presenca",
     category_label: "Presença & Operações",
     description: "Disparado ao concluir com sucesso escolta armada, comboio ou ação tática coletiva.",
-    default_xp: 4,
+    default_xp: 0.60,
     default_cooldown: 3600,
     default_cap: 3,
   },
@@ -456,7 +457,7 @@ export const ALL_PLATFORM_TRIGGERS: PlatformTriggerItem[] = [
     category: "suporte",
     category_label: "Suporte & Ouvidoria",
     description: "Disparado quando um chamado, dúvida ou suporte interno de membro é solucionado.",
-    default_xp: 2,
+    default_xp: 0.50,
     default_cooldown: 300,
     default_cap: 4,
   },
@@ -466,7 +467,7 @@ export const ALL_PLATFORM_TRIGGERS: PlatformTriggerItem[] = [
     category: "suporte",
     category_label: "Suporte & Ouvidoria",
     description: "Disparado ao abrir relatório formal e qualificar chamado para resolução da liderança.",
-    default_xp: 1,
+    default_xp: 0.20,
     default_cooldown: 600,
     default_cap: 4,
   },
@@ -476,7 +477,7 @@ export const ALL_PLATFORM_TRIGGERS: PlatformTriggerItem[] = [
     category: "suporte",
     category_label: "Suporte & Ouvidoria",
     description: "Disparado ao instruir e integrar novos recrutas aos procedimentos da facção.",
-    default_xp: 4,
+    default_xp: 0.60,
     default_cooldown: 3600,
     default_cap: 3,
   },
@@ -488,7 +489,7 @@ export const ALL_PLATFORM_TRIGGERS: PlatformTriggerItem[] = [
     category: "lideranca",
     category_label: "Avaliações & Liderança",
     description: "Disparado quando um líder ou colega envia feedback e notas de desempenho.",
-    default_xp: 1,
+    default_xp: 0.60,
     default_cooldown: 1800,
     default_cap: 2,
   },
@@ -498,7 +499,7 @@ export const ALL_PLATFORM_TRIGGERS: PlatformTriggerItem[] = [
     category: "lideranca",
     category_label: "Avaliações & Liderança",
     description: "Disparado quando o membro recebe avaliação positiva (4 ou 5 estrelas) por conduta exemplar.",
-    default_xp: 2,
+    default_xp: 0.30,
     default_cooldown: 3600,
     default_cap: 4,
   },
@@ -508,7 +509,7 @@ export const ALL_PLATFORM_TRIGGERS: PlatformTriggerItem[] = [
     category: "lideranca",
     category_label: "Avaliações & Liderança",
     description: "Disparado ao receber promoção formal para cargo ou patente superior.",
-    default_xp: 10,
+    default_xp: 0.90,
     default_cooldown: 604800,
     default_cap: 1,
   },
@@ -520,7 +521,7 @@ export const ALL_PLATFORM_TRIGGERS: PlatformTriggerItem[] = [
     category: "social",
     category_label: "Social & Mural",
     description: "Disparado ao publicar comunicados, fotos ou avisos operacionais no feed social.",
-    default_xp: 1,
+    default_xp: 0.10,
     default_cooldown: 1800,
     default_cap: 2,
   },
@@ -530,7 +531,7 @@ export const ALL_PLATFORM_TRIGGERS: PlatformTriggerItem[] = [
     category: "social",
     category_label: "Social & Mural",
     description: "Disparado ao interagir de forma construtiva nos informes e publicações da facção.",
-    default_xp: 1,
+    default_xp: 0.10,
     default_cooldown: 600,
     default_cap: 3,
   },
@@ -540,7 +541,7 @@ export const ALL_PLATFORM_TRIGGERS: PlatformTriggerItem[] = [
     category: "social",
     category_label: "Social & Mural",
     description: "Disparado quando uma postagem atinge alto engajamento e reconhecimento da comunidade.",
-    default_xp: 3,
+    default_xp: 0.40,
     default_cooldown: 86400,
     default_cap: 1,
   },
@@ -552,7 +553,7 @@ export const ALL_PLATFORM_TRIGGERS: PlatformTriggerItem[] = [
     category: "geral",
     category_label: "Sistema & Gamificação",
     description: "Bônus especial de prestígio gerado quando o membro conquista nova condecoração.",
-    default_xp: 5,
+    default_xp: 0.70,
     default_cooldown: 3600,
     default_cap: 3,
   },
@@ -562,7 +563,7 @@ export const ALL_PLATFORM_TRIGGERS: PlatformTriggerItem[] = [
     category: "geral",
     category_label: "Sistema & Gamificação",
     description: "Disparado ao subir de escalão nos patamares matemáticos de graduação.",
-    default_xp: 8,
+    default_xp: 0.80,
     default_cooldown: 86400,
     default_cap: 2,
   },
@@ -572,7 +573,7 @@ export const ALL_PLATFORM_TRIGGERS: PlatformTriggerItem[] = [
     category: "geral",
     category_label: "Sistema & Gamificação",
     description: "Ajuste ou bonificação direta concedida por desenvolvedor ou liderança executiva.",
-    default_xp: 5,
+    default_xp: 0.50,
     default_cooldown: 60,
     default_cap: 10,
   },
@@ -582,7 +583,7 @@ export const ALL_PLATFORM_TRIGGERS: PlatformTriggerItem[] = [
     category: "geral",
     category_label: "Sistema & Gamificação",
     description: "Bonificação especial em eventos comemorativos, ações de guerra ou aniversários da facção.",
-    default_xp: 10,
+    default_xp: 0.90,
     default_cooldown: 86400,
     default_cap: 2,
   },
@@ -695,7 +696,7 @@ export function DevGamificationManager({ initialTab = "membros" }: { initialTab?
       description: template?.description || "",
       enabled: template?.enabled !== false,
     });
-    setEditRewardStr(String(template?.xp_reward ?? 1));
+    setEditRewardStr(String(template?.xp_reward ?? 0.30));
     setEditCapStr(String(template?.daily_cap ?? 5));
     setEditCooldownStr(String(template?.cooldown_seconds ?? 60));
     setCooldownUnit(1);
@@ -797,7 +798,7 @@ export function DevGamificationManager({ initialTab = "membros" }: { initialTab?
     const total = rules.length;
     const active = rules.filter((r) => r.enabled).length;
     const inactive = total - active;
-    const avgXp = total > 0 ? Math.round(rules.reduce((acc, r) => acc + (r.xp_reward || 0), 0) / total) : 0;
+    const avgXp = total > 0 ? (rules.reduce((acc, r) => acc + (r.xp_reward || 0), 0) / total).toFixed(2) : "0.00";
     return { total, active, inactive, avgXp };
   }, [rules]);
 
@@ -898,7 +899,7 @@ export function DevGamificationManager({ initialTab = "membros" }: { initialTab?
           category: r.category || "geral",
           category_label: r.category ? r.category.toUpperCase() : "Personalizado",
           description: r.description || `Gatilho do sistema configurado (${r.action_type})`,
-          default_xp: r.xp_reward || 1,
+          default_xp: r.xp_reward || 0.30,
           default_cooldown: r.cooldown_seconds || 60,
           default_cap: r.daily_cap || 5,
         });
@@ -1396,6 +1397,11 @@ export function DevGamificationManager({ initialTab = "membros" }: { initialTab?
     }
 
     const finalReward = Number(editRewardStr.replace(',', '.')) || 0;
+    if (finalReward <= 0 || finalReward >= 1) {
+      toast.error("O ganho de XP deve ser um valor decimal abaixo de 1 (ex: 0.30 XP, entre 0.01 e 0.99).");
+      return;
+    }
+
     const finalCap = Number(editCapStr.replace(',', '.')) || 0;
     const cooldownValParsed = Number(editCooldownStr.replace(',', '.')) || 0;
     const finalCooldownSeconds = cooldownValParsed * cooldownUnit;
@@ -1493,7 +1499,7 @@ export function DevGamificationManager({ initialTab = "membros" }: { initialTab?
             <div className="min-w-0 flex-1">
               <p className="text-[11px] sm:text-xs font-semibold text-muted-foreground truncate">XP Distribuído</p>
               <h3 className="text-base sm:text-xl font-extrabold tracking-tight text-foreground truncate">
-                {stats.totalXp.toLocaleString("pt-BR")} XP
+                {formatXp(stats.totalXp)} XP
               </h3>
             </div>
           </CardContent>
@@ -1717,7 +1723,7 @@ export function DevGamificationManager({ initialTab = "membros" }: { initialTab?
                           </div>
                           <div className="text-right shrink-0">
                             <span className="font-mono font-extrabold text-foreground text-sm">
-                              {(m.xp || 0).toLocaleString("pt-BR")}
+                              {formatXp(m.xp)}
                             </span>
                             <span className="text-[10px] text-muted-foreground ml-1">XP</span>
                           </div>
@@ -1885,7 +1891,7 @@ export function DevGamificationManager({ initialTab = "membros" }: { initialTab?
                               </td>
                               <td className="py-3 px-4 text-right">
                                 <span className="font-mono font-extrabold text-foreground text-sm">
-                                  {(m.xp || 0).toLocaleString("pt-BR")}
+                                  {formatXp(m.xp)}
                                 </span>
                                 <span className="text-xs text-muted-foreground ml-1">XP</span>
                               </td>
@@ -2252,7 +2258,7 @@ export function DevGamificationManager({ initialTab = "membros" }: { initialTab?
                       <Plus className="w-3 h-3 text-primary" />
                       <span>{tpl.label}</span>
                       <Badge variant="secondary" className="text-[9px] px-1 py-0 ml-0.5">
-                        +{tpl.xp_reward}XP
+                        +{formatXp(tpl.xp_reward)} XP
                       </Badge>
                     </Button>
                   ))}
@@ -2385,7 +2391,7 @@ export function DevGamificationManager({ initialTab = "membros" }: { initialTab?
                           )}
                         </div>
                         <Badge className="bg-purple-500/15 text-purple-300 border-purple-500/30 font-mono font-bold text-xs shrink-0">
-                          +{r.xp_reward} XP
+                          +{formatXp(r.xp_reward)} XP
                         </Badge>
                       </div>
 
@@ -2498,7 +2504,7 @@ export function DevGamificationManager({ initialTab = "membros" }: { initialTab?
                             </td>
                             <td className="py-3 px-3 text-center">
                               <Badge className="bg-purple-500/15 text-purple-300 border-purple-500/30 font-mono font-bold">
-                                +{r.xp_reward} XP
+                                +{formatXp(r.xp_reward)} XP
                               </Badge>
                             </td>
                             <td className="py-3 px-3 text-center font-mono text-xs text-muted-foreground">
@@ -2630,14 +2636,14 @@ export function DevGamificationManager({ initialTab = "membros" }: { initialTab?
                                 : "bg-rose-500/15 text-rose-400 border-rose-500/30"
                             )}
                           >
-                            {isPositive ? `+${tx.amount}` : tx.amount} XP
+                            {isPositive ? `+${formatXp(tx.amount)}` : formatXp(tx.amount)} XP
                           </Badge>
                         </div>
 
                         <div className="flex items-center justify-between text-[11px] text-muted-foreground font-mono">
                           <span>{new Date(tx.created_at).toLocaleString("pt-BR")}</span>
                           <span>
-                            {tx.xp_before} ➔ <strong className="text-foreground">{tx.xp_after}</strong>
+                            {formatXp(tx.xp_before)} ➔ <strong className="text-foreground">{formatXp(tx.xp_after)}</strong>
                           </span>
                         </div>
 
@@ -2705,11 +2711,11 @@ export function DevGamificationManager({ initialTab = "membros" }: { initialTab?
                                       : "bg-rose-500/15 text-rose-400 border-rose-500/30"
                                   )}
                                 >
-                                  {isPositive ? `+${tx.amount}` : tx.amount} XP
+                                  {isPositive ? `+${formatXp(tx.amount)}` : formatXp(tx.amount)} XP
                                 </Badge>
                               </td>
                               <td className="py-3 px-4 text-center text-muted-foreground">
-                                {tx.xp_before} ➔ <span className="text-foreground font-bold">{tx.xp_after}</span>
+                                {formatXp(tx.xp_before)} ➔ <span className="text-foreground font-bold">{formatXp(tx.xp_after)}</span>
                               </td>
                               <td className="py-3 px-4">
                                 <Badge variant="outline" className="font-mono text-[10px] uppercase">
@@ -2746,7 +2752,7 @@ export function DevGamificationManager({ initialTab = "membros" }: { initialTab?
               {selectedMember && (
                 <span>
                   Membro: <strong>{selectedMember.nickname || selectedMember.nome}</strong> (Saldo Atual:{" "}
-                  <strong>{selectedMember.xp} XP</strong>, Nível {selectedMember.gamification_level})
+                  <strong>{formatXp(selectedMember.xp)} XP</strong>, Nível {selectedMember.gamification_level})
                 </span>
               )}
             </DialogDescription>
@@ -2782,9 +2788,10 @@ export function DevGamificationManager({ initialTab = "membros" }: { initialTab?
               <Input
                 id="xp-amount"
                 type="number"
+                step="0.01"
                 value={xpAmount}
                 onChange={(e) => setXpAmount(Number(e.target.value))}
-                placeholder="Ex: 50 ou -20"
+                placeholder="Ex: 0.30 ou -0.20"
                 className="font-mono text-lg font-extrabold"
               />
               <span className="text-[11px] text-muted-foreground">
@@ -2800,8 +2807,8 @@ export function DevGamificationManager({ initialTab = "membros" }: { initialTab?
                 <div className="flex items-center justify-between text-xs">
                   <span className="font-semibold text-muted-foreground">Previsão de Saldo:</span>
                   <span className="font-mono font-extrabold text-foreground">
-                    {previewCalculation.curXp} ➔ {previewCalculation.finalXp} XP (
-                    {previewCalculation.delta >= 0 ? `+${previewCalculation.delta}` : previewCalculation.delta})
+                    {formatXp(previewCalculation.curXp)} ➔ {formatXp(previewCalculation.finalXp)} XP (
+                    {previewCalculation.delta >= 0 ? `+${formatXp(previewCalculation.delta)}` : formatXp(previewCalculation.delta)})
                   </span>
                 </div>
                 <div className="flex items-center justify-between text-xs">
@@ -3775,6 +3782,7 @@ export function DevGamificationManager({ initialTab = "membros" }: { initialTab?
                     id="rule-reward"
                     type="text"
                     inputMode="decimal"
+                    placeholder="0.30"
                     value={editRewardStr}
                     onChange={(e) => {
                       const val = e.target.value.replace(/[^0-9.,]/g, '');
@@ -3782,6 +3790,9 @@ export function DevGamificationManager({ initialTab = "membros" }: { initialTab?
                     }}
                     className="font-mono text-xs font-bold"
                   />
+                  <p className="text-[10px] text-muted-foreground">
+                    Valor decimal abaixo de 1 (ex: 0.30 XP).
+                  </p>
                 </div>
 
                 <div className="col-span-1 sm:col-span-2 space-y-1.5">
@@ -3913,7 +3924,7 @@ export function DevGamificationManager({ initialTab = "membros" }: { initialTab?
                 <div className="font-bold text-foreground text-sm flex items-center justify-between">
                   <span>{ruleToDelete.name}</span>
                   <Badge variant="destructive" className="font-mono text-xs">
-                    +{ruleToDelete.xp_reward} XP
+                    +{formatXp(ruleToDelete.xp_reward)} XP
                   </Badge>
                 </div>
                 <div className="font-mono text-xs text-primary font-bold">
@@ -4184,7 +4195,7 @@ export function DevGamificationManager({ initialTab = "membros" }: { initialTab?
                       onError={(e) => { (e.target as HTMLElement).style.display = "none"; }}
                     />
                     <span>{m.nickname || m.nome}</span>
-                    <span className="text-[9px] text-muted-foreground font-mono">({(m.xp || 0).toLocaleString()} XP)</span>
+                    <span className="text-[9px] text-muted-foreground font-mono">({formatXp(m.xp)} XP)</span>
                   </Badge>
                 ))}
               </div>
@@ -4390,7 +4401,7 @@ export function DevGamificationManager({ initialTab = "membros" }: { initialTab?
                       <strong className="text-purple-300 font-bold">{targetTier.title}</strong>
                     </div>
                     <div className="font-mono font-bold text-foreground">
-                      XP Base: {targetTier.xp.toLocaleString()} XP
+                      XP Base: {formatXp(targetTier.xp)} XP
                     </div>
                   </div>
                 );
