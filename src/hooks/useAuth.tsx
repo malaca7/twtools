@@ -30,6 +30,7 @@ type AuthContextValue = {
   refresh: () => Promise<void>;
   signOut: () => Promise<void>;
   hasPermission: (permission: Permission, panelOverride?: "member" | "dev" | "ceo") => boolean;
+  hasMemberRolePermission: (permission: Permission) => boolean;
   memberTags: MemberTag[];
   tagPermissions: Permission[];
   hasTag: (tagId: string) => boolean;
@@ -1195,6 +1196,39 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     ]
   );
 
+  const hasMemberRolePermission = useCallback(
+    (permission: Permission) => {
+      // 0. Bloqueios de login e operacionais
+      const hasLoginBlock =
+        memberTags.some((t) => t.is_active !== false && t.rules?.block_login === true) ||
+        Boolean(activeSuspension?.blocks?.block_login);
+      if (hasLoginBlock) return false;
+
+      const hasOperationsBlock =
+        memberTags.some(
+          (t) =>
+            t.is_active !== false &&
+            (t.rules?.is_blocked === true || t.rules?.block_operations === true)
+        ) || Boolean(activeSuspension?.blocks?.block_all_operations);
+      if (
+        hasOperationsBlock &&
+        (permission.startsWith("manage_") ||
+          permission.startsWith("approve_") ||
+          permission.startsWith("create_") ||
+          permission.startsWith("delete_"))
+      ) {
+        return false;
+      }
+
+      // Avaliação estritamente baseada no cargo de membro + tags de sistema (sem Dev bypass)
+      return (
+        can(level, permission, customRolePermissions) ||
+        satisfiesPermission(systemTagPermissions, permission)
+      );
+    },
+    [level, memberTags, activeSuspension, customRolePermissions, systemTagPermissions]
+  );
+
   const value = useMemo<AuthContextValue>(
     () => ({
       session,
@@ -1219,6 +1253,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       refresh,
       signOut,
       hasPermission,
+      hasMemberRolePermission,
       memberTags,
       tagPermissions: allTagPermissions,
       hasTag,
@@ -1243,6 +1278,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       refresh,
       signOut,
       hasPermission,
+      hasMemberRolePermission,
       memberTags,
       allTagPermissions,
       hasTag,

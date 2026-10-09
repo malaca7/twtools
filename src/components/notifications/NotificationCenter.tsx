@@ -120,7 +120,11 @@ export function NotificationCenter() {
   const {
     isManager,
     totalPendingCount,
+    unreadPendingCount,
     allActionItems,
+    markItemAsRead,
+    markItemAsUnread,
+    markAllAsRead: markAllManagementAsRead,
   } = useManagementPendingActions();
 
   const markAsReadMutation = useMarkNotificationAsRead();
@@ -140,9 +144,9 @@ export function NotificationCenter() {
     }
   };
 
-  const hasManagementPending = isManager && totalPendingCount > 0;
+  const hasManagementPending = isManager && unreadPendingCount > 0;
   const showBadge = hasUnread || hasManagementPending;
-  const displayBadgeCount = unreadCount > 0 ? unreadCount : totalPendingCount;
+  const displayBadgeCount = unreadCount + (isManager ? unreadPendingCount : 0);
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -157,7 +161,7 @@ export function NotificationCenter() {
           )}
           title={
             showBadge
-              ? `${unreadCount} notificação(ões) pendente(s)${hasManagementPending ? ` • ${totalPendingCount} pendência(s) de gestão` : ""}`
+              ? `${unreadCount} notificação(ões) pendente(s)${hasManagementPending ? ` • ${unreadPendingCount} pendência(s) de gestão não lida(s)` : ""}`
               : "Notificações"
           }
         >
@@ -199,13 +203,32 @@ export function NotificationCenter() {
         {/* CABEÇALHO */}
         <div className="flex items-center justify-between p-4 pb-3 border-b border-border/60 bg-muted/20">
           <div className="flex items-center gap-2.5">
-            <div className="p-2 rounded-xl bg-primary/10 text-primary border border-primary/20">
-              <BellRing className="h-4 w-4" />
+            <div
+              className={cn(
+                "p-2 rounded-xl border",
+                activeTab === "management"
+                  ? "bg-amber-500/10 text-amber-400 border-amber-500/20"
+                  : "bg-primary/10 text-primary border-primary/20"
+              )}
+            >
+              {activeTab === "management" ? <ShieldAlert className="h-4 w-4" /> : <BellRing className="h-4 w-4" />}
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h3 className="text-sm font-bold text-foreground">Novas Notificações</h3>
-                {hasUnread ? (
+                <h3 className="text-sm font-bold text-foreground">
+                  {activeTab === "management" ? "Pendências de Gestão" : "Novas Notificações"}
+                </h3>
+                {activeTab === "management" ? (
+                  unreadPendingCount > 0 ? (
+                    <Badge variant="secondary" className="px-1.5 py-0 text-[10px] font-mono font-bold bg-amber-500/20 text-amber-300 border-amber-500/30">
+                      {unreadPendingCount} não lida{unreadPendingCount === 1 ? "" : "s"}
+                    </Badge>
+                  ) : (
+                    <Badge variant="outline" className="px-1.5 py-0 text-[10px] font-medium text-emerald-400 border-emerald-500/30 bg-emerald-500/10">
+                      Tudo ciente
+                    </Badge>
+                  )
+                ) : hasUnread ? (
                   <Badge variant="secondary" className="px-1.5 py-0 text-[10px] font-mono font-bold bg-primary/15 text-primary border-primary/20">
                     {unreadCount} nova{unreadCount === 1 ? "" : "s"}
                   </Badge>
@@ -215,7 +238,9 @@ export function NotificationCenter() {
                   </Badge>
                 )}
               </div>
-              <p className="text-[11px] text-muted-foreground">Apenas notificações não lidas</p>
+              <p className="text-[11px] text-muted-foreground">
+                {activeTab === "management" ? "Ações operacionais da liderança" : "Apenas notificações não lidas"}
+              </p>
             </div>
           </div>
 
@@ -237,19 +262,35 @@ export function NotificationCenter() {
             </Button>
 
             {/* Marcar todas como lidas */}
-            {hasUnread && (
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                className="h-8 px-2 text-xs font-semibold text-muted-foreground hover:text-primary rounded-lg gap-1.5"
-                onClick={() => markAllMutation.mutate()}
-                disabled={markAllMutation.isPending}
-                title="Marcar todas como lidas"
-              >
-                <CheckCheck className="h-3.5 w-3.5" />
-                <span className="hidden sm:inline">Lidas</span>
-              </Button>
+            {activeTab === "management" ? (
+              unreadPendingCount > 0 && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-8 px-2 text-xs font-semibold text-muted-foreground hover:text-amber-400 rounded-lg gap-1.5"
+                  onClick={markAllManagementAsRead}
+                  title="Marcar todas pendências de gestão como lidas"
+                >
+                  <CheckCheck className="h-3.5 w-3.5" />
+                  <span className="hidden sm:inline">Lidas</span>
+                </Button>
+              )
+            ) : (
+              hasUnread && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-8 px-2 text-xs font-semibold text-muted-foreground hover:text-primary rounded-lg gap-1.5"
+                  onClick={() => markAllMutation.mutate()}
+                  disabled={markAllMutation.isPending}
+                  title="Marcar todas como lidas"
+                >
+                  <CheckCheck className="h-3.5 w-3.5" />
+                  <span className="hidden sm:inline">Lidas</span>
+                </Button>
+              )
             )}
           </div>
         </div>
@@ -275,11 +316,15 @@ export function NotificationCenter() {
                   className="text-xs font-semibold rounded-lg data-[state=active]:bg-card data-[state=active]:text-foreground data-[state=active]:shadow-xs flex items-center gap-1.5"
                 >
                   Gestão
-                  {totalPendingCount > 0 && (
+                  {unreadPendingCount > 0 ? (
                     <span className="px-1.5 py-0.2 rounded-full bg-amber-500 text-black text-[10px] font-mono font-extrabold animate-pulse">
+                      {unreadPendingCount}
+                    </span>
+                  ) : totalPendingCount > 0 ? (
+                    <span className="px-1.5 py-0.2 rounded-full bg-muted text-muted-foreground text-[10px] font-mono font-semibold">
                       {totalPendingCount}
                     </span>
-                  )}
+                  ) : null}
                 </TabsTrigger>
               </TabsList>
             </Tabs>
@@ -290,13 +335,35 @@ export function NotificationCenter() {
         <ScrollArea className="h-[340px] sm:h-[380px]">
           {activeTab === "management" && isManager ? (
             <div className="p-3 space-y-2.5">
-              {totalPendingCount > 0 ? (
-                <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-start gap-2.5 text-xs text-amber-200">
-                  <ShieldAlert className="h-4 w-4 text-amber-400 shrink-0 mt-0.5" />
+              {unreadPendingCount > 0 ? (
+                <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-start justify-between gap-2.5 text-xs text-amber-200">
+                  <div className="flex items-start gap-2.5">
+                    <ShieldAlert className="h-4 w-4 text-amber-400 shrink-0 mt-0.5" />
+                    <div className="space-y-0.5">
+                      <p className="font-bold text-foreground">Ações de Gestão Pendentes</p>
+                      <p className="text-[11px] text-muted-foreground">
+                        {unreadPendingCount} demanda(s) nova(s) ou não lida(s) de {totalPendingCount} em aberto.
+                      </p>
+                    </div>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-7 text-[11px] font-bold text-amber-300 border-amber-500/40 hover:bg-amber-500/20 shrink-0 px-2 gap-1 rounded-lg"
+                    onClick={markAllManagementAsRead}
+                  >
+                    <CheckCheck className="h-3.5 w-3.5" />
+                    Ler Todas
+                  </Button>
+                </div>
+              ) : totalPendingCount > 0 ? (
+                <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/25 flex items-start gap-2.5 text-xs text-emerald-200">
+                  <ShieldCheck className="h-4 w-4 text-emerald-400 shrink-0 mt-0.5" />
                   <div className="space-y-0.5">
-                    <p className="font-bold text-foreground">Ações de Gestão Pendentes</p>
+                    <p className="font-bold text-foreground">Pendências Cientes</p>
                     <p className="text-[11px] text-muted-foreground">
-                      {totalPendingCount} demanda(s) operacional(is) aguardando atendimento.
+                      Todas as {totalPendingCount} pendências operacionais foram marcadas como lidas/cientes.
                     </p>
                   </div>
                 </div>
@@ -322,34 +389,48 @@ export function NotificationCenter() {
                       key={item.id}
                       className={cn(
                         "flex items-center justify-between p-2.5 rounded-xl border transition-all text-left",
-                        hasCount
-                          ? "bg-secondary/40 border-border/80 hover:border-primary/40 shadow-xs"
-                          : "bg-muted/20 border-border/30 opacity-65"
+                        !hasCount
+                          ? "bg-muted/20 border-border/30 opacity-60"
+                          : item.isRead
+                          ? "bg-card/60 border-border/70 hover:border-border"
+                          : "bg-secondary/50 border-amber-500/40 hover:border-amber-500/60 shadow-xs"
                       )}
                     >
-                      <div className="flex items-center gap-2.5 min-w-0">
+                      <div className="flex items-center gap-2.5 min-w-0 flex-1">
                         <div
                           className={cn(
                             "p-2 rounded-lg border shrink-0",
-                            hasCount
-                              ? "bg-primary/10 text-primary border-primary/20"
-                              : "bg-muted/40 text-muted-foreground border-border/40"
+                            !hasCount
+                              ? "bg-muted/40 text-muted-foreground border-border/40"
+                              : item.isRead
+                              ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
+                              : "bg-amber-500/15 text-amber-400 border-amber-500/30"
                           )}
                         >
                           <ItemIcon className="h-4 w-4" />
                         </div>
-                        <div className="min-w-0">
-                          <div className="flex items-center gap-1.5">
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-1.5 flex-wrap">
                             <span className="text-xs font-bold text-foreground truncate">
                               {item.title}
                             </span>
                             {hasCount && (
-                              <Badge
-                                variant="secondary"
-                                className="px-1.5 py-0 text-[10px] font-mono font-extrabold bg-amber-500/20 text-amber-300 border-amber-500/40"
-                              >
-                                {item.count}
-                              </Badge>
+                              item.isRead ? (
+                                <Badge
+                                  variant="outline"
+                                  className="px-1.5 py-0 text-[10px] font-semibold bg-emerald-500/10 text-emerald-400 border-emerald-500/25 gap-1"
+                                >
+                                  <Check className="h-2.5 w-2.5" />
+                                  Ciente ({item.count})
+                                </Badge>
+                              ) : (
+                                <Badge
+                                  variant="secondary"
+                                  className="px-1.5 py-0 text-[10px] font-mono font-extrabold bg-amber-500/20 text-amber-300 border-amber-500/40 animate-pulse"
+                                >
+                                  {item.count}
+                                </Badge>
+                              )
                             )}
                           </div>
                           <p className="text-[10px] text-muted-foreground truncate">
@@ -358,24 +439,51 @@ export function NotificationCenter() {
                         </div>
                       </div>
 
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant={hasCount ? "default" : "outline"}
-                        className={cn(
-                          "h-7 text-[11px] font-bold px-2.5 gap-1 shrink-0 ml-2",
-                          hasCount
-                            ? "bg-primary hover:bg-primary/90 text-primary-foreground shadow-xs"
-                            : "opacity-60 hover:opacity-100"
+                      <div className="flex items-center gap-1 shrink-0 ml-2">
+                        {hasCount && (
+                          <Button
+                            type="button"
+                            size="icon"
+                            variant="ghost"
+                            className={cn(
+                              "h-7 w-7 rounded-lg transition-colors",
+                              item.isRead
+                                ? "text-emerald-400 hover:text-muted-foreground"
+                                : "text-muted-foreground hover:text-emerald-400 hover:bg-emerald-500/10"
+                            )}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (item.isRead) {
+                                markItemAsUnread(item.id);
+                              } else {
+                                markItemAsRead(item.id);
+                              }
+                            }}
+                            title={item.isRead ? "Marcar como não lida" : "Marcar como lida / ciente"}
+                          >
+                            <Check className="h-3.5 w-3.5" />
+                          </Button>
                         )}
-                        onClick={() => {
-                          setOpen(false);
-                          navigate({ to: item.link as any });
-                        }}
-                      >
-                        {item.actionLabel}
-                        <ArrowRight className="h-3 w-3" />
-                      </Button>
+
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant={hasCount && !item.isRead ? "default" : "outline"}
+                          className={cn(
+                            "h-7 text-[11px] font-bold px-2.5 gap-1 shrink-0",
+                            hasCount && !item.isRead
+                              ? "bg-primary hover:bg-primary/90 text-primary-foreground shadow-xs"
+                              : "opacity-80 hover:opacity-100"
+                          )}
+                          onClick={() => {
+                            setOpen(false);
+                            navigate({ to: item.link as any });
+                          }}
+                        >
+                          {item.actionLabel}
+                          <ArrowRight className="h-3 w-3" />
+                        </Button>
+                      </div>
                     </div>
                   );
                 })}
@@ -546,18 +654,33 @@ export function NotificationCenter() {
             <ArrowRight className="h-3 w-3" />
           </Button>
 
-          {hasUnread && (
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="h-7 text-xs font-medium text-muted-foreground hover:text-foreground gap-1 px-2.5 rounded-lg border-border/70"
-              onClick={() => markAllMutation.mutate()}
-              disabled={markAllMutation.isPending}
-            >
-              <CheckCheck className="h-3.5 w-3.5" />
-              Lidas
-            </Button>
+          {activeTab === "management" ? (
+            unreadPendingCount > 0 && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-7 text-xs font-semibold text-amber-300 hover:text-amber-200 border-amber-500/40 hover:bg-amber-500/10 gap-1 px-2.5 rounded-lg"
+                onClick={markAllManagementAsRead}
+              >
+                <CheckCheck className="h-3.5 w-3.5" />
+                Marcar Gestão Lida
+              </Button>
+            )
+          ) : (
+            hasUnread && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-7 text-xs font-medium text-muted-foreground hover:text-foreground gap-1 px-2.5 rounded-lg border-border/70"
+                onClick={() => markAllMutation.mutate()}
+                disabled={markAllMutation.isPending}
+              >
+                <CheckCheck className="h-3.5 w-3.5" />
+                Lidas
+              </Button>
+            )
           )}
         </div>
       </PopoverContent>

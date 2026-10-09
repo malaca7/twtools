@@ -30,12 +30,15 @@ import {
   AlertTriangle,
   Award,
   ShieldAlert,
+  ShieldCheck,
   Lock,
   Trophy,
   Bot,
   HelpCircle,
+  ArrowRight,
 } from "lucide-react";
 import { PageHeader, NoAccess } from "@/components/ui-kit";
+import { useManagementPendingActions } from "@/hooks/useManagementPendingActions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -143,13 +146,23 @@ function MemberNotificationsContent() {
     isLoading,
   } = useNotifications();
 
+  const {
+    isManager,
+    totalPendingCount,
+    unreadPendingCount,
+    allActionItems,
+    markItemAsRead: markMgmtItemAsRead,
+    markItemAsUnread: markMgmtItemAsUnread,
+    markAllAsRead: markAllMgmtAsRead,
+  } = useManagementPendingActions();
+
   const markAsReadMutation = useMarkNotificationAsRead();
   const markAllMutation = useMarkAllNotificationsAsRead();
   const deleteMutation = useDeleteNotification();
   const clearAllMutation = useClearAllNotifications();
 
   // Filtros locais
-  const [activeTab, setActiveTab] = useState<"all" | "unread" | "history" | "preferences">("all");
+  const [activeTab, setActiveTab] = useState<"all" | "unread" | "history" | "management" | "preferences">("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [typeFilter, setTypeFilter] = useState<string>("all");
@@ -248,17 +261,31 @@ function MemberNotificationsContent() {
             {soundEnabled ? "Som Ativo" : "Silencioso"}
           </Button>
 
-          {hasUnread && (
-            <Button
-              variant="default"
-              size="sm"
-              onClick={() => markAllMutation.mutate()}
-              disabled={markAllMutation.isPending}
-              className="gap-1.5 text-xs font-bold rounded-xl bg-gradient-brand text-primary-foreground shadow-sm"
-            >
-              <CheckCheck className="h-4 w-4" />
-              Marcar Todas Lidas
-            </Button>
+          {activeTab === "management" ? (
+            unreadPendingCount > 0 && (
+              <Button
+                variant="default"
+                size="sm"
+                onClick={markAllMgmtAsRead}
+                className="gap-1.5 text-xs font-bold rounded-xl bg-amber-500 hover:bg-amber-600 text-black shadow-sm"
+              >
+                <CheckCheck className="h-4 w-4" />
+                Marcar Gestão Lida
+              </Button>
+            )
+          ) : (
+            hasUnread && (
+              <Button
+                variant="default"
+                size="sm"
+                onClick={() => markAllMutation.mutate()}
+                disabled={markAllMutation.isPending}
+                className="gap-1.5 text-xs font-bold rounded-xl bg-gradient-brand text-primary-foreground shadow-sm"
+              >
+                <CheckCheck className="h-4 w-4" />
+                Marcar Todas Lidas
+              </Button>
+            )
           )}
         </div>
       </PageHeader>
@@ -333,13 +360,40 @@ function MemberNotificationsContent() {
               <History className="h-3.5 w-3.5" />
               Histórico ({readNotifications.length})
             </TabsTrigger>
+            {isManager && (
+              <TabsTrigger value="management" className="text-xs font-bold gap-1.5 rounded-lg data-[state=active]:bg-card">
+                <ShieldAlert className="h-3.5 w-3.5 text-amber-400" />
+                Gestão
+                {unreadPendingCount > 0 ? (
+                  <span className="px-1.5 py-0.2 rounded-full bg-amber-500 text-black text-[10px] font-mono font-extrabold animate-pulse">
+                    {unreadPendingCount}
+                  </span>
+                ) : totalPendingCount > 0 ? (
+                  <span className="px-1.5 py-0.2 rounded-full bg-muted text-muted-foreground text-[10px] font-mono font-semibold">
+                    {totalPendingCount}
+                  </span>
+                ) : null}
+              </TabsTrigger>
+            )}
             <TabsTrigger value="preferences" className="text-xs font-bold gap-1.5 rounded-lg data-[state=active]:bg-card">
               <Settings2 className="h-3.5 w-3.5" />
               Preferências & Som
             </TabsTrigger>
           </TabsList>
 
-          {activeTab !== "preferences" && notifications.length > 0 && (
+          {activeTab === "management" ? (
+            unreadPendingCount > 0 && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={markAllMgmtAsRead}
+                className="text-xs font-semibold text-amber-300 border-amber-500/40 hover:bg-amber-500/20 gap-1.5 self-end sm:self-auto rounded-xl"
+              >
+                <CheckCheck className="h-3.5 w-3.5" />
+                Marcar Gestão Lida
+              </Button>
+            )
+          ) : activeTab !== "preferences" && notifications.length > 0 && (
             <Button
               variant="ghost"
               size="sm"
@@ -490,8 +544,172 @@ function MemberNotificationsContent() {
           </div>
         </TabsContent>
 
+        {/* TAB DE GESTÃO */}
+        {isManager && (
+          <TabsContent value="management" className="space-y-4">
+            {unreadPendingCount > 0 ? (
+              <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs text-amber-200">
+                <div className="flex items-start gap-3">
+                  <div className="p-2 rounded-xl bg-amber-500/20 text-amber-400 border border-amber-500/30 shrink-0">
+                    <ShieldAlert className="h-5 w-5" />
+                  </div>
+                  <div className="space-y-0.5">
+                    <p className="text-sm font-bold text-foreground">Demandas Operacionais Pendentes</p>
+                    <p className="text-xs text-muted-foreground">
+                      {unreadPendingCount} pendência(s) de gestão aguardando atenção ({totalPendingCount} no total).
+                    </p>
+                  </div>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={markAllMgmtAsRead}
+                  className="h-8 text-xs font-bold text-amber-300 border-amber-500/40 hover:bg-amber-500/20 gap-1.5 self-end sm:self-auto rounded-xl"
+                >
+                  <CheckCheck className="h-3.5 w-3.5" />
+                  Marcar Todas como Lidas
+                </Button>
+              </div>
+            ) : totalPendingCount > 0 ? (
+              <div className="p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/25 flex items-center gap-3 text-xs text-emerald-200">
+                <div className="p-2 rounded-xl bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 shrink-0">
+                  <ShieldCheck className="h-5 w-5" />
+                </div>
+                <div className="space-y-0.5">
+                  <p className="text-sm font-bold text-foreground">Pendências Cientes</p>
+                  <p className="text-xs text-muted-foreground">
+                    Todas as {totalPendingCount} pendências operacionais foram visualizadas e marcadas como lidas/cientes.
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <div className="p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/25 flex items-center gap-3 text-xs text-emerald-200">
+                <div className="p-2 rounded-xl bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 shrink-0">
+                  <ShieldCheck className="h-5 w-5" />
+                </div>
+                <div className="space-y-0.5">
+                  <p className="text-sm font-bold text-foreground">Gestão em Dia</p>
+                  <p className="text-xs text-muted-foreground">
+                    Nenhuma demanda operacional pendente no momento. Excelente trabalho!
+                  </p>
+                </div>
+              </div>
+            )}
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+              {allActionItems.map((item) => {
+                const hasCount = item.count > 0;
+                const ItemIcon = item.icon;
+
+                return (
+                  <Card
+                    key={item.id}
+                    className={cn(
+                      "border transition-all duration-200 backdrop-blur-md",
+                      !hasCount
+                        ? "bg-card/30 border-border/40 opacity-65"
+                        : item.isRead
+                        ? "bg-card/60 border-border/70 hover:border-border"
+                        : "bg-card/80 border-amber-500/40 hover:border-amber-500/60 shadow-md"
+                    )}
+                  >
+                    <CardContent className="p-4 flex flex-col justify-between h-full gap-3">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex items-start gap-3 min-w-0">
+                          <div
+                            className={cn(
+                              "p-2.5 rounded-xl border shrink-0 mt-0.5",
+                              !hasCount
+                                ? "bg-muted/40 text-muted-foreground border-border/40"
+                                : item.isRead
+                                ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
+                                : "bg-amber-500/15 text-amber-400 border-amber-500/30"
+                            )}
+                          >
+                            <ItemIcon className="h-5 w-5" />
+                          </div>
+
+                          <div className="min-w-0 space-y-1">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <h4 className="text-sm font-bold text-foreground">
+                                {item.title}
+                              </h4>
+                              {hasCount && (
+                                item.isRead ? (
+                                  <Badge
+                                    variant="outline"
+                                    className="px-1.5 py-0 text-[10px] font-semibold bg-emerald-500/10 text-emerald-400 border-emerald-500/25 gap-1"
+                                  >
+                                    <Check className="h-2.5 w-2.5" />
+                                    Ciente ({item.count})
+                                  </Badge>
+                                ) : (
+                                  <Badge
+                                    variant="secondary"
+                                    className="px-1.5 py-0 text-[10px] font-mono font-extrabold bg-amber-500/20 text-amber-300 border-amber-500/40 animate-pulse"
+                                  >
+                                    {item.count} pendente{item.count === 1 ? "" : "s"}
+                                  </Badge>
+                                )
+                              )}
+                            </div>
+                            <p className="text-xs text-muted-foreground leading-relaxed">
+                              {hasCount ? item.description : "Nenhuma pendência operacional registrada."}
+                            </p>
+                          </div>
+                        </div>
+
+                        {hasCount && (
+                          <Button
+                            type="button"
+                            size="icon"
+                            variant="ghost"
+                            className={cn(
+                              "h-8 w-8 rounded-xl shrink-0 transition-colors",
+                              item.isRead
+                                ? "text-emerald-400 hover:text-muted-foreground"
+                                : "text-muted-foreground hover:text-emerald-400 hover:bg-emerald-500/10"
+                            )}
+                            onClick={() => {
+                              if (item.isRead) {
+                                markMgmtItemAsUnread(item.id);
+                              } else {
+                                markMgmtItemAsRead(item.id);
+                              }
+                            }}
+                            title={item.isRead ? "Marcar como não lida" : "Marcar como lida / ciente"}
+                          >
+                            <Check className="h-4 w-4" />
+                          </Button>
+                        )}
+                      </div>
+
+                      <div className="flex items-center justify-end pt-2 border-t border-border/40">
+                        <Button
+                          variant={hasCount && !item.isRead ? "default" : "outline"}
+                          size="sm"
+                          className={cn(
+                            "text-xs font-bold gap-1.5 rounded-xl h-8",
+                            hasCount && !item.isRead
+                              ? "bg-primary hover:bg-primary/90 text-primary-foreground shadow-sm"
+                              : "border-border/70"
+                          )}
+                          onClick={() => navigate({ to: item.link as any })}
+                        >
+                          {item.actionLabel}
+                          <ArrowRight className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+          </TabsContent>
+        )}
+
         {/* LISTAS: TODAS / NÃO LIDAS / HISTÓRICO */}
-        {activeTab !== "preferences" && (
+        {activeTab !== "preferences" && activeTab !== "management" && (
           <div className="space-y-4">
             {/* BARRA DE FILTROS E BUSCA */}
             <div className="flex flex-col sm:flex-row items-center gap-3">
