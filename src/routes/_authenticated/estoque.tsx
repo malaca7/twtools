@@ -64,7 +64,7 @@ import { BauIcon } from "@/components/ui/bau-icon";
 import { BauManagerModal } from "@/components/operations/BauManagerModal";
 import { MovementHistoryModal } from "@/components/operations/MovementHistoryModal";
 import { useAuth } from "@/hooks/useAuth";
-import { useCategories, useProducts, useBaus, useMovements, useProductBaus } from "@/hooks/useData";
+import { useCategories, useProducts, useBaus, useMovements, useProductBaus, useCustomRoles } from "@/hooks/useData";
 import { evaluateBauAccess } from "@/lib/bauPermissions";
 import {
   createProduct,
@@ -92,7 +92,7 @@ export function EstoquePage() {
 }
 
 function EstoqueContent() {
-  const { hasPermission, level, profile, memberTags, isDevUser, isCeoUser } = useAuth();
+  const { hasPermission, level, profile, memberTags, isDevUser, isCeoUser, panelMode } = useAuth();
   const queryClient = useQueryClient();
 
   const canView = hasPermission("view_stock");
@@ -119,18 +119,24 @@ function EstoqueContent() {
   const { data: baus = [], isLoading: loadingBaus } = useBaus();
   const { data: movements = [] } = useMovements();
   const { data: productBaus = [] } = useProductBaus();
+  const { data: customRoles = [] } = useCustomRoles();
+
+  const currentRole = useMemo(() => {
+    return customRoles.find((r) => r.id === level || r.nome?.toLowerCase() === level?.toLowerCase());
+  }, [customRoles, level]);
 
   const userAuthContext = useMemo(
     () => ({
       level,
-      customRoleId: profile?.custom_role_id,
+      customRoleId: currentRole?.id || level,
+      roleName: currentRole?.nome || level,
       tagIds: memberTags.map((t) => t.id),
       tagNames: memberTags.map((t) => t.name),
       isDevUser,
       isCeoUser,
-      canManage: canManageBaus,
+      panelMode,
     }),
-    [level, profile?.custom_role_id, memberTags, isDevUser, isCeoUser, canManageBaus]
+    [level, currentRole, memberTags, isDevUser, isCeoUser, panelMode]
   );
 
   const visibleBaus = useMemo(() => {

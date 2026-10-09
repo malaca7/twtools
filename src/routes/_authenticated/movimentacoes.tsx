@@ -94,6 +94,7 @@ import {
   useCategories,
   useMembers,
   useDiscordStockConfig,
+  useCustomRoles,
   nameOf,
   productName,
 } from "@/hooks/useData";
@@ -129,7 +130,7 @@ export function MovimentacoesPage() {
 }
 
 function MovimentacoesContent() {
-  const { hasPermission, level, profile, memberTags, isDevUser, isCeoUser } = useAuth();
+  const { hasPermission, level, profile, memberTags, isDevUser, isCeoUser, panelMode } = useAuth();
   const queryClient = useQueryClient();
   const canViewPage = hasPermission("view_movements");
   const canMove = hasPermission("create_movement");
@@ -145,20 +146,26 @@ function MovimentacoesContent() {
   const { data: productBaus = [] } = useProductBaus();
   const { data: categories = [] } = useCategories();
   const { data: members = [] } = useMembers();
-  const { data: discordConfig } = useDiscordStockConfig();
+  const { data: discordConfig = null } = useDiscordStockConfig();
+  const { data: customRoles = [] } = useCustomRoles();
+
+  const currentRole = useMemo(() => {
+    return customRoles.find((r) => r.id === level || r.nome?.toLowerCase() === level?.toLowerCase());
+  }, [customRoles, level]);
 
   // Contexto de permissão do usuário atual para baús
   const userAuthContext = useMemo(
     () => ({
       level,
-      customRoleId: profile?.custom_role_id,
+      customRoleId: currentRole?.id || level,
+      roleName: currentRole?.nome || level,
       tagIds: memberTags.map((t) => t.id),
       tagNames: memberTags.map((t) => t.name),
       isDevUser,
       isCeoUser,
-      canManage: canManageBaus,
+      panelMode,
     }),
-    [level, profile?.custom_role_id, memberTags, isDevUser, isCeoUser, canManageBaus]
+    [level, currentRole, memberTags, isDevUser, isCeoUser, panelMode]
   );
 
   // Filtragem de baús visíveis para este membro (respeita regra de ocultar se configurado)

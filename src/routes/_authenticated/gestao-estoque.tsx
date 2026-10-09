@@ -25,6 +25,7 @@ import {
   FileSpreadsheet,
   AlertCircle,
   Eye,
+  EyeOff,
   Check,
   X,
   ShieldAlert,
@@ -1842,7 +1843,7 @@ function BausTabContent({ canManage }: BausTabContentProps) {
   const [accessMode, setAccessMode] = useState<"all" | "restricted">("all");
   const [allowedRoles, setAllowedRoles] = useState<string[]>([]);
   const [allowedTags, setAllowedTags] = useState<string[]>([]);
-  const [restrictedAction, setRestrictedAction] = useState<"hide" | "disabled">("disabled");
+  const [restrictedAction, setRestrictedAction] = useState<"hide" | "disabled">("hide");
 
   // Dedicated Permissions Modal State
   const [permissionsModalOpen, setPermissionsModalOpen] = useState(false);
@@ -1878,7 +1879,7 @@ function BausTabContent({ canManage }: BausTabContentProps) {
     setAccessMode(b.access_mode || "all");
     setAllowedRoles(b.allowed_roles || []);
     setAllowedTags(b.allowed_tags || []);
-    setRestrictedAction(b.restricted_action || "disabled");
+    setRestrictedAction(b.restricted_action || "hide");
     setPermSearchRoles("");
     setPermSearchTags("");
     setPermissionsModalOpen(true);
@@ -2131,7 +2132,7 @@ function BausTabContent({ canManage }: BausTabContentProps) {
     setAccessMode("all");
     setAllowedRoles([]);
     setAllowedTags([]);
-    setRestrictedAction("disabled");
+    setRestrictedAction("hide");
     const initialGuild = config?.guild_id || "1535505650308620400";
     setDiscordGuildId(initialGuild);
     setIsModalOpen(true);
@@ -2156,7 +2157,7 @@ function BausTabContent({ canManage }: BausTabContentProps) {
     setAccessMode(b.access_mode || "all");
     setAllowedRoles(b.allowed_roles || []);
     setAllowedTags(b.allowed_tags || []);
-    setRestrictedAction(b.restricted_action || "disabled");
+    setRestrictedAction(b.restricted_action || "hide");
     const targetGuild =
       b.discord_guild_id ||
       config?.bau_channels?.[b.id]?.guild_id ||
@@ -2569,9 +2570,10 @@ function BausTabContent({ canManage }: BausTabContentProps) {
                           </div>
 
                           <div className="flex items-center justify-between text-[10px] text-muted-foreground pt-0.5">
-                            <span>Membros não listados:</span>
-                            <span className="font-semibold text-foreground">
-                              {b.restricted_action === "hide" ? "👁️ Baú Oculto" : "🔒 Baú Desativado / Bloqueado"}
+                            <span>Membros não autorizados:</span>
+                            <span className="font-semibold text-amber-300 flex items-center gap-1">
+                              <EyeOff className="w-3 h-3 text-amber-400 shrink-0" />
+                              <span>Totalmente Oculto</span>
                             </span>
                           </div>
                         </div>
@@ -3294,49 +3296,15 @@ function BausTabContent({ canManage }: BausTabContentProps) {
                       </div>
                     )}
 
-                    {/* COMPORTAMENTO PARA QUEM NÃO TEM ACESSO */}
-                    <div className="space-y-1.5 p-2.5 rounded-lg bg-background/40 border border-border/40">
-                      <Label className="text-xs font-semibold text-foreground">
-                        Comportamento para membros não autorizados:
-                      </Label>
-                      <div className="grid grid-cols-2 gap-2 pt-0.5">
-                        <label
-                          className={cn(
-                            "flex items-center gap-2 p-2 rounded-lg border text-xs cursor-pointer select-none",
-                            restrictedAction === "disabled"
-                              ? "bg-primary/10 border-primary text-foreground font-semibold"
-                              : "bg-secondary/20 border-border/50 text-muted-foreground"
-                          )}
-                        >
-                          <input
-                            type="radio"
-                            name="restricted_action_edit"
-                            checked={restrictedAction === "disabled"}
-                            onChange={() => setRestrictedAction("disabled")}
-                            className="sr-only"
-                          />
-                          <div className={cn("w-3 h-3 rounded-full border flex items-center justify-center", restrictedAction === "disabled" ? "border-primary bg-primary" : "border-muted-foreground")} />
-                          <span className="text-[11px]">Exibir Desativado</span>
-                        </label>
-                        <label
-                          className={cn(
-                            "flex items-center gap-2 p-2 rounded-lg border text-xs cursor-pointer select-none",
-                            restrictedAction === "hide"
-                              ? "bg-primary/10 border-primary text-foreground font-semibold"
-                              : "bg-secondary/20 border-border/50 text-muted-foreground"
-                          )}
-                        >
-                          <input
-                            type="radio"
-                            name="restricted_action_edit"
-                            checked={restrictedAction === "hide"}
-                            onChange={() => setRestrictedAction("hide")}
-                            className="sr-only"
-                          />
-                          <div className={cn("w-3 h-3 rounded-full border flex items-center justify-center", restrictedAction === "hide" ? "border-primary bg-primary" : "border-muted-foreground")} />
-                          <span className="text-[11px]">Ocultar da Lista</span>
-                        </label>
+                    {/* REGRA DE VISIBILIDADE ESTREITA */}
+                    <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/25 text-amber-200 text-xs space-y-1">
+                      <div className="flex items-center gap-1.5 font-bold text-[11px] text-amber-300">
+                        <ShieldAlert className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                        <span>Regra de Visualização Estrita:</span>
                       </div>
+                      <p className="text-[10px] text-amber-200/90 leading-relaxed">
+                        Este baú e todas as suas funções e movimentações <strong>só serão mostrados para membros com algum dos cargos ou tags marcados acima</strong>. Para os demais membros, o baú ficará totalmente invisível no painel.
+                      </p>
                     </div>
                   </div>
                 )}
@@ -3579,56 +3547,20 @@ function BausTabContent({ canManage }: BausTabContentProps) {
                     </div>
                   )}
 
-                  {/* COMPORTAMENTO PARA QUEM NÃO TEM ACESSO */}
-                  <div className="space-y-2 p-3 rounded-xl bg-secondary/20 border border-border/50">
-                    <Label className="text-xs font-bold text-foreground">
-                      Comportamento para membros não autorizados:
-                    </Label>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                      <label
-                        className={cn(
-                          "flex items-start gap-2.5 p-2.5 rounded-lg border text-xs cursor-pointer select-none",
-                          restrictedAction === "disabled"
-                            ? "bg-primary/10 border-primary text-foreground font-semibold"
-                            : "bg-background/60 border-border/50 text-muted-foreground"
-                        )}
-                      >
-                        <input
-                          type="radio"
-                          name="restricted_action_modal"
-                          checked={restrictedAction === "disabled"}
-                          onChange={() => setRestrictedAction("disabled")}
-                          className="sr-only"
-                        />
-                        <div className={cn("w-3.5 h-3.5 rounded-full border mt-0.5 flex items-center justify-center shrink-0", restrictedAction === "disabled" ? "border-primary bg-primary" : "border-muted-foreground")} />
-                        <div>
-                          <div className="font-bold text-[11px]">Exibir como Desativado</div>
-                          <div className="text-[10px] text-muted-foreground">O baú aparece bloqueado para movimentação</div>
-                        </div>
-                      </label>
-
-                      <label
-                        className={cn(
-                          "flex items-start gap-2.5 p-2.5 rounded-lg border text-xs cursor-pointer select-none",
-                          restrictedAction === "hide"
-                            ? "bg-primary/10 border-primary text-foreground font-semibold"
-                            : "bg-background/60 border-border/50 text-muted-foreground"
-                        )}
-                      >
-                        <input
-                          type="radio"
-                          name="restricted_action_modal"
-                          checked={restrictedAction === "hide"}
-                          onChange={() => setRestrictedAction("hide")}
-                          className="sr-only"
-                        />
-                        <div className={cn("w-3.5 h-3.5 rounded-full border mt-0.5 flex items-center justify-center shrink-0", restrictedAction === "hide" ? "border-primary bg-primary" : "border-muted-foreground")} />
-                        <div>
-                          <div className="font-bold text-[11px]">Ocultar Baú</div>
-                          <div className="text-[10px] text-muted-foreground">O baú não aparece na listagem para o membro</div>
-                        </div>
-                      </label>
+                  {/* REGRA DE VISIBILIDADE ESTREITA */}
+                  <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/25 text-amber-200 text-xs space-y-1.5">
+                    <div className="flex items-center gap-2 font-bold text-[11px] text-amber-300">
+                      <ShieldAlert className="w-4 h-4 text-amber-400 shrink-0" />
+                      <span>Regra de Visualização Estrita Ativa:</span>
                     </div>
+                    <p className="text-[10px] text-amber-200/90 leading-relaxed">
+                      Quando o Modo Restrito está ativo, este baú e todas as suas funções e movimentações <strong>só serão exibidos para os membros que possuírem ao menos um dos cargos ou tags marcados acima</strong>. Para todos os demais membros da facção, o baú ficará 100% oculto e inacessível.
+                    </p>
+                    {allowedRoles.length === 0 && allowedTags.length === 0 && (
+                      <div className="p-2 rounded-lg bg-amber-500/20 border border-amber-500/40 text-[10px] font-semibold text-amber-300">
+                        ⚠️ Atenção: Nenhum cargo ou tag foi marcado ainda. Marque os cargos ou tags autorizados para liberar a visualização do baú para os membros.
+                      </div>
+                    )}
                   </div>
                 </div>
               ) : (
@@ -3799,7 +3731,35 @@ function SaldosTabContent({ canAdjust, canManageBalance }: SaldosTabContentProps
     return searchProductsWithFuzzy(products, search, [], baus);
   }, [products, search, baus]);
 
-  const activeBaus = useMemo(() => baus.filter((b) => b.ativo), [baus]);
+  const { level, profile, memberTags, isDevUser, isCeoUser, panelMode } = useAuth();
+  const { data: customRoles = [] } = useCustomRoles();
+  const currentRole = useMemo(() => {
+    return customRoles.find((r) => r.id === level || r.nome?.toLowerCase() === level?.toLowerCase());
+  }, [customRoles, level]);
+
+  const userAuthContext = useMemo(
+    () => ({
+      level,
+      customRoleId: currentRole?.id || level,
+      roleName: currentRole?.nome || level,
+      tagIds: memberTags.map((t) => t.id),
+      tagNames: memberTags.map((t) => t.name),
+      isDevUser,
+      isCeoUser,
+      panelMode,
+    }),
+    [level, currentRole, memberTags, isDevUser, isCeoUser, panelMode]
+  );
+
+  const visibleBaus = useMemo(
+    () => baus.filter((b) => evaluateBauAccess(b, userAuthContext).canView),
+    [baus, userAuthContext]
+  );
+
+  const activeBaus = useMemo(
+    () => visibleBaus.filter((b) => evaluateBauAccess(b, userAuthContext).isActiveForUser),
+    [visibleBaus, userAuthContext]
+  );
   const displayedProducts = exactFilteredProducts.length > 0 ? exactFilteredProducts : similarFilteredProducts.map((s) => s.product);
 
   return (

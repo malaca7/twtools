@@ -38,7 +38,9 @@ import {
   useProducts,
   useRawMaterialMovements,
   useMembers,
+  useCustomRoles,
 } from "@/hooks/useData";
+import { evaluateBauAccess } from "@/lib/bauPermissions";
 import {
   createRawMaterial,
   updateRawMaterial,
@@ -87,7 +89,7 @@ export const Route = createFileRoute("/_authenticated/producoes/materias-primas"
 });
 
 export function MateriasPrimasPage() {
-  const { hasPermission, isDevMode, isCeoMode } = useAuth();
+  const { hasPermission, isDevMode, isCeoMode, level, memberTags, isDevUser, isCeoUser, panelMode } = useAuth();
   const queryClient = useQueryClient();
   const prefix = isDevMode ? "/dev" : isCeoMode ? "/ceo" : "";
 
@@ -123,11 +125,30 @@ export function MateriasPrimasPage() {
   const { data: products = [] } = useProducts();
   const { data: movements = [], isLoading: loadingMovements } = useRawMaterialMovements(undefined, 150);
   const { data: members = [] } = useMembers();
+  const { data: customRoles = [] } = useCustomRoles();
 
-  // Baús ativos
+  const currentRole = useMemo(() => {
+    return customRoles.find((r) => r.id === level || r.nome?.toLowerCase() === level?.toLowerCase());
+  }, [customRoles, level]);
+
+  const userAuthContext = useMemo(
+    () => ({
+      level,
+      customRoleId: currentRole?.id || level,
+      roleName: currentRole?.nome || level,
+      tagIds: memberTags.map((t) => t.id),
+      tagNames: memberTags.map((t) => t.name),
+      isDevUser,
+      isCeoUser,
+      panelMode,
+    }),
+    [level, currentRole, memberTags, isDevUser, isCeoUser, panelMode]
+  );
+
+  // Baús ativos (respeitando restrições de cargos e tags)
   const activeBaus = useMemo(
-    () => baus.filter((b) => b.ativo !== false && (b as any).is_active !== false),
-    [baus]
+    () => baus.filter((b) => evaluateBauAccess(b, userAuthContext).isActiveForUser),
+    [baus, userAuthContext]
   );
 
   // Baús em Modo de Movimentação MANUAL

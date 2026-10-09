@@ -40,7 +40,9 @@ import {
   useCategories,
   useRawMaterials,
   useProducts,
+  useCustomRoles,
 } from "@/hooks/useData";
+import { evaluateBauAccess } from "@/lib/bauPermissions";
 import {
   transferWarehouseToStorage,
   transferWarehouseToSale,
@@ -91,7 +93,7 @@ export const Route = createFileRoute("/_authenticated/producoes/armazem")({
 });
 
 export function ArmazemPage() {
-  const { hasPermission, isDevMode, isCeoMode } = useAuth();
+  const { hasPermission, isDevMode, isCeoMode, level, memberTags, isDevUser, isCeoUser, panelMode } = useAuth();
   const queryClient = useQueryClient();
   const prefix = isDevMode ? "/dev" : isCeoMode ? "/ceo" : "";
 
@@ -108,6 +110,25 @@ export function ArmazemPage() {
   const { data: productBaus = [] } = useProductBaus();
   const { data: categories = [] } = useCategories();
   const { data: rawMovements = [], isLoading: loadingMovements } = useWarehouseMovements(undefined, 100);
+  const { data: customRoles = [] } = useCustomRoles();
+
+  const currentRole = useMemo(() => {
+    return customRoles.find((r) => r.id === level || r.nome?.toLowerCase() === level?.toLowerCase());
+  }, [customRoles, level]);
+
+  const userAuthContext = useMemo(
+    () => ({
+      level,
+      customRoleId: currentRole?.id || level,
+      roleName: currentRole?.nome || level,
+      tagIds: memberTags.map((t) => t.id),
+      tagNames: memberTags.map((t) => t.name),
+      isDevUser,
+      isCeoUser,
+      panelMode,
+    }),
+    [level, currentRole, memberTags, isDevUser, isCeoUser, panelMode]
+  );
 
   // Requisito: O saldo de matérias-primas NÃO deve misturar na tabela de produtos acabados
   const rawMaterialProductIds = useMemo(
@@ -134,10 +155,10 @@ export function ArmazemPage() {
     return rawMovements.filter((m) => !isRawMaterial(m.product_id, (m as any).product?.nome));
   }, [rawMovements, rawMaterialProductIds, rawMaterialNames]);
 
-  // Filtragem estrita de baús ativos (requisito: não mostrar nem permitir baús inativos)
+  // Filtragem estrita de baús ativos (respeitando restrições de cargos e tags)
   const activeBaus = useMemo(
-    () => baus.filter((b) => b.ativo !== false && (b as any).is_active !== false),
-    [baus]
+    () => baus.filter((b) => evaluateBauAccess(b, userAuthContext).isActiveForUser),
+    [baus, userAuthContext]
   );
 
   // Baús em Modo de Movimentação MANUAL
