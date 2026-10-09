@@ -85,6 +85,7 @@ import { MovementHistoryModal } from "@/components/operations/MovementHistoryMod
 import { useAuth } from "@/hooks/useAuth";
 import { useUrlTab } from "@/hooks/useUrlTab";
 import { useModalTitle } from "@/hooks/usePageTitle";
+import { evaluateBauAccess } from "@/lib/bauPermissions";
 import {
   useMovements,
   useProducts,
@@ -128,7 +129,7 @@ export function MovimentacoesPage() {
 }
 
 function MovimentacoesContent() {
-  const { hasPermission } = useAuth();
+  const { hasPermission, level, profile, memberTags, isDevUser, isCeoUser } = useAuth();
   const queryClient = useQueryClient();
   const canViewPage = hasPermission("view_movements");
   const canMove = hasPermission("create_movement");
@@ -136,6 +137,7 @@ function MovimentacoesContent() {
   const canReverse = hasPermission("reverse_movement");
   const canViewBalances = hasPermission("view_movement_balances");
   const canViewBaus = hasPermission("view_movement_baus");
+  const canManageBaus = hasPermission("manage_baus");
 
   const { data: movements = [], isLoading: loadingMovements } = useMovements();
   const { data: products = [] } = useProducts();
@@ -145,12 +147,34 @@ function MovimentacoesContent() {
   const { data: members = [] } = useMembers();
   const { data: discordConfig } = useDiscordStockConfig();
 
-  // Filtragem estrita de baús ativos vs inativos
-  const activeBaus = useMemo(
-    () => baus.filter((b) => b.ativo !== false && (b as any).is_active !== false),
-    [baus]
+  // Contexto de permissão do usuário atual para baús
+  const userAuthContext = useMemo(
+    () => ({
+      level,
+      customRoleId: profile?.custom_role_id,
+      tagIds: memberTags.map((t) => t.id),
+      tagNames: memberTags.map((t) => t.name),
+      isDevUser,
+      isCeoUser,
+      canManage: canManageBaus,
+    }),
+    [level, profile?.custom_role_id, memberTags, isDevUser, isCeoUser, canManageBaus]
   );
-  const inactiveBaus = useMemo(() => baus.filter((b) => b.ativo === false), [baus]);
+
+  // Filtragem de baús visíveis para este membro (respeita regra de ocultar se configurado)
+  const visibleBaus = useMemo(() => {
+    return baus.filter((b) => evaluateBauAccess(b, userAuthContext).canView);
+  }, [baus, userAuthContext]);
+
+  // Filtragem estrita de baús ativos vs inativos para este usuário
+  const activeBaus = useMemo(
+    () => visibleBaus.filter((b) => evaluateBauAccess(b, userAuthContext).isActiveForUser),
+    [visibleBaus, userAuthContext]
+  );
+  const inactiveBaus = useMemo(
+    () => visibleBaus.filter((b) => !evaluateBauAccess(b, userAuthContext).isActiveForUser),
+    [visibleBaus, userAuthContext]
+  );
   const [showInactiveBaus, setShowInactiveBaus] = useState(false);
 
   // App State sincronizado com a URL (?tipo=entrada | saida | transferencia)
@@ -168,7 +192,7 @@ function MovimentacoesContent() {
 
   // Auto-selecionar baú padrão ativo para movimentações
   useEffect(() => {
-    const listToPick = activeBaus.length > 0 ? activeBaus : baus;
+    const listToPick = activeBaus.length > 0 ? activeBaus : visibleBaus;
     if (listToPick.length > 0) {
       if (!selectedBauId || !listToPick.some((b) => b.id === selectedBauId)) {
         const defaultBau = listToPick[0];
@@ -182,7 +206,7 @@ function MovimentacoesContent() {
         if (otherBau) setToBauId(otherBau.id);
       }
     }
-  }, [activeBaus, baus, selectedBauId, fromBauId, toBauId]);
+  }, [activeBaus, visibleBaus, selectedBauId, fromBauId, toBauId]);
 
   // Queue batch items
   const [queue, setQueue] = useState<BatchItem[]>([]);
@@ -655,8 +679,8 @@ function MovimentacoesContent() {
 
   // Lista de baús exibidos na grade (por padrão apenas ativos)
   const displayedBaus = useMemo(() => {
-    return showInactiveBaus ? baus : activeBaus;
-  }, [baus, activeBaus, showInactiveBaus]);
+    return showInactiveBaus ? visibleBaus : activeBaus;
+  }, [visibleBaus, activeBaus, showInactiveBaus]);
 
   return (
     <div className="mx-auto max-w-6xl space-y-6">

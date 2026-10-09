@@ -229,6 +229,10 @@ export type Bau = {
   discord_channel_id?: string | null;
   discord_guild_id?: string | null;
   created_at: string;
+  access_mode?: "all" | "restricted";
+  allowed_roles?: string[];
+  allowed_tags?: string[];
+  restricted_action?: "hide" | "disabled";
 };
 
 export type BauDiscordIntegration = {
@@ -237,6 +241,13 @@ export type BauDiscordIntegration = {
   guild_id?: string;
   tipo_gestao?: "automatico" | "manual";
   is_active?: boolean;
+  banner_url?: string | null;
+  foto_url?: string | null;
+  imagem_url?: string | null;
+  access_mode?: "all" | "restricted";
+  allowed_roles?: string[];
+  allowed_tags?: string[];
+  restricted_action?: "hide" | "disabled";
 };
 
 export type DiscordStockConfig = {

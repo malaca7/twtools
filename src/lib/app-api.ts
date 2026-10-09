@@ -324,6 +324,10 @@ export async function getBaus(): Promise<Bau[]> {
       tipo_gestao: (d.tipo_gestao === "manual" || channelConf.tipo_gestao === "manual" ? "manual" : "automatico"),
       discord_channel_id: d.discord_channel_id || channelConf.channel_id || null,
       discord_guild_id: d.discord_guild_id || channelConf.guild_id || null,
+      access_mode: (channelConf.access_mode || (d as any).access_mode || "all") as "all" | "restricted",
+      allowed_roles: (channelConf.allowed_roles || (d as any).allowed_roles || []) as string[],
+      allowed_tags: (channelConf.allowed_tags || (d as any).allowed_tags || []) as string[],
+      restricted_action: (channelConf.restricted_action || (d as any).restricted_action || "disabled") as "hide" | "disabled",
       created_at: String(d.created_at),
     });
   }
@@ -341,6 +345,11 @@ export async function createBau(payload: {
   tipo_gestao?: "automatico" | "manual";
   discord_channel_id?: string | null;
   discord_guild_id?: string | null;
+  ativo?: boolean;
+  access_mode?: "all" | "restricted";
+  allowed_roles?: string[];
+  allowed_tags?: string[];
+  restricted_action?: "hide" | "disabled";
 }): Promise<Bau> {
   const cleanName = payload.nome.trim();
   if (!cleanName) throw new Error("Informe o nome do baú.");
@@ -357,6 +366,7 @@ export async function createBau(payload: {
 
   const photo = payload.foto_url?.trim() || payload.imagem_url?.trim() || null;
   const banner = payload.banner_url && typeof payload.banner_url === "string" ? (payload.banner_url.trim() || null) : null;
+  const isBauActive = payload.ativo !== false;
 
   const insertPayload: any = {
     nome: cleanName,
@@ -365,7 +375,7 @@ export async function createBau(payload: {
     foto_url: photo,
     imagem_url: photo,
     ...(banner ? { banner_url: banner } : {}),
-    ativo: true,
+    ativo: isBauActive,
     tipo_gestao: payload.tipo_gestao || 'automatico',
     discord_channel_id: payload.discord_channel_id?.trim() || null,
     discord_guild_id: payload.discord_guild_id?.trim() || null,
@@ -404,10 +414,14 @@ export async function createBau(payload: {
         channel_id: payload.discord_channel_id?.trim() || "",
         guild_id: payload.discord_guild_id?.trim() || "",
         tipo_gestao: payload.tipo_gestao || "automatico",
-        is_active: true,
+        is_active: isBauActive,
         banner_url: banner,
         foto_url: photo,
         imagem_url: photo,
+        access_mode: payload.access_mode || "all",
+        allowed_roles: payload.allowed_roles || [],
+        allowed_tags: payload.allowed_tags || [],
+        restricted_action: payload.restricted_action || "disabled",
       };
       await (supabase.from("discord_stock_config" as any))
         .update({ bau_channels: { ...currentChannels, [data.id]: updatedChannelConf }, updated_at: new Date().toISOString() })
@@ -417,7 +431,7 @@ export async function createBau(payload: {
     }
   }
 
-  void logAuditAction("create_bau", "baus", { nome: data.nome, descricao: data.descricao, tipo_gestao: data.tipo_gestao, foto_url: data.foto_url, banner_url: data.banner_url || banner }, undefined, data.id);
+  void logAuditAction("create_bau", "baus", { nome: data.nome, descricao: data.descricao, tipo_gestao: data.tipo_gestao, foto_url: data.foto_url, banner_url: data.banner_url || banner, access_mode: payload.access_mode }, undefined, data.id);
 
   return {
     id: data.id,
@@ -427,10 +441,14 @@ export async function createBau(payload: {
     foto_url: data.foto_url || data.imagem_url || photo || null,
     imagem_url: data.imagem_url || data.foto_url || photo || null,
     banner_url: data.banner_url || banner || null,
-    ativo: data.ativo,
+    ativo: data.ativo ?? isBauActive,
     tipo_gestao: data.tipo_gestao || 'automatico',
     discord_channel_id: data.discord_channel_id || null,
     discord_guild_id: data.discord_guild_id || null,
+    access_mode: payload.access_mode || "all",
+    allowed_roles: payload.allowed_roles || [],
+    allowed_tags: payload.allowed_tags || [],
+    restricted_action: payload.restricted_action || "disabled",
     created_at: String(data.created_at)
   };
 }
@@ -447,6 +465,10 @@ export async function updateBau(payload: {
   tipo_gestao?: "automatico" | "manual";
   discord_channel_id?: string | null;
   discord_guild_id?: string | null;
+  access_mode?: "all" | "restricted";
+  allowed_roles?: string[];
+  allowed_tags?: string[];
+  restricted_action?: "hide" | "disabled";
 }): Promise<void> {
   const { data: oldBau } = await supabase.from("baus").select("*").eq("id", payload.id).maybeSingle();
 
@@ -508,7 +530,7 @@ export async function updateBau(payload: {
     throw new Error("Não foi possível atualizar o baú.");
   }
 
-  // Sincronizar metadados completos (incluindo banner_url e foto_url) em discord_stock_config.bau_channels
+  // Sincronizar metadados completos (incluindo banner_url, foto_url, permissões de cargos e tags) em discord_stock_config.bau_channels
   try {
     const { data: conf } = await (supabase.from("discord_stock_config" as any)).select("bau_channels").limit(1).maybeSingle();
     const currentChannels = conf?.bau_channels || {};
@@ -522,6 +544,10 @@ export async function updateBau(payload: {
       ...(updates.discord_channel_id !== undefined ? { channel_id: updates.discord_channel_id } : {}),
       ...(updates.discord_guild_id !== undefined ? { guild_id: updates.discord_guild_id } : {}),
       ...(updates.ativo !== undefined ? { is_active: updates.ativo } : {}),
+      ...(payload.access_mode !== undefined ? { access_mode: payload.access_mode } : {}),
+      ...(payload.allowed_roles !== undefined ? { allowed_roles: payload.allowed_roles } : {}),
+      ...(payload.allowed_tags !== undefined ? { allowed_tags: payload.allowed_tags } : {}),
+      ...(payload.restricted_action !== undefined ? { restricted_action: payload.restricted_action } : {}),
     };
     await (supabase.from("discord_stock_config" as any))
       .update({ bau_channels: { ...currentChannels, [payload.id]: updatedChannelConf }, updated_at: new Date().toISOString() })
@@ -530,7 +556,7 @@ export async function updateBau(payload: {
     console.warn("Could not sync updateBau to discord_stock_config:", confErr);
   }
 
-  void logAuditAction("update_bau", "baus", { id: payload.id, ...updates, banner_url: payload.banner_url }, oldBau || undefined, payload.id);
+  void logAuditAction("update_bau", "baus", { id: payload.id, ...updates, banner_url: payload.banner_url, access_mode: payload.access_mode, allowed_roles: payload.allowed_roles, allowed_tags: payload.allowed_tags }, oldBau || undefined, payload.id);
 }
 
 export async function deleteBau(id: string): Promise<void> {

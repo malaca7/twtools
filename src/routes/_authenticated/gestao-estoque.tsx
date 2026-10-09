@@ -39,6 +39,11 @@ import {
   HelpCircle,
   ShoppingCart,
   Factory,
+  Power,
+  ShieldCheck,
+  Lock,
+  Unlock,
+  Users,
 } from "lucide-react";
 import { ProductThumbnail } from "@/components/ui/product-thumbnail";
 import { BauIcon } from "@/components/ui/bau-icon";
@@ -49,7 +54,11 @@ import {
   useBaus,
   useProductBaus,
   useDiscordStockConfig,
+  useCustomRoles,
 } from "@/hooks/useData";
+import { useMemberTags } from "@/hooks/useMemberTags";
+import { LEVEL_LABEL, type AppLevel } from "@/lib/permissions";
+import { evaluateBauAccess } from "@/lib/bauPermissions";
 import {
   createProduct,
   updateProduct,
@@ -1797,6 +1806,115 @@ function BausTabContent({ canManage }: BausTabContentProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const bannerFileInputRef = useRef<HTMLInputElement>(null);
 
+  // Permissões de Cargos & Tags
+  const { data: customRoles = [] } = useCustomRoles();
+  const { data: memberTags = [] } = useMemberTags();
+
+  // Quick toggle active / inactive mutation
+  const [quickTogglingId, setQuickTogglingId] = useState<string | null>(null);
+
+  const quickToggleMutation = useMutation({
+    mutationFn: async ({ bau, nextActive }: { bau: Bau; nextActive: boolean }) => {
+      setQuickTogglingId(bau.id);
+      await updateBau({
+        id: bau.id,
+        ativo: nextActive,
+      });
+    },
+    onSuccess: (_, variables) => {
+      toast.success(
+        variables.nextActive
+          ? `Baú "${variables.bau.nome}" ativado com sucesso!`
+          : `Baú "${variables.bau.nome}" desativado com sucesso!`
+      );
+      void queryClient.invalidateQueries({ queryKey: ["baus"] });
+      void queryClient.invalidateQueries({ queryKey: ["discord_stock_config"] });
+    },
+    onError: (err: any) => {
+      toast.error(err.message || "Erro ao alternar status do baú.");
+    },
+    onSettled: () => {
+      setQuickTogglingId(null);
+    },
+  });
+
+  // State for Cargo & Tag Permissions
+  const [accessMode, setAccessMode] = useState<"all" | "restricted">("all");
+  const [allowedRoles, setAllowedRoles] = useState<string[]>([]);
+  const [allowedTags, setAllowedTags] = useState<string[]>([]);
+  const [restrictedAction, setRestrictedAction] = useState<"hide" | "disabled">("disabled");
+
+  // Dedicated Permissions Modal State
+  const [permissionsModalOpen, setPermissionsModalOpen] = useState(false);
+  const [configuringBau, setConfiguringBau] = useState<Bau | null>(null);
+  const [permSearchRoles, setPermSearchRoles] = useState("");
+  const [permSearchTags, setPermSearchTags] = useState("");
+
+  const savePermissionsMutation = useMutation({
+    mutationFn: async () => {
+      if (!configuringBau) return;
+      await updateBau({
+        id: configuringBau.id,
+        access_mode: accessMode,
+        allowed_roles: allowedRoles,
+        allowed_tags: allowedTags,
+        restricted_action: restrictedAction,
+      });
+    },
+    onSuccess: () => {
+      toast.success("Permissões de cargos e tags salvas com sucesso!");
+      void queryClient.invalidateQueries({ queryKey: ["baus"] });
+      void queryClient.invalidateQueries({ queryKey: ["discord_stock_config"] });
+      setPermissionsModalOpen(false);
+      setConfiguringBau(null);
+    },
+    onError: (err: any) => {
+      toast.error(err.message || "Erro ao salvar permissões do baú.");
+    },
+  });
+
+  const openPermissionsModal = (b: Bau) => {
+    setConfiguringBau(b);
+    setAccessMode(b.access_mode || "all");
+    setAllowedRoles(b.allowed_roles || []);
+    setAllowedTags(b.allowed_tags || []);
+    setRestrictedAction(b.restricted_action || "disabled");
+    setPermSearchRoles("");
+    setPermSearchTags("");
+    setPermissionsModalOpen(true);
+  };
+
+  const availableRoles = useMemo(() => {
+    if (customRoles && customRoles.length > 0) {
+      return customRoles
+        .filter((r) => {
+          const id = (r.id || "").toLowerCase();
+          const name = (r.nome || (r as any).name || "").toLowerCase();
+          return id !== "desenvolvedor" && id !== "dev" && name !== "desenvolvedor" && name !== "dev";
+        })
+        .sort((a, b) => (b.rank || 0) - (a.rank || 0))
+        .map((r) => ({
+          id: r.id,
+          nome: r.nome || (r as any).name || LEVEL_LABEL[r.id as AppLevel] || r.id,
+          descricao: r.descricao || "Cargo operacional do grupo",
+          rank: r.rank || 0,
+        }));
+    }
+    return [
+      { id: "01", nome: "Líder (01)", descricao: "Liderança suprema", rank: 100 },
+      { id: "02", nome: "Sub-Líder (02)", descricao: "Sub-liderança da facção", rank: 90 },
+      { id: "03", nome: "Gerente Geral (03)", descricao: "Gerência geral", rank: 80 },
+      { id: "04", nome: "Gerente (04)", descricao: "Gerência operacional", rank: 70 },
+      { id: "05", nome: "Membro de Elite (05)", descricao: "Membro experiente", rank: 60 },
+      { id: "06", nome: "Membro (06)", descricao: "Membro regular", rank: 50 },
+      { id: "07", nome: "Recruta (07)", descricao: "Membro novato", rank: 40 },
+    ];
+  }, [customRoles]);
+
+  const availableTags = useMemo(() => {
+    return memberTags.filter((t) => t.is_active !== false);
+  }, [memberTags]);
+
   // Discord Bot Guilds & Channels state
   const [botGuilds, setBotGuilds] = useState<BotGuildInfo[]>([
     {
@@ -2010,6 +2128,10 @@ function BausTabContent({ canManage }: BausTabContentProps) {
     setManualDiscordInput(false);
     setDiscordChannelId("");
     setAtivo(true);
+    setAccessMode("all");
+    setAllowedRoles([]);
+    setAllowedTags([]);
+    setRestrictedAction("disabled");
     const initialGuild = config?.guild_id || "1535505650308620400";
     setDiscordGuildId(initialGuild);
     setIsModalOpen(true);
@@ -2031,6 +2153,10 @@ function BausTabContent({ canManage }: BausTabContentProps) {
     const targetChannel = b.discord_channel_id || config?.bau_channels?.[b.id]?.channel_id || "";
     setDiscordChannelId(targetChannel);
     setAtivo(b.ativo);
+    setAccessMode(b.access_mode || "all");
+    setAllowedRoles(b.allowed_roles || []);
+    setAllowedTags(b.allowed_tags || []);
+    setRestrictedAction(b.restricted_action || "disabled");
     const targetGuild =
       b.discord_guild_id ||
       config?.bau_channels?.[b.id]?.guild_id ||
@@ -2065,6 +2191,10 @@ function BausTabContent({ canManage }: BausTabContentProps) {
           discord_channel_id: cleanChannelId,
           discord_guild_id: cleanGuildId,
           ativo,
+          access_mode: accessMode,
+          allowed_roles: allowedRoles,
+          allowed_tags: allowedTags,
+          restricted_action: restrictedAction,
         });
 
         // Sincroniza com config.bau_channels garantindo que banner_url e foto_url sejam preservados
@@ -2079,6 +2209,10 @@ function BausTabContent({ canManage }: BausTabContentProps) {
             banner_url: cleanBanner,
             foto_url: cleanPhoto,
             imagem_url: cleanPhoto,
+            access_mode: accessMode,
+            allowed_roles: allowedRoles,
+            allowed_tags: allowedTags,
+            restricted_action: restrictedAction,
           },
         };
         await updateDiscordStockConfig({ bau_channels: updatedBauChannels });
@@ -2094,6 +2228,10 @@ function BausTabContent({ canManage }: BausTabContentProps) {
           discord_channel_id: cleanChannelId,
           discord_guild_id: cleanGuildId,
           ativo,
+          access_mode: accessMode,
+          allowed_roles: allowedRoles,
+          allowed_tags: allowedTags,
+          restricted_action: restrictedAction,
         });
 
         if (created?.id) {
@@ -2108,6 +2246,10 @@ function BausTabContent({ canManage }: BausTabContentProps) {
               banner_url: cleanBanner,
               foto_url: cleanPhoto,
               imagem_url: cleanPhoto,
+              access_mode: accessMode,
+              allowed_roles: allowedRoles,
+              allowed_tags: allowedTags,
+              restricted_action: restrictedAction,
             },
           };
           await updateDiscordStockConfig({ bau_channels: updatedBauChannels });
@@ -2220,18 +2362,39 @@ function BausTabContent({ canManage }: BausTabContentProps) {
                         className="w-full h-full object-cover"
                       />
                       <div className="absolute inset-0 bg-gradient-to-t from-card via-black/30 to-transparent" />
-                      <div className="absolute top-2 right-2">
-                        <Badge
-                          variant="outline"
-                          className={cn(
-                            "text-[9px] uppercase font-bold shrink-0 backdrop-blur-md shadow-sm",
-                            b.ativo
-                              ? "border-emerald-500/50 text-emerald-300 bg-emerald-950/80"
-                              : "border-zinc-700/60 text-zinc-400 bg-zinc-900/90"
-                          )}
-                        >
-                          {b.ativo ? "● Ativo" : "○ Inativo"}
-                        </Badge>
+                      <div className="absolute top-2 right-2 flex items-center gap-1.5">
+                        {canManage ? (
+                          <div className="flex items-center gap-1.5 bg-background/90 backdrop-blur-md px-2 py-0.5 rounded-full border border-border/80 shadow-md">
+                            <Switch
+                              id={`quick-toggle-banner-${b.id}`}
+                              checked={b.ativo}
+                              disabled={quickToggleMutation.isPending && quickTogglingId === b.id}
+                              onCheckedChange={(val) => quickToggleMutation.mutate({ bau: b, nextActive: val })}
+                              className="data-[state=checked]:bg-emerald-500 scale-75"
+                            />
+                            <Label
+                              htmlFor={`quick-toggle-banner-${b.id}`}
+                              className={cn(
+                                "text-[9px] font-bold cursor-pointer select-none pr-0.5",
+                                b.ativo ? "text-emerald-300" : "text-zinc-400"
+                              )}
+                            >
+                              {quickToggleMutation.isPending && quickTogglingId === b.id ? "Salvando..." : b.ativo ? "● Ativo" : "○ Inativo"}
+                            </Label>
+                          </div>
+                        ) : (
+                          <Badge
+                            variant="outline"
+                            className={cn(
+                              "text-[9px] uppercase font-bold shrink-0 backdrop-blur-md shadow-sm",
+                              b.ativo
+                                ? "border-emerald-500/50 text-emerald-300 bg-emerald-950/80"
+                                : "border-zinc-700/60 text-zinc-400 bg-zinc-900/90"
+                            )}
+                          >
+                            {b.ativo ? "● Ativo" : "○ Inativo"}
+                          </Badge>
+                        )}
                       </div>
                     </div>
                   ) : null}
@@ -2264,15 +2427,36 @@ function BausTabContent({ canManage }: BausTabContentProps) {
                         </div>
                       </div>
                       {!b.banner_url && (
-                        <Badge
-                          variant="outline"
-                          className={cn(
-                            "text-[9px] uppercase font-bold shrink-0",
-                            b.ativo ? "border-emerald-500/40 text-emerald-400 bg-emerald-500/10" : "border-zinc-700/60 text-zinc-400 bg-zinc-900/60"
-                          )}
-                        >
-                          {b.ativo ? "● Ativo" : "○ Inativo"}
-                        </Badge>
+                        canManage ? (
+                          <div className="flex items-center gap-1.5 bg-secondary/80 px-2 py-0.5 rounded-full border border-border/70 shadow-xs shrink-0">
+                            <Switch
+                              id={`quick-toggle-header-${b.id}`}
+                              checked={b.ativo}
+                              disabled={quickToggleMutation.isPending && quickTogglingId === b.id}
+                              onCheckedChange={(val) => quickToggleMutation.mutate({ bau: b, nextActive: val })}
+                              className="data-[state=checked]:bg-emerald-500 scale-75"
+                            />
+                            <Label
+                              htmlFor={`quick-toggle-header-${b.id}`}
+                              className={cn(
+                                "text-[10px] font-bold cursor-pointer select-none",
+                                b.ativo ? "text-emerald-400" : "text-zinc-400"
+                              )}
+                            >
+                              {quickToggleMutation.isPending && quickTogglingId === b.id ? "Salvando..." : b.ativo ? "Ativo" : "Inativo"}
+                            </Label>
+                          </div>
+                        ) : (
+                          <Badge
+                            variant="outline"
+                            className={cn(
+                              "text-[9px] uppercase font-bold shrink-0",
+                              b.ativo ? "border-emerald-500/40 text-emerald-400 bg-emerald-500/10" : "border-zinc-700/60 text-zinc-400 bg-zinc-900/60"
+                            )}
+                          >
+                            {b.ativo ? "● Ativo" : "○ Inativo"}
+                          </Badge>
+                        )
                       )}
                     </div>
                     {b.descricao && <CardDescription className="text-xs line-clamp-2">{b.descricao}</CardDescription>}
@@ -2327,6 +2511,77 @@ function BausTabContent({ canManage }: BausTabContentProps) {
                       </div>
                     </div>
 
+                    {/* PERMISSÕES DE CARGOS & TAGS */}
+                    <div className="p-2.5 rounded-lg bg-secondary/30 border border-border/40 space-y-1.5">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-muted-foreground text-[11px] font-medium flex items-center gap-1.5">
+                          <ShieldCheck className="w-3.5 h-3.5 text-primary shrink-0" />
+                          <span>Acesso Cargos & Tags:</span>
+                        </span>
+                        {b.access_mode === "restricted" ? (
+                          <Badge variant="outline" className="text-[10px] font-bold border-amber-500/40 text-amber-400 bg-amber-500/10 gap-1 shrink-0">
+                            <Lock className="w-2.5 h-2.5" />
+                            Restrito
+                          </Badge>
+                        ) : (
+                          <Badge variant="outline" className="text-[10px] font-bold border-emerald-500/40 text-emerald-400 bg-emerald-500/10 gap-1 shrink-0">
+                            <Unlock className="w-2.5 h-2.5" />
+                            Todos os Cargos
+                          </Badge>
+                        )}
+                      </div>
+
+                      {b.access_mode === "restricted" ? (
+                        <div className="space-y-1.5 pt-0.5">
+                          <div className="flex flex-wrap items-center gap-1">
+                            {b.allowed_roles && b.allowed_roles.length > 0 ? (
+                              b.allowed_roles.map((rId) => {
+                                const foundRole = availableRoles.find((r) => r.id.toLowerCase() === rId.toLowerCase());
+                                const label = foundRole?.nome || LEVEL_LABEL[rId as AppLevel] || rId;
+                                return (
+                                  <span
+                                    key={rId}
+                                    className="inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded-md bg-secondary text-foreground border border-border/60"
+                                  >
+                                    <Users className="w-2.5 h-2.5 text-primary" />
+                                    {label}
+                                  </span>
+                                );
+                              })
+                            ) : (
+                              <span className="text-[10px] text-muted-foreground italic">Nenhum cargo específico</span>
+                            )}
+
+                            {b.allowed_tags && b.allowed_tags.length > 0 ? (
+                              b.allowed_tags.map((tId) => {
+                                const foundTag = availableTags.find((t) => t.id === tId);
+                                return (
+                                  <span
+                                    key={tId}
+                                    className="inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded-md bg-primary/10 text-primary border border-primary/20"
+                                  >
+                                    <Tag className="w-2.5 h-2.5" />
+                                    {foundTag?.name || tId}
+                                  </span>
+                                );
+                              })
+                            ) : null}
+                          </div>
+
+                          <div className="flex items-center justify-between text-[10px] text-muted-foreground pt-0.5">
+                            <span>Membros não listados:</span>
+                            <span className="font-semibold text-foreground">
+                              {b.restricted_action === "hide" ? "👁️ Baú Oculto" : "🔒 Baú Desativado / Bloqueado"}
+                            </span>
+                          </div>
+                        </div>
+                      ) : (
+                        <p className="text-[10px] text-muted-foreground leading-relaxed">
+                          Disponível e ativo para todos os membros operarem no painel.
+                        </p>
+                      )}
+                    </div>
+
                     <div className="flex items-center justify-between px-1 text-muted-foreground text-[11px]">
                       <span>Itens com saldo:</span>
                       <strong className="text-foreground font-mono">{chestItemsCount} tipos de item</strong>
@@ -2334,25 +2589,66 @@ function BausTabContent({ canManage }: BausTabContentProps) {
                   </CardContent>
 
                   {canManage && (
-                    <CardFooter className="p-3.5 sm:p-4 pt-2 border-t border-border/40 flex items-center justify-end gap-1">
+                    <CardFooter className="p-3.5 sm:p-4 pt-2 border-t border-border/40 flex items-center justify-between gap-1.5 flex-wrap">
+                      {/* BOTÃO RÁPIDO PARA ATIVAR/DESATIVAR BAÚ */}
                       <Button
-                        variant="ghost"
+                        type="button"
+                        variant="outline"
                         size="sm"
-                        className="h-8 text-xs font-semibold gap-1 text-muted-foreground hover:text-foreground rounded-lg cursor-pointer"
-                        onClick={() => openEditModal(b)}
+                        disabled={quickToggleMutation.isPending && quickTogglingId === b.id}
+                        onClick={() => quickToggleMutation.mutate({ bau: b, nextActive: !b.ativo })}
+                        className={cn(
+                          "h-8 text-xs font-bold gap-1.5 rounded-lg cursor-pointer transition-all",
+                          b.ativo
+                            ? "text-rose-400 border-rose-500/30 hover:bg-rose-500/10 hover:border-rose-500/50"
+                            : "text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/10 hover:border-emerald-500/50"
+                        )}
+                        title={b.ativo ? "Desativar baú imediatamente" : "Ativar baú imediatamente"}
                       >
-                        <Edit2 className="w-3.5 h-3.5" />
-                        Editar
+                        {quickToggleMutation.isPending && quickTogglingId === b.id ? (
+                          <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                        ) : (
+                          <Power className="w-3.5 h-3.5" />
+                        )}
+                        <span>{b.ativo ? "Desativar" : "Ativar"}</span>
                       </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-8 text-xs font-semibold gap-1 text-muted-foreground hover:text-rose-400 hover:bg-rose-500/10 rounded-lg cursor-pointer"
-                        onClick={() => setDeletingBau(b)}
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                        Excluir
-                      </Button>
+
+                      <div className="flex items-center gap-1">
+                        {/* BOTÃO CONFIGURAR CARGOS & TAGS */}
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="h-8 text-xs font-semibold gap-1 text-muted-foreground hover:text-foreground hover:border-primary/50 rounded-lg cursor-pointer"
+                          onClick={() => openPermissionsModal(b)}
+                          title="Definir quais cargos e tags têm acesso ao baú"
+                        >
+                          <ShieldCheck className="w-3.5 h-3.5 text-primary" />
+                          <span>Cargos & Tags</span>
+                        </Button>
+
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 text-xs font-semibold gap-1 text-muted-foreground hover:text-foreground rounded-lg cursor-pointer"
+                          onClick={() => openEditModal(b)}
+                        >
+                          <Edit2 className="w-3.5 h-3.5" />
+                          <span>Editar</span>
+                        </Button>
+
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 text-xs font-semibold gap-1 text-muted-foreground hover:text-rose-400 hover:bg-rose-500/10 rounded-lg cursor-pointer"
+                          onClick={() => setDeletingBau(b)}
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                          <span>Excluir</span>
+                        </Button>
+                      </div>
                     </CardFooter>
                   )}
                 </Card>
@@ -2810,6 +3106,242 @@ function BausTabContent({ canManage }: BausTabContentProps) {
                 </div>
               )}
 
+              {/* CONFIGURAÇÃO DE ACESSO POR CARGOS & TAGS */}
+              <div className="space-y-3 p-3.5 rounded-xl bg-secondary/30 border border-border/70">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <ShieldCheck className="w-4 h-4 text-primary" />
+                    <Label className="text-xs font-bold text-foreground">
+                      Controle de Acesso por Cargos & Tags
+                    </Label>
+                  </div>
+                  <Badge
+                    variant="outline"
+                    className={cn(
+                      "text-[10px] font-bold",
+                      accessMode === "restricted"
+                        ? "border-amber-500/40 text-amber-400 bg-amber-500/10"
+                        : "border-emerald-500/40 text-emerald-400 bg-emerald-500/10"
+                    )}
+                  >
+                    {accessMode === "restricted" ? "Restrito" : "Livre para Todos"}
+                  </Badge>
+                </div>
+
+                <div className="flex items-center justify-between p-2.5 rounded-lg bg-background/60 border border-border/40">
+                  <div className="space-y-0.5">
+                    <Label className="text-xs font-semibold cursor-pointer">
+                      Restringir acesso a cargos/tags específicos
+                    </Label>
+                    <p className="text-[10px] text-muted-foreground">
+                      Se desmarcado, todos os membros da facção podem visualizar e utilizar o baú
+                    </p>
+                  </div>
+                  <Switch
+                    checked={accessMode === "restricted"}
+                    onCheckedChange={(checked) => setAccessMode(checked ? "restricted" : "all")}
+                  />
+                </div>
+
+                {accessMode === "restricted" && (
+                  <div className="space-y-3 pt-1">
+                    {/* SELEÇÃO DE CARGOS */}
+                    <div className="space-y-2 p-2.5 rounded-lg bg-background/40 border border-border/40">
+                      <div className="flex items-center justify-between">
+                        <Label className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+                          <Users className="w-3.5 h-3.5 text-primary" />
+                          <span>Cargos Permitidos ({allowedRoles.length})</span>
+                        </Label>
+                        <div className="flex items-center gap-1.5">
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setAllowedRoles(availableRoles.map((r) => r.id))}
+                            className="h-6 px-1.5 text-[10px] text-primary hover:underline cursor-pointer"
+                          >
+                            Todos
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setAllowedRoles(availableRoles.filter((r) => (r.rank || 0) >= 70).map((r) => r.id))}
+                            className="h-6 px-1.5 text-[10px] text-primary hover:underline cursor-pointer"
+                          >
+                            Liderança
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setAllowedRoles([])}
+                            className="h-6 px-1.5 text-[10px] text-muted-foreground hover:underline cursor-pointer"
+                          >
+                            Limpar
+                          </Button>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-1.5 max-h-36 overflow-y-auto pr-1">
+                        {availableRoles.map((role) => {
+                          const isSelected = allowedRoles.includes(role.id);
+                          return (
+                            <label
+                              key={role.id}
+                              className={cn(
+                                "flex items-center gap-2 p-2 rounded-lg border text-xs cursor-pointer transition-all select-none",
+                                isSelected
+                                  ? "bg-primary/10 border-primary/50 text-foreground font-semibold"
+                                  : "bg-secondary/20 border-border/50 text-muted-foreground hover:bg-secondary/40"
+                              )}
+                            >
+                              <input
+                                type="checkbox"
+                                className="sr-only"
+                                checked={isSelected}
+                                onChange={(e) => {
+                                  if (e.target.checked) {
+                                    setAllowedRoles([...allowedRoles, role.id]);
+                                  } else {
+                                    setAllowedRoles(allowedRoles.filter((id) => id !== role.id));
+                                  }
+                                }}
+                              />
+                              <div
+                                className={cn(
+                                  "w-3.5 h-3.5 rounded border flex items-center justify-center shrink-0 transition-colors",
+                                  isSelected ? "bg-primary border-primary text-primary-foreground" : "border-muted-foreground/40 bg-background"
+                                )}
+                              >
+                                {isSelected && <Check className="w-2.5 h-2.5 stroke-[3]" />}
+                              </div>
+                              <span className="truncate text-[11px]">{role.nome}</span>
+                            </label>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    {/* SELEÇÃO DE TAGS DE MEMBROS */}
+                    {availableTags.length > 0 && (
+                      <div className="space-y-2 p-2.5 rounded-lg bg-background/40 border border-border/40">
+                        <div className="flex items-center justify-between">
+                          <Label className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+                            <Tag className="w-3.5 h-3.5 text-primary" />
+                            <span>Tags de Membros ({allowedTags.length})</span>
+                          </Label>
+                          <div className="flex items-center gap-1.5">
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => setAllowedTags(availableTags.map((t) => t.id))}
+                              className="h-6 px-1.5 text-[10px] text-primary hover:underline cursor-pointer"
+                            >
+                              Todas
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => setAllowedTags([])}
+                              className="h-6 px-1.5 text-[10px] text-muted-foreground hover:underline cursor-pointer"
+                            >
+                              Limpar
+                            </Button>
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-1.5 max-h-36 overflow-y-auto pr-1">
+                          {availableTags.map((tag) => {
+                            const isSelected = allowedTags.includes(tag.id);
+                            return (
+                              <label
+                                key={tag.id}
+                                className={cn(
+                                  "flex items-center gap-2 p-2 rounded-lg border text-xs cursor-pointer transition-all select-none",
+                                  isSelected
+                                    ? "bg-primary/10 border-primary/50 text-foreground font-semibold"
+                                    : "bg-secondary/20 border-border/50 text-muted-foreground hover:bg-secondary/40"
+                                )}
+                              >
+                                <input
+                                  type="checkbox"
+                                  className="sr-only"
+                                  checked={isSelected}
+                                  onChange={(e) => {
+                                    if (e.target.checked) {
+                                      setAllowedTags([...allowedTags, tag.id]);
+                                    } else {
+                                      setAllowedTags(allowedTags.filter((id) => id !== tag.id));
+                                    }
+                                  }}
+                                />
+                                <div
+                                  className={cn(
+                                    "w-3.5 h-3.5 rounded border flex items-center justify-center shrink-0 transition-colors",
+                                    isSelected ? "bg-primary border-primary text-primary-foreground" : "border-muted-foreground/40 bg-background"
+                                  )}
+                                >
+                                  {isSelected && <Check className="w-2.5 h-2.5 stroke-[3]" />}
+                                </div>
+                                <span className="truncate text-[11px]">{tag.name}</span>
+                              </label>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* COMPORTAMENTO PARA QUEM NÃO TEM ACESSO */}
+                    <div className="space-y-1.5 p-2.5 rounded-lg bg-background/40 border border-border/40">
+                      <Label className="text-xs font-semibold text-foreground">
+                        Comportamento para membros não autorizados:
+                      </Label>
+                      <div className="grid grid-cols-2 gap-2 pt-0.5">
+                        <label
+                          className={cn(
+                            "flex items-center gap-2 p-2 rounded-lg border text-xs cursor-pointer select-none",
+                            restrictedAction === "disabled"
+                              ? "bg-primary/10 border-primary text-foreground font-semibold"
+                              : "bg-secondary/20 border-border/50 text-muted-foreground"
+                          )}
+                        >
+                          <input
+                            type="radio"
+                            name="restricted_action_edit"
+                            checked={restrictedAction === "disabled"}
+                            onChange={() => setRestrictedAction("disabled")}
+                            className="sr-only"
+                          />
+                          <div className={cn("w-3 h-3 rounded-full border flex items-center justify-center", restrictedAction === "disabled" ? "border-primary bg-primary" : "border-muted-foreground")} />
+                          <span className="text-[11px]">Exibir Desativado</span>
+                        </label>
+                        <label
+                          className={cn(
+                            "flex items-center gap-2 p-2 rounded-lg border text-xs cursor-pointer select-none",
+                            restrictedAction === "hide"
+                              ? "bg-primary/10 border-primary text-foreground font-semibold"
+                              : "bg-secondary/20 border-border/50 text-muted-foreground"
+                          )}
+                        >
+                          <input
+                            type="radio"
+                            name="restricted_action_edit"
+                            checked={restrictedAction === "hide"}
+                            onChange={() => setRestrictedAction("hide")}
+                            className="sr-only"
+                          />
+                          <div className={cn("w-3 h-3 rounded-full border flex items-center justify-center", restrictedAction === "hide" ? "border-primary bg-primary" : "border-muted-foreground")} />
+                          <span className="text-[11px]">Ocultar da Lista</span>
+                        </label>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
               <div className="flex items-center justify-between p-3 rounded-lg bg-secondary/40 border border-border/40">
                 <div className="space-y-0.5">
                   <Label className="text-xs font-semibold cursor-pointer">Baú Ativo</Label>
@@ -2831,6 +3363,296 @@ function BausTabContent({ canManage }: BausTabContentProps) {
               >
                 {saveMutation.isPending ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
                 {editingBau ? "Salvar Alterações" : "Cadastrar Baú"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {/* MODAL DEDICADO DE PERMISSÕES DE CARGOS & TAGS */}
+      {canManage && configuringBau && (
+        <Dialog open={permissionsModalOpen} onOpenChange={setPermissionsModalOpen}>
+          <DialogContent className="w-[95vw] sm:max-w-lg bg-card border-border/80 max-h-[90vh] overflow-y-auto p-4 sm:p-6">
+            <DialogHeader>
+              <DialogTitle className="text-base font-bold flex items-center gap-2">
+                <ShieldCheck className="w-5 h-5 text-primary" />
+                <span>Acesso por Cargos & Tags: {configuringBau.nome}</span>
+              </DialogTitle>
+              <DialogDescription className="text-xs">
+                Configure quais cargos e tags têm autorização para visualizar e utilizar este baú.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-3.5 py-2 text-xs">
+              {/* Switch de modo livre vs restrito */}
+              <div className="flex items-center justify-between p-3 rounded-xl bg-secondary/40 border border-border/60">
+                <div className="space-y-0.5">
+                  <Label className="text-xs font-bold text-foreground cursor-pointer">
+                    Modo Restrito de Acesso
+                  </Label>
+                  <p className="text-[11px] text-muted-foreground">
+                    {accessMode === "restricted"
+                      ? "Apenas os cargos e tags selecionados abaixo terão o baú disponível"
+                      : "Livre para todos os membros da facção (modo aberto)"}
+                  </p>
+                </div>
+                <Switch
+                  checked={accessMode === "restricted"}
+                  onCheckedChange={(checked) => setAccessMode(checked ? "restricted" : "all")}
+                />
+              </div>
+
+              {accessMode === "restricted" ? (
+                <div className="space-y-3">
+                  {/* CARGOS */}
+                  <div className="space-y-2 p-3 rounded-xl bg-secondary/20 border border-border/50">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                        <Users className="w-3.5 h-3.5 text-primary" />
+                        <span>Cargos Permitidos ({allowedRoles.length} selecionados)</span>
+                      </Label>
+                      <div className="flex items-center gap-1">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setAllowedRoles(availableRoles.map((r) => r.id))}
+                          className="h-6 px-1.5 text-[10px] text-primary hover:underline cursor-pointer"
+                        >
+                          Todos
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setAllowedRoles(availableRoles.filter((r) => (r.rank || 0) >= 70).map((r) => r.id))}
+                          className="h-6 px-1.5 text-[10px] text-primary hover:underline cursor-pointer"
+                        >
+                          Liderança
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setAllowedRoles([])}
+                          className="h-6 px-1.5 text-[10px] text-muted-foreground hover:underline cursor-pointer"
+                        >
+                          Limpar
+                        </Button>
+                      </div>
+                    </div>
+
+                    <Input
+                      placeholder="Filtrar cargo..."
+                      value={permSearchRoles}
+                      onChange={(e) => setPermSearchRoles(e.target.value)}
+                      className="text-xs h-7 bg-background/60"
+                    />
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 max-h-44 overflow-y-auto pr-1">
+                      {availableRoles
+                        .filter((r) => !permSearchRoles || r.nome.toLowerCase().includes(permSearchRoles.toLowerCase()))
+                        .map((role) => {
+                          const isSelected = allowedRoles.includes(role.id);
+                          return (
+                            <label
+                              key={role.id}
+                              className={cn(
+                                "flex items-center gap-2 p-2 rounded-lg border text-xs cursor-pointer transition-all select-none",
+                                isSelected
+                                  ? "bg-primary/10 border-primary/50 text-foreground font-bold shadow-xs"
+                                  : "bg-background/60 border-border/50 text-muted-foreground hover:bg-secondary/40"
+                              )}
+                            >
+                              <input
+                                type="checkbox"
+                                className="sr-only"
+                                checked={isSelected}
+                                onChange={(e) => {
+                                  if (e.target.checked) {
+                                    setAllowedRoles([...allowedRoles, role.id]);
+                                  } else {
+                                    setAllowedRoles(allowedRoles.filter((id) => id !== role.id));
+                                  }
+                                }}
+                              />
+                              <div
+                                className={cn(
+                                  "w-4 h-4 rounded border flex items-center justify-center shrink-0 transition-colors",
+                                  isSelected ? "bg-primary border-primary text-primary-foreground" : "border-muted-foreground/40 bg-background"
+                                )}
+                              >
+                                {isSelected && <Check className="w-3 h-3 stroke-[3]" />}
+                              </div>
+                              <div className="min-w-0">
+                                <div className="truncate text-[11px]">{role.nome}</div>
+                                <div className="text-[9px] text-muted-foreground line-clamp-1">{role.descricao}</div>
+                              </div>
+                            </label>
+                          );
+                        })}
+                    </div>
+                  </div>
+
+                  {/* TAGS */}
+                  {availableTags.length > 0 && (
+                    <div className="space-y-2 p-3 rounded-xl bg-secondary/20 border border-border/50">
+                      <div className="flex items-center justify-between">
+                        <Label className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                          <Tag className="w-3.5 h-3.5 text-primary" />
+                          <span>Tags de Membros ({allowedTags.length} selecionadas)</span>
+                        </Label>
+                        <div className="flex items-center gap-1">
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setAllowedTags(availableTags.map((t) => t.id))}
+                            className="h-6 px-1.5 text-[10px] text-primary hover:underline cursor-pointer"
+                          >
+                            Todas
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setAllowedTags([])}
+                            className="h-6 px-1.5 text-[10px] text-muted-foreground hover:underline cursor-pointer"
+                          >
+                            Limpar
+                          </Button>
+                        </div>
+                      </div>
+
+                      <Input
+                        placeholder="Filtrar tag..."
+                        value={permSearchTags}
+                        onChange={(e) => setPermSearchTags(e.target.value)}
+                        className="text-xs h-7 bg-background/60"
+                      />
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 max-h-44 overflow-y-auto pr-1">
+                        {availableTags
+                          .filter((t) => !permSearchTags || t.name.toLowerCase().includes(permSearchTags.toLowerCase()))
+                          .map((tag) => {
+                            const isSelected = allowedTags.includes(tag.id);
+                            return (
+                              <label
+                                key={tag.id}
+                                className={cn(
+                                  "flex items-center gap-2 p-2 rounded-lg border text-xs cursor-pointer transition-all select-none",
+                                  isSelected
+                                    ? "bg-primary/10 border-primary/50 text-foreground font-bold shadow-xs"
+                                    : "bg-background/60 border-border/50 text-muted-foreground hover:bg-secondary/40"
+                                )}
+                              >
+                                <input
+                                  type="checkbox"
+                                  className="sr-only"
+                                  checked={isSelected}
+                                  onChange={(e) => {
+                                    if (e.target.checked) {
+                                      setAllowedTags([...allowedTags, tag.id]);
+                                    } else {
+                                      setAllowedTags(allowedTags.filter((id) => id !== tag.id));
+                                    }
+                                  }}
+                                />
+                                <div
+                                  className={cn(
+                                    "w-4 h-4 rounded border flex items-center justify-center shrink-0 transition-colors",
+                                    isSelected ? "bg-primary border-primary text-primary-foreground" : "border-muted-foreground/40 bg-background"
+                                  )}
+                                >
+                                  {isSelected && <Check className="w-3 h-3 stroke-[3]" />}
+                                </div>
+                                <div className="min-w-0">
+                                  <div className="truncate text-[11px] font-semibold">{tag.name}</div>
+                                  {tag.description && (
+                                    <div className="text-[9px] text-muted-foreground line-clamp-1">{tag.description}</div>
+                                  )}
+                                </div>
+                              </label>
+                            );
+                          })}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* COMPORTAMENTO PARA QUEM NÃO TEM ACESSO */}
+                  <div className="space-y-2 p-3 rounded-xl bg-secondary/20 border border-border/50">
+                    <Label className="text-xs font-bold text-foreground">
+                      Comportamento para membros não autorizados:
+                    </Label>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      <label
+                        className={cn(
+                          "flex items-start gap-2.5 p-2.5 rounded-lg border text-xs cursor-pointer select-none",
+                          restrictedAction === "disabled"
+                            ? "bg-primary/10 border-primary text-foreground font-semibold"
+                            : "bg-background/60 border-border/50 text-muted-foreground"
+                        )}
+                      >
+                        <input
+                          type="radio"
+                          name="restricted_action_modal"
+                          checked={restrictedAction === "disabled"}
+                          onChange={() => setRestrictedAction("disabled")}
+                          className="sr-only"
+                        />
+                        <div className={cn("w-3.5 h-3.5 rounded-full border mt-0.5 flex items-center justify-center shrink-0", restrictedAction === "disabled" ? "border-primary bg-primary" : "border-muted-foreground")} />
+                        <div>
+                          <div className="font-bold text-[11px]">Exibir como Desativado</div>
+                          <div className="text-[10px] text-muted-foreground">O baú aparece bloqueado para movimentação</div>
+                        </div>
+                      </label>
+
+                      <label
+                        className={cn(
+                          "flex items-start gap-2.5 p-2.5 rounded-lg border text-xs cursor-pointer select-none",
+                          restrictedAction === "hide"
+                            ? "bg-primary/10 border-primary text-foreground font-semibold"
+                            : "bg-background/60 border-border/50 text-muted-foreground"
+                        )}
+                      >
+                        <input
+                          type="radio"
+                          name="restricted_action_modal"
+                          checked={restrictedAction === "hide"}
+                          onChange={() => setRestrictedAction("hide")}
+                          className="sr-only"
+                        />
+                        <div className={cn("w-3.5 h-3.5 rounded-full border mt-0.5 flex items-center justify-center shrink-0", restrictedAction === "hide" ? "border-primary bg-primary" : "border-muted-foreground")} />
+                        <div>
+                          <div className="font-bold text-[11px]">Ocultar Baú</div>
+                          <div className="text-[10px] text-muted-foreground">O baú não aparece na listagem para o membro</div>
+                        </div>
+                      </label>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="p-3.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 text-xs flex items-center gap-2.5">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                  <p className="text-[11px] leading-relaxed">
+                    Este baú está configurado para acesso livre. Todos os membros da facção podem visualizar e registrar movimentações nele normalmente.
+                  </p>
+                </div>
+              )}
+            </div>
+
+            <DialogFooter className="flex-col-reverse sm:flex-row gap-2 sm:gap-0 pt-2">
+              <Button variant="outline" size="sm" onClick={() => setPermissionsModalOpen(false)} className="w-full sm:w-auto">
+                Cancelar
+              </Button>
+              <Button
+                size="sm"
+                className="bg-primary hover:bg-primary/90 font-bold gap-1.5 cursor-pointer w-full sm:w-auto shadow-sm"
+                disabled={savePermissionsMutation.isPending}
+                onClick={() => savePermissionsMutation.mutate()}
+              >
+                {savePermissionsMutation.isPending ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
+                <span>Salvar Permissões</span>
               </Button>
             </DialogFooter>
           </DialogContent>

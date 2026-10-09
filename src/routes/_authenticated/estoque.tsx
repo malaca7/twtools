@@ -65,6 +65,7 @@ import { BauManagerModal } from "@/components/operations/BauManagerModal";
 import { MovementHistoryModal } from "@/components/operations/MovementHistoryModal";
 import { useAuth } from "@/hooks/useAuth";
 import { useCategories, useProducts, useBaus, useMovements, useProductBaus } from "@/hooks/useData";
+import { evaluateBauAccess } from "@/lib/bauPermissions";
 import {
   createProduct,
   updateProduct,
@@ -91,7 +92,7 @@ export function EstoquePage() {
 }
 
 function EstoqueContent() {
-  const { hasPermission } = useAuth();
+  const { hasPermission, level, profile, memberTags, isDevUser, isCeoUser } = useAuth();
   const queryClient = useQueryClient();
 
   const canView = hasPermission("view_stock");
@@ -119,12 +120,29 @@ function EstoqueContent() {
   const { data: movements = [] } = useMovements();
   const { data: productBaus = [] } = useProductBaus();
 
+  const userAuthContext = useMemo(
+    () => ({
+      level,
+      customRoleId: profile?.custom_role_id,
+      tagIds: memberTags.map((t) => t.id),
+      tagNames: memberTags.map((t) => t.name),
+      isDevUser,
+      isCeoUser,
+      canManage: canManageBaus,
+    }),
+    [level, profile?.custom_role_id, memberTags, isDevUser, isCeoUser, canManageBaus]
+  );
+
+  const visibleBaus = useMemo(() => {
+    return baus.filter((b) => evaluateBauAccess(b, userAuthContext).canView);
+  }, [baus, userAuthContext]);
+
   // Reset selectedBauId if deleted
   useEffect(() => {
-    if (selectedBauId !== "all" && baus.length > 0 && !baus.some((b) => b.id === selectedBauId)) {
+    if (selectedBauId !== "all" && visibleBaus.length > 0 && !visibleBaus.some((b) => b.id === selectedBauId)) {
       setSelectedBauId("all");
     }
-  }, [baus, selectedBauId]);
+  }, [visibleBaus, selectedBauId]);
 
   // Product Modal State
   const [productModalOpen, setProductModalOpen] = useState(false);
@@ -578,7 +596,7 @@ function EstoqueContent() {
               <span>Todos os Baús (Estoque Geral)</span>
             </Button>
 
-            {baus.map((b) => {
+            {visibleBaus.map((b) => {
               const isSelected = selectedBauId === b.id;
               const chestItemsCount = products.filter(
                 (p) => getProductStock(p.id, b.id) > 0
