@@ -283,7 +283,13 @@ export async function requestBotHeartbeat(): Promise<void> {
  * Busca a lista de servidores em que o bot está ativo diretamente via API oficial do Discord
  */
 export async function fetchBotGuilds(botToken?: string): Promise<BotGuildInfo[]> {
-  const token = (botToken || "").trim();
+  let token = (botToken || "").trim();
+  if (!token) {
+    try {
+      const cfg = await getDiscordBotConfig();
+      token = (cfg.botToken || "").trim();
+    } catch {}
+  }
   if (token && token.length > 20) {
     try {
       const res = await fetch("https://discord.com/api/v10/users/@me/guilds", {
@@ -590,10 +596,16 @@ export interface SendDiscordMessageParams {
  * Busca canais de texto e categorias de um servidor Discord conectado
  */
 export async function fetchGuildChannels(
-  token: string,
+  token: string | undefined,
   guildId: string
 ): Promise<DiscordChannelInfo[]> {
-  const cleanToken = token ? token.trim().replace(/^Bot\s+/i, "") : "";
+  let cleanToken = token ? token.trim().replace(/^Bot\s+/i, "") : "";
+  if (!cleanToken) {
+    try {
+      const cfg = await getDiscordBotConfig();
+      cleanToken = (cfg.botToken || "").trim().replace(/^Bot\s+/i, "");
+    } catch {}
+  }
   if (!cleanToken || !guildId) return [];
 
   try {
@@ -603,20 +615,31 @@ export async function fetchGuildChannels(
       },
     });
 
-    if (!res.ok) {
+    if (res.ok) {
+      const data = await res.json();
+      if (Array.isArray(data)) {
+        try {
+          localStorage.setItem(`tw_bot_cached_channels_${guildId}`, JSON.stringify(data));
+        } catch {}
+        return data;
+      }
+    } else {
       console.warn("Falha ao carregar canais do Discord via REST:", res.status);
-      return [];
     }
-
-    const data = await res.json();
-    if (Array.isArray(data)) {
-      return data;
-    }
-    return [];
   } catch (err) {
     console.error("Erro ao buscar canais do servidor no Discord:", err);
-    return [];
   }
+
+  // Fallback para cache local de canais se houver
+  try {
+    const cached = localStorage.getItem(`tw_bot_cached_channels_${guildId}`);
+    if (cached) {
+      const parsed = JSON.parse(cached);
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+    }
+  } catch {}
+
+  return [];
 }
 
 /**

@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef, useEffect } from "react";
+import { useState, useMemo, useRef, useEffect, useCallback } from "react";
 import { createFileRoute, Outlet, useChildMatches, Link } from "@tanstack/react-router";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -66,6 +66,12 @@ import {
   uploadProductImage,
 } from "@/lib/app-api";
 import type { Product, Category, Bau } from "@/lib/app-types";
+import {
+  fetchBotGuilds,
+  fetchGuildChannels,
+  type BotGuildInfo,
+  type DiscordChannelInfo,
+} from "@/services/discordBotManageService";
 import { currency, formatCurrencyInput, parseCurrencyInput, num, formatDate } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { useUrlTab } from "@/hooks/useUrlTab";
@@ -1790,6 +1796,64 @@ function BausTabContent({ canManage }: BausTabContentProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const bannerFileInputRef = useRef<HTMLInputElement>(null);
 
+  // Discord Bot Guilds & Channels state
+  const [botGuilds, setBotGuilds] = useState<BotGuildInfo[]>([]);
+  const [loadingGuilds, setLoadingGuilds] = useState(false);
+  const [guildChannels, setGuildChannels] = useState<DiscordChannelInfo[]>([]);
+  const [loadingChannels, setLoadingChannels] = useState(false);
+  const [manualDiscordInput, setManualDiscordInput] = useState(false);
+
+  const loadGuilds = useCallback(async () => {
+    setLoadingGuilds(true);
+    try {
+      const list = await fetchBotGuilds();
+      setBotGuilds(list);
+      return list;
+    } catch (err) {
+      console.warn("Erro ao carregar servidores do Discord:", err);
+      return [];
+    } finally {
+      setLoadingGuilds(false);
+    }
+  }, []);
+
+  const loadChannels = useCallback(async (guildId: string) => {
+    if (!guildId) {
+      setGuildChannels([]);
+      return;
+    }
+    setLoadingChannels(true);
+    try {
+      const channels = await fetchGuildChannels(undefined, guildId);
+      setGuildChannels(channels);
+    } catch (err) {
+      console.warn("Erro ao buscar canais do servidor:", err);
+      setGuildChannels([]);
+    } finally {
+      setLoadingChannels(false);
+    }
+  }, []);
+
+  // Recarrega canais quando o servidor selecionado muda
+  useEffect(() => {
+    if (isModalOpen && tipoGestao === "automatico" && discordGuildId) {
+      loadChannels(discordGuildId);
+    }
+  }, [isModalOpen, tipoGestao, discordGuildId, loadChannels]);
+
+  // Canais de texto e categorias do servidor Discord
+  const categoriesMap = useMemo(() => {
+    const map: Record<string, DiscordChannelInfo> = {};
+    guildChannels.filter((c) => c.type === 4).forEach((c) => {
+      map[c.id] = c;
+    });
+    return map;
+  }, [guildChannels]);
+
+  const textChannels = useMemo(() => {
+    return guildChannels.filter((c) => c.type === 0 || c.type === 5);
+  }, [guildChannels]);
+
   // Delete State
   const [deletingBau, setDeletingBau] = useState<Bau | null>(null);
 
@@ -1883,7 +1947,7 @@ function BausTabContent({ canManage }: BausTabContentProps) {
     }
   };
 
-  const openCreateModal = () => {
+  const openCreateModal = async () => {
     if (!canManage) return;
     setEditingBau(null);
     setNome("");
@@ -1892,13 +1956,20 @@ function BausTabContent({ canManage }: BausTabContentProps) {
     setFotoUrl("");
     setBannerUrl("");
     setTipoGestao("automatico");
+    setManualDiscordInput(false);
     setDiscordChannelId("");
-    setDiscordGuildId("");
     setAtivo(true);
     setIsModalOpen(true);
+
+    const guilds = await loadGuilds();
+    const defaultGuild = config?.guild_id || guilds.find((g) => g.isMain)?.id || guilds[0]?.id || "";
+    setDiscordGuildId(defaultGuild);
+    if (defaultGuild) {
+      void loadChannels(defaultGuild);
+    }
   };
 
-  const openEditModal = (b: Bau) => {
+  const openEditModal = async (b: Bau) => {
     if (!canManage) return;
     setEditingBau(b);
     setNome(b.nome);
@@ -1906,19 +1977,35 @@ function BausTabContent({ canManage }: BausTabContentProps) {
     setIcone(b.icone || "📦");
     setFotoUrl(b.foto_url || b.imagem_url || "");
     setBannerUrl(b.banner_url || "");
-    setTipoGestao(b.tipo_gestao || "automatico");
-    setDiscordChannelId(b.discord_channel_id || config?.bau_channels?.[b.id]?.channel_id || "");
-    setDiscordGuildId(b.discord_guild_id || config?.bau_channels?.[b.id]?.guild_id || "");
+    const mode = b.tipo_gestao || "automatico";
+    setTipoGestao(mode);
+    setManualDiscordInput(false);
+    const targetChannel = b.discord_channel_id || config?.bau_channels?.[b.id]?.channel_id || "";
+    setDiscordChannelId(targetChannel);
     setAtivo(b.ativo);
     setIsModalOpen(true);
+
+    const guilds = await loadGuilds();
+    const targetGuild =
+      b.discord_guild_id ||
+      config?.bau_channels?.[b.id]?.guild_id ||
+      config?.guild_id ||
+      guilds.find((g) => g.isMain)?.id ||
+      guilds[0]?.id ||
+      "";
+    setDiscordGuildId(targetGuild);
+    if (targetGuild) {
+      void loadChannels(targetGuild);
+    }
   };
 
   const saveMutation = useMutation({
     mutationFn: async () => {
       if (!nome.trim()) throw new Error("Informe o nome do baú.");
 
-      const cleanChannelId = discordChannelId.trim() || null;
-      const cleanGuildId = discordGuildId.trim() || null;
+      const isAuto = tipoGestao === "automatico";
+      const cleanChannelId = isAuto ? (discordChannelId.trim() || null) : null;
+      const cleanGuildId = isAuto ? (discordGuildId.trim() || null) : null;
       const cleanPhoto = fotoUrl.trim() || null;
       const cleanBanner = bannerUrl.trim() || null;
 
@@ -1963,6 +2050,7 @@ function BausTabContent({ canManage }: BausTabContentProps) {
           tipo_gestao: tipoGestao,
           discord_channel_id: cleanChannelId,
           discord_guild_id: cleanGuildId,
+          ativo,
         });
 
         if (created?.id) {
@@ -1973,7 +2061,7 @@ function BausTabContent({ canManage }: BausTabContentProps) {
               channel_id: cleanChannelId || "",
               guild_id: cleanGuildId || "",
               tipo_gestao: tipoGestao,
-              is_active: true,
+              is_active: ativo,
               banner_url: cleanBanner,
               foto_url: cleanPhoto,
               imagem_url: cleanPhoto,
@@ -2072,12 +2160,17 @@ function BausTabContent({ canManage }: BausTabContentProps) {
                   key={b.id}
                   className={cn(
                     "surface-card border overflow-hidden transition-all flex flex-col justify-between shadow-xs",
-                    isAuto ? "border-primary/30 hover:border-primary/50" : "border-border/70 hover:border-border"
+                    b.ativo
+                      ? (isAuto ? "border-primary/30 hover:border-primary/50" : "border-border/70 hover:border-border")
+                      : "opacity-45 grayscale hover:opacity-75 contrast-75 bg-muted/20 border-dashed border-border/50"
                   )}
                 >
                   {/* Banner do Baú se presente */}
                   {b.banner_url ? (
-                    <div className="relative w-full h-24 sm:h-28 overflow-hidden bg-secondary/60 shrink-0">
+                    <div className={cn(
+                      "relative w-full h-24 sm:h-28 overflow-hidden bg-secondary/60 shrink-0",
+                      !b.ativo && "grayscale contrast-75 opacity-70"
+                    )}>
                       <img
                         src={b.banner_url}
                         alt={`Banner ${b.nome}`}
@@ -2089,10 +2182,12 @@ function BausTabContent({ canManage }: BausTabContentProps) {
                           variant="outline"
                           className={cn(
                             "text-[9px] uppercase font-bold shrink-0 backdrop-blur-md shadow-sm",
-                            b.ativo ? "border-emerald-500/50 text-emerald-300 bg-emerald-950/80" : "border-muted text-muted-foreground bg-black/60"
+                            b.ativo
+                              ? "border-emerald-500/50 text-emerald-300 bg-emerald-950/80"
+                              : "border-zinc-700/60 text-zinc-400 bg-zinc-900/90"
                           )}
                         >
-                          {b.ativo ? "Ativo" : "Inativo"}
+                          {b.ativo ? "● Ativo" : "○ Inativo"}
                         </Badge>
                       </div>
                     </div>
@@ -2103,7 +2198,8 @@ function BausTabContent({ canManage }: BausTabContentProps) {
                       <div className="flex items-center gap-2.5 min-w-0">
                         <div className={cn(
                           "w-11 h-11 rounded-xl bg-secondary/80 border-2 border-border/80 flex items-center justify-center shrink-0 overflow-hidden shadow-md",
-                          b.banner_url && "-mt-7 relative z-10 ring-2 ring-background bg-card"
+                          b.banner_url && "-mt-7 relative z-10 ring-2 ring-background bg-card",
+                          !b.ativo && "opacity-60"
                         )}>
                           <BauIcon
                             foto_url={b.foto_url || b.imagem_url}
@@ -2113,7 +2209,14 @@ function BausTabContent({ canManage }: BausTabContentProps) {
                           />
                         </div>
                         <div className="min-w-0">
-                          <CardTitle className="text-sm font-bold text-foreground truncate">{b.nome}</CardTitle>
+                          <div className="flex items-center gap-1.5">
+                            <CardTitle className="text-sm font-bold text-foreground truncate">{b.nome}</CardTitle>
+                            {!b.ativo && (
+                              <Badge variant="secondary" className="text-[9px] h-4 px-1.5 bg-zinc-800 text-zinc-400 font-semibold shrink-0">
+                                Inativo
+                              </Badge>
+                            )}
+                          </div>
                           <span className="text-[10px] text-muted-foreground font-mono block">ID: {b.id.slice(0, 8)}...</span>
                         </div>
                       </div>
@@ -2122,10 +2225,10 @@ function BausTabContent({ canManage }: BausTabContentProps) {
                           variant="outline"
                           className={cn(
                             "text-[9px] uppercase font-bold shrink-0",
-                            b.ativo ? "border-emerald-500/40 text-emerald-400 bg-emerald-500/10" : "border-muted text-muted-foreground"
+                            b.ativo ? "border-emerald-500/40 text-emerald-400 bg-emerald-500/10" : "border-zinc-700/60 text-zinc-400 bg-zinc-900/60"
                           )}
                         >
-                          {b.ativo ? "Ativo" : "Inativo"}
+                          {b.ativo ? "● Ativo" : "○ Inativo"}
                         </Badge>
                       )}
                     </div>
@@ -2150,14 +2253,20 @@ function BausTabContent({ canManage }: BausTabContentProps) {
 
                       <div className="flex items-center justify-between gap-2">
                         <span className="text-muted-foreground text-[11px]">Canal Discord:</span>
-                        {channelId ? (
-                          <span className="font-mono text-foreground font-bold text-[11px] flex items-center gap-1 shrink-0">
-                            <Check className="w-3 h-3 text-emerald-400" />
-                            {channelId.slice(0, 10)}...
-                          </span>
+                        {isAuto ? (
+                          channelId ? (
+                            <span className="font-mono text-foreground font-bold text-[11px] flex items-center gap-1 shrink-0">
+                              <Check className="w-3 h-3 text-emerald-400" />
+                              {channelId.slice(0, 10)}...
+                            </span>
+                          ) : (
+                            <span className="text-rose-400 italic text-[11px] shrink-0 font-medium">
+                              🔴 Não vinculado
+                            </span>
+                          )
                         ) : (
                           <span className="text-muted-foreground italic text-[11px] shrink-0">
-                            {isAuto ? "🔴 Não vinculado" : "Dispensa canal"}
+                            Dispensa canal (Manual)
                           </span>
                         )}
                       </div>
@@ -2412,30 +2521,180 @@ function BausTabContent({ canManage }: BausTabContentProps) {
                 </p>
               </div>
 
-              <div className="space-y-2.5 pt-1">
-                <div className="space-y-1.5">
-                  <Label className="text-xs font-semibold">
-                    ID do Canal do Discord {tipoGestao === "automatico" ? "*" : "(Opcional)"}
-                  </Label>
-                  <Input
-                    placeholder="Ex: 112233445566778899"
-                    value={discordChannelId}
-                    onChange={(e) => setDiscordChannelId(e.target.value)}
-                    className="text-xs font-mono h-9"
-                  />
-                  <p className="text-[10px] text-muted-foreground">ID numérico do canal onde o bot capta as logs deste baú.</p>
+              {tipoGestao === "manual" ? (
+                <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-300 text-xs flex items-start gap-2.5">
+                  <Info className="w-4 h-4 shrink-0 mt-0.5 text-amber-400" />
+                  <div className="space-y-1">
+                    <p className="font-bold">Modo de Movimentação Manual Ativo</p>
+                    <p className="text-[11px] text-amber-300/80 leading-relaxed">
+                      Neste modo, as entradas e saídas de estoque são lançadas manualmente pelos operadores pelo painel web.
+                      O bot não monitora mensagens deste baú, portanto a vinculação a servidor ou canal do Discord fica desabilitada e dispensada.
+                    </p>
+                  </div>
                 </div>
+              ) : (
+                <div className="space-y-3 p-3.5 rounded-xl bg-secondary/30 border border-border/70">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Bot className="w-4 h-4 text-[#5865F2]" />
+                      <Label className="text-xs font-bold text-foreground">
+                        Vinculação com Discord (Modo Automático)
+                      </Label>
+                    </div>
+                    <Badge variant="outline" className="text-[10px] border-[#5865F2]/40 text-[#5865F2] bg-[#5865F2]/10">
+                      Logs em Tempo Real
+                    </Badge>
+                  </div>
+                  <p className="text-[10px] text-muted-foreground leading-relaxed">
+                    Selecione o servidor onde o bot está presente e em seguida escolha o canal exclusivo de onde as logs serão lidas.
+                  </p>
 
-                <div className="space-y-1.5">
-                  <Label className="text-xs font-semibold">ID do Servidor Discord (Guild ID - Opcional)</Label>
-                  <Input
-                    placeholder="Ex: 998877665544332211 (opcional, herda servidor geral)"
-                    value={discordGuildId}
-                    onChange={(e) => setDiscordGuildId(e.target.value)}
-                    className="text-xs font-mono h-9"
-                  />
+                  {/* 1. SELETOR DE SERVIDOR DISCORD */}
+                  <div className="space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+                        <span>1. Servidor do Discord (Guild)</span>
+                        {loadingGuilds && <RefreshCw className="w-3 h-3 animate-spin text-muted-foreground" />}
+                      </Label>
+                      <button
+                        type="button"
+                        onClick={() => void loadGuilds()}
+                        className="text-[10px] text-primary hover:underline flex items-center gap-1 cursor-pointer"
+                        title="Recarregar servidores do bot"
+                      >
+                        <RefreshCw className="w-2.5 h-2.5" /> Atualizar Servidores
+                      </button>
+                    </div>
+
+                    <Select
+                      value={discordGuildId || (botGuilds[0]?.id || "")}
+                      onValueChange={(val) => {
+                        setDiscordGuildId(val);
+                        setDiscordChannelId("");
+                        void loadChannels(val);
+                      }}
+                    >
+                      <SelectTrigger className="text-xs h-9 bg-background/80">
+                        <SelectValue placeholder="Selecione o servidor onde o bot está..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {botGuilds.length === 0 ? (
+                          <SelectItem value="none" disabled>
+                            Nenhum servidor encontrado
+                          </SelectItem>
+                        ) : (
+                          botGuilds.map((g) => (
+                            <SelectItem key={g.id} value={g.id}>
+                              <div className="flex items-center gap-2">
+                                {g.iconUrl ? (
+                                  <img src={g.iconUrl} alt={g.name} className="w-4 h-4 rounded-full object-cover shrink-0" />
+                                ) : (
+                                  <div className="w-4 h-4 rounded-full bg-[#5865F2]/20 flex items-center justify-center text-[9px] font-bold shrink-0">
+                                    {g.name.slice(0, 2).toUpperCase()}
+                                  </div>
+                                )}
+                                <span className="font-medium truncate">{g.name}</span>
+                                {g.isMain && (
+                                  <Badge variant="secondary" className="text-[9px] py-0 px-1 bg-primary/20 text-primary">
+                                    Principal
+                                  </Badge>
+                                )}
+                              </div>
+                            </SelectItem>
+                          ))
+                        )}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* 2. SELETOR DE CANAL DO DISCORD */}
+                  <div className="space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+                        <span>2. Canal de Logs do Baú</span>
+                        {loadingChannels && <RefreshCw className="w-3 h-3 animate-spin text-muted-foreground" />}
+                      </Label>
+                      <button
+                        type="button"
+                        onClick={() => void loadChannels(discordGuildId)}
+                        className="text-[10px] text-primary hover:underline flex items-center gap-1 cursor-pointer"
+                        title="Recarregar canais do servidor"
+                      >
+                        <RefreshCw className="w-2.5 h-2.5" /> Atualizar Canais
+                      </button>
+                    </div>
+
+                    {!manualDiscordInput ? (
+                      <Select
+                        value={discordChannelId || "none"}
+                        onValueChange={(val) => {
+                          if (val === "none") setDiscordChannelId("");
+                          else setDiscordChannelId(val);
+                        }}
+                      >
+                        <SelectTrigger className="text-xs h-9 bg-background/80 font-mono">
+                          <SelectValue placeholder={loadingChannels ? "Buscando canais no Discord..." : "Selecione o canal de logs..."} />
+                        </SelectTrigger>
+                        <SelectContent className="max-h-60">
+                          <SelectItem value="none">
+                            <span className="text-muted-foreground italic">Nenhum canal selecionado</span>
+                          </SelectItem>
+
+                          {/* Preserva canal atualmente configurado se não constar na lista da API */}
+                          {discordChannelId && !textChannels.some((c) => c.id === discordChannelId) && (
+                            <SelectItem value={discordChannelId}>
+                              <span className="text-amber-400 font-mono">
+                                # Canal atual configurado ({discordChannelId.slice(0, 10)}...)
+                              </span>
+                            </SelectItem>
+                          )}
+
+                          {textChannels.map((c) => {
+                            const parentCat = categoriesMap[c.parent_id || ""];
+                            return (
+                              <SelectItem key={c.id} value={c.id}>
+                                <div className="flex items-center gap-1.5">
+                                  <Hash className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                                  <span className="font-medium text-foreground">{c.name}</span>
+                                  {parentCat && (
+                                    <span className="text-[10px] text-muted-foreground ml-1">
+                                      ({parentCat.name})
+                                    </span>
+                                  )}
+                                </div>
+                              </SelectItem>
+                            );
+                          })}
+                        </SelectContent>
+                      </Select>
+                    ) : (
+                      <Input
+                        placeholder="Ex: 112233445566778899"
+                        value={discordChannelId}
+                        onChange={(e) => setDiscordChannelId(e.target.value)}
+                        className="text-xs font-mono h-9 bg-background/80"
+                      />
+                    )}
+
+                    <div className="flex items-center justify-between text-[10px] text-muted-foreground pt-0.5">
+                      <span>
+                        {textChannels.length > 0
+                          ? `${textChannels.length} canais de texto disponíveis`
+                          : loadingChannels
+                          ? "Buscando canais no Discord..."
+                          : "Nenhum canal de texto encontrado"}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setManualDiscordInput(!manualDiscordInput)}
+                        className="text-primary hover:underline cursor-pointer"
+                      >
+                        {manualDiscordInput ? "Voltar para lista de seleção" : "Digitar ID manualmente"}
+                      </button>
+                    </div>
+                  </div>
                 </div>
-              </div>
+              )}
 
               <div className="flex items-center justify-between p-3 rounded-lg bg-secondary/40 border border-border/40">
                 <div className="space-y-0.5">
