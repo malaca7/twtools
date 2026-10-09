@@ -336,10 +336,6 @@ export function MembrosPage() {
     onError: (err) => toast.error(errorMessage(err)),
   });
 
-  if (!canView) {
-    return <NoAccess />;
-  }
-
   // Filtro por termo de busca
   const filteredMembers = members.filter((m) => {
     const term = search.toLowerCase().trim();
@@ -375,6 +371,10 @@ export function MembrosPage() {
       return (a.nome || "").localeCompare(b.nome || "", "pt-BR", { sensitivity: "base" });
     });
   }, [filteredMembers, roleRankMap]);
+
+  if (!canView) {
+    return <NoAccess />;
+  }
 
   return (
     <div className="mx-auto max-w-6xl space-y-6">

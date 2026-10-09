@@ -7,16 +7,6 @@ export function ScrollToTopButton() {
   const location = useLocation();
   const [isVisible, setIsVisible] = useState(false);
 
-  // Não exibe o botão flutuante de topo padrão da plataforma na página permissões dev (/dev/permissoes)
-  const isDevPermissoes =
-    location.pathname === "/dev/permissoes" ||
-    location.pathname.startsWith("/dev/permissoes") ||
-    (typeof window !== "undefined" && window.location.pathname.includes("/dev/permissoes"));
-
-  if (isDevPermissoes) {
-    return null;
-  }
-
   useEffect(() => {
     const toggleVisibility = () => {
       if (window.scrollY > 300) {
@@ -29,6 +19,16 @@ export function ScrollToTopButton() {
     window.addEventListener("scroll", toggleVisibility);
     return () => window.removeEventListener("scroll", toggleVisibility);
   }, []);
+
+  // Não exibe o botão flutuante de topo padrão da plataforma na página permissões dev (/dev/permissoes)
+  const isDevPermissoes =
+    location.pathname === "/dev/permissoes" ||
+    location.pathname.startsWith("/dev/permissoes") ||
+    (typeof window !== "undefined" && window.location.pathname.includes("/dev/permissoes"));
+
+  if (isDevPermissoes) {
+    return null;
+  }
 
   const scrollToTop = () => {
     window.scrollTo({

@@ -969,6 +969,8 @@ function DynamicSidebarNavigation() {
     }
   }, [pathname, isItemActive, grouped]);
 
+  const { state: sidebarState } = useSidebar();
+
   if (isPlatformLocked) {
     return (
       <div className="p-4 mx-2 my-4 rounded-2xl bg-rose-500/10 border border-rose-500/30 text-center space-y-2">
@@ -980,8 +982,6 @@ function DynamicSidebarNavigation() {
       </div>
     );
   }
-
-  const { state: sidebarState } = useSidebar();
 
   return (
     <>
