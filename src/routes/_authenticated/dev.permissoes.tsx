@@ -22,6 +22,7 @@ import {
   ChevronsUp,
   SlidersHorizontal,
   Check,
+  Filter,
 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -165,6 +166,8 @@ function DevPermissoesContent() {
   const isSavingCargoRef = useRef(false);
   const prevCargoRef = useRef<AppLevel>(selectedCargo);
   const roleCardRef = useRef<HTMLDivElement>(null);
+  const devFiltersRef = useRef<HTMLDivElement>(null);
+  const ceoFiltersRef = useRef<HTMLDivElement>(null);
   const [mounted, setMounted] = useState(false);
   const [showFloatingBar, setShowFloatingBar] = useState(false);
   const [isAtTop, setIsAtTop] = useState(true);
@@ -190,19 +193,41 @@ function DevPermissoesContent() {
       } else {
         setShowFloatingBar(scrollY > 90);
       }
-      setIsAtTop(scrollY < 300);
+
+      // Detecção de proximidade do fim da página
+      const scrollHeight = document.documentElement.scrollHeight || document.body.scrollHeight || 0;
+      const clientHeight = window.innerHeight || document.documentElement.clientHeight || 0;
+      const isNearBottom = clientHeight + scrollY >= scrollHeight - 80;
+
+      if (isNearBottom) {
+        setIsAtTop(false);
+        return;
+      }
+
+      // Nas abas Tag Dev e Tag CEO:
+      // Mostra a opção "Ir para o final" até a exibição completa da barra de filtros da página.
+      // Quando a barra de filtros é completamente ultrapassada (rect.bottom <= 65), alterna para "Ir para o início".
+      const activeFilterEl = activeTab === "dev" ? devFiltersRef.current : activeTab === "ceo" ? ceoFiltersRef.current : null;
+      if (activeFilterEl) {
+        const rect = activeFilterEl.getBoundingClientRect();
+        setIsAtTop(rect.bottom > 65);
+      } else {
+        setIsAtTop(scrollY < 300);
+      }
     };
 
     window.addEventListener("scroll", handleScroll, { passive: true });
     document.addEventListener("scroll", handleScroll, { passive: true });
     window.addEventListener("resize", handleScroll, { passive: true });
     handleScroll();
+    const frameId = requestAnimationFrame(handleScroll);
     return () => {
+      cancelAnimationFrame(frameId);
       window.removeEventListener("scroll", handleScroll);
       document.removeEventListener("scroll", handleScroll);
       window.removeEventListener("resize", handleScroll);
     };
-  }, []);
+  }, [activeTab]);
 
   // Filtros de busca de módulos e categorias de permissão
   const [devPermSearch, setDevPermSearch] = useState("");
@@ -1841,7 +1866,10 @@ function DevPermissoesContent() {
           </Card>
 
           {/* BARRA DE BUSCA E FILTRO DE CATEGORIAS (DEV) */}
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 p-3 rounded-2xl bg-secondary/20 border border-border/60">
+          <div
+            ref={devFiltersRef}
+            className="flex flex-col sm:flex-row items-center justify-between gap-3 p-3 rounded-2xl bg-secondary/20 border border-border/60"
+          >
             <div className="relative w-full sm:w-80">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
               <Input
@@ -2421,7 +2449,10 @@ function DevPermissoesContent() {
           </Card>
 
           {/* BARRA DE BUSCA E FILTRO DE CATEGORIAS (CEO) */}
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 p-3 rounded-2xl bg-secondary/20 border border-border/60">
+          <div
+            ref={ceoFiltersRef}
+            className="flex flex-col sm:flex-row items-center justify-between gap-3 p-3 rounded-2xl bg-secondary/20 border border-border/60"
+          >
             <div className="relative w-full sm:w-80">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
               <Input
@@ -2728,6 +2759,111 @@ function DevPermissoesContent() {
               </Badge>
             </button>
           </div>
+
+          {/* Divisor vertical */}
+          <div className="h-6 w-px bg-border/60 shrink-0" />
+
+          {/* Filtro de Categorias no Balão Flutuante */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className={cn(
+                  "h-8 sm:h-8.5 px-2.5 sm:px-3 text-xs font-bold gap-1.5 rounded-xl border-border/80 hover:bg-secondary/80 cursor-pointer shadow-xs transition-all text-foreground shrink-0",
+                  (activeTab === "dev" ? devCategoryFilter : ceoCategoryFilter) !== "all" &&
+                    "border-primary/50 shadow-sm"
+                )}
+                style={
+                  (activeTab === "dev" ? devCategoryFilter : ceoCategoryFilter) !== "all"
+                    ? {
+                        borderColor: activeTab === "dev" ? `${devStyle.primaryHex}70` : `${ceoStyle.primaryHex}70`,
+                        backgroundColor: activeTab === "dev" ? `${devStyle.primaryHex}15` : `${ceoStyle.primaryHex}15`,
+                        color: activeTab === "dev" ? devStyle.primaryHex : ceoStyle.primaryHex,
+                      }
+                    : undefined
+                }
+                title="Filtrar por categoria de permissões"
+              >
+                <Filter
+                  className="h-3.5 w-3.5 shrink-0"
+                  style={{
+                    color:
+                      (activeTab === "dev" ? devCategoryFilter : ceoCategoryFilter) !== "all"
+                        ? activeTab === "dev"
+                          ? devStyle.primaryHex
+                          : ceoStyle.primaryHex
+                        : undefined,
+                  }}
+                />
+                <span className="max-w-[80px] sm:max-w-[130px] truncate text-left">
+                  {(activeTab === "dev" ? devCategoryFilter : ceoCategoryFilter) === "all"
+                    ? "Categorias"
+                    : (activeTab === "dev" ? devCategoryFilter : ceoCategoryFilter)}
+                </span>
+                <ChevronUp className="h-3 w-3 opacity-60 shrink-0" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent
+              side="top"
+              align="center"
+              sideOffset={8}
+              className="w-56 max-h-[300px] overflow-y-auto z-[10000] p-1.5 rounded-xl border-border/80 shadow-2xl bg-card/95 backdrop-blur-xl"
+            >
+              <DropdownMenuLabel className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider px-2 py-1">
+                Categorias ({activeTab === "dev" ? "Tag Dev" : "Tag CEO"})
+              </DropdownMenuLabel>
+              <DropdownMenuSeparator className="my-1" />
+              <DropdownMenuItem
+                onClick={() => {
+                  if (activeTab === "dev") {
+                    setDevCategoryFilter("all");
+                  } else {
+                    setCeoCategoryFilter("all");
+                  }
+                }}
+                className={cn(
+                  "text-xs font-medium cursor-pointer rounded-lg px-2 py-1.5 flex items-center justify-between",
+                  (activeTab === "dev" ? devCategoryFilter : ceoCategoryFilter) === "all" &&
+                    "font-bold bg-secondary/80 text-foreground"
+                )}
+              >
+                <span>Todas as Categorias</span>
+                {(activeTab === "dev" ? devCategoryFilter : ceoCategoryFilter) === "all" && (
+                  <Check className="h-3.5 w-3.5 text-primary shrink-0" />
+                )}
+              </DropdownMenuItem>
+              {(activeTab === "dev" ? devGroups : ceoGroups).map((g) => {
+                const isSelected =
+                  (activeTab === "dev" ? devCategoryFilter : ceoCategoryFilter) === g.category;
+                return (
+                  <DropdownMenuItem
+                    key={`float-cat-${g.category}`}
+                    onClick={() => {
+                      if (activeTab === "dev") {
+                        setDevCategoryFilter(g.category);
+                      } else {
+                        setCeoCategoryFilter(g.category);
+                      }
+                    }}
+                    className={cn(
+                      "text-xs font-medium cursor-pointer rounded-lg px-2 py-1.5 flex items-center justify-between",
+                      isSelected && "font-bold bg-secondary/80 text-foreground"
+                    )}
+                  >
+                    <span className="truncate pr-2">{g.category}</span>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <span className="text-[10px] text-muted-foreground font-mono">
+                        ({g.cards.length})
+                      </span>
+                      {isSelected && <Check className="h-3.5 w-3.5 text-primary shrink-0" />}
+                    </div>
+                  </DropdownMenuItem>
+                );
+              })}
+            </DropdownMenuContent>
+          </DropdownMenu>
 
           {/* Divisor vertical */}
           <div className="h-6 w-px bg-border/60 shrink-0" />
