@@ -18,6 +18,8 @@ import {
   Equal,
   Copy,
   ExternalLink,
+  Search,
+  Filter,
   Terminal,
   Eye,
   Sparkles,
@@ -206,9 +208,13 @@ function DiscordIntegrationTab() {
   const [bauConfigs, setBauConfigs] = useState<Record<string, BauFormState>>({});
   const [isSavingAllBaus, setIsSavingAllBaus] = useState(false);
   const [isSavingItemMappings, setIsSavingItemMappings] = useState(false);
-  const [isSavingBauMappings, setIsSavingBauMappings] = useState(false);
 
-  // Novo mapping state
+  // Filtros e busca de Baús
+  const [bauSearch, setBauSearch] = useState("");
+  const [bauFilter, setBauFilter] = useState<"all" | "auto" | "manual" | "no-channel">("all");
+
+  // Filtros e busca de Mapeamentos
+  const [aliasSearch, setAliasSearch] = useState("");
   const [newAliasKey, setNewAliasKey] = useState("");
   const [newAliasTargetProduct, setNewAliasTargetProduct] = useState("");
 
@@ -218,6 +224,13 @@ function DiscordIntegrationTab() {
     "Andrew Delucca Ferreira • ID 274\n📦 Baú\n\n📊 Saldo líquido\nMetanfetamina -72\nCocaína -126\n\n🧾 Detalhes da movimentação\nMetanfetamina\n↳ -72 removidos\nCocaína\n↳ -126 removidos\nMovimentações agrupadas em uma janela de 30 segundos • Hoje às 19:21"
   );
   const [simulatedResult, setSimulatedResult] = useState<any>(null);
+
+  // Helper para cópia
+  const copyToClipboard = (text: string, label: string) => {
+    if (!text) return;
+    navigator.clipboard.writeText(text);
+    toast.success(`${label} copiado!`);
+  };
 
   // Define baú padrão para o simulador
   useEffect(() => {
@@ -266,6 +279,71 @@ function DiscordIntegrationTab() {
     }
   }, [baus, config]);
 
+  // Identifica baús modificados
+  const isBauModified = (bauId: string) => {
+    const original = baus.find((b) => b.id === bauId);
+    const current = bauConfigs[bauId];
+    if (!original || !current) return false;
+    const origTipo = original.tipo_gestao || "automatico";
+    const origCh = original.discord_channel_id || "";
+    const origGuild = original.discord_guild_id || "";
+    return (
+      current.tipo_gestao !== origTipo ||
+      (current.discord_channel_id || "").trim() !== origCh.trim() ||
+      (current.discord_guild_id || "").trim() !== origGuild.trim()
+    );
+  };
+
+  const modifiedBausCount = useMemo(() => {
+    return baus.filter((b) => isBauModified(b.id)).length;
+  }, [baus, bauConfigs]);
+
+  const autoCount = useMemo(() => {
+    return baus.filter((b) => (bauConfigs[b.id]?.tipo_gestao ?? b.tipo_gestao) === "automatico").length;
+  }, [baus, bauConfigs]);
+
+  const manualCount = useMemo(() => {
+    return baus.filter((b) => (bauConfigs[b.id]?.tipo_gestao ?? b.tipo_gestao) === "manual").length;
+  }, [baus, bauConfigs]);
+
+  const noChannelCount = useMemo(() => {
+    return baus.filter((b) => {
+      const cfg = bauConfigs[b.id];
+      const isAuto = (cfg?.tipo_gestao ?? b.tipo_gestao) === "automatico";
+      const ch = (cfg?.discord_channel_id ?? b.discord_channel_id ?? "").trim();
+      return isAuto && !ch;
+    }).length;
+  }, [baus, bauConfigs]);
+
+  const filteredBaus = useMemo(() => {
+    return baus.filter((b) => {
+      const cfg = bauConfigs[b.id];
+      const tipo = cfg?.tipo_gestao ?? b.tipo_gestao ?? "automatico";
+      const ch = (cfg?.discord_channel_id ?? b.discord_channel_id ?? "").trim();
+      const isAuto = tipo === "automatico";
+
+      if (bauFilter === "auto" && !isAuto) return false;
+      if (bauFilter === "manual" && isAuto) return false;
+      if (bauFilter === "no-channel" && (!isAuto || Boolean(ch))) return false;
+
+      if (bauSearch.trim()) {
+        const q = bauSearch.toLowerCase().trim();
+        const matchName = b.nome.toLowerCase().includes(q);
+        const matchDesc = b.descricao?.toLowerCase().includes(q);
+        const matchChannel = ch.toLowerCase().includes(q);
+        if (!matchName && !matchDesc && !matchChannel) return false;
+      }
+      return true;
+    });
+  }, [baus, bauConfigs, bauFilter, bauSearch]);
+
+  const filteredItemMappings = useMemo(() => {
+    const entries = Object.entries(itemMappings);
+    if (!aliasSearch.trim()) return entries;
+    const q = aliasSearch.toLowerCase().trim();
+    return entries.filter(([k, v]) => k.toLowerCase().includes(q) || v.toLowerCase().includes(q));
+  }, [itemMappings, aliasSearch]);
+
   const negativeProductsCount = useMemo(() => {
     return products.filter((p) => Number(p.estoque_atual || 0) < 0).length;
   }, [products]);
@@ -305,13 +383,13 @@ function DiscordIntegrationTab() {
         try {
           await sanitizeNegativeStocks();
         } catch {
-          // ignora erro silencioso de saneamento secundário
+          // ignora erro secundário
         }
       }
       return res;
     },
     onSuccess: () => {
-      toast.success("Configuração de integração do Discord salva com sucesso!");
+      toast.success("Parâmetros de integração do Discord salvos com sucesso!");
       void queryClient.invalidateQueries({ queryKey: ["discord_stock_config"] });
       void queryClient.invalidateQueries({ queryKey: ["products"] });
       void queryClient.invalidateQueries({ queryKey: ["product_baus"] });
@@ -323,7 +401,7 @@ function DiscordIntegrationTab() {
 
   const handleAddItemMapping = async () => {
     if (!newAliasKey.trim() || !newAliasTargetProduct) {
-      toast.error("Informe o nome do item no Discord e selecione o produto correspondente.");
+      toast.error("Informe o texto do Discord e selecione o produto correspondente.");
       return;
     }
     const cleanKey = newAliasKey.trim().toLowerCase();
@@ -363,61 +441,11 @@ function DiscordIntegrationTab() {
     try {
       await updateDiscordStockConfig({ item_mappings: itemMappings });
       void queryClient.invalidateQueries({ queryKey: ["discord_stock_config"] });
-      toast.success("Todos os mapeamentos de itens foram salvos!");
+      toast.success("Todos os mapeamentos de itens foram salvos com sucesso!");
     } catch (err: any) {
       toast.error(err.message || "Erro ao salvar mapeamentos de itens.");
     } finally {
       setIsSavingItemMappings(false);
-    }
-  };
-
-  const handleAddBauMapping = async () => {
-    if (!newBauAliasKey.trim() || !newBauAliasTarget) {
-      toast.error("Informe o texto do baú e selecione o baú correspondente.");
-      return;
-    }
-    const cleanKey = newBauAliasKey.trim().toLowerCase();
-    const updated = {
-      ...bauMappings,
-      [cleanKey]: newBauAliasTarget,
-    };
-    setBauMappings(updated);
-    setNewBauAliasKey("");
-    setNewBauAliasTarget("");
-
-    try {
-      await updateDiscordStockConfig({ bau_mappings: updated });
-      void queryClient.invalidateQueries({ queryKey: ["discord_stock_config"] });
-      toast.success(`Alias de baú "${cleanKey}" associado a "${newBauAliasTarget}" salvo!`);
-    } catch (err: any) {
-      toast.error(err.message || "Erro ao salvar alias de baú no servidor.");
-    }
-  };
-
-  const handleRemoveBauMapping = async (key: string) => {
-    const updated = { ...bauMappings };
-    delete updated[key];
-    setBauMappings(updated);
-
-    try {
-      await updateDiscordStockConfig({ bau_mappings: updated });
-      void queryClient.invalidateQueries({ queryKey: ["discord_stock_config"] });
-      toast.success(`Alias "${key}" removido com sucesso!`);
-    } catch (err: any) {
-      toast.error(err.message || "Erro ao remover alias.");
-    }
-  };
-
-  const handleSaveAllBauMappings = async () => {
-    setIsSavingBauMappings(true);
-    try {
-      await updateDiscordStockConfig({ bau_mappings: bauMappings });
-      void queryClient.invalidateQueries({ queryKey: ["discord_stock_config"] });
-      toast.success("Todos os aliases de baús foram salvos!");
-    } catch (err: any) {
-      toast.error(err.message || "Erro ao salvar aliases de baús.");
-    } finally {
-      setIsSavingBauMappings(false);
     }
   };
 
@@ -460,7 +488,7 @@ function DiscordIntegrationTab() {
       void queryClient.invalidateQueries({ queryKey: ["discord_stock_config"] });
 
       const targetBau = baus.find((b) => b.id === bauId);
-      toast.success(`Configuração do baú "${targetBau?.nome || bauId}" salva com sucesso!`);
+      toast.success(`Configuração do baú "${targetBau?.nome || bauId}" salva!`);
     } catch (err: any) {
       toast.error(err.message || "Erro ao salvar configurações do baú.");
     } finally {
@@ -508,7 +536,7 @@ function DiscordIntegrationTab() {
 
       void queryClient.invalidateQueries({ queryKey: ["baus"] });
       void queryClient.invalidateQueries({ queryKey: ["discord_stock_config"] });
-      toast.success("Todos os baús foram configurados com sucesso!");
+      toast.success("Todos os baús foram configurados e sincronizados!");
     } catch (err: any) {
       toast.error(err.message || "Erro ao salvar todos os baús.");
     } finally {
@@ -516,13 +544,11 @@ function DiscordIntegrationTab() {
     }
   };
 
-
-  // Parser local no cliente para testes e simulação com resolução de baú por canal
+  // Parser local no cliente para testes rápidos
   const handleTestParser = () => {
     const raw = testLogText || "";
     const lines = raw.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
 
-    // 1. Identificar Jogador (Nome e ID)
     let authorName: string | null = null;
     let playerId: string | null = null;
 
@@ -536,7 +562,6 @@ function DiscordIntegrationTab() {
       if (idMatch) playerId = idMatch[1];
     }
 
-    // 2. Resolução de Baú pelo Canal Selecionado na Simulação
     let isTransfer = false;
     let fromBau = null;
     let toBau = null;
@@ -546,7 +571,6 @@ function DiscordIntegrationTab() {
     const isBauManual = targetBauObj?.tipo_gestao === "manual";
     const channelBound = targetBauObj?.discord_channel_id || "";
 
-    // Padrão de transferência explícita entre baús
     const transferMatch =
       raw.match(/(?:origem|de)\s*[:\-]\s*([^\n\r\|]+).*?(?:destino|para)\s*[:\-]\s*([^\n\r\|]+)/i) ||
       raw.match(/transfer(?:ência|ido)?\s*(?:de)?\s*([^\n\r\->]+)\s*(?:->|para)\s*([^\n\r]+)/i);
@@ -557,7 +581,6 @@ function DiscordIntegrationTab() {
       toBau = transferMatch[2].replace(/📦/g, "").trim();
     }
 
-    // 3. Interpretação de Itens (Saldo Líquido e Detalhes da Movimentação)
     const items: Array<{ name: string; qtyChange: number; mappedTo?: string }> = [];
     let inSaldoLiquido = false;
     let inDetalhes = false;
@@ -667,219 +690,417 @@ function DiscordIntegrationTab() {
 
   return (
     <div className="space-y-6">
-      <div className="grid gap-6 md:grid-cols-3">
-        {/* CARD STATUS DA CONEXÃO & ÚLTIMA LOG */}
-        <Card className="surface-card border-border/80">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-bold flex items-center gap-2">
-              <Radio className="w-4 h-4 text-emerald-400" />
-              Telemetria & Status do Bot
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4 text-xs">
-            <div className="flex items-center justify-between p-3 rounded-lg bg-secondary/50 border border-border/60">
-              <span className="text-muted-foreground font-medium">Status do Ingestion:</span>
-              {isActive && channelId ? (
-                <Badge variant="outline" className="border-emerald-500/40 text-emerald-400 bg-emerald-500/10 font-bold">
-                  🟢 Monitorando Canal
-                </Badge>
-              ) : (
-                <Badge variant="outline" className="border-rose-500/40 text-rose-400 bg-rose-500/10 font-bold">
-                  🔴 Desativado
-                </Badge>
-              )}
-            </div>
-
-            <div className="space-y-2">
-              <div className="flex items-center justify-between text-muted-foreground">
-                <span>Última Mensagem Processada:</span>
-                <span className="font-mono text-foreground font-bold">
-                  {config?.last_message_id ? `${config.last_message_id.slice(0, 10)}...` : "—"}
-                </span>
-              </div>
-              <div className="flex items-center justify-between text-muted-foreground">
-                <span>Último Processamento:</span>
-                <span className="text-foreground">
-                  {config?.last_processed_at ? formatDate(config.last_processed_at) : "Nunca"}
-                </span>
-              </div>
-              <div className="flex items-center justify-between text-muted-foreground">
-                <span>Status da Última Log:</span>
+      {/* ========================================================================= */}
+      {/* 1. HERO STRIP: TELEMETRIA, STATUS AO VIVO & KPIs OPERACIONAIS             */}
+      {/* ========================================================================= */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+        {/* KPI 1: STATUS DO BOT */}
+        <Card className="surface-card border-border/80 shadow-sm relative overflow-hidden group">
+          <div className={cn(
+            "absolute top-0 left-0 right-0 h-1 transition-colors",
+            isActive ? "bg-emerald-500" : "bg-rose-500"
+          )} />
+          <CardContent className="p-4 space-y-2.5">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+                <Bot className="w-3.5 h-3.5 text-primary" />
+                Motor de Ingestão
+              </span>
+              <div className="flex items-center gap-1.5">
+                <span className={cn(
+                  "w-2 h-2 rounded-full",
+                  isActive ? "bg-emerald-400 animate-pulse" : "bg-rose-400"
+                )} />
                 <Badge
                   variant="outline"
                   className={cn(
-                    "text-[10px] uppercase font-mono",
-                    config?.last_status === "success"
-                      ? "border-emerald-500/30 text-emerald-400 bg-emerald-500/10"
-                      : config?.last_status === "error"
-                      ? "border-rose-500/30 text-rose-400 bg-rose-500/10"
-                      : "border-muted text-muted-foreground"
+                    "text-[10px] px-1.5 py-0 font-bold",
+                    isActive
+                      ? "border-emerald-500/40 text-emerald-400 bg-emerald-500/10"
+                      : "border-rose-500/40 text-rose-400 bg-rose-500/10"
                   )}
                 >
-                  {config?.last_status || "Nenhum"}
+                  {isActive ? "Ativo" : "Pausado"}
                 </Badge>
               </div>
             </div>
-
-            {config?.last_error && (
-              <div className="p-2.5 rounded bg-rose-500/10 border border-rose-500/20 text-rose-400 text-[11px] break-words">
-                <strong>Último Erro:</strong> {config.last_error}
-              </div>
-            )}
+            <div>
+              <p className="text-lg font-bold text-foreground">
+                {isActive ? "Monitoramento Contínuo" : "Ingestão Desativada"}
+              </p>
+              <p className="text-[11px] text-muted-foreground line-clamp-1">
+                {channelId ? `Canal padrão: ${channelId.slice(0, 10)}...` : "Sem canal geral configurado"}
+              </p>
+            </div>
           </CardContent>
         </Card>
 
-        {/* CARD CONFIGURAÇÃO DO DISCORD */}
-        <Card className="surface-card md:col-span-2 border-border/80">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-bold flex items-center gap-2">
-              <Bot className="w-4 h-4 text-primary" />
-              Parâmetros do Canal de Logs
-            </CardTitle>
-            <CardDescription className="text-xs">
-              Defina o canal oficial onde o bot captura logs de movimentação de baú.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-2">
-                <Label className="text-xs">ID do Servidor Discord (Guild ID)</Label>
-                <Input
-                  placeholder="Ex: 112233445566778899"
-                  value={guildId}
-                  onChange={(e) => setGuildId(e.target.value)}
-                  className="font-mono text-xs"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label className="text-xs">ID do Canal de Logs de Baú</Label>
-                <Input
-                  placeholder="Ex: 998877665544332211"
-                  value={channelId}
-                  onChange={(e) => setChannelId(e.target.value)}
-                  className="font-mono text-xs"
-                />
-              </div>
+        {/* KPI 2: COBERTURA DE BAÚS */}
+        <Card className="surface-card border-border/80 shadow-sm relative overflow-hidden group">
+          <div className="absolute top-0 left-0 right-0 h-1 bg-cyan-500" />
+          <CardContent className="p-4 space-y-2.5">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+                <Boxes className="w-3.5 h-3.5 text-cyan-400" />
+                Baús Ativos
+              </span>
+              <Badge variant="outline" className="border-cyan-500/30 text-cyan-400 bg-cyan-500/10 text-[10px] px-1.5 py-0 font-bold">
+                {baus.length} Baús
+              </Badge>
             </div>
-
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-2">
-                <Label className="text-xs">Baú Padrão (Fallback quando não especificado)</Label>
-                <Select value={defaultBauId} onValueChange={setDefaultBauId}>
-                  <SelectTrigger className="text-xs">
-                    <SelectValue placeholder="Selecione o baú padrão..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {baus.filter((b) => b.ativo).map((b) => (
-                      <SelectItem key={b.id} value={b.id}>
-                        {b.nome} ({b.tipo_gestao === "manual" ? "Manual" : "Auto"})
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="flex flex-col justify-end space-y-3 pt-1">
-                <div className="flex items-center justify-between p-2 rounded-lg bg-secondary/40 border border-border/40">
-                  <div className="space-y-0.5">
-                    <Label className="text-xs font-semibold">Processamento Automático</Label>
-                    <p className="text-[10px] text-muted-foreground">Lê e processa mensagens novas</p>
-                  </div>
-                  <Switch checked={isActive} onCheckedChange={setIsActive} />
-                </div>
-
-                <div className="flex items-center justify-between p-2.5 rounded-lg bg-secondary/40 border border-border/40">
-                  <div className="space-y-0.5 pr-2">
-                    <div className="flex items-center gap-2">
-                      <Label className="text-xs font-semibold">Permitir Saldo Negativo</Label>
-                      {allowNegativeStock ? (
-                        <Badge variant="outline" className="text-[9px] bg-rose-500/10 text-rose-400 border-rose-500/30 px-1.5 py-0 font-bold">
-                          Permissivo (&lt; 0)
-                        </Badge>
-                      ) : (
-                        <Badge variant="outline" className="text-[9px] bg-emerald-500/10 text-emerald-400 border-emerald-500/30 px-1.5 py-0 font-bold">
-                          Travado em 0
-                        </Badge>
-                      )}
-                    </div>
-                    <p className="text-[10px] text-muted-foreground">
-                      {allowNegativeStock
-                        ? "Permite que retiradas deixem o saldo menor que 0."
-                        : "Bloqueia saldos negativos (retiradas acima do saldo limitam o saldo a 0)."}
-                    </p>
-                  </div>
-                  <Switch checked={allowNegativeStock} onCheckedChange={setAllowNegativeStock} />
-                </div>
-
-                {negativeProductsCount > 0 ? (
-                  <div className="p-2.5 rounded-lg bg-rose-500/10 border border-rose-500/30 flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-1.5 text-rose-400 text-xs">
-                      <AlertTriangle className="w-4 h-4 shrink-0" />
-                      <span><strong>{negativeProductsCount} produto(s)</strong> com saldo negativo detectados.</span>
-                    </div>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      disabled={sanitizeMutation.isPending}
-                      onClick={() => sanitizeMutation.mutate()}
-                      className="h-7 text-[11px] font-bold border-rose-500/40 text-rose-400 hover:bg-rose-500/20 shrink-0 cursor-pointer"
-                    >
-                      <CheckCircle2 className="w-3.5 h-3.5 mr-1" />
-                      {sanitizeMutation.isPending ? "Zerando..." : "Zerar Negativos"}
-                    </Button>
-                  </div>
+            <div>
+              <p className="text-lg font-bold text-foreground flex items-center gap-2">
+                <span>{autoCount}</span>
+                <span className="text-xs font-normal text-muted-foreground">Automáticos</span>
+                <span className="text-muted-foreground/40">•</span>
+                <span>{manualCount}</span>
+                <span className="text-xs font-normal text-muted-foreground">Manuais</span>
+              </p>
+              <p className={cn(
+                "text-[11px] font-medium flex items-center gap-1",
+                noChannelCount > 0 ? "text-amber-400 font-semibold" : "text-emerald-400"
+              )}>
+                {noChannelCount > 0 ? (
+                  <>
+                    <AlertTriangle className="w-3 h-3 shrink-0" />
+                    {noChannelCount} baú(s) automático(s) sem canal
+                  </>
                 ) : (
-                  <div className="flex items-center justify-between px-2 py-0.5 text-[11px] text-muted-foreground">
-                    <span className="flex items-center gap-1.5 text-emerald-400 font-medium">
-                      <ShieldCheck className="w-3.5 h-3.5" />
-                      Nenhum saldo negativo no banco
-                    </span>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      disabled={sanitizeMutation.isPending}
-                      onClick={() => sanitizeMutation.mutate()}
-                      className="h-6 text-[10px] text-muted-foreground hover:text-foreground px-2 cursor-pointer"
-                    >
-                      <RefreshCw className={cn("w-3 h-3 mr-1", sanitizeMutation.isPending && "animate-spin")} />
-                      Recalibrar Saldos
-                    </Button>
-                  </div>
+                  <>
+                    <Check className="w-3 h-3 shrink-0" />
+                    Todos os baús automáticos vinculados
+                  </>
+                )}
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* KPI 3: TELEMETRIA DA ÚLTIMA LOG */}
+        <Card className="surface-card border-border/80 shadow-sm relative overflow-hidden group">
+          <div className="absolute top-0 left-0 right-0 h-1 bg-primary" />
+          <CardContent className="p-4 space-y-2.5">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+                <Radio className="w-3.5 h-3.5 text-emerald-400 animate-pulse" />
+                Última Leitura
+              </span>
+              <Badge
+                variant="outline"
+                className={cn(
+                  "text-[10px] px-1.5 py-0 font-mono uppercase font-bold",
+                  config?.last_status === "success"
+                    ? "border-emerald-500/40 text-emerald-400 bg-emerald-500/10"
+                    : config?.last_status === "error"
+                    ? "border-rose-500/40 text-rose-400 bg-rose-500/10"
+                    : "border-border text-muted-foreground"
+                )}
+              >
+                {config?.last_status || "Aguardando"}
+              </Badge>
+            </div>
+            <div>
+              <div className="flex items-center gap-1 text-sm font-bold font-mono text-foreground truncate">
+                <span>{config?.last_message_id ? `${config.last_message_id.slice(0, 12)}...` : "Nenhuma mensagem"}</span>
+                {config?.last_message_id && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-5 w-5 p-0 text-muted-foreground hover:text-foreground shrink-0"
+                    onClick={() => copyToClipboard(config.last_message_id, "ID da Mensagem")}
+                  >
+                    <Copy className="w-3 h-3" />
+                  </Button>
+                )}
+              </div>
+              <p className="text-[11px] text-muted-foreground">
+                {config?.last_processed_at ? formatDate(config.last_processed_at) : "Sem histórico recente"}
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* KPI 4: INTEGRIDADE DE ESTOQUE */}
+        <Card className="surface-card border-border/80 shadow-sm relative overflow-hidden group">
+          <div className={cn(
+            "absolute top-0 left-0 right-0 h-1 transition-colors",
+            negativeProductsCount > 0 ? "bg-rose-500" : "bg-emerald-500"
+          )} />
+          <CardContent className="p-4 space-y-2.5">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+                <ShieldCheck className="w-3.5 h-3.5 text-primary" />
+                Regra de Saldo
+              </span>
+              <Badge
+                variant="outline"
+                className={cn(
+                  "text-[10px] px-1.5 py-0 font-bold",
+                  allowNegativeStock
+                    ? "border-amber-500/40 text-amber-400 bg-amber-500/10"
+                    : "border-emerald-500/40 text-emerald-400 bg-emerald-500/10"
+                )}
+              >
+                {allowNegativeStock ? "Permissivo (< 0)" : "Travado em 0"}
+              </Badge>
+            </div>
+            <div>
+              <p className="text-lg font-bold text-foreground">
+                {negativeProductsCount > 0 ? (
+                  <span className="text-rose-400">{negativeProductsCount} Negativo(s)</span>
+                ) : (
+                  <span className="text-emerald-400">100% Consistente</span>
+                )}
+              </p>
+              <div className="flex items-center justify-between pt-0.5">
+                <p className="text-[11px] text-muted-foreground">
+                  {allowNegativeStock ? "Permite retiradas abaixo de 0" : "Retiradas excedentes truncam a 0"}
+                </p>
+                {negativeProductsCount > 0 && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={sanitizeMutation.isPending}
+                    onClick={() => sanitizeMutation.mutate()}
+                    className="h-5 text-[10px] font-bold border-rose-500/40 text-rose-400 hover:bg-rose-500/20 px-1.5"
+                  >
+                    {sanitizeMutation.isPending ? "Zerando..." : "Zerar"}
+                  </Button>
                 )}
               </div>
             </div>
-
-            <Button
-              className="w-full bg-primary hover:bg-primary/90 font-bold"
-              disabled={saveConfigMutation.isPending}
-              onClick={() => saveConfigMutation.mutate()}
-            >
-              {saveConfigMutation.isPending ? <RefreshCw className="w-4 h-4 mr-2 animate-spin" /> : null}
-              Salvar Parâmetros de Integração
-            </Button>
           </CardContent>
         </Card>
       </div>
 
-      {/* MAPEAMENTO DE CANAIS E GESTÃO POR BAÚ */}
-      <Card className="surface-card border-border/80">
-        <CardHeader className="pb-3 border-b border-border/40">
+      {/* ========================================================================= */}
+      {/* 2. PARÂMETROS GLOBAIS DE INTEGRAÇÃO & REGRAS DO MOTOR                    */}
+      {/* ========================================================================= */}
+      <Card className="surface-card border-border/80 shadow-md">
+        <CardHeader className="border-b border-border/40 pb-4">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <div className="space-y-1">
-              <CardTitle className="text-sm font-bold flex items-center gap-2">
-                <Boxes className="w-4 h-4 text-amber-400" />
-                Canais do Discord & Modo de Movimentação por Baú
+              <CardTitle className="text-base font-bold flex items-center gap-2 text-foreground">
+                <Bot className="w-5 h-5 text-primary" />
+                Parâmetros Globais & Infraestrutura Discord
               </CardTitle>
               <CardDescription className="text-xs">
-                Defina para cada baú se a movimentação é <strong>Automática (via canal exclusivo do Discord)</strong> ou <strong>Manual (via painel web na página de movimentações)</strong>, e configure os IDs do canal e servidor.
+                Configurações centrais do servidor, canal de fallback padrão e políticas operacionais do motor de estoque.
               </CardDescription>
             </div>
+
             <Button
-              size="sm"
-              className="bg-primary hover:bg-primary/90 font-bold gap-1.5 shrink-0"
+              className="bg-primary hover:bg-primary/90 font-bold text-xs gap-1.5 shadow-sm w-full sm:w-auto"
+              disabled={saveConfigMutation.isPending}
+              onClick={() => saveConfigMutation.mutate()}
+            >
+              {saveConfigMutation.isPending ? (
+                <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+              ) : (
+                <Save className="w-3.5 h-3.5" />
+              )}
+              Salvar Parâmetros Globais
+            </Button>
+          </div>
+        </CardHeader>
+
+        <CardContent className="p-5 space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {/* Guild ID */}
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold text-foreground flex items-center justify-between">
+                <span>ID do Servidor Discord (Guild ID)</span>
+                {guildId && (
+                  <span className="text-[10px] text-muted-foreground font-mono">
+                    {guildId.length} dígitos
+                  </span>
+                )}
+              </Label>
+              <div className="relative">
+                <Input
+                  placeholder="Ex: 112233445566778899"
+                  value={guildId}
+                  onChange={(e) => setGuildId(e.target.value)}
+                  className="font-mono text-xs pr-8 bg-background/50 focus:bg-background transition-colors"
+                />
+                {guildId && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="absolute right-1 top-1 h-7 w-7 p-0 text-muted-foreground hover:text-foreground"
+                    onClick={() => copyToClipboard(guildId, "Guild ID")}
+                  >
+                    <Copy className="w-3.5 h-3.5" />
+                  </Button>
+                )}
+              </div>
+              <p className="text-[10px] text-muted-foreground">
+                ID do servidor oficial onde o bot opera e monitora os canais de baús.
+              </p>
+            </div>
+
+            {/* Canal Geral Fallback */}
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold text-foreground flex items-center justify-between">
+                <span>Canal Fallback / Geral de Logs</span>
+                {channelId && (
+                  <span className="text-[10px] text-emerald-400 font-mono flex items-center gap-1">
+                    <Check className="w-3 h-3" /> Configurado
+                  </span>
+                )}
+              </Label>
+              <div className="relative">
+                <Input
+                  placeholder="Ex: 998877665544332211"
+                  value={channelId}
+                  onChange={(e) => setChannelId(e.target.value)}
+                  className="font-mono text-xs pr-8 bg-background/50 focus:bg-background transition-colors"
+                />
+                {channelId && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="absolute right-1 top-1 h-7 w-7 p-0 text-muted-foreground hover:text-foreground"
+                    onClick={() => copyToClipboard(channelId, "ID do Canal")}
+                  >
+                    <Copy className="w-3.5 h-3.5" />
+                  </Button>
+                )}
+              </div>
+              <p className="text-[10px] text-muted-foreground">
+                Usado como canal principal ou de contingência quando a mensagem não vier de canal exclusivo.
+              </p>
+            </div>
+
+            {/* Baú Padrão */}
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold text-foreground">
+                Baú de Destino Padrão (Fallback)
+              </Label>
+              <Select value={defaultBauId} onValueChange={setDefaultBauId}>
+                <SelectTrigger className="text-xs bg-background/50 focus:bg-background font-medium">
+                  <SelectValue placeholder="Selecione o baú padrão..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {baus.filter((b) => b.ativo).length === 0 ? (
+                    <div className="p-3 text-center text-xs text-muted-foreground">Nenhum baú ativo</div>
+                  ) : (
+                    baus.filter((b) => b.ativo).map((b) => (
+                      <SelectItem key={b.id} value={b.id}>
+                        <span className="flex items-center gap-2">
+                          <BauIcon
+                            foto_url={b.foto_url || b.imagem_url}
+                            icone={b.icone}
+                            nome={b.nome}
+                            className="w-4 h-4 rounded-xs"
+                          />
+                          <span>{b.nome}</span>
+                          <span className="text-[10px] text-muted-foreground">
+                            ({b.tipo_gestao === "manual" ? "✍️ Manual" : "🤖 Auto"})
+                          </span>
+                        </span>
+                      </SelectItem>
+                    ))
+                  )}
+                </SelectContent>
+              </Select>
+              <p className="text-[10px] text-muted-foreground">
+                Baú atribuído caso a mensagem do Discord não pertença ao canal de nenhum baú específico.
+              </p>
+            </div>
+          </div>
+
+          {/* Cards de Políticas e Regras */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2 border-t border-border/40">
+            {/* Toggle 1: Ingestão Ativa */}
+            <div className={cn(
+              "p-4 rounded-xl border transition-all flex items-start justify-between gap-3",
+              isActive
+                ? "bg-emerald-500/5 border-emerald-500/30"
+                : "bg-secondary/20 border-border/60"
+            )}>
+              <div className="space-y-1 pr-2">
+                <div className="flex items-center gap-2">
+                  <Label className="text-xs font-bold text-foreground cursor-pointer" onClick={() => setIsActive(!isActive)}>
+                    Processamento Automático Contínuo
+                  </Label>
+                  <Badge variant="outline" className={cn(
+                    "text-[10px] font-bold px-1.5 py-0",
+                    isActive ? "border-emerald-500/40 text-emerald-400 bg-emerald-500/10" : "border-border text-muted-foreground"
+                  )}>
+                    {isActive ? "Ligado" : "Desligado"}
+                  </Badge>
+                </div>
+                <p className="text-[11px] text-muted-foreground leading-relaxed">
+                  Quando ativado, o bot lê e processa as mensagens de movimentação em tempo real, atualizando o saldo dos baús automaticamente.
+                </p>
+              </div>
+              <Switch checked={isActive} onCheckedChange={setIsActive} className="mt-0.5 shrink-0" />
+            </div>
+
+            {/* Toggle 2: Permitir Estoque Negativo */}
+            <div className={cn(
+              "p-4 rounded-xl border transition-all flex items-start justify-between gap-3",
+              allowNegativeStock
+                ? "bg-amber-500/5 border-amber-500/30"
+                : "bg-emerald-500/5 border-emerald-500/30"
+            )}>
+              <div className="space-y-1 pr-2">
+                <div className="flex items-center gap-2">
+                  <Label className="text-xs font-bold text-foreground cursor-pointer" onClick={() => setAllowNegativeStock(!allowNegativeStock)}>
+                    Política de Saldo Negativo
+                  </Label>
+                  <Badge variant="outline" className={cn(
+                    "text-[10px] font-bold px-1.5 py-0",
+                    allowNegativeStock
+                      ? "border-amber-500/40 text-amber-400 bg-amber-500/10"
+                      : "border-emerald-500/40 text-emerald-400 bg-emerald-500/10"
+                  )}>
+                    {allowNegativeStock ? "Permite (< 0)" : "Bloqueia (Mínimo 0)"}
+                  </Badge>
+                </div>
+                <p className="text-[11px] text-muted-foreground leading-relaxed">
+                  {allowNegativeStock
+                    ? "Permissivo: retiradas maiores que o estoque deixam o produto negativo no banco para auditoria de desvio."
+                    : "Seguro: retiradas que ultrapassem o saldo gravam a saída, mas limitam o saldo final em zero (evita números irreais)."}
+                </p>
+              </div>
+              <Switch checked={allowNegativeStock} onCheckedChange={setAllowNegativeStock} className="mt-0.5 shrink-0" />
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* ========================================================================= */}
+      {/* 3. GESTÃO INTELIGENTE DE BAÚS & CANAIS EXCLUSIVOS DO DISCORD              */}
+      {/* ========================================================================= */}
+      <Card className="surface-card border-border/80 shadow-md">
+        <CardHeader className="border-b border-border/40 pb-4">
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+            <div className="space-y-1">
+              <div className="flex items-center gap-2 flex-wrap">
+                <CardTitle className="text-base font-bold flex items-center gap-2 text-foreground">
+                  <Boxes className="w-5 h-5 text-amber-400" />
+                  Canais do Discord & Modo de Movimentação por Baú
+                </CardTitle>
+                {modifiedBausCount > 0 && (
+                  <Badge variant="outline" className="text-[10px] font-bold border-amber-500/40 text-amber-400 bg-amber-500/10 animate-pulse">
+                    ● {modifiedBausCount} alteração(ões) pendente(s)
+                  </Badge>
+                )}
+              </div>
+              <CardDescription className="text-xs">
+                As mensagens do Cidade Alta trazem apenas o texto genérico <code>📦 Baú</code>. O <strong>canal exclusivo</strong> onde a mensagem é postada determina qual baú recebe a movimentação.
+              </CardDescription>
+            </div>
+
+            <Button
+              className={cn(
+                "font-bold text-xs gap-1.5 shadow-sm transition-all w-full md:w-auto",
+                modifiedBausCount > 0
+                  ? "bg-amber-500 hover:bg-amber-600 text-black shadow-amber-500/20"
+                  : "bg-primary hover:bg-primary/90 text-primary-foreground"
+              )}
               disabled={isSavingAllBaus || baus.length === 0}
               onClick={handleSaveAllBaus}
             >
@@ -888,18 +1109,85 @@ function DiscordIntegrationTab() {
               ) : (
                 <CheckCheck className="w-3.5 h-3.5" />
               )}
-              Salvar Todos os Baús
+              {modifiedBausCount > 0 ? `Salvar Todos (${modifiedBausCount} pendentes)` : "Salvar Todos os Baús"}
             </Button>
           </div>
+
+          {/* BARRA DE FILTROS & BUSCA RÁPIDA DE BAÚS */}
+          <div className="pt-4 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+            {/* Input de Busca */}
+            <div className="relative flex-1 sm:max-w-xs">
+              <Search className="w-3.5 h-3.5 absolute left-3 top-3 text-muted-foreground" />
+              <Input
+                placeholder="Buscar baú por nome ou canal..."
+                value={bauSearch}
+                onChange={(e) => setBauSearch(e.target.value)}
+                className="pl-8.5 h-9 text-xs bg-background/50 focus:bg-background"
+              />
+            </div>
+
+            {/* Segmented Filter Pills */}
+            <div className="flex flex-wrap items-center gap-1.5 p-1 rounded-xl bg-secondary/40 border border-border/50">
+              <Button
+                variant={bauFilter === "all" ? "default" : "ghost"}
+                size="sm"
+                onClick={() => setBauFilter("all")}
+                className="h-7 text-xs font-semibold px-2.5 rounded-lg"
+              >
+                Todos ({baus.length})
+              </Button>
+              <Button
+                variant={bauFilter === "auto" ? "default" : "ghost"}
+                size="sm"
+                onClick={() => setBauFilter("auto")}
+                className="h-7 text-xs font-semibold px-2.5 rounded-lg gap-1"
+              >
+                🤖 Auto ({autoCount})
+              </Button>
+              <Button
+                variant={bauFilter === "manual" ? "default" : "ghost"}
+                size="sm"
+                onClick={() => setBauFilter("manual")}
+                className="h-7 text-xs font-semibold px-2.5 rounded-lg gap-1"
+              >
+                ✍️ Manual ({manualCount})
+              </Button>
+              {noChannelCount > 0 && (
+                <Button
+                  variant={bauFilter === "no-channel" ? "destructive" : "ghost"}
+                  size="sm"
+                  onClick={() => setBauFilter("no-channel")}
+                  className={cn(
+                    "h-7 text-xs font-semibold px-2.5 rounded-lg gap-1",
+                    bauFilter !== "no-channel" && "text-amber-400 hover:text-amber-300 hover:bg-amber-500/10"
+                  )}
+                >
+                  <AlertTriangle className="w-3 h-3" />
+                  Sem Canal ({noChannelCount})
+                </Button>
+              )}
+            </div>
+          </div>
         </CardHeader>
-        <CardContent className="p-4 space-y-4">
+
+        <CardContent className="p-4 sm:p-5">
           {baus.length === 0 ? (
-            <div className="p-8 text-center text-muted-foreground text-xs">
-              Nenhum baú cadastrado no sistema. Crie um baú antes de configurar a integração.
+            <div className="p-12 text-center text-muted-foreground text-xs space-y-2">
+              <Boxes className="w-8 h-8 text-muted-foreground/40 mx-auto" />
+              <p className="font-semibold text-foreground">Nenhum baú cadastrado no sistema.</p>
+              <p className="text-[11px]">Crie baús na aba de Gestão de Baús para configurar a sincronização.</p>
+            </div>
+          ) : filteredBaus.length === 0 ? (
+            <div className="p-10 text-center text-muted-foreground text-xs space-y-2">
+              <Search className="w-6 h-6 text-muted-foreground/40 mx-auto" />
+              <p>Nenhum baú encontrado com os filtros selecionados.</p>
+              <Button variant="outline" size="sm" onClick={() => { setBauSearch(""); setBauFilter("all"); }} className="text-xs">
+                Limpar Filtros
+              </Button>
             </div>
           ) : (
-            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-              {baus.map((b) => {
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+              {filteredBaus.map((b) => {
                 const bCfg = bauConfigs[b.id] || {
                   tipo_gestao: b.tipo_gestao || "automatico",
                   discord_channel_id: b.discord_channel_id || "",
@@ -907,22 +1195,26 @@ function DiscordIntegrationTab() {
                   is_saving: false,
                 };
                 const isAuto = bCfg.tipo_gestao === "automatico";
+                const isModified = isBauModified(b.id);
+                const hasChannel = Boolean(bCfg.discord_channel_id?.trim());
 
                 return (
                   <div
                     key={b.id}
                     className={cn(
-                      "p-4 rounded-xl border transition-all space-y-3.5 flex flex-col justify-between",
-                      isAuto
-                        ? "bg-secondary/20 border-primary/30 hover:border-primary/50 shadow-sm"
-                        : "bg-secondary/10 border-border/60 hover:border-border"
+                      "p-4 rounded-2xl border transition-all space-y-4 flex flex-col justify-between relative group",
+                      isModified
+                        ? "bg-amber-500/5 border-amber-500/50 shadow-md"
+                        : isAuto
+                        ? "bg-secondary/25 border-border/80 hover:border-primary/50 hover:bg-secondary/35 shadow-xs"
+                        : "bg-secondary/15 border-border/60 hover:border-border hover:bg-secondary/25"
                     )}
                   >
-                    {/* Cabeçalho do Baú */}
-                    <div className="space-y-1.5">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <div className="w-6 h-6 rounded-lg bg-secondary/80 border border-border/70 flex items-center justify-center shrink-0 overflow-hidden shadow-xs">
+                    {/* Header do Card */}
+                    <div className="space-y-3">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <div className="w-8 h-8 rounded-xl bg-secondary/80 border border-border/70 flex items-center justify-center shrink-0 overflow-hidden shadow-xs">
                             <BauIcon
                               foto_url={b.foto_url || b.imagem_url}
                               icone={b.icone}
@@ -930,151 +1222,203 @@ function DiscordIntegrationTab() {
                               className="w-full h-full object-cover"
                             />
                           </div>
-                          <strong className="text-sm text-foreground font-bold tracking-tight">
-                            {b.nome}
-                          </strong>
+                          <div className="min-w-0">
+                            <h4 className="text-sm font-bold text-foreground truncate tracking-tight">
+                              {b.nome}
+                            </h4>
+                            <p className="text-[10px] text-muted-foreground font-mono">
+                              {b.capacidade_maxima ? `${b.capacidade_maxima} slots` : "Capacidade Livre"}
+                            </p>
+                          </div>
                         </div>
-                        <Badge
-                          variant="outline"
-                          className={cn(
-                            "text-[10px] uppercase font-bold",
-                            b.ativo
-                              ? "border-emerald-500/40 text-emerald-400 bg-emerald-500/10"
-                              : "border-muted text-muted-foreground"
+
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          {isModified && (
+                            <Badge variant="outline" className="text-[9px] font-bold px-1.5 py-0 border-amber-500/40 text-amber-400 bg-amber-500/10">
+                              Modificado
+                            </Badge>
                           )}
-                        >
-                          {b.ativo ? "Ativo" : "Inativo"}
-                        </Badge>
+                          <Badge
+                            variant="outline"
+                            className={cn(
+                              "text-[10px] uppercase font-bold px-1.5 py-0",
+                              b.ativo
+                                ? "border-emerald-500/40 text-emerald-400 bg-emerald-500/10"
+                                : "border-muted text-muted-foreground"
+                            )}
+                          >
+                            {b.ativo ? "Ativo" : "Inativo"}
+                          </Badge>
+                        </div>
                       </div>
-                      {b.descricao && (
-                        <p className="text-[11px] text-muted-foreground line-clamp-1">
-                          {b.descricao}
-                        </p>
+
+                      {/* Segmented Control do Modo de Gestão */}
+                      <div className="space-y-1">
+                        <Label className="text-[11px] font-semibold text-muted-foreground block">
+                          Modo Operacional de Movimentação:
+                        </Label>
+                        <div className="grid grid-cols-2 p-1 rounded-xl bg-background/60 border border-border/60 gap-1">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setBauConfigs((prev) => ({
+                                ...prev,
+                                [b.id]: {
+                                  ...(prev[b.id] || {
+                                    tipo_gestao: "automatico",
+                                    discord_channel_id: "",
+                                    discord_guild_id: "",
+                                  }),
+                                  tipo_gestao: "automatico",
+                                },
+                              }));
+                            }}
+                            className={cn(
+                              "text-xs font-bold py-1.5 px-2 rounded-lg transition-all flex items-center justify-center gap-1.5 cursor-pointer",
+                              isAuto
+                                ? "bg-primary text-primary-foreground shadow-xs"
+                                : "text-muted-foreground hover:text-foreground hover:bg-secondary/40"
+                            )}
+                          >
+                            <Bot className="w-3.5 h-3.5" />
+                            <span>Automático</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setBauConfigs((prev) => ({
+                                ...prev,
+                                [b.id]: {
+                                  ...(prev[b.id] || {
+                                    tipo_gestao: "manual",
+                                    discord_channel_id: "",
+                                    discord_guild_id: "",
+                                  }),
+                                  tipo_gestao: "manual",
+                                },
+                              }));
+                            }}
+                            className={cn(
+                              "text-xs font-bold py-1.5 px-2 rounded-lg transition-all flex items-center justify-center gap-1.5 cursor-pointer",
+                              !isAuto
+                                ? "bg-secondary text-foreground shadow-xs border border-border"
+                                : "text-muted-foreground hover:text-foreground hover:bg-secondary/40"
+                            )}
+                          >
+                            <span>✍️ Manual</span>
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Configuração dos Canais (se Automático) ou Info (se Manual) */}
+                      {isAuto ? (
+                        <div className="space-y-2.5 pt-1">
+                          {/* ID do Canal Discord */}
+                          <div className="space-y-1">
+                            <Label className="text-[11px] font-semibold text-foreground flex items-center justify-between">
+                              <span>Canal do Discord (Exclusivo):</span>
+                              {hasChannel ? (
+                                <span className="text-[10px] text-emerald-400 font-mono flex items-center gap-1">
+                                  <Check className="w-3 h-3" /> Vinculado
+                                </span>
+                              ) : (
+                                <span className="text-[10px] text-amber-400 font-bold flex items-center gap-1">
+                                  <AlertTriangle className="w-3 h-3" /> Necessário
+                                </span>
+                              )}
+                            </Label>
+                            <div className="relative">
+                              <Input
+                                placeholder="ID do canal exclusivo..."
+                                value={bCfg.discord_channel_id}
+                                onChange={(e) => {
+                                  const val = e.target.value;
+                                  setBauConfigs((prev) => ({
+                                    ...prev,
+                                    [b.id]: {
+                                      ...(prev[b.id] || {
+                                        tipo_gestao: "automatico",
+                                        discord_channel_id: "",
+                                        discord_guild_id: "",
+                                      }),
+                                      discord_channel_id: val,
+                                    },
+                                  }));
+                                }}
+                                className={cn(
+                                  "h-8.5 text-xs font-mono pr-8 transition-colors",
+                                  hasChannel
+                                    ? "bg-background/80 border-emerald-500/40 focus:border-emerald-500"
+                                    : "bg-background/80 border-amber-500/50 focus:border-amber-500"
+                                )}
+                              />
+                              {hasChannel && (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="absolute right-1 top-1 h-6.5 w-6.5 p-0 text-muted-foreground hover:text-foreground"
+                                  onClick={() => copyToClipboard(bCfg.discord_channel_id, "ID do Canal")}
+                                >
+                                  <Copy className="w-3 h-3" />
+                                </Button>
+                              )}
+                            </div>
+                            <p className="text-[10px] text-muted-foreground">
+                              O bot captura logs postadas neste canal e credita/debita neste baú.
+                            </p>
+                          </div>
+
+                          {/* ID do Servidor (Opcional/Customizado) */}
+                          <div className="space-y-1">
+                            <Label className="text-[11px] font-semibold text-muted-foreground flex items-center justify-between">
+                              <span>ID do Servidor (Guild ID):</span>
+                              <span className="text-[9px] text-muted-foreground font-mono">
+                                {bCfg.discord_guild_id ? "Customizado" : "Padrão"}
+                              </span>
+                            </Label>
+                            <Input
+                              placeholder={guildId || "Opcional (herda padrão geral)"}
+                              value={bCfg.discord_guild_id}
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                setBauConfigs((prev) => ({
+                                  ...prev,
+                                  [b.id]: {
+                                    ...(prev[b.id] || {
+                                      tipo_gestao: "automatico",
+                                      discord_channel_id: "",
+                                      discord_guild_id: "",
+                                    }),
+                                    discord_guild_id: val,
+                                  },
+                                }));
+                              }}
+                              className="h-8 text-xs font-mono bg-background/50"
+                            />
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="p-3 rounded-xl bg-background/40 border border-border/40 text-[11px] text-muted-foreground space-y-1">
+                          <p className="font-semibold text-foreground flex items-center gap-1.5">
+                            <span>✍️ Modo 100% Manual</span>
+                          </p>
+                          <p className="text-[10px] leading-relaxed">
+                            As movimentações deste baú são lançadas pelos membros via painel web. O bot do Discord ignora este baú.
+                          </p>
+                        </div>
                       )}
                     </div>
 
-                    {/* Modo de Movimentação */}
-                    <div className="space-y-1.5">
-                      <Label className="text-[11px] font-semibold text-muted-foreground flex items-center justify-between">
-                        <span>Modo de Movimentação:</span>
-                        <Badge
-                          variant="secondary"
-                          className={cn(
-                            "text-[10px] font-semibold",
-                            isAuto
-                              ? "text-cyan-400 bg-cyan-950/40 border border-cyan-800/40"
-                              : "text-amber-400 bg-amber-950/40 border border-amber-800/40"
-                          )}
-                        >
-                          {isAuto ? "🤖 Automático (Discord)" : "✍️ Manual (Painel Web)"}
-                        </Badge>
-                      </Label>
-                      <Select
-                        value={bCfg.tipo_gestao}
-                        onValueChange={(val: "automatico" | "manual") => {
-                          setBauConfigs((prev) => ({
-                            ...prev,
-                            [b.id]: {
-                              ...(prev[b.id] || {
-                                tipo_gestao: "automatico",
-                                discord_channel_id: "",
-                                discord_guild_id: "",
-                              }),
-                              tipo_gestao: val,
-                            },
-                          }));
-                        }}
-                      >
-                        <SelectTrigger className="h-8 text-xs bg-background/60">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="automatico">
-                            🤖 Automático (Mensagens no canal Discord)
-                          </SelectItem>
-                          <SelectItem value="manual">
-                            ✍️ Manual (Lançamentos no Painel Web)
-                          </SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <p className="text-[10px] text-muted-foreground">
-                        {isAuto
-                          ? "O bot monitora o canal exclusivo deste baú para registrar entradas, saídas e transferências automaticamente."
-                          : "Movimentações realizadas manualmente no painel web. O bot não ingere mensagens deste baú."}
-                      </p>
-                    </div>
-
-                    {/* Campos de Canal e Servidor */}
-                    <div className="space-y-2 pt-1 border-t border-border/40">
-                      <div className="space-y-1">
-                        <Label className="text-[11px] font-medium text-foreground flex items-center justify-between">
-                          <span>ID do Canal do Discord:</span>
-                          {bCfg.discord_channel_id ? (
-                            <span className="text-[9px] text-emerald-400 font-mono flex items-center gap-1">
-                              <Check className="w-2.5 h-2.5" /> Vinculado
-                            </span>
-                          ) : isAuto ? (
-                            <span className="text-[9px] text-rose-400 font-mono">
-                              Obrigatório p/ Bot
-                            </span>
-                          ) : null}
-                        </Label>
-                        <Input
-                          placeholder={isAuto ? "Ex: 112233445566778899" : "Opcional no modo manual"}
-                          value={bCfg.discord_channel_id}
-                          onChange={(e) => {
-                            const val = e.target.value;
-                            setBauConfigs((prev) => ({
-                              ...prev,
-                              [b.id]: {
-                                ...(prev[b.id] || {
-                                  tipo_gestao: "automatico",
-                                  discord_channel_id: "",
-                                  discord_guild_id: "",
-                                }),
-                                discord_channel_id: val,
-                              },
-                            }));
-                          }}
-                          className="h-8 text-xs font-mono bg-background/60"
-                        />
-                      </div>
-
-                      <div className="space-y-1">
-                        <Label className="text-[11px] font-medium text-muted-foreground flex items-center justify-between">
-                          <span>ID do Servidor (Guild ID):</span>
-                          <span className="text-[9px] text-muted-foreground">
-                            {bCfg.discord_guild_id ? "Customizado" : "Usa Servidor Geral"}
-                          </span>
-                        </Label>
-                        <Input
-                          placeholder={guildId || "Ex: 998877665544332211"}
-                          value={bCfg.discord_guild_id}
-                          onChange={(e) => {
-                            const val = e.target.value;
-                            setBauConfigs((prev) => ({
-                              ...prev,
-                              [b.id]: {
-                                ...(prev[b.id] || {
-                                  tipo_gestao: "automatico",
-                                  discord_channel_id: "",
-                                  discord_guild_id: "",
-                                }),
-                                discord_guild_id: val,
-                              },
-                            }));
-                          }}
-                          className="h-8 text-xs font-mono bg-background/60"
-                        />
-                      </div>
-                    </div>
-
-                    {/* Ação individual de salvar */}
-                    <div className="pt-2">
+                    {/* Botão Individual de Salvar */}
+                    <div className="pt-2 border-t border-border/40">
                       <Button
                         size="sm"
-                        variant={isAuto ? "default" : "secondary"}
-                        className="w-full h-8 text-xs font-semibold gap-1.5"
+                        variant={isModified ? "default" : "outline"}
+                        className={cn(
+                          "w-full h-8 text-xs font-bold gap-1.5 rounded-xl cursor-pointer transition-all",
+                          isModified ? "bg-amber-500 hover:bg-amber-600 text-black shadow-xs" : ""
+                        )}
                         disabled={bCfg.is_saving}
                         onClick={() => handleSaveSingleBau(b.id)}
                       >
@@ -1083,7 +1427,7 @@ function DiscordIntegrationTab() {
                         ) : (
                           <Save className="w-3.5 h-3.5" />
                         )}
-                        Salvar Configuração do Baú
+                        {isModified ? "Salvar Alterações" : "Salvar Configuração"}
                       </Button>
                     </div>
                   </div>
@@ -1094,240 +1438,231 @@ function DiscordIntegrationTab() {
         </CardContent>
       </Card>
 
-      {/* MAPEAMENTO DE ITENS E BAÚS */}
-      <div className="grid gap-6 md:grid-cols-2">
-        {/* MAPEAMENTO DE ITENS */}
-        <Card className="surface-card">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-bold flex items-center justify-between">
-              <span className="flex items-center gap-2">
-                <FileCode className="w-4 h-4 text-cyan-400" />
-                Mapeamento de Nomes de Itens (Aliases)
-              </span>
-              <Badge variant="outline" className="text-[10px]">
-                {Object.keys(itemMappings).length} aliases
-              </Badge>
-            </CardTitle>
-            <CardDescription className="text-xs">
-              Mapeie como os itens são chamados no Discord para os produtos cadastrados no sistema. (Salva automaticamente ao adicionar ou remover)
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex flex-col sm:flex-row gap-2">
-              <Input
-                placeholder="Texto Discord (ex: 'Micro Uzi')"
-                value={newAliasKey}
-                onChange={(e) => setNewAliasKey(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    e.preventDefault();
-                    void handleAddItemMapping();
-                  }
-                }}
-                className="text-xs flex-1 w-full"
-              />
-              <div className="flex items-center gap-2 w-full sm:w-auto">
-                <Select value={newAliasTargetProduct} onValueChange={setNewAliasTargetProduct} className="flex-1 sm:w-56 shrink-0">
-                  <SelectTrigger className="text-xs w-full">
-                    <SelectValue placeholder="Produto..." />
+      {/* ========================================================================= */}
+      {/* 4. MAPEAMENTO DE ALIASES / NOMES DE ITENS (DISCORD ➔ SISTEMA)             */}
+      {/* ========================================================================= */}
+      <Card className="surface-card border-border/80 shadow-md">
+        <CardHeader className="border-b border-border/40 pb-4">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div className="space-y-1">
+              <div className="flex items-center gap-2">
+                <CardTitle className="text-base font-bold flex items-center gap-2 text-foreground">
+                  <FileCode className="w-5 h-5 text-cyan-400" />
+                  Mapeamento de Aliases & Nomes de Itens
+                </CardTitle>
+                <Badge variant="outline" className="text-[10px] font-bold border-cyan-500/40 text-cyan-400 bg-cyan-500/10">
+                  {Object.keys(itemMappings).length} aliases
+                </Badge>
+              </div>
+              <CardDescription className="text-xs">
+                Mapeie como os itens são nomeados nas mensagens do Discord para os produtos cadastrados no Twin Wheels.
+              </CardDescription>
+            </div>
+
+            <Button
+              variant="outline"
+              size="sm"
+              className="text-xs font-bold gap-1.5 border-border/80 hover:bg-secondary/40 w-full sm:w-auto"
+              disabled={isSavingItemMappings}
+              onClick={() => void handleSaveAllItemMappings()}
+            >
+              {isSavingItemMappings ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+              Salvar Todos Mapeamentos
+            </Button>
+          </div>
+        </CardHeader>
+
+        <CardContent className="p-4 sm:p-5 space-y-6">
+          {/* Formulário de Adicionar Mapeamento */}
+          <div className="p-4 rounded-2xl bg-secondary/30 border border-border/60 space-y-3">
+            <span className="text-xs font-bold text-foreground flex items-center gap-1.5">
+              <Plus className="w-4 h-4 text-primary" />
+              Adicionar Novo Mapeamento
+            </span>
+            <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-end">
+              <div className="sm:col-span-5 space-y-1">
+                <Label className="text-[11px] font-semibold text-muted-foreground">
+                  Texto da Mensagem no Discord (Alias)
+                </Label>
+                <Input
+                  placeholder="Ex: 'Micro Uzi', 'Maconha', 'C4'..."
+                  value={newAliasKey}
+                  onChange={(e) => setNewAliasKey(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      void handleAddItemMapping();
+                    }
+                  }}
+                  className="h-9 text-xs font-medium bg-background/60"
+                />
+              </div>
+
+              <div className="sm:col-span-5 space-y-1">
+                <Label className="text-[11px] font-semibold text-muted-foreground">
+                  Produto Equivalente no Sistema
+                </Label>
+                <Select value={newAliasTargetProduct} onValueChange={setNewAliasTargetProduct}>
+                  <SelectTrigger className="h-9 text-xs bg-background/60 font-medium">
+                    <SelectValue placeholder="Selecione o produto do sistema..." />
                   </SelectTrigger>
                   <SelectContent className="max-h-60">
-                    {products.filter((p) => p.ativo !== false && p.nome && p.nome.trim() !== "." && p.nome.trim() !== "").length === 0 ? (
-                      <div className="p-3 text-center text-xs text-muted-foreground">
-                        Nenhum produto cadastrado
-                      </div>
+                    {products.filter((p) => p.ativo !== false && p.nome?.trim()).length === 0 ? (
+                      <div className="p-3 text-center text-xs text-muted-foreground">Nenhum produto cadastrado</div>
                     ) : (
                       products
-                        .filter((p) => p.ativo !== false && p.nome && p.nome.trim() !== "." && p.nome.trim() !== "")
+                        .filter((p) => p.ativo !== false && p.nome?.trim())
                         .map((p) => (
                           <SelectItem key={p.id} value={p.nome}>
-                            {p.nome}
+                            <span className="flex items-center gap-2">
+                              <ProductThumbnail
+                                imageUrl={p.foto_url || p.imagem_url}
+                                name={p.nome}
+                                size="xs"
+                                className="shrink-0 rounded-xs"
+                              />
+                              <span>{p.nome}</span>
+                            </span>
                           </SelectItem>
                         ))
                     )}
                   </SelectContent>
                 </Select>
-                <Button size="sm" onClick={() => void handleAddItemMapping()} className="shrink-0 h-9 w-9 p-0 flex items-center justify-center">
-                  <Plus className="w-4 h-4" />
+              </div>
+
+              <div className="sm:col-span-2">
+                <Button
+                  onClick={() => void handleAddItemMapping()}
+                  className="w-full h-9 text-xs font-bold gap-1.5 bg-primary hover:bg-primary/90 text-primary-foreground shadow-xs cursor-pointer"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  Mapear
                 </Button>
               </div>
             </div>
+          </div>
 
-            <div className="max-h-48 overflow-y-auto rounded-lg border border-border/60 divide-y divide-border/40 text-xs">
-              {Object.keys(itemMappings).length === 0 ? (
-                <div className="p-4 text-center text-muted-foreground text-[11px]">
-                  Nenhum mapeamento customizado. Itens com mesmo nome são associados automaticamente.
-                </div>
+          {/* Barra de Busca de Mapeamentos */}
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+            <div className="relative flex-1 sm:max-w-xs">
+              <Search className="w-3.5 h-3.5 absolute left-3 top-3 text-muted-foreground" />
+              <Input
+                placeholder="Buscar apelido ou produto..."
+                value={aliasSearch}
+                onChange={(e) => setAliasSearch(e.target.value)}
+                className="pl-8.5 h-8.5 text-xs bg-background/50 focus:bg-background"
+              />
+            </div>
+            <span className="text-[11px] text-muted-foreground">
+              Exibindo <strong>{filteredItemMappings.length}</strong> de <strong>{Object.keys(itemMappings).length}</strong> mapeamentos
+            </span>
+          </div>
+
+          {/* Grid de Mapeamentos */}
+          {filteredItemMappings.length === 0 ? (
+            <div className="p-8 text-center text-muted-foreground text-xs space-y-1 rounded-xl border border-dashed border-border/80">
+              <FileCode className="w-6 h-6 text-muted-foreground/40 mx-auto" />
+              <p>Nenhum mapeamento encontrado.</p>
+              {aliasSearch ? (
+                <Button variant="ghost" size="sm" onClick={() => setAliasSearch("")} className="text-xs">
+                  Limpar busca
+                </Button>
               ) : (
-                Object.entries(itemMappings).map(([k, v]) => (
-                  <div key={k} className="p-2 flex items-center justify-between">
-                    <div className="flex items-center gap-2 font-mono">
-                      <span className="text-muted-foreground">{k}</span>
-                      <ArrowRight className="w-3 h-3 text-primary" />
-                      <strong className="text-foreground">{v}</strong>
+                <p className="text-[11px]">Itens com nome idêntico ao do cadastro são interpretados automaticamente.</p>
+              )}
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2.5 max-h-96 overflow-y-auto pr-1">
+              {filteredItemMappings.map(([k, v]) => {
+                const matchedProd = products.find((p) => p.nome.toLowerCase() === v.toLowerCase());
+                return (
+                  <div
+                    key={k}
+                    className="p-2.5 rounded-xl bg-secondary/30 border border-border/60 hover:border-primary/40 hover:bg-secondary/40 transition-all flex items-center justify-between gap-2"
+                  >
+                    <div className="flex items-center gap-2 min-w-0">
+                      <div className="font-mono text-xs font-semibold text-foreground truncate max-w-[110px]" title={k}>
+                        {k}
+                      </div>
+                      <ArrowRight className="w-3 h-3 text-primary shrink-0" />
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        {matchedProd && (
+                          <ProductThumbnail
+                            imageUrl={matchedProd.foto_url || matchedProd.imagem_url}
+                            name={v}
+                            size="xs"
+                            className="shrink-0 rounded-xs"
+                          />
+                        )}
+                        <span className="text-xs font-bold text-foreground truncate max-w-[120px]" title={v}>
+                          {v}
+                        </span>
+                      </div>
                     </div>
+
                     <Button
                       variant="ghost"
                       size="sm"
-                      className="h-7 w-7 p-0 text-muted-foreground hover:text-rose-400"
+                      className="h-7 w-7 p-0 text-muted-foreground hover:text-rose-400 hover:bg-rose-500/10 shrink-0 cursor-pointer"
                       onClick={() => void handleRemoveItemMapping(k)}
+                      title={`Remover alias ${k}`}
                     >
                       <Trash2 className="w-3.5 h-3.5" />
                     </Button>
                   </div>
-                ))
-              )}
+                );
+              })}
             </div>
-          </CardContent>
-          <CardFooter className="pt-2 border-t border-border/40 flex flex-col sm:flex-row gap-2 justify-between items-stretch sm:items-center text-xs">
-            <span className="text-[11px] text-muted-foreground">
-              Sincronizado diretamente com a base de dados.
-            </span>
-            <Button
-              size="sm"
-              variant="outline"
-              className="text-xs gap-1.5 w-full sm:w-auto"
-              disabled={isSavingItemMappings}
-              onClick={() => void handleSaveAllItemMappings()}
-            >
-              {isSavingItemMappings ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
-              Salvar Mapeamentos
-            </Button>
-          </CardFooter>
-        </Card>
+          )}
+        </CardContent>
+      </Card>
 
-        {/* MAPEAMENTO EXCLUSIVO DE BAÚS POR CANAL DISCORD */}
-        <Card className="surface-card border-border/80">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-bold flex items-center justify-between">
-              <span className="flex items-center gap-2">
-                <Boxes className="w-4 h-4 text-amber-400" />
-                Canais dos Baús no Discord (Mapeamento Exclusivo)
-              </span>
-              <Badge variant="outline" className="text-[10px] bg-amber-500/10 text-amber-400 border-amber-500/30 font-bold">
-                {baus.filter((b) => b.ativo).length} baús ativos
-              </Badge>
-            </CardTitle>
-            <CardDescription className="text-xs">
-              Cada baú possui seu <strong>canal exclusivo no Discord</strong>. As logs do Cidade Alta trazem apenas o texto genérico <code>📦 Baú</code>, de modo que o canal onde a mensagem foi postada determina qual baú recebe a movimentação.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <div className="max-h-56 overflow-y-auto rounded-lg border border-border/60 divide-y divide-border/40 text-xs">
-              {baus.filter((b) => b.ativo).length === 0 ? (
-                <div className="p-4 text-center text-muted-foreground text-[11px]">
-                  Nenhum baú cadastrado. Crie baús para vincular canais exclusivos.
-                </div>
-              ) : (
-                baus
-                  .filter((b) => b.ativo)
-                  .map((b) => {
-                    const cfg = bauConfigs[b.id];
-                    const isAuto = (cfg?.tipo_gestao ?? b.tipo_gestao) !== "manual";
-                    const chId = cfg?.discord_channel_id ?? b.discord_channel_id;
-
-                    return (
-                      <div key={b.id} className="p-2.5 flex items-center justify-between hover:bg-secondary/20 transition-colors">
-                        <div className="space-y-0.5">
-                          <div className="flex items-center gap-2">
-                            <div className="w-5 h-5 rounded-md bg-secondary/80 border border-border/70 flex items-center justify-center shrink-0 overflow-hidden shadow-xs">
-                              <BauIcon
-                                foto_url={b.foto_url || b.imagem_url}
-                                icone={b.icone}
-                                nome={b.nome}
-                                className="w-full h-full object-cover"
-                              />
-                            </div>
-                            <strong className="text-foreground font-semibold">{b.nome}</strong>
-                            <Badge
-                              variant="secondary"
-                              className={cn(
-                                "text-[9px] px-1.5 py-0 font-bold",
-                                isAuto
-                                  ? "text-cyan-400 bg-cyan-950/40 border border-cyan-800/40"
-                                  : "text-amber-400 bg-amber-950/40 border border-amber-800/40"
-                              )}
-                            >
-                              {isAuto ? "🤖 Automático (Discord)" : "✍️ Manual"}
-                            </Badge>
-                          </div>
-                          <div className="text-[11px] font-mono text-muted-foreground flex items-center gap-2">
-                            <span>Canal:</span>
-                            {chId ? (
-                              <span className="text-emerald-400 font-bold flex items-center gap-1">
-                                <Check className="w-2.5 h-2.5" /> {chId}
-                              </span>
-                            ) : (
-                              <span className="text-rose-400 italic">Nenhum canal vinculado</span>
-                            )}
-                          </div>
-                        </div>
-
-                        <div className="text-right">
-                          <span className="text-[10px] text-muted-foreground font-mono">
-                            {b.capacidade_maxima ? `${b.capacidade_maxima} slots` : "Capac. Livre"}
-                          </span>
-                        </div>
-                      </div>
-                    );
-                  })
-              )}
-            </div>
-          </CardContent>
-          <CardFooter className="pt-2 border-t border-border/40 flex justify-between items-center text-xs">
-            <span className="text-[11px] text-muted-foreground">
-              Configure os canais e modos no card acima.
-            </span>
-            <Badge variant="outline" className="text-[10px] text-primary border-primary/30">
-              Resolução por Canal Ativa
-            </Badge>
-          </CardFooter>
-        </Card>
-      </div>
-
-      {/* SIMULADOR DE INTERPRETAÇÃO DE LOGS */}
-      <Card className="surface-card border-primary/30">
-        <CardHeader className="pb-3">
+      {/* ========================================================================= */}
+      {/* 5. VALIDADOR & SIMULADOR DE EXPRESSÕES REGULARES DE LOGS                   */}
+      {/* ========================================================================= */}
+      <Card className="surface-card border-border/80 shadow-md">
+        <CardHeader className="border-b border-border/40 pb-4">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <div className="space-y-1">
-              <CardTitle className="text-sm font-bold flex items-center gap-2 text-primary">
-                <Terminal className="w-4 h-4" />
-                Simulador & Validador de Interpretação de Logs (Estilo Cidade Alta)
+              <CardTitle className="text-base font-bold flex items-center gap-2 text-foreground">
+                <Terminal className="w-5 h-5 text-emerald-400" />
+                Validador Rápido de Parser de Logs (Cidade Alta APP)
               </CardTitle>
               <CardDescription className="text-xs">
-                Simule como o motor de estoque interpreta mensagens de logs do Cidade Alta APP no canal exclusivo de cada baú.
+                Teste como o regex do motor de ingestão interpreta mensagens brutas e mapeia cada item para o baú selecionado.
               </CardDescription>
             </div>
+
             <Button
-              size="sm"
-              variant="outline"
               onClick={handleTestParser}
-              className="gap-1.5 text-xs font-bold border-primary/40 hover:bg-primary/10 text-primary shrink-0"
+              className="gap-1.5 text-xs font-bold bg-primary hover:bg-primary/90 text-primary-foreground shadow-xs shrink-0 cursor-pointer w-full sm:w-auto"
             >
               <Sparkles className="w-3.5 h-3.5" />
-              Interpretar Log
+              Executar Interpretação
             </Button>
           </div>
         </CardHeader>
-        <CardContent className="space-y-4">
-          {/* SELETOR DE CANAL / BAÚ ALVO DA SIMULAÇÃO */}
-          <div className="p-3 rounded-lg bg-secondary/30 border border-border/60 space-y-1.5">
-            <Label className="text-xs font-semibold text-foreground flex items-center justify-between">
-              <span>Canal / Baú Alvo da Mensagem:</span>
-              <span className="text-[10px] text-muted-foreground font-normal">
-                (Como a log traz apenas "📦 Baú", o canal exclusivo determina o baú de destino)
-              </span>
-            </Label>
-            <Select value={selectedSimBauId} onValueChange={setSelectedSimBauId}>
-              <SelectTrigger className="text-xs w-full bg-background/60 font-medium">
-                <SelectValue placeholder="Selecione o baú simulado..." />
-              </SelectTrigger>
-              <SelectContent>
-                {baus
-                  .filter((b) => b.ativo)
-                  .map((b) => (
+
+        <CardContent className="p-4 sm:p-5 space-y-4">
+          {/* Seletor de Baú Alvo para Teste */}
+          <div className="p-3.5 rounded-2xl bg-secondary/30 border border-border/60 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="space-y-0.5">
+              <Label className="text-xs font-bold text-foreground">
+                Baú Alvo da Mensagem (Resolução por Canal):
+              </Label>
+              <p className="text-[11px] text-muted-foreground">
+                Como a log exibe apenas <code>📦 Baú</code>, o canal onde a mensagem foi postada determina o baú de destino.
+              </p>
+            </div>
+            <div className="w-full sm:w-72">
+              <Select value={selectedSimBauId} onValueChange={setSelectedSimBauId}>
+                <SelectTrigger className="h-9 text-xs bg-background/60 font-medium">
+                  <SelectValue placeholder="Selecione o baú para teste..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {baus.filter((b) => b.ativo).map((b) => (
                     <SelectItem key={b.id} value={b.id}>
-                      <span className="flex items-center gap-1.5">
+                      <span className="flex items-center gap-2">
                         <BauIcon
                           foto_url={b.foto_url || b.imagem_url}
                           icone={b.icone}
@@ -1336,65 +1671,62 @@ function DiscordIntegrationTab() {
                         />
                         <span>{b.nome}</span>
                         <span className="text-[10px] text-muted-foreground">
-                          — {b.tipo_gestao === "manual" ? "✍️ Manual" : "🤖 Automático"} {b.discord_channel_id ? `(Canal: ${b.discord_channel_id})` : "(Sem canal)"}
+                          ({b.tipo_gestao === "manual" ? "✍️ Manual" : "🤖 Auto"})
                         </span>
                       </span>
                     </SelectItem>
                   ))}
-              </SelectContent>
-            </Select>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
 
-          <div className="grid gap-4 md:grid-cols-2">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            {/* Editor de Mensagem Bruta */}
             <div className="space-y-2">
-              <Label className="text-xs font-semibold">Exemplo / Conteúdo da Mensagem</Label>
+              <div className="flex items-center justify-between">
+                <Label className="text-xs font-semibold text-foreground">
+                  Conteúdo da Mensagem da Log
+                </Label>
+                <span className="text-[10px] text-muted-foreground font-mono">
+                  {testLogText.length} caracteres
+                </span>
+              </div>
               <Textarea
                 rows={9}
                 value={testLogText}
                 onChange={(e) => setTestLogText(e.target.value)}
-                className="font-mono text-xs resize-none"
+                className="font-mono text-xs bg-background/70 border-border/70 resize-none leading-relaxed"
               />
-              <div className="flex flex-wrap gap-1.5">
+              <div className="flex flex-wrap gap-1.5 pt-1">
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="text-[10px] h-6 px-2 text-muted-foreground hover:text-cyan-400"
+                  className="text-[11px] h-6.5 px-2 text-muted-foreground hover:text-cyan-400 bg-secondary/30 hover:bg-secondary/60 rounded-md"
                   onClick={() =>
                     setTestLogText(
                       "Andrew Delucca Ferreira • ID 274\n📦 Baú\n\n📊 Saldo líquido\nMetanfetamina -72\nCocaína -126\n\n🧾 Detalhes da movimentação\nMetanfetamina\n↳ -72 removidos\nCocaína\n↳ -126 removidos\nMovimentações agrupadas em uma janela de 30 segundos • Hoje às 19:21"
                     )
                   }
                 >
-                  Template: Cidade Alta (Metanfetamina & Cocaína)
+                  Template: Drogas (-)
                 </Button>
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="text-[10px] h-6 px-2 text-muted-foreground hover:text-cyan-400"
-                  onClick={() =>
-                    setTestLogText(
-                      "Macaé Dacoro • ID 590\n📦 Baú\n\n📊 Saldo líquido\nBarra Maciça -1\nHacking -1\n\n🧾 Detalhes da movimentação\nBarra Maciça\n↳ -1 removido\nHacking\n↳ -1 removido\nMovimentações agrupadas em uma janela de 30 segundos • Hoje às 17:03"
-                    )
-                  }
-                >
-                  Template: Cidade Alta (Barra Maciça & Hacking)
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="text-[10px] h-6 px-2 text-muted-foreground hover:text-emerald-400"
+                  className="text-[11px] h-6.5 px-2 text-muted-foreground hover:text-emerald-400 bg-secondary/30 hover:bg-secondary/60 rounded-md"
                   onClick={() =>
                     setTestLogText(
                       "Andrew Delucca Ferreira • ID 274\n📦 Baú\n\n📊 Saldo líquido\nLockpick +50\nColete Balístico +10\n\n🧾 Detalhes da movimentação\nLockpick\n↳ +50 adicionados\nColete Balístico\n↳ +10 adicionados\nMovimentações agrupadas em uma janela de 30 segundos • Hoje às 20:15"
                     )
                   }
                 >
-                  Template: Cidade Alta (Entrada +)
+                  Template: Entrada (+)
                 </Button>
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="text-[10px] h-6 px-2 text-muted-foreground hover:text-amber-400"
+                  className="text-[11px] h-6.5 px-2 text-muted-foreground hover:text-amber-400 bg-secondary/30 hover:bg-secondary/60 rounded-md"
                   onClick={() =>
                     setTestLogText("Transferência: BAÚ QG -> Baú Casa\nSaldo líquido: Micro Uzi +2\nID: 88")
                   }
@@ -1404,20 +1736,25 @@ function DiscordIntegrationTab() {
               </div>
             </div>
 
+            {/* Painel de Diagnóstico */}
             <div className="space-y-2">
-              <Label className="text-xs font-semibold">Diagnóstico da Interpretação</Label>
-              <div className="rounded-lg border border-border/80 bg-background/50 p-3 min-h-[220px] text-xs space-y-2">
+              <Label className="text-xs font-semibold text-foreground">
+                Diagnóstico & Resultado da Interpretação
+              </Label>
+              <div className="rounded-2xl border border-border/80 bg-background/60 p-4 min-h-[220px] text-xs space-y-3">
                 {!simulatedResult ? (
-                  <p className="text-muted-foreground italic text-center pt-16">
-                    Clique em "Interpretar Log" para ver como o motor processará esta mensagem.
-                  </p>
+                  <div className="text-center pt-14 space-y-2 text-muted-foreground">
+                    <Terminal className="w-8 h-8 mx-auto text-muted-foreground/30" />
+                    <p className="text-xs font-medium">Nenhuma simulação executada.</p>
+                    <p className="text-[11px]">Clique em "Executar Interpretação" para analisar o texto.</p>
+                  </div>
                 ) : (
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between border-b border-border/40 pb-2">
-                      <span className="text-muted-foreground">Resultado Geral:</span>
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between border-b border-border/40 pb-2.5">
+                      <span className="text-muted-foreground font-medium">Status do Parser:</span>
                       {simulatedResult.valid ? (
                         <Badge variant="outline" className="border-emerald-500/40 text-emerald-400 bg-emerald-500/10 gap-1 font-bold">
-                          <CheckCircle2 className="w-3 h-3" /> Válido para Processar
+                          <CheckCircle2 className="w-3 h-3" /> Válido para Gravação
                         </Badge>
                       ) : (
                         <Badge variant="outline" className="border-rose-500/40 text-rose-400 bg-rose-500/10 gap-1 font-bold">
@@ -1426,74 +1763,92 @@ function DiscordIntegrationTab() {
                       )}
                     </div>
 
-                    {/* Alerta de Modo de Movimentação do Baú */}
+                    {/* Alerta de Modo Operacional */}
                     {simulatedResult.isBauManual ? (
-                      <div className="p-2 rounded bg-amber-500/10 border border-amber-500/30 text-amber-300 text-[11px] flex items-start gap-1.5">
-                        <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
-                        <span>
-                          <strong>Modo Manual:</strong> O baú selecionado está configurado como manual. O bot ignorará mensagens no Discord e <strong>não fará movimentação automática</strong>.
-                        </span>
+                      <div className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-300 text-[11px] flex items-start gap-2">
+                        <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5 text-amber-400" />
+                        <div>
+                          <strong>Baú Configurado como Manual:</strong> O bot ignorará esta mensagem e não registrará movimentação no banco.
+                        </div>
                       </div>
                     ) : (
-                      <div className="p-2 rounded bg-cyan-500/10 border border-cyan-500/30 text-cyan-300 text-[11px] flex items-start gap-1.5">
-                        <Bot className="w-3.5 h-3.5 shrink-0 mt-0.5" />
-                        <span>
-                          <strong>Modo Automático:</strong> O bot capturará esta mensagem no canal e registrará a movimentação imediatamente.
-                        </span>
+                      <div className="p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-[11px] flex items-start gap-2">
+                        <Bot className="w-4 h-4 shrink-0 mt-0.5 text-emerald-400" />
+                        <div>
+                          <strong>Baú Automático:</strong> Mensagens postadas no canal correspondente são debitadas/creditadas automaticamente.
+                        </div>
                       </div>
                     )}
 
-                    <div className="grid grid-cols-2 gap-2 text-[11px] pt-1">
-                      <div>
-                        <span className="text-muted-foreground block">Jogador Identificado:</span>
-                        <strong className="text-foreground">
+                    <div className="grid grid-cols-2 gap-3 text-[11px] pt-1">
+                      <div className="space-y-0.5">
+                        <span className="text-muted-foreground">Jogador / Autor:</span>
+                        <p className="text-foreground font-bold truncate">
                           {simulatedResult.authorName ? `${simulatedResult.authorName} ` : ""}
-                          {simulatedResult.playerId ? `(ID: ${simulatedResult.playerId})` : "Não detectado"}
-                        </strong>
+                          {simulatedResult.playerId ? `(ID ${simulatedResult.playerId})` : "Não detectado"}
+                        </p>
                       </div>
-                      <div>
-                        <span className="text-muted-foreground block">Baú Resolvido:</span>
-                        <strong className="text-foreground">
+                      <div className="space-y-0.5">
+                        <span className="text-muted-foreground">Baú Resolvido:</span>
+                        <p className="text-foreground font-bold truncate">
                           {simulatedResult.isTransfer
                             ? `${simulatedResult.fromBau} ➔ ${simulatedResult.toBau}`
                             : simulatedResult.detectedBau}
-                        </strong>
+                        </p>
                       </div>
-                      <div>
-                        <span className="text-muted-foreground block">Canal do Baú:</span>
-                        <strong className="text-foreground font-mono">
-                          {simulatedResult.channelBound || "Nenhum canal vinculado"}
-                        </strong>
+                      <div className="space-y-0.5">
+                        <span className="text-muted-foreground">Canal do Baú:</span>
+                        <p className="text-foreground font-mono truncate">
+                          {simulatedResult.channelBound || "Nenhum canal"}
+                        </p>
                       </div>
-                      <div>
-                        <span className="text-muted-foreground block">Qtd. Itens Detectados:</span>
-                        <strong className="text-foreground">{simulatedResult.items.length} itens</strong>
+                      <div className="space-y-0.5">
+                        <span className="text-muted-foreground">Itens Identificados:</span>
+                        <p className="text-foreground font-bold">
+                          {simulatedResult.items.length} item(ns)
+                        </p>
                       </div>
                     </div>
 
                     {simulatedResult.items.length > 0 && (
-                      <div className="pt-2 border-t border-border/40 space-y-1">
+                      <div className="pt-2 border-t border-border/40 space-y-1.5">
                         <span className="text-[10px] font-bold uppercase text-muted-foreground block">
-                          Itens Identificados na Log:
+                          Movimentações Detectadas:
                         </span>
-                        {simulatedResult.items.map((item: any, idx: number) => {
-                          const isSaida = item.qtyChange < 0;
-                          return (
-                            <div key={idx} className="flex items-center justify-between text-[11px] font-mono bg-secondary/30 px-2 py-1.5 rounded border border-border/40">
-                              <div className="flex items-center gap-1.5">
-                                <Badge variant="outline" className={cn("text-[9px] px-1 py-0 uppercase font-bold", isSaida ? "border-rose-500/30 text-rose-400 bg-rose-500/10" : "border-emerald-500/30 text-emerald-400 bg-emerald-500/10")}>
-                                  {isSaida ? "Saída" : "Entrada"}
-                                </Badge>
-                                <span>
-                                  {item.name} {item.mappedTo !== item.name ? <>➔ <span className="text-primary font-bold">{item.mappedTo}</span></> : null}
+                        <div className="space-y-1 max-h-36 overflow-y-auto pr-1">
+                          {simulatedResult.items.map((item: any, idx: number) => {
+                            const isSaida = item.qtyChange < 0;
+                            return (
+                              <div
+                                key={idx}
+                                className="flex items-center justify-between text-xs font-mono bg-secondary/30 px-2.5 py-1.5 rounded-lg border border-border/40"
+                              >
+                                <div className="flex items-center gap-2 truncate">
+                                  <Badge
+                                    variant="outline"
+                                    className={cn(
+                                      "text-[9px] px-1 py-0 uppercase font-bold",
+                                      isSaida
+                                        ? "border-rose-500/30 text-rose-400 bg-rose-500/10"
+                                        : "border-emerald-500/30 text-emerald-400 bg-emerald-500/10"
+                                    )}
+                                  >
+                                    {isSaida ? "Saída" : "Entrada"}
+                                  </Badge>
+                                  <span className="truncate">
+                                    {item.name}
+                                    {item.mappedTo !== item.name && (
+                                      <span className="text-primary font-bold ml-1">➔ {item.mappedTo}</span>
+                                    )}
+                                  </span>
+                                </div>
+                                <span className={cn("font-bold text-xs shrink-0 ml-2", isSaida ? "text-rose-400" : "text-emerald-400")}>
+                                  {item.qtyChange > 0 ? `+${item.qtyChange}` : item.qtyChange}
                                 </span>
                               </div>
-                              <span className={cn("font-bold text-xs", isSaida ? "text-rose-400" : "text-emerald-400")}>
-                                {item.qtyChange > 0 ? `+${item.qtyChange}` : item.qtyChange}
-                              </span>
-                            </div>
-                          );
-                        })}
+                            );
+                          })}
+                        </div>
                       </div>
                     )}
                   </div>
