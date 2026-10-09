@@ -18,6 +18,8 @@ import {
   ChevronUp,
   X,
   ArrowUp,
+  ChevronsDown,
+  ChevronsUp,
   SlidersHorizontal,
   Check,
 } from "lucide-react";
@@ -165,6 +167,7 @@ function DevPermissoesContent() {
   const roleCardRef = useRef<HTMLDivElement>(null);
   const [mounted, setMounted] = useState(false);
   const [showFloatingBar, setShowFloatingBar] = useState(false);
+  const [isAtTop, setIsAtTop] = useState(true);
 
   useEffect(() => {
     setMounted(true);
@@ -177,7 +180,7 @@ function DevPermissoesContent() {
     }
   }, [allAvailableLevels, selectedCargo]);
 
-  // Listener de scroll para exibição suave do balão flutuante
+  // Listener de scroll para exibição suave do balão flutuante e detecção topo / final
   useEffect(() => {
     const handleScroll = () => {
       const scrollY = window.scrollY || document.documentElement.scrollTop || document.body.scrollTop || 0;
@@ -187,6 +190,7 @@ function DevPermissoesContent() {
       } else {
         setShowFloatingBar(scrollY > 90);
       }
+      setIsAtTop(scrollY < 300);
     };
 
     window.addEventListener("scroll", handleScroll, { passive: true });
@@ -2622,6 +2626,152 @@ function DevPermissoesContent() {
             </div>
           )}
         </div>
+      )}
+
+      {/* BALÃO FLUTUANTE DE ALTERNÂNCIA (TAG DEV vs TAG CEO) E NAVEGAÇÃO TOPO/FIM */}
+      {(activeTab === "dev" || activeTab === "ceo") && mounted && typeof document !== "undefined" && createPortal(
+        <div
+          className={cn(
+            "surface-card floating-widget fixed bottom-4 sm:bottom-6 left-1/2 -translate-x-1/2 z-[9999] pointer-events-auto",
+            "flex items-center gap-1.5 sm:gap-2.5 p-1.5 sm:p-2 rounded-2xl bg-card/95 backdrop-blur-2xl",
+            "shadow-[0_15px_50px_rgba(0,0,0,0.65)] ring-1 ring-border/50 animate-in fade-in slide-in-from-bottom-5 duration-200 max-w-[calc(100vw-1.5rem)]",
+            "border transition-all"
+          )}
+          style={{
+            borderColor: activeTab === "dev" ? `${devStyle.primaryHex}60` : `${ceoStyle.primaryHex}60`,
+            boxShadow: activeTab === "dev"
+              ? `0 15px 50px rgba(0,0,0,0.65), 0 0 25px ${devStyle.primaryHex}20`
+              : `0 15px 50px rgba(0,0,0,0.65), 0 0 25px ${ceoStyle.primaryHex}20`,
+          }}
+        >
+          {/* Seletor Rápido de Permissões: Tag Dev vs Tag CEO */}
+          <div className="flex items-center gap-1 bg-secondary/40 p-1 rounded-xl border border-border/50">
+            {/* Botão Tag Dev */}
+            <button
+              type="button"
+              onClick={() => setActiveTab("dev")}
+              className={cn(
+                "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-black transition-all cursor-pointer select-none",
+                activeTab === "dev"
+                  ? "shadow-sm scale-[1.02]"
+                  : "text-muted-foreground hover:text-foreground hover:bg-secondary/60 opacity-80"
+              )}
+              style={
+                activeTab === "dev"
+                  ? {
+                      backgroundColor: `${devStyle.primaryHex}25`,
+                      color: devStyle.primaryHex,
+                      border: `1px solid ${devStyle.primaryHex}60`,
+                      boxShadow: `0 2px 10px ${devStyle.primaryHex}25`,
+                    }
+                  : undefined
+              }
+              title="Alternar para Permissões da Tag Dev"
+            >
+              <DevIcon className="h-3.5 w-3.5 shrink-0" style={{ color: activeTab === "dev" ? devStyle.primaryHex : undefined }} />
+              <span>Tag Dev</span>
+              <Badge
+                variant="outline"
+                className="text-[9px] font-mono px-1.5 py-0 font-bold hidden sm:inline-flex"
+                style={
+                  activeTab === "dev"
+                    ? {
+                        borderColor: `${devStyle.primaryHex}40`,
+                        color: devStyle.primaryHex,
+                        backgroundColor: `${devStyle.primaryHex}15`,
+                      }
+                    : undefined
+                }
+              >
+                {activeDevPermissions.length}
+              </Badge>
+            </button>
+
+            {/* Botão Tag CEO */}
+            <button
+              type="button"
+              onClick={() => setActiveTab("ceo")}
+              className={cn(
+                "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-black transition-all cursor-pointer select-none",
+                activeTab === "ceo"
+                  ? "shadow-sm scale-[1.02]"
+                  : "text-muted-foreground hover:text-foreground hover:bg-secondary/60 opacity-80"
+              )}
+              style={
+                activeTab === "ceo"
+                  ? {
+                      backgroundColor: `${ceoStyle.primaryHex}25`,
+                      color: ceoStyle.primaryHex,
+                      border: `1px solid ${ceoStyle.primaryHex}60`,
+                      boxShadow: `0 2px 10px ${ceoStyle.primaryHex}25`,
+                    }
+                  : undefined
+              }
+              title="Alternar para Permissões da Tag CEO"
+            >
+              <CeoIcon className="h-3.5 w-3.5 shrink-0" style={{ color: activeTab === "ceo" ? ceoStyle.primaryHex : undefined }} />
+              <span>Tag CEO</span>
+              <Badge
+                variant="outline"
+                className="text-[9px] font-mono px-1.5 py-0 font-bold hidden sm:inline-flex"
+                style={
+                  activeTab === "ceo"
+                    ? {
+                        borderColor: `${ceoStyle.primaryHex}40`,
+                        color: ceoStyle.primaryHex,
+                        backgroundColor: `${ceoStyle.primaryHex}15`,
+                      }
+                    : undefined
+                }
+              >
+                {activeCeoPermissions.length}
+              </Badge>
+            </button>
+          </div>
+
+          {/* Divisor vertical */}
+          <div className="h-6 w-px bg-border/60 shrink-0" />
+
+          {/* Opção de Rolagem: Ir para o Final quando no Topo, Ir para o Início quando no Final */}
+          {isAtTop ? (
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              onClick={() => {
+                window.scrollTo({
+                  top: document.documentElement.scrollHeight,
+                  behavior: "smooth",
+                });
+              }}
+              className="h-8 sm:h-8.5 px-2.5 sm:px-3 text-xs font-bold gap-1.5 rounded-xl border-border/80 hover:bg-secondary/80 cursor-pointer shadow-xs transition-all text-foreground hover:border-primary/50 shrink-0"
+              title="Ir para o final da página"
+            >
+              <ChevronsDown className="h-3.5 w-3.5 text-primary animate-bounce shrink-0" />
+              <span className="hidden sm:inline">Ir para o final</span>
+              <span className="sm:hidden">Final</span>
+            </Button>
+          ) : (
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              onClick={() => {
+                window.scrollTo({
+                  top: 0,
+                  behavior: "smooth",
+                });
+              }}
+              className="h-8 sm:h-8.5 px-2.5 sm:px-3 text-xs font-bold gap-1.5 rounded-xl border-border/80 hover:bg-secondary/80 cursor-pointer shadow-xs transition-all text-foreground hover:border-primary/50 shrink-0"
+              title="Voltar ao início da página"
+            >
+              <ChevronsUp className="h-3.5 w-3.5 text-primary animate-bounce shrink-0" />
+              <span className="hidden sm:inline">Ir para o início</span>
+              <span className="sm:hidden">Início</span>
+            </Button>
+          )}
+        </div>,
+        document.body
       )}
     </div>
   );

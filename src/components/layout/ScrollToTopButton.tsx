@@ -1,9 +1,21 @@
 import { useState, useEffect } from "react";
+import { useLocation } from "@tanstack/react-router";
 import { ChevronUp } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export function ScrollToTopButton() {
+  const location = useLocation();
   const [isVisible, setIsVisible] = useState(false);
+
+  // Não exibe o botão flutuante de topo padrão da plataforma na página permissões dev (/dev/permissoes)
+  const isDevPermissoes =
+    location.pathname === "/dev/permissoes" ||
+    location.pathname.startsWith("/dev/permissoes") ||
+    (typeof window !== "undefined" && window.location.pathname.includes("/dev/permissoes"));
+
+  if (isDevPermissoes) {
+    return null;
+  }
 
   useEffect(() => {
     const toggleVisibility = () => {
