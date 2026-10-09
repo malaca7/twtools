@@ -69,6 +69,7 @@ import type { Product, Category, Bau } from "@/lib/app-types";
 import {
   fetchBotGuilds,
   fetchGuildChannels,
+  KNOWN_GUILD_CHANNELS,
   type BotGuildInfo,
   type DiscordChannelInfo,
 } from "@/services/discordBotManageService";
@@ -1797,9 +1798,28 @@ function BausTabContent({ canManage }: BausTabContentProps) {
   const bannerFileInputRef = useRef<HTMLInputElement>(null);
 
   // Discord Bot Guilds & Channels state
-  const [botGuilds, setBotGuilds] = useState<BotGuildInfo[]>([]);
+  const [botGuilds, setBotGuilds] = useState<BotGuildInfo[]>([
+    {
+      id: "1535505650308620400",
+      name: "Twin Wheels",
+      icon: "4f4beed324c9ccfa04b3a748cfba1449",
+      iconUrl: "https://cdn.discordapp.com/icons/1535505650308620400/4f4beed324c9ccfa04b3a748cfba1449.png?size=128",
+      memberCount: 38,
+      isMain: true,
+    },
+    {
+      id: "1537229296697999462",
+      name: "malaca developers",
+      icon: "a_25287fd598b117fdebd41b7f779a304b",
+      iconUrl: "https://cdn.discordapp.com/icons/1537229296697999462/a_25287fd598b117fdebd41b7f779a304b.gif?size=128",
+      memberCount: 5,
+      isMain: false,
+    },
+  ]);
   const [loadingGuilds, setLoadingGuilds] = useState(false);
-  const [guildChannels, setGuildChannels] = useState<DiscordChannelInfo[]>([]);
+  const [guildChannels, setGuildChannels] = useState<DiscordChannelInfo[]>(
+    () => KNOWN_GUILD_CHANNELS["1535505650308620400"] || []
+  );
   const [loadingChannels, setLoadingChannels] = useState(false);
   const [manualDiscordInput, setManualDiscordInput] = useState(false);
 
@@ -1807,7 +1827,9 @@ function BausTabContent({ canManage }: BausTabContentProps) {
     setLoadingGuilds(true);
     try {
       const list = await fetchBotGuilds();
-      setBotGuilds(list);
+      if (list && list.length > 0) {
+        setBotGuilds(list);
+      }
       return list;
     } catch (err) {
       console.warn("Erro ao carregar servidores do Discord:", err);
@@ -1822,36 +1844,65 @@ function BausTabContent({ canManage }: BausTabContentProps) {
       setGuildChannels([]);
       return;
     }
+    // Fallback imediato para garantir resposta instantânea na UI
+    if (KNOWN_GUILD_CHANNELS[guildId] && guildChannels.length === 0) {
+      setGuildChannels(KNOWN_GUILD_CHANNELS[guildId]);
+    }
     setLoadingChannels(true);
     try {
       const channels = await fetchGuildChannels(undefined, guildId);
-      setGuildChannels(channels);
+      if (channels && channels.length > 0) {
+        setGuildChannels(channels);
+      } else if (KNOWN_GUILD_CHANNELS[guildId]) {
+        setGuildChannels(KNOWN_GUILD_CHANNELS[guildId]);
+      }
     } catch (err) {
       console.warn("Erro ao buscar canais do servidor:", err);
-      setGuildChannels([]);
+      if (KNOWN_GUILD_CHANNELS[guildId]) {
+        setGuildChannels(KNOWN_GUILD_CHANNELS[guildId]);
+      }
     } finally {
       setLoadingChannels(false);
     }
-  }, []);
+  }, [guildChannels.length]);
 
   // Recarrega canais quando o servidor selecionado muda
   useEffect(() => {
     if (isModalOpen && tipoGestao === "automatico" && discordGuildId) {
-      loadChannels(discordGuildId);
+      void loadChannels(discordGuildId);
     }
   }, [isModalOpen, tipoGestao, discordGuildId, loadChannels]);
 
   // Canais de texto e categorias do servidor Discord
   const categoriesMap = useMemo(() => {
     const map: Record<string, DiscordChannelInfo> = {};
-    guildChannels.filter((c) => c.type === 4).forEach((c) => {
+    guildChannels.filter((c) => Number(c.type) === 4).forEach((c) => {
       map[c.id] = c;
     });
     return map;
   }, [guildChannels]);
 
   const textChannels = useMemo(() => {
-    return guildChannels.filter((c) => c.type === 0 || c.type === 5);
+    const isRecommended = (name: string) => {
+      const lower = name.toLowerCase();
+      return (
+        lower.includes("bau") ||
+        lower.includes("baú") ||
+        lower.includes("estoque") ||
+        lower.includes("log") ||
+        lower.includes("qg") ||
+        lower.includes("encomenda")
+      );
+    };
+
+    return guildChannels
+      .filter((c) => Number(c.type) === 0 || Number(c.type) === 5)
+      .sort((a, b) => {
+        const aRec = isRecommended(a.name) ? 1 : 0;
+        const bRec = isRecommended(b.name) ? 1 : 0;
+        if (aRec !== bRec) return bRec - aRec;
+        return a.name.localeCompare(b.name, "pt-BR");
+      });
   }, [guildChannels]);
 
   // Delete State
@@ -1959,14 +2010,11 @@ function BausTabContent({ canManage }: BausTabContentProps) {
     setManualDiscordInput(false);
     setDiscordChannelId("");
     setAtivo(true);
+    const initialGuild = config?.guild_id || "1535505650308620400";
+    setDiscordGuildId(initialGuild);
     setIsModalOpen(true);
-
-    const guilds = await loadGuilds();
-    const defaultGuild = config?.guild_id || guilds.find((g) => g.isMain)?.id || guilds[0]?.id || "";
-    setDiscordGuildId(defaultGuild);
-    if (defaultGuild) {
-      void loadChannels(defaultGuild);
-    }
+    void loadChannels(initialGuild);
+    void loadGuilds();
   };
 
   const openEditModal = async (b: Bau) => {
@@ -1983,20 +2031,15 @@ function BausTabContent({ canManage }: BausTabContentProps) {
     const targetChannel = b.discord_channel_id || config?.bau_channels?.[b.id]?.channel_id || "";
     setDiscordChannelId(targetChannel);
     setAtivo(b.ativo);
-    setIsModalOpen(true);
-
-    const guilds = await loadGuilds();
     const targetGuild =
       b.discord_guild_id ||
       config?.bau_channels?.[b.id]?.guild_id ||
       config?.guild_id ||
-      guilds.find((g) => g.isMain)?.id ||
-      guilds[0]?.id ||
-      "";
+      "1535505650308620400";
     setDiscordGuildId(targetGuild);
-    if (targetGuild) {
-      void loadChannels(targetGuild);
-    }
+    setIsModalOpen(true);
+    void loadChannels(targetGuild);
+    void loadGuilds();
   };
 
   const saveMutation = useMutation({
@@ -2255,10 +2298,22 @@ function BausTabContent({ canManage }: BausTabContentProps) {
                         <span className="text-muted-foreground text-[11px]">Canal Discord:</span>
                         {isAuto ? (
                           channelId ? (
-                            <span className="font-mono text-foreground font-bold text-[11px] flex items-center gap-1 shrink-0">
-                              <Check className="w-3 h-3 text-emerald-400" />
-                              {channelId.slice(0, 10)}...
-                            </span>
+                            (() => {
+                              const found =
+                                KNOWN_GUILD_CHANNELS["1535505650308620400"]?.find((c) => c.id === channelId) ||
+                                KNOWN_GUILD_CHANNELS["1537229296697999462"]?.find((c) => c.id === channelId);
+                              return (
+                                <span
+                                  className="font-mono text-foreground font-bold text-[11px] flex items-center gap-1 shrink-0"
+                                  title={`ID: ${channelId}`}
+                                >
+                                  <Check className="w-3 h-3 text-emerald-400" />
+                                  <span className="truncate max-w-[120px]">
+                                    {found ? found.name : `${channelId.slice(0, 10)}...`}
+                                  </span>
+                                </span>
+                              );
+                            })()
                           ) : (
                             <span className="text-rose-400 italic text-[11px] shrink-0 font-medium">
                               🔴 Não vinculado
@@ -2612,15 +2667,19 @@ function BausTabContent({ canManage }: BausTabContentProps) {
                     <div className="flex items-center justify-between">
                       <Label className="text-xs font-semibold text-foreground flex items-center gap-1.5">
                         <span>2. Canal de Logs do Baú</span>
-                        {loadingChannels && <RefreshCw className="w-3 h-3 animate-spin text-muted-foreground" />}
+                        {loadingChannels && <RefreshCw className="w-3 h-3 animate-spin text-primary" />}
                       </Label>
                       <button
                         type="button"
-                        onClick={() => void loadChannels(discordGuildId)}
+                        onClick={async () => {
+                          const toastId = toast.loading("Buscando canais no Discord...");
+                          await loadChannels(discordGuildId);
+                          toast.success("Canais atualizados!", { id: toastId });
+                        }}
                         className="text-[10px] text-primary hover:underline flex items-center gap-1 cursor-pointer"
                         title="Recarregar canais do servidor"
                       >
-                        <RefreshCw className="w-2.5 h-2.5" /> Atualizar Canais
+                        <RefreshCw className={cn("w-2.5 h-2.5", loadingChannels && "animate-spin")} /> Atualizar Canais
                       </button>
                     </div>
 
@@ -2633,9 +2692,38 @@ function BausTabContent({ canManage }: BausTabContentProps) {
                         }}
                       >
                         <SelectTrigger className="text-xs h-9 bg-background/80 font-mono">
-                          <SelectValue placeholder={loadingChannels ? "Buscando canais no Discord..." : "Selecione o canal de logs..."} />
+                          <SelectValue placeholder={loadingChannels ? "Buscando canais no Discord..." : "Selecione o canal de logs..."}>
+                            {discordChannelId ? (
+                              (() => {
+                                const matched = textChannels.find((c) => c.id === discordChannelId);
+                                if (matched) {
+                                  const parentCat = categoriesMap[matched.parent_id || ""];
+                                  return (
+                                    <span className="flex items-center gap-1.5 truncate">
+                                      <Hash className="w-3.5 h-3.5 text-primary shrink-0" />
+                                      <span className="font-bold text-foreground">{matched.name}</span>
+                                      {parentCat && (
+                                        <span className="text-[10px] text-muted-foreground ml-1">
+                                          ({parentCat.name})
+                                        </span>
+                                      )}
+                                    </span>
+                                  );
+                                }
+                                return (
+                                  <span className="text-amber-400 font-mono">
+                                    # Canal atual ({discordChannelId.slice(0, 10)}...)
+                                  </span>
+                                );
+                              })()
+                            ) : (
+                              <span className="text-muted-foreground italic">
+                                {loadingChannels ? "Buscando canais no Discord..." : "Selecione o canal de logs..."}
+                              </span>
+                            )}
+                          </SelectValue>
                         </SelectTrigger>
-                        <SelectContent className="max-h-60">
+                        <SelectContent className="max-h-64 overflow-y-auto">
                           <SelectItem value="none">
                             <span className="text-muted-foreground italic">Nenhum canal selecionado</span>
                           </SelectItem>
@@ -2643,23 +2731,42 @@ function BausTabContent({ canManage }: BausTabContentProps) {
                           {/* Preserva canal atualmente configurado se não constar na lista da API */}
                           {discordChannelId && !textChannels.some((c) => c.id === discordChannelId) && (
                             <SelectItem value={discordChannelId}>
-                              <span className="text-amber-400 font-mono">
-                                # Canal atual configurado ({discordChannelId.slice(0, 10)}...)
-                              </span>
+                              <div className="flex items-center gap-1.5 text-amber-400">
+                                <Hash className="w-3.5 h-3.5 shrink-0" />
+                                <span className="font-mono">
+                                  # Canal atual configurado ({discordChannelId.slice(0, 10)}...)
+                                </span>
+                              </div>
                             </SelectItem>
                           )}
 
                           {textChannels.map((c) => {
                             const parentCat = categoriesMap[c.parent_id || ""];
+                            const isRec =
+                              c.name.toLowerCase().includes("bau") ||
+                              c.name.toLowerCase().includes("baú") ||
+                              c.name.toLowerCase().includes("estoque") ||
+                              c.name.toLowerCase().includes("log") ||
+                              c.name.toLowerCase().includes("qg");
+
                             return (
                               <SelectItem key={c.id} value={c.id}>
-                                <div className="flex items-center gap-1.5">
-                                  <Hash className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
-                                  <span className="font-medium text-foreground">{c.name}</span>
-                                  {parentCat && (
-                                    <span className="text-[10px] text-muted-foreground ml-1">
-                                      ({parentCat.name})
+                                <div className="flex items-center justify-between w-full gap-2">
+                                  <div className="flex items-center gap-1.5 truncate">
+                                    <Hash className={cn("w-3.5 h-3.5 shrink-0", isRec ? "text-primary" : "text-muted-foreground")} />
+                                    <span className={cn("font-medium", isRec ? "text-foreground font-bold" : "text-foreground/90")}>
+                                      {c.name}
                                     </span>
+                                    {parentCat && (
+                                      <span className="text-[10px] text-muted-foreground ml-1">
+                                        ({parentCat.name})
+                                      </span>
+                                    )}
+                                  </div>
+                                  {isRec && (
+                                    <Badge variant="outline" className="text-[9px] py-0 px-1 border-primary/30 text-primary bg-primary/10 shrink-0">
+                                      Recomendado
+                                    </Badge>
                                   )}
                                 </div>
                               </SelectItem>
@@ -2677,12 +2784,19 @@ function BausTabContent({ canManage }: BausTabContentProps) {
                     )}
 
                     <div className="flex items-center justify-between text-[10px] text-muted-foreground pt-0.5">
-                      <span>
-                        {textChannels.length > 0
-                          ? `${textChannels.length} canais de texto disponíveis`
-                          : loadingChannels
-                          ? "Buscando canais no Discord..."
-                          : "Nenhum canal de texto encontrado"}
+                      <span className="flex items-center gap-1">
+                        {loadingChannels ? (
+                          <span className="flex items-center gap-1 text-primary">
+                            <RefreshCw className="w-2.5 h-2.5 animate-spin" /> Buscando canais...
+                          </span>
+                        ) : textChannels.length > 0 ? (
+                          <span className="text-emerald-400 font-medium flex items-center gap-1">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0 inline-block" />
+                            {textChannels.length} canais disponíveis
+                          </span>
+                        ) : (
+                          <span className="text-rose-400">Nenhum canal encontrado</span>
+                        )}
                       </span>
                       <button
                         type="button"

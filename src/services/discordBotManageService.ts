@@ -592,6 +592,63 @@ export interface SendDiscordMessageParams {
   senderName?: string;
 }
 
+export const KNOWN_GUILD_CHANNELS: Record<string, DiscordChannelInfo[]> = {
+  // 1. Twin Wheels (Servidor Principal de RP)
+  "1535505650308620400": [
+    { id: "1548433505115963674", name: "TW | Logs Painel", type: 4, parent_id: null },
+    { id: "1535637509818548234", name: "📦│baus-qg", type: 0, parent_id: "1548433505115963674" },
+    { id: "1554652550634938540", name: "📦│baus-qgnew", type: 0, parent_id: "1548433505115963674" },
+    { id: "1548433646845698128", name: "📋・logs", type: 0, parent_id: "1548433505115963674" },
+    { id: "1554617801271152700", name: "💼 ┃Gerencia", type: 4, parent_id: null },
+    { id: "1554623741458255944", name: "📦┃encomendas", type: 0, parent_id: "1554617801271152700" },
+    { id: "1544134930878173266", name: "📝│chat-gerência", type: 0, parent_id: "1554617801271152700" },
+    { id: "1556670978707169400", name: "🤫┃mudinho", type: 0, parent_id: "1554617801271152700" },
+    { id: "1548413285169369088", name: "TESTE DEV", type: 4, parent_id: null },
+    { id: "1548413371194286314", name: "⚙️│testedev", type: 0, parent_id: "1548413285169369088" },
+    { id: "1549945217908736092", name: "🔴│lives-teste", type: 0, parent_id: "1548413285169369088" },
+    { id: "1554624994825474139", name: "🔫│Ações", type: 4, parent_id: null },
+    { id: "1554625185544671252", name: "☎️│avisos", type: 0, parent_id: "1554624994825474139" },
+    { id: "1544022897339797544", name: "🔫│historico", type: 0, parent_id: "1554624994825474139" },
+    { id: "1554635857011544155", name: "☕┃Informações", type: 4, parent_id: null },
+    { id: "1535505650920984628", name: "🚨│avisos", type: 0, parent_id: "1554635857011544155" },
+    { id: "1535634933408604170", name: "📌│regras", type: 0, parent_id: "1554635857011544155" },
+    { id: "1540051972957282374", name: "💊│calculadora-drogas", type: 0, parent_id: "1554635857011544155" },
+    { id: "1554636591803146270", name: "🚗│desmanche", type: 0, parent_id: "1554635857011544155" },
+    { id: "1554639489778061403", name: "🎈│sugestão", type: 0, parent_id: "1554635857011544155" },
+    { id: "1554639798147481651", name: "😴│ausência", type: 0, parent_id: "1554635857011544155" },
+    { id: "1554637007593017414", name: "🌐┃Bate Papo", type: 4, parent_id: null },
+    { id: "1535637119471587408", name: "📰│chat-family", type: 0, parent_id: "1554637007593017414" },
+    { id: "1549525274817728693", name: "📰│chat-amigos", type: 0, parent_id: "1554637007593017414" },
+    { id: "1535655948755013683", name: "🎥│divulgação", type: 0, parent_id: "1554637007593017414" },
+    { id: "1544444775569031298", name: "🎥│clips", type: 0, parent_id: "1554637007593017414" },
+    { id: "1554619922993250314", name: "📷│imagens", type: 0, parent_id: "1554637007593017414" },
+    { id: "1535505650920984627", name: "GERAL", type: 4, parent_id: null },
+    { id: "1537134449697886268", name: "📑│chat-liderança", type: 0, parent_id: "1535505650920984627" },
+    { id: "1553061566289543273", name: "deluca", type: 0, parent_id: "1535505650920984627" },
+    { id: "1535634406490906734", name: "✅-bem-vindo", type: 0, parent_id: null },
+    { id: "1535650648341745744", name: "🪪│registro", type: 0, parent_id: null },
+  ],
+  // 2. malaca developers (Servidor de Engenharia e Logs)
+  "1537229296697999462": [
+    { id: "1545832238955106394", name: "🔵 TW | Logs", type: 4, parent_id: null },
+    { id: "1545832552768475317", name: "📦・estoque", type: 0, parent_id: "1545832238955106394" },
+    { id: "1538375505953165312", name: "📄・geral", type: 0, parent_id: "1545832238955106394" },
+    { id: "1545832665230479382", name: "💰・vendas", type: 0, parent_id: "1545832238955106394" },
+    { id: "1545832763486109826", name: "🏦・finanças", type: 0, parent_id: "1545832238955106394" },
+    { id: "1545832866162679889", name: "👥・membros", type: 0, parent_id: "1545832238955106394" },
+    { id: "1545832916981129357", name: "🎯・metas", type: 0, parent_id: "1545832238955106394" },
+    { id: "1545832975894061160", name: "📣・avisos", type: 0, parent_id: "1545832238955106394" },
+    { id: "1545833055116066877", name: "⚡・sistema", type: 0, parent_id: "1545832238955106394" },
+    { id: "1545573574658760776", name: "Developers", type: 4, parent_id: null },
+    { id: "1539641689344319628", name: "🤖・bot", type: 0, parent_id: "1545573574658760776" },
+    { id: "1537238584900325479", name: "malaca dev", type: 4, parent_id: null },
+    { id: "1545843064206004344", name: "🌐・world", type: 0, parent_id: "1537238584900325479" },
+    { id: "1546202415395766454", name: "🚩・bem-vindos", type: 0, parent_id: "1537238584900325479" },
+    { id: "1546311281944956979", name: "🏁・entrada", type: 0, parent_id: "1537238584900325479" },
+    { id: "1546317162812022884", name: "🗨️・txt", type: 0, parent_id: "1537238584900325479" },
+  ],
+};
+
 /**
  * Busca canais de texto e categorias de um servidor Discord conectado
  */
@@ -606,7 +663,10 @@ export async function fetchGuildChannels(
       cleanToken = (cfg.botToken || "").trim().replace(/^Bot\s+/i, "");
     } catch {}
   }
-  if (!cleanToken || !guildId) return [];
+  if (!cleanToken) {
+    return KNOWN_GUILD_CHANNELS[guildId] || [];
+  }
+  if (!guildId) return [];
 
   try {
     const res = await fetch(`https://discord.com/api/v10/guilds/${guildId}/channels`, {
@@ -617,7 +677,7 @@ export async function fetchGuildChannels(
 
     if (res.ok) {
       const data = await res.json();
-      if (Array.isArray(data)) {
+      if (Array.isArray(data) && data.length > 0) {
         try {
           localStorage.setItem(`tw_bot_cached_channels_${guildId}`, JSON.stringify(data));
         } catch {}
@@ -630,7 +690,7 @@ export async function fetchGuildChannels(
     console.error("Erro ao buscar canais do servidor no Discord:", err);
   }
 
-  // Fallback para cache local de canais se houver
+  // 1. Fallback para cache local de canais se houver
   try {
     const cached = localStorage.getItem(`tw_bot_cached_channels_${guildId}`);
     if (cached) {
@@ -638,6 +698,11 @@ export async function fetchGuildChannels(
       if (Array.isArray(parsed) && parsed.length > 0) return parsed;
     }
   } catch {}
+
+  // 2. Fallback garantido com canais conhecidos do servidor
+  if (KNOWN_GUILD_CHANNELS[guildId]) {
+    return KNOWN_GUILD_CHANNELS[guildId];
+  }
 
   return [];
 }
