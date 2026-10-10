@@ -88,8 +88,8 @@ interface TicketDetailViewProps {
 }
 
 export function TicketDetailView({ ticket, onClose, canManage }: TicketDetailViewProps) {
-  const { user, profile } = useAuth();
-  const effectiveCanManage = canManage;
+  const { user, profile, hasPermission } = useAuth();
+  const effectiveCanManage = canManage || hasPermission("manage_tickets");
   const { data: members = [] } = useMembers();
 
   // Mutations
@@ -131,8 +131,19 @@ export function TicketDetailView({ ticket, onClose, canManage }: TicketDetailVie
   const statusInfo = getStatusInfo(ticket.status);
   const isClosed = ticket.status === "fechado";
   const isCreator = ticket.user_id === user?.id;
+  const isParticipant = (ticket.members || []).some((m) => m.user_id === user?.id);
   const isAssigned = ticket.assigned_to_id === user?.id;
-  const canManageMembers = effectiveCanManage || isCreator;
+
+  // Permissões granulares detalhadas
+  const canClaim = hasPermission("claim_tickets") || hasPermission("claim_ticket") || effectiveCanManage;
+  const canTransfer = hasPermission("transfer_tickets") || hasPermission("transfer_ticket") || effectiveCanManage;
+  const canChangeStatus = hasPermission("change_ticket_status") || effectiveCanManage;
+  const canInternalNotes = hasPermission("internal_notes_tickets") || effectiveCanManage;
+  const canManageMembers = hasPermission("manage_ticket_members") || effectiveCanManage || isCreator;
+  const canClose = hasPermission("close_tickets") || hasPermission("close_ticket") || effectiveCanManage || isCreator;
+  const canReopen = hasPermission("reopen_tickets") || hasPermission("reopen_ticket") || effectiveCanManage;
+  const canDelete = hasPermission("delete_tickets") || hasPermission("delete_ticket") || effectiveCanManage;
+  const canReply = hasPermission("reply_tickets") || hasPermission("reply_ticket") || effectiveCanManage || isCreator || isParticipant;
 
   // Lista de membros do grupo disponíveis para adicionar (não criador e ainda não participante)
   const availableMembersToAdd = useMemo(() => {
@@ -199,9 +210,14 @@ export function TicketDetailView({ ticket, onClose, canManage }: TicketDetailVie
   };
 
   const handleSendReply = async () => {
+    if (!canReply) {
+      toast.error("Você não tem permissão para responder a este chamado.");
+      return;
+    }
+
     const text = replyContent.trim();
     const attachments = [...replyAttachments];
-    const isNote = Boolean(isInternalNote && effectiveCanManage);
+    const isNote = Boolean(isInternalNote && canInternalNotes);
 
     if (!text && attachments.length === 0) {
       toast.error("Digite uma mensagem ou anexe uma imagem.");
@@ -491,11 +507,11 @@ export function TicketDetailView({ ticket, onClose, canManage }: TicketDetailVie
           )}
         </div>
 
-        {/* Linha 4: Barra de Ações (Gerência ou Autor) */}
-        {(effectiveCanManage || isCreator) && (
+        {/* Linha 4: Barra de Ações */}
+        {(canClaim || canTransfer || canChangeStatus || canClose || canReopen || canDelete) && (
           <div className="flex items-center gap-2 pt-2 border-t border-border/50 flex-wrap">
-            {/* Assumir (Apenas Gerência) */}
-            {effectiveCanManage && ticket.assigned_to_id !== user?.id && !isClosed && (
+            {/* Assumir (Apenas quem tem permissão para assumir atendimento) */}
+            {canClaim && ticket.assigned_to_id !== user?.id && !isClosed && (
               <Button
                 variant="outline"
                 size="sm"
@@ -508,8 +524,8 @@ export function TicketDetailView({ ticket, onClose, canManage }: TicketDetailVie
               </Button>
             )}
 
-            {/* Transferir (Apenas Gerência) */}
-            {effectiveCanManage && !isClosed && (
+            {/* Transferir */}
+            {canTransfer && !isClosed && (
               <Button
                 variant="outline"
                 size="sm"
@@ -521,8 +537,8 @@ export function TicketDetailView({ ticket, onClose, canManage }: TicketDetailVie
               </Button>
             )}
 
-            {/* Alterar Status (Apenas Gerência) */}
-            {effectiveCanManage && !isClosed && (
+            {/* Alterar Status */}
+            {canChangeStatus && !isClosed && (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="outline" size="sm" className="h-7 text-xs gap-1.5">
@@ -548,8 +564,8 @@ export function TicketDetailView({ ticket, onClose, canManage }: TicketDetailVie
               </DropdownMenu>
             )}
 
-            {/* Fechar Ticket (Gerência ou Autor) */}
-            {!isClosed ? (
+            {/* Fechar Ticket */}
+            {!isClosed && canClose && (
               <Button
                 variant="outline"
                 size="sm"
@@ -559,7 +575,10 @@ export function TicketDetailView({ ticket, onClose, canManage }: TicketDetailVie
                 <Lock className="h-3.5 w-3.5" />
                 {isCreator && !effectiveCanManage ? "Encerrar Chamado" : "Fechar Ticket"}
               </Button>
-            ) : (
+            )}
+
+            {/* Reabrir Ticket */}
+            {isClosed && canReopen && (
               <Button
                 variant="outline"
                 size="sm"
@@ -572,8 +591,8 @@ export function TicketDetailView({ ticket, onClose, canManage }: TicketDetailVie
               </Button>
             )}
 
-            {/* Excluir Chamado (Apenas Gerência / Liderança / Dev) */}
-            {effectiveCanManage && (
+            {/* Excluir Chamado */}
+            {canDelete && (
               <Button
                 variant="outline"
                 size="sm"
@@ -663,6 +682,11 @@ export function TicketDetailView({ ticket, onClose, canManage }: TicketDetailVie
             {ticket.messages.map((msg) => {
               const isMe = msg.sender_id === user?.id;
               const isNote = msg.is_internal_note;
+
+              // Notas internas confidenciais são estritamente ocultadas para quem não tem permissão
+              if (isNote && !canInternalNotes) {
+                return null;
+              }
 
               return (
                 <div
@@ -802,119 +826,126 @@ export function TicketDetailView({ ticket, onClose, canManage }: TicketDetailVie
 
       {/* 3. Caixa de Envio de Respostas / Notas Internas */}
       {!isClosed ? (
-        <div className="border-t border-border/80 bg-secondary/20 p-3 sm:p-4 space-y-2 shrink-0">
-          {/* Controles de Anexos e Nota Interna */}
-          <div className="flex items-center justify-between gap-2 flex-wrap text-xs">
-            <div className="flex items-center gap-2">
+        canReply ? (
+          <div className="border-t border-border/80 bg-secondary/20 p-3 sm:p-4 space-y-2 shrink-0">
+            {/* Controles de Anexos e Nota Interna */}
+            <div className="flex items-center justify-between gap-2 flex-wrap text-xs">
+              <div className="flex items-center gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="h-7 text-xs gap-1 border-border/70 bg-secondary/40 text-muted-foreground hover:text-foreground"
+                >
+                  <Paperclip className="h-3 w-3" />
+                  Anexar Print
+                </Button>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  className="hidden"
+                  onChange={(e) => {
+                    const files = e.target.files;
+                    if (files) {
+                      for (let i = 0; i < files.length; i++) {
+                        handleImageFile(files[i]);
+                      }
+                    }
+                  }}
+                />
+
+                {/* Botão Switch Nota Interna (somente quem tem permissão para notas internas) */}
+                {canInternalNotes && (
+                  <div className="flex items-center gap-2 px-2.5 py-1 rounded-md border border-amber-500/30 bg-amber-500/10">
+                    <Switch
+                      id="internal_note_switch"
+                      checked={isInternalNote}
+                      onCheckedChange={setIsInternalNote}
+                      className="scale-75 data-[state=checked]:bg-amber-500"
+                    />
+                    <Label
+                      htmlFor="internal_note_switch"
+                      className="text-[11px] font-semibold text-amber-400 flex items-center gap-1 cursor-pointer select-none"
+                    >
+                      <Lock className="h-3 w-3" />
+                      Nota Interna Privada
+                    </Label>
+                  </div>
+                )}
+              </div>
+
+              <span className="text-[10px] text-muted-foreground hidden sm:inline-block">
+                Pressione <kbd className="px-1 py-0.5 rounded bg-muted text-[9px] border">Ctrl+Enter</kbd> para enviar
+              </span>
+            </div>
+
+            {/* Miniaturas de anexos anexados na resposta */}
+            {replyAttachments.length > 0 && (
+              <div className="flex flex-wrap gap-2 pt-1">
+                {replyAttachments.map((att) => (
+                  <div
+                    key={att.id}
+                    className="group relative w-16 h-16 rounded-md overflow-hidden border border-border bg-secondary"
+                  >
+                    <img src={att.url} alt={att.name} className="w-full h-full object-cover" />
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setReplyAttachments((prev) => prev.filter((a) => a.id !== att.id))
+                      }
+                      className="absolute top-0.5 right-0.5 p-0.5 rounded-full bg-black/70 hover:bg-rose-600 text-white"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Textarea e Botão Enviar */}
+            <div className="flex gap-2 items-end">
+              <Textarea
+                value={replyContent}
+                onChange={(e) => setReplyContent(e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder={
+                  isInternalNote
+                    ? "🔒 Digite uma nota interna confidencial (visível apenas para a gerência)..."
+                    : "Escreva uma resposta para o chamado..."
+                }
+                rows={2}
+                className={cn(
+                  "resize-none text-xs sm:text-sm bg-card border-border focus-visible:ring-1",
+                  isInternalNote
+                    ? "border-amber-500/50 bg-amber-500/5 focus-visible:ring-amber-500/50 text-amber-100 placeholder:text-amber-400/50"
+                    : "focus-visible:ring-amber-500/40"
+                )}
+              />
               <Button
                 type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => fileInputRef.current?.click()}
-                className="h-7 text-xs gap-1 border-border/70 bg-secondary/40 text-muted-foreground hover:text-foreground"
+                onClick={handleSendReply}
+                disabled={addMessageMutation.isPending}
+                className={cn(
+                  "h-10 px-4 shrink-0 font-semibold gap-1.5 text-xs text-black",
+                  isInternalNote
+                    ? "bg-amber-400 hover:bg-amber-500"
+                    : "bg-amber-500 hover:bg-amber-600"
+                )}
               >
-                <Paperclip className="h-3 w-3" />
-                Anexar Print
+                <Send className="h-3.5 w-3.5" />
+                {isInternalNote ? "Salvar Nota" : "Responder"}
               </Button>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*"
-                multiple
-                className="hidden"
-                onChange={(e) => {
-                  const files = e.target.files;
-                  if (files) {
-                    for (let i = 0; i < files.length; i++) {
-                      handleImageFile(files[i]);
-                    }
-                  }
-                }}
-              />
-
-              {/* Botão Switch Nota Interna (somente gerência) */}
-              {effectiveCanManage && (
-                <div className="flex items-center gap-2 px-2.5 py-1 rounded-md border border-amber-500/30 bg-amber-500/10">
-                  <Switch
-                    id="internal_note_switch"
-                    checked={isInternalNote}
-                    onCheckedChange={setIsInternalNote}
-                    className="scale-75 data-[state=checked]:bg-amber-500"
-                  />
-                  <Label
-                    htmlFor="internal_note_switch"
-                    className="text-[11px] font-semibold text-amber-400 flex items-center gap-1 cursor-pointer select-none"
-                  >
-                    <Lock className="h-3 w-3" />
-                    Nota Interna Privada
-                  </Label>
-                </div>
-              )}
             </div>
-
-            <span className="text-[10px] text-muted-foreground hidden sm:inline-block">
-              Pressione <kbd className="px-1 py-0.5 rounded bg-muted text-[9px] border">Ctrl+Enter</kbd> para enviar
-            </span>
           </div>
-
-          {/* Miniaturas de anexos anexados na resposta */}
-          {replyAttachments.length > 0 && (
-            <div className="flex flex-wrap gap-2 pt-1">
-              {replyAttachments.map((att) => (
-                <div
-                  key={att.id}
-                  className="group relative w-16 h-16 rounded-md overflow-hidden border border-border bg-secondary"
-                >
-                  <img src={att.url} alt={att.name} className="w-full h-full object-cover" />
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setReplyAttachments((prev) => prev.filter((a) => a.id !== att.id))
-                    }
-                    className="absolute top-0.5 right-0.5 p-0.5 rounded-full bg-black/70 hover:bg-rose-600 text-white"
-                  >
-                    <X className="h-3 w-3" />
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {/* Textarea e Botão Enviar */}
-          <div className="flex gap-2 items-end">
-            <Textarea
-              value={replyContent}
-              onChange={(e) => setReplyContent(e.target.value)}
-              onKeyDown={handleKeyDown}
-              placeholder={
-                isInternalNote
-                  ? "🔒 Digite uma nota interna confidencial (visível apenas para a gerência)..."
-                  : "Escreva uma resposta para o chamado..."
-              }
-              rows={2}
-              className={cn(
-                "resize-none text-xs sm:text-sm bg-card border-border focus-visible:ring-1",
-                isInternalNote
-                  ? "border-amber-500/50 bg-amber-500/5 focus-visible:ring-amber-500/50 text-amber-100 placeholder:text-amber-400/50"
-                  : "focus-visible:ring-amber-500/40"
-              )}
-            />
-            <Button
-              type="button"
-              onClick={handleSendReply}
-              disabled={addMessageMutation.isPending}
-              className={cn(
-                "h-10 px-4 shrink-0 font-semibold gap-1.5 text-xs text-black",
-                isInternalNote
-                  ? "bg-amber-400 hover:bg-amber-500"
-                  : "bg-amber-500 hover:bg-amber-600"
-              )}
-            >
-              <Send className="h-3.5 w-3.5" />
-              {isInternalNote ? "Salvar Nota" : "Responder"}
-            </Button>
+        ) : (
+          <div className="border-t border-border/80 bg-secondary/15 p-3.5 text-center text-xs text-muted-foreground flex items-center justify-center gap-2">
+            <Lock className="h-3.5 w-3.5 text-muted-foreground" />
+            <span>Você não possui permissão para responder ou enviar mensagens neste chamado.</span>
           </div>
-        </div>
+        )
       ) : (
         <div className="border-t border-border/80 bg-secondary/10 p-3 text-center text-xs text-muted-foreground">
           Este chamado está fechado. Para interagir novamente, a gerência deve reabri-lo.

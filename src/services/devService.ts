@@ -172,6 +172,15 @@ export const DEFAULT_ADMIN_TAG_PERMISSIONS: DevPermissionResource[] = [
     editar: true,
     excluir: false,
   },
+  {
+    id: "tickets_ouvidoria",
+    name: "Tickets, Chamados & Ouvidoria",
+    description: "Atendimento completo, notas internas, transferências e encerramento de tickets",
+    visualizar: true,
+    criar: true,
+    editar: true,
+    excluir: true,
+  },
 ];
 
 /**
@@ -789,7 +798,16 @@ export const DEFAULT_CEO_PERMISSIONS: string[] = [
   "view_patch_notes",
   "view_tickets",
   "create_ticket",
+  "reply_tickets",
   "view_all_tickets",
+  "claim_tickets",
+  "transfer_tickets",
+  "change_ticket_status",
+  "internal_notes_tickets",
+  "manage_ticket_members",
+  "close_tickets",
+  "reopen_tickets",
+  "delete_tickets",
   "manage_tickets",
   "view_notifications",
   "send_notifications",

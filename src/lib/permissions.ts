@@ -164,8 +164,23 @@ export type Permission =
   | "trigger_force_cache_purge"
   | "view_tickets"
   | "create_ticket"
-  | "manage_tickets"
+  | "reply_tickets"
+  | "reply_ticket"
   | "view_all_tickets"
+  | "claim_tickets"
+  | "claim_ticket"
+  | "transfer_tickets"
+  | "transfer_ticket"
+  | "change_ticket_status"
+  | "internal_notes_tickets"
+  | "manage_ticket_members"
+  | "close_tickets"
+  | "close_ticket"
+  | "reopen_tickets"
+  | "reopen_ticket"
+  | "delete_tickets"
+  | "delete_ticket"
+  | "manage_tickets"
   | "view_notifications"
   | "send_notifications"
   | "manage_notifications"
@@ -499,8 +514,23 @@ export const ALL_PERMISSIONS: Permission[] = [
   "manage_patch_notes",
   "view_tickets",
   "create_ticket",
-  "manage_tickets",
+  "reply_tickets",
+  "reply_ticket",
   "view_all_tickets",
+  "claim_tickets",
+  "claim_ticket",
+  "transfer_tickets",
+  "transfer_ticket",
+  "change_ticket_status",
+  "internal_notes_tickets",
+  "manage_ticket_members",
+  "close_tickets",
+  "close_ticket",
+  "reopen_tickets",
+  "reopen_ticket",
+  "delete_tickets",
+  "delete_ticket",
+  "manage_tickets",
   "view_notifications",
   "send_notifications",
   "manage_notifications",
@@ -908,8 +938,23 @@ const OFFICER: Permission[] = [
   "manage_patch_notes",
   "view_tickets",
   "create_ticket",
-  "manage_tickets",
+  "reply_tickets",
+  "reply_ticket",
   "view_all_tickets",
+  "claim_tickets",
+  "claim_ticket",
+  "transfer_tickets",
+  "transfer_ticket",
+  "change_ticket_status",
+  "internal_notes_tickets",
+  "manage_ticket_members",
+  "close_tickets",
+  "close_ticket",
+  "reopen_tickets",
+  "reopen_ticket",
+  "delete_tickets",
+  "delete_ticket",
+  "manage_tickets",
   "view_notifications",
   "send_notifications",
   "manage_notifications",
@@ -1089,8 +1134,23 @@ const MANAGER: Permission[] = [
   "view_patch_notes",
   "view_tickets",
   "create_ticket",
-  "manage_tickets",
+  "reply_tickets",
+  "reply_ticket",
   "view_all_tickets",
+  "claim_tickets",
+  "claim_ticket",
+  "transfer_tickets",
+  "transfer_ticket",
+  "change_ticket_status",
+  "internal_notes_tickets",
+  "manage_ticket_members",
+  "close_tickets",
+  "close_ticket",
+  "reopen_tickets",
+  "reopen_ticket",
+  "delete_tickets",
+  "delete_ticket",
+  "manage_tickets",
   "view_notifications",
   "send_notifications",
   "manage_notifications",
@@ -1150,6 +1210,7 @@ const MEMBER: Permission[] = [
   "view_patch_notes",
   "view_tickets",
   "create_ticket",
+  "reply_tickets",
   "view_notifications",
   "configure_notifications_sound",
   "view_lives",
@@ -1205,6 +1266,7 @@ const NOVATO: Permission[] = [
   "view_patch_notes",
   "view_tickets",
   "create_ticket",
+  "reply_tickets",
   "view_notifications",
   "view_lives",
   "link_stream_account",
@@ -1255,11 +1317,40 @@ export function satisfiesPermission(
     if (
       permission === "view_all_tickets" ||
       permission === "view_tickets" ||
-      permission === "create_ticket"
+      permission === "create_ticket" ||
+      permission === "reply_tickets" ||
+      permission === "reply_ticket" ||
+      permission === "claim_tickets" ||
+      permission === "claim_ticket" ||
+      permission === "transfer_tickets" ||
+      permission === "transfer_ticket" ||
+      permission === "change_ticket_status" ||
+      permission === "close_tickets" ||
+      permission === "close_ticket" ||
+      permission === "reopen_tickets" ||
+      permission === "reopen_ticket" ||
+      permission === "internal_notes_tickets" ||
+      permission === "manage_ticket_members" ||
+      permission === "delete_tickets" ||
+      permission === "delete_ticket"
     ) {
       return true;
     }
   }
+  // Equivalências diretas entre plural e singular
+  if (permission === "reply_tickets" && list.includes("reply_ticket")) return true;
+  if (permission === "reply_ticket" && list.includes("reply_tickets")) return true;
+  if (permission === "claim_tickets" && list.includes("claim_ticket")) return true;
+  if (permission === "claim_ticket" && list.includes("claim_tickets")) return true;
+  if (permission === "transfer_tickets" && list.includes("transfer_ticket")) return true;
+  if (permission === "transfer_ticket" && list.includes("transfer_tickets")) return true;
+  if (permission === "close_tickets" && list.includes("close_ticket")) return true;
+  if (permission === "close_ticket" && list.includes("close_tickets")) return true;
+  if (permission === "reopen_tickets" && list.includes("reopen_ticket")) return true;
+  if (permission === "reopen_ticket" && list.includes("reopen_tickets")) return true;
+  if (permission === "delete_tickets" && list.includes("delete_ticket")) return true;
+  if (permission === "delete_ticket" && list.includes("delete_tickets")) return true;
+
   if (list.includes("view_all_tickets") && permission === "view_tickets") {
     return true;
   }
@@ -1853,11 +1944,40 @@ export function can(
       if (
         permission === "view_all_tickets" ||
         permission === "view_tickets" ||
-        permission === "create_ticket"
+        permission === "create_ticket" ||
+        permission === "reply_tickets" ||
+        permission === "reply_ticket" ||
+        permission === "claim_tickets" ||
+        permission === "claim_ticket" ||
+        permission === "transfer_tickets" ||
+        permission === "transfer_ticket" ||
+        permission === "change_ticket_status" ||
+        permission === "close_tickets" ||
+        permission === "close_ticket" ||
+        permission === "reopen_tickets" ||
+        permission === "reopen_ticket" ||
+        permission === "internal_notes_tickets" ||
+        permission === "manage_ticket_members" ||
+        permission === "delete_tickets" ||
+        permission === "delete_ticket"
       ) {
         return true;
       }
     }
+    // Equivalências diretas entre plural e singular
+    if (permission === "reply_tickets" && list.includes("reply_ticket")) return true;
+    if (permission === "reply_ticket" && list.includes("reply_tickets")) return true;
+    if (permission === "claim_tickets" && list.includes("claim_ticket")) return true;
+    if (permission === "claim_ticket" && list.includes("claim_tickets")) return true;
+    if (permission === "transfer_tickets" && list.includes("transfer_ticket")) return true;
+    if (permission === "transfer_ticket" && list.includes("transfer_tickets")) return true;
+    if (permission === "close_tickets" && list.includes("close_ticket")) return true;
+    if (permission === "close_ticket" && list.includes("close_tickets")) return true;
+    if (permission === "reopen_tickets" && list.includes("reopen_ticket")) return true;
+    if (permission === "reopen_ticket" && list.includes("reopen_tickets")) return true;
+    if (permission === "delete_tickets" && list.includes("delete_ticket")) return true;
+    if (permission === "delete_ticket" && list.includes("delete_tickets")) return true;
+
     if (list.includes("view_all_tickets") && permission === "view_tickets") {
       return true;
     }
@@ -2231,11 +2351,40 @@ export function can(
     if (
       permission === "view_all_tickets" ||
       permission === "view_tickets" ||
-      permission === "create_ticket"
+      permission === "create_ticket" ||
+      permission === "reply_tickets" ||
+      permission === "reply_ticket" ||
+      permission === "claim_tickets" ||
+      permission === "claim_ticket" ||
+      permission === "transfer_tickets" ||
+      permission === "transfer_ticket" ||
+      permission === "change_ticket_status" ||
+      permission === "close_tickets" ||
+      permission === "close_ticket" ||
+      permission === "reopen_tickets" ||
+      permission === "reopen_ticket" ||
+      permission === "internal_notes_tickets" ||
+      permission === "manage_ticket_members" ||
+      permission === "delete_tickets" ||
+      permission === "delete_ticket"
     ) {
       return true;
     }
   }
+  // Equivalências diretas entre plural e singular
+  if (permission === "reply_tickets" && rolePerms.includes("reply_ticket")) return true;
+  if (permission === "reply_ticket" && rolePerms.includes("reply_tickets")) return true;
+  if (permission === "claim_tickets" && rolePerms.includes("claim_ticket")) return true;
+  if (permission === "claim_ticket" && rolePerms.includes("claim_tickets")) return true;
+  if (permission === "transfer_tickets" && rolePerms.includes("transfer_ticket")) return true;
+  if (permission === "transfer_ticket" && rolePerms.includes("transfer_tickets")) return true;
+  if (permission === "close_tickets" && rolePerms.includes("close_ticket")) return true;
+  if (permission === "close_ticket" && rolePerms.includes("close_tickets")) return true;
+  if (permission === "reopen_tickets" && rolePerms.includes("reopen_ticket")) return true;
+  if (permission === "reopen_ticket" && rolePerms.includes("reopen_tickets")) return true;
+  if (permission === "delete_tickets" && rolePerms.includes("delete_ticket")) return true;
+  if (permission === "delete_ticket" && rolePerms.includes("delete_tickets")) return true;
+
   if (rolePerms.includes("view_all_tickets") && permission === "view_tickets") {
     return true;
   }

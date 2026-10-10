@@ -81,10 +81,10 @@ export function TicketsPage() {
 function TicketsContent() {
   const { user, profile, hasPermission } = useAuth();
   const canView = hasPermission("view_tickets");
-  const canCreate = hasPermission("create_ticket");
   const canManage = hasPermission("manage_tickets");
-  const canViewAll = hasPermission("view_all_tickets");
-  const canSeeAll = canViewAll || canManage;
+  const canCreate = hasPermission("create_ticket") || canManage;
+  const canViewAll = hasPermission("view_all_tickets") || canManage;
+  const canSeeAll = canViewAll;
 
   const { data: tickets = [], isLoading, isFetching } = useTickets();
 
@@ -97,6 +97,13 @@ function TicketsContent() {
   const selectedTicketId = ticketParam || null;
   const setSelectedTicketId = (id: string | null) => setTicketParam(id || "");
   const [isNewDialogOpen, setIsNewDialogOpen] = useState(false);
+
+  // Se o usuário não tem permissão para ver todos os chamados, força a aba "my"
+  useEffect(() => {
+    if (!canSeeAll && activeTab !== "my") {
+      setActiveTab("my");
+    }
+  }, [canSeeAll, activeTab, setActiveTab]);
 
   // Limpar seleção caso o ticket selecionado seja excluído em tempo real
   useEffect(() => {
@@ -112,23 +119,33 @@ function TicketsContent() {
   const [filterPriority, setFilterPriority] = useState<string>("all");
   const [filterAssignee, setFilterAssignee] = useState<string>("all"); // all, my_assigned, unassigned
 
-  // Estatísticas globais
+  // Estatísticas globais (ou restritas ao membro caso não tenha permissão de ver todos)
   const stats = useMemo(() => {
-    const total = tickets.length;
+    const list = canSeeAll
+      ? tickets
+      : tickets.filter(
+          (t) => t.user_id === user?.id || (t.members || []).some((m) => m.user_id === user?.id)
+        );
+    const total = list.length;
     const myCount = tickets.filter((t) => t.user_id === user?.id).length;
-    const openCount = tickets.filter((t) => t.status === "aberto").length;
-    const inProgressCount = tickets.filter(
+    const openCount = list.filter((t) => t.status === "aberto").length;
+    const inProgressCount = list.filter(
       (t) => t.status === "em_atendimento" || t.status === "aguardando"
     ).length;
-    const closedCount = tickets.filter(
+    const closedCount = list.filter(
       (t) => t.status === "resolvido" || t.status === "fechado"
     ).length;
     return { total, myCount, openCount, inProgressCount, closedCount };
-  }, [tickets, user?.id]);
+  }, [tickets, user?.id, canSeeAll]);
 
   // Filtragem dos tickets
   const filteredTickets = useMemo(() => {
     return tickets.filter((t) => {
+      // Se não tem permissão para ver todos, restringe estritamente aos próprios ou onde participa
+      if (!canSeeAll && t.user_id !== user?.id && !(t.members || []).some((m) => m.user_id === user?.id)) {
+        return false;
+      }
+
       // Filtro por Aba
       if (activeTab === "my" && t.user_id !== user?.id) {
         return false;

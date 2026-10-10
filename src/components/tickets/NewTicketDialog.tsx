@@ -36,6 +36,7 @@ import {
   type TicketPriority,
   type TicketAttachment,
 } from "@/types/tickets";
+import { useAuth } from "@/hooks/useAuth";
 import { useCreateTicket } from "@/hooks/useTickets";
 import { uploadTicketAttachment } from "@/lib/app-api";
 
@@ -74,6 +75,8 @@ export function NewTicketDialog({ open, onOpenChange }: NewTicketDialogProps) {
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const createTicketMutation = useCreateTicket();
+  const { hasPermission } = useAuth();
+  const canCreate = hasPermission("create_ticket") || hasPermission("manage_tickets");
 
   const handleImageFile = async (file: File) => {
     if (!file.type.startsWith("image/")) {
@@ -129,6 +132,10 @@ export function NewTicketDialog({ open, onOpenChange }: NewTicketDialogProps) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!canCreate) {
+      toast.error("Você não tem permissão para abrir chamados.");
+      return;
+    }
     if (!subject.trim()) {
       toast.error("Informe o assunto do chamado.");
       return;
@@ -377,7 +384,7 @@ export function NewTicketDialog({ open, onOpenChange }: NewTicketDialogProps) {
               </Button>
               <Button
                 type="submit"
-                disabled={createTicketMutation.isPending}
+                disabled={createTicketMutation.isPending || !canCreate}
                 className="text-xs h-9 bg-amber-500 hover:bg-amber-600 text-black font-semibold gap-1.5"
               >
                 {createTicketMutation.isPending ? (
