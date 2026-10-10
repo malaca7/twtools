@@ -39,6 +39,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { PageHeader, DevBadge, CeoBadge } from "@/components/ui-kit";
+import { useSidebar } from "@/components/ui/sidebar";
 import { usePanelTheme } from "@/lib/panelTheme";
 import { useAuth } from "@/hooks/useAuth";
 import { useMembers, useRolePermissions, useCustomRoles } from "@/hooks/useData";
@@ -96,6 +97,8 @@ function DevPermissoesContent() {
   const { data: dbPermissions, isLoading: loadingDbPermissions } = useRolePermissions();
   const { data: customRoles = [] } = useCustomRoles();
   const queryClient = useQueryClient();
+  const { isMobile, open: isSidebarOpen, sidebarWidth } = useSidebar();
+  const sidebarLeftOffset = isMobile ? 0 : (isSidebarOpen ? sidebarWidth : 56);
 
   // Aba ativa: Cargos da Plataforma vs Tag Dev vs Tag CEO
   const [activeTab, setActiveTab] = useState<"cargos" | "dev" | "ceo">("cargos");
@@ -1349,159 +1352,194 @@ function DevPermissoesContent() {
             </div>
           )}
 
-          {/* FLOATING ACTIVE ROLE SWITCHER BAR — TELEPORTADO DIRETAMENTE AO BODY PARA FIXAÇÃO ABSOLUTA E FLUTUAÇÃO PERFEITA */}
+          {/* FLOATING ACTIVE ROLE SWITCHER BAR — TELEPORTADO DIRETAMENTE AO BODY PARA FIXAÇÃO ABSOLUTA E CENTRALIZAÇÃO HORIZONTAL PERFEITA */}
           {activeTab === "cargos" && mounted && typeof document !== "undefined" && createPortal(
             <div
-              className={cn(
-                "surface-card floating-widget fixed z-[9999] pointer-events-auto",
-                "bottom-20 md:bottom-8 left-1/2 -translate-x-1/2 translate-y-0",
-                "flex items-center gap-1.5 sm:gap-2.5 p-1.5 sm:p-2 rounded-2xl bg-card/95 border border-emerald-500/60 backdrop-blur-2xl",
-                "shadow-[0_20px_50px_rgba(0,0,0,0.75)] ring-1 ring-border/60 max-w-[calc(100vw-1.5rem)] sm:max-w-fit",
-                "transition-all duration-200 ease-out animate-in fade-in zoom-in-95"
-              )}
+              className="fixed z-[9999] pointer-events-none bottom-20 md:bottom-8 flex justify-center items-center px-2 sm:px-4 max-w-full"
               style={{
-                transform: "translate(-50%, 0)",
-                boxShadow: "0 20px 50px rgba(0,0,0,0.75), 0 0 30px rgba(16,185,129,0.25)",
+                left: `${sidebarLeftOffset}px`,
+                right: 0,
+                transition: "left 200ms cubic-bezier(0.4, 0, 0.2, 1)",
               }}
             >
-              {/* Cargo Ativo Atual */}
-              <div className="flex items-center gap-2 pl-2 pr-1">
-                <ShieldCheck className="h-4 w-4 text-emerald-400 shrink-0 animate-pulse" />
-                <div className="flex items-center gap-1.5">
-                  <span className="text-[11px] font-bold text-muted-foreground hidden sm:inline">Cargo:</span>
-                  <Badge className={cn("text-xs px-2.5 py-0.5 font-bold shadow-xs", levelBadgeClass(selectedCargo))}>
-                    {getCargoDisplayInfo(selectedCargo).label}
-                  </Badge>
-                </div>
-                {isCargoSyncing ? (
-                  <Loader2 className="h-3.5 w-3.5 animate-spin text-emerald-400 shrink-0 ml-0.5" title="Sincronizando..." />
-                ) : (
-                  <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400 shrink-0 ml-0.5" title="Sincronizado em tempo real" />
+              <div
+                className={cn(
+                  "surface-card floating-widget pointer-events-auto",
+                  "flex items-center gap-1.5 sm:gap-2.5 p-1.5 sm:p-2 rounded-2xl bg-card/95 border border-emerald-500/60 backdrop-blur-2xl",
+                  "shadow-[0_20px_50px_rgba(0,0,0,0.75)] ring-1 ring-border/60 max-w-[calc(100vw-1.5rem)] sm:max-w-fit",
+                  "transition-all duration-200 ease-out animate-in fade-in zoom-in-95"
                 )}
-              </div>
+                style={{
+                  boxShadow: "0 20px 50px rgba(0,0,0,0.75), 0 0 30px rgba(16,185,129,0.25)",
+                }}
+              >
+                {/* Cargo Ativo Atual */}
+                <div className="flex items-center gap-2 pl-2 pr-1 shrink-0">
+                  <ShieldCheck className="h-4 w-4 text-emerald-400 shrink-0 animate-pulse" />
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[11px] font-bold text-muted-foreground hidden sm:inline">Cargo:</span>
+                    <Badge className={cn("text-xs px-2.5 py-0.5 font-bold shadow-xs", levelBadgeClass(selectedCargo))}>
+                      {getCargoDisplayInfo(selectedCargo).label}
+                    </Badge>
+                  </div>
+                  {isCargoSyncing ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin text-emerald-400 shrink-0 ml-0.5" title="Sincronizando..." />
+                  ) : (
+                    <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400 shrink-0 ml-0.5" title="Sincronizado em tempo real" />
+                  )}
+                </div>
 
-              {/* Seletor Rápido de Cargo em Botões (Telas Médias/Grandes) */}
-              <div className="hidden lg:flex items-center gap-1 border-l border-r border-border/60 px-1.5">
-                {activeRolesList.map((role) => {
-                  const isSelected = selectedCargo === role.id;
-                  const count = members.filter((m) => m.nivel === role.id).length;
-                  return (
-                    <button
-                      key={`float-cargo-btn-${role.id}`}
-                      type="button"
-                      onClick={() => setSelectedCargo(role.id)}
-                      className={cn(
-                        "flex items-center gap-1 px-2.5 py-1 rounded-xl text-[11px] font-bold transition-all cursor-pointer border",
-                        isSelected
-                          ? "bg-emerald-600 text-white border-emerald-500 shadow-xs"
-                          : "bg-secondary/40 border-transparent hover:bg-secondary/80 text-muted-foreground hover:text-foreground"
-                      )}
-                    >
-                      <span>{role.nome}</span>
-                      <span className={cn("text-[9px] px-1 rounded-md", isSelected ? "bg-black/30 text-white" : "text-muted-foreground")}>
-                        {count}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
+                {/* Seletor Rápido de Cargo em Botões (Telas Médias/Grandes) */}
+                <div className="hidden lg:flex items-center gap-1 border-l border-r border-border/60 px-1.5 max-w-[360px] xl:max-w-[540px] overflow-x-auto scrollbar-none">
+                  {activeRolesList.map((role) => {
+                    const isSelected = selectedCargo === role.id;
+                    const count = members.filter((m) => m.nivel === role.id).length;
+                    return (
+                      <button
+                        key={`float-cargo-btn-${role.id}`}
+                        type="button"
+                        onClick={() => setSelectedCargo(role.id)}
+                        className={cn(
+                          "flex items-center gap-1 px-2.5 py-1 rounded-xl text-[11px] font-bold transition-all cursor-pointer border shrink-0",
+                          isSelected
+                            ? "bg-emerald-600 text-white border-emerald-500 shadow-xs"
+                            : "bg-secondary/40 border-transparent hover:bg-secondary/80 text-muted-foreground hover:text-foreground"
+                        )}
+                      >
+                        <span>{role.nome}</span>
+                        <span className={cn("text-[9px] px-1 rounded-md", isSelected ? "bg-black/30 text-white" : "text-muted-foreground")}>
+                          {count}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
 
-              {/* Dropdown para Trocar Cargo (Mobile / Compacto) */}
-              <div className="lg:hidden">
+                {/* Dropdown para Trocar Cargo (Mobile / Compacto) */}
+                <div className="lg:hidden">
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="default"
+                        className="h-8 text-xs font-bold gap-1.5 rounded-xl bg-emerald-600 text-white hover:bg-emerald-500 shadow-md cursor-pointer active:scale-95 transition-all"
+                      >
+                        <span>Alternar</span>
+                        <ChevronDown className="h-3.5 w-3.5 text-white" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent side="top" sideOffset={10} align="center" className="w-64 p-1.5 animate-in fade-in-50 zoom-in-95 duration-150 z-[10000]">
+                      <DropdownMenuLabel className="text-[10px] font-mono text-muted-foreground uppercase px-2 py-1 flex items-center justify-between">
+                        <span>Alternar Cargo</span>
+                        <span className="text-[9px] text-emerald-400 font-bold font-mono">Ao Vivo</span>
+                      </DropdownMenuLabel>
+                      <DropdownMenuSeparator />
+                      {activeRolesList.map((role) => {
+                        const isSelected = selectedCargo === role.id;
+                        const count = members.filter((m) => m.nivel === role.id).length;
+                        return (
+                          <DropdownMenuItem
+                            key={`float-dd-cargo-${role.id}`}
+                            onClick={() => setSelectedCargo(role.id)}
+                            className={cn(
+                              "flex items-center justify-between px-2.5 py-2 rounded-xl text-xs font-bold cursor-pointer transition-all mb-0.5",
+                              isSelected
+                                ? "bg-emerald-600 text-white font-black shadow-xs"
+                                : "hover:bg-secondary text-foreground"
+                            )}
+                          >
+                            <div className="flex items-center gap-2">
+                              <ShieldCheck className={cn("h-3.5 w-3.5", isSelected ? "text-white" : "text-emerald-400")} />
+                              <span>{role.nome}</span>
+                            </div>
+                            <div className="flex items-center gap-1.5">
+                              <Badge
+                                variant="secondary"
+                                className={cn(
+                                  "text-[9px] px-1.5 py-0 font-mono font-bold",
+                                  isSelected ? "bg-black/30 text-white" : "bg-background text-muted-foreground"
+                                )}
+                              >
+                                {count}
+                              </Badge>
+                              {isSelected && <Check className="h-3.5 w-3.5 stroke-[3]" />}
+                            </div>
+                          </DropdownMenuItem>
+                        );
+                      })}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+
+                {/* Ações Rápidas de Permissões */}
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Button
                       type="button"
                       size="sm"
-                      variant="default"
-                      className="h-8 text-xs font-bold gap-1.5 rounded-xl bg-emerald-600 text-white hover:bg-emerald-500 shadow-md cursor-pointer active:scale-95 transition-all"
+                      variant="outline"
+                      className="h-8 text-xs font-bold gap-1.5 rounded-xl border-border/80 hover:bg-secondary/80 cursor-pointer shrink-0"
+                      title="Ações rápidas de permissões"
                     >
-                      <span>Alternar</span>
-                      <ChevronDown className="h-3.5 w-3.5 text-white" />
+                      <SlidersHorizontal className="h-3.5 w-3.5 text-emerald-400" />
+                      <span className="hidden sm:inline">Ações</span>
                     </Button>
                   </DropdownMenuTrigger>
-                  <DropdownMenuContent align="center" className="w-64 p-1.5 animate-in fade-in-50 zoom-in-95 duration-150 z-[10000]">
-                    <DropdownMenuLabel className="text-[10px] font-mono text-muted-foreground uppercase px-2 py-1 flex items-center justify-between">
-                      <span>Alternar Cargo</span>
-                      <span className="text-[9px] text-emerald-400 font-bold font-mono">Ao Vivo</span>
-                    </DropdownMenuLabel>
+                  <DropdownMenuContent side="top" sideOffset={10} align="end" className="w-48 p-1.5 z-[10000]">
+                    <DropdownMenuItem onClick={setAllCargoPermissions} className="text-xs font-bold cursor-pointer hover:bg-secondary rounded-xl">
+                      Marcar Todas
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={setReadOnlyCargoPermissions} className="text-xs font-bold cursor-pointer hover:bg-secondary rounded-xl">
+                      Apenas Leitura
+                    </DropdownMenuItem>
                     <DropdownMenuSeparator />
-                    {activeRolesList.map((role) => {
-                      const isSelected = selectedCargo === role.id;
-                      const count = members.filter((m) => m.nivel === role.id).length;
-                      return (
-                        <DropdownMenuItem
-                          key={`float-dd-cargo-${role.id}`}
-                          onClick={() => setSelectedCargo(role.id)}
-                          className={cn(
-                            "flex items-center justify-between px-2.5 py-2 rounded-xl text-xs font-bold cursor-pointer transition-all mb-0.5",
-                            isSelected
-                              ? "bg-emerald-600 text-white font-black shadow-xs"
-                              : "hover:bg-secondary text-foreground"
-                          )}
-                        >
-                          <div className="flex items-center gap-2">
-                            <ShieldCheck className={cn("h-3.5 w-3.5", isSelected ? "text-white" : "text-emerald-400")} />
-                            <span>{role.nome}</span>
-                          </div>
-                          <div className="flex items-center gap-1.5">
-                            <Badge
-                              variant="secondary"
-                              className={cn(
-                                "text-[9px] px-1.5 py-0 font-mono font-bold",
-                                isSelected ? "bg-black/30 text-white" : "bg-background text-muted-foreground"
-                              )}
-                            >
-                              {count}
-                            </Badge>
-                            {isSelected && <Check className="h-3.5 w-3.5 stroke-[3]" />}
-                          </div>
-                        </DropdownMenuItem>
-                      );
-                    })}
+                    <DropdownMenuItem onClick={clearAllCargoPermissions} className="text-xs font-bold text-rose-400 hover:bg-rose-500/10 cursor-pointer rounded-xl">
+                      Limpar Todas
+                    </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
-              </div>
 
-              {/* Ações Rápidas de Permissões */}
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
+                {/* Divisor vertical */}
+                <div className="h-6 w-px bg-border/60 shrink-0" />
+
+                {/* Botão de Rolagem Inteligente Topo / Fim */}
+                {isAtTop ? (
                   <Button
                     type="button"
                     size="sm"
                     variant="outline"
-                    className="h-8 text-xs font-bold gap-1.5 rounded-xl border-border/80 hover:bg-secondary/80 cursor-pointer shrink-0"
-                    title="Ações rápidas de permissões"
+                    onClick={() => {
+                      window.scrollTo({
+                        top: document.documentElement.scrollHeight,
+                        behavior: "smooth",
+                      });
+                    }}
+                    className="h-8 px-2 sm:px-2.5 text-xs font-bold gap-1 rounded-xl border-border/80 hover:bg-secondary/80 cursor-pointer shadow-xs transition-all text-foreground hover:border-emerald-500/50 shrink-0"
+                    title="Ir para o final da página"
                   >
-                    <SlidersHorizontal className="h-3.5 w-3.5 text-emerald-400" />
-                    <span className="hidden sm:inline">Ações</span>
+                    <ChevronsDown className="h-3.5 w-3.5 text-emerald-400 animate-bounce shrink-0" />
+                    <span className="hidden sm:inline text-[11px]">Final</span>
                   </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-48 p-1.5 z-[10000]">
-                  <DropdownMenuItem onClick={setAllCargoPermissions} className="text-xs font-bold cursor-pointer hover:bg-secondary rounded-xl">
-                    Marcar Todas
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={setReadOnlyCargoPermissions} className="text-xs font-bold cursor-pointer hover:bg-secondary rounded-xl">
-                    Apenas Leitura
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={clearAllCargoPermissions} className="text-xs font-bold text-rose-400 hover:bg-rose-500/10 cursor-pointer rounded-xl">
-                    Limpar Todas
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-
-              {/* Botão de Voltar ao Topo */}
-              <Button
-                type="button"
-                size="icon"
-                variant="ghost"
-                onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
-                className="h-8 w-8 rounded-xl text-muted-foreground hover:text-foreground hover:bg-secondary/80 cursor-pointer shrink-0"
-                title="Voltar ao topo da página"
-              >
-                <ArrowUp className="h-4 w-4" />
-              </Button>
+                ) : (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      window.scrollTo({
+                        top: 0,
+                        behavior: "smooth",
+                      });
+                    }}
+                    className="h-8 px-2 sm:px-2.5 text-xs font-bold gap-1 rounded-xl border-border/80 hover:bg-secondary/80 cursor-pointer shadow-xs transition-all text-foreground hover:border-emerald-500/50 shrink-0"
+                    title="Voltar ao início da página"
+                  >
+                    <ChevronsUp className="h-3.5 w-3.5 text-emerald-400 animate-bounce shrink-0" />
+                    <span className="hidden sm:inline text-[11px]">Início</span>
+                  </Button>
+                )}
+              </div>
             </div>,
             document.body
           )}
@@ -2674,254 +2712,275 @@ function DevPermissoesContent() {
       {/* BALÃO FLUTUANTE DE ALTERNÂNCIA (TAG DEV vs TAG CEO) E NAVEGAÇÃO TOPO/FIM */}
       {(activeTab === "dev" || activeTab === "ceo") && mounted && typeof document !== "undefined" && createPortal(
         <div
-          className={cn(
-            "surface-card floating-widget fixed z-[9999] pointer-events-auto",
-            "bottom-20 md:bottom-8 left-1/2 -translate-x-1/2 translate-y-0",
-            "flex items-center gap-1.5 sm:gap-2.5 p-1.5 sm:p-2 rounded-2xl bg-card/95 backdrop-blur-2xl",
-            "shadow-[0_20px_50px_rgba(0,0,0,0.75)] ring-1 ring-border/60 max-w-[calc(100vw-1.5rem)] sm:max-w-fit",
-            "border transition-all duration-200 ease-out animate-in fade-in zoom-in-95"
-          )}
+          className="fixed z-[9999] pointer-events-none bottom-20 md:bottom-8 flex justify-center items-center px-2 sm:px-4 max-w-full"
           style={{
-            transform: "translate(-50%, 0)",
-            borderColor: activeTab === "dev" ? `${devStyle.primaryHex}70` : `${ceoStyle.primaryHex}70`,
-            boxShadow: activeTab === "dev"
-              ? `0 20px 50px rgba(0,0,0,0.75), 0 0 30px ${devStyle.primaryHex}25`
-              : `0 20px 50px rgba(0,0,0,0.75), 0 0 30px ${ceoStyle.primaryHex}25`,
+            left: `${sidebarLeftOffset}px`,
+            right: 0,
+            transition: "left 200ms cubic-bezier(0.4, 0, 0.2, 1)",
           }}
         >
-          {/* Seletor Rápido de Permissões: Tag Dev vs Tag CEO */}
-          <div className="flex items-center gap-1 bg-secondary/40 p-1 rounded-xl border border-border/50">
-            {/* Botão Tag Dev */}
-            <button
-              type="button"
-              onClick={() => setActiveTab("dev")}
-              className={cn(
-                "flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-black transition-all cursor-pointer select-none",
-                activeTab === "dev"
-                  ? "shadow-sm scale-[1.02]"
-                  : "text-muted-foreground hover:text-foreground hover:bg-secondary/60 opacity-80"
-              )}
-              style={
-                activeTab === "dev"
-                  ? {
-                      backgroundColor: `${devStyle.primaryHex}25`,
-                      color: devStyle.primaryHex,
-                      border: `1px solid ${devStyle.primaryHex}60`,
-                      boxShadow: `0 2px 10px ${devStyle.primaryHex}25`,
-                    }
-                  : undefined
-              }
-              title="Alternar para Permissões da Tag Dev"
-            >
-              <DevIcon className="h-3.5 w-3.5 shrink-0" style={{ color: activeTab === "dev" ? devStyle.primaryHex : undefined }} />
-              <span className="hidden xs:inline">Tag Dev</span>
-              <span className="xs:hidden">Dev</span>
-              <Badge
-                variant="outline"
-                className="text-[9px] font-mono px-1.5 py-0 font-bold hidden sm:inline-flex"
+          <div
+            className={cn(
+              "surface-card floating-widget pointer-events-auto",
+              "flex items-center gap-1.5 sm:gap-2.5 p-1.5 sm:p-2 rounded-2xl bg-card/95 backdrop-blur-2xl",
+              "shadow-[0_20px_50px_rgba(0,0,0,0.75)] ring-1 ring-border/60 max-w-[calc(100vw-1.5rem)] sm:max-w-fit",
+              "border transition-all duration-200 ease-out animate-in fade-in zoom-in-95"
+            )}
+            style={{
+              borderColor: activeTab === "dev" ? `${devStyle.primaryHex}70` : `${ceoStyle.primaryHex}70`,
+              boxShadow: activeTab === "dev"
+                ? `0 20px 50px rgba(0,0,0,0.75), 0 0 30px ${devStyle.primaryHex}25`
+                : `0 20px 50px rgba(0,0,0,0.75), 0 0 30px ${ceoStyle.primaryHex}25`,
+            }}
+          >
+            {/* Seletor Rápido de Abas: Cargos vs Tag Dev vs Tag CEO */}
+            <div className="flex items-center gap-1 bg-secondary/40 p-1 rounded-xl border border-border/50">
+              {/* Botão Cargos da Plataforma */}
+              <button
+                type="button"
+                onClick={() => setActiveTab("cargos")}
+                className={cn(
+                  "flex items-center gap-1.5 px-2 sm:px-2.5 py-1.5 rounded-lg text-xs font-black transition-all cursor-pointer select-none",
+                  "text-muted-foreground hover:text-foreground hover:bg-secondary/60 opacity-80"
+                )}
+                title="Voltar para Cargos da Plataforma"
+              >
+                <ShieldCheck className="h-3.5 w-3.5 shrink-0 text-emerald-400" />
+                <span className="hidden xs:inline">Cargos</span>
+              </button>
+
+              {/* Botão Tag Dev */}
+              <button
+                type="button"
+                onClick={() => setActiveTab("dev")}
+                className={cn(
+                  "flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-black transition-all cursor-pointer select-none",
+                  activeTab === "dev"
+                    ? "shadow-sm scale-[1.02]"
+                    : "text-muted-foreground hover:text-foreground hover:bg-secondary/60 opacity-80"
+                )}
                 style={
                   activeTab === "dev"
                     ? {
-                        borderColor: `${devStyle.primaryHex}40`,
+                        backgroundColor: `${devStyle.primaryHex}25`,
                         color: devStyle.primaryHex,
-                        backgroundColor: `${devStyle.primaryHex}15`,
+                        border: `1px solid ${devStyle.primaryHex}60`,
+                        boxShadow: `0 2px 10px ${devStyle.primaryHex}25`,
                       }
                     : undefined
                 }
+                title="Alternar para Permissões da Tag Dev"
               >
-                {activeDevPermissions.length}
-              </Badge>
-            </button>
+                <DevIcon className="h-3.5 w-3.5 shrink-0" style={{ color: activeTab === "dev" ? devStyle.primaryHex : undefined }} />
+                <span className="hidden xs:inline">Tag Dev</span>
+                <span className="xs:hidden">Dev</span>
+                <Badge
+                  variant="outline"
+                  className="text-[9px] font-mono px-1.5 py-0 font-bold hidden sm:inline-flex"
+                  style={
+                    activeTab === "dev"
+                      ? {
+                          borderColor: `${devStyle.primaryHex}40`,
+                          color: devStyle.primaryHex,
+                          backgroundColor: `${devStyle.primaryHex}15`,
+                        }
+                      : undefined
+                  }
+                >
+                  {activeDevPermissions.length}
+                </Badge>
+              </button>
 
-            {/* Botão Tag CEO */}
-            <button
-              type="button"
-              onClick={() => setActiveTab("ceo")}
-              className={cn(
-                "flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-black transition-all cursor-pointer select-none",
-                activeTab === "ceo"
-                  ? "shadow-sm scale-[1.02]"
-                  : "text-muted-foreground hover:text-foreground hover:bg-secondary/60 opacity-80"
-              )}
-              style={
-                activeTab === "ceo"
-                  ? {
-                      backgroundColor: `${ceoStyle.primaryHex}25`,
-                      color: ceoStyle.primaryHex,
-                      border: `1px solid ${ceoStyle.primaryHex}60`,
-                      boxShadow: `0 2px 10px ${ceoStyle.primaryHex}25`,
-                    }
-                  : undefined
-              }
-              title="Alternar para Permissões da Tag CEO"
-            >
-              <CeoIcon className="h-3.5 w-3.5 shrink-0" style={{ color: activeTab === "ceo" ? ceoStyle.primaryHex : undefined }} />
-              <span className="hidden xs:inline">Tag CEO</span>
-              <span className="xs:hidden">CEO</span>
-              <Badge
-                variant="outline"
-                className="text-[9px] font-mono px-1.5 py-0 font-bold hidden sm:inline-flex"
+              {/* Botão Tag CEO */}
+              <button
+                type="button"
+                onClick={() => setActiveTab("ceo")}
+                className={cn(
+                  "flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-black transition-all cursor-pointer select-none",
+                  activeTab === "ceo"
+                    ? "shadow-sm scale-[1.02]"
+                    : "text-muted-foreground hover:text-foreground hover:bg-secondary/60 opacity-80"
+                )}
                 style={
                   activeTab === "ceo"
                     ? {
-                        borderColor: `${ceoStyle.primaryHex}40`,
+                        backgroundColor: `${ceoStyle.primaryHex}25`,
                         color: ceoStyle.primaryHex,
-                        backgroundColor: `${ceoStyle.primaryHex}15`,
+                        border: `1px solid ${ceoStyle.primaryHex}60`,
+                        boxShadow: `0 2px 10px ${ceoStyle.primaryHex}25`,
                       }
                     : undefined
                 }
+                title="Alternar para Permissões da Tag CEO"
               >
-                {activeCeoPermissions.length}
-              </Badge>
-            </button>
-          </div>
+                <CeoIcon className="h-3.5 w-3.5 shrink-0" style={{ color: activeTab === "ceo" ? ceoStyle.primaryHex : undefined }} />
+                <span className="hidden xs:inline">Tag CEO</span>
+                <span className="xs:hidden">CEO</span>
+                <Badge
+                  variant="outline"
+                  className="text-[9px] font-mono px-1.5 py-0 font-bold hidden sm:inline-flex"
+                  style={
+                    activeTab === "ceo"
+                      ? {
+                          borderColor: `${ceoStyle.primaryHex}40`,
+                          color: ceoStyle.primaryHex,
+                          backgroundColor: `${ceoStyle.primaryHex}15`,
+                        }
+                      : undefined
+                  }
+                >
+                  {activeCeoPermissions.length}
+                </Badge>
+              </button>
+            </div>
 
-          {/* Divisor vertical */}
-          <div className="h-6 w-px bg-border/60 shrink-0" />
+            {/* Divisor vertical */}
+            <div className="h-6 w-px bg-border/60 shrink-0" />
 
-          {/* Filtro de Categorias no Balão Flutuante */}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
+            {/* Filtro de Categorias no Balão Flutuante */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className={cn(
+                    "h-8 sm:h-8.5 px-2.5 sm:px-3 text-xs font-bold gap-1.5 rounded-xl border-border/80 hover:bg-secondary/80 cursor-pointer shadow-xs transition-all text-foreground shrink-0",
+                    (activeTab === "dev" ? devCategoryFilter : ceoCategoryFilter) !== "all" &&
+                      "border-primary/50 shadow-sm"
+                  )}
+                  style={
+                    (activeTab === "dev" ? devCategoryFilter : ceoCategoryFilter) !== "all"
+                      ? {
+                          borderColor: activeTab === "dev" ? `${devStyle.primaryHex}70` : `${ceoStyle.primaryHex}70`,
+                          backgroundColor: activeTab === "dev" ? `${devStyle.primaryHex}15` : `${ceoStyle.primaryHex}15`,
+                          color: activeTab === "dev" ? devStyle.primaryHex : ceoStyle.primaryHex,
+                        }
+                      : undefined
+                  }
+                  title="Filtrar por categoria de permissões"
+                >
+                  <Filter
+                    className="h-3.5 w-3.5 shrink-0"
+                    style={{
+                      color:
+                        (activeTab === "dev" ? devCategoryFilter : ceoCategoryFilter) !== "all"
+                          ? activeTab === "dev"
+                            ? devStyle.primaryHex
+                            : ceoStyle.primaryHex
+                          : undefined,
+                    }}
+                  />
+                  <span className="max-w-[80px] sm:max-w-[130px] truncate text-left">
+                    {(activeTab === "dev" ? devCategoryFilter : ceoCategoryFilter) === "all"
+                      ? "Categorias"
+                      : (activeTab === "dev" ? devCategoryFilter : ceoCategoryFilter)}
+                  </span>
+                  <ChevronUp className="h-3 w-3 opacity-60 shrink-0" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent
+                side="top"
+                align="center"
+                sideOffset={10}
+                className="w-56 max-h-[300px] overflow-y-auto z-[10000] p-1.5 rounded-xl border-border/80 shadow-2xl bg-card/95 backdrop-blur-xl"
+              >
+                <DropdownMenuLabel className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider px-2 py-1">
+                  Categorias ({activeTab === "dev" ? "Tag Dev" : "Tag CEO"})
+                </DropdownMenuLabel>
+                <DropdownMenuSeparator className="my-1" />
+                <DropdownMenuItem
+                  onClick={() => {
+                    if (activeTab === "dev") {
+                      setDevCategoryFilter("all");
+                    } else {
+                      setCeoCategoryFilter("all");
+                    }
+                  }}
+                  className={cn(
+                    "text-xs font-medium cursor-pointer rounded-lg px-2 py-1.5 flex items-center justify-between",
+                    (activeTab === "dev" ? devCategoryFilter : ceoCategoryFilter) === "all" &&
+                      "font-bold bg-secondary/80 text-foreground"
+                  )}
+                >
+                  <span>Todas as Categorias</span>
+                  {(activeTab === "dev" ? devCategoryFilter : ceoCategoryFilter) === "all" && (
+                    <Check className="h-3.5 w-3.5 text-primary shrink-0" />
+                  )}
+                </DropdownMenuItem>
+                {(activeTab === "dev" ? devGroups : ceoGroups).map((g) => {
+                  const isSelected =
+                    (activeTab === "dev" ? devCategoryFilter : ceoCategoryFilter) === g.category;
+                  return (
+                    <DropdownMenuItem
+                      key={`float-cat-${g.category}`}
+                      onClick={() => {
+                        if (activeTab === "dev") {
+                          setDevCategoryFilter(g.category);
+                        } else {
+                          setCeoCategoryFilter(g.category);
+                        }
+                      }}
+                      className={cn(
+                        "text-xs font-medium cursor-pointer rounded-lg px-2 py-1.5 flex items-center justify-between",
+                        isSelected && "font-bold bg-secondary/80 text-foreground"
+                      )}
+                    >
+                      <span className="truncate pr-2">{g.category}</span>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <span className="text-[10px] text-muted-foreground font-mono">
+                          ({g.cards.length})
+                        </span>
+                        {isSelected && <Check className="h-3.5 w-3.5 text-primary shrink-0" />}
+                      </div>
+                    </DropdownMenuItem>
+                  );
+                })}
+              </DropdownMenuContent>
+            </DropdownMenu>
+
+            {/* Divisor vertical */}
+            <div className="h-6 w-px bg-border/60 shrink-0" />
+
+            {/* Opção de Rolagem: Ir para o Final quando no Topo, Ir para o Início quando no Final */}
+            {isAtTop ? (
               <Button
                 type="button"
                 size="sm"
                 variant="outline"
-                className={cn(
-                  "h-8 sm:h-8.5 px-2.5 sm:px-3 text-xs font-bold gap-1.5 rounded-xl border-border/80 hover:bg-secondary/80 cursor-pointer shadow-xs transition-all text-foreground shrink-0",
-                  (activeTab === "dev" ? devCategoryFilter : ceoCategoryFilter) !== "all" &&
-                    "border-primary/50 shadow-sm"
-                )}
-                style={
-                  (activeTab === "dev" ? devCategoryFilter : ceoCategoryFilter) !== "all"
-                    ? {
-                        borderColor: activeTab === "dev" ? `${devStyle.primaryHex}70` : `${ceoStyle.primaryHex}70`,
-                        backgroundColor: activeTab === "dev" ? `${devStyle.primaryHex}15` : `${ceoStyle.primaryHex}15`,
-                        color: activeTab === "dev" ? devStyle.primaryHex : ceoStyle.primaryHex,
-                      }
-                    : undefined
-                }
-                title="Filtrar por categoria de permissões"
-              >
-                <Filter
-                  className="h-3.5 w-3.5 shrink-0"
-                  style={{
-                    color:
-                      (activeTab === "dev" ? devCategoryFilter : ceoCategoryFilter) !== "all"
-                        ? activeTab === "dev"
-                          ? devStyle.primaryHex
-                          : ceoStyle.primaryHex
-                        : undefined,
-                  }}
-                />
-                <span className="max-w-[80px] sm:max-w-[130px] truncate text-left">
-                  {(activeTab === "dev" ? devCategoryFilter : ceoCategoryFilter) === "all"
-                    ? "Categorias"
-                    : (activeTab === "dev" ? devCategoryFilter : ceoCategoryFilter)}
-                </span>
-                <ChevronUp className="h-3 w-3 opacity-60 shrink-0" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent
-              side="top"
-              align="center"
-              sideOffset={8}
-              className="w-56 max-h-[300px] overflow-y-auto z-[10000] p-1.5 rounded-xl border-border/80 shadow-2xl bg-card/95 backdrop-blur-xl"
-            >
-              <DropdownMenuLabel className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider px-2 py-1">
-                Categorias ({activeTab === "dev" ? "Tag Dev" : "Tag CEO"})
-              </DropdownMenuLabel>
-              <DropdownMenuSeparator className="my-1" />
-              <DropdownMenuItem
                 onClick={() => {
-                  if (activeTab === "dev") {
-                    setDevCategoryFilter("all");
-                  } else {
-                    setCeoCategoryFilter("all");
-                  }
+                  window.scrollTo({
+                    top: document.documentElement.scrollHeight,
+                    behavior: "smooth",
+                  });
                 }}
-                className={cn(
-                  "text-xs font-medium cursor-pointer rounded-lg px-2 py-1.5 flex items-center justify-between",
-                  (activeTab === "dev" ? devCategoryFilter : ceoCategoryFilter) === "all" &&
-                    "font-bold bg-secondary/80 text-foreground"
-                )}
+                className="h-8 sm:h-8.5 px-2.5 sm:px-3 text-xs font-bold gap-1.5 rounded-xl border-border/80 hover:bg-secondary/80 cursor-pointer shadow-xs transition-all text-foreground hover:border-primary/50 shrink-0"
+                title="Ir para o final da página"
               >
-                <span>Todas as Categorias</span>
-                {(activeTab === "dev" ? devCategoryFilter : ceoCategoryFilter) === "all" && (
-                  <Check className="h-3.5 w-3.5 text-primary shrink-0" />
-                )}
-              </DropdownMenuItem>
-              {(activeTab === "dev" ? devGroups : ceoGroups).map((g) => {
-                const isSelected =
-                  (activeTab === "dev" ? devCategoryFilter : ceoCategoryFilter) === g.category;
-                return (
-                  <DropdownMenuItem
-                    key={`float-cat-${g.category}`}
-                    onClick={() => {
-                      if (activeTab === "dev") {
-                        setDevCategoryFilter(g.category);
-                      } else {
-                        setCeoCategoryFilter(g.category);
-                      }
-                    }}
-                    className={cn(
-                      "text-xs font-medium cursor-pointer rounded-lg px-2 py-1.5 flex items-center justify-between",
-                      isSelected && "font-bold bg-secondary/80 text-foreground"
-                    )}
-                  >
-                    <span className="truncate pr-2">{g.category}</span>
-                    <div className="flex items-center gap-1.5 shrink-0">
-                      <span className="text-[10px] text-muted-foreground font-mono">
-                        ({g.cards.length})
-                      </span>
-                      {isSelected && <Check className="h-3.5 w-3.5 text-primary shrink-0" />}
-                    </div>
-                  </DropdownMenuItem>
-                );
-              })}
-            </DropdownMenuContent>
-          </DropdownMenu>
-
-          {/* Divisor vertical */}
-          <div className="h-6 w-px bg-border/60 shrink-0" />
-
-          {/* Opção de Rolagem: Ir para o Final quando no Topo, Ir para o Início quando no Final */}
-          {isAtTop ? (
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              onClick={() => {
-                window.scrollTo({
-                  top: document.documentElement.scrollHeight,
-                  behavior: "smooth",
-                });
-              }}
-              className="h-8 sm:h-8.5 px-2.5 sm:px-3 text-xs font-bold gap-1.5 rounded-xl border-border/80 hover:bg-secondary/80 cursor-pointer shadow-xs transition-all text-foreground hover:border-primary/50 shrink-0"
-              title="Ir para o final da página"
-            >
-              <ChevronsDown className="h-3.5 w-3.5 text-primary animate-bounce shrink-0" />
-              <span className="hidden sm:inline">Ir para o final</span>
-              <span className="sm:hidden">Final</span>
-            </Button>
-          ) : (
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              onClick={() => {
-                window.scrollTo({
-                  top: 0,
-                  behavior: "smooth",
-                });
-              }}
-              className="h-8 sm:h-8.5 px-2.5 sm:px-3 text-xs font-bold gap-1.5 rounded-xl border-border/80 hover:bg-secondary/80 cursor-pointer shadow-xs transition-all text-foreground hover:border-primary/50 shrink-0"
-              title="Voltar ao início da página"
-            >
-              <ChevronsUp className="h-3.5 w-3.5 text-primary animate-bounce shrink-0" />
-              <span className="hidden sm:inline">Ir para o início</span>
-              <span className="sm:hidden">Início</span>
-            </Button>
-          )}
+                <ChevronsDown className="h-3.5 w-3.5 text-primary animate-bounce shrink-0" />
+                <span className="hidden sm:inline">Ir para o final</span>
+                <span className="sm:hidden">Final</span>
+              </Button>
+            ) : (
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={() => {
+                  window.scrollTo({
+                    top: 0,
+                    behavior: "smooth",
+                  });
+                }}
+                className="h-8 sm:h-8.5 px-2.5 sm:px-3 text-xs font-bold gap-1.5 rounded-xl border-border/80 hover:bg-secondary/80 cursor-pointer shadow-xs transition-all text-foreground hover:border-primary/50 shrink-0"
+                title="Voltar ao início da página"
+              >
+                <ChevronsUp className="h-3.5 w-3.5 text-primary animate-bounce shrink-0" />
+                <span className="hidden sm:inline">Ir para o início</span>
+                <span className="sm:hidden">Início</span>
+              </Button>
+            )}
+          </div>
         </div>,
         document.body
       )}
