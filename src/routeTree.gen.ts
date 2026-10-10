@@ -13,6 +13,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as HandleRouteImport } from './routes/$handle'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as AuthenticatedAdvertenciasRouteImport } from './routes/_authenticated/advertencias'
+import { Route as AuthenticatedAtendimentoTicketsRouteImport } from './routes/_authenticated/atendimento-tickets'
 import { Route as AuthenticatedAtualizacoesRouteImport } from './routes/_authenticated/atualizacoes'
 import { Route as AuthenticatedAusenciasRouteImport } from './routes/_authenticated/ausencias'
 import { Route as AuthenticatedAvisosRouteImport } from './routes/_authenticated/avisos'
@@ -51,6 +52,7 @@ import { Route as AuthenticatedVendasRouteImport } from './routes/_authenticated
 import { Route as AuthCallbackRouteImport } from './routes/auth.callback'
 import { Route as DevDiscordIdRouteImport } from './routes/dev.$discordId'
 import { Route as DevmlcDiscordIdRouteImport } from './routes/devmlc.$discordId'
+import { Route as AuthenticatedAtendimentoTicketsTabRouteImport } from './routes/_authenticated/atendimento-tickets.$tab'
 import { Route as AuthenticatedAusenciasTabRouteImport } from './routes/_authenticated/ausencias.$tab'
 import { Route as AuthenticatedCeoTabRouteImport } from './routes/_authenticated/ceo.$tab'
 import { Route as AuthenticatedCeoAdvertenciasRouteImport } from './routes/_authenticated/ceo.advertencias'
@@ -130,6 +132,12 @@ const AuthenticatedAdvertenciasRoute =
   AuthenticatedAdvertenciasRouteImport.update({
     id: '/advertencias',
     path: '/advertencias',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedAtendimentoTicketsRoute =
+  AuthenticatedAtendimentoTicketsRouteImport.update({
+    id: '/atendimento-tickets',
+    path: '/atendimento-tickets',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
 const AuthenticatedAtualizacoesRoute =
@@ -331,6 +339,12 @@ const DevmlcDiscordIdRoute = DevmlcDiscordIdRouteImport.update({
   path: '/devmlc/$discordId',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthenticatedAtendimentoTicketsTabRoute =
+  AuthenticatedAtendimentoTicketsTabRouteImport.update({
+    id: '/$tab',
+    path: '/$tab',
+    getParentRoute: () => AuthenticatedAtendimentoTicketsRoute,
+  } as any)
 const AuthenticatedAusenciasTabRoute =
   AuthenticatedAusenciasTabRouteImport.update({
     id: '/$tab',
@@ -681,6 +695,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/$handle': typeof HandleRoute
   '/advertencias': typeof AuthenticatedAdvertenciasRoute
+  '/atendimento-tickets': typeof AuthenticatedAtendimentoTicketsRouteWithChildren
   '/atualizacoes': typeof AuthenticatedAtualizacoesRoute
   '/ausencias': typeof AuthenticatedAusenciasRouteWithChildren
   '/avisos': typeof AuthenticatedAvisosRoute
@@ -719,6 +734,7 @@ export interface FileRoutesByFullPath {
   '/auth/callback': typeof AuthCallbackRoute
   '/dev/$discordId': typeof DevDiscordIdRoute
   '/devmlc/$discordId': typeof DevmlcDiscordIdRoute
+  '/atendimento-tickets/$tab': typeof AuthenticatedAtendimentoTicketsTabRoute
   '/ausencias/$tab': typeof AuthenticatedAusenciasTabRoute
   '/ceo/$tab': typeof AuthenticatedCeoTabRouteWithChildren
   '/ceo/advertencias': typeof AuthenticatedCeoAdvertenciasRoute
@@ -784,6 +800,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/$handle': typeof HandleRoute
   '/advertencias': typeof AuthenticatedAdvertenciasRoute
+  '/atendimento-tickets': typeof AuthenticatedAtendimentoTicketsRouteWithChildren
   '/atualizacoes': typeof AuthenticatedAtualizacoesRoute
   '/ausencias': typeof AuthenticatedAusenciasRouteWithChildren
   '/avisos': typeof AuthenticatedAvisosRoute
@@ -822,6 +839,7 @@ export interface FileRoutesByTo {
   '/auth/callback': typeof AuthCallbackRoute
   '/dev/$discordId': typeof DevDiscordIdRoute
   '/devmlc/$discordId': typeof DevmlcDiscordIdRoute
+  '/atendimento-tickets/$tab': typeof AuthenticatedAtendimentoTicketsTabRoute
   '/ausencias/$tab': typeof AuthenticatedAusenciasTabRoute
   '/ceo/$tab': typeof AuthenticatedCeoTabRouteWithChildren
   '/ceo/advertencias': typeof AuthenticatedCeoAdvertenciasRoute
@@ -889,6 +907,7 @@ export interface FileRoutesById {
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/$handle': typeof HandleRoute
   '/_authenticated/advertencias': typeof AuthenticatedAdvertenciasRoute
+  '/_authenticated/atendimento-tickets': typeof AuthenticatedAtendimentoTicketsRouteWithChildren
   '/_authenticated/atualizacoes': typeof AuthenticatedAtualizacoesRoute
   '/_authenticated/ausencias': typeof AuthenticatedAusenciasRouteWithChildren
   '/_authenticated/avisos': typeof AuthenticatedAvisosRoute
@@ -927,6 +946,7 @@ export interface FileRoutesById {
   '/auth/callback': typeof AuthCallbackRoute
   '/dev/$discordId': typeof DevDiscordIdRoute
   '/devmlc/$discordId': typeof DevmlcDiscordIdRoute
+  '/_authenticated/atendimento-tickets/$tab': typeof AuthenticatedAtendimentoTicketsTabRoute
   '/_authenticated/ausencias/$tab': typeof AuthenticatedAusenciasTabRoute
   '/_authenticated/ceo/$tab': typeof AuthenticatedCeoTabRouteWithChildren
   '/_authenticated/ceo/advertencias': typeof AuthenticatedCeoAdvertenciasRoute
@@ -994,6 +1014,7 @@ export interface FileRouteTypes {
     | '/'
     | '/$handle'
     | '/advertencias'
+    | '/atendimento-tickets'
     | '/atualizacoes'
     | '/ausencias'
     | '/avisos'
@@ -1032,6 +1053,7 @@ export interface FileRouteTypes {
     | '/auth/callback'
     | '/dev/$discordId'
     | '/devmlc/$discordId'
+    | '/atendimento-tickets/$tab'
     | '/ausencias/$tab'
     | '/ceo/$tab'
     | '/ceo/advertencias'
@@ -1097,6 +1119,7 @@ export interface FileRouteTypes {
     | '/'
     | '/$handle'
     | '/advertencias'
+    | '/atendimento-tickets'
     | '/atualizacoes'
     | '/ausencias'
     | '/avisos'
@@ -1135,6 +1158,7 @@ export interface FileRouteTypes {
     | '/auth/callback'
     | '/dev/$discordId'
     | '/devmlc/$discordId'
+    | '/atendimento-tickets/$tab'
     | '/ausencias/$tab'
     | '/ceo/$tab'
     | '/ceo/advertencias'
@@ -1201,6 +1225,7 @@ export interface FileRouteTypes {
     | '/_authenticated'
     | '/$handle'
     | '/_authenticated/advertencias'
+    | '/_authenticated/atendimento-tickets'
     | '/_authenticated/atualizacoes'
     | '/_authenticated/ausencias'
     | '/_authenticated/avisos'
@@ -1239,6 +1264,7 @@ export interface FileRouteTypes {
     | '/auth/callback'
     | '/dev/$discordId'
     | '/devmlc/$discordId'
+    | '/_authenticated/atendimento-tickets/$tab'
     | '/_authenticated/ausencias/$tab'
     | '/_authenticated/ceo/$tab'
     | '/_authenticated/ceo/advertencias'
@@ -1339,6 +1365,13 @@ declare module '@tanstack/react-router' {
       path: '/advertencias'
       fullPath: '/advertencias'
       preLoaderRoute: typeof AuthenticatedAdvertenciasRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/atendimento-tickets': {
+      id: '/_authenticated/atendimento-tickets'
+      path: '/atendimento-tickets'
+      fullPath: '/atendimento-tickets'
+      preLoaderRoute: typeof AuthenticatedAtendimentoTicketsRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/atualizacoes': {
@@ -1606,6 +1639,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/devmlc/$discordId'
       preLoaderRoute: typeof DevmlcDiscordIdRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/_authenticated/atendimento-tickets/$tab': {
+      id: '/_authenticated/atendimento-tickets/$tab'
+      path: '/$tab'
+      fullPath: '/atendimento-tickets/$tab'
+      preLoaderRoute: typeof AuthenticatedAtendimentoTicketsTabRouteImport
+      parentRoute: typeof AuthenticatedAtendimentoTicketsRoute
     }
     '/_authenticated/ausencias/$tab': {
       id: '/_authenticated/ausencias/$tab'
@@ -2030,6 +2070,21 @@ declare module '@tanstack/react-router' {
   }
 }
 
+interface AuthenticatedAtendimentoTicketsRouteChildren {
+  AuthenticatedAtendimentoTicketsTabRoute: typeof AuthenticatedAtendimentoTicketsTabRoute
+}
+
+const AuthenticatedAtendimentoTicketsRouteChildren: AuthenticatedAtendimentoTicketsRouteChildren =
+  {
+    AuthenticatedAtendimentoTicketsTabRoute:
+      AuthenticatedAtendimentoTicketsTabRoute,
+  }
+
+const AuthenticatedAtendimentoTicketsRouteWithChildren =
+  AuthenticatedAtendimentoTicketsRoute._addFileChildren(
+    AuthenticatedAtendimentoTicketsRouteChildren,
+  )
+
 interface AuthenticatedAusenciasRouteChildren {
   AuthenticatedAusenciasTabRoute: typeof AuthenticatedAusenciasTabRoute
 }
@@ -2263,6 +2318,7 @@ const AuthenticatedDevEstoqueRouteWithChildren =
 
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedAdvertenciasRoute: typeof AuthenticatedAdvertenciasRoute
+  AuthenticatedAtendimentoTicketsRoute: typeof AuthenticatedAtendimentoTicketsRouteWithChildren
   AuthenticatedAtualizacoesRoute: typeof AuthenticatedAtualizacoesRoute
   AuthenticatedAusenciasRoute: typeof AuthenticatedAusenciasRouteWithChildren
   AuthenticatedAvisosRoute: typeof AuthenticatedAvisosRoute
@@ -2330,6 +2386,8 @@ interface AuthenticatedRouteRouteChildren {
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedAdvertenciasRoute: AuthenticatedAdvertenciasRoute,
+  AuthenticatedAtendimentoTicketsRoute:
+    AuthenticatedAtendimentoTicketsRouteWithChildren,
   AuthenticatedAtualizacoesRoute: AuthenticatedAtualizacoesRoute,
   AuthenticatedAusenciasRoute: AuthenticatedAusenciasRouteWithChildren,
   AuthenticatedAvisosRoute: AuthenticatedAvisosRoute,

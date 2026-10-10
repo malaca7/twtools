@@ -13,6 +13,7 @@ import { MovimentacoesPage } from "@/routes/_authenticated/movimentacoes";
 import { VendasPage } from "@/routes/_authenticated/vendas";
 import { LivesPage } from "@/routes/_authenticated/lives";
 import { TicketsPage } from "@/routes/_authenticated/tickets";
+import { AtendimentoTicketsPage } from "@/routes/_authenticated/atendimento-tickets";
 import { EstoquePage } from "@/routes/_authenticated/estoque";
 import { MembrosPage } from "@/routes/_authenticated/membros";
 import { HierarquiaPage } from "@/routes/_authenticated/hierarquia";
@@ -69,6 +70,9 @@ const PAGE_PERMISSION_MAP: Record<string, Permission | null> = {
   gestao: "production_management.view",
   lives: "view_lives",
   tickets: "view_tickets",
+  "atendimento-tickets": "atendimento_tickets.view" as Permission,
+  "atendimento-ticket": "atendimento_tickets.view" as Permission,
+  atendimento: "atendimento_tickets.view" as Permission,
   controledeestoque: "view_stock",
   "controle-estoque": "view_stock",
   estoque: "view_stock",
@@ -270,7 +274,41 @@ function InnerPageResolver({ page, tab, mode }: { page: string; tab?: string; mo
     }
   }
 
-  if (requiredPerm && !hasPermission(requiredPerm, mode) && mode !== "dev") {
+  if (normalizedPage === "configuracoes") {
+    const canAccessConfig =
+      hasPermission("manage_platform_settings", mode) ||
+      hasPermission("manage_menu_settings", mode) ||
+      hasPermission("manage_permissions", mode) ||
+      hasPermission("manage_roles", mode);
+    if (!canAccessConfig && mode !== "dev") {
+      return <NoAccess message="Você não tem permissão para acessar a área de Configurações." />;
+    }
+  } else if (normalizedPage === "tickets") {
+    const canAccessTickets =
+      hasPermission("view_tickets", mode) ||
+      hasPermission("view_all_tickets", mode) ||
+      hasPermission("manage_tickets", mode) ||
+      hasPermission("create_ticket", mode) ||
+      hasPermission("reply_tickets", mode);
+    if (!canAccessTickets && mode !== "dev") {
+      return <NoAccess message="Você não tem permissão para acessar a área de Tickets / Ouvidoria." />;
+    }
+  } else if (
+    normalizedPage === "atendimento-tickets" ||
+    normalizedPage === "atendimento-ticket" ||
+    normalizedPage === "atendimento"
+  ) {
+    const canAccessAtendimento =
+      hasPermission("atendimento_tickets.view" as Permission, mode) ||
+      hasPermission("view_all_tickets", mode) ||
+      hasPermission("manage_tickets", mode) ||
+      hasPermission("claim_tickets", mode);
+    if (!canAccessAtendimento && mode !== "dev") {
+      return (
+        <NoAccess message="Você não tem permissão para acessar a central de Atendimento de Tickets." />
+      );
+    }
+  } else if (requiredPerm && !hasPermission(requiredPerm, mode) && mode !== "dev") {
     return <NoAccess />;
   }
 
@@ -324,6 +362,10 @@ function InnerPageResolver({ page, tab, mode }: { page: string; tab?: string; mo
       return <Navigate to="/dashboard" replace />;
     case "tickets":
       return <TicketsPage />;
+    case "atendimento-tickets":
+    case "atendimento-ticket":
+    case "atendimento":
+      return <AtendimentoTicketsPage />;
     case "controledeestoque":
     case "controle-estoque":
     case "estoque":

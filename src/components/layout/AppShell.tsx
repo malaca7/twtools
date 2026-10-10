@@ -36,6 +36,7 @@ import {
   Sparkles,
   Flame,
   LifeBuoy,
+  Headphones,
   Crown,
   ExternalLink,
   Bot,
@@ -93,6 +94,7 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 import { Brand } from "@/components/Brand";
+import { PullToRefresh } from "@/components/layout/PullToRefresh";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -158,6 +160,7 @@ const MASTER_NAV_ITEMS: MasterNavItem[] = [
   { id: "escalas", title: "Escala de Ação", url: "/escalas", icon: Swords, perm: "escalas.view", defaultCat: "Gestão", defaultOrder: 5.5 },
   { id: "movimentacoes", title: "Movimentações", url: "/movimentacoes", icon: ArrowLeftRight, perm: "view_movements", defaultCat: "Gestão", defaultOrder: 6 },
   { id: "tickets", title: "Tickets / Ouvidoria", url: "/tickets", icon: LifeBuoy, perm: "view_tickets", defaultCat: "Gestão", defaultOrder: 7 },
+  { id: "atendimento-tickets", title: "Atendimento Ticket", url: "/atendimento-tickets", icon: Headphones, perm: "atendimento_tickets.view" as Permission, defaultCat: "Administração", defaultOrder: 7.5 },
   { id: "loja", title: "Loja Twin Wheels", url: "/loja", icon: ShoppingBag, perm: "view_shop", defaultCat: "Gestão", defaultOrder: 8 },
   { id: "estoque", title: "Controle de Estoque", url: "/controledeestoque", icon: Boxes, perm: "view_stock", defaultCat: "Gestão", defaultOrder: 9 },
   { id: "gestao-estoque", title: "Gestão de Estoque", url: "/gestao-estoque", icon: PackageCheck, perm: "view_stock_management", defaultCat: "Gestão", defaultOrder: 10 },
@@ -194,6 +197,7 @@ const URL_TO_PERMISSION_MAP: Record<string, Permission> = {
   "/gestao-producao": "production_management.view",
   "/producoes": "productions.view",
   "/tickets": "view_tickets",
+  "/atendimento-tickets": "atendimento_tickets.view" as Permission,
   "/loja": "view_shop",
   "/controledeestoque": "view_stock",
   "/estoque": "view_stock",
@@ -366,6 +370,7 @@ function resolveRequiredPermission(id?: string, url?: string): Permission | unde
     if (withoutPrefix.startsWith("/advertencias")) return "view_warnings";
     if (withoutPrefix.startsWith("/configuracoes")) return "manage_platform_settings";
     if (withoutPrefix.startsWith("/atualizacoes")) return "view_patch_notes";
+    if (withoutPrefix.startsWith("/atendimento-tickets")) return "atendimento_tickets.view" as Permission;
     if (withoutPrefix.startsWith("/tickets")) return "view_tickets";
     if (withoutPrefix.startsWith("/loja")) return "view_shop";
     if (withoutPrefix.startsWith("/dashboard")) return "view_dashboard";
@@ -813,6 +818,21 @@ function DynamicSidebarNavigation() {
           if (!hasDevPerm && !hasCeoPerm) return false;
           return true;
         }
+        if (item.id === "atendimento-tickets" || item.url === "/atendimento-tickets") {
+          const canAccessAtendimento =
+            hasPermission("atendimento_tickets.view" as Permission, "dev") ||
+            hasPermission("view_all_tickets", "dev") ||
+            hasPermission("manage_tickets", "dev") ||
+            hasPermission("claim_tickets", "dev");
+          const canCeoAccess = isCeoUser && (
+            hasPermission("atendimento_tickets.view" as Permission, "ceo") ||
+            hasPermission("view_all_tickets", "ceo") ||
+            hasPermission("manage_tickets", "ceo") ||
+            hasPermission("claim_tickets", "ceo")
+          );
+          if (!canAccessAtendimento && !canCeoAccess) return false;
+          return true;
+        }
         const reqPerm = item.perm || resolveRequiredPermission(item.id, item.url);
         const hasDevPerm = reqPerm ? hasPermission(reqPerm, "dev") : true;
         const hasCeoPerm = isCeoUser && reqPerm ? hasPermission(reqPerm, "ceo") : false;
@@ -863,6 +883,15 @@ function DynamicSidebarNavigation() {
           }
           return true;
         }
+        if (item.id === "atendimento-tickets" || item.url === "/atendimento-tickets") {
+          const canAccessAtendimento =
+            hasPermission("atendimento_tickets.view" as Permission, "ceo") ||
+            hasPermission("view_all_tickets", "ceo") ||
+            hasPermission("manage_tickets", "ceo") ||
+            hasPermission("claim_tickets", "ceo");
+          if (!canAccessAtendimento) return false;
+          return true;
+        }
         const reqPerm = item.perm || resolveRequiredPermission(item.id, item.url);
         if (reqPerm && !hasPermission(reqPerm, "ceo")) return false;
         return true;
@@ -908,6 +937,15 @@ function DynamicSidebarNavigation() {
         if (!hasPermission("verification.view_page", "member")) {
           return false;
         }
+        return true;
+      }
+      if (item.id === "atendimento-tickets" || item.url === "/atendimento-tickets") {
+        const canAccessAtendimento =
+          hasPermission("atendimento_tickets.view" as Permission, "member") ||
+          hasPermission("view_all_tickets", "member") ||
+          hasPermission("manage_tickets", "member") ||
+          hasPermission("claim_tickets", "member");
+        if (!canAccessAtendimento) return false;
         return true;
       }
       const requiredPerm = item.perm || resolveRequiredPermission(item.id, item.url);
@@ -1252,6 +1290,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   return (
     <SidebarProvider>
+      <PullToRefresh />
       <div className="flex min-h-screen w-full">
         <Sidebar collapsible="icon" className="border-r border-sidebar-border select-none">
           <SidebarHeader className="px-3.5 py-4 shrink-0 border-b border-sidebar-border/40 group-data-[collapsible=icon]:p-2 group-data-[collapsible=icon]:border-b-0 group-data-[collapsible=icon]:justify-center">

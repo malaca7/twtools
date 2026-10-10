@@ -52,6 +52,7 @@ import {
   MessageSquare,
   CalendarOff,
   LifeBuoy,
+  Headphones,
   Search,
   ExternalLink,
   Globe,
@@ -128,6 +129,7 @@ const ICON_MAP: Record<string, typeof LayoutDashboard> = {
   "/vendas": ShoppingCart,
   "/lives": Radio,
   "/tickets": LifeBuoy,
+  "/atendimento-tickets": Headphones,
   "/controledeestoque": Boxes,
   "/estoque": Boxes,
   "/membros": Users,
@@ -1085,9 +1087,11 @@ export function ConfiguracoesPage() {
 
   const canAccess = canManagePlatform || canManageMenu;
 
+  const defaultTab = !canManagePlatform && canManageMenu ? "menu" : "plataforma";
+
   // Sincronização da aba ativa com a URL (?tab=plataforma | menu | notificacoes | aparencia | perfil)
   const [activeTab, setActiveTab] = useUrlTab<"plataforma" | "menu" | "notificacoes" | "aparencia" | "perfil">(
-    "plataforma",
+    defaultTab,
     {
       paramName: "tab",
       allowedTabs: ["plataforma", "menu", "notificacoes", "aparencia", "perfil"],

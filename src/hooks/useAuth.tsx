@@ -706,6 +706,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (!isBlocked && rules.can_view_all_tickets) {
         permsSet.add("view_tickets" as Permission);
         permsSet.add("view_all_tickets" as Permission);
+        permsSet.add("atendimento_tickets.view" as Permission);
       }
       if (!isBlocked && rules.can_create_announcements) {
         permsSet.add("create_announcements" as Permission);

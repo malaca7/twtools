@@ -2193,7 +2193,7 @@ html, body {
 @media (max-width: 768px), (pointer: coarse) {
   html, body {
     touch-action: manipulation;
-    overscroll-behavior-y: none;
+    overscroll-behavior-y: auto;
     -webkit-tap-highlight-color: transparent;
   }
 }

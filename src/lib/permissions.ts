@@ -167,6 +167,8 @@ export type Permission =
   | "reply_tickets"
   | "reply_ticket"
   | "view_all_tickets"
+  | "atendimento_tickets.view"
+  | "view_atendimento_tickets"
   | "claim_tickets"
   | "claim_ticket"
   | "transfer_tickets"
@@ -517,6 +519,8 @@ export const ALL_PERMISSIONS: Permission[] = [
   "reply_tickets",
   "reply_ticket",
   "view_all_tickets",
+  "atendimento_tickets.view",
+  "view_atendimento_tickets",
   "claim_tickets",
   "claim_ticket",
   "transfer_tickets",
@@ -941,6 +945,8 @@ const OFFICER: Permission[] = [
   "reply_tickets",
   "reply_ticket",
   "view_all_tickets",
+  "atendimento_tickets.view",
+  "view_atendimento_tickets",
   "claim_tickets",
   "claim_ticket",
   "transfer_tickets",
@@ -1137,6 +1143,8 @@ const MANAGER: Permission[] = [
   "reply_tickets",
   "reply_ticket",
   "view_all_tickets",
+  "atendimento_tickets.view",
+  "view_atendimento_tickets",
   "claim_tickets",
   "claim_ticket",
   "transfer_tickets",
@@ -1312,9 +1320,38 @@ export function satisfiesPermission(
   if (!list || !Array.isArray(list) || list.length === 0) return false;
   if (list.includes(permission)) return true;
 
-  // 1. Sistema de Tickets
+  // 1. Sistema de Tickets & Central de Atendimento
+  if (
+    permission === "atendimento_tickets.view" ||
+    permission === "view_atendimento_tickets"
+  ) {
+    if (
+      list.includes("atendimento_tickets.view") ||
+      list.includes("view_atendimento_tickets") ||
+      list.includes("view_all_tickets") ||
+      list.includes("manage_tickets") ||
+      list.includes("claim_tickets") ||
+      list.includes("claim_ticket")
+    ) {
+      return true;
+    }
+  }
+
+  if (permission === "view_all_tickets") {
+    if (
+      list.includes("view_all_tickets") ||
+      list.includes("atendimento_tickets.view") ||
+      list.includes("view_atendimento_tickets") ||
+      list.includes("manage_tickets")
+    ) {
+      return true;
+    }
+  }
+
   if (list.includes("manage_tickets")) {
     if (
+      permission === "atendimento_tickets.view" ||
+      permission === "view_atendimento_tickets" ||
       permission === "view_all_tickets" ||
       permission === "view_tickets" ||
       permission === "create_ticket" ||
@@ -1351,8 +1388,56 @@ export function satisfiesPermission(
   if (permission === "delete_tickets" && list.includes("delete_ticket")) return true;
   if (permission === "delete_ticket" && list.includes("delete_tickets")) return true;
 
-  if (list.includes("view_all_tickets") && permission === "view_tickets") {
+  // Qualquer permissão operacional de tickets implica acesso e visualização à página /tickets
+  if (
+    permission === "view_tickets" &&
+    (list.includes("view_all_tickets") ||
+      list.includes("manage_tickets") ||
+      list.includes("create_ticket") ||
+      list.includes("reply_tickets") ||
+      list.includes("reply_ticket") ||
+      list.includes("claim_tickets") ||
+      list.includes("claim_ticket") ||
+      list.includes("transfer_tickets") ||
+      list.includes("transfer_ticket") ||
+      list.includes("change_ticket_status") ||
+      list.includes("close_tickets") ||
+      list.includes("close_ticket") ||
+      list.includes("reopen_tickets") ||
+      list.includes("reopen_ticket") ||
+      list.includes("manage_ticket_members") ||
+      list.includes("internal_notes_tickets"))
+  ) {
     return true;
+  }
+
+  // Visualizar todos os tickets também permite responder por padrão
+  if (list.includes("view_all_tickets") && (permission === "reply_tickets" || permission === "reply_ticket")) {
+    return true;
+  }
+
+  // 1.1. Gestão de Menu e Configurações da Plataforma
+  if (permission === "manage_menu_settings") {
+    if (
+      list.includes("manage_menu_settings") ||
+      list.includes("manage_platform_settings") ||
+      list.includes("manage_dev_menu") ||
+      list.includes("manage_permissions") ||
+      list.includes("manage_roles")
+    ) {
+      return true;
+    }
+  }
+
+  if (permission === "manage_platform_settings") {
+    if (
+      list.includes("manage_platform_settings") ||
+      list.includes("manage_menu_settings") ||
+      list.includes("manage_permissions") ||
+      list.includes("manage_roles")
+    ) {
+      return true;
+    }
   }
 
   // 2. Sistema Life
@@ -1939,9 +2024,38 @@ export function can(
     if (satisfiesPermission(list, permission)) return true;
     if (list.includes(permission)) return true;
 
-    // Herança e equivalências do sistema de tickets
+    // Herança e equivalências do sistema de tickets & atendimento
+    if (
+      permission === "atendimento_tickets.view" ||
+      permission === "view_atendimento_tickets"
+    ) {
+      if (
+        list.includes("atendimento_tickets.view") ||
+        list.includes("view_atendimento_tickets") ||
+        list.includes("view_all_tickets") ||
+        list.includes("manage_tickets") ||
+        list.includes("claim_tickets") ||
+        list.includes("claim_ticket")
+      ) {
+        return true;
+      }
+    }
+
+    if (permission === "view_all_tickets") {
+      if (
+        list.includes("view_all_tickets") ||
+        list.includes("atendimento_tickets.view") ||
+        list.includes("view_atendimento_tickets") ||
+        list.includes("manage_tickets")
+      ) {
+        return true;
+      }
+    }
+
     if (list.includes("manage_tickets")) {
       if (
+        permission === "atendimento_tickets.view" ||
+        permission === "view_atendimento_tickets" ||
         permission === "view_all_tickets" ||
         permission === "view_tickets" ||
         permission === "create_ticket" ||
@@ -2344,11 +2458,41 @@ export function can(
   // Sem registro salvo no banco para este cargo: usa a matriz padrão do código (inclusive para "desenvolvedor").
 
   const rolePerms = PERMISSIONS[userLevel] || [];
+  if (satisfiesPermission(rolePerms, permission)) return true;
   if (rolePerms.includes(permission)) return true;
 
-  // Herança e equivalências padrão de tickets
+  // Herança e equivalências padrão de tickets & atendimento
+  if (
+    permission === "atendimento_tickets.view" ||
+    permission === "view_atendimento_tickets"
+  ) {
+    if (
+      rolePerms.includes("atendimento_tickets.view") ||
+      rolePerms.includes("view_atendimento_tickets") ||
+      rolePerms.includes("view_all_tickets") ||
+      rolePerms.includes("manage_tickets") ||
+      rolePerms.includes("claim_tickets") ||
+      rolePerms.includes("claim_ticket")
+    ) {
+      return true;
+    }
+  }
+
+  if (permission === "view_all_tickets") {
+    if (
+      rolePerms.includes("view_all_tickets") ||
+      rolePerms.includes("atendimento_tickets.view") ||
+      rolePerms.includes("view_atendimento_tickets") ||
+      rolePerms.includes("manage_tickets")
+    ) {
+      return true;
+    }
+  }
+
   if (rolePerms.includes("manage_tickets")) {
     if (
+      permission === "atendimento_tickets.view" ||
+      permission === "view_atendimento_tickets" ||
       permission === "view_all_tickets" ||
       permission === "view_tickets" ||
       permission === "create_ticket" ||

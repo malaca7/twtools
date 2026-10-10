@@ -90,6 +90,15 @@ export const DEFAULT_DEV_PERMISSIONS: DevPermissionResource[] = [
     editar: true,
     excluir: true,
   },
+  {
+    id: "tickets_ouvidoria",
+    name: "Tickets, Chamados & Ouvidoria",
+    description: "Atendimento completo, notas internas, transferências e encerramento de tickets",
+    visualizar: true,
+    criar: true,
+    editar: true,
+    excluir: true,
+  },
 ];
 
 export const DEFAULT_DEV_CONFIG: DevConfiguration = {
@@ -797,6 +806,8 @@ export const DEFAULT_CEO_PERMISSIONS: string[] = [
   "view_all_absences",
   "view_patch_notes",
   "view_tickets",
+  "atendimento_tickets.view",
+  "view_atendimento_tickets",
   "create_ticket",
   "reply_tickets",
   "view_all_tickets",

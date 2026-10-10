@@ -3529,6 +3529,15 @@ interface EffectiveTicketAuth {
   canCreate: boolean;
   canViewAll: boolean;
   canManage: boolean;
+  canReply: boolean;
+  canClaim: boolean;
+  canTransfer: boolean;
+  canChangeStatus: boolean;
+  canClose: boolean;
+  canReopen: boolean;
+  canDelete: boolean;
+  canManageMembers: boolean;
+  canInternalNotes: boolean;
   isSuperUser: boolean;
 }
 
@@ -3554,13 +3563,19 @@ async function getEffectiveTicketAuth(): Promise<EffectiveTicketAuth | null> {
 
   const customRoleMap = await getRolePermissions();
 
-  const canViewAll =
-    isSuperUser ||
-    can(userLevel, "view_all_tickets", customRoleMap) ||
-    can(userLevel, "manage_tickets", customRoleMap);
   const canManage = isSuperUser || can(userLevel, "manage_tickets", customRoleMap);
+  const canViewAll = isSuperUser || can(userLevel, "view_all_tickets", customRoleMap) || can(userLevel, "atendimento_tickets.view" as Permission, customRoleMap) || canManage;
   const canCreate = isSuperUser || can(userLevel, "create_ticket", customRoleMap) || canManage;
-  const canView = isSuperUser || can(userLevel, "view_tickets", customRoleMap) || canViewAll || canManage;
+  const canReply = isSuperUser || can(userLevel, "reply_tickets", customRoleMap) || can(userLevel, "reply_ticket", customRoleMap) || canManage || canViewAll;
+  const canClaim = isSuperUser || can(userLevel, "claim_tickets", customRoleMap) || can(userLevel, "claim_ticket", customRoleMap) || canManage;
+  const canTransfer = isSuperUser || can(userLevel, "transfer_tickets", customRoleMap) || can(userLevel, "transfer_ticket", customRoleMap) || canManage;
+  const canChangeStatus = isSuperUser || can(userLevel, "change_ticket_status", customRoleMap) || canManage;
+  const canClose = isSuperUser || can(userLevel, "close_tickets", customRoleMap) || can(userLevel, "close_ticket", customRoleMap) || canManage;
+  const canReopen = isSuperUser || can(userLevel, "reopen_tickets", customRoleMap) || can(userLevel, "reopen_ticket", customRoleMap) || canManage;
+  const canDelete = isSuperUser || can(userLevel, "delete_tickets", customRoleMap) || can(userLevel, "delete_ticket", customRoleMap) || canManage;
+  const canManageMembers = isSuperUser || can(userLevel, "manage_ticket_members", customRoleMap) || canManage;
+  const canInternalNotes = isSuperUser || can(userLevel, "internal_notes_tickets", customRoleMap) || canManage;
+  const canView = isSuperUser || can(userLevel, "view_tickets", customRoleMap) || canViewAll || canManage || canCreate || canReply;
 
   const nome = p?.nome || "Membro";
   const nickname = p?.nickname || null;
@@ -3576,6 +3591,15 @@ async function getEffectiveTicketAuth(): Promise<EffectiveTicketAuth | null> {
     canCreate,
     canViewAll,
     canManage,
+    canReply,
+    canClaim,
+    canTransfer,
+    canChangeStatus,
+    canClose,
+    canReopen,
+    canDelete,
+    canManageMembers,
+    canInternalNotes,
     isSuperUser,
   };
 }
@@ -3583,8 +3607,8 @@ async function getEffectiveTicketAuth(): Promise<EffectiveTicketAuth | null> {
 /**
  * Retorna todos os tickets acessíveis ao usuário atual de acordo com suas permissões.
  * - Membro comum: visualiza apenas os próprios chamados (`user_id === session.user.id`).
- * - Usuários sem `manage_tickets`: todas as mensagens com `is_internal_note: true` são removidas da resposta.
- * - Gerência/Liderança com `view_all_tickets` ou `manage_tickets`: visualiza todos os tickets de todo o grupo.
+ * - Atendentes com `claim_tickets`, `view_all_tickets` ou `manage_tickets`: visualizam a fila de atendimento.
+ * - Usuários sem `manage_tickets` ou `internal_notes_tickets`: mensagens internas são removidas.
  */
 export async function getTickets(): Promise<Ticket[]> {
   const auth = await getEffectiveTicketAuth();
@@ -3593,20 +3617,20 @@ export async function getTickets(): Promise<Ticket[]> {
   const rawTickets = await fetchAllRawTickets();
 
   // Filtragem de privacidade:
-  // - Quem tem view_all_tickets, manage_tickets ou superUser vê todos os tickets do grupo
+  // - Quem tem view_all_tickets, manage_tickets, claim_tickets, transfer_tickets ou superUser vê os tickets da fila
   // - Quem está atribuído ao ticket também pode vê-lo
-  // - Membro comum visualiza apenas os próprios chamados
+  // - Membro comum visualiza apenas os próprios chamados e onde participa
   const filteredTickets = rawTickets.filter((ticket) => {
-    if (auth.canViewAll || auth.canManage || auth.isSuperUser) return true;
+    if (auth.canViewAll || auth.canManage || auth.canClaim || auth.canTransfer || auth.canChangeStatus || auth.isSuperUser) return true;
     if (ticket.assigned_to_id === auth.user.id) return true;
     if (ticket.user_id === auth.user.id) return true;
     if (ticket.members && ticket.members.some((m) => m.user_id === auth.user.id)) return true;
     return false;
   });
 
-  // Ocultar notas internas confidenciais para quem não possui manage_tickets
+  // Ocultar notas internas confidenciais para quem não possui manage_tickets ou internal_notes_tickets
   const sanitizedTickets = filteredTickets.map((ticket) => {
-    if (auth.canManage || auth.isSuperUser) return ticket;
+    if (auth.canManage || auth.canInternalNotes || auth.isSuperUser) return ticket;
     return {
       ...ticket,
       messages: (ticket.messages || []).filter((msg) => !msg.is_internal_note),
@@ -3733,8 +3757,8 @@ export async function addTicketMessage(
     throw new Error("Você não tem permissão para responder a este ticket");
   }
 
-  // Apenas quem possui manage_tickets ou isSuperUser pode enviar nota interna privada
-  const isInternal = Boolean(payload.is_internal_note && (auth.canManage || auth.isSuperUser));
+  // Apenas quem possui manage_tickets, internal_notes_tickets ou isSuperUser pode enviar nota interna privada
+  const isInternal = Boolean(payload.is_internal_note && (auth.canManage || auth.canInternalNotes || auth.isSuperUser));
 
   const now = new Date().toISOString();
   const newMessage: TicketMessage = {
@@ -3819,7 +3843,7 @@ export async function claimTicket(ticketId: string): Promise<Ticket> {
   const auth = await getEffectiveTicketAuth();
   if (!auth) throw new Error("Usuário não autenticado");
 
-  if (!auth.canManage && !auth.isSuperUser) {
+  if (!auth.canClaim && !auth.canManage && !auth.isSuperUser) {
     throw new Error("Permissão insuficiente para assumir tickets");
   }
 
@@ -3885,7 +3909,7 @@ export async function transferTicket(
   const auth = await getEffectiveTicketAuth();
   if (!auth) throw new Error("Usuário não autenticado");
 
-  if (!auth.canManage && !auth.isSuperUser) {
+  if (!auth.canTransfer && !auth.canManage && !auth.isSuperUser) {
     throw new Error("Permissão insuficiente para transferir tickets");
   }
 
@@ -3982,7 +4006,7 @@ export async function updateTicketStatus(
   const auth = await getEffectiveTicketAuth();
   if (!auth) throw new Error("Usuário não autenticado");
 
-  if (!auth.canManage && !auth.isSuperUser) {
+  if (!auth.canChangeStatus && !auth.canManage && !auth.isSuperUser) {
     throw new Error("Permissão insuficiente para alterar status de tickets");
   }
 
@@ -4069,7 +4093,7 @@ export async function closeTicket(
   const ticket = allRawTickets[targetIndex];
   const isCreator = ticket.user_id === auth.user.id;
 
-  if (!auth.canManage && !isCreator && !auth.isSuperUser) {
+  if (!auth.canClose && !auth.canManage && !isCreator && !auth.isSuperUser) {
     throw new Error("Permissão insuficiente para fechar tickets");
   }
 
@@ -4138,7 +4162,7 @@ export async function reopenTicket(ticketId: string): Promise<Ticket> {
   const ticket = allRawTickets[targetIndex];
   const isCreator = ticket.user_id === auth.user.id;
 
-  if (!auth.canManage && !isCreator && !auth.isSuperUser) {
+  if (!auth.canReopen && !auth.canManage && !isCreator && !auth.isSuperUser) {
     throw new Error("Permissão insuficiente para reabrir tickets");
   }
 
@@ -4179,7 +4203,7 @@ export async function deleteTicket(ticketId: string): Promise<void> {
   const auth = await getEffectiveTicketAuth();
   if (!auth) throw new Error("Usuário não autenticado");
 
-  if (!auth.isSuperUser && !auth.canManage) {
+  if (!auth.canDelete && !auth.canManage && !auth.isSuperUser) {
     throw new Error("Permissão insuficiente para excluir tickets");
   }
 
@@ -4276,7 +4300,7 @@ export async function addTicketMember(
 
   // Permissão: Gerência/Liderança/SuperUser ou Criador do ticket
   const isCreator = ticket.user_id === auth.user.id;
-  if (!auth.canManage && !auth.isSuperUser && !isCreator) {
+  if (!auth.canManageMembers && !auth.canManage && !auth.isSuperUser && !isCreator) {
     throw new Error("Você não tem permissão para adicionar membros a este ticket");
   }
 
@@ -4375,7 +4399,7 @@ export async function removeTicketMember(
   const ticket = allRawTickets[targetIndex];
 
   const isCreator = ticket.user_id === auth.user.id;
-  if (!auth.canManage && !auth.isSuperUser && !isCreator) {
+  if (!auth.canManageMembers && !auth.canManage && !auth.isSuperUser && !isCreator) {
     throw new Error("Você não tem permissão para remover membros deste ticket");
   }
 
