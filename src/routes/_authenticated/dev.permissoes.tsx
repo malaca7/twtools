@@ -1351,7 +1351,19 @@ function DevPermissoesContent() {
 
           {/* FLOATING ACTIVE ROLE SWITCHER BAR — TELEPORTADO DIRETAMENTE AO BODY PARA FIXAÇÃO ABSOLUTA E FLUTUAÇÃO PERFEITA */}
           {activeTab === "cargos" && mounted && typeof document !== "undefined" && createPortal(
-            <div className="surface-card floating-widget fixed bottom-4 sm:bottom-6 left-1/2 -translate-x-1/2 z-[9999] pointer-events-auto flex items-center gap-1.5 sm:gap-2.5 p-1.5 sm:p-2 rounded-2xl bg-card/95 border border-emerald-500/50 backdrop-blur-2xl shadow-[0_15px_50px_rgba(0,0,0,0.65)] ring-1 ring-border/50 animate-in fade-in slide-in-from-bottom-5 duration-200 max-w-[calc(100vw-1.5rem)]">
+            <div
+              className={cn(
+                "surface-card floating-widget fixed z-[9999] pointer-events-auto",
+                "bottom-20 md:bottom-8 left-1/2 -translate-x-1/2 translate-y-0",
+                "flex items-center gap-1.5 sm:gap-2.5 p-1.5 sm:p-2 rounded-2xl bg-card/95 border border-emerald-500/60 backdrop-blur-2xl",
+                "shadow-[0_20px_50px_rgba(0,0,0,0.75)] ring-1 ring-border/60 max-w-[calc(100vw-1.5rem)] sm:max-w-fit",
+                "transition-all duration-200 ease-out animate-in fade-in zoom-in-95"
+              )}
+              style={{
+                transform: "translate(-50%, 0)",
+                boxShadow: "0 20px 50px rgba(0,0,0,0.75), 0 0 30px rgba(16,185,129,0.25)",
+              }}
+            >
               {/* Cargo Ativo Atual */}
               <div className="flex items-center gap-2 pl-2 pr-1">
                 <ShieldCheck className="h-4 w-4 text-emerald-400 shrink-0 animate-pulse" />
@@ -2663,16 +2675,18 @@ function DevPermissoesContent() {
       {(activeTab === "dev" || activeTab === "ceo") && mounted && typeof document !== "undefined" && createPortal(
         <div
           className={cn(
-            "surface-card floating-widget fixed bottom-4 sm:bottom-6 left-1/2 -translate-x-1/2 z-[9999] pointer-events-auto",
+            "surface-card floating-widget fixed z-[9999] pointer-events-auto",
+            "bottom-20 md:bottom-8 left-1/2 -translate-x-1/2 translate-y-0",
             "flex items-center gap-1.5 sm:gap-2.5 p-1.5 sm:p-2 rounded-2xl bg-card/95 backdrop-blur-2xl",
-            "shadow-[0_15px_50px_rgba(0,0,0,0.65)] ring-1 ring-border/50 animate-in fade-in slide-in-from-bottom-5 duration-200 max-w-[calc(100vw-1.5rem)]",
-            "border transition-all"
+            "shadow-[0_20px_50px_rgba(0,0,0,0.75)] ring-1 ring-border/60 max-w-[calc(100vw-1.5rem)] sm:max-w-fit",
+            "border transition-all duration-200 ease-out animate-in fade-in zoom-in-95"
           )}
           style={{
-            borderColor: activeTab === "dev" ? `${devStyle.primaryHex}60` : `${ceoStyle.primaryHex}60`,
+            transform: "translate(-50%, 0)",
+            borderColor: activeTab === "dev" ? `${devStyle.primaryHex}70` : `${ceoStyle.primaryHex}70`,
             boxShadow: activeTab === "dev"
-              ? `0 15px 50px rgba(0,0,0,0.65), 0 0 25px ${devStyle.primaryHex}20`
-              : `0 15px 50px rgba(0,0,0,0.65), 0 0 25px ${ceoStyle.primaryHex}20`,
+              ? `0 20px 50px rgba(0,0,0,0.75), 0 0 30px ${devStyle.primaryHex}25`
+              : `0 20px 50px rgba(0,0,0,0.75), 0 0 30px ${ceoStyle.primaryHex}25`,
           }}
         >
           {/* Seletor Rápido de Permissões: Tag Dev vs Tag CEO */}
@@ -2682,7 +2696,7 @@ function DevPermissoesContent() {
               type="button"
               onClick={() => setActiveTab("dev")}
               className={cn(
-                "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-black transition-all cursor-pointer select-none",
+                "flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-black transition-all cursor-pointer select-none",
                 activeTab === "dev"
                   ? "shadow-sm scale-[1.02]"
                   : "text-muted-foreground hover:text-foreground hover:bg-secondary/60 opacity-80"
@@ -2700,7 +2714,8 @@ function DevPermissoesContent() {
               title="Alternar para Permissões da Tag Dev"
             >
               <DevIcon className="h-3.5 w-3.5 shrink-0" style={{ color: activeTab === "dev" ? devStyle.primaryHex : undefined }} />
-              <span>Tag Dev</span>
+              <span className="hidden xs:inline">Tag Dev</span>
+              <span className="xs:hidden">Dev</span>
               <Badge
                 variant="outline"
                 className="text-[9px] font-mono px-1.5 py-0 font-bold hidden sm:inline-flex"
@@ -2723,7 +2738,7 @@ function DevPermissoesContent() {
               type="button"
               onClick={() => setActiveTab("ceo")}
               className={cn(
-                "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-black transition-all cursor-pointer select-none",
+                "flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-black transition-all cursor-pointer select-none",
                 activeTab === "ceo"
                   ? "shadow-sm scale-[1.02]"
                   : "text-muted-foreground hover:text-foreground hover:bg-secondary/60 opacity-80"
@@ -2741,7 +2756,8 @@ function DevPermissoesContent() {
               title="Alternar para Permissões da Tag CEO"
             >
               <CeoIcon className="h-3.5 w-3.5 shrink-0" style={{ color: activeTab === "ceo" ? ceoStyle.primaryHex : undefined }} />
-              <span>Tag CEO</span>
+              <span className="hidden xs:inline">Tag CEO</span>
+              <span className="xs:hidden">CEO</span>
               <Badge
                 variant="outline"
                 className="text-[9px] font-mono px-1.5 py-0 font-bold hidden sm:inline-flex"

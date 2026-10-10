@@ -2022,6 +2022,7 @@ html[data-theme^="light_"] [role="alertdialog"] select {
   box-shadow: 0 16px 36px -10px rgba(0, 0, 0, 0.75), var(--shadow-card);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
+  box-sizing: border-box;
 }
 
 html[data-glow="true"] .member-card-online {

@@ -524,7 +524,19 @@ export function PermissoesPage() {
 
       {/* FLOATING ACTIVE ROLE SWITCHER BAR — TELEPORTADO DIRETAMENTE AO BODY PARA FIXAÇÃO ABSOLUTA E FLUTUAÇÃO PERFEITA */}
       {mounted && typeof document !== "undefined" && createPortal(
-        <div className="surface-card floating-widget fixed bottom-4 sm:bottom-6 left-1/2 -translate-x-1/2 z-[9999] pointer-events-auto flex items-center gap-1.5 sm:gap-2.5 p-1.5 sm:p-2 rounded-2xl bg-card/95 border border-primary/50 backdrop-blur-2xl shadow-[0_15px_50px_rgba(0,0,0,0.65)] ring-1 ring-border/50 animate-in fade-in slide-in-from-bottom-5 duration-200 max-w-[calc(100vw-1.5rem)]">
+        <div
+          className={cn(
+            "surface-card floating-widget fixed z-[9999] pointer-events-auto",
+            "bottom-20 md:bottom-8 left-1/2 -translate-x-1/2 translate-y-0",
+            "flex items-center gap-1.5 sm:gap-2.5 p-1.5 sm:p-2 rounded-2xl bg-card/95 border border-primary/60 backdrop-blur-2xl",
+            "shadow-[0_20px_50px_rgba(0,0,0,0.75)] ring-1 ring-border/60 max-w-[calc(100vw-1.5rem)] sm:max-w-fit",
+            "transition-all duration-200 ease-out animate-in fade-in zoom-in-95"
+          )}
+          style={{
+            transform: "translate(-50%, 0)",
+            boxShadow: "0 20px 50px rgba(0,0,0,0.75), 0 0 30px oklch(from var(--primary) l c h / 25%)",
+          }}
+        >
           {/* Cargo Ativo Atual */}
           <div className="flex items-center gap-2 pl-2 pr-1">
             <ShieldCheck className="h-4 w-4 text-primary shrink-0 animate-pulse" />
