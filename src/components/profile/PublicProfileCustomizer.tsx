@@ -202,13 +202,13 @@ export function PublicProfileCustomizer() {
 
   const handleOpenPublicProfile = () => {
     const cleanSlug = String(activeSlug || "").replace(/^@/, "");
-    window.open(`/@${cleanSlug}`, "_blank");
+    window.open(`/perfil/${cleanSlug}`, "_blank");
   };
 
   const handleCopyLink = () => {
     const origin = typeof window !== "undefined" ? window.location.origin : "";
     const cleanSlug = String(activeSlug || "").replace(/^@/, "");
-    const link = `${origin}/@${cleanSlug}`;
+    const link = `${origin}/perfil/${cleanSlug}`;
     navigator.clipboard.writeText(link);
     setCopiedLink(true);
     toast.success("Link do perfil copiado!");

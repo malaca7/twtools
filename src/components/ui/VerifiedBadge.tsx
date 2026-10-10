@@ -121,10 +121,18 @@ export function VerifiedBadge({
     <span
       className={cn(
         "inline-flex items-center gap-1 select-none transition-transform duration-200 hover:scale-110 shrink-0",
-        showText && "px-1.5 py-0.5 rounded-full bg-sky-500/10 border border-sky-500/20",
+        showText && "px-1.5 py-0.5 rounded-full border",
         className
       )}
-      style={{ color: effectiveColor }}
+      style={{
+        color: effectiveColor,
+        ...(showText
+          ? {
+              backgroundColor: `${effectiveColor}15`,
+              borderColor: `${effectiveColor}35`,
+            }
+          : {}),
+      }}
     >
       <IconComponent
         className={cn(

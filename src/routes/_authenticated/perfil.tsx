@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { createFileRoute, useNavigate, Link, Outlet, useChildMatches } from "@tanstack/react-router";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -417,12 +417,12 @@ function PerfilContent({ initialTab }: { initialTab?: "perfil" | "dados" | "publ
 
   const handleOpenPublicProfile = () => {
     const origin = typeof window !== "undefined" ? window.location.origin : "";
-    window.open(`${origin}/@${currentSlug}`, "_blank");
+    window.open(`${origin}/perfil/${currentSlug}`, "_blank");
   };
 
   const handleCopyLink = () => {
     const origin = typeof window !== "undefined" ? window.location.origin : "";
-    const link = `${origin}/@${currentSlug}`;
+    const link = `${origin}/perfil/${currentSlug}`;
     navigator.clipboard.writeText(link);
     setCopiedLink(true);
     toast.success("Link do perfil público copiado!");
@@ -713,9 +713,9 @@ function PerfilContent({ initialTab }: { initialTab?: "perfil" | "dados" | "publ
                     Telefone: <span className="font-bold text-foreground">{telefone || "N/A"}</span>
                   </p>
                   <p className="text-muted-foreground truncate">
-                    Link Direto:{" "}
+                    Link Oficial:{" "}
                     <span className="font-mono font-bold text-primary">
-                      /@{currentSlug}
+                      /perfil/{currentSlug}
                     </span>
                   </p>
                 </div>
@@ -1006,7 +1006,7 @@ function PerfilContent({ initialTab }: { initialTab?: "perfil" | "dados" | "publ
                     )}
                   </div>
                   <CardDescription className="text-xs">
-                    Defina seu link exclusivo na plataforma (ex.: <span className="font-mono text-primary font-bold">/@{customUrl || "seu-nome"}</span> ou <span className="font-mono text-primary font-bold">/{customUrl || "seu-nome"}</span>).
+                    Defina seu link exclusivo na plataforma (ex.: <span className="font-mono text-primary font-bold">/perfil/{customUrl || "seu-nome"}</span>).
                   </CardDescription>
                 </CardHeader>
 
@@ -1016,9 +1016,9 @@ function PerfilContent({ initialTab }: { initialTab?: "perfil" | "dados" | "publ
                     <div className="min-w-0 flex items-center gap-2">
                       <AtSign className="h-4 w-4 text-primary shrink-0" />
                       <div className="min-w-0">
-                        <p className="text-[10px] uppercase font-bold text-muted-foreground">Seu Link Direto Oficial</p>
+                        <p className="text-[10px] uppercase font-bold text-muted-foreground">Seu Link Oficial do Perfil</p>
                         <p className="font-mono font-bold text-xs text-foreground truncate">
-                          {typeof window !== "undefined" ? window.location.origin : ""}/@
+                          {typeof window !== "undefined" ? window.location.origin : ""}/perfil/
                           <span className="text-primary font-black">{currentSlug}</span>
                         </p>
                       </div>
@@ -1057,7 +1057,7 @@ function PerfilContent({ initialTab }: { initialTab?: "perfil" | "dados" | "publ
                     </Label>
                     <div className="relative flex items-center">
                       <div className="absolute left-3 flex items-center pointer-events-none text-muted-foreground text-xs font-mono font-bold">
-                        /@
+                        /perfil/
                       </div>
                       <Input
                         placeholder={profile?.discord_username ? profile.discord_username.replace(/#0$/, "") : "ex.: malaca"}
@@ -1067,12 +1067,12 @@ function PerfilContent({ initialTab }: { initialTab?: "perfil" | "dados" | "publ
                           setCustomUrl(sanitized);
                         }}
                         disabled={!canEditCustomUrl}
-                        className="h-9 pl-9 text-xs font-mono font-bold"
+                        className="h-9 pl-16 text-xs font-mono font-bold"
                         maxLength={30}
                       />
                     </div>
                     <p className="text-[11px] text-muted-foreground">
-                      ℹ️ Disponível tanto em <span className="font-mono text-foreground font-bold">/@{customUrl || "nome"}</span> quanto em <span className="font-mono text-foreground font-bold">/{customUrl || "nome"}</span> e <span className="font-mono text-foreground font-bold">/perfil/{customUrl || "nome"}</span>.
+                      ℹ️ O perfil público fica acessível exclusivamente no endereço oficial <span className="font-mono text-foreground font-bold">/perfil/{customUrl || "nome"}</span>.
                     </p>
                   </div>
 

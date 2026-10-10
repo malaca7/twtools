@@ -321,7 +321,7 @@ function PublicProfileContent({
   const handleCopyLink = () => {
     const origin = typeof window !== "undefined" ? window.location.origin : "";
     const cleanSlug = String(activeSlug || "").replace(/^(@|%40)/i, "");
-    const link = `${origin}/@${cleanSlug}`;
+    const link = `${origin}/perfil/${cleanSlug}`;
     navigator.clipboard.writeText(link);
     setCopiedLink(true);
     toast.success("Link do perfil copiado!");
@@ -378,7 +378,9 @@ function PublicProfileContent({
               Twin Wheels
             </Link>
             <ChevronRight className="h-3 w-3" />
-            <span className="text-foreground font-bold truncate max-w-[160px]">@{activeSlug}</span>
+            <span className="text-muted-foreground">perfil</span>
+            <ChevronRight className="h-3 w-3" />
+            <span className="text-foreground font-bold truncate max-w-[160px]">{cleanHandle || activeSlug}</span>
           </div>
         </div>
       )}

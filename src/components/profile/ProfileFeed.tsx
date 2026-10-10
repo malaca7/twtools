@@ -108,7 +108,7 @@ function PostContentRenderer({ content }: { content: string }) {
       parts.push(
         <a
           key={match.index}
-          href={`/@${cleanMention}`}
+          href={`/perfil/${cleanMention}`}
           target="_blank"
           rel="noopener noreferrer"
           className="inline-flex items-center gap-0.5 px-1.5 py-0.2 rounded-md bg-primary/15 text-primary hover:bg-primary/25 font-bold transition-colors"

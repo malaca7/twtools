@@ -403,9 +403,14 @@ export function CeoSelosPage() {
               type="button"
               onClick={() => {
                 setDirectTargetUserId("");
+                setDirectCustomTitle(config?.badge_name || "Verificado Oficial");
+                setDirectColor("");
                 setIsDirectModalOpen(true);
               }}
-              className="h-9 px-4 text-xs rounded-xl font-extrabold bg-sky-500 hover:bg-sky-600 text-white gap-2 shadow-lg shadow-sky-500/25 transition-all hover:scale-[1.02] cursor-pointer"
+              style={{
+                backgroundColor: config?.badge_color || undefined,
+              }}
+              className="h-9 px-4 text-xs rounded-xl font-extrabold bg-primary hover:opacity-90 text-primary-foreground gap-2 shadow-lg transition-all hover:scale-[1.02] cursor-pointer"
             >
               <UserPlus className="h-4 w-4" />
               <span>Conceder Selo Direto</span>
@@ -419,9 +424,18 @@ export function CeoSelosPage() {
         <Card className="surface-card border-border/70 p-4 space-y-1">
           <div className="flex items-center justify-between text-muted-foreground">
             <span className="text-xs font-semibold">Membros Verificados</span>
-            <BadgeCheck className="h-4 w-4 text-sky-400" />
+            <VerifiedBadge
+              preview
+              size="xs"
+              iconName={config?.badge_icon}
+              color={config?.badge_color}
+              glowStyle={config?.glow_style}
+              noTooltip
+            />
           </div>
-          <p className="text-2xl font-black text-foreground">{activeVerifications.length}</p>
+          <p className="text-2xl font-black text-foreground" style={config?.badge_color ? { color: config.badge_color } : {}}>
+            {activeVerifications.length}
+          </p>
           <span className="text-[10px] text-muted-foreground">Selo ativo no sistema</span>
         </Card>
 
@@ -475,7 +489,14 @@ export function CeoSelosPage() {
             value="verificados"
             className="text-xs py-2 rounded-lg data-[state=active]:bg-primary data-[state=active]:text-primary-foreground font-semibold flex items-center gap-1.5"
           >
-            <BadgeCheck className="h-3.5 w-3.5" />
+            <VerifiedBadge
+              preview
+              size="xs"
+              iconName={config?.badge_icon}
+              color={config?.badge_color}
+              glowStyle={config?.glow_style}
+              noTooltip
+            />
             <span>Verificados ({activeVerifications.length})</span>
           </TabsTrigger>
 
@@ -669,10 +690,38 @@ export function CeoSelosPage() {
             <CardHeader className="pb-3">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div>
-                  <CardTitle className="text-base font-bold flex items-center gap-2">
-                    <BadgeCheck className="h-4 w-4 text-sky-400" />
-                    <span>Membros Oficiais Verificados</span>
-                  </CardTitle>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <CardTitle className="text-base font-bold flex items-center gap-2">
+                      <VerifiedBadge
+                        preview
+                        size="sm"
+                        iconName={config?.badge_icon}
+                        color={config?.badge_color}
+                        glowStyle={config?.glow_style}
+                        noTooltip
+                      />
+                      <span>Membros Oficiais Verificados</span>
+                    </CardTitle>
+                    <Badge
+                      variant="outline"
+                      className="hidden sm:inline-flex text-[10px] font-bold px-2.5 py-0.5 rounded-lg gap-1.5 shadow-xs transition-all"
+                      style={{
+                        borderColor: `${config?.badge_color || "#38bdf8"}40`,
+                        color: config?.badge_color || "#38bdf8",
+                        backgroundColor: `${config?.badge_color || "#38bdf8"}15`,
+                      }}
+                    >
+                      <VerifiedBadge
+                        preview
+                        size="xs"
+                        iconName={config?.badge_icon}
+                        color={config?.badge_color}
+                        glowStyle={config?.glow_style}
+                        noTooltip
+                      />
+                      <span>Selo: {config?.badge_name || "Verificado Oficial"}</span>
+                    </Badge>
+                  </div>
                   <CardDescription className="text-xs">
                     Integrantes que possuem o selo oficial ativo no perfil e em toda a plataforma.
                   </CardDescription>
@@ -696,7 +745,7 @@ export function CeoSelosPage() {
                         setDirectTargetUserId("");
                         setIsDirectModalOpen(true);
                       }}
-                      className="h-8 text-xs font-bold rounded-xl bg-sky-500 hover:bg-sky-600 text-white gap-1.5 shadow-sm shadow-sky-500/20 shrink-0 cursor-pointer hidden md:flex"
+                      className="h-8 text-xs font-bold rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground gap-1.5 shadow-sm shrink-0 cursor-pointer hidden md:flex"
                     >
                       <UserPlus className="h-3.5 w-3.5" />
                       <span>Conceder Selo Direto</span>
@@ -728,56 +777,71 @@ export function CeoSelosPage() {
                     </TableHeader>
 
                     <TableBody>
-                      {filteredVerifications.map((v) => (
-                        <TableRow key={v.id} className="hover:bg-muted/30">
-                          <TableCell>
-                            <div className="flex items-center gap-2.5">
-                              <Avatar className="h-9 w-9 border border-border/60 shadow-xs">
-                                <AvatarImage src={v.member?.discord_avatar_url || v.member?.avatar_url || ""} />
-                                <AvatarFallback className="font-bold text-xs">
-                                  {(v.member?.nickname || v.member?.nome || "MB").slice(0, 2).toUpperCase()}
-                                </AvatarFallback>
-                              </Avatar>
-                              <div>
-                                <div className="flex items-center gap-1.5">
-                                  <span className="font-bold text-xs text-foreground">
-                                    {v.member?.nickname ? `${v.member.nickname} (${v.member.nome})` : v.member?.nome}
-                                  </span>
-                                  <VerifiedBadge
-                                    isVerified
-                                    size="sm"
-                                    color={v.badge_color_override || undefined}
-                                    iconName={v.badge_icon_override || undefined}
-                                  />
-                                </div>
-                                <div className="flex items-center gap-2 text-[10px] text-muted-foreground mt-0.5">
-                                  {v.member?.game_id && (
-                                    <span className="font-mono">ID: #{v.member.game_id}</span>
-                                  )}
-                                  {v.member?.discord_username && (
-                                    <span className="text-indigo-400 font-mono">@{v.member.discord_username}</span>
-                                  )}
+                      {filteredVerifications.map((v) => {
+                        const itemColor = v.badge_color_override || config?.badge_color || "#38bdf8";
+                        const itemIcon = v.badge_icon_override || config?.badge_icon || "BadgeCheck";
+                        const itemTitle = v.custom_title || config?.badge_name || "Membro Verificado";
+                        const itemGlow = config?.glow_style || "cyan";
+
+                        return (
+                          <TableRow key={v.id} className="hover:bg-muted/30">
+                            <TableCell>
+                              <div className="flex items-center gap-2.5">
+                                <Avatar className="h-9 w-9 border border-border/60 shadow-xs">
+                                  <AvatarImage src={v.member?.discord_avatar_url || v.member?.avatar_url || ""} />
+                                  <AvatarFallback className="font-bold text-xs">
+                                    {(v.member?.nickname || v.member?.nome || "MB").slice(0, 2).toUpperCase()}
+                                  </AvatarFallback>
+                                </Avatar>
+                                <div>
+                                  <div className="flex items-center gap-1.5">
+                                    <span className="font-bold text-xs text-foreground">
+                                      {v.member?.nickname ? `${v.member.nickname} (${v.member.nome})` : v.member?.nome}
+                                    </span>
+                                    <VerifiedBadge
+                                      isVerified
+                                      preview
+                                      size="sm"
+                                      color={itemColor}
+                                      iconName={itemIcon}
+                                      glowStyle={itemGlow}
+                                      tooltip={itemTitle}
+                                    />
+                                  </div>
+                                  <div className="flex items-center gap-2 text-[10px] text-muted-foreground mt-0.5">
+                                    {v.member?.game_id && (
+                                      <span className="font-mono">ID: #{v.member.game_id}</span>
+                                    )}
+                                    {v.member?.discord_username && (
+                                      <span className="text-indigo-400 font-mono">@{v.member.discord_username}</span>
+                                    )}
+                                  </div>
                                 </div>
                               </div>
-                            </div>
-                          </TableCell>
+                            </TableCell>
 
-                          <TableCell>
-                            <Badge
-                              variant="outline"
-                              className="text-[11px] font-bold px-2 py-0.5 rounded-lg border-sky-500/30 text-sky-400 bg-sky-500/10 gap-1"
-                              style={v.badge_color_override ? { borderColor: `${v.badge_color_override}50`, color: v.badge_color_override, backgroundColor: `${v.badge_color_override}15` } : {}}
-                            >
-                              <VerifiedBadge
-                                isVerified
-                                size="xs"
-                                color={v.badge_color_override || undefined}
-                                iconName={v.badge_icon_override || undefined}
-                                noTooltip
-                              />
-                              <span>{v.custom_title || config?.badge_name || "Verificado"}</span>
-                            </Badge>
-                          </TableCell>
+                            <TableCell>
+                              <Badge
+                                variant="outline"
+                                className="text-[11px] font-bold px-2.5 py-0.5 rounded-lg gap-1.5 transition-all shadow-xs"
+                                style={{
+                                  borderColor: `${itemColor}45`,
+                                  color: itemColor,
+                                  backgroundColor: `${itemColor}15`,
+                                }}
+                              >
+                                <VerifiedBadge
+                                  isVerified
+                                  preview
+                                  size="xs"
+                                  color={itemColor}
+                                  iconName={itemIcon}
+                                  glowStyle={itemGlow}
+                                  noTooltip
+                                />
+                                <span>{itemTitle}</span>
+                              </Badge>
+                            </TableCell>
 
                           <TableCell className="text-xs font-mono text-muted-foreground">
                             {dateTime(v.verified_at)}
@@ -805,7 +869,8 @@ export function CeoSelosPage() {
                             </TableCell>
                           )}
                         </TableRow>
-                      ))}
+                      );
+                    })}
                     </TableBody>
                   </Table>
                 </div>
@@ -1377,10 +1442,19 @@ export function CeoSelosPage() {
 
             {/* CARD DO MEMBRO SELECIONADO & PREVIEW DO SELO */}
             {selectedDirectMember ? (
-              <div className="p-3 rounded-2xl bg-sky-500/10 border border-sky-500/20 space-y-2.5">
+              <div
+                className="p-3 rounded-2xl border space-y-2.5 transition-all shadow-xs"
+                style={{
+                  backgroundColor: `${directColor || config?.badge_color || formColor}10`,
+                  borderColor: `${directColor || config?.badge_color || formColor}30`,
+                }}
+              >
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2.5">
-                    <Avatar className="h-10 w-10 border border-sky-500/30 shadow-xs">
+                    <Avatar
+                      className="h-10 w-10 border shadow-xs"
+                      style={{ borderColor: `${directColor || config?.badge_color || formColor}40` }}
+                    >
                       <AvatarImage src={(selectedDirectMember as any).discord_avatar_url || selectedDirectMember.avatar_url || ""} />
                       <AvatarFallback className="font-bold text-xs">
                         {(selectedDirectMember.nickname || selectedDirectMember.nome || "MB").slice(0, 2).toUpperCase()}
@@ -1394,36 +1468,43 @@ export function CeoSelosPage() {
                         <VerifiedBadge
                           preview
                           size="sm"
-                          iconName={formIcon}
-                          color={directColor || formColor}
-                          glowStyle={formGlow}
+                          iconName={config?.badge_icon || formIcon}
+                          color={directColor || config?.badge_color || formColor}
+                          glowStyle={config?.glow_style || formGlow}
                           tooltip={directCustomTitle || formTooltip}
                         />
                       </div>
                       <p className="text-[11px] text-muted-foreground flex items-center gap-2 mt-0.5">
-                        {selectedDirectMember.game_id && <span className="font-mono font-bold text-sky-300">ID: #{selectedDirectMember.game_id}</span>}
+                        {selectedDirectMember.game_id && <span className="font-mono font-bold text-foreground">ID: #{selectedDirectMember.game_id}</span>}
                         {(selectedDirectMember as any).discord_username && <span className="font-mono text-indigo-400">@{(selectedDirectMember as any).discord_username}</span>}
                       </p>
                     </div>
                   </div>
                 </div>
 
-                <div className="flex items-center justify-between text-[11px] pt-2 border-t border-sky-500/20 text-muted-foreground">
+                <div
+                  className="flex items-center justify-between text-[11px] pt-2 border-t text-muted-foreground"
+                  style={{ borderColor: `${directColor || config?.badge_color || formColor}25` }}
+                >
                   <span>Visualização Oficial:</span>
                   <Badge
                     variant="outline"
-                    className="text-[10px] font-bold px-2 py-0.5 rounded-lg border-sky-500/40 text-sky-300 bg-sky-500/20 gap-1"
-                    style={directColor ? { borderColor: `${directColor}60`, color: directColor, backgroundColor: `${directColor}20` } : {}}
+                    className="text-[10px] font-bold px-2.5 py-0.5 rounded-lg gap-1 transition-all shadow-xs"
+                    style={{
+                      borderColor: `${directColor || config?.badge_color || formColor}45`,
+                      color: directColor || config?.badge_color || formColor,
+                      backgroundColor: `${directColor || config?.badge_color || formColor}20`,
+                    }}
                   >
                     <VerifiedBadge
                       preview
                       size="xs"
-                      iconName={formIcon}
-                      color={directColor || formColor}
-                      glowStyle={formGlow}
+                      iconName={config?.badge_icon || formIcon}
+                      color={directColor || config?.badge_color || formColor}
+                      glowStyle={config?.glow_style || formGlow}
                       noTooltip
                     />
-                    <span>{directCustomTitle.trim() || formName || "Verificado Oficial"}</span>
+                    <span>{directCustomTitle.trim() || config?.badge_name || formName || "Verificado Oficial"}</span>
                   </Badge>
                 </div>
               </div>

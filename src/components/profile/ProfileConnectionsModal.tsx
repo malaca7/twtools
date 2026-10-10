@@ -106,7 +106,7 @@ export function ProfileConnectionsModal({
   const handleMemberClick = (member: FollowMemberItem) => {
     onClose();
     const slug = (member.custom_url || member.discord_username?.replace(/#0$/, "") || member.id).replace(/^@/, "");
-    navigate({ to: "/@$handle", params: { handle: slug } });
+    navigate({ to: "/perfil/$handle", params: { handle: slug } });
   };
 
   return (

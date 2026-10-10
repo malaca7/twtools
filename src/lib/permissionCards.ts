@@ -1124,8 +1124,8 @@ export const PAGE_CARDS: PageCardConfig[] = [
       },
       {
         key: "edit_profile_custom_url",
-        label: "Definir Identificador / URL Personalizada (@usuario)",
-        description: "Permite customizar a rota pública direta do perfil (/perfil/usuario ou /@usuario).",
+        label: "Definir Identificador / URL Personalizada (/perfil/usuario)",
+        description: "Permite customizar a rota pública direta do perfil (/perfil/usuario).",
         badge: "URL Pública",
       },
       {

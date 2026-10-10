@@ -27,6 +27,16 @@ function NotFoundComponent() {
       window.location.replace(pathname.replace("/dev.permissoes", "/dev/permissoes") + search + hash);
     } else if (pathname.includes("/dev.configuracao")) {
       window.location.replace(pathname.replace("/dev.configuracao", "/dev/configuracao") + search + hash);
+    } else if (pathname.includes("/@")) {
+      const match = pathname.match(/\/@([a-zA-Z0-9_.-]+)/);
+      if (match && match[1]) {
+        window.location.replace(`/perfil/${match[1]}` + search + hash);
+      }
+    } else if (hash && hash.includes("/@")) {
+      const match = hash.match(/\/@([a-zA-Z0-9_.-]+)/);
+      if (match && match[1]) {
+        window.location.replace(`/perfil/${match[1]}`);
+      }
     }
   }, [pathname]);
 
