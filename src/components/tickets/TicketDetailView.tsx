@@ -135,14 +135,38 @@ export function TicketDetailView({ ticket, onClose, canManage }: TicketDetailVie
   const isAssigned = ticket.assigned_to_id === user?.id;
 
   // Permissões granulares detalhadas
-  const canClaim = hasPermission("claim_tickets") || hasPermission("claim_ticket") || effectiveCanManage;
-  const canTransfer = hasPermission("transfer_tickets") || hasPermission("transfer_ticket") || effectiveCanManage;
-  const canChangeStatus = hasPermission("change_ticket_status") || effectiveCanManage || isAssigned;
-  const canInternalNotes = hasPermission("internal_notes_tickets") || effectiveCanManage;
-  const canManageMembers = hasPermission("manage_ticket_members") || effectiveCanManage || isCreator;
-  const canClose = hasPermission("close_tickets") || hasPermission("close_ticket") || effectiveCanManage || isCreator || isAssigned;
-  const canReopen = hasPermission("reopen_tickets") || hasPermission("reopen_ticket") || effectiveCanManage;
-  const canDelete = hasPermission("delete_tickets") || hasPermission("delete_ticket") || effectiveCanManage;
+  const canClaim =
+    hasPermission("claim_tickets") ||
+    hasPermission("claim_ticket") ||
+    hasPermission("view_all_tickets") ||
+    effectiveCanManage;
+  const canTransfer =
+    hasPermission("transfer_tickets") ||
+    hasPermission("transfer_ticket") ||
+    effectiveCanManage ||
+    (isAssigned && (hasPermission("claim_tickets") || hasPermission("claim_ticket") || hasPermission("view_all_tickets")));
+  const canChangeStatus =
+    hasPermission("change_ticket_status") ||
+    hasPermission("view_all_tickets") ||
+    effectiveCanManage ||
+    isAssigned;
+  const canInternalNotes = hasPermission("internal_notes_tickets") || effectiveCanManage || isCeoUser;
+  const canManageMembers =
+    hasPermission("manage_ticket_members") || effectiveCanManage || isCreator || isAssigned;
+  const canClose =
+    hasPermission("close_tickets") ||
+    hasPermission("close_ticket") ||
+    effectiveCanManage ||
+    isCreator ||
+    isAssigned;
+  const canReopen =
+    hasPermission("reopen_tickets") ||
+    hasPermission("reopen_ticket") ||
+    effectiveCanManage ||
+    isCreator ||
+    isAssigned;
+  const canDelete =
+    hasPermission("delete_tickets") || hasPermission("delete_ticket") || effectiveCanManage;
   const canReply =
     hasPermission("reply_tickets") ||
     hasPermission("reply_ticket") ||

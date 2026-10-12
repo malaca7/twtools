@@ -83,7 +83,13 @@ export function AtendimentoTicketsPage() {
     hasPermission("view_all_tickets") ||
     hasPermission("manage_tickets") ||
     hasPermission("claim_tickets") ||
-    hasPermission("claim_ticket" as Permission);
+    hasPermission("claim_ticket" as Permission) ||
+    hasPermission("transfer_tickets") ||
+    hasPermission("transfer_ticket" as Permission) ||
+    hasPermission("change_ticket_status") ||
+    hasPermission("internal_notes_tickets") ||
+    hasPermission("close_tickets") ||
+    hasPermission("close_ticket" as Permission);
 
   if (loading) {
     return (
@@ -105,7 +111,11 @@ export function AtendimentoTicketsPage() {
 export function AtendimentoTicketsContent() {
   const { user, profile, hasPermission } = useAuth();
   const canManage = hasPermission("manage_tickets");
-  const canClaim = hasPermission("claim_tickets") || canManage;
+  const canClaim =
+    hasPermission("claim_tickets") ||
+    hasPermission("claim_ticket" as Permission) ||
+    hasPermission("view_all_tickets") ||
+    canManage;
   const canCreate = hasPermission("create_ticket") || canManage;
 
   const { data: tickets = [], isLoading, isFetching } = useTickets();

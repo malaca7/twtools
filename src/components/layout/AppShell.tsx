@@ -821,16 +821,41 @@ function DynamicSidebarNavigation() {
         if (item.id === "atendimento-tickets" || item.url === "/atendimento-tickets") {
           const canAccessAtendimento =
             hasPermission("atendimento_tickets.view" as Permission, "dev") ||
+            hasPermission("view_atendimento_tickets" as Permission, "dev") ||
             hasPermission("view_all_tickets", "dev") ||
             hasPermission("manage_tickets", "dev") ||
-            hasPermission("claim_tickets", "dev");
+            hasPermission("claim_tickets", "dev") ||
+            hasPermission("transfer_tickets", "dev") ||
+            hasPermission("change_ticket_status", "dev") ||
+            hasPermission("internal_notes_tickets", "dev") ||
+            hasPermission("close_tickets", "dev");
           const canCeoAccess = isCeoUser && (
             hasPermission("atendimento_tickets.view" as Permission, "ceo") ||
+            hasPermission("view_atendimento_tickets" as Permission, "ceo") ||
             hasPermission("view_all_tickets", "ceo") ||
             hasPermission("manage_tickets", "ceo") ||
-            hasPermission("claim_tickets", "ceo")
+            hasPermission("claim_tickets", "ceo") ||
+            hasPermission("transfer_tickets", "ceo") ||
+            hasPermission("change_ticket_status", "ceo") ||
+            hasPermission("internal_notes_tickets", "ceo") ||
+            hasPermission("close_tickets", "ceo")
           );
           if (!canAccessAtendimento && !canCeoAccess) return false;
+          return true;
+        }
+        if (item.id === "tickets" || item.url === "/tickets") {
+          const canAccessTickets =
+            hasPermission("view_tickets", "dev") ||
+            hasPermission("view_all_tickets", "dev") ||
+            hasPermission("manage_tickets", "dev") ||
+            hasPermission("atendimento_tickets.view" as Permission, "dev") ||
+            (isCeoUser && (
+              hasPermission("view_tickets", "ceo") ||
+              hasPermission("view_all_tickets", "ceo") ||
+              hasPermission("manage_tickets", "ceo") ||
+              hasPermission("atendimento_tickets.view" as Permission, "ceo")
+            ));
+          if (!canAccessTickets) return false;
           return true;
         }
         const reqPerm = item.perm || resolveRequiredPermission(item.id, item.url);
@@ -886,10 +911,27 @@ function DynamicSidebarNavigation() {
         if (item.id === "atendimento-tickets" || item.url === "/atendimento-tickets") {
           const canAccessAtendimento =
             hasPermission("atendimento_tickets.view" as Permission, "ceo") ||
+            hasPermission("view_atendimento_tickets" as Permission, "ceo") ||
             hasPermission("view_all_tickets", "ceo") ||
             hasPermission("manage_tickets", "ceo") ||
-            hasPermission("claim_tickets", "ceo");
+            hasPermission("claim_tickets", "ceo") ||
+            hasPermission("transfer_tickets", "ceo") ||
+            hasPermission("change_ticket_status", "ceo") ||
+            hasPermission("internal_notes_tickets", "ceo") ||
+            hasPermission("close_tickets", "ceo");
           if (!canAccessAtendimento) return false;
+          return true;
+        }
+        if (item.id === "tickets" || item.url === "/tickets") {
+          const canAccessTickets =
+            hasPermission("view_tickets", "ceo") ||
+            hasPermission("view_all_tickets", "ceo") ||
+            hasPermission("manage_tickets", "ceo") ||
+            hasPermission("create_ticket", "ceo") ||
+            hasPermission("reply_tickets", "ceo") ||
+            hasPermission("claim_tickets", "ceo") ||
+            hasPermission("atendimento_tickets.view" as Permission, "ceo");
+          if (!canAccessTickets) return false;
           return true;
         }
         const reqPerm = item.perm || resolveRequiredPermission(item.id, item.url);
@@ -947,11 +989,38 @@ function DynamicSidebarNavigation() {
           hasPermission("manage_tickets") ||
           hasPermission("claim_tickets") ||
           hasPermission("claim_ticket" as Permission) ||
+          hasPermission("transfer_tickets") ||
+          hasPermission("transfer_ticket" as Permission) ||
+          hasPermission("change_ticket_status") ||
+          hasPermission("internal_notes_tickets") ||
+          hasPermission("close_tickets") ||
+          hasPermission("close_ticket" as Permission) ||
           hasPermission("atendimento_tickets.view" as Permission, "member") ||
           hasPermission("view_all_tickets", "member") ||
           hasPermission("manage_tickets", "member") ||
-          hasPermission("claim_tickets", "member");
+          hasPermission("claim_tickets", "member") ||
+          hasPermission("transfer_tickets", "member") ||
+          hasPermission("change_ticket_status", "member") ||
+          hasPermission("internal_notes_tickets", "member") ||
+          hasPermission("close_tickets", "member");
         if (!canAccessAtendimento) return false;
+        return true;
+      }
+      if (item.id === "tickets" || item.url === "/tickets") {
+        const canAccessTickets =
+          hasPermission("view_tickets") ||
+          hasPermission("view_all_tickets") ||
+          hasPermission("manage_tickets") ||
+          hasPermission("create_ticket") ||
+          hasPermission("reply_tickets") ||
+          hasPermission("claim_tickets") ||
+          hasPermission("transfer_tickets") ||
+          hasPermission("change_ticket_status") ||
+          hasPermission("internal_notes_tickets") ||
+          hasPermission("close_tickets") ||
+          hasPermission("atendimento_tickets.view" as Permission) ||
+          hasPermission("view_tickets", "member");
+        if (!canAccessTickets) return false;
         return true;
       }
       const requiredPerm = item.perm || resolveRequiredPermission(item.id, item.url);

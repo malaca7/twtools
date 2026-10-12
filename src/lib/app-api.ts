@@ -3794,6 +3794,14 @@ async function getEffectiveTicketAuth(): Promise<EffectiveTicketAuth | null> {
     checkPerm("view_all_tickets") ||
     checkPerm("atendimento_tickets.view" as Permission) ||
     checkPerm("view_atendimento_tickets" as Permission) ||
+    checkPerm("claim_tickets") ||
+    checkPerm("claim_ticket" as Permission) ||
+    checkPerm("transfer_tickets") ||
+    checkPerm("transfer_ticket" as Permission) ||
+    checkPerm("change_ticket_status") ||
+    checkPerm("internal_notes_tickets") ||
+    checkPerm("close_tickets") ||
+    checkPerm("close_ticket" as Permission) ||
     hasTagWithViewAll;
   const canCreate = isSuperUser || canManage || checkPerm("create_ticket");
   const canReply =
@@ -4089,7 +4097,7 @@ export async function claimTicket(ticketId: string): Promise<Ticket> {
   const auth = await getEffectiveTicketAuth();
   if (!auth) throw new Error("Usuário não autenticado");
 
-  if (!auth.canClaim && !auth.canManage && !auth.isSuperUser) {
+  if (!auth.canClaim && !auth.canManage && !auth.canViewAll && !auth.isSuperUser) {
     throw new Error("Permissão insuficiente para assumir tickets");
   }
 
@@ -4155,15 +4163,16 @@ export async function transferTicket(
   const auth = await getEffectiveTicketAuth();
   if (!auth) throw new Error("Usuário não autenticado");
 
-  if (!auth.canTransfer && !auth.canManage && !auth.isSuperUser) {
-    throw new Error("Permissão insuficiente para transferir tickets");
-  }
-
   const allRawTickets = await fetchAllRawTickets();
   const targetIndex = allRawTickets.findIndex((t) => t.id === ticketId);
   if (targetIndex === -1) throw new Error("Ticket não encontrado");
 
   const ticket = allRawTickets[targetIndex];
+  const isAssigned = ticket.assigned_to_id === auth.user.id;
+
+  if (!auth.canTransfer && !auth.canManage && !isAssigned && !auth.isSuperUser) {
+    throw new Error("Permissão insuficiente para transferir tickets");
+  }
   const now = new Date().toISOString();
 
   const updatedTicket: Ticket = {
@@ -4252,15 +4261,16 @@ export async function updateTicketStatus(
   const auth = await getEffectiveTicketAuth();
   if (!auth) throw new Error("Usuário não autenticado");
 
-  if (!auth.canChangeStatus && !auth.canManage && !auth.isSuperUser) {
-    throw new Error("Permissão insuficiente para alterar status de tickets");
-  }
-
   const allRawTickets = await fetchAllRawTickets();
   const targetIndex = allRawTickets.findIndex((t) => t.id === ticketId);
   if (targetIndex === -1) throw new Error("Ticket não encontrado");
 
   const ticket = allRawTickets[targetIndex];
+  const isAssigned = ticket.assigned_to_id === auth.user.id;
+
+  if (!auth.canChangeStatus && !auth.canManage && !isAssigned && !auth.isSuperUser) {
+    throw new Error("Permissão insuficiente para alterar status de tickets");
+  }
   const now = new Date().toISOString();
 
   let closedAt = ticket.closed_at;
@@ -4338,8 +4348,9 @@ export async function closeTicket(
 
   const ticket = allRawTickets[targetIndex];
   const isCreator = ticket.user_id === auth.user.id;
+  const isAssigned = ticket.assigned_to_id === auth.user.id;
 
-  if (!auth.canClose && !auth.canManage && !isCreator && !auth.isSuperUser) {
+  if (!auth.canClose && !auth.canManage && !isCreator && !isAssigned && !auth.isSuperUser) {
     throw new Error("Permissão insuficiente para fechar tickets");
   }
 
@@ -4407,8 +4418,9 @@ export async function reopenTicket(ticketId: string): Promise<Ticket> {
 
   const ticket = allRawTickets[targetIndex];
   const isCreator = ticket.user_id === auth.user.id;
+  const isAssigned = ticket.assigned_to_id === auth.user.id;
 
-  if (!auth.canReopen && !auth.canManage && !isCreator && !auth.isSuperUser) {
+  if (!auth.canReopen && !auth.canManage && !isCreator && !isAssigned && !auth.isSuperUser) {
     throw new Error("Permissão insuficiente para reabrir tickets");
   }
 
@@ -4544,9 +4556,10 @@ export async function addTicketMember(
 
   const ticket = allRawTickets[targetIndex];
 
-  // Permissão: Gerência/Liderança/SuperUser ou Criador do ticket
+  // Permissão: Gerência/Liderança/SuperUser, Criador do ticket ou Atendente Atribuído
   const isCreator = ticket.user_id === auth.user.id;
-  if (!auth.canManageMembers && !auth.canManage && !auth.isSuperUser && !isCreator) {
+  const isAssigned = ticket.assigned_to_id === auth.user.id;
+  if (!auth.canManageMembers && !auth.canManage && !auth.isSuperUser && !isCreator && !isAssigned) {
     throw new Error("Você não tem permissão para adicionar membros a este ticket");
   }
 
@@ -4645,7 +4658,8 @@ export async function removeTicketMember(
   const ticket = allRawTickets[targetIndex];
 
   const isCreator = ticket.user_id === auth.user.id;
-  if (!auth.canManageMembers && !auth.canManage && !auth.isSuperUser && !isCreator) {
+  const isAssigned = ticket.assigned_to_id === auth.user.id;
+  if (!auth.canManageMembers && !auth.canManage && !auth.isSuperUser && !isCreator && !isAssigned) {
     throw new Error("Você não tem permissão para remover membros deste ticket");
   }
 
