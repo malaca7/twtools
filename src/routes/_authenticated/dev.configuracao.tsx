@@ -1766,7 +1766,18 @@ export function DevConfiguracaoContent({ defaultTab }: { defaultTab?: string } =
                           ))}
                         </div>
 
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            onClick={() => setMaintenanceModalOpen(true)}
+                            className="h-7 text-xs font-bold gap-1.5 border-amber-500/40 text-amber-300 hover:bg-amber-500/10 cursor-pointer"
+                          >
+                            <Sliders className="w-3.5 h-3.5" />
+                            Gerenciar & Whitelist de Membros
+                          </Button>
+
                           {platformForm.maintenanceActive || platformForm.showSystemStatusNotice ? (
                             <Button
                               type="button"
@@ -1799,6 +1810,7 @@ export function DevConfiguracaoContent({ defaultTab }: { defaultTab?: string } =
                                   targetType: platformForm.maintenanceTargetType || "all",
                                   targetRoles: platformForm.maintenanceTargetRoles || [],
                                   targetTags: platformForm.maintenanceTargetTags || [],
+                                  maintenanceAllowedMembers: platformForm.maintenanceAllowedMembers || [],
                                 });
                                 toast.success("Manutenção iniciada com sucesso!");
                               }}

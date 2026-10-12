@@ -57,6 +57,20 @@ export function GlobalMaintenanceOverlay() {
     };
   }, []);
 
+  // Verifica se o usuário atual é um dos membros com acesso liberado (Bypass de Membro)
+  const isAllowedMember = useMemo(() => {
+    const allowed = (settings.maintenanceAllowedMembers || []).map((id) => String(id).toLowerCase());
+    if (allowed.length === 0) return false;
+    const uid = (user?.id || "").toLowerCase();
+    const pUserId = (profile?.user_id || "").toLowerCase();
+    const pId = (profile?.id || "").toLowerCase();
+    return (
+      (uid && allowed.includes(uid)) ||
+      (pUserId && allowed.includes(pUserId)) ||
+      (pId && allowed.includes(pId))
+    );
+  }, [settings.maintenanceAllowedMembers, user?.id, profile?.user_id, profile?.id]);
+
   // Cálculo se o usuário atual é alvo da manutenção (Targeting)
   const isUserTargeted = useMemo(() => {
     // Se o desenvolvedor está no modo de visualização como membro, sempre considera afetado para teste
@@ -226,6 +240,12 @@ export function GlobalMaintenanceOverlay() {
 
   // Se a manutenção estiver desativada, não renderiza nada
   if (!isMaintenanceActive) {
+    return null;
+  }
+
+  // Se o usuário logado possui liberação direta de membro (Bypass de Membro Autorizado) e não é Dev em preview:
+  // Libera a navegação transparente sem bloqueio
+  if (isAllowedMember && !previewAsMember) {
     return null;
   }
 

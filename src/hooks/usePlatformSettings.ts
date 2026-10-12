@@ -92,6 +92,7 @@ export type PlatformSettings = {
   maintenanceTargetType?: "all" | "selected";
   maintenanceTargetRoles?: string[];
   maintenanceTargetTags?: string[];
+  maintenanceAllowedMembers?: string[];
   maintenanceHistory: MaintenanceHistoryItem[];
 
   systemStatusNotice?: string;
@@ -192,6 +193,7 @@ export const DEFAULT_PLATFORM_SETTINGS: PlatformSettings = {
   maintenanceTargetType: "all",
   maintenanceTargetRoles: [],
   maintenanceTargetTags: [],
+  maintenanceAllowedMembers: [],
   maintenanceHistory: [],
 
   systemStatusNotice: "",
@@ -336,6 +338,7 @@ export async function startPlatformMaintenance(params: {
   targetType?: "all" | "selected";
   targetRoles?: string[];
   targetTags?: string[];
+  maintenanceAllowedMembers?: string[];
 }) {
   const current = getPlatformSettings();
   const now = new Date();
@@ -357,6 +360,7 @@ export async function startPlatformMaintenance(params: {
     maintenanceTargetType: params.targetType ?? current.maintenanceTargetType ?? "all",
     maintenanceTargetRoles: params.targetRoles ?? current.maintenanceTargetRoles ?? [],
     maintenanceTargetTags: params.targetTags ?? current.maintenanceTargetTags ?? [],
+    maintenanceAllowedMembers: params.maintenanceAllowedMembers ?? current.maintenanceAllowedMembers ?? [],
     // Sincroniza também o notice para retrocompatibilidade
     showSystemStatusNotice: true,
     systemStatusNotice: params.message || current.maintenanceMessage || "Sistema em manutenção programada.",
@@ -443,6 +447,7 @@ export async function resetPlatformMaintenanceData() {
     maintenanceStartedAt: "",
     maintenanceDurationMinutes: 30,
     maintenanceSeverity: "warning",
+    maintenanceAllowedMembers: [],
     showSystemStatusNotice: false,
     systemStatusNotice: "",
   };

@@ -27,6 +27,9 @@ import {
   Sun,
   Moon,
   Zap,
+  Search,
+  ShieldCheck,
+  UserCheck,
 } from "lucide-react";
 import {
   Dialog,
@@ -52,7 +55,7 @@ import {
 } from "@/components/ui/select";
 import { usePlatformSettings, type MaintenanceHistoryItem } from "@/hooks/usePlatformSettings";
 import { useAuth } from "@/hooks/useAuth";
-import { useCustomRoles } from "@/hooks/useData";
+import { useCustomRoles, useMembers } from "@/hooks/useData";
 import { useMemberTags } from "@/hooks/useMemberTags";
 import {
   LEVELS,
@@ -108,6 +111,7 @@ export function DevMaintenanceManagerModal({
   const { profile } = useAuth();
   const { data: customRoles = [] } = useCustomRoles();
   const { data: memberTags = [] } = useMemberTags();
+  const { data: members = [] } = useMembers();
 
   const authorName = profile?.nome || profile?.nickname || "Desenvolvedor";
 
@@ -133,6 +137,10 @@ export function DevMaintenanceManagerModal({
   const [selectedTags, setSelectedTags] = useState<string[]>(
     settings.maintenanceTargetTags || []
   );
+  const [selectedAllowedMembers, setSelectedAllowedMembers] = useState<string[]>(
+    settings.maintenanceAllowedMembers || []
+  );
+  const [memberSearchQuery, setMemberSearchQuery] = useState("");
 
   const [activeTab, setActiveTab] = useState<"manage" | "history">("manage");
   const [targetSubTab, setTargetSubTab] = useState<"roles" | "tags">("roles");
@@ -180,6 +188,8 @@ export function DevMaintenanceManagerModal({
       setTargetType(settings.maintenanceTargetType || "all");
       setSelectedRoles(settings.maintenanceTargetRoles || []);
       setSelectedTags(settings.maintenanceTargetTags || []);
+      setSelectedAllowedMembers(settings.maintenanceAllowedMembers || []);
+      setMemberSearchQuery("");
 
       if (settings.maintenanceEstimatedEnd) {
         try {
@@ -204,6 +214,7 @@ export function DevMaintenanceManagerModal({
     settings.maintenanceTargetType,
     settings.maintenanceTargetRoles,
     settings.maintenanceTargetTags,
+    settings.maintenanceAllowedMembers,
   ]);
 
   // Calcula a data e duração a partir de customDateTime
@@ -289,6 +300,38 @@ export function DevMaintenanceManagerModal({
     setSelectedTags([]);
   };
 
+  // Helpers de seleção de membros autorizados (Whitelist / Bypass)
+  const filteredMembers = useMemo(() => {
+    if (!memberSearchQuery.trim()) return members;
+    const q = memberSearchQuery.toLowerCase().trim();
+    return members.filter((m) => {
+      const name = (m.nome || "").toLowerCase();
+      const nick = (m.nickname || "").toLowerCase();
+      const role = (m.nivel || "").toLowerCase();
+      const gameId = (m.game_id || "").toLowerCase();
+      return name.includes(q) || nick.includes(q) || role.includes(q) || gameId.includes(q);
+    });
+  }, [members, memberSearchQuery]);
+
+  const toggleAllowedMember = (memberUserId: string) => {
+    const cleanId = (memberUserId || "").toLowerCase();
+    if (!cleanId) return;
+    setSelectedAllowedMembers((prev) =>
+      prev.includes(cleanId) ? prev.filter((id) => id !== cleanId) : [...prev, cleanId]
+    );
+  };
+
+  const selectAllAllowedMembers = () => {
+    const allIds = members
+      .map((m) => (m.user_id || m.id || "").toLowerCase())
+      .filter(Boolean);
+    setSelectedAllowedMembers(Array.from(new Set(allIds)));
+  };
+
+  const clearAllAllowedMembers = () => {
+    setSelectedAllowedMembers([]);
+  };
+
   // Start or Update maintenance
   const handleSaveAndStart = async () => {
     if (targetType === "selected" && selectedRoles.length === 0 && selectedTags.length === 0) {
@@ -317,6 +360,7 @@ export function DevMaintenanceManagerModal({
         targetType,
         targetRoles: targetType === "selected" ? selectedRoles : [],
         targetTags: targetType === "selected" ? selectedTags : [],
+        maintenanceAllowedMembers: selectedAllowedMembers,
       });
 
       toast.success(
@@ -324,8 +368,8 @@ export function DevMaintenanceManagerModal({
         {
           description:
             targetType === "selected"
-              ? `Aplicado exclusivamente para ${selectedRoles.length} cargos e ${selectedTags.length} tags selecionadas.`
-              : "A plataforma está restrita para todos os integrantes com contador regressivo.",
+              ? `Aplicado exclusivamente para ${selectedRoles.length} cargos e ${selectedTags.length} tags selecionadas. ${selectedAllowedMembers.length} membro(s) com acesso liberado.`
+              : `A plataforma está restrita com contador regressivo. ${selectedAllowedMembers.length} membro(s) com acesso liberado.`,
           icon: "🚨",
         }
       );
@@ -383,6 +427,8 @@ export function DevMaintenanceManagerModal({
       setTargetType("all");
       setSelectedRoles([]);
       setSelectedTags([]);
+      setSelectedAllowedMembers([]);
+      setMemberSearchQuery("");
       toast.info("Dados de manutenção resetados para o padrão.");
     } catch (err: any) {
       toast.error("Erro ao resetar dados: " + (err?.message || "Erro"));
@@ -529,8 +575,8 @@ export function DevMaintenanceManagerModal({
                   <p className="text-[11px] leading-relaxed">
                     {isCurrentActive
                       ? settings.maintenanceTargetType === "selected"
-                        ? `A manutenção está ativa de forma SELETIVA apenas para os cargos (${settings.maintenanceTargetRoles?.join(", ") || "nenhum"}) e tags (${settings.maintenanceTargetTags?.join(", ") || "nenhuma"}). Outros usuários navegam normalmente.`
-                        : "O site está bloqueado para todos os membros comuns e visitantes com modal central e contador regressivo. Desenvolvedores possuem livre acesso com indicativos visuais."
+                        ? `A manutenção está ativa de forma SELETIVA apenas para os cargos (${settings.maintenanceTargetRoles?.join(", ") || "nenhum"}) e tags (${settings.maintenanceTargetTags?.join(", ") || "nenhuma"}). ${settings.maintenanceAllowedMembers?.length ? `${settings.maintenanceAllowedMembers.length} membro(s) possuem acesso liberado com barra no topo.` : ""}`
+                        : `O site está em manutenção com modal central e contador regressivo. Desenvolvedores e ${settings.maintenanceAllowedMembers?.length || 0} membro(s) autorizados possuem acesso liberado com barra de status no topo.`
                       : "Nenhum bloqueio ativo. Todos os integrantes e visitantes podem navegar normalmente."}
                   </p>
                   {isCurrentActive && settings.maintenanceEstimatedEnd && (
@@ -854,7 +900,164 @@ export function DevMaintenanceManagerModal({
                 )}
               </div>
 
-              {/* SEÇÃO 2: FORMULÁRIO DE TÍTULO E MENSAGEM */}
+              {/* SEÇÃO 2: MEMBROS COM ACESSO LIBERADO (WHITELIST / BYPASS DA MANUTENÇÃO) */}
+              <div className="p-4 rounded-2xl bg-secondary/20 border border-emerald-500/30 shadow-xs space-y-3.5">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+                  <div>
+                    <h4 className="text-xs font-extrabold text-foreground flex items-center gap-1.5">
+                      <ShieldCheck className="w-4 h-4 text-emerald-400" />
+                      Membros com Acesso Liberado (Bypass de Manutenção)
+                    </h4>
+                    <p className="text-[10.5px] text-muted-foreground">
+                      Selecione membros específicos que NÃO serão bloqueados pela manutenção. Eles navegarão normalmente e verão uma barra no topo sinalizando o modo de manutenção ativo.
+                    </p>
+                  </div>
+
+                  <div className="flex items-center gap-2 shrink-0">
+                    <Badge
+                      variant="outline"
+                      className={cn(
+                        "font-mono text-[10px] font-bold px-2 py-0.5 rounded-full transition-all",
+                        selectedAllowedMembers.length > 0
+                          ? "border-emerald-500/50 text-emerald-300 bg-emerald-500/10"
+                          : "border-border/60 text-muted-foreground bg-background/50"
+                      )}
+                    >
+                      {selectedAllowedMembers.length} de {members.length} liberados
+                    </Badge>
+                  </div>
+                </div>
+
+                {/* Barra de Filtro e Ações Rápidas de Seleção de Membros */}
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2">
+                  <div className="relative flex-1 min-w-[200px]">
+                    <Search className="w-3.5 h-3.5 text-muted-foreground absolute left-3 top-1/2 -translate-y-1/2" />
+                    <Input
+                      value={memberSearchQuery}
+                      onChange={(e) => setMemberSearchQuery(e.target.value)}
+                      placeholder="Filtrar por nome, nickname ou cargo..."
+                      className="h-8 text-xs pl-8 rounded-xl bg-background/70 border-border/70"
+                    />
+                  </div>
+
+                  <div className="flex items-center gap-1.5 shrink-0 self-end sm:self-auto">
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={selectAllAllowedMembers}
+                      className="h-7 text-[10px] font-bold px-2.5 rounded-lg cursor-pointer border-emerald-500/40 text-emerald-300 hover:bg-emerald-500/10"
+                    >
+                      <UserCheck className="w-3 h-3 mr-1" />
+                      Liberar Todos
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      onClick={clearAllAllowedMembers}
+                      className="h-7 text-[10px] font-bold px-2 rounded-lg text-muted-foreground hover:text-foreground cursor-pointer"
+                    >
+                      Limpar Seleção
+                    </Button>
+                  </div>
+                </div>
+
+                {/* Grade de Membros */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 max-h-[220px] overflow-y-auto pr-1">
+                  {filteredMembers.length === 0 ? (
+                    <div className="col-span-full py-6 text-center text-xs text-muted-foreground">
+                      Nenhum membro encontrado com os critérios de busca.
+                    </div>
+                  ) : (
+                    filteredMembers.map((member) => {
+                      const memberId = (member.user_id || member.id || "").toLowerCase();
+                      const isChecked = selectedAllowedMembers.includes(memberId);
+                      const displayName = member.nome || member.nickname || "Membro";
+                      const roleLabel = member.nivel ? (LEVEL_LABEL[member.nivel as AppLevel] || member.nivel) : "Membro";
+
+                      return (
+                        <div
+                          key={memberId || member.nome}
+                          onClick={() => toggleAllowedMember(memberId)}
+                          className={cn(
+                            "flex items-center gap-2.5 p-2 rounded-xl border text-left transition-all cursor-pointer select-none",
+                            isChecked
+                              ? "bg-emerald-500/15 border-emerald-500/50 shadow-xs ring-1 ring-emerald-500/20"
+                              : "bg-background/60 border-border/60 hover:bg-secondary/60 text-muted-foreground hover:text-foreground"
+                          )}
+                        >
+                          <Checkbox
+                            checked={isChecked}
+                            onCheckedChange={() => toggleAllowedMember(memberId)}
+                            className="shrink-0"
+                          />
+
+                          {/* Avatar ou Iniciais */}
+                          <div className="w-7 h-7 rounded-lg overflow-hidden bg-zinc-800 border border-white/10 shrink-0 flex items-center justify-center text-[10px] font-bold text-zinc-300 font-mono">
+                            {member.discord_avatar_url ? (
+                              <img
+                                src={member.discord_avatar_url}
+                                alt={displayName}
+                                className="w-full h-full object-cover"
+                              />
+                            ) : (
+                              displayName.substring(0, 2).toUpperCase()
+                            )}
+                          </div>
+
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center justify-between gap-1">
+                              <span
+                                className={cn(
+                                  "text-xs font-bold truncate block",
+                                  isChecked ? "text-emerald-300" : "text-foreground"
+                                )}
+                              >
+                                {displayName}
+                              </span>
+                              {member.nivel && (
+                                <Badge
+                                  variant="outline"
+                                  className={cn(
+                                    "text-[8.5px] font-mono px-1 py-0 shrink-0",
+                                    levelBadgeClass(member.nivel as AppLevel)
+                                  )}
+                                >
+                                  {roleLabel}
+                                </Badge>
+                              )}
+                            </div>
+                            {member.nickname && member.nickname !== member.nome && (
+                              <p className="text-[10px] text-muted-foreground truncate leading-tight">
+                                @{member.nickname}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+
+                {/* Alerta Resumo */}
+                <div className="p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-[11px] text-emerald-200 flex items-center justify-between gap-2 flex-wrap">
+                  <span className="flex items-center gap-1.5">
+                    <Info className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                    <span>
+                      {selectedAllowedMembers.length === 0 ? (
+                        <>Nenhum membro com liberação direta selecionado. (Desenvolvedores mantêm bypass nativo).</>
+                      ) : (
+                        <>
+                          <strong>{selectedAllowedMembers.length} membro(s) liberado(s):</strong> Não receberão o bloqueio em tela cheia e visualizarão a barra no topo avisando sobre a manutenção ativa.
+                        </>
+                      )}
+                    </span>
+                  </span>
+                </div>
+              </div>
+
+              {/* SEÇÃO 3: FORMULÁRIO DE TÍTULO E MENSAGEM */}
               <div className="space-y-4">
                 {/* Título da Manutenção */}
                 <div className="space-y-2">
