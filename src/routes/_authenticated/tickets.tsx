@@ -71,16 +71,7 @@ export function TicketsPage() {
   const { hasPermission, loading } = useAuth();
   const canView =
     hasPermission("view_tickets") ||
-    hasPermission("view_all_tickets") ||
-    hasPermission("manage_tickets") ||
-    hasPermission("create_ticket") ||
-    hasPermission("reply_tickets") ||
-    hasPermission("claim_tickets") ||
-    hasPermission("transfer_tickets") ||
-    hasPermission("change_ticket_status") ||
-    hasPermission("internal_notes_tickets") ||
-    hasPermission("close_tickets") ||
-    hasPermission("atendimento_tickets.view" as Permission);
+    hasPermission("manage_tickets");
 
   if (loading) {
     return (
@@ -100,21 +91,10 @@ export function TicketsPage() {
 function TicketsContent() {
   const { user, profile, hasPermission } = useAuth();
   const canManage = hasPermission("manage_tickets");
-  const canViewAll =
-    hasPermission("view_all_tickets") ||
-    hasPermission("atendimento_tickets.view" as Permission) ||
-    hasPermission("view_atendimento_tickets" as Permission) ||
-    hasPermission("claim_tickets") ||
-    hasPermission("claim_ticket" as Permission) ||
-    hasPermission("transfer_tickets") ||
-    hasPermission("transfer_ticket" as Permission) ||
-    hasPermission("change_ticket_status") ||
-    hasPermission("internal_notes_tickets") ||
-    hasPermission("close_tickets") ||
-    canManage;
+  const canViewAll = hasPermission("view_all_tickets") || canManage;
   const canSeeAll = canViewAll;
   const canCreate = hasPermission("create_ticket") || canManage;
-  const canView = hasPermission("view_tickets") || canSeeAll;
+  const canView = hasPermission("view_tickets") || canManage;
 
   const { data: tickets = [], isLoading, isFetching } = useTickets();
 

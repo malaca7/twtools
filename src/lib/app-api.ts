@@ -3773,63 +3773,69 @@ async function getEffectiveTicketAuth(): Promise<EffectiveTicketAuth | null> {
 
   // 6. Matriz de permissões dos cargos do banco de dados
   const customRoleMap = await getRolePermissions();
+  const rawDevPerms = customRoleMap?.["desenvolvedor"];
+  const devPerms = Array.isArray(rawDevPerms) && rawDevPerms.length > 0 ? rawDevPerms : [];
   const rawCeoPerms = customRoleMap?.["ceo"];
   const ceoPerms = Array.isArray(rawCeoPerms) && rawCeoPerms.length > 0
     ? rawCeoPerms
     : (DEFAULT_CEO_PERMISSIONS as Permission[]);
 
-  // 7. Avaliador granular unificado de permissão
+  // 7. Determinação do painel ativo e avaliador granular estrito de permissão
+  const pathname = typeof window !== "undefined" ? window.location.pathname.toLowerCase() : "";
+  const isDevPanel = isDevUser && (pathname.startsWith("/dev") || pathname.includes("/dev/"));
+  const isCeoPanel = !isDevPanel && (isCeoUser || isDevUser) && (pathname.startsWith("/ceo") || pathname.includes("/ceo/"));
+
   const checkPerm = (perm: Permission): boolean => {
-    if (isSuperUser) return true;
-    if (can(userLevel, perm, customRoleMap)) return true;
-    if (isCeoUser && satisfiesPermission(ceoPerms, perm)) return true;
-    if (satisfiesPermission(tagPermsList, perm)) return true;
-    return false;
+    if (isSuperUser && isDevPanel) return true;
+    const hasRolePerm = can(userLevel, perm, customRoleMap);
+
+    if (isDevPanel) {
+      // Painel Dev: soma das permissões da tag dev + permissões do cargo do membro
+      const hasDevTagPerm = isDevUser && (
+        satisfiesPermission(devPerms, perm) ||
+        satisfiesPermission(tagPermsList, perm)
+      );
+      return hasDevTagPerm || hasRolePerm;
+    }
+
+    if (isCeoPanel) {
+      // Painel CEO: soma das permissões da tag ceo + permissões do cargo do membro
+      const hasCeoTagPerm = isCeoUser && (
+        satisfiesPermission(ceoPerms, perm) ||
+        satisfiesPermission(tagPermsList, perm)
+      );
+      return hasCeoTagPerm || hasRolePerm;
+    }
+
+    // Painel Membro: APENAS as permissões do cargo do membro
+    return hasRolePerm;
   };
 
   const canManage = isSuperUser || checkPerm("manage_tickets");
-  const canViewAll =
-    isSuperUser ||
-    canManage ||
-    checkPerm("view_all_tickets") ||
-    checkPerm("atendimento_tickets.view" as Permission) ||
-    checkPerm("view_atendimento_tickets" as Permission) ||
-    checkPerm("claim_tickets") ||
-    checkPerm("claim_ticket" as Permission) ||
-    checkPerm("transfer_tickets") ||
-    checkPerm("transfer_ticket" as Permission) ||
-    checkPerm("change_ticket_status") ||
-    checkPerm("internal_notes_tickets") ||
-    checkPerm("close_tickets") ||
-    checkPerm("close_ticket" as Permission) ||
-    hasTagWithViewAll;
+  const canViewAll = isSuperUser || canManage || checkPerm("view_all_tickets") || (isCeoPanel && hasTagWithViewAll);
   const canCreate = isSuperUser || canManage || checkPerm("create_ticket");
   const canReply =
     isSuperUser ||
     canManage ||
-    canViewAll ||
     checkPerm("reply_tickets") ||
-    checkPerm("reply_ticket" as Permission) ||
-    hasTagWithViewAll;
+    checkPerm("reply_ticket" as Permission);
   const canClaim =
     isSuperUser ||
     canManage ||
     checkPerm("claim_tickets") ||
-    checkPerm("claim_ticket" as Permission) ||
-    hasTagWithViewAll;
+    checkPerm("claim_ticket" as Permission);
   const canTransfer =
     isSuperUser ||
     canManage ||
     checkPerm("transfer_tickets") ||
-    checkPerm("transfer_ticket" as Permission) ||
-    hasTagWithViewAll;
-  const canChangeStatus = isSuperUser || canManage || checkPerm("change_ticket_status") || hasTagWithViewAll;
+    checkPerm("transfer_ticket" as Permission);
+  const canChangeStatus = isSuperUser || canManage || checkPerm("change_ticket_status");
   const canClose = isSuperUser || canManage || checkPerm("close_tickets") || checkPerm("close_ticket" as Permission);
   const canReopen = isSuperUser || canManage || checkPerm("reopen_tickets") || checkPerm("reopen_ticket" as Permission);
   const canDelete = isSuperUser || canManage || checkPerm("delete_tickets") || checkPerm("delete_ticket" as Permission);
   const canManageMembers = isSuperUser || canManage || checkPerm("manage_ticket_members");
-  const canInternalNotes = isSuperUser || canManage || checkPerm("internal_notes_tickets") || (isCeoUser && !p?.is_blocked);
-  const canView = isSuperUser || canManage || canViewAll || canCreate || canReply || checkPerm("view_tickets");
+  const canInternalNotes = isSuperUser || canManage || checkPerm("internal_notes_tickets");
+  const canView = isSuperUser || canManage || canViewAll || canCreate || canReply || checkPerm("view_tickets") || checkPerm("atendimento_tickets.view" as Permission) || checkPerm("view_atendimento_tickets" as Permission);
 
   const nome = p?.nome || "Membro";
   const nickname = p?.nickname || null;
@@ -3875,7 +3881,7 @@ export async function getTickets(): Promise<Ticket[]> {
   // - Quem está atribuído ao ticket também pode vê-lo
   // - Membro comum visualiza apenas os próprios chamados e onde participa
   const filteredTickets = rawTickets.filter((ticket) => {
-    if (auth.canViewAll || auth.canManage || auth.canClaim || auth.canTransfer || auth.canChangeStatus || auth.isSuperUser) return true;
+    if (auth.canViewAll || auth.canManage || auth.isSuperUser) return true;
     if (ticket.assigned_to_id === auth.user.id) return true;
     if (ticket.user_id === auth.user.id) return true;
     if (ticket.members && ticket.members.some((m) => m.user_id === auth.user.id)) return true;
@@ -4005,7 +4011,7 @@ export async function addTicketMessage(
   const isCreator = ticket.user_id === auth.user.id;
   const isAssigned = ticket.assigned_to_id === auth.user.id;
   const isMember = (ticket.members || []).some((m) => m.user_id === auth.user.id);
-  const canReply = isCreator || isAssigned || isMember || auth.canManage || auth.canViewAll || auth.isSuperUser;
+  const canReply = isCreator || isAssigned || isMember || auth.canManage || auth.canReply || auth.isSuperUser;
 
   if (!canReply) {
     throw new Error("Você não tem permissão para responder a este ticket");
@@ -4097,7 +4103,7 @@ export async function claimTicket(ticketId: string): Promise<Ticket> {
   const auth = await getEffectiveTicketAuth();
   if (!auth) throw new Error("Usuário não autenticado");
 
-  if (!auth.canClaim && !auth.canManage && !auth.canViewAll && !auth.isSuperUser) {
+  if (!auth.canClaim && !auth.canManage && !auth.isSuperUser) {
     throw new Error("Permissão insuficiente para assumir tickets");
   }
 

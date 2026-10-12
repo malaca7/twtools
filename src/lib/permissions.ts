@@ -1320,55 +1320,7 @@ export function satisfiesPermission(
   if (!list || !Array.isArray(list) || list.length === 0) return false;
   if (list.includes(permission)) return true;
 
-  // 1. Sistema de Tickets & Central de Atendimento
-  if (
-    permission === "atendimento_tickets.view" ||
-    permission === "view_atendimento_tickets"
-  ) {
-    if (
-      list.includes("atendimento_tickets.view") ||
-      list.includes("view_atendimento_tickets") ||
-      list.includes("view_all_tickets") ||
-      list.includes("manage_tickets") ||
-      list.includes("claim_tickets") ||
-      list.includes("claim_ticket") ||
-      list.includes("transfer_tickets") ||
-      list.includes("transfer_ticket") ||
-      list.includes("change_ticket_status") ||
-      list.includes("internal_notes_tickets") ||
-      list.includes("close_tickets") ||
-      list.includes("close_ticket") ||
-      list.includes("reopen_tickets") ||
-      list.includes("reopen_ticket") ||
-      list.includes("manage_ticket_members") ||
-      list.includes("delete_tickets") ||
-      list.includes("delete_ticket")
-    ) {
-      return true;
-    }
-  }
-
-  if (permission === "view_all_tickets") {
-    if (
-      list.includes("view_all_tickets") ||
-      list.includes("atendimento_tickets.view") ||
-      list.includes("view_atendimento_tickets") ||
-      list.includes("manage_tickets") ||
-      list.includes("claim_tickets") ||
-      list.includes("claim_ticket") ||
-      list.includes("transfer_tickets") ||
-      list.includes("transfer_ticket") ||
-      list.includes("change_ticket_status") ||
-      list.includes("internal_notes_tickets") ||
-      list.includes("close_tickets") ||
-      list.includes("close_ticket") ||
-      list.includes("reopen_tickets") ||
-      list.includes("reopen_ticket")
-    ) {
-      return true;
-    }
-  }
-
+  // 1. Sistema de Tickets & Central de Atendimento (Permissões 100% Granulares e Individuais)
   if (list.includes("manage_tickets")) {
     if (
       permission === "atendimento_tickets.view" ||
@@ -1395,119 +1347,48 @@ export function satisfiesPermission(
       return true;
     }
   }
-  // Equivalências diretas entre plural e singular e atendimento
+
+  // Equivalências diretas entre plural e singular / aliases legados da mesma permissão
+  if (
+    (permission === "atendimento_tickets.view" || permission === "view_atendimento_tickets") &&
+    (list.includes("atendimento_tickets.view") || list.includes("view_atendimento_tickets"))
+  ) {
+    return true;
+  }
   if (
     (permission === "reply_tickets" || permission === "reply_ticket") &&
-    (list.includes("reply_ticket") ||
-      list.includes("reply_tickets") ||
-      list.includes("view_all_tickets") ||
-      list.includes("claim_tickets") ||
-      list.includes("claim_ticket") ||
-      list.includes("transfer_tickets") ||
-      list.includes("transfer_ticket") ||
-      list.includes("change_ticket_status") ||
-      list.includes("atendimento_tickets.view") ||
-      list.includes("view_atendimento_tickets") ||
-      list.includes("manage_tickets"))
+    (list.includes("reply_tickets") || list.includes("reply_ticket"))
   ) {
     return true;
   }
   if (
     (permission === "claim_tickets" || permission === "claim_ticket") &&
-    (list.includes("claim_ticket") ||
-      list.includes("claim_tickets") ||
-      list.includes("view_all_tickets") ||
-      list.includes("atendimento_tickets.view") ||
-      list.includes("view_atendimento_tickets") ||
-      list.includes("manage_tickets"))
+    (list.includes("claim_tickets") || list.includes("claim_ticket"))
   ) {
     return true;
   }
   if (
     (permission === "transfer_tickets" || permission === "transfer_ticket") &&
-    (list.includes("transfer_ticket") ||
-      list.includes("transfer_tickets") ||
-      list.includes("manage_tickets"))
+    (list.includes("transfer_tickets") || list.includes("transfer_ticket"))
   ) {
     return true;
   }
   if (
     (permission === "close_tickets" || permission === "close_ticket") &&
-    (list.includes("close_ticket") ||
-      list.includes("close_tickets") ||
-      list.includes("manage_tickets"))
+    (list.includes("close_tickets") || list.includes("close_ticket"))
   ) {
     return true;
   }
   if (
     (permission === "reopen_tickets" || permission === "reopen_ticket") &&
-    (list.includes("reopen_ticket") ||
-      list.includes("reopen_tickets") ||
-      list.includes("manage_tickets"))
+    (list.includes("reopen_tickets") || list.includes("reopen_ticket"))
   ) {
     return true;
   }
   if (
     (permission === "delete_tickets" || permission === "delete_ticket") &&
-    (list.includes("delete_ticket") ||
-      list.includes("delete_tickets") ||
-      list.includes("manage_tickets"))
+    (list.includes("delete_tickets") || list.includes("delete_ticket"))
   ) {
-    return true;
-  }
-  if (
-    permission === "change_ticket_status" &&
-    (list.includes("change_ticket_status") ||
-      list.includes("claim_tickets") ||
-      list.includes("claim_ticket") ||
-      list.includes("transfer_tickets") ||
-      list.includes("transfer_ticket") ||
-      list.includes("manage_tickets") ||
-      list.includes("view_all_tickets"))
-  ) {
-    return true;
-  }
-  if (
-    permission === "internal_notes_tickets" &&
-    (list.includes("internal_notes_tickets") || list.includes("manage_tickets"))
-  ) {
-    return true;
-  }
-  if (
-    permission === "manage_ticket_members" &&
-    (list.includes("manage_ticket_members") || list.includes("manage_tickets"))
-  ) {
-    return true;
-  }
-
-  // Qualquer permissão operacional de tickets implica acesso e visualização à página /tickets
-  if (
-    permission === "view_tickets" &&
-    (list.includes("view_tickets") ||
-      list.includes("view_all_tickets") ||
-      list.includes("atendimento_tickets.view") ||
-      list.includes("view_atendimento_tickets") ||
-      list.includes("manage_tickets") ||
-      list.includes("create_ticket") ||
-      list.includes("reply_tickets") ||
-      list.includes("reply_ticket") ||
-      list.includes("claim_tickets") ||
-      list.includes("claim_ticket") ||
-      list.includes("transfer_tickets") ||
-      list.includes("transfer_ticket") ||
-      list.includes("change_ticket_status") ||
-      list.includes("close_tickets") ||
-      list.includes("close_ticket") ||
-      list.includes("reopen_tickets") ||
-      list.includes("reopen_ticket") ||
-      list.includes("manage_ticket_members") ||
-      list.includes("internal_notes_tickets"))
-  ) {
-    return true;
-  }
-
-  // Visualizar todos os tickets também permite responder por padrão
-  if (list.includes("view_all_tickets") && (permission === "reply_tickets" || permission === "reply_ticket")) {
     return true;
   }
 
@@ -2119,79 +2000,7 @@ export function can(
     if (satisfiesPermission(list, permission)) return true;
     if (list.includes(permission)) return true;
 
-    // Herança e equivalências do sistema de tickets & atendimento
-    if (
-      permission === "atendimento_tickets.view" ||
-      permission === "view_atendimento_tickets"
-    ) {
-      if (
-        list.includes("atendimento_tickets.view") ||
-        list.includes("view_atendimento_tickets") ||
-        list.includes("view_all_tickets") ||
-        list.includes("manage_tickets") ||
-        list.includes("claim_tickets") ||
-        list.includes("claim_ticket")
-      ) {
-        return true;
-      }
-    }
-
-    if (permission === "view_all_tickets") {
-      if (
-        list.includes("view_all_tickets") ||
-        list.includes("atendimento_tickets.view") ||
-        list.includes("view_atendimento_tickets") ||
-        list.includes("manage_tickets") ||
-        list.includes("claim_tickets") ||
-        list.includes("claim_ticket")
-      ) {
-        return true;
-      }
-    }
-
-    if (list.includes("manage_tickets")) {
-      if (
-        permission === "atendimento_tickets.view" ||
-        permission === "view_atendimento_tickets" ||
-        permission === "view_all_tickets" ||
-        permission === "view_tickets" ||
-        permission === "create_ticket" ||
-        permission === "reply_tickets" ||
-        permission === "reply_ticket" ||
-        permission === "claim_tickets" ||
-        permission === "claim_ticket" ||
-        permission === "transfer_tickets" ||
-        permission === "transfer_ticket" ||
-        permission === "change_ticket_status" ||
-        permission === "close_tickets" ||
-        permission === "close_ticket" ||
-        permission === "reopen_tickets" ||
-        permission === "reopen_ticket" ||
-        permission === "internal_notes_tickets" ||
-        permission === "manage_ticket_members" ||
-        permission === "delete_tickets" ||
-        permission === "delete_ticket"
-      ) {
-        return true;
-      }
-    }
-    // Equivalências diretas entre plural e singular
-    if (permission === "reply_tickets" && list.includes("reply_ticket")) return true;
-    if (permission === "reply_ticket" && list.includes("reply_tickets")) return true;
-    if (permission === "claim_tickets" && list.includes("claim_ticket")) return true;
-    if (permission === "claim_ticket" && list.includes("claim_tickets")) return true;
-    if (permission === "transfer_tickets" && list.includes("transfer_ticket")) return true;
-    if (permission === "transfer_ticket" && list.includes("transfer_tickets")) return true;
-    if (permission === "close_tickets" && list.includes("close_ticket")) return true;
-    if (permission === "close_ticket" && list.includes("close_tickets")) return true;
-    if (permission === "reopen_tickets" && list.includes("reopen_ticket")) return true;
-    if (permission === "reopen_ticket" && list.includes("reopen_tickets")) return true;
-    if (permission === "delete_tickets" && list.includes("delete_ticket")) return true;
-    if (permission === "delete_ticket" && list.includes("delete_tickets")) return true;
-
-    if (list.includes("view_all_tickets") && permission === "view_tickets") {
-      return true;
-    }
+    // Tickets são configuráveis na matriz de cargos: somente permissões marcadas são concedidas.
 
     // Tickets são configuráveis na matriz de cargos: somente permissões marcadas são concedidas.
 

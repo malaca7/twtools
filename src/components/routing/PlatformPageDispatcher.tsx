@@ -48,6 +48,7 @@ import { AdvertenciasPage } from "@/routes/_authenticated/advertencias";
 import { GestaoProducaoPage } from "@/routes/_authenticated/producoes.gestao";
 import { MateriasPrimasPage } from "@/routes/_authenticated/producoes.materias-primas";
 import { CeoGerenciarTagsPage } from "@/routes/_authenticated/ceo.tags";
+import { CeoSelosPage } from "@/routes/_authenticated/ceo.selos";
 import { EscalasPage } from "@/routes/_authenticated/escalas";
 
 export interface PlatformPageDispatcherProps {
@@ -182,6 +183,9 @@ function InnerPageResolver({ page, tab, mode }: { page: string; tab?: string; mo
     ) {
       return <CeoGerenciarTagsPage />;
     }
+    if (sub === "selos" || sub === "ceo-selos" || sub === "gerenciar-selos") {
+      return <CeoSelosPage />;
+    }
     if (sub === "advertencias" || sub === "ceo-advertencias" || sub === "suspensoes") {
       return <AdvertenciasPage />;
     }
@@ -217,6 +221,9 @@ function InnerPageResolver({ page, tab, mode }: { page: string; tab?: string; mo
     ) {
       return <CeoGerenciarTagsPage />;
     }
+    if (normalizedPage === "selos" || normalizedPage === "ceo-selos" || normalizedPage === "gerenciar-selos") {
+      return <CeoSelosPage />;
+    }
     if (normalizedPage === "advertencias" || normalizedPage === "ceo-advertencias" || normalizedPage === "suspensoes") {
       return <AdvertenciasPage />;
     }
@@ -251,6 +258,9 @@ function InnerPageResolver({ page, tab, mode }: { page: string; tab?: string; mo
     if (normalizedPage === "tags" || normalizedPage === "dev-tags" || normalizedPage === "gerenciar-tags") {
       return <CeoGerenciarTagsPage />;
     }
+    if (normalizedPage === "selos" || normalizedPage === "dev-selos" || normalizedPage === "ceo-selos" || normalizedPage === "gerenciar-selos") {
+      return <CeoSelosPage />;
+    }
     if (normalizedPage === "ajustes-estoque" || normalizedPage === "ceo-ajustes-estoque" || normalizedPage === "estoque-ajustes") {
       return <CeoAjustesEstoqueContent />;
     }
@@ -262,7 +272,7 @@ function InnerPageResolver({ page, tab, mode }: { page: string; tab?: string; mo
     }
   }
 
-  // Verifica permissão da página se exigida (modo dev possui bypass total para inspeção e governança)
+  // Verifica permissão da página exigida no modo do painel
   let requiredPerm = PAGE_PERMISSION_MAP[normalizedPage];
   if (normalizedPage === "producoes") {
     if (effectiveTab === "armazem") {
@@ -280,30 +290,14 @@ function InnerPageResolver({ page, tab, mode }: { page: string; tab?: string; mo
       hasPermission("manage_menu_settings", mode) ||
       hasPermission("manage_permissions", mode) ||
       hasPermission("manage_roles", mode);
-    if (!canAccessConfig && mode !== "dev") {
+    if (!canAccessConfig) {
       return <NoAccess message="Você não tem permissão para acessar a área de Configurações." />;
     }
   } else if (normalizedPage === "tickets") {
     const canAccessTickets =
       hasPermission("view_tickets", mode) ||
-      hasPermission("view_all_tickets", mode) ||
-      hasPermission("manage_tickets", mode) ||
-      hasPermission("create_ticket", mode) ||
-      hasPermission("reply_tickets", mode) ||
-      hasPermission("claim_tickets", mode) ||
-      hasPermission("transfer_tickets", mode) ||
-      hasPermission("change_ticket_status", mode) ||
-      hasPermission("internal_notes_tickets", mode) ||
-      hasPermission("close_tickets", mode) ||
-      hasPermission("atendimento_tickets.view" as Permission, mode) ||
-      hasPermission("view_tickets") ||
-      hasPermission("view_all_tickets") ||
-      hasPermission("manage_tickets") ||
-      hasPermission("create_ticket") ||
-      hasPermission("reply_tickets") ||
-      hasPermission("claim_tickets") ||
-      hasPermission("atendimento_tickets.view" as Permission);
-    if (!canAccessTickets && mode !== "dev") {
+      hasPermission("manage_tickets", mode);
+    if (!canAccessTickets) {
       return <NoAccess message="Você não tem permissão para acessar a área de Tickets / Ouvidoria." />;
     }
   } else if (
@@ -313,35 +307,13 @@ function InnerPageResolver({ page, tab, mode }: { page: string; tab?: string; mo
   ) {
     const canAccessAtendimento =
       hasPermission("atendimento_tickets.view" as Permission, mode) ||
-      hasPermission("view_atendimento_tickets" as Permission, mode) ||
-      hasPermission("view_all_tickets", mode) ||
-      hasPermission("manage_tickets", mode) ||
-      hasPermission("claim_tickets", mode) ||
-      hasPermission("claim_ticket" as Permission, mode) ||
-      hasPermission("transfer_tickets", mode) ||
-      hasPermission("transfer_ticket" as Permission, mode) ||
-      hasPermission("change_ticket_status", mode) ||
-      hasPermission("internal_notes_tickets", mode) ||
-      hasPermission("close_tickets", mode) ||
-      hasPermission("close_ticket" as Permission, mode) ||
-      hasPermission("atendimento_tickets.view" as Permission) ||
-      hasPermission("view_atendimento_tickets" as Permission) ||
-      hasPermission("view_all_tickets") ||
-      hasPermission("manage_tickets") ||
-      hasPermission("claim_tickets") ||
-      hasPermission("claim_ticket" as Permission) ||
-      hasPermission("transfer_tickets") ||
-      hasPermission("transfer_ticket" as Permission) ||
-      hasPermission("change_ticket_status") ||
-      hasPermission("internal_notes_tickets") ||
-      hasPermission("close_tickets") ||
-      hasPermission("close_ticket" as Permission);
-    if (!canAccessAtendimento && mode !== "dev") {
+      hasPermission("manage_tickets", mode);
+    if (!canAccessAtendimento) {
       return (
         <NoAccess message="Você não tem permissão para acessar a central de Atendimento de Tickets." />
       );
     }
-  } else if (requiredPerm && !hasPermission(requiredPerm, mode) && mode !== "dev") {
+  } else if (requiredPerm && !hasPermission(requiredPerm, mode)) {
     return <NoAccess />;
   }
 

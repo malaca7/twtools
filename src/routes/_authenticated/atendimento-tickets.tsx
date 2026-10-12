@@ -79,17 +79,7 @@ export function AtendimentoTicketsPage() {
   const { hasPermission, loading } = useAuth();
   const canAccess =
     hasPermission("atendimento_tickets.view" as Permission) ||
-    hasPermission("view_atendimento_tickets" as Permission) ||
-    hasPermission("view_all_tickets") ||
-    hasPermission("manage_tickets") ||
-    hasPermission("claim_tickets") ||
-    hasPermission("claim_ticket" as Permission) ||
-    hasPermission("transfer_tickets") ||
-    hasPermission("transfer_ticket" as Permission) ||
-    hasPermission("change_ticket_status") ||
-    hasPermission("internal_notes_tickets") ||
-    hasPermission("close_tickets") ||
-    hasPermission("close_ticket" as Permission);
+    hasPermission("manage_tickets");
 
   if (loading) {
     return (
@@ -111,12 +101,9 @@ export function AtendimentoTicketsPage() {
 export function AtendimentoTicketsContent() {
   const { user, profile, hasPermission } = useAuth();
   const canManage = hasPermission("manage_tickets");
-  const canClaim =
-    hasPermission("claim_tickets") ||
-    hasPermission("claim_ticket" as Permission) ||
-    hasPermission("view_all_tickets") ||
-    canManage;
+  const canClaim = hasPermission("claim_tickets") || hasPermission("claim_ticket" as Permission) || canManage;
   const canCreate = hasPermission("create_ticket") || canManage;
+  const canViewAll = hasPermission("view_all_tickets") || canManage;
 
   const { data: tickets = [], isLoading, isFetching } = useTickets();
   const claimMutation = useClaimTicket();
@@ -146,21 +133,39 @@ export function AtendimentoTicketsContent() {
     }
   }, [tickets, selectedTicketId, setSelectedTicketId]);
 
-  // Contadores operacionais
+  // Contadores operacionais (respeitando view_all_tickets)
   const stats = useMemo(() => {
-    const total = tickets.length;
-    const assignedMe = tickets.filter((t) => t.assigned_to_id === user?.id && t.status !== "fechado").length;
-    const unassigned = tickets.filter((t) => !t.assigned_to_id && t.status !== "fechado").length;
-    const urgent = tickets.filter((t) => (t.priority === "urgente" || t.priority === "alta") && t.status !== "fechado").length;
-    const closed = tickets.filter((t) => t.status === "fechado").length;
-    const inProgress = tickets.filter((t) => t.status === "em_atendimento").length;
+    const list = canViewAll
+      ? tickets
+      : tickets.filter(
+          (t) =>
+            t.assigned_to_id === user?.id ||
+            t.user_id === user?.id ||
+            (t.members || []).some((m) => m.user_id === user?.id)
+        );
+    const total = list.length;
+    const assignedMe = list.filter((t) => t.assigned_to_id === user?.id && t.status !== "fechado").length;
+    const unassigned = list.filter((t) => !t.assigned_to_id && t.status !== "fechado").length;
+    const urgent = list.filter((t) => (t.priority === "urgente" || t.priority === "alta") && t.status !== "fechado").length;
+    const closed = list.filter((t) => t.status === "fechado").length;
+    const inProgress = list.filter((t) => t.status === "em_atendimento").length;
 
     return { total, assignedMe, unassigned, urgent, closed, inProgress };
-  }, [tickets, user?.id]);
+  }, [tickets, user?.id, canViewAll]);
 
   // Filtragem dos tickets para a lista de atendimento
   const filteredTickets = useMemo(() => {
     return tickets.filter((t) => {
+      // Se não possui view_all_tickets nem canManage, só vê chamados atribuídos a si, onde participa ou onde é criador
+      if (
+        !canViewAll &&
+        t.assigned_to_id !== user?.id &&
+        t.user_id !== user?.id &&
+        !(t.members || []).some((m) => m.user_id === user?.id)
+      ) {
+        return false;
+      }
+
       // 1. Tab filtro
       if (activeTab === "assigned_me") {
         if (t.assigned_to_id !== user?.id || t.status === "fechado") return false;

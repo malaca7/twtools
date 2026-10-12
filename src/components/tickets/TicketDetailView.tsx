@@ -134,47 +134,44 @@ export function TicketDetailView({ ticket, onClose, canManage }: TicketDetailVie
   const isParticipant = (ticket.members || []).some((m) => m.user_id === user?.id);
   const isAssigned = ticket.assigned_to_id === user?.id;
 
-  // Permissões granulares detalhadas
+  // Permissões granulares estritas — cada ação depende da sua respectiva permissão marcada ou de manage_tickets
   const canClaim =
     hasPermission("claim_tickets") ||
     hasPermission("claim_ticket") ||
-    hasPermission("view_all_tickets") ||
     effectiveCanManage;
   const canTransfer =
     hasPermission("transfer_tickets") ||
     hasPermission("transfer_ticket") ||
-    effectiveCanManage ||
-    (isAssigned && (hasPermission("claim_tickets") || hasPermission("claim_ticket") || hasPermission("view_all_tickets")));
+    effectiveCanManage;
   const canChangeStatus =
     hasPermission("change_ticket_status") ||
-    hasPermission("view_all_tickets") ||
-    effectiveCanManage ||
-    isAssigned;
-  const canInternalNotes = hasPermission("internal_notes_tickets") || effectiveCanManage || isCeoUser;
+    effectiveCanManage;
+  const canInternalNotes =
+    hasPermission("internal_notes_tickets") ||
+    effectiveCanManage;
   const canManageMembers =
-    hasPermission("manage_ticket_members") || effectiveCanManage || isCreator || isAssigned;
+    hasPermission("manage_ticket_members") ||
+    effectiveCanManage;
   const canClose =
     hasPermission("close_tickets") ||
     hasPermission("close_ticket") ||
     effectiveCanManage ||
-    isCreator ||
-    isAssigned;
+    isCreator;
   const canReopen =
     hasPermission("reopen_tickets") ||
     hasPermission("reopen_ticket") ||
     effectiveCanManage ||
-    isCreator ||
-    isAssigned;
+    isCreator;
   const canDelete =
-    hasPermission("delete_tickets") || hasPermission("delete_ticket") || effectiveCanManage;
+    hasPermission("delete_tickets") ||
+    hasPermission("delete_ticket") ||
+    effectiveCanManage;
   const canReply =
     hasPermission("reply_tickets") ||
     hasPermission("reply_ticket") ||
-    hasPermission("view_all_tickets") ||
     effectiveCanManage ||
     isCreator ||
-    isParticipant ||
-    isAssigned;
+    isParticipant;
 
   // Lista de membros do grupo disponíveis para adicionar (não criador e ainda não participante)
   const availableMembersToAdd = useMemo(() => {

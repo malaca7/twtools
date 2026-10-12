@@ -463,27 +463,28 @@ function DynamicSidebarNavigation() {
     [storageKey]
   );
 
-  // Sincroniza o modo de painel com base na rota acessada (sem forçar reset para member ao navegar em rotas regulares)
+  // Sincroniza o modo de painel com base na rota acessada (/dev/* -> dev, /ceo/* -> ceo, outras -> member)
   useEffect(() => {
     if (pathname.startsWith("/dev")) {
       if (isDevUser && panelMode !== "dev") {
         setPanelMode("dev");
       }
     } else if (pathname.startsWith("/ceo")) {
-      // Se já estiver no modo dev, mantém dev (acessa como dev); caso contrário, sincroniza para ceo
-      if (panelMode !== "dev" && (isCeoUser || isDevUser || hasPermission("view_ceo") || hasPermission("verification.manage")) && panelMode !== "ceo") {
+      if ((isCeoUser || isDevUser || hasPermission("view_ceo") || hasPermission("verification.manage")) && panelMode !== "ceo") {
         setPanelMode("ceo");
       }
+    } else {
+      if (panelMode !== "member") {
+        setPanelMode("member");
+      }
     }
-    // Ao navegar em páginas regulares de plataforma (/dashboard, /membros, /escalas, /vendas, etc.):
-    // NÃO reseta panelMode! O usuário continua acessando as páginas no modo em que está (Dev ou CEO)
   }, [pathname, isDevUser, isCeoUser, panelMode, setPanelMode, hasPermission]);
 
-  const isDevArea = Boolean(isDevUser && (panelMode === "dev" || pathname.startsWith("/dev")));
+  const isDevArea = Boolean(isDevUser && (pathname.startsWith("/dev") || panelMode === "dev"));
   const isCeoArea = Boolean(
     (isCeoUser || isDevUser || hasPermission("view_ceo") || hasPermission("verification.manage")) &&
       !isDevArea &&
-      (panelMode === "ceo" || pathname.startsWith("/ceo"))
+      (pathname.startsWith("/ceo") || panelMode === "ceo")
   );
 
   const grouped = useMemo(() => {
@@ -655,7 +656,15 @@ function DynamicSidebarNavigation() {
           };
         });
 
-      const allCeoItems = [...customizedCeo, ...customCeoItems];
+      const allCeoItems = [...customizedCeo, ...customCeoItems].map((item) => {
+        if (isDevArea) {
+          const devUrl = item.url.startsWith("/dev/")
+            ? item.url
+            : `/dev${item.url.startsWith("/") ? item.url : `/${item.url}`}`;
+          return { ...item, url: devUrl };
+        }
+        return item;
+      });
       const canSeeCeo = Boolean(isCeoUser || isDevUser || hasPermission("view_ceo") || hasPermission("verification.manage"));
 
       const targetRole: "dev" | "ceo" = isDevArea ? "dev" : "ceo";
@@ -807,63 +816,36 @@ function DynamicSidebarNavigation() {
       // Menus do painel da tag CEO se o membro possuir a TAG CEO ou for Desenvolvedor
       const ceoGroups = (isCeoUser || isDevUser) ? buildCeoGroups() : [];
 
-      // Menus do painel admin / plataforma que o membro possui permissão na TAG DEV ou TAG CEO
-      const visibleDevPlatform = allPlatformItems.filter((item) => {
-        if (item.url.startsWith("/dev") || item.url.startsWith("/ceo")) return false;
-        if (!item.visible) return false;
-        if (item.id === "solicitar-selo" || item.url === "/solicitar-selo") {
-          if (profile?.is_verified) return false;
-          const hasDevPerm = hasPermission("verification.view_page", "dev");
-          const hasCeoPerm = isCeoUser && hasPermission("verification.view_page", "ceo");
-          if (!hasDevPerm && !hasCeoPerm) return false;
-          return true;
-        }
-        if (item.id === "atendimento-tickets" || item.url === "/atendimento-tickets") {
-          const canAccessAtendimento =
-            hasPermission("atendimento_tickets.view" as Permission, "dev") ||
-            hasPermission("view_atendimento_tickets" as Permission, "dev") ||
-            hasPermission("view_all_tickets", "dev") ||
-            hasPermission("manage_tickets", "dev") ||
-            hasPermission("claim_tickets", "dev") ||
-            hasPermission("transfer_tickets", "dev") ||
-            hasPermission("change_ticket_status", "dev") ||
-            hasPermission("internal_notes_tickets", "dev") ||
-            hasPermission("close_tickets", "dev");
-          const canCeoAccess = isCeoUser && (
-            hasPermission("atendimento_tickets.view" as Permission, "ceo") ||
-            hasPermission("view_atendimento_tickets" as Permission, "ceo") ||
-            hasPermission("view_all_tickets", "ceo") ||
-            hasPermission("manage_tickets", "ceo") ||
-            hasPermission("claim_tickets", "ceo") ||
-            hasPermission("transfer_tickets", "ceo") ||
-            hasPermission("change_ticket_status", "ceo") ||
-            hasPermission("internal_notes_tickets", "ceo") ||
-            hasPermission("close_tickets", "ceo")
-          );
-          if (!canAccessAtendimento && !canCeoAccess) return false;
-          return true;
-        }
-        if (item.id === "tickets" || item.url === "/tickets") {
-          const canAccessTickets =
-            hasPermission("view_tickets", "dev") ||
-            hasPermission("view_all_tickets", "dev") ||
-            hasPermission("manage_tickets", "dev") ||
-            hasPermission("atendimento_tickets.view" as Permission, "dev") ||
-            (isCeoUser && (
-              hasPermission("view_tickets", "ceo") ||
-              hasPermission("view_all_tickets", "ceo") ||
-              hasPermission("manage_tickets", "ceo") ||
-              hasPermission("atendimento_tickets.view" as Permission, "ceo")
-            ));
-          if (!canAccessTickets) return false;
-          return true;
-        }
-        const reqPerm = item.perm || resolveRequiredPermission(item.id, item.url);
-        const hasDevPerm = reqPerm ? hasPermission(reqPerm, "dev") : true;
-        const hasCeoPerm = isCeoUser && reqPerm ? hasPermission(reqPerm, "ceo") : false;
-        if (reqPerm && !hasDevPerm && !hasCeoPerm) return false;
-        return true;
-      });
+      // Menus do painel admin / plataforma que o membro possui permissão na TAG DEV (soma dev + cargo)
+      const visibleDevPlatform = allPlatformItems
+        .filter((item) => {
+          if (item.url.startsWith("/dev") || item.url.startsWith("/ceo")) return false;
+          if (!item.visible) return false;
+          if (item.id === "solicitar-selo" || item.url === "/solicitar-selo") {
+            if (profile?.is_verified) return false;
+            return hasPermission("verification.view_page", "dev");
+          }
+          if (item.id === "atendimento-tickets" || item.url === "/atendimento-tickets") {
+            return (
+              hasPermission("atendimento_tickets.view" as Permission, "dev") ||
+              hasPermission("manage_tickets", "dev")
+            );
+          }
+          if (item.id === "tickets" || item.url === "/tickets") {
+            return (
+              hasPermission("view_tickets", "dev") ||
+              hasPermission("manage_tickets", "dev")
+            );
+          }
+          const reqPerm = item.perm || resolveRequiredPermission(item.id, item.url);
+          return reqPerm ? hasPermission(reqPerm, "dev") : true;
+        })
+        .map((item) => ({
+          ...item,
+          url: item.url.startsWith("/dev/")
+            ? item.url
+            : `/dev${item.url.startsWith("/") ? item.url : `/${item.url}`}`,
+        }));
 
       const devPlatformGroups: { category: string; items: typeof visibleDevPlatform }[] = [];
       categoryOrder.forEach((cat) => {
@@ -897,47 +879,36 @@ function DynamicSidebarNavigation() {
     if (isCeoArea) {
       const ceoGroups = buildCeoGroups();
 
-      // Menus do painel admin / plataforma que o membro possui permissão na TAG CEO
-      const visibleCeoPlatform = allPlatformItems.filter((item) => {
-        if (item.url.startsWith("/dev") || item.url.startsWith("/ceo")) return false;
-        if (!item.visible) return false;
-        if (item.id === "solicitar-selo" || item.url === "/solicitar-selo") {
-          if (profile?.is_verified) return false;
-          if (!hasPermission("verification.view_page", "ceo")) {
-            return false;
+      // Menus do painel admin / plataforma que o membro possui permissão na TAG CEO (soma ceo + cargo)
+      const visibleCeoPlatform = allPlatformItems
+        .filter((item) => {
+          if (item.url.startsWith("/dev") || item.url.startsWith("/ceo")) return false;
+          if (!item.visible) return false;
+          if (item.id === "solicitar-selo" || item.url === "/solicitar-selo") {
+            if (profile?.is_verified) return false;
+            return hasPermission("verification.view_page", "ceo");
           }
-          return true;
-        }
-        if (item.id === "atendimento-tickets" || item.url === "/atendimento-tickets") {
-          const canAccessAtendimento =
-            hasPermission("atendimento_tickets.view" as Permission, "ceo") ||
-            hasPermission("view_atendimento_tickets" as Permission, "ceo") ||
-            hasPermission("view_all_tickets", "ceo") ||
-            hasPermission("manage_tickets", "ceo") ||
-            hasPermission("claim_tickets", "ceo") ||
-            hasPermission("transfer_tickets", "ceo") ||
-            hasPermission("change_ticket_status", "ceo") ||
-            hasPermission("internal_notes_tickets", "ceo") ||
-            hasPermission("close_tickets", "ceo");
-          if (!canAccessAtendimento) return false;
-          return true;
-        }
-        if (item.id === "tickets" || item.url === "/tickets") {
-          const canAccessTickets =
-            hasPermission("view_tickets", "ceo") ||
-            hasPermission("view_all_tickets", "ceo") ||
-            hasPermission("manage_tickets", "ceo") ||
-            hasPermission("create_ticket", "ceo") ||
-            hasPermission("reply_tickets", "ceo") ||
-            hasPermission("claim_tickets", "ceo") ||
-            hasPermission("atendimento_tickets.view" as Permission, "ceo");
-          if (!canAccessTickets) return false;
-          return true;
-        }
-        const reqPerm = item.perm || resolveRequiredPermission(item.id, item.url);
-        if (reqPerm && !hasPermission(reqPerm, "ceo")) return false;
-        return true;
-      });
+          if (item.id === "atendimento-tickets" || item.url === "/atendimento-tickets") {
+            return (
+              hasPermission("atendimento_tickets.view" as Permission, "ceo") ||
+              hasPermission("manage_tickets", "ceo")
+            );
+          }
+          if (item.id === "tickets" || item.url === "/tickets") {
+            return (
+              hasPermission("view_tickets", "ceo") ||
+              hasPermission("manage_tickets", "ceo")
+            );
+          }
+          const reqPerm = item.perm || resolveRequiredPermission(item.id, item.url);
+          return reqPerm ? hasPermission(reqPerm, "ceo") : true;
+        })
+        .map((item) => ({
+          ...item,
+          url: item.url.startsWith("/ceo/")
+            ? item.url
+            : `/ceo${item.url.startsWith("/") ? item.url : `/${item.url}`}`,
+        }));
 
       const ceoPlatformGroups: { category: string; items: typeof visibleCeoPlatform }[] = [];
       categoryOrder.forEach((cat) => {
@@ -973,61 +944,25 @@ function DynamicSidebarNavigation() {
       if (item.url.startsWith("/dev") || item.url.startsWith("/ceo")) return false;
       // 2. Se foi desmarcado/ocultado na configuração do menu
       if (!item.visible) return false;
-      // 3. Verifica estritamente a permissão exigida pelo item do menu (respeitando bloqueios de tag e cargo)
+      // 3. Verifica estritamente a permissão exigida pelo item do menu no cargo do membro
       if (item.id === "solicitar-selo" || item.url === "/solicitar-selo") {
         if (profile?.is_verified) return false;
-        if (!hasPermission("verification.view_page", "member")) {
-          return false;
-        }
-        return true;
+        return hasPermission("verification.view_page", "member");
       }
       if (item.id === "atendimento-tickets" || item.url === "/atendimento-tickets") {
-        const canAccessAtendimento =
-          hasPermission("atendimento_tickets.view" as Permission) ||
-          hasPermission("view_atendimento_tickets" as Permission) ||
-          hasPermission("view_all_tickets") ||
-          hasPermission("manage_tickets") ||
-          hasPermission("claim_tickets") ||
-          hasPermission("claim_ticket" as Permission) ||
-          hasPermission("transfer_tickets") ||
-          hasPermission("transfer_ticket" as Permission) ||
-          hasPermission("change_ticket_status") ||
-          hasPermission("internal_notes_tickets") ||
-          hasPermission("close_tickets") ||
-          hasPermission("close_ticket" as Permission) ||
+        return (
           hasPermission("atendimento_tickets.view" as Permission, "member") ||
-          hasPermission("view_all_tickets", "member") ||
-          hasPermission("manage_tickets", "member") ||
-          hasPermission("claim_tickets", "member") ||
-          hasPermission("transfer_tickets", "member") ||
-          hasPermission("change_ticket_status", "member") ||
-          hasPermission("internal_notes_tickets", "member") ||
-          hasPermission("close_tickets", "member");
-        if (!canAccessAtendimento) return false;
-        return true;
+          hasPermission("manage_tickets", "member")
+        );
       }
       if (item.id === "tickets" || item.url === "/tickets") {
-        const canAccessTickets =
-          hasPermission("view_tickets") ||
-          hasPermission("view_all_tickets") ||
-          hasPermission("manage_tickets") ||
-          hasPermission("create_ticket") ||
-          hasPermission("reply_tickets") ||
-          hasPermission("claim_tickets") ||
-          hasPermission("transfer_tickets") ||
-          hasPermission("change_ticket_status") ||
-          hasPermission("internal_notes_tickets") ||
-          hasPermission("close_tickets") ||
-          hasPermission("atendimento_tickets.view" as Permission) ||
-          hasPermission("view_tickets", "member");
-        if (!canAccessTickets) return false;
-        return true;
+        return (
+          hasPermission("view_tickets", "member") ||
+          hasPermission("manage_tickets", "member")
+        );
       }
       const requiredPerm = item.perm || resolveRequiredPermission(item.id, item.url);
-      if (requiredPerm && !hasPermission(requiredPerm, "member") && !hasPermission(requiredPerm)) {
-        return false;
-      }
-      return true;
+      return requiredPerm ? hasPermission(requiredPerm, "member") : true;
     });
 
     const memberGroups: { category: string; items: typeof visibleMember }[] = [];
@@ -1346,18 +1281,22 @@ export function AppShell({ children }: { children: ReactNode }) {
   const handleSwitchPanel = useCallback(
     (targetMode: "member" | "dev" | "ceo") => {
       setPanelMode(targetMode);
-      // Se a rota for estritamente exclusiva (ex: /ceo/* ou /dev/*) e o novo painel não tiver acesso:
-      const isExclusiveDevRoute = pathname.startsWith("/dev");
-      const isExclusiveCeoRoute = pathname.startsWith("/ceo");
-
-      if (targetMode === "member") {
-        if (isExclusiveDevRoute || isExclusiveCeoRoute) {
-          void navigate({ to: settings?.startPageUser || "/dashboard" });
+      if (targetMode === "dev") {
+        if (!pathname.startsWith("/dev")) {
+          const cleanPath = pathname.replace(/^\/ceo/, "");
+          const targetPath = cleanPath === "/" || cleanPath === "" ? "/dev/dashboard" : `/dev${cleanPath}`;
+          void navigate({ to: targetPath });
         }
       } else if (targetMode === "ceo") {
-        if (isExclusiveDevRoute) {
-          void navigate({ to: settings?.startPageCeo || "/ceo/dashboard" });
+        if (!pathname.startsWith("/ceo")) {
+          const cleanPath = pathname.replace(/^\/dev/, "");
+          const targetPath = cleanPath === "/" || cleanPath === "" ? (settings?.startPageCeo || "/ceo/dashboard") : `/ceo${cleanPath}`;
+          void navigate({ to: targetPath });
         }
+      } else if (targetMode === "member") {
+        const cleanPath = pathname.replace(/^\/(?:dev|ceo)/, "");
+        const targetPath = cleanPath === "/" || cleanPath === "" ? (settings?.startPageUser || "/dashboard") : cleanPath;
+        void navigate({ to: targetPath });
       }
     },
     [setPanelMode, pathname, settings, navigate]

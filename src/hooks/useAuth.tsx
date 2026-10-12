@@ -706,21 +706,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (!isBlocked && rules.can_view_all_tickets) {
         permsSet.add("view_tickets" as Permission);
         permsSet.add("view_all_tickets" as Permission);
-        permsSet.add("atendimento_tickets.view" as Permission);
-        permsSet.add("view_atendimento_tickets" as Permission);
-        permsSet.add("claim_tickets" as Permission);
-        permsSet.add("claim_ticket" as Permission);
-        permsSet.add("transfer_tickets" as Permission);
-        permsSet.add("transfer_ticket" as Permission);
-        permsSet.add("reply_tickets" as Permission);
-        permsSet.add("reply_ticket" as Permission);
-        permsSet.add("change_ticket_status" as Permission);
-        permsSet.add("internal_notes_tickets" as Permission);
-        permsSet.add("close_tickets" as Permission);
-        permsSet.add("close_ticket" as Permission);
-        permsSet.add("reopen_tickets" as Permission);
-        permsSet.add("reopen_ticket" as Permission);
-        permsSet.add("manage_ticket_members" as Permission);
       }
       if (!isBlocked && rules.can_create_announcements) {
         permsSet.add("create_announcements" as Permission);
@@ -790,21 +775,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (!isBlocked && rules.can_view_all_tickets) {
         permsSet.add("view_tickets" as Permission);
         permsSet.add("view_all_tickets" as Permission);
-        permsSet.add("atendimento_tickets.view" as Permission);
-        permsSet.add("view_atendimento_tickets" as Permission);
-        permsSet.add("claim_tickets" as Permission);
-        permsSet.add("claim_ticket" as Permission);
-        permsSet.add("transfer_tickets" as Permission);
-        permsSet.add("transfer_ticket" as Permission);
-        permsSet.add("reply_tickets" as Permission);
-        permsSet.add("reply_ticket" as Permission);
-        permsSet.add("change_ticket_status" as Permission);
-        permsSet.add("internal_notes_tickets" as Permission);
-        permsSet.add("close_tickets" as Permission);
-        permsSet.add("close_ticket" as Permission);
-        permsSet.add("reopen_tickets" as Permission);
-        permsSet.add("reopen_ticket" as Permission);
-        permsSet.add("manage_ticket_members" as Permission);
       }
       if (Array.isArray(tag.permissions)) {
         for (const p of tag.permissions) {
@@ -1174,49 +1144,39 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
       }
 
-      // Avaliação base de membro: permissões marcadas no cargo + tags do sistema + Tag CEO se o membro for CEO/possuir a Tag CEO + Tag DEV se for Dev
+      // Avaliação base de membro: APENAS as permissões configuradas no cargo do membro (+ tags de sistema não-executivas)
       const evaluateAsMember = () => {
         if (can(level, permission, customRolePermissions)) return true;
         if (satisfiesPermission(systemTagPermissions, permission)) return true;
-        if (isCeoUser && satisfiesPermission(ceoTagPermissions, permission)) return true;
-        if (isDevUser && satisfiesPermission(devTagPermissions, permission)) return true;
         return false;
       };
 
       // REGRA 1: NO PAINEL MEMBRO
-      // Cargo do membro, suas tags de sistema e tags executivas (CEO se possuir a tag) definem o acesso.
-      // Tag Dev não concede bypass aqui sem o bypass explicitamente ativado.
+      // Todas as permissões do painel membro são APENAS as permissões do cargo do membro (sem vazamento de Dev ou CEO)
       if (activePanel === "member") {
-        if (isDevUser && bypassActive) return true;
         return evaluateAsMember();
       }
 
       // REGRA 2: NO PAINEL CEO
+      // Todas as permissões do painel ceo são uma soma das permissões da tag ceo + permissões do cargo do membro
       if (activePanel === "ceo") {
         if (isDevUser && bypassActive) return true;
-        if (permission === "view_ceo") return true;
-        if (isCeoUser || isDevUser) {
-          if (permission.startsWith("verification.")) {
-            return satisfiesPermission(ceoTagPermissions, permission);
-          }
-          if (satisfiesPermission(ceoTagPermissions, permission)) {
-            return true;
-          }
-        }
-        return evaluateAsMember();
+        if (permission === "view_ceo" || permission === "view_ceo_dashboard") return true;
+        const hasCeoTagPerm =
+          (isCeoUser || isDevUser) && satisfiesPermission(ceoTagPermissions, permission);
+        const hasMemberCargoPerm = evaluateAsMember();
+        return hasCeoTagPerm || hasMemberCargoPerm;
       }
 
       // REGRA 3: NO PAINEL DEV
+      // Todas as permissões do painel dev são uma soma das permissões da tag dev + permissões do cargo do membro
       if (activePanel === "dev") {
-        if (isDevUser) {
-          if (bypassActive) return true;
-          if (permission === "view_dev_hub" || permission === "view_dev") return true;
-          if (permission.startsWith("verification.")) {
-            return satisfiesPermission(devTagPermissions, permission);
-          }
-          if (satisfiesPermission(devTagPermissions, permission)) return true;
-        }
-        return evaluateAsMember();
+        if (isDevUser && bypassActive) return true;
+        if (permission === "view_dev_hub" || permission === "view_dev") return true;
+        const hasDevTagPerm =
+          isDevUser && satisfiesPermission(devTagPermissions, permission);
+        const hasMemberCargoPerm = evaluateAsMember();
+        return hasDevTagPerm || hasMemberCargoPerm;
       }
 
       // Fallback padrão: avalia o cargo do membro
@@ -1262,15 +1222,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return false;
       }
 
-      // Avaliação baseada no cargo de membro + tags de sistema + Tag CEO se for CEO + Tag DEV se for Dev
+      // Avaliação estrita: APENAS as permissões do cargo do membro (+ tags de sistema não-executivas)
       return (
         can(level, permission, customRolePermissions) ||
-        (isCeoUser && satisfiesPermission(ceoTagPermissions, permission)) ||
-        (isDevUser && satisfiesPermission(devTagPermissions, permission)) ||
         satisfiesPermission(systemTagPermissions, permission)
       );
     },
-    [level, memberTags, activeSuspension, customRolePermissions, systemTagPermissions, isCeoUser, ceoTagPermissions, isDevUser, devTagPermissions]
+    [level, memberTags, activeSuspension, customRolePermissions, systemTagPermissions]
   );
 
   const value = useMemo<AuthContextValue>(

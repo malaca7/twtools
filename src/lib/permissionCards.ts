@@ -1260,6 +1260,12 @@ export const PAGE_CARDS: PageCardConfig[] = [
         badge: "Atribuição",
       },
       {
+        key: "reply_tickets",
+        label: "Responder e Enviar Mensagens nos Chamados",
+        description: "Permite enviar mensagens de texto e anexar comprovantes na conversa dos chamados.",
+        badge: "Conversação",
+      },
+      {
         key: "transfer_tickets",
         label: "Transferir Responsável pelo Chamado",
         description: "Permite que o atendente transfira a responsabilidade do ticket para outro integrante.",
@@ -1276,6 +1282,31 @@ export const PAGE_CARDS: PageCardConfig[] = [
         label: "Notas Internas Privadas",
         description: "Permite ler e registrar observações confidenciais visíveis apenas para a gerência/moderação.",
         badge: "Confidencial",
+      },
+      {
+        key: "manage_ticket_members",
+        label: "Adicionar e Remover Participantes do Chamado",
+        description: "Permite adicionar ou remover outros integrantes da facção como participantes convidados no chamado.",
+        badge: "Participantes",
+      },
+      {
+        key: "close_tickets",
+        label: "Encerrar e Fechar Chamados",
+        description: "Permite concluir o atendimento do chamado e registrar a justificativa oficial de encerramento.",
+        badge: "Finalização",
+      },
+      {
+        key: "reopen_tickets",
+        label: "Reabrir Chamados Fechados",
+        description: "Permite reabrir um chamado finalizado para novas interações e suporte.",
+        badge: "Reabertura",
+      },
+      {
+        key: "delete_tickets",
+        label: "Excluir Chamados Permanentemente",
+        description: "Permite excluir definitivamente um chamado e seu histórico de mensagens do banco de dados.",
+        badge: "Exclusão",
+        importantNote: "Ação irreversível de exclusão de dados do sistema.",
       },
       {
         key: "manage_tickets",
